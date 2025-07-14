@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "processId": "${command:PickProcess}",
+      "name": "Remote Debug",
+      "type": "node",
+      "request": "attach",
+      "address": "65.109.95.176",
+      "port": 9229,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "/root/dev/DAOS/omnitron/packages/netron",
+      "sourceMapPathOverrides": {
+        "/root/dev/DAOS/omnitron/packages/netron/dist/*": "${workspaceFolder}/dist/*"
+      },
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    }
+  ]
+}
