@@ -16,10 +16,10 @@ import * as fs from 'fs/promises';
 import { $ as ush } from '@xec/ush';
 
 import { task, Task } from '../dsl/task.js';
-import { Logger } from '../utils/logger.js';
 import { recipe, Recipe } from '../dsl/recipe.js';
 import { executeRecipe } from '../engine/executor.js';
 import { createExecutionContext } from '../context/builder.js';
+import { Logger, createModuleLogger } from '../utils/logger.js';
 
 // Re-export ush $ with enhanced features
 export const $ = ush;
@@ -191,6 +191,9 @@ export function defineScript(): ScriptBuilder {
   return new ScriptBuilder();
 }
 
+// Create logger for script utilities
+const scriptLogger = createModuleLogger('script-utils');
+
 // Script utilities
 export const utils: Record<string, any> = {
   // File system
@@ -213,10 +216,10 @@ export const utils: Record<string, any> = {
 
   // Logging
   log: {
-    info: (msg: string) => console.log(chalk.blue('ℹ'), msg),
-    success: (msg: string) => console.log(chalk.green('✓'), msg),
-    warning: (msg: string) => console.log(chalk.yellow('⚠'), msg),
-    error: (msg: string) => console.log(chalk.red('✗'), msg),
+    info: (msg: string) => scriptLogger.info(msg),
+    success: (msg: string) => scriptLogger.info(msg),
+    warning: (msg: string) => scriptLogger.warn(msg),
+    error: (msg: string) => scriptLogger.error(msg),
   },
 
   // Colors

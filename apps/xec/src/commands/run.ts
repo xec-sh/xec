@@ -12,7 +12,6 @@ export default function (program: Command) {
     .option('--var <key=value>', 'Set variable (can be used multiple times)', (value, previous: string[]) => previous.concat([value]), [])
     .option('-d, --dry-run', 'Perform a dry run without making changes')
     .option('-f, --file <path>', 'Recipe file to load')
-    .option('--verbose', 'Enable verbose output')
     .action(async (recipeName, options) => {
       const spinner = clack.spinner();
 
@@ -104,7 +103,6 @@ export default function (program: Command) {
         const result = await executeRecipe(recipeInstance!, {
           vars,
           dryRun: options.dryRun,
-          verbose: options.verbose || program.opts()['verbose']
         });
 
         if (result.success) {

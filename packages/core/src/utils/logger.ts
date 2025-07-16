@@ -1,158 +1,248 @@
+import type { PrettyOptions } from 'pino-pretty';
+
 import chalk from 'chalk';
-import winston from 'winston';
+import pinoPretty from 'pino-pretty';
+import pino, { 
+  type Bindings,
+  type Logger as PinoLogger, 
+  type LoggerOptions as PinoOptions
+} from 'pino';
 
 import type { Logger as ILogger } from '../core/types.js';
 
-const { combine, timestamp, printf, colorize, errors } = winston.format;
+export interface TransportConfig {
+  target: string;
+  options?: Record<string, any>;
+  level?: string;
+}
 
 export interface LoggerOptions {
-  level?: string;
+  level?: pino.LevelWithSilentOrString;
   name?: string;
   colorize?: boolean;
   timestamps?: boolean;
   json?: boolean;
   file?: string;
+  sync?: boolean;
+  prettyPrint?: boolean | PrettyOptions;
+  messageKey?: string;
+  timestampKey?: string;
+  errorKey?: string;
+  base?: Record<string, any> | null;
+  serializers?: Record<string, (value: any) => any>;
+  redact?: string[] | { paths: string[]; censor?: string | ((value: any, path: string[]) => any); remove?: boolean };
+  transports?: TransportConfig[];
+  hooks?: {
+    logMethod?: (args: any[], method: pino.LogFn, level: number) => void;
+  };
+  formatters?: {
+    level?: (label: string, number: number) => object;
+    bindings?: (bindings: Bindings) => object;
+    log?: (object: Record<string, any>) => Record<string, any>;
+  };
+  mixin?: (context: object, level: number) => object;
+  customLevels?: Record<string, number>;
+  useOnlyCustomLevels?: boolean;
+  enabled?: boolean;
+  browser?: any; // Browser support configuration
+  nestedKey?: string;
+  depthLimit?: number;
+  edgeLimit?: number;
 }
 
 const levelColors = {
+  fatal: 'red',
   error: 'red',
   warn: 'yellow',
   info: 'cyan',
-  debug: 'gray'
+  debug: 'gray',
+  trace: 'gray'
 };
 
-const customColorize = winston.format((info) => {
-  const level = info.level;
-  const color = levelColors[level as keyof typeof levelColors] || 'white';
-  const chalkFn = chalk[color as 'red' | 'yellow' | 'cyan' | 'gray'] || chalk.white;
-  info.level = chalkFn(level.toUpperCase().padEnd(5));
-  return info;
-});
+function createPrettyTransport(options: LoggerOptions): TransportConfig {
+  const prettyOptions: PrettyOptions = {
+    colorize: options.colorize !== false,
+    translateTime: options.timestamps !== false ? 'HH:mm:ss' : false,
+    ignore: 'pid,hostname',
+    messageKey: options.messageKey || 'msg',
+    errorLikeObjectKeys: ['err', 'error'],
+    customPrettifiers: {
+      ...(options.timestamps === false && { time: () => '' }),
+      level: (logLevel: string | object) => {
+        const level = typeof logLevel === 'string' ? logLevel : String(logLevel);
+        const color = levelColors[level as keyof typeof levelColors] || 'white';
+        const chalkFn = chalk[color as keyof typeof chalk] || chalk.white;
+        return (chalkFn as any)(level.toUpperCase().padEnd(5));
+      }
+    }
+  };
 
-const consoleFormat = printf(({ level, message, timestamp, name, ...metadata }) => {
-  let msg = `${level}`;
-  
-  if (timestamp) {
-    msg += ` ${chalk.gray(timestamp)}`;
+  if (typeof options.prettyPrint === 'object') {
+    Object.assign(prettyOptions, options.prettyPrint);
   }
-  
-  if (name) {
-    msg += ` ${chalk.blue(`[${name}]`)}`;
-  }
-  
-  msg += ` ${message}`;
-  
-  if (Object.keys(metadata).length > 0) {
-    msg += ` ${chalk.gray(JSON.stringify(metadata))}`;
-  }
-  
-  return msg;
-});
 
-const jsonFormat = combine(
-  timestamp(),
-  errors({ stack: true }),
-  winston.format.json()
-);
+  return {
+    target: 'pino-pretty',
+    options: prettyOptions
+  };
+}
+
+/**
+ * Get default log level from environment or return 'warn'
+ */
+function getDefaultLogLevel(): pino.LevelWithSilentOrString {
+  const envLevel = process.env.XEC_LOG_LEVEL;
+  if (envLevel && ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'].includes(envLevel)) {
+    return envLevel as pino.LevelWithSilentOrString;
+  }
+  return 'warn';
+}
 
 export class Logger implements ILogger {
-  private winston: winston.Logger;
+  private pino: PinoLogger;
   private name?: string;
+  private options: LoggerOptions;
 
   constructor(options: LoggerOptions = {}) {
-    const {
-      level = 'info',
-      name,
-      colorize = true,
-      timestamps = true,
-      json = false,
-      file
-    } = options;
-
-    this.name = name;
-
-    const formats = [];
-    
-    if (!json) {
-      if (colorize) {
-        formats.push(customColorize());
-      }
-      if (timestamps) {
-        formats.push(timestamp({ format: 'HH:mm:ss' }));
-      }
-      formats.push(consoleFormat);
-    } else {
-      formats.push(jsonFormat);
-    }
-
-    const transports: winston.transport[] = [
-      new winston.transports.Console({
-        format: combine(...formats)
-      })
-    ];
-
-    if (file) {
-      transports.push(
-        new winston.transports.File({
-          filename: file,
-          format: jsonFormat
-        })
-      );
-    }
-
-    this.winston = winston.createLogger({
-      level,
-      transports,
-      defaultMeta: name ? { name } : undefined
-    });
-  }
-
-  debug(message: string, meta?: any): void {
-    this.winston.debug(message, meta);
-  }
-
-  info(message: string, meta?: any): void {
-    this.winston.info(message, meta);
-  }
-
-  warn(message: string, meta?: any): void {
-    this.winston.warn(message, meta);
-  }
-
-  error(message: string, meta?: any): void {
-    this.winston.error(message, meta);
-  }
-
-  child(options: { name?: string; [key: string]: any }): Logger {
-    const childOptions = {
-      ...this.winston.defaultMeta,
+    this.options = {
+      level: getDefaultLogLevel(),
+      sync: true, // Disable buffering by default
       ...options
     };
     
-    const childLogger = new Logger({
-      level: this.winston.level,
-      name: options.name || this.name,
-      colorize: true,
-      timestamps: true
-    });
+    this.name = this.options.name;
+
+    const pinoOptions: PinoOptions = {
+      level: this.options.level as string,
+      name: this.options.name,
+      enabled: this.options.enabled !== false,
+      base: this.options.base === null ? null : { ...this.options.base },
+      serializers: this.options.serializers,
+      redact: this.options.redact,
+      hooks: this.options.hooks || {},
+      formatters: this.options.formatters,
+      mixin: this.options.mixin,
+      customLevels: this.options.customLevels,
+      useOnlyCustomLevels: this.options.useOnlyCustomLevels,
+      depthLimit: this.options.depthLimit || 5,
+      edgeLimit: this.options.edgeLimit || 100,
+      browser: this.options.browser,
+      messageKey: this.options.messageKey || 'msg',
+      nestedKey: this.options.nestedKey,
+      timestamp: this.options.timestamps !== false,
+      errorKey: this.options.errorKey
+    };
+
+    // Configure transports
+    const transports: TransportConfig[] = this.options.transports || [];
     
-    childLogger.winston.defaultMeta = childOptions;
+    // Add console transport if not in JSON mode and no transports specified
+    if (!this.options.json && transports.length === 0) {
+      transports.push(createPrettyTransport(this.options));
+    }
+
+    // Add file transport if specified
+    if (this.options.file) {
+      transports.push({
+        target: 'pino/file',
+        options: { 
+          destination: this.options.file,
+          sync: this.options.sync !== false
+        }
+      });
+    }
+
+    // Create logger with transports
+    // When sync mode is enabled or logger is disabled, don't use worker threads
+    if (transports.length > 0 && this.options.sync !== true && this.options.enabled !== false) {
+      this.pino = pino({
+        ...pinoOptions,
+        transport: {
+          targets: transports
+        }
+      });
+    } else if (transports.length > 0 && (this.options.sync === true || this.options.enabled === false)) {
+      // For sync mode or disabled logger, create without worker threads
+      // Just use the base pino logger with pretty printing if needed
+      if (!this.options.json && !this.options.file) {
+        const pretty = pinoPretty;
+        const stream = pretty({
+          colorize: this.options.colorize !== false,
+          translateTime: this.options.timestamps !== false ? 'HH:mm:ss' : false,
+          ignore: 'pid,hostname',
+          messageKey: this.options.messageKey || 'msg'
+        });
+        this.pino = pino(pinoOptions, stream);
+      } else {
+        this.pino = pino(pinoOptions);
+      }
+    } else {
+      this.pino = pino(pinoOptions);
+    }
+  }
+
+  debug(message: string, meta?: any): void {
+    if (meta !== undefined) {
+      this.pino.debug(meta, message);
+    } else {
+      this.pino.debug(message);
+    }
+  }
+
+  info(message: string, meta?: any): void {
+    if (meta !== undefined) {
+      this.pino.info(meta, message);
+    } else {
+      this.pino.info(message);
+    }
+  }
+
+  warn(message: string, meta?: any): void {
+    if (meta !== undefined) {
+      this.pino.warn(meta, message);
+    } else {
+      this.pino.warn(message);
+    }
+  }
+
+  error(message: string, meta?: any): void {
+    if (meta !== undefined) {
+      this.pino.error(meta, message);
+    } else {
+      this.pino.error(message);
+    }
+  }
+
+  child(options: { name?: string; [key: string]: any }): Logger {
+    const childPino = this.pino.child(options);
+    const childLogger = Object.create(this);
+    childLogger.pino = childPino;
+    childLogger.name = options.name || this.name;
     return childLogger;
   }
 
   setLevel(level: string): void {
-    this.winston.level = level;
+    this.pino.level = level;
   }
 
   getLevel(): string {
-    return this.winston.level;
+    return this.pino.level;
   }
 
   isLevelEnabled(level: string): boolean {
-    const levels = Object.keys(winston.config.npm.levels);
-    const currentLevelPriority = winston.config.npm.levels[this.winston.level];
-    const checkLevelPriority = winston.config.npm.levels[level];
-    return checkLevelPriority <= currentLevelPriority;
+    return this.pino.isLevelEnabled(level);
+  }
+
+  // Additional pino-specific methods for advanced usage
+  flush(): void {
+    if ('flush' in this.pino && typeof this.pino.flush === 'function') {
+      this.pino.flush();
+    }
+  }
+
+  // Get underlying pino instance for advanced usage
+  getPino(): PinoLogger {
+    return this.pino;
   }
 }
 

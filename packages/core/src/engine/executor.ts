@@ -5,24 +5,23 @@ import { SkipTaskError } from '../context/globals.js';
 import { TaskScheduler, ScheduledTask } from './scheduler.js';
 import { ContextBuilder, createTaskContext } from '../context/builder.js';
 import { contextProvider, ExecutionContext } from '../context/provider.js';
-import { 
-  TaskError, 
-  isTaskError, 
+import {
+  TaskError,
+  isTaskError,
   TimeoutError,
-  ValidationError 
+  ValidationError
 } from '../core/errors.js';
 import {
-  getProgressTracker,
-  getRealTimeMonitor,
   ProgressTracker,
-  RealTimeMonitor
+  RealTimeMonitor,
+  getProgressTracker,
+  getRealTimeMonitor
 } from '../monitoring/index.js';
 
 import type { Task, Recipe, Variables, TaskResult, TaskContext, TaskHandler } from '../core/types.js';
 
 export interface ExecutorOptions {
   dryRun?: boolean;
-  verbose?: boolean;
   parallel?: boolean;
   maxConcurrency?: number;
   continueOnError?: boolean;
@@ -75,7 +74,7 @@ export class RecipeExecutor {
       continueOnError: options.continueOnError ?? false
     });
 
-    const concurrency = this.options.maxConcurrency || 
+    const concurrency = this.options.maxConcurrency ||
       (this.options.parallel === false ? 1 : Infinity);
 
     this.queue = new PQueue({ concurrency });
@@ -83,7 +82,6 @@ export class RecipeExecutor {
     this.context = new ContextBuilder({
       recipeId: recipe.id,
       dryRun: options.dryRun,
-      verbose: options.verbose,
       parallel: options.parallel ?? true,
       timeout: options.timeout,
       globalVars: { ...recipe.vars, ...(options.globalVars || options.vars || {}) },
@@ -91,7 +89,7 @@ export class RecipeExecutor {
       hosts: options.hosts,
       tags: options.tags
     }).build();
-    
+
     // Initialize monitoring
     this.progressTracker = getProgressTracker();
     this.monitor = getRealTimeMonitor();
@@ -99,10 +97,10 @@ export class RecipeExecutor {
 
   async execute(): Promise<ExecutionResult> {
     this.startTime = Date.now();
-    
+
     try {
       await this.runHook('before');
-      
+
       if (this.recipe.hooks?.before) {
         for (const hook of this.recipe.hooks.before) {
           await contextProvider.run(this.context, () => hook());
@@ -110,10 +108,10 @@ export class RecipeExecutor {
       }
 
       const phases = this.scheduler.getPhases();
-      
+
       for (const phase of phases) {
         await this.executePhase(phase.tasks);
-        
+
         if (!this.options.continueOnError && this.errors.size > 0) {
           break;
         }
@@ -124,7 +122,7 @@ export class RecipeExecutor {
           await contextProvider.run(this.context, () => hook());
         }
       }
-      
+
       await this.runHook('after');
     } catch (error) {
       this.context.logger.error(`Recipe execution failed: ${error}`);
@@ -153,7 +151,7 @@ export class RecipeExecutor {
   }
 
   private async executePhase(scheduledTasks: ScheduledTask[]): Promise<void> {
-    const promises = scheduledTasks.map(scheduled => 
+    const promises = scheduledTasks.map(scheduled =>
       this.queue.add(() => this.executeTask(scheduled))
     );
 
@@ -163,7 +161,7 @@ export class RecipeExecutor {
   private async executeTask(scheduled: ScheduledTask): Promise<void> {
     const task = scheduled.task;
     const taskStartTime = Date.now();
-    
+
     try {
       if (!this.shouldExecuteTask(task)) {
         this.scheduler.markTaskSkipped(task.id);
@@ -174,40 +172,40 @@ export class RecipeExecutor {
       }
 
       await this.runHook('beforeTask', task);
-      
+
       if (this.recipe.hooks?.beforeEach) {
-        await contextProvider.run(this.context, () => 
+        await contextProvider.run(this.context, () =>
           this.recipe.hooks!.beforeEach!(task)
         );
       }
 
       this.scheduler.markTaskStarted(task.id);
       this.context.logger.info(`Starting task ${task.id}: ${task.description || ''}`);
-      
+
       // Start monitoring
-      this.progressTracker.startTask(task.id, task.name, 100, { 
+      this.progressTracker.startTask(task.id, task.name, 100, {
         description: task.description
       });
       this.monitor.onTaskStart(this.context, task.id, task.name);
 
       const result = await this.runTask(task);
-      
+
       this.results.set(task.id, result);
       this.scheduler.markTaskCompleted(task.id);
-      
+
       const duration = Date.now() - taskStartTime;
       this.context.logger.info(`Completed task ${task.id}`);
-      
+
       // Complete monitoring
       this.progressTracker.completeTask(task.id, 'Success');
       this.monitor.onTaskComplete(task.id, result, duration);
 
       if (this.recipe.hooks?.afterEach) {
-        await contextProvider.run(this.context, () => 
+        await contextProvider.run(this.context, () =>
           this.recipe.hooks!.afterEach!(task, result)
         );
       }
-      
+
       await this.runHook('afterTask', task, result);
     } catch (error) {
       const duration = Date.now() - taskStartTime;
@@ -219,7 +217,7 @@ export class RecipeExecutor {
 
   private async runTask(task: Task): Promise<TaskResult> {
     const hosts = this.getTaskHosts(task);
-    
+
     if (hosts.length === 0) {
       return this.runTaskOnce(task);
     }
@@ -251,7 +249,7 @@ export class RecipeExecutor {
 
   private async runTaskOnce(task: Task, host?: string): Promise<TaskResult> {
     const taskContext = createTaskContext(task, this.context, { host });
-    
+
     this.validateTaskVariables(task, taskContext);
 
     if (this.options.dryRun) {
@@ -274,7 +272,7 @@ export class RecipeExecutor {
       if (error instanceof SkipTaskError) {
         throw error;
       }
-      
+
       const taskError = isTaskError(error) ? error : new TaskError(
         `Task ${task.id} failed: ${error}`,
         task.id,
@@ -289,11 +287,11 @@ export class RecipeExecutor {
 
   private async executeHandler(task: Task, context: TaskContext): Promise<TaskResult> {
     const timeout = task.options?.timeout || this.context.timeout;
-    
+
     if (timeout) {
       return await this.executeWithTimeout(task.handler, context, timeout, task.id);
     }
-    
+
     return await task.handler(context);
   }
 
@@ -305,7 +303,7 @@ export class RecipeExecutor {
   ): Promise<TaskResult> {
     return new Promise((resolve, reject) => {
       let timeoutId: NodeJS.Timeout;
-      
+
       const timeoutPromise = new Promise<never>((_, rej) => {
         timeoutId = setTimeout(() => {
           rej(new TimeoutError(
@@ -330,32 +328,32 @@ export class RecipeExecutor {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const attemptContext = { ...context, attempt };
-        
+
         // Update progress for retry attempt
         if (attempt > 1) {
-          this.progressTracker.updateTask(task.id, (attempt - 1) * (100 / maxAttempts), 
+          this.progressTracker.updateTask(task.id, (attempt - 1) * (100 / maxAttempts),
             `Retry attempt ${attempt}/${maxAttempts}`);
         }
-        
+
         const result = await this.executeHandler(task, attemptContext);
-        
+
         if (attempt > 1) {
           this.context.logger.info(`Task ${task.id} succeeded on attempt ${attempt}`);
         }
-        
+
         return result;
       } catch (error) {
         lastError = error as Error;
-        
+
         if (attempt < maxAttempts) {
           const waitTime = delay * Math.pow(backoffMultiplier, attempt - 1);
           this.context.logger.warn(
             `Task ${task.id} failed on attempt ${attempt}/${maxAttempts}, retrying in ${waitTime}ms`
           );
-          
+
           // Monitor retry
           this.monitor.onTaskRetry(task.id, attempt, lastError);
-          
+
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
@@ -398,13 +396,13 @@ export class RecipeExecutor {
 
     const result = contextProvider.run(this.context, () => {
       if (task.options?.when !== undefined) {
-        const result = this.evaluateCondition(task.options.when);
-        if (!result) return false;
+        const whenResult = this.evaluateCondition(task.options.when);
+        if (!whenResult) return false;
       }
 
       if (task.options?.unless !== undefined) {
-        const result = this.evaluateCondition(task.options.unless);
-        if (result) return false;
+        const unlessResult = this.evaluateCondition(task.options.unless);
+        if (unlessResult) return false;
       }
 
       return true;
@@ -432,7 +430,7 @@ export class RecipeExecutor {
 
   private evaluateStringCondition(condition: string): boolean {
     const vars = contextProvider.getAllVariables();
-    
+
     try {
       return new Function('vars', `return ${condition}`)(vars);
     } catch {
@@ -472,10 +470,10 @@ export class RecipeExecutor {
 
   private getTaskHosts(task: Task): string[] {
     if (task.options?.hosts) {
-      const hosts = typeof task.options.hosts === 'function' 
+      const hosts = typeof task.options.hosts === 'function'
         ? task.options.hosts(this.context as any)
-        : Array.isArray(task.options.hosts) 
-          ? task.options.hosts 
+        : Array.isArray(task.options.hosts)
+          ? task.options.hosts
           : [task.options.hosts];
       return hosts;
     }
@@ -490,7 +488,7 @@ export class RecipeExecutor {
   private async handleTaskError(task: Task, error: Error): Promise<void> {
     this.scheduler.markTaskFailed(task.id);
     this.errors.set(task.id, error);
-    
+
     if (error instanceof SkipTaskError) {
       this.scheduler.markTaskSkipped(task.id);
       this.skipped.add(task.id);
@@ -499,13 +497,13 @@ export class RecipeExecutor {
     }
 
     this.context.logger.error(`Task ${task.id} failed: ${error.message}`);
-    
+
     if (this.recipe.hooks?.onError) {
       for (const hook of this.recipe.hooks.onError) {
         await contextProvider.run(this.context, () => hook(error, this.context));
       }
     }
-    
+
     await this.runHook('onError', task, error);
 
     if (task.metadata?.rollback) {

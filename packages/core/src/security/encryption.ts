@@ -149,9 +149,9 @@ export class EncryptionService {
   /**
    * Compare hash with data
    */
-  verifyHash(data: string, hash: string, encoding: crypto.BinaryToTextEncoding = 'hex'): boolean {
+  verifyHash(data: string, hashValue: string, encoding: crypto.BinaryToTextEncoding = 'hex'): boolean {
     const dataHash = this.hash(data, encoding);
-    return crypto.timingSafeEqual(Buffer.from(dataHash), Buffer.from(hash));
+    return crypto.timingSafeEqual(Buffer.from(dataHash), Buffer.from(hashValue));
   }
 
   /**

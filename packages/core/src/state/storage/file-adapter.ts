@@ -1,7 +1,12 @@
 import * as path from 'path';
+import * as zlib from 'zlib';
+import { promisify } from 'util';
 import * as fs from 'fs/promises';
 
 import { IStorageAdapter } from '../interfaces.js';
+
+const gzip = promisify(zlib.gzip);
+const gunzip = promisify(zlib.gunzip);
 
 export interface FileStorageOptions {
   basePath: string;
@@ -49,13 +54,15 @@ export class FileStorageAdapter implements IStorageAdapter {
     
     try {
       const filePath = this.getFilePath(key);
-      const data = await fs.readFile(filePath, this.encoding);
       
       if (this.compression) {
-        // TODO: Implement decompression
-        return JSON.parse(data);
+        // Read compressed data as buffer
+        const compressedData = await fs.readFile(filePath);
+        const decompressedData = await gunzip(compressedData);
+        return JSON.parse(decompressedData.toString(this.encoding));
       }
       
+      const data = await fs.readFile(filePath, this.encoding);
       return JSON.parse(data);
     } catch (error: any) {
       if (error.code === 'ENOENT') {
@@ -75,14 +82,15 @@ export class FileStorageAdapter implements IStorageAdapter {
     await fs.mkdir(dir, { recursive: true, mode: 0o700 });
     
     const data = JSON.stringify(value, null, 2);
+    const tempFile = `${filePath}.tmp`;
     
     if (this.compression) {
-      // TODO: Implement compression
+      // Compress data before writing
+      const compressedData = await gzip(Buffer.from(data, this.encoding));
+      await fs.writeFile(tempFile, compressedData, { mode: 0o600 });
+    } else {
+      await fs.writeFile(tempFile, data, { encoding: this.encoding, mode: 0o600 });
     }
-    
-    // Write to temporary file first for atomicity
-    const tempFile = `${filePath}.tmp`;
-    await fs.writeFile(tempFile, data, { encoding: this.encoding, mode: 0o600 });
     
     // Atomic rename
     await fs.rename(tempFile, filePath);

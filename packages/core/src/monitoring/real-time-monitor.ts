@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
+
 import { Logger } from '../utils/logger.js';
-import { ExecutionContext, TaskResult } from '../core/types.js';
+import { TaskResult, ExecutionContext } from '../core/types.js';
 
 export interface MonitoringEvent {
   type: 'task_start' | 'task_complete' | 'task_error' | 'state_change' | 'metric' | 'log';

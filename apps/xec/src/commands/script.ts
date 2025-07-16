@@ -4,12 +4,9 @@ import chalk from 'chalk';
 import fs from 'fs/promises';
 import { Command } from 'commander';
 import { transform } from 'esbuild';
+import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 import * as clack from '@clack/prompts';
-import { fileURLToPath, pathToFileURL } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export default function (program: Command) {
   program

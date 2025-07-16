@@ -26,7 +26,6 @@ export interface AWSResource {
 export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
   private awsConfig: AWSConfig;
   private sdkClients: Map<string, any> = new Map();
-  private connected = false;
 
   constructor(config: AWSConfig = {}) {
     const baseConfig: AdapterConfig = {
@@ -377,7 +376,7 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
       })
       .handler(async (context) => {
         const bucketName = options.name || context.vars.bucketName;
-        
+
         await this.execute('s3.createBucket', {
           Bucket: bucketName,
           CreateBucketConfiguration: options.region ? {
@@ -603,7 +602,7 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
       'eu-west-1', 'eu-west-2', 'eu-central-1',
       'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1'
     ];
-    
+
     if (config.region && !validRegions.includes(config.region)) {
       return false;
     }
@@ -626,7 +625,11 @@ export function createAWSAdapter(config?: AWSConfig): AWSAdapter {
 export const awsTasks = {
   ec2: {
     launchInstance: (config?: AWSConfig) =>
-      new AWSAdapter(config).createEC2InstanceTask('launch-ec2-instance'),
+      new AWSAdapter(config).createEC2InstanceTask({
+        name: 'launch-ec2-instance',
+        instanceType: 't2.micro',
+        ami: 'ami-12345678'
+      }),
 
     listInstances: task('list-ec2-instances')
       .description('List EC2 instances')
@@ -649,7 +652,9 @@ export const awsTasks = {
 
   s3: {
     createBucket: (config?: AWSConfig) =>
-      new AWSAdapter(config).createS3BucketTask('create-s3-bucket'),
+      new AWSAdapter(config).createS3BucketTask({
+        name: 'create-s3-bucket'
+      }),
 
     uploadFile: task('upload-to-s3')
       .description('Upload file to S3')

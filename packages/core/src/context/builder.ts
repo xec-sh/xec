@@ -15,7 +15,6 @@ export interface ContextBuilderOptions {
   phase?: string;
   attempt?: number;
   dryRun?: boolean;
-  verbose?: boolean;
   parallel?: boolean;
   maxRetries?: number;
   timeout?: number;
@@ -34,7 +33,6 @@ export class ContextBuilder {
     this.options = {
       runId: randomUUID(),
       dryRun: false,
-      verbose: false,
       parallel: false,
       maxRetries: 3,
       timeout: 300000,
@@ -81,10 +79,6 @@ export class ContextBuilder {
     return this;
   }
 
-  withVerbose(verbose: boolean): ContextBuilder {
-    this.options.verbose = verbose;
-    return this;
-  }
 
   withParallel(parallel: boolean): ContextBuilder {
     this.options.parallel = parallel;
@@ -164,7 +158,6 @@ export class ContextBuilder {
       recipeId: parentContext.recipeId,
       runId: parentContext.runId,
       dryRun: parentContext.dryRun,
-      verbose: parentContext.verbose,
       parallel: parentContext.parallel,
       maxRetries: parentContext.maxRetries,
       timeout: parentContext.timeout,
@@ -187,7 +180,6 @@ export class ContextBuilder {
       phase,
       attempt = 1,
       dryRun = false,
-      verbose = false,
       parallel = false,
       maxRetries = 3,
       timeout = 300000,
@@ -201,17 +193,11 @@ export class ContextBuilder {
     let logger = this.options.logger;
     if (!logger) {
       if (taskId && taskId !== 'unknown') {
-        logger = createTaskLogger(taskId, { 
-          level: verbose ? 'debug' : 'info' 
-        });
+        logger = createTaskLogger(taskId);
       } else if (recipeId && recipeId !== 'unknown') {
-        logger = createRecipeLogger(recipeId, { 
-          level: verbose ? 'debug' : 'info' 
-        });
+        logger = createRecipeLogger(recipeId);
       } else {
-        logger = createLogger({ 
-          level: verbose ? 'debug' : 'info' 
-        });
+        logger = createLogger();
       }
     }
 
@@ -225,7 +211,6 @@ export class ContextBuilder {
       phase,
       attempt,
       dryRun,
-      verbose,
       parallel,
       maxRetries,
       timeout,

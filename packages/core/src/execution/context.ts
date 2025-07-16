@@ -1,4 +1,5 @@
-import { Logger, Variables, ExecutionContext as IExecutionContext } from '../core/types.js';
+import { Logger, createLogger } from '../utils/logger.js';
+import { Variables, ExecutionContext as IExecutionContext } from '../core/types.js';
 
 export interface ExecutionContextOptions {
   dryRun?: boolean;
@@ -6,7 +7,6 @@ export interface ExecutionContextOptions {
   secrets?: Map<string, any>;
   recipeId?: string;
   runId?: string;
-  verbose?: boolean;
   parallel?: boolean;
   maxRetries?: number;
 }
@@ -21,7 +21,6 @@ export class ExecutionContext implements IExecutionContext {
   secrets: Record<string, any>;
   state: Map<string, any>;
   dryRun: boolean;
-  verbose: boolean;
   startTime: Date;
   parallel?: boolean;
   maxRetries?: number;
@@ -38,24 +37,21 @@ export class ExecutionContext implements IExecutionContext {
     this.secrets = this.mapToObject(options.secrets || new Map());
     this.state = new Map();
     this.dryRun = options.dryRun || false;
-    this.verbose = options.verbose || false;
     this.startTime = new Date();
     this.parallel = options.parallel;
     this.maxRetries = options.maxRetries;
-    
+
     // Initialize vars from variables map
     this.vars = this.mapToObject(this.variables);
-    
-    // Initialize basic logger
-    this.logger = {
-      debug: (message: string, ...args: any[]) => {
-        if (this.verbose) console.debug(`[DEBUG] ${message}`, ...args);
-      },
-      info: (message: string, ...args: any[]) => console.info(`[INFO] ${message}`, ...args),
-      warn: (message: string, ...args: any[]) => console.warn(`[WARN] ${message}`, ...args),
-      error: (message: string, ...args: any[]) => console.error(`[ERROR] ${message}`, ...args),
-      child: (context: any) => this.logger
-    };
+
+    // Initialize logger with proper configuration
+    this.logger = createLogger({
+      name: `context:${this.recipeId}:${this.runId}`,
+      base: {
+        recipeId: this.recipeId,
+        runId: this.runId
+      }
+    });
   }
 
   private mapToObject(map: Map<string, any>): Record<string, any> {
@@ -101,7 +97,6 @@ export class ExecutionContext implements IExecutionContext {
       secrets: new Map(Object.entries(this.secrets)),
       recipeId: this.recipeId,
       runId: this.runId,
-      verbose: this.verbose,
       parallel: this.parallel,
       maxRetries: this.maxRetries,
     });
@@ -110,7 +105,10 @@ export class ExecutionContext implements IExecutionContext {
     child.path = [...this.path, taskId];
     child.globalVars = { ...this.globalVars };
     child.state = this.state; // Share state across contexts
-    child.logger = this.logger.child({ taskId }); // Child logger with task context
+    child.logger = this.logger.child({
+      taskId,
+      path: child.path.join('.')
+    }); // Child logger with task context
 
     return child;
   }
@@ -125,7 +123,6 @@ export class ExecutionContext implements IExecutionContext {
       globalVars: this.globalVars,
       secrets: '[REDACTED]',
       dryRun: this.dryRun,
-      verbose: this.verbose,
       startTime: this.startTime,
       parallel: this.parallel,
       maxRetries: this.maxRetries,

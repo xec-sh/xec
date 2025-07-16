@@ -37,7 +37,11 @@ yarn typecheck
 
 # Linting
 yarn lint
-```
+
+# Linting and code formatting (Prettier + ESLint)
+# Run from the root of the repository, ignoring errors:
+yarn fix:all
+# This command automatically fixes linter errors and formats code using Prettier
 
 ## Architecture Overview
 ```

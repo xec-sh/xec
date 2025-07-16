@@ -1,6 +1,6 @@
 # Xec Core
 
-> Modern DevOps orchestration and automation system
+> Orchestration and automation system
 
 Xec Core is a powerful yet easy-to-use framework for infrastructure automation and application deployment. Built on top of [ush](https://github.com/xec/ush) and inspired by best practices from Ansible, Terraform, and other DevOps tools.
 

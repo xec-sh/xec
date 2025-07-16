@@ -56,7 +56,6 @@ describe('context/builder', () => {
 
         expect(context.runId).toBe('test-uuid-123');
         expect(context.dryRun).toBe(false);
-        expect(context.verbose).toBe(false);
         expect(context.parallel).toBe(false);
         expect(context.maxRetries).toBe(3);
         expect(context.timeout).toBe(300000);
@@ -68,7 +67,6 @@ describe('context/builder', () => {
         const options = {
           runId: 'custom-run-id',
           dryRun: true,
-          verbose: true,
           parallel: true,
           maxRetries: 5,
           timeout: 600000,
@@ -81,7 +79,6 @@ describe('context/builder', () => {
 
         expect(context.runId).toBe('custom-run-id');
         expect(context.dryRun).toBe(true);
-        expect(context.verbose).toBe(true);
         expect(context.parallel).toBe(true);
         expect(context.maxRetries).toBe(5);
         expect(context.timeout).toBe(600000);
@@ -178,11 +175,6 @@ describe('context/builder', () => {
         expect(builder.build().dryRun).toBe(true);
       });
 
-      it('should set verbose', () => {
-        const builder = new ContextBuilder();
-        builder.withVerbose(true);
-        expect(builder.build().verbose).toBe(true);
-      });
 
       it('should set parallel', () => {
         const builder = new ContextBuilder();
@@ -287,14 +279,12 @@ describe('context/builder', () => {
           .withRunId('run')
           .withTaskId('task')
           .withDryRun(true)
-          .withVerbose(true)
           .build();
 
         expect(context.recipeId).toBe('recipe');
         expect(context.runId).toBe('run');
         expect(context.taskId).toBe('task');
         expect(context.dryRun).toBe(true);
-        expect(context.verbose).toBe(true);
       });
     });
 
@@ -304,7 +294,6 @@ describe('context/builder', () => {
           recipeId: 'parent-recipe',
           runId: 'parent-run',
           dryRun: true,
-          verbose: true,
           parallel: true,
           maxRetries: 5,
           timeout: 120000,
@@ -322,7 +311,6 @@ describe('context/builder', () => {
         expect(context.runId).toBe('parent-run');
         expect(context.taskId).toBe('child-task'); // Should preserve existing
         expect(context.dryRun).toBe(true);
-        expect(context.verbose).toBe(true);
         expect(context.parallel).toBe(true);
         expect(context.maxRetries).toBe(5);
         expect(context.timeout).toBe(120000);
@@ -372,7 +360,6 @@ describe('context/builder', () => {
         expect(context.phase).toBeUndefined();
         expect(context.attempt).toBe(1);
         expect(context.dryRun).toBe(false);
-        expect(context.verbose).toBe(false);
         expect(context.parallel).toBe(false);
         expect(context.maxRetries).toBe(3);
         expect(context.timeout).toBe(300000);
@@ -403,12 +390,6 @@ describe('context/builder', () => {
         expect(context.logger.recipeId).toBe('my-recipe');
       });
 
-      it('should use debug level when verbose is true', async () => {
-        const { createTaskLogger } = await import('../../../src/utils/logger.js');
-        const builder = new ContextBuilder({ taskId: 'my-task', verbose: true });
-        builder.build();
-        expect(createTaskLogger).toHaveBeenCalledWith('my-task', { level: 'debug' });
-      });
     });
   });
 
@@ -560,12 +541,11 @@ describe('context/builder', () => {
         const base = createExecutionContext({
           recipeId: 'base',
           runId: 'base-run',
-          dryRun: true,
-          verbose: false
+          dryRun: true
         });
 
         const override: Partial<ExecutionContext> = {
-          verbose: true
+          taskId: 'override'
         };
 
         const merged = mergeContexts(base, override);
@@ -573,7 +553,7 @@ describe('context/builder', () => {
         expect(merged.recipeId).toBe('base');
         expect(merged.runId).toBe('base-run');
         expect(merged.dryRun).toBe(true);
-        expect(merged.verbose).toBe(true);
+        expect(merged.taskId).toBe('override');
       });
     });
   });

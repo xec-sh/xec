@@ -122,7 +122,7 @@ export interface Filter {
 }
 
 export interface StorageBackend {
-  type: 'memory' | 'sqlite' | 'postgres' | 'mongodb' | 's3' | 'custom';
+  type: 'memory' | 'file' | 'sqlite' | 'postgres' | 'mongodb' | 's3' | 'custom';
   config: any;
 }
 
@@ -134,6 +134,10 @@ export interface StateManagerConfig {
   encryptionEnabled?: boolean;
   replicationFactor?: number;
   consistencyLevel?: 'eventual' | 'strong' | 'bounded';
+  snapshotConfig?: {
+    maxPerResource?: number;
+    compression?: boolean;
+  };
 }
 
 export interface Transaction {

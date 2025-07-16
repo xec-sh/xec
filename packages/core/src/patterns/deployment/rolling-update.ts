@@ -2,7 +2,10 @@ import { task } from '../../dsl/task';
 import { recipe } from '../../dsl/recipe';
 import { Task, Recipe } from '../../core/types';
 import { setState } from '../../context/globals';
+import { createModuleLogger } from '../../utils/logger';
 import { DeploymentPattern, RollingUpdateOptions } from '../types';
+
+const logger = createModuleLogger('rolling-update-deployment');
 
 export class RollingUpdateDeployment implements DeploymentPattern {
   name = 'rolling-update';
@@ -121,7 +124,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task('validate-configuration')
       .description('Validate deployment configuration')
       .run(async (ctx) => {
-        console.log('Validating deployment configuration...');
+        logger.info('Validating deployment configuration...');
         
         // Validate maxSurge and maxUnavailable
         if (this.options.maxSurge === 0 && this.options.maxUnavailable === 0) {
@@ -136,7 +139,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
           updateStrategy: this.options.updateStrategy || 'sequential',
         });
         
-        console.log('Configuration validated successfully');
+        logger.info('Configuration validated successfully');
       })
       .build();
   }
@@ -145,7 +148,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task('check-cluster-health')
       .description('Check cluster health before deployment')
       .run(async (ctx) => {
-        console.log('Checking cluster health...');
+        logger.info('Checking cluster health...');
         
         // Implementation would check actual cluster health
         // This could include checking node status, resource availability, etc.
@@ -157,7 +160,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
         };
         
         setState('cluster_health', health);
-        console.log('Cluster health check passed');
+        logger.info('Cluster health check passed');
       })
       .build();
   }
@@ -168,7 +171,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
       .run(async (ctx) => {
         const strategy = this.options.updateStrategy || 'sequential';
         
-        console.log(`Updating batch ${batchIndex + 1} with ${instances.length} instances using ${strategy} strategy`);
+        logger.info(`Updating batch ${batchIndex + 1} with ${instances.length} instances using ${strategy} strategy`);
         
         if (strategy === 'sequential') {
           // Update instances one by one
@@ -192,7 +195,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task(`wait-batch-${batchIndex + 1}-ready`)
       .description(`Wait for batch ${batchIndex + 1} to be ready`)
       .run(async (ctx) => {
-        console.log(`Waiting for batch ${batchIndex + 1} to be ready...`);
+        logger.info(`Waiting for batch ${batchIndex + 1} to be ready...`);
         
         const timeout = 300; // 5 minutes
         const startTime = Date.now();
@@ -201,7 +204,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
           const allReady = await this.checkInstancesReady(instances);
           
           if (allReady) {
-            console.log(`Batch ${batchIndex + 1} is ready`);
+            logger.info(`Batch ${batchIndex + 1} is ready`);
             return;
           }
           
@@ -218,7 +221,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task(`validate-batch-${batchIndex + 1}`)
       .description(`Validate batch ${batchIndex + 1}`)
       .run(async (ctx) => {
-        console.log(`Validating batch ${batchIndex + 1}...`);
+        logger.info(`Validating batch ${batchIndex + 1}...`);
         
         // Run readiness probe if configured
         if (this.options.readinessProbe) {
@@ -231,7 +234,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
         }
         
         setState(`batch_${batchIndex}_validated`, true);
-        console.log(`Batch ${batchIndex + 1} validation passed`);
+        logger.info(`Batch ${batchIndex + 1} validation passed`);
       })
       .build();
   }
@@ -240,7 +243,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task('pause-between-batches')
       .description(`Pause for ${seconds} seconds between batches`)
       .run(async () => {
-        console.log(`Pausing for ${seconds} seconds before next batch...`);
+        logger.info(`Pausing for ${seconds} seconds before next batch...`);
         await new Promise(resolve => setTimeout(resolve, seconds * 1000));
       })
       .build();
@@ -250,7 +253,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task('validate-full-deployment')
       .description('Validate the complete deployment')
       .run(async (ctx) => {
-        console.log('Validating full deployment...');
+        logger.info('Validating full deployment...');
         
         // Check all instances are running the new version
         // Check service is healthy
@@ -261,7 +264,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
           validated_at: new Date().toISOString(),
         });
         
-        console.log('Full deployment validation passed');
+        logger.info('Full deployment validation passed');
       })
       .build();
   }
@@ -270,19 +273,19 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     return task('cleanup-old-resources')
       .description('Cleanup old resources')
       .run(async (ctx) => {
-        console.log('Cleaning up old resources...');
+        logger.info('Cleaning up old resources...');
         
         // Implementation would cleanup old deployments, configs, etc.
         
         setState('cleanup_completed', true);
-        console.log('Cleanup completed');
+        logger.info('Cleanup completed');
       })
       .build();
   }
 
   private createRollbackHandler(): (error: Error) => Promise<void> {
     return async (error: Error) => {
-      console.error('Rolling update failed, initiating rollback:', error.message);
+      logger.error('Rolling update failed, initiating rollback', { error: error.message });
       
       // Implementation would rollback to previous version
       // This could involve:
@@ -290,13 +293,13 @@ export class RollingUpdateDeployment implements DeploymentPattern {
       // 2. Rolling back updated instances
       // 3. Restoring previous configuration
       
-      console.log('Rollback completed');
+      logger.info('Rollback completed');
     };
   }
 
   // Helper methods
   private async updateInstance(instanceId: number): Promise<void> {
-    console.log(`Updating instance ${instanceId}...`);
+    logger.info(`Updating instance ${instanceId}...`);
     // Implementation would update the actual instance
     // This could involve updating a container, VM, or pod
     await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate update time
@@ -309,12 +312,12 @@ export class RollingUpdateDeployment implements DeploymentPattern {
   }
 
   private async runReadinessProbe(instances: number[]): Promise<void> {
-    console.log('Running readiness probe on instances...');
+    logger.info('Running readiness probe on instances...');
     // Implementation would run the configured readiness probe
   }
 
   private async runHealthCheck(instances: number[]): Promise<void> {
-    console.log('Running health check on instances...');
+    logger.info('Running health check on instances...');
     // Implementation would run health checks on the instances
   }
 }

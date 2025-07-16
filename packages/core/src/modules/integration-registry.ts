@@ -2,12 +2,14 @@ import { z } from 'zod';
 
 import { IntegrationDefinition } from './types.js';
 import { IIntegrationRegistry } from './interfaces.js';
+import { createModuleLogger } from '../utils/logger.js';
 
 export class IntegrationRegistry implements IIntegrationRegistry {
   private integrations: Map<string, IntegrationDefinition> = new Map();
   private integrationsByModule: Map<string, Map<string, IntegrationDefinition>> = new Map();
   private integrationsByType: Map<string, Set<string>> = new Map();
   private connections: Map<string, IntegrationConnection> = new Map();
+  private logger = createModuleLogger('integration-registry');
 
   register(moduleName: string, integration: IntegrationDefinition): void {
     const integrationName = `${moduleName}:${integration.name}`;
@@ -37,7 +39,7 @@ export class IntegrationRegistry implements IIntegrationRegistry {
 
     // Disconnect if connected
     if (this.connections.has(fullIntegrationName)) {
-      this.disconnect(fullIntegrationName).catch(console.error);
+      this.disconnect(fullIntegrationName).catch(error => this.logger.error('Failed to disconnect integration', { error, integrationName: fullIntegrationName }));
     }
 
     this.integrations.delete(fullIntegrationName);
@@ -149,10 +151,10 @@ export class IntegrationRegistry implements IIntegrationRegistry {
           const healthy = await integration.healthCheck();
           connection.lastHealthCheck = Date.now();
           if (!healthy) {
-            console.warn(`Integration '${integrationName}' connected but health check failed`);
+            this.logger.warn(`Integration '${integrationName}' connected but health check failed`);
           }
         } catch (error) {
-          console.error(`Health check failed for integration '${integrationName}':`, error);
+          this.logger.error(`Health check failed for integration '${integrationName}'`, { error });
         }
       }
 
@@ -207,7 +209,7 @@ export class IntegrationRegistry implements IIntegrationRegistry {
       connection.lastHealthCheck = Date.now();
       return healthy;
     } catch (error) {
-      console.error(`Health check failed for integration '${integrationName}':`, error);
+      this.logger.error(`Health check failed for integration '${integrationName}'`, { error });
       return false;
     }
   }

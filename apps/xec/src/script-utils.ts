@@ -2,15 +2,11 @@ import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
 import which from 'which';
+import fs from 'fs-extra';
 import { glob } from 'glob';
-import * as fs from 'fs-extra';
 import fetch from 'node-fetch';
-import { fileURLToPath } from 'url';
 import { $script } from '@xec/core';
 import * as clack from '@clack/prompts';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Re-export script $ with enhanced features
 export const $ = $script;

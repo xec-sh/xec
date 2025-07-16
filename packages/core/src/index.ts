@@ -10,14 +10,14 @@ export * from './modules/index.js';
 // Security
 export * from './security/index.js';
 
-// Integrations
-export * from './integrations/index.js';
+// Resource Management
+export * from './resources/index.js';
 
 // Monitoring and Progress Tracking
 export * from './monitoring/index.js';
 
-// Resource Management
-export * from './resources/index.js';
+// Integrations
+export * from './integrations/index.js';
 
 // Core validation - export all except ValidationResult which conflicts with modules/interfaces
 export {
@@ -205,7 +205,6 @@ export {
   getHosts,
   template,
   parallel,
-  isVerbose,
   getTaskId,
   getHelper,
   getAttempt,

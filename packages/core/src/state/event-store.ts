@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { createHash } from 'crypto';
 import { EventEmitter } from 'events';
 
+import { createModuleLogger } from '../utils/logger.js';
 import { IEventStore, IStorageAdapter } from './interfaces';
 import {
   Event,
@@ -17,6 +18,7 @@ export class EventStore extends EventEmitter implements IEventStore {
   private storage: IStorageAdapter;
   private sequenceNumber: number = 0;
   private eventHandlers: Map<EventType, Set<(event: Event) => void>> = new Map();
+  private logger = createModuleLogger('event-store');
 
   constructor(storage: IStorageAdapter) {
     super();
@@ -235,7 +237,7 @@ export class EventStore extends EventEmitter implements IEventStore {
         try {
           handler(event);
         } catch (error) {
-          console.error('Error in event handler:', error);
+          this.logger.error('Error in event handler', { error });
         }
       });
     }
@@ -246,7 +248,7 @@ export class EventStore extends EventEmitter implements IEventStore {
         try {
           handler(event);
         } catch (error) {
-          console.error('Error in event handler:', error);
+          this.logger.error('Error in event handler', { error });
         }
       });
     }

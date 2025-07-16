@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Command } from 'commander';
+import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
+
 import deployCommand from '../../src/commands/deploy.js';
 
 const mockReadFile = jest.fn();

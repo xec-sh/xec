@@ -1,6 +1,6 @@
 # Xec CLI
 
-Xec is a DevOps orchestration and automation framework with a powerful command-line interface. It provides a unified way to manage infrastructure, run automation scripts, and execute complex deployment workflows.
+Xec is a orchestration and automation framework with a powerful command-line interface. It provides a unified way to manage infrastructure, run automation scripts, and execute complex deployment workflows.
 
 ## Table of Contents
 

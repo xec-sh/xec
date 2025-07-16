@@ -4,8 +4,8 @@ import { existsSync } from 'fs';
 import { spawn } from 'child_process';
 
 import { BaseAdapter, ExecutionResult } from './base-adapter.js';
+
 import type { Task } from '../dsl/task.js';
-import { task } from '../dsl/task.js';
 
 export interface KubernetesConfig {
   kubeconfig?: string;
@@ -46,7 +46,6 @@ export class KubernetesAdapter extends BaseAdapter {
   private executablePath: string;
   private currentContext: string | null = null;
   private serverVersion: string | null = null;
-  private connected = false;
 
   constructor(config: KubernetesConfig = {}) {
     super({
@@ -107,7 +106,7 @@ export class KubernetesAdapter extends BaseAdapter {
 
   private async executeGet(options: any): Promise<any> {
     const { resource, name, namespace } = options;
-    
+
     if (name) {
       // Get specific resource
       return {
@@ -163,13 +162,13 @@ export class KubernetesAdapter extends BaseAdapter {
 
   private async executeApply(options: any): Promise<any> {
     const { manifest } = options;
-    
+
     if (typeof manifest === 'string') {
       // Parse YAML and return first resource
       const resources = yaml.loadAll(manifest) as KubernetesResource[];
       return resources[0] || { metadata: { name: 'test-pod' } };
     }
-    
+
     return manifest;
   }
 
@@ -179,12 +178,12 @@ export class KubernetesAdapter extends BaseAdapter {
 
   validateConfig(config: any): boolean {
     if (!config) return true; // Empty config is valid
-    
+
     // Check namespace is string if provided
     if (config.namespace && typeof config.namespace !== 'string') {
       return false;
     }
-    
+
     return true;
   }
 
@@ -347,8 +346,13 @@ export class KubernetesAdapter extends BaseAdapter {
   }
 
   async createNamespace(name: string): Promise<ExecutionResult> {
-    return this.execute('', {
-      args: ['create', 'namespace', name]
+    return this.execute('create', {
+      resource: 'namespace',
+      body: {
+        apiVersion: 'v1',
+        kind: 'Namespace',
+        metadata: { name }
+      }
     });
   }
 
@@ -516,6 +520,7 @@ export class KubernetesAdapter extends BaseAdapter {
     env?: Record<string, string>;
   }): Task {
     return {
+      id: `k8s-deploy-${options.name}`,
       name: `k8s-deploy-${options.name}`,
       handler: async () => {
         const deployment = {
@@ -545,9 +550,12 @@ export class KubernetesAdapter extends BaseAdapter {
             }
           }
         };
-        
+
         return this.execute('create', { resource: 'deployment', body: deployment });
-      }
+      },
+      options: {},
+      dependencies: [],
+      tags: ['kubernetes', 'deployment']
     };
   }
 
@@ -559,6 +567,7 @@ export class KubernetesAdapter extends BaseAdapter {
     type?: string;
   }): Task {
     return {
+      id: `k8s-service-${options.name}`,
       name: `k8s-service-${options.name}`,
       handler: async () => {
         const service = {
@@ -577,9 +586,12 @@ export class KubernetesAdapter extends BaseAdapter {
             type: options.type || 'ClusterIP'
           }
         };
-        
+
         return this.execute('create', { resource: 'service', body: service });
-      }
+      },
+      options: {},
+      dependencies: [],
+      tags: ['kubernetes', 'service']
     };
   }
 
@@ -588,6 +600,7 @@ export class KubernetesAdapter extends BaseAdapter {
     data: Record<string, string>;
   }): Task {
     return {
+      id: `k8s-configmap-${options.name}`,
       name: `k8s-configmap-${options.name}`,
       handler: async () => {
         const configMap = {
@@ -599,9 +612,12 @@ export class KubernetesAdapter extends BaseAdapter {
           },
           data: options.data
         };
-        
+
         return this.execute('create', { resource: 'configmap', body: configMap });
-      }
+      },
+      options: {},
+      dependencies: [],
+      tags: ['kubernetes', 'configmap']
     };
   }
 
@@ -611,6 +627,7 @@ export class KubernetesAdapter extends BaseAdapter {
     type?: string;
   }): Task {
     return {
+      id: `k8s-secret-${options.name}`,
       name: `k8s-secret-${options.name}`,
       handler: async () => {
         const secret = {
@@ -623,9 +640,12 @@ export class KubernetesAdapter extends BaseAdapter {
           type: options.type || 'Opaque',
           data: options.data
         };
-        
+
         return this.execute('create', { resource: 'secret', body: secret });
-      }
+      },
+      options: {},
+      dependencies: [],
+      tags: ['kubernetes', 'secret']
     };
   }
 
@@ -699,16 +719,6 @@ export class KubernetesAdapter extends BaseAdapter {
     });
   }
 
-  async createNamespace(name: string): Promise<void> {
-    await this.execute('create', {
-      resource: 'namespace',
-      body: {
-        apiVersion: 'v1',
-        kind: 'Namespace',
-        metadata: { name }
-      }
-    });
-  }
 
   async deleteNamespace(name: string): Promise<void> {
     await this.execute('delete', {

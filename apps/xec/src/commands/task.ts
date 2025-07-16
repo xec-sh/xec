@@ -12,6 +12,7 @@ export default function (program: Command) {
     .option('--list', 'List available tasks')
     .option('--json', 'Output as JSON')
     .action(async (taskName, options) => {
+      const quiet = program.opts()['quiet'];
       try {
         // Load standard library
         await loadStandardLibrary();
@@ -22,8 +23,10 @@ export default function (program: Command) {
           return;
         }
 
-        const spinner = clack.spinner();
-        spinner.start(`Looking for task: ${taskName}`);
+        const spinner = quiet ? null : clack.spinner();
+        if (!quiet) {
+          spinner!.start(`Looking for task: ${taskName}`);
+        }
 
         // Find task
         let taskInstance = null;
@@ -33,9 +36,11 @@ export default function (program: Command) {
           // Look in specific module
           const module = (stdlibModules as any)[options.module];
           if (!module) {
-            spinner.stop(`Module not found: ${options.module}`);
-            clack.log.error(`Module '${options.module}' not found`);
-            clack.log.info('Run "xec task list" to see available modules and tasks');
+            if (!quiet) {
+              spinner!.stop(`Module not found: ${options.module}`);
+              clack.log.error(`Module '${options.module}' not found`);
+              clack.log.info('Run "xec task list" to see available modules and tasks');
+            }
             process.exit(1);
           }
           if (module.exports.tasks && (module.exports.tasks as Record<string, any>)[taskName]) {
@@ -54,13 +59,17 @@ export default function (program: Command) {
         }
 
         if (!taskInstance) {
-          spinner.stop(`Task not found: ${taskName}`);
-          clack.log.error(`Task '${taskName}' not found`);
-          clack.log.info('Run "xec task list" to see available tasks');
+          if (!quiet) {
+            spinner!.stop(`Task not found: ${taskName}`);
+            clack.log.error(`Task '${taskName}' not found`);
+            clack.log.info('Run "xec task list" to see available tasks');
+          }
           process.exit(1);
         }
 
-        spinner.stop(`Found task in module: ${foundModule}`);
+        if (!quiet) {
+          spinner!.stop(`Found task in module: ${foundModule}`);
+        }
 
         // Create a simple recipe with just this task
         const tempRecipe = recipe(`temp-${taskName}`)
@@ -77,38 +86,62 @@ export default function (program: Command) {
         }
 
         // Execute
-        const execSpinner = clack.spinner();
-        execSpinner.start(`Executing task: ${taskName}`);
+        const execSpinner = quiet ? null : clack.spinner();
+        if (!quiet) {
+          execSpinner!.start(`Executing task: ${taskName}`);
+        }
 
         const result = await executeRecipe(tempRecipe, {
           vars,
           dryRun: false,
-          verbose: program.opts()['verbose']
         });
 
         if (result.success) {
-          execSpinner.stop(`Task completed: ${taskName}`);
-          clack.log.success(`Task '${taskName}' completed successfully`);
+          if (!quiet) {
+            execSpinner!.stop(`Task completed: ${taskName}`);
+            clack.log.success(`Task '${taskName}' completed successfully`);
+          }
 
           const results = (result as any).taskResults || result.results;
           if (results && results.size > 0) {
             const taskResult = Array.from(results.values())[0];
             if (options.json) {
               console.log(JSON.stringify(taskResult, null, 2));
+            } else if (quiet) {
+              // In quiet mode, output only the result
+              if (typeof taskResult === 'object' && taskResult !== null) {
+                // For objects, try to find the most relevant output
+                const result_ = taskResult as any;
+                if (result_.stdout) {
+                  console.log(result_.stdout);
+                } else if (result_.output) {
+                  console.log(result_.output);
+                } else if (result_.data) {
+                  console.log(typeof result_.data === 'string' ? result_.data : JSON.stringify(result_.data, null, 2));
+                } else {
+                  console.log(JSON.stringify(taskResult, null, 2));
+                }
+              } else {
+                console.log(taskResult);
+              }
             } else {
               console.log(chalk.dim('\nResult:'));
               console.log(JSON.stringify(taskResult, null, 2));
             }
           }
         } else {
-          execSpinner.stop(`Task failed: ${taskName}`);
-          const error = (result as any).error;
-          const errorMessage = error?.message || 'Unknown error';
-          clack.log.error(`Task '${taskName}' failed: ${errorMessage}`);
+          if (!quiet) {
+            execSpinner!.stop(`Task failed: ${taskName}`);
+            const error = (result as any).error;
+            const errorMessage = error?.message || 'Unknown error';
+            clack.log.error(`Task '${taskName}' failed: ${errorMessage}`);
+          }
           process.exit(1);
         }
       } catch (error) {
-        clack.log.error(error instanceof Error ? error.message : 'Unknown error');
+        if (!quiet) {
+          clack.log.error(error instanceof Error ? error.message : 'Unknown error');
+        }
         process.exit(1);
       }
     });

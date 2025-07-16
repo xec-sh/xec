@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Ledger } from './ledger.js';
@@ -5,6 +6,7 @@ import { EventStore } from './event-store.js';
 import { StateStore } from './state-store.js';
 import { LockManager } from './lock-manager.js';
 import { MemoryStorageAdapter } from './storage/memory-adapter.js';
+import { FileSnapshotStore } from './storage/file-snapshot-store.js';
 import {
   ILedger,
   IEventStore,
@@ -116,7 +118,19 @@ export class StateManager implements IStateManager {
     this.eventStore = new EventStore(storage);
     this.stateStore = new StateStore(storage, this.lockManager);
     this.ledger = new Ledger(storage);
-    this.snapshotStore = new MemorySnapshotStore(); // TODO: Implement proper snapshot store
+    
+    // Create proper snapshot store based on storage type
+    if (config.storage.type === 'file') {
+      const basePath = (config.storage as any).basePath || './state';
+      this.snapshotStore = new FileSnapshotStore({
+        basePath: path.join(basePath, 'snapshots'),
+        maxSnapshotsPerResource: config.snapshotConfig?.maxPerResource || 10,
+        compressionEnabled: config.snapshotConfig?.compression || false
+      });
+    } else {
+      // Fallback to memory snapshot store for other storage types
+      this.snapshotStore = new MemorySnapshotStore();
+    }
     
     // Store storage adapter for initialization
     this.storage = storage;
@@ -128,6 +142,11 @@ export class StateManager implements IStateManager {
     await this.storage.connect();
     await (this.eventStore as EventStore).initialize();
     await (this.ledger as Ledger).initialize();
+    
+    // Initialize file snapshot store if applicable
+    if (this.snapshotStore instanceof FileSnapshotStore) {
+      await this.snapshotStore.initialize();
+    }
   }
   
   async cleanup(): Promise<void> {

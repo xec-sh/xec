@@ -2,12 +2,14 @@ import { pathToFileURL } from 'url';
 import { readFile } from 'fs/promises';
 import { join, resolve, dirname, extname } from 'path';
 
+import { createModuleLogger } from '../utils/logger.js';
 import { Module, ModuleMetadataSchema } from './types.js';
 import { IModuleLoader, IModuleValidator, ValidationResult } from './interfaces.js';
 
 export class ModuleLoader implements IModuleLoader {
   private cache: Map<string, Module> = new Map();
   private validator: IModuleValidator;
+  private logger = createModuleLogger('module-loader');
 
   constructor() {
     this.validator = new ModuleValidator();
@@ -48,11 +50,11 @@ export class ModuleLoader implements IModuleLoader {
     const result = await this.validator.validateModule(module);
 
     if (!result.valid) {
-      console.error('Module validation errors:', result.errors);
+      this.logger.error('Module validation errors', { errors: result.errors });
     }
 
     if (result.warnings.length > 0) {
-      console.warn('Module validation warnings:', result.warnings);
+      this.logger.warn('Module validation warnings', { warnings: result.warnings });
     }
 
     return result.valid;

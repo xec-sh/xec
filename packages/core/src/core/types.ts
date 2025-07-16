@@ -4,11 +4,11 @@
 
 // Logger interface
 export interface Logger {
-  debug(message: string, ...args: any[]): void;
-  info(message: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
-  child(context: any): Logger;
+  debug(message: string, meta?: any): void;
+  info(message: string, meta?: any): void;
+  warn(message: string, meta?: any): void;
+  error(message: string, meta?: any): void;
+  child(options: { name?: string; [key: string]: any }): Logger;
 }
 
 // Variables and JSON Schema
@@ -68,7 +68,6 @@ export interface ExecutionContext extends TaskContext {
   secrets: Record<string, any>;  // Секреты
   state: Map<string, any>;       // Состояние
   dryRun: boolean;               // Режим dry-run
-  verbose: boolean;              // Подробный вывод
   startTime: Date;               // Время начала
   parallel?: boolean;            // Параллельное выполнение
   maxRetries?: number;           // Максимальное количество повторов

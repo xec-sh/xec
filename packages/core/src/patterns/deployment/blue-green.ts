@@ -1,7 +1,10 @@
 import { task } from '../../dsl/task';
 import { Task, Phase, Recipe } from '../../core/types';
+import { createModuleLogger } from '../../utils/logger';
 import { setState, getState } from '../../context/globals';
 import { BlueGreenOptions, DeploymentPattern } from '../types';
+
+const logger = createModuleLogger('blue-green-deployment');
 
 export class BlueGreenDeployment implements DeploymentPattern {
   name = 'blue-green';
@@ -121,7 +124,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
       .run(async (ctx) => {
         // Implementation would create the green environment
         // This is a placeholder for the actual implementation
-        console.log(`Creating green environment for ${this.options.service}`);
+        logger.info(`Creating green environment for ${this.options.service}`);
         
         // Store green environment details in context
         setState('green_environment', {
@@ -137,7 +140,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
       .description('Deploy application to green environment')
       .run(async (ctx) => {
         const greenEnv = getState('green_environment');
-        console.log(`Deploying to green environment: ${greenEnv.name}`);
+        logger.info(`Deploying to green environment: ${greenEnv.name}`);
         
         // Implementation would deploy the application
         // This could involve Docker, Kubernetes, or other deployment mechanisms
@@ -156,7 +159,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
           // Check if green is ready
           const isReady = await this.checkEnvironmentReady('green');
           if (isReady) {
-            console.log('Green environment is ready');
+            logger.info('Green environment is ready');
             return;
           }
           
@@ -175,12 +178,12 @@ export class BlueGreenDeployment implements DeploymentPattern {
       .description(`Run health check on ${environment} environment`)
       .run(async (ctx) => {
         if (!this.options.healthCheckUrl) {
-          console.log(`No health check URL configured, skipping health check for ${environment}`);
+          logger.info(`No health check URL configured, skipping health check for ${environment}`);
           return;
         }
         
         // Implementation would perform actual health check
-        console.log(`Running health check for ${environment}: ${this.options.healthCheckUrl}`);
+        logger.info(`Running health check for ${environment}: ${this.options.healthCheckUrl}`);
         
         // Store health check results
         setState(`${environment}_health`, {
@@ -195,7 +198,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
     return task(`smoke-tests-${environment}`)
       .description(`Run smoke tests on ${environment} environment`)
       .run(async (ctx) => {
-        console.log(`Running smoke tests on ${environment} environment`);
+        logger.info(`Running smoke tests on ${environment} environment`);
         
         // Implementation would run actual smoke tests
         // This could include API tests, UI tests, etc.
@@ -212,7 +215,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
     return task(`warmup-${environment}`)
       .description(`Warmup ${environment} environment for ${duration} seconds`)
       .run(async (ctx) => {
-        console.log(`Starting warmup for ${environment} environment`);
+        logger.info(`Starting warmup for ${environment} environment`);
         
         // Send warmup traffic to the environment
         const endTime = Date.now() + (duration * 1000);
@@ -223,7 +226,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
-        console.log(`Warmup completed for ${environment} environment`);
+        logger.info(`Warmup completed for ${environment} environment`);
       })
       .build();
   }
@@ -232,7 +235,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
     return task(`switch-traffic-${this.options.service}`)
       .description('Switch traffic from blue to green')
       .run(async (ctx) => {
-        console.log(`Switching traffic using ${this.options.switchStrategy} strategy`);
+        logger.info(`Switching traffic using ${this.options.switchStrategy} strategy`);
         
         switch (this.options.switchStrategy) {
           case 'dns':
@@ -262,13 +265,13 @@ export class BlueGreenDeployment implements DeploymentPattern {
     return task(`verify-switch-${this.options.service}`)
       .description('Verify traffic has been switched successfully')
       .run(async (ctx) => {
-        console.log('Verifying traffic switch...');
+        logger.info('Verifying traffic switch...');
         
         // Implementation would verify that traffic is going to green
         // This could involve checking metrics, logs, or making test requests
         
         const switchInfo = getState('traffic_switched');
-        console.log(`Traffic successfully switched to ${switchInfo.to} at ${switchInfo.switched_at}`);
+        logger.info(`Traffic successfully switched to ${switchInfo.to} at ${switchInfo.switched_at}`);
       })
       .retry(3)
       .build();
@@ -278,7 +281,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
     return task(`monitor-${this.options.service}`)
       .description('Monitor deployment for issues')
       .run(async (ctx) => {
-        console.log('Monitoring deployment...');
+        logger.info('Monitoring deployment...');
         
         // Implementation would monitor metrics, logs, alerts
         // For a specified duration to ensure stability
@@ -297,7 +300,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
           await new Promise(resolve => setTimeout(resolve, 10000)); // Check every 10 seconds
         }
         
-        console.log('Monitoring completed successfully');
+        logger.info('Monitoring completed successfully');
       })
       .build();
   }
@@ -306,7 +309,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
     return task(`cleanup-${environment}`)
       .description(`Cleanup ${environment} environment`)
       .run(async (ctx) => {
-        console.log(`Cleaning up ${environment} environment`);
+        logger.info(`Cleaning up ${environment} environment`);
         
         // Implementation would remove old environment resources
         // This could involve removing containers, instances, etc.
@@ -318,7 +321,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
 
   private createRollbackHandler(): (error: Error) => Promise<void> {
     return async (error: Error) => {
-      console.error('Deployment failed, initiating rollback:', error.message);
+      logger.error('Deployment failed, initiating rollback', { error: error.message });
       
       // Switch traffic back to blue
       switch (this.options.switchStrategy) {
@@ -333,7 +336,7 @@ export class BlueGreenDeployment implements DeploymentPattern {
           break;
       }
       
-      console.log('Rollback completed');
+      logger.info('Rollback completed');
     };
   }
 
@@ -350,32 +353,32 @@ export class BlueGreenDeployment implements DeploymentPattern {
 
   private async switchDNS(): Promise<void> {
     // Implementation would update DNS records
-    console.log('Updating DNS records...');
+    logger.info('Updating DNS records...');
   }
 
   private async switchLoadBalancer(): Promise<void> {
     // Implementation would update load balancer configuration
-    console.log('Updating load balancer configuration...');
+    logger.info('Updating load balancer configuration...');
   }
 
   private async switchServiceMesh(): Promise<void> {
     // Implementation would update service mesh routing
-    console.log('Updating service mesh routing...');
+    logger.info('Updating service mesh routing...');
   }
 
   private async rollbackDNS(): Promise<void> {
     // Implementation would rollback DNS records
-    console.log('Rolling back DNS records...');
+    logger.info('Rolling back DNS records...');
   }
 
   private async rollbackLoadBalancer(): Promise<void> {
     // Implementation would rollback load balancer configuration
-    console.log('Rolling back load balancer configuration...');
+    logger.info('Rolling back load balancer configuration...');
   }
 
   private async rollbackServiceMesh(): Promise<void> {
     // Implementation would rollback service mesh routing
-    console.log('Rolling back service mesh routing...');
+    logger.info('Rolling back service mesh routing...');
   }
 }
 

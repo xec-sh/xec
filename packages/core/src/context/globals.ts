@@ -39,10 +39,6 @@ export function isDryRun(): boolean {
   return contextProvider.isDryRun();
 }
 
-export function isVerbose(): boolean {
-  return contextProvider.isVerbose();
-}
-
 export function getRunId(): string {
   return contextProvider.getRunId();
 }

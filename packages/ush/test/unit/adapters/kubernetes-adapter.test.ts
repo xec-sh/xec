@@ -1,6 +1,6 @@
-import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
+import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 jest.unstable_mockModule('child_process', () => ({
   spawn: jest.fn()

@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { Command } from 'commander';
-import path from 'path';
+import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
+
 import auditCommand from '../../src/commands/audit.js';
 
 // Mock fs/promises

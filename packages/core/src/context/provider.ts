@@ -8,7 +8,6 @@ export interface ExecutionContext extends TaskContext {
   recipeId: string;
   runId: string;
   dryRun: boolean;
-  verbose: boolean;
   parallel: boolean;
   maxRetries: number;
   timeout: number;
@@ -158,10 +157,6 @@ export class ContextProvider {
 
   isDryRun(): boolean {
     return this.getStoreOrThrow().dryRun;
-  }
-
-  isVerbose(): boolean {
-    return this.getStoreOrThrow().verbose;
   }
 
   getRunId(): string {

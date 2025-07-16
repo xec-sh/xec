@@ -1,8 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { createHash } from 'crypto';
-import { EventEmitter } from 'events';
 import { LRUCache } from 'lru-cache';
+import { EventEmitter } from 'events';
 
+import { createModuleLogger } from '../utils/logger.js';
 import { IEventStore, IStorageAdapter } from './interfaces.js';
 import {
   Event,
@@ -39,6 +40,7 @@ export class OptimizedEventStore extends EventEmitter implements IEventStore {
   private storage: IStorageAdapter;
   private sequenceNumber: number = 0;
   private eventHandlers: Map<EventType, Set<(event: Event) => void>> = new Map();
+  private logger = createModuleLogger('optimized-event-store');
   
   // Optimization features
   private cache: LRUCache<string, Event>;
@@ -372,7 +374,7 @@ export class OptimizedEventStore extends EventEmitter implements IEventStore {
   private startPeriodicFlush(): void {
     this.flushTimer = setInterval(() => {
       this.flush().catch(err => {
-        console.error('Error during periodic flush:', err);
+        this.logger.error('Error during periodic flush', { error: err });
       });
     }, 5000); // Flush every 5 seconds
   }
@@ -485,7 +487,7 @@ export class OptimizedEventStore extends EventEmitter implements IEventStore {
         try {
           handler(event);
         } catch (error) {
-          console.error('Error in event handler:', error);
+          this.logger.error('Error in event handler', { error });
         }
       });
     }
@@ -496,7 +498,7 @@ export class OptimizedEventStore extends EventEmitter implements IEventStore {
         try {
           handler(event);
         } catch (error) {
-          console.error('Error in event handler:', error);
+          this.logger.error('Error in event handler', { error });
         }
       });
     }

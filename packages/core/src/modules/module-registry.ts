@@ -4,6 +4,7 @@ import { ModuleLoader } from './module-loader.js';
 import { TaskRegistry } from './task-registry.js';
 import { HelperRegistry } from './helper-registry.js';
 import { PatternRegistry } from './pattern-registry.js';
+import { createModuleLogger } from '../utils/logger.js';
 import { IntegrationRegistry } from './integration-registry.js';
 import {
   IModuleLoader,
@@ -31,6 +32,7 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
   private integrationRegistry: IIntegrationRegistry;
   private helperRegistry: IHelperRegistry;
   private dependencyGraph: ModuleDependencyGraph;
+  private logger = createModuleLogger('module-registry');
 
   constructor() {
     super();
@@ -159,7 +161,7 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
         const module = await this.load(path, options);
         modules.push(module);
       } catch (error) {
-        console.error(`Failed to load module from ${path}:`, error);
+        this.logger.error(`Failed to load module from ${path}`, { error });
         if (!options?.override) {
           throw error;
         }
@@ -317,12 +319,12 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
     for (const [depName, depVersion] of Object.entries(dependencies)) {
       const depModule = this.get(depName);
       if (!depModule) {
-        console.error(`Missing dependency: ${depName}@${depVersion}`);
+        this.logger.error(`Missing dependency: ${depName}@${depVersion}`);
         return false;
       }
 
       if (!this.isVersionCompatible(depModule.metadata.version, depVersion)) {
-        console.error(`Incompatible version for ${depName}: expected ${depVersion}, found ${depModule.metadata.version}`);
+        this.logger.error(`Incompatible version for ${depName}: expected ${depVersion}, found ${depModule.metadata.version}`);
         return false;
       }
     }

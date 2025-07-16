@@ -4,7 +4,7 @@ import { table } from 'table';
 import { Command } from 'commander';
 import { promises as fs } from 'fs';
 import { confirm } from '@clack/prompts';
-import { StateStore, LockManager, MemoryStorageAdapter } from '@xec/core';
+import { Ledger, StateStore, LockManager, OperationType, FileStorageAdapter } from '@xec/core';
 
 import { getProjectRoot } from '../utils/project.js';
 
@@ -116,55 +116,60 @@ export default function stateCommand(program: Command) {
       try {
         const ledger = await getStateLedger();
         
-        let events = ledger.getEvents();
+        let entries = await ledger.getEntries({
+          limit: options?.limit || 100,
+          offset: options?.offset || 0
+        });
         
         // Filter by key if provided
         if (key) {
-          events = events.filter(e => 
-            (e.type === 'state:set' || e.type === 'state:delete') && 
-            e.data.key === key
+          entries = entries.filter(e => 
+            (e.operation === OperationType.CREATE || e.operation === OperationType.UPDATE || e.operation === OperationType.DELETE) && 
+            e.resource.id === key
           );
         }
 
         // Filter by date range
         if (options?.from) {
           const fromDate = new Date(options.from).getTime();
-          events = events.filter(e => e.timestamp >= fromDate);
+          entries = entries.filter(e => e.timestamp >= fromDate);
         }
         
         if (options?.to) {
           const toDate = new Date(options.to).getTime();
-          events = events.filter(e => e.timestamp <= toDate);
+          entries = entries.filter(e => e.timestamp <= toDate);
         }
 
         // Apply limit
         if (options?.limit) {
-          events = events.slice(-options.limit);
+          entries = entries.slice(-options.limit);
         }
 
         if (options?.json) {
-          console.log(JSON.stringify({ events }, null, 2));
+          console.log(JSON.stringify({ entries }, null, 2));
         } else {
-          if (events.length === 0) {
+          if (entries.length === 0) {
             console.log(chalk.yellow('No history found'));
             return;
           }
 
           console.log(chalk.bold('State History:\n'));
           
-          for (const event of events) {
-            const date = new Date(event.timestamp).toLocaleString();
-            const action = event.type === 'state:set' ? chalk.green('SET') : chalk.red('DELETE');
-            const key = event.data.key;
+          for (const entry of entries) {
+            const date = new Date(entry.timestamp).toLocaleString();
+            const action = entry.operation === OperationType.CREATE ? chalk.green('CREATE') : 
+                          entry.operation === OperationType.UPDATE ? chalk.blue('UPDATE') : 
+                          chalk.red('DELETE');
+            const key = entry.resource.id;
             
             console.log(`[${chalk.gray(date)}] ${action} ${chalk.cyan(key)}`);
             
-            if (event.type === 'state:set' && event.data.value !== undefined) {
-              console.log(`  Value: ${formatValue(event.data.value, 1)}`);
+            if ((entry.operation === OperationType.CREATE || entry.operation === OperationType.UPDATE) && entry.newState !== undefined) {
+              console.log(`  Value: ${formatValue(entry.newState, 1)}`);
             }
             
-            if (event.metadata?.user) {
-              console.log(`  User: ${event.metadata.user}`);
+            if ((entry as any).metadata?.user) {
+              console.log(`  User: ${(entry as any).metadata.user}`);
             }
             
             console.log();
@@ -381,30 +386,42 @@ export default function stateCommand(program: Command) {
 async function getStateStore(): Promise<StateStore> {
   const projectRoot = await getProjectRoot();
   const statePath = path.join(projectRoot, '.xec', 'state');
-  // TODO: Implement file-based storage adapter
-  const storage = new MemoryStorageAdapter();
+  
+  // Ensure state directory exists
+  await fs.mkdir(statePath, { recursive: true });
+  
+  const storage = new FileStorageAdapter({
+    basePath: path.join(statePath, 'state')
+  });
   const lockManager = new LockManager();
   return new StateStore(storage, lockManager);
 }
 
-async function getStateLedger(): Promise<any> {
+async function getStateLedger(): Promise<Ledger> {
   const projectRoot = await getProjectRoot();
-  const ledgerPath = path.join(projectRoot, '.xec', 'state', 'ledger.json');
-  // TODO: Implement proper ledger functionality
-  return {
-    append: async (entry: any) => {
-      // Placeholder implementation
-    },
-    getHistory: async (key?: string) => {
-      return [];
-    }
-  };
+  const statePath = path.join(projectRoot, '.xec', 'state');
+  
+  // Ensure state directory exists
+  await fs.mkdir(statePath, { recursive: true });
+  
+  const storage = new FileStorageAdapter({
+    basePath: path.join(statePath, 'ledger')
+  });
+  
+  return new Ledger(storage);
 }
 
 async function getLockManager(): Promise<LockManager> {
   const projectRoot = await getProjectRoot();
-  const lockPath = path.join(projectRoot, '.xec', 'state', 'locks');
-  // TODO: Implement file-based storage adapter
+  const statePath = path.join(projectRoot, '.xec', 'state');
+  
+  // Ensure state directory exists
+  await fs.mkdir(statePath, { recursive: true });
+  
+  const storage = new FileStorageAdapter({
+    basePath: path.join(statePath, 'locks')
+  });
+  
   return new LockManager();
 }
 

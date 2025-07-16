@@ -3,12 +3,10 @@ import process from 'process';
 import { Command } from 'commander';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
-import { createRequire } from 'module';
 import * as clack from '@clack/prompts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const _require = createRequire(import.meta.url);
 
 export function createProgram(): Command {
   const program = new Command();
@@ -16,7 +14,7 @@ export function createProgram(): Command {
 
   program
     .name('xec')
-    .description('Xec - DevOps orchestration and automation framework')
+    .description('Xec - orchestration and automation framework')
     .version(pkg.version)
     .option('-v, --verbose', 'Enable verbose output')
     .option('-q, --quiet', 'Suppress output')

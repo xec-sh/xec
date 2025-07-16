@@ -1,4 +1,4 @@
-import { it, vi, expect, describe, beforeEach } from 'vitest';
+import { it, expect, describe, beforeEach } from 'vitest';
 
 import { KubernetesConfig, KubernetesAdapter } from '../../../src/integrations/kubernetes-adapter.js';
 

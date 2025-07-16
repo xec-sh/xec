@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+
 import { Logger } from '../utils/logger.js';
 
 export interface QuotaDefinition {

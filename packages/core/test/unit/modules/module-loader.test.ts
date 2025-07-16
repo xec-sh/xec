@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises';
 import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
+import * as loggerModule from '../../../src/utils/logger.js';
 import { ModuleLoader } from '../../../src/modules/module-loader.js';
 
 import type { Module } from '../../../src/modules/types.js';
@@ -18,9 +19,22 @@ vi.mock('url', () => ({
 describe('modules/module-loader', () => {
   let loader: ModuleLoader;
   let mockModule: Module;
+  let mockLogger: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Mock the logger
+    mockLogger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn().mockReturnThis()
+    };
+    
+    vi.spyOn(loggerModule, 'createModuleLogger').mockReturnValue(mockLogger);
+    
     loader = new ModuleLoader();
     
     mockModule = {
@@ -154,24 +168,19 @@ describe('modules/module-loader', () => {
       });
 
       it('should log validation errors', async () => {
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         const invalidModule = {
           metadata: {}
         } as any;
         
         await loader.validate(invalidModule);
         
-        expect(consoleSpy).toHaveBeenCalledWith(
-          'Module validation errors:',
-          expect.any(Array)
+        expect(mockLogger.error).toHaveBeenCalledWith(
+          'Module validation errors',
+          expect.objectContaining({ errors: expect.any(Array) })
         );
-        
-        consoleSpy.mockRestore();
       });
 
       it('should log validation warnings', async () => {
-        const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        
         // Create a module that passes validation but might have warnings
         const moduleWithWarnings = {
           metadata: {
@@ -187,8 +196,6 @@ describe('modules/module-loader', () => {
         
         // Note: Current implementation doesn't generate warnings
         // This test is here for when warnings are implemented
-        
-        consoleSpy.mockRestore();
       });
     });
 

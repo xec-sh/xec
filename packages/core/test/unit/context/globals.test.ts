@@ -23,7 +23,6 @@ vi.mock('../../../src/context/provider.js', () => {
       }),
       getLogger: vi.fn(() => mockLogger),
       isDryRun: vi.fn(() => false),
-      isVerbose: vi.fn(() => false),
       getRunId: vi.fn(() => 'test-run-123'),
       getRecipeId: vi.fn(() => 'test-recipe'),
       getTaskContext: vi.fn(() => ({
@@ -63,7 +62,7 @@ import {
   getVar, setVar, secret, unless, getVars, getHost,
   getTags, isDryRun, getRunId, getPhase, getState,
   setState, hasState, getHosts, template,
-  parallel, isVerbose, getTaskId, getHelper,
+  parallel, getTaskId, getHelper,
   getAttempt,
   clearState, getRecipeId,
   deleteState, matchesHost, matchesTags,
@@ -131,10 +130,6 @@ describe('context/globals', () => {
       expect(isDryRun()).toBe(true);
     });
 
-    it('should return verbose status', () => {
-      mockProvider.isVerbose.mockReturnValueOnce(true);
-      expect(isVerbose()).toBe(true);
-    });
 
     it('should return run ID', () => {
       expect(getRunId()).toBe('test-run-123');

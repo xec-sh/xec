@@ -5,10 +5,14 @@
 
 import * as os from 'os';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
 
 import { SecurityError } from '../core/errors.js';
+import { createModuleLogger } from '../utils/logger.js';
 import { EncryptedData, EncryptionService } from './encryption.js';
+
+const logger = createModuleLogger('secrets');
 
 export interface Secret {
   name: string;
@@ -44,20 +48,109 @@ export class SecretManager {
    * Get or create master encryption key
    */
   private getMasterKey(): string {
-    // In production, this should come from:
+    // Priority order:
     // 1. Environment variable (XEC_MASTER_KEY)
-    // 2. Key management service (AWS KMS, HashiCorp Vault, etc.)
-    // 3. Hardware security module (HSM)
+    // 2. System keyfile
+    // 3. Generate new key
 
     const envKey = process.env.XEC_MASTER_KEY;
     if (envKey) {
       return envKey;
     }
 
-    // For development, generate a key based on machine ID
-    // WARNING: This is not secure for production use!
-    const machineId = os.hostname() + os.platform() + os.arch();
-    return this.encryption.hash(machineId);
+    // Try to load from system keyfile
+    const keyPath = this.getMasterKeyPath();
+    try {
+      const key = this.loadMasterKeyFromFile(keyPath);
+      if (key) {
+        return key;
+      }
+    } catch (error) {
+      // Key file doesn't exist, will generate new one
+    }
+
+    // Generate new master key
+    const newKey = this.generateMasterKey();
+    this.saveMasterKeyToFile(keyPath, newKey);
+    return newKey;
+  }
+
+  /**
+   * Get platform-specific path for master key storage
+   */
+  private getMasterKeyPath(): string {
+    let keyDir: string;
+    
+    if (process.platform === 'win32') {
+      // Windows: Use LOCALAPPDATA
+      keyDir = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      keyDir = path.join(keyDir, 'xec');
+    } else {
+      // Unix-like systems: Use ~/.xec
+      keyDir = path.join(os.homedir(), '.xec');
+    }
+
+    return path.join(keyDir, 'master.key');
+  }
+
+  /**
+   * Generate a cryptographically secure master key
+   */
+  private generateMasterKey(): string {
+    // Generate 256-bit key (32 bytes) and encode as base64
+    const keyBytes = crypto.randomBytes(32);
+    return keyBytes.toString('base64');
+  }
+
+  /**
+   * Load master key from file (synchronous for constructor)
+   */
+  private loadMasterKeyFromFile(keyPath: string): string | null {
+    try {
+      const fs = require('fs');
+      const key = fs.readFileSync(keyPath, 'utf8').trim();
+      
+      // Validate key format
+      if (!key || key.length < 32) {
+        throw new Error('Invalid master key format');
+      }
+      
+      return key;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Save master key to file with secure permissions (synchronous for constructor)
+   */
+  private saveMasterKeyToFile(keyPath: string, key: string): void {
+    try {
+      const fs = require('fs');
+      const keyDir = path.dirname(keyPath);
+      
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(keyDir)) {
+        fs.mkdirSync(keyDir, { recursive: true, mode: 0o700 });
+      }
+      
+      // Write key file with restricted permissions
+      fs.writeFileSync(keyPath, key, {
+        mode: 0o600 // Read/write for owner only
+      });
+      
+      // On Windows, try to set file as hidden
+      if (process.platform === 'win32') {
+        try {
+          const { execSync } = require('child_process');
+          execSync(`attrib +H "${keyPath}"`, { stdio: 'ignore' });
+        } catch {
+          // Ignore errors setting hidden attribute
+        }
+      }
+    } catch (error: any) {
+      throw new SecurityError(`Failed to save master key: ${error.message}`);
+    }
   }
 
   /**
@@ -281,7 +374,7 @@ export class SecretManager {
     } catch (error: any) {
       // File doesn't exist or is corrupted - start fresh
       if (error.code !== 'ENOENT') {
-        console.warn(`Failed to load secrets: ${error.message}`);
+        logger.warn(`Failed to load secrets: ${error.message}`);
       }
     }
   }

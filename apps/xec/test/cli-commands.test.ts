@@ -1,7 +1,7 @@
-import { describe, it, expect } from '@jest/globals';
 import { existsSync } from 'fs';
-import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { join, dirname } from 'path';
+import { it, expect, describe } from '@jest/globals';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

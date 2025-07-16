@@ -65,6 +65,8 @@ export interface ABTestingOptions {
   distribution: 'weighted' | 'header-based' | 'cookie-based';
   duration?: number; // seconds
   metrics?: MetricCheck[];
+  headerName?: string;
+  cookieName?: string;
 }
 
 export interface ABVariant {
@@ -72,6 +74,9 @@ export interface ABVariant {
   version: string;
   weight?: number;
   rules?: RoutingRule[];
+  config?: Record<string, any>;
+  headerValue?: string;
+  cookieValue?: string;
 }
 
 // Workflow patterns
@@ -165,6 +170,8 @@ export interface MetricCheck {
   query: string;
   threshold: number;
   operator: '<' | '>' | '<=' | '>=' | '==' | '!=';
+  aggregation?: 'avg' | 'sum' | 'min' | 'max' | 'p50' | 'p90' | 'p95' | 'p99';
+  window?: number; // seconds
 }
 
 export interface RoutingRule {

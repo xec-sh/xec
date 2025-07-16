@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import * as path from 'path';
 import { Command } from 'commander';
 import { promises as fs } from 'fs';
+import { getSecretManager } from '@xec/core';
 import { confirm, password } from '@clack/prompts';
-import { getSecretManager, EncryptionService } from '@xec/core';
 
 import { getProjectRoot } from '../utils/project.js';
 
@@ -17,7 +17,8 @@ export default function secretsCommand(program: Command) {
   const secrets = program
     .command('secrets')
     .alias('secret')
-    .description('Manage secrets and sensitive data');
+    .description('Manage secrets and sensitive data')
+    .option('-k, --encryption-key <key>', 'Master encryption key for secrets');
 
   secrets
     .command('set <key> [value]')
@@ -53,7 +54,10 @@ export default function secretsCommand(program: Command) {
         }
 
         // Use secretManager instead of direct encryption
-        const secretManager = getSecretManager();
+        const parentOpts = secrets.opts();
+        const secretManager = getSecretManager({
+          encryptionKey: parentOpts['encryptionKey']
+        });
         await secretManager.set(key, value);
         // Update local store tracking
         store.secrets[key] = 'encrypted';
@@ -80,7 +84,10 @@ export default function secretsCommand(program: Command) {
           process.exit(1);
         }
 
-        const secretManager = getSecretManager();
+        const parentOpts = secrets.opts();
+        const secretManager = getSecretManager({
+          encryptionKey: parentOpts['encryptionKey']
+        });
         const decrypted = await secretManager.get(key);
         
         if (options?.show) {
@@ -189,7 +196,10 @@ export default function secretsCommand(program: Command) {
           return;
         }
 
-        const secretManager = getSecretManager();
+        const parentOpts = secrets.opts();
+        const secretManager = getSecretManager({
+          encryptionKey: parentOpts['encryptionKey']
+        });
         await secretManager.set(key, newValue);
         
         // In a real implementation, we might keep history of rotations
@@ -229,7 +239,10 @@ export default function secretsCommand(program: Command) {
           importedSecrets = JSON.parse(content);
         }
 
-        const secretManager = getSecretManager();
+        const parentOpts = secrets.opts();
+        const secretManager = getSecretManager({
+          encryptionKey: parentOpts['encryptionKey']
+        });
         const encryptedSecrets: Record<string, string> = {};
         
         for (const [key, value] of Object.entries(importedSecrets)) {
@@ -282,7 +295,10 @@ export default function secretsCommand(program: Command) {
         let output: string;
         
         if (options?.decrypt) {
-          const secretManager = getSecretManager();
+          const parentOpts = secrets.opts();
+          const secretManager = getSecretManager({
+            encryptionKey: parentOpts['encryptionKey']
+          });
           const decrypted: Record<string, string> = {};
           
           for (const [key] of Object.entries(store.secrets)) {

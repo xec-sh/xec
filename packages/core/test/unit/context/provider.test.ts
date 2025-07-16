@@ -23,7 +23,6 @@ describe('context/provider', () => {
       phase: 'test-phase',
       attempt: 1,
       dryRun: false,
-      verbose: false,
       parallel: false,
       maxRetries: 3,
       timeout: 300000,
@@ -282,15 +281,6 @@ describe('context/provider', () => {
       });
     });
 
-    it('should get verbose status', () => {
-      provider.run(mockContext, () => {
-        expect(provider.isVerbose()).toBe(false);
-      });
-
-      provider.run({ ...mockContext, verbose: true }, () => {
-        expect(provider.isVerbose()).toBe(true);
-      });
-    });
 
     it('should get run ID', () => {
       provider.run(mockContext, () => {
@@ -413,7 +403,6 @@ describe('context/provider', () => {
         () => provider.getContext(),
         () => provider.getLogger(),
         () => provider.isDryRun(),
-        () => provider.isVerbose(),
         () => provider.getRunId(),
         () => provider.getRecipeId(),
         () => provider.getState('test'),
