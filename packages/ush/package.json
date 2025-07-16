@@ -1,7 +1,7 @@
 {
   "name": "@xec/ush",
-  "version": "0.3.0",
-  "description": "Unified execution engine",
+  "version": "0.4.0",
+  "description": "Universal shell execution engine",
   "author": "LuxQuant & Claude",
   "license": "MIT",
   "type": "module",

@@ -26,20 +26,36 @@ export function escapeCommand(cmd: string, args: (string | number | boolean)[] =
 
 function escapeWindowsArg(arg: string): string {
   // Windows command line escaping is complex
-  // This is a simplified version that handles most cases
-  if (!/[\s"\\]/.test(arg)) {
+  // Check if escaping is needed
+  const needsEscaping = /[\s"\\&|<>^()@!%]/.test(arg);
+  
+  if (!needsEscaping) {
     // No special characters, no escaping needed
     return arg;
   }
 
-  // Escape backslashes that precede quotes
-  arg = arg.replace(/(\\*)"/, '$1$1\\"');
-
-  // Escape trailing backslashes
-  arg = arg.replace(/(\\*)$/, '$1$1');
-
-  // Wrap in quotes
-  return `"${arg}"`;
+  // For arguments containing special cmd.exe metacharacters,
+  // we need to be careful about how we escape
+  let escaped = arg;
+  
+  // Windows escaping rules for quotes and backslashes:
+  // 1. Backslashes are only special when followed by a quote
+  // 2. To include a literal backslash before a quote, double it
+  // 3. To include a literal quote, escape it with a backslash
+  
+  // First escape existing quotes
+  escaped = escaped.replace(/"/g, '\\"');
+  
+  // Then handle backslashes that precede quotes
+  // We need to double backslashes that come before a quote
+  escaped = escaped.replace(/(\\+)\\"/g, (match, backslashes) => backslashes + backslashes + '\\"');
+  
+  // Double all backslashes at the end of the string
+  // (they would be followed by the closing quote)
+  escaped = escaped.replace(/(\\+)$/, (match, backslashes) => backslashes + backslashes);
+  
+  // Wrap in quotes - this handles spaces and cmd.exe metacharacters
+  return `"${escaped}"`;
 }
 
 export function interpolate(strings: TemplateStringsArray, ...values: any[]): string {

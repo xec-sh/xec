@@ -1,3 +1,5 @@
+/// <reference path="../types/globals.d.ts" />
+
 export type Runtime = 'node' | 'bun' | 'deno';
 
 export class RuntimeDetector {
@@ -9,16 +11,13 @@ export class RuntimeDetector {
       return this._runtime;
     }
 
-    // @ts-ignore - Bun global might not exist
-    if (typeof Bun !== 'undefined') {
+    if (typeof globalThis.Bun !== 'undefined' && globalThis.Bun) {
       this._runtime = 'bun';
-      // @ts-ignore
-      this._bunVersion = Bun.version;
+      this._bunVersion = globalThis.Bun.version;
       return 'bun';
     }
     
-    // @ts-ignore - Deno global might not exist
-    if (typeof Deno !== 'undefined') {
+    if (typeof globalThis.Deno !== 'undefined' && globalThis.Deno) {
       this._runtime = 'deno';
       return 'deno';
     }
@@ -33,9 +32,8 @@ export class RuntimeDetector {
     }
 
     const runtime = this.detect();
-    if (runtime === 'bun') {
-      // @ts-ignore
-      this._bunVersion = Bun.version;
+    if (runtime === 'bun' && globalThis.Bun) {
+      this._bunVersion = globalThis.Bun.version;
       return this._bunVersion;
     }
 
@@ -46,7 +44,6 @@ export class RuntimeDetector {
     const runtime = this.detect();
     
     if (runtime === 'bun') {
-      // @ts-ignore - Bun global might not exist
       const bunGlobal = globalThis.Bun;
       if (!bunGlobal) return false;
       
@@ -54,9 +51,9 @@ export class RuntimeDetector {
         case 'spawn': 
           return typeof bunGlobal.spawn === 'function';
         case 'serve': 
-          return typeof bunGlobal.serve === 'function';
+          return typeof (bunGlobal as any).serve === 'function';
         case 'sqlite': 
-          return typeof bunGlobal.SQLite === 'function';
+          return typeof (bunGlobal as any).SQLite === 'function';
       }
     }
     

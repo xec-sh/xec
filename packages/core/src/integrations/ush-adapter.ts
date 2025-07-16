@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { $, configure, ExecutionResult as UshExecutionResult } from '@xec/ush';
 
 import { BaseAdapter, ExecutionResult } from './base-adapter.js';
 
@@ -32,96 +33,10 @@ export interface UshCommand {
   timeout?: number;
 }
 
-// This is a placeholder for the actual ush implementation
-// In real implementation, this would import from the ush package
-interface IUsh {
-  exec(command: string, options?: any): Promise<any>;
-  shell(script: string, options?: any): Promise<any>;
-  spawn(command: string, args?: string[], options?: any): any;
-}
-
-// Mock implementation for now
-class MockUsh implements IUsh {
-  async exec(command: string, options?: any): Promise<any> {
-    // Mock implementation with basic command handling
-    if (command === 'echo' && options?.args?.[0] === '"test"') {
-      return { stdout: 'test\n', stderr: '', exitCode: 0 };
-    }
-    if (command === 'echo' && options?.args?.[0] === '"health check"') {
-      return { stdout: 'health check\n', stderr: '', exitCode: 0 };
-    }
-    if (command === 'cat' && options?.args?.[0] === '"/tmp/test.txt"') {
-      return { stdout: 'file contents', stderr: '', exitCode: 0 };
-    }
-    if (command === 'ls' && options?.args?.includes('-1')) {
-      return { stdout: 'file1\nfile2\nfile3\n', stderr: '', exitCode: 0 };
-    }
-    if (command === 'echo' && options?.args?.[0] === '"$PATH"') {
-      return { stdout: '/usr/bin\n', stderr: '', exitCode: 0 };
-    }
-    if (command === 'which' && options?.args?.[0] === 'ls') {
-      return { stdout: '/usr/bin/ls\n', stderr: '', exitCode: 0 };
-    }
-
-    return {
-      stdout: '',
-      stderr: '',
-      exitCode: 0,
-    };
-  }
-
-  async shell(script: string, options?: any): Promise<any> {
-    // Mock implementation with basic script handling
-
-    // Handle error cases for protected paths
-    if (script.includes('/root/')) {
-      return { stdout: '', stderr: 'Permission denied', exitCode: 1 };
-    }
-
-    if (script === 'echo "test"') {
-      return { stdout: 'test\n', stderr: '', exitCode: 0 };
-    }
-    if (script === 'echo "health check"') {
-      return { stdout: 'health check\n', stderr: '', exitCode: 0 };
-    }
-    if (script.includes('cat "/tmp/test.txt"')) {
-      return { stdout: 'file contents', stderr: '', exitCode: 0 };
-    }
-    if (script.includes('ls -1')) {
-      return { stdout: 'file1\nfile2\nfile3\n', stderr: '', exitCode: 0 };
-    }
-    if (script === 'echo "$PATH"') {
-      return { stdout: '/usr/bin\n', stderr: '', exitCode: 0 };
-    }
-    if (script.includes('which ls')) {
-      return { stdout: '/usr/bin/ls\n', stderr: '', exitCode: 0 };
-    }
-    if (script.startsWith('test -')) {
-      // File test commands
-      return { stdout: '', stderr: '', exitCode: 0 };
-    }
-
-    return {
-      stdout: '',
-      stderr: '',
-      exitCode: 0,
-    };
-  }
-
-  spawn(command: string, args?: string[], options?: any): any {
-    // Mock implementation
-    return {
-      stdout: { on: () => { } },
-      stderr: { on: () => { } },
-      on: () => { },
-      kill: () => { },
-    };
-  }
-}
 
 export class UshAdapter extends BaseAdapter {
   private ushConfig: UshConfig;
-  private ush: IUsh;
+  private ush: typeof $;
 
   constructor(config: UshConfig) {
     super({
@@ -132,8 +47,18 @@ export class UshAdapter extends BaseAdapter {
     });
 
     this.ushConfig = config;
-    // TODO: Replace with actual ush import
-    this.ush = new MockUsh();
+    
+    // Configure ush with provided options
+    if (config.env || config.cwd || config.timeout || config.shell) {
+      configure({
+        defaultShell: config.shell || '/bin/bash',
+        defaultTimeout: config.timeout,
+        defaultEnv: config.env,
+        defaultCwd: config.cwd
+      });
+    }
+    
+    this.ush = $;
   }
 
   async connect(): Promise<void> {
@@ -188,21 +113,42 @@ export class UshAdapter extends BaseAdapter {
     const startTime = Date.now();
 
     try {
-      const execOptions = this.buildExecOptions(options);
+      // Build the full command with arguments if provided
+      const fullCommand = options?.args 
+        ? `${command} ${options.args.map(arg => this.escapeArg(arg)).join(' ')}`
+        : command;
 
+      // Build execution engine with options
+      let engine = this.ush;
+      
+      if (options?.cwd) {
+        engine = engine.cd(options.cwd);
+      }
+      
+      if (options?.env) {
+        engine = engine.env(options.env);
+      }
+      
+      if (options?.timeout) {
+        engine = engine.timeout(options.timeout);
+      }
+
+      // Execute with or without stdin, with sudo if configured
       let result;
-      if (options?.args) {
-        // Execute as command with arguments
-        result = await this.executeCommand(command, options.args, execOptions);
+      if (this.ushConfig.sudo) {
+        result = options?.stdin 
+          ? await engine`echo ${options.stdin} | sudo ${fullCommand}`
+          : await engine`sudo ${fullCommand}`;
       } else {
-        // Execute as shell script
-        result = await this.executeShell(command, execOptions);
+        result = options?.stdin 
+          ? await engine`echo ${options.stdin} | ${fullCommand}`
+          : await engine`${fullCommand}`;
       }
 
       return {
         success: result.exitCode === 0,
         output: result.stdout,
-        error: result.exitCode !== 0 ? new Error(result.stderr) : undefined,
+        error: result.exitCode !== 0 ? new Error(result.stderr || `Command failed with exit code ${result.exitCode}`) : undefined,
         duration: Date.now() - startTime,
         metadata: {
           command,
@@ -217,6 +163,11 @@ export class UshAdapter extends BaseAdapter {
         duration: Date.now() - startTime,
       };
     }
+  }
+
+  private escapeArg(arg: string): string {
+    // Escape shell special characters
+    return `'${arg.replace(/'/g, "'\\''")}'`;
   }
 
   async healthCheck(): Promise<boolean> {
@@ -417,29 +368,64 @@ export class UshAdapter extends BaseAdapter {
     return execOptions;
   }
 
-  private async executeCommand(command: string, args: string[], options: any): Promise<any> {
+  private async executeCommand(command: string, args: string[], options: any): Promise<UshExecutionResult> {
     this.log('debug', `Executing command: ${command} ${args.join(' ')}`);
 
-    if (this.ushConfig.sudo) {
-      return this.ush.exec('sudo', {
-        ...options,
-        args: [command, ...args],
-      });
+    // Build the full command with arguments
+    const fullCommand = `${command} ${args.join(' ')}`;
+    
+    // Execute using ush with the provided options
+    let engine = this.ush;
+    
+    if (options.cwd) {
+      engine = engine.cd(options.cwd);
     }
-
-    return this.ush.exec(command, {
-      ...options,
-      args,
-    });
+    
+    if (options.env) {
+      engine = engine.env(options.env);
+    }
+    
+    if (options.timeout) {
+      engine = engine.timeout(options.timeout);
+    }
+    
+    if (this.ushConfig.sudo) {
+      const result = await engine`sudo ${fullCommand}`;
+      return result;
+    }
+    
+    const result = await engine`${fullCommand}`;
+    return result;
   }
 
-  private async executeShell(script: string, options: any): Promise<any> {
+  private async executeShell(script: string, options: any): Promise<UshExecutionResult> {
     this.log('debug', `Executing shell script: ${script.substring(0, 100)}...`);
 
-    if (this.ushConfig.sudo) {
-      return this.ush.shell(`sudo ${options.shell || '/bin/sh'} -c '${script}'`, options);
+    // Execute using ush with the provided options
+    let engine = this.ush;
+    
+    if (options.cwd) {
+      engine = engine.cd(options.cwd);
     }
-
-    return this.ush.shell(script, options);
+    
+    if (options.env) {
+      engine = engine.env(options.env);
+    }
+    
+    if (options.timeout) {
+      engine = engine.timeout(options.timeout);
+    }
+    
+    if (options.shell) {
+      engine = engine.shell(options.shell);
+    }
+    
+    if (this.ushConfig.sudo) {
+      const result = await engine`sudo ${options.shell || '/bin/sh'} -c '${script}'`;
+      return result;
+    }
+    
+    const result = await engine`${script}`;
+    return result;
   }
 }

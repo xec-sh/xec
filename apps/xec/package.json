@@ -1,7 +1,7 @@
 {
   "name": "@xec/cli",
   "description": "Xec CLI for infrastructure management and automation",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "DevGrid",
   "type": "module",
   "license": "MIT",
@@ -60,6 +60,7 @@
     "minimist": "^1.2.8",
     "node-fetch": "^3.3.2",
     "ps-list": "^8.1.0",
+    "table": "^6.9.0",
     "which": "^5.0.0"
   },
   "installConfig": {

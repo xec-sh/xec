@@ -1,12 +1,13 @@
-import { it, expect, describe } from '@jest/globals';
+import { it, expect, describe, beforeEach } from '@jest/globals';
 
-import { createExecutionEngine } from '../../../src/index.js';
 import { MockAdapter } from '../../../src/adapters/mock-adapter.js';
+import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 describe('Templates', () => {
-  const $ = createExecutionEngine();
+  const engine = new ExecutionEngine();
+  const $ = createCallableEngine(engine);
   const mock = new MockAdapter();
-  $.registerAdapter('mock', mock);
+  engine.registerAdapter('mock', mock);
   const $mock = $.with({ adapter: 'mock' as any });
 
   beforeEach(() => {
@@ -24,7 +25,7 @@ describe('Templates', () => {
   describe('templates.create', () => {
     it('should create a command template', async () => {
       const template = $.templates.create('echo {{message}}');
-      mock.mockSuccess('echo "Hello World"', 'Hello World');
+      mock.mockSuccess('sh -c "echo "Hello World""', 'Hello World');
 
       const result = await template.execute($mock, { message: 'Hello World' });
       expect(result.stdout).toBe('Hello World');
@@ -34,7 +35,7 @@ describe('Templates', () => {
       const template = $.templates.create('echo {{greeting}} {{name}}', {
         defaults: { greeting: 'Hello' }
       });
-      mock.mockSuccess('echo Hello World', 'Hello World');
+      mock.mockSuccess('sh -c "echo Hello World"', 'Hello World');
 
       const result = await template.execute($mock, { name: 'World' });
       expect(result.stdout).toBe('Hello World');
@@ -58,7 +59,7 @@ describe('Templates', () => {
       const template = $.templates.create('cat {{file}}', {
         transform: (result) => JSON.parse(result.stdout)
       });
-      mock.mockSuccess('cat data.json', '{"value": 42}');
+      mock.mockSuccess('sh -c "cat data.json"', '{"value": 42}');
 
       const result = await template.execute($mock, { file: 'data.json' });
       expect(result).toEqual({ value: 42 });
@@ -74,7 +75,7 @@ describe('Templates', () => {
       const template = $.templates.get('deploy');
       expect(template).toBeDefined();
 
-      mock.mockSuccess('echo "Deploying myapp to production"', 'Deploying myapp to production');
+      mock.mockSuccess('sh -c "echo "Deploying myapp to production""', 'Deploying myapp to production');
       const result = await template.execute($mock, { app: 'myapp', env: 'production' });
       expect(result.stdout).toBe('Deploying myapp to production');
     });
@@ -128,7 +129,7 @@ describe('Templates', () => {
       );
 
       mock.mockSuccess(
-        'docker build -t myregistry/myapp:v1.0 ./app',
+        'sh -c "docker build -t myregistry/myapp:v1.0 ./app"',
         'Successfully built'
       );
 
@@ -147,7 +148,7 @@ describe('Templates', () => {
 
       // Test with different configurations
       const $custom = $mock.env({ CUSTOM: 'true' });
-      mock.mockSuccess('echo Test', 'Test');
+      mock.mockSuccess('sh -c "echo Test"', 'Test');
 
       const result = await template.execute($custom, { message: 'Test' });
       expect(result.stdout).toBe('Test');

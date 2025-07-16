@@ -9,8 +9,8 @@ xec/
 ├── apps/
 │   └── xec/           # CLI application (@xec/cli)
 ├── packages/
-│   ├── core/           # Core orchestration engine (@xec/core)
-│   └── ush/           # Universal execution engine (@xec/ush)
+│   ├── core/          # Core orchestration engine (@xec/core)
+│   └── ush/           # Universal shell execution engine (@xec/ush)
 ```
 
 ## Quick Navigation

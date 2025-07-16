@@ -1,6 +1,7 @@
 
 import { ExecutionResult } from '../core/result.js';
 import { StreamHandler } from '../core/stream-handler.js';
+import { getAuditLogger } from '../utils/audit-logger.js';
 import { Command, SSHAdapterOptions } from '../core/command.js';
 import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
 import { AdapterError, TimeoutError, ConnectionError } from '../core/error.js';
@@ -23,6 +24,7 @@ export interface SSHSudoOptions {
   enabled: boolean;
   password?: string;
   prompt?: string;
+  method?: 'stdin' | 'askpass' | 'echo'; // Method to provide password
 }
 
 export interface SSHSFTPOptions {
@@ -70,7 +72,8 @@ export class SSHAdapter extends BaseAdapter {
       sudo: {
         enabled: config.sudo?.enabled ?? false,
         password: config.sudo?.password,
-        prompt: config.sudo?.prompt ?? '[sudo] password'
+        prompt: config.sudo?.prompt ?? '[sudo] password',
+        method: config.sudo?.method ?? 'stdin'
       },
       sftp: {
         enabled: config.sftp?.enabled ?? true,
@@ -184,7 +187,38 @@ export class SSHAdapter extends BaseAdapter {
 
     try {
       await ssh.connect(connectOptions);
+      
+      // Log successful SSH connection
+      if (this.config.auditLogging) {
+        const auditLogger = getAuditLogger({ enabled: true });
+        await auditLogger.logRemoteConnection(
+          'ssh',
+          `${options.username}@${options.host}:${options.port ?? 22}`,
+          'success',
+          {
+            username: options.username,
+            port: options.port ?? 22,
+            authMethod: options.privateKey ? 'key' : 'password'
+          }
+        );
+      }
     } catch (error) {
+      // Log failed SSH connection
+      if (this.config.auditLogging) {
+        const auditLogger = getAuditLogger({ enabled: true });
+        await auditLogger.logRemoteConnection(
+          'ssh',
+          `${options.username}@${options.host}:${options.port ?? 22}`,
+          'failure',
+          {
+            username: options.username,
+            port: options.port ?? 22,
+            authMethod: options.privateKey ? 'key' : 'password',
+            error: error instanceof Error ? error.message : String(error)
+          }
+        );
+      }
+      
       throw new ConnectionError(
         options.host,
         error instanceof Error ? error : new Error(String(error))
@@ -224,9 +258,26 @@ export class SSHAdapter extends BaseAdapter {
       maxBuffer: this.config.maxBuffer
     });
 
+    // Check if we need to provide sudo password via stdin
+    const needsSudoPassword = this.sshConfig.sudo.enabled && 
+                            this.sshConfig.sudo.password && 
+                            this.sshConfig.sudo.method === 'stdin' &&
+                            command.includes('sudo -S');
+    
+    let stdin = this.convertStdin(options.stdin);
+    if (needsSudoPassword) {
+      // Prepend password to stdin
+      const password = this.sshConfig.sudo.password + '\n';
+      if (stdin) {
+        stdin = password + stdin;
+      } else {
+        stdin = password;
+      }
+    }
+
     const execOptions: any = {
       cwd: options.cwd,
-      stdin: this.convertStdin(options.stdin),
+      stdin,
       execOptions: {
         env: this.createCombinedEnv(this.config.defaultEnv, options.env)
       }
@@ -294,9 +345,28 @@ export class SSHAdapter extends BaseAdapter {
     const sudoCmd = 'sudo';
 
     if (this.sshConfig.sudo.password) {
-      // Use echo to pipe password to sudo
-      // Note: This is not the most secure method but works for automation
-      return `echo '${this.sshConfig.sudo.password}' | sudo -S ${command}`;
+      const method = this.sshConfig.sudo.method || 'stdin';
+      
+      switch (method) {
+        case 'stdin':
+          // More secure: Use stdin to provide password
+          // This requires special handling in executeRemoteCommand
+          return `sudo -S ${command}`;
+          
+        case 'askpass':
+          // Use SUDO_ASKPASS environment variable
+          // Requires a helper script on the remote system
+          return `SUDO_ASKPASS=/usr/bin/ssh-askpass sudo -A ${command}`;
+          
+        case 'echo':
+          // Least secure but most compatible
+          // Only use if explicitly requested
+          console.warn('Using echo for sudo password is insecure. Consider using stdin or askpass method.');
+          return `echo '${this.sshConfig.sudo.password}' | sudo -S ${command}`;
+          
+        default:
+          return `${sudoCmd} ${command}`;
+      }
     }
 
     return `${sudoCmd} ${command}`;

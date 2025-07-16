@@ -1,3 +1,5 @@
+/// <reference path="../types/globals.d.ts" />
+
 import { platform } from 'node:os';
 import { Readable } from 'node:stream';
 import { spawn, spawnSync } from 'node:child_process';
@@ -53,7 +55,7 @@ export class LocalAdapter extends BaseAdapter {
 
       const endTime = Date.now();
 
-      return this.createResult(
+      return await this.createResult(
         result.stdout,
         result.stderr,
         result.exitCode ?? 0,
@@ -91,7 +93,7 @@ export class LocalAdapter extends BaseAdapter {
 
       const endTime = Date.now();
 
-      return this.createResult(
+      return this.createResultSync(
         result.stdout,
         result.stderr,
         result.exitCode ?? 0,
@@ -128,9 +130,14 @@ export class LocalAdapter extends BaseAdapter {
   private async executeNode(command: Command): Promise<ProcessResult> {
     if (!('stdout' in command) || command.stdout == null) command.stdout = 'pipe';
     if (!('stderr' in command) || command.stderr == null) command.stderr = 'pipe';
+    
+    // Create progress reporter if enabled
+    const progressReporter = this.createProgressReporter(command);
+    
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      onData: progressReporter ? (data) => progressReporter.reportOutput(data) : undefined
     });
 
     const stderrHandler = new StreamHandler({
@@ -139,6 +146,11 @@ export class LocalAdapter extends BaseAdapter {
     });
 
     const spawnOptions = this.buildNodeSpawnOptions(command);
+    
+    // Start progress reporting if enabled
+    if (progressReporter) {
+      progressReporter.start(`Executing: ${this.buildCommandString(command)}`);
+    }
 
     // Handle shell execution properly
     let child;
@@ -190,10 +202,25 @@ export class LocalAdapter extends BaseAdapter {
             }
           }
         }
+        
+        // Report error to progress reporter
+        if (progressReporter) {
+          progressReporter.error(err);
+        }
+        
         reject(err);
       });
 
       child.on('exit', (code, signal) => {
+        // Report completion to progress reporter
+        if (progressReporter) {
+          if (code === 0) {
+            progressReporter.complete('Command completed successfully');
+          } else {
+            progressReporter.error(new Error(`Command failed with exit code ${code}`));
+          }
+        }
+        
         resolve({
           stdout: stdoutHandler.getContent(),
           stderr: stderrHandler.getContent(),
@@ -216,21 +243,29 @@ export class LocalAdapter extends BaseAdapter {
   }
 
   private async executeBun(command: Command): Promise<ProcessResult> {
-    // @ts-ignore - Bun global
     const Bun = globalThis.Bun;
     if (!Bun || !Bun.spawn) {
       throw new AdapterError(this.adapterName, 'execute', new Error('Bun.spawn is not available'));
     }
 
+    // Create progress reporter if enabled
+    const progressReporter = this.createProgressReporter(command);
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      onData: progressReporter ? (data) => progressReporter.reportOutput(data) : undefined
     });
 
     const stderrHandler = new StreamHandler({
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer
     });
+
+    // Start progress reporting if enabled
+    if (progressReporter) {
+      progressReporter.start(`Executing: ${this.buildCommandString(command)}`);
+    }
 
     const proc = Bun.spawn({
       cmd: [command.command, ...(command.args || [])],
@@ -270,6 +305,15 @@ export class LocalAdapter extends BaseAdapter {
     );
 
     await Promise.all([stdoutPromise, stderrPromise]);
+
+    // Report completion to progress reporter
+    if (progressReporter) {
+      if (exitCode === 0) {
+        progressReporter.complete('Command completed successfully');
+      } else {
+        progressReporter.error(new Error(`Command failed with exit code ${exitCode}`));
+      }
+    }
 
     return {
       stdout: stdoutHandler.getContent(),
@@ -404,8 +448,7 @@ export class LocalAdapter extends BaseAdapter {
   }
 
   private executeBunSync(command: Command): ProcessResult {
-    // @ts-ignore - Bun global
-    const proc = Bun.spawnSync({
+    const proc = globalThis.Bun!.spawnSync({
       cmd: [command.command, ...(command.args || [])],
       cwd: command.cwd,
       env: this.createCombinedEnv(this.config.defaultEnv, command.env),

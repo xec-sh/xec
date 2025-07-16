@@ -40,7 +40,16 @@ export class MockAdapter extends BaseAdapter {
 
   async execute(command: Command): Promise<ExecutionResult> {
     const mergedCommand = this.mergeCommand(command);
-    const commandString = this.buildCommandString(mergedCommand);
+    let commandString: string;
+    
+    // Handle shell option like other adapters
+    if (mergedCommand.shell) {
+      const shellCmd = typeof mergedCommand.shell === 'string' ? mergedCommand.shell : 'sh';
+      commandString = `${shellCmd} -c "${this.buildCommandString(mergedCommand)}"`;
+    } else {
+      commandString = this.buildCommandString(mergedCommand);
+    }
+    
     const startTime = Date.now();
 
     // Record command if enabled
@@ -168,7 +177,7 @@ export class MockAdapter extends BaseAdapter {
   mockTimeout(command: string | RegExp, delay: number = 5000): void {
     this.mockCommand(command, { 
       delay,
-      error: new Error('Command timed out')
+      error: new TimeoutError('Command timed out', delay)
     });
   }
 

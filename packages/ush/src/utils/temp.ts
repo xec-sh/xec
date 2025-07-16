@@ -1,15 +1,16 @@
-import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { promises as fs } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { join, relative, normalize, isAbsolute } from 'node:path';
 
-import { escapeArg } from './shell-escape.js';
-
-import type { ExecutionEngine } from '../core/execution-engine.js';
+import { getAuditLogger } from './audit-logger.js';
 
 export interface TempOptions {
   prefix?: string;
   suffix?: string;
   dir?: string;
   keep?: boolean;
+  auditLogging?: boolean;
 }
 
 export class TempFile {
@@ -17,19 +18,19 @@ export class TempFile {
   private _cleaned = false;
 
   constructor(
-    private engine: ExecutionEngine,
     private options: TempOptions = {}
   ) {
     this._path = this.generatePath();
   }
 
   private generatePath(): string {
-    const tmpDir = this.options.dir || '/tmp';
+    const tempDir = this.options.dir || tmpdir();
     const prefix = this.options.prefix || 'ush-';
     const suffix = this.options.suffix || '.tmp';
-    const random = randomBytes(8).toString('hex');
+    // Use UUID for better entropy (128 bits vs 64 bits)
+    const random = randomUUID().replace(/-/g, '');
 
-    return join(tmpDir, `${prefix}${random}${suffix}`);
+    return join(tempDir, `${prefix}${random}${suffix}`);
   }
 
   get path(): string {
@@ -37,39 +38,71 @@ export class TempFile {
   }
 
   async create(content?: string): Promise<void> {
-    const escapedPath = escapeArg(this._path);
-    if (content !== undefined) {
-      const escapedContent = escapeArg(content);
-      await this.engine.execute({ command: `echo ${escapedContent} > ${escapedPath}`, shell: true });
-    } else {
-      await this.engine.execute({ command: `touch ${escapedPath}`, shell: true });
+    try {
+      if (content !== undefined) {
+        await fs.writeFile(this._path, content, 'utf8');
+      } else {
+        // Create empty file
+        await fs.writeFile(this._path, '', 'utf8');
+      }
+      
+      // Log file creation
+      if (this.options.auditLogging) {
+        const auditLogger = getAuditLogger({ enabled: true });
+        await auditLogger.logFileOperation('create', this._path, 'success', {
+          type: 'temp_file',
+          contentLength: content?.length ?? 0
+        });
+      }
+    } catch (error) {
+      // Log failed file creation
+      if (this.options.auditLogging) {
+        const auditLogger = getAuditLogger({ enabled: true });
+        await auditLogger.logFileOperation('create', this._path, 'failure', {
+          type: 'temp_file',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+      throw error;
     }
   }
 
-
   async write(content: string): Promise<void> {
-    const escapedPath = escapeArg(this._path);
-    const escapedContent = escapeArg(content);
-    await this.engine.execute({ command: `echo ${escapedContent} > ${escapedPath}`, shell: true });
+    try {
+      await fs.writeFile(this._path, content, 'utf8');
+      
+      // Log file write
+      if (this.options.auditLogging) {
+        const auditLogger = getAuditLogger({ enabled: true });
+        await auditLogger.logFileOperation('write', this._path, 'success', {
+          type: 'temp_file',
+          contentLength: content.length
+        });
+      }
+    } catch (error) {
+      // Log failed file write
+      if (this.options.auditLogging) {
+        const auditLogger = getAuditLogger({ enabled: true });
+        await auditLogger.logFileOperation('write', this._path, 'failure', {
+          type: 'temp_file',
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+      throw error;
+    }
   }
 
   async append(content: string): Promise<void> {
-    const escapedPath = escapeArg(this._path);
-    const escapedContent = escapeArg(content);
-    await this.engine.execute({ command: `echo ${escapedContent} >> ${escapedPath}`, shell: true });
+    await fs.appendFile(this._path, content, 'utf8');
   }
 
   async read(): Promise<string> {
-    const escapedPath = escapeArg(this._path);
-    const result = await this.engine.execute({ command: `cat ${escapedPath}`, shell: true });
-    return result.stdout;
+    return await fs.readFile(this._path, 'utf8');
   }
-
 
   async exists(): Promise<boolean> {
     try {
-      const escapedPath = escapeArg(this._path);
-      await this.engine.execute({ command: `test -f ${escapedPath}`, shell: true });
+      await fs.access(this._path);
       return true;
     } catch {
       return false;
@@ -79,15 +112,13 @@ export class TempFile {
   async cleanup(): Promise<void> {
     if (!this._cleaned && !this.options.keep) {
       try {
-        const escapedPath = escapeArg(this._path);
-        await this.engine.execute({ command: `rm -f ${escapedPath}`, shell: true });
+        await fs.unlink(this._path);
         this._cleaned = true;
       } catch {
         // Ignore cleanup errors
       }
     }
   }
-
 }
 
 export class TempDir {
@@ -95,18 +126,18 @@ export class TempDir {
   private _cleaned = false;
 
   constructor(
-    private engine: ExecutionEngine,
     private options: TempOptions = {}
   ) {
     this._path = this.generatePath();
   }
 
   private generatePath(): string {
-    const tmpDir = this.options.dir || '/tmp';
+    const tempDir = this.options.dir || tmpdir();
     const prefix = this.options.prefix || 'ush-';
-    const random = randomBytes(8).toString('hex');
+    // Use UUID for better entropy
+    const random = randomUUID().replace(/-/g, '');
 
-    return join(tmpDir, `${prefix}${random}`);
+    return join(tempDir, `${prefix}${random}`);
   }
 
   get path(): string {
@@ -114,45 +145,55 @@ export class TempDir {
   }
 
   async create(): Promise<void> {
-    const escapedPath = escapeArg(this._path);
-    await this.engine.execute({ command: `mkdir -p ${escapedPath}`, shell: true });
+    await fs.mkdir(this._path, { recursive: true });
   }
-
 
   async exists(): Promise<boolean> {
     try {
-      const escapedPath = escapeArg(this._path);
-      await this.engine.execute({ command: `test -d ${escapedPath}`, shell: true });
-      return true;
+      const stats = await fs.stat(this._path);
+      return stats.isDirectory();
     } catch {
       return false;
     }
   }
 
   file(name: string): string {
-    return join(this._path, name);
+    // Prevent path traversal by validating the name
+    
+    // Check for absolute paths
+    if (isAbsolute(name)) {
+      throw new Error(`Invalid file name: ${name}`);
+    }
+    
+    const normalizedName = normalize(name);
+    const resolved = join(this._path, normalizedName);
+    
+    // Ensure the resolved path is still within our temp directory
+    const relativePath = relative(this._path, resolved);
+    if (relativePath.startsWith('..')) {
+      throw new Error(`Invalid file name: ${name}`);
+    }
+    
+    return resolved;
   }
 
   async cleanup(): Promise<void> {
     if (!this._cleaned && !this.options.keep) {
       try {
-        const escapedPath = escapeArg(this._path);
-        await this.engine.execute({ command: `rm -rf ${escapedPath}`, shell: true });
+        await fs.rm(this._path, { recursive: true, force: true });
         this._cleaned = true;
       } catch {
         // Ignore cleanup errors
       }
     }
   }
-
 }
 
 export async function withTempFile<T>(
-  engine: ExecutionEngine,
   fn: (file: TempFile) => T | Promise<T>,
   options?: TempOptions
 ): Promise<T> {
-  const file = new TempFile(engine, options);
+  const file = new TempFile(options);
 
   try {
     await file.create();
@@ -163,11 +204,10 @@ export async function withTempFile<T>(
 }
 
 export async function withTempDir<T>(
-  engine: ExecutionEngine,
   fn: (dir: TempDir) => T | Promise<T>,
   options?: TempOptions
 ): Promise<T> {
-  const dir = new TempDir(engine, options);
+  const dir = new TempDir(options);
 
   try {
     await dir.create();
@@ -176,4 +216,3 @@ export async function withTempDir<T>(
     await dir.cleanup();
   }
 }
-

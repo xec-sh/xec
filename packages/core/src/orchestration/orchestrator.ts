@@ -106,7 +106,40 @@ export class Orchestrator extends EventEmitter {
   }
 
   private async executeParallel(tasks: any[], context: any): Promise<any[]> {
-    return Promise.all(tasks.map(task => this.executeTask(task, context)));
+    const results: any[] = new Array(tasks.length);
+    const executing: Promise<void>[] = [];
+    let taskIndex = 0;
+
+    const executeNext = async (): Promise<void> => {
+      while (taskIndex < tasks.length) {
+        const currentIndex = taskIndex++;
+        const task = tasks[currentIndex];
+        
+        try {
+          results[currentIndex] = await this.executeTask(task, context);
+        } catch (error) {
+          results[currentIndex] = error;
+          throw error;
+        }
+      }
+    };
+
+    // Start initial batch of tasks up to maxConcurrency
+    const initialBatch = Math.min(this.config.maxConcurrency || 10, tasks.length);
+    for (let i = 0; i < initialBatch; i++) {
+      executing.push(executeNext());
+    }
+
+    // Wait for all tasks to complete
+    try {
+      await Promise.all(executing);
+    } catch (error) {
+      // If any task fails, wait for all running tasks to complete
+      await Promise.allSettled(executing);
+      throw error;
+    }
+
+    return results;
   }
 
   private async executeBatch(tasks: any[], context: any): Promise<any[]> {

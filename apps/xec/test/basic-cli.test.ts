@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { it, expect, describe } from '@jest/globals';
 
-import { createProgram } from '../src/cli/cli';
+import { createProgram } from '../src/main.js';
 
 describe('Basic CLI Tests', () => {
   describe('CLI Program', () => {
@@ -65,7 +65,7 @@ describe('Basic CLI Tests', () => {
 
   describe('Script Context', () => {
     it('should have required script utilities', async () => {
-      const utils = await import('../src/cli/script-utils');
+      const utils = await import('../src/script-utils.js');
 
       // Core utilities
       expect(typeof utils.$).toBe('function');
@@ -89,7 +89,7 @@ describe('Basic CLI Tests', () => {
     });
 
     it('should handle sleep correctly', async () => {
-      const utils = await import('../src/cli/script-utils');
+      const utils = await import('../src/script-utils.js');
 
       const start = Date.now();
       await utils.sleep(50);
@@ -100,7 +100,7 @@ describe('Basic CLI Tests', () => {
     });
 
     it('should handle quote correctly', async () => {
-      const utils = await import('../src/cli/script-utils');
+      const utils = await import('../src/script-utils.js');
 
       expect(utils.quote('simple')).toBe('simple');
       expect(utils.quote('with spaces')).toBe("'with spaces'");
@@ -108,7 +108,7 @@ describe('Basic CLI Tests', () => {
     });
 
     it('should handle tmpfile generation', async () => {
-      const utils = await import('../src/cli/script-utils');
+      const utils = await import('../src/script-utils.js');
 
       const tmpfile1 = utils.tmpfile();
       const tmpfile2 = utils.tmpfile();

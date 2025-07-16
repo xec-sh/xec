@@ -1,12 +1,14 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { CommandError } from '../../src/core/error.js';
-import { $, MockAdapter, createExecutionEngine } from '../../src/index.js';
+import { MockAdapter } from '../../src/adapters/mock-adapter.js';
+import { $, ExecutionEngine, createCallableEngine } from '../../src/index.js';
 
 describe('Unified Execution Engine - Integration Tests', () => {
   describe('Basic functionality', () => {
     it('should execute simple commands', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
       const result = await $`echo "Hello, World!"`;
       
       expect(result.stdout.trim()).toBe('Hello, World!');
@@ -15,7 +17,8 @@ describe('Unified Execution Engine - Integration Tests', () => {
     });
 
     it('should support template literal interpolation', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
       const filename = 'test file.txt';
       const result = await $`echo ${filename}`;
       
@@ -23,13 +26,15 @@ describe('Unified Execution Engine - Integration Tests', () => {
     });
 
     it('should handle command failure', async () => {
-      const $ = createExecutionEngine({ throwOnNonZeroExit: true });
+      const engine = new ExecutionEngine({ throwOnNonZeroExit: true });
+      const $ = createCallableEngine(engine);
       
       await expect($`exit 1`).rejects.toThrow(CommandError);
     });
 
     it('should support nothrow mode', async () => {
-      const $ = createExecutionEngine({ throwOnNonZeroExit: false });
+      const engine = new ExecutionEngine({ throwOnNonZeroExit: false });
+      const $ = createCallableEngine(engine);
       const result = await $`exit 1`;
       
       expect(result.exitCode).toBe(1);
@@ -38,7 +43,8 @@ describe('Unified Execution Engine - Integration Tests', () => {
 
   describe('Configuration chaining', () => {
     it('should support method chaining', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
       const custom$ = $
         .env({ CUSTOM_VAR: 'test' })
         .timeout(5000)
@@ -49,7 +55,8 @@ describe('Unified Execution Engine - Integration Tests', () => {
     });
 
     it('should support cd() for changing directory', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
       const tmp$ = $.cd('/tmp');
       const result = await tmp$.run`pwd`;
       
@@ -61,23 +68,25 @@ describe('Unified Execution Engine - Integration Tests', () => {
 
   describe('Mock adapter', () => {
     let mockAdapter: MockAdapter;
-    let $: ReturnType<typeof createExecutionEngine>;
+    let engine: ExecutionEngine;
+    let $: any;
 
     beforeEach(() => {
       mockAdapter = new MockAdapter();
-      $ = createExecutionEngine();
-      $.registerAdapter('mock', mockAdapter);
+      engine = new ExecutionEngine();
+      engine.registerAdapter('mock', mockAdapter);
+      $ = createCallableEngine(engine);
     });
 
     it('should use mock responses', async () => {
-      mockAdapter.mockSuccess('ls -la', 'file1.txt\nfile2.txt');
+      mockAdapter.mockSuccess('sh -c "ls -la"', 'file1.txt\nfile2.txt');
       
       const mockEngine = $.with({ adapter: 'mock' as any });
       const result = await mockEngine.run`ls -la`;
       
       expect(result.stdout).toBe('file1.txt\nfile2.txt');
       expect(result.exitCode).toBe(0);
-      mockAdapter.assertCommandExecuted('ls -la');
+      mockAdapter.assertCommandExecuted('sh -c "ls -la"');
     });
 
     it('should track executed commands', async () => {
@@ -89,11 +98,11 @@ describe('Unified Execution Engine - Integration Tests', () => {
       await mockEngine.run`npm build`;
       
       const commands = mockAdapter.getExecutedCommands();
-      expect(commands).toEqual(['npm install', 'npm test', 'npm build']);
+      expect(commands).toEqual(['sh -c "npm install"', 'sh -c "npm test"', 'sh -c "npm build"']);
     });
 
     it('should support regex patterns', async () => {
-      mockAdapter.mockCommand(/^git/, { stdout: 'git output', exitCode: 0 });
+      mockAdapter.mockCommand(/^sh -c "git/, { stdout: 'git output', exitCode: 0 });
       
       const mockEngine = $.with({ adapter: 'mock' as any });
       const result1 = await mockEngine.run`git status`;
@@ -106,7 +115,8 @@ describe('Unified Execution Engine - Integration Tests', () => {
 
   describe('Adapter selection', () => {
     it('should auto-detect adapter from options', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
       
       // Mock the SSH adapter behavior
       const sshEngine = $.ssh({
@@ -122,27 +132,28 @@ describe('Unified Execution Engine - Integration Tests', () => {
 
   describe('Utility methods', () => {
     it('should check command availability', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
       
       // 'echo' should be available on all platforms
-      const isAvailable = await $.isCommandAvailable('echo');
+      const isAvailable = await engine.isCommandAvailable('echo');
       expect(isAvailable).toBe(true);
       
       // Test with a command that's very unlikely to exist
       const randomCmd = 'cmd-that-does-not-exist-' + Math.random().toString(36);
-      const path = await $.which(randomCmd);
+      const path = await engine.which(randomCmd);
       
       // If which returns empty string, it means command not found
       expect(path).toBeFalsy(); // Should be null or empty string
       
-      const notAvailable = await $.isCommandAvailable(randomCmd);
+      const notAvailable = await engine.isCommandAvailable(randomCmd);
       expect(notAvailable).toBe(false);
     });
 
     it('should find command path with which()', async () => {
-      const $ = createExecutionEngine();
+      const engine = new ExecutionEngine();
       
-      const echoPath = await $.which('echo');
+      const echoPath = await engine.which('echo');
       expect(echoPath).toBeTruthy();
       expect(echoPath).toContain('echo');
     });

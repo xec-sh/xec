@@ -12,28 +12,28 @@ import type { Task, Recipe } from '../../../src/core/types.js';
 import type { ExecutionContext } from '../../../src/context/provider.js';
 
 // Mock logger module
-vi.mock('../../../src/utils/logger.js', () => ({
-  createLogger: vi.fn(() => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  })),
-  createTaskLogger: vi.fn((taskId: string) => ({
+vi.mock('../../../src/utils/logger.js', () => {
+  const mockLogger = {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    taskId
-  })),
-  createRecipeLogger: vi.fn((recipeId: string) => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    recipeId
-  }))
-}));
+    child: vi.fn(() => mockLogger)
+  };
+
+  return {
+    Logger: vi.fn().mockImplementation(() => mockLogger),
+    createLogger: vi.fn(() => mockLogger),
+    createTaskLogger: vi.fn((taskId: string) => ({
+      ...mockLogger,
+      taskId
+    })),
+    createRecipeLogger: vi.fn((recipeId: string) => ({
+      ...mockLogger,
+      recipeId
+    }))
+  };
+});
 
 // Mock crypto for consistent UUIDs in tests
 vi.mock('crypto', () => ({

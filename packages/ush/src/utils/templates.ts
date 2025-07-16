@@ -1,7 +1,7 @@
 import type { Command } from '../core/command.js';
 import type { ExecutionResult } from '../core/result.js';
-import type { CallableExecutionEngine } from '../types.js';
 import type { ExecutionConfig } from '../core/config.js';
+import type { CallableExecutionEngine } from '../types.js';
 import type { ExecutionEngine } from '../core/execution-engine.js';
 
 export interface TemplateOptions extends Partial<ExecutionConfig> {

@@ -1,7 +1,7 @@
 import type { Readable, Writable } from 'node:stream';
 
 export type StreamOption = 'pipe' | 'ignore' | 'inherit' | Writable;
-export type AdapterType = 'local' | 'ssh' | 'docker' | 'auto';
+export type AdapterType = 'local' | 'ssh' | 'docker' | 'kubernetes' | 'remote-docker' | 'auto';
 
 export interface SSHAdapterOptions {
   type: 'ssh';
@@ -18,16 +18,45 @@ export interface DockerAdapterOptions {
   container: string;
   user?: string;
   workdir?: string;
+  tty?: boolean;
 }
 
 export interface LocalAdapterOptions {
   type: 'local';
 }
 
+export interface KubernetesAdapterOptions {
+  type: 'kubernetes';
+  pod: string;
+  container?: string;
+  namespace?: string;
+  execFlags?: string[];
+  tty?: boolean;
+  stdin?: boolean;
+}
+
+export interface RemoteDockerAdapterOptions {
+  type: 'remote-docker';
+  ssh: Omit<SSHAdapterOptions, 'type'>;
+  docker: Omit<DockerAdapterOptions, 'type'>;
+}
+
 export type AdapterSpecificOptions = 
   | SSHAdapterOptions
   | DockerAdapterOptions
-  | LocalAdapterOptions;
+  | LocalAdapterOptions
+  | KubernetesAdapterOptions
+  | RemoteDockerAdapterOptions;
+
+export interface RetryOptions {
+  maxAttempts?: number;
+  initialDelay?: number;
+  maxDelay?: number;
+  backoffMultiplier?: number;
+  jitter?: boolean;
+  isRetryable?: (error: Error) => boolean;
+  onRetry?: (attempt: number, error: Error, nextDelay: number) => void;
+}
 
 export interface Command {
   // Основное
@@ -49,6 +78,17 @@ export interface Command {
   shell?: string | boolean;             // Использовать shell
   detached?: boolean;                   // Отсоединенный процесс
   signal?: AbortSignal;                 // Сигнал отмены
+  
+  // Retry configuration
+  retry?: RetryOptions;                 // Retry options
+  
+  // Progress reporting
+  progress?: {
+    enabled?: boolean;
+    onProgress?: (event: any) => void;
+    updateInterval?: number;
+    reportLines?: boolean;
+  };
   
   // Специфичные для адаптеров
   adapter?: AdapterType;

@@ -1,6 +1,7 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
-import { $, MockAdapter, CommandError, createExecutionEngine } from '../src/index.js';
+import { MockAdapter } from '../src/adapters/mock-adapter.js';
+import { $, CommandError, ExecutionEngine, createCallableEngine } from '../src/index.js';
 
 describe('Unified Execution Engine - Specification', () => {
   describe('Main API - zx style', () => {
@@ -72,19 +73,19 @@ describe('Unified Execution Engine - Specification', () => {
 
   describe('Testing and mocking', () => {
     let mockAdapter: MockAdapter;
-    let $mock: ReturnType<typeof createExecutionEngine>;
+    let $mock: any;
 
     beforeEach(() => {
-      const engine = createExecutionEngine();
+      const engine = new ExecutionEngine();
       mockAdapter = new MockAdapter();
       engine.registerAdapter('mock', mockAdapter);
-      $mock = engine.with({ adapter: 'mock' as any });
+      $mock = createCallableEngine(engine).with({ adapter: 'mock' as any });
     });
 
     it('should support Mock adapter for tests', async () => {
-      mockAdapter.mockCommand('git pull', { stdout: 'Already up to date.' });
-      mockAdapter.mockCommand('npm install', { stdout: 'added 150 packages' });
-      mockAdapter.mockCommand('npm run build', { stdout: 'Build successful' });
+      mockAdapter.mockCommand('sh -c "git pull"', { stdout: 'Already up to date.' });
+      mockAdapter.mockCommand('sh -c "npm install"', { stdout: 'added 150 packages' });
+      mockAdapter.mockCommand('sh -c "npm run build"', { stdout: 'Build successful' });
 
       const pullResult = await $mock`git pull`;
       expect(pullResult.stdout).toBe('Already up to date.');
@@ -96,11 +97,11 @@ describe('Unified Execution Engine - Specification', () => {
       expect(buildResult.stdout).toBe('Build successful');
 
       const commands = mockAdapter.getExecutedCommands();
-      expect(commands).toEqual(['git pull', 'npm install', 'npm run build']);
+      expect(commands).toEqual(['sh -c "git pull"', 'sh -c "npm install"', 'sh -c "npm run build"']);
     });
 
     it('should support regex patterns in mocks', async () => {
-      mockAdapter.mockCommand(/^docker/, { stdout: 'Docker output', exitCode: 0 });
+      mockAdapter.mockCommand(/^sh -c "docker/, { stdout: 'Docker output', exitCode: 0 });
 
       const result1 = await $mock`docker ps`;
       const result2 = await $mock`docker images`;
@@ -129,20 +130,21 @@ describe('Unified Execution Engine - Specification', () => {
     });
 
     it('should support CI/CD pipeline scenario', async () => {
-      const $ciEngine = createExecutionEngine();
+      const engine = new ExecutionEngine();
       const mockAdapter = new MockAdapter();
-      $ciEngine.registerAdapter('mock', mockAdapter);
+      engine.registerAdapter('mock', mockAdapter);
+      const $ciEngine = createCallableEngine(engine);
 
       // Setup mocks for CI pipeline
-      mockAdapter.mockSuccess('npm test -- --json', JSON.stringify({
+      mockAdapter.mockSuccess('sh -c "npm test -- --json"', JSON.stringify({
         numFailedTests: 0,
         numPassedTests: 10
       }));
-      mockAdapter.mockSuccess('git describe --tags --always', 'v1.2.3');
-      mockAdapter.mockSuccess(/^docker build/, '');
-      mockAdapter.mockSuccess(/^docker run/, 'container-id');
-      mockAdapter.mockSuccess(/^docker rm/, '');
-      mockAdapter.mockSuccess(/^docker push/, '');
+      mockAdapter.mockSuccess('sh -c "git describe --tags --always"', 'v1.2.3');
+      mockAdapter.mockSuccess(/^sh -c "docker build/, '');
+      mockAdapter.mockSuccess(/^sh -c "docker run/, 'container-id');
+      mockAdapter.mockSuccess(/^sh -c "docker rm/, '');
+      mockAdapter.mockSuccess(/^sh -c "docker push/, '');
 
       const $ci = $ciEngine.with({
         env: { NODE_ENV: 'test', CI: 'true' },
@@ -168,8 +170,8 @@ describe('Unified Execution Engine - Specification', () => {
 
       // Check executed commands
       const executedCommands = mockAdapter.getExecutedCommands();
-      expect(executedCommands).toContain('npm test -- --json');
-      expect(executedCommands).toContain('git describe --tags --always');
+      expect(executedCommands).toContain('sh -c "npm test -- --json"');
+      expect(executedCommands).toContain('sh -c "git describe --tags --always"');
       expect(executedCommands.some(cmd => cmd.includes('docker build'))).toBe(true);
       expect(executedCommands.some(cmd => cmd.includes('docker push'))).toBe(true);
     });
@@ -177,9 +179,10 @@ describe('Unified Execution Engine - Specification', () => {
 
   describe('Integration with various runtimes', () => {
     it('should automatically detect runtime', async () => {
-      const $runtimeEngine = createExecutionEngine({
+      const engine = new ExecutionEngine({
         runtime: { preferBun: true }
       });
+      const $runtimeEngine = createCallableEngine(engine);
 
       // Should work regardless of runtime
       const result = await $runtimeEngine`echo "Works in any runtime"`;

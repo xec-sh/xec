@@ -1,10 +1,11 @@
 import { it, expect, describe } from '@jest/globals';
 
-import { createExecutionEngine } from '../../../src/index.js';
 import { TransferEngine } from '../../../src/utils/transfer.js';
+import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 describe('Transfer Utils', () => {
-  const $ = createExecutionEngine();
+  const engine = new ExecutionEngine();
+  const $ = createCallableEngine(engine);
 
   describe('TransferEngine', () => {
     describe('parseEnvironment', () => {

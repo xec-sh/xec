@@ -1,175 +1,114 @@
-import { ExecutionResult } from './core/result.js';
 import { CallableExecutionEngine } from './types.js';
-import { Command, AdapterType, SSHAdapterOptions, DockerAdapterOptions } from './core/command.js';
-import { ProcessPromise, ExecutionEngine, ExecutionEngineConfig } from './core/execution-engine.js';
+import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-engine.js';
 
-// Re-export types
-export type {
-  Command,
-  AdapterType,
-  ProcessPromise,
-  ExecutionResult,
-  SSHAdapterOptions,
-  DockerAdapterOptions,
-  ExecutionEngineConfig,
-  CallableExecutionEngine
-};
+export { pipe } from './utils/pipe.js';
+export { SSHAdapter } from './adapters/ssh-adapter.js';
 
-export * from './utils/pipe.js';
+export { LocalAdapter } from './adapters/local-adapter.js';
 
-export * from './utils/temp.js';
-export * from './utils/retry.js';
-export * from './utils/within.js';
+export type { ExecutionEngineConfig };
 
-// Helper to wrap ExecutionEngine into a callable function
-function wrapEngine(engine: ExecutionEngine): CallableExecutionEngine {
-  // Create a function that also has all the methods of ExecutionEngine
-  const execFunction = async (strings: TemplateStringsArray, ...values: any[]): Promise<ExecutionResult> => engine.run(strings, ...values);
+// Essential utilities
+export { withTempDir, withTempFile } from './utils/temp.js';
 
-  // Copy all methods from engine to the function
-  const prototype = Object.getPrototypeOf(engine);
-  const propertyNames = Object.getOwnPropertyNames(prototype);
+// For advanced users who need direct access
+export { ExecutionEngine } from './core/execution-engine.js';
+export { DockerAdapter } from './adapters/docker-adapter.js';
 
-  for (const name of propertyNames) {
-    if (name !== 'constructor') {
-      const prop = (engine as any)[name];
-      if (typeof prop === 'function') {
-        // These methods return ExecutionEngine, so wrap the result
-        if (name === 'with' || name === 'ssh' || name === 'docker' || name === 'local' || name === 'cd' || name === 'env' || name === 'timeout' || name === 'shell' || name === 'withRetry') {
-          (execFunction as any)[name] = function (...args: any[]) {
-            const result = prop.apply(engine, args);
-            return wrapEngine(result);
-          };
-        } else {
-          (execFunction as any)[name] = prop.bind(engine);
-        }
-      }
-    }
-  }
+export { KubernetesAdapter } from './adapters/kubernetes-adapter.js';
 
-  // Copy non-function properties
-  const engineProps = Object.getOwnPropertyNames(engine);
-  for (const name of engineProps) {
-    if (!(name in execFunction)) {
-      const descriptor = Object.getOwnPropertyDescriptor(engine, name);
-      if (descriptor) {
-        Object.defineProperty(execFunction, name, descriptor);
-      }
-    }
-  }
-
-  // Add static properties
-  Object.setPrototypeOf(execFunction, engine);
-
-  // Add engine property for accessing raw engine
-  (execFunction as any).engine = engine;
-
-  return execFunction as any;
-}
-
-// Factory function to create execution engine
-export function createExecutionEngine(config?: ExecutionEngineConfig): CallableExecutionEngine {
-  const engine = new ExecutionEngine(config);
-  return wrapEngine(engine);
-}
-
-// Default export with global configuration
-let defaultEngine: ReturnType<typeof createExecutionEngine> | null = null;
-
-export function getDefaultEngine(): ReturnType<typeof createExecutionEngine> {
-  if (!defaultEngine) {
-    defaultEngine = createExecutionEngine();
-  }
-  return defaultEngine;
-}
-
-// Configure default engine
-export function configure(config: ExecutionEngineConfig): void {
-  defaultEngine = createExecutionEngine(config);
-}
-
-// Convenience export
-export const $ = new Proxy((() => { }) as any, {
-  get(target, prop) {
-    const engine = getDefaultEngine();
-    if (prop in engine) {
+// Create a Proxy-based wrapper for cleaner API
+function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
+  return new Proxy(function() {} as any, {
+    // Handle function calls like $`ls`
+    apply(target, thisArg, [strings, ...values]) {
+      return engine.run(strings, ...values);
+    },
+    
+    // Handle property access like $.ssh()
+    get(target, prop: string) {
       const value = (engine as any)[prop];
+      
       if (typeof value === 'function') {
+        // Methods that return a new engine instance
+        const chainableMethods = [
+          'with', 'ssh', 'docker', 'kubernetes', 'remoteDocker', 
+          'local', 'cd', 'env', 'timeout', 'shell', 'withRetry'
+        ];
+        
+        if (chainableMethods.includes(prop)) {
+          return (...args: any[]) => {
+            const newEngine = value.apply(engine, args);
+            return createCallableEngine(newEngine);
+          };
+        }
+        
+        // Regular methods
         return value.bind(engine);
       }
+      
       return value;
     }
-    return undefined;
+  }) as CallableExecutionEngine;
+}
+
+// Global instance
+let defaultEngine: CallableExecutionEngine | null = null;
+
+// Main export - the $ function
+export const $ = new Proxy(function() {} as any, {
+  get(target, prop: string) {
+    if (!defaultEngine) {
+      defaultEngine = createCallableEngine(new ExecutionEngine());
+    }
+    return (defaultEngine as any)[prop];
   },
-  apply(target, thisArg, argumentsList) {
-    const engine = getDefaultEngine();
-    return (engine as any)(...argumentsList);
+  
+  apply(target, thisArg, args) {
+    if (!defaultEngine) {
+      defaultEngine = createCallableEngine(new ExecutionEngine());
+    }
+    return (defaultEngine as any)(...args);
   }
 }) as CallableExecutionEngine;
 
-// Additional utility functions
-export async function exec(command: string, options?: Partial<Command>): Promise<ExecutionResult> {
-  const engine = getDefaultEngine();
-  return engine.execute({ command, shell: true, ...options });
+// Configuration function
+export function configure(config: ExecutionEngineConfig): void {
+  defaultEngine = createCallableEngine(new ExecutionEngine(config));
 }
 
-export async function spawn(command: string, args?: string[], options?: Partial<Command>): Promise<ExecutionResult> {
-  const engine = getDefaultEngine();
-  return engine.execute({ command, args, shell: false, ...options });
-}
+// That's it! Clean and simple API:
+// - $ for execution
+// - configure() for setup
+// - Essential types
+// - Core utilities
 
-// Helper to create engines with specific adapters
-export const ssh = (options: Omit<SSHAdapterOptions, 'type'>): CallableExecutionEngine => {
-  const engine = getDefaultEngine();
-  return engine.ssh(options);
-};
-
-export const docker = (options: Omit<DockerAdapterOptions, 'type'>): CallableExecutionEngine => {
-  const engine = getDefaultEngine();
-  return engine.docker(options);
-};
-
-export const local = (): CallableExecutionEngine => {
-  const engine = getDefaultEngine();
-  return engine.local();
-};
-
-
-export * from './utils/stream.js';
-export * from './utils/parallel.js';
-export * from './utils/transfer.js';
-
-export * from './utils/templates.js';
-// Export global $ instance
-export { $ as $$ } from './global.js';
-
-export * from './utils/interactive.js';
-export { withSpinner } from './utils/interactive.js';
-
-export { SSHAdapter } from './adapters/ssh-adapter.js';
-// Mock adapter for testing
-export { MockAdapter } from './adapters/mock-adapter.js';
-
-// Export adapters for direct usage
-export { BaseAdapter } from './adapters/base-adapter.js';
-export { LocalAdapter } from './adapters/local-adapter.js';
-// Runtime detection utility
-export { RuntimeDetector } from './utils/runtime-detect.js';
-export { DockerAdapter } from './adapters/docker-adapter.js';
-// Keep createEnhancedEngine as deprecated alias for backward compatibility
-export const createEnhancedEngine = createExecutionEngine;
-export { ProcessOutput, type ProcessOutputOptions } from './core/process-output.js';
-// Re-export errors
+// Audit logging
+export { AuditLogger, getAuditLogger } from './utils/audit-logger.js';
+export { RemoteDockerAdapter } from './adapters/remote-docker-adapter.js';
+// Progress reporting (commonly used)
 export {
-  DockerError,
+  type ProgressEvent,
+  type ProgressOptions
+} from './utils/progress.js';
+// Core errors
+export {
   CommandError,
   TimeoutError,
-  AdapterError,
-  ExecutionError,
   ConnectionError
 } from './core/error.js';
-export type { SSHAdapterConfig } from './adapters/ssh-adapter.js';
-// Re-export adapter configs
-export type { LocalAdapterConfig } from './adapters/local-adapter.js';
+// Core types that users need
+export type { ExecutionResult } from './core/result.js';
+export type { ProcessPromise } from './core/execution-engine.js';
+export type { AuditEntry, AuditLoggerConfig } from './utils/audit-logger.js';
+export type {
+  Command,
+  AdapterType,
+  SSHAdapterOptions,
+  DockerAdapterOptions,
+  KubernetesAdapterOptions,
+  RemoteDockerAdapterOptions
+} from './core/command.js';
 
-export type { DockerAdapterConfig } from './adapters/docker-adapter.js';
+// Export createCallableEngine for testing
+export { createCallableEngine };

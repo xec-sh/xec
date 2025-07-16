@@ -11,6 +11,12 @@ import {
   TimeoutError,
   ValidationError 
 } from '../core/errors.js';
+import {
+  getProgressTracker,
+  getRealTimeMonitor,
+  ProgressTracker,
+  RealTimeMonitor
+} from '../monitoring/index.js';
 
 import type { Task, Recipe, Variables, TaskResult, TaskContext, TaskHandler } from '../core/types.js';
 
@@ -57,6 +63,8 @@ export class RecipeExecutor {
   private skipped: Set<string> = new Set();
   private startTime: number = 0;
   private context: ExecutionContext;
+  private progressTracker: ProgressTracker;
+  private monitor: RealTimeMonitor;
 
   constructor(
     private recipe: Recipe,
@@ -83,6 +91,10 @@ export class RecipeExecutor {
       hosts: options.hosts,
       tags: options.tags
     }).build();
+    
+    // Initialize monitoring
+    this.progressTracker = getProgressTracker();
+    this.monitor = getRealTimeMonitor();
   }
 
   async execute(): Promise<ExecutionResult> {
@@ -150,12 +162,14 @@ export class RecipeExecutor {
 
   private async executeTask(scheduled: ScheduledTask): Promise<void> {
     const task = scheduled.task;
+    const taskStartTime = Date.now();
     
     try {
       if (!this.shouldExecuteTask(task)) {
         this.scheduler.markTaskSkipped(task.id);
         this.skipped.add(task.id);
         this.context.logger.info(`Skipping task ${task.id}: conditions not met`);
+        this.monitor.onTaskSkipped(task.id, task.name, 'conditions not met');
         return;
       }
 
@@ -169,12 +183,24 @@ export class RecipeExecutor {
 
       this.scheduler.markTaskStarted(task.id);
       this.context.logger.info(`Starting task ${task.id}: ${task.description || ''}`);
+      
+      // Start monitoring
+      this.progressTracker.startTask(task.id, task.name, 100, { 
+        description: task.description
+      });
+      this.monitor.onTaskStart(this.context, task.id, task.name);
 
       const result = await this.runTask(task);
       
       this.results.set(task.id, result);
       this.scheduler.markTaskCompleted(task.id);
+      
+      const duration = Date.now() - taskStartTime;
       this.context.logger.info(`Completed task ${task.id}`);
+      
+      // Complete monitoring
+      this.progressTracker.completeTask(task.id, 'Success');
+      this.monitor.onTaskComplete(task.id, result, duration);
 
       if (this.recipe.hooks?.afterEach) {
         await contextProvider.run(this.context, () => 
@@ -184,6 +210,9 @@ export class RecipeExecutor {
       
       await this.runHook('afterTask', task, result);
     } catch (error) {
+      const duration = Date.now() - taskStartTime;
+      this.progressTracker.failTask(task.id, error as Error);
+      this.monitor.onTaskError(task.id, error as Error, duration);
       await this.handleTaskError(task, error as Error);
     }
   }
@@ -301,6 +330,13 @@ export class RecipeExecutor {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const attemptContext = { ...context, attempt };
+        
+        // Update progress for retry attempt
+        if (attempt > 1) {
+          this.progressTracker.updateTask(task.id, (attempt - 1) * (100 / maxAttempts), 
+            `Retry attempt ${attempt}/${maxAttempts}`);
+        }
+        
         const result = await this.executeHandler(task, attemptContext);
         
         if (attempt > 1) {
@@ -316,6 +352,10 @@ export class RecipeExecutor {
           this.context.logger.warn(
             `Task ${task.id} failed on attempt ${attempt}/${maxAttempts}, retrying in ${waitTime}ms`
           );
+          
+          // Monitor retry
+          this.monitor.onTaskRetry(task.id, attempt, lastError);
+          
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }

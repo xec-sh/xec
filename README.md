@@ -11,7 +11,7 @@ Xec is a modern infrastructure orchestration system built with TypeScript, inspi
 
 Xec follows a monorepo architecture with three main packages:
 
-- **Execution Engine** (`@xec/ush`) - Universal execution engine for local, SSH, and Docker commands
+- **Execution Engine** (`@xec/ush`) - Universal shell execution engine for local, SSH, and Docker commands
 - **Core Engine** (`@xec/core`) - Orchestration engine with state management and deployment patterns
 - **CLI Application** (`@xec/cli`) - Command-line interface with dynamic commands and scripting
 
@@ -19,7 +19,7 @@ Xec follows a monorepo architecture with three main packages:
 
 ### Execution Engine (`@xec/ush`)
 
-Universal execution engine inspired by Google's zx:
+Universal shell execution engine inspired by Google's zx:
 
 - **Multi-environment execution** - Local, SSH, Docker adapters
 - **Template literal API** - Intuitive command syntax with automatic escaping

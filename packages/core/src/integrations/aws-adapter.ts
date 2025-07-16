@@ -26,6 +26,7 @@ export interface AWSResource {
 export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
   private awsConfig: AWSConfig;
   private sdkClients: Map<string, any> = new Map();
+  private connected = false;
 
   constructor(config: AWSConfig = {}) {
     const baseConfig: AdapterConfig = {
@@ -53,19 +54,23 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
       process.env.AWS_ACCESS_KEY_ID;
 
     if (!hasCredentials) {
-      throw new Error('AWS credentials not configured. Set AWS_PROFILE or provide accessKeyId/secretAccessKey');
+      throw new Error('AWS credentials not configured');
     }
 
-    (this as any).connected = true;
+    this.connected = true;
   }
 
   async disconnect(): Promise<void> {
     this.sdkClients.clear();
-    (this as any).connected = false;
+    this.connected = false;
+  }
+
+  isConnected(): boolean {
+    return this.connected;
   }
 
   async execute(operation: string, params: any = {}): Promise<any> {
-    if (!(this as any).connected) {
+    if (!this.connected) {
       await this.connect();
     }
 
@@ -80,6 +85,8 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
         return this.executeLambda(action, params);
       case 'cloudformation':
         return this.executeCloudFormation(action, params);
+      case 'sts':
+        return this.executeSTS(action, params);
       default:
         throw new Error(`Unsupported AWS service: ${service}`);
     }
@@ -118,6 +125,18 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
           }))
         };
 
+      case 'startInstances':
+        return {
+          StartingInstances: params.InstanceIds.map((id: string) => ({
+            InstanceId: id,
+            CurrentState: { Name: 'pending' },
+            PreviousState: { Name: 'stopped' }
+          }))
+        };
+
+      case 'createTags':
+        return {};
+
       default:
         throw new Error(`Unsupported EC2 action: ${action}`);
     }
@@ -140,7 +159,7 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
 
       case 'putObject':
         return {
-          ETag: '"' + Buffer.from(params.Body).toString('base64').slice(0, 32) + '"'
+          ETag: '"' + Buffer.from(params.Body || '').toString('base64').slice(0, 32) + '"'
         };
 
       case 'getObject':
@@ -148,6 +167,13 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
           Body: Buffer.from('Example content'),
           ContentType: 'text/plain'
         };
+
+      case 'putBucketVersioning':
+      case 'putBucketEncryption':
+      case 'putPublicAccessBlock':
+      case 'deleteObject':
+      case 'deleteBucket':
+        return {};
 
       default:
         throw new Error(`Unsupported S3 action: ${action}`);
@@ -172,6 +198,14 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
           Payload: JSON.stringify({ success: true })
         };
 
+      case 'createFunction':
+        return {
+          FunctionName: params.FunctionName,
+          FunctionArn: `arn:aws:lambda:${this.awsConfig.region}:123456789012:function:${params.FunctionName}`,
+          Runtime: params.Runtime,
+          Handler: params.Handler
+        };
+
       default:
         throw new Error(`Unsupported Lambda action: ${action}`);
     }
@@ -193,14 +227,104 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
           StackId: `arn:aws:cloudformation:${this.awsConfig.region}:123456789012:stack/${params.StackName}/${Date.now()}`
         };
 
+      case 'listStacks':
+        return {
+          StackSummaries: [{
+            StackName: 'test-stack',
+            StackStatus: 'CREATE_COMPLETE',
+            CreationTime: new Date()
+          }]
+        };
+
       default:
         throw new Error(`Unsupported CloudFormation action: ${action}`);
     }
   }
 
+  private async executeSTS(action: string, params: any): Promise<any> {
+    switch (action) {
+      case 'getCallerIdentity':
+        return {
+          Account: '123456789012',
+          Arn: 'arn:aws:iam::123456789012:user/test',
+          UserId: 'AIDAI23HXD3MBVFX6Z3XYZ'
+        };
+      default:
+        throw new Error(`Unsupported STS action: ${action}`);
+    }
+  }
+
+  // Resource operations
+  async getResource(arn: string): Promise<any> {
+    const parts = arn.split(':');
+    const service = parts[2];
+    const resourceType = parts[5]?.split('/')[0]; // Handle instance/i-xxx format
+    const resourceId = parts[5]?.split('/')[1] || parts[6];
+
+    if (service === 'ec2' && resourceType === 'instance') {
+      const result = await this.execute('ec2.describeInstances', {
+        InstanceIds: [resourceId]
+      });
+      return {
+        type: 'ec2:instance',
+        id: resourceId,
+        data: result.Reservations[0].Instances[0]
+      };
+    }
+
+    throw new Error(`Unsupported resource type: ${service}:${resourceType}`);
+  }
+
+  async listResources(type: string, options?: any): Promise<any[]> {
+    if (type === 'ec2:instance') {
+      const filters = options?.filters ? Object.entries(options.filters).map(
+        ([Name, Values]) => ({ Name, Values: [Values] })
+      ) : undefined;
+
+      const result = await this.execute('ec2.describeInstances', { Filters: filters });
+      return result.Reservations.flatMap((r: any) => r.Instances);
+    }
+
+    return [];
+  }
+
+  async tagResource(arn: string, tags: Record<string, string>): Promise<void> {
+    const parts = arn.split(':');
+    const service = parts[2];
+    const resourceId = parts[6];
+
+    if (service === 'ec2') {
+      await this.execute('ec2.createTags', {
+        Resources: [resourceId],
+        Tags: Object.entries(tags).map(([Key, Value]) => ({ Key, Value }))
+      });
+    }
+  }
+
+  async deleteResource(arn: string): Promise<void> {
+    if (arn.startsWith('arn:aws:s3:::')) {
+      const parts = arn.replace('arn:aws:s3:::', '').split('/');
+      const bucket = parts[0];
+      const key = parts.slice(1).join('/');
+
+      if (key) {
+        await this.execute('s3.deleteObject', { Bucket: bucket, Key: key });
+      } else {
+        await this.execute('s3.deleteBucket', { Bucket: bucket });
+      }
+    }
+  }
+
   // Task generators for common AWS operations
-  createEC2InstanceTask(name: string, options: any = {}): Task {
-    return task(name)
+  createEC2InstanceTask(options: {
+    name: string;
+    instanceType: string;
+    ami: string;
+    keyName?: string;
+    securityGroups?: string[];
+    tags?: Record<string, string>;
+  }): Task {
+    return task(`create-ec2-${options.name}`)
       .description('Launch EC2 instance')
       .vars({
         imageId: { required: true },
@@ -211,19 +335,19 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
       })
       .handler(async (context) => {
         const result = await this.execute('ec2.runInstances', {
-          ImageId: context.vars.imageId,
-          InstanceType: context.vars.instanceType,
+          ImageId: options.ami || context.vars.imageId,
+          InstanceType: options.instanceType || context.vars.instanceType,
           MinCount: 1,
           MaxCount: 1,
-          KeyName: context.vars.keyName,
-          SecurityGroups: context.vars.securityGroups,
-          TagSpecifications: [{
+          KeyName: options.keyName || context.vars.keyName,
+          SecurityGroups: options.securityGroups || context.vars.securityGroups,
+          TagSpecifications: options.tags ? [{
             ResourceType: 'instance',
-            Tags: Object.entries(context.vars.tags).map(([k, v]) => ({
+            Tags: Object.entries(options.tags).map(([k, v]) => ({
               Key: k,
               Value: String(v)
             }))
-          }]
+          }] : undefined
         });
 
         const instance = result.Instances[0];
@@ -237,8 +361,14 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
       .build();
   }
 
-  createS3BucketTask(name: string, options: any = {}): Task {
-    return task(name)
+  createS3BucketTask(options: {
+    name: string;
+    region?: string;
+    versioning?: boolean;
+    encryption?: boolean;
+    publicAccess?: boolean;
+  }): Task {
+    return task(`create-s3-${options.name}`)
       .description('Create S3 bucket')
       .vars({
         bucketName: { required: true },
@@ -246,20 +376,78 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
         acl: { default: 'private' }
       })
       .handler(async (context) => {
-        const result = await this.execute('s3.createBucket', {
-          Bucket: context.vars.bucketName,
-          ACL: context.vars.acl,
-          CreateBucketConfiguration: {
-            LocationConstraint: context.vars.region
-          }
+        const bucketName = options.name || context.vars.bucketName;
+        
+        await this.execute('s3.createBucket', {
+          Bucket: bucketName,
+          CreateBucketConfiguration: options.region ? {
+            LocationConstraint: options.region
+          } : undefined
         });
 
-        context.logger.info(`Created S3 bucket: ${context.vars.bucketName}`);
+        if (options.versioning) {
+          await this.execute('s3.putBucketVersioning', {
+            Bucket: bucketName,
+            VersioningConfiguration: { Status: 'Enabled' }
+          });
+        }
 
-        return {
-          bucketName: context.vars.bucketName,
-          location: result.Location
-        };
+        if (options.encryption) {
+          await this.execute('s3.putBucketEncryption', {
+            Bucket: bucketName,
+            ServerSideEncryptionConfiguration: {
+              Rules: [{
+                ApplyServerSideEncryptionByDefault: {
+                  SSEAlgorithm: 'AES256'
+                }
+              }]
+            }
+          });
+        }
+
+        if (options.publicAccess === false) {
+          await this.execute('s3.putPublicAccessBlock', {
+            Bucket: bucketName,
+            PublicAccessBlockConfiguration: {
+              BlockPublicAcls: true,
+              BlockPublicPolicy: true,
+              IgnorePublicAcls: true,
+              RestrictPublicBuckets: true
+            }
+          });
+        }
+
+        context.logger.info(`Created S3 bucket: ${bucketName}`);
+
+        return { Bucket: bucketName };
+      })
+      .build();
+  }
+
+  createLambdaFunctionTask(options: {
+    name: string;
+    runtime: string;
+    handler: string;
+    code: any;
+    role: string;
+    environment?: Record<string, string>;
+  }): Task {
+    return task(`create-lambda-${options.name}`)
+      .description('Create Lambda function')
+      .handler(async (context) => {
+        const result = await this.execute('lambda.createFunction', {
+          FunctionName: options.name,
+          Runtime: options.runtime,
+          Handler: options.handler,
+          Code: options.code,
+          Role: options.role,
+          Environment: options.environment ? {
+            Variables: options.environment
+          } : undefined
+        });
+
+        context.logger.info(`Created Lambda function: ${options.name}`);
+        return result;
       })
       .build();
   }
@@ -286,6 +474,30 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
           statusCode: result.StatusCode,
           response
         };
+      })
+      .build();
+  }
+
+  createCloudFormationStackTask(options: {
+    name: string;
+    templateBody: string;
+    parameters?: Record<string, string>;
+    capabilities?: string[];
+  }): Task {
+    return task(`create-cfn-${options.name}`)
+      .description('Create CloudFormation stack')
+      .handler(async (context) => {
+        const result = await this.execute('cloudformation.createStack', {
+          StackName: options.name,
+          TemplateBody: options.templateBody,
+          Parameters: options.parameters ? Object.entries(options.parameters).map(
+            ([ParameterKey, ParameterValue]) => ({ ParameterKey, ParameterValue })
+          ) : undefined,
+          Capabilities: options.capabilities
+        });
+
+        context.logger.info(`Created CloudFormation stack: ${options.name}`);
+        return result;
       })
       .build();
   }
@@ -335,10 +547,12 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
 
   getTasks(): Record<string, Task> {
     return {
-      'aws-ec2-launch': this.createEC2InstanceTask('aws-ec2-launch'),
-      'aws-s3-create': this.createS3BucketTask('aws-s3-create'),
+      'aws-ec2-launch': this.createEC2InstanceTask({ name: 'aws-ec2-launch', instanceType: 't2.micro', ami: 'ami-12345678' }),
+      'aws-s3-create': this.createS3BucketTask({ name: 'aws-s3-create' }),
       'aws-lambda-invoke': this.invokeLambdaTask('aws-lambda-invoke'),
-      'aws-cf-deploy': this.deployCloudFormationTask('aws-cf-deploy')
+      'aws-lambda-create': this.createLambdaFunctionTask({ name: 'aws-lambda-create', runtime: 'nodejs18.x', handler: 'index.handler', code: {}, role: 'arn:aws:iam::123456789012:role/lambda-role' }),
+      'aws-cf-deploy': this.deployCloudFormationTask('aws-cf-deploy'),
+      'aws-cf-create': this.createCloudFormationStackTask({ name: 'aws-cf-create', templateBody: '{}' })
     };
   }
 
@@ -356,23 +570,50 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
 
   async healthCheck(): Promise<boolean> {
     try {
+      if (!this.connected) {
+        return false;
+      }
       // Try to get caller identity
-      await this.execute('sts.getCallerIdentity');
+      const client = this.getClient('sts');
+      if (client.getCallerIdentity) {
+        await client.getCallerIdentity().promise();
+      }
       return true;
     } catch {
       return false;
     }
   }
 
+  private getClient(service: string): any {
+    if (!this.sdkClients.has(service)) {
+      // Mock client for testing
+      this.sdkClients.set(service, {
+        getCallerIdentity: () => ({
+          promise: () => Promise.resolve({ Account: '123456789012' })
+        })
+      });
+    }
+    return this.sdkClients.get(service);
+  }
+
   validateConfig(config: any): boolean {
-    // Basic validation
-    if (!config) return false;
+    // Check for valid region
+    const validRegions = [
+      'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
+      'eu-west-1', 'eu-west-2', 'eu-central-1',
+      'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1'
+    ];
+    
+    if (config.region && !validRegions.includes(config.region)) {
+      return false;
+    }
 
-    // Check if we have valid credentials
-    if (config.accessKeyId && !config.secretAccessKey) return false;
-    if (!config.region && !process.env.AWS_REGION) return false;
+    // Check for credentials
+    const hasAccessKeys = !!(config.accessKeyId && config.secretAccessKey);
+    const hasProfile = !!config.profile;
+    const hasEnvCredentials = !!process.env.AWS_ACCESS_KEY_ID;
 
-    return true;
+    return hasAccessKeys || hasProfile || hasEnvCredentials;
   }
 }
 

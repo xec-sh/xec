@@ -123,6 +123,32 @@ export class DockerAdapter extends BaseAdapter {
     return null;
   }
 
+  /**
+   * Detect if the current environment supports TTY
+   */
+  private supportsTTY(): boolean {
+    return process.stdin.isTTY && process.stdout.isTTY && process.stderr.isTTY;
+  }
+
+  /**
+   * Get optimal TTY settings based on environment and command
+   */
+  private getTTYSettings(dockerOptions: DockerAdapterOptions, command: Command): { interactive: boolean; tty: boolean } {
+    const envSupportsTTY = this.supportsTTY();
+    const requestedTTY = dockerOptions.tty ?? this.dockerConfig.defaultExecOptions?.Tty ?? false;
+    const hasStdin = !!command.stdin;
+    
+    // If TTY is explicitly requested but environment doesn't support it, warn
+    if (requestedTTY && !envSupportsTTY) {
+      console.warn('TTY requested but not available in current environment');
+    }
+    
+    return {
+      interactive: hasStdin || (requestedTTY && envSupportsTTY),
+      tty: requestedTTY && envSupportsTTY
+    };
+  }
+
   private async containerExists(container: string): Promise<boolean> {
     try {
       const result = await this.executeDockerCommand(['inspect', container], {});
@@ -171,13 +197,16 @@ export class DockerAdapter extends BaseAdapter {
   ): string[] {
     const args = ['exec'];
 
-    // Add interactive flag if stdin is provided
-    if (command.stdin) {
+    // Get optimal TTY settings
+    const ttySettings = this.getTTYSettings(dockerOptions, command);
+    
+    // Add interactive flag
+    if (ttySettings.interactive) {
       args.push('-i');
     }
 
     // Add TTY flag
-    if (this.dockerConfig.defaultExecOptions?.Tty) {
+    if (ttySettings.tty) {
       args.push('-t');
     }
 
@@ -234,22 +263,28 @@ export class DockerAdapter extends BaseAdapter {
       maxBuffer: this.config.maxBuffer
     });
 
+    // Check if we're running with TTY
+    const hasTTY = args.includes('-t');
+    const hasInteractive = args.includes('-i');
+
     const child = spawn('docker', args, {
       env: process.env,
-      windowsHide: true
+      windowsHide: true,
+      // Inherit stdio for interactive TTY mode to support proper terminal interaction
+      stdio: hasTTY && hasInteractive && process.stdin.isTTY ? ['inherit', 'inherit', 'inherit'] : ['pipe', 'pipe', 'pipe']
     });
 
-    // Handle stdin
-    if (command.stdin) {
+    // Handle stdin only if not in inherit mode
+    if (child.stdin && command.stdin) {
       if (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin)) {
-        child.stdin?.write(command.stdin);
-        child.stdin?.end();
+        child.stdin.write(command.stdin);
+        child.stdin.end();
       } else if (command.stdin instanceof Readable) {
-        command.stdin.pipe(child.stdin!);
+        command.stdin.pipe(child.stdin);
       }
     }
 
-    // Collect output
+    // Collect output only if not in inherit mode
     if (child.stdout) {
       child.stdout.pipe(stdoutHandler.createTransform());
     }

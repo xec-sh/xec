@@ -16,26 +16,22 @@ vi.mock('p-queue', () => ({
   }))
 }));
 
-vi.mock('../../../src/utils/logger.js', () => ({
-  createLogger: vi.fn(() => ({
+vi.mock('../../../src/utils/logger.js', () => {
+  const mockLogger = {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn()
-  })),
-  createTaskLogger: vi.fn(() => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  })),
-  createRecipeLogger: vi.fn(() => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  }))
-}));
+    error: vi.fn(),
+    child: vi.fn(() => mockLogger)
+  };
+
+  return {
+    Logger: vi.fn().mockImplementation(() => mockLogger),
+    createLogger: vi.fn(() => mockLogger),
+    createTaskLogger: vi.fn(() => mockLogger),
+    createRecipeLogger: vi.fn(() => mockLogger)
+  };
+});
 
 describe('engine/executor', () => {
   let mockRecipe: Recipe;

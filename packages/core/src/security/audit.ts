@@ -372,10 +372,13 @@ export class AuditLogger {
     const files = await fs.readdir(this.logPath);
     return files
       .filter(f => f.endsWith('.log'))
-      .sort((a, b) =>
-        // Sort by modification time, newest first
-        a.localeCompare(b)
-      );
+      .sort((a, b) => {
+        // audit.log should be last (newest)
+        if (a === 'audit.log') return 1;
+        if (b === 'audit.log') return -1;
+        // Sort rotated files chronologically
+        return a.localeCompare(b);
+      });
   }
 
   /**
@@ -433,6 +436,13 @@ export function getAuditLogger(options?: AuditLogOptions): AuditLogger {
     globalAuditLogger = new AuditLogger(options);
   }
   return globalAuditLogger;
+}
+
+/**
+ * Reset global audit logger (for testing)
+ */
+export function resetAuditLogger(): void {
+  globalAuditLogger = null;
 }
 
 /**

@@ -404,11 +404,7 @@ describe('orchestration/orchestrator', () => {
   });
 
   describe('concurrency control', () => {
-    // Note: These tests are skipped because the current implementation doesn't 
-    // properly enforce concurrency limits in the executeParallel method.
-    // The waitForCapacity method is only called within executeTask, but 
-    // executeParallel uses Promise.all which starts all tasks immediately.
-    it.skip('should respect maxConcurrency limit', async () => {
+    it('should respect maxConcurrency limit', async () => {
       orchestrator = new Orchestrator({ 
         strategy: 'parallel',
         maxConcurrency: 2 
@@ -433,7 +429,7 @@ describe('orchestration/orchestrator', () => {
       expect(maxRunning).toBeLessThanOrEqual(2);
     });
 
-    it.skip('should wait for capacity before starting new tasks', async () => {
+    it('should wait for capacity before starting new tasks', async () => {
       orchestrator = new Orchestrator({ 
         strategy: 'parallel',
         maxConcurrency: 1 

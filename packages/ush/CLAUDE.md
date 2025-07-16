@@ -1,4 +1,4 @@
-# @xec/ush - Universal Execution Engine
+# @xec/ush - Universal shell execution engine
 
 ## Package Overview
 Ush (Universal Execution) is a command execution library inspired by Google's zx, providing a unified API for executing commands across different environments (local, SSH, Docker).

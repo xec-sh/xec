@@ -8,16 +8,18 @@ import { TransferEngine } from '../utils/transfer.js';
 import { ParallelEngine } from '../utils/parallel.js';
 import { interpolate } from '../utils/shell-escape.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
-// Core features imports
-import { retry, expBackoff, RetryOptions } from '../utils/retry.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
 import { select, confirm, Spinner, question } from '../utils/interactive.js';
 import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
-import { Command, SSHAdapterOptions, DockerAdapterOptions } from './command.js';
 import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
+import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
+import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../adapters/remote-docker-adapter.js';
+// Core features imports
+import { withRetry as withRetryFunction, RetryOptions as RetryAdapterOptions } from '../utils/retry-adapter.js';
 import { TempDir, TempFile, TempOptions, withTempDir as _withTempDir, withTempFile as _withTempFile } from '../utils/temp.js';
+import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from './command.js';
 
 
 export interface ExecutionEngineConfig {
@@ -32,6 +34,8 @@ export interface ExecutionEngineConfig {
     local?: LocalAdapterConfig;
     ssh?: SSHAdapterConfig;
     docker?: DockerAdapterConfig;
+    kubernetes?: KubernetesAdapterConfig;
+    remoteDocker?: RemoteDockerAdapterConfig;
   };
   
   // Behavior
@@ -69,8 +73,7 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
 
 export class ExecutionEngine {
   // Core features
-  public readonly retry = retry;
-  public readonly expBackoff = expBackoff;
+  // Removed retry and expBackoff - use command-level retry options instead
   public readonly pipe = pipe;
   public readonly stream = stream;
   private _parallel?: ParallelEngine;
@@ -154,6 +157,23 @@ export class ExecutionEngine {
       };
       this.adapters.set('docker', new DockerAdapter(dockerConfig));
     }
+    // Initialize Kubernetes adapter if config provided
+    if (this.config.adapters?.kubernetes) {
+      const k8sConfig = {
+        ...this.getBaseAdapterConfig(),
+        ...this.config.adapters.kubernetes
+      };
+      this.adapters.set('kubernetes', new KubernetesAdapter(k8sConfig));
+    }
+    
+    // Initialize Remote Docker adapter if config provided
+    if (this.config.adapters?.remoteDocker) {
+      const remoteDockerConfig = {
+        ...this.getBaseAdapterConfig(),
+        ...this.config.adapters.remoteDocker
+      };
+      this.adapters.set('remote-docker', new RemoteDockerAdapter(remoteDockerConfig));
+    }
   }
 
   private getBaseAdapterConfig() {
@@ -181,6 +201,14 @@ export class ExecutionEngine {
     
     if (!adapter) {
       throw new AdapterError('unknown', 'execute', new Error('No suitable adapter found'));
+    }
+
+    // Apply retry logic if retry options are specified in the command
+    if (mergedCommand.retry && mergedCommand.retry.maxAttempts && mergedCommand.retry.maxAttempts > 0) {
+      return withRetryFunction(
+        () => adapter.execute(mergedCommand), 
+        mergedCommand.retry
+      );
     }
 
     return adapter.execute(mergedCommand);
@@ -441,6 +469,10 @@ export class ExecutionEngine {
           return this.adapters.get('ssh') || null;
         case 'docker':
           return this.adapters.get('docker') || null;
+        case 'kubernetes':
+          return this.adapters.get('kubernetes') || null;
+        case 'remote-docker':
+          return this.adapters.get('remote-docker') || null;
         case 'local':
           return this.adapters.get('local') || null;
         default:
@@ -454,34 +486,38 @@ export class ExecutionEngine {
   }
 
   // Enhanced retry method
-  withRetry(options: RetryOptions = {}): ExecutionEngine {
+  withRetry(options: RetryAdapterOptions = {}): ExecutionEngine {
     const originalExecute = this.execute.bind(this);
     
     const newEngine = Object.create(this);
-    newEngine.execute = async (cmd: Command): Promise<ExecutionResult> => retry(() => originalExecute(cmd), options);
+    newEngine.execute = async (cmd: Command): Promise<ExecutionResult> => {
+      // Merge command retry options with method options
+      const retryOptions = { ...options, ...cmd.retry };
+      return withRetryFunction(() => originalExecute(cmd), retryOptions);
+    };
     
     return newEngine;
   }
 
   // Enhanced temp methods
   async tempFile(options?: TempOptions): Promise<TempFile> {
-    const file = new TempFile(this, options);
+    const file = new TempFile(options);
     await file.create();
     return file;
   }
 
   async tempDir(options?: TempOptions): Promise<TempDir> {
-    const dir = new TempDir(this, options);
+    const dir = new TempDir(options);
     await dir.create();
     return dir;
   }
 
   async withTempFile<T>(fn: (path: string) => T | Promise<T>, options?: TempOptions): Promise<T> {
-    return _withTempFile(this, async (file) => fn(file.path), options);
+    return _withTempFile(async (file) => fn(file.path), options);
   }
 
   async withTempDir<T>(fn: (path: string) => T | Promise<T>, options?: TempOptions): Promise<T> {
-    return _withTempDir(this, async (dir) => fn(dir.path), options);
+    return _withTempDir(async (dir) => fn(dir.path), options);
   }
 
   // Enhanced interactive method  
@@ -547,6 +583,20 @@ export class ExecutionEngine {
     return this.with({
       adapter: 'docker',
       adapterOptions: { type: 'docker', ...options }
+    });
+  }
+  
+  kubernetes(options: Omit<KubernetesAdapterOptions, 'type'>): ExecutionEngine {
+    return this.with({
+      adapter: 'kubernetes',
+      adapterOptions: { type: 'kubernetes', ...options }
+    });
+  }
+
+  remoteDocker(options: Omit<RemoteDockerAdapterOptions, 'type'>): ExecutionEngine {
+    return this.with({
+      adapter: 'remote-docker',
+      adapterOptions: { type: 'remote-docker', ...options }
     });
   }
 
