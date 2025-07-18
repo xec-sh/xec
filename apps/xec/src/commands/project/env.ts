@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs/promises';
 import { Command } from 'commander';
-import { EnvironmentManager } from '@xec/core';
+import { EnvironmentManager } from '@xec-js/core';
 
 import { SubcommandBase } from '../../utils/command-base.js';
 import { errorMessages } from '../../utils/error-handler.js';
@@ -45,7 +45,7 @@ export class EnvCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     this.envManager = new EnvironmentManager();
   }
 
@@ -199,7 +199,7 @@ export class EnvCommand extends SubcommandBase {
           this.getVariableSource(key, options.global),
         ]),
       };
-      
+
       this.formatter.table(tableData);
     }
   }
@@ -207,7 +207,7 @@ export class EnvCommand extends SubcommandBase {
   private async getEnv(name: string, options: EnvOptions & { default?: string }): Promise<void> {
     const env = options.global ? process.env : await this.loadLocalEnv();
     const value = env[name] || options.default;
-    
+
     if (value === undefined) {
       throw errorMessages.configurationInvalid('variable', `Environment variable '${name}' not found`);
     }
@@ -248,17 +248,17 @@ export class EnvCommand extends SubcommandBase {
   private async loadEnv(options: EnvOptions & { merge?: boolean; override?: boolean }): Promise<void> {
     const envFile = options.file || '.env';
     const envPath = path.resolve(envFile);
-    
+
     try {
       const parsed = dotenv.config({ path: envPath });
-      
+
       if (parsed.error) {
         throw parsed.error;
       }
 
       const loadedCount = Object.keys(parsed.parsed || {}).length;
       this.log(`Loaded ${loadedCount} environment variables from ${envFile}`, 'success');
-      
+
       if (this.isVerbose()) {
         this.formatter.keyValue(parsed.parsed || {}, 'Loaded Variables');
       }
@@ -297,9 +297,9 @@ export class EnvCommand extends SubcommandBase {
 
   private async detectEnv(options: EnvOptions & { save?: boolean }): Promise<void> {
     this.log('Detecting environment configuration...', 'info');
-    
+
     const detected = await this.envManager.detectEnvironment();
-    
+
     this.formatter.keyValue({
       'Platform OS': detected.platform.os,
       'Architecture': detected.platform.arch,
@@ -331,7 +331,7 @@ export class EnvCommand extends SubcommandBase {
         `HAS_DOCKER=${detected.capabilities.docker}`,
         `HAS_SYSTEMD=${detected.capabilities.systemd}`,
       ].join('\n');
-      
+
       await fs.writeFile(envFile, envContent);
       this.log(`Detected environment saved to ${envFile}`, 'success');
     }
@@ -340,21 +340,21 @@ export class EnvCommand extends SubcommandBase {
   private async validateEnv(options: EnvOptions & { schema?: string }): Promise<void> {
     const envFile = options.file || '.env';
     const env = await this.loadEnvFile(envFile);
-    
+
     // Basic validation
     const issues: string[] = [];
-    
+
     Object.entries(env).forEach(([key, value]) => {
       // Check for empty values
       if (!value || value.trim() === '') {
         issues.push(`Empty value for ${key}`);
       }
-      
+
       // Check for suspicious patterns
       if (value.includes('TODO') || value.includes('FIXME') || value.includes('CHANGE_ME')) {
         issues.push(`Placeholder value in ${key}: ${value}`);
       }
-      
+
       // Check for potential secrets in key names
       if (key.toLowerCase().includes('password') || key.toLowerCase().includes('secret') || key.toLowerCase().includes('key')) {
         if (value.length < 8) {
@@ -362,7 +362,7 @@ export class EnvCommand extends SubcommandBase {
         }
       }
     });
-    
+
     if (issues.length > 0) {
       this.log(`Found ${issues.length} validation issues:`, 'warn');
       issues.forEach(issue => this.log(`  - ${issue}`, 'warn'));
@@ -374,26 +374,26 @@ export class EnvCommand extends SubcommandBase {
   private async diffEnv(env1: string, env2: string, options: { keysOnly?: boolean }): Promise<void> {
     const envData1 = await this.loadEnvFile(env1);
     const envData2 = await this.loadEnvFile(env2);
-    
+
     const keys1 = new Set(Object.keys(envData1));
     const keys2 = new Set(Object.keys(envData2));
-    
+
     const onlyIn1 = Array.from(keys1).filter(key => !keys2.has(key));
     const onlyIn2 = Array.from(keys2).filter(key => !keys1.has(key));
-    const different = Array.from(keys1).filter(key => 
+    const different = Array.from(keys1).filter(key =>
       keys2.has(key) && envData1[key] !== envData2[key]
     );
-    
+
     if (onlyIn1.length > 0) {
       this.log(`Variables only in ${env1}:`, 'info');
       onlyIn1.forEach(key => this.log(`  + ${key}`, 'info'));
     }
-    
+
     if (onlyIn2.length > 0) {
       this.log(`Variables only in ${env2}:`, 'info');
       onlyIn2.forEach(key => this.log(`  + ${key}`, 'info'));
     }
-    
+
     if (different.length > 0) {
       this.log('Different values:', 'warn');
       different.forEach(key => {
@@ -406,7 +406,7 @@ export class EnvCommand extends SubcommandBase {
         }
       });
     }
-    
+
     if (onlyIn1.length === 0 && onlyIn2.length === 0 && different.length === 0) {
       this.log('No differences found', 'success');
     }
@@ -415,28 +415,28 @@ export class EnvCommand extends SubcommandBase {
   private async generateTemplate(options: EnvOptions & { from?: string; includeComments?: boolean }): Promise<void> {
     const templateFile = options.file || '.env.template';
     let template = '';
-    
+
     if (options.includeComments) {
       template += '# Environment Configuration Template\n';
       template += `# Generated on ${new Date().toISOString()}\n`;
       template += '# Copy this file to .env and fill in the values\n\n';
     }
-    
+
     if (options.from) {
       const sourceEnv = await this.loadEnvFile(options.from);
-      
+
       Object.entries(sourceEnv).forEach(([key, value]) => {
         if (options.includeComments) {
           template += `# ${key}\n`;
         }
-        
+
         // Remove actual values for security
         if (key.toLowerCase().includes('password') || key.toLowerCase().includes('secret') || key.toLowerCase().includes('key')) {
           template += `${key}=\n`;
         } else {
           template += `${key}=${value}\n`;
         }
-        
+
         if (options.includeComments) {
           template += '\n';
         }
@@ -452,12 +452,12 @@ export class EnvCommand extends SubcommandBase {
         'SECRET_KEY=',
         'DEBUG=false',
       ];
-      
+
       commonVars.forEach(varLine => {
         template += `${varLine}\n`;
       });
     }
-    
+
     await fs.writeFile(templateFile, template);
     this.log(`Environment template generated: ${templateFile}`, 'success');
   }
@@ -465,7 +465,7 @@ export class EnvCommand extends SubcommandBase {
   private async loadLocalEnv(): Promise<Record<string, string>> {
     const envPaths = ['.env', '.env.local', '.env.development'];
     const env: Record<string, string> = {};
-    
+
     for (const envPath of envPaths) {
       try {
         const content = await fs.readFile(envPath, 'utf8');
@@ -475,7 +475,7 @@ export class EnvCommand extends SubcommandBase {
         // File doesn't exist, continue
       }
     }
-    
+
     return env;
   }
 
@@ -491,16 +491,16 @@ export class EnvCommand extends SubcommandBase {
   private async updateLocalEnv(name: string, value: string | null, options: EnvOptions): Promise<void> {
     const envFile = '.env';
     let content = '';
-    
+
     try {
       content = await fs.readFile(envFile, 'utf8');
     } catch {
       // File doesn't exist, will be created
     }
-    
+
     const lines = content.split('\n');
     const existingIndex = lines.findIndex(line => line.startsWith(`${name}=`));
-    
+
     if (value === null) {
       // Remove the variable
       if (existingIndex !== -1) {
@@ -515,7 +515,7 @@ export class EnvCommand extends SubcommandBase {
         lines.push(newLine);
       }
     }
-    
+
     const newContent = lines.filter(line => line.trim() !== '').join('\n');
     await fs.writeFile(envFile, newContent);
   }
@@ -531,7 +531,7 @@ export class EnvCommand extends SubcommandBase {
     if (global) {
       return 'system';
     }
-    
+
     // Check if it's from a specific file
     const envFiles = ['.env', '.env.local', '.env.development'];
     for (const file of envFiles) {
@@ -540,7 +540,7 @@ export class EnvCommand extends SubcommandBase {
         return 'local';
       }
     }
-    
+
     return 'unknown';
   }
 }

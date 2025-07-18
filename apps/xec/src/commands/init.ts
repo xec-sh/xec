@@ -295,7 +295,7 @@ class InitCommand extends BaseCommand {
         'tsconfig.json': this.getTsConfigTemplate(),
         '.xec/config.yaml': 'version: "1.0"\n',
       },
-      dependencies: ['@xec/core'],
+      dependencies: ['@xec-js/core'],
       devDependencies: ['typescript', '@types/node'],
       scripts: {
         'build': 'tsc',
@@ -381,7 +381,7 @@ environments:
 
 # Modules
 modules:
-  - "@xec/core"
+  - "@xec-js/core"
 
 # Module paths
 modulePaths:
@@ -536,14 +536,14 @@ This project is licensed under the ${config.license} License - see the LICENSE f
     this.startSpinner('Installing dependencies...');
 
     try {
-      const { $ } = await import('@xec/ush');
-      
+      const { $ } = await import('@xec-js/ush');
+
       // Change to target directory
       process.chdir(targetDir);
-      
+
       // Install dependencies
       await $`npm install`;
-      
+
       this.stopSpinner('✓ Dependencies installed');
     } catch (error) {
       this.stopSpinner('⚠ Failed to install dependencies');
@@ -558,7 +558,7 @@ This project is licensed under the ${config.license} License - see the LICENSE f
     console.log(`  3. ${chalk.cyan('npm run dev')} (start development)`);
     console.log(`  4. ${chalk.cyan('xec run hello')} (run your first recipe)`);
     console.log(`  5. ${chalk.cyan('xec script --repl')} (explore interactively)`);
-    
+
     console.log(chalk.bold('\n📚 Learn More:'));
     console.log(`  • ${chalk.blue('https://docs.xec.sh')} - Documentation`);
     console.log(`  • ${chalk.blue('https://github.com/xec-sh/examples')} - Examples`);
@@ -567,7 +567,7 @@ This project is licensed under the ${config.license} License - see the LICENSE f
 
   // Template methods
   private getHelloRecipeTemplate(): string {
-    return `import { recipe, task, log } from '@xec/core';
+    return `import { recipe, task, log } from '@xec-js/core';
 
 export default recipe('hello')
   .description('Hello World recipe')
@@ -597,7 +597,7 @@ export default recipe('hello')
     return `#!/usr/bin/env xec script
 // Example deployment script
 
-import { $, log, recipe, task } from '@xec/core';
+import { $, log, recipe, task } from '@xec-js/core';
 
 const deployRecipe = recipe('deploy')
   .description('Deploy application')

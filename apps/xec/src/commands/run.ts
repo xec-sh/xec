@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import * as path from 'path';
 import { watch } from 'chokidar';
 import { Command } from 'commander';
-import { Recipe, executeRecipe, createExecutionContext } from '@xec/core';
+import { Recipe, executeRecipe, createExecutionContext } from '@xec-js/core';
 
 import { BaseCommand } from '../utils/command-base.js';
 import { errorMessages } from '../utils/error-handler.js';
@@ -313,7 +313,7 @@ class RunCommand extends BaseCommand {
     if (filePath) {
       // Load from specific file
       const resolvedPath = path.resolve(filePath);
-      
+
       try {
         const module = await import(resolvedPath);
         recipe = module[recipeName] || module.default;
@@ -425,13 +425,13 @@ class RunCommand extends BaseCommand {
     } else {
       const error = result.error;
       const errorMessage = error?.message ||
-        (result.errors && result.errors.size > 0 
+        (result.errors && result.errors.size > 0
           ? (() => {
-              const firstError = Array.from(result.errors.values())[0];
-              return (firstError && typeof firstError === 'object' && 'message' in firstError) 
-                ? firstError.message 
-                : 'Unknown error';
-            })()
+            const firstError = Array.from(result.errors.values())[0];
+            return (firstError && typeof firstError === 'object' && 'message' in firstError)
+              ? firstError.message
+              : 'Unknown error';
+          })()
           : 'Unknown error');
 
       this.log(`Recipe '${recipeName}' failed: ${errorMessage}`, 'error');

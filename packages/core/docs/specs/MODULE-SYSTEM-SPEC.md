@@ -51,7 +51,7 @@ type TaskHandler = (context: TaskContext) => Promise<any>;
 
 interface TaskContext {
   // Universal command execution
-  $: CommandExecutor;         // From @xec/ush
+  $: CommandExecutor;         // From @xec-js/ush
   
   // Environment info
   env: EnvironmentInfo;       // Current environment details
@@ -222,7 +222,7 @@ export default {
   version: '1.0.0',
   
   // Declare required environment package
-  requires: ['@xec/env-kubernetes'],
+  requires: ['@xec-js/env-kubernetes'],
   
   tasks: {
     deploy: {
@@ -261,7 +261,7 @@ export default {
 }
 
 // Or manual registration
-import { xec } from '@xec/core';
+import { xec } from '@xec-js/core';
 import nginxModule from './modules/nginx';
 
 xec.modules.register(nginxModule);
@@ -285,7 +285,7 @@ const webServers = await xec.modules.search({
 ### 1. Using Multiple Modules
 
 ```typescript
-import { recipe } from '@xec/core';
+import { recipe } from '@xec-js/core';
 
 export default recipe('full-stack-deploy')
   .description('Deploy full application stack')
@@ -346,7 +346,7 @@ export default {
 External packages can add support for new environments:
 
 ```typescript
-// @xec/env-kubernetes/index.ts
+// @xec-js/env-kubernetes/index.ts
 export default {
   name: 'kubernetes',
   
@@ -470,7 +470,7 @@ async run({ $, env, log }) {
 ### 4. Testing
 
 ```typescript
-import { test } from '@xec/testing';
+import { test } from '@xec-js/testing';
 
 test('nginx install', async (t) => {
   const { nginx } = t.modules;

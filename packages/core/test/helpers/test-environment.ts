@@ -1,4 +1,4 @@
-import { $, MockAdapter } from '@xec/ush';
+import { $, MockAdapter } from '@xec-js/ush';
 
 import { Xec } from '../../src/xec.js';
 import { Host } from '../../src/inventory/host.js';
@@ -60,7 +60,7 @@ export function createMockExecutionEngine() {
   // Create a mock adapter and register it with $
   const mockAdapter = new MockAdapter();
   $.registerAdapter('mock', mockAdapter);
-  
+
   // Return $ configured to use the mock adapter
   return $.with({ adapter: 'mock' });
 }

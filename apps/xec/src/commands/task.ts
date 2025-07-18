@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import chalk from 'chalk';
-import { $ } from '@xec/ush';
-import { type Task, TaskRunner, type TaskContext, EnvironmentManager, type EnvironmentInfo, createStandardLibrary } from '@xec/core';
+import { $ } from '@xec-js/ush';
+import { type Task, TaskRunner, type TaskContext, EnvironmentManager, type EnvironmentInfo, createStandardLibrary } from '@xec-js/core';
 
 import { BaseCommand } from '../utils/command-base.js';
 import { errorMessages } from '../utils/error-handler.js';
@@ -168,7 +168,7 @@ class TaskCommand extends BaseCommand {
         validateOptions(options, schema);
       },
     });
-    
+
     this.environmentManager = new EnvironmentManager();
     this.taskRunner = new TaskRunner(this.environmentManager);
   }
@@ -209,7 +209,7 @@ class TaskCommand extends BaseCommand {
 
     // Execute task
     await this.executeTask(taskName, options);
-    
+
     this.outro(chalk.green('✓ Task execution completed'));
   }
 
@@ -229,7 +229,7 @@ class TaskCommand extends BaseCommand {
 
       // Get task metadata
       const task = await this.getTask(fullTaskName);
-      
+
       if (task && this.isVerbose()) {
         this.log(`Task: ${task.description || fullTaskName}`, 'info');
         if (task.tags && task.tags.length > 0) {
@@ -253,7 +253,7 @@ class TaskCommand extends BaseCommand {
       while (attempts < maxAttempts) {
         try {
           attempts++;
-          
+
           if (attempts > 1) {
             this.log(`Retry attempt ${attempts}/${maxAttempts}`, 'info');
             await this.sleep(retryDelay);
@@ -273,7 +273,7 @@ class TaskCommand extends BaseCommand {
           if (attempts >= maxAttempts) {
             throw error; // Final attempt failed
           }
-          
+
           this.log(`Attempt ${attempts} failed: ${(error as Error).message}`, 'warn');
           if (options.showLogs) {
             this.log(`Will retry in ${retryDelay}ms...`, 'info');
@@ -289,7 +289,7 @@ class TaskCommand extends BaseCommand {
 
   private async listTasks(searchPattern?: string): Promise<void> {
     this.startSpinner('Loading tasks...');
-    
+
     const allTasks = this.taskRunner.listTasks();
     const tasks: TaskInfo[] = [];
 
@@ -306,30 +306,30 @@ class TaskCommand extends BaseCommand {
       // Filter by search pattern if provided
       if (searchPattern) {
         const searchLower = searchPattern.toLowerCase();
-        const matches = 
+        const matches =
           taskInfo.task.toLowerCase().includes(searchLower) ||
           taskInfo.description?.toLowerCase().includes(searchLower) ||
           taskInfo.tags?.some(tag => tag.toLowerCase().includes(searchLower));
-        
+
         if (!matches) continue;
       }
 
       tasks.push(taskInfo);
     }
-    
+
     // Add stdlib functions as tasks
     const stdlibTasks = this.getStdlibTasks();
     for (const task of stdlibTasks) {
       if (searchPattern) {
         const searchLower = searchPattern.toLowerCase();
-        const matches = 
+        const matches =
           task.task.toLowerCase().includes(searchLower) ||
           task.description?.toLowerCase().includes(searchLower) ||
           task.tags?.some(tag => tag.toLowerCase().includes(searchLower));
-        
+
         if (!matches) continue;
       }
-      
+
       tasks.push(task);
     }
 
@@ -352,15 +352,15 @@ class TaskCommand extends BaseCommand {
     // Display tasks
     for (const [module, moduleTasks] of Object.entries(moduleGroups)) {
       console.log(chalk.bold.cyan(`\n${module}:`));
-      
+
       for (const task of moduleTasks) {
         const taskLine = `  ${chalk.green('●')} ${chalk.bold(task.task)}`;
         console.log(taskLine);
-        
+
         if (task.description) {
           console.log(`    ${chalk.dim(task.description)}`);
         }
-        
+
         if (task.tags && task.tags.length > 0 && this.isVerbose()) {
           console.log(`    ${chalk.dim(`Tags: ${task.tags.join(', ')}`)}`);
         }
@@ -381,9 +381,9 @@ class TaskCommand extends BaseCommand {
 
   private async showTaskInfo(taskName: string, module?: string): Promise<void> {
     const fullTaskName = this.getFullTaskName(taskName, module);
-    
+
     this.startSpinner(`Getting task information: ${fullTaskName}`);
-    
+
     try {
       // Check if it's a stdlib function
       if (this.isStdlibFunction(fullTaskName)) {
@@ -392,7 +392,7 @@ class TaskCommand extends BaseCommand {
       }
 
       const task = await this.getTask(fullTaskName);
-      
+
       if (!task) {
         throw errorMessages.taskNotFound(fullTaskName);
       }
@@ -401,33 +401,33 @@ class TaskCommand extends BaseCommand {
 
       // Display task information
       console.log(chalk.bold.cyan(`\nTask: ${fullTaskName}`));
-      
+
       if (task.description) {
         console.log(`Description: ${task.description}`);
       }
-      
+
       if (task.tags && task.tags.length > 0) {
         console.log(`Tags: ${task.tags.join(', ')}`);
       }
-      
+
       if (task.metadata) {
         const metadata = task.metadata as any;
-        
+
         if (metadata.version) {
           console.log(`Version: ${metadata.version}`);
         }
-        
+
         if (metadata.author) {
           console.log(`Author: ${metadata.author}`);
         }
-        
+
         if (metadata.parameters) {
           console.log(chalk.bold('\nParameters:'));
           for (const [name, param] of Object.entries(metadata.parameters)) {
             console.log(`  ${chalk.green(name)}: ${param}`);
           }
         }
-        
+
         if (metadata.examples && Array.isArray(metadata.examples)) {
           console.log(chalk.bold('\nExamples:'));
           metadata.examples.forEach((example: string, index: number) => {
@@ -435,7 +435,7 @@ class TaskCommand extends BaseCommand {
           });
         }
       }
-      
+
       if (task.dependencies && task.dependencies.length > 0) {
         console.log(chalk.bold('\nDependencies:'));
         task.dependencies.forEach(dep => {
@@ -584,21 +584,21 @@ class TaskCommand extends BaseCommand {
 
   private isStdlibFunction(taskName: string): boolean {
     const parts = taskName.split(':');
-    
+
     // New format: std:module:function
     if (parts.length === 3 && parts[0] === 'std') {
       const [, module, func] = parts;
       const stdlibModules = ['fs', 'http', 'os', 'proc', 'pkg', 'svc', 'net', 'crypto', 'time', 'json', 'yaml', 'env', 'template'];
       return module !== undefined && func !== undefined && stdlibModules.includes(module);
     }
-    
+
     // Legacy format: module:function (for backward compatibility)
     if (parts.length === 2) {
       const [module, func] = parts;
       const stdlibModules = ['fs', 'http', 'os', 'proc', 'pkg', 'svc', 'net', 'crypto', 'time', 'json', 'yaml', 'env', 'template'];
       return module !== undefined && func !== undefined && stdlibModules.includes(module);
     }
-    
+
     return false;
   }
 
@@ -736,7 +736,7 @@ class TaskCommand extends BaseCommand {
     const parts = taskName.split(':');
     let moduleName: string;
     let functionName: string;
-    
+
     // Handle new format: std:module:function
     if (parts.length === 3 && parts[0] === 'std') {
       moduleName = parts[1]!;
@@ -750,11 +750,11 @@ class TaskCommand extends BaseCommand {
     else {
       throw new Error(`Invalid stdlib function name: ${taskName}`);
     }
-    
+
     if (!moduleName || !functionName) {
       throw new Error(`Invalid stdlib function name: ${taskName}`);
     }
-    
+
     try {
       // Create a minimal environment info
       const envInfo: EnvironmentInfo = {
@@ -766,12 +766,12 @@ class TaskCommand extends BaseCommand {
           systemd: process.platform === 'linux'
         },
         platform: {
-          os: process.platform === 'darwin' ? 'darwin' : 
-              process.platform === 'win32' ? 'windows' : 
+          os: process.platform === 'darwin' ? 'darwin' :
+            process.platform === 'win32' ? 'windows' :
               'linux' as any,
-          arch: process.arch === 'x64' ? 'x64' : 
-                process.arch === 'arm64' ? 'arm64' : 
-                'arm' as any
+          arch: process.arch === 'x64' ? 'x64' :
+            process.arch === 'arm64' ? 'arm64' :
+              'arm' as any
         }
       };
 
@@ -793,7 +793,7 @@ class TaskCommand extends BaseCommand {
 
       // Create standard library
       const stdlib = await createStandardLibrary(context);
-      
+
       // Get the stdlib module
       const stdlibModule = (stdlib as any)[moduleName];
       if (!stdlibModule) {
@@ -806,17 +806,17 @@ class TaskCommand extends BaseCommand {
       }
 
       this.stopSpinner(`✓ Function prepared: ${taskName}`);
-      
+
       console.log(chalk.cyan(`\nExecuting stdlib function: ${moduleName}.${functionName}\n`));
 
       // Convert variables to arguments array
       const args = Object.values(vars);
-      
+
       // Call the method
       const result = await method.apply(stdlibModule, args);
 
       await this.handleTaskResult(result, taskName, options);
-      
+
     } catch (error) {
       this.stopSpinner();
       throw error;
@@ -827,7 +827,7 @@ class TaskCommand extends BaseCommand {
     const parts = taskName.split(':');
     let moduleName: string;
     let functionName: string;
-    
+
     // Handle new format: std:module:function
     if (parts.length === 3 && parts[0] === 'std') {
       moduleName = parts[1]!;
@@ -841,11 +841,11 @@ class TaskCommand extends BaseCommand {
     else {
       throw new Error(`Invalid stdlib function name: ${taskName}`);
     }
-    
+
     if (!moduleName || !functionName) {
       throw new Error(`Invalid stdlib function name: ${taskName}`);
     }
-    
+
     const stdlibInfo: Record<string, any> = {
       fs: {
         exists: { args: ['path'], returns: 'boolean', description: 'Check if file exists' },
@@ -953,10 +953,10 @@ class TaskCommand extends BaseCommand {
     console.log(`Arguments: ${funcInfo.args.join(', ')}`);
     console.log(`Returns: ${funcInfo.returns}`);
     console.log(`Type: ${chalk.magenta('stdlib')}`);
-    
+
     console.log(chalk.bold('\nUsage:'));
     console.log(chalk.cyan(`  xec task ${taskName.startsWith('std:') ? taskName : `std:${taskName}`} --var arg0=value0`));
-    
+
     if (funcInfo.args.length > 0) {
       console.log(chalk.bold('\nArguments:'));
       funcInfo.args.forEach((arg: string, index: number) => {

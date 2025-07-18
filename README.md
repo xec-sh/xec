@@ -7,32 +7,32 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-blue)](https://www.typescriptlang.org/)
 
-Xec is a modern infrastructure orchestration system built with TypeScript, inspired by Ansible and Terraform. It provides a declarative approach to infrastructure management with powerful scripting capabilities.
+Xec is a infrastructure orchestration and automation system built with TypeScript, inspired by Ansible, Terraform, Google's `zx` and many other things. It provides a declarative approach to infrastructure management with powerful scripting capabilities.
 
 ## 🏗️ Architecture
 
-Xec is built as a monorepo using Turborepo, with three main packages that work together to provide a complete infrastructure orchestration solution:
+Xec is built as a monorepo using Turborepo, with three main packages that work together to provide a complete solution:
 
 ```
 xec/
 ├── apps/
-│   └── xec/           # CLI application (@xec/cli)
+│   └── xec/           # CLI application (@xec-js/cli)
 ├── packages/
-│   ├── core/          # Core orchestration engine (@xec/core)
-│   └── ush/           # Universal shell execution engine (@xec/ush)
+│   ├── core/          # Core orchestration engine (@xec-js/core)
+│   └── ush/           # Universal shell execution engine (@xec-js/ush)
 ├── package.json       # Root configuration
 └── turbo.json         # Build orchestration
 ```
 
 Each package is designed with clear separation of concerns:
 
-- **Execution Engine** (`@xec/ush`) - Universal shell execution engine for local, SSH, and Docker commands
-- **Core Engine** (`@xec/core`) - Orchestration engine with state management and deployment patterns
-- **CLI Application** (`@xec/cli`) - Command-line interface with dynamic commands and scripting
+- **Execution Engine** (`@xec-js/ush`) - Universal shell execution engine for local, SSH, and Docker commands
+- **Core Engine** (`@xec-js/core`) - Orchestration engine with state management and deployment patterns
+- **CLI Application** (`@xec-js/cli`) - Command-line interface with dynamic commands and scripting
 
 ## 📦 Packages
 
-### Execution Engine (`@xec/ush`)
+### Execution Engine (`@xec-js/ush`)
 
 Universal shell execution engine inspired by Google's zx:
 
@@ -43,7 +43,7 @@ Universal shell execution engine inspired by Google's zx:
 - **Connection pooling** - Efficient SSH connection management
 - **Bun support** - Automatic runtime detection and optimization
 
-### Core Engine (`@xec/core`)
+### Core Engine (`@xec-js/core`)
 
 Infrastructure orchestration framework:
 
@@ -54,7 +54,7 @@ Infrastructure orchestration framework:
 - **Integration Adapters** - AWS, Kubernetes, Terraform, Docker
 - **Security** - Secrets management, encryption, audit logging
 
-### CLI Application (`@xec/cli`)
+### CLI Application (`@xec-js/cli`)
 
 Feature-rich command-line interface:
 
@@ -101,9 +101,9 @@ yarn lint
 yarn fix:all
 
 # Build specific package
-yarn workspace @xec/ush build
-yarn workspace @xec/core build
-yarn workspace @xec/cli build
+yarn workspace @xec-js/ush build
+yarn workspace @xec-js/core build
+yarn workspace @xec-js/cli build
 ```
 
 ### Using the CLI

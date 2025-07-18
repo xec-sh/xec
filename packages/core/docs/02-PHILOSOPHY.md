@@ -89,7 +89,7 @@ The system works out of the box with sensible defaults. Configuration is added o
 
 ```typescript
 // Minimal working example
-import { sh } from '@xec/core';
+import { sh } from '@xec-js/core';
 await sh`echo "Hello, World!"`;
 
 // With configuration when needed

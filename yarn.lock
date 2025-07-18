@@ -3159,9 +3159,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@xec/cli@workspace:apps/xec":
+"@xec-js/cli@workspace:apps/xec":
   version: 0.0.0-use.local
-  resolution: "@xec/cli@workspace:apps/xec"
+  resolution: "@xec-js/cli@workspace:apps/xec"
   dependencies:
     "@clack/prompts": "npm:^0.11.0"
     "@jest/globals": "npm:^30.0.4"
@@ -3172,8 +3172,8 @@ __metadata:
     "@types/mustache": "npm:^4.2.6"
     "@types/node": "npm:^24.0.13"
     "@types/ssh2": "npm:^1.15.5"
-    "@xec/core": "workspace:*"
-    "@xec/ush": "workspace:*"
+    "@xec-js/core": "workspace:*"
+    "@xec-js/ush": "workspace:*"
     chalk: "npm:^5.4.1"
     chokidar: "npm:^4.0.3"
     cli-table3: "npm:^0.6.5"
@@ -3203,9 +3203,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec/core@workspace:*, @xec/core@workspace:packages/core":
+"@xec-js/core@workspace:*, @xec-js/core@workspace:packages/core":
   version: 0.0.0-use.local
-  resolution: "@xec/core@workspace:packages/core"
+  resolution: "@xec-js/core@workspace:packages/core"
   dependencies:
     "@types/js-yaml": "npm:^4.0.9"
     "@types/lodash": "npm:^4.14.202"
@@ -3216,7 +3216,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": "npm:^8.36.0"
     "@typescript-eslint/parser": "npm:^8.36.0"
     "@vitest/coverage-v8": "npm:^3.2.4"
-    "@xec/ush": "workspace:*"
+    "@xec-js/ush": "workspace:*"
     ajv: "npm:^8.12.0"
     ajv-formats: "npm:^3.0.1"
     async-hooks: "npm:^1.0.0"
@@ -3246,9 +3246,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec/ush@workspace:*, @xec/ush@workspace:packages/ush":
+"@xec-js/ush@workspace:*, @xec-js/ush@workspace:packages/ush":
   version: 0.0.0-use.local
-  resolution: "@xec/ush@workspace:packages/ush"
+  resolution: "@xec-js/ush@workspace:packages/ush"
   dependencies:
     "@types/dockerode": "npm:^3.3.42"
     "@types/jest": "npm:^30.0.0"

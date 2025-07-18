@@ -159,8 +159,8 @@ async function createScriptContext(scriptPath: string, args: string[]) {
   const require = createRequire(scriptPath === '<eval>' || scriptPath === '<repl>' ? import.meta.url : scriptPath);
 
   // Import Xec script utilities
-  const { $ } = await import('@xec/ush');
-  const core = await import('@xec/core');
+  const { $ } = await import('@xec-js/ush');
+  const core = await import('@xec-js/core');
   const scriptUtils = await import('../script-utils.js');
 
   // Import all DSL functions from core
@@ -300,26 +300,26 @@ async function hasTopLevelAwait(content: string): Promise<boolean> {
   // Simple check for top-level await by looking for await outside of function/arrow function blocks
   // This is a basic heuristic - for more complex cases, we'd need a proper AST parser
   const lines = content.split('\n');
-  
+
   for (const line of lines) {
     const trimmedLine = line.trim();
-    
+
     // Skip empty lines and comments
     if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('/*')) {
       continue;
     }
-    
+
     // Check for await at the start of a line (after variable declarations, etc.)
     if (/^(const|let|var)?\s*\w*\s*=?\s*await\s+/.test(trimmedLine)) {
       return true;
     }
-    
+
     // Check for await as a statement
     if (trimmedLine.startsWith('await ')) {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -332,7 +332,7 @@ async function transpileTypeScript(content: string, filename: string): Promise<s
     const lines = content.split('\n');
     const imports: string[] = [];
     const otherCode: string[] = [];
-    
+
     for (const line of lines) {
       if (line.trim().startsWith('import ') || line.trim().startsWith('export ')) {
         imports.push(line);
@@ -340,7 +340,7 @@ async function transpileTypeScript(content: string, filename: string): Promise<s
         otherCode.push(line);
       }
     }
-    
+
     // Reconstruct with imports at top level and other code in async IIFE
     content = [
       ...imports,

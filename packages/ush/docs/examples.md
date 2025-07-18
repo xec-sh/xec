@@ -5,7 +5,7 @@
 Complete deployment pipeline with rollback capability:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 async function deployApp(environment) {
   // Configuration for different environments
@@ -89,7 +89,7 @@ await deployApp('production');
 Comprehensive log analysis with reporting:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 async function analyzeAccessLogs(date) {
   console.log(`📊 Analyzing logs for ${date}...`);
@@ -180,7 +180,7 @@ await analyzeAccessLogs('20240115');
 Full database backup solution with S3 storage:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 class DatabaseBackup {
   constructor(config) {
@@ -320,7 +320,7 @@ await backup.backup('production_db');
 Monitor multiple servers in parallel:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 async function healthCheckCluster(servers) {
   console.log('🏥 Starting cluster health check...\n');
@@ -416,7 +416,7 @@ await healthCheckCluster([
 Deploy multi-container applications:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 class DockerComposeDeployment {
   constructor(projectName, composePath) {
@@ -532,7 +532,7 @@ await deployment.deploy();
 Complete CI/CD pipeline example:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 class CIPipeline {
   constructor(config) {

@@ -3,13 +3,13 @@
  * This file contains all task-related type definitions
  */
 
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { EnvironmentInfo } from './environment-types.js';
-import type { 
-  Logger, 
-  Metadata, 
-  Variables, 
+import type {
+  Logger,
+  Metadata,
+  Variables,
   Condition,
   TaskResult,
   RetryConfig,
@@ -70,25 +70,25 @@ export interface TaskContext {
   taskId: string;
   recipeId?: string;
   runId?: string;
-  
+
   // Variables and state
   vars: Variables;
   secrets?: Record<string, any>;
   state?: Map<string, any>;
-  
+
   // Execution environment
   $?: CallableExecutionEngine;  // Universal command execution
   env?: EnvironmentInfo;        // Environment info
   host?: string;                // Target host for execution
   phase?: string;               // Current execution phase
   attempt?: number;             // Retry attempt number
-  
+
   // Utilities
   logger: Logger;               // Task-scoped logger
-  
+
   // Task parameters (for environment-aware tasks)
   params?: Record<string, any>;
-  
+
   // Helper methods (provided by context globals)
   getVar?: (name: string) => any;
   setVar?: (name: string, value: any) => void;
@@ -113,7 +113,7 @@ export interface ExtendedTaskContext extends TaskContext {
   json: any;     // JSON utilities
   yaml: any;     // YAML utilities
   env_vars: any; // Environment variables (renamed from env to avoid conflict)
-  
+
   // Note: template is already in base TaskContext as a helper method
 }
 

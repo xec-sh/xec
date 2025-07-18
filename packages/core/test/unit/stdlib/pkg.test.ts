@@ -1,4 +1,4 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { it, vi, expect, describe, beforeEach } from 'vitest';
 
@@ -18,7 +18,7 @@ describe('stdlib/pkg', () => {
       for (let i = 0; i < values.length; i++) {
         cmd += values[i] + strings[i + 1];
       }
-      
+
       // Default mock responses
       if (cmd.includes('apt') || cmd.includes('yum') || cmd.includes('brew')) {
         if (cmd.includes('update')) {
@@ -40,17 +40,17 @@ describe('stdlib/pkg', () => {
               return Promise.reject(new Error('grep: no match'));
             }
           }
-          return Promise.resolve({ 
-            stdout: 'nginx\napache2\nmysql-server', 
-            stderr: '', 
-            exitCode: 0 
+          return Promise.resolve({
+            stdout: 'nginx\napache2\nmysql-server',
+            stderr: '',
+            exitCode: 0
           });
         }
         if (cmd.includes('search')) {
-          return Promise.resolve({ 
-            stdout: 'nginx - High performance web server\nnginx-full - nginx web server with full modules', 
-            stderr: '', 
-            exitCode: 0 
+          return Promise.resolve({
+            stdout: 'nginx - High performance web server\nnginx-full - nginx web server with full modules',
+            stderr: '',
+            exitCode: 0
           });
         }
       }
@@ -90,12 +90,12 @@ describe('stdlib/pkg', () => {
   describe('install', () => {
     it('should install package on Ubuntu', async () => {
       await pkg.install('nginx');
-      
+
       // Check the apt-get update call
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.arrayContaining(['sudo apt-get update'])
       );
-      
+
       // Check the apt-get install call
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.arrayContaining(['sudo apt-get install -y ']),
@@ -105,12 +105,12 @@ describe('stdlib/pkg', () => {
 
     it('should install multiple packages', async () => {
       await pkg.install('nginx', 'mysql-server');
-      
+
       // Check the apt-get update call
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.arrayContaining(['sudo apt-get update'])
       );
-      
+
       // Check the apt-get install call
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.arrayContaining(['sudo apt-get install -y ']),
@@ -120,7 +120,7 @@ describe('stdlib/pkg', () => {
 
     it('should install on CentOS', async () => {
       mockEnv.platform.distro = 'centos';
-      
+
       mockExecutor.mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
         // Reconstruct command from template parts
         let cmd = '';
@@ -132,7 +132,7 @@ describe('stdlib/pkg', () => {
         } else {
           cmd = String(strings);
         }
-        
+
         if (cmd.includes('which')) {
           if (cmd.includes('apt-get')) {
             return Promise.reject(new Error('Command not found'));
@@ -143,9 +143,9 @@ describe('stdlib/pkg', () => {
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
       });
-      
+
       const centosПkg = await createPackage(mockExecutor as any, mockEnv);
-      
+
       await centosПkg.install('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.arrayContaining(['sudo ', ' install -y ']),
@@ -156,7 +156,7 @@ describe('stdlib/pkg', () => {
 
     it('should install on macOS', async () => {
       mockEnv.platform.os = 'darwin';
-      
+
       mockExecutor.mockImplementation((strings: TemplateStringsArray) => {
         const cmd = strings[0];
         if (cmd.includes('which brew')) {
@@ -164,9 +164,9 @@ describe('stdlib/pkg', () => {
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
       });
-      
+
       const macPkg = await createPackage(mockExecutor as any, mockEnv);
-      
+
       await macPkg.install('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.arrayContaining(['brew install ']),
@@ -244,7 +244,7 @@ describe('stdlib/pkg', () => {
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
       });
-      
+
       const installed = await pkg.installed('nonexistent');
       expect(installed).toBe(false);
     });

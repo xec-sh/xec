@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   Time,
   Duration,
   EnvironmentInfo,
@@ -12,7 +12,7 @@ export async function createTime(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<Time> {
-  
+
   const time: Time = {
     now(): Date {
       return new Date();
@@ -30,7 +30,7 @@ export async function createTime(
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
       const seconds = String(date.getSeconds()).padStart(2, '0');
-      
+
       return format
         .replace('YYYY', String(year))
         .replace('MM', month)
@@ -47,7 +47,7 @@ export async function createTime(
 
     add(date: Date, duration: Duration): Date {
       const result = new Date(date);
-      
+
       if (duration.years) {
         result.setFullYear(result.getFullYear() + duration.years);
       }
@@ -69,7 +69,7 @@ export async function createTime(
       if (duration.milliseconds) {
         result.setMilliseconds(result.getMilliseconds() + duration.milliseconds);
       }
-      
+
       return result;
     },
 
@@ -83,19 +83,19 @@ export async function createTime(
         seconds: duration.seconds ? -duration.seconds : undefined,
         milliseconds: duration.milliseconds ? -duration.milliseconds : undefined,
       };
-      
+
       return this.add(date, negativeDuration);
     },
 
     diff(from: Date, to: Date): Duration {
       const diffMs = to.getTime() - from.getTime();
-      
+
       const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
       const milliseconds = diffMs % 1000;
-      
+
       return {
         days: days || undefined,
         hours: hours || undefined,

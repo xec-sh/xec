@@ -14,7 +14,7 @@ Xec has been enhanced to support the widest range of infrastructure automation u
 
 ### 1. Cloud Providers
 
-#### AWS Module (`@xec/core/modules/builtin/aws`)
+#### AWS Module (`@xec-js/core/modules/builtin/aws`)
 - **EC2 Management**: Launch, stop, terminate instances with full configuration
 - **S3 Operations**: Create buckets, manage lifecycle, sync data
 - **RDS**: Database provisioning, snapshots, automated backups
@@ -30,14 +30,14 @@ Xec has been enhanced to support the widest range of infrastructure automation u
 
 ### 2. Container Orchestration
 
-#### Kubernetes Module (`@xec/core/modules/builtin/k8s`)
+#### Kubernetes Module (`@xec-js/core/modules/builtin/k8s`)
 - **Deployment Management**: Deploy, scale, rollback applications
 - **Configuration**: ConfigMaps, Secrets, Ingress rules
 - **Helm Integration**: Chart deployment and management
 - **Advanced Patterns**: Canary, Blue-Green deployments
 - **Operational Tasks**: Logs, exec, port-forwarding
 
-#### Docker Module (`@xec/core/modules/builtin/docker`)
+#### Docker Module (`@xec-js/core/modules/builtin/docker`)
 - **Image Management**: Build, push, pull, tag images
 - **Container Operations**: Run, stop, exec commands
 - **Docker Compose**: Multi-container application management
@@ -47,7 +47,7 @@ Xec has been enhanced to support the widest range of infrastructure automation u
 
 ### 3. Monitoring & Observability
 
-#### Monitoring Module (`@xec/core/modules/builtin/monitoring`)
+#### Monitoring Module (`@xec-js/core/modules/builtin/monitoring`)
 - **Prometheus**: Metrics collection and alerting
 - **Grafana**: Dashboard creation and management
 - **Elasticsearch**: Log indexing and search
@@ -67,7 +67,7 @@ Xec has been enhanced to support the widest range of infrastructure automation u
 
 ### 1. Microservices Deployment
 ```typescript
-import { microservicesDeployment } from '@xec/core/examples/patterns';
+import { microservicesDeployment } from '@xec-js/core/examples/patterns';
 
 // Deploy complete microservices architecture
 await microservicesDeployment.execute({
@@ -84,7 +84,7 @@ await microservicesDeployment.execute({
 
 ### 2. Data Pipeline Automation
 ```typescript
-import { dataPipeline } from '@xec/core/examples/patterns';
+import { dataPipeline } from '@xec-js/core/examples/patterns';
 
 // Set up complete data pipeline
 await dataPipeline.execute({
@@ -101,7 +101,7 @@ await dataPipeline.execute({
 
 ### 3. Security & Compliance
 ```typescript
-import { securityCompliance } from '@xec/core/examples/patterns';
+import { securityCompliance } from '@xec-js/core/examples/patterns';
 
 // Implement enterprise security
 await securityCompliance.execute({
@@ -223,7 +223,7 @@ await retry(
 
 1. **Install Xec**
    ```bash
-   npm install -g @xec/cli
+   npm install -g @xec-js/cli
    ```
 
 2. **Initialize Project**
@@ -234,7 +234,7 @@ await retry(
 
 3. **Create a Recipe**
    ```typescript
-   import { recipe, task } from '@xec/core';
+   import { recipe, task } from '@xec-js/core';
    
    export default recipe('deploy')
      .task(task('setup', async ({ $, log }) => {

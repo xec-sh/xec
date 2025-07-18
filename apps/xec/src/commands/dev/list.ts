@@ -1,7 +1,7 @@
 import { glob } from 'glob';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { TaskRegistry, ModuleRegistry, PatternRegistry } from '@xec/core';
+import { TaskRegistry, ModuleRegistry, PatternRegistry } from '@xec-js/core';
 
 import { BaseCommand } from '../../utils/command-base.js';
 
@@ -75,7 +75,7 @@ export class ListCommand extends BaseCommand {
         },
       ],
     });
-    
+
     this.moduleRegistry = new ModuleRegistry();
     this.taskRegistry = new TaskRegistry();
     this.patternRegistry = new PatternRegistry();
@@ -83,43 +83,43 @@ export class ListCommand extends BaseCommand {
 
   async execute(args: any[]): Promise<void> {
     const options = args[args.length - 1] as ListOptions;
-    
+
     this.intro('Project Components');
-    
+
     const showAll = !options.recipes && !options.tasks && !options.modules && !options.patterns && !options.helpers;
-    
+
     if (showAll || options.recipes) {
       await this.listRecipes(options);
     }
-    
+
     if (showAll || options.tasks) {
       await this.listTasks(options);
     }
-    
+
     if (showAll || options.modules) {
       await this.listModules(options);
     }
-    
+
     if (showAll || options.patterns) {
       await this.listPatterns(options);
     }
-    
+
     if (showAll || options.helpers) {
       await this.listHelpers(options);
     }
-    
+
     this.outro('Component listing completed');
   }
 
   private async listRecipes(options: ListOptions): Promise<void> {
     const recipes = await this.findRecipes();
     let filteredRecipes = recipes;
-    
+
     if (options.filter) {
       const pattern = new RegExp(options.filter, 'i');
       filteredRecipes = recipes.filter(recipe => pattern.test(recipe.name));
     }
-    
+
     if (options.format === 'table') {
       const tableData = {
         columns: [
@@ -137,12 +137,12 @@ export class ListCommand extends BaseCommand {
           recipe.file,
         ]),
       };
-      
+
       this.formatter.table(tableData);
     } else {
       this.output(filteredRecipes, 'Recipes');
     }
-    
+
     this.log(`Found ${filteredRecipes.length} recipe(s)`, 'info');
   }
 
@@ -150,12 +150,12 @@ export class ListCommand extends BaseCommand {
     const tasksMap = this.taskRegistry.getAll();
     const tasks = Array.from(tasksMap.values());
     let filteredTasks = tasks;
-    
+
     if (options.filter) {
       const pattern = new RegExp(options.filter, 'i');
       filteredTasks = tasks.filter((task: any) => pattern.test(task.name));
     }
-    
+
     if (options.format === 'table') {
       const tableData = {
         columns: [
@@ -173,24 +173,24 @@ export class ListCommand extends BaseCommand {
           (task.tags || []).join(', '),
         ]),
       };
-      
+
       this.formatter.table(tableData);
     } else {
       this.output(filteredTasks, 'Tasks');
     }
-    
+
     this.log(`Found ${filteredTasks.length} task(s)`, 'info');
   }
 
   private async listModules(options: ListOptions): Promise<void> {
     const modules = this.moduleRegistry.getAll();
     let filteredModules = modules;
-    
+
     if (options.filter) {
       const pattern = new RegExp(options.filter, 'i');
       filteredModules = modules.filter((module: any) => pattern.test(module.name));
     }
-    
+
     if (options.format === 'table') {
       const tableData = {
         columns: [
@@ -210,12 +210,12 @@ export class ListCommand extends BaseCommand {
           module.path || 'built-in',
         ]),
       };
-      
+
       this.formatter.table(tableData);
     } else {
       this.output(filteredModules, 'Modules');
     }
-    
+
     this.log(`Found ${filteredModules.length} module(s)`, 'info');
   }
 
@@ -223,12 +223,12 @@ export class ListCommand extends BaseCommand {
     const patternsMap = this.patternRegistry.getAll();
     const patterns = Array.from(patternsMap.values());
     let filteredPatterns = patterns;
-    
+
     if (options.filter) {
       const pattern = new RegExp(options.filter, 'i');
       filteredPatterns = patterns.filter((p: any) => pattern.test(p.name));
     }
-    
+
     if (options.format === 'table') {
       const tableData = {
         columns: [
@@ -246,24 +246,24 @@ export class ListCommand extends BaseCommand {
           pattern.parameters?.length?.toString() || '0',
         ]),
       };
-      
+
       this.formatter.table(tableData);
     } else {
       this.output(filteredPatterns, 'Patterns');
     }
-    
+
     this.log(`Found ${filteredPatterns.length} pattern(s)`, 'info');
   }
 
   private async listHelpers(options: ListOptions): Promise<void> {
     const helpers = await this.findHelpers();
     let filteredHelpers = helpers;
-    
+
     if (options.filter) {
       const pattern = new RegExp(options.filter, 'i');
       filteredHelpers = helpers.filter(helper => pattern.test(helper.name));
     }
-    
+
     if (options.format === 'table') {
       const tableData = {
         columns: [
@@ -281,18 +281,18 @@ export class ListCommand extends BaseCommand {
           helper.usage || 'Helper function',
         ]),
       };
-      
+
       this.formatter.table(tableData);
     } else {
       this.output(filteredHelpers, 'Helpers');
     }
-    
+
     this.log(`Found ${filteredHelpers.length} helper(s)`, 'info');
   }
 
   private async findRecipes(): Promise<any[]> {
     const recipes: any[] = [];
-    
+
     const searchPaths = [
       './recipes/**/*.{ts,js}',
       './recipes/**/*.{yaml,yml}',
@@ -301,11 +301,11 @@ export class ListCommand extends BaseCommand {
       './*.recipe.{ts,js}',
       './*.recipe.{yaml,yml}',
     ];
-    
+
     for (const searchPath of searchPaths) {
       try {
         const files = await glob(searchPath);
-        
+
         for (const file of files) {
           try {
             const recipe = await this.loadRecipe(file);
@@ -327,13 +327,13 @@ export class ListCommand extends BaseCommand {
         // Skip search paths that don't exist
       }
     }
-    
+
     return recipes;
   }
 
   private async findHelpers(): Promise<any[]> {
     const helpers: any[] = [];
-    
+
     // Get helpers from modules
     const modules = this.moduleRegistry.getAll();
     for (const module of modules) {
@@ -349,7 +349,7 @@ export class ListCommand extends BaseCommand {
         }
       }
     }
-    
+
     // Get built-in helpers
     const builtinHelpers = [
       { name: 'log', description: 'Log message', type: 'function', module: 'core', usage: 'log(message)' },
@@ -363,15 +363,15 @@ export class ListCommand extends BaseCommand {
       { name: 'getTags', description: 'Get host tags', type: 'function', module: 'core', usage: 'getTags()' },
       { name: 'template', description: 'Render template', type: 'function', module: 'core', usage: 'template(text, vars)' },
     ];
-    
+
     helpers.push(...builtinHelpers);
-    
+
     return helpers;
   }
 
   private async loadRecipe(file: string): Promise<any> {
     const ext = path.extname(file).toLowerCase();
-    
+
     if (ext === '.js' || ext === '.ts') {
       // Load JavaScript/TypeScript recipe
       const module = await import(path.resolve(file));
@@ -382,7 +382,7 @@ export class ListCommand extends BaseCommand {
       const yaml = await import('js-yaml');
       return yaml.load(content);
     }
-    
+
     return null;
   }
 }

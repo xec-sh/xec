@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import { Command } from 'commander';
-import { OptimizedEventStore, MemoryStorageAdapter } from '@xec/core';
+import { OptimizedEventStore, MemoryStorageAdapter } from '@xec-js/core';
 
 import { SubcommandBase } from '../../utils/command-base.js';
 import { errorMessages } from '../../utils/error-handler.js';
@@ -38,7 +38,7 @@ export class EventsCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     // Initialize event store with memory adapter for now
     const adapter = new MemoryStorageAdapter();
     this.eventStore = new OptimizedEventStore(adapter);
@@ -103,7 +103,7 @@ export class EventsCommand extends SubcommandBase {
   private async listEvents(options: EventsOptions): Promise<void> {
     try {
       await this.eventStore.initialize();
-      
+
       const queryOptions = {
         limit: options.limit || 50,
         offset: options.offset || 0,
@@ -124,12 +124,12 @@ export class EventsCommand extends SubcommandBase {
       } else {
         events = await this.eventStore.getEvents(queryOptions);
       }
-      
+
       if (events.length === 0) {
         this.log('No events found', 'info');
         return;
       }
-      
+
       const tableData = {
         columns: [
           { header: 'ID', width: 20 },
@@ -146,9 +146,9 @@ export class EventsCommand extends SubcommandBase {
           this.truncateData(JSON.stringify(event.payload)),
         ]),
       };
-      
+
       this.formatter.table(tableData);
-      
+
       if (events.length === options.limit) {
         this.log(`Showing ${events.length} events (use --limit and --offset for pagination)`, 'info');
       }
@@ -161,11 +161,11 @@ export class EventsCommand extends SubcommandBase {
     try {
       await this.eventStore.initialize();
       const event = await this.eventStore.getEvent(id);
-      
+
       if (!event) {
         throw errorMessages.configurationInvalid('event', `Event with ID '${id}' not found`);
       }
-      
+
       if (options.raw) {
         this.output(event, 'Raw Event Data');
       } else {
@@ -180,11 +180,11 @@ export class EventsCommand extends SubcommandBase {
           Actor: event.actor,
           'Sequence Number': event.sequenceNumber?.toString() || 'unknown',
         }, `Event: ${id}`);
-        
+
         if (event.payload) {
           this.formatter.keyValue(event.payload, 'Event Payload');
         }
-        
+
         if (event.metadata.tags && event.metadata.tags.size > 0) {
           const tags: Record<string, string> = {};
           event.metadata.tags.forEach((value, key) => {
@@ -201,7 +201,7 @@ export class EventsCommand extends SubcommandBase {
   private async exportEvents(options: EventsOptions & { file?: string; compress?: boolean }): Promise<void> {
     try {
       await this.eventStore.initialize();
-      
+
       const queryOptions = {
         limit: 1000, // Export more events by default
         offset: 0,
@@ -222,7 +222,7 @@ export class EventsCommand extends SubcommandBase {
       } else {
         events = await this.eventStore.getEvents(queryOptions);
       }
-      
+
       const exportData = {
         timestamp: new Date().toISOString(),
         count: events.length,
@@ -234,17 +234,17 @@ export class EventsCommand extends SubcommandBase {
           },
         })),
       };
-      
+
       const exportFile = options.file || `events-export-${Date.now()}.json`;
       let content: string;
-      
+
       if (options.format === 'yaml') {
         const yaml = await import('js-yaml');
         content = yaml.dump(exportData, { lineWidth: -1, noRefs: true });
       } else {
         content = JSON.stringify(exportData, null, 2);
       }
-      
+
       if (options.compress) {
         const zlib = await import('zlib');
         const compressed = zlib.gzipSync(content);
@@ -254,7 +254,7 @@ export class EventsCommand extends SubcommandBase {
         await fs.writeFile(exportFile, content);
         this.log(`Events exported to ${exportFile}`, 'success');
       }
-      
+
       this.log(`Exported ${events.length} events`, 'info');
     } catch (error) {
       throw errorMessages.configurationInvalid('events', `Failed to export events: ${(error as Error).message}`);
@@ -264,17 +264,17 @@ export class EventsCommand extends SubcommandBase {
   private async showStats(options: { detailed?: boolean; byType?: boolean; bySource?: boolean }): Promise<void> {
     try {
       await this.eventStore.initialize();
-      
+
       // Get all events to compute stats
       const allEvents = await this.eventStore.getEvents({ limit: 10000 });
-      
+
       // Basic stats
       const totalEvents = allEvents.length;
       const totalSize = JSON.stringify(allEvents).length;
       const oldestEvent = allEvents.length > 0 ? Math.min(...allEvents.map(e => e.timestamp)) : null;
       const newestEvent = allEvents.length > 0 ? Math.max(...allEvents.map(e => e.timestamp)) : null;
       const averageSize = totalEvents > 0 ? totalSize / totalEvents : 0;
-      
+
       this.formatter.keyValue({
         'Total Events': totalEvents.toString(),
         'Total Size': this.formatSize(totalSize),
@@ -282,7 +282,7 @@ export class EventsCommand extends SubcommandBase {
         'Newest Event': newestEvent ? new Date(newestEvent).toISOString() : 'none',
         'Average Size': this.formatSize(averageSize),
       }, 'Event Store Statistics');
-      
+
       // By type
       if (options.byType) {
         const typeStats = new Map<string, { count: number; size: number }>();
@@ -294,7 +294,7 @@ export class EventsCommand extends SubcommandBase {
             size: existing.size + eventSize,
           });
         });
-        
+
         if (typeStats.size > 0) {
           const typeTableData = {
             columns: [
@@ -310,11 +310,11 @@ export class EventsCommand extends SubcommandBase {
               this.formatSize(data.size / data.count),
             ]),
           };
-          
+
           this.formatter.table(typeTableData);
         }
       }
-      
+
       // By source
       if (options.bySource) {
         const sourceStats = new Map<string, { count: number; size: number }>();
@@ -327,7 +327,7 @@ export class EventsCommand extends SubcommandBase {
             size: existing.size + eventSize,
           });
         });
-        
+
         if (sourceStats.size > 0) {
           const sourceTableData = {
             columns: [
@@ -343,7 +343,7 @@ export class EventsCommand extends SubcommandBase {
               this.formatSize(data.size / data.count),
             ]),
           };
-          
+
           this.formatter.table(sourceTableData);
         }
       }

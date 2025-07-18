@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Cross-Platform Development with @xec/ush
+ * Cross-Platform Development with @xec-js/ush
  * 
  * This file demonstrates how to write portable scripts that work
  * across different operating systems (Windows, macOS, Linux).
  */
 
 import * as os from 'os';
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 import * as path from 'path';
 
 // ===== Platform Detection =====
@@ -59,7 +59,7 @@ class CrossPlatformCommands {
       darwin: 'mkdir -p',
       linux: 'mkdir -p'
     },
-    
+
     // System operations
     clearScreen: {
       win32: 'cls',
@@ -76,7 +76,7 @@ class CrossPlatformCommands {
       darwin: 'kill',
       linux: 'kill'
     },
-    
+
     // File viewing
     viewFile: {
       win32: 'type',
@@ -88,14 +88,14 @@ class CrossPlatformCommands {
       darwin: 'less',
       linux: 'less'
     },
-    
+
     // Opening files/URLs
     open: {
       win32: 'start',
       darwin: 'open',
       linux: 'xdg-open'
     },
-    
+
     // Network
     ping: {
       win32: 'ping -n',
@@ -103,12 +103,12 @@ class CrossPlatformCommands {
       linux: 'ping -c'
     }
   };
-  
+
   static get(command: keyof typeof CrossPlatformCommands.commands): string {
     const platformCommand = this.commands[command];
     return platformCommand[platform.type] || platformCommand.linux;
   }
-  
+
   static async execute(command: keyof typeof CrossPlatformCommands.commands, ...args: string[]) {
     const cmd = this.get(command);
     return $`${cmd} ${args}`;
@@ -150,12 +150,12 @@ class PathHelper {
   static toPlatform(filepath: string): string {
     return filepath.split('/').join(path.sep);
   }
-  
+
   // Convert to POSIX path (for use in shells)
   static toPosix(filepath: string): string {
     return filepath.split(path.sep).join('/');
   }
-  
+
   // Get user's config directory
   static getConfigDir(appName: string): string {
     if (platform.isWindows) {
@@ -166,7 +166,7 @@ class PathHelper {
       return path.join(platform.homeDir, '.config', appName);
     }
   }
-  
+
   // Get user's data directory
   static getDataDir(appName: string): string {
     if (platform.isWindows) {
@@ -194,7 +194,7 @@ class EnvHelper {
   static get pathSeparator(): string {
     return platform.isWindows ? ';' : ':';
   }
-  
+
   // Add to PATH
   static addToPath(newPath: string): Record<string, string> {
     const currentPath = process.env.PATH || '';
@@ -203,27 +203,27 @@ class EnvHelper {
       PATH: `${newPath}${separator}${currentPath}`
     };
   }
-  
+
   // Get common environment variables
   static getCommonEnv(): Record<string, string> {
     const env: Record<string, string> = {};
-    
+
     // Home directory
     env.HOME = platform.homeDir;
     if (platform.isWindows) {
       env.USERPROFILE = platform.homeDir;
     }
-    
+
     // Temp directory
     env.TMPDIR = platform.tempDir;
     if (platform.isWindows) {
       env.TEMP = platform.tempDir;
       env.TMP = platform.tempDir;
     }
-    
+
     // User
     env.USER = process.env.USER || process.env.USERNAME || 'unknown';
-    
+
     return env;
   }
 }
@@ -249,10 +249,10 @@ class ShellHelper {
       // Check for PowerShell Core first, then Windows PowerShell
       const hasPwsh = await $.which('pwsh') !== null;
       if (hasPwsh) return 'pwsh.exe';
-      
+
       const hasPowerShell = await $.which('powershell') !== null;
       if (hasPowerShell) return 'powershell.exe';
-      
+
       return 'cmd.exe';
     } else {
       // On Unix-like systems, check common shells
@@ -265,7 +265,7 @@ class ShellHelper {
       return '/bin/sh'; // Fallback
     }
   }
-  
+
   static async createConfigured() {
     const shell = await this.getDefaultShell();
     console.log(`Using shell: ${shell}`);
@@ -296,7 +296,7 @@ class FileSystemHelper {
       return filepath.startsWith('/');
     }
   }
-  
+
   // Get file permissions (Unix) or attributes (Windows)
   static async getFileInfo(filepath: string) {
     if (platform.isWindows) {
@@ -323,7 +323,7 @@ class FileSystemHelper {
       };
     }
   }
-  
+
   // Create directory with proper permissions
   static async createDirectory(dirPath: string, mode?: string) {
     if (platform.isWindows) {
@@ -380,7 +380,7 @@ class ProcessHelper {
     }
     return [];
   }
-  
+
   // Kill process by PID
   static async killProcess(pid: number, force = false) {
     if (platform.isWindows) {
@@ -411,7 +411,7 @@ class NetworkHelper {
     const countFlag = platform.isWindows ? '-n' : '-c';
     return $`ping ${countFlag} ${count} ${host}`;
   }
-  
+
   // Get network interfaces
   static async getNetworkInterfaces() {
     if (platform.isWindows) {
@@ -422,7 +422,7 @@ class NetworkHelper {
       return $`ip addr show`;
     }
   }
-  
+
   // Check port availability
   static async isPortAvailable(port: number): Promise<boolean> {
     if (platform.isWindows) {
@@ -461,26 +461,26 @@ console.log('\n\n=== Complete Cross-Platform Example ===\n');
 
 async function crossPlatformBackup(sourceDir: string, backupName: string) {
   console.log(`Creating backup of ${sourceDir}...`);
-  
+
   // Ensure paths are correct for the platform
   sourceDir = PathHelper.toPlatform(sourceDir);
   const backupDir = path.join(PathHelper.getDataDir('backups'), backupName);
-  
+
   // Create backup directory
   await FileSystemHelper.createDirectory(backupDir);
-  
+
   // Copy files (using platform-specific command)
   if (platform.isWindows) {
     await $.raw`xcopy "${sourceDir}" "${backupDir}" /E /I /H /Y`;
   } else {
     await $`cp -r ${sourceDir} ${backupDir}`;
   }
-  
+
   // Create timestamp file
   const timestamp = new Date().toISOString();
   const timestampFile = path.join(backupDir, 'backup-info.txt');
   await $`echo "Backup created: ${timestamp}" > ${timestampFile}`;
-  
+
   console.log(`✓ Backup created at: ${backupDir}`);
   return backupDir;
 }

@@ -15,7 +15,7 @@ jest.mock('fs/promises', () => ({
   mkdir: mockMkdir
 }));
 
-jest.mock('@xec/core', () => ({
+jest.mock('@xec-js/core', () => ({
   loadProject: jest.fn().mockResolvedValue({
     deploy: jest.fn().mockResolvedValue({ success: true, deploymentId: 'test-deploy-123' })
   }),
@@ -118,9 +118,9 @@ describe('deploy command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride();
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
     // Reset mocks
     mockSelect.mockReset();
     mockText.mockReset();
@@ -144,7 +144,7 @@ describe('deploy command', () => {
     expect(cmd).toBeDefined();
     expect(cmd?.name()).toBe('deploy');
     expect(cmd?.description()).toContain('Deploy');
-    
+
     const options = cmd?.options.map(opt => opt.long) || [];
     expect(options).toContain('--target');
     expect(options).toContain('--dry-run');
@@ -158,11 +158,11 @@ describe('deploy command', () => {
     mockSelect.mockResolvedValueOnce('blue-green'); // selectDeploymentPattern
     mockText.mockResolvedValueOnce('production'); // target
     mockConfirm.mockResolvedValueOnce(true); // confirm deployment
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Deployment Plan'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('✓'));
   });
@@ -170,11 +170,11 @@ describe('deploy command', () => {
   it('should deploy with force option', async () => {
     mockSelect.mockResolvedValueOnce('blue-green'); // selectDeploymentPattern
     mockText.mockResolvedValueOnce('production'); // target
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy', 'my-recipe', '--force'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Deployment Plan'));
     expect(mockConfirm).not.toHaveBeenCalled(); // Should skip confirmation with --force
   });
@@ -182,11 +182,11 @@ describe('deploy command', () => {
   it('should handle deployment with pattern', async () => {
     mockText.mockResolvedValueOnce('production'); // target
     mockConfirm.mockResolvedValueOnce(true); // confirm
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy', 'my-recipe', '--pattern', 'blue-green'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Deployment Plan'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('blue-green'));
   });
@@ -195,22 +195,22 @@ describe('deploy command', () => {
     mockSelect.mockResolvedValueOnce('blue-green'); // selectDeploymentPattern
     mockText.mockResolvedValueOnce('production'); // target
     mockConfirm.mockResolvedValueOnce(true); // confirm
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy', 'my-recipe', '--rollback'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Rollback'));
   });
 
   it('should deploy to specified target', async () => {
     mockSelect.mockResolvedValueOnce('blue-green'); // selectDeploymentPattern
     mockConfirm.mockResolvedValueOnce(true); // confirm
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy', 'my-recipe', '--target', 'production'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Deployment Plan'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('production'));
   });
@@ -218,11 +218,11 @@ describe('deploy command', () => {
   it('should perform dry run', async () => {
     mockSelect.mockResolvedValueOnce('blue-green'); // selectDeploymentPattern
     mockText.mockResolvedValueOnce('production'); // target
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy', 'my-recipe', '--dry-run'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('DRY RUN'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Dry run completed'));
   });
@@ -231,23 +231,23 @@ describe('deploy command', () => {
     // Mock loadRecipe to return null for invalid recipe
     const { loadRecipe } = require('../utils/recipe.js');
     loadRecipe.mockResolvedValueOnce(null);
-    
+
     deployCommand(program);
-    
+
     await expect(
       program.parseAsync(['deploy', 'invalid-recipe'], { from: 'user' })
     ).rejects.toThrow();
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('not found'));
   });
 
   it('should validate deployment options', async () => {
     deployCommand(program);
-    
+
     await expect(
       program.parseAsync(['deploy', 'my-recipe', '--pattern', 'invalid'], { from: 'user' })
     ).rejects.toThrow();
-    
+
     expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
@@ -255,11 +255,11 @@ describe('deploy command', () => {
     mockSelect.mockResolvedValueOnce('blue-green'); // selectDeploymentPattern
     mockText.mockResolvedValueOnce('production'); // target
     mockConfirm.mockResolvedValueOnce(true); // confirm
-    
+
     deployCommand(program);
-    
+
     await program.parseAsync(['deploy', 'my-recipe', '--vars', 'env=prod'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Variables'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('{"env":"prod"}'));
   });

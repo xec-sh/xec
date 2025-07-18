@@ -1,20 +1,20 @@
 import pc from 'picocolors';
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 import { spinner } from '@clack/prompts';
-import { 
-  toPlatform, 
+import {
+  toPlatform,
   type Logger,
   createLogger,
   toArchitecture,
-  type TaskContext, 
+  type TaskContext,
   type StandardLibrary,
   createStandardLibrary
-} from '@xec/core';
+} from '@xec-js/core';
 
 // Default context for CLI commands
 export function createDefaultContext(): Partial<TaskContext> {
   const logger = createLogger({ name: 'xec-cli' });
-  
+
   // Create partial context with required properties for stdlib
   return {
     $,
@@ -50,7 +50,7 @@ export async function getStdlib(commandName?: string): Promise<StandardLibrary> 
 export function handleError(error: unknown, message?: string): never {
   const s = spinner();
   s.stop(message || 'Operation failed');
-  
+
   if (error instanceof Error) {
     console.error(pc.red('Error:'), error.message);
     if (process.env['DEBUG']) {
@@ -59,7 +59,7 @@ export function handleError(error: unknown, message?: string): never {
   } else {
     console.error(pc.red('Error:'), error);
   }
-  
+
   process.exit(1);
 }
 
@@ -74,7 +74,7 @@ export async function tryWithSpinner<T>(
 ): Promise<T> {
   const s = spinner();
   s.start(options.start);
-  
+
   try {
     const result = await action();
     s.stop(options.success || 'Done');
@@ -114,7 +114,7 @@ export async function outputResult(
   } = {}
 ): Promise<void> {
   const formatted = formatOutput(data, options.format || 'json');
-  
+
   if (options.output) {
     const lib = await getStdlib();
     await lib.fs.write(options.output, formatted);
@@ -140,14 +140,14 @@ export function createCommandLogger(command: string): Logger {
 // Parse key=value pairs
 export function parseKeyValue(pairs: string[]): Record<string, string> {
   const result: Record<string, string> = {};
-  
+
   for (const pair of pairs) {
     const [key, ...valueParts] = pair.split('=');
     if (key) {
       result[key] = valueParts.join('=');
     }
   }
-  
+
   return result;
 }
 

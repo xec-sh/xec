@@ -1,5 +1,5 @@
-import { recipe, task, parallel, sequence, when } from '@xec/core';
-import { awsModule, k8sModule, dockerModule, monitoringModule } from '@xec/core/modules/builtin';
+import { recipe, task, parallel, sequence, when } from '@xec-js/core';
+import { awsModule, k8sModule, dockerModule, monitoringModule } from '@xec-js/core/modules/builtin';
 
 /**
  * Security and Compliance Automation Pattern
@@ -16,7 +16,7 @@ export const securityCompliance = recipe('security-compliance')
   .variables({
     environment: 'production',
     complianceFrameworks: ['SOC2', 'HIPAA', 'PCI-DSS'],
-    
+
     // Security policies
     policies: {
       passwordPolicy: {
@@ -30,7 +30,7 @@ export const securityCompliance = recipe('security-compliance')
       sessionTimeout: 3600,
       encryptionRequired: true
     },
-    
+
     // Scanning configuration
     scanning: {
       containerScanning: true,
@@ -39,7 +39,7 @@ export const securityCompliance = recipe('security-compliance')
       complianceScanning: true,
       frequency: 'daily'
     },
-    
+
     // Alert configuration
     alerting: {
       securityEmail: 'security@example.com',
@@ -47,15 +47,15 @@ export const securityCompliance = recipe('security-compliance')
       pagerDutyKey: 'xxx'
     }
   })
-  
+
   // Phase 1: Security Infrastructure
   .phase('infrastructure', phase => phase
     .description('Set up security infrastructure')
-    
+
     // Deploy HashiCorp Vault for secrets management
     .task(task('deploy-vault', async ({ vars, log }) => {
       log.info('Deploying HashiCorp Vault...');
-      
+
       await k8sModule.tasks.helm.run({
         vars,
         log,
@@ -80,11 +80,11 @@ export const securityCompliance = recipe('security-compliance')
           }
         }
       });
-      
+
       // Initialize and unseal Vault
       await vars.$`kubectl exec -n security vault-0 -- vault operator init \
         -key-shares=5 -key-threshold=3 -format=json > vault-init.json`;
-      
+
       // Configure Vault policies
       const policies = {
         'app-policy': `
@@ -104,7 +104,7 @@ path "*" {
   capabilities = ["create", "read", "update", "delete", "list", "sudo"]
 }`
       };
-      
+
       for (const [name, policy] of Object.entries(policies)) {
         await vars.$`kubectl exec -n security vault-0 -- \
           vault policy write ${name} - <<EOF
@@ -112,11 +112,11 @@ ${policy}
 EOF`;
       }
     }))
-    
+
     // Deploy certificate management
     .task(task('deploy-cert-manager', async ({ vars, log }) => {
       log.info('Deploying cert-manager...');
-      
+
       await k8sModule.tasks.helm.run({
         vars,
         log,
@@ -130,7 +130,7 @@ EOF`;
           }
         }
       });
-      
+
       // Configure Let's Encrypt issuer
       await vars.$`kubectl apply -f - <<EOF
 apiVersion: cert-manager.io/v1
@@ -149,11 +149,11 @@ spec:
           class: nginx
 EOF`;
     }))
-    
+
     // Deploy security tools
     .task(task('deploy-security-tools', async ({ vars, log }) => {
       log.info('Deploying security tools...');
-      
+
       // Deploy Falco for runtime security
       await k8sModule.tasks.helm.run({
         vars,
@@ -176,7 +176,7 @@ EOF`;
           }
         }
       });
-      
+
       // Deploy Open Policy Agent
       await k8sModule.tasks.helm.run({
         vars,
@@ -186,7 +186,7 @@ EOF`;
           chart: 'opa/opa',
           namespace: 'security',
           values: {
-            opa: { 
+            opa: {
               bootstrapPolicies: {
                 main: `
 package kubernetes.admission
@@ -210,17 +210,17 @@ deny[msg] {
       });
     }))
   )
-  
+
   // Phase 2: Container Security
   .phase('container-security', phase => phase
     .description('Implement container security')
     .dependsOn('infrastructure')
     .condition(vars => vars.scanning.containerScanning)
-    
+
     // Deploy image scanning
     .task(task('deploy-image-scanning', async ({ vars, log }) => {
       log.info('Setting up container image scanning...');
-      
+
       // Deploy Trivy for vulnerability scanning
       await k8sModule.tasks.deploy.run({
         vars,
@@ -236,7 +236,7 @@ deny[msg] {
           }
         }
       });
-      
+
       // Configure admission webhook
       await vars.$`kubectl apply -f - <<EOF
 apiVersion: admissionregistration.k8s.io/v1
@@ -260,14 +260,14 @@ webhooks:
   failurePolicy: Fail
 EOF`;
     }))
-    
+
     // Set up image signing
     .task(task('setup-image-signing', async ({ vars, log }) => {
       log.info('Setting up image signing with Cosign...');
-      
+
       // Generate signing keys
       await vars.$`cosign generate-key-pair --kms awskms:///alias/container-signing`;
-      
+
       // Configure signature verification policy
       await k8sModule.tasks.configMap.run({
         vars,
@@ -296,11 +296,11 @@ spec:
         }
       });
     }))
-    
+
     // Deploy runtime protection
     .task(task('deploy-runtime-protection', async ({ vars, log }) => {
       log.info('Deploying runtime protection...');
-      
+
       // Deploy Sysdig Falco rules
       const falcoRules = `
 - rule: Unauthorized Process
@@ -334,7 +334,7 @@ spec:
     Suspicious network connection (connection=%fd.name 
     container=%container.name)
   priority: NOTICE`;
-      
+
       await k8sModule.tasks.configMap.run({
         vars,
         log,
@@ -346,17 +346,17 @@ spec:
       });
     }))
   )
-  
+
   // Phase 3: Vulnerability Management
   .phase('vulnerability-management', phase => phase
     .description('Implement vulnerability scanning and management')
     .dependsOn('container-security')
     .condition(vars => vars.scanning.vulnerabilityScanning)
-    
+
     // Deploy vulnerability database
     .task(task('deploy-vulnerability-db', async ({ vars, log }) => {
       log.info('Deploying vulnerability database...');
-      
+
       await dockerModule.tasks.compose.run({
         vars,
         log,
@@ -367,11 +367,11 @@ spec:
         }
       });
     }))
-    
+
     // Set up continuous scanning
     .task(task('setup-continuous-scanning', async ({ vars, log }) => {
       log.info('Setting up continuous vulnerability scanning...');
-      
+
       // Create scanning CronJobs
       const scanJobs = [
         {
@@ -390,7 +390,7 @@ spec:
           command: 'snyk test --all-projects --severity-threshold=high'
         }
       ];
-      
+
       for (const job of scanJobs) {
         await k8sModule.tasks.deploy.run({
           vars,
@@ -425,11 +425,11 @@ spec:
         });
       }
     }))
-    
+
     // Deploy patch management
     .task(task('deploy-patch-management', async ({ vars, log }) => {
       log.info('Deploying automated patch management...');
-      
+
       // Deploy Kured for node patching
       await k8sModule.tasks.helm.run({
         vars,
@@ -452,17 +452,17 @@ spec:
       });
     }))
   )
-  
+
   // Phase 4: Compliance Automation
   .phase('compliance', phase => phase
     .description('Implement compliance automation')
     .dependsOn('vulnerability-management')
     .condition(vars => vars.scanning.complianceScanning)
-    
+
     // Deploy compliance scanning tools
     .task(task('deploy-compliance-tools', async ({ vars, log }) => {
       log.info('Deploying compliance scanning tools...');
-      
+
       // Deploy Cloud Custodian for cloud compliance
       await dockerModule.tasks.run.run({
         vars,
@@ -476,23 +476,23 @@ spec:
           }
         }
       });
-      
+
       // Create compliance policies
       const policies = {
         'soc2-policies.yml': generateSOC2Policies(vars),
         'hipaa-policies.yml': generateHIPAAPolicies(vars),
         'pci-policies.yml': generatePCIPolicies(vars)
       };
-      
+
       for (const [filename, content] of Object.entries(policies)) {
         await vars.fs.write(`./policies/${filename}`, content);
       }
     }))
-    
+
     // Set up compliance reporting
     .task(task('setup-compliance-reporting', async ({ vars, log }) => {
       log.info('Setting up compliance reporting...');
-      
+
       // Deploy compliance dashboard
       await monitoringModule.tasks.grafana.run({
         vars,
@@ -526,7 +526,7 @@ spec:
           }
         }
       });
-      
+
       // Set up automated reporting
       await k8sModule.tasks.deploy.run({
         vars,
@@ -543,11 +543,11 @@ spec:
         }
       });
     }))
-    
+
     // Implement audit logging
     .task(task('setup-audit-logging', async ({ vars, log }) => {
       log.info('Setting up comprehensive audit logging...');
-      
+
       // Configure Kubernetes audit policy
       const auditPolicy = {
         apiVersion: 'audit.k8s.io/v1',
@@ -571,9 +571,9 @@ spec:
           }
         ]
       };
-      
+
       await vars.fs.write('/etc/kubernetes/audit-policy.yaml', vars.yaml.stringify(auditPolicy));
-      
+
       // Deploy audit log aggregation
       await monitoringModule.tasks.loki.run({
         vars,
@@ -594,16 +594,16 @@ spec:
       });
     }))
   )
-  
+
   // Phase 5: Access Control
   .phase('access-control', phase => phase
     .description('Implement advanced access control')
     .dependsOn('compliance')
-    
+
     // Set up RBAC
     .task(task('configure-rbac', async ({ vars, log }) => {
       log.info('Configuring RBAC policies...');
-      
+
       const rbacRoles = [
         {
           name: 'developer',
@@ -641,7 +641,7 @@ spec:
           ]
         }
       ];
-      
+
       for (const role of rbacRoles) {
         await vars.$`kubectl apply -f - <<EOF
 apiVersion: rbac.authorization.k8s.io/v1
@@ -653,11 +653,11 @@ ${vars.yaml.stringify(role.rules)}
 EOF`;
       }
     }))
-    
+
     // Deploy SSO/OIDC
     .task(task('deploy-sso', async ({ vars, log }) => {
       log.info('Deploying SSO with OIDC...');
-      
+
       // Deploy Dex for OIDC
       await k8sModule.tasks.helm.run({
         vars,
@@ -699,11 +699,11 @@ EOF`;
         }
       });
     }))
-    
+
     // Implement privileged access management
     .task(task('setup-pam', async ({ vars, log }) => {
       log.info('Setting up privileged access management...');
-      
+
       // Deploy CyberArk Conjur or similar
       await k8sModule.tasks.helm.run({
         vars,
@@ -719,7 +719,7 @@ EOF`;
           }
         }
       });
-      
+
       // Configure just-in-time access
       await k8sModule.tasks.deploy.run({
         vars,
@@ -737,16 +737,16 @@ EOF`;
       });
     }))
   )
-  
+
   // Phase 6: Security Monitoring
   .phase('monitoring', phase => phase
     .description('Implement security monitoring and alerting')
     .dependsOn('access-control')
-    
+
     // Deploy SIEM
     .task(task('deploy-siem', async ({ vars, log }) => {
       log.info('Deploying SIEM solution...');
-      
+
       // Deploy Elastic Security
       await monitoringModule.tasks.elasticsearch.run({
         vars,
@@ -758,7 +758,7 @@ EOF`;
           storage: '100Gi'
         }
       });
-      
+
       // Configure security indices
       const securityIndices = [
         {
@@ -787,7 +787,7 @@ EOF`;
           }
         }
       ];
-      
+
       for (const index of securityIndices) {
         await monitoringModule.tasks.elasticsearch.run({
           vars,
@@ -800,11 +800,11 @@ EOF`;
         });
       }
     }))
-    
+
     // Set up threat detection
     .task(task('setup-threat-detection', async ({ vars, log }) => {
       log.info('Setting up threat detection...');
-      
+
       // Deploy Wazuh for threat detection
       await k8sModule.tasks.helm.run({
         vars,
@@ -826,7 +826,7 @@ EOF`;
           }
         }
       });
-      
+
       // Configure detection rules
       const detectionRules = `
 <ossec_config>
@@ -850,7 +850,7 @@ EOF`;
     </rule>
   </rules>
 </ossec_config>`;
-      
+
       await k8sModule.tasks.configMap.run({
         vars,
         log,
@@ -861,11 +861,11 @@ EOF`;
         }
       });
     }))
-    
+
     // Configure security alerts
     .task(task('configure-security-alerts', async ({ vars, log }) => {
       log.info('Configuring security alerts...');
-      
+
       await monitoringModule.tasks.alerts.run({
         vars,
         log,
@@ -905,16 +905,16 @@ EOF`;
       });
     }))
   )
-  
+
   // Phase 7: Incident Response
   .phase('incident-response', phase => phase
     .description('Set up incident response automation')
     .dependsOn('monitoring')
-    
+
     // Deploy incident response platform
     .task(task('deploy-incident-platform', async ({ vars, log }) => {
       log.info('Deploying incident response platform...');
-      
+
       // Deploy TheHive for incident management
       await dockerModule.tasks.compose.run({
         vars,
@@ -928,7 +928,7 @@ EOF`;
           }
         }
       });
-      
+
       // Configure automated responses
       const playbooks = [
         {
@@ -963,7 +963,7 @@ EOF`;
           ]
         }
       ];
-      
+
       for (const playbook of playbooks) {
         await vars.fs.write(
           `./playbooks/${playbook.name}.yaml`,
@@ -971,11 +971,11 @@ EOF`;
         );
       }
     }))
-    
+
     // Set up forensics tools
     .task(task('setup-forensics', async ({ vars, log }) => {
       log.info('Setting up forensics capabilities...');
-      
+
       await k8sModule.tasks.deploy.run({
         vars,
         log,
@@ -991,11 +991,11 @@ EOF`;
         }
       });
     }))
-    
+
     // Configure automated remediation
     .task(task('setup-auto-remediation', async ({ vars, log }) => {
       log.info('Setting up automated remediation...');
-      
+
       await k8sModule.tasks.deploy.run({
         vars,
         log,
@@ -1015,16 +1015,16 @@ EOF`;
       });
     }))
   )
-  
+
   // Phase 8: Testing & Validation
   .phase('validation', phase => phase
     .description('Validate security implementation')
     .dependsOn('incident-response')
-    
+
     // Run security tests
     .task(task('security-tests', async ({ vars, log }) => {
       log.info('Running security tests...');
-      
+
       // Run penetration testing
       await dockerModule.tasks.run.run({
         vars,
@@ -1035,22 +1035,22 @@ EOF`;
           command: 'zap-baseline.py -t https://app.example.com -r pentest-report.html'
         }
       });
-      
+
       // Run CIS benchmark
       await vars.$`kubectl apply -f https://raw.githubusercontent.com/aquasecurity/kube-bench/main/job.yaml`;
-      
+
       // Wait for completion
       await vars.$`kubectl wait --for=condition=complete job/kube-bench --timeout=600s`;
-      
+
       // Get results
       const benchmarkResults = await vars.$`kubectl logs job/kube-bench`;
       await vars.fs.write('cis-benchmark-results.txt', benchmarkResults.stdout);
     }))
-    
+
     // Generate security report
     .task(task('generate-security-report', async ({ vars, log, fs }) => {
       log.info('Generating security report...');
-      
+
       const report = {
         summary: {
           environment: vars.environment,
@@ -1088,9 +1088,9 @@ EOF`;
           incidentResponse: 'TheHive',
           metrics: {
             mttr: '45 minutes',
-            falsePosi### Продолжение security-compliance.ts
+            falsePosi### Продолжение security- compliance.ts
 
-```typescript
+              ```typescript
             falsePositiveRate: '2.3%',
             detectionCoverage: '97%'
           }
@@ -1113,14 +1113,15 @@ EOF`;
       };
       
       await fs.write(
-        `security-report-${Date.now()}.json`,
+        `security- report - ${ Date.now()
+    }.json`,
         JSON.stringify(report, null, 2)
       );
       
       // Send report to stakeholders
       if (vars.alerting.securityEmail) {
-        await vars.$`mail -s "Security Report - ${vars.environment}" \
-          ${vars.alerting.securityEmail} < security-report-${Date.now()}.json`;
+        await vars.$`mail - s "Security Report - ${vars.environment}" \
+      ${ vars.alerting.securityEmail } < security - report - ${ Date.now() }.json`;
       }
       
       log.info('Security and compliance implementation completed!');
@@ -1134,165 +1135,165 @@ EOF`;
 function generateSOC2Policies(vars: any): string {
   return `
 policies:
-  - name: soc2-encryption-at-rest
+      - name: soc2 - encryption - at - rest
     resource: ec2
     filters:
       - type: ebs
         key: Encrypted
         value: false
     actions:
-      - type: mark-for-op
-        op: encrypt-ebs-volume
-        days: 3
-        
-  - name: soc2-access-logging
-    resource: s3
-    filters:
-      - type: bucket-logging
-        op: disabled
-    actions:
-      - type: toggle-logging
-        target_bucket: audit-logs-bucket
-        
-  - name: soc2-mfa-enforcement
-    resource: iam-user
-    filters:
-      - type: credential
-        key: mfa_active
-        value: false
-    actions:
-      - type: notify
-        subject: "SOC2: MFA Required"
-        to: ["security@example.com"]
-        
-  - name: soc2-password-policy
-    resource: account
-    filters:
-      - type: password-policy
-        key: MinimumPasswordLength
-        value: 12
-        op: lt
-    actions:
-      - type: set-password-policy
-        policy:
-          MinimumPasswordLength: 14
-          RequireSymbols: true
-          RequireNumbers: true
-          RequireUppercaseCharacters: true
-          RequireLowercaseCharacters: true
-          MaxPasswordAge: 90
-`;
+      - type: mark -for-op
+        op: encrypt - ebs - volume
+days: 3
+
+  - name: soc2 - access - logging
+resource: s3
+filters:
+- type: bucket - logging
+op: disabled
+actions:
+- type: toggle - logging
+target_bucket: audit - logs - bucket
+
+  - name: soc2 - mfa - enforcement
+resource: iam - user
+filters:
+- type: credential
+key: mfa_active
+value: false
+actions:
+- type: notify
+subject: "SOC2: MFA Required"
+to: ["security@example.com"]
+
+  - name: soc2 - password - policy
+resource: account
+filters:
+- type: password - policy
+key: MinimumPasswordLength
+value: 12
+op: lt
+actions:
+- type: set - password - policy
+policy:
+MinimumPasswordLength: 14
+RequireSymbols: true
+RequireNumbers: true
+RequireUppercaseCharacters: true
+RequireLowercaseCharacters: true
+MaxPasswordAge: 90
+  `;
 }
 
 function generateHIPAAPolicies(vars: any): string {
   return `
 policies:
-  - name: hipaa-phi-encryption
-    resource: rds
-    filters:
-      - type: value
-        key: StorageEncrypted
-        value: false
-    actions:
-      - type: mark-for-op
-        op: encrypt-db
-        days: 1
-        
-  - name: hipaa-audit-trails
-    resource: cloudtrail
-    filters:
-      - type: status
-        key: IsLogging
-        value: false
-    actions:
-      - type: notify
-        priority: urgent
-        subject: "HIPAA: CloudTrail Logging Disabled"
-        
-  - name: hipaa-access-controls
-    resource: s3
-    filters:
-      - type: value
-        key: Name
-        value: ".*-phi-.*"
-        op: regex
-      - type: public-access
-    actions:
-      - type: remove-public-access
-      - type: notify
-        subject: "HIPAA: PHI Bucket Public Access Removed"
-        
-  - name: hipaa-data-retention
-    resource: s3
-    filters:
-      - type: value
-        key: Name
-        value: ".*-phi-.*"
-        op: regex
-      - type: lifecycle-policy
-        absent: true
-    actions:
-      - type: configure-lifecycle
-        rules:
-          - id: hipaa-retention
-            status: Enabled
-            transitions:
-              - days: 2555  # 7 years
-                storage_class: GLACIER
-`;
+- name: hipaa - phi - encryption
+resource: rds
+filters:
+- type: value
+key: StorageEncrypted
+value: false
+actions:
+- type: mark -for-op
+        op: encrypt - db
+days: 1
+
+  - name: hipaa - audit - trails
+resource: cloudtrail
+filters:
+- type: status
+key: IsLogging
+value: false
+actions:
+- type: notify
+priority: urgent
+subject: "HIPAA: CloudTrail Logging Disabled"
+
+  - name: hipaa - access - controls
+resource: s3
+filters:
+- type: value
+key: Name
+value: ".*-phi-.*"
+op: regex
+  - type: public - access
+actions:
+- type: remove - public - access
+  - type: notify
+subject: "HIPAA: PHI Bucket Public Access Removed"
+
+  - name: hipaa - data - retention
+resource: s3
+filters:
+- type: value
+key: Name
+value: ".*-phi-.*"
+op: regex
+  - type: lifecycle - policy
+absent: true
+actions:
+- type: configure - lifecycle
+rules:
+- id: hipaa - retention
+status: Enabled
+transitions:
+- days: 2555  # 7 years
+storage_class: GLACIER
+  `;
 }
 
 function generatePCIPolicies(vars: any): string {
   return `
 policies:
-  - name: pci-network-segmentation
-    resource: security-group
-    filters:
-      - type: value
-        key: GroupName
-        value: ".*-pci-.*"
-        op: regex
-      - type: ingress
-        Ports: [22, 3389]
-        Cidr: "0.0.0.0/0"
-    actions:
-      - type: modify-security-group
-        remove: ingress
-        
-  - name: pci-vulnerability-scanning
-    resource: ec2
-    filters:
-      - tag:Environment: production
-      - tag:PCI: true
-      - type: finding
-        severity: [CRITICAL, HIGH]
-    actions:
-      - type: notify
-        subject: "PCI: Critical Vulnerabilities Found"
-        priority: urgent
-        
-  - name: pci-key-rotation
-    resource: kms-key
-    filters:
-      - type: key-rotation-status
-        key: KeyRotationEnabled
-        value: false
-    actions:
-      - type: enable-key-rotation
-      
-  - name: pci-log-monitoring
-    resource: log-group
-    filters:
-      - type: value
-        key: logGroupName
-        value: "/aws/pci/.*"
-        op: regex
-      - type: metrics
-        absent: true
-    actions:
-      - type: put-metric-filter
-        name: pci-security-events
-        pattern: "[ERROR, CRITICAL, ALERT]"
+- name: pci - network - segmentation
+resource: security - group
+filters:
+- type: value
+key: GroupName
+value: ".*-pci-.*"
+op: regex
+  - type: ingress
+Ports: [22, 3389]
+Cidr: "0.0.0.0/0"
+actions:
+- type: modify - security - group
+remove: ingress
+
+  - name: pci - vulnerability - scanning
+resource: ec2
+filters:
+- tag: Environment: production
+  - tag: PCI: true
+    - type: finding
+severity: [CRITICAL, HIGH]
+actions:
+- type: notify
+subject: "PCI: Critical Vulnerabilities Found"
+priority: urgent
+
+  - name: pci - key - rotation
+resource: kms - key
+filters:
+- type: key - rotation - status
+key: KeyRotationEnabled
+value: false
+actions:
+- type: enable - key - rotation
+
+  - name: pci - log - monitoring
+resource: log - group
+filters:
+- type: value
+key: logGroupName
+value: "/aws/pci/.*"
+op: regex
+  - type: metrics
+absent: true
+actions:
+- type: put - metric - filter
+name: pci - security - events
+pattern: "[ERROR, CRITICAL, ALERT]"
 `;
 }
 
@@ -1317,7 +1318,7 @@ export const securityDR = recipe('security-disaster-recovery')
       ];
       
       for (const backup of backups) {
-        const result = await vars.$`${backup.command}`;
+        const result = await vars.$`${ backup.command } `;
         await awsModule.tasks.s3Bucket.run({
           vars,
           log,
@@ -1331,10 +1332,10 @@ export const securityDR = recipe('security-disaster-recovery')
     }))
     
     .task(task('create-recovery-procedures', async ({ vars, log, fs }) => {
-      log.info('Creating security recovery procedures...');
-      
-      const procedures = {
-        'ransomware-recovery.md': `
+  log.info('Creating security recovery procedures...');
+
+  const procedures = {
+    'ransomware-recovery.md': `
 # Ransomware Recovery Procedure
 
 1. **Immediate Actions**
@@ -1357,7 +1358,7 @@ export const securityDR = recipe('security-disaster-recovery')
    - Run security scans
    - Test functionality
 `,
-        'breach-recovery.md': `
+    'breach-recovery.md': `
 # Data Breach Recovery Procedure
 
 1. **Containment**
@@ -1380,12 +1381,12 @@ export const securityDR = recipe('security-disaster-recovery')
    - Report to authorities
    - Update stakeholders
 `
-      };
-      
-      for (const [filename, content] of Object.entries(procedures)) {
-        await fs.write(`./dr-procedures/${filename}`, content);
-      }
-    }))
+  };
+
+  for (const [filename, content] of Object.entries(procedures)) {
+    await fs.write(`./dr-procedures/${filename}`, content);
+  }
+}))
   )
   
   .build();
@@ -1394,14 +1395,14 @@ export const securityDR = recipe('security-disaster-recovery')
 export const zeroTrustSecurity = recipe('zero-trust-security')
   .description('Implement zero-trust security architecture')
   .extends(securityCompliance)
-  
+
   .phase('zero-trust', phase => phase
     .description('Implement zero-trust principles')
     .after('access-control')
-    
+
     .task(task('deploy-service-mesh', async ({ vars, log }) => {
       log.info('Deploying service mesh for zero-trust...');
-      
+
       // Deploy Istio with strict mTLS
       await k8sModule.tasks.helm.run({
         vars,
@@ -1431,7 +1432,7 @@ export const zeroTrustSecurity = recipe('zero-trust-security')
           }
         }
       });
-      
+
       // Apply zero-trust policies
       await vars.$`kubectl apply -f - <<EOF
 apiVersion: security.istio.io/v1beta1
@@ -1452,10 +1453,10 @@ spec:
   {}
 EOF`;
     }))
-    
+
     .task(task('implement-microsegmentation', async ({ vars, log }) => {
       log.info('Implementing network microsegmentation...');
-      
+
       // Create Calico network policies
       const policies = [
         {
@@ -1487,7 +1488,7 @@ EOF`;
           }
         }
       ];
-      
+
       for (const policy of policies) {
         await vars.$`kubectl apply -f - <<EOF
 apiVersion: networking.k8s.io/v1
@@ -1499,10 +1500,10 @@ ${vars.yaml.stringify(policy.spec)}
 EOF`;
       }
     }))
-    
+
     .task(task('deploy-policy-engine', async ({ vars, log }) => {
       log.info('Deploying policy decision engine...');
-      
+
       // Deploy Open Policy Agent with zero-trust policies
       const policies = `
 package istio.authz
@@ -1525,7 +1526,7 @@ token = {"valid": valid, "payload": payload} {
     [valid, _, payload] := io.jwt.decode_verify(encoded, {"secret": data.jwt_secret})
 }
 `;
-      
+
       await k8sModule.tasks.configMap.run({
         vars,
         log,
@@ -1537,5 +1538,5 @@ token = {"valid": valid, "payload": payload} {
       });
     }))
   )
-  
+
   .build();

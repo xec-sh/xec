@@ -1,4 +1,4 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
 import type {

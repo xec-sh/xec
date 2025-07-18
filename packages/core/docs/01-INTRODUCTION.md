@@ -2,7 +2,7 @@
 
 ## What is Xec Core?
 
-Xec Core is a modern infrastructure orchestration and automation system built on TypeScript and @xec/ush. It provides a powerful yet easy-to-use framework for automating DevOps tasks, managing configuration, and deploying applications.
+Xec Core is a modern infrastructure orchestration and automation system built on TypeScript and @xec-js/ush. It provides a powerful yet easy-to-use framework for automating DevOps tasks, managing configuration, and deploying applications.
 
 ## Key Features
 
@@ -111,7 +111,7 @@ Optimized for execution speed. Parallel execution, connection pooling, smart cac
 ## Quick Example
 
 ```typescript
-import { recipe, task } from '@xec/core';
+import { recipe, task } from '@xec-js/core';
 
 // Create a simple deployment recipe
 const deploy = recipe('deploy-app')

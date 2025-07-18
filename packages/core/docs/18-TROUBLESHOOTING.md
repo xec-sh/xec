@@ -360,7 +360,7 @@ xec admin set-log-level debug
 xec admin set-log-level execution:trace,state:debug
 
 // In code for debugging
-import { logger } from '@xec/core';
+import { logger } from '@xec-js/core';
 
 logger.level = 'debug';
 logger.child({ module: 'my-module' }).debug('Detailed info');
@@ -447,7 +447,7 @@ tracing:
 
 ```typescript
 // Adding custom spans
-import { tracer } from '@xec/core';
+import { tracer } from '@xec-js/core';
 
 const span = tracer.startSpan('custom-operation');
 span.setAttributes({

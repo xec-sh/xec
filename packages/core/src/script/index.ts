@@ -2,7 +2,7 @@
  * Xec Script Runtime
  * 
  * This module provides the runtime for Xec scripts, which are
- * enhanced JavaScript/TypeScript scripts that leverage @xec/ush
+ * enhanced JavaScript/TypeScript scripts that leverage @xec-js/ush
  * for powerful command execution and automation.
  */
 
@@ -13,7 +13,7 @@ import { glob } from 'glob';
 import * as path from 'path';
 import fetch from 'node-fetch';
 import * as fs from 'fs/promises';
-import { $ as ush } from '@xec/ush';
+import { $ as ush } from '@xec-js/ush';
 
 import { task, Task } from '../dsl/task.js';
 import { recipe, Recipe } from '../dsl/recipe.js';
@@ -32,7 +32,7 @@ async function transpileESModules(content: string, filename: string): Promise<st
   try {
     // Dynamic import to avoid dependency issues
     const { transform } = await import('esbuild');
-    
+
     const result = await transform(content, {
       loader: filename.endsWith('.ts') ? 'ts' : 'js',
       format: 'cjs', // Convert ES modules to CommonJS
@@ -306,12 +306,12 @@ export class ScriptRunner {
 
   async runFile(scriptPath: string): Promise<any> {
     let content = await fs.readFile(scriptPath, 'utf-8');
-    
+
     // Handle TypeScript files by transpiling them first
     if (scriptPath.endsWith('.ts') || scriptPath.endsWith('.tsx')) {
       content = await transpileESModules(content, scriptPath);
     }
-    
+
     return this.run(content, scriptPath);
   }
 

@@ -1,6 +1,6 @@
 # Retry Logic
 
-@xec/ush provides flexible retry mechanisms to handle transient failures gracefully. By default, commands are retried on any non-zero exit code.
+@xec-js/ush provides flexible retry mechanisms to handle transient failures gracefully. By default, commands are retried on any non-zero exit code.
 
 ## Basic Retry Configuration
 

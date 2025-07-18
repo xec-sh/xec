@@ -71,7 +71,7 @@ interface CustomEvent extends Event {
 ### Writing Events
 
 ```typescript
-import { EventStore } from '@xec/core';
+import { EventStore } from '@xec-js/core';
 
 const eventStore = new EventStore();
 
@@ -256,7 +256,7 @@ interface LedgerEntry {
 ### Using Ledger
 
 ```typescript
-import { StateLedger } from '@xec/core';
+import { StateLedger } from '@xec-js/core';
 
 const ledger = new StateLedger({
   storage: 'postgresql',

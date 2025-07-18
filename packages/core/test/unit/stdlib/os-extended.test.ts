@@ -1,4 +1,4 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { it, vi, expect, describe, beforeEach } from 'vitest';
 
@@ -64,7 +64,7 @@ describe('OS Extended Functions', () => {
       const minutes = String(bootTime.getMinutes()).padStart(2, '0');
       const seconds = String(bootTime.getSeconds()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-      
+
       mockExecutor = vi.fn().mockResolvedValue({
         stdout: formattedDate + '\n',
         stderr: '',
@@ -83,7 +83,7 @@ describe('OS Extended Functions', () => {
       const now = new Date();
       const bootTime = new Date(now.getTime() - 7200000); // 2 hours ago
       const wmiFormat = `${bootTime.getFullYear()}${String(bootTime.getMonth() + 1).padStart(2, '0')}${String(bootTime.getDate()).padStart(2, '0')}${String(bootTime.getHours()).padStart(2, '0')}${String(bootTime.getMinutes()).padStart(2, '0')}${String(bootTime.getSeconds()).padStart(2, '0')}.000000+000`;
-      
+
       mockExecutor = vi.fn().mockResolvedValue({
         stdout: `LastBootUpTime\n${wmiFormat}\n`,
         stderr: '',

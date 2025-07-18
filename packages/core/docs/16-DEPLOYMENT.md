@@ -39,7 +39,7 @@ sudo apt-get install -y nodejs
 
 # Install Xec Core
 cd /opt/xec
-sudo -u xec npm install @xec/core @xec/cli
+sudo -u xec npm install @xec-js/core @xec-js/cli
 
 # Create directory structure
 sudo mkdir -p /etc/xec /var/log/xec /var/lib/xec
@@ -694,7 +694,7 @@ for node in "${NODES[@]}"; do
     xec cluster drain ${node}
     
     # Update
-    ssh ${node} "cd /opt/xec && npm install @xec/core@${NEW_VERSION}"
+    ssh ${node} "cd /opt/xec && npm install @xec-js/core@${NEW_VERSION}"
     
     # Restart
     ssh ${node} "systemctl restart xec"

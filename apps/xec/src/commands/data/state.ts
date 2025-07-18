@@ -41,7 +41,7 @@ export class StateCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     this.stateStore = createCLIStateManager();
   }
 
@@ -136,10 +136,10 @@ export class StateCommand extends SubcommandBase {
       });
 
     // Note: history command removed as SimpleStateStore doesn't track history
-    // For event-sourced history, use the full StateManager from @xec/core
+    // For event-sourced history, use the full StateManager from @xec-js/core
 
     // Note: watch command removed as SimpleStateStore doesn't support real-time watching
-    // For real-time state watching, use the full StateManager from @xec/core
+    // For real-time state watching, use the full StateManager from @xec-js/core
 
     // xec data state backup
     command
@@ -171,7 +171,7 @@ export class StateCommand extends SubcommandBase {
       const namespace = options.namespace || 'default';
       const fullKey = namespaceKey(namespace, key);
       const value = await this.stateStore.get(fullKey);
-      
+
       if (value === undefined) {
         if (options.default !== undefined) {
           this.output(options.default, `State: ${key} (default)`);
@@ -189,7 +189,7 @@ export class StateCommand extends SubcommandBase {
   private async setState(key: string, value: string, options: StateOptions & { type?: string; ttl?: number }): Promise<void> {
     try {
       let parsedValue: any;
-      
+
       switch (options.type) {
         case 'number':
           parsedValue = Number(value);
@@ -206,7 +206,7 @@ export class StateCommand extends SubcommandBase {
         default:
           parsedValue = value;
       }
-      
+
       const namespace = options.namespace || 'default';
       const fullKey = namespaceKey(namespace, key);
       await this.stateStore.set(fullKey, parsedValue, { ttl: options.ttl });
@@ -224,7 +224,7 @@ export class StateCommand extends SubcommandBase {
         return;
       }
     }
-    
+
     try {
       const namespace = options.namespace || 'default';
       const fullKey = namespaceKey(namespace, key);
@@ -239,14 +239,14 @@ export class StateCommand extends SubcommandBase {
     try {
       const namespace = options.namespace || 'default';
       const keys = await this.stateStore.listKeys(namespace);
-      
+
       // Filter keys
       let filteredKeys = keys;
       if (options.filter) {
         const pattern = new RegExp(options.filter, 'i');
         filteredKeys = keys.filter(key => pattern.test(key));
       }
-      
+
       if (options.values) {
         // Show key-value pairs
         const stateData: Record<string, any> = {};
@@ -275,22 +275,22 @@ export class StateCommand extends SubcommandBase {
         return;
       }
     }
-    
+
     try {
       // Create backup if requested
       if (options.backup) {
         await this.backupState({ ...options, file: `state-backup-${Date.now()}.json` });
       }
-      
+
       const namespace = options.namespace || 'default';
       const keys = await this.stateStore.listKeys(namespace);
-      
+
       // Delete all keys in namespace
       for (const key of keys) {
         const fullKey = namespaceKey(namespace, key);
         await this.stateStore.delete(fullKey);
       }
-      
+
       this.log('State cleared successfully', 'success');
     } catch (error: any) {
       throw errorMessages.configurationInvalid('state', `Failed to clear state: ${error.message}`);
@@ -302,7 +302,7 @@ export class StateCommand extends SubcommandBase {
       const namespace = options.namespace || 'default';
       const state = await this.stateStore.getNamespace(namespace);
       let filteredState = state;
-      
+
       // Filter state
       if (options.filter) {
         const pattern = new RegExp(options.filter, 'i');
@@ -310,13 +310,13 @@ export class StateCommand extends SubcommandBase {
           Object.entries(state).filter(([key]) => pattern.test(key))
         );
       }
-      
+
       const exportData = {
         timestamp: new Date().toISOString(),
         namespace,
         state: filteredState,
       };
-      
+
       if (options.file) {
         let content: string;
         if (options.format === 'yaml') {
@@ -324,7 +324,7 @@ export class StateCommand extends SubcommandBase {
         } else {
           content = JSON.stringify(exportData, null, 2);
         }
-        
+
         await fs.writeFile(options.file, content);
         this.log(`State exported to ${options.file}`, 'success');
       } else {
@@ -339,21 +339,21 @@ export class StateCommand extends SubcommandBase {
     try {
       const filePath = path.resolve(file);
       const content = await fs.readFile(filePath, 'utf8');
-      
+
       let importData: any;
       if (options.format === 'yaml') {
         importData = yaml.load(content);
       } else {
         importData = JSON.parse(content);
       }
-      
+
       // Create backup if requested
       if (options.backup) {
         await this.backupState({ ...options, file: `state-backup-${Date.now()}.json` });
       }
-      
+
       const stateData = importData.state || importData;
-      
+
       if (options.merge) {
         // Merge with existing state
         const namespace = options.namespace || 'default';
@@ -365,20 +365,20 @@ export class StateCommand extends SubcommandBase {
         // Replace all state
         const namespace = options.namespace || 'default';
         const existingKeys = await this.stateStore.listKeys(namespace);
-        
+
         // Delete all existing keys
         for (const key of existingKeys) {
           const fullKey = namespaceKey(namespace, key);
           await this.stateStore.delete(fullKey);
         }
-        
+
         // Set new state
         for (const [key, value] of Object.entries(stateData)) {
           const fullKey = namespaceKey(namespace, key);
           await this.stateStore.set(fullKey, value);
         }
       }
-      
+
       this.log(`State imported from ${file}`, 'success');
     } catch (error: any) {
       throw errorMessages.configurationInvalid('state', `Failed to import state: ${error.message}`);
@@ -386,10 +386,10 @@ export class StateCommand extends SubcommandBase {
   }
 
   // History functionality removed - SimpleStateStore doesn't track history
-  // For event-sourced history, use the full StateManager from @xec/core
+  // For event-sourced history, use the full StateManager from @xec-js/core
 
   // Watch functionality removed - SimpleStateStore doesn't support real-time watching
-  // For real-time state watching, use the full StateManager from @xec/core
+  // For real-time state watching, use the full StateManager from @xec-js/core
 
   private async backupState(options: StateOptions & { compress?: boolean }): Promise<void> {
     try {
@@ -400,10 +400,10 @@ export class StateCommand extends SubcommandBase {
         namespace,
         state,
       };
-      
+
       const backupFile = options.file || `state-backup-${Date.now()}.json`;
       const content = JSON.stringify(backupData, null, 2);
-      
+
       if (options.compress) {
         const zlib = await import('zlib');
         const compressed = zlib.gzipSync(content);
@@ -426,11 +426,11 @@ export class StateCommand extends SubcommandBase {
         return;
       }
     }
-    
+
     try {
       const filePath = path.resolve(file);
       let content: string;
-      
+
       if (file.endsWith('.gz')) {
         const zlib = await import('zlib');
         const compressed = await fs.readFile(filePath);
@@ -438,26 +438,26 @@ export class StateCommand extends SubcommandBase {
       } else {
         content = await fs.readFile(filePath, 'utf8');
       }
-      
+
       const backupData = JSON.parse(content);
       const stateData = backupData.state || backupData;
-      
+
       // Clear existing state
       const namespace = options.namespace || 'default';
       const existingKeys = await this.stateStore.listKeys(namespace);
-      
+
       // Delete all existing keys
       for (const key of existingKeys) {
         const fullKey = namespaceKey(namespace, key);
         await this.stateStore.delete(fullKey);
       }
-      
+
       // Restore state
       for (const [key, value] of Object.entries(stateData)) {
         const fullKey = namespaceKey(namespace, key);
         await this.stateStore.set(fullKey, value);
       }
-      
+
       this.log(`State restored from ${file}`, 'success');
     } catch (error: any) {
       throw errorMessages.configurationInvalid('state', `Failed to restore state: ${error.message}`);

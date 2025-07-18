@@ -1,6 +1,6 @@
 # Working with Different Environments
 
-@xec/ush allows you to execute commands seamlessly across different environments using a unified API. Whether you're working locally, over SSH, in Docker containers, or Kubernetes pods, the syntax remains consistent.
+@xec-js/ush allows you to execute commands seamlessly across different environments using a unified API. Whether you're working locally, over SSH, in Docker containers, or Kubernetes pods, the syntax remains consistent.
 
 ## SSH Execution
 

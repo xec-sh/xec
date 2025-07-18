@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { $, configure, ExecutionResult as UshExecutionResult } from '@xec/ush';
+import { $, configure, ExecutionResult as UshExecutionResult } from '@xec-js/ush';
 
 import { BaseAdapter, ExecutionResult } from './base-adapter.js';
 
@@ -47,7 +47,7 @@ export class UshAdapter extends BaseAdapter {
     });
 
     this.ushConfig = config;
-    
+
     // Configure ush with provided options
     if (config.env || config.cwd || config.timeout || config.shell) {
       configure({
@@ -57,7 +57,7 @@ export class UshAdapter extends BaseAdapter {
         defaultCwd: config.cwd
       });
     }
-    
+
     this.ush = $;
   }
 
@@ -114,21 +114,21 @@ export class UshAdapter extends BaseAdapter {
 
     try {
       // Build the full command with arguments if provided
-      const fullCommand = options?.args 
+      const fullCommand = options?.args
         ? `${command} ${options.args.map(arg => this.escapeArg(arg)).join(' ')}`
         : command;
 
       // Build execution engine with options
       let engine = this.ush;
-      
+
       if (options?.cwd) {
         engine = engine.cd(options.cwd);
       }
-      
+
       if (options?.env) {
         engine = engine.env(options.env);
       }
-      
+
       if (options?.timeout) {
         engine = engine.timeout(options.timeout);
       }
@@ -136,11 +136,11 @@ export class UshAdapter extends BaseAdapter {
       // Execute with or without stdin, with sudo if configured
       let result;
       if (this.ushConfig.sudo) {
-        result = options?.stdin 
+        result = options?.stdin
           ? await engine`echo ${options.stdin} | sudo ${fullCommand}`
           : await engine`sudo ${fullCommand}`;
       } else {
-        result = options?.stdin 
+        result = options?.stdin
           ? await engine`echo ${options.stdin} | ${fullCommand}`
           : await engine`${fullCommand}`;
       }
@@ -373,27 +373,27 @@ export class UshAdapter extends BaseAdapter {
 
     // Build the full command with arguments
     const fullCommand = `${command} ${args.join(' ')}`;
-    
+
     // Execute using ush with the provided options
     let engine = this.ush;
-    
+
     if (options.cwd) {
       engine = engine.cd(options.cwd);
     }
-    
+
     if (options.env) {
       engine = engine.env(options.env);
     }
-    
+
     if (options.timeout) {
       engine = engine.timeout(options.timeout);
     }
-    
+
     if (this.ushConfig.sudo) {
       const result = await engine`sudo ${fullCommand}`;
       return result;
     }
-    
+
     const result = await engine`${fullCommand}`;
     return result;
   }
@@ -403,28 +403,28 @@ export class UshAdapter extends BaseAdapter {
 
     // Execute using ush with the provided options
     let engine = this.ush;
-    
+
     if (options.cwd) {
       engine = engine.cd(options.cwd);
     }
-    
+
     if (options.env) {
       engine = engine.env(options.env);
     }
-    
+
     if (options.timeout) {
       engine = engine.timeout(options.timeout);
     }
-    
+
     if (options.shell) {
       engine = engine.shell(options.shell);
     }
-    
+
     if (this.ushConfig.sudo) {
       const result = await engine`sudo ${options.shell || '/bin/sh'} -c '${script}'`;
       return result;
     }
-    
+
     const result = await engine`${script}`;
     return result;
   }

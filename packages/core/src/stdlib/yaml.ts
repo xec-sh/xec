@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   YAML,
   EnvironmentInfo,
 } from '../types/environment-types.js';
@@ -11,7 +11,7 @@ export async function createYAML(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<YAML> {
-  
+
   // Simple YAML parser - in production would use a proper library
   const simpleYamlParse = (text: string): any => {
     // Very basic YAML parsing - only handles simple cases
@@ -20,17 +20,17 @@ export async function createYAML(
     const currentIndent = 0;
     let currentObj = result;
     const stack: any[] = [result];
-    
+
     for (const line of lines) {
       if (!line.trim() || line.trim().startsWith('#')) continue;
-      
+
       const indent = line.search(/\S/);
       const content = line.trim();
-      
+
       if (content.includes(':')) {
         const [key, ...valueParts] = content.split(':');
         const value = valueParts.join(':').trim();
-        
+
         if (key) {
           const trimmedKey = key.trim();
           if (value) {
@@ -43,14 +43,14 @@ export async function createYAML(
         }
       }
     }
-    
+
     return result;
   };
-  
+
   const simpleYamlStringify = (obj: any, indent: number = 0): string => {
     const lines: string[] = [];
     const prefix = '  '.repeat(indent);
-    
+
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'object' && value !== null) {
         lines.push(`${prefix}${key}:`);
@@ -59,10 +59,10 @@ export async function createYAML(
         lines.push(`${prefix}${key}: ${value}`);
       }
     }
-    
+
     return lines.join('\n');
   };
-  
+
   const yaml: YAML = {
     parse<T = any>(text: string): T {
       try {

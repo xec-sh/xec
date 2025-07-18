@@ -63,7 +63,7 @@ recipe('example')
 #### Basic Syntax
 
 ```typescript
-import { task } from '@xec/core';
+import { task } from '@xec-js/core';
 
 const myTask = task('task-name')
   .description('What this task does')
@@ -159,7 +159,7 @@ const deployApp = task('deploy-application')
 #### Shell Commands
 
 ```typescript
-import { shell } from '@xec/core';
+import { shell } from '@xec-js/core';
 
 // Simple command
 const update = shell('apt-get update');
@@ -174,7 +174,7 @@ const install = shell('npm install {{package}}');
 #### Scripts
 
 ```typescript
-import { script } from '@xec/core';
+import { script } from '@xec-js/core';
 
 // Run external script
 const migrate = script('./scripts/migrate.sh');
@@ -193,7 +193,7 @@ const test = script('./test.sh', [], {
 #### Parallel Execution
 
 ```typescript
-import { parallel } from '@xec/core';
+import { parallel } from '@xec-js/core';
 
 const setupEnvironment = parallel(
   task('install-deps', installDependencies),
@@ -212,7 +212,7 @@ const prepare = parallel(
 #### Sequential Execution
 
 ```typescript
-import { sequence } from '@xec/core';
+import { sequence } from '@xec-js/core';
 
 const deployment = sequence(
   task('stop', stopServices),
@@ -225,7 +225,7 @@ const deployment = sequence(
 #### Grouping
 
 ```typescript
-import { group } from '@xec/core';
+import { group } from '@xec-js/core';
 
 const databases = group('setup-databases', [
   task('postgres', setupPostgres),

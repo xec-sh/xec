@@ -20,7 +20,7 @@ This document provides practical examples of using the Xec standard library for 
 ### Deploy Node.js Application
 
 ```typescript
-import { task } from '@xec/core';
+import { task } from '@xec-js/core';
 
 export const deployNodeApp = task('deploy-node-app')
   .description('Deploy Node.js application with PM2')

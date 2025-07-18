@@ -30,7 +30,7 @@ export default function (program: Command) {
         // Try to get core version
         try {
           const fs = await import('fs');
-          const corePath = path.dirname(require.resolve('@xec/core'));
+          const corePath = path.dirname(require.resolve('@xec-js/core'));
           const corePkgPath = path.join(corePath, '../package.json');
           const corePkg = JSON.parse(await fs.promises.readFile(corePkgPath, 'utf-8'));
           console.log(`${chalk.blue('core:')} ${corePkg.version}`);
@@ -42,7 +42,7 @@ export default function (program: Command) {
         // Try to get ush version
         try {
           const fs = await import('fs');
-          const ushPath = path.dirname(require.resolve('@xec/ush'));
+          const ushPath = path.dirname(require.resolve('@xec-js/ush'));
           const ushPkgPath = path.join(ushPath, '../package.json');
           const ushPkg = JSON.parse(await fs.promises.readFile(ushPkgPath, 'utf-8'));
           console.log(`${chalk.blue('ush:')}  ${ushPkg.version}`);

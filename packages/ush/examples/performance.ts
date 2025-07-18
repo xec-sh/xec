@@ -1,26 +1,26 @@
 #!/usr/bin/env node
 /**
- * Performance Optimization Guide for @xec/ush
+ * Performance Optimization Guide for @xec-js/ush
  * 
  * This file demonstrates techniques for optimizing shell script
- * performance using @xec/ush.
+ * performance using @xec-js/ush.
  */
 
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 // Performance measurement utilities
 class PerformanceTimer {
   private startTime: number;
   private marks: Map<string, number> = new Map();
-  
+
   constructor() {
     this.startTime = Date.now();
   }
-  
+
   mark(name: string) {
     this.marks.set(name, Date.now());
   }
-  
+
   measure(name: string, startMark?: string): number {
     const endTime = Date.now();
     const startTime = startMark ? this.marks.get(startMark) || this.startTime : this.startTime;
@@ -28,7 +28,7 @@ class PerformanceTimer {
     console.log(`⏱️  ${name}: ${duration}ms`);
     return duration;
   }
-  
+
   reset() {
     this.startTime = Date.now();
     this.marks.clear();
@@ -41,11 +41,11 @@ console.log('=== Connection Pooling ===\n');
 async function demonstrateConnectionPooling() {
   const servers = ['server1.example.com', 'server2.example.com', 'server3.example.com'];
   const timer = new PerformanceTimer();
-  
+
   // Bad: Creating new connection for each command
   console.log('❌ Without connection pooling:');
   timer.reset();
-  
+
   for (const server of servers) {
     for (let i = 0; i < 3; i++) {
       // This would create a new SSH connection each time
@@ -55,16 +55,16 @@ async function demonstrateConnectionPooling() {
     }
   }
   timer.measure('Without pooling (simulated)');
-  
+
   // Good: Reusing connections
   console.log('\n✅ With connection pooling:');
   timer.reset();
-  
+
   // Create connections once
   const connections = new Map(
     servers.map(server => [server, $.ssh(server)])
   );
-  
+
   for (const [server, $ssh] of connections) {
     for (let i = 0; i < 3; i++) {
       // Reuses the same connection
@@ -74,12 +74,12 @@ async function demonstrateConnectionPooling() {
     }
   }
   timer.measure('With pooling (simulated)');
-  
+
   // Always clean up connections
   // for (const $ssh of connections.values()) {
   //   await $ssh.disconnect();
   // }
-  
+
   console.log('\n💡 Connection pooling can reduce overhead by 80-90%!\n');
 }
 
@@ -91,41 +91,41 @@ console.log('\n=== Parallel Execution ===\n');
 async function demonstrateParallelExecution() {
   const files = Array.from({ length: 10 }, (_, i) => `/tmp/test-file-${i}.txt`);
   const timer = new PerformanceTimer();
-  
+
   // Create test files
   await $.parallel(files.map(f => $`touch ${f}`));
-  
+
   // Sequential processing
   console.log('❌ Sequential processing:');
   timer.reset();
-  
+
   for (const file of files) {
     await $`echo "Processing ${file}" && sleep 0.1`.quiet();
   }
   timer.measure('Sequential processing');
-  
+
   // Parallel processing
   console.log('\n✅ Parallel processing:');
   timer.reset();
-  
+
   await $.parallel(
     files.map(file => $`echo "Processing ${file}" && sleep 0.1`.quiet())
   );
   timer.measure('Parallel processing');
-  
+
   // Controlled concurrency
   console.log('\n✅ Controlled concurrency (batch of 3):');
   timer.reset();
-  
+
   await $.parallel(
     files.map(file => $`echo "Processing ${file}" && sleep 0.1`.quiet()),
     { concurrency: 3 }
   );
   timer.measure('Controlled concurrency');
-  
+
   // Cleanup
   await $.parallel(files.map(f => $`rm -f ${f}`));
-  
+
   console.log('\n💡 Parallel execution can provide near-linear speedup!\n');
 }
 
@@ -137,28 +137,28 @@ console.log('\n=== Stream Processing ===\n');
 async function demonstrateStreamProcessing() {
   const timer = new PerformanceTimer();
   const largeFile = '/tmp/large-test-file.txt';
-  
+
   // Create a large test file
   console.log('Creating large test file...');
   await $`seq 1 1000000 > ${largeFile}`;
-  
+
   // Bad: Loading entire file into memory
   console.log('\n❌ Loading entire file:');
   timer.reset();
-  
+
   const fullContent = await $`cat ${largeFile}`;
   const lineCount1 = fullContent.stdout.split('\n').length;
   timer.measure('Full file load');
   console.log(`Lines counted: ${lineCount1}`);
   console.log(`Memory used: ~${(fullContent.stdout.length / 1024 / 1024).toFixed(2)}MB`);
-  
+
   // Good: Streaming line by line
   console.log('\n✅ Streaming processing:');
   timer.reset();
-  
+
   let lineCount2 = 0;
   let progress = 0;
-  
+
   await $.stream`cat ${largeFile}`
     .onLine(() => {
       lineCount2++;
@@ -170,13 +170,13 @@ async function demonstrateStreamProcessing() {
     .onComplete(() => {
       console.log(`\rLines counted: ${lineCount2}        `);
     });
-  
+
   timer.measure('Stream processing');
   console.log('Memory used: ~0MB (constant)');
-  
+
   // Cleanup
   await $`rm -f ${largeFile}`;
-  
+
   console.log('\n💡 Streaming can handle files of any size with minimal memory!\n');
 }
 
@@ -189,37 +189,37 @@ async function demonstrateCommandBatching() {
   const timer = new PerformanceTimer();
   const testDir = '/tmp/batch-test';
   await $`mkdir -p ${testDir}`;
-  
+
   // Bad: Many small commands
   console.log('❌ Individual commands:');
   timer.reset();
-  
+
   for (let i = 0; i < 20; i++) {
     await $`touch ${testDir}/file${i}.txt`.quiet();
   }
   timer.measure('Individual commands');
-  
+
   // Clean up for next test
   await $`rm -rf ${testDir}/*`;
-  
+
   // Good: Batched commands
   console.log('\n✅ Batched command:');
   timer.reset();
-  
+
   const files = Array.from({ length: 20 }, (_, i) => `${testDir}/file${i}.txt`);
   await $`touch ${files}`;
   timer.measure('Batched command');
-  
+
   // Using shell features for even better performance
   console.log('\n✅ Shell expansion:');
   timer.reset();
-  
+
   await $.raw`touch ${testDir}/file{20..39}.txt`;
   timer.measure('Shell expansion');
-  
+
   // Cleanup
   await $`rm -rf ${testDir}`;
-  
+
   console.log('\n💡 Batching commands reduces process creation overhead!\n');
 }
 
@@ -231,25 +231,25 @@ console.log('\n=== Caching Strategies ===\n');
 class CommandCache {
   private cache = new Map<string, { result: any; timestamp: number }>();
   private ttl: number;
-  
+
   constructor(ttlSeconds = 60) {
     this.ttl = ttlSeconds * 1000;
   }
-  
+
   async execute(key: string, command: () => Promise<any>): Promise<any> {
     const cached = this.cache.get(key);
-    
+
     if (cached && Date.now() - cached.timestamp < this.ttl) {
       console.log(`  ✅ Cache hit for: ${key}`);
       return cached.result;
     }
-    
+
     console.log(`  ❌ Cache miss for: ${key}`);
     const result = await command();
     this.cache.set(key, { result, timestamp: Date.now() });
     return result;
   }
-  
+
   invalidate(key?: string) {
     if (key) {
       this.cache.delete(key);
@@ -262,28 +262,28 @@ class CommandCache {
 async function demonstrateCaching() {
   const cache = new CommandCache(5); // 5 second TTL
   const timer = new PerformanceTimer();
-  
+
   // Expensive operation (simulated)
   const expensiveOperation = async () => {
     await $`sleep 0.5 && echo "Expensive result: $(date +%s)"`.quiet();
     return Date.now();
   };
-  
+
   console.log('First call (no cache):');
   timer.reset();
   await cache.execute('expensive-op', expensiveOperation);
   timer.measure('First call');
-  
+
   console.log('\nSecond call (cached):');
   timer.reset();
   await cache.execute('expensive-op', expensiveOperation);
   timer.measure('Second call');
-  
+
   console.log('\nThird call (cached):');
   timer.reset();
   await cache.execute('expensive-op', expensiveOperation);
   timer.measure('Third call');
-  
+
   console.log('\n💡 Caching eliminated expensive operations!\n');
 }
 
@@ -296,44 +296,44 @@ async function demonstrateFileOperations() {
   const timer = new PerformanceTimer();
   const testDir = '/tmp/file-ops-test';
   await $`mkdir -p ${testDir}`;
-  
+
   // Create test files
   await $`cd ${testDir} && seq 1 100 | xargs -I {} touch file{}.txt`;
-  
+
   // Bad: Individual file operations
   console.log('❌ Processing files individually:');
   timer.reset();
-  
+
   const files1 = await $`ls ${testDir}`;
   for (const file of files1.stdout.trim().split('\n')) {
     await $`wc -l ${testDir}/${file}`.quiet();
   }
   timer.measure('Individual processing');
-  
+
   // Good: Batch file operations
   console.log('\n✅ Batch processing with xargs:');
   timer.reset();
-  
+
   await $`ls ${testDir} | xargs -P 4 -I {} wc -l ${testDir}/{}`.quiet();
   timer.measure('Batch with xargs');
-  
+
   // Better: Using find for direct processing
   console.log('\n✅ Using find for direct processing:');
   timer.reset();
-  
+
   await $`find ${testDir} -name "*.txt" -exec wc -l {} +`.quiet();
   timer.measure('Find with exec');
-  
+
   // Best: Single command when possible
   console.log('\n✅ Single command for all files:');
   timer.reset();
-  
+
   await $`wc -l ${testDir}/*.txt`.quiet();
   timer.measure('Single command');
-  
+
   // Cleanup
   await $`rm -rf ${testDir}`;
-  
+
   console.log('\n💡 Batch operations are orders of magnitude faster!\n');
 }
 
@@ -351,11 +351,11 @@ class ChunkProcessor {
   ) {
     const chunks = Math.ceil(totalItems / chunkSize);
     console.log(`Processing ${totalItems} items in ${chunks} chunks of ${chunkSize}`);
-    
+
     for (let i = 0; i < chunks; i++) {
       const start = i * chunkSize;
       const end = Math.min((i + 1) * chunkSize, totalItems);
-      
+
       process.stdout.write(`\rProcessing chunk ${i + 1}/${chunks} (items ${start}-${end})`);
       await processor(start, end);
     }
@@ -366,10 +366,10 @@ class ChunkProcessor {
 async function demonstrateChunkProcessing() {
   const processor = new ChunkProcessor();
   const timer = new PerformanceTimer();
-  
+
   // Simulate processing a large dataset
   timer.reset();
-  
+
   await processor.processInChunks(
     1000000,  // 1 million items
     10000,    // Process 10k at a time
@@ -379,7 +379,7 @@ async function demonstrateChunkProcessing() {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
   );
-  
+
   timer.measure('Chunk processing');
   console.log('\n💡 Chunk processing keeps memory usage constant!\n');
 }
@@ -393,7 +393,7 @@ class SSHOptimizer {
   // Use SSH multiplexing for better performance
   static createMultiplexed(host: string) {
     const controlPath = `/tmp/ssh-mux-${host}`;
-    
+
     return {
       master: $.ssh({
         host,
@@ -403,7 +403,7 @@ class SSHOptimizer {
           '-o', 'ControlPersist=10m'
         ]
       }),
-      
+
       client: $.ssh({
         host,
         extraOptions: [
@@ -413,14 +413,14 @@ class SSHOptimizer {
       })
     };
   }
-  
+
   // Batch multiple commands in single SSH session
   static async batchCommands(host: string, commands: string[]) {
     const $ssh = $.ssh(host);
     const script = commands.join(' && ');
     return $ssh`${script}`;
   }
-  
+
   // Use compression for large data transfers
   static createCompressed(host: string) {
     return $.ssh({
@@ -448,11 +448,11 @@ class PerformanceMonitor {
     exitCode: number;
     timestamp: number;
   }> = [];
-  
+
   async monitor<T>(command: string, operation: () => Promise<T>): Promise<T> {
     const start = Date.now();
     let exitCode = 0;
-    
+
     try {
       const result = await operation();
       return result;
@@ -469,13 +469,13 @@ class PerformanceMonitor {
       });
     }
   }
-  
+
   getStats() {
     if (this.metrics.length === 0) return null;
-    
+
     const durations = this.metrics.map(m => m.duration);
     const successful = this.metrics.filter(m => m.exitCode === 0);
-    
+
     return {
       total: this.metrics.length,
       successful: successful.length,
@@ -486,7 +486,7 @@ class PerformanceMonitor {
       totalDuration: durations.reduce((a, b) => a + b, 0)
     };
   }
-  
+
   getSlowCommands(threshold = 1000) {
     return this.metrics
       .filter(m => m.duration > threshold)

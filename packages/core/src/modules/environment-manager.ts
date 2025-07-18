@@ -1,4 +1,4 @@
-import { $, CallableExecutionEngine } from '@xec/ush';
+import { $, CallableExecutionEngine } from '@xec-js/ush';
 
 import { createModuleLogger } from '../utils/logger.js';
 import { createStandardLibrary } from '../stdlib/index.js';
@@ -20,24 +20,24 @@ export class EnvironmentManager {
     // Local environment provider
     this.registerProvider({
       name: 'local',
-      detect: async () => 
-        // Local is always available as fallback
-         ({
-          type: 'local',
-          capabilities: {
-            shell: true,
-            sudo: process.platform !== 'win32',
-            docker: await this.checkDockerAvailable(),
-            systemd: process.platform === 'linux',
-          },
-          platform: {
-            os: process.platform === 'darwin' ? 'darwin' : 
-                process.platform === 'win32' ? 'windows' : 'linux',
-            arch: process.arch as any,
-            distro: await this.detectLinuxDistro(),
-            version: process.version,
-          },
-        })
+      detect: async () =>
+      // Local is always available as fallback
+      ({
+        type: 'local',
+        capabilities: {
+          shell: true,
+          sudo: process.platform !== 'win32',
+          docker: await this.checkDockerAvailable(),
+          systemd: process.platform === 'linux',
+        },
+        platform: {
+          os: process.platform === 'darwin' ? 'darwin' :
+            process.platform === 'win32' ? 'windows' : 'linux',
+          arch: process.arch as any,
+          distro: await this.detectLinuxDistro(),
+          version: process.version,
+        },
+      })
       ,
       createExecutor: () => {
         if (!this.shell) {
@@ -75,9 +75,9 @@ export class EnvironmentManager {
         return null;
       },
       createExecutor: (connection) => $.ssh({
-          host: connection.host!,
-          username: connection.user!,
-        }),
+        host: connection.host!,
+        username: connection.user!,
+      }),
     });
 
     // Docker environment provider
@@ -107,8 +107,8 @@ export class EnvironmentManager {
         return null;
       },
       createExecutor: (connection) => $.docker({
-          container: connection.container!,
-        }),
+        container: connection.container!,
+      }),
     });
   }
 
@@ -119,7 +119,7 @@ export class EnvironmentManager {
   async detectEnvironment(): Promise<EnvironmentInfo> {
     // Try to detect in order of specificity
     const checkOrder: EnvironmentType[] = ['kubernetes', 'docker', 'ssh', 'aws', 'azure', 'gcp', 'local'];
-    
+
     for (const envType of checkOrder) {
       const provider = this.providers.get(envType);
       if (provider) {
@@ -174,10 +174,10 @@ export class EnvironmentManager {
       vars: {},
       logger: this.logger,
       // Convert TemplateEngine to synchronous function (simplified)
-      template: (template: string) => 
+      template: (template: string) =>
         // For now, just return the template as-is since async is not supported in TaskContext
         // In a real implementation, this would need to handle sync template rendering
-         template
+        template
       ,
     };
 

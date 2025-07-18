@@ -1,8 +1,8 @@
-# @xec/ush
+# @xec-js/ush
 
 Universal Shell Execution Engine - A powerful, flexible, and beginner-friendly command execution library for Node.js and TypeScript. Execute commands seamlessly across different environments (local, SSH, Docker, Kubernetes) with a unified, intuitive API inspired by Google's `zx`.
 
-## 🎯 Why @xec/ush?
+## 🎯 Why @xec-js/ush?
 
 - **Write Once, Run Anywhere**: Same code works locally, over SSH, in Docker containers, or Kubernetes pods
 - **Type-Safe**: Full TypeScript support with excellent IDE integration
@@ -13,15 +13,15 @@ Universal Shell Execution Engine - A powerful, flexible, and beginner-friendly c
 ## 📦 Installation
 
 ```bash
-npm install @xec/ush
+npm install @xec-js/ush
 # or
-yarn add @xec/ush
+yarn add @xec-js/ush
 ```
 
 ## 🚀 Quick Start
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 // Execute local commands
 await $`echo "Hello, World!"`;

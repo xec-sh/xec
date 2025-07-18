@@ -3,7 +3,7 @@
 ## 1. System Overview
 
 ### 1.1 Purpose
-Xec Core is a framework for infrastructure orchestration and automation, built on TypeScript and using @xec/ush as the command execution engine.
+Xec Core is a framework for infrastructure orchestration and automation, built on TypeScript and using @xec-js/ush as the command execution engine.
 
 ### 1.2 Target Audience
 - DevOps engineers
@@ -70,7 +70,7 @@ graph TB
     end
     
     subgraph "External Dependencies"
-        USH[@xec/ush]
+        USH[@xec-js/ush]
         NPM[NPM Modules]
         EXT[External Systems]
     end
@@ -295,7 +295,7 @@ const resolutionOrder = [
 
 // Naming convention
 const moduleNaming = {
-  builtin: '@xec/stdlib-{name}',
+  builtin: '@xec-js/stdlib-{name}',
   community: '@xec-community/{name}',
   private: '@{org}/xec-{name}'
 };
@@ -509,7 +509,7 @@ const strategies = {
 ## 11. Compatibility and Migration
 
 ### 11.1 Version Compatibility Matrix
-| Xec Core | Node.js | TypeScript | @xec/ush |
+| Xec Core | Node.js | TypeScript | @xec-js/ush |
 |-----------|---------|------------|---------------|
 | 2.0.x | 18+ | 5.0+ | 1.0+ |
 | 2.1.x | 18+ | 5.2+ | 1.1+ |
@@ -528,7 +528,7 @@ const version = getXecVersion();
 
 // Migration helpers
 if (version.major < 2) {
-  console.warn('Please run migration tool: npx @xec/migrate');
+  console.warn('Please run migration tool: npx @xec-js/migrate');
 }
 
 // Compatibility layer
@@ -573,7 +573,7 @@ interface TestFramework {
 
 ### 13.1 Package Structure
 ```
-@xec/core/
+@xec-js/core/
 ├── dist/              # Compiled JavaScript
 │   ├── cjs/          # CommonJS modules
 │   ├── esm/          # ES modules

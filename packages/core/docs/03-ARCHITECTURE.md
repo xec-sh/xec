@@ -35,7 +35,7 @@ Xec Core is built on a modular, layered architecture where each layer has clear 
 │              Integration Adapters                   │
 │      (UshAdapter, K8sAdapter, TerraformAdapter)    │
 ├─────────────────────────────────────────────────────┤
-│                  @xec/ush                      │
+│                  @xec-js/ush                      │
 │         (Command Execution Engine)                  │
 └─────────────────────────────────────────────────────┘
 ```
@@ -519,7 +519,7 @@ class CommandValidator {
    ```typescript
    // Modules loaded only when used
    async function loadModule(name: string): Promise<Module> {
-     return import(`@xec/module-${name}`);
+     return import(`@xec-js/module-${name}`);
    }
    ```
 

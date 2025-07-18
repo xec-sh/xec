@@ -41,10 +41,10 @@ interface IntegrationAdapter {
 
 ### UshAdapter
 
-Primary adapter for command execution via @xec/ush.
+Primary adapter for command execution via @xec-js/ush.
 
 ```typescript
-import { UshAdapter } from '@xec/core/integrations';
+import { UshAdapter } from '@xec-js/core/integrations';
 
 const adapter = new UshAdapter({
   defaultTimeout: 300000,
@@ -90,7 +90,7 @@ setTimeout(() => stream.kill(), 10000);
 Integration with the Kubernetes API.
 
 ```typescript
-import { KubernetesAdapter } from '@xec/core/integrations';
+import { KubernetesAdapter } from '@xec-js/core/integrations';
 
 const k8s = new KubernetesAdapter({
   kubeconfig: '/home/user/.kube/config',
@@ -152,7 +152,7 @@ await k8s.execute('create-secret', {
 Integration with Terraform.
 
 ```typescript
-import { TerraformAdapter } from '@xec/core/integrations';
+import { TerraformAdapter } from '@xec-js/core/integrations';
 
 const terraform = new TerraformAdapter({
   workingDir: './terraform',
@@ -212,7 +212,7 @@ await terraform.execute('state', {
 Integration with AWS SDK.
 
 ```typescript
-import { AWSAdapter } from '@xec/core/integrations';
+import { AWSAdapter } from '@xec-js/core/integrations';
 
 const aws = new AWSAdapter({
   region: 'us-east-1',
@@ -278,7 +278,7 @@ await aws.execute('ssm.putParameter', {
 Integration with the Docker API.
 
 ```typescript
-import { DockerAdapter } from '@xec/core/integrations';
+import { DockerAdapter } from '@xec-js/core/integrations';
 
 const docker = new DockerAdapter({
   socketPath: '/var/run/docker.sock',
@@ -347,7 +347,7 @@ await docker.execute('service.create', {
 Integration with the GitHub API.
 
 ```typescript
-import { GitHubAdapter } from '@xec/core/integrations';
+import { GitHubAdapter } from '@xec-js/core/integrations';
 
 const github = new GitHubAdapter({
   token: process.env.GITHUB_TOKEN,
@@ -408,7 +408,7 @@ await github.execute('createIssue', {
 ### Basic Example
 
 ```typescript
-import { IntegrationAdapter, BaseAdapter } from '@xec/core/integrations';
+import { IntegrationAdapter, BaseAdapter } from '@xec-js/core/integrations';
 
 export class MyServiceAdapter extends BaseAdapter implements IntegrationAdapter {
   name = 'my-service';
@@ -596,7 +596,7 @@ export class CachedAdapter extends BaseAdapter {
 ### Registration
 
 ```typescript
-import { IntegrationRegistry } from '@xec/core';
+import { IntegrationRegistry } from '@xec-js/core';
 
 const registry = new IntegrationRegistry();
 

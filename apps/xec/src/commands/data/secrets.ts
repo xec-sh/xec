@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
-import { SecretManager, getSecretManager } from '@xec/core';
+import { SecretManager, getSecretManager } from '@xec-js/core';
 
 import { SubcommandBase } from '../../utils/command-base.js';
 import { errorMessages } from '../../utils/error-handler.js';
@@ -40,7 +40,7 @@ export class SecretsCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     this.secretManager = getSecretManager();
   }
 
@@ -161,11 +161,11 @@ export class SecretsCommand extends SubcommandBase {
     try {
       await this.secretManager.initialize();
       const value = await this.secretManager.get(key);
-      
+
       if (value === undefined) {
         throw errorMessages.configurationInvalid('key', `Secret '${key}' not found`);
       }
-      
+
       if (options.show) {
         this.output(value, `Secret: ${key}`);
       } else {
@@ -190,9 +190,9 @@ export class SecretsCommand extends SubcommandBase {
   private async setSecret(key: string, value: string, options: SecretsOptions): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       let secretValue = value;
-      
+
       if (!secretValue || options.interactive) {
         secretValue = await clack.password({
           message: `Enter secret value for '${key}':`,
@@ -204,11 +204,11 @@ export class SecretsCommand extends SubcommandBase {
           },
         }) as string;
       }
-      
+
       const metadata = options.metadata ? JSON.parse(options.metadata) : undefined;
-      
+
       await this.secretManager.set(key, secretValue, metadata);
-      
+
       this.log(`Secret '${key}' set successfully`, 'success');
     } catch (error: any) {
       throw errorMessages.configurationInvalid('secret', `Failed to set secret: ${error.message}`);
@@ -223,11 +223,11 @@ export class SecretsCommand extends SubcommandBase {
         return;
       }
     }
-    
+
     try {
       await this.secretManager.initialize();
       const deleted = await this.secretManager.delete(key);
-      
+
       if (deleted) {
         this.log(`Secret '${key}' deleted successfully`, 'success');
       } else {
@@ -241,9 +241,9 @@ export class SecretsCommand extends SubcommandBase {
   private async listSecrets(options: SecretsOptions & { filter?: string; showInfo?: boolean; namespace?: string }): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       let secretNames: string[];
-      
+
       if (options.namespace) {
         secretNames = await this.secretManager.listByNamespace(options.namespace);
       } else if (options.filter) {
@@ -251,12 +251,12 @@ export class SecretsCommand extends SubcommandBase {
       } else {
         secretNames = await this.secretManager.list();
       }
-      
+
       if (secretNames.length === 0) {
         this.log('No secrets found', 'info');
         return;
       }
-      
+
       if (options.showInfo) {
         // Show detailed info for each secret
         const tableData = {
@@ -296,11 +296,11 @@ export class SecretsCommand extends SubcommandBase {
   private async rotateSecret(key: string, options: { value?: string }): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       const newValue = await this.secretManager.rotate(key, options.value);
-      
+
       this.log(`Secret '${key}' rotated successfully`, 'success');
-      
+
       if (this.isVerbose() && options.value === undefined) {
         this.log(`Generated new value (length: ${newValue.length})`, 'info');
       }
@@ -312,14 +312,14 @@ export class SecretsCommand extends SubcommandBase {
   private async searchSecrets(pattern: string): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       const matches = await this.secretManager.search(pattern);
-      
+
       if (matches.length === 0) {
         this.log(`No secrets matching pattern '${pattern}'`, 'info');
         return;
       }
-      
+
       this.formatter.list(matches, `Secrets matching '${pattern}' (${matches.length} found)`);
     } catch (error: any) {
       throw errorMessages.configurationInvalid('secret', `Failed to search secrets: ${error.message}`);
@@ -329,9 +329,9 @@ export class SecretsCommand extends SubcommandBase {
   private async renameSecret(oldName: string, newName: string): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       await this.secretManager.rename(oldName, newName);
-      
+
       this.log(`Secret renamed from '${oldName}' to '${newName}'`, 'success');
     } catch (error: any) {
       throw errorMessages.configurationInvalid('secret', `Failed to rename secret: ${error.message}`);
@@ -341,7 +341,7 @@ export class SecretsCommand extends SubcommandBase {
   private async exportSecrets(file: string, options: { password?: string }): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       let password = options.password;
       if (!password) {
         password = await clack.password({
@@ -354,9 +354,9 @@ export class SecretsCommand extends SubcommandBase {
           },
         }) as string;
       }
-      
+
       const encryptedData = await this.secretManager.export(password);
-      
+
       await fs.writeFile(file, encryptedData, 'utf8');
       this.log(`Secrets exported to: ${file}`, 'success');
     } catch (error: any) {
@@ -372,21 +372,21 @@ export class SecretsCommand extends SubcommandBase {
         return;
       }
     }
-    
+
     try {
       await this.secretManager.initialize();
-      
+
       const encryptedData = await fs.readFile(file, 'utf8');
-      
+
       let password = options.password;
       if (!password) {
         password = await clack.password({
           message: 'Enter password for import decryption:',
         }) as string;
       }
-      
+
       const count = await this.secretManager.import(encryptedData, password);
-      
+
       this.log(`Imported ${count} secrets successfully`, 'success');
     } catch (error: any) {
       throw errorMessages.configurationInvalid('secret', `Failed to import secrets: ${error.message}`);
@@ -396,14 +396,14 @@ export class SecretsCommand extends SubcommandBase {
   private async listNamespaces(): Promise<void> {
     try {
       await this.secretManager.initialize();
-      
+
       const namespaces = await this.secretManager.listNamespaces();
-      
+
       if (namespaces.length === 0) {
         this.log('No namespaces found', 'info');
         return;
       }
-      
+
       this.formatter.list(namespaces, `Namespaces (${namespaces.length} found)`);
     } catch (error: any) {
       throw errorMessages.configurationInvalid('secret', `Failed to list namespaces: ${error.message}`);

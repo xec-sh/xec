@@ -1,6 +1,6 @@
-# @xec/core to CLI Capability Mapping
+# @xec-js/core to CLI Capability Mapping
 
-This document provides a comprehensive mapping of all @xec/core capabilities to their corresponding CLI commands, identifying gaps where CLI coverage is missing.
+This document provides a comprehensive mapping of all @xec-js/core capabilities to their corresponding CLI commands, identifying gaps where CLI coverage is missing.
 
 ## Core Capabilities Overview
 

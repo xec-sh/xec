@@ -1,10 +1,10 @@
 # Error Handling
 
-@xec/ush provides comprehensive error handling mechanisms that help you deal with command failures gracefully and predictably.
+@xec-js/ush provides comprehensive error handling mechanisms that help you deal with command failures gracefully and predictably.
 
 ## Default Error Behavior
 
-By default, @xec/ush throws a `CommandError` when a command exits with a non-zero exit code:
+By default, @xec-js/ush throws a `CommandError` when a command exits with a non-zero exit code:
 
 ```javascript
 try {
@@ -137,10 +137,10 @@ const result = await command;
 
 ## Error Types
 
-@xec/ush provides specific error types for different scenarios:
+@xec-js/ush provides specific error types for different scenarios:
 
 ```javascript
-import { CommandError, TimeoutError, AdapterError } from '@xec/ush';
+import { CommandError, TimeoutError, AdapterError } from '@xec-js/ush';
 
 try {
   await $`slow-command`.timeout(1000);

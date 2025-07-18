@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { Logger, EventStore, MemoryStorageAdapter } from '@xec/core';
+import { Logger, EventStore, MemoryStorageAdapter } from '@xec-js/core';
 
 import { ValidationError } from '../utils/validation.js';
 import { errorMessages } from '../utils/error-handler.js';
@@ -113,12 +113,12 @@ async function streamLogs(options: LogOptions): Promise<void> {
     const eventStore = new EventStore(storage);
     await eventStore.initialize();
     const logger = new Logger({ name: 'log-stream' });
-    
+
     // Get recent events to show initially
     const events = await eventStore.getEvents({
       limit: options.lines ? parseInt(options.lines.toString()) : 100
     });
-    
+
     // Display initial events
     events.forEach((event: any) => {
       if (options.format === 'json') {
@@ -130,7 +130,7 @@ async function streamLogs(options: LogOptions): Promise<void> {
         console.log(`${timestamp} ${level.toUpperCase().padEnd(5)} [${component}] ${event.type}`);
       }
     });
-    
+
     // Note: Real-time streaming would require additional implementation
     if (options.follow) {
       logger.info('Follow mode would stream new events in real-time');
@@ -145,11 +145,11 @@ async function searchLogs(options: LogOptions): Promise<void> {
     const storage = new MemoryStorageAdapter();
     const eventStore = new EventStore(storage);
     await eventStore.initialize();
-    
+
     // Convert time strings to Date objects if provided
     const since = options.since ? new Date(options.since) : undefined;
     const until = options.until ? new Date(options.until) : undefined;
-    
+
     let results;
     if (since || until) {
       results = await eventStore.getEventsByTimeRange({
@@ -170,7 +170,7 @@ async function searchLogs(options: LogOptions): Promise<void> {
       // Convert to CSV format
       const csvHeader = 'timestamp,type,resource,actor,data';
       console.log(csvHeader);
-      
+
       results.forEach((entry: any) => {
         const row = [
           entry.timestamp,
@@ -201,11 +201,11 @@ async function exportLogs(options: LogOptions & { compress?: boolean }): Promise
     const eventStore = new EventStore(storage);
     await eventStore.initialize();
     const fs = await import('fs-extra');
-    
+
     // Convert time strings to Date objects if provided
     const since = options.since ? new Date(options.since) : undefined;
     const until = options.until ? new Date(options.until) : undefined;
-    
+
     let results;
     if (since || until) {
       results = await eventStore.getEventsByTimeRange({
@@ -217,7 +217,7 @@ async function exportLogs(options: LogOptions & { compress?: boolean }): Promise
     }
 
     const outputPath = options.output || `logs-${new Date().toISOString().replace(/:/g, '-')}.${options.format || 'json'}`;
-    
+
     let content: string;
     if (options.format === 'csv') {
       const csvHeader = 'timestamp,type,resource,actor,data\n';
@@ -234,12 +234,12 @@ async function exportLogs(options: LogOptions & { compress?: boolean }): Promise
     } else {
       content = JSON.stringify(results, null, 2);
     }
-    
+
     await fs.writeFile(outputPath, content);
-    
+
     console.log(`Logs exported to: ${outputPath}`);
     console.log(`Total entries: ${results.length}`);
-    
+
     if (options.compress) {
       console.log('Compression not yet implemented');
     }
@@ -253,7 +253,7 @@ async function replayLogs(options: LogOptions & { to?: string; speed?: string; d
     const storage = new MemoryStorageAdapter();
     const eventStore = new EventStore(storage);
     await eventStore.initialize();
-    
+
     if (!options.checkpoint) {
       throw new ValidationError('checkpoint or from parameter is required', 'checkpoint');
     }
@@ -272,19 +272,19 @@ async function replayLogs(options: LogOptions & { to?: string; speed?: string; d
       from: from ? new Date(from).getTime() : 0,
       to: to ? new Date(to).getTime() : Date.now()
     });
-    
+
     console.log(`Found ${events.length} events to replay`);
-    
+
     // Simulate replay with speed control
     for (const event of events) {
       console.log(`Replaying event: ${event.type} at ${event.timestamp}`);
-      
+
       // Simulate delay based on speed
       if (speed < 1) {
         await new Promise(resolve => setTimeout(resolve, 1000 / speed));
       }
     }
-    
+
     console.log(`Replayed ${events.length} events`);
   } catch (error: any) {
     throw errorMessages.operationFailed('replay logs', error.message);
@@ -296,11 +296,11 @@ async function aggregateLogs(options: LogOptions & { groupBy?: string }): Promis
     const storage = new MemoryStorageAdapter();
     const eventStore = new EventStore(storage);
     await eventStore.initialize();
-    
+
     // Convert time strings to Date objects if provided
     const since = options.since ? new Date(options.since) : undefined;
     const until = options.until ? new Date(options.until) : undefined;
-    
+
     let events;
     if (since || until) {
       events = await eventStore.getEventsByTimeRange({
@@ -313,7 +313,7 @@ async function aggregateLogs(options: LogOptions & { groupBy?: string }): Promis
 
     const groupBy = options.groupBy || 'type';
     const aggregated = new Map<string, number>();
-    
+
     // Group events
     events.forEach((event: any) => {
       let groupKey: string;
@@ -336,10 +336,10 @@ async function aggregateLogs(options: LogOptions & { groupBy?: string }): Promis
         default:
           groupKey = event.type;
       }
-      
+
       aggregated.set(groupKey, (aggregated.get(groupKey) || 0) + 1);
     });
-    
+
     const total = events.length;
     const results = Array.from(aggregated.entries()).map(([group, count]) => ({
       group,
@@ -352,7 +352,7 @@ async function aggregateLogs(options: LogOptions & { groupBy?: string }): Promis
     } else if (options.format === 'csv') {
       const csvHeader = 'group,count,percentage';
       console.log(csvHeader);
-      
+
       results.forEach((entry: any) => {
         console.log(`${entry.group},${entry.count},${entry.percentage}`);
       });
@@ -360,7 +360,7 @@ async function aggregateLogs(options: LogOptions & { groupBy?: string }): Promis
       // Text format
       console.log('Log Statistics:');
       console.log('===============');
-      
+
       results.forEach((entry: any) => {
         const percentage = (entry.percentage * 100).toFixed(1);
         console.log(`${entry.group.padEnd(15)} ${entry.count.toString().padStart(8)} (${percentage}%)`);
@@ -389,15 +389,15 @@ async function clearLogs(options: LogOptions & { before?: string; force?: boolea
     const storage = new MemoryStorageAdapter();
     const eventStore = new EventStore(storage);
     await eventStore.initialize();
-    
+
     // Get count before clearing
     const beforeCount = await eventStore.getEvents({ limit: 1000000 });
     const totalBefore = beforeCount.length;
-    
+
     // Note: EventStore doesn't have a clear method, so we'll simulate it
     console.log(`Would clear ${totalBefore} log entries`);
     console.log('Log clearing not yet implemented in EventStore');
-    
+
     // TODO: Implement actual clearing when EventStore supports it
   } catch (error: any) {
     throw errorMessages.operationFailed('clear logs', error.message);

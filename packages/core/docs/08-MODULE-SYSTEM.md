@@ -86,7 +86,7 @@ my-xec-module/
 
 ```typescript
 // src/index.ts
-import { Module, task, recipe } from '@xec/core';
+import { Module, task, recipe } from '@xec-js/core';
 
 export const nginxModule: Module = {
   name: 'nginx',
@@ -276,7 +276,7 @@ export const appModule: Module = {
   
   // Peer dependencies (must be installed by the user)
   peerDependencies: [
-    '@xec/core@^2.0.0'
+    '@xec-js/core@^2.0.0'
   ],
   
   exports: {
@@ -366,7 +366,7 @@ npm install file:../my-local-module
 ### 2. Registering a Module
 
 ```typescript
-import { Xec } from '@xec/core';
+import { Xec } from '@xec-js/core';
 import nginxModule from '@xec-community/nginx';
 import dbModule from '@xec-community/database';
 
@@ -511,7 +511,7 @@ const xec = new Xec({
 });
 
 // Automatic module loading
-await xec.loadModule('@xec/nginx', { version: '^1.0.0' });
+await xec.loadModule('@xec-js/nginx', { version: '^1.0.0' });
 
 // Searching modules
 const modules = await xec.searchModules({
@@ -542,10 +542,10 @@ const modules = await xec.searchModules({
     "devops"
   ],
   "peerDependencies": {
-    "@xec/core": "^2.0.0"
+    "@xec-js/core": "^2.0.0"
   },
   "devDependencies": {
-    "@xec/core": "^2.0.0",
+    "@xec-js/core": "^2.0.0",
     "typescript": "^5.0.0"
   },
   "scripts": {
@@ -589,7 +589,7 @@ const modules = await xec.searchModules({
 
 ```typescript
 // src/index.ts
-import { Module } from '@xec/core';
+import { Module } from '@xec-js/core';
 import * as tasks from './tasks';
 import * as recipes from './recipes';
 import * as helpers from './helpers';
@@ -625,7 +625,7 @@ export * from './types.js';
 ```typescript
 // test/tasks.test.ts
 import { describe, it, expect } from 'vitest';
-import { mockContext } from '@xec/core/testing';
+import { mockContext } from '@xec-js/core/testing';
 import nginxModule from '../src';
 
 describe('Nginx Module Tasks', () => {
@@ -661,7 +661,7 @@ describe('Nginx Module Tasks', () => {
 ```typescript
 // test/integration.test.ts
 import { describe, it, expect } from 'vitest';
-import { Xec } from '@xec/core';
+import { Xec } from '@xec-js/core';
 import nginxModule from '../src';
 
 describe('Nginx Module Integration', () => {

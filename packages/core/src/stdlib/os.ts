@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   OSInfo,
   CPUInfo,
   DiskInfo,
@@ -17,7 +17,7 @@ export async function createOSInfo(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<OSInfo> {
-  
+
   const os: OSInfo = {
     platform(): OSPlatform {
       return env.platform.os;
@@ -68,28 +68,28 @@ export async function createOSInfo(
     async cpus(): Promise<CPUInfo[]> {
       try {
         const cpuInfos: CPUInfo[] = [];
-        
+
         if (env.platform.os === 'linux') {
           // Parse /proc/cpuinfo
           const result = await $`cat /proc/cpuinfo`;
           const cpuBlocks = result.stdout.split('\n\n').filter(Boolean);
-          
+
           for (const block of cpuBlocks) {
             const lines = block.split('\n');
             const modelLine = lines.find((l: string) => l.startsWith('model name'));
             const mhzLine = lines.find((l: string) => l.startsWith('cpu MHz'));
-            
+
             if (modelLine) {
               const modelParts = modelLine.split(':');
               const model = modelParts[1]?.trim() || 'unknown';
-              
+
               let speed = 0;
               if (mhzLine) {
                 const mhzParts = mhzLine.split(':');
                 const mhzValue = mhzParts[1]?.trim();
                 speed = mhzValue ? parseFloat(mhzValue) : 0;
               }
-              
+
               cpuInfos.push({
                 model,
                 speed,
@@ -97,7 +97,7 @@ export async function createOSInfo(
               });
             }
           }
-          
+
           // Group by model and count cores
           const grouped = cpuInfos.reduce((acc: any, cpu) => {
             const existing = acc.find((c: any) => c.model === cpu.model);
@@ -108,14 +108,14 @@ export async function createOSInfo(
             }
             return acc;
           }, [] as CPUInfo[]);
-          
+
           return grouped;
         } else if (env.platform.os === 'darwin') {
           // macOS sysctl
           const modelResult = await $`sysctl -n machdep.cpu.brand_string`;
           const coresResult = await $`sysctl -n hw.ncpu`;
           const speedResult = await $`sysctl -n hw.cpufrequency_max 2>/dev/null || echo 0`;
-          
+
           return [{
             model: modelResult.stdout.trim(),
             speed: parseInt(speedResult.stdout.trim()) / 1000000, // Convert to MHz
@@ -148,32 +148,32 @@ export async function createOSInfo(
           const total = parseInt(parts[1] || '0');
           const used = parseInt(parts[2] || '0');
           const free = parseInt(parts[3] || '0');
-          
+
           return { total, used, free };
         } else if (env.platform.os === 'darwin') {
           // macOS vm_stat
           const pageSize = await $`pagesize`;
           const pageSizeNum = parseInt(pageSize.stdout.trim());
-          
+
           const vmStat = await $`vm_stat`;
           const lines = vmStat.stdout.split('\n');
-          
+
           const getValue = (label: string): number => {
             const line = lines.find((l: string) => l.includes(label));
             if (!line) return 0;
             const match = line.match(/:\s*(\d+)/);
             return match ? parseInt(match[1]!) * pageSizeNum : 0;
           };
-          
+
           const free = getValue('Pages free');
           const active = getValue('Pages active');
           const inactive = getValue('Pages inactive');
           const wired = getValue('Pages wired down');
           const compressed = getValue('Pages occupied by compressor');
-          
+
           const total = free + active + inactive + wired + compressed;
           const used = active + wired + compressed;
-          
+
           return { total, used, free };
         } else {
           // Fallback
@@ -196,11 +196,11 @@ export async function createOSInfo(
     async disk(): Promise<DiskInfo[]> {
       try {
         const disks: DiskInfo[] = [];
-        
+
         // Use df command - portable across Unix-like systems
         const result = await $`df -k | grep -v Filesystem`;
         const lines = result.stdout.trim().split('\n');
-        
+
         for (const line of lines) {
           const parts = line.split(/\s+/);
           if (parts.length >= 6) {
@@ -211,12 +211,12 @@ export async function createOSInfo(
               const total = parseInt(parts[1] || '0') * 1024; // Convert from KB to bytes
               const used = parseInt(parts[2] || '0') * 1024;
               const free = parseInt(parts[3] || '0') * 1024;
-              
+
               disks.push({ mount, total, used, free });
             }
           }
         }
-        
+
         return disks;
       } catch (error) {
         log?.warn('Failed to get disk info', error);
@@ -298,18 +298,18 @@ export async function createOSInfo(
     async networkInterfaces(): Promise<OSNetworkInterface[]> {
       try {
         const interfaces: OSNetworkInterface[] = [];
-        
+
         if (env.platform.os === 'linux') {
           // Use ip command
           const result = await $`ip -j addr show 2>/dev/null || ifconfig -a`;
-          
+
           if (result.stdout.startsWith('[')) {
             // JSON output from ip command
             const data = JSON.parse(result.stdout);
             for (const iface of data) {
               const name = iface.ifname;
               const mac = iface.address || '00:00:00:00:00:00';
-              
+
               for (const addr of (iface.addr_info || [])) {
                 interfaces.push({
                   name,
@@ -327,11 +327,11 @@ export async function createOSInfo(
               const lines = block.split('\n');
               const nameMatch = lines[0]?.match(/^(\S+)/);
               if (!nameMatch || !nameMatch[1]) continue;
-              
+
               const name = nameMatch[1].replace(':', '');
               const macMatch = block.match(/(?:ether|HWaddr)\s+([0-9a-fA-F:]+)/);
               const mac = macMatch?.[1] || '00:00:00:00:00:00';
-              
+
               // IPv4
               const ipv4Match = block.match(/inet\s+(?:addr:)?(\d+\.\d+\.\d+\.\d+)/);
               if (ipv4Match?.[1]) {
@@ -343,7 +343,7 @@ export async function createOSInfo(
                   internal: name === 'lo' || name.startsWith('docker'),
                 });
               }
-              
+
               // IPv6
               const ipv6Matches = block.matchAll(/inet6\s+(?:addr:\s*)?([0-9a-fA-F:]+)/g);
               for (const match of ipv6Matches) {
@@ -363,16 +363,16 @@ export async function createOSInfo(
           // macOS ifconfig
           const result = await $`ifconfig -a`;
           const blocks = result.stdout.split(/\n(?=\w)/);
-          
+
           for (const block of blocks) {
             const lines = block.split('\n');
             const nameMatch = lines[0]?.match(/^(\S+):/);
             if (!nameMatch || !nameMatch[1]) continue;
-            
+
             const name = nameMatch[1];
             const macMatch = block.match(/ether\s+([0-9a-fA-F:]+)/);
             const mac = macMatch?.[1] || '00:00:00:00:00:00';
-            
+
             // IPv4
             const ipv4Matches = block.matchAll(/inet\s+(\d+\.\d+\.\d+\.\d+)/g);
             for (const match of ipv4Matches) {
@@ -386,7 +386,7 @@ export async function createOSInfo(
                 });
               }
             }
-            
+
             // IPv6
             const ipv6Matches = block.matchAll(/inet6\s+([0-9a-fA-F:]+)(?:%\w+)?/g);
             for (const match of ipv6Matches) {
@@ -406,16 +406,16 @@ export async function createOSInfo(
           const result = await $`ipconfig /all`;
           // Split by adapter sections, not just double newlines
           const sections = result.stdout.split(/\n(?=\w.*adapter)/);
-          
+
           for (const section of sections) {
             const adapterMatch = section.match(/^(.*)adapter\s+(.+):/m);
             if (!adapterMatch || !adapterMatch[2]) continue;
-            
+
             const name = adapterMatch[2].trim();
             const macMatch = section.match(/Physical Address.*:\s*([0-9A-F-]+)/i);
             const mac = macMatch?.[1]?.replace(/-/g, ':') || '00:00:00:00:00:00';
             const isInternal = name.includes('Loopback');
-            
+
             // IPv4
             const ipv4Matches = section.matchAll(/IPv4 Address.*:\s*(\d+\.\d+\.\d+\.\d+)/g);
             for (const match of ipv4Matches) {
@@ -429,7 +429,7 @@ export async function createOSInfo(
                 });
               }
             }
-            
+
             // IPv6
             const ipv6Matches = section.matchAll(/IPv6 Address.*:\s*([0-9a-fA-F:]+)/g);
             for (const match of ipv6Matches) {
@@ -445,7 +445,7 @@ export async function createOSInfo(
             }
           }
         }
-        
+
         return interfaces;
       } catch (error) {
         log?.warn('Failed to get network interfaces', error);

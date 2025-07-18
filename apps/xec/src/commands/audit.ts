@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { AuditLogger } from '@xec/core';
+import { AuditLogger } from '@xec-js/core';
 
 import { SubcommandBase } from '../utils/command-base.js';
 import { errorMessages } from '../utils/error-handler.js';
@@ -68,22 +68,22 @@ export class AuditCommand extends SubcommandBase {
   protected setupSubcommands(command: Command): void {
     // xec audit logs
     this.setupLogsCommand(command);
-    
+
     // xec audit scan
     this.setupScanCommand(command);
-    
+
     // xec audit compliance
     this.setupComplianceCommand(command);
-    
+
     // xec audit permissions
     this.setupPermissionsCommand(command);
-    
+
     // xec audit dependencies
     this.setupDependenciesCommand(command);
-    
+
     // xec audit report
     this.setupReportCommand(command);
-    
+
     // xec audit policy
     this.setupPolicyCommand(command);
   }
@@ -266,7 +266,7 @@ export class AuditCommand extends SubcommandBase {
         }
       } else {
         this.displayAuditIssues(issues);
-        
+
         if (options.write) {
           const report = this.generateTextReport(issues);
           await writeFile(options.write, report, 'utf8');
@@ -318,7 +318,7 @@ export class AuditCommand extends SubcommandBase {
         }
       } else {
         this.displayComplianceResults(summary, results);
-        
+
         if (options.write) {
           const report = this.generateComplianceReport(options.profile || 'cis', summary, results);
           await writeFile(options.write, report, 'utf8');
@@ -356,7 +356,7 @@ export class AuditCommand extends SubcommandBase {
         Expected: issue.expected,
         Issue: issue.issue,
       }));
-      
+
       this.table(tableData, ['Path', 'Current', 'Expected', 'Issue']);
 
       if (options.fix) {
@@ -459,7 +459,7 @@ export class AuditCommand extends SubcommandBase {
         Status: policy.enabled ? 'Enabled' : 'Disabled',
         'Last Updated': new Date(policy.updated).toLocaleDateString(),
       }));
-      
+
       this.table(tableData, ['Policy', 'Type', 'Status', 'Last Updated']);
     } catch (error: any) {
       throw errorMessages.operationFailed('list policies', error.message);
@@ -495,7 +495,7 @@ export class AuditCommand extends SubcommandBase {
       Resource: log.resource || '-',
       Result: log.success ? 'Success' : 'Failed',
     }));
-    
+
     this.table(tableData, ['Timestamp', 'Event', 'Actor', 'Resource', 'Result']);
   }
 
@@ -509,7 +509,7 @@ export class AuditCommand extends SubcommandBase {
       log.success,
       JSON.stringify(log.details || {}),
     ]);
-    
+
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   }
 
@@ -526,12 +526,12 @@ export class AuditCommand extends SubcommandBase {
     }, {} as Record<string, any[]>);
 
     const severityOrder = ['critical', 'high', 'medium', 'low'];
-    
+
     for (const severity of severityOrder) {
       if (!grouped[severity]) continue;
-      
+
       console.log(`\n${severity.toUpperCase()} (${grouped[severity].length}):`);
-      
+
       for (const issue of grouped[severity]) {
         console.log(`  ${issue.rule}: ${issue.message}`);
         if (issue.path) {
@@ -546,7 +546,7 @@ export class AuditCommand extends SubcommandBase {
 
   private displayComplianceResults(summary: any, results: any[]): void {
     this.intro('Compliance Summary');
-    
+
     console.log(`  Overall Score: ${summary.score}%`);
     console.log(`  Total Controls: ${summary.total}`);
     console.log(`  Passed: ${summary.passed}`);
@@ -557,14 +557,14 @@ export class AuditCommand extends SubcommandBase {
     const failed = results.filter(r => r.status === 'failed');
     if (failed.length > 0) {
       console.log('\nFailed Controls:');
-      
+
       const tableData = failed.map(control => ({
         'Control ID': control.id,
         Description: control.description,
         Severity: control.severity || 'medium',
         Remediation: control.remediation || 'Review control requirements',
       }));
-      
+
       this.table(tableData, ['Control ID', 'Description', 'Severity', 'Remediation']);
     }
   }
@@ -572,8 +572,8 @@ export class AuditCommand extends SubcommandBase {
   private displayVulnerabilities(vulnerabilities: any[], minSeverity: string): void {
     const severityLevels = ['low', 'moderate', 'high', 'critical'];
     const minIndex = severityLevels.indexOf(minSeverity);
-    
-    const filtered = vulnerabilities.filter(v => 
+
+    const filtered = vulnerabilities.filter(v =>
       severityLevels.indexOf(v.severity) >= minIndex
     );
 
@@ -590,7 +590,7 @@ export class AuditCommand extends SubcommandBase {
 
     for (const [pkg, vulns] of Object.entries(grouped)) {
       console.log(`\n${pkg}`);
-      
+
       for (const vuln of vulns as any[]) {
         console.log(`  ${vuln.severity.toUpperCase()}: ${vuln.title}`);
         console.log(`    CVE: ${vuln.cve || 'N/A'}`);

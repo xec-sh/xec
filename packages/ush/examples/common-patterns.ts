@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Common Patterns for @xec/ush
+ * Common Patterns for @xec-js/ush
  * 
  * This file demonstrates idiomatic usage patterns and best practices
- * for common scenarios you'll encounter when using @xec/ush.
+ * for common scenarios you'll encounter when using @xec-js/ush.
  */
 
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 // ===== Pattern 1: Configuration Management =====
 console.log('=== Configuration Management Patterns ===\n');
@@ -16,11 +16,11 @@ const environments = {
   development: $.env({ NODE_ENV: 'development', DEBUG: 'true' })
     .cd('./dev')
     .timeout(30000),
-    
+
   staging: $.env({ NODE_ENV: 'staging', DEBUG: 'false' })
     .cd('./staging')
     .timeout(60000),
-    
+
   production: $.env({ NODE_ENV: 'production', DEBUG: 'false' })
     .cd('./prod')
     .timeout(120000)
@@ -41,20 +41,20 @@ console.log('\n=== Safe Command Building ===\n');
 class CommandBuilder {
   private args: string[] = [];
   private flags: Record<string, string | boolean> = {};
-  
+
   addArg(arg: string): this {
     this.args.push(arg);
     return this;
   }
-  
+
   addFlag(flag: string, value?: string | boolean): this {
     this.flags[flag] = value ?? true;
     return this;
   }
-  
+
   build(command: string): string[] {
     const parts = [command];
-    
+
     // Add flags
     for (const [flag, value] of Object.entries(this.flags)) {
       if (value === true) {
@@ -63,10 +63,10 @@ class CommandBuilder {
         parts.push(`--${flag}=${value}`);
       }
     }
-    
+
     // Add arguments
     parts.push(...this.args);
-    
+
     return parts;
   }
 }
@@ -78,11 +78,11 @@ async function safeGrep(pattern: string, files: string[], options: {
   recursive?: boolean;
 } = {}) {
   const builder = new CommandBuilder();
-  
+
   if (options.ignoreCase) builder.addFlag('ignore-case');
   if (options.lineNumbers) builder.addFlag('line-number');
   if (options.recursive) builder.addFlag('recursive');
-  
+
   const command = builder.build('grep');
   await $`${command} ${pattern} ${files}`;
 }
@@ -100,7 +100,7 @@ async function withTempResource<T>(
   try {
     return await use(resource);
   } finally {
-    await cleanup(resource).catch(err => 
+    await cleanup(resource).catch(err =>
       console.error('Cleanup failed:', err)
     );
   }
@@ -149,26 +149,26 @@ async function retryWithBackoff<T>(
     factor = 2,
     shouldRetry = () => true
   } = options;
-  
+
   let lastError: any;
   let delay = initialDelay;
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error;
-      
+
       if (attempt === maxAttempts || !shouldRetry(error, attempt)) {
         throw error;
       }
-      
+
       console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
       delay = Math.min(delay * factor, maxDelay);
     }
   }
-  
+
   throw lastError;
 }
 
@@ -178,11 +178,11 @@ async function fetchWithRetry(url: string) {
     () => $`curl -f ${url}`,
     {
       maxAttempts: 5,
-      shouldRetry: (error) => 
+      shouldRetry: (error) =>
         // Only retry on network errors
-         error.stderr?.includes('Could not resolve host') ||
-               error.stderr?.includes('Connection refused')
-      
+        error.stderr?.includes('Could not resolve host') ||
+        error.stderr?.includes('Connection refused')
+
     }
   );
 }
@@ -197,19 +197,19 @@ async function processBatch<T, R>(
   batchSize: number = 5
 ): Promise<R[]> {
   const results: R[] = [];
-  
+
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     const batchResults = await Promise.all(
       batch.map(item => processor(item))
     );
     results.push(...batchResults);
-    
+
     // Progress indicator
     const progress = Math.min(i + batchSize, items.length);
     console.log(`Processed ${progress}/${items.length} items`);
   }
-  
+
   return results;
 }
 
@@ -232,19 +232,19 @@ console.log('\n=== Pipeline Patterns ===\n');
 // Build complex pipelines safely
 class Pipeline {
   private steps: Array<() => Promise<any>> = [];
-  
+
   add(step: () => Promise<any>): this {
     this.steps.push(step);
     return this;
   }
-  
+
   addIf(condition: boolean, step: () => Promise<any>): this {
     if (condition) {
       this.steps.push(step);
     }
     return this;
   }
-  
+
   async execute(): Promise<void> {
     for (const [index, step] of this.steps.entries()) {
       console.log(`Executing step ${index + 1}/${this.steps.length}`);
@@ -285,7 +285,7 @@ async function deployApplication(options: {
       console.log('Deploying to production...');
       await $`npm run deploy:production`;
     });
-  
+
   await pipeline.execute();
 }
 
@@ -319,14 +319,14 @@ async function analyzeLogFile(logPath: string) {
     warnings: 0,
     info: 0
   };
-  
+
   for await (const line of readLines(`cat ${logPath}`)) {
     stats.total++;
     if (line.includes('ERROR')) stats.errors++;
     else if (line.includes('WARN')) stats.warnings++;
     else if (line.includes('INFO')) stats.info++;
   }
-  
+
   return stats;
 }
 
@@ -345,39 +345,39 @@ class LocalContext implements ExecutionContext {
   async execute(command: string) {
     return $`${command}`;
   }
-  
+
   async exists(path: string) {
     const result = await $`test -e ${path}`.nothrow();
     return result.exitCode === 0;
   }
-  
+
   async readFile(path: string) {
     const result = await $`cat ${path}`;
     return result.stdout;
   }
-  
+
   async writeFile(path: string, content: string) {
     await $`echo ${content} > ${path}`;
   }
 }
 
 class SSHContext implements ExecutionContext {
-  constructor(private $ssh: typeof $) {}
-  
+  constructor(private $ssh: typeof $) { }
+
   async execute(command: string) {
     return this.$ssh`${command}`;
   }
-  
+
   async exists(path: string) {
     const result = await this.$ssh`test -e ${path}`.nothrow();
     return result.exitCode === 0;
   }
-  
+
   async readFile(path: string) {
     const result = await this.$ssh`cat ${path}`;
     return result.stdout;
   }
-  
+
   async writeFile(path: string, content: string) {
     await this.$ssh`echo ${content} > ${path}`;
   }
@@ -389,11 +389,11 @@ async function deployToContext(ctx: ExecutionContext, appPath: string) {
   if (!await ctx.exists(appPath)) {
     throw new Error(`Application path ${appPath} does not exist`);
   }
-  
+
   // Read version
   const version = await ctx.readFile(`${appPath}/version.txt`);
   console.log(`Deploying version: ${version.trim()}`);
-  
+
   // Run deployment
   await ctx.execute(`cd ${appPath} && ./deploy.sh`);
 }
@@ -404,12 +404,12 @@ console.log('\n=== Error Context Patterns ===\n');
 // Enhance errors with context
 class CommandContext {
   private context: Record<string, any> = {};
-  
+
   add(key: string, value: any): this {
     this.context[key] = value;
     return this;
   }
-  
+
   async execute(command: string): Promise<any> {
     try {
       return await $`${command}`;
@@ -430,7 +430,7 @@ async function deployService(serviceName: string, version: string) {
     .add('service', serviceName)
     .add('version', version)
     .add('timestamp', new Date().toISOString());
-  
+
   try {
     await ctx.execute(`deploy-service ${serviceName} ${version}`);
   } catch (error: any) {
@@ -447,28 +447,28 @@ console.log('\n=== Monitoring Patterns ===\n');
 class ProgressTracker {
   private startTime = Date.now();
   private lastUpdate = Date.now();
-  
+
   constructor(
     private total: number,
     private updateInterval: number = 1000
-  ) {}
-  
+  ) { }
+
   update(current: number, message?: string) {
     const now = Date.now();
     if (now - this.lastUpdate < this.updateInterval && current < this.total) {
       return;
     }
-    
+
     this.lastUpdate = now;
     const elapsed = (now - this.startTime) / 1000;
     const progress = (current / this.total) * 100;
     const rate = current / elapsed;
     const remaining = (this.total - current) / rate;
-    
+
     process.stdout.write(`\r[${progress.toFixed(1)}%] ${current}/${this.total} `);
     process.stdout.write(`(${rate.toFixed(1)}/s, ~${remaining.toFixed(0)}s remaining)`);
     if (message) process.stdout.write(` - ${message}`);
-    
+
     if (current >= this.total) {
       process.stdout.write('\n');
     }
@@ -479,13 +479,13 @@ class ProgressTracker {
 async function processLargeDataset(items: string[]) {
   const tracker = new ProgressTracker(items.length);
   const results = [];
-  
+
   for (const [index, item] of items.entries()) {
     const result = await $`process-item ${item}`.quiet();
     results.push(result);
     tracker.update(index + 1, `Processing ${item}`);
   }
-  
+
   return results;
 }
 

@@ -1,5 +1,5 @@
 /**
- * Consolidated type exports for @xec/core
+ * Consolidated type exports for @xec-js/core
  * 
  * This file provides a single entry point for all core types,
  * ensuring consistency and preventing circular dependencies.
@@ -24,7 +24,7 @@ export * from './pattern-types.js';
 export * from './environment-types.js';
 
 // Re-export specific types to resolve conflicts
-export type { 
+export type {
   SetupHook,
   XecModule,
   TeardownHook,

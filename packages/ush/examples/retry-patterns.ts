@@ -1,10 +1,10 @@
-import { 
-  $, 
+import {
+  $,
   LocalAdapter,
   type RetryOptions,
   withExecutionRetry,
-  type ExecutionResult 
-} from '@xec/ush';
+  type ExecutionResult
+} from '@xec-js/ush';
 
 // Example 1: Complex retry logic based on specific error patterns
 const complexRetryLogic = {
@@ -25,7 +25,7 @@ const complexRetryLogic = {
       /no route to host/i
     ];
 
-    const hasRetryableError = errorPatterns.some(pattern => 
+    const hasRetryableError = errorPatterns.some(pattern =>
       pattern.test(result.stderr) || pattern.test(result.stdout)
     );
 
@@ -78,7 +78,7 @@ const databaseRetryOptions: RetryOptions = {
       'could not connect to server'
     ];
 
-    return retryableErrors.some(error => 
+    return retryableErrors.some(error =>
       result.stderr.toLowerCase().includes(error) ||
       result.stdout.toLowerCase().includes(error)
     );
@@ -102,8 +102,8 @@ const fileSystemRetryOptions: RetryOptions = {
     ];
 
     // Only retry on resource contention, not on permanent errors
-    return result.exitCode !== 0 && 
-           resourceErrors.some(err => result.stderr.toLowerCase().includes(err));
+    return result.exitCode !== 0 &&
+      resourceErrors.some(err => result.stderr.toLowerCase().includes(err));
   },
   maxRetries: 10,
   initialDelay: 100,
@@ -116,14 +116,14 @@ const ciPipelineRetryOptions: RetryOptions = {
   isRetryable: (result: ExecutionResult) => {
     // Retry on infrastructure issues
     if (result.stderr.includes('runner is offline') ||
-        result.stderr.includes('no space left on device') ||
-        result.stderr.includes('docker daemon is not running')) {
+      result.stderr.includes('no space left on device') ||
+      result.stderr.includes('docker daemon is not running')) {
       return true;
     }
 
     // Don't retry on test failures or linting errors
     if (result.stderr.includes('tests failed') ||
-        result.stderr.includes('lint errors found')) {
+      result.stderr.includes('lint errors found')) {
       return false;
     }
 
@@ -138,9 +138,9 @@ const ciPipelineRetryOptions: RetryOptions = {
 
 // Example 6: Network service health check with custom timing
 const healthCheckRetryOptions: RetryOptions = {
-  isRetryable: (result: ExecutionResult) => 
+  isRetryable: (result: ExecutionResult) =>
     // Always retry health checks unless we get a definitive healthy response
-     !result.stdout.includes('"status":"healthy"')
+    !result.stdout.includes('"status":"healthy"')
   ,
   maxRetries: 20,
   initialDelay: 3000,
@@ -152,7 +152,7 @@ const healthCheckRetryOptions: RetryOptions = {
 // Usage examples
 async function examples() {
   const adapter = new LocalAdapter();
-  
+
   // Example: Database migration with retry
   const dbAdapter = withExecutionRetry(adapter, databaseRetryOptions);
   await dbAdapter.execute({
@@ -198,10 +198,10 @@ function createGitRetryOptions(): RetryOptions {
         'pathspec .* did not match'
       ];
 
-      const hasRetryable = gitRetryableErrors.some(err => 
+      const hasRetryable = gitRetryableErrors.some(err =>
         result.stderr.toLowerCase().includes(err)
       );
-      
+
       const hasPermanent = gitPermanentErrors.some(err =>
         result.stderr.toLowerCase().includes(err)
       );
@@ -253,12 +253,12 @@ const memoryAwareRetryOptions: RetryOptions = {
       'killed',
       'memory exhausted'
     ];
-    
+
     const hasMemoryError = memoryErrors.some(err =>
       result.stderr.toLowerCase().includes(err) ||
       result.stdout.toLowerCase().includes(err)
     );
-    
+
     // Exit code 137 typically means killed by SIGKILL (often OOM)
     return hasMemoryError || result.exitCode === 137;
   },
@@ -275,7 +275,7 @@ function createCircuitBreakerRetryOptions(threshold = 5): RetryOptions {
   let consecutiveFailures = 0;
   let circuitOpen = false;
   let lastFailureTime = 0;
-  
+
   return {
     isRetryable: (result: ExecutionResult) => {
       // Check if circuit should be closed (reset after 30 seconds)
@@ -284,18 +284,18 @@ function createCircuitBreakerRetryOptions(threshold = 5): RetryOptions {
         consecutiveFailures = 0;
         console.log('Circuit breaker reset');
       }
-      
+
       // Don't retry if circuit is open
       if (circuitOpen) {
         console.log('Circuit breaker is OPEN - failing fast');
         return false;
       }
-      
+
       // Track failures
       if (result.exitCode !== 0) {
         consecutiveFailures++;
         lastFailureTime = Date.now();
-        
+
         if (consecutiveFailures >= threshold) {
           circuitOpen = true;
           console.log(`Circuit breaker OPENED after ${threshold} consecutive failures`);
@@ -304,7 +304,7 @@ function createCircuitBreakerRetryOptions(threshold = 5): RetryOptions {
       } else {
         consecutiveFailures = 0;
       }
-      
+
       return result.exitCode !== 0;
     },
     maxRetries: 3
@@ -315,19 +315,19 @@ function createCircuitBreakerRetryOptions(threshold = 5): RetryOptions {
 const businessHoursRetryOptions: RetryOptions = {
   isRetryable: (result: ExecutionResult) => {
     if (result.exitCode === 0) return false;
-    
+
     const now = new Date();
     const hour = now.getHours();
     const dayOfWeek = now.getDay();
-    
+
     // Only retry during business hours (Mon-Fri, 9 AM - 5 PM)
     const isBusinessHours = dayOfWeek >= 1 && dayOfWeek <= 5 && hour >= 9 && hour < 17;
-    
+
     if (!isBusinessHours) {
       console.log('Outside business hours - not retrying');
       return false;
     }
-    
+
     return true;
   },
   maxRetries: 5,
@@ -338,38 +338,38 @@ const businessHoursRetryOptions: RetryOptions = {
 async function examplesWithDollar() {
   // Simple retry with default behavior
   const result1 = await $.retry({ maxRetries: 3 })`curl https://api.example.com`;
-  
+
   // Complex retry with custom logic
   const $api = $.retry({
     maxRetries: 5,
-    isRetryable: (result) => 
+    isRetryable: (result) =>
       // Only retry on network errors, not on 4xx client errors
-       result.exitCode !== 0 && 
-             !result.stderr.includes('404') &&
-             !result.stderr.includes('401') &&
-             !result.stderr.includes('403')
-    
+      result.exitCode !== 0 &&
+      !result.stderr.includes('404') &&
+      !result.stderr.includes('401') &&
+      !result.stderr.includes('403')
+
   });
-  
+
   const result2 = await $api`curl -f https://flaky-api.com/data`;
-  
+
   // Combining retry with other modifiers
   const $resilient = $.env({ API_KEY: 'secret' })
     .timeout(5000)
     .retry({
       maxRetries: 3,
-      isRetryable: (result) => 
+      isRetryable: (result) =>
         // Timeout exit code is usually 124
-         result.exitCode === 124 || result.stderr.includes('timeout')
-      
+        result.exitCode === 124 || result.stderr.includes('timeout')
+
     });
-    
+
   const result3 = await $resilient`curl -H "Authorization: Bearer $API_KEY" https://slow-api.com`;
-  
+
   // Retry with nothrow for ultimate control
   const $safe = $.retry(memoryAwareRetryOptions);
   const result4 = await $safe`memory-intensive-command`.nothrow();
-  
+
   if (result4.exitCode !== 0) {
     console.log('Command failed even after retries:', result4.stderr);
   }

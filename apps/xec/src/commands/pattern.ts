@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { PatternRegistry } from '@xec/core';
+import { PatternRegistry } from '@xec-js/core';
 
 import { errorMessages } from '../utils/error-handler.js';
 
@@ -107,13 +107,13 @@ async function listPatterns(options: PatternOptions & { json?: boolean } = {}): 
     const registry = new PatternRegistry();
     const patternsMap = registry.getAll();
     const patterns = Array.from(patternsMap.values());
-    
+
     let filteredPatterns = patterns;
-    
+
     if (options.type) {
       filteredPatterns = registry.getByType(options.type);
     }
-    
+
     if (options.category) {
       // Since category is not supported in PatternDefinition, we'll skip this filter
       // or use search method if available
@@ -141,7 +141,7 @@ async function showPatternInfo(patternName: string, options: PatternOptions & { 
   try {
     const registry = new PatternRegistry();
     const pattern = registry.get(patternName);
-    
+
     if (!pattern) {
       throw errorMessages.resourceNotFound(`pattern '${patternName}'`);
     }
@@ -152,7 +152,7 @@ async function showPatternInfo(patternName: string, options: PatternOptions & { 
       console.log(`Pattern: ${pattern.name}`);
       console.log(`Type: ${pattern.type || 'custom'}`);
       console.log(`Description: ${pattern.description || 'No description'}`);
-      
+
       if (pattern.parameters) {
         console.log('\nParameters:');
         console.log(JSON.stringify(pattern.parameters, null, 2));
@@ -166,7 +166,7 @@ async function showPatternInfo(patternName: string, options: PatternOptions & { 
 async function createPattern(name: string, options: PatternOptions): Promise<void> {
   try {
     const registry = new PatternRegistry();
-    
+
     // Check if pattern already exists
     const existing = registry.get(name);
     if (existing) {
@@ -178,7 +178,7 @@ async function createPattern(name: string, options: PatternOptions): Promise<voi
 
     if (options.interactive) {
       const { text, confirm } = await import('@clack/prompts');
-      
+
       description = await text({
         message: 'Pattern description:',
         placeholder: 'Enter pattern description'
@@ -220,14 +220,14 @@ async function createPattern(name: string, options: PatternOptions): Promise<voi
       type: options.type as any || 'custom',
       description,
       parameters,
-      template: async (params: any) => 
+      template: async (params: any) =>
         // This is a placeholder template function
-         ({ ...params, patternName: name })
+        ({ ...params, patternName: name })
       ,
-      validate: async (params: any) => 
+      validate: async (params: any) =>
         // Basic validation
-         true
-      
+        true
+
     };
 
     // Register pattern with a module name (using 'cli' as the module name)
@@ -242,7 +242,7 @@ async function testPattern(patternName: string, options: PatternOptions & { dryR
   try {
     const registry = new PatternRegistry();
     const pattern = registry.get(patternName);
-    
+
     if (!pattern) {
       throw errorMessages.resourceNotFound(`pattern '${patternName}'`);
     }
@@ -267,13 +267,13 @@ async function applyPattern(patternName: string, options: PatternOptions & { to?
   try {
     const registry = new PatternRegistry();
     const pattern = registry.get(patternName);
-    
+
     if (!pattern) {
       throw errorMessages.resourceNotFound(`pattern '${patternName}'`);
     }
 
     const params = options.params ? JSON.parse(options.params) : {};
-    
+
     // Add target to params if provided
     if (options.to) {
       params.target = options.to;
@@ -298,7 +298,7 @@ async function validatePattern(patternName: string): Promise<void> {
   try {
     const registry = new PatternRegistry();
     const pattern = registry.get(patternName);
-    
+
     if (!pattern) {
       throw errorMessages.resourceNotFound(`pattern '${patternName}'`);
     }
@@ -308,7 +308,7 @@ async function validatePattern(patternName: string): Promise<void> {
 
     if (isValid) {
       console.log(`Pattern '${patternName}' is valid`);
-      
+
       // Additional validation using the pattern's own validate function
       if (pattern.validate) {
         const customValid = await pattern.validate({});
@@ -330,7 +330,7 @@ async function removePattern(patternName: string, options: { force?: boolean }):
   try {
     const registry = new PatternRegistry();
     const pattern = registry.get(patternName);
-    
+
     if (!pattern) {
       throw errorMessages.resourceNotFound(`pattern '${patternName}'`);
     }
@@ -353,7 +353,7 @@ async function removePattern(patternName: string, options: { force?: boolean }):
     const parts = patternName.split(':');
     let moduleName = 'cli';
     let actualPatternName = patternName;
-    
+
     if (parts.length === 2 && parts[0] && parts[1]) {
       moduleName = parts[0];
       actualPatternName = parts[1];

@@ -2,7 +2,7 @@
  * Пример Blue-Green deployment с Kubernetes
  */
 
-import { recipe, patterns, inventory } from '@xec/core'
+import { recipe, patterns, inventory } from '@xec-js/core'
 
 // Настраиваем динамический инвентарь из Kubernetes
 const k8sInventory = inventory()

@@ -312,7 +312,7 @@ export function shell(name: string, command: string, options?: {
   shell?: string;
 }): TaskBuilder {
   return task(name).handler(async (context) => {
-    const { $ } = await import('@xec/ush');
+    const { $ } = await import('@xec-js/ush');
     let execEngine = $;
     if (options?.cwd) {
       execEngine = execEngine.cd(options.cwd);
@@ -320,7 +320,7 @@ export function shell(name: string, command: string, options?: {
     if (options?.env) {
       execEngine = execEngine.env(options.env);
     }
-    
+
     // Use template literal syntax
     const result = await execEngine`${command}`;
 
@@ -334,7 +334,7 @@ export function shell(name: string, command: string, options?: {
 
 export function script(name: string, scriptPath: string, args?: string[]): TaskBuilder {
   return task(name).handler(async (context) => {
-    const { $ } = await import('@xec/ush');
+    const { $ } = await import('@xec-js/ush');
     const command = args ? `${scriptPath} ${args.join(' ')}` : scriptPath;
     const result = await $`${command}`;
 

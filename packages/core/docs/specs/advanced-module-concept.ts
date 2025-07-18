@@ -28,7 +28,7 @@ interface EnvironmentAwareModule {
     name: string;
     version: string;
     description?: string;
-    
+
     // New: Explicitly declare supported environments
     environments: {
       local?: boolean;
@@ -41,7 +41,7 @@ interface EnvironmentAwareModule {
         gcp?: boolean;
       };
     };
-    
+
     // New: Environment-specific requirements
     requirements?: {
       local?: {
@@ -63,17 +63,17 @@ interface EnvironmentAwareModule {
       };
     };
   };
-  
+
   // Environment-aware task definitions
   tasks: {
     [taskName: string]: EnvironmentAwareTask;
   };
-  
+
   // New: Environment-specific helpers
   helpers?: {
     [helperName: string]: EnvironmentAwareHelper;
   };
-  
+
   // New: Environment adapters for custom behavior
   adapters?: {
     local?: LocalAdapter;
@@ -90,19 +90,19 @@ interface EnvironmentAwareModule {
 interface EnvironmentAwareTask {
   name: string;
   description?: string;
-  
+
   // Environment-specific implementations
   handlers: {
     // Default handler (fallback)
     default?: TaskHandler;
-    
+
     // Environment-specific handlers
     local?: TaskHandler;
     ssh?: TaskHandler;
     docker?: TaskHandler;
     kubernetes?: TaskHandler;
   };
-  
+
   // New: Environment-specific parameter schemas
   parameters?: {
     default?: ParameterSchema;
@@ -111,10 +111,10 @@ interface EnvironmentAwareTask {
     docker?: ParameterSchema;
     kubernetes?: ParameterSchema;
   };
-  
+
   // New: Environment capabilities check
   canExecute?: (env: ExecutionEnvironment) => boolean | Promise<boolean>;
-  
+
   // New: Pre/post execution hooks per environment
   hooks?: {
     beforeExecute?: {
@@ -134,7 +134,7 @@ interface TaskContext {
   stdlib: StandardLibrary;
   env: EnvironmentVariables;
   secrets: SecretManager;
-  
+
   // New: Environment-specific utilities
   utils: EnvironmentUtils;
 }
@@ -145,7 +145,7 @@ interface TaskContext {
 
 interface ExecutionEnvironment {
   type: 'local' | 'ssh' | 'docker' | 'kubernetes' | 'aws' | 'azure' | 'gcp';
-  
+
   // Connection details
   connection?: {
     // SSH
@@ -153,21 +153,21 @@ interface ExecutionEnvironment {
     port?: number;
     username?: string;
     privateKey?: string;
-    
+
     // Docker
     dockerHost?: string;
     dockerCertPath?: string;
-    
+
     // Kubernetes
     kubeconfig?: string;
     namespace?: string;
     context?: string;
-    
+
     // Cloud
     region?: string;
     credentials?: any;
   };
-  
+
   // Environment capabilities
   capabilities: {
     shell: boolean;
@@ -177,7 +177,7 @@ interface ExecutionEnvironment {
     networking: boolean;
     persistence: boolean;
   };
-  
+
   // Resource constraints
   resources?: {
     cpu?: string;        // '2 cores', '1000m'
@@ -185,19 +185,19 @@ interface ExecutionEnvironment {
     storage?: string;    // '10Gi'
     network?: string;    // 'host', 'bridge', 'custom'
   };
-  
+
   // Platform-specific options
   options?: {
     // Docker options
     image?: string;
     dockerfile?: string;
     buildArgs?: Record<string, string>;
-    
+
     // Kubernetes options
     serviceAccount?: string;
     labels?: Record<string, string>;
     annotations?: Record<string, string>;
-    
+
     // SSH options
     strictHostKeyChecking?: boolean;
     compression?: boolean;
@@ -218,7 +218,7 @@ interface EnvironmentUtils {
     // Environment-specific: In Docker/K8s, might use volumes
     mount?(localPath: string, remotePath: string): Promise<void>;
   };
-  
+
   // Command execution adapted to environment
   exec: {
     run(command: string, options?: ExecOptions): Promise<ExecResult>;
@@ -226,7 +226,7 @@ interface EnvironmentUtils {
     // Environment-specific: In K8s, might use Jobs
     runJob?(spec: JobSpec): Promise<JobResult>;
   };
-  
+
   // Network operations adapted to environment
   network: {
     fetch(url: string, options?: FetchOptions): Promise<Response>;
@@ -234,7 +234,7 @@ interface EnvironmentUtils {
     // Environment-specific: In Docker, might use container networking
     expose?(port: number, options?: ExposeOptions): Promise<void>;
   };
-  
+
   // Secret management adapted to environment
   secrets: {
     get(key: string): Promise<string>;
@@ -251,7 +251,7 @@ interface EnvironmentUtils {
 // Example 1: File System Module with Environment Awareness
 const fileSystemModule: EnvironmentAwareModule = {
   metadata: {
-    name: '@xec/stdlib-file',
+    name: '@xec-js/stdlib-file',
     version: '2.0.0',
     environments: {
       local: true,
@@ -268,28 +268,28 @@ const fileSystemModule: EnvironmentAwareModule = {
       },
     },
   },
-  
+
   tasks: {
     sync: {
       name: 'sync',
       description: 'Synchronize files between source and destination',
-      
+
       handlers: {
         // Local execution using rsync
         local: async (params, context) => {
           const { source, dest, options = {} } = params;
           const flags = options.delete ? '--delete' : '';
-          
+
           await context.utils.exec.run(
             `rsync -av ${flags} ${source} ${dest}`
           );
         },
-        
+
         // SSH execution with remote rsync
         ssh: async (params, context) => {
           const { source, dest, options = {} } = params;
           const { host, username } = context.environment.connection!;
-          
+
           if (source.startsWith('/') && dest.startsWith('/')) {
             // Both paths are remote
             await context.utils.exec.run(
@@ -309,12 +309,12 @@ const fileSystemModule: EnvironmentAwareModule = {
             );
           }
         },
-        
+
         // Docker execution using volumes
         docker: async (params, context) => {
           const { source, dest } = params;
           const { connection } = context.environment;
-          
+
           // Create a temporary container with volumes
           await context.utils.exec.run(`
             docker run --rm \
@@ -323,11 +323,11 @@ const fileSystemModule: EnvironmentAwareModule = {
               alpine sh -c "cp -av /source/* /dest/"
           `);
         },
-        
+
         // Kubernetes execution using Jobs and PVCs
         kubernetes: async (params, context) => {
           const { source, dest } = params;
-          
+
           // Create a Job that mounts PVCs and copies data
           await context.utils.exec.runJob({
             name: 'file-sync-job',
@@ -340,7 +340,7 @@ const fileSystemModule: EnvironmentAwareModule = {
           });
         },
       },
-      
+
       parameters: {
         default: {
           source: { type: 'string', required: true },
@@ -354,13 +354,13 @@ const fileSystemModule: EnvironmentAwareModule = {
           },
         },
         kubernetes: {
-          source: { 
-            type: 'string', 
+          source: {
+            type: 'string',
             required: true,
             description: 'PVC name or path within PVC',
           },
-          dest: { 
-            type: 'string', 
+          dest: {
+            type: 'string',
             required: true,
             description: 'PVC name or path within PVC',
           },
@@ -373,7 +373,7 @@ const fileSystemModule: EnvironmentAwareModule = {
 // Example 2: System Package Module with Environment Awareness
 const systemPackageModule: EnvironmentAwareModule = {
   metadata: {
-    name: '@xec/stdlib-system',
+    name: '@xec-js/stdlib-system',
     version: '2.0.0',
     environments: {
       local: true,
@@ -382,18 +382,18 @@ const systemPackageModule: EnvironmentAwareModule = {
       kubernetes: false,  // Package management doesn't make sense in K8s
     },
   },
-  
+
   tasks: {
     installPackage: {
       name: 'installPackage',
       description: 'Install system packages',
-      
+
       handlers: {
         // Default handler that detects package manager
         default: async (params, context) => {
           const { packages } = params;
           const os = await context.utils.exec.run('uname -s');
-          
+
           let command: string;
           if (os.includes('Darwin')) {
             command = `brew install ${packages.join(' ')}`;
@@ -404,25 +404,25 @@ const systemPackageModule: EnvironmentAwareModule = {
           } else {
             throw new Error('Unsupported operating system');
           }
-          
+
           await context.utils.exec.run(command);
         },
-        
+
         // Docker: Install in container or build new image
         docker: async (params, context) => {
           const { packages, persistent = false } = params;
           const { connection } = context.environment;
-          
+
           if (persistent) {
             // Build a new image with packages installed
             const dockerfile = `
               FROM ${connection?.options?.image || 'ubuntu:latest'}
               RUN apt-get update && apt-get install -y ${packages.join(' ')}
             `;
-            
+
             await context.utils.file.write('/tmp/Dockerfile', dockerfile);
             await context.utils.exec.run('docker build -t myimage /tmp/');
-            
+
             // Update environment to use new image
             context.environment.options!.image = 'myimage';
           } else {
@@ -433,10 +433,10 @@ const systemPackageModule: EnvironmentAwareModule = {
           }
         },
       },
-      
-      canExecute: async (env) => 
+
+      canExecute: async (env) =>
         // Cannot install packages in Kubernetes pods
-         env.type !== 'kubernetes'
+        env.type !== 'kubernetes'
       ,
     },
   },
@@ -458,7 +458,7 @@ async function demonstrateUsage() {
           persistence: true,
         },
       },
-      
+
       staging: {
         type: 'ssh',
         connection: {
@@ -475,7 +475,7 @@ async function demonstrateUsage() {
           persistence: true,
         },
       },
-      
+
       production: {
         type: 'kubernetes',
         connection: {
@@ -498,11 +498,11 @@ async function demonstrateUsage() {
       },
     },
   });
-  
+
   // Register modules
   await xec.modules.register(fileSystemModule);
   await xec.modules.register(systemPackageModule);
-  
+
   // Use module in local environment
   await xec.run('local', async (ctx) => {
     await ctx.stdlib.file.sync({
@@ -510,7 +510,7 @@ async function demonstrateUsage() {
       dest: './dist',
     });
   });
-  
+
   // Use same module in SSH environment
   await xec.run('staging', async (ctx) => {
     await ctx.stdlib.file.sync({
@@ -518,7 +518,7 @@ async function demonstrateUsage() {
       dest: '/var/www/app',
     });
   });
-  
+
   // Use module in Kubernetes (with different implementation)
   await xec.run('production', async (ctx) => {
     await ctx.stdlib.file.sync({
@@ -536,14 +536,14 @@ async function demonstrateUsage() {
 interface EnvironmentTransition {
   from: ExecutionEnvironment;
   to: ExecutionEnvironment;
-  
+
   // Transfer data between environments
   transfer: {
     files?: Array<{ source: string; dest: string }>;
     env?: string[];
     secrets?: string[];
   };
-  
+
   // Maintain state across environments
   state?: {
     preserve: boolean;
@@ -558,14 +558,14 @@ interface MultiEnvironmentPipeline {
     name: string;
     environment: string;
     tasks: string[];
-    
+
     // Conditions for stage execution
     when?: {
       success?: boolean;
       failure?: boolean;
       expression?: string;
     };
-    
+
     // Data to pass to next stage
     outputs?: string[];
   }>;
@@ -600,14 +600,14 @@ const deploymentPipeline: MultiEnvironmentPipeline = {
 interface EnvironmentDiscovery {
   // Automatically detect available environments
   discover(): Promise<ExecutionEnvironment[]>;
-  
+
   // Test environment connectivity
   test(env: ExecutionEnvironment): Promise<{
     reachable: boolean;
     latency?: number;
     capabilities?: EnvironmentCapabilities;
   }>;
-  
+
   // Auto-configure optimal environment
   selectOptimal(requirements: EnvironmentRequirements): Promise<ExecutionEnvironment>;
 }
@@ -617,7 +617,7 @@ interface EnvironmentCache {
   // Cache task results per environment
   get(env: string, key: string): Promise<any>;
   set(env: string, key: string, value: any, ttl?: number): Promise<void>;
-  
+
   // Sync cache between environments
   sync(from: string, to: string, keys?: string[]): Promise<void>;
 }

@@ -9,13 +9,13 @@ Xec CLI provides a powerful command-line interface for executing tasks, managing
 ### Global Installation
 
 ```bash
-npm install -g @xec/cli
+npm install -g @xec-js/cli
 ```
 
 ### Local Installation in Project
 
 ```bash
-npm install --save-dev @xec/cli
+npm install --save-dev @xec-js/cli
 ```
 
 ### Verify Installation
@@ -127,10 +127,10 @@ xec secret export --output=secrets.enc --key=$ENCRYPTION_KEY
 
 ```bash
 # Install module from npm
-xec module install @xec/stdlib-nginx
+xec module install @xec-js/stdlib-nginx
 
 # Install specific version
-xec module install @xec/stdlib-nginx@1.2.0
+xec module install @xec-js/stdlib-nginx@1.2.0
 
 # Install from git
 xec module install git+https://github.com/user/xec-module.git
@@ -146,13 +146,13 @@ xec module install ./modules/custom-module
 xec module list
 
 # Module information
-xec module info @xec/stdlib-nginx
+xec module info @xec-js/stdlib-nginx
 
 # Update module
-xec module update @xec/stdlib-nginx
+xec module update @xec-js/stdlib-nginx
 
 # Uninstall module
-xec module uninstall @xec/stdlib-nginx
+xec module uninstall @xec-js/stdlib-nginx
 
 # Check for updates
 xec module outdated
@@ -465,10 +465,10 @@ xec run batch-process \
 
 ```bash
 # Install plugin
-xec plugin install @xec/cli-plugin-aws
+xec plugin install @xec-js/cli-plugin-aws
 
 # From npm with specific version
-xec plugin install @xec/cli-plugin-terraform@2.0.0
+xec plugin install @xec-js/cli-plugin-terraform@2.0.0
 
 # Local plugin
 xec plugin install ./plugins/my-plugin
@@ -481,13 +481,13 @@ xec plugin install ./plugins/my-plugin
 xec plugin list
 
 # Plugin information
-xec plugin info @xec/cli-plugin-aws
+xec plugin info @xec-js/cli-plugin-aws
 
 # Update plugin
-xec plugin update @xec/cli-plugin-aws
+xec plugin update @xec-js/cli-plugin-aws
 
 # Uninstall plugin
-xec plugin uninstall @xec/cli-plugin-aws
+xec plugin uninstall @xec-js/cli-plugin-aws
 ```
 
 ## Shell Completion

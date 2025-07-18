@@ -1,11 +1,11 @@
-# Gap Analysis: @xec/cli vs @xec/core
+# Gap Analysis: @xec-js/cli vs @xec-js/core
 
 **Status: ✅ All gaps addressed**  
 **Last Updated: 2025-07-16**
 
 ## Overview
 
-This document tracks the implementation status of @xec/cli commands to ensure 100% coverage of @xec/core capabilities. All previously identified gaps have been successfully addressed.
+This document tracks the implementation status of @xec-js/cli commands to ensure 100% coverage of @xec-js/core capabilities. All previously identified gaps have been successfully addressed.
 
 ## Implementation Status
 
@@ -81,7 +81,7 @@ All missing commands have been implemented:
 
 ## Core Capabilities Coverage
 
-### Standard Library (@xec/core/stdlib)
+### Standard Library (@xec-js/core/stdlib)
 ✅ **100% Coverage** - All stdlib modules are accessible through CLI:
 - File system operations (fs)
 - HTTP client (http)
@@ -117,18 +117,18 @@ All missing commands have been implemented:
 
 The CLI implementation follows the monorepo architecture:
 ```
-@xec/cli (UI Layer)
+@xec-js/cli (UI Layer)
     ↓
-@xec/core (Orchestration Layer)
+@xec-js/core (Orchestration Layer)
     ↓
-@xec/ush (Execution Layer)
+@xec-js/ush (Execution Layer)
 ```
 
 All commands properly utilize the core library without bypassing abstractions.
 
 ## Conclusion
 
-All identified gaps between @xec/cli and @xec/core have been successfully addressed. The CLI now provides 100% coverage of core capabilities through well-structured commands with consistent interfaces, comprehensive options, and proper error handling.
+All identified gaps between @xec-js/cli and @xec-js/core have been successfully addressed. The CLI now provides 100% coverage of core capabilities through well-structured commands with consistent interfaces, comprehensive options, and proper error handling.
 
 ## Next Steps
 

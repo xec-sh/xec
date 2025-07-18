@@ -1,19 +1,19 @@
-# Getting Started with @xec/ush
+# Getting Started with @xec-js/ush
 
 ## Installation
 
 ```bash
 # Using npm
-npm install @xec/ush
+npm install @xec-js/ush
 
 # Using yarn
-yarn add @xec/ush
+yarn add @xec-js/ush
 
 # Using pnpm
-pnpm add @xec/ush
+pnpm add @xec-js/ush
 
 # Using bun
-bun add @xec/ush
+bun add @xec-js/ush
 ```
 
 ### Requirements
@@ -33,7 +33,7 @@ If you're new to shell scripting or command execution in Node.js, this section w
 Create a file named `hello.js`:
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 // Execute a simple command
 const r = await $`echo "Hello, World!"`;
@@ -53,7 +53,7 @@ node hello.js
 ### Understanding the Basics
 
 ```javascript
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 // 1. Commands return results
 const result = await $`echo "Hello"`;
@@ -91,12 +91,12 @@ if (result.exitCode !== 0) {
 
 3. **Async/Await**: Shell commands take time to run. `await` tells JavaScript to wait for the command to finish.
 
-4. **Exit codes**: Commands return 0 for success, non-zero for errors. @xec/ush throws errors for non-zero codes by default.
+4. **Exit codes**: Commands return 0 for success, non-zero for errors. @xec-js/ush throws errors for non-zero codes by default.
 
 5. **Error handling**: You can use try-catch blocks for exceptions, or `.nothrow()` to handle errors manually by checking exit codes.
 
 ## Next Steps
 
-- Learn about [Core Concepts](./core-concepts.md) to understand how @xec/ush works
+- Learn about [Core Concepts](./core-concepts.md) to understand how @xec-js/ush works
 - Explore [Basic Command Execution](./command-execution.md) for more examples
 - Check out [Error Handling](./error-handling.md) to handle failures gracefully

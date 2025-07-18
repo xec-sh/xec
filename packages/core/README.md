@@ -19,17 +19,17 @@ Xec Core is a powerful yet easy-to-use framework for infrastructure automation a
 ### Installation
 
 ```bash
-npm install @xec/core
+npm install @xec-js/core
 # or
-yarn add @xec/core
+yarn add @xec-js/core
 # or
-pnpm add @xec/core
+pnpm add @xec-js/core
 ```
 
 ### First Recipe
 
 ```typescript
-import { recipe } from '@xec/core'
+import { recipe } from '@xec-js/core'
 
 // Create a simple deployment recipe
 const deploy = recipe('deploy-app')
@@ -50,7 +50,7 @@ await deploy.run()
 ### More Complex Example
 
 ```typescript
-import { recipe, patterns, inventory } from '@xec/core'
+import { recipe, patterns, inventory } from '@xec-js/core'
 
 // Configure host inventory
 const hosts = inventory()
@@ -167,7 +167,7 @@ setup.task('example', async (context) => {
 Create reusable modules:
 
 ```typescript
-import { module, task } from '@xec/core'
+import { module, task } from '@xec-js/core'
 
 export const nginx = module('nginx', {
   tasks: {
@@ -196,7 +196,7 @@ recipe('web-server')
 ### Global CLI Installation
 
 ```bash
-npm install -g @xec/core
+npm install -g @xec-js/core
 ```
 
 ### Usage
@@ -278,11 +278,11 @@ describe('deploy recipe', () => {
 
 ## Ecosystem
 
-- **@xec/core** - Core package
-- **@xec/ui** - Web interface for monitoring
-- **@xec/modules-aws** - AWS modules
-- **@xec/modules-k8s** - Kubernetes modules
-- **@xec/modules-docker** - Docker modules
+- **@xec-js/core** - Core package
+- **@xec-js/ui** - Web interface for monitoring
+- **@xec-js/modules-aws** - AWS modules
+- **@xec-js/modules-k8s** - Kubernetes modules
+- **@xec-js/modules-docker** - Docker modules
 
 ## Comparison with Other Tools
 

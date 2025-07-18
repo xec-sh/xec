@@ -33,7 +33,7 @@ State management in Xec Core provides a mechanism for storing, transferring, and
 ### Basic Operations
 
 ```typescript
-import { setState, getState, hasState, deleteState, clearState } from '@xec/core';
+import { setState, getState, hasState, deleteState, clearState } from '@xec-js/core';
 
 // Saving values
 setState('deployment_id', 'deploy-12345');
@@ -190,7 +190,7 @@ recipe('deployment')
 ### File Backend
 
 ```typescript
-import { StateManager } from '@xec/core';
+import { StateManager } from '@xec-js/core';
 
 const state = new StateManager({
   backend: 'file',
@@ -281,7 +281,7 @@ state.on('change', (key, value) => {
 ### Storing Secrets
 
 ```typescript
-import { setSecret, getSecret, hasSecret } from '@xec/core';
+import { setSecret, getSecret, hasSecret } from '@xec-js/core';
 
 // Saving secrets (automatically encrypted)
 setSecret('database_password', 'super-secret-password');
@@ -344,7 +344,7 @@ const state = new StateManager({
 ### System Facts
 
 ```typescript
-import { collectFacts, getFact } from '@xec/core';
+import { collectFacts, getFact } from '@xec-js/core';
 
 // Automatic fact collection
 await collectFacts({

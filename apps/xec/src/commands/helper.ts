@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { HelperRegistry, HelperDefinition } from '@xec/core';
+import { HelperRegistry, HelperDefinition } from '@xec-js/core';
 
 import { errorMessages } from '../utils/error-handler.js';
 
@@ -103,7 +103,7 @@ async function listHelpers(options: HelperOptions = {}): Promise<void> {
     const registry = new HelperRegistry();
     const allHelpers = registry.getAll();
     const helpers: any[] = [];
-    
+
     // Convert Map to array format
     for (const [fullName, helper] of Array.from(allHelpers.entries())) {
       const [moduleName, helperName] = fullName.includes(':') ? fullName.split(':') : ['default', fullName];
@@ -115,9 +115,9 @@ async function listHelpers(options: HelperOptions = {}): Promise<void> {
         methods: Object.keys(helper.methods)
       });
     }
-    
+
     let filteredHelpers = helpers;
-    
+
     if (options.namespace) {
       filteredHelpers = helpers.filter(h => h.module === options.namespace);
     }
@@ -126,7 +126,7 @@ async function listHelpers(options: HelperOptions = {}): Promise<void> {
       console.log(JSON.stringify(filteredHelpers, null, 2));
     } else {
       console.log('Available Helpers:');
-      
+
       // Group by module
       const categorized = filteredHelpers.reduce((acc, helper) => {
         const module = helper.module || 'default';
@@ -155,7 +155,7 @@ async function showHelperInfo(helperName: string, options: HelperOptions): Promi
   try {
     const registry = new HelperRegistry();
     const helper = registry.get(helperName);
-    
+
     if (!helper) {
       throw errorMessages.resourceNotFound(`helper: ${helperName}`);
     }
@@ -174,7 +174,7 @@ async function showHelperInfo(helperName: string, options: HelperOptions): Promi
     } else {
       console.log(`Helper: ${helper.name}`);
       console.log(`Description: ${helper.description || 'No description'}`);
-      
+
       if (methods.length > 0) {
         console.log('\nMethods:');
         methods.forEach(method => {
@@ -192,7 +192,7 @@ async function testHelper(helperName: string, options: HelperOptions): Promise<v
   try {
     const registry = new HelperRegistry();
     const helper = registry.get(helperName);
-    
+
     if (!helper) {
       throw errorMessages.resourceNotFound(`helper: ${helperName}`);
     }
@@ -214,7 +214,7 @@ async function testHelper(helperName: string, options: HelperOptions): Promise<v
 
     try {
       const result = registry.invokeMethod(helperName, methodName, ...args);
-      
+
       if ((options as any).verbose) {
         console.log(`Testing ${helperName}.${methodName} with args:`, args);
         console.log('Result:', result);
@@ -233,7 +233,7 @@ async function testHelper(helperName: string, options: HelperOptions): Promise<v
 async function createHelper(name: string, options: HelperOptions): Promise<void> {
   try {
     const registry = new HelperRegistry();
-    
+
     // Check if helper already exists
     const existing = registry.get(name);
     if (existing) {
@@ -251,7 +251,7 @@ async function createHelper(name: string, options: HelperOptions): Promise<void>
 
     if (options.interactive) {
       const { text, confirm, select } = await import('@clack/prompts');
-      
+
       const description = await text({
         message: 'Helper description:',
         placeholder: 'Enter helper description'
@@ -314,7 +314,7 @@ async function createHelper(name: string, options: HelperOptions): Promise<void>
             message: 'Add another parameter?',
             initialValue: false
           });
-          
+
           addMore = addMoreResult === true;
         }
       }
@@ -353,7 +353,7 @@ async function showHelperDoc(helperName: string, options: HelperOptions & { form
   try {
     const registry = new HelperRegistry();
     const helper = registry.get(helperName);
-    
+
     if (!helper) {
       throw errorMessages.resourceNotFound(`helper: ${helperName}`);
     }
@@ -365,7 +365,7 @@ async function showHelperDoc(helperName: string, options: HelperOptions & { form
     } else if (format === 'markdown') {
       console.log(`# ${helper.name}\n`);
       console.log(`${helper.description || 'No description'}\n`);
-      
+
       const methods = Object.keys(helper.methods);
       if (methods.length > 0) {
         console.log('## Methods\n');
@@ -378,7 +378,7 @@ async function showHelperDoc(helperName: string, options: HelperOptions & { form
       console.log(`${helper.name}`);
       console.log(`${'='.repeat(helper.name.length)}\n`);
       console.log(`${helper.description || 'No description'}\n`);
-      
+
       const methods = Object.keys(helper.methods);
       if (methods.length > 0) {
         console.log('Methods:');
@@ -397,7 +397,7 @@ async function validateHelper(helperName: string): Promise<void> {
   try {
     const registry = new HelperRegistry();
     const helper = registry.get(helperName);
-    
+
     if (!helper) {
       throw errorMessages.resourceNotFound(`helper: ${helperName}`);
     }
@@ -424,7 +424,7 @@ async function removeHelper(helperName: string, options: { force?: boolean; glob
   try {
     const registry = new HelperRegistry();
     const helper = registry.get(helperName);
-    
+
     if (!helper) {
       throw errorMessages.resourceNotFound(`helper: ${helperName}`);
     }

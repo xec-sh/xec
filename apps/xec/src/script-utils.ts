@@ -5,7 +5,7 @@ import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
-import { script } from '@xec/core';
+import { script } from '@xec-js/core';
 import * as clack from '@clack/prompts';
 
 // Re-export script $ with enhanced features

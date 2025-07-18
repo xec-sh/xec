@@ -1,10 +1,10 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { v4 as uuidv4 } from 'uuid';
 import { createHash, randomBytes as nodeRandomBytes } from 'crypto';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   Crypto,
   HashAlgorithm,
   EnvironmentInfo,
@@ -15,11 +15,11 @@ export async function createCrypto(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<Crypto> {
-  
+
   const crypto: Crypto = {
     async hash(algorithm: HashAlgorithm, data: string | Buffer): Promise<string> {
       const dataStr = typeof data === 'string' ? data : data.toString();
-      
+
       // Use Node.js crypto if available
       try {
         const hash = createHash(algorithm);
@@ -27,10 +27,10 @@ export async function createCrypto(
         return hash.digest('hex');
       } catch {
         // Fallback to shell commands
-        const cmd = algorithm === 'md5' && env.platform.os === 'darwin' 
+        const cmd = algorithm === 'md5' && env.platform.os === 'darwin'
           ? 'md5'
           : `${algorithm}sum`;
-        
+
         const result = await $`echo -n "${dataStr}" | ${cmd} | awk '{print $1}'`;
         return result.stdout.trim();
       }

@@ -7,7 +7,7 @@ A shell command is an instruction you type in the terminal. For example:
 - `echo "text"` - prints text
 - `mkdir folder` - creates a directory
 
-@xec/ush lets you run these commands from JavaScript/TypeScript.
+@xec-js/ush lets you run these commands from JavaScript/TypeScript.
 
 ## Execution Environments
 
@@ -42,7 +42,7 @@ await $pod`ls`; // Lists files in the pod
 
 ## Command Interpolation and Safety
 
-When you include JavaScript variables in commands, @xec/ush automatically escapes them to prevent injection attacks:
+When you include JavaScript variables in commands, @xec-js/ush automatically escapes them to prevent injection attacks:
 
 ```javascript
 // SAFE - Variable is automatically escaped
@@ -61,7 +61,7 @@ await $`echo ${content} > ${fileName}`; // Creates "my file.txt" safely
 
 ## The Execution Engine
 
-@xec/ush uses an execution engine that:
+@xec-js/ush uses an execution engine that:
 1. **Parses** your command template
 2. **Escapes** variables for safety
 3. **Routes** to the appropriate adapter (local, SSH, Docker, etc.)
@@ -84,7 +84,7 @@ console.log(result.command);   // "echo \"Hello\""
 
 ## Error Handling Philosophy
 
-By default, @xec/ush throws an error when a command fails (non-zero exit code):
+By default, @xec-js/ush throws an error when a command fails (non-zero exit code):
 
 ```javascript
 // This throws an error
@@ -99,7 +99,7 @@ This makes scripts fail fast and prevents cascading errors.
 
 ## Adapter Pattern
 
-@xec/ush uses adapters to execute commands in different environments:
+@xec-js/ush uses adapters to execute commands in different environments:
 
 - **LocalAdapter**: Runs commands on your machine
 - **SSHAdapter**: Runs commands over SSH

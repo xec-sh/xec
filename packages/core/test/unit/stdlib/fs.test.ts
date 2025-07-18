@@ -1,4 +1,4 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { it, vi, expect, describe, beforeEach } from 'vitest';
 
@@ -18,7 +18,7 @@ describe('stdlib/fs', () => {
       for (let i = 0; i < values.length; i++) {
         cmd += values[i] + strings[i + 1];
       }
-      
+
       // Default mock responses
       if (cmd.includes('cat') && !cmd.includes('<<')) {
         return Promise.resolve({ stdout: 'file content', stderr: '', exitCode: 0 });
@@ -30,10 +30,10 @@ describe('stdlib/fs', () => {
         return Promise.resolve({ stdout: 'file1\nfile2\ndir1', stderr: '', exitCode: 0 });
       }
       if (cmd.includes('stat')) {
-        return Promise.resolve({ 
-          stdout: '1024 33188 1000 1000 1234567890 1234567890 1234567890', 
-          stderr: '', 
-          exitCode: 0 
+        return Promise.resolve({
+          stdout: '1024 33188 1000 1000 1234567890 1234567890 1234567890',
+          stderr: '',
+          exitCode: 0
         });
       }
       return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
@@ -74,8 +74,8 @@ describe('stdlib/fs', () => {
     it('should write string content', async () => {
       await fs.write('/test/file.txt', 'Hello World');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
-        '/test/file.txt', 
+        expect.any(Array),
+        '/test/file.txt',
         'Hello World'
       );
     });
@@ -84,8 +84,8 @@ describe('stdlib/fs', () => {
       const buffer = Buffer.from('Binary data');
       await fs.write('/test/file.bin', buffer);
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
-        '/test/file.bin', 
+        expect.any(Array),
+        '/test/file.bin',
         'Binary data'
       );
     });
@@ -140,15 +140,15 @@ describe('stdlib/fs', () => {
     it('should handle Docker container copy', async () => {
       mockEnv.type = 'docker';
       mockEnv.connection = { container: 'mycontainer' };
-      
+
       const dockerFs = await createFileSystem(mockExecutor as any, mockEnv);
-      
+
       // Host to container
       await dockerFs.copy('host:/source/file.txt', '/dest/file.txt');
       expect(mockExecutor).toHaveBeenCalledWith(
         expect.any(Array), '/source/file.txt', 'mycontainer', '/dest/file.txt'
       );
-      
+
       // Container to host
       await dockerFs.copy('/source/file.txt', 'host:/dest/file.txt');
       expect(mockExecutor).toHaveBeenCalledWith(
@@ -159,9 +159,9 @@ describe('stdlib/fs', () => {
     it('should handle Kubernetes pod copy', async () => {
       mockEnv.type = 'kubernetes';
       mockEnv.connection = { pod: 'mypod', namespace: 'default' };
-      
+
       const k8sFs = await createFileSystem(mockExecutor as any, mockEnv);
-      
+
       // Host to pod
       await k8sFs.copy('host:/source/file.txt', '/dest/file.txt');
       expect(mockExecutor).toHaveBeenCalledWith(
@@ -177,12 +177,12 @@ describe('stdlib/fs', () => {
         for (let i = 0; i < values.length; i++) {
           cmd += values[i] + strings[i + 1];
         }
-        
+
         if (cmd.includes('stat -c')) {
-          return Promise.resolve({ 
-            stdout: '1024 33188 1000 1000 1234567890 1234567890 1234567890', 
-            stderr: '', 
-            exitCode: 0 
+          return Promise.resolve({
+            stdout: '1024 33188 1000 1000 1234567890 1234567890 1234567890',
+            stderr: '',
+            exitCode: 0
           });
         }
         if (cmd.includes('test -f')) {
@@ -190,9 +190,9 @@ describe('stdlib/fs', () => {
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
       });
-      
+
       const stat = await fs.stat('/test/file.txt');
-      
+
       expect(stat.size).toBe(1024);
       expect(stat.uid).toBe(1000);
       expect(stat.gid).toBe(1000);
@@ -203,18 +203,18 @@ describe('stdlib/fs', () => {
     it('should get file stats on macOS', async () => {
       mockEnv.platform.os = 'darwin';
       const macFs = await createFileSystem(mockExecutor as any, mockEnv);
-      
+
       mockExecutor.mockImplementation((strings: TemplateStringsArray, ...values: any[]) => {
         let cmd = strings[0];
         for (let i = 0; i < values.length; i++) {
           cmd += values[i] + strings[i + 1];
         }
-        
+
         if (cmd.includes('stat -f')) {
-          return Promise.resolve({ 
-            stdout: '1024 33188 1000 1000 1234567890 1234567890 1234567890', 
-            stderr: '', 
-            exitCode: 0 
+          return Promise.resolve({
+            stdout: '1024 33188 1000 1000 1234567890 1234567890 1234567890',
+            stderr: '',
+            exitCode: 0
           });
         }
         if (cmd.includes('test -f')) {
@@ -225,9 +225,9 @@ describe('stdlib/fs', () => {
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
       });
-      
+
       const stat = await macFs.stat('/test/dir');
-      
+
       expect(stat.isFile()).toBe(false);
       expect(stat.isDirectory()).toBe(true);
     });
@@ -235,12 +235,12 @@ describe('stdlib/fs', () => {
 
   describe('temp', () => {
     it('should create temporary file on Linux', async () => {
-      mockExecutor.mockResolvedValueOnce({ 
-        stdout: '/tmp/tmp.abc123', 
-        stderr: '', 
-        exitCode: 0 
+      mockExecutor.mockResolvedValueOnce({
+        stdout: '/tmp/tmp.abc123',
+        stderr: '',
+        exitCode: 0
       });
-      
+
       const tempFile = await fs.temp();
       expect(tempFile).toBe('/tmp/tmp.abc123');
       expect(mockExecutor).toHaveBeenCalledWith(expect.any(Array), 'mktemp -t tmp.XXXXXX');
@@ -249,13 +249,13 @@ describe('stdlib/fs', () => {
     it('should create temporary file on macOS', async () => {
       mockEnv.platform.os = 'darwin';
       const macFs = await createFileSystem(mockExecutor as any, mockEnv);
-      
-      mockExecutor.mockResolvedValueOnce({ 
-        stdout: '/var/folders/tmp.xyz789', 
-        stderr: '', 
-        exitCode: 0 
+
+      mockExecutor.mockResolvedValueOnce({
+        stdout: '/var/folders/tmp.xyz789',
+        stderr: '',
+        exitCode: 0
       });
-      
+
       const tempFile = await macFs.temp({ prefix: 'test', suffix: '.tmp' });
       expect(tempFile).toBe('/var/folders/tmp.xyz789');
     });

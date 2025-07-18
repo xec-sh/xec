@@ -11,7 +11,7 @@ Xec Core provides a set of ready-made patterns for typical deployment and operat
 Blue-Green deployment minimizes downtime and risks during updates.
 
 ```typescript
-import { patterns } from '@xec/core';
+import { patterns } from '@xec-js/core';
 
 // Blue-Green configuration
 const blueGreenConfig = {

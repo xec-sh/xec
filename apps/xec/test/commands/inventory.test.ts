@@ -18,7 +18,7 @@ jest.mock('../../src/utils/project.js', () => ({
   getProjectRoot: jest.fn().mockResolvedValue('/mock/project')
 }));
 
-jest.mock('@xec/core', () => ({
+jest.mock('@xec-js/core', () => ({
   loadProject: jest.fn().mockResolvedValue({
     inventory: {
       getHosts: jest.fn().mockReturnValue([
@@ -67,9 +67,9 @@ describe('inventory command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride();
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
     mockReadFile.mockImplementation(async (filePath: string) => {
       if (filePath.toString().includes('inventory.yaml')) {
         return Buffer.from(`
@@ -116,7 +116,7 @@ groups:
       }
       throw new Error('File not found');
     });
-    
+
     // Mock process.exit to prevent tests from exiting
     exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: any) => {
       throw new Error(`Process exited with code ${code}`);
@@ -135,7 +135,7 @@ groups:
     expect(cmd).toBeDefined();
     expect(cmd?.name()).toBe('inventory');
     expect(cmd?.description()).toContain('inventory');
-    
+
     const subcommands = cmd?.commands.map(c => c.name()) || [];
     expect(subcommands).toContain('list');
     expect(subcommands).toContain('add');
@@ -144,9 +144,9 @@ groups:
 
   it('should list all hosts', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'list'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Hosts'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('web1'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('192.168.1.10'));
@@ -155,9 +155,9 @@ groups:
 
   it('should filter hosts by group', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'list', '--groups'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('web1'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('web2'));
     expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('db1'));
@@ -165,18 +165,18 @@ groups:
 
   it('should filter hosts by tags', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'list', '--tags', 'production'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('web1'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('db1'));
   });
 
   it('should show detailed host information', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'show', 'web1'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Host Details'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('192.168.1.10'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('deploy'));
@@ -185,7 +185,7 @@ groups:
 
   it('should add a new host', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync([
       'inventory', 'add', 'web3',
       '--host', '192.168.1.12',
@@ -194,46 +194,46 @@ groups:
       '--group', 'webservers',
       '--tag', 'production'
     ], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Host added successfully'));
   });
 
   it('should remove a host', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'remove', 'web1', '--force'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Host removed'));
   });
 
   it('should edit host properties', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync([
       'inventory', 'edit', 'web1',
       '--user', 'newuser',
       '--port', '2222'
     ], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Host updated'));
   });
 
   it('should import inventory from file', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'import', 'inventory.yaml'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Imported'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('2 hosts'));
   });
 
   it('should export inventory in different formats', async () => {
     inventoryCommand(program);
-    
+
     const writeFileSpy = mockWriteFile;
-    
+
     await program.parseAsync(['inventory', 'list', '--output', 'inventory.json', '--format', 'json'], { from: 'user' });
-    
+
     expect(writeFileSpy).toHaveBeenCalledWith(
       'inventory.json',
       expect.stringContaining('"web1"')
@@ -242,9 +242,9 @@ groups:
 
   it('should validate host connectivity', async () => {
     inventoryCommand(program);
-    
+
     await program.parseAsync(['inventory', 'validate'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Validating inventory'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('All hosts reachable'));
   });

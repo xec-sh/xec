@@ -1,4 +1,4 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { it, vi, expect, describe, beforeEach } from 'vitest';
 
@@ -18,7 +18,7 @@ describe('stdlib/os', () => {
       for (let i = 0; i < values.length; i++) {
         cmd += values[i] + strings[i + 1];
       }
-      
+
       // Default mock responses
       if (cmd.includes('uname')) {
         if (cmd.includes('-s')) {
@@ -35,34 +35,34 @@ describe('stdlib/os', () => {
         return Promise.resolve({ stdout: 'test-host', stderr: '', exitCode: 0 });
       }
       if (cmd.includes('uptime')) {
-        return Promise.resolve({ 
-          stdout: ' 10:30:00 up 5 days, 3:45, 2 users, load average: 0.15, 0.20, 0.18', 
-          stderr: '', 
-          exitCode: 0 
+        return Promise.resolve({
+          stdout: ' 10:30:00 up 5 days, 3:45, 2 users, load average: 0.15, 0.20, 0.18',
+          stderr: '',
+          exitCode: 0
         });
       }
       if (cmd.includes('free -m')) {
-        return Promise.resolve({ 
-          stdout: 'Mem:           8000        2000        4000        200        2000        5500', 
-          stderr: '', 
-          exitCode: 0 
+        return Promise.resolve({
+          stdout: 'Mem:           8000        2000        4000        200        2000        5500',
+          stderr: '',
+          exitCode: 0
         });
       }
       if (cmd.includes('df -k')) {
-        return Promise.resolve({ 
-          stdout: '/dev/sda1       100000000  50000000  50000000  50% /', 
-          stderr: '', 
-          exitCode: 0 
+        return Promise.resolve({
+          stdout: '/dev/sda1       100000000  50000000  50000000  50% /',
+          stderr: '',
+          exitCode: 0
         });
       }
       if (cmd.includes('nproc')) {
         return Promise.resolve({ stdout: '8', stderr: '', exitCode: 0 });
       }
       if (cmd.includes('getent passwd')) {
-        return Promise.resolve({ 
-          stdout: 'testuser:x:1000:1000:Test User:/home/testuser:/bin/bash', 
-          stderr: '', 
-          exitCode: 0 
+        return Promise.resolve({
+          stdout: 'testuser:x:1000:1000:Test User:/home/testuser:/bin/bash',
+          stderr: '',
+          exitCode: 0
         });
       }
       return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
@@ -126,7 +126,7 @@ describe('stdlib/os', () => {
 
     it('should get memory info on macOS', async () => {
       mockEnv.platform.os = 'darwin';
-      
+
       // Set up mocks before creating the OSInfo instance
       mockExecutor.mockImplementationOnce(() => Promise.resolve({
         stdout: '4096',
@@ -143,7 +143,7 @@ Pages occupied by compressor:          65536.`,
         stderr: '',
         exitCode: 0
       })); // vm_stat
-      
+
       const macOs = await createOSInfo(mockExecutor as any, mockEnv);
       const memory = await macOs.memory();
       expect(memory.total).toBeGreaterThan(0);

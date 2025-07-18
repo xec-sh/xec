@@ -19,7 +19,7 @@ jest.mock('../../src/utils/project.js', () => ({
   getProjectRoot: jest.fn().mockResolvedValue('/mock/project')
 }));
 
-jest.mock('@xec/core', () => ({
+jest.mock('@xec-js/core', () => ({
   loadProject: jest.fn().mockResolvedValue({
     name: 'test-project'
   }),
@@ -62,14 +62,14 @@ describe('integration command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride();
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
     // Mock process.exit to prevent tests from exiting
     exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: any) => {
       throw new Error(`Process exited with code ${code}`);
     });
-    
+
     // Mock file system operations
     mockReadFile.mockImplementation(async (filePath: string) => {
       if (filePath.includes('.xec/integrations.json')) {
@@ -81,12 +81,12 @@ describe('integration command', () => {
       }
       throw new Error('File not found');
     });
-    
+
     mockStat.mockResolvedValue({
       isFile: () => true,
       isDirectory: () => false
     } as any);
-    
+
     mockMkdir.mockResolvedValue(undefined);
     mockWriteFile.mockResolvedValue(undefined);
   });
@@ -103,7 +103,7 @@ describe('integration command', () => {
     expect(cmd).toBeDefined();
     expect(cmd?.name()).toBe('integration');
     expect(cmd?.description()).toContain('integrations');
-    
+
     const subcommands = cmd?.commands.map(c => c.name()) || [];
     expect(subcommands).toContain('list');
     expect(subcommands).toContain('add');
@@ -114,9 +114,9 @@ describe('integration command', () => {
 
   it('should list available integrations', async () => {
     integrationCommand(program);
-    
+
     await program.parseAsync(['integration', 'list'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Available Integrations'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('docker'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('kubernetes'));
@@ -125,33 +125,33 @@ describe('integration command', () => {
 
   it('should add a new integration', async () => {
     integrationCommand(program);
-    
+
     const { select, text, password, confirm } = await import('@clack/prompts');
     (select as jest.Mock).mockResolvedValue('docker');
     (text as jest.Mock).mockResolvedValueOnce('unix:///var/run/docker.sock');
     (confirm as jest.Mock).mockResolvedValue(true);
-    
+
     await program.parseAsync(['integration', 'add'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Integration added successfully'));
   });
 
   it('should configure an existing integration', async () => {
     integrationCommand(program);
-    
+
     const { text } = await import('@clack/prompts');
     (text as jest.Mock).mockResolvedValueOnce('https://new-endpoint.example.com');
-    
+
     await program.parseAsync(['integration', 'configure', 'docker'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Configuration updated'));
   });
 
   it('should test integration connection', async () => {
     integrationCommand(program);
-    
+
     await program.parseAsync(['integration', 'test', 'docker'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Testing connection'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Connection successful'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('50ms'));
@@ -159,36 +159,36 @@ describe('integration command', () => {
 
   it('should remove an integration', async () => {
     integrationCommand(program);
-    
+
     const { confirm } = await import('@clack/prompts');
     (confirm as jest.Mock).mockResolvedValue(true);
-    
+
     await program.parseAsync(['integration', 'remove', 'docker'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Integration removed'));
   });
 
   it('should handle test connection failures', async () => {
     integrationCommand(program);
-    
-    const { IntegrationRegistry } = await import('@xec/core');
+
+    const { IntegrationRegistry } = await import('@xec-js/core');
     const mockRegistry = IntegrationRegistry.getInstance();
-    (mockRegistry.testConnection as jest.Mock).mockResolvedValue({ 
-      success: false, 
-      error: 'Connection timeout' 
+    (mockRegistry.testConnection as jest.Mock).mockResolvedValue({
+      success: false,
+      error: 'Connection timeout'
     });
-    
+
     await program.parseAsync(['integration', 'test', 'docker'], { from: 'user' });
-    
+
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Connection failed'));
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Connection timeout'));
   });
 
   it('should show integration status', async () => {
     integrationCommand(program);
-    
+
     await program.parseAsync(['integration', 'status', 'docker'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Integration Status'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('docker'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('active'));
@@ -196,15 +196,15 @@ describe('integration command', () => {
 
   it('should handle non-existent integration', async () => {
     integrationCommand(program);
-    
-    const { IntegrationRegistry } = await import('@xec/core');
+
+    const { IntegrationRegistry } = await import('@xec-js/core');
     const mockRegistry = IntegrationRegistry.getInstance();
     (mockRegistry.getIntegration as jest.Mock).mockReturnValue(null);
-    
+
     await expect(
       program.parseAsync(['integration', 'configure', 'nonexistent'], { from: 'user' })
     ).rejects.toThrow();
-    
+
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Integration not found'));
   });
 });

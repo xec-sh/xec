@@ -2,7 +2,7 @@
  * Простой пример развертывания Node.js приложения
  */
 
-import { recipe } from '@xec/core'
+import { recipe } from '@xec-js/core'
 
 // Создаем рецепт деплоя
 const deploy = recipe('deploy-nodejs-app', {

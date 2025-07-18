@@ -9,7 +9,7 @@ The Xec Core Standard Library provides a set of ready-to-use modules for solving
 ### Package Structure
 
 ```
-@xec/stdlib/
+@xec-js/stdlib/
 ├── core/              # Core utilities
 ├── system/            # System operations
 ├── network/           # Network utilities
@@ -34,12 +34,12 @@ The Xec Core Standard Library provides a set of ready-to-use modules for solving
 
 ## Core Module
 
-### @xec/stdlib-core
+### @xec-js/stdlib-core
 
 Core utilities and helpers.
 
 ```typescript
-import { core } from '@xec/stdlib-core';
+import { core } from '@xec-js/stdlib-core';
 
 // JSON utilities
 await core.json.read('/path/to/file.json');
@@ -66,12 +66,12 @@ const errors = await core.validateWithErrors(data, schema);
 
 ## System Module
 
-### @xec/stdlib-system
+### @xec-js/stdlib-system
 
 System operations and package management.
 
 ```typescript
-import { system } from '@xec/stdlib-system';
+import { system } from '@xec-js/stdlib-system';
 
 // System information
 const info = await system.info();
@@ -117,12 +117,12 @@ await system.cron.list();
 
 ## Network Module
 
-### @xec/stdlib-network
+### @xec-js/stdlib-network
 
 Network operations and checks.
 
 ```typescript
-import { network } from '@xec/stdlib-network';
+import { network } from '@xec-js/stdlib-network';
 
 // HTTP client
 const response = await network.http.get('https://api.example.com/data');
@@ -164,12 +164,12 @@ await network.interfaces.configure('eth0', {
 
 ## File Module
 
-### @xec/stdlib-file
+### @xec-js/stdlib-file
 
 Advanced file operations.
 
 ```typescript
-import { file } from '@xec/stdlib-file';
+import { file } from '@xec-js/stdlib-file';
 
 // Basic operations
 await file.read('/path/to/file');
@@ -225,12 +225,12 @@ watcher.on('change', (path) => {
 
 ## Process Module
 
-### @xec/stdlib-process
+### @xec-js/stdlib-process
 
 Process management and monitoring.
 
 ```typescript
-import { process } from '@xec/stdlib-process';
+import { process } from '@xec-js/stdlib-process';
 
 // Process spawning
 const proc = await process.spawn('npm', ['start'], {
@@ -279,12 +279,12 @@ await process.systemd.create('myapp', {
 
 ## Container Module
 
-### @xec/stdlib-container
+### @xec-js/stdlib-container
 
 Docker and container operations.
 
 ```typescript
-import { container } from '@xec/stdlib-container';
+import { container } from '@xec-js/stdlib-container';
 
 // Docker operations
 await container.docker.pull('nginx:latest');
@@ -333,12 +333,12 @@ const volumes = await container.docker.volume.list();
 
 ## Cloud Module
 
-### @xec/stdlib-cloud
+### @xec-js/stdlib-cloud
 
 Multi-cloud operations.
 
 ```typescript
-import { cloud } from '@xec/stdlib-cloud';
+import { cloud } from '@xec-js/stdlib-cloud';
 
 // AWS
 const ec2 = cloud.aws.ec2;
@@ -378,12 +378,12 @@ await cloud.scp('/local/file', 'instance:/remote/file');
 
 ## Database Module
 
-### @xec/stdlib-database
+### @xec-js/stdlib-database
 
 Database operations for various engines.
 
 ```typescript
-import { database } from '@xec/stdlib-database';
+import { database } from '@xec-js/stdlib-database';
 
 // PostgreSQL
 const pg = database.postgres;
@@ -430,12 +430,12 @@ await database.seed('/seeds', {
 
 ## Web Module
 
-### @xec/stdlib-web
+### @xec-js/stdlib-web
 
 Web servers and related tools.
 
 ```typescript
-import { web } from '@xec/stdlib-web';
+import { web } from '@xec-js/stdlib-web';
 
 // Nginx
 const nginx = web.nginx;
@@ -492,12 +492,12 @@ await haproxy.configure({
 
 ## Monitoring Module
 
-### @xec/stdlib-monitoring
+### @xec-js/stdlib-monitoring
 
 Monitoring and observability tools.
 
 ```typescript
-import { monitoring } from '@xec/stdlib-monitoring';
+import { monitoring } from '@xec-js/stdlib-monitoring';
 
 // Prometheus
 const prometheus = monitoring.prometheus;
@@ -556,12 +556,12 @@ await monitoring.collectd.configure({
 
 ## Security Module
 
-### @xec/stdlib-security
+### @xec-js/stdlib-security
 
 Security tools and hardening.
 
 ```typescript
-import { security } from '@xec/stdlib-security';
+import { security } from '@xec-js/stdlib-security';
 
 // System hardening
 await security.harden.ssh({
@@ -618,12 +618,12 @@ await security.selinux.setContext('/var/www', 'httpd_sys_content_t');
 
 ## Patterns Module
 
-### @xec/stdlib-patterns
+### @xec-js/stdlib-patterns
 
 Common deployment and operational patterns.
 
 ```typescript
-import { patterns } from '@xec/stdlib-patterns';
+import { patterns } from '@xec-js/stdlib-patterns';
 
 // Blue-Green Deployment
 const blueGreen = patterns.deployment.blueGreen({
@@ -695,32 +695,32 @@ await ha.failover(); // Manual failover
 
 ```bash
 # Install the entire stdlib
-npm install @xec/stdlib
+npm install @xec-js/stdlib
 
 # Install individual modules
-npm install @xec/stdlib-system
-npm install @xec/stdlib-network
-npm install @xec/stdlib-container
+npm install @xec-js/stdlib-system
+npm install @xec-js/stdlib-network
+npm install @xec-js/stdlib-container
 ```
 
 ### Import and Usage
 
 ```typescript
 // Import the entire stdlib
-import stdlib from '@xec/stdlib';
+import stdlib from '@xec-js/stdlib';
 
 // Usage
 await stdlib.system.package.install('nginx');
 await stdlib.network.http.get('https://example.com');
 
 // Import individual modules
-import { system } from '@xec/stdlib-system';
-import { network } from '@xec/stdlib-network';
+import { system } from '@xec-js/stdlib-system';
+import { network } from '@xec-js/stdlib-network';
 
 // In recipes
 recipe('setup')
-  .use('@xec/stdlib-system')
-  .use('@xec/stdlib-network')
+  .use('@xec-js/stdlib-system')
+  .use('@xec-js/stdlib-network')
   .task('install', task()
     .run(async ({ stdlib }) => {
       await stdlib.system.package.update();
@@ -757,7 +757,7 @@ const xec = new Xec({
 
 ```typescript
 // my-stdlib-extension.ts
-import { StdlibModule } from '@xec/stdlib-core';
+import { StdlibModule } from '@xec-js/stdlib-core';
 
 export const myExtension: StdlibModule = {
   name: 'my-extension',
@@ -777,7 +777,7 @@ export const myExtension: StdlibModule = {
 };
 
 // Registration
-import { extendStdlib } from '@xec/stdlib-core';
+import { extendStdlib } from '@xec-js/stdlib-core';
 
 extendStdlib(myExtension);
 ```
@@ -794,15 +794,15 @@ extendStdlib(myExtension);
 
 ### Planned Modules
 
-- `@xec/stdlib-kubernetes` - Kubernetes operations
-- `@xec/stdlib-terraform` - Terraform integration
-- `@xec/stdlib-ansible` - Ansible compatibility layer
-- `@xec/stdlib-ci` - CI/CD integrations
-- `@xec/stdlib-testing` - Testing utilities
-- `@xec/stdlib-backup` - Backup solutions
-- `@xec/stdlib-certificates` - Certificate management
-- `@xec/stdlib-queue` - Message queues
-- `@xec/stdlib-search` - Search engines (Elasticsearch, Solr)
-- `@xec/stdlib-cache` - Caching solutions (Redis, Memcached)
+- `@xec-js/stdlib-kubernetes` - Kubernetes operations
+- `@xec-js/stdlib-terraform` - Terraform integration
+- `@xec-js/stdlib-ansible` - Ansible compatibility layer
+- `@xec-js/stdlib-ci` - CI/CD integrations
+- `@xec-js/stdlib-testing` - Testing utilities
+- `@xec-js/stdlib-backup` - Backup solutions
+- `@xec-js/stdlib-certificates` - Certificate management
+- `@xec-js/stdlib-queue` - Message queues
+- `@xec-js/stdlib-search` - Search engines (Elasticsearch, Solr)
+- `@xec-js/stdlib-cache` - Caching solutions (Redis, Memcached)
 
 The Xec Core Standard Library is constantly expanding, providing more and more ready-made solutions for infrastructure automation.

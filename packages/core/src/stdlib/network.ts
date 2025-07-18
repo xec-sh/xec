@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   Network,
   PingResult,
   PingOptions,
@@ -16,12 +16,12 @@ export async function createNetwork(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<Network> {
-  
+
   const net: Network = {
     async ping(host: string, options?: PingOptions): Promise<PingResult> {
       const count = options?.count || 4;
       const timeout = options?.timeout || 5;
-      
+
       try {
         let cmd: string;
         if (env.platform.os === 'darwin') {
@@ -29,13 +29,13 @@ export async function createNetwork(
         } else {
           cmd = `ping -c ${count} -W ${timeout} ${host}`;
         }
-        
+
         const result = await $`${cmd}`;
-        
+
         // Parse ping output
         const lines = result.stdout.split('\n');
         const statsLine = lines.find((l: string) => l.includes('min/avg/max'));
-        
+
         if (statsLine) {
           const match = statsLine.match(/(\d+\.?\d*)\s*\/\s*(\d+\.?\d*)\s*\/\s*(\d+\.?\d*)/);
           if (match) {
@@ -50,7 +50,7 @@ export async function createNetwork(
             };
           }
         }
-        
+
         return {
           host,
           packets_sent: count,
@@ -77,24 +77,24 @@ export async function createNetwork(
       try {
         const cmd = env.platform.os === 'darwin' ? 'traceroute' : 'traceroute';
         const result = await $`${cmd} ${host}`;
-        
+
         const hops: TracerouteHop[] = [];
         const lines = result.stdout.split('\n').slice(1); // Skip header
-        
+
         for (const line of lines) {
           const match = line.match(/^\s*(\d+)\s+([^\s]+)\s+\(([^)]+)\)/);
           if (match) {
             const hop = parseInt(match[1] || '0');
             const ip = match[3] || '';
-            
+
             // Extract RTT values
             const rttMatches = line.matchAll(/(\d+\.?\d*)\s*ms/g);
             const rtt = Array.from(rttMatches).map((m: any) => parseFloat(m[1]));
-            
+
             hops.push({ hop, ip, rtt });
           }
         }
-        
+
         return { host, hops };
       } catch (error) {
         log?.warn(`Traceroute failed for ${host}`, error);
@@ -115,14 +115,14 @@ export async function createNetwork(
     async waitForPort(host: string, port: number, timeout: number = 30000): Promise<void> {
       const startTime = Date.now();
       const checkInterval = 1000;
-      
+
       while (Date.now() - startTime < timeout) {
         if (await this.isPortOpen(host, port)) {
           return;
         }
         await new Promise(resolve => setTimeout(resolve, checkInterval));
       }
-      
+
       throw new Error(`Timeout waiting for ${host}:${port}`);
     },
 
@@ -149,16 +149,16 @@ export async function createNetwork(
     async interfaces(): Promise<NetworkInterface[]> {
       try {
         const interfaces: NetworkInterface[] = [];
-        
+
         if (env.platform.os === 'linux') {
           const result = await $`ip addr show`;
           // Parse ip addr output
           const blocks = result.stdout.split(/^\d+:/m).slice(1);
-          
+
           for (const block of blocks) {
             const nameMatch = block.match(/^\s*(\S+):/);
             const name = nameMatch ? nameMatch[1] : '';
-            
+
             const addresses: string[] = [];
             const inetMatches = block.matchAll(/inet\s+(\S+)/g);
             for (const match of inetMatches) {
@@ -166,12 +166,12 @@ export async function createNetwork(
                 addresses.push(match[1]!.split('/')[0] || '');
               }
             }
-            
+
             const macMatch = block.match(/link\/ether\s+(\S+)/);
             const mac = macMatch ? macMatch[1] : undefined;
-            
+
             const up = block.includes('state UP');
-            
+
             if (name) {
               interfaces.push({ name, addresses, mac, up });
             }
@@ -180,11 +180,11 @@ export async function createNetwork(
           const result = await $`ifconfig`;
           // Parse ifconfig output
           const blocks = result.stdout.split(/^[^\s]/m);
-          
+
           for (const block of blocks) {
             const nameMatch = block.match(/^(\S+):/);
             const name = nameMatch ? nameMatch[1] : '';
-            
+
             const addresses: string[] = [];
             const inetMatches = block.matchAll(/inet\s+(\S+)/g);
             for (const match of inetMatches) {
@@ -192,18 +192,18 @@ export async function createNetwork(
                 addresses.push(match[1]);
               }
             }
-            
+
             const macMatch = block.match(/ether\s+(\S+)/);
             const mac = macMatch ? macMatch[1] : undefined;
-            
+
             const up = !block.includes('status: inactive');
-            
+
             if (name) {
               interfaces.push({ name, addresses, mac, up });
             }
           }
         }
-        
+
         return interfaces;
       } catch (error) {
         log?.warn('Failed to get network interfaces', error);
@@ -225,27 +225,27 @@ export async function createNetwork(
     async privateIP(): Promise<string> {
       try {
         const interfaces = await this.interfaces();
-        
+
         // Look for common private IP ranges
         for (const iface of interfaces) {
           if (iface.up && iface.name !== 'lo') {
             for (const addr of iface.addresses) {
-              if (addr.startsWith('192.168.') || 
-                  addr.startsWith('10.') || 
-                  addr.match(/^172\.(1[6-9]|2[0-9]|3[01])\./)) {
+              if (addr.startsWith('192.168.') ||
+                addr.startsWith('10.') ||
+                addr.match(/^172\.(1[6-9]|2[0-9]|3[01])\./)) {
                 return addr;
               }
             }
           }
         }
-        
+
         // Fallback to first non-loopback address
         for (const iface of interfaces) {
           if (iface.up && iface.name !== 'lo' && iface.addresses.length > 0) {
             return iface.addresses[0] || '127.0.0.1';
           }
         }
-        
+
         return '127.0.0.1';
       } catch (error) {
         log?.warn('Failed to get private IP', error);

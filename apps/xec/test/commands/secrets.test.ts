@@ -15,7 +15,7 @@ jest.mock('fs/promises', () => ({
   mkdir: mockMkdir
 }));
 
-jest.mock('@xec/core', () => ({
+jest.mock('@xec-js/core', () => ({
   loadProject: jest.fn().mockResolvedValue({
     name: 'test-project'
   }),
@@ -68,9 +68,9 @@ describe('secrets command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride();
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
     // Mock file system operations for secrets
     mockReadFile.mockImplementation(async (filePath: string) => {
       if (filePath.includes('.xec/secrets.json')) {
@@ -86,15 +86,15 @@ describe('secrets command', () => {
       }
       throw new Error('File not found');
     });
-    
+
     mockStat.mockResolvedValue({
       isFile: () => true,
       isDirectory: () => false
     } as any);
-    
+
     mockMkdir.mockResolvedValue(undefined);
     mockWriteFile.mockResolvedValue(undefined);
-    
+
     // Mock process.exit to prevent tests from exiting
     exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: any) => {
       throw new Error(`Process exited with code ${code}`);
@@ -113,7 +113,7 @@ describe('secrets command', () => {
     expect(cmd).toBeDefined();
     expect(cmd?.name()).toBe('secrets');
     expect(cmd?.description()).toContain('secrets');
-    
+
     const subcommands = cmd?.commands.map(c => c.name()) || [];
     expect(subcommands).toContain('list');
     expect(subcommands).toContain('get');
@@ -126,9 +126,9 @@ describe('secrets command', () => {
 
   it.skip('should list all secrets', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'list'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secrets'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('api-key'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('db-password'));
@@ -137,27 +137,27 @@ describe('secrets command', () => {
 
   it.skip('should get a secret value', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'get', 'api-key'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith('sk-1234567890');
   });
 
   it.skip('should set a secret interactively', async () => {
     secretsCommand(program);
-    
+
     const { password, confirm } = await import('@clack/prompts');
     (password as jest.Mock).mockResolvedValue('new-secret-value');
     (confirm as jest.Mock).mockResolvedValue(true);
-    
+
     await program.parseAsync(['secrets', 'set', 'new-secret'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining("Secret 'new-secret' set successfully"));
   });
 
   it.skip('should set a secret from stdin', async () => {
     secretsCommand(program);
-    
+
     const stdinData = 'secret-from-stdin';
     const mockStdin = {
       on: jest.fn((event, callback) => {
@@ -166,105 +166,105 @@ describe('secrets command', () => {
       }),
       setEncoding: jest.fn()
     };
-    
+
     Object.defineProperty(process, 'stdin', {
       value: mockStdin,
       configurable: true
     });
-    
+
     await program.parseAsync(['secrets', 'set', 'stdin-secret', '--stdin'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining("Secret 'stdin-secret' set successfully"));
   });
 
   it.skip('should delete a secret with confirmation', async () => {
     secretsCommand(program);
-    
+
     const { confirm } = await import('@clack/prompts');
     (confirm as jest.Mock).mockResolvedValue(true);
-    
+
     await program.parseAsync(['secrets', 'delete', 'api-key'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secret deleted'));
   });
 
   it.skip('should force delete without confirmation', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'delete', 'api-key', '--force'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secret deleted'));
   });
 
   it.skip('should rotate a secret', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'rotate', 'api-key'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secret rotated successfully'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('new-secret-value'));
   });
 
   it.skip('should export secrets to file', async () => {
     secretsCommand(program);
-    
+
     const { password } = await import('@clack/prompts');
     (password as jest.Mock).mockResolvedValue('encryption-password');
-    
+
     await program.parseAsync(['secrets', 'export', '--output', 'secrets.enc'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secrets exported'));
   });
 
   it.skip('should export specific secrets', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'export', '--include', 'api-key', '--include', 'db-password'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secrets exported'));
   });
 
   it.skip('should import secrets from file', async () => {
     secretsCommand(program);
-    
+
     const { password } = await import('@clack/prompts');
     (password as jest.Mock).mockResolvedValue('decryption-password');
-    
+
     await program.parseAsync(['secrets', 'import', 'secrets.enc'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Imported 3 secrets'));
   });
 
   it('should handle secret not found error', async () => {
     secretsCommand(program);
-    
+
     // Mock process.exit to prevent test from exiting
     const exitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: any) => {
       throw new Error(`Process exited with code ${code}`);
     });
-    
+
     await expect(
       program.parseAsync(['secrets', 'get', 'nonexistent'], { from: 'user' })
     ).rejects.toThrow('Process exited with code 1');
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining("Secret 'nonexistent' not found"));
-    
+
     exitSpy.mockRestore();
   });
 
   it.skip('should validate secret format', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'validate', 'api-key'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secret is valid'));
   });
 
   it.skip('should show secret metadata', async () => {
     secretsCommand(program);
-    
+
     await program.parseAsync(['secrets', 'info', 'api-key'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Secret Information'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Created'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Last Modified'));

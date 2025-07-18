@@ -438,7 +438,7 @@ await $.raw`${sedInPlace} 's/old/new/g' file.txt`;
 
 ```javascript
 // Set environment variable
-process.env.DEBUG = '@xec/ush:*';
+process.env.DEBUG = '@xec-js/ush:*';
 
 // Or configure programmatically
 $.configure({ debug: true });

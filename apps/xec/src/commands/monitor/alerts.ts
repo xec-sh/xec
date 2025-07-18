@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { AlertRule, AlertManager } from '@xec/core';
+import { AlertRule, AlertManager } from '@xec-js/core';
 
 import { SubcommandBase } from '../../utils/command-base.js';
 import { errorMessages } from '../../utils/error-handler.js';
@@ -43,7 +43,7 @@ export class AlertsCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     this.alertManager = new AlertManager();
   }
 
@@ -170,13 +170,13 @@ export class AlertsCommand extends SubcommandBase {
   private async listAlerts(options: AlertsOptions): Promise<void> {
     try {
       const alerts = await this.alertManager.getAlerts();
-      
+
       let filteredAlerts = alerts;
-      
+
       if (options.active) {
         filteredAlerts = alerts.filter(a => a.status === 'active');
       }
-      
+
       if (options.level) {
         filteredAlerts = alerts.filter(a => a.severity === options.level);
       }
@@ -185,7 +185,7 @@ export class AlertsCommand extends SubcommandBase {
         this.output(filteredAlerts, 'Alert Rules');
       } else {
         this.intro('Alert Rules');
-        
+
         if (filteredAlerts.length === 0) {
           this.log('No alerts found', 'info');
           return;
@@ -199,7 +199,7 @@ export class AlertsCommand extends SubcommandBase {
           Level: alert.severity,
           Status: alert.status
         }));
-        
+
         this.table(tableData, ['Name', 'Metric', 'Operator', 'Threshold', 'Level', 'Status']);
       }
     } catch (error: any) {
@@ -210,7 +210,7 @@ export class AlertsCommand extends SubcommandBase {
   private async createAlert(options: AlertsOptions & { interactive?: boolean }): Promise<void> {
     try {
       let alertConfig: any = {};
-      
+
       if (options.interactive) {
         alertConfig = await this.interactiveAlertSetup();
       } else {
@@ -223,12 +223,12 @@ export class AlertsCommand extends SubcommandBase {
           duration: options.duration || '5m'
         };
       }
-      
+
       // Validate required fields
       if (!alertConfig.name || !alertConfig.metric || !alertConfig.threshold) {
         throw new Error('Name, metric, and threshold are required');
       }
-      
+
       const rule: AlertRule = {
         id: alertConfig.name.toLowerCase().replace(/\s+/g, '-'),
         name: alertConfig.name,
@@ -243,9 +243,9 @@ export class AlertsCommand extends SubcommandBase {
         severity: alertConfig.level || 'warning',
         message: `${alertConfig.name}: ${alertConfig.metric} is ${alertConfig.operator} ${alertConfig.threshold}`
       };
-      
+
       this.alertManager.addRule(rule);
-      
+
       this.log(`Alert rule '${alertConfig.name}' created successfully`, 'success');
     } catch (error: any) {
       throw errorMessages.operationFailed('create alert', error.message);
@@ -256,11 +256,11 @@ export class AlertsCommand extends SubcommandBase {
     try {
       const rules = this.alertManager.getRules();
       const rule = rules.find(r => r.name === name || r.id === name);
-      
+
       if (!rule) {
         throw errorMessages.resourceNotFound(`Alert rule '${name}'`);
       }
-      
+
       // Create updated rule
       const updatedRule: AlertRule = {
         ...rule,
@@ -272,11 +272,11 @@ export class AlertsCommand extends SubcommandBase {
         },
         severity: options.level || rule.severity
       };
-      
+
       // Remove old rule and add updated one
       this.alertManager.removeRule(rule.id);
       this.alertManager.addRule(updatedRule);
-      
+
       this.log(`Alert rule '${name}' updated successfully`, 'success');
     } catch (error: any) {
       throw errorMessages.operationFailed('update alert', error.message);
@@ -287,20 +287,20 @@ export class AlertsCommand extends SubcommandBase {
     try {
       const rules = this.alertManager.getRules();
       const rule = rules.find(r => r.name === name || r.id === name);
-      
+
       if (!rule) {
         throw errorMessages.resourceNotFound(`Alert rule '${name}'`);
       }
-      
+
       const testValue = options.value ? parseFloat(options.value) : Math.random() * 100;
       const result = this.evaluateCondition(rule.condition, testValue);
-      
+
       if (result) {
         this.log(`Alert '${name}' would trigger with value ${testValue}`, 'warn');
       } else {
         this.log(`Alert '${name}' would not trigger with value ${testValue}`, 'success');
       }
-      
+
       this.log(`Evaluation: ${testValue} ${rule.condition.operator} ${rule.condition.threshold} = ${result}`, 'info');
     } catch (error: any) {
       throw errorMessages.operationFailed('test alert', error.message);
@@ -310,9 +310,9 @@ export class AlertsCommand extends SubcommandBase {
   private async showActiveAlerts(options: AlertsOptions): Promise<void> {
     try {
       const activeAlerts = this.alertManager.getAlerts('active');
-      
+
       let filteredAlerts = activeAlerts;
-      
+
       if (options.level) {
         filteredAlerts = activeAlerts.filter(a => a.severity === options.level);
       }
@@ -321,7 +321,7 @@ export class AlertsCommand extends SubcommandBase {
         this.output(filteredAlerts, 'Active Alerts');
       } else {
         this.intro('Active Alerts');
-        
+
         if (filteredAlerts.length === 0) {
           this.log('No active alerts', 'success');
           return;
@@ -338,7 +338,7 @@ export class AlertsCommand extends SubcommandBase {
             Duration: duration
           };
         });
-        
+
         this.table(rows, headers);
       }
     } catch (error: any) {
@@ -350,11 +350,11 @@ export class AlertsCommand extends SubcommandBase {
     try {
       const alerts = this.alertManager.getAlerts('active');
       const alert = alerts.find(a => a.name === name || a.id === name);
-      
+
       if (!alert) {
         throw errorMessages.resourceNotFound(`Active alert '${name}'`);
       }
-      
+
       const success = this.alertManager.acknowledgeAlert(alert.id, 'user');
       if (success) {
         this.log(`Alert '${name}' acknowledged`, 'success');
@@ -370,11 +370,11 @@ export class AlertsCommand extends SubcommandBase {
     try {
       const alerts = this.alertManager.getAlerts();
       const alert = alerts.find(a => a.name === name || a.id === name);
-      
+
       if (!alert) {
         throw errorMessages.resourceNotFound(`Alert '${name}'`);
       }
-      
+
       const success = this.alertManager.resolveAlert(alert.id);
       if (success) {
         this.log(`Alert '${name}' resolved`, 'success');
@@ -390,11 +390,11 @@ export class AlertsCommand extends SubcommandBase {
     try {
       const rules = this.alertManager.getRules();
       const rule = rules.find(r => r.name === name || r.id === name);
-      
+
       if (!rule) {
         throw errorMessages.resourceNotFound(`Alert rule '${name}'`);
       }
-      
+
       this.alertManager.setRuleEnabled(rule.id, true);
       this.log(`Alert rule '${name}' enabled`, 'success');
     } catch (error: any) {
@@ -406,11 +406,11 @@ export class AlertsCommand extends SubcommandBase {
     try {
       const rules = this.alertManager.getRules();
       const rule = rules.find(r => r.name === name || r.id === name);
-      
+
       if (!rule) {
         throw errorMessages.resourceNotFound(`Alert rule '${name}'`);
       }
-      
+
       this.alertManager.setRuleEnabled(rule.id, false);
       this.log(`Alert rule '${name}' disabled`, 'success');
     } catch (error: any) {
@@ -427,14 +427,14 @@ export class AlertsCommand extends SubcommandBase {
           return;
         }
       }
-      
+
       const rules = this.alertManager.getRules();
       const rule = rules.find(r => r.name === name || r.id === name);
-      
+
       if (!rule) {
         throw errorMessages.resourceNotFound(`Alert rule '${name}'`);
       }
-      
+
       const success = this.alertManager.removeRule(rule.id);
       if (success) {
         this.log(`Alert rule '${name}' removed successfully`, 'success');
@@ -448,12 +448,12 @@ export class AlertsCommand extends SubcommandBase {
 
   private async interactiveAlertSetup(): Promise<any> {
     const config: any = {};
-    
+
     config.name = await this.prompt('Alert name');
     config.metric = await this.prompt('Metric to monitor');
-    
+
     const { select } = await import('@clack/prompts');
-    
+
     config.operator = await select({
       message: 'Comparison operator:',
       options: [
@@ -466,9 +466,9 @@ export class AlertsCommand extends SubcommandBase {
       ],
       initialValue: 'gt'
     });
-    
+
     config.threshold = parseFloat(await this.prompt('Threshold value'));
-    
+
     config.level = await select({
       message: 'Alert level:',
       options: [
@@ -478,14 +478,14 @@ export class AlertsCommand extends SubcommandBase {
       ],
       initialValue: 'warning'
     });
-    
+
     config.duration = await this.prompt('Duration before triggering (e.g., 5m, 1h)', '5m');
-    
+
     const addNotifications = await this.confirm('Add notification channels?', false);
-    
+
     if (addNotifications) {
       config.notifications = [];
-      
+
       let addMore = true;
       while (addMore) {
         const channel = await select({
@@ -497,15 +497,15 @@ export class AlertsCommand extends SubcommandBase {
             { value: 'sms', label: 'SMS' }
           ]
         });
-        
+
         const target = await this.prompt(`${String(channel)} target (e.g., email address, webhook URL)`);
-        
+
         config.notifications.push({ channel, target });
-        
+
         addMore = await this.confirm('Add another notification channel?', false);
       }
     }
-    
+
     return config;
   }
 
@@ -514,7 +514,7 @@ export class AlertsCommand extends SubcommandBase {
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
     const days = Math.floor(hours / 24);
-    
+
     if (days > 0) return `${days}d ${hours % 24}h`;
     if (hours > 0) return `${hours}h ${minutes % 60}m`;
     if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
@@ -523,7 +523,7 @@ export class AlertsCommand extends SubcommandBase {
 
   private evaluateCondition(condition: any, value: number): boolean {
     if (!condition.threshold) return false;
-    
+
     switch (condition.operator) {
       case 'gt': return value > condition.threshold;
       case 'gte': return value >= condition.threshold;

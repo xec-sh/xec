@@ -4,7 +4,7 @@
  * Object Interpolation Examples
  * 
  * This file demonstrates how objects are automatically JSON stringified
- * when used in template literals with @xec/ush
+ * when used in template literals with @xec-js/ush
  */
 
 import { $ } from '../src/index.js';
@@ -15,7 +15,7 @@ async function main() {
   // Example 1: Basic object interpolation
   console.log('1. Basic Object Interpolation:');
   const config = { name: 'app', port: 3000, debug: true };
-  
+
   try {
     // This will JSON stringify the object
     const result1 = await $`echo ${config}`;
@@ -44,7 +44,7 @@ async function main() {
     // This creates a config.json file with the properly formatted JSON
     await $`echo ${serverConfig} > config.json`;
     console.log('   ✓ Configuration written to config.json');
-    
+
     // Verify the file was created correctly
     const content = await $`cat config.json`;
     console.log('   File content:', content.stdout.trim());

@@ -1,5 +1,5 @@
 {
-  "name": "@xec/ush",
+  "name": "@xec-js/ush",
   "version": "0.4.0",
   "description": "Universal shell execution engine",
   "author": "LuxQuant & Claude",

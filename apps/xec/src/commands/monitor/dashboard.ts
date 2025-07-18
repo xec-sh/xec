@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { Dashboard, DashboardWidget, DashboardManager } from '@xec/core';
+import { Dashboard, DashboardWidget, DashboardManager } from '@xec-js/core';
 
 import { SubcommandBase } from '../../utils/command-base.js';
 import { errorMessages } from '../../utils/error-handler.js';
@@ -40,7 +40,7 @@ export class DashboardCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     this.dashboardManager = new DashboardManager();
   }
 
@@ -147,7 +147,7 @@ export class DashboardCommand extends SubcommandBase {
         this.output(dashboards, 'Dashboards');
       } else {
         this.intro('Available Dashboards');
-        
+
         if (dashboards.length === 0) {
           this.log('No dashboards found', 'info');
           return;
@@ -159,7 +159,7 @@ export class DashboardCommand extends SubcommandBase {
           Created: new Date(dashboard.createdAt).toLocaleDateString(),
           Modified: new Date(dashboard.updatedAt).toLocaleDateString()
         }));
-        
+
         this.table(tableData, ['Name', 'Widgets', 'Created', 'Modified']);
       }
     } catch (error: any) {
@@ -170,7 +170,7 @@ export class DashboardCommand extends SubcommandBase {
   private async createDashboard(options: DashboardOptions & { interactive?: boolean }): Promise<void> {
     try {
       let config: any = {};
-      
+
       if (options.interactive) {
         config = await this.interactiveDashboardSetup();
       } else {
@@ -179,7 +179,7 @@ export class DashboardCommand extends SubcommandBase {
           widgets: []
         };
       }
-      
+
       const dashboardId = config.name.toLowerCase().replace(/\s+/g, '-');
       const dashboard: Dashboard = {
         id: dashboardId,
@@ -191,7 +191,7 @@ export class DashboardCommand extends SubcommandBase {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      
+
       this.dashboardManager.createDashboard(dashboard);
       this.log(`Dashboard '${dashboard.name}' created successfully`, 'success');
     } catch (error: any) {
@@ -202,7 +202,7 @@ export class DashboardCommand extends SubcommandBase {
   private async showDashboard(name: string, options: DashboardOptions): Promise<void> {
     try {
       const dashboard = this.dashboardManager.getDashboard(name);
-      
+
       if (!dashboard) {
         throw errorMessages.resourceNotFound(`Dashboard '${name}'`);
       }
@@ -214,7 +214,7 @@ export class DashboardCommand extends SubcommandBase {
 
       if (options.format === 'html') {
         const html = await this.generateHtmlDashboard(dashboard, options);
-        
+
         if (options.output) {
           const fs = await import('fs/promises');
           await fs.writeFile(options.output, html);
@@ -236,7 +236,7 @@ export class DashboardCommand extends SubcommandBase {
       if (options.refresh) {
         const interval = options.refresh * 1000;
         this.log(`Auto-refresh enabled (${options.refresh}s). Press Ctrl+C to stop.`, 'info');
-        
+
         const refreshInterval = setInterval(async () => {
           const updatedDashboard = await this.dashboardManager.getDashboard(name);
           if (updatedDashboard) {
@@ -258,7 +258,7 @@ export class DashboardCommand extends SubcommandBase {
   private async editDashboard(name: string, options: DashboardOptions & { addWidget?: string; removeWidget?: string; interactive?: boolean }): Promise<void> {
     try {
       const dashboard = this.dashboardManager.getDashboard(name);
-      
+
       if (!dashboard) {
         throw errorMessages.resourceNotFound(`Dashboard '${name}'`);
       }
@@ -285,13 +285,13 @@ export class DashboardCommand extends SubcommandBase {
   private async exportDashboard(name: string, options: DashboardOptions): Promise<void> {
     try {
       const dashboard = this.dashboardManager.getDashboard(name);
-      
+
       if (!dashboard) {
         throw errorMessages.resourceNotFound(`Dashboard '${name}'`);
       }
 
       let content: string;
-      
+
       if (options.format === 'yaml') {
         const yaml = await import('js-yaml');
         content = yaml.dump(dashboard);
@@ -315,9 +315,9 @@ export class DashboardCommand extends SubcommandBase {
     try {
       const fs = await import('fs/promises');
       const content = await fs.readFile(file, 'utf8');
-      
+
       let config: any;
-      
+
       if (file.endsWith('.yaml') || file.endsWith('.yml')) {
         const yaml = await import('js-yaml');
         config = yaml.load(content);
@@ -339,14 +339,14 @@ export class DashboardCommand extends SubcommandBase {
   private async cloneDashboard(source: string, target: string): Promise<void> {
     try {
       const dashboard = await this.dashboardManager.getDashboard(source);
-      
+
       if (!dashboard) {
         throw errorMessages.resourceNotFound(`Dashboard '${source}'`);
       }
 
       const cloned = { ...dashboard, name: target };
       await this.dashboardManager.createDashboard(cloned);
-      
+
       this.log(`Dashboard '${source}' cloned to '${target}'`, 'success');
     } catch (error: any) {
       throw errorMessages.operationFailed('clone dashboard', error.message);
@@ -362,7 +362,7 @@ export class DashboardCommand extends SubcommandBase {
           return;
         }
       }
-      
+
       await this.dashboardManager.deleteDashboard(name);
       this.log(`Dashboard '${name}' removed successfully`, 'success');
     } catch (error: any) {
@@ -372,18 +372,18 @@ export class DashboardCommand extends SubcommandBase {
 
   private async interactiveDashboardSetup(): Promise<any> {
     const config: any = {};
-    
+
     config.name = await this.prompt('Dashboard name');
     config.description = await this.prompt('Dashboard description');
     config.widgets = [];
-    
+
     const addWidgets = await this.confirm('Add widgets to dashboard?', true);
-    
+
     if (addWidgets) {
       let addMore = true;
       while (addMore) {
         const { select } = await import('@clack/prompts');
-        
+
         const widgetType = await select({
           message: 'Widget type:',
           options: [
@@ -393,54 +393,54 @@ export class DashboardCommand extends SubcommandBase {
             { value: 'alert', label: 'Alert Status' }
           ]
         });
-        
+
         if (typeof widgetType !== 'symbol') {
           const widget = await this.createWidget(widgetType);
           config.widgets.push(widget);
         }
-        
+
         addMore = await this.confirm('Add another widget?', false);
       }
     }
-    
+
     return config;
   }
 
   private async createWidget(type: string): Promise<DashboardWidget> {
     const widget: any = { type, id: Date.now().toString() };
-    
+
     switch (type) {
       case 'metric':
         widget.metric = await this.prompt('Metric name');
         widget.title = await this.prompt('Widget title', widget.metric);
         widget.unit = await this.prompt('Unit (optional)');
         break;
-        
+
       case 'chart':
         widget.metrics = [await this.prompt('Metric name')];
         widget.title = await this.prompt('Chart title');
         widget.chartType = await this.prompt('Chart type (line|bar|pie)', 'line');
         widget.timeRange = await this.prompt('Time range (1h|24h|7d)', '1h');
         break;
-        
+
       case 'table':
         widget.columns = [await this.prompt('Column name')];
         widget.title = await this.prompt('Table title');
         widget.dataSource = await this.prompt('Data source');
         break;
-        
+
       case 'alert':
         widget.alertName = await this.prompt('Alert name');
         widget.title = await this.prompt('Widget title', `Alert: ${widget.alertName}`);
         break;
     }
-    
+
     return widget;
   }
 
   private async interactiveDashboardEdit(name: string): Promise<void> {
     const { select } = await import('@clack/prompts');
-    
+
     const action = await select({
       message: 'Edit action:',
       options: [
@@ -450,7 +450,7 @@ export class DashboardCommand extends SubcommandBase {
         { value: 'reorder', label: 'Reorder widgets' }
       ]
     });
-    
+
     switch (action) {
       case 'add':
         const widgetType = await select({
@@ -462,21 +462,21 @@ export class DashboardCommand extends SubcommandBase {
             { value: 'alert', label: 'Alert Status' }
           ]
         });
-        
+
         if (typeof widgetType !== 'symbol') {
           const widget = await this.createWidget(widgetType);
           await this.dashboardManager.addWidget(name, widget);
           this.log('Widget added successfully', 'success');
         }
         break;
-        
+
       case 'remove':
         const dashboard = this.dashboardManager.getDashboard(name);
         if (dashboard?.widgets.length === 0) {
           this.log('No widgets to remove', 'info');
           return;
         }
-        
+
         const widgetToRemove = await select({
           message: 'Select widget to remove:',
           options: dashboard?.widgets.map(w => ({
@@ -484,7 +484,7 @@ export class DashboardCommand extends SubcommandBase {
             label: w.title || w.type
           })) || []
         });
-        
+
         if (typeof widgetToRemove !== 'symbol') {
           await this.dashboardManager.removeWidget(name, widgetToRemove);
           this.log('Widget removed successfully', 'success');
@@ -495,16 +495,16 @@ export class DashboardCommand extends SubcommandBase {
 
   private async renderTextDashboard(dashboard: any, options: DashboardOptions): Promise<void> {
     this.intro(`Dashboard: ${dashboard.name}`);
-    
+
     if (dashboard.description) {
       this.log(dashboard.description, 'info');
     }
-    
+
     if (dashboard.widgets.length === 0) {
       this.log('No widgets configured', 'info');
       return;
     }
-    
+
     for (const widget of dashboard.widgets) {
       await this.renderWidget(widget, options);
     }
@@ -513,7 +513,7 @@ export class DashboardCommand extends SubcommandBase {
   private async renderWidget(widget: any, options: DashboardOptions): Promise<void> {
     console.log(`\n${widget.title || widget.type.toUpperCase()}`);
     console.log('='.repeat(widget.title?.length || widget.type.length));
-    
+
     switch (widget.type) {
       case 'metric':
         // TODO: getMetricValue is not implemented in DashboardManager
@@ -521,21 +521,21 @@ export class DashboardCommand extends SubcommandBase {
         const value = 'N/A';
         console.log(`${value}${widget.unit ? ` ${widget.unit}` : ''}`);
         break;
-        
+
       case 'chart':
         // TODO: getChartData is not implemented in DashboardManager
         // const chartData = await this.dashboardManager.getChartData(widget.metrics, widget.timeRange);
         const chartData: any[] = [];
         this.renderTextChart(chartData, widget);
         break;
-        
+
       case 'table':
         // TODO: getTableData is not implemented in DashboardManager
         // const tableData = await this.dashboardManager.getTableData(widget.dataSource);
         const tableData: any[] = [];
         this.renderTextTable(tableData, widget);
         break;
-        
+
       case 'alert':
         // TODO: getAlertStatus is not implemented in DashboardManager
         // const alertStatus = await this.dashboardManager.getAlertStatus(widget.alertName);
@@ -559,7 +559,7 @@ export class DashboardCommand extends SubcommandBase {
       console.log('No data available');
       return;
     }
-    
+
     // Use the table method from BaseCommand instead
     const tableData = data.map(row => widget.columns.map((col: string) => row[col] || ''));
     this.table(tableData, widget.columns);
@@ -568,7 +568,7 @@ export class DashboardCommand extends SubcommandBase {
   private renderAlertStatus(alert: any): void {
     const status = alert.active ? '🚨 ACTIVE' : '✅ OK';
     console.log(`Status: ${status}`);
-    
+
     if (alert.active) {
       console.log(`Message: ${alert.message}`);
       console.log(`Triggered: ${new Date(alert.triggeredAt).toLocaleString()}`);
@@ -577,7 +577,7 @@ export class DashboardCommand extends SubcommandBase {
 
   private async generateHtmlDashboard(dashboard: any, options: DashboardOptions): Promise<string> {
     const theme = options.theme || 'light';
-    
+
     return `
 <!DOCTYPE html>
 <html>
@@ -611,12 +611,12 @@ export class DashboardCommand extends SubcommandBase {
     switch (widget.type) {
       case 'metric':
         return `<div class="metric-value">${widget.value || 'N/A'}${widget.unit ? ` ${widget.unit}` : ''}</div>`;
-      
+
       case 'alert':
         const alertClass = widget.active ? 'alert-active' : 'alert-ok';
         const alertText = widget.active ? '🚨 ACTIVE' : '✅ OK';
         return `<div class="${alertClass}">${alertText}</div>`;
-      
+
       default:
         return `<div>Widget type: ${widget.type}</div>`;
     }

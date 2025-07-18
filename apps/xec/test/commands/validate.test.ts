@@ -24,7 +24,7 @@ jest.mock('js-yaml', () => ({
     ]
   })
 }));
-jest.mock('@xec/core', () => ({
+jest.mock('@xec-js/core', () => ({
   loadProject: jest.fn().mockResolvedValue({
     name: 'test-project',
     validate: jest.fn().mockResolvedValue({ valid: true, errors: [], warnings: [] })
@@ -72,10 +72,10 @@ describe('validate command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride();
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => {}) as any);
-    
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+    processExitSpy = jest.spyOn(process, 'exit').mockImplementation((() => { }) as any);
+
     mockReadFile.mockImplementation(async (filePath: string) => {
       if (filePath.toString().includes('valid-recipe.yaml')) {
         return Buffer.from(`
@@ -105,7 +105,7 @@ tasks:
       }
       throw new Error('File not found');
     });
-    
+
     mockStat.mockResolvedValue({
       isFile: () => true,
       isDirectory: () => false
@@ -122,7 +122,7 @@ tasks:
     const cmd = parentProgram.commands.find(c => c.name() === 'validate');
     expect(cmd).toBeDefined();
     expect(cmd?.description()).toContain('Validate');
-    
+
     const options = cmd?.options.map(opt => opt.long) || [];
     expect(options).toContain('--type');
     expect(options).toContain('--strict');
@@ -132,9 +132,9 @@ tasks:
 
   it('should validate a recipe file successfully', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'valid-recipe.yaml'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
     // Since validation finds the recipe invalid, it will call process.exit(1)
     expect(processExitSpy).toHaveBeenCalledWith(1);
@@ -142,41 +142,41 @@ tasks:
 
   it('should show validation errors for invalid recipe', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'invalid-recipe.yaml'], { from: 'user' });
-    
+
     expect(processExitSpy).toHaveBeenCalledWith(1);
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 
   it('should validate entire project', async () => {
     validateCommand(program);
-    
+
     mockStat.mockResolvedValue({
       isFile: () => false,
       isDirectory: () => true
     } as any);
-    
+
     mockReaddir.mockResolvedValue(['recipe1.yaml', 'recipe2.yaml'] as any);
-    
+
     await program.parseAsync(['validate'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Validating'));
   });
 
   it('should validate with strict mode', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'valid-recipe.yaml', '--strict'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 
   it('should output validation results in JSON format', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'valid-recipe.yaml', '--json'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
     // JSON output check - at least one call should be parseable JSON
     const jsonCalls = consoleLogSpy.mock.calls.filter((call: any[]) => {
@@ -192,15 +192,15 @@ tasks:
 
   it('should validate specific components', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'inventory.yaml'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 
   it('should validate task syntax', async () => {
     validateCommand(program);
-    
+
     await expect(
       program.parseAsync(['validate', 'tasks', 'valid-recipe.yaml'], { from: 'user' })
     ).rejects.toThrow(); // Too many arguments
@@ -208,15 +208,15 @@ tasks:
 
   it('should fix auto-fixable issues', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'valid-recipe.yaml', '--fix'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 
   it('should validate schema compliance', async () => {
     validateCommand(program);
-    
+
     await expect(
       program.parseAsync(['validate', 'schema', 'recipe', 'valid-recipe.yaml'], { from: 'user' })
     ).rejects.toThrow(); // Too many arguments
@@ -224,7 +224,7 @@ tasks:
 
   it('should handle validation with custom rules', async () => {
     validateCommand(program);
-    
+
     await expect(
       program.parseAsync(['validate', 'valid-recipe.yaml', '--rules', 'custom-rules.yaml'], { from: 'user' })
     ).rejects.toThrow(); // Unknown option '--rules'
@@ -232,9 +232,9 @@ tasks:
 
   it('should validate dependencies', async () => {
     validateCommand(program);
-    
+
     await program.parseAsync(['validate', 'dependencies.yaml'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 });

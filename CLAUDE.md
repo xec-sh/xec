@@ -7,10 +7,10 @@ Xec is a TypeScript-based infrastructure orchestration system inspired by Ansibl
 ```
 xec/
 ├── apps/
-│   └── xec/           # CLI application (@xec/cli)
+│   └── xec/           # CLI application (@xec-js/cli)
 ├── packages/
-│   ├── core/          # Core orchestration engine (@xec/core)
-│   └── ush/           # Universal shell execution engine (@xec/ush)
+│   ├── core/          # Core orchestration engine (@xec-js/core)
+│   └── ush/           # Universal shell execution engine (@xec-js/ush)
 ```
 
 ## Quick Navigation
@@ -46,14 +46,14 @@ yarn fix:all
 ## Architecture Overview
 ```
 ┌─────────────────┐
-│  @xec/cli   │ User Interface Layer
+│  @xec-js/cli   │ User Interface Layer
 │   (apps/xec)   │
 └────────┬────────┘
          │ depends on
          ├─────────────────┐
          ▼                 ▼
 ┌─────────────────┐  ┌─────────────────┐
-│ @xec/core   │  │ @xec/ush   │
+│ @xec-js/core   │  │ @xec-js/ush   │
 │(packages/core)  │─►│(packages/ush)  │
 └─────────────────┘  └─────────────────┘
   Orchestration Layer   Execution Layer

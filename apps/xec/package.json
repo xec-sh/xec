@@ -1,5 +1,5 @@
 {
-  "name": "@xec/cli",
+  "name": "@xec-js/cli",
   "description": "Xec CLI for infrastructure management and automation",
   "version": "0.2.1",
   "author": "DevGrid",
@@ -46,8 +46,8 @@
   "homepage": "https://github.com/xec-sh/xec/tree/main/apps/xec#readme",
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@xec/core": "workspace:*",
-    "@xec/ush": "workspace:*",
+    "@xec-js/core": "workspace:*",
+    "@xec-js/ush": "workspace:*",
     "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
     "cli-table3": "^0.6.5",

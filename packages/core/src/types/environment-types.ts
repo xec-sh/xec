@@ -3,12 +3,12 @@
  * This file contains environment-specific type definitions
  */
 
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Module } from './module-types.js';
 import type { TaskContext } from './task-types.js';
-import type { 
-  Logger, 
+import type {
+  Logger,
   OSPlatform,
   Architecture,
   EnvironmentType
@@ -24,7 +24,7 @@ export type XecModule = Module;
 
 export interface EnvironmentInfo {
   type: EnvironmentType;
-  
+
   // Connection details (when applicable)
   connection?: {
     host?: string;
@@ -35,7 +35,7 @@ export interface EnvironmentInfo {
     context?: string;
     [key: string]: string | undefined;
   };
-  
+
   // Available capabilities
   capabilities: {
     shell: boolean;
@@ -44,7 +44,7 @@ export interface EnvironmentInfo {
     systemd: boolean;
     [key: string]: boolean;
   };
-  
+
   // Platform details
   platform: {
     os: OSPlatform;
@@ -58,21 +58,21 @@ export interface EnvironmentInfo {
 export interface EnvironmentTaskContext extends Omit<TaskContext, 'template'> {
   // Universal command execution
   $: CallableExecutionEngine;
-  
+
   // Environment info
   env: EnvironmentInfo;
-  
+
   // Logger - alias for logger from base TaskContext
   log: Logger;
-  
+
   // Standard utilities (from stdlib)
   fs: FileSystem;
   http: HttpClient;
   template: TemplateEngine;
-  
+
   // Task parameters
   params: Record<string, any>;
-  
+
   // Additional stdlib utilities
   os?: OSInfo;
   proc?: Process;
@@ -410,13 +410,13 @@ export interface Environment {
 // Environment Provider Interface
 export interface EnvironmentProvider {
   name: EnvironmentType;
-  
+
   // Environment detector
   detect(): Promise<EnvironmentInfo | null>;
-  
+
   // Command executor adapter
   createExecutor(connection: any): CallableExecutionEngine;
-  
+
   // Optional utilities
   utilities?: Record<string, any>;
 }

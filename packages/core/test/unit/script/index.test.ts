@@ -24,7 +24,7 @@ vi.mock('fs/promises');
 vi.mock('which');
 vi.mock('glob');
 vi.mock('node-fetch');
-vi.mock('@xec/ush', () => ({
+vi.mock('@xec-js/ush', () => ({
   $: { mock: 'ush' }
 }));
 
@@ -315,18 +315,18 @@ describe('script/index', () => {
           error: vi.fn(),
           child: vi.fn().mockReturnThis()
         };
-        
+
         vi.spyOn(loggerModule, 'createModuleLogger').mockReturnValue(mockLogger as any);
 
         // Need to re-import to get the mocked logger
         vi.resetModules();
-        
+
         // Just verify the functions exist
         expect(utils.log.info).toBeDefined();
         expect(utils.log.success).toBeDefined();
         expect(utils.log.warning).toBeDefined();
         expect(utils.log.error).toBeDefined();
-        
+
         // Call them to ensure they work
         utils.log.info('Info message');
         utils.log.success('Success message');

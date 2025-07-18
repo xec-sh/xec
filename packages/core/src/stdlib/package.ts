@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   Package,
   PackageInfo,
   EnvironmentInfo,
@@ -12,7 +12,7 @@ export async function createPackage(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<Package> {
-  
+
   // Detect package manager based on environment
   const detectPackageManager = async (): Promise<'apt' | 'yum' | 'dnf' | 'brew' | 'apk' | 'pacman'> => {
     if (env.platform.os === 'darwin') {
@@ -23,7 +23,7 @@ export async function createPackage(
         log?.warn('Homebrew not found on macOS');
       }
     }
-    
+
     if (env.platform.os === 'linux') {
       // Check for various package managers
       const managers: Array<[string, 'apt' | 'yum' | 'dnf' | 'brew' | 'apk' | 'pacman']> = [
@@ -33,7 +33,7 @@ export async function createPackage(
         ['apk', 'apk'],
         ['pacman', 'pacman'],
       ];
-      
+
       for (const [cmd, manager] of managers) {
         try {
           await $`which ${cmd}`;
@@ -43,18 +43,18 @@ export async function createPackage(
         }
       }
     }
-    
+
     throw new Error('No supported package manager found');
   };
-  
+
   const packageManager: 'apt' | 'yum' | 'dnf' | 'brew' | 'apk' | 'pacman' = await detectPackageManager();
-  
+
   const pkg: Package = {
     async install(...packages: string[]): Promise<void> {
       if (packages.length === 0) return;
-      
+
       const packagesStr = packages.join(' ');
-      
+
       switch (packageManager) {
         case 'apt':
           // Update cache first for apt
@@ -66,7 +66,7 @@ export async function createPackage(
             await $`apt-get install -y ${packagesStr}`;
           }
           break;
-          
+
         case 'yum':
         case 'dnf':
           if (env.capabilities.sudo) {
@@ -75,11 +75,11 @@ export async function createPackage(
             await $`${packageManager} install -y ${packagesStr}`;
           }
           break;
-          
+
         case 'brew':
           await $`brew install ${packagesStr}`;
           break;
-          
+
         case 'apk':
           if (env.capabilities.sudo) {
             await $`sudo apk add ${packagesStr}`;
@@ -87,7 +87,7 @@ export async function createPackage(
             await $`apk add ${packagesStr}`;
           }
           break;
-          
+
         case 'pacman':
           if (env.capabilities.sudo) {
             await $`sudo pacman -S --noconfirm ${packagesStr}`;
@@ -96,15 +96,15 @@ export async function createPackage(
           }
           break;
       }
-      
+
       log?.info(`Installed packages: ${packages.join(', ')}`);
     },
 
     async remove(...packages: string[]): Promise<void> {
       if (packages.length === 0) return;
-      
+
       const packagesStr = packages.join(' ');
-      
+
       switch (packageManager) {
         case 'apt':
           if (env.capabilities.sudo) {
@@ -113,7 +113,7 @@ export async function createPackage(
             await $`apt-get remove -y ${packagesStr}`;
           }
           break;
-          
+
         case 'yum':
         case 'dnf':
           if (env.capabilities.sudo) {
@@ -122,11 +122,11 @@ export async function createPackage(
             await $`${packageManager} remove -y ${packagesStr}`;
           }
           break;
-          
+
         case 'brew':
           await $`brew uninstall ${packagesStr}`;
           break;
-          
+
         case 'apk':
           if (env.capabilities.sudo) {
             await $`sudo apk del ${packagesStr}`;
@@ -134,7 +134,7 @@ export async function createPackage(
             await $`apk del ${packagesStr}`;
           }
           break;
-          
+
         case 'pacman':
           if (env.capabilities.sudo) {
             await $`sudo pacman -R --noconfirm ${packagesStr}`;
@@ -143,7 +143,7 @@ export async function createPackage(
           }
           break;
       }
-      
+
       log?.info(`Removed packages: ${packages.join(', ')}`);
     },
 
@@ -156,7 +156,7 @@ export async function createPackage(
             await $`apt-get update`;
           }
           break;
-          
+
         case 'yum':
         case 'dnf':
           if (env.capabilities.sudo) {
@@ -165,11 +165,11 @@ export async function createPackage(
             await $`${packageManager} check-update || true`;
           }
           break;
-          
+
         case 'brew':
           await $`brew update`;
           break;
-          
+
         case 'apk':
           if (env.capabilities.sudo) {
             await $`sudo apk update`;
@@ -177,7 +177,7 @@ export async function createPackage(
             await $`apk update`;
           }
           break;
-          
+
         case 'pacman':
           if (env.capabilities.sudo) {
             await $`sudo pacman -Sy`;
@@ -186,13 +186,13 @@ export async function createPackage(
           }
           break;
       }
-      
+
       log?.info('Package database updated');
     },
 
     async upgrade(...packages: string[]): Promise<void> {
       const packagesStr = packages.length > 0 ? packages.join(' ') : '';
-      
+
       switch (packageManager) {
         case 'apt':
           if (packagesStr) {
@@ -209,7 +209,7 @@ export async function createPackage(
             }
           }
           break;
-          
+
         case 'yum':
         case 'dnf':
           if (packagesStr) {
@@ -226,7 +226,7 @@ export async function createPackage(
             }
           }
           break;
-          
+
         case 'brew':
           if (packagesStr) {
             await $`brew upgrade ${packagesStr}`;
@@ -234,7 +234,7 @@ export async function createPackage(
             await $`brew upgrade`;
           }
           break;
-          
+
         case 'apk':
           if (packagesStr) {
             if (env.capabilities.sudo) {
@@ -250,7 +250,7 @@ export async function createPackage(
             }
           }
           break;
-          
+
         case 'pacman':
           if (packagesStr) {
             if (env.capabilities.sudo) {
@@ -267,7 +267,7 @@ export async function createPackage(
           }
           break;
       }
-      
+
       log?.info(packagesStr ? `Upgraded packages: ${packages.join(', ')}` : 'All packages upgraded');
     },
 
@@ -277,24 +277,24 @@ export async function createPackage(
           case 'apt':
             await $`dpkg -l | grep -E "^ii\\s+${name}"`;
             return true;
-            
+
           case 'yum':
           case 'dnf':
             await $`${packageManager} list installed | grep ${name}`;
             return true;
-            
+
           case 'brew':
             await $`brew list | grep -E "^${name}$"`;
             return true;
-            
+
           case 'apk':
             await $`apk info | grep -E "^${name}$"`;
             return true;
-            
+
           case 'pacman':
             await $`pacman -Q ${name}`;
             return true;
-            
+
           default:
             return false;
         }
@@ -306,33 +306,33 @@ export async function createPackage(
     async version(name: string): Promise<string | null> {
       try {
         let result;
-        
+
         switch (packageManager) {
           case 'apt':
             result = await $`dpkg -l ${name} | grep "^ii" | awk '{print $3}'`;
             break;
-            
+
           case 'yum':
           case 'dnf':
             result = await $`${packageManager} list installed ${name} | grep ${name} | awk '{print $2}'`;
             break;
-            
+
           case 'brew':
             result = await $`brew list --versions ${name} | awk '{print $2}'`;
             break;
-            
+
           case 'apk':
             result = await $`apk info ${name} | grep ${name} | cut -d- -f2-`;
             break;
-            
+
           case 'pacman':
             result = await $`pacman -Q ${name} | awk '{print $2}'`;
             break;
-            
+
           default:
             return null;
         }
-        
+
         return result.stdout.trim() || null;
       } catch {
         return null;
@@ -343,7 +343,7 @@ export async function createPackage(
       try {
         const packages: PackageInfo[] = [];
         let result;
-        
+
         switch (packageManager) {
           case 'apt':
             result = await $`apt-cache search ${query}`;
@@ -359,7 +359,7 @@ export async function createPackage(
               }
             }
             break;
-            
+
           case 'yum':
           case 'dnf':
             result = await $`${packageManager} search ${query}`;
@@ -381,7 +381,7 @@ export async function createPackage(
               }
             }
             break;
-            
+
           case 'brew':
             result = await $`brew search ${query}`;
             const brewPackages = result.stdout.trim().split(/\s+/);
@@ -395,7 +395,7 @@ export async function createPackage(
               }
             }
             break;
-            
+
           case 'apk':
             result = await $`apk search ${query}`;
             const apkLines = result.stdout.trim().split('\n');
@@ -410,7 +410,7 @@ export async function createPackage(
               }
             }
             break;
-            
+
           case 'pacman':
             result = await $`pacman -Ss ${query}`;
             // Parse pacman output (alternating lines of name/version and description)
@@ -427,7 +427,7 @@ export async function createPackage(
             }
             break;
         }
-        
+
         return packages;
       } catch (error) {
         log?.warn(`Failed to search for packages: ${error}`);

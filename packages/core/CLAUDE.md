@@ -1,4 +1,4 @@
-# @xec/core - Core Orchestration Engine
+# @xec-js/core - Core Orchestration Engine
 
 ## Package Overview
 The core package provides the infrastructure orchestration engine with declarative DSL, state management, and extensible module system.
@@ -46,7 +46,7 @@ packages/core/
 - Location: `src/modules/`
 
 ### 4. Integration Adapters
-- AWS, Kubernetes, Terraform, Ush (now with real @xec/ush integration)
+- AWS, Kubernetes, Terraform, Ush (now with real @xec-js/ush integration)
 - Location: `src/integrations/`
 
 ### 5. Deployment Patterns
@@ -92,7 +92,7 @@ packages/core/
 
 ### Using Real-Time Monitoring
 ```typescript
-import { getProgressTracker, getRealTimeMonitor } from '@xec/core';
+import { getProgressTracker, getRealTimeMonitor } from '@xec-js/core';
 
 const tracker = getProgressTracker();
 const monitor = getRealTimeMonitor();
@@ -110,7 +110,7 @@ await tracker.trackAsync('task-1', 'Processing data', async (progress) => {
 
 ### Managing Resources
 ```typescript
-import { getResourceManager } from '@xec/core';
+import { getResourceManager } from '@xec-js/core';
 
 const manager = getResourceManager();
 
@@ -133,7 +133,7 @@ await manager.releaseResources(allocation.id);
 
 ### Setting Quotas
 ```typescript
-import { getQuotaManager } from '@xec/core';
+import { getQuotaManager } from '@xec-js/core';
 
 const quotas = getQuotaManager();
 

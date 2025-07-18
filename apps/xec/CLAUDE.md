@@ -1,4 +1,4 @@
-# @xec/cli - Command Line Interface
+# @xec-js/cli - Command Line Interface
 
 ## Package Overview
 The CLI package provides the command-line interface for the Xec infrastructure orchestration system. Built with Commander.js and featuring dynamic command loading, Xec Scripts, and interactive prompts via @clack/prompts.
@@ -89,13 +89,13 @@ yarn test -- test/cli/deploy.test.ts
 
 ## Integration Points
 
-### With @xec/core
+### With @xec-js/core
 - Uses core DSL for infrastructure definitions
 - Leverages state management
 - Utilizes module system
 - Accesses deployment patterns
 
-### With @xec/ush
+### With @xec-js/ush
 - Uses for command execution
 - Handles remote operations
 - Manages SSH connections
@@ -155,7 +155,7 @@ xec deploy --verbose
 - Styled output (info, success, warning, error)
 
 ### Xec Scripts
-Powerful scripting with @xec/ush:
+Powerful scripting with @xec-js/ush:
 ```javascript
 #!/usr/bin/env xec
 
@@ -211,7 +211,7 @@ xec --repl
 
 ### Xec Scripts
 - Enhanced JavaScript/TypeScript execution
-- Built on @xec/ush for powerful command execution
+- Built on @xec-js/ush for powerful command execution
 - Global utilities ($, fs, fetch, etc.)
 - Integration with recipes and tasks
 - REPL mode for interactive development

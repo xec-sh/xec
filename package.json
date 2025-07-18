@@ -16,7 +16,7 @@
     "ai-prompt": "ts-node scripts/gen-aiprompt.ts",
     "publish": "ts-node scripts/publish.ts",
     "link:global": "cd apps/xec && yarn build && npm link",
-    "unlink:global": "cd apps/xec && npm unlink -g @xec/cli"
+    "unlink:global": "cd apps/xec && npm unlink -g @xec-js/cli"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.5",

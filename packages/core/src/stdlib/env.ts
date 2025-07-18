@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   Environment,
   EnvironmentInfo,
 } from '../types/environment-types.js';
@@ -11,7 +11,7 @@ export async function createEnvironment(
   envInfo: EnvironmentInfo,
   log?: Logger
 ): Promise<Environment> {
-  
+
   const env: Environment = {
     get(key: string, defaultValue?: string): string | undefined {
       // In a real implementation, this would get the env var from the execution context
@@ -32,13 +32,13 @@ export async function createEnvironment(
       try {
         const result = await $`cat ${file}`;
         const lines = result.stdout.split('\n');
-        
+
         for (const line of lines) {
           const trimmed = line.trim();
-          
+
           // Skip empty lines and comments
           if (!trimmed || trimmed.startsWith('#')) continue;
-          
+
           // Parse KEY=VALUE
           const match = trimmed.match(/^([^=]+)=(.*)$/);
           if (match) {
@@ -48,7 +48,7 @@ export async function createEnvironment(
             this.set(key?.trim() || '', cleanValue);
           }
         }
-        
+
         log?.info(`Loaded environment from ${file}`);
       } catch (error) {
         throw new Error(`Failed to load environment from ${file}: ${error}`);

@@ -349,18 +349,18 @@ describe('task helper function', () => {
 
 describe('shell task', () => {
   beforeEach(() => {
-    vi.mock('@xec/ush', () => {
+    vi.mock('@xec-js/ush', () => {
       const mockExecute = vi.fn().mockResolvedValue({
         stdout: 'command output',
         stderr: '',
         exitCode: 0
       });
-      
+
       const $ = Object.assign(mockExecute, {
         cd: vi.fn().mockReturnThis(),
         env: vi.fn().mockReturnThis()
       });
-      
+
       return { $ };
     });
   });
@@ -395,15 +395,15 @@ describe('shell task', () => {
 
 describe('script task', () => {
   beforeEach(() => {
-    vi.mock('@xec/ush', () => {
+    vi.mock('@xec-js/ush', () => {
       const mockExecute = vi.fn().mockResolvedValue({
         stdout: 'script output',
         stderr: '',
         exitCode: 0
       });
-      
+
       const $ = mockExecute;
-      
+
       return { $ };
     });
   });

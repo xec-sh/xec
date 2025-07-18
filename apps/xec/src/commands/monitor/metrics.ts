@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { MetricCollector } from '@xec/core';
+import { MetricCollector } from '@xec-js/core';
 
 import { SubcommandBase } from '../../utils/command-base.js';
 import { errorMessages } from '../../utils/error-handler.js';
@@ -40,7 +40,7 @@ export class MetricsCommand extends SubcommandBase {
         },
       ],
     });
-    
+
     this.collector = new MetricCollector();
   }
 
@@ -124,7 +124,7 @@ export class MetricsCommand extends SubcommandBase {
         type: 'gauge',
         description: 'Metric description'
       }));
-      
+
       let filteredMetrics = metrics;
       if (options.type) {
         filteredMetrics = metrics.filter((m: any) => m.type === options.type);
@@ -134,7 +134,7 @@ export class MetricsCommand extends SubcommandBase {
         this.output(filteredMetrics, 'Available Metrics');
       } else {
         this.intro('Available Metrics');
-        
+
         const groupedMetrics = filteredMetrics.reduce((acc, metric) => {
           const type = metric.type || 'other';
           if (!acc[type]) acc[type] = [];
@@ -159,7 +159,7 @@ export class MetricsCommand extends SubcommandBase {
       const values = this.collector.getMetric(metric);
       const lastValue = values.length > 0 ? values[values.length - 1] : null;
       const value = lastValue ? lastValue.value : null;
-      
+
       if (options.format === 'json') {
         this.output({ metric, value, timestamp: new Date().toISOString() }, `Metric: ${metric}`);
       } else {
@@ -174,12 +174,12 @@ export class MetricsCommand extends SubcommandBase {
     try {
       const interval = options.interval || 10;
       const duration = options.duration || null;
-      
+
       this.log(`Starting metrics collection (interval: ${interval}s${duration ? `, duration: ${duration}s` : ''})`, 'info');
-      
+
       const startTime = Date.now();
       const collectedMetrics: any[] = [];
-      
+
       const collect = async () => {
         const metricsMap = this.collector.getAllMetrics();
         const metrics = Array.from(metricsMap.entries()).map(([name, values]) => {
@@ -193,23 +193,23 @@ export class MetricsCommand extends SubcommandBase {
           timestamp: new Date().toISOString(),
           metrics
         });
-        
+
         if (!this.options.quiet) {
           this.log(`Collected ${metrics.length} metrics`, 'info');
         }
-        
+
         if (duration && (Date.now() - startTime) >= duration * 1000) {
           clearInterval(intervalId);
           await this.saveCollectedMetrics(collectedMetrics, options.output);
           this.log('Metrics collection completed', 'success');
         }
       };
-      
+
       const intervalId = setInterval(collect, interval * 1000);
-      
+
       // Initial collection
       await collect();
-      
+
       // Handle graceful shutdown
       process.on('SIGINT', async () => {
         clearInterval(intervalId);
@@ -217,7 +217,7 @@ export class MetricsCommand extends SubcommandBase {
         this.log('Metrics collection stopped', 'info');
         process.exit(0);
       });
-      
+
       if (!duration) {
         this.log('Press Ctrl+C to stop collection', 'info');
       }
@@ -234,14 +234,14 @@ export class MetricsCommand extends SubcommandBase {
         type: 'gauge',
         values
       }));
-      
+
       let filteredMetrics = metrics;
       if (options.type) {
         filteredMetrics = metrics.filter((m: any) => m.type === options.type);
       }
 
       let output: string;
-      
+
       switch (options.format) {
         case 'prometheus':
           output = this.formatPrometheus(filteredMetrics);
@@ -252,7 +252,7 @@ export class MetricsCommand extends SubcommandBase {
         default:
           output = this.formatText(filteredMetrics);
       }
-      
+
       if (options.output) {
         const fs = await import('fs/promises');
         await fs.writeFile(options.output, output);
@@ -270,14 +270,14 @@ export class MetricsCommand extends SubcommandBase {
       // MetricAggregator doesn't exist in core, so we'll implement basic aggregation
       const metricsMap = this.collector.getAllMetrics();
       const aggregated: any[] = [];
-      
+
       metricsMap.forEach((values, name) => {
         if (options.type && !name.includes(options.type)) return;
-        
+
         if (values.length > 0) {
           const nums = values.map(v => v.value);
           let result = 0;
-          
+
           switch (options.function || 'avg') {
             case 'avg':
               result = nums.reduce((a, b) => a + b, 0) / nums.length;
@@ -292,7 +292,7 @@ export class MetricsCommand extends SubcommandBase {
               result = nums.reduce((a, b) => a + b, 0);
               break;
           }
-          
+
           aggregated.push({
             metric: name,
             function: options.function || 'avg',
@@ -301,7 +301,7 @@ export class MetricsCommand extends SubcommandBase {
           });
         }
       });
-      
+
       this.output(aggregated, 'Aggregated Metrics');
     } catch (error: any) {
       throw errorMessages.operationFailed('aggregate metrics', error.message);
@@ -317,7 +317,7 @@ export class MetricsCommand extends SubcommandBase {
           return;
         }
       }
-      
+
       // MetricCollector doesn't have a reset method, so we'll just log a message
       this.log('Metrics reset functionality not implemented in current MetricCollector', 'warn');
       this.log('Consider re-initializing the collector for a fresh start', 'info');
@@ -331,7 +331,7 @@ export class MetricsCommand extends SubcommandBase {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       outputPath = `metrics-${timestamp}.json`;
     }
-    
+
     const fs = await import('fs/promises');
     await fs.writeFile(outputPath, JSON.stringify(metrics, null, 2));
     this.log(`Metrics saved to ${outputPath}`, 'success');
@@ -339,20 +339,20 @@ export class MetricsCommand extends SubcommandBase {
 
   private formatPrometheus(metrics: any[]): string {
     let output = '';
-    
+
     metrics.forEach(metric => {
       output += `# HELP ${metric.name} ${metric.description || 'No description'}\n`;
       output += `# TYPE ${metric.name} ${metric.type || 'gauge'}\n`;
       output += `${metric.name} ${metric.value}\n\n`;
     });
-    
+
     return output;
   }
 
   private formatText(metrics: any[]): string {
     let output = 'Metrics Report\n';
     output += '==============\n\n';
-    
+
     metrics.forEach(metric => {
       output += `${metric.name}: ${metric.value}\n`;
       if (metric.description) {
@@ -361,7 +361,7 @@ export class MetricsCommand extends SubcommandBase {
       output += `  Type: ${metric.type || 'gauge'}\n`;
       output += `  Updated: ${metric.timestamp}\n\n`;
     });
-    
+
     return output;
   }
 }

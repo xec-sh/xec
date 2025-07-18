@@ -589,7 +589,7 @@ async run({ fs, svc }) {
 All stdlib functions are fully typed:
 
 ```typescript
-import { StandardLibrary } from '@xec/core';
+import { StandardLibrary } from '@xec-js/core';
 
 // Full IntelliSense support
 const task = {

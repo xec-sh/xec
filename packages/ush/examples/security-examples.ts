@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Security Best Practices for @xec/ush
+ * Security Best Practices for @xec-js/ush
  * 
  * This file demonstrates security considerations and safe practices
- * when executing shell commands with @xec/ush.
+ * when executing shell commands with @xec-js/ush.
  */
 
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 import * as crypto from 'crypto';
 
 // ===== 1. Input Validation and Sanitization =====
@@ -18,28 +18,28 @@ function validateFilename(filename: string): string {
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
     throw new Error('Invalid filename: directory traversal detected');
   }
-  
+
   // Allow only safe characters
   if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
     throw new Error('Invalid filename: contains unsafe characters');
   }
-  
+
   // Limit length
   if (filename.length > 255) {
     throw new Error('Invalid filename: too long');
   }
-  
+
   return filename;
 }
 
 // Validate and sanitize user input
 async function safeFileOperation(userFilename: string) {
   console.log(`Processing user input: "${userFilename}"`);
-  
+
   try {
     const safeFilename = validateFilename(userFilename);
     console.log(`✓ Validated filename: "${safeFilename}"`);
-    
+
     // Safe to use validated filename
     await $`touch /tmp/${safeFilename}`;
     await $`ls -la /tmp/${safeFilename}`;
@@ -70,11 +70,11 @@ console.log('\n=== Safe Command Construction ===\n');
 // NEVER use string concatenation with user input
 async function demonstrateCommandInjection() {
   const maliciousInput = 'test.txt; rm -rf /tmp/important';
-  
+
   console.log('❌ DANGEROUS - String concatenation:');
   console.log(`Would execute: cat ${maliciousInput}`);
   console.log('This would run: cat test.txt; rm -rf /tmp/important\n');
-  
+
   console.log('✅ SAFE - Template literals with automatic escaping:');
   await $`echo "Filename:" ${maliciousInput}`;
   console.log('The semicolon and command are treated as literal text\n');
@@ -87,14 +87,14 @@ class SecureCommandBuilder {
   private command: string;
   private args: string[] = [];
   private allowedCommands = ['ls', 'cat', 'grep', 'echo', 'find'];
-  
+
   constructor(command: string) {
     if (!this.allowedCommands.includes(command)) {
       throw new Error(`Command '${command}' is not allowed`);
     }
     this.command = command;
   }
-  
+
   addArg(arg: string): this {
     // Validate each argument
     if (arg.includes('\0')) {
@@ -103,7 +103,7 @@ class SecureCommandBuilder {
     this.args.push(arg);
     return this;
   }
-  
+
   async execute() {
     // Use array form for maximum safety
     return $`${[this.command, ...this.args]}`;
@@ -129,9 +129,9 @@ async function demonstrateCredentialSecurity() {
   console.log('❌ NEVER DO THIS:');
   console.log('const password = "secretpassword123";');
   console.log('await $`mysql -u root -p${password}`;\n');
-  
+
   console.log('✅ SAFE APPROACHES:\n');
-  
+
   // Approach 1: Environment variables
   console.log('1. Using environment variables:');
   if (process.env.DB_PASSWORD) {
@@ -139,18 +139,18 @@ async function demonstrateCredentialSecurity() {
     console.log('Password loaded from environment variable');
     // await $db`mysql -u root`; // MYSQL_PWD is used automatically
   }
-  
+
   // Approach 2: Secure file with restricted permissions
   console.log('\n2. Using secure credential file:');
   const credFile = '/tmp/.credentials';
   await $`touch ${credFile}`;
   await $`chmod 600 ${credFile}`; // Only owner can read
   await $`echo "DB_PASSWORD=secure123" > ${credFile}`;
-  
+
   const creds = await $`cat ${credFile}`;
   console.log('Credentials loaded from secure file');
   await $`rm -f ${credFile}`;
-  
+
   // Approach 3: Password prompt (for interactive use)
   console.log('\n3. Interactive password prompt:');
   console.log('const password = await $.password("Enter password: ");');
@@ -165,7 +165,7 @@ console.log('\n=== Security Audit Logging ===\n');
 // Custom audit logger for security monitoring
 class SecurityAuditLogger {
   private logFile = '/tmp/security-audit.log';
-  
+
   async log(entry: any) {
     const auditEntry = {
       timestamp: new Date().toISOString(),
@@ -178,15 +178,15 @@ class SecurityAuditLogger {
       // Don't log sensitive environment variables
       env: this.sanitizeEnv(entry.env)
     };
-    
+
     const logLine = JSON.stringify(auditEntry) + '\n';
     await $`echo ${logLine} >> ${this.logFile}`;
   }
-  
+
   private sanitizeEnv(env: Record<string, string>): Record<string, string> {
     const sanitized: Record<string, string> = {};
     const sensitiveKeys = ['PASSWORD', 'TOKEN', 'KEY', 'SECRET', 'CREDENTIAL'];
-    
+
     for (const [key, value] of Object.entries(env)) {
       if (sensitiveKeys.some(sensitive => key.toUpperCase().includes(sensitive))) {
         sanitized[key] = '[REDACTED]';
@@ -194,21 +194,21 @@ class SecurityAuditLogger {
         sanitized[key] = value;
       }
     }
-    
+
     return sanitized;
   }
-  
+
   async query(options: { user?: string; command?: string; since?: Date }) {
     let query = `cat ${this.logFile}`;
-    
+
     if (options.user) {
       query += ` | grep '"user":"${options.user}"'`;
     }
-    
+
     if (options.command) {
       query += ` | grep '"command":".*${options.command}.*"'`;
     }
-    
+
     const result = await $.raw`${query}`.nothrow();
     return result.stdout.trim().split('\n').filter(line => line)
       .map(line => JSON.parse(line));
@@ -239,7 +239,7 @@ console.log('\n\n=== Principle of Least Privilege ===\n');
 // Run commands with minimal permissions
 async function demonstrateLeastPrivilege() {
   console.log('Running with restricted permissions:\n');
-  
+
   // Example 1: Docker with minimal privileges
   console.log('1. Docker container with restrictions:');
   const $restricted = $.docker({
@@ -252,13 +252,13 @@ async function demonstrateLeastPrivilege() {
     memory: '100m',             // Limit memory
     network: 'none'             // No network access
   });
-  
+
   console.log('Container configured with:');
   console.log('- Non-root user (nobody)');
   console.log('- Read-only filesystem');
   console.log('- Limited CPU and memory');
   console.log('- No network access\n');
-  
+
   // Example 2: Dropping capabilities
   console.log('2. Checking file permissions before operations:');
   const checkPermissions = async (file: string) => {
@@ -266,13 +266,13 @@ async function demonstrateLeastPrivilege() {
     const [perms, owner, group] = stats.stdout.trim().split(' ');
     console.log(`File: ${file}`);
     console.log(`Permissions: ${perms}, Owner: ${owner}, Group: ${group}`);
-    
+
     // Verify we have appropriate access
     if (owner !== process.env.USER) {
       console.log('⚠️  Warning: Not the file owner');
     }
   };
-  
+
   const testFile = '/tmp/test-permissions.txt';
   await $`touch ${testFile}`;
   await checkPermissions(testFile);
@@ -287,7 +287,7 @@ console.log('\n\n=== Secure Communication ===\n');
 // Secure SSH configuration
 async function demonstrateSecureSSH() {
   console.log('Secure SSH configuration example:\n');
-  
+
   const $secureSSH = $.ssh({
     host: 'secure-server.example.com',
     username: 'admin',
@@ -302,23 +302,23 @@ async function demonstrateSecureSSH() {
       hmac: ['hmac-sha2-256', 'hmac-sha2-512']
     }
   });
-  
+
   console.log('SSH configured with:');
   console.log('- Ed25519 key authentication');
   console.log('- Strict host key checking');
   console.log('- Strong cipher suites');
   console.log('- HMAC authentication\n');
-  
+
   // Secure file transfer
   console.log('Secure file transfer example:');
   const transferFile = async (localPath: string, remotePath: string) => {
     // Generate checksum before transfer
     const localChecksum = await $`sha256sum ${localPath} | cut -d' ' -f1`;
     console.log(`Local checksum: ${localChecksum.stdout.trim()}`);
-    
+
     // Transfer file
     // await $secureSSH`scp ${localPath} ${remotePath}`;
-    
+
     // Verify checksum after transfer
     // const remoteChecksum = await $secureSSH`sha256sum ${remotePath} | cut -d' ' -f1`;
     // if (localChecksum.stdout === remoteChecksum.stdout) {
@@ -327,7 +327,7 @@ async function demonstrateSecureSSH() {
     //   throw new Error('File corruption detected during transfer!');
     // }
   };
-  
+
   console.log('File transfer would include checksum verification');
 }
 
@@ -346,10 +346,10 @@ class SecretsDetector {
     { name: 'Generic Secret', regex: /secret[_-]?[=:]\s*['"]?[0-9a-zA-Z]{16,}['"]?/i },
     { name: 'Password', regex: /password[_-]?[=:]\s*['"]?[^\s'"]{8,}['"]?/i }
   ];
-  
-  scan(text: string): Array<{type: string, match: string}> {
+
+  scan(text: string): Array<{ type: string, match: string }> {
     const findings = [];
-    
+
     for (const pattern of this.patterns) {
       const matches = text.match(pattern.regex);
       if (matches) {
@@ -359,10 +359,10 @@ class SecretsDetector {
         });
       }
     }
-    
+
     return findings;
   }
-  
+
   private redact(secret: string): string {
     if (secret.length <= 8) return '*'.repeat(secret.length);
     return secret.substring(0, 4) + '*'.repeat(secret.length - 8) + secret.substring(secret.length - 4);
@@ -398,18 +398,18 @@ console.log('\n\n=== Sandboxing and Isolation ===\n');
 // Create isolated execution environment
 class Sandbox {
   private sandboxDir: string;
-  
+
   constructor() {
     this.sandboxDir = `/tmp/sandbox-${crypto.randomBytes(8).toString('hex')}`;
   }
-  
+
   async setup() {
     // Create isolated directory structure
     await $`mkdir -p ${this.sandboxDir}/{bin,tmp,data}`;
     await $`chmod 700 ${this.sandboxDir}`;
     console.log(`Sandbox created at: ${this.sandboxDir}`);
   }
-  
+
   async execute(command: string) {
     // Execute in restricted environment
     const $sandboxed = $.cd(this.sandboxDir)
@@ -418,10 +418,10 @@ class Sandbox {
         TMPDIR: `${this.sandboxDir}/tmp`,
         HOME: this.sandboxDir
       });
-    
+
     return $sandboxed`${command}`;
   }
-  
+
   async cleanup() {
     await $`rm -rf ${this.sandboxDir}`;
     console.log('Sandbox cleaned up');

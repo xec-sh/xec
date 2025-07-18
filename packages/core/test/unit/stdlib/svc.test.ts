@@ -1,4 +1,4 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { it, vi, expect, describe, beforeEach } from 'vitest';
 
@@ -18,22 +18,22 @@ describe('stdlib/svc', () => {
       for (let i = 0; i < values.length; i++) {
         cmd += values[i] + strings[i + 1];
       }
-      
+
       // Default mock responses
       if (cmd.includes('systemctl') || cmd.includes('service')) {
         if (cmd.includes('status')) {
           if (cmd.includes('nginx')) {
-            return Promise.resolve({ 
-              stdout: 'Active: active (running)', 
-              stderr: '', 
-              exitCode: 0 
+            return Promise.resolve({
+              stdout: 'Active: active (running)',
+              stderr: '',
+              exitCode: 0
             });
           }
           if (cmd.includes('mysql')) {
-            return Promise.resolve({ 
-              stdout: 'Active: inactive (dead)', 
-              stderr: '', 
-              exitCode: 3 
+            return Promise.resolve({
+              stdout: 'Active: inactive (dead)',
+              stderr: '',
+              exitCode: 3
             });
           }
         }
@@ -50,12 +50,12 @@ describe('stdlib/svc', () => {
           return Promise.reject(new Error('disabled'));
         }
         if (cmd.includes('list-units')) {
-          return Promise.resolve({ 
+          return Promise.resolve({
             stdout: `nginx.service    loaded active running
 mysql.service    loaded inactive dead
-redis.service    loaded active running`, 
-            stderr: '', 
-            exitCode: 0 
+redis.service    loaded active running`,
+            stderr: '',
+            exitCode: 0
           });
         }
         // Other commands succeed silently
@@ -63,10 +63,10 @@ redis.service    loaded active running`,
       }
       if (cmd.includes('launchctl')) {
         if (cmd.includes('list')) {
-          return Promise.resolve({ 
-            stdout: 'com.nginx.nginx\ncom.mysql.mysql', 
-            stderr: '', 
-            exitCode: 0 
+          return Promise.resolve({
+            stdout: 'com.nginx.nginx\ncom.mysql.mysql',
+            stderr: '',
+            exitCode: 0
           });
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
@@ -74,16 +74,16 @@ redis.service    loaded active running`,
       if (cmd.includes('docker')) {
         if (cmd.includes('ps')) {
           if (cmd.includes('--format') && cmd.includes('Names') && cmd.includes('Status')) {
-            return Promise.resolve({ 
-              stdout: 'NAMES\tSTATUS\nweb\tUp 5 minutes\ndb\tUp 3 minutes', 
-              stderr: '', 
-              exitCode: 0 
+            return Promise.resolve({
+              stdout: 'NAMES\tSTATUS\nweb\tUp 5 minutes\ndb\tUp 3 minutes',
+              stderr: '',
+              exitCode: 0
             });
           }
-          return Promise.resolve({ 
-            stdout: 'CONTAINER ID   IMAGE   NAMES\nabc123   nginx   web\ndef456   mysql   db', 
-            stderr: '', 
-            exitCode: 0 
+          return Promise.resolve({
+            stdout: 'CONTAINER ID   IMAGE   NAMES\nabc123   nginx   web\ndef456   mysql   db',
+            stderr: '',
+            exitCode: 0
           });
         }
         return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
@@ -113,7 +113,7 @@ redis.service    loaded active running`,
     it('should start service on systemd', async () => {
       await svc.start('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -122,10 +122,10 @@ redis.service    loaded active running`,
       mockEnv.platform.os = 'darwin';
       mockEnv.capabilities.systemd = false;
       const macSvc = await createService(mockExecutor as any, mockEnv);
-      
+
       await macSvc.start('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -134,10 +134,10 @@ redis.service    loaded active running`,
       mockEnv.type = 'docker';
       mockEnv.capabilities.systemd = false;
       const dockerSvc = await createService(mockExecutor as any, mockEnv);
-      
+
       await dockerSvc.start('web');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'web'
       );
     });
@@ -147,7 +147,7 @@ redis.service    loaded active running`,
     it('should stop service', async () => {
       await svc.stop('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -157,7 +157,7 @@ redis.service    loaded active running`,
     it('should restart service', async () => {
       await svc.restart('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -167,7 +167,7 @@ redis.service    loaded active running`,
     it('should reload service', async () => {
       await svc.reload('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -195,7 +195,7 @@ redis.service    loaded active running`,
     it('should enable service', async () => {
       await svc.enable('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -205,7 +205,7 @@ redis.service    loaded active running`,
     it('should disable service', async () => {
       await svc.disable('nginx');
       expect(mockExecutor).toHaveBeenCalledWith(
-        expect.any(Array), 
+        expect.any(Array),
         'nginx'
       );
     });
@@ -255,7 +255,7 @@ redis.service    loaded active running`,
       mockEnv.type = 'docker';
       mockEnv.capabilities.systemd = false;
       const dockerSvc = await createService(mockExecutor as any, mockEnv);
-      
+
       const containers = await dockerSvc.list();
       expect(containers).toHaveLength(2);
       expect(containers).toContain('web');
@@ -265,12 +265,12 @@ redis.service    loaded active running`,
 
   describe('logs', () => {
     it('should get service logs', async () => {
-      mockExecutor.mockResolvedValueOnce({ 
-        stdout: 'nginx started\nServing requests on port 80', 
-        stderr: '', 
-        exitCode: 0 
+      mockExecutor.mockResolvedValueOnce({
+        stdout: 'nginx started\nServing requests on port 80',
+        stderr: '',
+        exitCode: 0
       });
-      
+
       const logs = await svc.logs('nginx');
       expect(logs).toContain('nginx started');
       expect(mockExecutor).toHaveBeenCalledWith(

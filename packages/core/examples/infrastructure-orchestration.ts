@@ -3,7 +3,7 @@
  * Развертывание полного стека: базы данных, приложения, мониторинг
  */
 
-import { when, recipe, module, parallel, inventory, sequential, orchestrate } from '@xec/core'
+import { when, recipe, module, parallel, inventory, sequential, orchestrate } from '@xec-js/core'
 
 // ===== МОДУЛИ =====
 

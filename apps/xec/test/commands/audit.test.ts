@@ -22,7 +22,7 @@ jest.mock('fs/promises', () => ({
   mkdir: mockMkdir
 }));
 
-jest.mock('@xec/core', () => ({
+jest.mock('@xec-js/core', () => ({
   loadProject: jest.fn(),
   SecurityValidator: jest.fn(() => ({
     validateFile: jest.fn().mockResolvedValue({ isValid: true, issues: [] }),
@@ -44,13 +44,13 @@ describe('audit command', () => {
   beforeEach(() => {
     program = new Command();
     program.exitOverride(); // Prevent process.exit during tests
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
     // Reset all mocks before each test
     mockWriteFile.mockClear();
     mockWriteFile.mockResolvedValue(undefined);
-    
+
     mockReadFile.mockImplementation(async (filePath) => {
       if (filePath.toString().includes('xec.yaml')) {
         return Buffer.from('name: test-project\nversion: 1.0.0');
@@ -76,38 +76,38 @@ describe('audit command', () => {
 
   it('should perform audit show command', async () => {
     auditCommand(program);
-    
+
     await program.parseAsync(['audit', 'show'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 
   it('should export audit data', async () => {
     auditCommand(program);
-    
+
     const writeFileSpy = mockWriteFile;
-    
+
     await program.parseAsync(['audit', 'export', 'audit-export.json', '--format', 'json'], { from: 'user' });
-    
+
     expect(writeFileSpy).toHaveBeenCalled();
   });
 
   it('should filter audit logs', async () => {
     auditCommand(program);
-    
+
     await program.parseAsync(['audit', 'show', '--user', 'testuser', '--action', 'CREATE'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 
   it('should handle errors gracefully', async () => {
     auditCommand(program);
-    
+
     mockReadFile.mockRejectedValue(new Error('Permission denied'));
-    
+
     // The audit show command won't throw, it will just show no logs
     await program.parseAsync(['audit', 'show'], { from: 'user' });
-    
+
     expect(consoleLogSpy).toHaveBeenCalled();
   });
 });

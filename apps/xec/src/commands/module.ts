@@ -1,11 +1,11 @@
 import chalk from 'chalk';
 import * as path from 'path';
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 import { table } from 'table';
 import { Command } from 'commander';
 import { promises as fs } from 'fs';
 import { confirm, spinner } from '@clack/prompts';
-import { type TaskContext, type EnvironmentInfo, createStandardLibrary } from '@xec/core';
+import { type TaskContext, type EnvironmentInfo, createStandardLibrary } from '@xec-js/core';
 
 import { getProjectRoot } from '../utils/project.js';
 
@@ -50,7 +50,7 @@ export default function moduleCommand(program: Command) {
     .action(async (options?: any) => {
       try {
         const modules = await listInstalledModules();
-        
+
         // Filter modules
         let filtered = modules;
         if (options?.type) {
@@ -74,17 +74,17 @@ export default function moduleCommand(program: Command) {
         }
 
         console.log(chalk.bold('\nInstalled Modules:\n'));
-        
+
         // Show built-in modules first
         console.log(chalk.cyan('Built-in Modules:'));
         const builtinModules = [
-          { name: '@xec/core:core', description: 'Core module with basic operations', type: 'task' },
-          { name: '@xec/core:file', description: 'File system operations', type: 'task' },
-          { name: '@xec/core:system', description: 'System operations', type: 'task' },
-          { name: '@xec/core:network', description: 'Network operations', type: 'task' },
-          { name: '@xec/core:process', description: 'Process management', type: 'task' },
+          { name: '@xec-js/core:core', description: 'Core module with basic operations', type: 'task' },
+          { name: '@xec-js/core:file', description: 'File system operations', type: 'task' },
+          { name: '@xec-js/core:system', description: 'System operations', type: 'task' },
+          { name: '@xec-js/core:network', description: 'Network operations', type: 'task' },
+          { name: '@xec-js/core:process', description: 'Process management', type: 'task' },
         ];
-        
+
         // Show stdlib modules
         console.log(chalk.cyan('\nStandard Library Modules:'));
         const stdlibModules = [
@@ -102,13 +102,13 @@ export default function moduleCommand(program: Command) {
           { name: 'std:env', description: 'Environment variables', type: 'stdlib' },
           { name: 'std:template', description: 'Template engine', type: 'stdlib' },
         ];
-        
+
         const builtinTable = [['Name', 'Description', 'Type']];
         for (const mod of builtinModules) {
           builtinTable.push([mod.name, mod.description, mod.type]);
         }
         console.log(table(builtinTable));
-        
+
         const stdlibTable = [['Name', 'Description', 'Type']];
         for (const mod of stdlibModules) {
           stdlibTable.push([mod.name, mod.description, mod.type]);
@@ -119,7 +119,7 @@ export default function moduleCommand(program: Command) {
         if (filtered.length > 0) {
           console.log(chalk.cyan('\nCustom Modules:'));
           const customTable = [['Name', 'Version', 'Type', 'Status', 'Description']];
-          
+
           for (const mod of filtered) {
             customTable.push([
               mod.manifest.name,
@@ -129,12 +129,12 @@ export default function moduleCommand(program: Command) {
               mod.manifest.description || '-',
             ]);
           }
-          
+
           console.log(table(customTable));
         }
 
         console.log(chalk.gray(`\nTotal: ${builtinModules.length} built-in, ${stdlibModules.length} stdlib, ${filtered.length} custom module(s)`));
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to list modules: ${error}`));
         process.exit(1);
@@ -166,7 +166,7 @@ export default function moduleCommand(program: Command) {
         // Check if module exists locally
         const localModulePath = path.resolve(moduleName);
         let modulePath: string;
-        
+
         try {
           const stats = await fs.stat(localModulePath);
           if (stats.isDirectory()) {
@@ -186,7 +186,7 @@ export default function moduleCommand(program: Command) {
         // Load and validate manifest
         const manifestPath = path.join(modulePath, 'package.json');
         const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8')) as ModuleManifest;
-        
+
         if (!manifest.xec) {
           s.stop(chalk.red('✗ Not a valid Xec module (missing xec configuration)'));
           process.exit(1);
@@ -204,7 +204,7 @@ export default function moduleCommand(program: Command) {
         });
 
         s.stop(chalk.green(`✓ Module '${manifest.name}' installed successfully`));
-        
+
         // Show module info
         console.log(chalk.bold('\nModule Information:'));
         console.log(`  Name: ${manifest.name}`);
@@ -216,7 +216,7 @@ export default function moduleCommand(program: Command) {
         if (manifest.xec.helpers?.length) {
           console.log(`  Helpers: ${manifest.xec.helpers.join(', ')}`);
         }
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to install module: ${error}`));
         process.exit(1);
@@ -232,7 +232,7 @@ export default function moduleCommand(program: Command) {
       try {
         const modules = await listInstalledModules();
         const module = modules.find(m => m.manifest.name === moduleName);
-        
+
         if (!module) {
           console.log(chalk.red(`Module '${moduleName}' not found`));
           process.exit(1);
@@ -243,7 +243,7 @@ export default function moduleCommand(program: Command) {
             message: `Remove module '${moduleName}'?`,
             initialValue: false,
           });
-          
+
           if (!confirmed) {
             console.log(chalk.yellow('Operation cancelled'));
             return;
@@ -252,12 +252,12 @@ export default function moduleCommand(program: Command) {
 
         // Remove module directory
         await fs.rm(module.path, { recursive: true, force: true });
-        
+
         // Remove from installed modules
         await removeModuleInfo(moduleName);
-        
+
         console.log(chalk.green(`✓ Module '${moduleName}' uninstalled successfully`));
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to uninstall module: ${error}`));
         process.exit(1);
@@ -275,14 +275,14 @@ export default function moduleCommand(program: Command) {
           showBuiltinModuleInfo(moduleName);
           return;
         }
-        
+
         // Check if it's a stdlib module
         const stdlibModules = ['fs', 'http', 'os', 'proc', 'pkg', 'svc', 'net', 'crypto', 'time', 'json', 'yaml', 'env', 'template'];
         if (stdlibModules.includes(moduleName)) {
           showStdlibModuleInfo(moduleName);
           return;
         }
-        
+
         // Check if it's a stdlib module with std: prefix
         if (moduleName.startsWith('std:')) {
           const actualModuleName = moduleName.substring(4);
@@ -295,7 +295,7 @@ export default function moduleCommand(program: Command) {
         // Check custom modules
         const modules = await listInstalledModules();
         const module = modules.find(m => m.manifest.name === moduleName);
-        
+
         if (!module) {
           console.log(chalk.red(`Module '${moduleName}' not found`));
           process.exit(1);
@@ -337,7 +337,7 @@ export default function moduleCommand(program: Command) {
             console.log(`  - ${dep}: ${version}`);
           }
         }
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to get module info: ${error}`));
         process.exit(1);
@@ -351,11 +351,11 @@ export default function moduleCommand(program: Command) {
     .action(async (query: string, options?: { type?: string }) => {
       try {
         console.log(chalk.yellow('Searching for modules...'));
-        
+
         // In a real implementation, this would search a module registry
         console.log(chalk.gray('\nNote: Module registry not yet implemented.'));
         console.log(chalk.gray('You can install local modules using: xec module install /path/to/module'));
-        
+
         // Show example search results
         console.log(chalk.bold('\nExample modules you could create:'));
         const examples = [
@@ -364,11 +364,11 @@ export default function moduleCommand(program: Command) {
           { name: 'xec-monitoring', description: 'Monitoring and alerting tasks', type: 'mixed' },
           { name: 'xec-security', description: 'Security scanning and hardening', type: 'task' },
         ];
-        
-        const filtered = examples.filter(e => 
+
+        const filtered = examples.filter(e =>
           e.name.includes(query) || e.description.toLowerCase().includes(query.toLowerCase())
         );
-        
+
         if (filtered.length > 0) {
           const tableData = [['Name', 'Description', 'Type']];
           for (const example of filtered) {
@@ -376,7 +376,7 @@ export default function moduleCommand(program: Command) {
           }
           console.log(table(tableData));
         }
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to search modules: ${error}`));
         process.exit(1);
@@ -390,7 +390,7 @@ export default function moduleCommand(program: Command) {
     .action(async (moduleName: string, options?: { type?: string }) => {
       try {
         const modulePath = path.resolve(moduleName);
-        
+
         // Check if directory exists
         try {
           await fs.access(modulePath);
@@ -434,7 +434,7 @@ export default function moduleCommand(program: Command) {
             'eslint': '^8.0.0',
           },
           dependencies: {
-            '@xec/core': '^1.0.0',
+            '@xec-js/core': '^1.0.0',
           },
         };
 
@@ -470,10 +470,10 @@ export default function moduleCommand(program: Command) {
 
         // Create index.ts based on type
         let indexContent = '';
-        
+
         switch (options?.type) {
           case 'task':
-            indexContent = `import { Module, Task } from '@xec/core';
+            indexContent = `import { Module, Task } from '@xec-js/core';
 
 export class ${moduleName.replace(/-/g, '')}Module implements Module {
   name = '${moduleName}';
@@ -497,9 +497,9 @@ export class ${moduleName.replace(/-/g, '')}Module implements Module {
 export default ${moduleName.replace(/-/g, '')}Module;
 `;
             break;
-            
+
           case 'helper':
-            indexContent = `import { Module } from '@xec/core';
+            indexContent = `import { Module } from '@xec-js/core';
 
 export class ${moduleName.replace(/-/g, '')}Module implements Module {
   name = '${moduleName}';
@@ -517,9 +517,9 @@ export class ${moduleName.replace(/-/g, '')}Module implements Module {
 export default ${moduleName.replace(/-/g, '')}Module;
 `;
             break;
-            
+
           default:
-            indexContent = `import { Module } from '@xec/core';
+            indexContent = `import { Module } from '@xec-js/core';
 
 export class ${moduleName.replace(/-/g, '')}Module implements Module {
   name = '${moduleName}';
@@ -574,14 +574,14 @@ dist/
         await fs.writeFile(path.join(modulePath, '.gitignore'), gitignore);
 
         s.stop(chalk.green(`✓ Module template created at ${modulePath}`));
-        
+
         console.log(chalk.bold('\nNext steps:'));
         console.log(`  1. cd ${moduleName}`);
         console.log('  2. npm install');
         console.log('  3. Implement your module in src/index.ts');
         console.log('  4. npm run build');
         console.log(`  5. xec module install ${modulePath}`);
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to create module: ${error}`));
         process.exit(1);
@@ -622,15 +622,15 @@ dist/
     .option('--timeout <ms>', 'Task timeout in milliseconds')
     .action(async (moduleName: string, taskName: string, args: string[], options: any) => {
       try {
-        const { ModuleLoader, TaskRunner, EnvironmentManager, createExecutionContext } = await import('@xec/core');
-        
+        const { ModuleLoader, TaskRunner, EnvironmentManager, createExecutionContext } = await import('@xec-js/core');
+
         // Check if it's a builtin module
         const builtinModules = ['aws', 'docker', 'k8s', 'kubernetes', 'monitoring'];
         const stdlibModules = ['fs', 'http', 'os', 'proc', 'pkg', 'svc', 'net', 'crypto', 'time', 'json', 'yaml', 'env', 'template'];
         const isBuiltin = builtinModules.includes(moduleName);
         let isStdlib = false;
         let actualModuleName = moduleName;
-        
+
         // Handle std: prefix
         if (moduleName.startsWith('std:')) {
           actualModuleName = moduleName.substring(4);
@@ -639,21 +639,21 @@ dist/
           // Support legacy format without std: prefix
           isStdlib = stdlibModules.includes(moduleName);
         }
-        
+
         const s = spinner();
         s.start(`Loading module: ${moduleName}`);
-        
+
         // Create module loader and task runner
         const moduleLoader = new ModuleLoader();
         const environmentManager = new EnvironmentManager();
         const taskRunner = new TaskRunner(environmentManager);
-        
+
         // Register the module
         if (isBuiltin) {
           // For builtin modules, we would need to import them properly
           // This is a simplified version - in reality we'd load the actual module
           s.stop(chalk.yellow(`Note: Builtin module execution not fully implemented`));
-          console.log(chalk.gray(`Builtin modules require proper integration with @xec/core`));
+          console.log(chalk.gray(`Builtin modules require proper integration with @xec-js/core`));
           process.exit(1);
         } else if (isStdlib) {
           // Execute stdlib module function
@@ -663,18 +663,18 @@ dist/
           // Load custom module
           const modules = await listInstalledModules();
           const module = modules.find(m => m.manifest.name === moduleName);
-          
+
           if (!module) {
             s.stop(chalk.red(`✗ Module '${moduleName}' not found`));
             process.exit(1);
           }
-          
+
           if (!module.enabled) {
             s.stop(chalk.red(`✗ Module '${moduleName}' is disabled`));
             console.log(chalk.gray(`Enable it with: xec module enable ${moduleName}`));
             process.exit(1);
           }
-          
+
           // Load the module
           const loadedModule = await moduleLoader.load(module.path);
           if (loadedModule) {
@@ -690,7 +690,7 @@ dist/
                 };
               }
             }
-            
+
             // Convert HelperDefinition to HelperFunction format
             const helpers: Record<string, any> = {};
             if (loadedModule.exports?.helpers) {
@@ -702,7 +702,7 @@ dist/
                 }
               }
             }
-            
+
             // Convert PatternDefinition to Pattern format
             const patterns: Record<string, any> = {};
             if (loadedModule.exports?.patterns) {
@@ -714,7 +714,7 @@ dist/
                 };
               }
             }
-            
+
             const xecModule = {
               name: loadedModule.metadata?.['name'] || 'unknown',
               version: loadedModule.metadata?.['version'] || '1.0.0',
@@ -729,9 +729,9 @@ dist/
             await taskRunner.registerModule(xecModule);
           }
         }
-        
+
         s.stop(chalk.green(`✓ Module loaded`));
-        
+
         // Parse variables
         let variables = {};
         if (options.vars) {
@@ -742,29 +742,29 @@ dist/
             process.exit(1);
           }
         }
-        
+
         // Add args to variables if provided
         if (args.length > 0) {
           variables = { ...variables, args };
         }
-        
+
         // Create execution context
         const context = createExecutionContext({
           dryRun: options.dryRun,
           timeout: options.timeout ? parseInt(options.timeout) : undefined
         });
-        
+
         // Add variables to context
         if (Object.keys(variables).length > 0) {
           Object.assign(context.vars, variables);
         }
-        
+
         // Execute the task
         const taskFullName = `${moduleName}:${taskName}`;
         console.log(chalk.cyan(`\nExecuting task: ${taskFullName}\n`));
-        
+
         const result = await taskRunner.runTask(taskFullName, context);
-        
+
         if (result.success) {
           console.log(chalk.green(`\n✓ Task completed successfully`));
           if (result.output) {
@@ -778,7 +778,7 @@ dist/
           }
           process.exit(1);
         }
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to execute task: ${error}`));
         process.exit(1);
@@ -798,7 +798,7 @@ dist/
           kubernetes: ['deploy', 'scale', 'rollback', 'configmap', 'secret', 'ingress', 'helm', 'logs', 'exec'],
           monitoring: ['prometheus', 'grafana', 'elasticsearch', 'loki', 'alerts', 'metrics', 'dashboards']
         };
-        
+
         // Check if it's a stdlib module
         const stdlibTasks: Record<string, string[]> = {
           fs: ['read', 'write', 'append', 'exists', 'rm', 'mkdir', 'ls', 'copy', 'move', 'chmod', 'chown', 'stat', 'isFile', 'isDir', 'temp', 'join', 'resolve', 'dirname', 'basename', 'extname'],
@@ -815,10 +815,10 @@ dist/
           env: ['get', 'set', 'all', 'load', 'expand', 'require'],
           template: ['render', 'renderFile', 'compile', 'registerHelper', 'registerPartial']
         };
-        
+
         let actualModuleName = moduleName;
         let displayModuleName = moduleName;
-        
+
         // Handle std: prefix
         if (moduleName.startsWith('std:')) {
           actualModuleName = moduleName.substring(4);
@@ -827,7 +827,7 @@ dist/
           // For stdlib modules without prefix, show with std: prefix
           displayModuleName = `std:${moduleName}`;
         }
-        
+
         const builtinModuleTasks = builtinTasks[actualModuleName];
         if (builtinModuleTasks) {
           console.log(chalk.bold(`\nTasks in builtin module '${actualModuleName}':\n`));
@@ -837,7 +837,7 @@ dist/
           console.log(chalk.gray(`\nRun a task with: xec module exec ${actualModuleName} <task>`));
           return;
         }
-        
+
         const stdlibModuleTasks = stdlibTasks[actualModuleName];
         if (stdlibModuleTasks) {
           console.log(chalk.bold(`\nFunctions in stdlib module '${displayModuleName}':\n`));
@@ -848,16 +848,16 @@ dist/
           console.log(chalk.gray(`Or with task command: xec task ${displayModuleName}:<function> [--var key=value]`));
           return;
         }
-        
+
         // Check custom modules
         const modules = await listInstalledModules();
         const module = modules.find(m => m.manifest.name === moduleName);
-        
+
         if (!module) {
           console.log(chalk.red(`Module '${moduleName}' not found`));
           process.exit(1);
         }
-        
+
         if (module.manifest.xec?.tasks && module.manifest.xec.tasks.length > 0) {
           console.log(chalk.bold(`\nTasks in module '${moduleName}':\n`));
           for (const task of module.manifest.xec.tasks) {
@@ -867,7 +867,7 @@ dist/
         } else {
           console.log(chalk.yellow(`Module '${moduleName}' has no tasks`));
         }
-        
+
       } catch (error) {
         console.error(chalk.red(`Failed to list tasks: ${error}`));
         process.exit(1);
@@ -898,13 +898,13 @@ async function listInstalledModules(): Promise<InstalledModule[]> {
 async function saveModuleInfo(module: InstalledModule): Promise<void> {
   const modules = await listInstalledModules();
   const existing = modules.findIndex(m => m.manifest.name === module.manifest.name);
-  
+
   if (existing >= 0) {
     modules[existing] = module;
   } else {
     modules.push(module);
   }
-  
+
   const configPath = await getModulesConfigPath();
   await fs.writeFile(configPath, JSON.stringify(modules, null, 2));
 }
@@ -912,7 +912,7 @@ async function saveModuleInfo(module: InstalledModule): Promise<void> {
 async function removeModuleInfo(moduleName: string): Promise<void> {
   const modules = await listInstalledModules();
   const filtered = modules.filter(m => m.manifest.name !== moduleName);
-  
+
   const configPath = await getModulesConfigPath();
   await fs.writeFile(configPath, JSON.stringify(filtered, null, 2));
 }
@@ -920,24 +920,24 @@ async function removeModuleInfo(moduleName: string): Promise<void> {
 async function setModuleEnabled(moduleName: string, enabled: boolean): Promise<void> {
   const modules = await listInstalledModules();
   const module = modules.find(m => m.manifest.name === moduleName);
-  
+
   if (!module) {
     throw new Error(`Module '${moduleName}' not found`);
   }
-  
+
   module.enabled = enabled;
   await saveModuleInfo(module);
 }
 
 async function copyDirectory(src: string, dest: string): Promise<void> {
   await fs.mkdir(dest, { recursive: true });
-  
+
   const entries = await fs.readdir(src, { withFileTypes: true });
-  
+
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
-    
+
     if (entry.isDirectory()) {
       await copyDirectory(srcPath, destPath);
     } else {
@@ -981,18 +981,18 @@ function showBuiltinModuleInfo(moduleName: string): void {
     return;
   }
 
-  console.log(chalk.bold(`\nBuilt-in Module: @xec/core:${moduleName}\n`));
+  console.log(chalk.bold(`\nBuilt-in Module: @xec-js/core:${moduleName}\n`));
   console.log(`Description: ${info.description}`);
   console.log(`Type: task/helper`);
   console.log(`Status: ${chalk.green('always enabled')}`);
-  
+
   if (info.tasks?.length) {
     console.log(chalk.bold('\nTasks:'));
     for (const task of info.tasks) {
       console.log(`  - ${task}`);
     }
   }
-  
+
   if (info.helpers?.length) {
     console.log(chalk.bold('\nHelpers:'));
     for (const helper of info.helpers) {
@@ -1068,14 +1068,14 @@ function showStdlibModuleInfo(moduleName: string): void {
   console.log(`Description: ${info.description}`);
   console.log(`Type: stdlib`);
   console.log(`Status: ${chalk.green('always available')}`);
-  
+
   if (info.functions?.length) {
     console.log(chalk.bold('\nFunctions:'));
     for (const func of info.functions) {
       console.log(`  - ${func}`);
     }
   }
-  
+
   console.log(chalk.gray(`\nUse: xec module exec ${displayName} <function> [args...]`));
   console.log(chalk.gray(`Or:  xec task ${displayName}:<function> [--var key=value]`));
   console.log(chalk.gray(`Example: xec module exec ${displayName} ${info.functions[0]} arg1 arg2`));
@@ -1093,12 +1093,12 @@ async function executeStdlibFunction(moduleName: string, functionName: string, a
         systemd: process.platform === 'linux'
       },
       platform: {
-        os: process.platform === 'darwin' ? 'darwin' : 
-            process.platform === 'win32' ? 'windows' : 
+        os: process.platform === 'darwin' ? 'darwin' :
+          process.platform === 'win32' ? 'windows' :
             'linux' as any,
-        arch: process.arch === 'x64' ? 'x64' : 
-              process.arch === 'arm64' ? 'arm64' : 
-              'arm' as any
+        arch: process.arch === 'x64' ? 'x64' :
+          process.arch === 'arm64' ? 'arm64' :
+            'arm' as any
       }
     };
 
@@ -1120,7 +1120,7 @@ async function executeStdlibFunction(moduleName: string, functionName: string, a
 
     // Create standard library
     const stdlib = await createStandardLibrary(context);
-    
+
     // Get the stdlib module
     const stdlibModule = (stdlib as any)[moduleName];
     if (!stdlibModule) {
@@ -1142,7 +1142,7 @@ async function executeStdlibFunction(moduleName: string, functionName: string, a
     });
 
     s.stop(chalk.green(`✓ Module loaded`));
-    
+
     console.log(chalk.cyan(`\nExecuting: ${moduleName}.${functionName}(${parsedArgs.map(a => JSON.stringify(a)).join(', ')})\n`));
 
     // Call the method
@@ -1164,9 +1164,9 @@ async function executeStdlibFunction(moduleName: string, functionName: string, a
         console.log(result);
       }
     }
-    
+
     console.log(chalk.green(`\n✓ Function executed successfully`));
-    
+
   } catch (error) {
     s.stop(chalk.red(`✗ Execution failed`));
     console.error(chalk.red(`Error: ${(error as Error).message}`));

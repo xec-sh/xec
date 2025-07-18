@@ -1,11 +1,11 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import { join, resolve, dirname, extname, basename } from 'path';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
-  FileStat, 
-  FileSystem, 
+import type {
+  FileStat,
+  FileSystem,
   EnvironmentInfo,
 } from '../types/environment-types.js';
 
@@ -14,7 +14,7 @@ export async function createFileSystem(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<FileSystem> {
-  
+
   const fs: FileSystem = {
     // Basic operations
     async read(path: string): Promise<string> {
@@ -154,14 +154,14 @@ EOF`;
           // Linux stat command
           result = await $`stat -c '%s %f %u %g %Y %X %Z' ${path}`;
         }
-        
+
         const parts = result.stdout.trim().split(' ').map(Number);
         const [size = 0, mode = 0, uid = 0, gid = 0, mtime = 0, atime = 0, ctime = 0] = parts;
-        
+
         // Get file type
         let isFile = false;
         let isDir = false;
-        
+
         try {
           await $`test -f ${path}`;
           isFile = true;
@@ -173,7 +173,7 @@ EOF`;
             // Neither file nor directory
           }
         }
-        
+
         return {
           size,
           mode,
@@ -214,10 +214,10 @@ EOF`;
         const prefix = options?.prefix || 'tmp';
         const suffix = options?.suffix || '';
         let cmd: string;
-        
+
         if (env.platform.os === 'darwin') {
           // macOS mktemp
-          cmd = suffix 
+          cmd = suffix
             ? `mktemp -t ${prefix}.XXXXXX${suffix}`
             : `mktemp -t ${prefix}.XXXXXX`;
         } else {
@@ -226,7 +226,7 @@ EOF`;
             ? `mktemp --suffix=${suffix} -t ${prefix}.XXXXXX`
             : `mktemp -t ${prefix}.XXXXXX`;
         }
-        
+
         const result = await $`${cmd}`;
         return result.stdout.trim();
       } catch (error) {

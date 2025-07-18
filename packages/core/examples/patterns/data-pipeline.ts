@@ -1,5 +1,5 @@
-import { task, recipe, parallel } from '@xec/core';
-import { awsModule, k8sModule, monitoringModule } from '@xec/core/modules/builtin';
+import { task, recipe, parallel } from '@xec-js/core';
+import { awsModule, k8sModule, monitoringModule } from '@xec-js/core/modules/builtin';
 
 /**
  * Complete data pipeline automation pattern
@@ -13,7 +13,7 @@ export const dataPipeline = recipe('data-pipeline')
   .variables({
     pipelineName: 'analytics-pipeline',
     environment: 'production',
-    
+
     // Data sources
     sources: [
       { type: 'postgresql', name: 'app-db', host: 'app.db.example.com' },
@@ -21,7 +21,7 @@ export const dataPipeline = recipe('data-pipeline')
       { type: 'kafka', name: 'events', brokers: ['kafka1:9092', 'kafka2:9092'] },
       { type: 'api', name: 'external', endpoint: 'https://api.example.com/data' }
     ],
-    
+
     // Processing configuration
     processing: {
       batchSize: 10000,
@@ -29,7 +29,7 @@ export const dataPipeline = recipe('data-pipeline')
       checkpointInterval: 60000, // 1 minute
       windowSize: 300000 // 5 minutes
     },
-    
+
     // Storage configuration
     storage: {
       dataLake: 's3://data-lake-bucket',
@@ -37,29 +37,29 @@ export const dataPipeline = recipe('data-pipeline')
       cache: 'redis',
       timeseries: 'influxdb'
     },
-    
+
     // Features
     enableStreaming: true,
     enableBatchProcessing: true,
     enableMLPipeline: true,
     enableDataQuality: true
   })
-  
+
   // Phase 1: Infrastructure Setup
   .phase('infrastructure', phase => phase
     .description('Set up data infrastructure')
-    
+
     // Create S3 buckets for data lake
     .task(task('create-data-lake', async ({ vars, log }) => {
       log.info('Creating data lake storage...');
-      
+
       const buckets = [
         { name: `${vars.pipelineName}-raw`, lifecycle: 'archive-after-30-days' },
         { name: `${vars.pipelineName}-processed`, lifecycle: 'delete-after-90-days' },
         { name: `${vars.pipelineName}-curated`, lifecycle: 'keep' },
         { name: `${vars.pipelineName}-ml`, lifecycle: 'keep' }
       ];
-      
+
       await parallel(
         ...buckets.map(bucket =>
           awsModule.tasks.s3Bucket.run({
@@ -75,11 +75,11 @@ export const dataPipeline = recipe('data-pipeline')
         )
       );
     }))
-    
+
     // Set up data warehouse
     .task(task('create-warehouse', async ({ vars, log }) => {
       log.info('Setting up data warehouse...');
-      
+
       if (vars.storage.warehouse === 'redshift') {
         await awsModule.tasks.cloudformation.run({
           vars,
@@ -106,11 +106,11 @@ export const dataPipeline = recipe('data-pipeline')
         });
       }
     }))
-    
+
     // Deploy message queue infrastructure
     .task(task('deploy-messaging', async ({ vars, log }) => {
       log.info('Deploying messaging infrastructure...');
-      
+
       // Deploy Kafka cluster
       await k8sModule.tasks.helm.run({
         vars,
@@ -126,7 +126,7 @@ export const dataPipeline = recipe('data-pipeline')
           }
         }
       });
-      
+
       // Create topics
       const topics = [
         { name: 'raw-events', partitions: 12, retention: '7d' },
@@ -134,7 +134,7 @@ export const dataPipeline = recipe('data-pipeline')
         { name: 'alerts', partitions: 1, retention: '1d' },
         { name: 'dead-letter', partitions: 3, retention: '90d' }
       ];
-      
+
       for (const topic of topics) {
         await vars.$`kubectl exec -n ${vars.pipelineName} kafka-0 -- \
           kafka-topics.sh --create \
@@ -146,18 +146,18 @@ export const dataPipeline = recipe('data-pipeline')
       }
     }))
   )
-  
+
   // Phase 2: Data Ingestion
   .phase('ingestion', phase => phase
     .description('Set up data ingestion')
     .dependsOn('infrastructure')
-    
+
     // Deploy database connectors
     .task(task('deploy-db-connectors', async ({ vars, log }) => {
       log.info('Deploying database connectors...');
-      
+
       const dbSources = vars.sources.filter(s => ['postgresql', 'mysql', 'mongodb'].includes(s.type));
-      
+
       await parallel(
         ...dbSources.map(source =>
           k8sModule.tasks.deploy.run({
@@ -195,13 +195,13 @@ export const dataPipeline = recipe('data-pipeline')
         )
       );
     }))
-    
+
     // Set up S3 event notifications
     .task(task('configure-s3-events', async ({ vars, log }) => {
       log.info('Configuring S3 event notifications...');
-      
+
       const s3Sources = vars.sources.filter(s => s.type === 's3');
-      
+
       for (const source of s3Sources) {
         // Create Lambda for S3 processing
         await awsModule.tasks.lambda.run({
@@ -218,7 +218,7 @@ export const dataPipeline = recipe('data-pipeline')
             }
           }
         });
-        
+
         // Configure S3 bucket notification
         await vars.$`aws s3api put-bucket-notification-configuration \
           --bucket ${source.bucket} \
@@ -238,13 +238,13 @@ export const dataPipeline = recipe('data-pipeline')
           }'`;
       }
     }))
-    
+
     // Deploy API collectors
     .task(task('deploy-api-collectors', async ({ vars, log }) => {
       log.info('Deploying API data collectors...');
-      
+
       const apiSources = vars.sources.filter(s => s.type === 'api');
-      
+
       await parallel(
         ...apiSources.map(source =>
           k8sModule.tasks.deploy.run({
@@ -271,17 +271,17 @@ export const dataPipeline = recipe('data-pipeline')
       );
     }))
   )
-  
+
   // Phase 3: Stream Processing
   .phase('streaming', phase => phase
     .description('Set up stream processing')
     .dependsOn('ingestion')
     .condition(vars => vars.enableStreaming)
-    
+
     // Deploy Apache Flink for stream processing
     .task(task('deploy-flink', async ({ vars, log }) => {
       log.info('Deploying Apache Flink...');
-      
+
       await k8sModule.tasks.helm.run({
         vars,
         log,
@@ -312,11 +312,11 @@ export const dataPipeline = recipe('data-pipeline')
         }
       });
     }))
-    
+
     // Deploy streaming jobs
     .task(task('deploy-streaming-jobs', async ({ vars, log, fs, yaml }) => {
       log.info('Deploying streaming jobs...');
-      
+
       const jobs = [
         {
           name: 'event-enrichment',
@@ -343,7 +343,7 @@ export const dataPipeline = recipe('data-pipeline')
           mlModel: 's3://ml-models/anomaly-detector-v2'
         }
       ];
-      
+
       for (const job of jobs) {
         const jobSpec = {
           apiVersion: 'flink.apache.org/v1beta1',
@@ -382,24 +382,24 @@ export const dataPipeline = recipe('data-pipeline')
             }
           }
         };
-        
+
         const jobPath = await fs.temp({ prefix: `flink-job-${job.name}-`, suffix: '.yaml' });
         await fs.write(jobPath, yaml.stringify(jobSpec));
         await vars.$`kubectl apply -f ${jobPath}`;
       }
     }))
   )
-  
+
   // Phase 4: Batch Processing
   .phase('batch', phase => phase
     .description('Set up batch processing')
     .dependsOn('streaming')
     .condition(vars => vars.enableBatchProcessing)
-    
+
     // Deploy Apache Spark
     .task(task('deploy-spark', async ({ vars, log }) => {
       log.info('Deploying Apache Spark...');
-      
+
       await k8sModule.tasks.helm.run({
         vars,
         log,
@@ -426,11 +426,11 @@ export const dataPipeline = recipe('data-pipeline')
         }
       });
     }))
-    
+
     // Deploy Airflow for orchestration
     .task(task('deploy-airflow', async ({ vars, log }) => {
       log.info('Deploying Apache Airflow...');
-      
+
       await k8sModule.tasks.helm.run({
         vars,
         log,
@@ -458,11 +458,11 @@ export const dataPipeline = recipe('data-pipeline')
         }
       });
     }))
-    
+
     // Deploy DAGs
     .task(task('deploy-dags', async ({ vars, log, fs }) => {
       log.info('Deploying Airflow DAGs...');
-      
+
       // Create DAGs ConfigMap
       const dags = {
         'daily_etl.py': generateETLDag(vars),
@@ -470,7 +470,7 @@ export const dataPipeline = recipe('data-pipeline')
         'data_quality.py': generateDataQualityDag(vars),
         'ml_training.py': generateMLTrainingDag(vars)
       };
-      
+
       await k8sModule.tasks.configMap.run({
         vars,
         log,
@@ -481,7 +481,7 @@ export const dataPipeline = recipe('data-pipeline')
           data: dags
         }
       });
-      
+
       // Mount DAGs in Airflow
       await vars.$`kubectl patch deployment airflow-webserver \
         -n ${vars.pipelineName} \
@@ -498,17 +498,17 @@ export const dataPipeline = recipe('data-pipeline')
         }]'`;
     }))
   )
-  
+
   // Phase 5: Data Quality & Governance
   .phase('quality', phase => phase
     .description('Set up data quality and governance')
     .dependsOn('batch')
     .condition(vars => vars.enableDataQuality)
-    
+
     // Deploy Great Expectations
     .task(task('deploy-great-expectations', async ({ vars, log }) => {
       log.info('Deploying Great Expectations...');
-      
+
       await k8sModule.tasks.deploy.run({
         vars,
         log,
@@ -523,7 +523,7 @@ export const dataPipeline = recipe('data-pipeline')
           volumes: [`ge-data:/ge`]
         }
       });
-      
+
       // Create expectations
       const expectations = [
         {
@@ -542,7 +542,7 @@ export const dataPipeline = recipe('data-pipeline')
           ]
         }
       ];
-      
+
       // Deploy expectations as config
       await k8sModule.tasks.configMap.run({
         vars,
@@ -556,11 +556,11 @@ export const dataPipeline = recipe('data-pipeline')
         }
       });
     }))
-    
+
     // Set up data lineage tracking
     .task(task('deploy-data-lineage', async ({ vars, log }) => {
       log.info('Setting up data lineage tracking...');
-      
+
       // Deploy Apache Atlas for metadata management
       await k8sModule.tasks.helm.run({
         vars,
@@ -579,17 +579,17 @@ export const dataPipeline = recipe('data-pipeline')
       });
     }))
   )
-  
+
   // Phase 6: Machine Learning Pipeline
   .phase('ml-pipeline', phase => phase
     .description('Set up ML pipeline')
     .dependsOn('quality')
     .condition(vars => vars.enableMLPipeline)
-    
+
     // Deploy MLflow
     .task(task('deploy-mlflow', async ({ vars, log }) => {
       log.info('Deploying MLflow...');
-      
+
       await k8sModule.tasks.deploy.run({
         vars,
         log,
@@ -606,11 +606,11 @@ export const dataPipeline = recipe('data-pipeline')
         }
       });
     }))
-    
+
     // Deploy feature store
     .task(task('deploy-feature-store', async ({ vars, log }) => {
       log.info('Deploying feature store...');
-      
+
       // Deploy Feast
       await k8sModule.tasks.helm.run({
         vars,
@@ -630,7 +630,7 @@ export const dataPipeline = recipe('data-pipeline')
           }
         }
       });
-      
+
       // Register feature definitions
       const features = {
         'user_features.py': `
@@ -683,7 +683,7 @@ product_stats_fv = FeatureView(
     tags={"team": "analytics"},
 )`
       };
-      
+
       await k8sModule.tasks.configMap.run({
         vars,
         log,
@@ -694,11 +694,11 @@ product_stats_fv = FeatureView(
         }
       });
     }))
-    
+
     // Deploy model training pipeline
     .task(task('deploy-training-pipeline', async ({ vars, log }) => {
       log.info('Deploying model training pipeline...');
-      
+
       // Create Kubeflow pipeline
       const trainingPipeline = {
         apiVersion: 'argoproj.io/v1alpha1',
@@ -751,22 +751,22 @@ product_stats_fv = FeatureView(
           ]
         }
       };
-      
+
       const pipelinePath = await vars.fs.temp({ prefix: 'ml-pipeline-', suffix: '.yaml' });
       await vars.fs.write(pipelinePath, vars.yaml.stringify(trainingPipeline));
       await vars.$`kubectl apply -f ${pipelinePath}`;
     }))
   )
-  
+
   // Phase 7: Monitoring & Observability
   .phase('monitoring', phase => phase
     .description('Set up monitoring and observability')
     .dependsOn(['streaming', 'batch', 'ml-pipeline'])
-    
+
     // Deploy monitoring stack
     .task(task('deploy-monitoring', async ({ vars, log }) => {
       log.info('Deploying monitoring stack...');
-      
+
       await monitoringModule.patterns.fullStackMonitoring.template({
         vars,
         log,
@@ -778,11 +778,11 @@ product_stats_fv = FeatureView(
         }
       });
     }))
-    
+
     // Create pipeline-specific dashboards
     .task(task('create-dashboards', async ({ vars, log }) => {
       log.info('Creating monitoring dashboards...');
-      
+
       const dashboards = [
         {
           title: 'Data Pipeline Overview',
@@ -812,7 +812,7 @@ product_stats_fv = FeatureView(
           ]
         }
       ];
-      
+
       for (const dashboard of dashboards) {
         await monitoringModule.tasks.grafana.run({
           vars,
@@ -827,11 +827,11 @@ product_stats_fv = FeatureView(
         });
       }
     }))
-    
+
     // Set up alerts
     .task(task('configure-alerts', async ({ vars, log }) => {
       log.info('Configuring alerts...');
-      
+
       await monitoringModule.tasks.alerts.run({
         vars,
         log,
@@ -871,16 +871,16 @@ product_stats_fv = FeatureView(
       });
     }))
   )
-  
+
   // Phase 8: Testing & Validation
   .phase('validation', phase => phase
     .description('Validate the data pipeline')
     .dependsOn('monitoring')
-    
+
     // Run integration tests
     .task(task('integration-tests', async ({ vars, log }) => {
       log.info('Running integration tests...');
-      
+
       // Test data flow
       const testData = {
         eventId: `test-${Date.now()}`,
@@ -889,7 +889,7 @@ product_stats_fv = FeatureView(
         eventType: 'test-event',
         properties: { test: true }
       };
-      
+
       // Send test event
       await vars.$`kubectl exec -n ${vars.pipelineName} kafka-0 -- \
         kafka-console-producer.sh \
@@ -897,26 +897,26 @@ product_stats_fv = FeatureView(
         --topic raw-events << EOF
 ${JSON.stringify(testData)}
 EOF`;
-      
+
       // Wait for processing
       await vars.time.sleep(30000); // 30 seconds
-      
+
       // Verify in data warehouse
       const result = await vars.$`kubectl exec -n ${vars.pipelineName} postgres-0 -- \
         psql -U admin -d analytics -c \
         "SELECT * FROM processed_events WHERE event_id = '${testData.eventId}'"`;
-      
+
       if (!result.stdout.includes(testData.eventId)) {
         throw new Error('Test event not found in data warehouse');
       }
-      
+
       log.info('Integration tests passed');
     }))
-    
+
     // Generate pipeline report
     .task(task('generate-report', async ({ vars, log, fs }) => {
       log.info('Generating pipeline report...');
-      
+
       const report = {
         pipeline: {
           name: vars.pipelineName,
@@ -952,27 +952,27 @@ EOF`;
           feast: `https://feast.${vars.domain}`
         }
       };
-      
+
       await fs.write(
         `pipeline-report-${Date.now()}.json`,
         JSON.stringify(report, null, 2)
       );
-      
+
       log.info('Data pipeline deployment completed successfully!');
       return report;
     }))
   )
-  
+
   .build();
 
 // Helper functions
 function parseRetention(retention: string): number {
   const match = retention.match(/(\d+)([dhm])/);
   if (!match) return 604800000; // Default 7 days
-  
+
   const value = parseInt(match[1]);
   const unit = match[2];
-  
+
   switch (unit) {
     case 'd': return value * 24 * 60 * 60 * 1000;
     case 'h': return value * 60 * 60 * 1000;

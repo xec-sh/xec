@@ -1,6 +1,6 @@
 # Xec Scripts Documentation
 
-Xec Scripts are powerful JavaScript/TypeScript files that leverage the full capabilities of `@xec/ush` for automation and infrastructure management. They are inspired by Google's zx but designed specifically for DevOps workflows.
+Xec Scripts are powerful JavaScript/TypeScript files that leverage the full capabilities of `@xec-js/ush` for automation and infrastructure management. They are inspired by Google's zx but designed specifically for DevOps workflows.
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -16,7 +16,7 @@ Xec Scripts are powerful JavaScript/TypeScript files that leverage the full capa
 
 Xec Scripts provide:
 - Full JavaScript/TypeScript support with top-level await
-- Enhanced command execution via `@xec/ush`
+- Enhanced command execution via `@xec-js/ush`
 - Integration with Xec recipes and tasks
 - Dynamic CLI command registration
 - Built-in utilities for common DevOps tasks
@@ -66,7 +66,7 @@ await $`echo "Hello from Xec!"`
 
 ### Command Execution
 
-The `$` function from `@xec/ush` is available globally:
+The `$` function from `@xec-js/ush` is available globally:
 
 ```javascript
 // Simple command
@@ -259,7 +259,7 @@ Scripts can be used as tasks in recipes:
 
 ```javascript
 // In your recipe file
-import { recipe, scriptTask } from '@xec/core'
+import { recipe, scriptTask } from '@xec-js/core'
 
 export default recipe('deploy')
   .task(scriptTask('pre-deploy', {

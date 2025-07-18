@@ -100,7 +100,7 @@ export function command(program) {
     .option('-t, --tag <tag>', 'Image tag', 'latest')
     .option('--no-push', 'Skip pushing to registry')
     .action(async (options) => {
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       const { spinner, log, confirm } = await import('@clack/prompts');
       
       // Load project config
@@ -153,7 +153,7 @@ export function command(program) {
     .description('Run integration tests')
     .option('-e, --env <environment>', 'Test environment', 'test')
     .action(async (options) => {
-      const { executeRecipe, loadStandardLibrary } = await import('@xec/core');
+      const { executeRecipe, loadStandardLibrary } = await import('@xec-js/core');
       const { log } = await import('@clack/prompts');
       
       // Load standard library
@@ -298,7 +298,7 @@ export function command(program) {
     .option('--skip-tests', 'Skip running tests')
     .option('--skip-build', 'Skip building')
     .action(async (options) => {
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       const { log, spinner } = await import('@clack/prompts');
       
       const steps = [
@@ -523,7 +523,7 @@ export function command(program) {
   db.command('create <name>')
     .description('Create a new database')
     .action(async (name) => {
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       await $`createdb ${name}`;
       console.log(`Database ${name} created`);
     });
@@ -541,7 +541,7 @@ export function command(program) {
         if (!proceed) return;
       }
       
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       await $`dropdb ${name}`;
       console.log(`Database ${name} dropped`);
     });
@@ -550,7 +550,7 @@ export function command(program) {
     .description('Backup database')
     .option('-o, --output <file>', 'Output file')
     .action(async (name = 'myapp', options) => {
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       const output = options.output || `backup-${name}-${Date.now()}.sql`;
       
       await $`pg_dump ${name} > ${output}`;
@@ -568,7 +568,7 @@ export function command(program) {
     .command('feature <name>')
     .description('Create a new feature branch')
     .action(async (name) => {
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       
       // Ensure clean working directory
       const status = await $`git status --porcelain`.quiet();
@@ -588,7 +588,7 @@ export function command(program) {
     .option('-t, --title <title>', 'PR title')
     .option('-b, --body <body>', 'PR body')
     .action(async (options) => {
-      const { $ } = await import('@xec/core');
+      const { $ } = await import('@xec-js/core');
       const { text } = await import('@clack/prompts');
       
       const title = options.title || await text({

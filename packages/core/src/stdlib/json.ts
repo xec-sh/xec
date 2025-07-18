@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   EnvironmentInfo,
   JSON as JSONUtil,
 } from '../types/environment-types.js';
@@ -11,7 +11,7 @@ export async function createJSON(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<JSONUtil> {
-  
+
   const json: JSONUtil = {
     parse<T = any>(text: string): T {
       try {
@@ -56,7 +56,7 @@ EOF`;
     get(object: any, path: string, defaultValue?: any): any {
       const keys = path.split('.');
       let current = object;
-      
+
       for (const key of keys) {
         if (current && typeof current === 'object' && key in current) {
           current = current[key];
@@ -64,25 +64,25 @@ EOF`;
           return defaultValue;
         }
       }
-      
+
       return current;
     },
 
     set(object: any, path: string, value: any): void {
       const keys = path.split('.');
       const lastKey = keys.pop();
-      
+
       if (!lastKey) return;
-      
+
       let current = object;
-      
+
       for (const key of keys) {
         if (!current[key] || typeof current[key] !== 'object') {
           current[key] = {};
         }
         current = current[key];
       }
-      
+
       current[lastKey] = value;
     },
   };

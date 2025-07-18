@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Error Handling Patterns for @xec/ush
+ * Error Handling Patterns for @xec-js/ush
  * 
  * This file demonstrates comprehensive error handling strategies
- * for robust shell scripting with @xec/ush.
+ * for robust shell scripting with @xec-js/ush.
  */
 
-import { $ } from '@xec/ush';
+import { $ } from '@xec-js/ush';
 
 // ===== Understanding Error Types =====
 console.log('=== Understanding Error Types ===\n');
@@ -14,7 +14,7 @@ console.log('=== Understanding Error Types ===\n');
 // CommandError - The main error type
 async function demonstrateCommandError() {
   console.log('1. CommandError - when a command fails:');
-  
+
   try {
     await $`exit 42`;  // Non-zero exit code
   } catch (error: any) {
@@ -34,7 +34,7 @@ await demonstrateCommandError();
 // TimeoutError - When commands exceed time limit
 async function demonstrateTimeoutError() {
   console.log('\n2. TimeoutError - when a command times out:');
-  
+
   try {
     await $`sleep 5`.timeout(1000);  // 1 second timeout
   } catch (error: any) {
@@ -58,7 +58,7 @@ console.log('\n=== Basic Error Handling Patterns ===\n');
 // Pattern 1: Try-Catch
 async function tryCatchPattern() {
   console.log('Pattern 1: Try-Catch Block');
-  
+
   try {
     await $`cat /nonexistent/file.txt`;
   } catch (error: any) {
@@ -76,9 +76,9 @@ await tryCatchPattern();
 // Pattern 2: Nothrow Mode
 async function nothrowPattern() {
   console.log('\nPattern 2: Nothrow Mode');
-  
+
   const result = await $`grep "pattern" /nonexistent/file.txt`.nothrow();
-  
+
   if (result.exitCode === 0) {
     console.log('✓ Pattern found');
   } else if (result.exitCode === 1) {
@@ -93,24 +93,24 @@ await nothrowPattern();
 // Pattern 3: Error Recovery
 async function errorRecoveryPattern() {
   console.log('\nPattern 3: Error Recovery with Fallbacks');
-  
+
   const readConfig = async () => {
     // Try primary location
     let result = await $`cat /etc/myapp/config.json`.nothrow();
     if (result.exitCode === 0) return result.stdout;
-    
+
     // Try secondary location
     result = await $`cat ~/.myapp/config.json`.nothrow();
     if (result.exitCode === 0) return result.stdout;
-    
+
     // Try current directory
     result = await $`cat ./config.json`.nothrow();
     if (result.exitCode === 0) return result.stdout;
-    
+
     // Return default config
     return JSON.stringify({ defaultConfig: true });
   };
-  
+
   const config = await readConfig();
   console.log('✓ Config loaded (using fallback chain)');
 }
@@ -123,11 +123,11 @@ console.log('\n\n=== Advanced Error Handling ===\n');
 // Custom error handler with context
 class ErrorHandler {
   private context: Map<string, any> = new Map();
-  
+
   setContext(key: string, value: any) {
     this.context.set(key, value);
   }
-  
+
   async execute<T>(
     operation: () => Promise<T>,
     options: {
@@ -138,26 +138,26 @@ class ErrorHandler {
   ): Promise<T> {
     const { retries = 0, onError, fallback } = options;
     let lastError: any;
-    
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         return await operation();
       } catch (error: any) {
         lastError = error;
-        
+
         // Enhance error with context
         error.context = Object.fromEntries(this.context);
         error.attempt = attempt + 1;
-        
+
         if (onError) {
           onError(error, attempt + 1);
         }
-        
+
         // Log detailed error information
         console.error(`\nError on attempt ${attempt + 1}:`);
         console.error(`- Operation: ${this.context.get('operation')}`);
         console.error(`- Error: ${error.message}`);
-        
+
         if (attempt < retries) {
           const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
           console.log(`  → Retrying in ${delay}ms...`);
@@ -165,7 +165,7 @@ class ErrorHandler {
         }
       }
     }
-    
+
     // Try fallback if all retries failed
     if (fallback) {
       console.log('  → Attempting fallback...');
@@ -176,7 +176,7 @@ class ErrorHandler {
         throw lastError; // Throw original error
       }
     }
-    
+
     throw lastError;
   }
 }
@@ -209,7 +209,7 @@ console.log('\n\n=== Error Aggregation ===\n');
 // Collect errors from multiple operations
 class ErrorCollector {
   private errors: Array<{ operation: string; error: any }> = [];
-  
+
   async tryOperation(name: string, operation: () => Promise<any>) {
     try {
       await operation();
@@ -221,18 +221,18 @@ class ErrorCollector {
       return false;
     }
   }
-  
+
   hasErrors(): boolean {
     return this.errors.length > 0;
   }
-  
+
   getErrors() {
     return this.errors;
   }
-  
+
   getSummary(): string {
     if (this.errors.length === 0) return 'All operations succeeded';
-    
+
     const summary = [`${this.errors.length} operation(s) failed:`];
     for (const { operation, error } of this.errors) {
       summary.push(`  - ${operation}: ${error.message}`);
@@ -292,7 +292,7 @@ async function transformErrors() {
         { appName, originalError: error.message }
       );
     }
-    
+
     try {
       // Check if port is available
       await $`lsof -i :3000`.quiet();
@@ -306,10 +306,10 @@ async function transformErrors() {
         );
       }
     }
-    
+
     // Continue deployment...
   };
-  
+
   try {
     await deployApp('myapp');
   } catch (error: any) {
@@ -335,24 +335,24 @@ class GracefulService {
     unicode: true,
     advanced: true
   };
-  
+
   async checkCapabilities() {
     // Check if terminal supports colors
     const colorCheck = await $`tput colors`.nothrow();
-    this.capabilities.color = colorCheck.exitCode === 0 && 
-                             parseInt(colorCheck.stdout) > 8;
-    
+    this.capabilities.color = colorCheck.exitCode === 0 &&
+      parseInt(colorCheck.stdout) > 8;
+
     // Check if unicode is supported
     const unicodeCheck = await $`locale | grep UTF`.nothrow();
     this.capabilities.unicode = unicodeCheck.exitCode === 0;
-    
+
     // Check for advanced features
     const advancedCheck = await $.which('jq');
     this.capabilities.advanced = advancedCheck !== null;
-    
+
     console.log('System capabilities:', this.capabilities);
   }
-  
+
   format(message: string, type: 'success' | 'error' | 'info') {
     if (this.capabilities.color && this.capabilities.unicode) {
       // Full featured
@@ -370,7 +370,7 @@ class GracefulService {
       return `${prefixes[type]} ${message}`;
     }
   }
-  
+
   async parseJson(data: string) {
     if (this.capabilities.advanced) {
       // Use jq for pretty formatting
@@ -410,7 +410,7 @@ class RecoveryStrategies {
         return await operation();
       } catch (error: any) {
         if (i === maxRetries - 1) throw error;
-        
+
         const delay = baseDelay * Math.pow(2, i);
         console.log(`  Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -418,26 +418,26 @@ class RecoveryStrategies {
     }
     throw new Error('Should not reach here');
   }
-  
+
   // Strategy 2: Circuit breaker pattern
   static createCircuitBreaker(threshold = 5, resetTime = 60000) {
     let failures = 0;
     let lastFailureTime = 0;
     let isOpen = false;
-    
-    return async function<T>(operation: () => Promise<T>): Promise<T> {
+
+    return async function <T>(operation: () => Promise<T>): Promise<T> {
       // Check if circuit should be reset
       if (isOpen && Date.now() - lastFailureTime > resetTime) {
         console.log('  Circuit breaker: Attempting reset...');
         isOpen = false;
         failures = 0;
       }
-      
+
       // If circuit is open, fail fast
       if (isOpen) {
         throw new Error('Circuit breaker is OPEN - service unavailable');
       }
-      
+
       try {
         const result = await operation();
         failures = 0; // Reset on success
@@ -445,28 +445,28 @@ class RecoveryStrategies {
       } catch (error) {
         failures++;
         lastFailureTime = Date.now();
-        
+
         if (failures >= threshold) {
           isOpen = true;
           console.log(`  Circuit breaker: OPENED after ${failures} failures`);
         }
-        
+
         throw error;
       }
     };
   }
-  
+
   // Strategy 3: Bulkhead pattern (isolation)
   static createBulkhead(maxConcurrent = 3) {
     let active = 0;
     const queue: Array<() => void> = [];
-    
-    return async function<T>(operation: () => Promise<T>): Promise<T> {
+
+    return async function <T>(operation: () => Promise<T>): Promise<T> {
       if (active >= maxConcurrent) {
         // Wait in queue
         await new Promise<void>(resolve => queue.push(resolve));
       }
-      
+
       active++;
       try {
         return await operation();
@@ -515,15 +515,15 @@ console.log('\n\n=== Cleanup on Error ===\n');
 // Ensure cleanup happens even when errors occur
 class ResourceManager {
   private cleanupTasks: Array<() => Promise<void>> = [];
-  
+
   register(cleanup: () => Promise<void>) {
     this.cleanupTasks.push(cleanup);
   }
-  
+
   async cleanup() {
     console.log('Running cleanup tasks...');
     const errors: Error[] = [];
-    
+
     // Run all cleanup tasks, collecting any errors
     for (const task of this.cleanupTasks.reverse()) {
       try {
@@ -532,14 +532,14 @@ class ResourceManager {
         errors.push(error);
       }
     }
-    
+
     if (errors.length > 0) {
       console.error(`${errors.length} cleanup task(s) failed`);
     }
-    
+
     this.cleanupTasks = [];
   }
-  
+
   async withCleanup<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
@@ -560,14 +560,14 @@ await resources.withCleanup(async () => {
     console.log('  Cleaning up temp file...');
     await $`rm -f ${tempFile}`;
   });
-  
+
   const tempDir = '/tmp/resource-test-dir';
   await $`mkdir -p ${tempDir}`;
   resources.register(async () => {
     console.log('  Cleaning up temp directory...');
     await $`rm -rf ${tempDir}`;
   });
-  
+
   // Simulate an error
   throw new Error('Something went wrong!');
 }).catch(error => {

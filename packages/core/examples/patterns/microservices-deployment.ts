@@ -1,5 +1,5 @@
-import { task, recipe, parallel } from '@xec/core';
-import { k8sModule, awsModule, dockerModule, monitoringModule } from '@xec/core/modules/builtin';
+import { task, recipe, parallel } from '@xec-js/core';
+import { k8sModule, awsModule, dockerModule, monitoringModule } from '@xec-js/core/modules/builtin';
 
 /**
  * Complete microservices deployment pattern
@@ -25,15 +25,15 @@ export const microservicesDeployment = recipe('microservices-deployment')
     enableAutoScaling: true,
     enableServiceMesh: false
   })
-  
+
   // Phase 1: Infrastructure Setup
   .phase('infrastructure', phase => phase
     .description('Set up cloud infrastructure')
-    
+
     // Create VPC and networking
     .task(task('create-network', async ({ vars, log }) => {
       log.info('Creating VPC and network infrastructure...');
-      
+
       await awsModule.tasks.cloudformation.run({
         vars,
         log,
@@ -88,11 +88,11 @@ export const microservicesDeployment = recipe('microservices-deployment')
         }
       });
     }))
-    
+
     // Create EKS cluster
     .task(task('create-eks-cluster', async ({ vars, log }) => {
       log.info('Creating EKS cluster...');
-      
+
       await awsModule.tasks.cloudformation.run({
         vars,
         log,
@@ -136,11 +136,11 @@ export const microservicesDeployment = recipe('microservices-deployment')
         }
       });
     }))
-    
+
     // Set up RDS for persistent storage
     .task(task('create-databases', async ({ vars, log }) => {
       log.info('Creating RDS instances...');
-      
+
       await parallel(
         awsModule.tasks.rds.run({
           vars,
@@ -167,21 +167,21 @@ export const microservicesDeployment = recipe('microservices-deployment')
       );
     }))
   )
-  
+
   // Phase 2: Kubernetes Setup
   .phase('kubernetes', phase => phase
     .description('Configure Kubernetes cluster')
     .dependsOn('infrastructure')
-    
+
     // Create namespaces
     .task(task('create-namespaces', async ({ vars, $ }) => {
       const namespaces = [vars.appName, `${vars.appName}-monitoring`, `${vars.appName}-ingress`];
-      
+
       for (const ns of namespaces) {
         await $`kubectl create namespace ${ns} --dry-run=client -o yaml | kubectl apply -f -`;
       }
     }))
-    
+
     // Deploy ingress controller
     .task(task('deploy-ingress', async ({ vars }) => {
       await k8sModule.tasks.helm.run({
@@ -198,13 +198,13 @@ export const microservicesDeployment = recipe('microservices-deployment')
         }
       });
     }))
-    
+
     // Set up service mesh if enabled
     .task(task('deploy-service-mesh', async ({ vars, skip }) => {
       if (!vars.enableServiceMesh) {
         skip('Service mesh not enabled');
       }
-      
+
       await k8sModule.tasks.helm.run({
         vars,
         params: {
@@ -216,18 +216,18 @@ export const microservicesDeployment = recipe('microservices-deployment')
       });
     }))
   )
-  
+
   // Phase 3: Application Deployment
   .phase('deployment', phase => phase
     .description('Deploy microservices')
     .dependsOn('kubernetes')
-    
+
     // Deploy all services
     .task(task('deploy-services', async ({ vars, log }) => {
       log.info('Deploying microservices...');
-      
+
       await parallel(
-        ...vars.services.map(service => 
+        ...vars.services.map(service =>
           k8sModule.tasks.deploy.run({
             vars,
             log,
@@ -251,7 +251,7 @@ export const microservicesDeployment = recipe('microservices-deployment')
         )
       );
     }))
-    
+
     // Configure ingress rules
     .task(task('configure-ingress', async ({ vars }) => {
       await k8sModule.tasks.ingress.run({
@@ -271,13 +271,13 @@ export const microservicesDeployment = recipe('microservices-deployment')
         }
       });
     }))
-    
+
     // Set up horizontal pod autoscaling
     .task(task('configure-autoscaling', async ({ vars, $, skip }) => {
       if (!vars.enableAutoScaling) {
         skip('Auto-scaling not enabled');
       }
-      
+
       for (const service of vars.services) {
         await $`kubectl autoscale deployment ${service.name} \
           --namespace ${vars.appName} \
@@ -287,13 +287,13 @@ export const microservicesDeployment = recipe('microservices-deployment')
       }
     }))
   )
-  
+
   // Phase 4: Monitoring Setup
   .phase('monitoring', phase => phase
     .description('Set up monitoring and observability')
     .dependsOn('deployment')
     .condition(vars => vars.enableMonitoring)
-    
+
     // Deploy monitoring stack
     .task(task('deploy-monitoring', async ({ vars }) => {
       await monitoringModule.patterns.fullStackMonitoring.template({
@@ -306,7 +306,7 @@ export const microservicesDeployment = recipe('microservices-deployment')
         }
       });
     }))
-    
+
     // Configure service monitoring
     .task(task('configure-service-monitoring', async ({ vars }) => {
       // Create service-specific dashboards
@@ -340,7 +340,7 @@ export const microservicesDeployment = recipe('microservices-deployment')
         });
       }
     }))
-    
+
     // Set up alerts
     .task(task('configure-alerts', async ({ vars }) => {
       await monitoringModule.tasks.alerts.run({
@@ -374,21 +374,21 @@ export const microservicesDeployment = recipe('microservices-deployment')
       });
     }))
   )
-  
+
   // Phase 5: Testing & Validation
   .phase('validation', phase => phase
     .description('Validate deployment')
     .dependsOn('monitoring')
-    
+
     // Run health checks
     .task(task('health-checks', async ({ vars, log, http }) => {
       log.info('Running health checks...');
-      
+
       const healthEndpoints = vars.services.map(s => ({
         name: s.name,
         url: `http://${vars.domain}/${s.name}/health`
       }));
-      
+
       const results = await parallel(
         ...healthEndpoints.map(async endpoint => {
           try {
@@ -399,20 +399,20 @@ export const microservicesDeployment = recipe('microservices-deployment')
           }
         })
       );
-      
+
       const unhealthy = results.filter(r => !r.healthy);
       if (unhealthy.length > 0) {
         throw new Error(`Unhealthy services: ${unhealthy.map(s => s.service).join(', ')}`);
       }
-      
+
       log.info('All services are healthy');
       return results;
     }))
-    
+
     // Run smoke tests
     .task(task('smoke-tests', async ({ vars, log, $ }) => {
       log.info('Running smoke tests...');
-      
+
       // Run test suite
       const testImage = `${vars.appName}/tests:latest`;
       await dockerModule.tasks.run.run({
@@ -430,11 +430,11 @@ export const microservicesDeployment = recipe('microservices-deployment')
         }
       });
     }))
-    
+
     // Generate deployment report
     .task(task('deployment-report', async ({ vars, log, fs }) => {
       log.info('Generating deployment report...');
-      
+
       const report = {
         deployment: {
           name: vars.appName,
@@ -461,29 +461,29 @@ export const microservicesDeployment = recipe('microservices-deployment')
           logs: vars.enableMonitoring ? `https://logs.${vars.domain}` : null
         }
       };
-      
+
       await fs.write(`deployment-report-${Date.now()}.json`, JSON.stringify(report, null, 2));
-      
+
       log.info('Deployment completed successfully!');
       return report;
     }))
   )
-  
+
   .build();
 
 // Canary deployment variant
 export const canaryDeployment = recipe('canary-deployment')
   .description('Perform canary deployment of microservices')
   .extends(microservicesDeployment)
-  
+
   .phase('canary', phase => phase
     .description('Canary deployment')
     .after('deployment')
     .before('validation')
-    
+
     .task(task('deploy-canary', async ({ vars, log }) => {
       log.info('Starting canary deployment...');
-      
+
       // Deploy canary versions
       for (const service of vars.services) {
         await k8sModule.patterns.canaryDeployment.template({
@@ -501,27 +501,27 @@ export const canaryDeployment = recipe('canary-deployment')
       }
     }))
   )
-  
+
   .build();
 
 // Blue-green deployment variant
 export const blueGreenDeployment = recipe('blue-green-deployment')
   .description('Perform blue-green deployment of microservices')
   .extends(microservicesDeployment)
-  
+
   .phase('blue-green', phase => phase
     .description('Blue-green deployment')
     .replaces('deployment')
-    
+
     .task(task('deploy-green', async ({ vars, log }) => {
       log.info('Deploying green environment...');
-      
+
       // Deploy all services with -green suffix
       const greenServices = vars.services.map(s => ({
         ...s,
         name: `${s.name}-green`
       }));
-      
+
       await parallel(
         ...greenServices.map(service =>
           k8sModule.tasks.deploy.run({
@@ -538,10 +538,10 @@ export const blueGreenDeployment = recipe('blue-green-deployment')
         )
       );
     }))
-    
+
     .task(task('test-green', async ({ vars, log }) => {
       log.info('Testing green environment...');
-      
+
       // Run tests against green environment
       await dockerModule.tasks.run.run({
         vars,
@@ -557,23 +557,23 @@ export const blueGreenDeployment = recipe('blue-green-deployment')
         }
       });
     }))
-    
+
     .task(task('switch-traffic', async ({ vars, log, $ }) => {
       log.info('Switching traffic to green environment...');
-      
+
       // Update service selectors to point to green
       for (const service of vars.services) {
         await $`kubectl patch service ${service.name} \
           -n ${vars.appName} \
           -p '{"spec":{"selector":{"version":"green"}}}'`;
       }
-      
+
       log.info('Traffic switched to green environment');
     }))
-    
+
     .task(task('cleanup-blue', async ({ vars, log, $ }) => {
       log.info('Cleaning up blue environment...');
-      
+
       // Delete old blue deployments
       for (const service of vars.services) {
         await $`kubectl delete deployment ${service.name}-blue \
@@ -581,5 +581,5 @@ export const blueGreenDeployment = recipe('blue-green-deployment')
       }
     }))
   )
-  
+
   .build();

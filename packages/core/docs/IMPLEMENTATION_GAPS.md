@@ -1,8 +1,8 @@
-# Implementation Gaps Between @xec/cli and @xec/core
+# Implementation Gaps Between @xec-js/cli and @xec-js/core
 
 ## Summary
 
-After conducting a comprehensive audit of both @xec/cli and @xec/core, I've identified significant gaps in implementation. Many CLI commands contain mock functions and missing integrations with core functionality.
+After conducting a comprehensive audit of both @xec-js/cli and @xec-js/core, I've identified significant gaps in implementation. Many CLI commands contain mock functions and missing integrations with core functionality.
 
 ## Critical Missing Implementations
 
@@ -14,7 +14,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 - `checkPackageSecurity()` - Stub checking for fake vulnerabilities
 - `fixAuditIssues()` - Stub that doesn't actually fix anything
 
-**Missing in @xec/core:**
+**Missing in @xec-js/core:**
 - Comprehensive security scanning engine
 - Compliance framework integration (SOC2, HIPAA, PCI-DSS)
 - Permission analysis engine
@@ -28,7 +28,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 - `getAlerts()` - Returns empty array
 - `exportMonitoringData()` - Doesn't actually export
 
-**Missing in @xec/core:**
+**Missing in @xec-js/core:**
 - Real-time metrics collection system
 - Alert management system
 - Health check framework
@@ -42,7 +42,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 - `grantAccess()` - Stub that logs but doesn't grant
 - `checkAccess()` - Always returns true
 
-**Missing in @xec/core:**
+**Missing in @xec-js/core:**
 - Certificate management API
 - Access control system (RBAC)
 - Security scanning engine
@@ -54,14 +54,14 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 - Strategy management is stubbed
 - Rollback mechanism is incomplete
 
-**Missing in @xec/core:**
+**Missing in @xec-js/core:**
 - `DeploymentManager` class
 - Pattern implementation (only types exist)
 - Rollback state management
 
 ### 5. **Integration Command** (`integration.ts`)
 **Missing Classes:**
-- `ExternalAPIClient` - Referenced but not found in @xec/core
+- `ExternalAPIClient` - Referenced but not found in @xec-js/core
 - API integration framework
 - Database connection pooling
 - Message queue abstractions
@@ -69,7 +69,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 ### 6. **Schedule Command** (`schedule.ts`)
 **Issues:**
 - Uses in-memory storage instead of persistent scheduling
-- No integration with @xec/core's TaskScheduler
+- No integration with @xec-js/core's TaskScheduler
 - Missing cron expression validation
 
 ### 7. **State Command** (`state.ts`)
@@ -98,7 +98,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 
 ## Missing Core Components
 
-### Required New Classes/Modules in @xec/core:
+### Required New Classes/Modules in @xec-js/core:
 
 1. **Security & Compliance**
    - `SecurityScanner`
@@ -150,7 +150,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 3. Add missing type exports and fix type mismatches
 
 ### Phase 2: New Components (Medium Priority)
-1. Implement deployment patterns in @xec/core
+1. Implement deployment patterns in @xec-js/core
 2. Create security scanning framework
 3. Build metrics collection system
 4. Develop integration framework
@@ -163,7 +163,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 
 ## Files Requiring Updates
 
-### @xec/cli files with mocks to replace:
+### @xec-js/cli files with mocks to replace:
 - `apps/xec/src/commands/audit.ts`
 - `apps/xec/src/commands/monitor.ts`
 - `apps/xec/src/commands/security.ts`
@@ -172,7 +172,7 @@ After conducting a comprehensive audit of both @xec/cli and @xec/core, I've iden
 - `apps/xec/src/commands/resources.ts`
 - `apps/xec/src/commands/schedule.ts`
 
-### @xec/core files needing extensions:
+### @xec-js/core files needing extensions:
 - `packages/core/src/state/state-manager.ts`
 - `packages/core/src/security/secrets-manager.ts`
 - `packages/core/src/resources/resource-manager.ts`

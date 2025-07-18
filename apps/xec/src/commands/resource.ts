@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
-import { QuotaManager, ResourceManager, type ResourceQuota, type ResourceRequest } from '@xec/core';
+import { QuotaManager, ResourceManager, type ResourceQuota, type ResourceRequest } from '@xec-js/core';
 
 interface ResourceOptions {
   json?: boolean;
@@ -114,7 +114,7 @@ const quotaManager = new QuotaManager();
 
 async function listPools(options: ResourceOptions = {}) {
   const pools = resourceManager.getAllPools();
-  
+
   if (pools.length === 0) {
     clack.log.info('No resource pools found');
     return;
@@ -156,7 +156,7 @@ async function createPool(id: string, name: string, options: any) {
     };
 
     const pool = resourceManager.createPool(id, name, quota);
-    
+
     clack.log.success(`Resource pool created: ${pool.name} (${pool.id})`);
     console.log(chalk.gray('Quotas:'));
     console.log(chalk.gray(`  CPU: ${quota.cpu} cores`));
@@ -204,7 +204,7 @@ async function allocateResources(poolId: string, options: any) {
     };
 
     const allocation = await resourceManager.requestResources(poolId, request);
-    
+
     clack.log.success(`Resources allocated: ${allocation.id}`);
     console.log(chalk.gray('Allocated:'));
     console.log(chalk.gray(`  CPU: ${allocation.resources.cpu} cores`));
@@ -228,7 +228,7 @@ async function releaseResources(allocationId: string) {
 
 async function listAllocations(poolId?: string, options: any = {}) {
   let allocations: any[] = [];
-  
+
   if (poolId) {
     allocations = resourceManager.getPoolAllocations(poolId);
   } else if (options.consumer) {
@@ -280,7 +280,7 @@ async function showPoolUsage(poolId: string, options: ResourceOptions = {}) {
   }
 
   const usage = resourceManager.getPoolUsagePercentage(poolId);
-  
+
   if (options.json) {
     console.log(JSON.stringify({
       pool: {
@@ -296,7 +296,7 @@ async function showPoolUsage(poolId: string, options: ResourceOptions = {}) {
   }
 
   console.log(chalk.bold(`\nResource Pool: ${pool.name} (${pool.id})\n`));
-  
+
   const table = new Table({
     head: ['Resource', 'Allocated', 'Available', 'Quota', 'Usage %'],
     style: { head: ['cyan'] }
@@ -304,13 +304,13 @@ async function showPoolUsage(poolId: string, options: ResourceOptions = {}) {
 
   const resources = ['cpu', 'memory', 'disk'];
   const units = { cpu: 'cores', memory: 'MB', disk: 'GB' };
-  
+
   resources.forEach(resource => {
     const used = (pool.usage as any)[resource] || 0;
     const quota = (pool.quota as any)[resource] || 0;
     const available = Math.max(0, quota - used);
     const usagePercent = (usage as any)[resource] || 0;
-    
+
     table.push([
       resource,
       `${used} ${(units as any)[resource]}`,
@@ -321,16 +321,16 @@ async function showPoolUsage(poolId: string, options: ResourceOptions = {}) {
   });
 
   console.log(table.toString());
-  
+
   // Show allocations summary
   console.log(chalk.cyan(`\nActive allocations: ${pool.allocated.size}`));
 }
 
 async function listQuotas() {
   const quotaScopes = ['global', 'team', 'user'];
-  
+
   console.log(chalk.bold('Resource Quotas\n'));
-  
+
   const table = new Table({
     head: ['Scope', 'Resource', 'Soft Limit', 'Hard Limit'],
     style: { head: ['cyan'] }
@@ -369,7 +369,7 @@ async function setQuota(scope: string, resource: string, limit: string, options:
 
   // Current implementation doesn't support modifying quotas directly
   const limitType = options.soft ? 'soft' : 'hard';
-  
+
   // Note: QuotaManager doesn't have a setQuota method, would need to extend it
   clack.log.warn('Quota management is not fully implemented in the current version');
   clack.log.info(`Would set ${scope}/${resource} ${options.soft ? 'soft' : 'hard'} limit to ${numLimit}`);

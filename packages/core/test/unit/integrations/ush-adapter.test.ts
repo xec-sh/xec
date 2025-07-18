@@ -2,8 +2,8 @@ import { it, vi, expect, describe, beforeEach } from 'vitest';
 
 import { UshConfig, UshAdapter } from '../../../src/integrations/ush-adapter.js';
 
-// Mock the @xec/ush module
-vi.mock('@xec/ush', () => {
+// Mock the @xec-js/ush module
+vi.mock('@xec-js/ush', () => {
   const mockResult = {
     stdout: 'test output',
     stderr: '',
@@ -16,7 +16,7 @@ vi.mock('@xec/ush', () => {
     adapter: 'local',
     toString: () => 'test output',
     toJSON: () => ({}),
-    throwIfFailed: () => {},
+    throwIfFailed: () => { },
     isSuccess: () => true
   };
 
@@ -40,13 +40,13 @@ vi.mock('@xec/ush', () => {
     $: createMockEngine(),
     configure: vi.fn(),
     ExecutionResult: class {
-      constructor(public stdout: string, public stderr: string, public exitCode: number) {}
+      constructor(public stdout: string, public stderr: string, public exitCode: number) { }
     }
   };
 });
 
-// Import the mocked $ from @xec/ush
-import { $ } from '@xec/ush';
+// Import the mocked $ from @xec-js/ush
+import { $ } from '@xec-js/ush';
 
 describe('integrations/ush-adapter', () => {
   let adapter: UshAdapter;
@@ -116,7 +116,7 @@ describe('integrations/ush-adapter', () => {
         throwIfFailed: () => { throw new Error('Command failed'); },
         isSuccess: () => false
       };
-      
+
       ($ as any).mockReturnValueOnce(Promise.resolve(failedResult));
 
       await expect(adapter.connect()).rejects.toThrow('Failed to execute test command');
@@ -177,7 +177,7 @@ describe('integrations/ush-adapter', () => {
         throwIfFailed: () => { throw new Error('Command not found'); },
         isSuccess: () => false
       };
-      
+
       ($ as any).mockReturnValueOnce(Promise.resolve(failedResult));
 
       const result = await adapter.execute('nonexistent-command');
@@ -298,10 +298,10 @@ describe('integrations/ush-adapter', () => {
           adapter: 'local',
           toString: () => 'file contents',
           toJSON: () => ({}),
-          throwIfFailed: () => {},
+          throwIfFailed: () => { },
           isSuccess: () => true
         };
-        
+
         ($ as any).mockReturnValueOnce(Promise.resolve(successResult));
 
         const content = await adapter.readFile('/tmp/test.txt');
@@ -376,10 +376,10 @@ describe('integrations/ush-adapter', () => {
           adapter: 'local',
           toString: () => 'file1\nfile2\nfile3\n',
           toJSON: () => ({}),
-          throwIfFailed: () => {},
+          throwIfFailed: () => { },
           isSuccess: () => true
         };
-        
+
         ($ as any).mockReturnValueOnce(Promise.resolve(successResult));
 
         const files = await adapter.listDirectory('/tmp');
@@ -402,10 +402,10 @@ describe('integrations/ush-adapter', () => {
           adapter: 'local',
           toString: () => '/usr/bin\n',
           toJSON: () => ({}),
-          throwIfFailed: () => {},
+          throwIfFailed: () => { },
           isSuccess: () => true
         };
-        
+
         ($ as any).mockReturnValueOnce(Promise.resolve(successResult));
 
         const value = await adapter.getEnvironmentVariable('PATH');
@@ -426,10 +426,10 @@ describe('integrations/ush-adapter', () => {
           adapter: 'local',
           toString: () => '\n',
           toJSON: () => ({}),
-          throwIfFailed: () => {},
+          throwIfFailed: () => { },
           isSuccess: () => true
         };
-        
+
         ($ as any).mockReturnValueOnce(Promise.resolve(successResult));
 
         const value = await adapter.getEnvironmentVariable('NONEXISTENT');
@@ -452,10 +452,10 @@ describe('integrations/ush-adapter', () => {
           adapter: 'local',
           toString: () => '/usr/bin/ls\n',
           toJSON: () => ({}),
-          throwIfFailed: () => {},
+          throwIfFailed: () => { },
           isSuccess: () => true
         };
-        
+
         ($ as any).mockReturnValueOnce(Promise.resolve(successResult));
 
         const path = await adapter.which('ls');
@@ -479,7 +479,7 @@ describe('integrations/ush-adapter', () => {
           throwIfFailed: () => { throw new Error('Command failed'); },
           isSuccess: () => false
         };
-        
+
         ($ as any).mockReturnValueOnce(Promise.resolve(failedResult));
 
         const path = await adapter.which('nonexistent');
@@ -505,14 +505,14 @@ describe('integrations/ush-adapter', () => {
         adapter: 'local',
         toString: () => 'success',
         toJSON: () => ({}),
-        throwIfFailed: () => {},
+        throwIfFailed: () => { },
         isSuccess: () => true
       };
-      
+
       ($ as any).mockReturnValue(Promise.resolve(successResult));
 
       const result = await sudoAdapter.execute('test-command', { args: ['arg1', 'arg2'] });
-      
+
       expect(result.success).toBe(true);
       expect($).toHaveBeenCalled();
     });
@@ -533,14 +533,14 @@ describe('integrations/ush-adapter', () => {
         adapter: 'local',
         toString: () => 'success',
         toJSON: () => ({}),
-        throwIfFailed: () => {},
+        throwIfFailed: () => { },
         isSuccess: () => true
       };
-      
+
       ($ as any).mockReturnValue(Promise.resolve(successResult));
 
       const result = await sudoAdapter.execute('echo test');
-      
+
       expect(result.success).toBe(true);
       expect($).toHaveBeenCalled();
     });
@@ -568,7 +568,7 @@ describe('integrations/ush-adapter', () => {
         throwIfFailed: () => { throw new Error('Permission denied'); },
         isSuccess: () => false
       };
-      
+
       ($ as any).mockReturnValueOnce(Promise.resolve(failedResult));
 
       await expect(adapter.readFile('/root/secret')).rejects.toThrow(
@@ -593,7 +593,7 @@ describe('integrations/ush-adapter', () => {
         throwIfFailed: () => { throw new Error('Permission denied'); },
         isSuccess: () => false
       };
-      
+
       ($ as any).mockReturnValueOnce(Promise.resolve(failedResult));
 
       await expect(adapter.createDirectory('/root/newdir')).rejects.toThrow(

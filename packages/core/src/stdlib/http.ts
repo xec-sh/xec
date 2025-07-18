@@ -1,7 +1,7 @@
-import type { CallableExecutionEngine } from '@xec/ush';
+import type { CallableExecutionEngine } from '@xec-js/ush';
 
 import type { Logger } from '../utils/logger.js';
-import type { 
+import type {
   Response,
   HttpClient,
   RetryOptions,
@@ -14,26 +14,26 @@ export async function createHttpClient(
   env: EnvironmentInfo,
   log?: Logger
 ): Promise<HttpClient> {
-  
+
   // Helper to build curl command with options
   const buildCurlCommand = (url: string, options: RequestOptions = {}) => {
     const args: string[] = ['-s']; // Silent mode
-    
+
     // Headers
     if (options.headers) {
       for (const [key, value] of Object.entries(options.headers)) {
         args.push('-H', `"${key}: ${value}"`);
       }
     }
-    
+
     // Timeout
     if (options.timeout) {
       args.push('--max-time', Math.ceil(options.timeout / 1000).toString());
     }
-    
+
     // Include headers in output
     args.push('-i');
-    
+
     return args.join(' ');
   };
 
@@ -42,11 +42,11 @@ export async function createHttpClient(
     const parts = output.split('\r\n\r\n');
     const headerSection = parts[0] || '';
     const body = parts.slice(1).join('\r\n\r\n');
-    
+
     // Parse status line
     const statusMatch = headerSection.match(/HTTP\/\d\.?\d?\s+(\d+)/);
     const status = statusMatch ? parseInt(statusMatch[1] || '0') : 0;
-    
+
     // Parse headers
     const headers: Record<string, string> = {};
     const headerLines = headerSection.split('\r\n').slice(1);
@@ -58,7 +58,7 @@ export async function createHttpClient(
         headers[key.toLowerCase()] = value;
       }
     }
-    
+
     return {
       status,
       headers,
@@ -81,36 +81,36 @@ export async function createHttpClient(
     const retryOptions: RetryOptions = typeof options.retry === 'number'
       ? { attempts: options.retry }
       : options.retry || { attempts: 0 };
-    
+
     let lastError: any;
     const maxAttempts = retryOptions.attempts + 1;
-    
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const result = await $`${command}`;
         const response = parseResponse(result.stdout);
-        
+
         // Check if we should retry based on status code
         if (response.status >= 500 && attempt < maxAttempts - 1) {
           throw new Error(`Server error: ${response.status}`);
         }
-        
+
         return response;
       } catch (error) {
         lastError = error;
-        
+
         if (attempt < maxAttempts - 1) {
           // Calculate delay
           const delay = retryOptions.backoff
             ? Math.pow(2, attempt) * (retryOptions.delay || 1000)
             : retryOptions.delay || 1000;
-          
+
           log?.debug(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
-    
+
     throw lastError;
   };
 
@@ -124,7 +124,7 @@ export async function createHttpClient(
     async post(url: string, body?: any, options?: RequestOptions): Promise<Response> {
       const curlArgs = buildCurlCommand(url, options);
       let dataArg = '';
-      
+
       if (body !== undefined) {
         if (options?.json || (options?.headers?.['content-type'] || '').includes('application/json')) {
           dataArg = `-d '${JSON.stringify(body)}'`;
@@ -137,7 +137,7 @@ export async function createHttpClient(
           dataArg = `-d '${JSON.stringify(body)}'`;
         }
       }
-      
+
       const command = `curl -X POST ${curlArgs} ${dataArg} "${url}"`;
       return executeWithRetries(command, options);
     },
@@ -145,7 +145,7 @@ export async function createHttpClient(
     async put(url: string, body?: any, options?: RequestOptions): Promise<Response> {
       const curlArgs = buildCurlCommand(url, options);
       let dataArg = '';
-      
+
       if (body !== undefined) {
         if (options?.json || (options?.headers?.['content-type'] || '').includes('application/json')) {
           dataArg = `-d '${JSON.stringify(body)}'`;
@@ -158,7 +158,7 @@ export async function createHttpClient(
           dataArg = `-d '${JSON.stringify(body)}'`;
         }
       }
-      
+
       const command = `curl -X PUT ${curlArgs} ${dataArg} "${url}"`;
       return executeWithRetries(command, options);
     },
@@ -172,9 +172,9 @@ export async function createHttpClient(
     async request(options: RequestOptions & { url: string; method?: string }): Promise<Response> {
       const { url, method = 'GET', ...requestOptions } = options;
       const curlArgs = buildCurlCommand(url, requestOptions);
-      
+
       let command = `curl -X ${method} ${curlArgs}`;
-      
+
       // Add body if present
       if ('body' in options && options.body !== undefined) {
         if (requestOptions.json || (requestOptions.headers?.['content-type'] || '').includes('application/json')) {
@@ -183,7 +183,7 @@ export async function createHttpClient(
           command += ` -d '${options.body}'`;
         }
       }
-      
+
       command += ` "${url}"`;
       return executeWithRetries(command, requestOptions);
     },

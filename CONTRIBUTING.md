@@ -61,10 +61,10 @@ Xec is a monorepo with the following structure:
 ```
 xec/
 ├── apps/
-│   └── xec/           # CLI application (@xec/cli)
+│   └── xec/           # CLI application (@xec-js/cli)
 ├── packages/
-│   ├── core/          # Core orchestration engine (@xec/core)
-│   └── ush/           # Universal shell execution engine (@xec/ush)
+│   ├── core/          # Core orchestration engine (@xec-js/core)
+│   └── ush/           # Universal shell execution engine (@xec-js/ush)
 ├── package.json       # Root package.json
 ├── turbo.json         # Turborepo configuration
 └── README.md          # Project documentation
@@ -339,7 +339,7 @@ The project includes VSCode debug configurations in `.vscode/launch.json`:
 yarn upgrade-interactive
 
 # Update specific package
-yarn workspace @xec/core add package-name@latest
+yarn workspace @xec-js/core add package-name@latest
 
 # Update all workspaces
 yarn workspaces foreach install

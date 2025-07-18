@@ -17,7 +17,7 @@ Xec is a orchestration and automation framework with a powerful command-line int
 
 ### From npm (when published)
 ```bash
-npm install -g @xec/cli
+npm install -g @xec-js/cli
 ```
 
 ### From source

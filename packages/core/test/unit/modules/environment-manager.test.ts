@@ -1,19 +1,19 @@
-import * as ushModule from '@xec/ush';
+import * as ushModule from '@xec-js/ush';
 import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import * as stdlibModule from '../../../src/stdlib/index.js';
 import { EnvironmentManager } from '../../../src/modules/environment-manager.js';
 
 
-// Mock @xec/ush
-vi.mock('@xec/ush', () => {
+// Mock @xec-js/ush
+vi.mock('@xec-js/ush', () => {
   const mockExecutor = vi.fn();
-  
+
   // Add chainable methods that return the same executor
   mockExecutor.local = vi.fn().mockReturnValue(mockExecutor);
   mockExecutor.ssh = vi.fn().mockReturnValue(mockExecutor);
   mockExecutor.docker = vi.fn().mockReturnValue(mockExecutor);
-  
+
   return {
     $: mockExecutor,
     CallableExecutionEngine: vi.fn()
@@ -25,14 +25,14 @@ vi.mock('../../../src/stdlib/index.js');
 
 describe('EnvironmentManager', () => {
   let manager: EnvironmentManager;
-  
+
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Setup stdlib mock - add all required methods
     const mockStdlib = {
-      fs: { 
-        read: vi.fn(), 
+      fs: {
+        read: vi.fn(),
         write: vi.fn(),
         exists: vi.fn(),
         mkdir: vi.fn(),
@@ -53,16 +53,16 @@ describe('EnvironmentManager', () => {
         extname: vi.fn(),
         append: vi.fn()
       },
-      http: { 
-        get: vi.fn(), 
+      http: {
+        get: vi.fn(),
         post: vi.fn(),
         put: vi.fn(),
         delete: vi.fn(),
         request: vi.fn(),
         download: vi.fn(),
-        upload: vi.fn() 
+        upload: vi.fn()
       },
-      os: { 
+      os: {
         platform: vi.fn().mockReturnValue('linux'),
         arch: vi.fn().mockReturnValue('x64'),
         hostname: vi.fn(),
@@ -73,7 +73,7 @@ describe('EnvironmentManager', () => {
         user: vi.fn(),
         home: vi.fn()
       },
-      proc: { 
+      proc: {
         exec: vi.fn(),
         spawn: vi.fn(),
         list: vi.fn(),
@@ -82,7 +82,7 @@ describe('EnvironmentManager', () => {
         cwd: vi.fn(),
         exit: vi.fn()
       },
-      pkg: { 
+      pkg: {
         install: vi.fn(),
         remove: vi.fn(),
         update: vi.fn(),
@@ -92,7 +92,7 @@ describe('EnvironmentManager', () => {
         search: vi.fn(),
         manager: vi.fn()
       },
-      svc: { 
+      svc: {
         start: vi.fn(),
         stop: vi.fn(),
         restart: vi.fn(),
@@ -103,7 +103,7 @@ describe('EnvironmentManager', () => {
         list: vi.fn(),
         exists: vi.fn()
       },
-      net: { 
+      net: {
         ping: vi.fn(),
         traceroute: vi.fn(),
         isPortOpen: vi.fn(),
@@ -114,7 +114,7 @@ describe('EnvironmentManager', () => {
         publicIP: vi.fn(),
         privateIP: vi.fn()
       },
-      crypto: { 
+      crypto: {
         hash: vi.fn(),
         md5: vi.fn(),
         sha256: vi.fn(),
@@ -124,7 +124,7 @@ describe('EnvironmentManager', () => {
         base64Encode: vi.fn(),
         base64Decode: vi.fn()
       },
-      time: { 
+      time: {
         now: vi.fn(),
         timestamp: vi.fn(),
         format: vi.fn(),
@@ -135,7 +135,7 @@ describe('EnvironmentManager', () => {
         sleep: vi.fn(),
         timeout: vi.fn()
       },
-      json: { 
+      json: {
         parse: vi.fn(),
         stringify: vi.fn(),
         read: vi.fn(),
@@ -144,7 +144,7 @@ describe('EnvironmentManager', () => {
         get: vi.fn(),
         set: vi.fn()
       },
-      yaml: { 
+      yaml: {
         parse: vi.fn(),
         stringify: vi.fn(),
         read: vi.fn(),
@@ -152,7 +152,7 @@ describe('EnvironmentManager', () => {
         parseAll: vi.fn(),
         stringifyAll: vi.fn()
       },
-      env: { 
+      env: {
         get: vi.fn(),
         set: vi.fn(),
         all: vi.fn(),
@@ -160,18 +160,18 @@ describe('EnvironmentManager', () => {
         expand: vi.fn(),
         require: vi.fn()
       },
-      template: { 
+      template: {
         render: vi.fn(),
         renderFile: vi.fn()
       }
     };
-    
+
     // Ensure createStandardLibrary doesn't override $ from context
-    vi.mocked(stdlibModule.createStandardLibrary).mockImplementation(async (context) => 
+    vi.mocked(stdlibModule.createStandardLibrary).mockImplementation(async (context) =>
       // Return stdlib without $ to avoid overriding context.$
-       mockStdlib
+      mockStdlib
     );
-    
+
     // Set up mock command executor
     const mockExecutor = vi.mocked(ushModule.$);
     mockExecutor.mockImplementation((strings: any, ...values: any[]) => {
@@ -195,90 +195,90 @@ describe('EnvironmentManager', () => {
         return Promise.reject(new Error('Not in Docker'));
       }
       if (fullCmd.includes('cat /etc/os-release')) {
-        return Promise.resolve({ 
-          stdout: 'ID=ubuntu\nPRETTY_NAME="Ubuntu 20.04"', 
-          stderr: '', 
-          exitCode: 0 
+        return Promise.resolve({
+          stdout: 'ID=ubuntu\nPRETTY_NAME="Ubuntu 20.04"',
+          stderr: '',
+          exitCode: 0
         });
       }
       return Promise.resolve({ stdout: '', stderr: '', exitCode: 0 });
     });
-    
+
     manager = new EnvironmentManager();
   });
-  
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
-  
+
   describe('detectEnvironment', () => {
     it('should detect local environment as default', async () => {
       const env = await manager.detectEnvironment();
-      
+
       expect(env.type).toBe('local');
       expect(env.capabilities.shell).toBe(true);
       expect(env.platform.os).toBeDefined();
       expect(env.platform.arch).toBeDefined();
     });
-    
+
     it('should detect SSH environment', async () => {
       // Mock SSH environment variables
       vi.stubEnv('SSH_CONNECTION', '192.168.1.1 22 192.168.1.2 22');
       vi.stubEnv('SSH_HOST', 'remote-host');
       vi.stubEnv('SSH_USER', 'remote-user');
-      
+
       const newManager = new EnvironmentManager();
       const env = await newManager.detectEnvironment();
-      
+
       expect(env.type).toBe('ssh');
       expect(env.connection?.host).toBe('remote-host');
       expect(env.connection?.user).toBe('remote-user');
     });
-    
+
     it.skip('should detect Docker environment', async () => {
       // Skip this test for now - it requires deeper mocking of the shell execution
       // The issue is that EnvironmentManager creates its own shell instance internally
     });
-    
+
     it('should detect platform-specific details', async () => {
       const originalPlatform = process.platform;
       Object.defineProperty(process, 'platform', {
         value: 'linux',
         configurable: true
       });
-      
+
       const newManager = new EnvironmentManager();
       const env = await newManager.detectEnvironment();
-      
+
       expect(env.platform.os).toBe('linux');
       // Distro detection depends on mock response
       expect(env.platform.distro).toBeDefined();
-      
+
       Object.defineProperty(process, 'platform', {
         value: originalPlatform,
         configurable: true
       });
     });
   });
-  
+
   describe('createTaskContext', () => {
     it('should create a complete task context', async () => {
       const params = { foo: 'bar' };
-      
+
       // Create a fresh manager with proper mocking
       const mockExecutor = vi.mocked(ushModule.$);
-      
+
       // Ensure $.local() returns the executor
       mockExecutor.local.mockReturnValue(mockExecutor);
-      
+
       const testManager = new EnvironmentManager();
-      
+
       // Ensure the manager has detected environment first
       await testManager.detectEnvironment();
-      
+
       const context = await testManager.createTaskContext(params);
-      
+
       // The context should have all required properties
       expect(context).toBeDefined();
       // Basic properties from baseContext
@@ -287,34 +287,34 @@ describe('EnvironmentManager', () => {
       expect(context.env).toBeDefined();
       expect(context.params).toEqual(params);
       expect(context.log).toBeDefined();
-      
+
       // Check stdlib utilities - they are merged into context
       expect(context.fs).toBeDefined();
       expect(context.http).toBeDefined();
       expect(context.template).toBeDefined();
       expect(context.env_vars).toBeDefined(); // renamed from env
     });
-    
+
     it('should detect environment if not already detected', async () => {
       const context = await manager.createTaskContext();
-      
+
       expect(context.env).toBeDefined();
       expect(context.env.type).toBe('local');
     });
-    
+
     it('should use current environment if already detected', async () => {
       // First detection
       await manager.detectEnvironment();
       const currentEnv = manager.getCurrentEnvironment();
-      
+
       // Create context
       const context = await manager.createTaskContext();
-      
+
       // Should use the same environment
       expect(context.env).toBe(currentEnv);
     });
   });
-  
+
   describe('registerProvider', () => {
     it('should register custom environment provider', async () => {
       const customProvider = {
@@ -326,18 +326,18 @@ describe('EnvironmentManager', () => {
         }),
         createExecutor: vi.fn().mockReturnValue(vi.mocked(ushModule.$))
       };
-      
+
       const newManager = new EnvironmentManager();
       newManager.registerProvider(customProvider);
-      
+
       // Force detection to check custom provider
       const env = await newManager.detectEnvironment();
-      
+
       expect(customProvider.detect).toHaveBeenCalled();
       expect(env.type).toBe('kubernetes');
     });
   });
-  
+
   describe('cleanup', () => {
     it('should cleanup resources', async () => {
       await manager.cleanup();

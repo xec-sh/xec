@@ -9,8 +9,8 @@ Testing in Xec Core covers all levels: from unit tests of individual functions t
 ### Installing Dependencies
 
 ```bash
-npm install --save-dev @xec/testing jest @types/jest
-npm install --save-dev @xec/testing-utils
+npm install --save-dev @xec-js/testing jest @types/jest
+npm install --save-dev @xec-js/testing-utils
 ```
 
 ### Jest Configuration
@@ -18,7 +18,7 @@ npm install --save-dev @xec/testing-utils
 ```javascript
 // jest.config.js
 module.exports = {
-  preset: '@xec/testing/jest-preset',
+  preset: '@xec-js/testing/jest-preset',
   testEnvironment: 'node',
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
   collectCoverageFrom: [
@@ -41,7 +41,7 @@ module.exports = {
 
 ```typescript
 // test/helpers/setup.ts
-import { TestEnvironment } from '@xec/testing';
+import { TestEnvironment } from '@xec-js/testing';
 
 export const testEnv = new TestEnvironment({
   mockFileSystem: true,
@@ -63,8 +63,8 @@ afterEach(async () => {
 ### Testing Tasks
 
 ```typescript
-import { task } from '@xec/core';
-import { TaskTester } from '@xec/testing';
+import { task } from '@xec-js/core';
+import { TaskTester } from '@xec-js/testing';
 
 describe('Deploy Task', () => {
   let tester: TaskTester;
@@ -174,7 +174,7 @@ describe('Conditional Task', () => {
 ### Testing State Management
 
 ```typescript
-import { StateTester } from '@xec/testing';
+import { StateTester } from '@xec-js/testing';
 
 describe('State Management', () => {
   let stateTester: StateTester;
@@ -212,8 +212,8 @@ describe('State Management', () => {
 ### Testing Recipes
 
 ```typescript
-import { recipe } from '@xec/core';
-import { RecipeTester } from '@xec/testing';
+import { recipe } from '@xec-js/core';
+import { RecipeTester } from '@xec-js/testing';
 
 describe('Deployment Recipe', () => {
   let tester: RecipeTester;
@@ -283,7 +283,7 @@ describe('Deployment Recipe', () => {
 ### Testing Integration Adapters
 
 ```typescript
-import { IntegrationTester } from '@xec/testing';
+import { IntegrationTester } from '@xec-js/testing';
 import { MyCustomAdapter } from '../src/integrations/my-adapter';
 
 describe('Custom Integration Adapter', () => {
@@ -333,8 +333,8 @@ describe('Custom Integration Adapter', () => {
 ### Testing Complete Workflows
 
 ```typescript
-import { XecTester } from '@xec/testing';
-import { Xec } from '@xec/core';
+import { XecTester } from '@xec-js/testing';
+import { Xec } from '@xec-js/core';
 
 describe('E2E Deployment Workflow', () => {
   let xec: Xec;
@@ -403,7 +403,7 @@ describe('E2E Deployment Workflow', () => {
 ### Performance Testing
 
 ```typescript
-import { PerformanceTester } from '@xec/testing';
+import { PerformanceTester } from '@xec-js/testing';
 
 describe('Performance Tests', () => {
   let perfTester: PerformanceTester;
@@ -455,7 +455,7 @@ describe('Performance Tests', () => {
 ### File System Mocking
 
 ```typescript
-import { mockFS } from '@xec/testing';
+import { mockFS } from '@xec-js/testing';
 
 describe('File Operations', () => {
   beforeEach(() => {
@@ -489,7 +489,7 @@ describe('File Operations', () => {
 ### Network Mocking
 
 ```typescript
-import { mockNetwork } from '@xec/testing';
+import { mockNetwork } from '@xec-js/testing';
 
 describe('API Integration', () => {
   beforeEach(() => {
@@ -529,7 +529,7 @@ describe('API Integration', () => {
 ### Time Mocking
 
 ```typescript
-import { mockTime } from '@xec/testing';
+import { mockTime } from '@xec-js/testing';
 
 describe('Scheduled Tasks', () => {
   beforeEach(() => {

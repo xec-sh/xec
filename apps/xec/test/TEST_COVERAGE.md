@@ -120,7 +120,7 @@ npm test -- --coverage
 
 All test files follow a consistent structure:
 1. Import necessary dependencies and mocks
-2. Set up mocks for @xec/core and file system operations
+2. Set up mocks for @xec-js/core and file system operations
 3. Create test suites for each subcommand
 4. Test both success and error scenarios
 5. Verify console output and file operations
@@ -128,7 +128,7 @@ All test files follow a consistent structure:
 
 ## Mock Strategy
 
-- **@xec/core**: All core functionality is mocked to isolate CLI behavior
+- **@xec-js/core**: All core functionality is mocked to isolate CLI behavior
 - **fs/promises**: File operations are mocked to avoid actual file I/O
 - **@inquirer/prompts**: User input prompts are mocked for predictable testing
 - **Console methods**: Mocked to capture and verify output
