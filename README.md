@@ -1,4 +1,6 @@
-# Xec - Infrastructure Orchestration System
+# Xec - Orchestration and Automation System
+
+> **Xec** [zek] - from "execute" (exec), representing the core purpose of the system: reliable command execution across diverse environments.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Turborepo](https://img.shields.io/badge/maintained%20with-turborepo-cc00ff.svg)](https://turbo.build/)
