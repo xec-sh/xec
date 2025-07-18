@@ -1,7 +1,9 @@
 import type { Readable, Writable } from 'node:stream';
 
+import type { RetryOptions } from '../utils/retry-adapter.js';
+
 export type StreamOption = 'pipe' | 'ignore' | 'inherit' | Writable;
-export type AdapterType = 'local' | 'ssh' | 'docker' | 'kubernetes' | 'remote-docker' | 'auto';
+export type AdapterType = 'local' | 'ssh' | 'docker' | 'kubernetes' | 'remote-docker' | 'auto' | 'mock';
 
 export interface SSHAdapterOptions {
   type: 'ssh';
@@ -48,16 +50,6 @@ export type AdapterSpecificOptions =
   | KubernetesAdapterOptions
   | RemoteDockerAdapterOptions;
 
-export interface RetryOptions {
-  maxAttempts?: number;
-  initialDelay?: number;
-  maxDelay?: number;
-  backoffMultiplier?: number;
-  jitter?: boolean;
-  isRetryable?: (error: Error) => boolean;
-  onRetry?: (attempt: number, error: Error, nextDelay: number) => void;
-}
-
 export interface Command {
   // Основное
   command: string;                      // Команда для выполнения
@@ -78,6 +70,7 @@ export interface Command {
   shell?: string | boolean;             // Использовать shell
   detached?: boolean;                   // Отсоединенный процесс
   signal?: AbortSignal;                 // Сигнал отмены
+  nothrow?: boolean;                    // Не выбрасывать исключения при ненулевом коде возврата
   
   // Retry configuration
   retry?: RetryOptions;                 // Retry options

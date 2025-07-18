@@ -33,7 +33,7 @@ function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine 
         // Methods that return a new engine instance
         const chainableMethods = [
           'with', 'ssh', 'docker', 'kubernetes', 'remoteDocker', 
-          'local', 'cd', 'env', 'timeout', 'shell', 'withRetry'
+          'local', 'cd', 'env', 'timeout', 'shell', 'retry'
         ];
         
         if (chainableMethods.includes(prop)) {

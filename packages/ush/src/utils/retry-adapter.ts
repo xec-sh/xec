@@ -1,8 +1,10 @@
+import { ExecutionResult } from '../core/result.js';
+
 export interface RetryOptions {
   /**
    * Maximum number of retry attempts (not including the initial attempt)
    */
-  maxAttempts?: number;
+  maxRetries?: number;
   
   /**
    * Initial delay in milliseconds before the first retry
@@ -25,40 +27,39 @@ export interface RetryOptions {
   jitter?: boolean;
   
   /**
-   * Function to determine if an error is retryable
+   * Function to determine if a command result is retryable
+   * Gets the full ExecutionResult for analysis
    */
-  isRetryable?: (error: Error) => boolean;
+  isRetryable?: (result: ExecutionResult) => boolean;
   
   /**
    * Callback for retry events
    */
-  onRetry?: (attempt: number, error: Error, nextDelay: number) => void;
-}
-
-export interface RetryContext {
-  attempt: number;
-  totalAttempts: number;
-  error: Error;
+  onRetry?: (attempt: number, result: ExecutionResult, nextDelay: number) => void;
 }
 
 export class RetryError extends Error {
   constructor(
     message: string,
     public readonly attempts: number,
-    public readonly lastError: Error,
-    public readonly errors: Error[]
+    public readonly lastResult: ExecutionResult,
+    public readonly results: ExecutionResult[]
   ) {
     super(message);
     this.name = 'RetryError';
   }
 }
 
-export async function withRetry<T>(
-  fn: () => Promise<T>,
+
+/**
+ * Retry function specifically for ExecutionResult
+ */
+export async function withExecutionRetry(
+  fn: () => Promise<ExecutionResult>,
   options: RetryOptions = {}
-): Promise<T> {
+): Promise<ExecutionResult> {
   const {
-    maxAttempts = 3,
+    maxRetries = 3,
     initialDelay = 100,
     maxDelay = 30000,
     backoffMultiplier = 2,
@@ -67,65 +68,57 @@ export async function withRetry<T>(
     onRetry,
   } = options;
   
-  const errors: Error[] = [];
+  const results: ExecutionResult[] = [];
   
-  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      errors.push(err);
-      
-      // If this is the last attempt, throw
-      if (attempt === maxAttempts) {
-        throw new RetryError(
-          `Failed after ${maxAttempts + 1} attempts: ${err.message}`,
-          maxAttempts + 1,
-          err,
-          errors
-        );
-      }
-      
-      // Check if error is retryable
-      if (!isRetryable(err)) {
-        throw err;
-      }
-      
-      // Calculate next delay
-      const baseDelay = Math.min(initialDelay * Math.pow(backoffMultiplier, attempt), maxDelay);
-      const delay = jitter ? addJitter(baseDelay) : baseDelay;
-      
-      // Call retry callback if provided
-      if (onRetry) {
-        onRetry(attempt + 1, err, delay);
-      }
-      
-      // Wait before next attempt
-      await sleep(delay);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await fn();
+    results.push(result);
+    
+    // If command succeeded, return result
+    if (result.exitCode === 0) {
+      return result;
     }
+    
+    // If this is the last attempt, throw
+    if (attempt === maxRetries) {
+      throw new RetryError(
+        `Failed after ${maxRetries + 1} attempts: ${result.command}`,
+        maxRetries + 1,
+        result,
+        results
+      );
+    }
+    
+    // Check if result is retryable
+    if (!isRetryable(result)) {
+      throw new RetryError(
+        `Command failed and is not retryable: ${result.command}`,
+        attempt + 1,
+        result,
+        results
+      );
+    }
+    
+    // Calculate next delay
+    const baseDelay = Math.min(initialDelay * Math.pow(backoffMultiplier, attempt), maxDelay);
+    const delay = jitter ? addJitter(baseDelay) : baseDelay;
+    
+    // Call retry callback if provided
+    if (onRetry) {
+      onRetry(attempt + 1, result, delay);
+    }
+    
+    // Wait before next attempt
+    await sleep(delay);
   }
   
   // This should never be reached, but TypeScript needs it
   throw new Error('Unexpected retry state');
 }
 
-function defaultIsRetryable(error: Error): boolean {
-  // Default retry logic - retry on network errors, timeouts, and transient failures
-  const retryableMessages = [
-    'ECONNREFUSED',
-    'ECONNRESET',
-    'ETIMEDOUT',
-    'EPIPE',
-    'ENOTFOUND',
-    'timeout',
-    'timed out',
-    'connection reset',
-    'connection refused',
-    'socket hang up',
-  ];
-  
-  const message = error.message.toLowerCase();
-  return retryableMessages.some(msg => message.includes(msg.toLowerCase()));
+function defaultIsRetryable(result: ExecutionResult): boolean {
+  // Simple default: retry on non-zero exit codes
+  return result.exitCode !== 0;
 }
 
 function addJitter(delay: number): number {
@@ -138,7 +131,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function createRetryableAdapter<T extends { execute: (cmd: any) => Promise<any> }>(
+export function createRetryableAdapter<T extends { execute: (cmd: any) => Promise<ExecutionResult> }>(
   adapter: T,
   defaultRetryOptions?: RetryOptions
 ): T {
@@ -149,12 +142,14 @@ export function createRetryableAdapter<T extends { execute: (cmd: any) => Promis
           // Extract retry options from command or use defaults
           const retryOptions = command.retry || defaultRetryOptions;
           
-          if (!retryOptions || (retryOptions.maxAttempts ?? 0) <= 0) {
+          // Check if retry is configured
+          const maxRetries = retryOptions?.maxRetries ?? 0;
+          if (!retryOptions || maxRetries <= 0) {
             // No retry configured, execute normally
             return target.execute(command);
           }
           
-          return withRetry(
+          return withExecutionRetry(
             () => target.execute(command),
             retryOptions
           );

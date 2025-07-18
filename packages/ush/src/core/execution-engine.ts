@@ -14,10 +14,10 @@ import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
 import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
 import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
+// Core features imports
+import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
 import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
 import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../adapters/remote-docker-adapter.js';
-// Core features imports
-import { withRetry as withRetryFunction, RetryOptions as RetryAdapterOptions } from '../utils/retry-adapter.js';
 import { TempDir, TempFile, TempOptions, withTempDir as _withTempDir, withTempFile as _withTempFile } from '../utils/temp.js';
 import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from './command.js';
 
@@ -210,11 +210,22 @@ export class ExecutionEngine {
     }
 
     // Apply retry logic if retry options are specified in the command
-    if (mergedCommand.retry && mergedCommand.retry.maxAttempts && mergedCommand.retry.maxAttempts > 0) {
-      return withRetryFunction(
-        () => adapter.execute(mergedCommand), 
-        mergedCommand.retry
-      );
+    if (mergedCommand.retry) {
+      const maxRetries = mergedCommand.retry.maxRetries ?? 0;
+      if (maxRetries > 0) {
+        try {
+          return await withExecutionRetry(
+            () => adapter.execute(mergedCommand),
+            mergedCommand.retry
+          );
+        } catch (error) {
+          // If nothrow is set and it's a RetryError, return the last result
+          if (mergedCommand.nothrow && error instanceof RetryError) {
+            return error.lastResult;
+          }
+          throw error;
+        }
+      }
     }
 
     return adapter.execute(mergedCommand);
@@ -304,14 +315,13 @@ export class ExecutionEngine {
   createProcessPromise(command: Command): ProcessPromise {
     const currentCommand = { ...command };
     let isQuiet = false;
-    let noThrow = false;
 
     const executeCommand = async (): Promise<ExecutionResult> => {
       try {
         const result = await this.execute(currentCommand);
         return result;
       } catch (error) {
-        if (noThrow) {
+        if (currentCommand.nothrow) {
           // Return error as result
           return {
             stdout: '',
@@ -361,7 +371,7 @@ export class ExecutionEngine {
     };
 
     promise.nothrow = (): ProcessPromise => {
-      noThrow = true;
+      currentCommand.nothrow = true;
       return this.createProcessPromise(currentCommand);
     };
 
@@ -467,14 +477,26 @@ export class ExecutionEngine {
   }
 
   // Enhanced retry method
-  withRetry(options: RetryAdapterOptions = {}): ExecutionEngine {
+  retry(options: RetryOptions = {}): ExecutionEngine {
     const originalExecute = this.execute.bind(this);
     
     const newEngine = Object.create(this);
     newEngine.execute = async (cmd: Command): Promise<ExecutionResult> => {
       // Merge command retry options with method options
       const retryOptions = { ...options, ...cmd.retry };
-      return withRetryFunction(() => originalExecute(cmd), retryOptions);
+      
+      try {
+        return await withExecutionRetry(
+          () => originalExecute(cmd),
+          retryOptions
+        );
+      } catch (error) {
+        // If nothrow is set and it's a RetryError, return the last result
+        if (cmd.nothrow && error instanceof RetryError) {
+          return error.lastResult;
+        }
+        throw error;
+      }
     };
     
     return newEngine;

@@ -217,7 +217,7 @@ export abstract class BaseAdapter {
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command }
   ): ExecutionResult {
     // Apply sensitive data masking
     const maskedStdout = this.maskSensitiveData(stdout);
@@ -240,7 +240,9 @@ export abstract class BaseAdapter {
 
     // Note: Audit logging is not available in sync mode
     
-    if (this.config.throwOnNonZeroExit && exitCode !== 0) {
+    // Use originalCommand if available, otherwise fall back to command string
+    const commandForThrowCheck = context?.originalCommand ?? command;
+    if (this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
       result.throwIfFailed();
     }
 
@@ -255,7 +257,7 @@ export abstract class BaseAdapter {
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command }
   ): Promise<ExecutionResult> {
     // Apply sensitive data masking
     const maskedStdout = this.maskSensitiveData(stdout);
@@ -293,11 +295,33 @@ export abstract class BaseAdapter {
       );
     }
 
-    if (this.config.throwOnNonZeroExit && exitCode !== 0) {
+    // Use originalCommand if available, otherwise fall back to command string
+    const commandForThrowCheck = context?.originalCommand ?? command;
+    if (this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
       result.throwIfFailed();
     }
 
     return result;
+  }
+
+  // Helper method to determine if we should throw on non-zero exit
+  protected shouldThrowOnNonZeroExit(command: Command | string, exitCode: number): boolean {
+    if (exitCode === 0) {
+      return false;
+    }
+    
+    // If command is a string, use global configuration
+    if (typeof command === 'string') {
+      return this.config.throwOnNonZeroExit;
+    }
+    
+    // If nothrow is explicitly set on the command, don't throw
+    if (command.nothrow) {
+      return false;
+    }
+    
+    // Otherwise, follow the global configuration
+    return this.config.throwOnNonZeroExit;
   }
 
   protected buildCommandString(command: Command): string {

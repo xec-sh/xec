@@ -3,7 +3,7 @@ import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapte
 
 
 // Callable ExecutionEngine interface
-export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'kubernetes' | 'remoteDocker' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'withRetry'> {
+export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'kubernetes' | 'remoteDocker' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'withRetry' | 'retry'> {
   // Make it callable
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
   
@@ -22,4 +22,5 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   timeout(ms: number): CallableExecutionEngine;
   shell(shell: string | boolean): CallableExecutionEngine;
   withRetry(options: any): CallableExecutionEngine;
+  retry(options: any): CallableExecutionEngine;
 }

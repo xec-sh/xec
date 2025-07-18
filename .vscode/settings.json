@@ -8,9 +8,6 @@
   "[typescriptreact]": {
     "editor.defaultFormatter": "vscode.typescript-language-features"
   },
-  "[zmodel]": {
-    "editor.defaultFormatter": "zenstack.zenstack"
-  },
   "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   },

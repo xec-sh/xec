@@ -1,10 +1,30 @@
 import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/index';
-import { CommandError } from '../../../src/core/error';
 import { ExecutionResultImpl } from '../../../src/core/result';
 import { LocalAdapter } from '../../../src/adapters/local-adapter';
-import { RetryError, createRetryableAdapter, withRetry as withRetryFunction } from '../../../src/utils/retry-adapter';
+import { RetryError, withExecutionRetry, createRetryableAdapter } from '../../../src/utils/retry-adapter';
+
+// Helper function to create ExecutionResult
+function createResult(options: {
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  duration?: number;
+}): ExecutionResultImpl {
+  return new ExecutionResultImpl(
+    options.stdout,
+    options.stderr,
+    options.exitCode,
+    undefined, // signal
+    options.command,
+    options.duration || 100,
+    new Date(),
+    new Date(),
+    'local'
+  );
+}
 
 describe('Retry Mechanism', () => {
   let engine: ExecutionEngine;
@@ -15,35 +35,56 @@ describe('Retry Mechanism', () => {
     });
   });
 
-  describe('withRetry function', () => {
+  describe('withExecutionRetry function', () => {
     test('should retry on failure with default options', async () => {
       let attempts = 0;
       const fn = jest.fn(async () => {
         attempts++;
         if (attempts < 3) {
-          throw new Error('ECONNREFUSED');
+          return createResult({
+            command: 'test',
+            exitCode: 1,
+            stdout: '',
+            stderr: 'ECONNREFUSED',
+            duration: 100
+          });
         }
-        return 'success';
+        return createResult({
+          command: 'test',
+          exitCode: 0,
+          stdout: 'success',
+          stderr: '',
+          duration: 100
+        });
       });
 
-      const result = await withRetryFunction(fn);
-      expect(result).toBe('success');
+      const result = await withExecutionRetry(fn);
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe('success');
       expect(fn).toHaveBeenCalledTimes(3);
     });
 
-    test('should respect maxAttempts', async () => {
+    test('should respect maxRetries', async () => {
       let attempts = 0;
       const fn = jest.fn(async () => {
         attempts++;
-        throw new Error('ECONNREFUSED');
+        return createResult({
+          command: 'test',
+          exitCode: 1,
+          stdout: '',
+          stderr: 'ECONNREFUSED',
+          duration: 100
+        });
       });
 
       await expect(
-        withRetryFunction(fn, { maxAttempts: 2 })
+        withExecutionRetry(fn, { maxRetries: 2 })
       ).rejects.toThrow(RetryError);
       
       expect(fn).toHaveBeenCalledTimes(3); // initial + 2 retries
     });
+
+
 
     test('should apply exponential backoff', async () => {
       const delays: number[] = [];
@@ -59,13 +100,25 @@ describe('Retry Mechanism', () => {
       const fn = jest.fn(async () => {
         attempts++;
         if (attempts < 4) {
-          throw new Error('ETIMEDOUT');
+          return createResult({
+            command: 'test',
+            exitCode: 1,
+            stdout: '',
+            stderr: 'ETIMEDOUT',
+            duration: 100
+          });
         }
-        return 'success';
+        return createResult({
+          command: 'test',
+          exitCode: 0,
+          stdout: 'success',
+          stderr: '',
+          duration: 100
+        });
       });
 
-      await withRetryFunction(fn, {
-        maxAttempts: 3,
+      await withExecutionRetry(fn, {
+        maxRetries: 3,
         initialDelay: 100,
         backoffMultiplier: 2,
         jitter: false
@@ -85,17 +138,29 @@ describe('Retry Mechanism', () => {
       const fn = jest.fn(async () => {
         attempts++;
         if (attempts === 1) {
-          throw new Error('ECONNREFUSED'); // Retryable
+          return createResult({
+            command: 'test',
+            exitCode: 1,
+            stdout: '',
+            stderr: 'ECONNREFUSED', // Retryable
+            duration: 100
+          });
         } else {
-          throw new Error('INVALID_INPUT'); // Not retryable
+          return createResult({
+            command: 'test',
+            exitCode: 1,
+            stdout: '',
+            stderr: 'INVALID_INPUT', // Not retryable
+            duration: 100
+          });
         }
       });
 
-      const isRetryable = (error: Error) => error.message.includes('ECONNREFUSED');
+      const isRetryable = (result: any) => result.stderr.includes('ECONNREFUSED');
 
       await expect(
-        withRetryFunction(fn, { maxAttempts: 3, isRetryable })
-      ).rejects.toThrow('INVALID_INPUT');
+        withExecutionRetry(fn, { maxRetries: 3, isRetryable })
+      ).rejects.toThrow(RetryError);
       
       expect(fn).toHaveBeenCalledTimes(2); // Initial + 1 retry
     });
@@ -107,20 +172,32 @@ describe('Retry Mechanism', () => {
       const fn = jest.fn(async () => {
         attempts++;
         if (attempts < 3) {
-          throw new Error('ECONNREFUSED');
+          return createResult({
+            command: 'test',
+            exitCode: 1,
+            stdout: '',
+            stderr: 'ECONNREFUSED',
+            duration: 100
+          });
         }
-        return 'success';
+        return createResult({
+          command: 'test',
+          exitCode: 0,
+          stdout: 'success',
+          stderr: '',
+          duration: 100
+        });
       });
 
-      await withRetryFunction(fn, {
-        maxAttempts: 2,
+      await withExecutionRetry(fn, {
+        maxRetries: 2,
         onRetry,
         initialDelay: 0
       });
 
       expect(onRetry).toHaveBeenCalledTimes(2);
-      expect(onRetry).toHaveBeenNthCalledWith(1, 1, expect.any(Error), expect.any(Number));
-      expect(onRetry).toHaveBeenNthCalledWith(2, 2, expect.any(Error), expect.any(Number));
+      expect(onRetry).toHaveBeenNthCalledWith(1, 1, expect.any(ExecutionResultImpl), expect.any(Number));
+      expect(onRetry).toHaveBeenNthCalledWith(2, 2, expect.any(ExecutionResultImpl), expect.any(Number));
     });
   });
 
@@ -133,21 +210,21 @@ describe('Retry Mechanism', () => {
         async execute(cmd: any) {
           attempts++;
           if (attempts < 3 && cmd.command === 'flaky-command') {
-            throw new CommandError('flaky-command', 1, undefined, '', 'Connection timeout', 100);
+            return createResult({
+              command: 'flaky-command',
+              exitCode: 1,
+              stdout: '',
+              stderr: 'Connection timeout',
+              duration: 100
+            });
           }
-          const startedAt = new Date();
-          const finishedAt = new Date();
-          return new ExecutionResultImpl(
-            'success',
-            '',
-            0,
-            undefined,
-            cmd.command,
-            10,
-            startedAt,
-            finishedAt,
-            'local'
-          );
+          return createResult({
+            command: cmd.command,
+            exitCode: 0,
+            stdout: 'success',
+            stderr: '',
+            duration: 100
+          });
         },
         async isAvailable() { return true; }
       };
@@ -159,15 +236,9 @@ describe('Retry Mechanism', () => {
         command: 'flaky-command',
         adapter: 'local',
         retry: {
-          maxAttempts: 2,
+          maxRetries: 2,
           initialDelay: 10,
-          isRetryable: (error) => {
-            // For CommandError, check the stderr field
-            if (error instanceof CommandError) {
-              return error.stderr.includes('timeout');
-            }
-            return error.message.includes('timeout');
-          }
+          isRetryable: (result) => result.stderr.includes('timeout')
         }
       });
 
@@ -178,24 +249,34 @@ describe('Retry Mechanism', () => {
     test('should not retry when retry is disabled', async () => {
       let attempts = 0;
       
-      const originalExecute = engine.execute.bind(engine);
-      engine.execute = jest.fn(async (cmd: any) => {
-        attempts++;
-        if (cmd.command === 'fail-command') {
-          throw new CommandError('fail-command', 1, undefined, '', 'Error', 100);
-        }
-        return originalExecute(cmd);
+      // Create a mock adapter that always fails
+      const mockAdapter = {
+        async execute(cmd: any) {
+          attempts++;
+          return createResult({
+            command: cmd.command,
+            exitCode: 1,
+            stdout: '',
+            stderr: 'Error',
+            duration: 100
+          });
+        },
+        async isAvailable() { return true; }
+      };
+
+      // Register the mock adapter
+      (engine as any).registerAdapter('local', mockAdapter);
+
+      const result = await engine.execute({
+        command: 'fail-command',
+        adapter: 'local',
+        retry: {
+          maxRetries: 0
+        },
+        nothrow: true // Add nothrow to prevent error
       });
 
-      await expect(
-        engine.execute({
-          command: 'fail-command',
-          retry: {
-            maxAttempts: 0
-          }
-        })
-      ).rejects.toThrow(CommandError);
-
+      expect(result.exitCode).toBe(1);
       expect(attempts).toBe(1);
     });
   });
@@ -209,25 +290,25 @@ describe('Retry Mechanism', () => {
       mockAdapter.execute = jest.fn(async (cmd: any) => {
         attempts++;
         if (attempts === 1) {
-          throw new Error('ECONNREFUSED');
+          return createResult({
+            command: cmd.command,
+            exitCode: 1,
+            stdout: '',
+            stderr: 'ECONNREFUSED',
+            duration: 100
+          });
         }
-        const startedAt = new Date();
-        const finishedAt = new Date();
-        return new ExecutionResultImpl(
-          'success',
-          '',
-          0,
-          undefined,
-          cmd.command,
-          10,
-          startedAt,
-          finishedAt,
-          'local'
-        );
+        return createResult({
+          command: cmd.command,
+          exitCode: 0,
+          stdout: 'success',
+          stderr: '',
+          duration: 100
+        });
       });
 
       const retryableAdapter = createRetryableAdapter(mockAdapter, {
-        maxAttempts: 2,
+        maxRetries: 2,
         initialDelay: 10
       });
 
@@ -246,32 +327,32 @@ describe('Retry Mechanism', () => {
       mockAdapter.execute = jest.fn(async (cmd: any) => {
         attempts++;
         if (attempts < 3) {
-          throw new Error('ECONNREFUSED');
+          return createResult({
+            command: cmd.command,
+            exitCode: 1,
+            stdout: '',
+            stderr: 'ECONNREFUSED',
+            duration: 100
+          });
         }
-        const startedAt = new Date();
-        const finishedAt = new Date();
-        return new ExecutionResultImpl(
-          'success',
-          '',
-          0,
-          undefined,
-          cmd.command,
-          10,
-          startedAt,
-          finishedAt,
-          'local'
-        );
+        return createResult({
+          command: cmd.command,
+          exitCode: 0,
+          stdout: 'success',
+          stderr: '',
+          duration: 100
+        });
       });
 
       const retryableAdapter = createRetryableAdapter(mockAdapter, {
-        maxAttempts: 1 // Default is 1 retry
+        maxRetries: 1 // Default is 1 retry
       });
 
       // Command specifies 2 retries, should override default
       const result = await retryableAdapter.execute({
         command: 'test',
         retry: {
-          maxAttempts: 2,
+          maxRetries: 2,
           initialDelay: 10
         }
       });
@@ -283,19 +364,22 @@ describe('Retry Mechanism', () => {
 
   describe('RetryError', () => {
     test('should contain all error information', async () => {
-      const errors: Error[] = [];
       let attempts = 0;
       
       const fn = jest.fn(async () => {
         attempts++;
-        const error = new Error(`Attempt ${attempts} failed`);
-        errors.push(error);
-        throw error;
+        return createResult({
+          command: `test-attempt-${attempts}`,
+          exitCode: 1,
+          stdout: '',
+          stderr: `Attempt ${attempts} failed`,
+          duration: 100
+        });
       });
 
       try {
-        await withRetryFunction(fn, { 
-          maxAttempts: 2, 
+        await withExecutionRetry(fn, { 
+          maxRetries: 2, 
           initialDelay: 0,
           isRetryable: () => true // Force all errors to be retryable
         });
@@ -303,63 +387,128 @@ describe('Retry Mechanism', () => {
         expect(error).toBeInstanceOf(RetryError);
         const retryError = error as RetryError;
         expect(retryError.attempts).toBe(3);
-        expect(retryError.lastError.message).toBe('Attempt 3 failed');
-        expect(retryError.errors).toHaveLength(3);
+        expect(retryError.lastResult.exitCode).toBe(1);
+        expect(retryError.lastResult.stderr).toBe('Attempt 3 failed');
+        expect(retryError.results).toHaveLength(3);
         expect(retryError.message).toContain('Failed after 3 attempts');
       }
     });
   });
 
-  describe('Default retryable errors', () => {
-    test('should retry on network errors by default', async () => {
-      const networkErrors = [
-        'ECONNREFUSED',
-        'ECONNRESET', 
-        'ETIMEDOUT',
-        'EPIPE',
-        'ENOTFOUND',
-        'Connection timeout',
-        'Request timed out',
-        'Connection reset by peer',
-        'Connection refused',
-        'socket hang up'
-      ];
-
-      for (const errorMsg of networkErrors) {
-        let attempts = 0;
-        const fn = jest.fn(async () => {
-          attempts++;
-          if (attempts === 1) {
-            throw new Error(errorMsg);
-          }
-          return 'success';
+  describe('Default retry behavior', () => {
+    test('should retry on non-zero exit codes by default', async () => {
+      let attempts = 0;
+      const fn = jest.fn(async () => {
+        attempts++;
+        if (attempts === 1) {
+          return createResult({
+            command: 'test',
+            exitCode: 1,
+            stdout: '',
+            stderr: 'Command failed',
+            duration: 100
+          });
+        }
+        return createResult({
+          command: 'test',
+          exitCode: 0,
+          stdout: 'success',
+          stderr: '',
+          duration: 100
         });
+      });
 
-        const result = await withRetryFunction(fn, { maxAttempts: 1, initialDelay: 0 });
-        expect(result).toBe('success');
-        expect(fn).toHaveBeenCalledTimes(2);
-      }
+      const result = await withExecutionRetry(fn, { maxRetries: 1, initialDelay: 0 });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe('success');
+      expect(fn).toHaveBeenCalledTimes(2);
     });
 
-    test('should not retry on non-network errors by default', async () => {
-      const nonNetworkErrors = [
-        'Invalid input',
-        'Permission denied',
-        'File not found',
-        'Syntax error'
-      ];
+    test('should not retry on success (exit code 0)', async () => {
+      const fn = jest.fn(async () => createResult({
+          command: 'test',
+          exitCode: 0,
+          stdout: 'success immediately',
+          stderr: '',
+          duration: 100
+        }));
 
-      for (const errorMsg of nonNetworkErrors) {
-        const fn = jest.fn(async () => {
-          throw new Error(errorMsg);
-        });
+      const result = await withExecutionRetry(fn, { maxRetries: 3, initialDelay: 0 });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe('success immediately');
+      expect(fn).toHaveBeenCalledTimes(1); // No retries needed
+    });
+  });
 
-        await expect(
-          withRetryFunction(fn, { maxAttempts: 2, initialDelay: 0 })
-        ).rejects.toThrow(errorMsg);
-        
-        expect(fn).toHaveBeenCalledTimes(1);
-      }
+  describe('$.retry() method', () => {
+    test('should create a retry-enabled engine', async () => {
+      const $retry = engine.retry({
+        maxRetries: 2,
+        initialDelay: 10,
+        isRetryable: (result) => result.stderr.includes('ECONNREFUSED')
+      });
+
+      // Test that the retry engine is different from the original
+      expect($retry).not.toBe(engine);
+      expect($retry).toBeInstanceOf(ExecutionEngine);
+    });
+
+    test('should apply retry logic to commands', async () => {
+      let attempts = 0;
+      const mockAdapter = {
+        async execute(cmd: any) {
+          attempts++;
+          if (attempts < 3) {
+            return createResult({
+              command: 'test-command',
+              exitCode: 1,
+              stdout: '',
+              stderr: 'ECONNREFUSED connection failed',
+              duration: 100
+            });
+          }
+          return createResult({
+            command: cmd.command,
+            exitCode: 0,
+            stdout: 'success after retry',
+            stderr: '',
+            duration: 100
+          });
+        },
+        async isAvailable() { return true; }
+      };
+
+      // Create a retry-enabled engine with our mock adapter
+      const $retry = engine.retry({
+        maxRetries: 2,
+        initialDelay: 10,
+        isRetryable: (result) => result.stderr.includes('ECONNREFUSED')
+      });
+
+      // Register the mock adapter
+      ($retry as any).registerAdapter('local', mockAdapter);
+
+      const result = await $retry.execute({
+        command: 'test-command',
+        adapter: 'local'
+      });
+
+      expect(attempts).toBe(3);
+      expect(result.stdout).toBe('success after retry');
+    });
+
+
+    test('should work with the README example syntax', async () => {
+      // This tests the specific syntax shown in the README
+      const $reliable = engine.retry({
+        maxRetries: 3,
+        initialDelay: 1000,
+        backoffMultiplier: 2,
+        maxDelay: 10000
+      });
+
+      expect($reliable).toBeInstanceOf(ExecutionEngine);
+      expect($reliable).not.toBe(engine);
     });
   });
 });

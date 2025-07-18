@@ -102,7 +102,7 @@ export class DockerAdapter extends BaseAdapter {
         this.buildCommandString(mergedCommand),
         startTime,
         endTime,
-        { container }
+        { container, originalCommand: mergedCommand }
       );
     } catch (error) {
       if (error instanceof DockerError) {
@@ -317,12 +317,12 @@ export class DockerAdapter extends BaseAdapter {
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command }
   ): Promise<ExecutionResult> {
     const result = await super.createResult(stdout, stderr, exitCode, signal, command, startTime, endTime, context);
     
     // Override error handling to throw DockerError instead of CommandError
-    if (this.config.throwOnNonZeroExit && exitCode !== 0) {
+    if (context?.originalCommand && this.shouldThrowOnNonZeroExit(context.originalCommand, exitCode)) {
       const container = context?.container || 'unknown';
       throw new DockerError(container, 'execute', new Error(`Command failed with exit code ${exitCode}: ${command}`));
     }

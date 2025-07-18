@@ -59,7 +59,7 @@ describe('README API Coverage', () => {
     expect(typeof $.env).toBe('function');
     expect(typeof $.timeout).toBe('function');
     expect(typeof $.shell).toBe('function');
-    expect(typeof $.withRetry).toBe('function');
+    expect(typeof $.retry).toBe('function');
   });
 
   it('should create ProcessPromise with all required methods', async () => {

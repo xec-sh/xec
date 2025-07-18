@@ -169,7 +169,7 @@ export class KubernetesAdapter extends BaseAdapter {
         );
         this.config.throwOnNonZeroExit = originalThrowOnNonZeroExit;
         
-        if (this.config.throwOnNonZeroExit && code !== 0) {
+        if (this.shouldThrowOnNonZeroExit(mergedCommand, code ?? -1)) {
           reject(new KubernetesError(
             `Command failed with exit code ${code}`,
             { stdout, stderr, command: kubectlArgs.join(' ') }

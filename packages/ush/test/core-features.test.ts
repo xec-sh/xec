@@ -28,12 +28,12 @@ describe('USH Core Features', () => {
   });
 
   describe('Retry functionality', () => {
-    it('should retry failed commands using withRetry', async () => {
+    it('should retry failed commands using retry', async () => {
       let attempts = 0;
       
       // Test with a command that might not exist
-      const $retry = $.withRetry({
-        maxAttempts: 2,
+      const $retry = $.retry({
+        maxRetries: 2,
         isRetryable: () => true,
         onRetry: (attempt: number) => {
           attempts = attempt;

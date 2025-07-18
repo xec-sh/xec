@@ -86,7 +86,8 @@ export class MockAdapter extends BaseAdapter {
         mockResponse.signal,
         commandString,
         startTime,
-        endTime
+        endTime,
+        { originalCommand: mergedCommand }
       );
     } catch (error) {
       // Re-throw CommandError and TimeoutError as-is
