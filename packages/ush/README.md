@@ -63,13 +63,14 @@ If you're new to shell scripting or command execution in Node.js, this section w
 
 ### Your First Script
 
-Create a file named `hello.ts`:
+Create a file named `hello.js`:
 
 ```javascript
 import { $ } from '@xec/ush';
 
 // Execute a simple command
-await $`echo "Hello, World!"`;
+const r = await $`echo "Hello, World!"`;
+console.log(r.stdout.trim());
 
 // The $ function executes shell commands
 // The backticks `` allow you to write commands like in the terminal
@@ -78,7 +79,7 @@ await $`echo "Hello, World!"`;
 
 Run it:
 ```bash
-node hello.js
+xec hello.js
 # Output: Hello, World!
 ```
 

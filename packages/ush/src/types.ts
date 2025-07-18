@@ -7,6 +7,9 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   // Make it callable
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
   
+  // Raw template literal support (no escaping)
+  raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
+  
   // Override methods that return CallableExecutionEngine instead of ExecutionEngine
   with(config: Partial<Command>): CallableExecutionEngine;
   ssh(options: Omit<SSHAdapterOptions, 'type'>): CallableExecutionEngine;

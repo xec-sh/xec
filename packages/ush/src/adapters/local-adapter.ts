@@ -154,10 +154,14 @@ export class LocalAdapter extends BaseAdapter {
 
     // Handle shell execution properly
     let child;
-    if (command.shell === true || typeof command.shell === 'string') {
+    if (command.shell === true) {
       // When shell is enabled, combine command and args into a single string
       const shellCommand = this.buildCommandString(command);
       child = spawn(shellCommand, [], { ...spawnOptions, shell: true });
+    } else if (typeof command.shell === 'string') {
+      // When using a custom shell path, invoke it with -c flag
+      const shellCommand = this.buildCommandString(command);
+      child = spawn(command.shell, ['-c', shellCommand], { ...spawnOptions, shell: false });
     } else {
       // Direct execution without shell
       child = spawn(command.command, command.args || [], spawnOptions);
@@ -430,10 +434,14 @@ export class LocalAdapter extends BaseAdapter {
 
     // Handle shell execution properly
     let result;
-    if (command.shell === true || typeof command.shell === 'string') {
+    if (command.shell === true) {
       // When shell is enabled, combine command and args into a single string
       const shellCommand = this.buildCommandString(command);
       result = spawnSync(shellCommand, [], { ...spawnOptions, shell: true });
+    } else if (typeof command.shell === 'string') {
+      // When using a custom shell path, invoke it with -c flag
+      const shellCommand = this.buildCommandString(command);
+      result = spawnSync(command.shell, ['-c', shellCommand], { ...spawnOptions, shell: false });
     } else {
       // Direct execution without shell
       result = spawnSync(command.command, command.args || [], spawnOptions);

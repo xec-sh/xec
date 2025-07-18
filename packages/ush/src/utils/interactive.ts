@@ -179,6 +179,18 @@ export async function select(
   }
 }
 
+export async function password(
+  engine: ExecutionEngine,
+  prompt: string
+): Promise<string> {
+  const session = new InteractiveSession(engine);
+  try {
+    return await session.password(prompt);
+  } finally {
+    session.close();
+  }
+}
+
 export class Spinner {
   private frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   private currentFrame = 0;

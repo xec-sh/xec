@@ -296,14 +296,67 @@ async function hasESModules(content: string): Promise<boolean> {
   return esModuleRegex.test(content);
 }
 
+async function hasTopLevelAwait(content: string): Promise<boolean> {
+  // Simple check for top-level await by looking for await outside of function/arrow function blocks
+  // This is a basic heuristic - for more complex cases, we'd need a proper AST parser
+  const lines = content.split('\n');
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines and comments
+    if (!trimmedLine || trimmedLine.startsWith('//') || trimmedLine.startsWith('/*')) {
+      continue;
+    }
+    
+    // Check for await at the start of a line (after variable declarations, etc.)
+    if (/^(const|let|var)?\s*\w*\s*=?\s*await\s+/.test(trimmedLine)) {
+      return true;
+    }
+    
+    // Check for await as a statement
+    if (trimmedLine.startsWith('await ')) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 async function transpileTypeScript(content: string, filename: string): Promise<string> {
   const hasModules = await hasESModules(content);
+  const hasTopLevel = await hasTopLevelAwait(content);
+
+  // If we have top-level await, extract imports and wrap the rest in an async IIFE
+  if (hasTopLevel) {
+    const lines = content.split('\n');
+    const imports: string[] = [];
+    const otherCode: string[] = [];
+    
+    for (const line of lines) {
+      if (line.trim().startsWith('import ') || line.trim().startsWith('export ')) {
+        imports.push(line);
+      } else {
+        otherCode.push(line);
+      }
+    }
+    
+    // Reconstruct with imports at top level and other code in async IIFE
+    content = [
+      ...imports,
+      '',
+      '(async () => {',
+      ...otherCode,
+      '})();'
+    ].join('\n');
+  }
 
   const result = await transform(content, {
     loader: 'ts',
     format: hasModules ? 'cjs' : 'esm', // Convert ES modules to CommonJS
     target: 'node18',
     sourcefile: filename,
+    platform: 'node',
   });
 
   return result.code;

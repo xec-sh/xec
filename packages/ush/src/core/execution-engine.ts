@@ -6,14 +6,14 @@ import { stream } from '../utils/stream.js';
 import { ExecutionResult } from './result.js';
 import { TransferEngine } from '../utils/transfer.js';
 import { ParallelEngine } from '../utils/parallel.js';
-import { interpolate } from '../utils/shell-escape.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
+import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
-import { select, confirm, Spinner, question } from '../utils/interactive.js';
 import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
 import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
+import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
 import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../adapters/remote-docker-adapter.js';
 // Core features imports
@@ -95,6 +95,8 @@ export class ExecutionEngine {
     return this._transfer;
   }
   public readonly question = question;
+  public readonly prompt = question; // Alias for question
+  public readonly password = password;
   public readonly confirm = confirm;
   public readonly select = select;
   public readonly spinner = (text?: string) => new Spinner(text);
@@ -223,7 +225,16 @@ export class ExecutionEngine {
     const command = interpolate(strings, ...values);
     return this.createProcessPromise({ 
       command,
-      shell: true
+      shell: this.currentConfig.shell ?? true
+    });
+  }
+
+  // Raw template literal support (no escaping)
+  raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
+    const command = interpolateRaw(strings, ...values);
+    return this.createProcessPromise({ 
+      command,
+      shell: this.currentConfig.shell ?? true
     });
   }
 
@@ -610,6 +621,10 @@ export class ExecutionEngine {
   async isCommandAvailable(command: string): Promise<boolean> {
     const path = await this.which(command);
     return path !== null;
+  }
+
+  async commandExists(command: string): Promise<boolean> {
+    return this.isCommandAvailable(command);
   }
 
   // Cleanup

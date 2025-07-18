@@ -62,6 +62,29 @@ export function interpolate(strings: TemplateStringsArray, ...values: any[]): st
   return interpolateWithQuote(strings, undefined, ...values);
 }
 
+export function interpolateRaw(strings: TemplateStringsArray, ...values: any[]): string {
+  let result = '';
+
+  for (let i = 0; i < strings.length; i++) {
+    result += strings[i];
+
+    if (i < values.length) {
+      const value = values[i];
+      if (value === null || value === undefined) {
+        // Skip null/undefined values
+      } else if (Array.isArray(value)) {
+        // Join array elements with space, no escaping
+        result += value.map(v => valueToString(v)).join(' ');
+      } else {
+        // Convert value to string with proper serialization, no escaping
+        result += valueToString(value);
+      }
+    }
+  }
+
+  return result;
+}
+
 export function interpolateWithQuote(strings: TemplateStringsArray, quoteFn?: typeof quote | undefined, ...values: any[]): string {
   let result = '';
 
