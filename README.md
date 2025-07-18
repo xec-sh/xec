@@ -9,7 +9,20 @@ Xec is a modern infrastructure orchestration system built with TypeScript, inspi
 
 ## 🏗️ Architecture
 
-Xec follows a monorepo architecture with three main packages:
+Xec is built as a monorepo using Turborepo, with three main packages that work together to provide a complete infrastructure orchestration solution:
+
+```
+xec/
+├── apps/
+│   └── xec/           # CLI application (@xec/cli)
+├── packages/
+│   ├── core/          # Core orchestration engine (@xec/core)
+│   └── ush/           # Universal shell execution engine (@xec/ush)
+├── package.json       # Root configuration
+└── turbo.json         # Build orchestration
+```
+
+Each package is designed with clear separation of concerns:
 
 - **Execution Engine** (`@xec/ush`) - Universal shell execution engine for local, SSH, and Docker commands
 - **Core Engine** (`@xec/core`) - Orchestration engine with state management and deployment patterns
@@ -82,11 +95,13 @@ yarn test
 # Lint code
 yarn lint
 
-# Type checking
-yarn typecheck
-
 # Fix linting and formatting issues
 yarn fix:all
+
+# Build specific package
+yarn workspace @xec/ush build
+yarn workspace @xec/core build
+yarn workspace @xec/cli build
 ```
 
 ### Using the CLI
@@ -133,10 +148,9 @@ yarn build
 
 Comprehensive documentation for each package:
 
-- [Monorepo Overview](CLAUDE.md) - Architecture and development guidelines
-- [Core Package](packages/core/CLAUDE.md) - Orchestration engine details
-- [Execution Engine](packages/ush/CLAUDE.md) - Universal execution details
-- [CLI Application](apps/xec/CLAUDE.md) - Command-line interface guide
+- [Core Package](packages/core/README.md) - Orchestration engine with state management
+- [Execution Engine](packages/ush/README.md) - Universal shell execution with multiple adapters
+- [CLI Application](apps/xec/README.md) - Command-line interface and scripting
 
 Additional resources:
 - [Core API Documentation](packages/core/docs/) - Detailed technical specifications

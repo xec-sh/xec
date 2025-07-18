@@ -67,14 +67,13 @@ xec/
 │   └── ush/           # Universal shell execution engine (@xec/ush)
 ├── package.json       # Root package.json
 ├── turbo.json         # Turborepo configuration
-└── CLAUDE.md          # AI assistant instructions
+└── README.md          # Project documentation
 ```
 
 Each package has its own:
 - `src/` - Source code
 - `test/` - Tests
 - `README.md` - Package documentation
-- `CLAUDE.md` - Package-specific AI instructions
 
 ## Development Workflow
 
@@ -368,7 +367,7 @@ yarn workspaces foreach install
 - **API Changes**: Update TypeScript interfaces and JSDoc
 - **New Features**: Update package README.md
 - **Examples**: Add to `examples/` directory
-- **Architecture**: Update CLAUDE.md files
+- **Architecture**: Update documentation
 
 ### Documentation Style
 
