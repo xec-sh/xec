@@ -68,7 +68,7 @@ export class KubernetesAdapter extends BaseAdapter {
     this.serverVersion = 'v1.26.0';
   }
 
-  isConnected(): boolean {
+  override isConnected(): boolean {
     return this.connected;
   }
 

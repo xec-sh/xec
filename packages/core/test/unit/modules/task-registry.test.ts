@@ -263,7 +263,9 @@ describe('modules/task-registry', () => {
     });
 
     it('should handle task timeout', async () => {
-      mockTask.timeout = 50;
+      mockTask.options = {
+        timeout: 50
+      };
       mockTask.handler = vi.fn().mockImplementation(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         return { result: 'success' };
@@ -277,7 +279,11 @@ describe('modules/task-registry', () => {
 
     it('should handle task with retries', async () => {
       let attempts = 0;
-      mockTask.retries = 2;
+      mockTask.options = {
+        retry: {
+          maxAttempts: 3
+        }
+      };
       mockTask.handler = vi.fn().mockImplementation(async () => {
         attempts++;
         if (attempts < 3) {

@@ -27,7 +27,9 @@ export class CommandTemplate {
     let match;
 
     while ((match = regex.exec(template)) !== null) {
-      params.add(match[1]);
+      if (match[1]) {
+        params.add(match[1]);
+      }
     }
 
     return params;

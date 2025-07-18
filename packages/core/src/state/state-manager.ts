@@ -22,6 +22,7 @@ import {
   ResourceId,
   StateChange,
   Transaction,
+  QueryOptions,
   StateSnapshot,
   OperationType,
   HistoryOptions,
@@ -50,7 +51,8 @@ class MemorySnapshotStore implements ISnapshotStore {
     const ids = this.byResource.get(resourceId);
     if (!ids || ids.length === 0) return null;
 
-    return this.snapshots.get(ids[ids.length - 1]) || null;
+    const lastId = ids[ids.length - 1];
+    return lastId ? this.snapshots.get(lastId) || null : null;
   }
 
   async getSnapshotAt(resourceId: ResourceId, timestamp: Timestamp): Promise<StateSnapshot | null> {
@@ -522,6 +524,96 @@ export class StateManager implements IStateManager {
     if (this.config.snapshotInterval && version % this.config.snapshotInterval === 0) {
       await this.createSnapshot(resourceId);
     }
+  }
+
+  async findExpired(ttlMs?: number): Promise<Array<{ resourceId: ResourceId; lastModified: Timestamp }>> {
+    const results: Array<{ resourceId: ResourceId; lastModified: Timestamp }> = [];
+    const cutoffTime = Date.now() - (ttlMs || 7 * 24 * 60 * 60 * 1000); // Default 7 days
+    
+    // Get all events to find resources
+    const events = await this.eventStore.getEvents({
+      orderBy: 'timestamp',
+      orderDirection: 'desc'
+    });
+    
+    // Track last modification time for each resource
+    const resourceLastModified = new Map<ResourceId, Timestamp>();
+    
+    for (const event of events) {
+      const resourceId = event.metadata.tags.get('resourceId');
+      if (resourceId && !resourceLastModified.has(resourceId)) {
+        resourceLastModified.set(resourceId, event.timestamp);
+      }
+    }
+    
+    // Find expired resources
+    for (const [resourceId, lastModified] of resourceLastModified.entries()) {
+      if (lastModified < cutoffTime) {
+        results.push({ resourceId, lastModified });
+      }
+    }
+    
+    return results;
+  }
+
+  async deleteState(resourceId: ResourceId): Promise<void> {
+    await this.stateStore.deleteState(resourceId);
+  }
+
+  async cleanupExpired(ttlMs?: number): Promise<number> {
+    const expired = await this.findExpired(ttlMs);
+    
+    for (const { resourceId } of expired) {
+      await this.deleteState(resourceId);
+    }
+    
+    return expired.length;
+  }
+
+  async listNamespaces(): Promise<string[]> {
+    const namespaces = new Set<string>();
+    
+    // Get all events to extract namespaces
+    const events = await this.eventStore.getEvents();
+    
+    for (const event of events) {
+      const namespace = event.metadata.tags.get('namespace');
+      if (namespace) {
+        namespaces.add(namespace);
+      }
+      
+      // Also check resource ID for namespace prefix
+      const resourceId = event.metadata.tags.get('resourceId');
+      if (resourceId && typeof resourceId === 'string' && resourceId.includes(':')) {
+        const [ns] = resourceId.split(':');
+        if (ns) namespaces.add(ns);
+      }
+    }
+    
+    return Array.from(namespaces).sort();
+  }
+
+  async getResourcesByNamespace(namespace: string, options?: QueryOptions): Promise<ResourceId[]> {
+    const resources = new Set<ResourceId>();
+    
+    // Get all events
+    const events = await this.eventStore.getEvents(options);
+    
+    for (const event of events) {
+      const resourceId = event.metadata.tags.get('resourceId');
+      const eventNamespace = event.metadata.tags.get('namespace');
+      
+      if (resourceId) {
+        // Check if namespace matches
+        if (eventNamespace === namespace) {
+          resources.add(resourceId);
+        } else if (resourceId.startsWith(`${namespace}:`)) {
+          resources.add(resourceId);
+        }
+      }
+    }
+    
+    return Array.from(resources);
   }
 }
 

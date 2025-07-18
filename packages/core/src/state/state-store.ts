@@ -130,8 +130,10 @@ export class StateStore implements IStateStore {
       bulkResults.forEach((data, index) => {
         if (data) {
           const resourceId = uncachedIds[index];
-          results.set(resourceId, data.state);
-          this.setCache(resourceId, data.state, data.version);
+          if (resourceId) {
+            results.set(resourceId, data.state);
+            this.setCache(resourceId, data.state, data.version);
+          }
         }
       });
     }
@@ -246,7 +248,7 @@ export class StateStore implements IStateStore {
   private parseResourceId(resourceId: ResourceId): { type: string; namespace?: string } {
     const parts = resourceId.split(':');
     return {
-      type: parts[0],
+      type: parts[0] || '',
       namespace: parts.length > 1 ? parts[1] : undefined,
     };
   }

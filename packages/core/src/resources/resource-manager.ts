@@ -352,8 +352,8 @@ export class ResourceManager extends EventEmitter {
         // Clean up expired allocations
         const now = Date.now();
         for (const [allocId, allocation] of pool.allocated.entries()) {
-          if (allocation.metadata?.expiresAt && 
-              new Date(allocation.metadata.expiresAt).getTime() < now) {
+          if (allocation.metadata?.['expiresAt'] && 
+              new Date(allocation.metadata['expiresAt']).getTime() < now) {
             this.releaseResources(allocId).catch(err => {
               this.logger.error(`Failed to release expired allocation ${allocId}: ${err}`);
             });

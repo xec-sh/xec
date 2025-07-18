@@ -111,7 +111,7 @@ export class ScriptTaskBuilder extends TaskBuilder {
     return this;
   }
 
-  build(): Task {
+  override build(): Task {
     // Set the handler to run the script
     this.handler(async (context) => {
       const scriptTask = scriptTaskModule(this._name, this.scriptOptions);

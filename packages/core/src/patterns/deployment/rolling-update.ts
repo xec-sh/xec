@@ -31,7 +31,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     ];
     preDeploymentTasks.forEach(t => {
       if (!t.metadata) t.metadata = {};
-      t.metadata.phase = 'pre-deployment';
+      t.metadata['phase'] = 'pre-deployment';
       allTasks.push(t);
     });
 
@@ -54,7 +54,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
       // Set phase and dependencies for each task
       batchTasks.forEach(t => {
         if (!t.metadata) t.metadata = {};
-        t.metadata.phase = phaseName;
+        t.metadata['phase'] = phaseName;
         t.dependencies = [...(t.dependencies || []), ...previousBatchTaskIds];
         allTasks.push(t);
       });
@@ -70,7 +70,7 @@ export class RollingUpdateDeployment implements DeploymentPattern {
     ];
     postDeploymentTasks.forEach(t => {
       if (!t.metadata) t.metadata = {};
-      t.metadata.phase = 'post-deployment';
+      t.metadata['phase'] = 'post-deployment';
       t.dependencies = [...(t.dependencies || []), ...previousBatchTaskIds];
       allTasks.push(t);
     });

@@ -49,7 +49,7 @@ export class Validator {
 
     if (!valid) {
       const errors = (validate.errors || []).map(error => ({
-        field: error.instancePath.replace(/^\//, '') || error.params.missingProperty || 'unknown',
+        field: error.instancePath.replace(/^\//, '') || error.params['missingProperty'] || 'unknown',
         message: error.message || 'Validation failed',
         value: error.data
       }));
@@ -68,7 +68,7 @@ export class Validator {
     const validate = ajv.compile(schema);
     if (!validate(data)) {
       const errors = (validate.errors || []).map(error => 
-        `${error.instancePath || error.params.missingProperty || 'root'}: ${error.message}`
+        `${error.instancePath || error.params['missingProperty'] || 'root'}: ${error.message}`
       ).join(', ');
       
       throw new ValidationError(

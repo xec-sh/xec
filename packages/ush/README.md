@@ -1964,4 +1964,4 @@ MIT © DevGrid
 
 ---
 
-Built with ❤️ by the Xec team. Inspired by [Google's zx](https://github.com/google/zx).
+Inspired by [Google's zx](https://github.com/google/zx).

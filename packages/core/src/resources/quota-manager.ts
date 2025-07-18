@@ -157,7 +157,7 @@ export class QuotaManager extends EventEmitter {
     const limit = quota.limits[resource];
 
     // Check warning threshold
-    if (limit.warningThreshold && percentage >= limit.warningThreshold) {
+    if (limit?.warningThreshold && percentage >= limit.warningThreshold) {
       this.emit('quota:warning', {
         scope,
         resource,
@@ -173,7 +173,7 @@ export class QuotaManager extends EventEmitter {
         requested,
         available: usage.remaining,
         type: 'exceeded',
-        action: limit.enforcementMode === 'hard' ? 'blocked' : 'allowed'
+        action: limit?.enforcementMode === 'hard' ? 'blocked' : 'allowed'
       };
 
       if (!usage.violations) {
@@ -181,7 +181,7 @@ export class QuotaManager extends EventEmitter {
       }
       usage.violations.push(violation);
 
-      if (limit.enforcementMode === 'hard') {
+      if (limit?.enforcementMode === 'hard') {
         this.emit('quota:exceeded', {
           scope,
           resource,
@@ -192,10 +192,10 @@ export class QuotaManager extends EventEmitter {
 
         return {
           allowed: false,
-          reason: `Quota exceeded: requested ${requested} ${limit.unit}, available ${usage.remaining} ${limit.unit}`,
+          reason: `Quota exceeded: requested ${requested} ${limit?.unit}, available ${usage.remaining} ${limit?.unit}`,
           usage
         };
-      } else if (limit.enforcementMode === 'soft') {
+      } else if (limit?.enforcementMode === 'soft') {
         this.logger.warn(`Soft quota exceeded for ${scope.type}:${scope.id} - ${resource}`);
         this.emit('quota:soft-exceeded', {
           scope,

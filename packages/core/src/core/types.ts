@@ -1,152 +1,47 @@
 /**
  * Core type definitions for Xec framework
+ * 
+ * This file re-exports consolidated types from the types directory
+ * and defines additional core-specific types.
  */
 
-// Logger interface
-export interface Logger {
-  debug(message: string, meta?: any): void;
-  info(message: string, meta?: any): void;
-  warn(message: string, meta?: any): void;
-  error(message: string, meta?: any): void;
-  child(options: { name?: string; [key: string]: any }): Logger;
-}
+// Re-export all base types
+export * from '../types/base-types.js';
 
-// Variables and JSON Schema
-export type Variables = Record<string, any>;
-export type JSONSchema = Record<string, any>;
-export type Condition = string | boolean | (() => boolean | Promise<boolean>);
-export type HostSelector = string | string[] | ((context: TaskContext) => string[]);
+// Re-export all task types
+export * from '../types/task-types.js';
 
-// Task interfaces
-export interface TaskOptions {
-  retry?: RetryConfig;
-  timeout?: number;
-  when?: Condition;
-  unless?: Condition;
-  hosts?: HostSelector;
-  parallel?: boolean;
-  continueOnError?: boolean;
-  vars?: Variables;
-}
+// Re-export all recipe types
+export * from '../types/recipe-types.js';
 
-export interface Task {
-  id: string;                    // Unique identifier
-  name: string;                  // Human-readable name
-  description?: string;          // Task description
-  handler: TaskHandler;          // Execution function
-  options: TaskOptions;          // Execution options
-  dependencies: string[];        // Dependencies on other tasks
-  tags: string[];               // Tags for grouping
-  metadata?: Record<string, any>; // Arbitrary metadata
-}
+// Re-export all module types
+export * from '../types/module-types.js';
 
-export interface RetryConfig {
-  maxAttempts: number;
-  delay?: number;
-  backoffMultiplier?: number;
-  maxDelay?: number;
-  jitter?: boolean;
-}
+// Re-export all pattern types
+export * from '../types/pattern-types.js';
 
-// Task execution
-export type TaskHandler = (context: TaskContext) => Promise<TaskResult> | TaskResult;
-export type TaskResult = any;
+// Don't re-export errors here as they are exported from types
 
-export interface TaskContext {
-  taskId: string;
-  vars: Variables;
-  host?: string;
-  phase?: string;
-  attempt?: number;
-  logger: Logger;
-}
+import type { Variables } from '../types/base-types.js';
+// ExecutionContext extends TaskContext with additional fields for recipe execution
+import type { TaskContext } from '../types/task-types.js';
 
 export interface ExecutionContext extends TaskContext {
-  recipeId: string;              // ID рецепта
-  runId: string;                 // ID запуска
-  globalVars: Record<string, any>; // Глобальные переменные
-  secrets: Record<string, any>;  // Секреты
-  state: Map<string, any>;       // Состояние
-  dryRun: boolean;               // Режим dry-run
-  startTime: Date;               // Время начала
-  parallel?: boolean;            // Параллельное выполнение
-  maxRetries?: number;           // Максимальное количество повторов
-  timeout?: number;              // Таймаут
-  hosts?: string[];              // Список хостов
-  tags?: string[];               // Теги
-  helpers?: Record<string, any>; // Хелперы
+  recipeId: string;              // Recipe ID (required for execution)
+  runId: string;                 // Run ID (required for execution)
+  globalVars: Variables;         // Global variables
+  dryRun: boolean;               // Dry-run mode
+  startTime: Date;               // Start time
+  parallel?: boolean;            // Parallel execution
+  maxRetries?: number;           // Max retries
+  timeout?: number;              // Timeout
+  hosts?: string[];              // Host list
 }
 
-// Recipe interfaces
-export interface RecipeMetadata {
-  name: string;
-  version?: string;
-  description?: string;
-  author?: string;
-  tags?: string[];
-  requiredVars?: string[];
-  varsSchema?: JSONSchema;
-  modules?: Module[];
-  [key: string]: any;
-}
-
-export type Hook = () => Promise<void> | void;
-export type ErrorHook = (error: Error, context: any) => Promise<void> | void;
-
-export interface RecipeHooks {
-  before?: Hook[];              // Run before all tasks
-  after?: Hook[];               // Run after all tasks
-  beforeEach?: (task: Task) => Promise<void> | void; // Run before each task
-  afterEach?: (task: Task, result: TaskResult) => Promise<void> | void; // Run after each task
-  onError?: ErrorHook[];        // Run on any error
-  finally?: Hook[];             // Always run at the end
-}
-
-export interface Recipe {
-  id: string;                   // Unique identifier
-  name: string;                 // Human-readable name
-  version?: string;             // Semantic version
-  description?: string;         // Recipe description
-  tasks: Map<string, Task>;     // Tasks indexed by name
-  phases?: Map<string, Phase>;  // Execution phases
-  vars?: Variables;             // Default variables
-  hooks?: RecipeHooks;          // Lifecycle hooks
-  metadata?: RecipeMetadata;    // Additional metadata
-  errorHandler?: (error: Error) => Promise<void> | void; // Error handler
-}
-
-// Phase interfaces
-export interface Phase {
-  name: string;
-  description?: string;         // Phase description
-  tasks: string[];              // Task names to execute
-  parallel?: boolean;           // Execute tasks in parallel
-  continueOnError?: boolean;    // Continue on task failure
-  dependsOn?: string[];         // Phase dependencies
-  optional?: boolean;           // Phase is optional
-}
-
-// Module interfaces
-export interface Module {
-  name: string;
-  version: string;
-  description?: string;
-  exports: ModuleExports;
-  dependencies?: string[];
-  metadata?: Record<string, any>;
-}
-
-export interface ModuleExports {
-  tasks?: Record<string, Task>;
-  recipes?: Record<string, Recipe>;
-  helpers?: Record<string, (...args: any[]) => any>;
-  patterns?: Record<string, any>;
-  integrations?: Record<string, any>;
-}
-
+// Execution result specific to the engine
 export interface ExecutionResult {
   success: boolean;
-  results: Map<string, TaskResult>;
+  results: Map<string, any>;
   errors: Map<string, Error>;
   skipped: Set<string>;
   duration: number;
@@ -157,21 +52,11 @@ export interface ExecutionResult {
     skipped: number;
   };
   // Legacy aliases for compatibility
-  taskResults?: Map<string, TaskResult>;
+  taskResults?: Map<string, any>;
   error?: Error;
 }
 
-// Integration interfaces
-export interface IntegrationAdapter {
-  name: string;
-  version: string;
-  initialize(config: any): Promise<void>;
-  getTasks(): Record<string, Task>;
-  getHelpers(): Record<string, (...args: any[]) => any>;
-  cleanup?(): Promise<void>;
-}
-
-// State management interfaces
+// State management interfaces - these are core-specific
 export interface StateStore {
   get(key: string): Promise<any>;
   set(key: string, value: any): Promise<void>;
@@ -224,28 +109,3 @@ export interface EventFilter {
 }
 
 export type EventHandler = (event: Event) => void | Promise<void>;
-
-// Pattern interfaces
-export interface Pattern {
-  name: string;
-  description?: string;
-  apply(context: PatternContext): Promise<PatternResult>;
-}
-
-export interface PatternContext {
-  recipe: Recipe;
-  vars: Variables;
-  options?: any;
-}
-
-export interface PatternResult {
-  success: boolean;
-  message?: string;
-  data?: any;
-}
-
-// Helper type
-export type Helper = (...args: any[]) => any;
-
-// Export all types
-export * from './errors.js';

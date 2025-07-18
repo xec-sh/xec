@@ -307,7 +307,8 @@ class MerkleTree {
 
   getRoot(): string {
     if (this.levels.length === 0) return '';
-    return this.levels[this.levels.length - 1][0];
+    const lastLevel = this.levels[this.levels.length - 1];
+    return lastLevel?.[0] || '';
   }
 
   getProof(leafHash: string): MerkleProof {
@@ -327,10 +328,14 @@ class MerkleTree {
     for (let level = 0; level < this.levels.length - 1; level++) {
       const isLeft = currentIndex % 2 === 0;
       const siblingIndex = isLeft ? currentIndex + 1 : currentIndex - 1;
+      const currentLevel = this.levels[level];
 
-      if (siblingIndex < this.levels[level].length) {
-        proof.siblings.push(this.levels[level][siblingIndex]);
-        proof.path.push(isLeft ? 'L' : 'R');
+      if (currentLevel && siblingIndex < currentLevel.length) {
+        const sibling = currentLevel[siblingIndex];
+        if (sibling) {
+          proof.siblings.push(sibling);
+          proof.path.push(isLeft ? 'L' : 'R');
+        }
       }
 
       currentIndex = Math.floor(currentIndex / 2);
@@ -359,16 +364,20 @@ class MerkleTree {
   private buildTree(): void {
     this.levels = [this.leaves];
 
-    while (this.levels[this.levels.length - 1].length > 1) {
+    while (this.levels.length > 0 && this.levels[this.levels.length - 1] && this.levels[this.levels.length - 1]!.length > 1) {
       const currentLevel = this.levels[this.levels.length - 1];
       const nextLevel: string[] = [];
 
-      for (let i = 0; i < currentLevel.length; i += 2) {
-        const left = currentLevel[i];
-        const right = currentLevel[i + 1] || left;
-        const combined = left + right;
-        const hash = createHash('sha256').update(combined).digest('hex');
-        nextLevel.push(hash);
+      if (currentLevel) {
+        for (let i = 0; i < currentLevel.length; i += 2) {
+          const left = currentLevel[i];
+          const right = currentLevel[i + 1] || left;
+          if (left && right) {
+            const combined = left + right;
+            const hash = createHash('sha256').update(combined).digest('hex');
+            nextLevel.push(hash);
+          }
+        }
       }
 
       this.levels.push(nextLevel);

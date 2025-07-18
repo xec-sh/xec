@@ -5,11 +5,11 @@ import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
-import { $script } from '@xec/core';
+import { script } from '@xec/core';
 import * as clack from '@clack/prompts';
 
 // Re-export script $ with enhanced features
-export const $ = $script;
+export const $ = script;
 
 // Current working directory management
 let currentDir = process.cwd();

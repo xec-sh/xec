@@ -261,7 +261,9 @@ export class ExecutionEngine {
       const params: string[] = [];
       let match;
       while ((match = regex.exec(templateStr)) !== null) {
-        params.push(match[1]);
+        if (match[1]) {
+          params.push(match[1]);
+        }
       }
       return { template: templateStr, params };
     },

@@ -75,7 +75,7 @@ export class TaskScheduler {
     const phaseMap = new Map<string, ScheduledTask[]>();
     
     for (const scheduled of this.tasks.values()) {
-      const phase = scheduled.task.metadata?.phase || 'default';
+      const phase = scheduled.task.metadata?.['phase'] || 'default';
       if (!phaseMap.has(phase)) {
         phaseMap.set(phase, []);
       }
@@ -92,7 +92,7 @@ export class TaskScheduler {
         // Set phase number on tasks
         for (const scheduled of tasks) {
           if (!scheduled.task.metadata) scheduled.task.metadata = {};
-          scheduled.task.metadata.phase = phaseNumber;
+          scheduled.task.metadata['phase'] = phaseNumber;
         }
         phases.push({
           phase: phaseNumber++,
@@ -110,7 +110,7 @@ export class TaskScheduler {
     const phaseDepends = new Map<string, Set<string>>();
 
     for (const scheduled of this.tasks.values()) {
-      const phase = scheduled.task.metadata?.phase || 'default';
+      const phase = scheduled.task.metadata?.['phase'] || 'default';
       phases.add(phase);
       
       if (!phaseDepends.has(phase)) {
@@ -120,7 +120,7 @@ export class TaskScheduler {
       for (const depId of scheduled.dependencies) {
         const depTask = this.tasks.get(depId);
         if (depTask) {
-          const depPhase = depTask.task.metadata?.phase || 'default';
+          const depPhase = depTask.task.metadata?.['phase'] || 'default';
           if (depPhase !== phase) {
             phaseDepends.get(phase)!.add(depPhase);
           }
@@ -184,7 +184,7 @@ export class TaskScheduler {
         const remaining = Array.from(this.tasks.keys()).filter(id => !assigned.has(id));
         throw new DependencyError(
           'Circular dependency detected or unresolvable dependencies',
-          remaining[0],
+          remaining[0] || 'unknown',
           remaining
         );
       }

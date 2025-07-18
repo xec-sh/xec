@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": true,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "strictBindCallApply": false,
     "useDefineForClassFields": false,
     "forceConsistentCasingInFileNames": true,

@@ -1,130 +1,56 @@
 import { z } from 'zod';
 
-export interface ModuleMetadata {
-  name: string;
-  version: string;
-  description?: string;
-  author?: string;
-  license?: string;
-  dependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-  tags?: string[];
-  capabilities?: string[];
-  requiredPermissions?: string[];
-}
+// Import consolidated types from the types directory
+import type {
+  ModuleLoaderOptions as ModuleLoadOptions,
+  ModuleRegistryEntry as ModuleRegistration
+} from '../types/module-types.js';
 
-export interface ModuleConfig {
-  enabled?: boolean;
-  priority?: number;
-  settings?: Record<string, any>;
-  overrides?: Record<string, any>;
-}
+// Re-export consolidated module types
+export * from '../types/module-types.js';
 
-export interface ModuleLifecycle {
-  onInstall?(): Promise<void>;
-  onUninstall?(): Promise<void>;
-  onEnable?(): Promise<void>;
-  onDisable?(): Promise<void>;
-  onStart?(): Promise<void>;
-  onStop?(): Promise<void>;
-  onHealthCheck?(): Promise<HealthCheckResult>;
-}
+// Re-export specific types with correct names
+export type {
+  ModuleLoadOptions,
+  ModuleRegistration
+};
 
-export interface HealthCheckResult {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  message?: string;
-  details?: Record<string, any>;
-  timestamp: number;
-}
+export type { Recipe } from '../types/recipe-types.js';
 
-export interface Module extends ModuleLifecycle {
-  metadata: ModuleMetadata;
-  exports?: Record<string, any>;
-  tasks?: Record<string, TaskDefinition>;
-  patterns?: Record<string, PatternDefinition>;
-  integrations?: Record<string, IntegrationDefinition>;
-  helpers?: Record<string, HelperDefinition>;
-}
+export type { Pattern } from '../types/pattern-types.js';
 
-export interface TaskDefinition {
-  name: string;
-  description?: string;
-  parameters?: z.ZodSchema;
-  returns?: z.ZodSchema;
-  handler: (params: any) => Promise<any>;
-  timeout?: number;
-  retries?: number;
-  tags?: string[];
-}
+// Import and re-export TaskDefinition from task-types
+export type { TaskDefinition } from '../types/task-types.js';
+// Import from correct locations
+export type { Task, TaskHandler } from '../types/task-types.js';
+// Still export environment-specific types that aren't in module-types
+export type {
+  Time,
+  YAML,
+  OSInfo,
+  Crypto,
+  Process,
+  Package,
+  Service,
+  Network,
+  SetupHook,
+  OSPlatform,
+  FileSystem,
+  HttpClient,
+  TaskContext,
+  Environment,
+  Architecture,
+  TeardownHook,
+  HelperFunction,
+  TemplateEngine,
+  EnvironmentType,
+  EnvironmentInfo,
+  JSON as JSONUtil,
+  ModuleCollection,
+  EnvironmentProvider
+} from '../types/environment-types.js';
 
-export interface PatternDefinition {
-  name: string;
-  description?: string;
-  type: 'deployment' | 'scaling' | 'migration' | 'custom';
-  parameters?: z.ZodSchema;
-  template: (params: any) => Promise<any>;
-  validate?: (params: any) => Promise<boolean>;
-}
-
-export interface IntegrationDefinition {
-  name: string;
-  type: string;
-  description?: string;
-  connectionSchema?: z.ZodSchema;
-  connect: (config: any) => Promise<any>;
-  disconnect?: () => Promise<void>;
-  healthCheck?: () => Promise<boolean>;
-}
-
-export interface HelperDefinition {
-  name: string;
-  description?: string;
-  methods: Record<string, ((...args: any[]) => any) | ((...args: any[]) => Promise<any>)>;
-}
-
-export interface ModuleLoadOptions {
-  path?: string;
-  config?: ModuleConfig;
-  override?: boolean;
-  validateDependencies?: boolean;
-}
-
-export interface ModuleRegistration {
-  module: Module;
-  config: ModuleConfig;
-  loadedAt: number;
-  status: 'loaded' | 'enabled' | 'disabled' | 'error';
-  error?: Error;
-  instance?: any;
-}
-
-export interface ModuleDependencyGraph {
-  nodes: Map<string, ModuleNode>;
-  edges: Map<string, Set<string>>;
-}
-
-export interface ModuleNode {
-  name: string;
-  version: string;
-  module: Module;
-  dependencies: string[];
-  dependents: string[];
-}
-
-export interface ModuleSearchCriteria {
-  name?: string;
-  tags?: string[];
-  capabilities?: string[];
-  version?: string;
-  status?: string;
-}
-
-export interface ModuleUpdateOptions {
-  backup?: boolean;
-  force?: boolean;
-  skipValidation?: boolean;
-  preserveConfig?: boolean;
-}
+// Zod schemas for validation
 
 export const ModuleMetadataSchema = z.object({
   name: z.string(),
@@ -137,6 +63,32 @@ export const ModuleMetadataSchema = z.object({
   tags: z.array(z.string()).optional(),
   capabilities: z.array(z.string()).optional(),
   requiredPermissions: z.array(z.string()).optional(),
+});
+
+// New XecModule schema
+export const XecModuleSchema = z.object({
+  name: z.string(),
+  version: z.string(),
+  description: z.string().optional(),
+  dependencies: z.record(z.string()).optional(),
+  requires: z.array(z.string()).optional(),
+  tasks: z.record(z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    run: z.function(),
+    hints: z.object({
+      preferredEnvironments: z.array(z.string()).optional(),
+      unsupportedEnvironments: z.array(z.string()).optional(),
+    }).optional(),
+  })).optional(),
+  helpers: z.record(z.function()).optional(),
+  patterns: z.record(z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    template: z.function(),
+  })).optional(),
+  setup: z.function().optional(),
+  teardown: z.function().optional(),
 });
 
 export const ModuleConfigSchema = z.object({

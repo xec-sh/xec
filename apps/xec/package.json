@@ -20,8 +20,10 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.0.4",
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
+    "@types/minimist": "^1.2.5",
     "@types/mustache": "^4.2.6",
     "@types/node": "^24.0.13",
     "@types/ssh2": "^1.15.5",
@@ -48,6 +50,7 @@
     "@xec/ush": "workspace:*",
     "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
+    "cli-table3": "^0.6.5",
     "commander": "^14.0.0",
     "csv-parse": "^6.0.0",
     "csv-stringify": "^6.6.0",

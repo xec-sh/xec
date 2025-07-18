@@ -133,7 +133,10 @@ export class EncryptionService {
     let password = '';
 
     for (let i = 0; i < length; i++) {
-      password += charset[bytes[i] % charset.length];
+      const byte = bytes[i];
+      if (byte !== undefined) {
+        password += charset[byte % charset.length];
+      }
     }
 
     return password;

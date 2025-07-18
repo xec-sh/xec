@@ -217,14 +217,17 @@ export class EventStore extends EventEmitter implements IEventStore {
 
     // Build operations
     for (let i = 0; i < indexUpdates.length; i++) {
-      const { key, eventId } = indexUpdates[i];
+      const update = indexUpdates[i];
       const existing = existingValues[i];
-      existing.push(eventId);
-      operations.push({
-        op: 'set' as const,
-        key,
-        value: existing,
-      });
+      if (update && existing) {
+        const { key, eventId } = update;
+        existing.push(eventId);
+        operations.push({
+          op: 'set' as const,
+          key,
+          value: existing,
+        });
+      }
     }
 
     return operations;
@@ -283,13 +286,15 @@ export class EventStore extends EventEmitter implements IEventStore {
     const relativeMatch = time.match(/^-(\d+)([hdwm])$/);
     if (relativeMatch) {
       const [, amount, unit] = relativeMatch;
-      const units: Record<string, number> = {
-        h: 60 * 60 * 1000,
-        d: 24 * 60 * 60 * 1000,
-        w: 7 * 24 * 60 * 60 * 1000,
-        m: 30 * 24 * 60 * 60 * 1000,
-      };
-      return Date.now() - parseInt(amount) * units[unit];
+      if (amount && unit) {
+        const units: Record<string, number> = {
+          h: 60 * 60 * 1000,
+          d: 24 * 60 * 60 * 1000,
+          w: 7 * 24 * 60 * 60 * 1000,
+          m: 30 * 24 * 60 * 60 * 1000,
+        };
+        return Date.now() - parseInt(amount) * (units[unit] || 0);
+      }
     }
 
     return new Date(time).getTime();

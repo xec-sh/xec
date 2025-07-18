@@ -1,219 +1,157 @@
-// State Management
-export * from './state/index.js';
+// Core type exports
+export * from './types/index.js';
 
-// Standard Library
-export * from './stdlib/index.js';
-
-// Module System
-export * from './modules/index.js';
-
+// Script system
+export * from './script/index.js';
 // Security
 export * from './security/index.js';
 
 // Resource Management
 export * from './resources/index.js';
 
+// Executor
+export * from './engine/executor.js';
+
+// Context builder
+export * from './context/builder.js';
+
 // Monitoring and Progress Tracking
 export * from './monitoring/index.js';
+
+// Engine
+export * from './engine/scheduler.js';
+
+// Integration Framework (External APIs, Databases, Message Queues, Webhooks)
+export * from './integration/index.js';
 
 // Integrations
 export * from './integrations/index.js';
 
-// Core validation - export all except ValidationResult which conflicts with modules/interfaces
-export {
-  Validator,
-  ValidationResult as CoreValidationResult
-} from './core/validation.js';
+export * from './script/script-task.js';
+// Phase builder
+export * from './engine/phase-builder.js';
 
-export {
-  executeRecipe,
-  RecipeExecutor,
-  ExecutorOptions,
-  ExecutionResult
-} from './engine/executor.js';
-
-// Pattern types
-export {
-  CanaryOptions,
-  BlueGreenOptions,
-  DeploymentPattern,
-  RollingUpdateOptions
-} from './patterns/types.js';
+// Core validation
+export { Validator } from './core/validation.js';
+export { executeRecipe } from './engine/executor.js';
 
 // Context management
-export {
-  contextProvider,
-  ContextProvider,
-  ExecutionContext as ProviderExecutionContext
-} from './context/provider.js';
-
-// Engine
-export {
-  TaskScheduler,
-  ScheduledTask,
-  ExecutionPhase,
-  createScheduler,
-  SchedulerOptions
-} from './engine/scheduler.js';
-
-export {
-  recipe,
-  phaseRecipe,
-  simpleRecipe,
-  moduleRecipe,
-  RecipeBuilder,
-  RecipeBuilderOptions
-} from './dsl/recipe.js';
-
-export {
-  buildPhases,
-  PhaseBuilder,
-  optimizePhases,
-  PhaseDefinition,
-  PhaseExecutionPlan
-} from './engine/phase-builder.js';
-
-export {
-  scriptTask,
-  loadScriptTasks,
-  scriptTaskModule,
-  dynamicScriptTask,
-  ScriptTaskBuilder,
-  ScriptTaskOptions
-} from './script/script-task.js';
-
-export {
-  mergeContexts,
-  ContextBuilder,
-  createTaskContext,
-  createRecipeContext,
-  ContextBuilderOptions,
-  createExecutionContext
-} from './context/builder.js';
-
-// DSL
-export {
-  task,
-  noop,
-  wait,
-  shell,
-  group,
-  script,
-  sequence,
-  TaskBuilder,
-  log as logTask,
-  fail as failTask,
-  TaskBuilderOptions,
-  parallel as parallelTask
-} from './dsl/task.js';
-
-// Script system
-export {
-  ScriptHooks,
-  $ as $script,
-  defineScript,
-  ScriptRunner,
-  ScriptExports,
-  ScriptContext,
-  CommandOption,
-  ScriptMetadata,
-  CommandDefinition,
-  createScriptContext,
-  utils as scriptUtils
-} from './script/index.js';
+export { ContextProvider } from './context/provider.js';
 
 // Utils
-export {
-  createLogger,
-  LoggerOptions,
-  logWithPrefix,
-  createTaskLogger,
-  getDefaultLogger,
-  setDefaultLogger,
-  createRecipeLogger,
-  createModuleLogger,
-  Logger as LoggerImpl,
-  createProgressLogger
-} from './utils/logger.js';
+export { Logger, createLogger } from './utils/logger.js';
 
-// Core types - export all except Module which conflicts with modules/types
+export { createExecutionContext } from './context/builder.js';
+
+// Built-in modules
+export { builtinModules, getBuiltinModule, loadBuiltinModules } from './modules/builtin/index.js';
+
+// State Management  
+export { EventStore, StateManager, OptimizedEventStore, MemoryStorageAdapter } from './state/index.js';
+
+export { recipe, Recipe, phaseRecipe, simpleRecipe, moduleRecipe, RecipeBuilder } from './dsl/recipe.js';
+
+// DSL
+export { log, task, noop, fail, wait, shell, group, script, parallel, sequence, TaskBuilder } from './dsl/task.js';
+// Standard Library
+export { 
+  enhanceContext,
+  StandardLibrary,
+  createPartialStdlib,
+  createStandardLibrary
+} from './stdlib/index.js';
+
+// Core engine types and functionality
 export {
-  Task,
-  Hook,
-  Recipe,
-  Logger,
-  Variables,
-  TaskError,
-  JSONSchema,
-  TaskResult,
-  TaskHandler,
-  TaskContext,
-  RecipeHooks,
-  RetryConfig,
-  ModuleExports,
-  ExecutionContext,
-  Module as CoreModule
+  Lock,
+  Event,
+  LockManager,
+  EventFilter,
+  EventHandler,
+  ExecutionResult,
+  ExecutionContext
 } from './core/types.js';
 
-// Core errors - export all except TaskError which conflicts with types
-export {
-  XecError,
-  LockError,
-  StateError,
-  isXecError,
-  ModuleError,
-  isTaskError,
-  ContextError,
-  TimeoutError,
-  PatternError,
-  NetworkError,
-  ExecutionError,
-  InventoryError,
-  ValidationError,
-  DependencyError,
-  isExecutionError,
-  NotificationError,
-  isValidationError,
-  ConfigurationError,
-  TaskError as TaskExecutionError
-} from './core/errors.js';
+// Module System
+export { 
+  TaskRunner,
+  ModuleLoader,
+  TaskRegistry,
+  ModuleRegistry,
+  HelperRegistry,
+  PatternRegistry,
+  EnvironmentManager,
+  IntegrationRegistry
+} from './modules/index.js';
 
-export {
-  log,
-  env,
-  info,
-  warn,
-  fail,
-  skip,
-  when,
-  debug,
-  error,
-  retry,
-  getVar,
-  setVar,
-  secret,
-  unless,
-  getVars,
-  getHost,
-  getTags,
-  isDryRun,
-  getRunId,
-  getPhase,
-  getState,
-  setState,
-  hasState,
-  getHosts,
-  template,
-  parallel,
-  getTaskId,
-  getHelper,
-  getAttempt,
-  clearState,
-  getRecipeId,
-  deleteState,
-  matchesHost,
-  matchesTags,
-  SkipTaskError,
-  registerHelper
+// Global context functions
+export { 
+  env, 
+  info, 
+  warn, 
+  skip, 
+  when, 
+  debug, 
+  error, 
+  retry, 
+  getVar, 
+  setVar, 
+  secret, 
+  unless, 
+  getVars, 
+  getHost, 
+  getTags, 
+  isDryRun, 
+  getRunId, 
+  getPhase, 
+  getState, 
+  setState, 
+  hasState, 
+  getHosts, 
+  template, 
+  getTaskId, 
+  getHelper, 
+  getAttempt, 
+  clearState, 
+  getRecipeId, 
+  deleteState, 
+  matchesHost, 
+  matchesTags, 
+  registerHelper 
 } from './context/globals.js';
 
+// Platform conversion helpers
+export function toPlatform(platform: NodeJS.Platform): import('./types/base-types.js').OSPlatform {
+  type OSPlatform = import('./types/base-types.js').OSPlatform;
+  const mapping: Record<NodeJS.Platform, OSPlatform | undefined> = {
+    'darwin': 'darwin',
+    'linux': 'linux',
+    'win32': 'win32',
+    'freebsd': 'freebsd',
+    'openbsd': 'openbsd',
+    'sunos': 'sunos',
+    'android': 'android',
+    'aix': 'linux', // Map AIX to Linux
+    'cygwin': 'win32', // Map Cygwin to Windows
+    'netbsd': 'freebsd', // Map NetBSD to FreeBSD
+    'haiku': 'linux' // Map Haiku to Linux
+  };
+  return mapping[platform] || 'linux';
+}
+
+export function toArchitecture(arch: NodeJS.Architecture): import('./types/base-types.js').Architecture {
+  type Architecture = import('./types/base-types.js').Architecture;
+  const mapping: Record<NodeJS.Architecture, Architecture | undefined> = {
+    'x64': 'x64',
+    'arm64': 'arm64',
+    'arm': 'arm',
+    'ppc64': 'ppc64',
+    's390x': 's390x',
+    'ia32': 'x64', // Map ia32 to x64
+    'mips': 'arm', // Map mips to arm
+    'mipsel': 'arm', // Map mipsel to arm
+    'loong64': 'arm64', // Map loong64 to arm64
+    'riscv64': 'arm64' // Map riscv64 to arm64
+  };
+  return mapping[arch] || 'x64';
+}

@@ -118,7 +118,7 @@ export class IntegrationRegistry implements IIntegrationRegistry {
     // Validate connection config
     if (integration.connectionSchema) {
       try {
-        config = integration.connectionSchema.parse(config);
+        config = integration.connectionSchema['parse'](config);
       } catch (error) {
         if (error instanceof z.ZodError) {
           throw new Error(`Invalid connection config: ${error.message}`);

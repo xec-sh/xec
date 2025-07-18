@@ -72,6 +72,11 @@ export interface IStateManager {
   beginTransaction(): Promise<Transaction>;
   commitTransaction(transactionId: string): Promise<void>;
   rollbackTransaction(transactionId: string): Promise<void>;
+  findExpired(ttlMs?: number): Promise<Array<{ resourceId: ResourceId; lastModified: Timestamp }>>;
+  deleteState(resourceId: ResourceId): Promise<void>;
+  cleanupExpired(ttlMs?: number): Promise<number>;
+  listNamespaces(): Promise<string[]>;
+  getResourcesByNamespace(namespace: string, options?: QueryOptions): Promise<ResourceId[]>;
 }
 
 export interface IQueryEngine {

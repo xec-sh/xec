@@ -91,7 +91,7 @@ function createPrettyTransport(options: LoggerOptions): TransportConfig {
  * Get default log level from environment or return 'warn'
  */
 function getDefaultLogLevel(): pino.LevelWithSilentOrString {
-  const envLevel = process.env.XEC_LOG_LEVEL;
+  const envLevel = process.env['XEC_LOG_LEVEL'];
   if (envLevel && ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'].includes(envLevel)) {
     return envLevel as pino.LevelWithSilentOrString;
   }

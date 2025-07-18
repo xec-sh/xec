@@ -76,7 +76,7 @@ export class UshAdapter extends BaseAdapter {
         type: 'connected',
         timestamp: Date.now(),
         data: {
-          shell: this.ushConfig.shell || process.env.SHELL || '/bin/sh',
+          shell: this.ushConfig.shell || process.env['SHELL'] || '/bin/sh',
           platform: process.platform,
           arch: process.arch,
         },

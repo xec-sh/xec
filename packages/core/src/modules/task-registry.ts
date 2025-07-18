@@ -105,8 +105,8 @@ export class TaskRegistry implements ITaskRegistry {
 
       // Execute with timeout
       let result: any;
-      if (task.timeout) {
-        result = await this.executeWithTimeout(task.handler, params, task.timeout);
+      if (task.options?.timeout) {
+        result = await this.executeWithTimeout(task.handler, params, task.options.timeout);
       } else {
         result = await task.handler(params);
       }
@@ -136,8 +136,8 @@ export class TaskRegistry implements ITaskRegistry {
       return result;
     } catch (error) {
       // Handle retries
-      if (task.retries && task.retries > 0) {
-        return await this.executeWithRetries(task, params, task.retries);
+      if (task.options?.retry && task.options.retry.maxAttempts && task.options.retry.maxAttempts > 0) {
+        return await this.executeWithRetries(task, params, task.options.retry.maxAttempts);
       }
 
       // Update stats
@@ -160,7 +160,7 @@ export class TaskRegistry implements ITaskRegistry {
       }
 
       if (criteria.tags && criteria.tags.length > 0) {
-        const taskTags = task.tags || [];
+        const taskTags = (task as any).tags || [];
         const hasAllTags = criteria.tags.every(tag => taskTags.includes(tag));
         if (!hasAllTags) {
           continue;
@@ -212,8 +212,8 @@ export class TaskRegistry implements ITaskRegistry {
       try {
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
 
-        if (task.timeout) {
-          return await this.executeWithTimeout(task.handler, params, task.timeout);
+        if (task.options?.timeout) {
+          return await this.executeWithTimeout(task.handler, params, task.options.timeout);
         } else {
           return await task.handler(params);
         }

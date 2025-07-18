@@ -109,6 +109,8 @@ export class ModuleLoader implements IModuleLoader {
     }
   }
 
+
+
   private async loadJsonModule(path: string): Promise<Module> {
     const content = await readFile(path, 'utf-8');
     const data = JSON.parse(content);
@@ -136,18 +138,22 @@ export class ModuleLoader implements IModuleLoader {
     }
 
     // Support both default and named exports
-    const module = moduleExports.default || moduleExports;
+    const moduleData = moduleExports.default || moduleExports;
 
-    if (typeof module === 'function') {
+    let module: Module;
+    
+    if (typeof moduleData === 'function') {
       // Module factory function
-      return await module();
+      module = await moduleData();
+    } else {
+      module = moduleData;
     }
 
     if (!module.metadata) {
       throw new Error('Module must have metadata');
     }
 
-    return module as Module;
+    return module;
   }
 }
 
@@ -256,8 +262,8 @@ class ModuleValidator implements IModuleValidator {
     }
 
     // Validate dependencies
-    if (module.metadata?.dependencies) {
-      const validDeps = await this.validateDependencies(module.metadata.dependencies);
+    if (module.metadata?.['dependencies']) {
+      const validDeps = await this.validateDependencies(module.metadata['dependencies']);
       if (!validDeps) {
         errors.push({
           field: 'metadata.dependencies',
@@ -301,7 +307,7 @@ class ModuleValidator implements IModuleValidator {
     }
 
     // Warnings
-    if (!module.metadata?.description) {
+    if (!module.metadata?.['description']) {
       warnings.push({
         field: 'metadata.description',
         message: 'Module should have a description',

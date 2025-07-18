@@ -33,7 +33,7 @@ export class PhaseBuilder {
 
     for (const task of this.recipe.tasks.values()) {
       // Check both metadata.phase and direct phase property
-      const phaseName = task.metadata?.phase || (task as any).phase || 'default';
+      const phaseName = task.metadata?.['phase'] || (task as any).phase || 'default';
 
       if (!phaseMap.has(phaseName)) {
         phaseMap.set(phaseName, []);
@@ -70,8 +70,8 @@ export class PhaseBuilder {
         const phaseDefinition: PhaseDefinition = {
           name: phaseName,
           description: `Phase: ${phaseName}`,
-          parallel: this.recipe.metadata?.parallel || false,
-          continueOnError: this.recipe.metadata?.continueOnError || false,
+          parallel: this.recipe.metadata?.['parallel'] || false,
+          continueOnError: this.recipe.metadata?.['continueOnError'] || false,
           tasks: tasksInPhase
         };
 
@@ -129,7 +129,7 @@ export class PhaseBuilder {
   }
 
   private getPhaseNameFromTasks(tasks: Task[]): string {
-    const phaseNames = new Set(tasks.map(t => t.metadata?.phase || 'default'));
+    const phaseNames = new Set(tasks.map(t => t.metadata?.['phase'] || 'default'));
 
     if (phaseNames.size === 1) {
       return Array.from(phaseNames)[0];
@@ -278,8 +278,13 @@ export class PhaseBuilder {
 
   optimizePhases(): PhaseBuilder {
     for (let i = 0; i < this.phaseOrder.length - 1; i++) {
-      const currentPhase = this.phases.get(this.phaseOrder[i])!;
-      const nextPhase = this.phases.get(this.phaseOrder[i + 1])!;
+      const currentPhaseName = this.phaseOrder[i];
+      const nextPhaseName = this.phaseOrder[i + 1];
+      if (!currentPhaseName || !nextPhaseName) {
+        continue;
+      }
+      const currentPhase = this.phases.get(currentPhaseName)!;
+      const nextPhase = this.phases.get(nextPhaseName)!;
 
       if (currentPhase.parallel === nextPhase.parallel &&
         currentPhase.continueOnError === nextPhase.continueOnError &&
@@ -355,6 +360,9 @@ export class PhaseBuilder {
 
     for (let i = 0; i < this.phaseOrder.length; i++) {
       const phaseName = this.phaseOrder[i];
+      if (!phaseName) {
+        continue;
+      }
       const phase = this.phases.get(phaseName)!;
 
       lines.push(`  subgraph cluster_${i} {`);

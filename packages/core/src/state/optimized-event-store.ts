@@ -325,29 +325,31 @@ export class OptimizedEventStore extends EventEmitter implements IEventStore {
 
     // Prepare index operations
     for (const [indexKey, entries] of this.indexBuffer.entries()) {
-      const bucketNumber = Math.floor(entries[0].sequenceNumber / this.indexBucketSize);
-      const bucketKey = `index:${indexKey}:bucket:${bucketNumber}`;
-      
-      // Get existing bucket
-      const existingBucket = await this.storage.get(bucketKey) || [];
-      existingBucket.push(...entries);
-      
-      operations.push({
-        op: 'set' as const,
-        key: bucketKey,
-        value: existingBucket
-      });
-
-      // Update bucket metadata
-      const metaKey = `index:${indexKey}:meta`;
-      const meta = await this.storage.get(metaKey) || { buckets: [] };
-      if (!meta.buckets.includes(bucketNumber)) {
-        meta.buckets.push(bucketNumber);
+      if (entries.length > 0 && entries[0]) {
+        const bucketNumber = Math.floor(entries[0].sequenceNumber / this.indexBucketSize);
+        const bucketKey = `index:${indexKey}:bucket:${bucketNumber}`;
+        
+        // Get existing bucket
+        const existingBucket = await this.storage.get(bucketKey) || [];
+        existingBucket.push(...entries);
+        
         operations.push({
           op: 'set' as const,
-          key: metaKey,
-          value: meta
+          key: bucketKey,
+          value: existingBucket
         });
+
+        // Update bucket metadata
+        const metaKey = `index:${indexKey}:meta`;
+        const meta = await this.storage.get(metaKey) || { buckets: [] };
+        if (!meta.buckets.includes(bucketNumber)) {
+          meta.buckets.push(bucketNumber);
+          operations.push({
+            op: 'set' as const,
+            key: metaKey,
+            value: meta
+          });
+        }
       }
     }
 
@@ -533,13 +535,15 @@ export class OptimizedEventStore extends EventEmitter implements IEventStore {
     const relativeMatch = time.match(/^-(\d+)([hdwm])$/);
     if (relativeMatch) {
       const [, amount, unit] = relativeMatch;
-      const units: Record<string, number> = {
-        h: 60 * 60 * 1000,
-        d: 24 * 60 * 60 * 1000,
-        w: 7 * 24 * 60 * 60 * 1000,
-        m: 30 * 24 * 60 * 60 * 1000,
-      };
-      return Date.now() - parseInt(amount) * units[unit];
+      if (amount && unit) {
+        const units: Record<string, number> = {
+          h: 60 * 60 * 1000,
+          d: 24 * 60 * 60 * 1000,
+          w: 7 * 24 * 60 * 60 * 1000,
+          m: 30 * 24 * 60 * 60 * 1000,
+        };
+        return Date.now() - parseInt(amount) * (units[unit] || 0);
+      }
     }
 
     return new Date(time).getTime();

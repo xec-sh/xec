@@ -48,7 +48,7 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
   }
 
   async register(module: Module, config?: ModuleConfig): Promise<void> {
-    const moduleName = module.metadata.name;
+    const moduleName = module.name;
 
     if (this.modules.has(moduleName)) {
       throw new Error(`Module '${moduleName}' is already registered`);
@@ -62,40 +62,41 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
     const registration: ModuleRegistration = {
       module,
       config: config || {},
-      loadedAt: Date.now(),
+      loadTime: new Date(),
       status: 'loaded',
+      enabled: false
     };
 
     this.modules.set(moduleName, registration);
     this.updateDependencyGraph(module);
 
-    if (module.tasks) {
-      for (const [taskName, task] of Object.entries(module.tasks)) {
-        this.taskRegistry.register(moduleName, { ...task, name: taskName });
+    if (module.exports?.tasks) {
+      for (const [taskName, task] of Object.entries(module.exports.tasks)) {
+        this.taskRegistry.register(moduleName, { ...(task as any), name: taskName });
       }
     }
 
-    if (module.patterns) {
-      for (const [patternName, pattern] of Object.entries(module.patterns)) {
-        this.patternRegistry.register(moduleName, { ...pattern, name: patternName });
+    if (module.exports?.patterns) {
+      for (const [patternName, pattern] of Object.entries(module.exports.patterns)) {
+        this.patternRegistry.register(moduleName, { ...(pattern as any), name: patternName });
       }
     }
 
-    if (module.integrations) {
-      for (const [integrationName, integration] of Object.entries(module.integrations)) {
-        this.integrationRegistry.register(moduleName, { ...integration, name: integrationName });
+    if (module.exports?.integrations) {
+      for (const [integrationName, integration] of Object.entries(module.exports.integrations)) {
+        this.integrationRegistry.register(moduleName, { ...(integration as any), name: integrationName });
       }
     }
 
-    if (module.helpers) {
-      for (const [helperName, helper] of Object.entries(module.helpers)) {
-        this.helperRegistry.register(moduleName, { ...helper, name: helperName });
+    if (module.exports?.helpers) {
+      for (const [helperName, helper] of Object.entries(module.exports.helpers)) {
+        this.helperRegistry.register(moduleName, { ...(helper as any), name: helperName });
       }
     }
 
-    if (module.onInstall) {
+    if (module.lifecycle?.onInstall) {
       try {
-        await module.onInstall();
+        await module.lifecycle.onInstall();
       } catch (error) {
         registration.status = 'error';
         registration.error = error as Error;
@@ -122,8 +123,8 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
 
     const module = registration.module;
 
-    if (module.onUninstall) {
-      await module.onUninstall();
+    if (module.lifecycle?.onUninstall) {
+      await module.lifecycle.onUninstall();
     }
 
     this.taskRegistry.unregisterAll(moduleName);
@@ -141,11 +142,11 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
     const module = await this.loader.load(modulePath);
 
     if (options?.validateDependencies !== false) {
-      await this.validateDependencies(module.metadata.name);
+      await this.validateDependencies(module.name);
     }
 
-    if (options?.override && this.has(module.metadata.name)) {
-      await this.unregister(module.metadata.name);
+    if ((options as any)?.override && this.has(module.name)) {
+      await this.unregister(module.name);
     }
 
     await this.register(module, options?.config);
@@ -162,7 +163,7 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
         modules.push(module);
       } catch (error) {
         this.logger.error(`Failed to load module from ${path}`, { error });
-        if (!options?.override) {
+        if (options?.strict !== false) {
           throw error;
         }
       }
@@ -199,16 +200,18 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
 
     const module = registration.module;
 
-    if (module.onEnable) {
-      await module.onEnable();
+    if (module.lifecycle?.onEnable) {
+      await module.lifecycle.onEnable();
     }
 
-    if (module.onStart) {
-      await module.onStart();
+    if (module.lifecycle?.onStart) {
+      await module.lifecycle.onStart();
     }
 
     registration.status = 'enabled';
-    registration.config.enabled = true;
+    if (registration.config) {
+      registration.config.enabled = true;
+    }
 
     this.emit('module:enabled', { moduleName });
   }
@@ -225,16 +228,18 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
 
     const module = registration.module;
 
-    if (module.onStop) {
-      await module.onStop();
+    if (module.lifecycle?.onStop) {
+      await module.lifecycle.onStop();
     }
 
-    if (module.onDisable) {
-      await module.onDisable();
+    if (module.lifecycle?.onDisable) {
+      await module.lifecycle.onDisable();
     }
 
     registration.status = 'disabled';
-    registration.config.enabled = false;
+    if (registration.config) {
+      registration.config.enabled = false;
+    }
 
     this.emit('module:disabled', { moduleName });
   }
@@ -265,13 +270,13 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
 
     for (const registration of this.modules.values()) {
       const module = registration.module;
-      const metadata = module.metadata;
+      const metadata = module.metadata || {};
 
-      if (criteria.name && !metadata.name.includes(criteria.name)) {
+      if (criteria.name && !module.name.includes(criteria.name)) {
         continue;
       }
 
-      if (criteria.version && metadata.version !== criteria.version) {
+      if (criteria.version && module.version !== criteria.version) {
         continue;
       }
 
@@ -314,7 +319,7 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
     }
 
     const module = registration.module;
-    const dependencies = module.metadata.dependencies || {};
+    const dependencies = module.dependencies || {};
 
     for (const [depName, depVersion] of Object.entries(dependencies)) {
       const depModule = this.get(depName);
@@ -323,8 +328,8 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
         return false;
       }
 
-      if (!this.isVersionCompatible(depModule.metadata.version, depVersion)) {
-        this.logger.error(`Incompatible version for ${depName}: expected ${depVersion}, found ${depModule.metadata.version}`);
+      if (!this.isVersionCompatible(depModule.version, depVersion)) {
+        this.logger.error(`Incompatible version for ${depName}: expected ${depVersion}, found ${depModule.version}`);
         return false;
       }
     }
@@ -343,8 +348,8 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
     }
 
     const module = registration.module;
-    if (module.onHealthCheck) {
-      const result = await module.onHealthCheck();
+    if (module.lifecycle?.onHealthCheck) {
+      const result = await module.lifecycle.onHealthCheck();
       this.emit('module:health-check', { moduleName, result });
     }
   }
@@ -367,25 +372,25 @@ export class ModuleRegistry extends EventEmitter implements IModuleRegistry {
 
   private updateDependencyGraph(module: Module): void {
     const node: ModuleNode = {
-      name: module.metadata.name,
-      version: module.metadata.version,
+      name: module.name,
+      version: module.version,
       module,
-      dependencies: Object.keys(module.metadata.dependencies || {}),
+      dependencies: Object.keys(module.dependencies || {}),
       dependents: [],
     };
 
-    this.dependencyGraph.nodes.set(module.metadata.name, node);
+    this.dependencyGraph.nodes.set(module.name, node);
 
-    if (!this.dependencyGraph.edges.has(module.metadata.name)) {
-      this.dependencyGraph.edges.set(module.metadata.name, new Set());
+    if (!this.dependencyGraph.edges.has(module.name)) {
+      this.dependencyGraph.edges.set(module.name, new Set());
     }
 
     for (const dep of node.dependencies) {
-      this.dependencyGraph.edges.get(module.metadata.name)!.add(dep);
+      this.dependencyGraph.edges.get(module.name)!.add(dep);
 
       const depNode = this.dependencyGraph.nodes.get(dep);
       if (depNode) {
-        depNode.dependents.push(module.metadata.name);
+        depNode.dependents.push(module.name);
       }
     }
   }

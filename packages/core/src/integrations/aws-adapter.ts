@@ -40,8 +40,8 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
       ...config,
       name: baseConfig.name,
       type: baseConfig.type,
-      region: process.env.AWS_REGION || config.region || 'us-east-1',
-      profile: process.env.AWS_PROFILE || config.profile
+      region: process.env['AWS_REGION'] || config.region || 'us-east-1',
+      profile: process.env['AWS_PROFILE'] || config.profile
     };
   }
 
@@ -50,7 +50,7 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
     const hasCredentials =
       (this.awsConfig.accessKeyId && this.awsConfig.secretAccessKey) ||
       this.awsConfig.profile ||
-      process.env.AWS_ACCESS_KEY_ID;
+      process.env['AWS_ACCESS_KEY_ID'];
 
     if (!hasCredentials) {
       throw new Error('AWS credentials not configured');
@@ -64,7 +64,7 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
     this.connected = false;
   }
 
-  isConnected(): boolean {
+  override isConnected(): boolean {
     return this.connected;
   }
 
@@ -74,6 +74,10 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
     }
 
     const [service, action] = operation.split('.');
+    
+    if (!service || !action) {
+      throw new Error(`Invalid operation format: ${operation}. Expected format: service.action`);
+    }
 
     switch (service) {
       case 'ec2':
@@ -610,7 +614,7 @@ export class AWSAdapter extends BaseAdapter implements IntegrationAdapter {
     // Check for credentials
     const hasAccessKeys = !!(config.accessKeyId && config.secretAccessKey);
     const hasProfile = !!config.profile;
-    const hasEnvCredentials = !!process.env.AWS_ACCESS_KEY_ID;
+    const hasEnvCredentials = !!process.env['AWS_ACCESS_KEY_ID'];
 
     return hasAccessKeys || hasProfile || hasEnvCredentials;
   }

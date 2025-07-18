@@ -31,6 +31,7 @@ export interface RecipeBuilderOptions {
 export class RecipeBuilder {
   private recipe: Partial<Recipe>;
   private taskBuilders: Map<string, TaskBuilder> = new Map();
+  private moduleList: Module[] = [];
 
   constructor(name: string) {
     this.recipe = {
@@ -267,11 +268,12 @@ export class RecipeBuilder {
       this.recipe.metadata.modules = [];
     }
     // Check for duplicate module name
-    const existing = this.recipe.metadata.modules.find((m: Module) => m.name === module.name);
+    const existing = this.moduleList.find((m: Module) => m.name === module.name);
     if (existing) {
       throw new ValidationError(`Duplicate module name: ${module.name}`, 'modules', module.name);
     }
-    this.recipe.metadata.modules.push(module);
+    this.moduleList.push(module);
+    this.recipe.metadata.modules.push(module.name);
     return this;
   }
 
@@ -287,10 +289,10 @@ export class RecipeBuilder {
         version: this.recipe.version
       };
     }
-    if (!this.recipe.metadata.hosts) {
-      this.recipe.metadata.hosts = [];
+    if (!this.recipe.metadata['hosts']) {
+      this.recipe.metadata['hosts'] = [];
     }
-    this.recipe.metadata.hosts.push(...hosts);
+    this.recipe.metadata['hosts'].push(...hosts);
     return this;
   }
 
@@ -301,7 +303,7 @@ export class RecipeBuilder {
         version: this.recipe.version
       };
     }
-    this.recipe.metadata.parallel = value;
+    this.recipe.metadata['parallel'] = value;
     return this;
   }
 
@@ -312,7 +314,7 @@ export class RecipeBuilder {
         version: this.recipe.version
       };
     }
-    this.recipe.metadata.continueOnError = value;
+    this.recipe.metadata['continueOnError'] = value;
     return this;
   }
 
@@ -326,7 +328,7 @@ export class RecipeBuilder {
         version: this.recipe.version
       };
     }
-    this.recipe.metadata.timeout = ms;
+    this.recipe.metadata['timeout'] = ms;
     return this;
   }
 
@@ -444,7 +446,7 @@ export class RecipeBuilder {
     // Validate requiredVars against schema
     if (this.recipe.metadata?.requiredVars && this.recipe.metadata?.varsSchema) {
       const schema = this.recipe.metadata.varsSchema;
-      const schemaProps = schema.properties || {};
+      const schemaProps = schema['properties'] || {};
       const requiredVars = this.recipe.metadata.requiredVars;
 
       const undefinedVars = requiredVars.filter((v: string) => !(v in schemaProps));
@@ -499,11 +501,11 @@ export class RecipeBuilder {
       legacyRecipe.tags = recipe.metadata.tags || [];
       legacyRecipe.requiredVars = recipe.metadata.requiredVars || [];
       legacyRecipe.varsSchema = recipe.metadata.varsSchema;
-      legacyRecipe.modules = recipe.metadata.modules || [];
-      legacyRecipe.hosts = recipe.metadata.hosts;
-      legacyRecipe.parallel = recipe.metadata.parallel;
-      legacyRecipe.continueOnError = recipe.metadata.continueOnError;
-      legacyRecipe.timeout = recipe.metadata.timeout;
+      legacyRecipe.modules = this.moduleList || [];
+      legacyRecipe.hosts = recipe.metadata['hosts'];
+      legacyRecipe.parallel = recipe.metadata['parallel'];
+      legacyRecipe.continueOnError = recipe.metadata['continueOnError'];
+      legacyRecipe.timeout = recipe.metadata['timeout'];
       // Filter out system fields for legacy meta
       const systemFields = ['name', 'version', 'author', 'tags', 'requiredVars', 'varsSchema', 'modules', 'hosts', 'parallel', 'continueOnError', 'timeout'];
       legacyRecipe.meta = {};
@@ -515,7 +517,7 @@ export class RecipeBuilder {
     } else {
       legacyRecipe.tags = [];
       legacyRecipe.requiredVars = [];
-      legacyRecipe.modules = [];
+      legacyRecipe.modules = this.moduleList || [];
       legacyRecipe.meta = {};
     }
 
@@ -587,7 +589,7 @@ export function phaseRecipe(
       if (!task.metadata) {
         task.metadata = {};
       }
-      task.metadata.phase = phaseName;
+      task.metadata['phase'] = phaseName;
 
       // Add legacy phase property
       (task as any).phase = phaseName;
@@ -602,6 +604,9 @@ export function phaseRecipe(
   for (let i = 1; i < phaseNames.length; i++) {
     const currentPhaseName = phaseNames[i];
     const previousPhaseName = phaseNames[i - 1];
+    if (!currentPhaseName || !previousPhaseName) {
+      continue;
+    }
     const currentPhaseTasks = phaseTasks.get(currentPhaseName) || [];
     const previousPhaseTasks = phaseTasks.get(previousPhaseName) || [];
 

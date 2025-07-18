@@ -1,9 +1,11 @@
 import chalk from 'chalk';
 import * as path from 'path';
+import { $ } from '@xec/ush';
 import { table } from 'table';
 import { Command } from 'commander';
 import { promises as fs } from 'fs';
 import { confirm, spinner } from '@clack/prompts';
+import { type TaskContext, type EnvironmentInfo, createStandardLibrary } from '@xec/core';
 
 import { getProjectRoot } from '../utils/project.js';
 
@@ -83,11 +85,35 @@ export default function moduleCommand(program: Command) {
           { name: '@xec/core:process', description: 'Process management', type: 'task' },
         ];
         
+        // Show stdlib modules
+        console.log(chalk.cyan('\nStandard Library Modules:'));
+        const stdlibModules = [
+          { name: 'std:fs', description: 'File system operations', type: 'stdlib' },
+          { name: 'std:http', description: 'HTTP client operations', type: 'stdlib' },
+          { name: 'std:os', description: 'Operating system information', type: 'stdlib' },
+          { name: 'std:proc', description: 'Process management', type: 'stdlib' },
+          { name: 'std:pkg', description: 'Package management', type: 'stdlib' },
+          { name: 'std:svc', description: 'Service management', type: 'stdlib' },
+          { name: 'std:net', description: 'Network utilities', type: 'stdlib' },
+          { name: 'std:crypto', description: 'Cryptographic operations', type: 'stdlib' },
+          { name: 'std:time', description: 'Time and date utilities', type: 'stdlib' },
+          { name: 'std:json', description: 'JSON utilities', type: 'stdlib' },
+          { name: 'std:yaml', description: 'YAML utilities', type: 'stdlib' },
+          { name: 'std:env', description: 'Environment variables', type: 'stdlib' },
+          { name: 'std:template', description: 'Template engine', type: 'stdlib' },
+        ];
+        
         const builtinTable = [['Name', 'Description', 'Type']];
         for (const mod of builtinModules) {
           builtinTable.push([mod.name, mod.description, mod.type]);
         }
         console.log(table(builtinTable));
+        
+        const stdlibTable = [['Name', 'Description', 'Type']];
+        for (const mod of stdlibModules) {
+          stdlibTable.push([mod.name, mod.description, mod.type]);
+        }
+        console.log(table(stdlibTable));
 
         // Show custom modules
         if (filtered.length > 0) {
@@ -107,7 +133,7 @@ export default function moduleCommand(program: Command) {
           console.log(table(customTable));
         }
 
-        console.log(chalk.gray(`\nTotal: ${builtinModules.length} built-in, ${filtered.length} custom module(s)`));
+        console.log(chalk.gray(`\nTotal: ${builtinModules.length} built-in, ${stdlibModules.length} stdlib, ${filtered.length} custom module(s)`));
         
       } catch (error) {
         console.error(chalk.red(`Failed to list modules: ${error}`));
@@ -248,6 +274,22 @@ export default function moduleCommand(program: Command) {
         if (builtinModules.includes(moduleName)) {
           showBuiltinModuleInfo(moduleName);
           return;
+        }
+        
+        // Check if it's a stdlib module
+        const stdlibModules = ['fs', 'http', 'os', 'proc', 'pkg', 'svc', 'net', 'crypto', 'time', 'json', 'yaml', 'env', 'template'];
+        if (stdlibModules.includes(moduleName)) {
+          showStdlibModuleInfo(moduleName);
+          return;
+        }
+        
+        // Check if it's a stdlib module with std: prefix
+        if (moduleName.startsWith('std:')) {
+          const actualModuleName = moduleName.substring(4);
+          if (stdlibModules.includes(actualModuleName)) {
+            showStdlibModuleInfo(actualModuleName);
+            return;
+          }
         }
 
         // Check custom modules
@@ -571,6 +613,266 @@ dist/
         process.exit(1);
       }
     });
+
+  module
+    .command('exec <module> <task> [args...]')
+    .description('Execute a task from a specific module')
+    .option('-v, --vars <json>', 'Variables in JSON format')
+    .option('--dry-run', 'Simulate without making changes')
+    .option('--timeout <ms>', 'Task timeout in milliseconds')
+    .action(async (moduleName: string, taskName: string, args: string[], options: any) => {
+      try {
+        const { ModuleLoader, TaskRunner, EnvironmentManager, createExecutionContext } = await import('@xec/core');
+        
+        // Check if it's a builtin module
+        const builtinModules = ['aws', 'docker', 'k8s', 'kubernetes', 'monitoring'];
+        const stdlibModules = ['fs', 'http', 'os', 'proc', 'pkg', 'svc', 'net', 'crypto', 'time', 'json', 'yaml', 'env', 'template'];
+        const isBuiltin = builtinModules.includes(moduleName);
+        let isStdlib = false;
+        let actualModuleName = moduleName;
+        
+        // Handle std: prefix
+        if (moduleName.startsWith('std:')) {
+          actualModuleName = moduleName.substring(4);
+          isStdlib = stdlibModules.includes(actualModuleName);
+        } else {
+          // Support legacy format without std: prefix
+          isStdlib = stdlibModules.includes(moduleName);
+        }
+        
+        const s = spinner();
+        s.start(`Loading module: ${moduleName}`);
+        
+        // Create module loader and task runner
+        const moduleLoader = new ModuleLoader();
+        const environmentManager = new EnvironmentManager();
+        const taskRunner = new TaskRunner(environmentManager);
+        
+        // Register the module
+        if (isBuiltin) {
+          // For builtin modules, we would need to import them properly
+          // This is a simplified version - in reality we'd load the actual module
+          s.stop(chalk.yellow(`Note: Builtin module execution not fully implemented`));
+          console.log(chalk.gray(`Builtin modules require proper integration with @xec/core`));
+          process.exit(1);
+        } else if (isStdlib) {
+          // Execute stdlib module function
+          await executeStdlibFunction(actualModuleName, taskName, args, options, s);
+          return;
+        } else {
+          // Load custom module
+          const modules = await listInstalledModules();
+          const module = modules.find(m => m.manifest.name === moduleName);
+          
+          if (!module) {
+            s.stop(chalk.red(`✗ Module '${moduleName}' not found`));
+            process.exit(1);
+          }
+          
+          if (!module.enabled) {
+            s.stop(chalk.red(`✗ Module '${moduleName}' is disabled`));
+            console.log(chalk.gray(`Enable it with: xec module enable ${moduleName}`));
+            process.exit(1);
+          }
+          
+          // Load the module
+          const loadedModule = await moduleLoader.load(module.path);
+          if (loadedModule) {
+            // Adapt Module to XecModule interface
+            // Convert TaskDefinition to Task format
+            const tasks: Record<string, any> = {};
+            if (loadedModule.exports?.tasks) {
+              for (const [name, taskDef] of Object.entries(loadedModule.exports.tasks)) {
+                tasks[name] = {
+                  name: (taskDef as any).name,
+                  description: (taskDef as any).description,
+                  run: (taskDef as any).handler // Map handler to run
+                };
+              }
+            }
+            
+            // Convert HelperDefinition to HelperFunction format
+            const helpers: Record<string, any> = {};
+            if (loadedModule.exports?.helpers) {
+              for (const [name, helperDef] of Object.entries(loadedModule.exports.helpers)) {
+                // If helper has methods, we'll use the first method or a composite
+                if ((helperDef as any).methods && Object.keys((helperDef as any).methods).length > 0) {
+                  const firstMethod = Object.values((helperDef as any).methods)[0];
+                  helpers[name] = firstMethod;
+                }
+              }
+            }
+            
+            // Convert PatternDefinition to Pattern format
+            const patterns: Record<string, any> = {};
+            if (loadedModule.exports?.patterns) {
+              for (const [name, patternDef] of Object.entries(loadedModule.exports.patterns)) {
+                patterns[name] = {
+                  name: (patternDef as any).name,
+                  description: (patternDef as any).description,
+                  template: (patternDef as any).template
+                };
+              }
+            }
+            
+            const xecModule = {
+              name: loadedModule.metadata?.['name'] || 'unknown',
+              version: loadedModule.metadata?.['version'] || '1.0.0',
+              description: loadedModule.metadata?.['description'] || 'No description',
+              exports: {
+                tasks: Object.keys(tasks).length > 0 ? tasks : undefined,
+                helpers: Object.keys(helpers).length > 0 ? helpers : undefined,
+                patterns: Object.keys(patterns).length > 0 ? patterns : undefined
+              },
+              dependencies: loadedModule.metadata?.['dependencies']
+            };
+            await taskRunner.registerModule(xecModule);
+          }
+        }
+        
+        s.stop(chalk.green(`✓ Module loaded`));
+        
+        // Parse variables
+        let variables = {};
+        if (options.vars) {
+          try {
+            variables = JSON.parse(options.vars);
+          } catch {
+            console.error(chalk.red('Invalid JSON in --vars option'));
+            process.exit(1);
+          }
+        }
+        
+        // Add args to variables if provided
+        if (args.length > 0) {
+          variables = { ...variables, args };
+        }
+        
+        // Create execution context
+        const context = createExecutionContext({
+          dryRun: options.dryRun,
+          timeout: options.timeout ? parseInt(options.timeout) : undefined
+        });
+        
+        // Add variables to context
+        if (Object.keys(variables).length > 0) {
+          Object.assign(context.vars, variables);
+        }
+        
+        // Execute the task
+        const taskFullName = `${moduleName}:${taskName}`;
+        console.log(chalk.cyan(`\nExecuting task: ${taskFullName}\n`));
+        
+        const result = await taskRunner.runTask(taskFullName, context);
+        
+        if (result.success) {
+          console.log(chalk.green(`\n✓ Task completed successfully`));
+          if (result.output) {
+            console.log(chalk.bold('\nOutput:'));
+            console.log(result.output);
+          }
+        } else {
+          console.error(chalk.red(`\n✗ Task failed`));
+          if (result.error) {
+            console.error(chalk.red(result.error));
+          }
+          process.exit(1);
+        }
+        
+      } catch (error) {
+        console.error(chalk.red(`Failed to execute task: ${error}`));
+        process.exit(1);
+      }
+    });
+
+  module
+    .command('tasks <module>')
+    .description('List tasks available in a module')
+    .action(async (moduleName: string) => {
+      try {
+        // Check if it's a builtin module
+        const builtinTasks: Record<string, string[]> = {
+          aws: ['configure', 'ec2Instance', 's3Bucket', 'rds', 'cloudformation', 'lambda', 'route53', 'cloudwatch'],
+          docker: ['build', 'run', 'stop', 'remove', 'push', 'pull', 'compose', 'swarm', 'network', 'volume'],
+          k8s: ['deploy', 'scale', 'rollback', 'configmap', 'secret', 'ingress', 'helm', 'logs', 'exec'],
+          kubernetes: ['deploy', 'scale', 'rollback', 'configmap', 'secret', 'ingress', 'helm', 'logs', 'exec'],
+          monitoring: ['prometheus', 'grafana', 'elasticsearch', 'loki', 'alerts', 'metrics', 'dashboards']
+        };
+        
+        // Check if it's a stdlib module
+        const stdlibTasks: Record<string, string[]> = {
+          fs: ['read', 'write', 'append', 'exists', 'rm', 'mkdir', 'ls', 'copy', 'move', 'chmod', 'chown', 'stat', 'isFile', 'isDir', 'temp', 'join', 'resolve', 'dirname', 'basename', 'extname'],
+          http: ['get', 'post', 'put', 'delete', 'request', 'download', 'upload'],
+          os: ['platform', 'arch', 'hostname', 'release', 'cpus', 'memory', 'disk', 'user', 'home'],
+          proc: ['exec', 'spawn', 'list', 'kill', 'exists', 'cwd', 'exit'],
+          pkg: ['install', 'remove', 'update', 'upgrade', 'installed', 'version', 'search', 'manager'],
+          svc: ['start', 'stop', 'restart', 'reload', 'status', 'enable', 'disable', 'list', 'exists'],
+          net: ['ping', 'traceroute', 'isPortOpen', 'waitForPort', 'resolve', 'reverse', 'interfaces', 'publicIP', 'privateIP'],
+          crypto: ['hash', 'md5', 'sha256', 'sha512', 'randomBytes', 'uuid', 'base64Encode', 'base64Decode'],
+          time: ['now', 'timestamp', 'format', 'parse', 'add', 'subtract', 'diff', 'sleep', 'timeout'],
+          json: ['parse', 'stringify', 'read', 'write', 'merge', 'get', 'set'],
+          yaml: ['parse', 'stringify', 'read', 'write', 'parseAll', 'stringifyAll'],
+          env: ['get', 'set', 'all', 'load', 'expand', 'require'],
+          template: ['render', 'renderFile', 'compile', 'registerHelper', 'registerPartial']
+        };
+        
+        let actualModuleName = moduleName;
+        let displayModuleName = moduleName;
+        
+        // Handle std: prefix
+        if (moduleName.startsWith('std:')) {
+          actualModuleName = moduleName.substring(4);
+          displayModuleName = moduleName;
+        } else if (stdlibTasks[moduleName]) {
+          // For stdlib modules without prefix, show with std: prefix
+          displayModuleName = `std:${moduleName}`;
+        }
+        
+        const builtinModuleTasks = builtinTasks[actualModuleName];
+        if (builtinModuleTasks) {
+          console.log(chalk.bold(`\nTasks in builtin module '${actualModuleName}':\n`));
+          for (const task of builtinModuleTasks) {
+            console.log(`  - ${task}`);
+          }
+          console.log(chalk.gray(`\nRun a task with: xec module exec ${actualModuleName} <task>`));
+          return;
+        }
+        
+        const stdlibModuleTasks = stdlibTasks[actualModuleName];
+        if (stdlibModuleTasks) {
+          console.log(chalk.bold(`\nFunctions in stdlib module '${displayModuleName}':\n`));
+          for (const task of stdlibModuleTasks) {
+            console.log(`  - ${task}`);
+          }
+          console.log(chalk.gray(`\nRun a function with: xec module exec ${displayModuleName} <function> [args...]`));
+          console.log(chalk.gray(`Or with task command: xec task ${displayModuleName}:<function> [--var key=value]`));
+          return;
+        }
+        
+        // Check custom modules
+        const modules = await listInstalledModules();
+        const module = modules.find(m => m.manifest.name === moduleName);
+        
+        if (!module) {
+          console.log(chalk.red(`Module '${moduleName}' not found`));
+          process.exit(1);
+        }
+        
+        if (module.manifest.xec?.tasks && module.manifest.xec.tasks.length > 0) {
+          console.log(chalk.bold(`\nTasks in module '${moduleName}':\n`));
+          for (const task of module.manifest.xec.tasks) {
+            console.log(`  - ${task}`);
+          }
+          console.log(chalk.gray(`\nRun a task with: xec module exec ${moduleName} <task>`));
+        } else {
+          console.log(chalk.yellow(`Module '${moduleName}' has no tasks`));
+        }
+        
+      } catch (error) {
+        console.error(chalk.red(`Failed to list tasks: ${error}`));
+        process.exit(1);
+      }
+    });
 }
 
 async function getModulesPath(): Promise<string> {
@@ -696,5 +998,181 @@ function showBuiltinModuleInfo(moduleName: string): void {
     for (const helper of info.helpers) {
       console.log(`  - ${helper}`);
     }
+  }
+}
+
+function showStdlibModuleInfo(moduleName: string): void {
+  const modules: Record<string, any> = {
+    fs: {
+      description: 'File system operations',
+      functions: ['read', 'write', 'append', 'exists', 'rm', 'mkdir', 'ls', 'copy', 'move', 'chmod', 'chown', 'stat', 'isFile', 'isDir', 'temp', 'join', 'resolve', 'dirname', 'basename', 'extname'],
+    },
+    http: {
+      description: 'HTTP client operations',
+      functions: ['get', 'post', 'put', 'delete', 'request', 'download', 'upload'],
+    },
+    os: {
+      description: 'Operating system information',
+      functions: ['platform', 'arch', 'hostname', 'release', 'cpus', 'memory', 'disk', 'user', 'home'],
+    },
+    proc: {
+      description: 'Process management',
+      functions: ['exec', 'spawn', 'list', 'kill', 'exists', 'cwd', 'exit'],
+    },
+    pkg: {
+      description: 'Package management',
+      functions: ['install', 'remove', 'update', 'upgrade', 'installed', 'version', 'search', 'manager'],
+    },
+    svc: {
+      description: 'Service management',
+      functions: ['start', 'stop', 'restart', 'reload', 'status', 'enable', 'disable', 'list', 'exists'],
+    },
+    net: {
+      description: 'Network utilities',
+      functions: ['ping', 'traceroute', 'isPortOpen', 'waitForPort', 'resolve', 'reverse', 'interfaces', 'publicIP', 'privateIP'],
+    },
+    crypto: {
+      description: 'Cryptographic operations',
+      functions: ['hash', 'md5', 'sha256', 'sha512', 'randomBytes', 'uuid', 'base64Encode', 'base64Decode'],
+    },
+    time: {
+      description: 'Time and date utilities',
+      functions: ['now', 'timestamp', 'format', 'parse', 'add', 'subtract', 'diff', 'sleep', 'timeout'],
+    },
+    json: {
+      description: 'JSON utilities',
+      functions: ['parse', 'stringify', 'read', 'write', 'merge', 'get', 'set'],
+    },
+    yaml: {
+      description: 'YAML utilities',
+      functions: ['parse', 'stringify', 'read', 'write', 'parseAll', 'stringifyAll'],
+    },
+    env: {
+      description: 'Environment variables',
+      functions: ['get', 'set', 'all', 'load', 'expand', 'require'],
+    },
+    template: {
+      description: 'Template engine',
+      functions: ['render', 'renderFile', 'compile', 'registerHelper', 'registerPartial'],
+    },
+  };
+
+  const info = modules[moduleName];
+  if (!info) {
+    console.log(chalk.red(`Unknown stdlib module: ${moduleName}`));
+    return;
+  }
+
+  const displayName = `std:${moduleName}`;
+  console.log(chalk.bold(`\nStdlib Module: ${displayName}\n`));
+  console.log(`Description: ${info.description}`);
+  console.log(`Type: stdlib`);
+  console.log(`Status: ${chalk.green('always available')}`);
+  
+  if (info.functions?.length) {
+    console.log(chalk.bold('\nFunctions:'));
+    for (const func of info.functions) {
+      console.log(`  - ${func}`);
+    }
+  }
+  
+  console.log(chalk.gray(`\nUse: xec module exec ${displayName} <function> [args...]`));
+  console.log(chalk.gray(`Or:  xec task ${displayName}:<function> [--var key=value]`));
+  console.log(chalk.gray(`Example: xec module exec ${displayName} ${info.functions[0]} arg1 arg2`));
+}
+
+async function executeStdlibFunction(moduleName: string, functionName: string, args: string[], options: any, s: any): Promise<void> {
+  try {
+    // Create a minimal environment info
+    const envInfo: EnvironmentInfo = {
+      type: 'local',
+      capabilities: {
+        shell: true,
+        sudo: process.platform !== 'win32',
+        docker: false,
+        systemd: process.platform === 'linux'
+      },
+      platform: {
+        os: process.platform === 'darwin' ? 'darwin' : 
+            process.platform === 'win32' ? 'windows' : 
+            'linux' as any,
+        arch: process.arch === 'x64' ? 'x64' : 
+              process.arch === 'arm64' ? 'arm64' : 
+              'arm' as any
+      }
+    };
+
+    // Create a minimal logger
+    const logger: any = {
+      debug: (message: string, meta?: any) => options.verbose && console.log(chalk.gray('[DEBUG]'), message, meta || ''),
+      info: (message: string, meta?: any) => console.log(chalk.blue('[INFO]'), message, meta || ''),
+      warn: (message: string, meta?: any) => console.log(chalk.yellow('[WARN]'), message, meta || ''),
+      error: (message: string, meta?: any) => console.error(chalk.red('[ERROR]'), message, meta || ''),
+      child() { return this; }
+    };
+
+    // Create a minimal context to get stdlib
+    const context: Partial<TaskContext> = {
+      $,
+      env: envInfo,
+      logger
+    };
+
+    // Create standard library
+    const stdlib = await createStandardLibrary(context);
+    
+    // Get the stdlib module
+    const stdlibModule = (stdlib as any)[moduleName];
+    if (!stdlibModule) {
+      throw new Error(`Stdlib module not found: ${moduleName}`);
+    }
+
+    const method = stdlibModule[functionName as keyof typeof stdlibModule];
+    if (typeof method !== 'function') {
+      throw new Error(`Function not found: ${moduleName}.${functionName}`);
+    }
+
+    // Parse arguments
+    const parsedArgs = args.map(arg => {
+      try {
+        return JSON.parse(arg);
+      } catch {
+        return arg;
+      }
+    });
+
+    s.stop(chalk.green(`✓ Module loaded`));
+    
+    console.log(chalk.cyan(`\nExecuting: ${moduleName}.${functionName}(${parsedArgs.map(a => JSON.stringify(a)).join(', ')})\n`));
+
+    // Call the method
+    const result = await method.apply(stdlibModule, parsedArgs);
+
+    // Format output
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else if (options.raw) {
+      console.log(result);
+    } else {
+      if (result === undefined) {
+        console.log(chalk.gray('(undefined)'));
+      } else if (result === null) {
+        console.log(chalk.gray('(null)'));
+      } else if (typeof result === 'object') {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(result);
+      }
+    }
+    
+    console.log(chalk.green(`\n✓ Function executed successfully`));
+    
+  } catch (error) {
+    s.stop(chalk.red(`✗ Execution failed`));
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    if (options.verbose) {
+      console.error(error);
+    }
+    process.exit(1);
   }
 }

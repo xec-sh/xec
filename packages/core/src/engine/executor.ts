@@ -241,9 +241,18 @@ export class RecipeExecutor {
       throw errors[0];
     }
 
+    // Return aggregated result for multiple hosts
+    const hasErrors = errors.length > 0;
+    const allFailed = errors.length === hosts.length;
+    
     return {
-      hosts: results,
-      errors: errors.length > 0 ? errors : undefined
+      success: !allFailed,
+      changed: results.some(r => r.changed),
+      data: {
+        hosts: results,
+        errors: hasErrors ? errors : undefined
+      },
+      error: hasErrors && !results.length ? errors[0] : undefined
     };
   }
 
@@ -276,7 +285,7 @@ export class RecipeExecutor {
       const taskError = isTaskError(error) ? error : new TaskError(
         `Task ${task.id} failed: ${error}`,
         task.id,
-        task.metadata?.phase,
+        task.metadata?.['phase'],
         { originalError: error }
       );
       throw taskError;
@@ -363,20 +372,20 @@ export class RecipeExecutor {
   }
 
   private validateTaskVariables(task: Task, context: TaskContext): void {
-    if (task.metadata?.requiredVars || task.metadata?.varsSchema) {
+    if (task.metadata?.['requiredVars'] || task.metadata?.['varsSchema']) {
       try {
         Validator.validateTaskVariables(
           task.id,
           context.vars,
-          task.metadata?.requiredVars,
-          task.metadata?.varsSchema
+          task.metadata?.['requiredVars'],
+          task.metadata?.['varsSchema']
         );
       } catch (error) {
         if (error instanceof ValidationError) {
           throw new TaskError(
             error.message,
             task.id,
-            (task as any).phase || task.metadata?.phase,
+            (task as any).phase || task.metadata?.['phase'],
             { validationError: error }
           );
         }
@@ -506,11 +515,11 @@ export class RecipeExecutor {
 
     await this.runHook('onError', task, error);
 
-    if (task.metadata?.rollback) {
+    if (task.metadata?.['rollback']) {
       try {
         this.context.logger.info(`Running rollback for task ${task.id}`);
         const taskContext = createTaskContext(task, this.context);
-        await contextProvider.run(taskContext, () => task.metadata!.rollback(taskContext));
+        await contextProvider.run(taskContext, () => task.metadata!['rollback'](taskContext));
       } catch (rollbackError) {
         this.context.logger.error(`Rollback failed for task ${task.id}: ${rollbackError}`);
       }

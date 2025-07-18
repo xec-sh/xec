@@ -229,7 +229,11 @@ export function parallel<T>(
       running++;
       
       try {
-        const result = await tasks[taskIndex]();
+        const task = tasks[taskIndex];
+        if (!task) {
+          throw new Error(`Task at index ${taskIndex} is undefined`);
+        }
+        const result = await task();
         results[taskIndex] = result;
       } catch (error) {
         errors[taskIndex] = error as Error;

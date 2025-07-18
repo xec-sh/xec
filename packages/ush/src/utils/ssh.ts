@@ -414,7 +414,7 @@ export class NodeSSH {
 
         let code: number | null = null
         let signal: string | null = null
-        channel.on('exit', (code_, signal_) => {
+        channel.on('exit', (code_: number | null, signal_: string | null) => {
           code = code_ ?? null
           signal = signal_ ?? null
         })

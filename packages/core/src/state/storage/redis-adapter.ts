@@ -308,6 +308,7 @@ export class RedisStorageAdapter implements IStorageAdapter {
 
     return results.map((result: any, index: number) => {
       const op = operations[index];
+      if (!op) return null;
 
       switch (op.op) {
         case 'get':

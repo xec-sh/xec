@@ -92,7 +92,7 @@ export class TaskBuilder {
     if (!this.task.metadata) {
       this.task.metadata = {};
     }
-    this.task.metadata.requiredVars = [...(this.task.metadata.requiredVars || []), ...varNames];
+    this.task.metadata['requiredVars'] = [...(this.task.metadata['requiredVars'] || []), ...varNames];
     return this;
   }
 
@@ -101,7 +101,7 @@ export class TaskBuilder {
     if (!this.task.metadata) {
       this.task.metadata = {};
     }
-    this.task.metadata.varsSchema = schema;
+    this.task.metadata['varsSchema'] = schema;
     return this;
   }
 
@@ -109,7 +109,7 @@ export class TaskBuilder {
     if (!this.task.metadata) {
       this.task.metadata = {};
     }
-    this.task.metadata.phase = phase;
+    this.task.metadata['phase'] = phase;
     return this;
   }
 
@@ -117,7 +117,7 @@ export class TaskBuilder {
     if (!this.task.metadata) {
       this.task.metadata = {};
     }
-    this.task.metadata.unless = condition;
+    this.task.metadata['unless'] = condition;
     return this;
   }
 
@@ -190,7 +190,7 @@ export class TaskBuilder {
     if (!this.task.metadata) {
       this.task.metadata = {};
     }
-    this.task.metadata.rollback = handler;
+    this.task.metadata['rollback'] = handler;
     return this;
   }
 
@@ -233,10 +233,10 @@ export class TaskBuilder {
     }
 
     // Validate requiredVars against schema
-    if (this.task.metadata?.requiredVars && this.task.metadata?.varsSchema) {
-      const schema = this.task.metadata.varsSchema;
-      const schemaProps = schema.properties || {};
-      const requiredVars = this.task.metadata.requiredVars;
+    if (this.task.metadata?.['requiredVars'] && this.task.metadata?.['varsSchema']) {
+      const schema = this.task.metadata['varsSchema'];
+      const schemaProps = schema['properties'] || {};
+      const requiredVars = this.task.metadata['requiredVars'];
 
       const undefinedVars = requiredVars.filter((v: string) => !(v in schemaProps));
       if (undefinedVars.length > 0) {
@@ -273,16 +273,16 @@ export class TaskBuilder {
     legacyTask.depends = task.dependencies;
     legacyTask.hosts = task.options.hosts || [];
     legacyTask.vars = task.options.vars;
-    legacyTask.phase = task.metadata?.phase;
-    legacyTask.requiredVars = task.metadata?.requiredVars || [];
-    legacyTask.varsSchema = task.metadata?.varsSchema;
+    legacyTask.phase = task.metadata?.['phase'];
+    legacyTask.requiredVars = task.metadata?.['requiredVars'] || [];
+    legacyTask.varsSchema = task.metadata?.['varsSchema'];
     legacyTask.when = task.options.when;
-    legacyTask.unless = task.metadata?.unless;
+    legacyTask.unless = task.metadata?.['unless'];
     legacyTask.timeout = task.options.timeout;
     legacyTask.retry = task.options.retry;
     legacyTask.parallel = task.options.parallel;
     legacyTask.continueOnError = task.options.continueOnError;
-    legacyTask.rollback = task.metadata?.rollback;
+    legacyTask.rollback = task.metadata?.['rollback'];
     // Filter out system fields for legacy meta
     const systemFields = ['phase', 'requiredVars', 'varsSchema', 'unless', 'rollback'];
     legacyTask.meta = {};
@@ -361,10 +361,14 @@ export function sequence(name: string, tasks: Task[]): TaskBuilder {
   // Set dependencies between tasks
   if (tasks.length > 1) {
     for (let i = 1; i < tasks.length; i++) {
-      const prevDeps = tasks[i].dependencies || [];
-      tasks[i].dependencies = [...prevDeps, tasks[i - 1].id];
-      // Also update legacy property
-      (tasks[i] as any).depends = tasks[i].dependencies;
+      const currentTask = tasks[i];
+      const previousTask = tasks[i - 1];
+      if (currentTask && previousTask) {
+        const prevDeps = currentTask.dependencies || [];
+        currentTask.dependencies = [...prevDeps, previousTask.id];
+        // Also update legacy property
+        (currentTask as any).depends = currentTask.dependencies;
+      }
     }
   }
 

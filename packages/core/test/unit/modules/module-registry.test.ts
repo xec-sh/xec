@@ -68,6 +68,12 @@ describe('modules/module-registry', () => {
     registry = new ModuleRegistry();
     
     mockModule = {
+      name: 'test-module',
+      version: '1.0.0',
+      description: 'Test module',
+      dependencies: {
+        'dependency-1': '1.0.0'
+      },
       metadata: {
         name: 'test-module',
         version: '1.0.0',
@@ -78,39 +84,41 @@ describe('modules/module-registry', () => {
         }
       },
       exports: {
-        testFunction: vi.fn()
-      },
-      onInstall: vi.fn().mockResolvedValue(undefined),
-      onEnable: vi.fn().mockResolvedValue(undefined),
-      onDisable: vi.fn().mockResolvedValue(undefined),
-      onUninstall: vi.fn().mockResolvedValue(undefined),
-      tasks: {
-        'test-task': {
-          name: 'test-task',
-          handler: vi.fn()
-        }
-      },
-      patterns: {
-        'test-pattern': {
-          name: 'test-pattern',
-          type: 'deployment',
-          template: vi.fn()
-        }
-      },
-      integrations: {
-        'test-integration': {
-          name: 'test-integration',
-          type: 'test',
-          connect: vi.fn()
-        }
-      },
-      helpers: {
-        'test-helper': {
-          name: 'test-helper',
-          methods: {
-            testMethod: vi.fn()
+        testFunction: vi.fn(),
+        tasks: {
+          'test-task': {
+            name: 'test-task',
+            handler: vi.fn()
+          }
+        },
+        patterns: {
+          'test-pattern': {
+            name: 'test-pattern',
+            type: 'deployment',
+            template: vi.fn()
+          }
+        },
+        integrations: {
+          'test-integration': {
+            name: 'test-integration',
+            type: 'test',
+            connect: vi.fn()
+          }
+        },
+        helpers: {
+          'test-helper': {
+            name: 'test-helper',
+            methods: {
+              testMethod: vi.fn()
+            }
           }
         }
+      },
+      lifecycle: {
+        onInstall: vi.fn().mockResolvedValue(undefined),
+        onEnable: vi.fn().mockResolvedValue(undefined),
+        onDisable: vi.fn().mockResolvedValue(undefined),
+        onUninstall: vi.fn().mockResolvedValue(undefined)
       }
     };
   });
@@ -163,12 +171,12 @@ describe('modules/module-registry', () => {
     it('should call onInstall lifecycle hook', async () => {
       await registry.register(mockModule);
       
-      expect(mockModule.onInstall).toHaveBeenCalled();
+      expect(mockModule.lifecycle?.onInstall).toHaveBeenCalled();
     });
 
     it('should handle onInstall errors', async () => {
       const error = new Error('Install failed');
-      mockModule.onInstall = vi.fn().mockRejectedValue(error);
+      mockModule.lifecycle!.onInstall = vi.fn().mockRejectedValue(error);
       
       await expect(registry.register(mockModule)).rejects.toThrow('Install failed');
       
@@ -261,11 +269,11 @@ describe('modules/module-registry', () => {
     it('should call onUninstall lifecycle hook', async () => {
       await registry.unregister('test-module');
       
-      expect(mockModule.onUninstall).toHaveBeenCalled();
+      expect(mockModule.lifecycle?.onUninstall).toHaveBeenCalled();
     });
 
     it('should continue unregistration if onUninstall fails', async () => {
-      mockModule.onUninstall = vi.fn().mockRejectedValue(new Error('Uninstall failed'));
+      mockModule.lifecycle!.onUninstall = vi.fn().mockRejectedValue(new Error('Uninstall failed'));
       
       // The actual implementation doesn't catch onUninstall errors
       await expect(registry.unregister('test-module')).rejects.toThrow('Uninstall failed');
@@ -333,10 +341,13 @@ describe('modules/module-registry', () => {
   describe('getAll', () => {
     it('should list all registered modules', async () => {
       const module2: Module = {
+        name: 'module-2',
+        version: '1.0.0',
         metadata: {
           name: 'module-2',
           version: '1.0.0'
-        }
+        },
+        exports: {}
       };
       
       await registry.register(mockModule);
@@ -357,6 +368,9 @@ describe('modules/module-registry', () => {
     beforeEach(async () => {
       const modules: Module[] = [
         {
+          name: 'module-1',
+          version: '1.0.0',
+          exports: {},
           metadata: {
             name: 'module-1',
             version: '1.0.0',
@@ -366,6 +380,9 @@ describe('modules/module-registry', () => {
           }
         },
         {
+          name: 'module-2',
+          version: '2.0.0',
+          exports: {},
           metadata: {
             name: 'module-2',
             version: '2.0.0',
@@ -375,6 +392,9 @@ describe('modules/module-registry', () => {
           }
         },
         {
+          name: 'test-module',
+          version: '1.5.0',
+          exports: {},
           metadata: {
             name: 'test-module',
             version: '1.5.0',
@@ -455,7 +475,7 @@ describe('modules/module-registry', () => {
       
       const registration = (registry as any).modules.get('test-module');
       expect(registration.status).toBe('enabled');
-      expect(mockModule.onEnable).toHaveBeenCalled();
+      expect(mockModule.lifecycle?.onEnable).toHaveBeenCalled();
     });
 
     it('should disable module', async () => {
@@ -464,7 +484,7 @@ describe('modules/module-registry', () => {
       
       const registration = (registry as any).modules.get('test-module');
       expect(registration.status).toBe('disabled');
-      expect(mockModule.onDisable).toHaveBeenCalled();
+      expect(mockModule.lifecycle?.onDisable).toHaveBeenCalled();
     });
 
     it('should emit module:enabled event', async () => {
@@ -538,6 +558,9 @@ describe('modules/module-registry', () => {
       await registry.register(mockModule);
       
       const newModule: Module = {
+        name: 'test-module',
+        version: '2.0.0',
+        exports: {},
         metadata: {
           name: 'test-module',
           version: '2.0.0'
@@ -550,7 +573,7 @@ describe('modules/module-registry', () => {
       await registry.load('/path/to/module', { override: true });
       
       const registered = registry.get('test-module');
-      expect(registered?.metadata.version).toBe('2.0.0');
+      expect(registered?.version).toBe('2.0.0');
     });
 
     it('should throw error when not overriding existing module', async () => {
@@ -568,6 +591,12 @@ describe('modules/module-registry', () => {
   describe('getDependencyGraph', () => {
     it('should return dependency graph', async () => {
       const module1: Module = {
+        name: 'module-1',
+        version: '1.0.0',
+        exports: {},
+        dependencies: {
+          'module-2': '1.0.0'
+        },
         metadata: {
           name: 'module-1',
           version: '1.0.0',
@@ -579,6 +608,9 @@ describe('modules/module-registry', () => {
       };
       
       const module2: Module = {
+        name: 'module-2',
+        version: '1.0.0',
+        exports: {},
         metadata: {
           name: 'module-2',
           version: '1.0.0',

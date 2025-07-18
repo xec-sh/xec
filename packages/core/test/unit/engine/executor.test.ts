@@ -29,7 +29,8 @@ vi.mock('../../../src/utils/logger.js', () => {
     Logger: vi.fn().mockImplementation(() => mockLogger),
     createLogger: vi.fn(() => mockLogger),
     createTaskLogger: vi.fn(() => mockLogger),
-    createRecipeLogger: vi.fn(() => mockLogger)
+    createRecipeLogger: vi.fn(() => mockLogger),
+    createModuleLogger: vi.fn(() => mockLogger)
   };
 });
 
@@ -319,7 +320,7 @@ describe('engine/executor', () => {
         expect(result.success).toBe(true);
         expect(mockTask.handler).toHaveBeenCalledTimes(2);
         const taskResult = result.results.get('test-task') as any;
-        expect(taskResult.hosts).toHaveLength(2);
+        expect(taskResult.data?.hosts).toHaveLength(2);
       });
 
       it('should filter tasks by host', async () => {
@@ -379,7 +380,7 @@ describe('engine/executor', () => {
         const afterEachHook = vi.fn().mockResolvedValue(undefined);
         const onErrorHook = vi.fn().mockResolvedValue(undefined);
         
-        const hooks: RecipeHooks = {
+        const hooks = {
           before: [beforeHook],
           after: [afterHook],
           beforeEach: beforeEachHook,
@@ -420,7 +421,7 @@ describe('engine/executor', () => {
 
       it('should execute error hooks on failure', async () => {
         const recipeOnErrorHook = vi.fn().mockResolvedValue(undefined);
-        const recipeHooks: RecipeHooks = {
+        const recipeHooks = {
           onError: [recipeOnErrorHook]
         };
         const executorHooks = {

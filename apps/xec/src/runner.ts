@@ -1,6 +1,6 @@
 import { ArgumentParser } from './parser.js';
-import { OutputFormatter } from './output.js';
 import { CommandRegistry } from './command.js';
+import { OutputFormatter } from './utils/output-formatter.js';
 import { Command, CLIConfig, CLIContext, CLIMiddleware } from './types.js';
 
 export class CLIRunner {
@@ -118,7 +118,11 @@ export class CLIRunner {
   }
 
   private showCommandHelp(command: Command): void {
-    const output = new OutputFormatter(this.config);
+    const output = new OutputFormatter();
+    output.setFormat(this.config.format || 'text');
+    output.setQuiet(this.config.quiet || false);
+    output.setVerbose(this.config.verbose || false);
+    output.setColors(this.config.colors !== false);
 
     output.info(`\n${command.description}\n`);
 
@@ -174,7 +178,11 @@ export class CLIRunner {
   }
 
   private handleError(error: any): void {
-    const output = new OutputFormatter(this.config);
+    const output = new OutputFormatter();
+    output.setFormat(this.config.format || 'text');
+    output.setQuiet(this.config.quiet || false);
+    output.setVerbose(this.config.verbose || false);
+    output.setColors(this.config.colors !== false);
 
     if (error instanceof Error) {
       output.error(error.message);

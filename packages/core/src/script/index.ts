@@ -21,6 +21,33 @@ import { executeRecipe } from '../engine/executor.js';
 import { createExecutionContext } from '../context/builder.js';
 import { Logger, createModuleLogger } from '../utils/logger.js';
 
+// Support for ES modules transformation
+async function hasESModules(content: string): Promise<boolean> {
+  // Check for ES module syntax
+  const esModuleRegex = /(?:^|\n)\s*(?:import\s+|export\s+|import\s*\(|export\s*\{)/m;
+  return esModuleRegex.test(content);
+}
+
+async function transpileESModules(content: string, filename: string): Promise<string> {
+  try {
+    // Dynamic import to avoid dependency issues
+    const { transform } = await import('esbuild');
+    
+    const result = await transform(content, {
+      loader: filename.endsWith('.ts') ? 'ts' : 'js',
+      format: 'cjs', // Convert ES modules to CommonJS
+      target: 'node18',
+      sourcefile: filename,
+    });
+
+    return result.code;
+  } catch (error) {
+    // Fallback if esbuild is not available
+    console.warn('esbuild not available, ES modules may not work properly');
+    return content;
+  }
+}
+
 // Re-export ush $ with enhanced features
 export const $ = ush;
 
@@ -253,7 +280,7 @@ export const utils: Record<string, any> = {
       } catch (error) {
         lastError = error as Error;
         if (i < retries) {
-          await utils.sleep(delay * Math.pow(backoff, i));
+          await utils['sleep'](delay * Math.pow(backoff, i));
         }
       }
     }
@@ -278,11 +305,22 @@ export class ScriptRunner {
   }
 
   async runFile(scriptPath: string): Promise<any> {
-    const content = await fs.readFile(scriptPath, 'utf-8');
+    let content = await fs.readFile(scriptPath, 'utf-8');
+    
+    // Handle TypeScript files by transpiling them first
+    if (scriptPath.endsWith('.ts') || scriptPath.endsWith('.tsx')) {
+      content = await transpileESModules(content, scriptPath);
+    }
+    
     return this.run(content, scriptPath);
   }
 
   async run(code: string, filename: string = '<script>'): Promise<any> {
+    // Check if code has ES modules and transpile if needed
+    if (await hasESModules(code)) {
+      code = await transpileESModules(code, filename);
+    }
+
     // Create extended context with script utilities
     const extendedContext = {
       ...this.context,

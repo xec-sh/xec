@@ -392,9 +392,14 @@ export class DockerAdapter extends BaseAdapter {
       throw new Error(`Invalid memory format: ${memory}`);
     }
 
-    const value = parseInt(match[1]);
+    const value = parseInt(match[1] || '0');
     const unit = match[2] || 'b';
+    const multiplier = units[unit as keyof typeof units];
+    
+    if (!multiplier) {
+      throw new Error(`Invalid memory unit: ${unit}`);
+    }
 
-    return value * units[unit];
+    return value * multiplier;
   }
 }

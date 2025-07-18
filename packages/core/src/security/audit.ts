@@ -233,7 +233,9 @@ export class AuditLogger {
         if (!lines[i]) continue;
 
         try {
-          const event = JSON.parse(lines[i]) as AuditEvent;
+          const line = lines[i];
+          if (!line) continue;
+          const event = JSON.parse(line) as AuditEvent;
 
           // Verify hash chain
           if (event.previousHash !== (previousHash || 'GENESIS')) {

@@ -295,7 +295,7 @@ export class PipelineWorkflow {
         name: stage.name,
         tasks: phaseTasks,
         parallel: stage.parallel || false,
-        dependsOn: index > 0 ? [this.options.stages[index - 1].name] : undefined
+        dependsOn: index > 0 && this.options.stages[index - 1] ? [this.options.stages[index - 1]!.name] : undefined
       });
     });
 

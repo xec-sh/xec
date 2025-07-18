@@ -10,7 +10,7 @@ export class PatternRegistry implements IPatternRegistry {
   private instances: Map<string, any[]> = new Map();
 
   register(moduleName: string, pattern: PatternDefinition): void {
-    const patternName = `${moduleName}:${pattern.name}`;
+    const patternName = `${moduleName}:${pattern.name || 'unnamed'}`;
 
     if (this.patterns.has(patternName)) {
       throw new Error(`Pattern '${patternName}' is already registered`);
@@ -21,12 +21,13 @@ export class PatternRegistry implements IPatternRegistry {
     if (!this.patternsByModule.has(moduleName)) {
       this.patternsByModule.set(moduleName, new Map());
     }
-    this.patternsByModule.get(moduleName)!.set(pattern.name, pattern);
+    this.patternsByModule.get(moduleName)!.set(pattern.name || 'unnamed', pattern);
 
-    if (!this.patternsByType.has(pattern.type)) {
-      this.patternsByType.set(pattern.type, new Set());
+    const patternType = pattern.type || 'custom';
+    if (!this.patternsByType.has(patternType)) {
+      this.patternsByType.set(patternType, new Set());
     }
-    this.patternsByType.get(pattern.type)!.add(patternName);
+    this.patternsByType.get(patternType)!.add(patternName);
 
     this.instances.set(patternName, []);
   }
@@ -39,15 +40,16 @@ export class PatternRegistry implements IPatternRegistry {
 
     this.patterns.delete(fullPatternName);
     this.patternsByModule.get(moduleName)?.delete(patternName);
-    this.patternsByType.get(pattern.type)?.delete(fullPatternName);
+    const patternType = pattern.type || 'custom';
+    this.patternsByType.get(patternType)?.delete(fullPatternName);
     this.instances.delete(fullPatternName);
 
     if (this.patternsByModule.get(moduleName)?.size === 0) {
       this.patternsByModule.delete(moduleName);
     }
 
-    if (this.patternsByType.get(pattern.type)?.size === 0) {
-      this.patternsByType.delete(pattern.type);
+    if (this.patternsByType.get(patternType)?.size === 0) {
+      this.patternsByType.delete(patternType);
     }
   }
 
@@ -108,7 +110,7 @@ export class PatternRegistry implements IPatternRegistry {
     // Validate parameters
     if (pattern.parameters) {
       try {
-        params = pattern.parameters.parse(params);
+        params = pattern.parameters['parse'](params);
       } catch (error) {
         if (error instanceof z.ZodError) {
           throw new Error(`Invalid parameters: ${error.message}`);

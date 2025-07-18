@@ -53,7 +53,7 @@ export class SecretManager {
     // 2. System keyfile
     // 3. Generate new key
 
-    const envKey = process.env.XEC_MASTER_KEY;
+    const envKey = process.env['XEC_MASTER_KEY'];
     if (envKey) {
       return envKey;
     }
@@ -83,7 +83,7 @@ export class SecretManager {
     
     if (process.platform === 'win32') {
       // Windows: Use LOCALAPPDATA
-      keyDir = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+      keyDir = process.env['LOCALAPPDATA'] || path.join(os.homedir(), 'AppData', 'Local');
       keyDir = path.join(keyDir, 'xec');
     } else {
       // Unix-like systems: Use ~/.xec
@@ -398,6 +398,156 @@ export class SecretManager {
 
     // Atomic rename
     await fs.rename(tempFile, secretsFile);
+  }
+
+  /**
+   * Check if secret exists (alias for has)
+   */
+  async exists(name: string): Promise<boolean> {
+    return this.has(name);
+  }
+
+  /**
+   * Rotate a secret value
+   */
+  async rotate(name: string, newValue?: string): Promise<string> {
+    await this.initialize();
+
+    const secret = this.cache.get(name);
+    if (!secret) {
+      throw new SecurityError(`Secret '${name}' not found`);
+    }
+
+    // Generate new value if not provided
+    const rotatedValue = newValue || crypto.randomBytes(32).toString('base64');
+
+    // Keep the old value in metadata for rollback if needed
+    const oldValue = await this.get(name);
+    const metadata = {
+      ...secret.metadata,
+      rotatedAt: new Date().toISOString(),
+      previousValue: oldValue,
+      rotationCount: ((secret.metadata?.['rotationCount'] as number) || 0) + 1
+    };
+
+    // Update the secret
+    await this.set(name, rotatedValue, metadata);
+
+    logger.info(`Rotated secret '${name}'`);
+    return rotatedValue;
+  }
+
+  /**
+   * List namespaces (extract from secret names)
+   */
+  async listNamespaces(): Promise<string[]> {
+    await this.initialize();
+
+    const namespaces = new Set<string>();
+    
+    for (const name of this.cache.keys()) {
+      // Check if name contains namespace separator
+      if (name.includes(':')) {
+        const [namespace] = name.split(':', 2);
+        if (namespace) {
+          namespaces.add(namespace);
+        }
+      } else if (name.includes('/')) {
+        // Also support slash separator
+        const [namespace] = name.split('/', 2);
+        if (namespace) {
+          namespaces.add(namespace);
+        }
+      }
+    }
+
+    return Array.from(namespaces).sort();
+  }
+
+  /**
+   * List secrets in a namespace
+   */
+  async listByNamespace(namespace: string): Promise<string[]> {
+    await this.initialize();
+
+    const secrets: string[] = [];
+    
+    for (const name of this.cache.keys()) {
+      if (name.startsWith(`${namespace}:`) || name.startsWith(`${namespace}/`)) {
+        secrets.push(name);
+      }
+    }
+
+    return secrets.sort();
+  }
+
+  /**
+   * Rename a secret
+   */
+  async rename(oldName: string, newName: string): Promise<void> {
+    await this.initialize();
+
+    const secret = this.cache.get(oldName);
+    if (!secret) {
+      throw new SecurityError(`Secret '${oldName}' not found`);
+    }
+
+    // Check if new name already exists
+    if (this.cache.has(newName)) {
+      throw new SecurityError(`Secret '${newName}' already exists`);
+    }
+
+    // Get decrypted value
+    const value = await this.get(oldName);
+    if (value === undefined) {
+      throw new SecurityError(`Failed to get value for secret '${oldName}'`);
+    }
+
+    // Create new secret with same value and metadata
+    await this.set(newName, value, {
+      ...secret.metadata,
+      renamedFrom: oldName,
+      renamedAt: new Date().toISOString()
+    });
+
+    // Delete old secret
+    await this.delete(oldName);
+
+    logger.info(`Renamed secret from '${oldName}' to '${newName}'`);
+  }
+
+  /**
+   * Search secrets by pattern
+   */
+  async search(pattern: string): Promise<string[]> {
+    await this.initialize();
+
+    const regex = new RegExp(pattern, 'i');
+    const matches: string[] = [];
+
+    for (const name of this.cache.keys()) {
+      if (regex.test(name)) {
+        matches.push(name);
+      }
+    }
+
+    return matches.sort();
+  }
+
+  /**
+   * Get secret info (without decrypting value)
+   */
+  async getInfo(name: string): Promise<Omit<Secret, 'value'> | undefined> {
+    await this.initialize();
+
+    const secret = this.cache.get(name);
+    if (!secret) {
+      return undefined;
+    }
+
+    // Return secret info without the value
+    const { value, ...info } = secret;
+    return info;
   }
 }
 

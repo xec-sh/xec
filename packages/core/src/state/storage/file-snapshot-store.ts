@@ -69,8 +69,8 @@ export class FileSnapshotStore implements ISnapshotStore {
     
     // Sort by timestamp (newest first)
     resourceSnapshots.sort((a, b) => {
-      const timestampA = parseInt(a.split('-')[0]);
-      const timestampB = parseInt(b.split('-')[0]);
+      const timestampA = parseInt(a.split('-')[0] || '0');
+      const timestampB = parseInt(b.split('-')[0] || '0');
       return timestampB - timestampA;
     });
     
@@ -112,6 +112,7 @@ export class FileSnapshotStore implements ISnapshotStore {
     
     // First snapshot in the array is the latest (sorted by timestamp desc)
     const latestId = snapshots[0];
+    if (!latestId) return null;
     const filename = await this.findSnapshotFile(resourceId, latestId);
     if (filename) {
       const filepath = path.join(this.basePath, 'snapshots', resourceId, filename);
@@ -131,7 +132,7 @@ export class FileSnapshotStore implements ISnapshotStore {
       
       for (const file of files) {
         if (file.endsWith('.json')) {
-          const fileTimestamp = parseInt(file.split('-')[0]);
+          const fileTimestamp = parseInt(file.split('-')[0] || '0');
           if (fileTimestamp <= timestamp && fileTimestamp > closestTimestamp) {
             closestTimestamp = fileTimestamp;
             closestFile = file;
@@ -159,8 +160,8 @@ export class FileSnapshotStore implements ISnapshotStore {
       const sortedFiles = files
         .filter(f => f.endsWith('.json'))
         .sort((a, b) => {
-          const timestampA = parseInt(a.split('-')[0]);
-          const timestampB = parseInt(b.split('-')[0]);
+          const timestampA = parseInt(a.split('-')[0] || '0');
+          const timestampB = parseInt(b.split('-')[0] || '0');
           return timestampB - timestampA;
         });
       
@@ -168,10 +169,13 @@ export class FileSnapshotStore implements ISnapshotStore {
       const offset = options?.offset || 0;
       
       for (let i = offset; i < Math.min(offset + limit, sortedFiles.length); i++) {
-        const filepath = path.join(resourceDir, sortedFiles[i]);
-        const snapshot = await this.loadSnapshot(filepath);
-        if (snapshot) {
-          snapshots.push(snapshot);
+        const file = sortedFiles[i];
+        if (file) {
+          const filepath = path.join(resourceDir, file);
+          const snapshot = await this.loadSnapshot(filepath);
+          if (snapshot) {
+            snapshots.push(snapshot);
+          }
         }
       }
     } catch (error) {
@@ -190,8 +194,8 @@ export class FileSnapshotStore implements ISnapshotStore {
       const sortedFiles = files
         .filter(f => f.endsWith('.json'))
         .sort((a, b) => {
-          const timestampA = parseInt(a.split('-')[0]);
-          const timestampB = parseInt(b.split('-')[0]);
+          const timestampA = parseInt(a.split('-')[0] || '0');
+          const timestampB = parseInt(b.split('-')[0] || '0');
           return timestampB - timestampA;
         });
       
@@ -227,7 +231,7 @@ export class FileSnapshotStore implements ISnapshotStore {
         const files = await fs.readdir(resourceDir);
         for (const file of files) {
           if (file.endsWith('.json')) {
-            const fileTimestamp = parseInt(file.split('-')[0]);
+            const fileTimestamp = parseInt(file.split('-')[0] || '0');
             if (fileTimestamp < timestamp) {
               const filepath = path.join(resourceDir, file);
               const snapshot = await this.loadSnapshot(filepath);

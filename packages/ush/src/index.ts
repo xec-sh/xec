@@ -99,6 +99,7 @@ export {
 } from './core/error.js';
 // Core types that users need
 export type { ExecutionResult } from './core/result.js';
+export type { CallableExecutionEngine } from './types.js';
 export type { ProcessPromise } from './core/execution-engine.js';
 export type { AuditEntry, AuditLoggerConfig } from './utils/audit-logger.js';
 export type {

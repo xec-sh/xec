@@ -7,13 +7,21 @@
 export * from './audit.js';
 // Secrets Management
 export * from './secrets.js';
-
+// Security Scanner
+export * from './scanner.js';
 // Encryption
 export * from './encryption.js';
-export { SecretManager, getSecretManager } from './secrets.js';
+// Certificate Management
+export * from './certificates.js';
+// Access Control
+export * from './access-control.js';
 
+export { SecretManager, getSecretManager } from './secrets.js';
 export { encryption, EncryptionService } from './encryption.js';
+export { SecurityScanner, getSecurityScanner } from './scanner.js';
 export { AuditLogger, getAuditLogger, AuditEventType } from './audit.js';
+export { CertificateManager, getCertificateManager } from './certificates.js';
+export { AccessControlManager, getAccessControlManager } from './access-control.js';
 
 import { task } from '../dsl/task.js';
 // Security utilities
