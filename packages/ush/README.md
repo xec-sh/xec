@@ -1,1967 +1,2021 @@
 # @xec/ush
 
-Universal shell execution engine - A powerful and flexible command execution library for Node.js, inspired by Google's `zx` but designed to work seamlessly across all environments: local, SSH, and Docker containers.
+Universal Shell Execution Engine - A powerful, flexible, and beginner-friendly command execution library for Node.js and TypeScript. Execute commands seamlessly across different environments (local, SSH, Docker, Kubernetes) with a unified, intuitive API inspired by Google's `zx`.
 
-## Table of Contents
+## 🎯 Why @xec/ush?
 
-- [Features](#features)
+Whether you're automating deployments, building CI/CD pipelines, or creating developer tools, `@xec/ush` makes shell command execution simple, safe, and portable across environments.
+
+### Key Benefits:
+- **Write Once, Run Anywhere**: Same code works locally, over SSH, in Docker containers, or Kubernetes pods
+- **Type-Safe**: Full TypeScript support with excellent IDE integration
+- **Beginner-Friendly**: Intuitive API that feels like writing shell scripts
+- **Production-Ready**: Built-in error handling, retry logic, and connection pooling
+- **Testing-First**: Mock adapter for easy unit testing
+
+## 📚 Table of Contents
+
 - [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Core Concepts](#core-concepts)
-- [API Reference](#api-reference)
-  - [Basic Execution](#basic-execution)
-  - [Configuration](#configuration)
-  - [Adapters](#adapters)
-    - [Local Execution](#local-execution-default)
-    - [SSH Execution](#ssh-execution)
-    - [Docker Execution](#docker-execution)
-    - [Kubernetes Execution](#kubernetes-execution)
-    - [Remote Docker Execution](#remote-docker-execution)
-    - [Mock Adapter](#mock-adapter-testing)
-  - [Enhanced Features](#enhanced-features)
-    - [Retry with Exponential Backoff](#retry-with-exponential-backoff)
-    - [Context Management](#context-management-within)
-    - [Pipe Operations](#pipe-operations)
-    - [Parallel Execution](#parallel-execution)
-    - [Command Templates](#command-templates)
-    - [Streaming Execution](#streaming-execution)
-    - [Temporary Files & Directories](#temporary-files--directories)
-    - [Interactive Input](#interactive-input)
-    - [Command Pipelines](#command-pipelines)
-    - [Audit Logging](#audit-logging)
-    - [Secure Password Handling](#secure-password-handling)
-    - [Progress Tracking](#progress-tracking)
-    - [Retry Adapter](#retry-adapter)
-- [Examples](#examples)
-  - [Basic Script](#basic-script)
-  - [Multi-Environment Deployment](#multi-environment-deployment)
-  - [CI/CD Pipeline](#cicd-pipeline)
-  - [Docker Compose Operations](#docker-compose-operations)
-  - [Advanced SSH with Tunneling](#advanced-ssh-with-tunneling)
-  - [File Transfer Between Environments](#file-transfer-between-environments)
-  - [Testing with Mocks](#testing-with-mocks)
-  - [Kubernetes Operations](#kubernetes-operations)
-  - [Pipeline with Error Handling](#pipeline-with-error-handling)
-  - [Secure Remote Operations](#secure-remote-operations)
-  - [Audited Operations](#audited-operations)
-  - [Remote Docker Pipeline](#remote-docker-pipeline)
-- [Migration from zx](#migration-from-zx)
-- [FAQ](#faq)
-- [Advanced Types & Interfaces](#advanced-types--interfaces)
-  - [Execution Engine Types](#execution-engine-types)
-  - [Audit Types](#audit-types)
-  - [Progress Types](#progress-types)
-  - [Global Functions](#global-functions)
-  - [Error Types](#error-types)
-- [Development & Documentation](#development--documentation)
-- [Best Practices](#best-practices)
-  - [Performance Tips](#performance-tips)
-  - [Security Recommendations](#security-recommendations)
+- [Quick Start for Beginners](#quick-start-for-beginners)
+- [Core Concepts Explained](#core-concepts-explained)
+- [Complete Feature Guide](#complete-feature-guide)
+  - [Basic Command Execution](#basic-command-execution)
+  - [Working with Variables](#working-with-variables)
+  - [Configuration and Chaining](#configuration-and-chaining)
   - [Error Handling](#error-handling)
-  - [Testing](#testing)
-- [License](#license)
+  - [Working with Different Environments](#working-with-different-environments)
+  - [Advanced Features](#advanced-features)
+- [Real-World Examples](#real-world-examples)
+- [Common Patterns and Best Practices](#common-patterns-and-best-practices)
+- [Troubleshooting Guide](#troubleshooting-guide)
+- [API Reference](#api-reference)
+- [Migration from Other Tools](#migration-from-other-tools)
+- [Performance Tips](#performance-tips)
+- [Security Best Practices](#security-best-practices)
+- [Contributing](#contributing)
 
-## Features
-
-- 🚀 **Unified API** - Single API for all execution environments
-- 📝 **Template Literals** - Native support for template literals like zx
-- 🔌 **Multiple Adapters** - Local, SSH, Docker, Kubernetes, and Remote Docker
-- 🧪 **Mock Adapter** - Built-in testing support with advanced mocking
-- ⚡ **Bun Support** - Native support for Bun.spawn execution
-- 🔄 **SSH Connection Pooling** - Efficient SSH connection management
-- 📊 **Stream Handling** - Real-time output streaming with line mode
-- 🔒 **TypeScript Support** - Full TypeScript support with type safety
-- 🔁 **Retry Logic** - Built-in retry with exponential backoff
-- ⏸️ **Parallel Execution** - Run commands concurrently with control
-- 📋 **Command Templates** - Reusable command patterns with validation
-- 🌊 **Pipe Operations** - Unix-style command piping
-- 📁 **Temporary Files** - Safe temporary file/directory handling
-- 💬 **Interactive Mode** - User prompts, confirmations, and selections
-- 🎯 **Context Management** - Scoped execution environments
-- 🚧 **Command Pipelines** - Complex multi-stage command workflows
-- 📝 **Audit Logging** - Track and query all command executions
-- 🔐 **Secure Passwords** - Safe password handling and masking
-- 📈 **Progress Tracking** - Monitor long-running operations
-- 🔧 **Retry Adapter** - Add retry capability to any adapter
-- 🚢 **Kubernetes Support** - Execute commands in K8s pods
-- 🌐 **Remote Docker** - Docker commands through SSH connections
-
-## Installation
+## 🚀 Installation
 
 ```bash
+# Using npm
 npm install @xec/ush
-# or
+
+# Using yarn
 yarn add @xec/ush
-# or
+
+# Using pnpm
 pnpm add @xec/ush
+
+# Using bun
+bun add @xec/ush
 ```
 
-## Quick Start
+### Requirements:
+- Node.js 18+ or Bun 1.0+
+- TypeScript 5.0+ (for TypeScript projects)
+- SSH client (for SSH features)
+- Docker (for Docker features)
+- kubectl (for Kubernetes features)
 
-```typescript
+## 🎓 Quick Start for Beginners
+
+If you're new to shell scripting or command execution in Node.js, this section will get you started step by step.
+
+### Your First Script
+
+Create a file named `hello.ts`:
+
+```javascript
 import { $ } from '@xec/ush';
 
-// Basic command execution
-const result = await $`echo "Hello, World!"`;
-console.log(result.stdout); // "Hello, World!"
+// Execute a simple command
+await $`echo "Hello, World!"`;
 
-// Template literals with variables
-const filename = "my file.txt";
-await $`touch ${filename}`;
-
-// Configure and chain
-const $prod = $.env({ NODE_ENV: 'production' }).cd('/app');
-await $prod`npm start`;
-
-// Execute on remote server
-const $remote = $.ssh({ host: 'server.com', username: 'deploy' });
-await $remote`docker restart myapp`;
-
-// Execute in Docker container
-const $docker = $.docker({ container: 'webapp' });
-await $docker`npm run migrate`;
+// The $ function executes shell commands
+// The backticks `` allow you to write commands like in the terminal
+// The await keyword waits for the command to finish
 ```
 
-## Core Concepts
-
-### 1. Execution Engine
-
-The heart of ush is the `ExecutionEngine`, which provides a unified interface for command execution:
-
-```typescript
-import { createExecutionEngine } from '@xec/ush';
-
-// Create with custom configuration
-const $ = createExecutionEngine({
-  // Default execution options
-  defaultTimeout: 60000,
-  defaultCwd: '/app',
-  defaultEnv: { NODE_ENV: 'production' },
-  throwOnNonZeroExit: true,
-  defaultShell: '/bin/bash',
-  defaultEncoding: 'utf8',
-  
-  // Adapter configuration
-  defaultAdapter: 'local',
-  adapters: {
-    local: new LocalAdapter(),
-    ssh: new SSHAdapter({ /* config */ }),
-    docker: new DockerAdapter({ /* config */ })
-  },
-  
-  // Global hooks
-  onBeforeExecute: async (cmd) => {
-    console.log(`Executing: ${cmd.command}`);
-  },
-  onAfterExecute: async (cmd, result) => {
-    console.log(`Completed: ${cmd.command} (${result.exitCode})`);
-  },
-  
-  // Stream configuration
-  streamOptions: {
-    lineMode: true,
-    encoding: 'utf8'
-  },
-  
-  // Retry defaults
-  defaultRetry: {
-    attempts: 3,
-    delay: 1000,
-    backoff: 'exponential'
-  }
-});
+Run it:
+```bash
+node hello.js
+# Output: Hello, World!
 ```
 
-### 2. Adapters
+### Understanding the Basics
 
-Adapters handle the actual command execution in different environments:
+```javascript
+import { $ } from '@xec/ush';
 
-- **LocalAdapter** - Executes commands on the local machine
-- **SSHAdapter** - Executes commands on remote servers via SSH
-- **DockerAdapter** - Executes commands inside Docker containers
-- **KubernetesAdapter** - Executes commands inside Kubernetes pods
-- **RemoteDockerAdapter** - Executes Docker commands through SSH
-- **MockAdapter** - For testing, returns predefined responses
-- **RetryAdapter** - Wrapper that adds retry logic to any adapter
+// 1. Commands return results
+const result = await $`echo "Hello"`;
+console.log(result.stdout); // "Hello\n"
+console.log(result.exitCode); // 0 (success)
 
-### 3. Command Object
+// 2. You can use JavaScript variables
+const name = "Alice";
+await $`echo "Hello, ${name}!"`; // Variables are safely escaped
 
-Every command execution is defined by a Command object:
+// 3. Chain multiple commands
+await $`mkdir -p temp`;
+await $`cd temp && touch file.txt`;
+await $`ls temp`; // Shows: file.txt
 
-```typescript
-interface Command {
-  // Basic command properties
-  command: string;
-  args?: string[];
-  cwd?: string;
-  env?: Record<string, string>;
-  
-  // Execution options
-  timeout?: number;
-  timeoutSignal?: string; // Signal to send on timeout (default: SIGTERM)
-  shell?: boolean | string;
-  encoding?: BufferEncoding;
-  uid?: number; // User ID (Unix)
-  gid?: number; // Group ID (Unix)
-  
-  // Adapter selection
-  adapter?: string;
-  
-  // Advanced features
-  retry?: RetryOptions;
-  progress?: ProgressOptions;
-  
-  // Stream handling
-  stdin?: string | Buffer | Readable;
-  stdout?: 'pipe' | 'inherit' | 'ignore';
-  stderr?: 'pipe' | 'inherit' | 'ignore';
-  
-  // Execution hooks
-  onBeforeExecute?: (cmd: Command) => Promise<void>;
-  onAfterExecute?: (cmd: Command, result: ExecutionResult) => Promise<void>;
-  
-  // Error handling
-  throwOnNonZeroExit?: boolean;
-  ignoreErrors?: boolean;
+// 4. Handle errors gracefully
+try {
+  await $`cat non-existent-file.txt`;
+} catch (error) {
+  console.log("File not found!"); // This will be printed
 }
 ```
 
-## API Reference
+### Key Concepts for Beginners:
 
-### Basic Execution
+1. **The `$` function**: This is your main tool. Think of it as a way to run terminal commands from JavaScript.
 
-#### Template Literal Syntax
+2. **Template literals**: The backticks `` ` `` let you write commands naturally and embed JavaScript variables safely.
 
-```typescript
-// Simple command
-await $`echo "Hello"`;
+3. **Async/Await**: Shell commands take time to run. `await` tells JavaScript to wait for the command to finish.
 
-// With variables (automatically escaped)
-const name = "John Doe";
-await $`echo "Hello, ${name}"`;
+4. **Exit codes**: Commands return 0 for success, non-zero for errors. @xec/ush throws errors for non-zero codes by default.
 
-// Multi-line commands
-await $`
-  cd /tmp
-  echo "Current directory: $(pwd)"
-  ls -la
-`;
+## 🧠 Core Concepts Explained
+
+### What is a Shell Command?
+
+A shell command is an instruction you type in the terminal. For example:
+- `ls` - lists files
+- `echo "text"` - prints text
+- `mkdir folder` - creates a directory
+
+@xec/ush lets you run these commands from JavaScript/TypeScript.
+
+### Execution Environments
+
+Commands can run in different places:
+
+1. **Local** (default): On your computer
+   ```javascript
+   await $`ls`; // Lists files on your computer
+   ```
+
+2. **SSH**: On a remote server
+   ```javascript
+   const $remote = $.ssh('user@server.com');
+   await $remote`ls`; // Lists files on the server
+   ```
+
+3. **Docker**: Inside a container
+   ```javascript
+   const $container = $.docker('my-container');
+   await $container`ls`; // Lists files in the container
+   ```
+
+4. **Kubernetes**: In a pod
+   ```javascript
+   const $pod = $.k8s('my-pod', 'my-namespace');
+   await $pod`ls`; // Lists files in the pod
+   ```
+
+### Command Interpolation and Safety
+
+When you include JavaScript variables in commands, @xec/ush automatically escapes them to prevent injection attacks:
+
+```javascript
+// SAFE - Variable is automatically escaped
+const userInput = "file; rm -rf /"; // Malicious input
+await $`echo ${userInput}`; // Prints: file; rm -rf /
+// The semicolon and command are treated as text, not executed
+
+// UNSAFE - Raw string concatenation (DON'T DO THIS!)
+// await $`echo ` + userInput; // Would execute rm command!
+
+// Multiple variables
+const fileName = "my file.txt"; // Note the space
+const content = "Hello\nWorld";
+await $`echo ${content} > ${fileName}`; // Creates "my file.txt" safely
 ```
 
-#### Direct Execution Methods
+## 📖 Complete Feature Guide
 
-```typescript
-// Execute with command object
-await $.execute({
-  command: 'npm',
-  args: ['install', '--production'],
-  cwd: '/app',
-  env: { NODE_ENV: 'production' }
-});
+### Basic Command Execution
 
-// Shell command string
-await exec('npm install --production');
+#### Simple Commands
 
-// Spawn without shell
-await spawn('npm', ['install', '--production']);
+```javascript
+// Run any shell command
+await $`pwd`;                     // Print working directory
+await $`date`;                    // Show current date
+await $`whoami`;                  // Show current user
+
+// Commands with arguments
+await $`ls -la`;                  // List files with details
+await $`grep "pattern" file.txt`; // Search in file
+await $`curl https://api.github.com`; // Make HTTP request
 ```
 
-### Configuration
+#### Getting Command Output
 
-#### Method Chaining
+```javascript
+// Capture output for processing
+const files = await $`ls`;
+console.log(files.stdout);        // The command's output
+console.log(files.stderr);        // Any error messages
+console.log(files.exitCode);      // 0 for success
 
-All configuration methods return a new engine instance, allowing for safe chaining:
+// Process output line by line
+const lines = files.stdout.trim().split('\n');
+for (const line of lines) {
+  console.log(`File: ${line}`);
+}
 
-```typescript
-const $custom = $
-  .cd('/app')                           // Change working directory
-  .env({ API_KEY: 'secret' })          // Set environment variables
-  .timeout(30000)                       // Set timeout (30 seconds)
-  .shell('/bin/bash')                   // Use specific shell
-  .with({ encoding: 'utf8' });          // Additional options
+// Parse JSON output
+const data = await $`curl -s https://api.github.com/users/github`;
+const user = JSON.parse(data.stdout);
+console.log(`GitHub user: ${user.name}`);
+```
+
+### Working with Variables
+
+#### Safe Variable Interpolation
+
+```javascript
+// Variables are automatically escaped
+const filename = "my file.txt";  // Space in filename
+await $`touch ${filename}`;       // Creates "my file.txt"
+
+// Multiple variables
+const source = "/path/to/source";
+const dest = "/path/to/dest";
+await $`cp -r ${source} ${dest}`;
+
+// Arrays are joined with spaces
+const files = ['file1.txt', 'file2.txt', 'file3.txt'];
+await $`rm ${files}`;             // Removes all three files
+
+// Objects are JSON stringified
+const config = { name: 'app', port: 3000 };
+await $`echo ${config} > config.json`;
+```
+
+#### Raw Strings (Use with Caution!)
+
+```javascript
+// Sometimes you need unescaped strings for shell features
+const pattern = '*.txt';
+await $.raw`ls ${pattern}`;      // Globs all .txt files
+
+// Pipe operations
+await $.raw`ps aux | grep node`; // Pipe requires raw mode
+
+// But be VERY careful with user input in raw mode!
+// NEVER do this with untrusted input:
+// await $.raw`ls ${userInput}`; // DANGEROUS!
+```
+
+### Configuration and Chaining
+
+#### Setting Working Directory
+
+```javascript
+// Change directory for one command
+await $`ls`.cwd('/tmp');
+
+// Change directory for all subsequent commands
+const $tmp = $.cd('/tmp');
+await $tmp`pwd`;                  // /tmp
+await $tmp`ls`;                   // Lists /tmp contents
+
+// Relative paths work too
+const $project = $.cd('./my-project');
+await $project`npm install`;
+await $project`npm test`;
 ```
 
 #### Environment Variables
 
-```typescript
-// Add to existing environment
-const $withEnv = $.env({ API_KEY: 'secret' });
+```javascript
+// Set for one command
+await $`node app.js`.env({ NODE_ENV: 'production' });
 
-// Replace entire environment
-const $cleanEnv = $.with({ 
-  env: { PATH: '/usr/bin', HOME: '/home/user' } 
+// Set for all subsequent commands
+const $prod = $.env({ 
+  NODE_ENV: 'production',
+  PORT: '3000',
+  API_KEY: 'secret'
 });
 
-// Access current environment
-const result = await $`echo $HOME`;
+await $prod`node server.js`;     // Runs with all env vars
+
+// Extend existing environment
+const $extended = $prod.env({ 
+  DEBUG: 'true' 
+}); // Keeps previous vars + adds DEBUG
 ```
 
-#### Working Directory
+#### Timeout Control
 
-```typescript
-// Change directory
-const $inApp = $.cd('/app');
+```javascript
+// Set timeout for one command (in milliseconds)
+await $`sleep 10`.timeout(5000); // Fails after 5 seconds
 
-// Relative paths are resolved
-const $inSrc = $inApp.cd('src'); // Now in /app/src
+// Set default timeout
+const $quick = $.timeout(3000);  // 3 second timeout
+await $quick`curl https://slow-api.com`;
 
-// Get current directory
-const pwd = await $`pwd`;
+// Disable timeout
+await $`long-running-task`.timeout(0); // No timeout
 ```
 
-### Adapters
+#### Shell Selection
 
-#### Local Execution (Default)
+```javascript
+// Use specific shell
+const $bash = $.shell('/bin/bash');
+await $bash`echo $BASH_VERSION`;
 
-```typescript
-const $ = createExecutionEngine();
-// or explicitly
-const $local = $.local();
+const $zsh = $.shell('/bin/zsh');
+await $zsh`echo $ZSH_VERSION`;
 
-await $local`ls -la`;
+// Disable shell (direct execution)
+const $direct = $.shell(false);
+await $direct`/usr/bin/node --version`; // No shell interpolation
 ```
+
+### Error Handling
+
+#### Try-Catch Pattern
+
+```javascript
+try {
+  await $`cat /etc/shadow`;       // Requires root
+} catch (error) {
+  console.error('Command failed!');
+  console.error('Exit code:', error.exitCode);
+  console.error('Stderr:', error.stderr);
+  console.error('Command:', error.command);
+}
+```
+
+#### Nothrow Mode
+
+```javascript
+// Don't throw on non-zero exit codes
+const result = await $`grep "pattern" file.txt`.nothrow();
+
+if (result.exitCode === 0) {
+  console.log('Pattern found:', result.stdout);
+} else if (result.exitCode === 1) {
+  console.log('Pattern not found');
+} else {
+  console.log('Error occurred:', result.stderr);
+}
+```
+
+#### Retry Logic
+
+```javascript
+// Retry failed commands automatically
+const $reliable = $.retry({
+  maxRetries: 3,
+  initialDelay: 1000,    // Start with 1 second
+  backoffMultiplier: 2,  // Double delay each time
+  maxDelay: 10000        // Max 10 seconds
+});
+
+// Will retry up to 3 times if it fails
+await $reliable`curl https://flaky-api.com/data`;
+
+// Custom retry logic
+const $custom = $.retry({
+  maxRetries: 5,
+  shouldRetry: (error, attempt) => {
+    // Only retry network errors
+    return error.stderr.includes('network unreachable');
+  }
+});
+```
+
+### Working with Different Environments
 
 #### SSH Execution
 
-```typescript
+```javascript
 // Basic SSH connection
-const $ssh = $.ssh({
-  host: 'example.com',
-  username: 'deploy',
-  password: 'secret' // or use privateKey
-});
+const $remote = $.ssh('user@server.com');
+await $remote`uname -a`;
+await $remote`df -h`;
 
-// With SSH key
-const $sshKey = $.ssh({
-  host: 'example.com',
-  username: 'deploy',
-  privateKey: '/path/to/key',
-  passphrase: 'key-passphrase'
-});
-
-// Advanced SSH options
-const $sshAdvanced = $.ssh({
-  host: 'example.com',
+// With SSH options
+const $secure = $.ssh({
+  host: 'server.com',
+  username: 'admin',
+  privateKey: '/home/user/.ssh/id_rsa',
   port: 2222,
-  username: 'deploy',
-  privateKey: '/path/to/key',
-  keepaliveInterval: 30000,
-  readyTimeout: 20000,
-  strictHostKeyChecking: false
+  connectTimeout: 10000
 });
 
-// Execute commands
-await $ssh`cd /app && git pull`;
-await $ssh`systemctl restart nginx`;
+// SSH with bastion/jump host
+const $bastion = $.ssh({
+  host: 'internal-server',
+  username: 'user',
+  proxy: {
+    host: 'bastion.example.com',
+    username: 'jump-user'
+  }
+});
+
+// Connection pooling (automatic)
+const $srv = $.ssh('user@server.com');
+await $srv`echo "First command"`;  // Creates connection
+await $srv`echo "Second command"`; // Reuses connection
+await $srv.disconnect();           // Close when done
 ```
 
 #### Docker Execution
 
-```typescript
+```javascript
 // Execute in running container
-const $docker = $.docker({
-  container: 'webapp',
-  workdir: '/app'
-});
+const $container = $.docker('my-app-container');
+await $container`ps aux`;
+await $container`tail -f /var/log/app.log`;
 
-// Execute in new container from image
-const $dockerImage = $.docker({
-  image: 'node:18-alpine',
-  workdir: '/app',
-  rm: true, // Remove container after execution
-  volumes: ['/local/path:/container/path']
+// Execute in specific image
+const $node = $.docker({
+  image: 'node:20-alpine',
+  rm: true,                        // Remove after execution
+  volumes: {
+    './app': '/app'                // Mount local dir
+  }
 });
+await $node`cd /app && npm install`;
+await $node`cd /app && npm test`;
 
 // With environment variables
-const $dockerEnv = $.docker({
-  container: 'webapp',
-  env: { NODE_ENV: 'production' }
+const $app = $.docker({
+  container: 'my-app',
+  env: {
+    NODE_ENV: 'production',
+    API_URL: 'https://api.example.com'
+  }
 });
-
-await $docker`npm run migrate`;
-await $dockerImage`npm install && npm test`;
 ```
 
 #### Kubernetes Execution
 
-```typescript
-// Execute in Kubernetes pod
-const $k8s = $.kubernetes({
-  pod: 'webapp-abc123',
+```javascript
+// Execute in pod
+const $pod = $.k8s('my-app-pod', 'production');
+await $pod`cat /etc/hostname`;
+await $pod`ps aux`;
+
+// Specific container in pod
+const $sidecar = $.k8s({
+  pod: 'my-app-pod',
   namespace: 'production',
-  container: 'main' // Optional, defaults to first container
+  container: 'sidecar-container'
 });
 
-// Execute in new pod from image
-const $k8sJob = $.kubernetes({
-  image: 'busybox:latest',
-  namespace: 'default',
-  name: 'job-runner',
-  command: ['/bin/sh', '-c']
-});
-
-// With kubeconfig
-const $k8sCustom = $.kubernetes({
-  pod: 'webapp',
-  kubeconfig: '/path/to/kubeconfig',
-  context: 'production-cluster'
-});
-
-await $k8s`npm run migrate`;
-await $k8sJob`echo "Running in Kubernetes"`;
-```
-
-#### Remote Docker Execution
-
-Execute Docker commands on remote hosts via SSH:
-
-```typescript
-// Docker through SSH
-const $remoteDocker = $.remoteDocker({
-  ssh: {
-    host: 'docker-host.example.com',
-    username: 'deploy',
-    privateKey: '~/.ssh/id_rsa'
-  },
-  docker: {
-    container: 'webapp',
-    workdir: '/app'
-  }
-});
-
-// Execute in remote container
-await $remoteDocker`npm run build`;
-
-// Run new container on remote host
-const $remoteNew = $.remoteDocker({
-  ssh: { host: 'remote.example.com', username: 'admin' },
-  docker: {
-    image: 'node:18',
-    rm: true,
-    volumes: ['/remote/data:/data']
-  }
-});
-
-await $remoteNew`node process-data.js`;
-```
-
-#### Mock Adapter (Testing)
-
-```typescript
-import { createExecutionEngine, MockAdapter } from '@xec/ush';
-
-const $ = createExecutionEngine();
-const mock = new MockAdapter();
-$.registerAdapter('mock', mock);
-
-// Setup mocks
-mock.mockSuccess('git status', 'On branch main');
-mock.mockFailure('npm test', 'Tests failed!', 1);
-mock.mockCommand(/docker.*/, { 
-  stdout: 'Container running', 
-  exitCode: 0 
-});
-
-// Use mock adapter
-const $mock = $.with({ adapter: 'mock' });
-const result = await $mock`git status`;
-
-// Assertions
-mock.assertCommandExecuted('git status');
-mock.assertCommandExecutedTimes('git status', 1);
-mock.assertCommandsExecutedInOrder(['git pull', 'npm install']);
-const commands = mock.getExecutedCommands();
-const count = mock.getCommandExecutionCount('git status');
-
-// Mock default response for unmatched commands
-mock.mockDefault({ stdout: 'default output', exitCode: 0 });
-
-// Mock timeout
-mock.mockTimeout('slow-command', 5000);
-
-// Clear history
-mock.clear();
-```
-
-### Enhanced Features
-
-#### Retry with Exponential Backoff
-
-```typescript
-import { retry, expBackoff } from '@xec/ush';
-
-// Simple retry
-const result = await retry(
-  () => $`flaky-command`,
-  { attempts: 3, delay: 1000 }
-);
-
-// With exponential backoff
-const $withRetry = $.withRetry({
-  attempts: 5,
-  delay: expBackoff(5, 0.1, 2, 100), // max, jitter, factor, initial
-  onRetry: (error, attempt) => {
-    console.log(`Retry ${attempt}: ${error.message}`);
-  },
-  shouldRetry: (error) => error.exitCode !== 2,
-  retryOn: [1, 124] // Only retry on specific exit codes
-});
-
-await $withRetry`unstable-service --start`;
-```
-
-#### Context Management (within)
-
-Execute commands within a specific context:
-
-```typescript
-import { within, withinSync } from '@xec/ush';
-
-// Async context
-await within({ env: { API_KEY: 'secret' } }, async () => {
-  await $`deploy-app`; // API_KEY available here
-});
-
-// Multiple context options
-await within({
-  cwd: '/tmp/build',
-  env: { NODE_ENV: 'production' },
-  timeout: 60000
-}, async () => {
-  await $`npm install`;
-  await $`npm run build`;
-});
-
-// Sync context (for sync operations)
-const result = withinSync({ cwd: '/tmp' }, () => {
-  return 'executed in /tmp';
+// With kubectl context
+const $staging = $.k8s({
+  pod: 'test-pod',
+  namespace: 'staging',
+  context: 'staging-cluster'
 });
 ```
 
-#### Pipe Operations
+#### Remote Docker (SSH + Docker)
 
-Chain commands with Unix-style pipes:
+```javascript
+// Docker commands on remote host
+const $remoteDkr = $.remoteDocker({
+  ssh: 'user@docker-host.com',
+  container: 'app-container'
+});
 
-```typescript
-import { pipe } from '@xec/ush';
+await $remoteDkr`ps aux`;
+await $remoteDkr`tail -f /logs/app.log`;
 
-// Simple pipe
-const result = await pipe(
-  ['cat data.json', 'jq .users', 'grep admin'],
-  $
-);
+// Managing remote containers
+const $host = $.remoteDocker({
+  ssh: 'user@docker-host.com'
+});
+await $host`docker ps`;
+await $host`docker logs my-app`;
+```
 
-// Pipe with ProcessPromise
-const users = await $`cat users.csv`
-  .pipe('cut -d, -f2')  // Extract second column
-  .pipe('sort')         // Sort names
-  .pipe('uniq -c');     // Count occurrences
+### Advanced Features
 
-// Get output in different formats
-const text = await users.text();
-const lines = await users.lines();
-const json = await $`cat data.json`.json();
-const buffer = await $`cat image.png`.buffer();
+#### Stream Processing
+
+```javascript
+// Process output line by line as it arrives
+await $.stream`tail -f /var/log/app.log`
+  .onLine((line) => {
+    if (line.includes('ERROR')) {
+      console.error('Error detected:', line);
+    }
+  })
+  .onStderr((line) => {
+    console.error('Stderr:', line);
+  });
+
+// Process large files efficiently
+let lineCount = 0;
+await $.stream`cat huge-file.txt`
+  .onLine(() => lineCount++)
+  .onComplete(() => console.log(`Total lines: ${lineCount}`));
+
+// Real-time log monitoring
+const controller = new AbortController();
+await $.stream`tail -f /var/log/system.log`
+  .onLine((line) => {
+    console.log(new Date(), line);
+    if (line.includes('CRITICAL')) {
+      controller.abort(); // Stop monitoring
+    }
+  })
+  .signal(controller.signal);
 ```
 
 #### Parallel Execution
 
-Execute multiple commands concurrently:
-
-```typescript
-import { parallel } from '@xec/ush';
-
-// Execute all in parallel
-const results = await $.parallel.all([
-  'npm test',
-  'npm run lint',
-  'npm run type-check'
+```javascript
+// Run commands in parallel
+const results = await $.parallel([
+  $`curl https://api1.com`,
+  $`curl https://api2.com`,
+  $`curl https://api3.com`
 ]);
 
-// With options
-const results = await parallel(
-  servers.map(s => `deploy --server ${s}`),
-  $,
-  { 
-    maxConcurrency: 3, 
-    stopOnError: false,
-    timeout: 30000
-  }
+// With concurrency limit
+const files = ['file1.txt', 'file2.txt', 'file3.txt', /* ... more files */];
+await $.parallel(
+  files.map(f => $`process-file ${f}`),
+  { concurrency: 2 } // Max 2 commands at once
 );
 
-// Parallel methods
-await $.parallel.map(files, f => `process ${f}`, { maxConcurrency: 2 });
-await $.parallel.filter(urls, url => `curl -f ${url}`);
-await $.parallel.race(['server1', 'server2'].map(s => `ping ${s}`));
-await $.parallel.some(tests, test => `${test} --quick`);
-await $.parallel.every(services, s => `systemctl is-active ${s}`);
+// Parallel with different configurations
+await $.parallel([
+  $`npm test`.cwd('./package1'),
+  $`npm test`.cwd('./package2'),
+  $.ssh('server1')`npm test`,
+  $.docker('app')`npm test`
+]);
 ```
 
 #### Command Templates
 
-Create reusable command patterns:
+```javascript
+// Define reusable command templates
+const gitCommit = $.template`git commit -m ${0}`;
+await gitCommit('Initial commit');
+await gitCommit('Add new feature');
 
-```typescript
-import { CommandTemplate } from '@xec/ush';
+// Templates with multiple parameters
+const deploy = $.template`
+  rsync -avz ${0} ${1}@${2}:${3}
+  ssh ${1}@${2} "cd ${3} && npm install --production"
+`;
+await deploy('./dist', 'user', 'server.com', '/var/www/app');
 
-// Create template
-const deployTemplate = $.templates.create(
-  'kubectl apply -f {{file}} -n {{namespace}}',
-  {
-    defaults: { namespace: 'default' },
-    validate: (params) => {
-      if (!params.file.endsWith('.yaml')) {
-        throw new Error('File must be YAML');
-      }
-    },
-    transform: (result) => {
-      // Parse deployment name from output
-      const match = result.stdout.match(/(\w+) created/);
-      return match ? match[1] : null;
-    }
-  }
+// Validated templates
+const backup = $.template`mysqldump ${0} > backup-${1}.sql`
+  .validate((args) => {
+    if (!args[0]) throw new Error('Database name required');
+    if (!args[1]) args[1] = new Date().toISOString().split('T')[0];
+    return args;
+  });
+
+await backup('mydb', '2024-01-01');
+```
+
+#### Pipe Operations
+
+```javascript
+// Unix-style pipes
+const result = await $.pipe(
+  $`cat data.txt`,
+  $`grep "ERROR"`,
+  $`wc -l`
 );
+console.log(`Error count: ${result.stdout.trim()}`);
 
-// Use template
-const deploymentName = await deployTemplate.execute($, {
-  file: 'app.yaml',
-  namespace: 'production'
-});
-
-// Register global template
-$.templates.register('build', 'docker build -t {{tag}} {{context}}', {
-  defaults: { context: '.' }
-});
-
-// Use registered template
-await $.templates.get('build').execute($, { tag: 'myapp:latest' });
-
-// List all templates
-const templates = $.templates.list();
-
-// Remove template
-$.templates.unregister('build');
-```
-
-#### Additional Execution Methods
-
-```typescript
-// Execute with direct ProcessPromise
-const promise = $`long-running-command`;
-promise.stdin.write('input data\n');
-promise.stdin.end();
-const result = await promise;
-
-// Execute and get specific output format
-const text = await $`cat file.txt`.text(); // Trimmed string
-const lines = await $`ls -la`.lines(); // Array of lines
-const json = await $`cat data.json`.json(); // Parsed JSON
-const buffer = await $`cat binary.dat`.buffer(); // Raw Buffer
-
-// Check command existence
-const hasGit = await $.which('git'); // Returns path or null
-const hasTools = await $.which(['git', 'npm', 'node']); // Check multiple
-
-// Execute with ProcessPromise methods
-const proc = $`tail -f /var/log/app.log`;
-proc.quiet(); // Suppress output
-proc.verbose(); // Enable verbose output
-proc.kill('SIGTERM'); // Send signal
-proc.stdin.write('data'); // Write to stdin
-
-// Nohup execution (continues after parent exits)
-await $.nohup('long-running-service');
-```
-
-#### Streaming Execution
-
-Handle long-running commands with real-time output:
-
-```typescript
-import { stream } from '@xec/ush';
-
-// Create stream
-const logStream = stream($, 'tail -f /var/log/app.log', {
-  lineMode: true,
-  timeout: 0 // No timeout for continuous streams
-});
-
-// Handle events
-logStream.on('line', (line, type) => {
-  console.log(`[${type}] ${line}`);
-});
-
-logStream.on('error', (error) => {
-  console.error('Stream error:', error);
-});
-
-logStream.on('exit', (code) => {
-  console.log(`Process exited with code ${code}`);
-});
-
-// Start streaming
-await logStream.start();
-
-// Stop after some time
-setTimeout(() => logStream.kill(), 10000);
-
-// Wait for completion
-await logStream.wait();
-
-// Use async iterator
-const logs = stream($, 'docker logs -f container', { lineMode: true });
-await logs.start();
-
-for await (const { line, stream } of logs.lines()) {
-  if (line.includes('ERROR')) {
-    logs.kill();
-    break;
-  }
-}
-
-// Stream utilities
-import { StreamCollector, LineTransform, ProgressTracker } from '@xec/ush';
-
-// Collect stream data with size limit
-const collector = new StreamCollector({ maxSize: 1024 * 1024 }); // 1MB limit
-process.stdout.pipe(collector);
-const collected = await collector.collect();
-
-// Transform stream to lines
-const lineTransform = new LineTransform();
-readStream
-  .pipe(lineTransform)
-  .on('line', (line) => console.log(`Line: ${line}`));
-
-// Track stream progress
-const tracker = new ProgressTracker(fileSize);
-readStream
-  .pipe(tracker)
-  .on('progress', (bytes) => console.log(`${bytes} bytes processed`));
-```
-
-#### Temporary Files & Directories
-
-Safely work with temporary files:
-
-```typescript
-import { withTempFile, withTempDir, TempFile, TempDir } from '@xec/ush';
-
-// Temporary file (auto-cleanup)
-await withTempFile(async (filepath) => {
-  await $`echo "temp data" > ${filepath}`;
-  const content = await $`cat ${filepath}`;
-  // File deleted after this block
-});
-
-// With options
-await withTempFile(async (filepath) => {
-  // Custom prefix/suffix
-}, { prefix: 'data-', suffix: '.json' });
-
-// Temporary directory
-await withTempDir(async (dirpath) => {
-  await $`cd ${dirpath} && git clone repo.git`;
-  // Directory and contents deleted after this block
-});
-
-// Manual control
-const temp = new TempFile({ prefix: 'upload-' });
-await temp.create();
-await temp.write('content');
-await temp.append('\nmore content');
-const content = await temp.read();
-await temp.cleanup(); // Manual cleanup
-```
-
-#### Interactive Input
-
-Build interactive CLI tools:
-
-```typescript
-import { question, confirm, select, Spinner } from '@xec/ush';
-
-// Text input
-const name = await question('What is your name?');
-const age = await question('Your age?', { 
-  defaultValue: '18',
-  validate: (input) => {
-    const num = parseInt(input);
-    if (isNaN(num) || num < 0) {
-      return 'Please enter a valid age';
-    }
-    return true;
-  }
-});
-
-// Confirmation
-const proceed = await confirm('Deploy to production?', false);
-
-// Selection
-const env = await select('Choose environment:', [
-  'development',
-  'staging', 
-  'production'
-]);
-
-// Password input (hidden)
-const password = await question('Password:', { hidden: true });
-
-// Progress spinner
-const spinner = new Spinner('Building application...');
-spinner.start();
-await $`npm run build`;
-spinner.stop('Build completed!');
-
-// Or use withSpinner helper
-await withSpinner('Deploying...', async () => {
-  await $`deploy-app`;
-});
-```
-
-#### Command Pipelines
-
-Build complex command pipelines with operators:
-
-```typescript
-import { Pipeline } from '@xec/ush';
-
-// Create pipeline
-const pipeline = new Pipeline($);
-
-// Add stages
-pipeline
-  .add('git pull')
-  .add('npm install')
-  .add('npm test', { continueOnError: true })
-  .add('npm run build');
-
-// Execute pipeline
-const results = await pipeline.execute();
-
-// Use operators
-const dataProcessing = new Pipeline($)
-  .add('cat data.json')
-  .pipe(async (result) => {
-    const data = JSON.parse(result.stdout);
-    return data.filter(item => item.active);
-  })
-  .tee(async (data) => {
-    console.log(`Processing ${data.length} items`);
-  })
-  .conditional(
-    (data) => data.length > 0,
-    new Pipeline($).add('process-data'),
-    new Pipeline($).add('echo "No data to process"')
-  );
-
-// Parallel stages
-const deployment = new Pipeline($)
-  .add('npm run build')
-  .parallel([
-    'deploy-to-server1',
-    'deploy-to-server2',
-    'deploy-to-server3'
-  ])
-  .add('notify-completion');
-
-await deployment.execute();
-```
-
-#### Audit Logging
-
-Track and audit all command executions:
-
-```typescript
-import { getAuditLogger, AuditLogger } from '@xec/ush';
-
-// Get global audit logger
-const audit = getAuditLogger();
-
-// Configure audit logging
-audit.configure({
-  enabled: true,
-  logFile: '/var/log/commands.audit',
-  includeEnv: true,
-  includeOutput: true,
-  maxEntries: 10000,
-  rotateOnSize: '10MB'
-});
-
-// Create custom audit logger
-const customAudit = new AuditLogger({
-  logFile: './deployment.audit',
-  format: 'json', // or 'text'
-  filter: (entry) => entry.command.includes('deploy')
-});
-
-// Query audit log
-const entries = await audit.query({
-  startTime: new Date('2024-01-01'),
-  endTime: new Date(),
-  command: /git.*/,
-  exitCode: 0,
-  adapter: 'ssh'
-});
-
-// Export audit log
-await audit.export('./audit-export.json', {
-  format: 'json',
-  compress: true
-});
-
-// Clear old entries
-await audit.rotate({ maxAge: '30d' });
-```
-
-#### Secure Password Handling
-
-Safely handle passwords and sensitive data:
-
-```typescript
-import { SecurePasswordHandler } from '@xec/ush';
-
-// Create secure handler
-const handler = new SecurePasswordHandler();
-
-// Generate secure password
-const password = handler.generatePassword({
-  length: 16,
-  includeUppercase: true,
-  includeLowercase: true,
-  includeNumbers: true,
-  includeSymbols: true,
-  excludeSimilar: true // Exclude similar chars like 0/O, 1/l
-});
-
-// Validate password strength
-const validation = handler.validatePassword(password, {
-  minLength: 8,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireNumbers: true,
-  requireSymbols: true,
-  maxRepeating: 2,
-  commonPasswords: ['password', '123456'] // Check against common passwords
-});
-
-// Create askpass script for sudo
-const askpass = await handler.createAskpass('mypassword');
-const $sudo = $.env({ SUDO_ASKPASS: askpass.path });
-
+// Pipe with error handling
 try {
-  await $sudo`sudo -A apt-get update`;
-} finally {
-  // Cleanup askpass script
-  await askpass.cleanup();
+  await $.pipe(
+    $`cat input.json`,
+    $`jq '.users[]'`,
+    $`grep "admin"`,
+    $`wc -l`
+  );
+} catch (error) {
+  console.error('Pipeline failed at:', error.command);
 }
 
-// Mask passwords in logs
-const maskedCommand = handler.maskCommand(
-  'mysql -u root -pSecretPass123 mydb',
-  ['SecretPass123']
-);
-console.log(maskedCommand); // "mysql -u root -p**** mydb"
+// Conditional pipes
+const processData = async (file, hasHeaders) => {
+  const commands = [$`cat ${file}`];
+  if (hasHeaders) commands.push($`tail -n +2`); // Skip header
+  commands.push($`sort`, $`uniq`);
+  return await $.pipe(...commands);
+};
+```
 
-// Secure environment variables
-const secureEnv = handler.secureEnv({
-  API_KEY: 'secret-key',
-  PASSWORD: 'secret-pass'
-}, ['PASSWORD']); // Returns env with PASSWORD value masked
+#### Context Management
+
+```javascript
+// Execute multiple commands in same context
+await $.within(async ($) => {
+  await $`cd /tmp`;
+  await $`mkdir test-dir`;
+  await $`cd test-dir`;
+  await $`echo "test" > file.txt`;
+  const content = await $`cat file.txt`;
+  console.log(content.stdout); // "test"
+});
+
+// Context with configuration
+await $.within({ 
+  cwd: '/tmp',
+  env: { DEBUG: 'true' }
+}, async ($) => {
+  await $`npm install`;
+  await $`npm test`;
+});
+
+// Nested contexts
+await $.within({ cwd: '/app' }, async ($outer) => {
+  await $outer`npm install`;
+  
+  await $.within({ env: { NODE_ENV: 'test' }}, async ($inner) => {
+    await $inner`npm test`;
+  });
+  
+  await $outer`npm build`; // Back to outer context
+});
 ```
 
 #### Progress Tracking
 
-Advanced progress tracking for long operations:
+```javascript
+// Track long-running operations
+await $`npm install`.progress({
+  onStart: () => console.log('Installing dependencies...'),
+  onProgress: (percent) => console.log(`Progress: ${percent}%`),
+  onComplete: () => console.log('Installation complete!')
+});
 
-```typescript
-import { ProgressTracker } from '@xec/ush';
-
-// Create progress tracker
-const tracker = new ProgressTracker({
-  total: 100,
-  format: 'bar', // 'bar', 'percentage', 'custom'
-  width: 40,
-  onProgress: (progress) => {
-    console.log(`${progress.percent}% complete`);
+// Custom progress parsing
+await $`rsync -avz --progress source/ dest/`.progress({
+  parser: (output) => {
+    const match = output.match(/(\d+)%/);
+    return match ? parseInt(match[1]) : null;
+  },
+  onProgress: (percent) => {
+    process.stdout.write(`\rCopying: ${percent}%`);
   }
 });
 
-// Track command with progress
-const $withProgress = $.with({
-  progress: {
+// Progress with spinner
+const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+let i = 0;
+await $`docker build -t myapp .`.progress({
+  onProgress: () => {
+    process.stdout.write(`\r${spinner[i++ % spinner.length]} Building...`);
+  },
+  onComplete: () => console.log('\r✓ Build complete!')
+});
+```
+
+#### Temporary Files and Directories
+
+```javascript
+// Auto-cleanup temporary directory
+await $.withTempDir(async (tmpDir) => {
+  await $`cd ${tmpDir} && git clone https://github.com/user/repo`;
+  await $`cd ${tmpDir}/repo && npm install`;
+  await $`cd ${tmpDir}/repo && npm test`;
+  // tmpDir is automatically removed after this block
+});
+
+// Temporary file
+await $.withTempFile(async (tmpFile) => {
+  await $`curl https://example.com/data > ${tmpFile}`;
+  await $`process-data < ${tmpFile}`;
+  // tmpFile is automatically removed after this block
+});
+
+// Custom temp options
+await $.withTempDir({
+  prefix: 'build-',
+  cleanup: false  // Keep directory for debugging
+}, async (tmpDir) => {
+  console.log(`Working in: ${tmpDir}`);
+  await $`cd ${tmpDir} && make`;
+});
+```
+
+#### Interactive Features
+
+```javascript
+// User confirmation
+const proceed = await $.confirm('Deploy to production?');
+if (proceed) {
+  await $`npm run deploy:prod`;
+}
+
+// User input
+const name = await $.prompt('Enter your name:');
+await $`echo "Hello, ${name}!" > greeting.txt`;
+
+// Password input (hidden)
+const password = await $.password('Enter password:');
+await $`mysql -u root -p${password} < backup.sql`.quiet();
+
+// Selection menu
+const env = await $.select('Choose environment:', [
+  'development',
+  'staging', 
+  'production'
+]);
+await $`deploy-to ${env}`;
+```
+
+#### Audit Logging
+
+```javascript
+// Enable audit logging
+$.configure({ 
+  auditLog: {
     enabled: true,
-    onProgress: (event) => {
-      tracker.update(event.current);
-    }
+    file: './commands.log',
+    includeEnv: false,      // Don't log env vars
+    includeCwd: true,
+    includeTimestamp: true
   }
 });
 
-// Use with file operations
-await $.transfer.copy('./large-file', '/backup/large-file', {
-  onProgress: (progress) => {
-    tracker.update(progress.transferredBytes, progress.totalBytes);
-  }
-});
-
-// Manual progress updates
-tracker.start('Processing files...');
-for (const file of files) {
-  await processFile(file);
-  tracker.increment();
-}
-tracker.complete('All files processed!');
-```
-
-#### Retry Adapter
-
-Wrap any adapter with retry capabilities:
-
-```typescript
-import { createRetryableAdapter, RetryAdapter } from '@xec/ush';
-
-// Create retryable SSH adapter
-const sshAdapter = new SSHAdapter({ host: 'server.com', username: 'user' });
-const retryableSSH = createRetryableAdapter(sshAdapter, {
-  attempts: 3,
-  delay: 1000,
-  backoff: 'exponential',
-  maxDelay: 30000,
-  shouldRetry: (error) => {
-    // Retry on network errors
-    return error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT';
-  }
-});
-
-// Register and use
-$.registerAdapter('retry-ssh', retryableSSH);
-const $retrySsh = $.with({ adapter: 'retry-ssh' });
-
-// Or use RetryAdapter directly
-const retryAdapter = new RetryAdapter(sshAdapter, {
-  attempts: 5,
-  onRetry: (error, attempt) => {
-    console.log(`Retry attempt ${attempt}: ${error.message}`);
-  }
-});
-```
-
-## Examples
-
-### Basic Script
-
-```typescript
-#!/usr/bin/env node
-import { $ } from '@xec/ush';
-
-// Simple deployment script
-await $`git pull`;
-await $`npm install`;
-await $`npm run build`;
-await $`pm2 restart app`;
-```
-
-### Multi-Environment Deployment
-
-```typescript
-import { $, createExecutionEngine } from '@xec/ush';
-
-// Deploy to multiple servers
-const servers = [
-  { host: 'web1.example.com', role: 'web' },
-  { host: 'web2.example.com', role: 'web' },
-  { host: 'db1.example.com', role: 'db' }
-];
-
-// Deploy in parallel with max 2 concurrent
-await $.parallel.map(
-  servers,
-  async (server) => {
-    const $remote = $.ssh({
-      host: server.host,
-      username: 'deploy'
-    });
-    
-    if (server.role === 'web') {
-      await $remote`cd /app && git pull && npm install && pm2 restart web`;
-    } else {
-      await $remote`cd /db && ./migrate.sh`;
-    }
-  },
-  { maxConcurrency: 2 }
-);
-```
-
-### CI/CD Pipeline
-
-```typescript
-import { $, withSpinner, confirm } from '@xec/ush';
-
-// Configure for CI
-const $ci = $.env({ CI: 'true' }).withRetry({ attempts: 2 });
-
-try {
-  // Run tests
-  await withSpinner('Running tests...', async () => {
-    const results = await $ci.parallel.all([
-      'npm run test:unit',
-      'npm run test:integration',
-      'npm run lint'
-    ]);
-    
-    if (results.failed.length > 0) {
-      throw new Error('Tests failed');
-    }
-  });
-  
-  // Build
-  await withSpinner('Building application...', () => 
-    $ci`npm run build`
-  );
-  
-  // Deploy
-  if (await confirm('Deploy to production?')) {
-    await $ci`npm run deploy`;
-  }
-} catch (error) {
-  console.error('Pipeline failed:', error);
-  process.exit(1);
-}
-```
-
-### Docker Compose Operations
-
-```typescript
-import { $ } from '@xec/ush';
-
-// Docker compose helper
-const compose = $.templates.create(
-  'docker-compose -f {{file}} {{command}}',
-  { defaults: { file: 'docker-compose.yml' } }
-);
-
-// Start services
-await compose.execute($, { command: 'up -d' });
-
-// Check status
-const status = await $`docker-compose ps`;
-console.log(status.stdout);
-
-// Run migrations in container
-const $app = $.docker({ container: 'myapp_web_1' });
-await $app`python manage.py migrate`;
-
-// Cleanup
-await compose.execute($, { command: 'down -v' });
-```
-
-### Advanced SSH with Tunneling
-
-```typescript
-import { $ } from '@xec/ush';
-
-// Jump through bastion host
-const $prod = $.ssh({
-  host: 'prod-server',
-  username: 'admin',
-  privateKey: '~/.ssh/id_rsa',
-  // SSH ProxyCommand equivalent
-  proxy: {
-    host: 'bastion.example.com',
-    username: 'jump'
-  }
-});
-
-// Execute on production through bastion
-await $prod`systemctl status myapp`;
-
-// Copy files through SSH
-await $`scp -r ./dist/ ${$prod.config.username}@${$prod.config.host}:/app/`;
-```
-
-### File Transfer Between Environments
-
-The transfer engine provides a unified API for copying and moving files between different environments (local, SSH, Docker).
-
-```typescript
-// Local to local
-await $.transfer.copy('./source.txt', './dest.txt');
-await $.transfer.move('./old.txt', './new.txt');
-
-// Local to SSH
-await $.transfer.copy('./deploy.zip', 'ssh://user@host/app/deploy.zip', {
-  compress: true,
-  onProgress: (p) => console.log(`${p.completedFiles}/${p.totalFiles}`)
-});
-
-// SSH to local
-await $.transfer.copy('ssh://user@host/logs/app.log', './logs/app.log');
-
-// Docker transfers
-await $.transfer.copy('docker://mycontainer:/app/config.json', './config.json');
-await $.transfer.copy('./data.csv', 'docker://mycontainer:/data/input.csv');
-
-// Cross-environment transfers
-await $.transfer.copy('ssh://user1@host1/file', 'ssh://user2@host2/file');
-await $.transfer.copy('docker://container1:/data', 'ssh://user@host/backup', {
-  recursive: true
-});
-
-// Directory sync (like rsync)
-await $.transfer.sync('./src', 'ssh://user@host/app/src', {
-  recursive: true,
-  exclude: ['*.tmp', 'node_modules'],
-  deleteExtra: true,
-  compress: true
-});
-
-// Advanced options
-await $.transfer.copy('./large-dir', '/backup/large-dir', {
-  recursive: true,
-  preserveMode: true,
-  preserveTimestamps: true,
-  exclude: ['*.log', '*.tmp'],
-  concurrent: 4,
-  onProgress: (progress) => {
-    console.log(`Progress: ${progress.transferredBytes}/${progress.totalBytes} bytes`);
-    console.log(`Speed: ${progress.speed} bytes/sec`);
-  }
-});
-```
-
-### Testing with Mocks
-
-```typescript
-import { createExecutionEngine, MockAdapter } from '@xec/ush';
-import { test, expect } from '@jest/globals';
-
-test('deployment script', async () => {
-  const $ = createExecutionEngine();
-  const mock = new MockAdapter();
-  $.registerAdapter('mock', mock);
-  
-  // Setup mocks
-  mock.mockSuccess('git pull', 'Already up to date.');
-  mock.mockSuccess('npm install', 'added 150 packages');
-  mock.mockSuccess('npm run build', 'Build successful');
-  mock.mockSuccess('pm2 restart app', 'Process restarted');
-  
-  // Run deployment with mock
-  const $mock = $.with({ adapter: 'mock' });
-  
-  await $mock`git pull`;
-  await $mock`npm install`;
-  await $mock`npm run build`;
-  await $mock`pm2 restart app`;
-  
-  // Verify all commands were executed
-  expect(mock.getExecutedCommands()).toEqual([
-    'git pull',
-    'npm install', 
-    'npm run build',
-    'pm2 restart app'
-  ]);
-});
-```
-
-### Kubernetes Operations
-
-```typescript
-import { $ } from '@xec/ush';
-
-// Deploy to Kubernetes
-const $k8s = $.kubernetes({
-  namespace: 'production',
-  kubeconfig: process.env.KUBECONFIG
-});
-
-// Scale deployment
-await $k8s`kubectl scale deployment webapp --replicas=3`;
-
-// Execute database migration in pod
-const migrationPod = await $k8s`kubectl get pods -l app=webapp -o jsonpath='{.items[0].metadata.name}'`;
-const $pod = $.kubernetes({
-  pod: migrationPod.stdout.trim(),
-  namespace: 'production',
-  container: 'webapp'
-});
-
-await $pod`python manage.py migrate`;
-
-// Run job
-const $job = $.kubernetes({
-  image: 'myapp:latest',
-  name: 'data-processor',
-  namespace: 'jobs',
-  env: { PROCESS_DATE: new Date().toISOString() }
-});
-
-await $job`python process_daily_data.py`;
-```
-
-### Pipeline with Error Handling
-
-```typescript
-import { Pipeline } from '@xec/ush';
-
-// Complex deployment pipeline
-const deployPipeline = new Pipeline($)
-  .add('git pull', { 
-    name: 'update-code',
-    onError: async (error) => {
-      console.error('Failed to pull:', error);
-      // Try to reset and pull again
-      await $`git reset --hard && git pull`;
-    }
-  })
-  .add('npm ci', { name: 'install-deps' })
-  .conditional(
-    async () => {
-      const tests = await $`npm test -- --listTests`;
-      return tests.stdout.includes('.test.');
-    },
-    new Pipeline($).add('npm test', { name: 'run-tests' }),
-    new Pipeline($).add('echo "No tests found"')
-  )
-  .add('npm run build', { name: 'build' })
-  .parallel([
-    { command: 'npm run lint', name: 'lint' },
-    { command: 'npm run type-check', name: 'type-check' }
-  ], { maxConcurrency: 2 })
-  .add(async (prevResults) => {
-    // Custom stage with access to previous results
-    const buildOutput = prevResults.get('build');
-    if (buildOutput?.stdout.includes('warning')) {
-      console.warn('Build completed with warnings');
-    }
-    return $`npm run deploy`;
-  }, { name: 'deploy' });
-
-// Execute with progress tracking
-const results = await deployPipeline.execute({
-  onProgress: (stage) => {
-    console.log(`Executing: ${stage.name}`);
-  }
-});
-
-// Check results
-if (results.failed.length > 0) {
-  console.error('Pipeline failed:', results.failed);
-  process.exit(1);
-}
-```
-
-### Secure Remote Operations
-
-```typescript
-import { $, SecurePasswordHandler } from '@xec/ush';
-
-// Setup secure password handling
-const passwordHandler = new SecurePasswordHandler();
-const sudoPassword = process.env.SUDO_PASS;
-
-// Create askpass for sudo operations
-const askpass = await passwordHandler.createAskpass(sudoPassword);
-
-// Configure SSH with sudo
-const $remote = $.ssh({
-  host: 'secure-server.com',
-  username: 'admin',
-  privateKey: '~/.ssh/id_rsa'
-}).env({ SUDO_ASKPASS: askpass.path });
-
-try {
-  // Secure system update
-  await $remote`sudo -A apt-get update`;
-  await $remote`sudo -A apt-get upgrade -y`;
-  
-  // Deploy with masked passwords
-  const dbPassword = 'SuperSecret123!';
-  const maskedCmd = passwordHandler.maskCommand(
-    `docker run -e DB_PASS=${dbPassword} myapp`,
-    [dbPassword]
-  );
-  
-  console.log('Executing:', maskedCmd); // Password will be masked
-  await $remote`docker run -e DB_PASS=${dbPassword} myapp`;
-  
-} finally {
-  // Always cleanup askpass
-  await askpass.cleanup();
-}
-```
-
-### Audited Operations
-
-```typescript
-import { $, getAuditLogger } from '@xec/ush';
-
-// Configure audit logging
-const audit = getAuditLogger();
-audit.configure({
-  enabled: true,
-  logFile: './deployment.audit',
-  includeOutput: true
-});
-
-// Create audited execution engine
-const $audited = $.with({
-  onBeforeExecute: async (cmd) => {
-    console.log(`Executing: ${cmd.command}`);
-  },
-  onAfterExecute: async (cmd, result) => {
-    if (result.exitCode !== 0) {
-      console.error(`Command failed: ${cmd.command}`);
-    }
-  }
-});
-
-// Perform deployment
-const deployment = new Date().toISOString();
-await $audited.env({ DEPLOYMENT_ID: deployment })`git tag -a v${deployment} -m "Deployment ${deployment}"`;
-await $audited`git push --tags`;
-await $audited`docker build -t myapp:${deployment} .`;
-await $audited`docker push myapp:${deployment}`;
+// All commands are now logged
+await $`rm -rf /tmp/test`;  // Logged with timestamp
 
 // Query audit log
-const deploymentAudit = await audit.query({
-  env: { DEPLOYMENT_ID: deployment }
+const audit = $.getAuditLogger();
+const recentCommands = audit.query({
+  startTime: Date.now() - 3600000, // Last hour
+  adapter: 'ssh',
+  exitCode: 0  // Only successful
 });
 
-console.log(`Deployment ${deployment} executed ${deploymentAudit.length} commands`);
+// Custom audit logger
+class CustomAudit {
+  async log(entry) {
+    await fetch('https://audit.example.com/log', {
+      method: 'POST',
+      body: JSON.stringify(entry)
+    });
+  }
+}
+
+$.configure({ auditLogger: new CustomAudit() });
 ```
 
-### Remote Docker Pipeline
+## 🌟 Real-World Examples
 
-```typescript
+### Automated Deployment Script
+
+```javascript
 import { $ } from '@xec/ush';
 
-// Setup remote Docker hosts
-const dockerHosts = [
-  { name: 'docker1', host: 'docker1.example.com' },
-  { name: 'docker2', host: 'docker2.example.com' },
-  { name: 'docker3', host: 'docker3.example.com' }
+async function deployApp(environment) {
+  // Configuration for different environments
+  const config = {
+    development: {
+      server: 'dev.example.com',
+      path: '/var/www/dev',
+      branch: 'develop'
+    },
+    production: {
+      server: 'prod.example.com', 
+      path: '/var/www/app',
+      branch: 'main'
+    }
+  };
+
+  const env = config[environment];
+  if (!env) throw new Error(`Unknown environment: ${environment}`);
+
+  console.log(`🚀 Deploying to ${environment}...`);
+
+  // 1. Run tests locally
+  console.log('📋 Running tests...');
+  await $`npm test`;
+
+  // 2. Build the application
+  console.log('🔨 Building application...');
+  await $`npm run build`;
+
+  // 3. Connect to server
+  const $remote = $.ssh(`deploy@${env.server}`);
+
+  try {
+    // 4. Backup current version
+    console.log('💾 Backing up current version...');
+    await $remote`cd ${env.path} && tar -czf ../backup-$(date +%Y%m%d-%H%M%S).tar.gz .`;
+
+    // 5. Pull latest code
+    console.log('📥 Pulling latest code...');
+    await $remote`cd ${env.path} && git pull origin ${env.branch}`;
+
+    // 6. Install dependencies
+    console.log('📦 Installing dependencies...');
+    await $remote`cd ${env.path} && npm ci --production`;
+
+    // 7. Run migrations
+    console.log('🗄️ Running database migrations...');
+    await $remote`cd ${env.path} && npm run migrate`;
+
+    // 8. Restart application
+    console.log('🔄 Restarting application...');
+    await $remote`sudo systemctl restart app`;
+
+    // 9. Health check
+    console.log('❤️ Checking application health...');
+    await $.retry({ maxRetries: 5, initialDelay: 2000 })`
+      curl -f http://${env.server}/health
+    `;
+
+    console.log(`✅ Successfully deployed to ${environment}!`);
+  } catch (error) {
+    console.error('❌ Deployment failed:', error.message);
+    
+    // Rollback on failure
+    console.log('⏪ Rolling back...');
+    await $remote`cd ${env.path} && git reset --hard HEAD~1`;
+    await $remote`sudo systemctl restart app`;
+    
+    throw error;
+  } finally {
+    await $remote.disconnect();
+  }
+}
+
+// Usage
+await deployApp('production');
+```
+
+### Log Analysis Pipeline
+
+```javascript
+import { $ } from '@xec/ush';
+
+async function analyzeAccessLogs(date) {
+  console.log(`📊 Analyzing logs for ${date}...`);
+
+  // Setup
+  const logFile = `/var/log/nginx/access.log-${date}`;
+  const outputDir = `./reports/${date}`;
+  await $`mkdir -p ${outputDir}`;
+
+  // 1. Extract and decompress logs if needed
+  if (await $`test -f ${logFile}.gz`.nothrow().then(r => r.exitCode === 0)) {
+    console.log('📦 Decompressing log file...');
+    await $`gunzip -c ${logFile}.gz > ${logFile}`;
+  }
+
+  // 2. Calculate basic statistics
+  console.log('📈 Calculating statistics...');
+  
+  const stats = await $.parallel({
+    totalRequests: $`wc -l < ${logFile}`,
+    uniqueIPs: $.pipe(
+      $`cat ${logFile}`,
+      $`awk '{print $1}'`,
+      $`sort -u`,
+      $`wc -l`
+    ),
+    status404: $`grep " 404 " ${logFile} | wc -l`,
+    status500: $`grep " 500 " ${logFile} | wc -l`
+  });
+
+  // 3. Find top URLs
+  console.log('🔝 Finding top URLs...');
+  const topUrls = await $.pipe(
+    $`cat ${logFile}`,
+    $`awk '{print $7}'`,
+    $`sort`,
+    $`uniq -c`,
+    $`sort -rn`,
+    $`head -20`
+  );
+
+  // 4. Analyze response times
+  console.log('⏱️ Analyzing response times...');
+  const responseTimes = await $.pipe(
+    $`cat ${logFile}`,
+    $`awk '{print $NF}'`,           // Last field is response time
+    $`grep -E '^[0-9]+$'`,          // Only numeric values
+    $`awk '{sum+=$1; count++} END {print "avg:", sum/count, "ms"}'`
+  );
+
+  // 5. Detect potential attacks
+  console.log('🛡️ Checking for suspicious activity...');
+  const suspicious = await $.pipe(
+    $`cat ${logFile}`,
+    $.raw`grep -E "(union.*select|<script|../|\.\.\\\\)" || true`,
+    $`wc -l`
+  );
+
+  // 6. Generate report
+  console.log('📄 Generating report...');
+  const report = `
+# Access Log Analysis Report
+Date: ${date}
+
+## Summary Statistics
+- Total Requests: ${stats.totalRequests.stdout.trim()}
+- Unique IPs: ${stats.uniqueIPs.stdout.trim()}
+- 404 Errors: ${stats.status404.stdout.trim()}
+- 500 Errors: ${stats.status500.stdout.trim()}
+- Suspicious Requests: ${suspicious.stdout.trim()}
+
+## Response Times
+${responseTimes.stdout}
+
+## Top 20 URLs
+${topUrls.stdout}
+`;
+
+  await $`echo ${report} > ${outputDir}/report.md`;
+
+  // 7. Create visualizations
+  console.log('📊 Creating visualizations...');
+  await $`
+    cat ${logFile} |
+    awk '{print strftime("%H", $4)}' |
+    sort | uniq -c |
+    gnuplot -e "
+      set terminal png;
+      set output '${outputDir}/requests-by-hour.png';
+      set xlabel 'Hour';
+      set ylabel 'Requests';
+      plot '-' using 2:1 with lines title 'Requests'
+    "
+  `.nothrow(); // Continue if gnuplot not available
+
+  console.log(`✅ Analysis complete! Report saved to ${outputDir}/report.md`);
+}
+
+// Usage
+await analyzeAccessLogs('20240115');
+```
+
+### Database Backup Automation
+
+```javascript
+import { $ } from '@xec/ush';
+
+class DatabaseBackup {
+  constructor(config) {
+    this.config = config;
+    this.$ = $.env({
+      MYSQL_PWD: config.password  // Secure password passing
+    });
+  }
+
+  async backup(database) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${database}-${timestamp}.sql`;
+    const backupPath = `${this.config.backupDir}/${filename}`;
+
+    console.log(`🗄️ Starting backup of ${database}...`);
+
+    try {
+      // Create backup directory
+      await $`mkdir -p ${this.config.backupDir}`;
+
+      // Perform backup with progress tracking
+      await this.$`
+        mysqldump 
+          -h ${this.config.host}
+          -u ${this.config.user}
+          --single-transaction
+          --routines
+          --triggers
+          --add-drop-table
+          --extended-insert
+          ${database}
+      `.pipe($`gzip -9 > ${backupPath}.gz`)
+        .progress({
+          onStart: () => console.log('📦 Dumping database...'),
+          onProgress: () => process.stdout.write('.'),
+          onComplete: () => console.log('\n✓ Dump complete')
+        });
+
+      // Verify backup
+      const size = await $`du -h ${backupPath}.gz | cut -f1`;
+      console.log(`📊 Backup size: ${size.stdout.trim()}`);
+
+      // Upload to S3 if configured
+      if (this.config.s3Bucket) {
+        console.log('☁️ Uploading to S3...');
+        await $`
+          aws s3 cp ${backupPath}.gz 
+          s3://${this.config.s3Bucket}/backups/${filename}.gz
+          --storage-class GLACIER
+        `;
+      }
+
+      // Clean old backups
+      await this.cleanOldBackups(database);
+
+      return `${backupPath}.gz`;
+    } catch (error) {
+      console.error('❌ Backup failed:', error.message);
+      throw error;
+    }
+  }
+
+  async cleanOldBackups(database) {
+    console.log('🧹 Cleaning old backups...');
+    
+    const retentionDays = this.config.retentionDays || 30;
+    
+    // Local cleanup
+    await $`
+      find ${this.config.backupDir} 
+        -name "${database}-*.sql.gz" 
+        -mtime +${retentionDays} 
+        -delete
+    `;
+
+    // S3 cleanup if configured
+    if (this.config.s3Bucket) {
+      await $`
+        aws s3 ls s3://${this.config.s3Bucket}/backups/ |
+        grep "${database}-" |
+        awk '{print $4}' |
+        while read file; do
+          age=$(aws s3api head-object \
+            --bucket ${this.config.s3Bucket} \
+            --key backups/$file \
+            --query "LastModified" \
+            --output text)
+          if [ $(date -d "$age" +%s) -lt $(date -d "${retentionDays} days ago" +%s) ]; then
+            aws s3 rm s3://${this.config.s3Bucket}/backups/$file
+          fi
+        done
+      `.nothrow(); // Don't fail on S3 errors
+    }
+  }
+
+  async restore(backupFile, targetDatabase) {
+    console.log(`🔄 Restoring ${targetDatabase} from ${backupFile}...`);
+
+    // Download from S3 if needed
+    if (backupFile.startsWith('s3://')) {
+      const localFile = `/tmp/${backupFile.split('/').pop()}`;
+      await $`aws s3 cp ${backupFile} ${localFile}`;
+      backupFile = localFile;
+    }
+
+    // Create database if it doesn't exist
+    await this.$`
+      mysql -h ${this.config.host} -u ${this.config.user} 
+      -e "CREATE DATABASE IF NOT EXISTS ${targetDatabase}"
+    `;
+
+    // Restore
+    await $.pipe(
+      $`zcat ${backupFile}`,
+      this.$`mysql -h ${this.config.host} -u ${this.config.user} ${targetDatabase}`
+    );
+
+    console.log('✅ Restore complete!');
+  }
+}
+
+// Usage
+const backup = new DatabaseBackup({
+  host: 'localhost',
+  user: 'root',
+  password: process.env.DB_PASSWORD,
+  backupDir: '/backups',
+  s3Bucket: 'my-backup-bucket',
+  retentionDays: 30
+});
+
+// Backup all databases
+const databases = await $`mysql -e "SHOW DATABASES" | tail -n +2 | grep -v "information_schema"`;
+for (const db of databases.stdout.trim().split('\n')) {
+  await backup.backup(db);
+}
+```
+
+### Multi-Server Health Check
+
+```javascript
+import { $ } from '@xec/ush';
+
+async function checkServerHealth(servers) {
+  console.log('🏥 Starting health checks...\n');
+
+  const results = await Promise.allSettled(
+    servers.map(async (server) => {
+      const $server = $.ssh(server.ssh);
+      const health = { server: server.name, status: '🟢 Healthy', issues: [] };
+
+      try {
+        // CPU usage
+        const cpu = await $server`top -b -n1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1`;
+        const cpuUsage = parseFloat(cpu.stdout);
+        if (cpuUsage > 80) {
+          health.status = '🟡 Warning';
+          health.issues.push(`High CPU usage: ${cpuUsage}%`);
+        }
+
+        // Memory usage  
+        const memory = await $server`free | grep Mem | awk '{print ($3/$2) * 100}'`;
+        const memUsage = parseFloat(memory.stdout);
+        if (memUsage > 90) {
+          health.status = '🔴 Critical';
+          health.issues.push(`High memory usage: ${memUsage.toFixed(1)}%`);
+        }
+
+        // Disk usage
+        const disk = await $server`df -h / | tail -1 | awk '{print $5}' | sed 's/%//'`;
+        const diskUsage = parseInt(disk.stdout);
+        if (diskUsage > 85) {
+          health.status = health.status === '🟢 Healthy' ? '🟡 Warning' : health.status;
+          health.issues.push(`High disk usage: ${diskUsage}%`);
+        }
+
+        // Service checks
+        for (const service of server.services || []) {
+          const serviceCheck = await $server`systemctl is-active ${service}`.nothrow();
+          if (serviceCheck.stdout.trim() !== 'active') {
+            health.status = '🔴 Critical';
+            health.issues.push(`Service ${service} is down`);
+          }
+        }
+
+        // Custom health endpoint
+        if (server.healthUrl) {
+          const httpCheck = await $server`curl -sf ${server.healthUrl}`.nothrow();
+          if (httpCheck.exitCode !== 0) {
+            health.status = '🔴 Critical';
+            health.issues.push('Health endpoint check failed');
+          }
+        }
+
+        await $server.disconnect();
+        return health;
+      } catch (error) {
+        await $server.disconnect();
+        return { 
+          server: server.name, 
+          status: '⚫ Unreachable', 
+          issues: [error.message] 
+        };
+      }
+    })
+  );
+
+  // Generate report
+  console.log('📊 Health Check Report\n' + '='.repeat(50));
+  
+  let hasIssues = false;
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const health = result.value;
+      console.log(`\n${health.status} ${health.server}`);
+      if (health.issues.length > 0) {
+        hasIssues = true;
+        health.issues.forEach(issue => console.log(`   ⚠️  ${issue}`));
+      }
+    } else {
+      console.log(`\n⚫ ${result.reason}`);
+      hasIssues = true;
+    }
+  }
+
+  // Send alerts if needed
+  if (hasIssues && process.env.SLACK_WEBHOOK) {
+    await $`curl -X POST ${process.env.SLACK_WEBHOOK} \
+      -H "Content-Type: application/json" \
+      -d '{"text": "⚠️ Server health check detected issues. Check logs for details."}'
+    `.nothrow();
+  }
+
+  return results;
+}
+
+// Usage
+const servers = [
+  {
+    name: 'Web Server 1',
+    ssh: 'admin@web1.example.com',
+    services: ['nginx', 'php-fpm'],
+    healthUrl: 'http://localhost/health'
+  },
+  {
+    name: 'Database Server',
+    ssh: 'admin@db.example.com',
+    services: ['mysql'],
+  },
+  {
+    name: 'API Server',
+    ssh: 'admin@api.example.com',
+    services: ['node-api'],
+    healthUrl: 'http://localhost:3000/health'
+  }
 ];
 
-// Deploy to all Docker hosts
-await $.parallel.map(
-  dockerHosts,
-  async (dockerHost) => {
-    const $remote = $.remoteDocker({
-      ssh: {
-        host: dockerHost.host,
-        username: 'deploy',
-        privateKey: '~/.ssh/deploy_key'
-      },
-      docker: { rm: true }
-    });
+await checkServerHealth(servers);
+```
+
+## 💡 Common Patterns and Best Practices
+
+### Pattern: Safe User Input Handling
+
+```javascript
+// ❌ WRONG - Never concatenate user input directly
+const userInput = "file.txt; rm -rf /";
+await $.raw`cat ${userInput}`;  // DANGEROUS!
+
+// ✅ CORRECT - Use template literals for automatic escaping
+await $`cat ${userInput}`;       // Safe - input is escaped
+
+// For multiple files from user input
+const files = userInput.split(' ').filter(f => f.length > 0);
+await $`cat ${files}`;           // Each file is safely escaped
+```
+
+### Pattern: Error Recovery
+
+```javascript
+// Fallback pattern
+async function getConfig() {
+  // Try primary source
+  const primary = await $`cat /etc/app/config.json`.nothrow();
+  if (primary.exitCode === 0) {
+    return JSON.parse(primary.stdout);
+  }
+  
+  // Fallback to secondary
+  const secondary = await $`cat ~/.app/config.json`.nothrow();
+  if (secondary.exitCode === 0) {
+    return JSON.parse(secondary.stdout);
+  }
+  
+  // Use defaults
+  return { port: 3000, host: 'localhost' };
+}
+
+// Cleanup pattern
+async function processFile(file) {
+  const tempFile = `/tmp/processed-${Date.now()}`;
+  
+  try {
+    await $`preprocess ${file} > ${tempFile}`;
+    await $`validate ${tempFile}`;
+    await $`mv ${tempFile} ${file}`;
+  } finally {
+    // Always cleanup
+    await $`rm -f ${tempFile}`.nothrow();
+  }
+}
+```
+
+### Pattern: Cross-Platform Commands
+
+```javascript
+// Platform detection
+const platform = await $`uname -s`;
+const isLinux = platform.stdout.includes('Linux');
+const isMac = platform.stdout.includes('Darwin');
+
+// Platform-specific commands
+async function openFile(file) {
+  if (isMac) {
+    await $`open ${file}`;
+  } else if (isLinux) {
+    await $`xdg-open ${file}`;
+  } else {
+    throw new Error('Unsupported platform');
+  }
+}
+
+// Portable commands
+const listFiles = isWindows 
+  ? $`dir /b`           // Windows
+  : $`ls -1`;           // Unix
+
+// Abstract platform differences
+class PackageManager {
+  static async install(pkg) {
+    if (await $.commandExists('apt-get')) {
+      await $`sudo apt-get install -y ${pkg}`;
+    } else if (await $.commandExists('brew')) {
+      await $`brew install ${pkg}`;
+    } else if (await $.commandExists('yum')) {
+      await $`sudo yum install -y ${pkg}`;
+    } else {
+      throw new Error('No supported package manager found');
+    }
+  }
+}
+```
+
+### Pattern: Resource Management
+
+```javascript
+// Connection pooling
+class ServerPool {
+  constructor(servers) {
+    this.connections = new Map();
+  }
+
+  async getConnection(server) {
+    if (!this.connections.has(server)) {
+      this.connections.set(server, $.ssh(server));
+    }
+    return this.connections.get(server);
+  }
+
+  async execute(server, command) {
+    const $conn = await this.getConnection(server);
+    return await $conn`${command}`;
+  }
+
+  async closeAll() {
+    for (const [server, $conn] of this.connections) {
+      await $conn.disconnect();
+    }
+    this.connections.clear();
+  }
+}
+
+// Automatic resource cleanup
+class TempWorkspace {
+  async use(callback) {
+    const workspace = `/tmp/workspace-${Date.now()}`;
+    await $`mkdir -p ${workspace}`;
     
-    // Pull latest image
-    await $remote`docker pull myapp:latest`;
-    
-    // Stop old container
-    await $remote`docker stop myapp || true`;
-    await $remote`docker rm myapp || true`;
-    
-    // Start new container
-    await $remote`docker run -d --name myapp -p 80:80 myapp:latest`;
-    
-    // Health check
-    const $health = $.ssh({
-      host: dockerHost.host,
-      username: 'deploy',
-      privateKey: '~/.ssh/deploy_key'
-    });
-    
-    await retry(
-      () => $health`curl -f http://localhost/health`,
-      { attempts: 5, delay: 2000 }
-    );
-    
-    console.log(`✓ ${dockerHost.name} deployed successfully`);
-  },
-  { maxConcurrency: 2 }
+    try {
+      return await callback(workspace);
+    } finally {
+      await $`rm -rf ${workspace}`;
+    }
+  }
+}
+
+// Usage
+const workspace = new TempWorkspace();
+await workspace.use(async (dir) => {
+  await $`cd ${dir} && git clone https://github.com/user/repo`;
+  await $`cd ${dir}/repo && make build`;
+});
+```
+
+### Pattern: Composable Operations
+
+```javascript
+// Command builder pattern
+class CommandBuilder {
+  constructor() {
+    this.options = [];
+  }
+
+  verbose() {
+    this.options.push('-v');
+    return this;
+  }
+
+  recursive() {
+    this.options.push('-r');
+    return this;
+  }
+
+  force() {
+    this.options.push('-f');
+    return this;
+  }
+
+  build(command, ...args) {
+    return [command, ...this.options, ...args].join(' ');
+  }
+}
+
+// Usage
+const rm = new CommandBuilder().recursive().force();
+await $`${rm.build('rm', '/tmp/test')}`;
+
+// Pipeline builder
+class Pipeline {
+  constructor() {
+    this.steps = [];
+  }
+
+  add(step) {
+    this.steps.push(step);
+    return this;
+  }
+
+  async execute(input) {
+    let result = input;
+    for (const step of this.steps) {
+      result = await step(result);
+    }
+    return result;
+  }
+}
+
+// Usage
+const imageProcessor = new Pipeline()
+  .add(async (file) => {
+    await $`convert ${file} -resize 800x600 ${file}`;
+    return file;
+  })
+  .add(async (file) => {
+    await $`optipng ${file}`;
+    return file;
+  })
+  .add(async (file) => {
+    const newName = file.replace(/\.\w+$/, '-optimized.png');
+    await $`mv ${file} ${newName}`;
+    return newName;
+  });
+
+const result = await imageProcessor.execute('input.png');
+```
+
+## 🔧 Troubleshooting Guide
+
+### Common Issues and Solutions
+
+#### Issue: Command not found
+
+```javascript
+// Problem
+await $`node script.js`;  // Error: command not found: node
+
+// Solution 1: Use full path
+await $`/usr/local/bin/node script.js`;
+
+// Solution 2: Set PATH
+const $withPath = $.env({ 
+  PATH: `/usr/local/bin:${process.env.PATH}` 
+});
+await $withPath`node script.js`;
+
+// Solution 3: Check if command exists
+if (await $.commandExists('node')) {
+  await $`node script.js`;
+} else {
+  console.error('Node.js is not installed');
+}
+```
+
+#### Issue: SSH connection failures
+
+```javascript
+// Problem: Connection timeout
+const $remote = $.ssh('server.com'); // Hangs
+
+// Solution: Add timeout and retry
+const $remote = $.ssh({
+  host: 'server.com',
+  username: 'user',
+  connectTimeout: 10000,  // 10 seconds
+  readyTimeout: 5000,     // 5 seconds
+  retries: 3
+});
+
+// Debug SSH issues
+const $debug = $.ssh({
+  host: 'server.com',
+  debug: true  // Prints detailed SSH logs
+});
+```
+
+#### Issue: Large output handling
+
+```javascript
+// Problem: Out of memory with large outputs
+const result = await $`cat huge-file.log`; // Crash!
+
+// Solution 1: Stream processing
+await $.stream`cat huge-file.log`
+  .onLine((line) => {
+    // Process line by line
+    if (line.includes('ERROR')) {
+      console.log(line);
+    }
+  });
+
+// Solution 2: Pipe to file
+await $`cat huge-file.log > output.txt`;
+// Process file separately
+
+// Solution 3: Limit output
+await $`cat huge-file.log | head -n 1000`;
+```
+
+#### Issue: Shell escaping problems
+
+```javascript
+// Problem: Special characters break commands
+const filename = "my file (copy).txt";
+await $.raw`rm ${filename}`;  // Error!
+
+// Solution: Always use template literals
+await $`rm ${filename}`;      // Correctly escaped
+
+// For complex cases, use arrays
+const args = ['--option=value with spaces', 'file.txt'];
+await $`mycommand ${args}`;
+```
+
+### Debugging Tips
+
+#### Enable verbose mode
+
+```javascript
+// Global verbose mode
+$.configure({ verbose: true });
+
+// Per-command verbose
+await $`complex-command`.verbose();
+
+// Custom logging
+const $logged = $.pipe(
+  $`some-command`,
+  {
+    onStdout: (data) => console.log('OUT:', data),
+    onStderr: (data) => console.error('ERR:', data)
+  }
 );
 ```
 
-## Migration from zx
+#### Test with mock adapter
 
-If you're migrating from Google's zx, here's what you need to know:
-
-### Similarities
-
-- Template literal syntax works the same
-- Basic commands work identically
-- Environment and directory methods similar
-
-### Differences
-
-```typescript
-// zx
-import { $ } from 'zx';
-$.verbose = false;
-$.shell = '/bin/bash';
-
-// ush - configuration is immutable
-import { $ } from '@xec/ush';
-const $quiet = $.with({ verbose: false }).shell('/bin/bash');
-```
-
-### New Features in ush
-
-1. **Multiple Adapters** - Execute anywhere (SSH, Docker)
-2. **Retry Logic** - Built-in retry with backoff
-3. **Better Testing** - MockAdapter for unit tests
-4. **Parallel Execution** - First-class parallel support
-5. **Templates** - Reusable command patterns
-6. **Connection Pooling** - Efficient SSH connections
-
-### Migration Example
-
-```typescript
-// zx
-import { $, cd, question } from 'zx';
-
-cd('/app');
-const name = await question('Name? ');
-await $`echo "Hello, ${name}"`;
-
-// ush
-import { $, question } from '@xec/ush';
-
-const $app = $.cd('/app');
-const name = await question('Name? ');
-await $app`echo "Hello, ${name}"`;
-```
-
-## FAQ
-
-### How do I handle errors?
-
-```typescript
-// Option 1: Try-catch (default behavior)
-try {
-  await $`exit 1`;
-} catch (error) {
-  console.error('Command failed:', error.exitCode);
-}
-
-// Option 2: Disable throwing
-const $noThrow = $.with({ throwOnNonZeroExit: false });
-const result = await $noThrow`exit 1`;
-if (result.exitCode !== 0) {
-  console.error('Failed with code:', result.exitCode);
-}
-```
-
-### How do I capture output?
-
-```typescript
-// Get stdout as string
-const output = await $`echo "hello"`;
-console.log(output.stdout); // "hello\n"
-
-// Get specific formats
-const text = await $`cat file.txt`.text(); // trimmed string
-const lines = await $`ls`.lines(); // array of lines
-const json = await $`cat data.json`.json(); // parsed JSON
-const buffer = await $`cat binary`.buffer(); // Buffer
-```
-
-### How do I pass environment variables?
-
-```typescript
-// To child process
-const $withEnv = $.env({ API_KEY: 'secret' });
-await $withEnv`echo $API_KEY`;
-
-// From parent process
-await $`echo $HOME`; // inherits from parent
-
-// Clean environment
-const $clean = $.with({ env: { PATH: '/usr/bin' } });
-```
-
-### How do I run commands in parallel?
-
-```typescript
-// Simple parallel
-const results = await Promise.all([
-  $`test1`,
-  $`test2`,
-  $`test3`
-]);
-
-// With concurrency control
-await $.parallel.map(items, item => `process ${item}`, {
-  maxConcurrency: 5
-});
-```
-
-### How do I test my scripts?
-
-```typescript
-// Use MockAdapter
-const mock = new MockAdapter();
-mock.mockSuccess('deploy', 'Deployed successfully');
-
-// Your tests verify commands were called correctly
-mock.assertCommandExecuted('deploy');
-```
-
-### Can I use with TypeScript?
-
-Yes! ush is written in TypeScript and provides full type definitions:
-
-```typescript
-import { $, ExecutionResult, CallableExecutionEngine } from '@xec/ush';
-
-const result: ExecutionResult = await $`echo "typed"`;
-const engine: CallableExecutionEngine = $.cd('/app');
-```
-
-### How do I stream output in real-time?
-
-```typescript
-// For simple cases, output is streamed by default to stdout/stderr
-
-// For custom handling
-const stream = $.stream('long-running-command');
-stream.on('line', (line) => console.log(line));
-await stream.start();
-```
-
-### Does it work with Bun?
-
-Yes! ush automatically detects and uses Bun.spawn when available:
-
-```bash
-bun run script.ts
-```
-
-### How do I execute commands in Kubernetes?
-
-Use the kubernetes adapter:
-
-```typescript
-const $k8s = $.kubernetes({
-  pod: 'webapp-123',
-  namespace: 'production',
-  container: 'main'
+```javascript
+// Create test double
+const $mock = $.mock({
+  'ls': { stdout: 'file1.txt\nfile2.txt', exitCode: 0 },
+  'cat file1.txt': { stdout: 'content', exitCode: 0 },
+  'rm *': { exitCode: 1, stderr: 'Permission denied' }
 });
 
-await $k8s`npm run migrate`;
-```
-
-### How do I audit command executions?
-
-Enable audit logging:
-
-```typescript
-import { getAuditLogger } from '@xec/ush';
-
-const audit = getAuditLogger();
-audit.configure({
-  enabled: true,
-  logFile: './commands.audit'
-});
-```
-
-### How do I handle passwords securely?
-
-Use SecurePasswordHandler:
-
-```typescript
-import { SecurePasswordHandler } from '@xec/ush';
-
-const handler = new SecurePasswordHandler();
-const askpass = await handler.createAskpass(password);
-// Use askpass.path with sudo -A
-```
-
-### How do I create complex pipelines?
-
-Use the Pipeline class:
-
-```typescript
-import { Pipeline } from '@xec/ush';
-
-const pipeline = new Pipeline($)
-  .add('build')
-  .parallel(['test', 'lint'])
-  .add('deploy');
-
-await pipeline.execute();
-```
-
-### Can I use Docker through SSH?
-
-Yes, use remoteDocker:
-
-```typescript
-const $remote = $.remoteDocker({
-  ssh: { host: 'server.com', username: 'user' },
-  docker: { container: 'app' }
-});
-```
-
-## Advanced Types & Interfaces
-
-### Execution Engine Types
-
-```typescript
-import { 
-  CallableExecutionEngine,
-  ExecutionResult,
-  Command,
-  RetryOptions,
-  ProgressOptions
-} from '@xec/ush';
-
-// Main execution engine interface
-const engine: CallableExecutionEngine = $;
-
-// Command configuration
-const command: Command = {
-  command: 'npm install',
-  args: ['--production'],
-  cwd: '/app',
-  env: { NODE_ENV: 'production' },
-  timeout: 60000,
-  shell: true,
-  adapter: 'ssh',
-  retry: {
-    attempts: 3,
-    delay: 1000,
-    backoff: 'exponential',
-    retryOn: [1, 124] // Retry on specific exit codes
-  },
-  progress: {
-    enabled: true,
-    interval: 100,
-    onProgress: (event) => console.log(event)
+// Test your code
+async function cleanupFiles() {
+  const files = await $mock`ls`;
+  for (const file of files.stdout.split('\n')) {
+    await $mock`rm ${file}`;
   }
-};
-
-// Execution result
-const result: ExecutionResult = {
-  stdout: 'output',
-  stderr: '',
-  exitCode: 0,
-  signal: null,
-  timedOut: false,
-  killed: false,
-  command: 'npm install',
-  duration: 1234
-};
-```
-
-### Audit Types
-
-```typescript
-import { AuditEntry, AuditLoggerConfig } from '@xec/ush';
-
-// Audit entry structure
-const entry: AuditEntry = {
-  timestamp: new Date(),
-  command: 'git pull',
-  adapter: 'ssh',
-  cwd: '/app',
-  env: { USER: 'deploy' },
-  exitCode: 0,
-  stdout: 'Already up to date',
-  stderr: '',
-  duration: 500,
-  user: process.env.USER,
-  host: os.hostname()
-};
-
-// Audit logger configuration
-const config: AuditLoggerConfig = {
-  enabled: true,
-  logFile: '/var/log/commands.audit',
-  format: 'json',
-  includeEnv: true,
-  includeOutput: true,
-  maxEntries: 10000,
-  rotateOnSize: '10MB',
-  filter: (entry) => !entry.command.includes('password')
-};
-```
-
-### Progress Types
-
-```typescript
-import { ProgressEvent, ProgressOptions } from '@xec/ush';
-
-// Progress event
-const event: ProgressEvent = {
-  type: 'transfer',
-  current: 1024,
-  total: 10240,
-  percent: 10,
-  speed: 1024, // bytes per second
-  eta: 9, // seconds
-  message: 'Transferring file...'
-};
-
-// Progress options
-const options: ProgressOptions = {
-  enabled: true,
-  interval: 100, // ms
-  format: 'bar',
-  width: 40,
-  onProgress: (event) => {
-    console.log(`${event.percent}% - ${event.message}`);
-  }
-};
-```
-
-### Global Functions
-
-```typescript
-import { 
-  getLocalContext, 
-  withinSync,
-  expBackoff,
-  shellEscape,
-  parseCommand
-} from '@xec/ush';
-
-// Get current execution context
-const context = getLocalContext();
-console.log(context.cwd, context.env);
-
-// Synchronous context execution
-const result = withinSync({ cwd: '/tmp' }, () => {
-  // Executes with modified context
-  return fs.readdirSync('.');
-});
-
-// Exponential backoff generator
-const backoff = expBackoff(
-  5,    // max attempts
-  0.1,  // jitter factor
-  2,    // backoff factor
-  100   // initial delay ms
-);
-
-// Shell escape utilities
-const escaped = shellEscape(['rm', '-rf', 'my file.txt']);
-console.log(escaped); // "rm -rf 'my file.txt'"
-
-// Parse command string into parts
-const parsed = parseCommand('git commit -m "Initial commit"');
-console.log(parsed); // { command: 'git', args: ['commit', '-m', 'Initial commit'] }
-```
-
-### Process Information
-
-```typescript
-import { ProcessInfo } from '@xec/ush';
-
-// Process information interface
-interface ProcessInfo {
-  pid: number;
-  ppid?: number;
-  name: string;
-  cmd: string;
-  cpu?: number;
-  memory?: number;
-  startTime?: Date;
-  user?: string;
-  status?: 'running' | 'sleeping' | 'stopped' | 'zombie';
 }
 
-// Get process info (platform specific implementation)
-const processes: ProcessInfo[] = await getProcessList();
-const nodeProcesses = processes.filter(p => p.name.includes('node'));
+// Verify calls
+const calls = $mock.getCalls();
+assert(calls[0].command === 'ls');
+assert(calls[1].command === 'rm file1.txt');
+```
+
+## 📚 API Reference
+
+### Core API
+
+#### `$` - Main execution function
+
+```typescript
+// Template literal syntax
+await $`command arg1 arg2`;
+
+// With options
+await $`command`.cwd('/path').env({ KEY: 'value' });
+
+// Raw mode (no escaping)
+await $.raw`command ${variable}`;
+```
+
+#### Configuration Methods
+
+All configuration methods return a new `$` instance with the configuration applied:
+
+```typescript
+// Working directory
+$.cd(path: string): $
+$.cwd(path: string): $  // Alias for cd
+
+// Environment variables
+$.env(vars: Record<string, string>): $
+
+// Timeout (milliseconds, 0 = no timeout)
+$.timeout(ms: number): $
+
+// Shell selection
+$.shell(shell: string | false): $
+
+// Don't throw on non-zero exit
+$.nothrow(): $
+
+// Quiet mode (no output to console)
+$.quiet(): $
+
+// Verbose mode (extra logging)
+$.verbose(): $
+
+// Retry configuration
+$.retry(options: RetryOptions): $
+```
+
+#### Adapter Methods
+
+```typescript
+// SSH adapter
+$.ssh(options: string | SSHOptions): $
+
+// Docker adapter  
+$.docker(options: string | DockerOptions): $
+
+// Kubernetes adapter
+$.k8s(pod: string, namespace?: string): $
+$.k8s(options: K8sOptions): $
+
+// Remote Docker (SSH + Docker)
+$.remoteDocker(options: RemoteDockerOptions): $
+
+// Mock adapter (testing)
+$.mock(responses: MockResponses): MockAdapter
+```
+
+#### Execution Methods
+
+```typescript
+// Parallel execution
+$.parallel(
+  commands: Command[], 
+  options?: { concurrency?: number }
+): Promise<Result[]>
+
+// Pipeline execution
+$.pipe(...commands: Command[]): Promise<Result>
+
+// Streaming execution
+$.stream(command: Command): StreamBuilder
+
+// Context execution
+$.within(
+  options: Options,
+  callback: ($: Engine) => Promise<T>
+): Promise<T>
+```
+
+#### Utility Methods
+
+```typescript
+// Check if command exists
+$.commandExists(command: string): Promise<boolean>
+
+// Find command path
+$.which(command: string): Promise<string | null>
+
+// Template creation
+$.template`command ${0} ${1}`: Template
+
+// Configure global options
+$.configure(options: GlobalOptions): void
+```
+
+### Types and Interfaces
+
+#### Command Options
+
+```typescript
+interface CommandOptions {
+  cwd?: string;              // Working directory
+  env?: Record<string, string>; // Environment variables
+  shell?: string | false;    // Shell to use
+  timeout?: number;          // Timeout in ms
+  nothrow?: boolean;         // Don't throw on error
+  quiet?: boolean;           // Suppress output
+  verbose?: boolean;         // Extra logging
+  stdin?: string | Buffer;   // Input data
+  encoding?: BufferEncoding; // Output encoding
+}
+```
+
+#### Execution Result
+
+```typescript
+interface ExecutionResult {
+  stdout: string;            // Standard output
+  stderr: string;            // Standard error
+  exitCode: number;          // Exit code (0 = success)
+  signal?: string;           // Termination signal
+  command: string;           // Executed command
+  duration: number;          // Execution time (ms)
+  killed?: boolean;          // Was process killed
+}
+```
+
+#### SSH Options
+
+```typescript
+interface SSHOptions {
+  host: string;              // Hostname or IP
+  username?: string;         // SSH username
+  password?: string;         // SSH password
+  privateKey?: string | Buffer; // Private key
+  port?: number;             // SSH port (default: 22)
+  connectTimeout?: number;   // Connection timeout
+  readyTimeout?: number;     // Ready timeout
+  keepAliveInterval?: number; // Keep-alive interval
+  retries?: number;          // Connection retries
+  proxy?: {                  // Jump host
+    host: string;
+    username?: string;
+    // ... same options
+  };
+}
+```
+
+#### Docker Options
+
+```typescript
+interface DockerOptions {
+  container?: string;        // Container name/ID
+  image?: string;            // Image to use
+  rm?: boolean;              // Remove after execution
+  volumes?: Record<string, string>; // Volume mounts
+  env?: Record<string, string>; // Environment variables
+  workdir?: string;          // Working directory
+  user?: string;             // User to run as
+  network?: string;          // Network to use
+  ports?: Record<string, string>; // Port mappings
+}
 ```
 
 ### Error Types
 
 ```typescript
-import { 
-  ExecutionError, 
-  RetryError,
-  AdapterError,
-  TimeoutError 
-} from '@xec/ush';
-
-// Execution error
-try {
-  await $`exit 1`;
-} catch (error) {
-  if (error instanceof ExecutionError) {
-    console.log(error.exitCode);
-    console.log(error.stdout);
-    console.log(error.stderr);
-    console.log(error.command);
-  }
+// Base error class
+class CommandError extends Error {
+  command: string;
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  duration: number;
 }
 
-// Retry error
-try {
-  await $withRetry`flaky-command`;
-} catch (error) {
-  if (error instanceof RetryError) {
-    console.log(error.attempts);
-    console.log(error.lastError);
-    console.log(error.errors); // All errors from attempts
-  }
+// Timeout error
+class TimeoutError extends CommandError {
+  timeout: number;
+}
+
+// Connection error
+class ConnectionError extends Error {
+  host: string;
+  port: number;
+  cause?: Error;
 }
 ```
 
-## Development & Documentation
+## 🔄 Migration from Other Tools
 
-### Architecture & Design
-- [CLAUDE.md](./CLAUDE.md) - Architectural decisions and design rationale
-- [USH_IMPROVEMENT_PLAN.md](./USH_IMPROVEMENT_PLAN.md) - Comprehensive improvement roadmap
-- [API_SIMPLIFICATION.md](./API_SIMPLIFICATION.md) - API simplification proposal
-- [SECURITY_FIXES.md](./SECURITY_FIXES.md) - Critical security fixes needed
-- [AUDIT_EXECUTIVE_SUMMARY.md](./AUDIT_EXECUTIVE_SUMMARY.md) - Executive summary of code audit
+### From Google's zx
 
-### Contributing
-We welcome contributions! Please see our improvement plan for areas where help is needed.
+```javascript
+// zx
+import { $ } from 'zx';
+await $`ls -la`;
 
-### Security
-If you discover a security vulnerability, please see [SECURITY_FIXES.md](./SECURITY_FIXES.md) for details on reporting.
+// @xec/ush - Same syntax!
+import { $ } from '@xec/ush';
+await $`ls -la`;
 
-## Best Practices
+// Key differences:
+// 1. Multi-environment support
+await $.ssh('server')`ls -la`;     // Not available in zx
+await $.docker('container')`ls -la`; // Not available in zx
 
-### Performance Tips
+// 2. Better error handling
+await $`cmd`.nothrow();            // More intuitive than zx
 
-1. **Use connection pooling for SSH**: Reuse SSH connections when executing multiple commands
-2. **Batch operations**: Use parallel execution for independent tasks
-3. **Stream large outputs**: Use streaming API for commands with large outputs
-4. **Cache compiled templates**: Reuse template instances for better performance
+// 3. Built-in retry
+await $.retry({ maxRetries: 3 })`flaky-command`;
 
-### Security Recommendations
+// 4. Connection pooling for SSH
+// Automatically handled, not available in zx
+```
 
-1. **Never hardcode passwords**: Use environment variables or secure password handlers
-2. **Validate inputs**: Always validate user inputs before using in commands
-3. **Use shell escaping**: Use `shellEscape()` for dynamic command arguments
-4. **Audit sensitive operations**: Enable audit logging for production environments
-5. **Limit command timeout**: Set reasonable timeouts to prevent hanging processes
+### From child_process
 
-### Error Handling
+```javascript
+// child_process
+const { exec } = require('child_process');
+exec('ls -la', (error, stdout, stderr) => {
+  if (error) {
+    console.error(`Error: ${error}`);
+    return;
+  }
+  console.log(`Output: ${stdout}`);
+});
 
-1. **Use typed errors**: Check error types for specific handling
-2. **Implement retry logic**: Use retry adapters for unreliable operations
-3. **Log failures**: Combine with audit logging for debugging
-4. **Graceful degradation**: Have fallback strategies for critical operations
+// @xec/ush
+import { $ } from '@xec/ush';
+try {
+  const result = await $`ls -la`;
+  console.log(`Output: ${result.stdout}`);
+} catch (error) {
+  console.error(`Error: ${error}`);
+}
+```
 
-### Testing
+### From ssh2
 
-1. **Use MockAdapter**: Test scripts without executing real commands
-2. **Test error scenarios**: Mock failures to test error handling
-3. **Verify command order**: Use mock assertions for complex workflows
-4. **Isolate adapters**: Test each adapter configuration separately
+```javascript
+// ssh2
+const { Client } = require('ssh2');
+const conn = new Client();
+conn.on('ready', () => {
+  conn.exec('uptime', (err, stream) => {
+    if (err) throw err;
+    stream.on('data', (data) => {
+      console.log('STDOUT: ' + data);
+    });
+    stream.on('close', () => {
+      conn.end();
+    });
+  });
+}).connect({
+  host: 'server.com',
+  username: 'user',
+  privateKey: require('fs').readFileSync('/path/to/key')
+});
 
-## License
+// @xec/ush
+import { $ } from '@xec/ush';
+const $remote = $.ssh({
+  host: 'server.com',
+  username: 'user',
+  privateKey: '/path/to/key'
+});
+const result = await $remote`uptime`;
+console.log('STDOUT:', result.stdout);
+await $remote.disconnect();
+```
 
-MIT © DevGrid
+## ⚡ Performance Tips
+
+### 1. Connection Reuse
+
+```javascript
+// ❌ Inefficient - New connection each time
+for (const server of servers) {
+  const result = await $.ssh(server)`uptime`;
+  console.log(result.stdout);
+}
+
+// ✅ Efficient - Reuse connections
+const connections = servers.map(s => $.ssh(s));
+for (const $conn of connections) {
+  const result = await $conn`uptime`;
+  console.log(result.stdout);
+}
+// Cleanup
+await Promise.all(connections.map(c => c.disconnect()));
+```
+
+### 2. Parallel Execution
+
+```javascript
+// ❌ Sequential - Slow
+const results = [];
+for (const file of files) {
+  results.push(await $`process ${file}`);
+}
+
+// ✅ Parallel - Fast
+const results = await $.parallel(
+  files.map(f => $`process ${f}`),
+  { concurrency: 4 }  // Limit concurrent processes
+);
+```
+
+### 3. Streaming for Large Data
+
+```javascript
+// ❌ Load everything into memory
+const data = await $`cat huge-file.json`;
+const parsed = JSON.parse(data.stdout); // May crash!
+
+// ✅ Stream processing
+const results = [];
+await $.stream`cat huge-file.json`
+  .onLine((line) => {
+    try {
+      const obj = JSON.parse(line);
+      results.push(obj.id);
+    } catch (e) {
+      // Handle malformed lines
+    }
+  });
+```
+
+### 4. Command Batching
+
+```javascript
+// ❌ Many small commands
+await $`mkdir dir1`;
+await $`mkdir dir2`;
+await $`mkdir dir3`;
+
+// ✅ Batch into one command
+await $`mkdir -p dir1 dir2 dir3`;
+
+// Or use shell features
+await $.raw`mkdir -p dir{1..3}`;
+```
+
+## 🔒 Security Best Practices
+
+### 1. Input Validation
+
+```javascript
+// Always validate user input
+function validateFilename(name) {
+  // Allow only alphanumeric, dash, underscore, dot
+  if (!/^[\w.-]+$/.test(name)) {
+    throw new Error('Invalid filename');
+  }
+  // Prevent directory traversal
+  if (name.includes('..')) {
+    throw new Error('Directory traversal detected');
+  }
+  return name;
+}
+
+const safeFile = validateFilename(userInput);
+await $`cat ${safeFile}`;
+```
+
+### 2. Secure Credential Handling
+
+```javascript
+// ❌ Don't hardcode credentials
+const $db = $.env({ MYSQL_PWD: 'secretpassword123' });
+
+// ✅ Use environment variables
+const $db = $.env({ MYSQL_PWD: process.env.DB_PASSWORD });
+
+// ✅ Use secure credential stores
+import { getSecret } from '@aws-sdk/client-secrets-manager';
+const password = await getSecret('db-password');
+const $db = $.env({ MYSQL_PWD: password });
+```
+
+### 3. Principle of Least Privilege
+
+```javascript
+// Run with minimal permissions
+const $limited = $.docker({
+  image: 'alpine',
+  user: 'nobody',           // Non-root user
+  readOnly: true,           // Read-only filesystem
+  tmpfs: ['/tmp'],          // Writable temp only
+  capabilities: {
+    drop: ['ALL'],          // Drop all capabilities
+    add: ['NET_BIND_SERVICE'] // Add only needed ones
+  }
+});
+```
+
+### 4. Audit and Logging
+
+```javascript
+// Enable comprehensive audit logging
+$.configure({
+  auditLog: {
+    enabled: true,
+    file: '/var/log/commands.log',
+    includeEnv: false,      // Don't log secrets
+    beforeExecute: async (cmd) => {
+      // Additional validation
+      if (cmd.includes('rm -rf')) {
+        await notifyAdmin('Dangerous command attempted');
+      }
+    }
+  }
+});
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/example/ush.git
+cd ush
+
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run examples
+npm run examples
+```
+
+## 📄 License
+
+MIT © [Xec Contributors]
 
 ---
 
-Inspired by [Google's zx](https://github.com/google/zx).
+Made with ❤️ by the Xec team. Happy scripting! 🚀

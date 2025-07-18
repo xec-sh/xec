@@ -35,7 +35,7 @@ describe('USH Core Features', () => {
       const $retry = $.withRetry({
         maxAttempts: 2,
         isRetryable: () => true,
-        onRetry: (attempt) => {
+        onRetry: (attempt: number) => {
           attempts = attempt;
         },
         initialDelay: 10

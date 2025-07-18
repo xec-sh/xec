@@ -1,12 +1,11 @@
-import type { ExecutionResult } from './core/result.js';
-import type { ExecutionEngine } from './core/execution-engine.js';
+import type { ProcessPromise, ExecutionEngine } from './core/execution-engine.js';
 import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from './core/command.js';
 
 
 // Callable ExecutionEngine interface
 export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'kubernetes' | 'remoteDocker' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'withRetry'> {
   // Make it callable
-  (strings: TemplateStringsArray, ...values: any[]): Promise<ExecutionResult>;
+  (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
   
   // Override methods that return CallableExecutionEngine instead of ExecutionEngine
   with(config: Partial<Command>): CallableExecutionEngine;

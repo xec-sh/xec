@@ -128,12 +128,12 @@ export async function runScript(scriptPath: string, args: string[], options: any
 
 export async function evalCode(code: string, args: string[]) {
   const context = await createScriptContext('<eval>', args);
-  
+
   // Check if code has ES modules and transpile if needed
   if (await hasESModules(code)) {
     code = await transpileTypeScript(code, '<eval>');
   }
-  
+
   const wrappedCode = `
 (async () => {
   ${code}
@@ -143,7 +143,7 @@ export async function evalCode(code: string, args: string[]) {
 }
 
 async function executeScript(code: string, filename: string, context: any) {
-  const script = new vm.Script(code, { 
+  const script = new vm.Script(code, {
     filename,
     importModuleDynamically: vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER
   });
@@ -162,7 +162,7 @@ async function createScriptContext(scriptPath: string, args: string[]) {
   const { $ } = await import('@xec/ush');
   const core = await import('@xec/core');
   const scriptUtils = await import('../script-utils.js');
-  
+
   // Import all DSL functions from core
   const {
     // Task builders
@@ -206,11 +206,11 @@ async function createScriptContext(scriptPath: string, args: string[]) {
     ...scriptUtils,
     $,
     argv: args,
-    
+
     // DSL functions
     task, noop, wait, shell, group, script: scriptTask, sequence, logTask, failTask, parallelTask,
     recipe, phaseRecipe, simpleRecipe, moduleRecipe,
-    
+
     // Context functions (global helpers)
     log, env, info, warn, fail, skip, when, debug, error, retry,
     getVar, setVar, secret, unless, getVars, getHost, getTags,
@@ -251,7 +251,7 @@ async function createScriptContext(scriptPath: string, args: string[]) {
       }
       return import(specifier);
     },
-    
+
     // Stdlib factory
     createStdlib: async () => {
       const envInfo = {
@@ -263,15 +263,15 @@ async function createScriptContext(scriptPath: string, args: string[]) {
           systemd: process.platform === 'linux'
         },
         platform: {
-          os: process.platform === 'darwin' ? 'darwin' : 
-              process.platform === 'win32' ? 'windows' : 
+          os: process.platform === 'darwin' ? 'darwin' :
+            process.platform === 'win32' ? 'windows' :
               'linux' as any,
-          arch: process.arch === 'x64' ? 'x64' : 
-                process.arch === 'arm64' ? 'arm64' : 
-                'arm' as any
+          arch: process.arch === 'x64' ? 'x64' :
+            process.arch === 'arm64' ? 'arm64' :
+              'arm' as any
         }
       };
-      
+
       const logger: any = {
         debug: (msg: string) => console.log(chalk.gray('[DEBUG]'), msg),
         info: (msg: string) => console.log(chalk.blue('[INFO]'), msg),
@@ -279,7 +279,7 @@ async function createScriptContext(scriptPath: string, args: string[]) {
         error: (msg: string) => console.error(chalk.red('[ERROR]'), msg),
         child() { return this; }
       };
-      
+
       return createStandardLibrary({ $, env: envInfo, logger });
     },
   });
@@ -298,7 +298,7 @@ async function hasESModules(content: string): Promise<boolean> {
 
 async function transpileTypeScript(content: string, filename: string): Promise<string> {
   const hasModules = await hasESModules(content);
-  
+
   const result = await transform(content, {
     loader: 'ts',
     format: hasModules ? 'cjs' : 'esm', // Convert ES modules to CommonJS
@@ -381,7 +381,7 @@ export async function startRepl() {
       try {
         let content = await fs.readFile(file, 'utf-8');
         const ext = path.extname(file);
-        
+
         // Handle different file types
         if (ext === '.ts' || ext === '.tsx') {
           content = await transpileTypeScript(content, file);
@@ -391,7 +391,7 @@ export async function startRepl() {
             content = await transpileTypeScript(content, file);
           }
         }
-        
+
         await executeScript(content, file, replServer.context);
         console.log(chalk.green('✓ Script loaded'));
       } catch (error) {
@@ -402,7 +402,7 @@ export async function startRepl() {
   });
 
   replServer.on('exit', () => {
-    clack.outro(chalk.green('Goodbye!'));
+    clack.outro(chalk.green('Bye!'));
     process.exit(0);
   });
 }

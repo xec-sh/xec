@@ -77,18 +77,40 @@ export function interpolateWithQuote(strings: TemplateStringsArray, quoteFn?: ty
         // Join array elements with space
         // If quoteFn is provided, use it for quoting, otherwise use escapeArg
         result += value.map(v => {
-          const str = String(v);
+          const str = valueToString(v);
           return quoteFn ? quoteFn(str) : escapeArg(str);
         }).join(' ');
       } else {
-        // Convert value to string
-        const str = String(value);
+        // Convert value to string with proper serialization
+        const str = valueToString(value);
         result += quoteFn ? quoteFn(str) : escapeArg(str);
       }
     }
   }
 
   return result;
+}
+
+function valueToString(value: any): string {
+  if (value === null || value === undefined) {
+    return '';
+  } else if (typeof value === 'string') {
+    return value;
+  } else if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  } else if (value instanceof Date) {
+    return value.toISOString();
+  } else if (typeof value === 'object') {
+    // JSON stringify objects
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      // Fallback to toString for objects that can't be JSON stringified
+      return String(value);
+    }
+  } else {
+    return String(value);
+  }
 }
 
 // xs/zx compatible quote function

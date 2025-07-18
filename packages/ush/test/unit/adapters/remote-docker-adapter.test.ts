@@ -82,7 +82,7 @@ describe('RemoteDockerAdapter', () => {
     MockClient.mockImplementation(() => mockClient);
 
     // Setup default exec behavior with properly mocked stream
-    mockClient.exec.mockImplementation((command, callback) => {
+    mockClient.exec.mockImplementation((command: string, callback: any) => {
       const stream = createMockStream();
       // Simulate the exec callback behavior that happens in ssh2
       process.nextTick(() => callback(null, stream));
@@ -92,7 +92,7 @@ describe('RemoteDockerAdapter', () => {
     let readyCallback: any;
     let errorCallback: any;
     
-    mockClient.once.mockImplementation((event, callback) => {
+    mockClient.once.mockImplementation((event: string, callback: any) => {
       if (event === 'ready') {
         readyCallback = callback;
       } else if (event === 'error') {

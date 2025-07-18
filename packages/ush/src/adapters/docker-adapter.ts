@@ -64,7 +64,8 @@ export class DockerAdapter extends BaseAdapter {
       // Check if docker CLI is available
       const result = await this.executeDockerCommand(['version', '--format', 'json'], {});
       return result.exitCode === 0;
-    } catch {
+    } catch (error) {
+      // If spawn fails (e.g., docker command not found), return false
       return false;
     }
   }
@@ -93,7 +94,7 @@ export class DockerAdapter extends BaseAdapter {
 
       const endTime = Date.now();
 
-      return this.createResult(
+      return await this.createResult(
         result.stdout,
         result.stderr,
         result.exitCode,
@@ -306,6 +307,27 @@ export class DockerAdapter extends BaseAdapter {
         });
       });
     });
+  }
+
+  protected override async createResult(
+    stdout: string,
+    stderr: string,
+    exitCode: number,
+    signal: string | undefined,
+    command: string,
+    startTime: number,
+    endTime: number,
+    context?: { host?: string; container?: string }
+  ): Promise<ExecutionResult> {
+    const result = await super.createResult(stdout, stderr, exitCode, signal, command, startTime, endTime, context);
+    
+    // Override error handling to throw DockerError instead of CommandError
+    if (this.config.throwOnNonZeroExit && exitCode !== 0) {
+      const container = context?.container || 'unknown';
+      throw new DockerError(container, 'execute', new Error(`Command failed with exit code ${exitCode}: ${command}`));
+    }
+    
+    return result;
   }
 
   async dispose(): Promise<void> {

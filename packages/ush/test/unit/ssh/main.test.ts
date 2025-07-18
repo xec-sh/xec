@@ -45,7 +45,7 @@ function createSSHTest(
   });
 }
 
-async function connectWithPassword(port, client) {
+async function connectWithPassword(port: number, client: NodeSSH) {
   await client.connect({
     host: '127.0.0.1',
     port,
@@ -54,7 +54,7 @@ async function connectWithPassword(port, client) {
   });
 }
 
-async function connectWithPrivateKey(port, client) {
+async function connectWithPrivateKey(port: number, client: NodeSSH) {
   await client.connect({
     host: '127.0.0.1',
     port,
@@ -63,7 +63,7 @@ async function connectWithPrivateKey(port, client) {
   });
 }
 
-async function connectWithInlinePrivateKey(port, client) {
+async function connectWithInlinePrivateKey(port: number, client: NodeSSH) {
   await client.connect({
     host: '127.0.0.1',
     port,
@@ -120,7 +120,7 @@ describe('SSH Node Tests', () => {
       await connectWithPassword(port, client);
       const data: Buffer[] = [];
       const shell = await client.requestShell();
-      shell.on('data', function (chunk) {
+      shell.on('data', function (chunk: Buffer) {
         data.push(chunk);
       });
       shell.write('ls /\n');

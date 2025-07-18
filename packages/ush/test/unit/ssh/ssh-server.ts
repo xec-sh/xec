@@ -8,13 +8,13 @@ import { PRIVATE_KEY_PATH } from './helpers.js';
 
 const { STATUS_CODE } = ((ssh2.utils as unknown) as { sftp: { STATUS_CODE: Record<string, string> } }).sftp
 
-function handleSFTP(accept) {
+function handleSFTP(accept: any) {
   const sftpStream = accept()
 
   let dirHandle = 105185
   const handles: Set<number> = new Set()
   const dirHandles: Map<number, string[]> = new Map()
-  sftpStream.on('OPEN', function (reqId, filename, flags) {
+  sftpStream.on('OPEN', function (reqId: any, filename: any, flags: any) {
     let handleId
     try {
       handleId = FS.openSync(filename, SFTPStream.flagsToString(flags) as string)
@@ -29,7 +29,7 @@ function handleSFTP(accept) {
     handle.write(handleId.toString())
     sftpStream.handle(reqId, handle)
   })
-  sftpStream.on('READ', function (reqId, givenHandle, offset, length) {
+  sftpStream.on('READ', function (reqId: any, givenHandle: any, offset: any, length: any) {
     const handle = parseInt(givenHandle, 10)
     if (!handles.has(handle)) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
@@ -45,7 +45,7 @@ function handleSFTP(accept) {
     }
     sftpStream.data(reqId, contents)
   })
-  sftpStream.on('WRITE', function (reqId, givenHandle, offset, data) {
+  sftpStream.on('WRITE', function (reqId: any, givenHandle: any, offset: any, data: any) {
     const handle = parseInt(givenHandle, 10)
     if (!handles.has(handle)) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
@@ -60,7 +60,7 @@ function handleSFTP(accept) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
     }
   })
-  sftpStream.on('FSTAT', function (reqId, givenHandle) {
+  sftpStream.on('FSTAT', function (reqId: any, givenHandle: any) {
     const handle = parseInt(givenHandle, 10)
     if (!handles.has(handle)) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
@@ -77,7 +77,7 @@ function handleSFTP(accept) {
     }
     sftpStream.attrs(reqId, stats)
   })
-  sftpStream.on('CLOSE', function (reqId, givenHandle) {
+  sftpStream.on('CLOSE', function (reqId: any, givenHandle: any) {
     const handle = parseInt(givenHandle, 10)
     if (dirHandles.has(handle)) {
       dirHandles.delete(handle)
@@ -94,7 +94,7 @@ function handleSFTP(accept) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
     }
   })
-  sftpStream.on('MKDIR', function (reqId, path, attrs) {
+  sftpStream.on('MKDIR', function (reqId: any, path: any, attrs: any) {
     try {
       FS.mkdirSync(path, attrs.mode)
       sftpStream.status(reqId, STATUS_CODE['OK'])
@@ -102,7 +102,7 @@ function handleSFTP(accept) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'], (error as any).message)
     }
   })
-  sftpStream.on('STAT', function (reqId, path) {
+  sftpStream.on('STAT', function (reqId: any, path: any) {
     try {
       const stats = FS.statSync(path)
       sftpStream.attrs(reqId, stats)
@@ -110,7 +110,7 @@ function handleSFTP(accept) {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'], (error as any).message)
     }
   })
-  sftpStream.on('OPENDIR', function (reqId, path) {
+  sftpStream.on('OPENDIR', function (reqId: any, path: any) {
     let stat
     try {
       stat = FS.statSync(path)
@@ -131,7 +131,7 @@ function handleSFTP(accept) {
     handle.write(currentDirHandle.toString())
     sftpStream.handle(reqId, handle)
   })
-  sftpStream.on('READDIR', function (reqId, givenHandle) {
+  sftpStream.on('READDIR', function (reqId: any, givenHandle: any) {
     const handle = parseInt(givenHandle, 10)
     const contents = dirHandles.get(handle)
     if (contents == null || !contents.length) {
@@ -151,11 +151,11 @@ function handleSFTP(accept) {
   })
 }
 
-function handleSession(acceptSession) {
+function handleSession(acceptSession: any) {
   const session = acceptSession()
 
   let ptyInfo: Record<string, any> | null = null
-  session.on('pty', function (accept, _, info) {
+  session.on('pty', function (accept: any, _: any, info: any) {
     accept()
     ptyInfo = {
       name: info.term,
@@ -165,7 +165,7 @@ function handleSession(acceptSession) {
       env: process.env,
     }
   })
-  session.on('shell', function (accept, reject) {
+  session.on('shell', function (accept: any, reject: any) {
     if (!ptyInfo) {
       reject()
       return
@@ -176,7 +176,7 @@ function handleSession(acceptSession) {
     request.pipe(spawnedProcess)
     spawnedProcess.pipe(request)
   })
-  session.on('exec', function (accept, reject, info) {
+  session.on('exec', function (accept: any, reject: any, info: any) {
     const response = accept()
     const spawnedProcess = ChildProcess.exec(info.command)
     response.pipe(spawnedProcess.stdin)
@@ -186,7 +186,7 @@ function handleSession(acceptSession) {
   session.on('sftp', handleSFTP)
 }
 
-function handleAuthentication(ctx) {
+function handleAuthentication(ctx: any) {
   let accept = true
   if (ctx.method === 'password') {
     accept = ctx.username === 'steel' && ctx.password === 'password'

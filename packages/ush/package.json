@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand"
   },
   "dependencies": {
     "sb-promise-queue": "^2.1.1",
