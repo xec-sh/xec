@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+
+// Check Node.js version
+const { major } = process.versions.node.split('.').map(Number);
+if (major < 18) {
+  console.error(`Error: Xec requires Node.js 18.0.0 or higher. You are using ${process.version}`);
+  process.exit(1);
+}
+
+// Enable source map support for better error traces
+try {
+  require('source-map-support/register');
+} catch (e) {
+  // Source map support is optional
+}
+
+// Load and run CLI
+import('../dist/main.js')
+  .then(cli => cli.run())
+  .catch(err => {
+    if (err.code === 'MODULE_NOT_FOUND') {
+      console.error('Error: Xec CLI is not built. Please run "yarn build" first.');
+    } else {
+      console.error('Failed to start Xec CLI:', err.message || err);
+      if (process.env.XEC_DEBUG) {
+        console.error(err.stack);
+      }
+    }
+    process.exit(1);
+  });

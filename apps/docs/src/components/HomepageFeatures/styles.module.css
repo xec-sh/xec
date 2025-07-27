@@ -1,0 +1,24 @@
+.features {
+  display: flex;
+  align-items: center;
+  padding: 4rem 0;
+  width: 100%;
+}
+
+.featureSvg {
+  height: 120px;
+  width: 120px;
+  color: var(--ifm-color-primary);
+  margin-bottom: 1rem;
+}
+
+@media screen and (max-width: 996px) {
+  .features {
+    padding: 2rem 0;
+  }
+  
+  .featureSvg {
+    height: 80px;
+    width: 80px;
+  }
+}

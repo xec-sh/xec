@@ -1,0 +1,75 @@
+{
+  "name": "@xec-sh/cli",
+  "description": "Xec CLI for infrastructure management and automation",
+  "version": "0.6.2",
+  "author": "DevGrid",
+  "type": "module",
+  "license": "MIT",
+  "directories": {
+    "bin": "./bin",
+    "dist": "./dist"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
+  },
+  "bin": {
+    "xec": "bin/xec"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.4",
+    "@types/fs-extra": "^11.0.4",
+    "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/minimist": "^1.2.5",
+    "@types/mustache": "^4.2.6",
+    "@types/node": "^24.0.13",
+    "@types/ssh2": "^1.15.5",
+    "@types/which": "^3.0.4",
+    "jest": "^30.0.4",
+    "source-map-support": "^0.5.21",
+    "ts-jest": "^29.4.0",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xec-sh/xec.git",
+    "directory": "apps/xec"
+  },
+  "bugs": {
+    "url": "https://github.com/xec-sh/xec/issues"
+  },
+  "homepage": "https://github.com/xec-sh/xec/tree/main/apps/xec#readme",
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "@xec-sh/core": "workspace:*",
+    "chalk": "^5.4.1",
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.0",
+    "csv-parse": "^6.1.0",
+    "csv-stringify": "^6.6.0",
+    "date-fns": "4.1.0",
+    "diff": "^8.0.2",
+    "dotenv": "^17.2.1",
+    "es-toolkit": "^1.39.8",
+    "esbuild": "^0.25.8",
+    "fs-extra": "11.3.0",
+    "glob": "^11.0.3",
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.0",
+    "minimist": "^1.2.8",
+    "node-fetch": "^3.3.2",
+    "ps-list": "^8.1.1",
+    "table": "^6.9.0",
+    "which": "^5.0.0",
+    "zod": "^3.25.76"
+  },
+  "installConfig": {
+    "hoistingLimits": "workspaces"
+  }
+}

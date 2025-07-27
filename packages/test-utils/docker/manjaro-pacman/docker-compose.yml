@@ -1,0 +1,7 @@
+services:
+  manjaro-pacman:
+    build: .
+    container_name: manjaro-pacman
+    ports:
+      - "2205:22"
+    restart: unless-stopped

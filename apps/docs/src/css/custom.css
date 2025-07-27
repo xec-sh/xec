@@ -1,0 +1,100 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* Import Fira Code font */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
+/* Import KaTeX styles for math formulas */
+@import url('https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css');
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #8c64f1;
+  --ifm-color-primary-dark: #7c4fee;
+  --ifm-color-primary-darker: #6c3aeb;
+  --ifm-color-primary-darkest: #5c25e8;
+  --ifm-color-primary-light: #9c79f4;
+  --ifm-color-primary-lighter: #ac8ef7;
+  --ifm-color-primary-lightest: #bca3fa;
+  
+  --ifm-code-font-size: 95%;
+  --ifm-font-family-base:
+    'Fira Code', monospace, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --ifm-font-family-monospace:
+    'Fira Code', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  
+    --docusaurus-highlighted-code-line-bg: rgba(140, 100, 241, 0.1);
+
+  --xec-hero-gradient: linear-gradient(135deg, #24bce3 0%, #f704fe 100%);
+  --xec-border-color: #d1d5db;
+  --xec-accent-cyan: #24bce3;
+  --xec-accent-purple: #f704fe;
+}
+
+/* Apply Fira Code font to all code elements */
+code,
+pre,
+.prism-code,
+.token-line,
+.codeBlockContainer_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Container-styles-module {
+  font-family: 'Fira Code', monospace !important;
+  font-variant-ligatures: contextual;
+}
+
+/* Enable ligatures for inline code */
+code {
+  font-feature-settings: "calt" 1;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #ac8ef7;
+  --ifm-color-primary-dark: #9c79f4;
+  --ifm-color-primary-darker: #8c64f1;
+  --ifm-color-primary-darkest: #7c4fee;
+  --ifm-color-primary-light: #bca3fa;
+  --ifm-color-primary-lighter: #ccb8fd;
+  --ifm-color-primary-lightest: #dccdff;
+  --docusaurus-highlighted-code-line-bg: rgba(172, 142, 247, 0.2);
+
+  --xec-hero-gradient: linear-gradient(135deg, #24bce3 0%, #f704fe 100%);
+  --xec-border-color: #4b5563;
+  --xec-accent-cyan: #24bce3;
+  --xec-accent-purple: #f704fe;
+}
+
+/* Additional specific selectors for Docusaurus code blocks */
+.codeBlock_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Content-styles-module,
+.language-bash,
+.language-shell,
+.language-typescript,
+.language-javascript,
+.language-json,
+.language-yaml,
+.language-yml,
+.language-markdown,
+.language-md,
+.language-tsx,
+.language-jsx,
+.theme-code-block,
+.prism-code,
+.codeBlockLines_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Content-styles-module,
+.codeBlockContent_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Content-styles-module {
+  font-family: 'Fira Code', monospace !important;
+  font-variant-ligatures: contextual;
+}
+
+/* Terminal-style code blocks */
+.terminal,
+.console {
+  font-family: 'Fira Code', monospace !important;
+}
+
+/* Code tabs */
+.tabs__item code,
+.tabItem_node_modules-\@docusaurus-theme-classic-lib-theme-Tabs-styles-module code {
+  font-family: 'Fira Code', monospace !important;
+}
