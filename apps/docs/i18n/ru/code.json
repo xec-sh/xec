@@ -1,0 +1,153 @@
+{
+  "theme.ErrorPageContent.title": {
+    "message": "Эта страница содержит ошибку.",
+    "description": "The title of the fallback page when the page crashed"
+  },
+  "theme.ErrorPageContent.tryAgain": {
+    "message": "Попробовать ещё раз",
+    "description": "The label of the button to try again when the page crashed"
+  },
+  "theme.NotFound.title": {
+    "message": "Страница не найдена",
+    "description": "The title of the 404 page"
+  },
+  "theme.NotFound.p1": {
+    "message": "К сожалению, запрошенная страница не найдена.",
+    "description": "The first paragraph of the 404 page"
+  },
+  "theme.NotFound.p2": {
+    "message": "Пожалуйста, обратитесь к владельцу сайта, который привёл вас сюда, и сообщите ему, что ссылка не работает.",
+    "description": "The 2nd paragraph of the 404 page"
+  },
+  "theme.admonition.note": {
+    "message": "примечание",
+    "description": "The default label used for the Note admonition (:::note)"
+  },
+  "theme.admonition.tip": {
+    "message": "подсказка",
+    "description": "The default label used for the Tip admonition (:::tip)"
+  },
+  "theme.admonition.danger": {
+    "message": "осторожно",
+    "description": "The default label used for the Danger admonition (:::danger)"
+  },
+  "theme.admonition.info": {
+    "message": "к сведению",
+    "description": "The default label used for the Info admonition (:::info)"
+  },
+  "theme.admonition.caution": {
+    "message": "предупреждение",
+    "description": "The default label used for the Caution admonition (:::caution)"
+  },
+  "theme.blog.archive.title": {
+    "message": "Архив",
+    "description": "The page & hero title of the blog archive page"
+  },
+  "theme.blog.archive.description": {
+    "message": "Архив",
+    "description": "The page & hero description of the blog archive page"
+  },
+  "theme.BackToTopButton.buttonAriaLabel": {
+    "message": "Вернуться к началу",
+    "description": "The ARIA label for the back to top button"
+  },
+  "homepage.title": {
+    "message": "Xec Infrastructure"
+  },
+  "homepage.tagline": {
+    "message": "Современная платформа оркестрации инфраструктуры"
+  },
+  "homepage.getStarted": {
+    "message": "Начать - 5мин ⏱️"
+  },
+  "homepage.learnMore": {
+    "message": "Узнать больше"
+  },
+  "homepage.description": {
+    "message": "Xec - это современная платформа оркестрации инфраструктуры, которая упрощает развертывание, управление и автоматизацию вашей инфраструктуры."
+  },
+  "homepage.layoutTitle": {
+    "message": "Современная оркестрация инфраструктуры"
+  },
+  "homepage.ecosystem.title": {
+    "message": "Единая экосистема"
+  },
+  "homepage.ecosystem.description": {
+    "message": "Три мощных пакета, работающих вместе для оркестрации вашей инфраструктуры"
+  },
+  "homepage.cli.description": {
+    "message": "Интерфейс командной строки для управления инфраструктурой с помощью простых, интуитивно понятных команд."
+  },
+  "homepage.core.description": {
+    "message": "Основной движок оркестрации с мощным управлением состоянием и системой провайдеров."
+  },
+  "homepage.ush.description": {
+    "message": "Универсальный движок выполнения shell-команд для бесшовного выполнения команд в разных средах."
+  },
+  "homepage.exploreCliDocs": {
+    "message": "Изучить CLI документацию"
+  },
+  "homepage.exploreCoreDocs": {
+    "message": "Изучить Core документацию"
+  },
+  "homepage.exploreUshDocs": {
+    "message": "Изучить USH документацию"
+  },
+  "homepage.useCases.title": {
+    "message": "Создано для современной инфраструктуры"
+  },
+  "homepage.useCases.devops.title": {
+    "message": "DevOps автоматизация"
+  },
+  "homepage.useCases.devops.description": {
+    "message": "Автоматизируйте развертывания, управляйте конфигурациями и оркестрируйте сложные рабочие процессы с легкостью."
+  },
+  "homepage.useCases.multiCloud.title": {
+    "message": "Мультиоблачное управление"
+  },
+  "homepage.useCases.multiCloud.description": {
+    "message": "Развертывайте и управляйте ресурсами в AWS, Azure, GCP и локальной инфраструктуре."
+  },
+  "homepage.useCases.containerization.title": {
+    "message": "Оркестрация контейнеров"
+  },
+  "homepage.useCases.containerization.description": {
+    "message": "Бесшовная работа с Docker, Kubernetes и реестрами контейнеров."
+  },
+  "homepage.useCases.compliance.title": {
+    "message": "Соответствие и безопасность"
+  },
+  "homepage.useCases.compliance.description": {
+    "message": "Встроенные функции безопасности, журналирование аудита и рабочие процессы, готовые к соответствию."
+  },
+  "homepage.cta.title": {
+    "message": "Готовы преобразовать вашу инфраструктуру?"
+  },
+  "homepage.cta.description": {
+    "message": "Присоединяйтесь к тысячам разработчиков, которые уже используют Xec для упрощения управления инфраструктурой."
+  },
+  "homepage.cta.startBuilding": {
+    "message": "Начать создавать"
+  },
+  "homepage.cta.viewOnGitHub": {
+    "message": "Посмотреть на GitHub"
+  },
+  "homepage.features.universal.title": {
+    "message": "Универсальное выполнение"
+  },
+  "homepage.features.universal.description": {
+    "message": "Выполняйте команды бесшовно в локальных средах, SSH, Docker и Kubernetes с единым API. Напишите один раз, запускайте везде."
+  },
+  "homepage.features.typeSafe.title": {
+    "message": "Типобезопасный и современный"
+  },
+  "homepage.features.typeSafe.description": {
+    "message": "Создан с нуля на TypeScript. Наслаждайтесь полной поддержкой IDE, автодополнением и безопасностью времени компиляции для вашего инфраструктурного кода."
+  },
+  "homepage.features.extensible.title": {
+    "message": "Расширяемый и модульный"
+  },
+  "homepage.features.extensible.description": {
+    "message": "Расширяйте функциональность с помощью пользовательских провайдеров, адаптеров и плагинов. Построен на модульной архитектуре, которая растет вместе с вашими потребностями."
+  }
+}

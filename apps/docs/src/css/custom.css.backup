@@ -1,0 +1,743 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* Import Fira Code font */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
+/* Import KaTeX styles for math formulas */
+@import url('https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css');
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #2563eb;
+  --ifm-color-primary-dark: #1d4ed8;
+  --ifm-color-primary-darker: #1e40af;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #3b82f6;
+  --ifm-color-primary-lighter: #60a5fa;
+  --ifm-color-primary-lightest: #93bbfc;
+
+  --ifm-code-font-size: 95%;
+  --ifm-font-family-base:
+    'Fira Code', monospace, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --ifm-font-family-monospace:
+    'Fira Code', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+  /* Custom variables */
+  --xec-hero-gradient: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  --xec-border-color: #e5e7eb;
+  --xec-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --xec-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --xec-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #60a5fa;
+  --ifm-color-primary-dark: #3b82f6;
+  --ifm-color-primary-darker: #2563eb;
+  --ifm-color-primary-darkest: #1d4ed8;
+  --ifm-color-primary-light: #93bbfc;
+  --ifm-color-primary-lighter: #a5c7fd;
+  --ifm-color-primary-lightest: #c7dafd;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  --xec-hero-gradient: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --xec-border-color: #374151;
+}
+
+/* Navbar customization */
+.navbar {
+  box-shadow: var(--xec-shadow-sm);
+}
+
+.navbar__title {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+/* Header GitHub link */
+.header-github-link:hover {
+  opacity: 0.6;
+}
+
+.header-github-link::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'/%3E%3C/svg%3E")
+    no-repeat;
+}
+
+[data-theme='dark'] .header-github-link::before {
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='white' d='M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'/%3E%3C/svg%3E")
+    no-repeat;
+}
+
+/* Hero section */
+.hero {
+  background: var(--xec-hero-gradient);
+  color: white;
+}
+
+.hero__title {
+  font-size: 3rem;
+  font-weight: 800;
+}
+
+.hero__subtitle {
+  font-size: 1.5rem;
+  opacity: 0.9;
+}
+
+/* Cards */
+.card {
+  background: var(--ifm-card-background-color);
+  border-radius: 8px;
+  box-shadow: var(--xec-shadow-md);
+  border: 1px solid var(--xec-border-color);
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--xec-shadow-lg);
+  transform: translateY(-2px);
+}
+
+/* Code blocks */
+pre {
+  border-radius: 8px;
+  box-shadow: var(--xec-shadow-sm);
+}
+
+/* Feature cards */
+.feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
+}
+
+.featureSvg {
+  height: 200px;
+  width: 200px;
+  margin-bottom: 1rem;
+}
+
+/* Buttons */
+.button {
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--xec-shadow-md);
+}
+
+/* Tables */
+table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+table th {
+  background-color: var(--ifm-table-head-background);
+  font-weight: 600;
+}
+
+/* Alerts and admonitions */
+.alert {
+  border-radius: 8px;
+  border-left-width: 4px;
+}
+
+/* Footer */
+.footer {
+  background-color: var(--ifm-footer-background-color);
+  padding: 3rem 0;
+}
+
+.footer__title {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Documentation container width */
+.container {
+  max-width: 1440px !important;
+  margin: 0 auto;
+}
+
+/* Main wrapper */
+[class*='docMainContainer'] {
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+[class*='docMainContainer'] .container {
+  max-width: 1440px !important;
+  padding: 0 2rem;
+  margin: 0 auto;
+}
+
+/* Docs page layout - Equal width sidebar and content */
+@media (min-width: 997px) {
+  /* Main docs layout container */
+  .theme-doc-version-banner + *, 
+  [class*='docPage'] {
+    display: flex;
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+  
+  /* Sidebar container */
+  [class*='docSidebarContainer'],
+  .theme-doc-sidebar-container {
+    width: 50% !important;
+    max-width: 50% !important;
+    min-width: 0 !important;
+    flex: 0 0 50% !important;
+    padding-right: 2rem;
+  }
+  
+  /* Main content container */
+  [class*='docMainContainer'] main,
+  .theme-doc-main-container {
+    width: 50% !important;
+    max-width: 50% !important;
+    flex: 0 0 50% !important;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    overflow-x: hidden;
+  }
+  
+  /* Remove default padding/margins that might interfere */
+  .theme-doc-main-container > div {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}
+
+/* Article container */
+article {
+  max-width: 100% !important;
+  overflow-x: hidden;
+  word-wrap: break-word;
+}
+
+/* Main content column */
+[class*='docItemCol'] {
+  max-width: 100% !important;
+  padding: 0 !important;
+}
+
+/* Markdown content container */
+.markdown {
+  max-width: 100% !important;
+  overflow-x: hidden;
+  word-wrap: break-word;
+}
+
+/* Theme doc item container */
+.theme-doc-item-container {
+  max-width: 100% !important;
+  padding: 2rem;
+}
+
+/* Center main documentation area */
+.main-wrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.docusaurus-mt-lg {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1440px;
+}
+
+/* Fix for docs sidebar and main content alignment */
+.docsWrapper_node {
+  margin: 0 auto;
+  max-width: 1440px;
+}
+
+/* Ensure proper centering for doc pages */
+main[class*="docMainContainer"] {
+  display: flex;
+  justify-content: center;
+}
+
+main[class*="docMainContainer"] > div {
+  width: 100%;
+  max-width: 1440px;
+}
+
+/* Ensure code blocks don't overflow */
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+  /* Don't force wrap on code blocks - let them scroll */
+  white-space: pre !important;
+  word-wrap: normal !important;
+}
+
+/* Fix for code blocks inside lists or other containers */
+.markdown li pre,
+.markdown blockquote pre {
+  max-width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Fix code overflow in tables */
+table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table code {
+  /* Don't wrap code in tables */
+  white-space: nowrap !important;
+  word-break: normal !important;
+}
+
+/* Ensure inline code doesn't break layout */
+code {
+  /* Allow inline code to wrap at word boundaries */
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  max-width: 100%;
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+/* Table of contents sidebar - Hide it since we want equal sidebar/content */
+@media (min-width: 997px) {
+  /* Hide TOC on desktop for equal width layout */
+  .col--3,
+  [class*='tableOfContents'],
+  .theme-doc-toc-desktop {
+    display: none !important;
+  }
+
+  /* Main content takes full width when TOC is hidden */
+  .row .col:first-child {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Center the entire docs container */
+  .row.row--no-gutters {
+    max-width: 100%;
+    margin: 0;
+  }
+  
+  /* Ensure proper flex layout for docs */
+  .docPage__docContainer {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+/* Responsive design */
+@media screen and (max-width: 996px) {
+  .hero__title {
+    font-size: 2.5rem;
+  }
+
+  .hero__subtitle {
+    font-size: 1.25rem;
+  }
+
+  .container {
+    max-width: 100% !important;
+    padding: 0 1rem;
+  }
+  
+  /* Reset sidebar and content for mobile */
+  [class*='docSidebarContainer'],
+  .theme-doc-sidebar-container,
+  [class*='docMainContainer'] main,
+  .theme-doc-main-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 1 1 100% !important;
+    padding: 0 !important;
+  }
+  
+  /* Ensure content doesn't overflow on mobile */
+  .markdown {
+    padding: 0 1rem;
+  }
+  
+  .theme-doc-item-container {
+    padding: 1rem;
+  }
+  
+  /* Fix code blocks on mobile */
+  pre {
+    border-radius: 0;
+    margin-left: -1rem;
+    margin-right: -1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Ensure tables are scrollable on mobile */
+  .markdown table {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    width: calc(100% + 2rem);
+  }
+}
+
+/* Terminal/console styling */
+.terminal {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 8px;
+  font-family: var(--ifm-font-family-monospace);
+  overflow-x: auto;
+}
+
+[data-theme='light'] .terminal {
+  background-color: #f6f8fa;
+  color: #24292e;
+}
+
+/* Syntax highlighting improvements */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  font-style: italic;
+}
+
+/* Homepage specific styles */
+.homepage-features {
+  padding: 4rem 0;
+  background-color: var(--ifm-background-surface-color);
+}
+
+.homepage-cta {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+/* Documentation specific */
+.docs-wrapper {
+  display: flex;
+  min-height: calc(100vh - var(--ifm-navbar-height));
+  justify-content: center;
+}
+
+/* Prevent content from sliding off sides */
+.markdown > * {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+/* Fix images overflow */
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem auto;
+}
+
+/* Fix wide content elements */
+.markdown .admonition,
+.markdown .alert,
+.markdown blockquote,
+.markdown details {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Ensure all containers respect boundaries */
+.theme-doc-markdown,
+.markdown-body,
+[class*='docItemContainer'] {
+  max-width: 100%;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Fix sidebar overflow */
+@media (min-width: 997px) {
+  [class*='docSidebarContainer'] {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - var(--ifm-navbar-height));
+    position: sticky;
+    top: var(--ifm-navbar-height);
+  }
+  
+  /* Sidebar menu items */
+  .theme-doc-sidebar-menu {
+    padding: 1rem;
+  }
+  
+  .menu__list {
+    padding-left: 0;
+  }
+  
+  .menu__link {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+}
+
+/* Version badge */
+.version-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 4px;
+  background-color: var(--ifm-color-primary-lighter);
+  color: var(--ifm-color-primary-darkest);
+}
+
+/* Mermaid diagrams */
+.docusaurus-mermaid-container {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+[data-theme='dark'] .docusaurus-mermaid-container svg {
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+/* Math formulas (KaTeX) */
+.katex-display {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+/* Copy code button */
+.theme-code-block {
+  position: relative;
+}
+
+.theme-code-block:hover .copyButton {
+  opacity: 1;
+}
+
+.copyButton {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+/* Tabs */
+.tabs-container {
+  margin: 1.5rem 0;
+}
+
+.tabs {
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+
+.tabs__item {
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  margin-right: 0.5rem;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabs__item--active {
+  border-bottom-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+/* Search */
+.DocSearch-Button {
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+/* Ideal Image */
+.ideal-image-wrapper {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.ideal-image-wrapper img {
+  border-radius: 8px;
+  box-shadow: var(--xec-shadow-md);
+}
+
+/* TOC (Table of Contents) */
+.tableOfContents_node {
+  padding: 0.375rem 0;
+}
+
+.table-of-contents__link {
+  transition: all 0.2s;
+}
+
+.table-of-contents__link:hover {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+
+.table-of-contents__link--active {
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+}
+
+/* API Reference tables */
+.api-reference table {
+  font-size: 0.875rem;
+}
+
+.api-reference th {
+  white-space: nowrap;
+}
+
+.api-reference code {
+  font-size: 0.875em;
+}
+
+/* Inline code */
+code {
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  background-color: var(--ifm-code-background);
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 4px solid var(--ifm-color-primary);
+  padding-left: 1rem;
+  margin-left: 0;
+  font-style: italic;
+  color: var(--ifm-blockquote-color);
+}
+
+/* Details/Summary (collapsible sections) */
+details {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin: -1rem;
+  padding: 1rem;
+  user-select: none;
+}
+
+details[open] summary {
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  margin-bottom: 1rem;
+}
+
+/* Keyboard shortcuts */
+kbd {
+  background-color: var(--ifm-code-background);
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 var(--ifm-toc-border-color);
+  color: var(--ifm-font-color-base);
+  display: inline-block;
+  font-size: 0.875rem;
+  font-family: var(--ifm-font-family-monospace);
+  line-height: 1.2;
+  padding: 0.2rem 0.4rem;
+  vertical-align: middle;
+}
+
+/* Additional layout fixes */
+@media (min-width: 997px) {
+  /* Ensure docs layout doesn't break */
+  [class*='docPage'] > div {
+    display: flex;
+    width: 100%;
+    gap: 0;
+  }
+  
+  /* Fix spacing between panels */
+  [class*='docSidebarContainer'] {
+    border-right: 1px solid var(--ifm-toc-border-color);
+  }
+  
+  /* Smooth transitions */
+  [class*='docSidebarContainer'],
+  [class*='docMainContainer'] {
+    transition: width 0.3s ease, transform 0.3s ease;
+  }
+}
+
+/* Very small screens */
+@media screen and (max-width: 600px) {
+  .hero__title {
+    font-size: 2rem;
+  }
+  
+  .hero__subtitle {
+    font-size: 1rem;
+  }
+  
+  /* Further reduce padding on very small screens */
+  .markdown {
+    padding: 0 0.5rem;
+  }
+  
+  .theme-doc-item-container {
+    padding: 0.5rem;
+  }
+}
+
+/* Fix for wide elements that might still cause overflow */
+.markdown > *:not(pre):not(table) {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Ensure proper scroll behavior */
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}

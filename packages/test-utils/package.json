@@ -1,0 +1,37 @@
+{
+  "name": "@xec-sh/test-utils",
+  "version": "0.0.0",
+  "description": "Shared test utilities",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "jest --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "xec",
+    "test",
+    "utils",
+    "docker",
+    "kubernetes"
+  ],
+  "author": "LuxQuant",
+  "license": "MIT",
+  "dependencies": {
+    "dockerode": "4.0.7"
+  },
+  "devDependencies": {
+    "@types/dockerode": "3.3.42",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.1.0",
+    "jest": "30.0.5",
+    "ts-jest": "29.4.0",
+    "typescript": "5.8.3"
+  },
+  "files": [
+    "dist",
+    "docker"
+  ]
+}

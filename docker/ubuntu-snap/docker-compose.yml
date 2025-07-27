@@ -1,0 +1,8 @@
+services:
+  ubuntu-snap:
+    build: .
+    container_name: ubuntu-snap
+    privileged: true
+    ports:
+      - "2207:22"
+    command: /sbin/init

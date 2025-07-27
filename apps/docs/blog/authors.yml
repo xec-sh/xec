@@ -1,0 +1,11 @@
+xec-team:
+  name: Xec Team
+  title: Core Maintainers
+  url: https://github.com/xec-sh
+  image_url: https://github.com/xec-sh.png
+
+luxquant:
+  name: LuxQuant
+  title: Contributor
+  url: https://github.com/luxquant
+  image_url: https://github.com/luxquant.png

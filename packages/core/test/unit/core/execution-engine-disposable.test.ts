@@ -1,0 +1,388 @@
+import { it, jest, expect, describe } from '@jest/globals';
+
+import { $ } from '../../../src/index.js';
+import { SSHAdapter } from '../../../src/adapters/ssh-adapter.js';
+import { MockAdapter } from '../../../src/adapters/mock-adapter.js';
+import { ExecutionEngine } from '../../../src/core/execution-engine.js';
+
+
+describe('ExecutionEngine Disposable functionality', () => {
+  describe('Adapter disposal', () => {
+    it('should dispose all adapters when engine is disposed', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create spies for adapter dispose methods
+      const mockAdapter = new MockAdapter();
+      const disposeSpy = jest.spyOn(mockAdapter, 'dispose');
+      
+      // Register the adapter
+      engine.registerAdapter('mock', mockAdapter);
+      
+      // Dispose the engine
+      await (engine as any).dispose();
+      
+      // Verify adapter was disposed
+      expect(disposeSpy).toHaveBeenCalled();
+    });
+
+    it('should handle adapters without dispose method gracefully', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create an adapter without dispose method
+      const adapterWithoutDispose = {
+        execute: jest.fn(),
+        validateConfig: jest.fn()
+      };
+      
+      engine.registerAdapter('custom', adapterWithoutDispose as any);
+      
+      // Should not throw
+      await expect((engine as any).dispose()).resolves.toBeUndefined();
+    });
+
+    it('should dispose SSH connections', async () => {
+      const engine = new ExecutionEngine({
+        adapters: {
+          ssh: {
+            defaultConnectOptions: {
+              host: 'test.example.com',
+              username: 'test'
+            }
+          }
+        }
+      });
+
+      // Get the SSH adapter
+      const sshAdapter = (engine as any).adapters.get('ssh') as SSHAdapter;
+      const disposeSpy = jest.spyOn(sshAdapter, 'dispose');
+
+      // Dispose engine
+      await (engine as any).dispose();
+
+      expect(disposeSpy).toHaveBeenCalled();
+    });
+
+    it('should continue disposing other adapters if one fails', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create adapters with different behaviors
+      const failingAdapter = {
+        dispose: jest.fn().mockRejectedValue(new Error('Dispose failed') as never),
+        execute: jest.fn(),
+        validateConfig: jest.fn()
+      };
+      
+      const successAdapter = new MockAdapter();
+      const successSpy = jest.spyOn(successAdapter, 'dispose');
+      
+      engine.registerAdapter('failing', failingAdapter as any);
+      engine.registerAdapter('success', successAdapter);
+      
+      // Dispose should not throw but should call both
+      await expect((engine as any).dispose()).resolves.toBeUndefined();
+      
+      expect(failingAdapter.dispose).toHaveBeenCalled();
+      expect(successSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('Resource cleanup', () => {
+    it('should clean up temporary resources', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create temp file
+      const tempFile = await engine.tempFile();
+      const tempFilePath = tempFile.path;
+      
+      // Verify file exists
+      const existsBefore = await engine.execute({
+        command: 'test',
+        args: ['-f', tempFilePath],
+        shell: false
+      }).then(() => true).catch(() => false);
+      
+      expect(existsBefore).toBe(true);
+      
+      // Dispose engine
+      await (engine as any).dispose();
+      
+      // File should be cleaned up
+      const existsAfter = await engine.execute({
+        command: 'test',
+        args: ['-f', tempFilePath],
+        shell: false
+      }).then(() => true).catch(() => false);
+      
+      expect(existsAfter).toBe(false);
+    });
+
+    it('should clean up event listeners', async () => {
+      const engine = new ExecutionEngine();
+      
+      const listener = jest.fn();
+      engine.on('command:start', listener);
+      
+      // Verify listener is registered
+      expect(engine.listenerCount('command:start')).toBe(1);
+      
+      // Dispose engine
+      await (engine as any).dispose();
+      
+      // Listeners should be removed
+      expect(engine.listenerCount('command:start')).toBe(0);
+    });
+
+    it('should cancel active processes', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Start a long-running process using template literal to get ProcessPromise
+      const longProcess = engine.run`sleep 10`;
+      
+      // Give it a moment to start
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Dispose engine while process is running
+      await (engine as any).dispose();
+      
+      // Process should be terminated with a signal
+      const result = await longProcess;
+      expect(result.signal).toBe('SIGTERM');
+      expect(result.duration).toBeLessThan(5000); // Should not have run for full 10 seconds
+    });
+  });
+
+  describe('Global $ disposal', () => {
+    it('should dispose global $ instance', async () => {
+      // Execute a command to ensure global engine is initialized
+      await $`echo "test"`;
+      
+      // Import the dispose function
+      const { dispose } = await import('../../../src/index.js');
+      
+      // Should not throw
+      await expect(dispose()).resolves.toBeUndefined();
+    });
+
+    it('should handle multiple dispose calls', async () => {
+      const { dispose } = await import('../../../src/index.js');
+      
+      // Multiple dispose calls should not throw
+      await dispose();
+      await dispose();
+      await dispose();
+    });
+
+    it('should recreate engine after disposal', async () => {
+      const { dispose } = await import('../../../src/index.js');
+      
+      // First use
+      const result1 = await $`echo "before dispose"`;
+      expect(result1.stdout).toContain('before dispose');
+      
+      // Dispose
+      await dispose();
+      
+      // Should work again (new engine created)
+      const result2 = await $`echo "after dispose"`;
+      expect(result2.stdout).toContain('after dispose');
+    });
+  });
+
+  describe('Disposable pattern implementation', () => {
+    it('should prevent usage after disposal', async () => {
+      class DisposableEngine extends ExecutionEngine {
+        private _disposed = false;
+
+        override async dispose(): Promise<void> {
+          if (this._disposed) {
+            throw new Error('Already disposed');
+          }
+          this._disposed = true;
+          // Call parent dispose logic here
+        }
+
+        override async execute(command: any): Promise<any> {
+          if (this._disposed) {
+            throw new Error('Cannot execute on disposed engine');
+          }
+          return super.execute(command);
+        }
+      }
+
+      const engine = new DisposableEngine();
+      await engine.dispose();
+
+      await expect(engine.execute({ command: 'echo test' }))
+        .rejects.toThrow('Cannot execute on disposed engine');
+    });
+
+    it('should support async resource management', async () => {
+      async function withEngine<T>(
+        config: any,
+        callback: (engine: ExecutionEngine) => Promise<T>
+      ): Promise<T> {
+        const engine = new ExecutionEngine(config);
+        try {
+          return await callback(engine);
+        } finally {
+          if ('dispose' in engine && typeof engine.dispose === 'function') {
+            await engine.dispose();
+          }
+        }
+      }
+
+      let engineUsed = false;
+      const result = await withEngine({}, async (engine) => {
+        engineUsed = true;
+        const res = await engine.execute({ command: 'echo', args: ['test'] });
+        return res.stdout;
+      });
+
+      expect(engineUsed).toBe(true);
+      expect(result).toContain('test');
+    });
+  });
+
+  describe('Memory leak prevention', () => {
+    it('should clear adapter references on disposal', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Add multiple adapters
+      const adapters = Array.from({ length: 10 }, (_, i) => 
+        new MockAdapter()
+      );
+      
+      adapters.forEach((adapter, i) => {
+        engine.registerAdapter(`mock-${i}`, adapter);
+      });
+      
+      // Verify adapters are registered
+      expect((engine as any).adapters.size).toBeGreaterThan(10); // includes default adapters
+      
+      // Dispose
+      await (engine as any).dispose();
+      
+      // References should be cleared
+      expect((engine as any).adapters.size).toBe(0);
+    });
+
+    it('should clear temporary file tracking', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create multiple temp files
+      const tempFiles = await Promise.all(
+        Array.from({ length: 5 }, () => engine.tempFile())
+      );
+      
+      // Track should have files
+      const trackingSize = (engine as any)._tempTracker?.size || 0;
+      expect(trackingSize).toBeGreaterThan(0);
+      
+      // Dispose
+      await (engine as any).dispose();
+      
+      // Tracking should be cleared
+      const afterSize = (engine as any)._tempTracker?.size || 0;
+      expect(afterSize).toBe(0);
+    });
+
+    it('should clean up temp directories on disposal', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create temp directories
+      const tempDirs = await Promise.all(
+        Array.from({ length: 3 }, () => engine.tempDir())
+      );
+      
+      // Verify tracking
+      expect((engine as any)._tempTracker.size).toBe(3);
+      
+      // Dispose
+      await (engine as any).dispose();
+      
+      // Should be cleaned up
+      expect((engine as any)._tempTracker.size).toBe(0);
+    });
+
+    it('should clear active processes tracking', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Start multiple processes
+      const processes = [
+        engine.run`echo "test1"`,
+        engine.run`echo "test2"`,
+        engine.run`echo "test3"`
+      ];
+      
+      // Should have active processes
+      expect((engine as any)._activeProcesses.size).toBe(3);
+      
+      // Wait for completion
+      await Promise.all(processes);
+      
+      // Should be cleared after completion
+      expect((engine as any)._activeProcesses.size).toBe(0);
+    });
+  });
+
+  describe('Edge cases', () => {
+    it('should handle disposal with no resources', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Dispose without using any features
+      await expect((engine as any).dispose()).resolves.toBeUndefined();
+    });
+
+    it('should handle multiple simultaneous process cancellations', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Start multiple long-running processes
+      const processes = Array.from({ length: 5 }, (_, i) => 
+        engine.run`sleep ${i + 1}`
+      );
+      
+      // Give them a moment to start
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Dispose should cancel all
+      await (engine as any).dispose();
+      
+      // All should be terminated
+      const results = await Promise.all(processes);
+      results.forEach(result => {
+        expect(result.signal).toBe('SIGTERM');
+      });
+    });
+
+    it('should handle temp file cleanup errors gracefully', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Create temp file
+      const tempFile = await engine.tempFile();
+      
+      // Mock cleanup to throw error
+      (tempFile as any).cleanup = jest.fn(() => Promise.reject(new Error('Cleanup failed')));
+      
+      // Should not throw on disposal
+      await expect((engine as any).dispose()).resolves.toBeUndefined();
+    });
+
+    it('should dispose parallel and transfer utilities', async () => {
+      const engine = new ExecutionEngine();
+      
+      // Access lazy-loaded utilities to ensure they're created
+      const parallel = engine.parallel;
+      const transfer = engine.transfer;
+      
+      expect((engine as any)._parallel).toBeDefined();
+      expect((engine as any)._transfer).toBeDefined();
+      
+      // Dispose
+      await (engine as any).dispose();
+      
+      // Should be cleared
+      expect((engine as any)._parallel).toBeUndefined();
+      expect((engine as any)._transfer).toBeUndefined();
+    });
+  });
+});

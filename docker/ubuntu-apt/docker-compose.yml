@@ -1,0 +1,7 @@
+services:
+  ubuntu-apt:
+    build: .
+    container_name: ubuntu-apt
+    ports:
+      - "2201:22"
+    restart: unless-stopped

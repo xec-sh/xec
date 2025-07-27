@@ -1,0 +1,48 @@
+{
+  "name": "@xec-sh/core",
+  "version": "0.6.2",
+  "description": "Universal shell execution engine",
+  "author": "LuxQuant",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "test:ssh": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/ssh-",
+    "test:ssh:docker": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/ssh-docker-integration.test.ts",
+    "test:ssh:auth": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/ssh-authentication.test.ts",
+    "test:ssh:file": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/ssh-file-transfer.test.ts",
+    "test:ssh:perf": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/ssh-performance.test.ts",
+    "test:ssh:pm": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/package-managers.test.ts",
+    "test:k8s": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand test/integration/kubernetes-adapter.test.ts",
+    "docker:start": "./test/helpers/docker-ssh-manager.sh start",
+    "docker:stop": "./test/helpers/docker-ssh-manager.sh stop",
+    "docker:status": "./test/helpers/docker-ssh-manager.sh status",
+    "docker:test": "./test/helpers/docker-ssh-manager.sh test"
+  },
+  "dependencies": {
+    "sb-promise-queue": "^2.1.1",
+    "sb-scandir": "^3.1.1",
+    "shell-escape": "^0.2.0",
+    "ssh2": "^1.16.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^3.3.42",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.0.13",
+    "@types/ssh2": "^1.15.5",
+    "@types/ssh2-streams": "^0.1.12",
+    "@xec-sh/test-utils": "workspace:*",
+    "dockerode": "^4.0.7",
+    "jest": "^30.0.4",
+    "node-pty": "^1.0.0",
+    "ssh2-streams": "^0.4.10",
+    "ts-jest": "^29.4.0",
+    "typescript": "^5.8.3"
+  }
+}
