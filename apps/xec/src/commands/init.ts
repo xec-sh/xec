@@ -351,9 +351,7 @@ ${projectDescription || 'An Xec automation project'}
 
 ## Learn More
 
-- [Xec Documentation](https://github.com/xec-sh/xec)
-- [Writing Scripts](https://github.com/xec-sh/xec/docs/scripts)
-- [Custom Commands](https://github.com/xec-sh/xec/docs/commands)
+- [Xec Documentation](https://xec.sh/docs)
 `;
 
           await fs.writeFile(
@@ -387,6 +385,14 @@ ${projectDescription || 'An Xec automation project'}
           clack.log.info(`  ${chalk.cyan('cd')} ${directory || '.'}`);
           clack.log.info(`  ${chalk.cyan('xec')} .xec/scripts/example.js`);
           clack.log.info(`  ${chalk.cyan('xec')} hello World`);
+          clack.log.info(`\nCreate new templates:`);
+          clack.log.info(`  ${chalk.cyan('xec new script')} my-script`);
+          clack.log.info(`  ${chalk.cyan('xec new command')} my-command`);
+        } else {
+          clack.log.info('\nNext steps:');
+          clack.log.info(`  ${chalk.cyan('cd')} ${directory || '.'}`);
+          clack.log.info(`  ${chalk.cyan('xec new script')} my-script`);
+          clack.log.info(`  ${chalk.cyan('xec new command')} my-command`);
         }
 
       } catch (error) {

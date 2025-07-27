@@ -335,6 +335,7 @@ chmod 600 ~/.ssh/id_rsa
 ## Next Steps
 
 - Explore [individual commands](./commands) in detail
+- Learn how to [create custom commands and scripts](./custom-commands)
 - Review the configuration examples above
 
 ## Getting Help

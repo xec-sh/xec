@@ -16,6 +16,7 @@ Comprehensive reference for all Xec CLI commands.
 | [`env`](#env) | Environment variable management | `xec env set NODE_ENV production` |
 | [`exec`](#exec) | Execute shell commands | `xec exec 'ls -la'` |
 | [`init`](#init) | Initialize new Xec project | `xec init my-project` |
+| [`new`](#new) | Create new script or command template | `xec new script deploy` |
 | [`k8s`](#k8s) | Kubernetes operations | `xec k8s exec my-pod date` |
 | [`list`](#list) | List files and directories | `xec list /var/log` |
 | [`run`](#run) | Run scripts or recipes | `xec run deploy.js` |
@@ -406,7 +407,7 @@ xec exec '
 
 ## init
 
-Initialize a new Xec project.
+Initialize a new Xec project with configurable structure.
 
 ### Syntax
 ```bash
@@ -416,28 +417,54 @@ xec init [project-name] [options]
 ### Options
 | Option | Description |
 |--------|-------------|
-| `--minimal, -m` | Create minimal project structure |
-| `--force, -f` | Overwrite existing |
-| `--skip-git` | Skip git initialization |
-| `--name` | Project name |
-| `--description` | Project description |
+| `--minimal, -m` | Create minimal project structure (no examples) |
+| `--force, -f` | Overwrite existing files |
+| `--skip-git` | Skip git repository initialization |
+| `--name <name>` | Project name (used in config) |
+| `--description <desc>` | Project description |
+
+### Project Structure Variants
+
+#### Standard Project (default)
+```bash
+xec init my-project
+```
+Creates a full project structure with:
+- Configuration file (`config.yaml`)
+- Example scripts (`example.js`, `deploy.js`)
+- Example command (`hello.js`)
+- Project documentation (`README.md`)
+- Git repository initialization
+
+#### Minimal Project (`-m` flag)
+```bash
+xec init my-project -m
+```
+Creates only essential structure:
+- Configuration file (`config.yaml`)
+- Empty directories (`scripts/`, `commands/`, `cache/`, `logs/`)
+- `.gitignore` file
+- No example files or README
 
 ### Examples
 ```bash
-# Create basic project
+# Create standard project with examples
 xec init my-automation
 
-# Create minimal project
+# Create minimal project without examples
 xec init my-project --minimal
 
-# Create in current directory
+# Initialize in current directory
+xec init .
+
+# Force overwrite existing project
 xec init . --force
 
-# With project details
-xec init my-project --name="My Project" --description="Automation project"
+# With custom project details
+xec init my-project --name="My Project" --description="Automation tasks"
 
-# Skip git initialization
-xec init my-project --skip-git
+# Minimal project without git
+xec init my-project -m --skip-git
 ```
 
 ### Created Structure
@@ -455,6 +482,146 @@ my-project/
     ├── .gitignore
     └── README.md
 ```
+
+### Next Steps
+After initialization:
+1. Create new scripts: `xec new script my-script`
+2. Create new commands: `xec new command my-command`
+3. Run example script: `xec .xec/scripts/example.js` (if not minimal)
+4. Try example command: `xec hello World` (if not minimal)
+
+---
+
+## new
+
+Create new script or command templates in your Xec project.
+
+### Syntax
+```bash
+xec new <type> <name> [options]
+```
+
+### Arguments
+| Argument | Description | Values |
+|----------|-------------|--------|
+| `type` | Type of template to create | `script`, `command` |
+| `name` | Name for the new file | Any valid filename |
+
+### Options
+| Option | Description |
+|--------|-------------|
+| `--description, -d <desc>` | Description for the template |
+| `--force, -f` | Overwrite existing file |
+| `--advanced` | Use advanced template with more features |
+
+### Template Types
+
+#### Script Templates
+
+**Basic Script** (default):
+- Simple script structure
+- Basic examples (commands, file operations, prompts)
+- Good for quick automation tasks
+
+**Advanced Script** (`--advanced`):
+- Command-line argument parsing
+- Error handling with try/catch
+- Progress indicators and spinners
+- Environment validation
+- Helper functions structure
+
+#### Command Templates
+
+**Basic Command** (default):
+- Single command with options
+- Simple action handler
+- Good for straightforward CLI commands
+
+**Advanced Command** (`--advanced`):
+- Multiple subcommands (list, create, delete)
+- Complex option handling
+- Interactive prompts
+- Error handling
+- Helper functions
+
+### Examples
+
+#### Creating Scripts
+```bash
+# Create basic script
+xec new script deploy
+
+# Create advanced script with description
+xec new script backup --advanced -d "Backup database and files"
+
+# Overwrite existing script
+xec new script test -f
+```
+
+#### Creating Commands
+```bash
+# Create basic command
+xec new command greet
+
+# Create advanced command with subcommands
+xec new command manage --advanced
+
+# With custom description
+xec new command sync -d "Sync files between environments"
+```
+
+### Generated Files
+
+#### Scripts
+Created in `.xec/scripts/{name}.js`:
+- Executable permissions set automatically
+- Shebang line for direct execution
+- Imports for common Xec utilities
+
+#### Commands
+Created in `.xec/commands/{name}.js`:
+- Exports command configuration
+- Automatically registered with CLI
+- Available as `xec {name}`
+
+### Usage After Creation
+
+#### For Scripts
+```bash
+# Run the new script
+xec .xec/scripts/deploy.js
+
+# Or make it executable and run directly
+chmod +x .xec/scripts/deploy.js
+./.xec/scripts/deploy.js
+```
+
+#### For Commands
+```bash
+# Use the new command
+xec greet --help
+xec greet World
+
+# For advanced commands with subcommands
+xec manage list
+xec manage create item-name
+```
+
+### Template Customization
+
+After creating a template, customize it by:
+1. Editing the generated file
+2. Adding your specific logic
+3. Updating options and arguments
+4. Adding environment-specific configurations
+
+### Best Practices
+
+1. **Naming**: Use descriptive names (e.g., `deploy-prod`, `backup-db`)
+2. **Description**: Always provide a description for documentation
+3. **Start Simple**: Use basic templates and add complexity as needed
+4. **Test First**: Test scripts in development before production use
+5. **Version Control**: Commit templates to Git immediately
 
 ---
 
