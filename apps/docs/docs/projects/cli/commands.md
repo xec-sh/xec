@@ -44,9 +44,6 @@ xec config init
 
 # Create global config
 xec config init --global
-
-# Use template
-xec config init --template=advanced
 ```
 
 #### `config get`
@@ -419,48 +416,44 @@ xec init [project-name] [options]
 ### Options
 | Option | Description |
 |--------|-------------|
-| `--template, -t` | Project template |
-| `--dir, -d` | Directory to create |
+| `--minimal, -m` | Create minimal project structure |
 | `--force, -f` | Overwrite existing |
-| `--git` | Initialize git repo |
-| `--install` | Install dependencies |
-
-### Templates
-- `basic` - Simple project structure
-- `full` - Complete with examples
-- `typescript` - TypeScript project
-- `monorepo` - Monorepo structure
-- `ci-cd` - With CI/CD pipelines
+| `--skip-git` | Skip git initialization |
+| `--name` | Project name |
+| `--description` | Project description |
 
 ### Examples
 ```bash
 # Create basic project
 xec init my-automation
 
-# Use TypeScript template
-xec init my-project --template=typescript
+# Create minimal project
+xec init my-project --minimal
 
 # Create in current directory
 xec init . --force
 
-# Full setup
-xec init my-project --template=full --git --install
+# With project details
+xec init my-project --name="My Project" --description="Automation project"
 
-# Custom directory
-xec init --dir=./projects/automation --template=ci-cd
+# Skip git initialization
+xec init my-project --skip-git
 ```
 
 ### Created Structure
 ```
 my-project/
-├── .xec/
-│   ├── config.json
-│   └── recipes/
-├── scripts/
-│   └── example.js
-├── package.json
-├── README.md
-└── .gitignore
+└── .xec/
+    ├── config.yaml      # Project configuration
+    ├── scripts/         # Xec scripts
+    │   ├── example.js
+    │   └── deploy.js
+    ├── commands/        # Custom CLI commands
+    │   └── hello.js
+    ├── cache/           # Cache directory
+    ├── logs/            # Log files
+    ├── .gitignore
+    └── README.md
 ```
 
 ---

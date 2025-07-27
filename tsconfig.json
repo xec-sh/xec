@@ -8,7 +8,6 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "outDir": "./dist",
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
