@@ -1,0 +1,44 @@
+# Xec Project Configuration
+name: xec-project
+description: An Xec automation project
+
+# Default settings
+defaults:
+  adapter: local
+  shell: /bin/bash
+  timeout: 30000
+
+# Environment-specific settings  
+environments:
+  development:
+    env:
+      NODE_ENV: development
+      DEBUG: true
+  
+  production:
+    env:
+      NODE_ENV: production
+      DEBUG: false
+
+# SSH hosts configuration
+ssh:
+  defaults:
+    port: 22
+    keepAlive: true
+  
+  hosts:
+    # example-server:
+    #   host: example.com
+    #   user: deploy
+    #   key: ~/.ssh/id_rsa
+
+# Docker configuration  
+docker:
+  defaults:
+    network: bridge
+
+# Kubernetes configuration
+kubernetes:
+  defaults:
+    namespace: default
+    # context: my-cluster

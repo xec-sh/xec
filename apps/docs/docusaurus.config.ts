@@ -125,8 +125,8 @@ const config: Config = {
     announcementBar: {
       id: 'alpha_version',
       content: '🚧 Xec is currently in alpha. APIs may change.',
-      backgroundColor: '#fafbfc',
-      textColor: '#091E42',
+      backgroundColor: '#e6f7f9',
+      textColor: '#0a5d6b',
       isCloseable: true,
     },
 

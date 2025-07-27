@@ -223,7 +223,7 @@ xec watch '**/*.js' --exec 'npm test'
 xec run deploy --env=staging
 
 # Initialize new project
-xec init my-project --template=basic
+xec init my-project
 ```
 
 ## Extending the CLI

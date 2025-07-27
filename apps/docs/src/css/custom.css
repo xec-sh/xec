@@ -12,13 +12,14 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #8c64f1;
-  --ifm-color-primary-dark: #7c4fee;
-  --ifm-color-primary-darker: #6c3aeb;
-  --ifm-color-primary-darkest: #5c25e8;
-  --ifm-color-primary-light: #9c79f4;
-  --ifm-color-primary-lighter: #ac8ef7;
-  --ifm-color-primary-lightest: #bca3fa;
+  /* Primary color based on logo teal color #3cacb6 */
+  --ifm-color-primary: #3cacb6;
+  --ifm-color-primary-dark: #349ca5;
+  --ifm-color-primary-darker: #328f98;
+  --ifm-color-primary-darkest: #2a787e;
+  --ifm-color-primary-light: #4cbcc6;
+  --ifm-color-primary-lighter: #5fc9d3;
+  --ifm-color-primary-lightest: #7dd6e0;
   
   --ifm-code-font-size: 95%;
   --ifm-font-family-base:
@@ -26,12 +27,15 @@
   --ifm-font-family-monospace:
     'Fira Code', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   
-    --docusaurus-highlighted-code-line-bg: rgba(140, 100, 241, 0.1);
+  --docusaurus-highlighted-code-line-bg: rgba(60, 172, 182, 0.1);
 
-  --xec-hero-gradient: linear-gradient(135deg, #24bce3 0%, #f704fe 100%);
+  /* Use logo gradient colors */
+  --xec-hero-gradient: linear-gradient(135deg, #3cacb6 0%, #8ccead 100%);
   --xec-border-color: #d1d5db;
-  --xec-accent-cyan: #24bce3;
-  --xec-accent-purple: #f704fe;
+  --xec-accent-primary: #3cacb6;
+  --xec-accent-secondary: #8ccead;
+  --xec-accent-cyan: #3cacb6;
+  --xec-accent-mint: #8ccead;
 }
 
 /* Apply Fira Code font to all code elements */
@@ -51,19 +55,23 @@ code {
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #ac8ef7;
-  --ifm-color-primary-dark: #9c79f4;
-  --ifm-color-primary-darker: #8c64f1;
-  --ifm-color-primary-darkest: #7c4fee;
-  --ifm-color-primary-light: #bca3fa;
-  --ifm-color-primary-lighter: #ccb8fd;
-  --ifm-color-primary-lightest: #dccdff;
-  --docusaurus-highlighted-code-line-bg: rgba(172, 142, 247, 0.2);
+  /* Use the mint green color as primary in dark mode for better readability */
+  --ifm-color-primary: #8ccead;
+  --ifm-color-primary-dark: #7dc19f;
+  --ifm-color-primary-darker: #73b897;
+  --ifm-color-primary-darkest: #5fa07c;
+  --ifm-color-primary-light: #9bd8bb;
+  --ifm-color-primary-lighter: #a5e1c3;
+  --ifm-color-primary-lightest: #b9ebd3;
+  --docusaurus-highlighted-code-line-bg: rgba(140, 206, 173, 0.2);
 
-  --xec-hero-gradient: linear-gradient(135deg, #24bce3 0%, #f704fe 100%);
+  /* Keep the same gradient in dark mode */
+  --xec-hero-gradient: linear-gradient(135deg, #3cacb6 0%, #8ccead 100%);
   --xec-border-color: #4b5563;
-  --xec-accent-cyan: #24bce3;
-  --xec-accent-purple: #f704fe;
+  --xec-accent-primary: #3cacb6;
+  --xec-accent-secondary: #8ccead;
+  --xec-accent-cyan: #3cacb6;
+  --xec-accent-mint: #8ccead;
 }
 
 /* Additional specific selectors for Docusaurus code blocks */

@@ -1,0 +1,16 @@
+# Xec project files
+.xec/cache/
+.xec/logs/
+.xec/tmp/
+.xec/.env
+.xec/.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files  
+.vscode/
+.idea/
+*.swp
+*.swo

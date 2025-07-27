@@ -132,11 +132,11 @@
 /* CTA Section */
 .cta {
   padding: 4rem 0;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(124, 58, 237, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(60, 172, 182, 0.05) 0%, rgba(140, 206, 173, 0.05) 100%);
 }
 
 [data-theme='dark'] .cta {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(60, 172, 182, 0.1) 0%, rgba(140, 206, 173, 0.1) 100%);
 }
 
 .ctaDescription {

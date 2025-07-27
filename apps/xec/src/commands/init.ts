@@ -7,7 +7,6 @@ import * as clack from '@clack/prompts';
 
 interface InitOptions {
   minimal?: boolean;
-  template?: string;
   force?: boolean;
   skipGit?: boolean;
   name?: string;
@@ -219,7 +218,6 @@ export default function (program: Command) {
     .command('init [directory]')
     .description('Initialize a new Xec project')
     .option('-m, --minimal', 'Create minimal project structure')
-    .option('-t, --template <name>', 'Use a specific template')
     .option('-f, --force', 'Overwrite existing files')
     .option('--skip-git', 'Skip git initialization')
     .option('--name <name>', 'Project name')
@@ -228,14 +226,14 @@ export default function (program: Command) {
       try {
         const targetDir = path.resolve(directory || '.');
         const xecDir = path.join(targetDir, '.xec');
-        
+
         // Check if .xec already exists
         if (fs.existsSync(xecDir) && !options.force) {
           const shouldContinue = await clack.confirm({
             message: '.xec directory already exists. Overwrite?',
             initialValue: false
           });
-          
+
           if (!shouldContinue) {
             clack.log.info('Initialization cancelled');
             return;
@@ -270,18 +268,14 @@ export default function (program: Command) {
         }
 
         const tasks = clack.spinner();
-        
+
         // Create directory structure
         tasks.start('Creating project structure...');
-        
+
         const dirs = [
           '.xec',
           '.xec/scripts',
           '.xec/commands',
-          '.xec/templates',
-          '.xec/pipelines',
-          '.xec/batches',
-          '.xec/inventory',
           '.xec/cache',
           '.xec/logs'
         ];
@@ -294,7 +288,7 @@ export default function (program: Command) {
         const configContent = CONFIG_TEMPLATE
           .replace('{name}', projectName || 'xec-project')
           .replace('{description}', projectDescription || 'An Xec automation project');
-        
+
         await fs.writeFile(
           path.join(xecDir, 'config.yaml'),
           configContent
@@ -352,10 +346,8 @@ ${projectDescription || 'An Xec automation project'}
 - \`.xec/config.yaml\` - Project configuration
 - \`.xec/scripts/\` - Xec scripts
 - \`.xec/commands/\` - Custom CLI commands
-- \`.xec/templates/\` - File templates
-- \`.xec/pipelines/\` - Pipeline definitions
-- \`.xec/batches/\` - Batch job definitions
-- \`.xec/inventory/\` - Host inventories
+- \`.xec/cache/\` - Cache directory
+- \`.xec/logs/\` - Log files
 
 ## Learn More
 
@@ -363,7 +355,7 @@ ${projectDescription || 'An Xec automation project'}
 - [Writing Scripts](https://github.com/xec-sh/xec/docs/scripts)
 - [Custom Commands](https://github.com/xec-sh/xec/docs/commands)
 `;
-          
+
           await fs.writeFile(
             path.join(xecDir, 'README.md'),
             readmeContent
@@ -389,7 +381,7 @@ ${projectDescription || 'An Xec automation project'}
         }
 
         clack.outro(chalk.green('✅ Xec project initialized successfully!'));
-        
+
         if (!options.minimal) {
           clack.log.info('\nNext steps:');
           clack.log.info(`  ${chalk.cyan('cd')} ${directory || '.'}`);
