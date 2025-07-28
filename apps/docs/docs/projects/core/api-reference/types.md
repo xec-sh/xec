@@ -429,6 +429,7 @@ interface DockerContainer extends CallableExecutionEngine {
   // Execution
   exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
   exec(command: string): ProcessPromise;
+  execRaw(command: string, args?: string[]): Promise<ExecutionResult>;
   
   // Status and monitoring
   isRunning(): Promise<boolean>;

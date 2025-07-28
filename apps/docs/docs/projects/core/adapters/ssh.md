@@ -306,12 +306,17 @@ const apiTunnel = await remote.tunnel({
 
 // Use tunnels...
 
-// Clean up
+// Clean up - manual close
 await Promise.all([
   dbTunnel.close(),
   redisTunnel.close(),
   apiTunnel.close()
 ]);
+
+// Or let dispose handle it - more robust
+// The adapter's dispose method will attempt to close all tunnels
+// even if some fail, ensuring maximum cleanup
+await remote.getAdapter('ssh').dispose();
 ```
 
 ## Sudo Operations
@@ -650,6 +655,24 @@ try {
   await $.dispose();
 }
 ```
+
+When disposing of SSH adapters with active tunnels:
+
+```typescript
+// Multiple tunnels are cleaned up gracefully
+const tunnel1 = await remote.tunnel({ localPort: 3306, remoteHost: 'db', remotePort: 3306 });
+const tunnel2 = await remote.tunnel({ localPort: 6379, remoteHost: 'redis', remotePort: 6379 });
+
+// Dispose will attempt to close all tunnels
+// Even if one tunnel fails to close, others will still be attempted
+await remote.getAdapter('ssh').dispose();
+```
+
+The dispose method ensures all resources are cleaned up properly:
+- All active tunnels are closed (failures are logged but don't prevent other cleanups)
+- SSH connections in the pool are terminated
+- Secure password handlers are cleaned up
+- Event listeners are removed
 
 ### 5. Use Appropriate Timeouts
 

@@ -2,9 +2,9 @@ import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
 
 import { StreamHandler } from '../utils/stream.js';
-import { ExecutionResult } from '../core/result.js';
 import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
 import { Command, DockerAdapterOptions } from '../core/command.js';
+import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
 import { DockerError, AdapterError, sanitizeCommandForError } from '../core/error.js';
 
 export interface DockerAutoCreateOptions {
@@ -317,9 +317,19 @@ export class DockerAdapter extends BaseAdapter {
       args.push('-w', workdir);
     }
 
-    // Add environment variables
-    const env = this.createCombinedEnv(this.config.defaultEnv, command.env);
-    for (const [key, value] of Object.entries(env)) {
+    // Add environment variables - only explicitly specified ones for docker exec
+    const defaultEnv = this.dockerConfig.defaultExecOptions?.Env || [];
+    const envFromDefaults: Record<string, string> = {};
+    for (const envVar of defaultEnv) {
+      const [key, value] = envVar.split('=', 2);
+      if (key && value !== undefined) {
+        envFromDefaults[key] = value;
+      }
+    }
+
+    // Merge with command env, prioritizing command env
+    const envToSet = { ...this.config.defaultEnv, ...envFromDefaults, ...command.env };
+    for (const [key, value] of Object.entries(envToSet)) {
       args.push('-e', `${key}=${value}`);
     }
 
@@ -348,6 +358,8 @@ export class DockerAdapter extends BaseAdapter {
     args: string[],
     command: Partial<Command>
   ): Promise<{ stdout: string; stderr: string; exitCode: number; signal: string | null }> {
+    const timeout = command.timeout;
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer
@@ -366,13 +378,14 @@ export class DockerAdapter extends BaseAdapter {
     // Check if we're running with TTY
     const hasTTY = args.includes('-t');
     const hasInteractive = args.includes('-i');
+    const useInheritStdin = hasTTY && hasInteractive && process.stdin.isTTY;
 
     const child = spawn('docker', args, {
       env,
       cwd: command.cwd || process.cwd(), // Use command's cwd if provided
       windowsHide: true,
-      // Inherit stdio for interactive TTY mode to support proper terminal interaction
-      stdio: hasTTY && hasInteractive && process.stdin.isTTY ? ['inherit', 'inherit', 'inherit'] : ['pipe', 'pipe', 'pipe']
+      // Always pipe stdout and stderr to capture output, only inherit stdin for TTY
+      stdio: useInheritStdin ? ['inherit', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
     });
 
     // Handle stdin only if not in inherit mode
@@ -387,44 +400,95 @@ export class DockerAdapter extends BaseAdapter {
 
     // Collect output only if not in inherit mode
     if (child.stdout) {
-      child.stdout.pipe(stdoutHandler.createTransform());
+      const stdoutTransform = stdoutHandler.createTransform();
+      child.stdout.pipe(stdoutTransform);
+      // Consume the transform stream to prevent backpressure
+      stdoutTransform.on('data', () => { });
     }
 
     if (child.stderr) {
-      child.stderr.pipe(stderrHandler.createTransform());
+      const stderrTransform = stderrHandler.createTransform();
+      child.stderr.pipe(stderrTransform);
+      // Consume the transform stream to prevent backpressure
+      stderrTransform.on('data', () => { });
     }
 
     // Wait for completion
     return new Promise((resolve, reject) => {
-      child.on('error', reject);
+      let timeoutId: NodeJS.Timeout | undefined;
+      let timedOut = false;
+
+      if (timeout && timeout > 0) {
+        timeoutId = setTimeout(() => {
+          timedOut = true;
+          child.kill('SIGTERM');
+          // Give it a moment to die gracefully, then force kill
+          setTimeout(() => {
+            if (!child.killed) {
+              child.kill('SIGKILL');
+            }
+          }, 1000);
+        }, timeout);
+      }
+
+      child.on('error', (error) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        reject(error);
+      });
 
       child.on('exit', (code, signal) => {
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (timedOut) {
+          reject(new Error(`Command timed out after ${timeout}ms`));
+          return;
+        }
+
         const result = {
           stdout: stdoutHandler.getContent(),
           stderr: stderrHandler.getContent(),
           exitCode: code ?? 0,
           signal
         };
-        
+
         resolve(result);
       });
     });
   }
 
   protected override async createResult(
-      stdout: string,
-      stderr: string,
-      exitCode: number,
-      signal: string | undefined,
-      command: string,
-      startTime: number,
-      endTime: number,
-      context?: { host?: string; container?: string; originalCommand?: Command }
-    ): Promise<ExecutionResult> {
-    const result = await super.createResult(stdout, stderr, exitCode, signal, command, startTime, endTime, context);
+    stdout: string,
+    stderr: string,
+    exitCode: number,
+    signal: string | undefined,
+    command: string,
+    startTime: number,
+    endTime: number,
+    context?: { host?: string; container?: string; originalCommand?: Command }
+  ): Promise<ExecutionResult> {
+    // Don't call super.createResult as it will throw CommandError
+    // Instead, create the result directly
+    const maskedCommand = this.maskSensitiveData(command);
+    const maskedStdout = this.maskSensitiveData(stdout);
+    const maskedStderr = this.maskSensitiveData(stderr);
 
-    // Override error handling to throw DockerError instead of CommandError
-    if (context?.originalCommand && this.shouldThrowOnNonZeroExit(context.originalCommand, exitCode)) {
+    const result = new ExecutionResultImpl(
+      maskedStdout,
+      maskedStderr,
+      exitCode,
+      signal,
+      maskedCommand,
+      endTime - startTime,
+      new Date(startTime),
+      new Date(endTime),
+      this.adapterName,
+      context?.host,
+      context?.container
+    );
+
+    // Use originalCommand if available, otherwise fall back to command string
+    const commandForThrowCheck = context?.originalCommand ?? command;
+    if (this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
       const container = context?.container || 'unknown';
       throw new DockerError(container, 'execute', new Error(`Command failed with exit code ${exitCode}: ${sanitizeCommandForError(command)}`));
     }
@@ -494,24 +558,16 @@ export class DockerAdapter extends BaseAdapter {
 
     args.push(options.image);
 
-    try {
-      const result = await this.executeDockerCommand(args, {});
-      if (result.exitCode !== 0) {
-        throw new DockerError(options.name, 'create', new Error(result.stderr));
-      }
-    } catch (error) {
-      throw error;
+    const result = await this.executeDockerCommand(args, {});
+    if (result.exitCode !== 0) {
+      throw new DockerError(options.name, 'create', new Error(result.stderr));
     }
   }
 
   async startContainer(container: string): Promise<void> {
-    try {
-      const result = await this.executeDockerCommand(['start', container], {});
-      if (result.exitCode !== 0) {
-        throw new DockerError(container, 'start', new Error(result.stderr));
-      }
-    } catch (error) {
-      throw error;
+    const result = await this.executeDockerCommand(['start', container], {});
+    if (result.exitCode !== 0) {
+      throw new DockerError(container, 'start', new Error(result.stderr));
     }
   }
 
@@ -534,51 +590,51 @@ export class DockerAdapter extends BaseAdapter {
     command?: string[];
   }): Promise<void> {
     const args = ['run', '-d', '--name', options.name];
-    
+
     if (options.volumes) {
       for (const volume of options.volumes) {
         args.push('-v', volume);
       }
     }
-    
+
     if (options.env) {
       for (const [key, value] of Object.entries(options.env)) {
         args.push('-e', `${key}=${value}`);
       }
     }
-    
+
     if (options.ports) {
       for (const port of options.ports) {
         args.push('-p', port);
       }
     }
-    
+
     if (options.network) {
       args.push('--network', options.network);
     }
-    
+
     if (options.restart) {
       args.push('--restart', options.restart);
     }
-    
+
     if (options.workdir) {
       args.push('-w', options.workdir);
     }
-    
+
     if (options.user) {
       args.push('-u', options.user);
     }
-    
+
     if (options.labels) {
       for (const [key, value] of Object.entries(options.labels)) {
         args.push('--label', `${key}=${value}`);
       }
     }
-    
+
     if (options.privileged) {
       args.push('--privileged');
     }
-    
+
     if (options.healthcheck) {
       const hc = options.healthcheck;
       if (Array.isArray(hc.test)) {
@@ -591,16 +647,16 @@ export class DockerAdapter extends BaseAdapter {
       if (hc.retries) args.push('--health-retries', String(hc.retries));
       if (hc.startPeriod) args.push('--health-start-period', hc.startPeriod);
     }
-    
+
     args.push(options.image);
-    
+
     if (options.command) {
       args.push(...options.command);
     }
-    
+
     const result = await this.executeDockerCommand(args, {});
     if (result.exitCode !== 0) {
-      throw new DockerError(options.name, 'run', new Error(result.stderr));
+      throw new DockerError(options.name, 'run', new Error(`Docker run failed: ${result.stderr || result.stdout}`));
     }
   }
 
@@ -662,16 +718,12 @@ export class DockerAdapter extends BaseAdapter {
     args.push('.');
 
     // Execute the command with cwd set to the context directory
-    try {
-      const result = await this.executeDockerCommand(args, {
-        cwd: options.context || process.cwd()
-      });
+    const result = await this.executeDockerCommand(args, {
+      cwd: options.context || process.cwd()
+    });
 
-      if (result.exitCode !== 0) {
-        throw new DockerError('', 'build', new Error(result.stderr));
-      }
-    } catch (error) {
-      throw error;
+    if (result.exitCode !== 0) {
+      throw new DockerError('', 'build', new Error(result.stderr));
     }
   }
 

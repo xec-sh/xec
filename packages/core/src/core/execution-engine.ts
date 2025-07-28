@@ -2,15 +2,14 @@
 import * as os from 'os';
 import * as path from 'path';
 
-import { pipe } from '../utils/pipe.js';
 import { AdapterError } from './error.js';
 import { stream } from '../utils/stream.js';
-import { ExecutionResult } from './result.js';
 import { TransferEngine } from '../utils/transfer.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
 import { globalCache, CacheOptions } from '../utils/cache.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
+import { ExecutionResult, ExecutionResultImpl } from './result.js';
 import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
@@ -21,6 +20,7 @@ import { SSHExecutionContext, createSSHExecutionContext } from '../utils/ssh-api
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
+import { executePipe, type PipeTarget, type PipeOptions } from './pipe-implementation.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../utils/kubernetes-api.js';
 import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
 import { DockerContext, createDockerContext, DockerContainerConfig } from '../utils/docker-api.js';
@@ -62,7 +62,7 @@ export interface ExecutionEngineConfig extends EventConfig {
 
 export interface ProcessPromise extends Promise<ExecutionResult> {
   stdin: NodeJS.WritableStream;
-  pipe(target: ProcessPromise | ExecutionEngine | NodeJS.WritableStream | TemplateStringsArray, ...args: any[]): ProcessPromise;
+  pipe(target: PipeTarget | TemplateStringsArray, ...args: any[]): ProcessPromise;
   signal(signal: AbortSignal): ProcessPromise;
   timeout(ms: number, timeoutSignal?: string): ProcessPromise;
   quiet(): ProcessPromise;
@@ -91,7 +91,6 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
 export class ExecutionEngine extends EnhancedEventEmitter implements Disposable {
   // Core features
   // Removed retry and expBackoff - use command-level retry options instead
-  public readonly pipe = pipe;
   public readonly stream = stream;
   private _parallel?: ParallelEngine;
   public get parallel(): ParallelEngine {
@@ -124,18 +123,18 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
   constructor(config: ExecutionEngineConfig = {}, existingAdapters?: Map<string, BaseAdapter>) {
     super();
-    
+
     this._config = this.validateConfig(config);
-    
+
     // Set max listeners based on config
     this.setMaxListeners(config.maxEventListeners || 100);
-    
+
     // Disable event emission if requested
     if (config.enableEvents === false) {
       this.emit = () => false;
     }
-    
-    
+
+
     if (existingAdapters) {
       this.adapters = existingAdapters;
     } else {
@@ -147,12 +146,12 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
    * Helper method to emit events with proper typing and performance optimization
    */
   private emitEvent<K extends keyof UshEventMap>(
-    event: K, 
+    event: K,
     data: Omit<UshEventMap[K], 'timestamp' | 'adapter'>
   ): void {
     // Skip if no listeners (performance optimization)
     if (!this.listenerCount(event)) return;
-    
+
     this.emit(event, {
       ...data,
       timestamp: new Date(),
@@ -181,11 +180,25 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       }
     }
 
+    // Validate maxBuffer
+    if (config.maxBuffer !== undefined && config.maxBuffer <= 0) {
+      throw new Error(`Invalid buffer size: ${config.maxBuffer}`);
+    }
+
+    // Validate maxEventListeners
+    if (config.maxEventListeners !== undefined && config.maxEventListeners <= 0) {
+      throw new Error(`Invalid max event listeners: ${config.maxEventListeners}`);
+    }
+
     // Set defaults
     validatedConfig.defaultTimeout = config.defaultTimeout ?? 30000;
     validatedConfig.throwOnNonZeroExit = config.throwOnNonZeroExit ?? true;
     validatedConfig.encoding = config.encoding ?? 'utf8';
     validatedConfig.maxBuffer = config.maxBuffer ?? 10 * 1024 * 1024;
+    
+    // Preserve event configuration
+    validatedConfig.enableEvents = config.enableEvents;
+    validatedConfig.maxEventListeners = config.maxEventListeners;
 
     return validatedConfig;
   }
@@ -206,6 +219,13 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     };
     this.adapters.set('ssh', new SSHAdapter(sshConfig));
 
+    // Initialize Kubernetes adapter (always available for lazy loading)
+    const k8sConfig = {
+      ...this.getBaseAdapterConfig(),
+      ...this._config.adapters?.kubernetes
+    };
+    this.adapters.set('kubernetes', new KubernetesAdapter(k8sConfig));
+
     // Initialize Docker adapter if config provided
     if (this._config.adapters?.docker) {
       const dockerConfig = {
@@ -213,14 +233,6 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         ...this._config.adapters.docker
       };
       this.adapters.set('docker', new DockerAdapter(dockerConfig));
-    }
-    // Initialize Kubernetes adapter if config provided
-    if (this._config.adapters?.kubernetes) {
-      const k8sConfig = {
-        ...this.getBaseAdapterConfig(),
-        ...this._config.adapters.kubernetes
-      };
-      this.adapters.set('kubernetes', new KubernetesAdapter(k8sConfig));
     }
 
     // Initialize Remote Docker adapter if config provided
@@ -248,12 +260,23 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   // Main execution method
   async execute(command: Command): Promise<ExecutionResult> {
     const startTime = Date.now();
-    
+
     // Check for local context from within()
     const localContext = asyncLocalStorage.getStore();
-    const contextCommand = localContext
-      ? { ...localContext, ...command }
-      : command;
+    let contextCommand = command;
+
+    if (localContext) {
+      // Handle defaultEnv from within() context
+      const { defaultEnv, ...otherContext } = localContext;
+      contextCommand = {
+        ...otherContext,
+        ...command,
+        env: {
+          ...(defaultEnv || {}),
+          ...(command.env || {})
+        }
+      };
+    }
 
     const mergedCommand = { ...this.currentConfig, ...contextCommand };
     const adapter = await this.selectAdapter(mergedCommand);
@@ -273,7 +296,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
     try {
       let result: ExecutionResult;
-      
+
       // Apply retry logic if retry options are specified in the command
       if (mergedCommand.retry) {
         const maxRetries = mergedCommand.retry.maxRetries ?? 0;
@@ -298,7 +321,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       } else {
         result = await adapter.execute(mergedCommand);
       }
-      
+
       // Emit complete event
       this.emitEvent('command:complete', {
         command: mergedCommand.command || '',
@@ -307,7 +330,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         stderr: result.stderr,
         duration: Date.now() - startTime
       });
-      
+
       return result;
     } catch (error) {
       // Emit error event
@@ -316,7 +339,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         error: error instanceof Error ? error.message : String(error),
         duration: Date.now() - startTime
       });
-      
+
       throw error;
     }
   }
@@ -438,10 +461,14 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
         // Resolve the command first (this is where thenables are awaited)
         const commandParts = await commandResolver();
+        // Apply global throwOnNonZeroExit configuration if not explicitly set
+        const globalNothrow = this._config.throwOnNonZeroExit === false;
         const currentCommand: Command = {
           ...this.currentConfig,
           ...commandParts,
-          ...pendingModifications // Include any modifications from chained methods
+          ...pendingModifications, // Include any modifications from chained methods
+          // Apply global nothrow if not explicitly set
+          nothrow: pendingModifications.nothrow ?? commandParts.nothrow ?? (globalNothrow ? true : undefined)
         } as Command;
 
         // Check cache if enabled
@@ -451,53 +478,97 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             currentCommand.cwd,
             currentCommand.env
           );
-          
+
           const cached = globalCache.get(cacheKey);
           if (cached) {
             // Cache hit - returning cached result
             return cached;
           }
-        }
-
-        const result = await this.execute(currentCommand);
-        
-        // Store in cache if enabled
-        if (cacheOptions) {
-          const cacheKey = cacheOptions.key || globalCache.generateKey(
-            currentCommand.command || '',
-            currentCommand.cwd,
-            currentCommand.env
-          );
-          globalCache.set(cacheKey, result, cacheOptions.ttl || 60000); // Default 1 minute TTL
           
-          // Invalidate related cache entries
-          if (cacheOptions.invalidateOn) {
-            globalCache.invalidate(cacheOptions.invalidateOn);
+          // Check if there's an inflight request for this key
+          const inflight = globalCache.getInflight(cacheKey);
+          if (inflight) {
+            return inflight;
           }
         }
-        
+
+        // Execute the command (possibly as an inflight request)
+        let result: ExecutionResult;
+        let executePromise: Promise<ExecutionResult>;
+        try {
+          executePromise = this.execute(currentCommand);
+          
+          // Track as inflight if caching is enabled
+          if (cacheOptions) {
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.setInflight(cacheKey, executePromise);
+          }
+          
+          result = await executePromise;
+          
+          // Store result in cache if enabled AND (successful OR nothrow is set)
+          if (cacheOptions && (result.exitCode === 0 || currentCommand.nothrow)) {
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.set(cacheKey, result, cacheOptions.ttl || 60000); // Default 1 minute TTL
+            globalCache.clearInflight(cacheKey);
+
+            // Invalidate related cache entries
+            if (cacheOptions.invalidateOn) {
+              globalCache.invalidate(cacheOptions.invalidateOn);
+            }
+          } else if (cacheOptions) {
+            // Clear inflight for failed commands that won't be cached
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.clearInflight(cacheKey);
+          }
+        } catch (error) {
+          // Clear inflight on error
+          if (cacheOptions) {
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.clearInflight(cacheKey);
+          }
+          throw error;
+        }
+
         return result;
       } catch (error) {
         if (pendingModifications.nothrow) {
           // Return error as result
-          return {
-            stdout: '',
-            stderr: error instanceof Error ? error.message : String(error),
-            exitCode: 1,
-            signal: undefined,
-            command: pendingModifications.command || '',
-            duration: 0,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'unknown'
-          } as ExecutionResult;
+          const errorResult = new ExecutionResultImpl(
+            '',
+            error instanceof Error ? error.message : String(error),
+            1,
+            undefined,
+            pendingModifications.command || '',
+            0,
+            new Date(),
+            new Date(),
+            'local'
+          );
+          return errorResult;
         }
         throw error;
       }
     };
 
     const promise = executeCommand() as ProcessPromise;
-    
+
     // Track active process
     this._activeProcesses.add(promise);
     promise.finally(() => {
@@ -508,9 +579,60 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     promise.stdin = null as any;
 
     // Add method chaining - these methods modify the deferred command
-    promise.pipe = (target: ProcessPromise | ExecutionEngine | NodeJS.WritableStream | TemplateStringsArray, ...args: any[]): ProcessPromise => {
-      // Simplified pipe implementation
-      throw new Error('Piping not yet implemented in simplified version');
+    promise.pipe = (target: PipeTarget, optionsOrFirstValue?: PipeOptions | any, ...args: any[]): ProcessPromise => {
+      // Handle overloaded signatures for template literals
+      let pipeOptions: PipeOptions = {};
+      let templateArgs: any[] = args;
+
+      // If target is template literal and second arg is not options
+      if (Array.isArray(target) && 'raw' in target &&
+        optionsOrFirstValue !== undefined &&
+        (typeof optionsOrFirstValue !== 'object' || optionsOrFirstValue === null ||
+          !('throwOnError' in optionsOrFirstValue || 'encoding' in optionsOrFirstValue ||
+            'lineByLine' in optionsOrFirstValue || 'lineSeparator' in optionsOrFirstValue))) {
+        // It's a template value, not options
+        templateArgs = [optionsOrFirstValue, ...args];
+        pipeOptions = {};
+      } else if (typeof optionsOrFirstValue === 'object' && optionsOrFirstValue !== null) {
+        pipeOptions = optionsOrFirstValue;
+      }
+
+      // Create a new ProcessPromise that handles piping
+      const pipedPromise = (async () => {
+        const result = await executePipe(
+          promise,
+          target,
+          this,
+          {
+            throwOnError: !pendingModifications.nothrow,
+            ...pipeOptions
+          },
+          ...templateArgs
+        );
+        return result;
+      })() as ProcessPromise;
+
+      // Copy over the ProcessPromise methods
+      pipedPromise.stdin = null as any;
+      pipedPromise.pipe = promise.pipe;
+      pipedPromise.signal = promise.signal;
+      pipedPromise.timeout = promise.timeout;
+      pipedPromise.quiet = promise.quiet;
+      pipedPromise.nothrow = promise.nothrow;
+      pipedPromise.interactive = promise.interactive;
+      pipedPromise.cache = promise.cache;
+      pipedPromise.env = promise.env;
+      pipedPromise.cwd = promise.cwd;
+      pipedPromise.shell = promise.shell;
+      pipedPromise.stdout = promise.stdout;
+      pipedPromise.stderr = promise.stderr;
+      pipedPromise.text = promise.text;
+      pipedPromise.json = promise.json;
+      pipedPromise.lines = promise.lines;
+      pipedPromise.buffer = promise.buffer;
+      pipedPromise.kill = promise.kill;
+
+      return pipedPromise;
     };
 
     promise.signal = (signal: AbortSignal): ProcessPromise => {
@@ -646,53 +768,97 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             currentCommand.cwd,
             currentCommand.env
           );
-          
+
           const cached = globalCache.get(cacheKey);
           if (cached) {
             // Cache hit - returning cached result
             return cached;
           }
-        }
-
-        const result = await this.execute(currentCommand);
-        
-        // Store in cache if enabled
-        if (cacheOptions) {
-          const cacheKey = cacheOptions.key || globalCache.generateKey(
-            currentCommand.command || '',
-            currentCommand.cwd,
-            currentCommand.env
-          );
-          globalCache.set(cacheKey, result, cacheOptions.ttl || 60000); // Default 1 minute TTL
           
-          // Invalidate related cache entries
-          if (cacheOptions.invalidateOn) {
-            globalCache.invalidate(cacheOptions.invalidateOn);
+          // Check if there's an inflight request for this key
+          const inflight = globalCache.getInflight(cacheKey);
+          if (inflight) {
+            return inflight;
           }
         }
-        
+
+        // Execute the command (possibly as an inflight request)
+        let result: ExecutionResult;
+        let executePromise: Promise<ExecutionResult>;
+        try {
+          executePromise = this.execute(currentCommand);
+          
+          // Track as inflight if caching is enabled
+          if (cacheOptions) {
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.setInflight(cacheKey, executePromise);
+          }
+          
+          result = await executePromise;
+          
+          // Store result in cache if enabled AND (successful OR nothrow is set)
+          if (cacheOptions && (result.exitCode === 0 || currentCommand.nothrow)) {
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.set(cacheKey, result, cacheOptions.ttl || 60000); // Default 1 minute TTL
+            globalCache.clearInflight(cacheKey);
+
+            // Invalidate related cache entries
+            if (cacheOptions.invalidateOn) {
+              globalCache.invalidate(cacheOptions.invalidateOn);
+            }
+          } else if (cacheOptions) {
+            // Clear inflight for failed commands that won't be cached
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.clearInflight(cacheKey);
+          }
+        } catch (error) {
+          // Clear inflight on error
+          if (cacheOptions) {
+            const cacheKey = cacheOptions.key || globalCache.generateKey(
+              currentCommand.command || '',
+              currentCommand.cwd,
+              currentCommand.env
+            );
+            globalCache.clearInflight(cacheKey);
+          }
+          throw error;
+        }
+
         return result;
       } catch (error) {
         if (currentCommand.nothrow) {
           // Return error as result
-          return {
-            stdout: '',
-            stderr: error instanceof Error ? error.message : String(error),
-            exitCode: 1,
-            signal: undefined,
-            command: currentCommand.command,
-            duration: 0,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'unknown'
-          } as ExecutionResult;
+          const errorResult = new ExecutionResultImpl(
+            '',
+            error instanceof Error ? error.message : String(error),
+            1,
+            undefined,
+            currentCommand.command || '',
+            0,
+            new Date(),
+            new Date(),
+            'local'
+          );
+          return errorResult;
         }
         throw error;
       }
     };
 
     const promise = executeCommand() as ProcessPromise;
-    
+
     // Track active process
     this._activeProcesses.add(promise);
     promise.finally(() => {
@@ -703,9 +869,66 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     promise.stdin = null as any;
 
     // Add method chaining
-    promise.pipe = (target: ProcessPromise | ExecutionEngine | NodeJS.WritableStream | TemplateStringsArray, ...args: any[]): ProcessPromise => {
-      // Simplified pipe implementation
-      throw new Error('Piping not yet implemented in simplified version');
+    promise.pipe = (target: PipeTarget, optionsOrFirstValue?: PipeOptions | any, ...args: any[]): ProcessPromise => {
+      // Handle overloaded signatures for template literals
+      let pipeOptions: PipeOptions = {};
+      let templateArgs: any[] = args;
+
+      // If target is template literal and second arg is not options
+      if (Array.isArray(target) && 'raw' in target &&
+        optionsOrFirstValue !== undefined &&
+        (typeof optionsOrFirstValue !== 'object' || optionsOrFirstValue === null ||
+          !('throwOnError' in optionsOrFirstValue || 'encoding' in optionsOrFirstValue ||
+            'lineByLine' in optionsOrFirstValue || 'lineSeparator' in optionsOrFirstValue))) {
+        // It's a template value, not options
+        templateArgs = [optionsOrFirstValue, ...args];
+        pipeOptions = {};
+      } else if (typeof optionsOrFirstValue === 'object' && optionsOrFirstValue !== null) {
+        pipeOptions = optionsOrFirstValue;
+      }
+
+      // Create a new ProcessPromise that handles piping
+      const pipedPromise = (async () => {
+        const result = await executePipe(
+          promise,
+          target,
+          this,
+          {
+            throwOnError: !currentCommand.nothrow,
+            ...pipeOptions
+          },
+          ...templateArgs
+        );
+        return result;
+      })() as ProcessPromise;
+
+      // Copy over the ProcessPromise methods
+      pipedPromise.stdin = null as any;
+      pipedPromise.pipe = promise.pipe;
+      pipedPromise.signal = promise.signal;
+      pipedPromise.timeout = promise.timeout;
+      pipedPromise.quiet = promise.quiet;
+      pipedPromise.nothrow = promise.nothrow;
+      pipedPromise.interactive = promise.interactive;
+      pipedPromise.cache = promise.cache;
+      pipedPromise.env = promise.env;
+      pipedPromise.cwd = promise.cwd;
+      pipedPromise.shell = promise.shell;
+      pipedPromise.stdout = promise.stdout;
+      pipedPromise.stderr = promise.stderr;
+      pipedPromise.text = promise.text;
+      pipedPromise.json = promise.json;
+      pipedPromise.lines = promise.lines;
+      pipedPromise.buffer = promise.buffer;
+      pipedPromise.kill = promise.kill;
+
+      // Track the piped promise too
+      this._activeProcesses.add(pipedPromise);
+      pipedPromise.finally(() => {
+        this._activeProcesses.delete(pipedPromise);
+      });
+
+      return pipedPromise;
     };
 
     promise.signal = (signal: AbortSignal): ProcessPromise => {
@@ -942,7 +1165,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
   // File operation helpers with events
   async readFile(path: string): Promise<string> {
-    const result = await this.execute({ 
+    const result = await this.execute({
       command: 'cat',
       args: [path],
       shell: false
@@ -1057,7 +1280,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     if ('image' in options) {
       return createDockerContext(this, options as DockerContainerConfig);
     }
-    
+
     // Otherwise, return standard execution engine for existing container
     return this.with({
       adapter: 'docker',
@@ -1087,9 +1310,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   cd(dir: string): ExecutionEngine {
     // Get current working directory
     const currentCwd = this.currentConfig.cwd || this._config.defaultCwd || process.cwd();
-    
+
     let resolvedPath: string;
-    
+
     // Handle tilde expansion
     if (dir.startsWith('~')) {
       const homedir = os.homedir();
@@ -1103,7 +1326,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     else {
       resolvedPath = dir;
     }
-    
+
     return this.with({ cwd: resolvedPath });
   }
 
@@ -1135,7 +1358,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       ...options,
       maxConcurrency: options.concurrency || options.maxConcurrency || 5
     };
-    
+
     return this.parallel.settled(commands, batchOptions);
   }
 
@@ -1171,16 +1394,16 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
           self._config.defaultEnv = { ...self._config.defaultEnv, ...updates.defaultEnv };
           delete updates.defaultEnv;
         }
-        
+
         // Shallow merge for the rest
         Object.assign(self._config, updates);
-        
+
         // Update adapters with new config if needed
         if (updates.adapters) {
           self.updateAdapterConfigs(updates.adapters);
         }
       },
-      
+
       /**
        * Get current configuration
        */
@@ -1196,31 +1419,39 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
    * $.defaults({ timeout: 5000, cwd: '/tmp' });
    */
   defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): ExecutionEngine {
-    // Update the current config that will be merged with each command
+    // Create a new engine with the updated defaults
+    const newConfig: Partial<ExecutionEngineConfig> = {};
+
     if (config.defaultEnv) {
-      this._config.defaultEnv = { ...this._config.defaultEnv, ...config.defaultEnv };
-      delete config.defaultEnv;
+      newConfig.defaultEnv = { ...this._config.defaultEnv, ...config.defaultEnv };
     }
     if (config.defaultCwd) {
-      this._config.defaultCwd = config.defaultCwd;
-      delete config.defaultCwd;
+      newConfig.defaultCwd = config.defaultCwd;
     }
     if (config.timeout !== undefined) {
-      this._config.defaultTimeout = config.timeout;
+      newConfig.defaultTimeout = config.timeout;
     }
     if (config.shell !== undefined) {
-      this._config.defaultShell = config.shell;
+      newConfig.defaultShell = config.shell;
     }
-    
-    // Store other command-level defaults
-    Object.assign(this.currentConfig, config);
-    
-    return this;
+
+    // Create new engine with updated config
+    // Don't pass existing adapters - let the new engine create fresh adapters with the new config
+    const newEngine = new ExecutionEngine({ ...this._config, ...newConfig });
+
+    // Copy current command config
+    Object.assign(newEngine.currentConfig, this.currentConfig);
+
+    // Apply remaining command-level defaults
+    const { defaultEnv, defaultCwd, timeout, shell, ...commandDefaults } = config;
+    Object.assign(newEngine.currentConfig, commandDefaults);
+
+    return newEngine;
   }
 
   private updateAdapterConfigs(adapterConfigs: ExecutionEngineConfig['adapters']): void {
     if (!adapterConfigs) return;
-    
+
     // Update existing adapter configurations
     for (const [name, config] of Object.entries(adapterConfigs)) {
       const adapter = this.adapters.get(name);
@@ -1233,7 +1464,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   // Utility methods
   async which(command: string): Promise<string | null> {
     try {
-      const result = await this.run`which ${command}`;
+      const result = await this.run`which ${command}`.nothrow();
       const path = result.stdout.trim();
       // If which returns empty output or non-zero exit, command not found
       return (path && result.exitCode === 0) ? path : null;
@@ -1283,20 +1514,20 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         disposePromises.push(adapter.dispose());
       }
     }
-    
+
     // Wait for all adapters to dispose, but don't let one failure stop others
     await Promise.allSettled(disposePromises);
-    
+
     // Clear the adapters map
     this.adapters.clear();
-    
+
     // Clear lazy-loaded resources
     this._parallel = undefined;
     this._transfer = undefined;
-    
+
     // Remove all event listeners
     this.removeAllListeners();
-    
+
     // Clear current config
     this.currentConfig = {};
   }

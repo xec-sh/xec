@@ -108,6 +108,223 @@ try {
 }
 ```
 
+## Enhanced Error System
+
+@xec-sh/core provides an enhanced error system that automatically analyzes errors and provides helpful suggestions for resolution. Enhanced errors include:
+
+- Automatic suggestions based on exit codes and error patterns
+- Adapter-specific recommendations (SSH, Docker, Kubernetes)
+- Installation commands for missing tools
+- System information for debugging
+- Formatted error display with context
+
+### EnhancedExecutionError
+
+The base enhanced error class that includes suggestions and rich context:
+
+```typescript
+import { EnhancedExecutionError } from '@xec-sh/core';
+
+const error = new EnhancedExecutionError(
+  'Operation failed',
+  'OPERATION_ERROR',
+  { 
+    command: 'npm test',
+    adapter: 'docker',
+    container: 'myapp'
+  },
+  [
+    {
+      message: 'Check if npm is installed',
+      command: 'docker exec myapp which npm'
+    }
+  ]
+);
+
+// Format error for display
+console.log(error.format());
+// Error: Operation failed
+// Code: OPERATION_ERROR
+// Context:
+//   Command: npm test
+//   Adapter: docker
+//   Container: myapp
+// Suggestions:
+//   1. Check if npm is installed
+//      Try: docker exec myapp which npm
+```
+
+### EnhancedCommandError
+
+Automatically analyzes command failures and provides targeted suggestions:
+
+```typescript
+import { EnhancedCommandError } from '@xec-sh/core';
+
+// Command not found (exit code 127)
+try {
+  await $`unknown-command`;
+} catch (error) {
+  if (error instanceof EnhancedCommandError) {
+    console.log(error.format());
+    // Suggestions include:
+    // - Command not found - check if installed
+    // - Try: which unknown-command
+    // - Command 'unknown-command' not found - install it first
+    // - Try: Check package manager for 'unknown-command'
+  }
+}
+
+// Permission denied (exit code 126)
+try {
+  await $`./script.sh`;
+} catch (error) {
+  if (error instanceof EnhancedCommandError) {
+    // Suggestions include:
+    // - Command cannot execute - check permissions
+    // - Try: ls -la ./script.sh
+  }
+}
+```
+
+### EnhancedConnectionError
+
+Provides network diagnostics and connection troubleshooting:
+
+```typescript
+import { EnhancedConnectionError } from '@xec-sh/core';
+
+try {
+  const ssh = $.ssh({ host: 'unknown.host.com', username: 'user' });
+  await ssh`echo test`;
+} catch (error) {
+  if (error instanceof EnhancedConnectionError) {
+    console.log(error.format());
+    // Suggestions include:
+    // - Check network connectivity and host availability
+    // - Try: ping unknown.host.com
+    // - Host not found - check hostname or DNS
+    // - Try: nslookup unknown.host.com
+  }
+}
+```
+
+### EnhancedTimeoutError
+
+Offers performance optimization tips for timeout issues:
+
+```typescript
+import { EnhancedTimeoutError } from '@xec-sh/core';
+
+try {
+  await $.timeout(5000)`npm install`;
+} catch (error) {
+  if (error instanceof EnhancedTimeoutError) {
+    console.log(error.format());
+    // Suggestions include:
+    // - Increase timeout (current: 5000ms)
+    // - Try: xec --timeout 10000ms "npm install"
+    // - Long-running installation detected - consider background
+    // - Try: nohup npm install &
+  }
+}
+```
+
+### Automatic Error Enhancement
+
+The `enhanceError` function automatically converts standard errors to enhanced errors with suggestions:
+
+```typescript
+import { enhanceError } from '@xec-sh/core';
+
+try {
+  await someOperation();
+} catch (error) {
+  const enhanced = enhanceError(error, {
+    adapter: 'ssh',
+    host: 'server.com',
+    command: 'deploy.sh'
+  });
+  
+  console.log(enhanced.format(true)); // Verbose format with stack trace
+}
+```
+
+### Exit Code Analysis
+
+Enhanced errors automatically analyze exit codes and provide specific guidance:
+
+- **Exit Code 1**: General error - check syntax and arguments
+- **Exit Code 2**: Misuse of shell command - provides man page reference
+- **Exit Code 126**: Cannot execute - check file permissions
+- **Exit Code 127**: Command not found - provides installation commands
+- **Exit Code 128**: Invalid argument to exit
+
+### Adapter-Specific Suggestions
+
+Enhanced errors provide targeted suggestions based on the execution adapter:
+
+#### SSH Adapter
+- Connection stability checks
+- SSH key permission fixes
+- Remote environment verification
+
+#### Docker Adapter
+- Container resource monitoring
+- Command availability in container
+- Docker-specific troubleshooting
+
+#### Kubernetes Adapter
+- Pod resource usage
+- Command existence in pod
+- Kubernetes-specific diagnostics
+
+### Installation Suggestions
+
+For missing commands, enhanced errors provide platform-specific installation commands:
+
+```typescript
+// If 'git' is not found
+// Suggestions include:
+// - Command not found - check if installed
+// - Try: which git
+// - Command 'git' not found - install it first
+// - Try: brew install git || apt-get install git || yum install git
+```
+
+### Using Enhanced Errors in Practice
+
+```typescript
+import { $, EnhancedCommandError } from '@xec-sh/core';
+
+async function deployApplication() {
+  try {
+    await $`kubectl apply -f app.yaml`;
+  } catch (error) {
+    if (error instanceof EnhancedCommandError) {
+      // Log formatted error with suggestions
+      console.error(error.format());
+      
+      // Access specific suggestions
+      error.suggestions.forEach(suggestion => {
+        if (suggestion.command) {
+          console.log(`Trying suggestion: ${suggestion.command}`);
+          // Optionally try the suggested command
+        }
+      });
+      
+      // Add custom suggestions
+      error.addSuggestion({
+        message: 'Check deployment documentation',
+        documentation: 'https://docs.company.com/deploy'
+      });
+    }
+    
+    throw error;
+  }
+}
+```
+
 ## Non-Throwing Mode
 
 ### Using nothrow()

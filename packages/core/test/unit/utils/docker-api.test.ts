@@ -215,6 +215,10 @@ describe('Docker API', () => {
 
         expect(mockRun).toHaveBeenCalled();
       });
+
+      it('should throw error if container is not started', async () => {
+        await expect(container.execRaw('echo', ['test'])).rejects.toThrow(DockerError);
+      });
     });
 
     describe('logs()', () => {
@@ -269,6 +273,11 @@ describe('Docker API', () => {
           onData,
           options
         );
+      });
+
+      it('should throw error if container is not started', async () => {
+        const onData = jest.fn();
+        await expect(container.streamLogs(onData)).rejects.toThrow(DockerError);
       });
     });
 
@@ -376,6 +385,10 @@ describe('Docker API', () => {
 
         expect(mockAdapter.waitForHealthy).toHaveBeenCalledWith('test-container', 30000);
       });
+
+      it('should throw error if container is not started', async () => {
+        await expect(container.waitForHealthy()).rejects.toThrow(DockerError);
+      });
     });
 
     describe('stats()', () => {
@@ -385,6 +398,10 @@ describe('Docker API', () => {
 
         expect(stats).toEqual({ memory_stats: { usage: 1048576 } });
         expect(mockAdapter.getStats).toHaveBeenCalledWith('test-container');
+      });
+
+      it('should throw error if container is not started', async () => {
+        await expect(container.stats()).rejects.toThrow(DockerError);
       });
     });
 
@@ -429,6 +446,10 @@ describe('Docker API', () => {
           '/container/file.txt',
           '/local/file.txt'
         );
+      });
+
+      it('should throw error if container is not started', async () => {
+        await expect(container.copyFrom('/container/file.txt', '/local/file.txt')).rejects.toThrow(DockerError);
       });
     });
 

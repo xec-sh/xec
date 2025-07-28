@@ -3,11 +3,13 @@ import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 import { $ } from '../../src/index.js';
 
 // Skip tests if kubectl is not available
-const KUBECTL_AVAILABLE = process.env.KUBECTL_AVAILABLE === 'true';
+const KUBECTL_AVAILABLE = process.env['KUBECTL_AVAILABLE'] === 'true';
 
-describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () => {
-  const TEST_NAMESPACE = process.env.K8S_TEST_NAMESPACE || 'default';
-  const TEST_POD = process.env.K8S_TEST_POD || 'test-nginx';
+const conditionalDescribe = KUBECTL_AVAILABLE ? describe : describe.skip;
+
+conditionalDescribe('Kubernetes Port Forward Integration', () => {
+  const TEST_NAMESPACE = process.env['K8S_TEST_NAMESPACE'] || 'default';
+  const TEST_POD = process.env['K8S_TEST_POD'] || 'test-nginx';
   
   beforeAll(async () => {
     // Ensure test pod exists
@@ -22,14 +24,14 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
 
   afterAll(async () => {
     // Clean up test pod if we created it
-    if (process.env.K8S_CLEANUP !== 'false') {
+    if (process.env['K8S_CLEANUP'] !== 'false') {
       await $`kubectl delete pod ${TEST_POD} -n ${TEST_NAMESPACE} --ignore-not-found`;
     }
   });
 
   describe('Port Forwarding', () => {
     it('should forward specific port', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       // Forward port 8888 locally to port 80 in the pod
@@ -50,7 +52,7 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
     });
 
     it('should allocate dynamic local port', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       // Request dynamic port allocation
@@ -70,7 +72,7 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
     });
 
     it('should handle multiple concurrent forwards', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       // Create multiple port forwards
@@ -96,8 +98,8 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
   });
 
   describe('Streaming Logs', () => {
-    it('should stream logs with follow', async (done) => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+    it('should stream logs with follow', async () => {
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       const collectedLogs: string[] = [];
@@ -112,15 +114,14 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
       await pod.exec`nginx -s reload`;
       
       // Wait a bit for logs
-      setTimeout(() => {
-        stream.stop();
-        expect(collectedLogs.length).toBeGreaterThan(0);
-        done();
-      }, 2000);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      stream.stop();
+      expect(collectedLogs.length).toBeGreaterThan(0);
     });
 
     it('should stream logs from specific time window', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       const collectedLogs: string[] = [];
@@ -140,7 +141,7 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
     });
 
     it('should get logs with timestamps', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       const logs = await pod.logs({ tail: 5, timestamps: true });
@@ -156,7 +157,7 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
 
   describe('File Operations', () => {
     it('should copy file to pod', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       // Create a test file
@@ -176,7 +177,7 @@ describe.skipIf(!KUBECTL_AVAILABLE)('Kubernetes Port Forward Integration', () =>
     });
 
     it('should copy file from pod', async () => {
-      const k8s = $.k8s({ namespace: TEST_NAMESPACE });
+      const k8s = $.k8s();
       const pod = k8s.pod(TEST_POD);
       
       // Create a file in the pod

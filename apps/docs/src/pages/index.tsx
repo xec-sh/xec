@@ -13,11 +13,11 @@ function HomepageHeader() {
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <h1 className="hero__title">
-          <Translate id="homepage.title">Xec</Translate>
+          <Translate id="homepage.title">Xec: The Universal Shell for TypeScript</Translate>
         </h1>
         <p className="hero__subtitle">
           <Translate id="homepage.tagline">
-            Universal Shell with TypeScript API
+            Run commands locally, on SSH, in Docker, or Kubernetes with a single, elegant API. Stop fighting with shell scripts.
           </Translate>
         </p>
         <div className={styles.buttons}>
@@ -41,20 +41,19 @@ function HomepageHeader() {
             <code>
               {`import { $ } from '@xec-sh/core';
 
-// Execute commands with template literals
-await $\`echo "Hello from Xec!"\`;
+// Check Node.js version everywhere
+const getNodeVersion = () => $\`node --version\`;
 
-// SSH execution with the same API
-const ssh = $.ssh({ host: 'server.com', username: 'deploy' });
-await ssh\`apt update && apt upgrade -y\`;
+// 1. Run locally
+await getNodeVersion();
 
-// Docker container management
-const container = await $.docker({ image: 'node:18' }).start();
-await container.exec\`npm test\`;
+// 2. Run on a remote server
+const remote = $.ssh('user@my-server.com');
+await remote.run(getNodeVersion);
 
-// Kubernetes pod operations
-const pod = $.k8s().pod('app-server');
-await pod.portForward(8080, 80);`}
+// 3. Run inside a Docker container
+const container = $.docker('my-node-container');
+await container.run(getNodeVersion);`}
             </code>
           </pre>
         </div>

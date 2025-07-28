@@ -167,7 +167,8 @@ export class KubernetesAdapter extends BaseAdapter {
           signal || undefined,
           mergedCommand.command,
           startTime,
-          endTime
+          endTime,
+          { originalCommand: mergedCommand }
         );
         this.config.throwOnNonZeroExit = originalThrowOnNonZeroExit;
         

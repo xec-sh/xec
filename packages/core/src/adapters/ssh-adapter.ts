@@ -137,7 +137,7 @@ export class SSHAdapter extends BaseAdapter {
 
     try {
       connection = await this.getConnection(sshOptions);
-      
+
       // Emit execute event
       this.emitAdapterEvent('ssh:execute', {
         host: sshOptions.host,
@@ -155,7 +155,7 @@ export class SSHAdapter extends BaseAdapter {
             explicitEnv[key] = value;
           }
         }
-        
+
         if (Object.keys(explicitEnv).length > 0) {
           const envVars = Object.entries(explicitEnv)
             .map(([key, value]) => `export ${key}=${escapeArg(value)}`)
@@ -175,11 +175,13 @@ export class SSHAdapter extends BaseAdapter {
       }
 
       // Execute command
+      const connectionKey = this.getConnectionKey(sshOptions);
       const result = await this.executeSSHCommand(
         connection.ssh,
         finalCommand,
         sshCommand,
-        connection.host
+        connection.host,
+        connectionKey
       );
 
       const endTime = Date.now();
@@ -196,6 +198,10 @@ export class SSHAdapter extends BaseAdapter {
       );
     } catch (error) {
       if (error instanceof TimeoutError) {
+        // Remove connection from pool after timeout
+        if (connection) {
+          this.removeFromPool(this.getConnectionKey(sshOptions));
+        }
         // Handle timeout with nothrow
         if (!command.nothrow) {
           throw error;
@@ -213,7 +219,7 @@ export class SSHAdapter extends BaseAdapter {
           { host: `${sshOptions.host}:${sshOptions.port || 22}`, originalCommand: mergedCommand }
         );
       }
-      
+
       if (error instanceof ConnectionError) {
         throw error;
       }
@@ -221,7 +227,7 @@ export class SSHAdapter extends BaseAdapter {
       if (connection) {
         // Track error
         connection.errors++;
-        
+
         // Remove failed connection from pool if too many errors
         if (connection.errors > 3) {
           this.removeFromPool(this.getConnectionKey(sshOptions));
@@ -245,7 +251,7 @@ export class SSHAdapter extends BaseAdapter {
       return command.adapterOptions;
     }
     return null;
-    }
+  }
 
   private async getConnection(options: SSHAdapterOptions): Promise<PooledConnection> {
     const key = this.getConnectionKey(options);
@@ -258,15 +264,15 @@ export class SSHAdapter extends BaseAdapter {
           existing.useCount++;
           existing.lastUsed = Date.now();
           this.metricsCollector.onConnectionReused();
-          
+
           // Emit metrics event
           this.emitAdapterEvent('ssh:pool-metrics', {
             metrics: this.getPoolMetrics()
           });
-          
+
           return existing;
         }
-        
+
         // Connection is dead, try to reconnect if enabled
         if (this.sshConfig.connectionPool.autoReconnect) {
           try {
@@ -293,14 +299,14 @@ export class SSHAdapter extends BaseAdapter {
       privateKey: options.privateKey,
       password: options.password
     });
-    
+
     if (!validationResult.isValid) {
       throw new ConnectionError(
         options.host,
         new Error(`Invalid SSH options: ${validationResult.issues.join(', ')}`)
       );
     }
-    
+
     // Validate private key if provided
     if (options.privateKey) {
       const keyValidation = await SSHKeyValidator.validatePrivateKey(options.privateKey);
@@ -310,7 +316,7 @@ export class SSHAdapter extends BaseAdapter {
           new Error(`Invalid SSH private key: ${keyValidation.issues.join(', ')}`)
         );
       }
-      
+
       // Emit validation event
       this.emitAdapterEvent('ssh:key-validated', {
         host: options.host,
@@ -318,7 +324,7 @@ export class SSHAdapter extends BaseAdapter {
         username: options.username || process.env['USER'] || 'unknown'
       });
     }
-    
+
     // Create new connection
     const ssh = new NodeSSH();
     const connectOptions: SSH2Config = {
@@ -333,14 +339,14 @@ export class SSHAdapter extends BaseAdapter {
 
     try {
       await ssh.connect(connectOptions);
-      
+
       // Emit SSH-specific connect event
       this.emitAdapterEvent('ssh:connect', {
         host: options.host,
         port: options.port ?? 22,
         username: options.username || process.env['USER'] || 'unknown'
       });
-      
+
       // Emit generic connection event
       this.emitAdapterEvent('connection:open', {
         host: options.host,
@@ -372,15 +378,15 @@ export class SSHAdapter extends BaseAdapter {
         // Remove oldest idle connection
         this.removeOldestIdleConnection();
       }
-      
+
       this.connectionPool.set(key, connection);
       this.metricsCollector.onConnectionCreated();
-      
+
       // Set up keep-alive if enabled
       if (this.sshConfig.connectionPool.keepAlive) {
         this.setupKeepAlive(connection);
       }
-      
+
       // Emit metrics event
       this.emitAdapterEvent('ssh:pool-metrics', {
         metrics: this.getPoolMetrics()
@@ -398,7 +404,8 @@ export class SSHAdapter extends BaseAdapter {
     ssh: NodeSSH,
     command: string,
     options: Partial<Command> = {},
-    host?: string
+    host?: string,
+    connectionKey?: string
   ): Promise<SSHExecCommandResponse> {
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
@@ -435,7 +442,18 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     // Execute the command
-    const execPromise = ssh.execCommand(command, execOptions);
+    const execPromise = ssh.execCommand(command, execOptions)
+      .catch(error => {
+        // If the command fails after we've already timed out,
+        // we don't want an unhandled rejection
+        if (error.message?.includes('Socket closed') ||
+          error.message?.includes('Connection closed') ||
+          error.message?.includes('Not connected')) {
+          // Connection was closed due to timeout, this is expected
+          return { code: -1, stdout: '', stderr: 'Connection closed due to timeout' };
+        }
+        throw error;
+      });
 
     // Handle timeout
     const timeout = options.timeout ?? this.config.defaultTimeout;
@@ -445,7 +463,8 @@ export class SSHAdapter extends BaseAdapter {
       command,
       () => {
         // SSH doesn't provide a direct way to kill the remote process
-        // This is a limitation we need to document
+        // For now, we'll just let the timeout happen and clean up afterwards
+        // Trying to dispose the connection here causes the test to hang
       }
     );
 
@@ -473,28 +492,28 @@ export class SSHAdapter extends BaseAdapter {
   private async wrapWithSudo(command: string, options: Command, ssh: NodeSSH): Promise<string> {
     // First check if sudo is enabled globally in adapter config
     const globalSudoEnabled = this.sshConfig.sudo.enabled;
-    
+
     // Then check if it's overridden in command options
     const sshOptions = this.extractSSHOptions(options);
     const commandSudoEnabled = sshOptions?.sudo?.enabled;
-    
+
     // If sudo is not enabled at all, return the command as-is
     if (!globalSudoEnabled && !commandSudoEnabled) {
       return command;
     }
-    
+
     // Merge sudo config: command options override global config
     const sudoConfig = {
       ...this.sshConfig.sudo,
       ...(sshOptions?.sudo || {})
     };
-    
+
     // Initialize secure password handler if needed and not already done
     const method = sudoConfig.method || sudoConfig.passwordMethod;
     if ((method === 'secure' || method === 'secure-askpass') && !this.securePasswordHandler) {
       this.securePasswordHandler = sudoConfig.secureHandler || new SecurePasswordHandler();
     }
-    
+
     return this.buildSudoCommandWithConfig(command, sudoConfig);
   }
 
@@ -506,43 +525,44 @@ export class SSHAdapter extends BaseAdapter {
     // Handle password authentication
     if (sudoConfig.password) {
       const method = sudoConfig.method || sudoConfig.passwordMethod || 'stdin';
-      
+
       switch (method) {
         case 'stdin':
+          return `echo '${sudoConfig.password}' | ${sudoCmd} -S ${command}`;
+
         case 'echo':
-          return `echo '${sudoConfig.password}' | sudo -S ${command}`;
-        
+          console.warn('Using echo for sudo password is insecure and may expose the password in process listings');
+          return `echo '${sudoConfig.password}' | ${sudoCmd} -S ${command}`;
+
         case 'askpass':
           // For askpass, we need to set up a temporary askpass script
           // This is more complex and would require additional setup
           return `SUDO_ASKPASS=/tmp/askpass_$$ ${sudoCmd} -A ${command}`;
-        
+
         case 'secure':
-        case 'secure-askpass':
-          // Use secure password handler if available
-          if (this.securePasswordHandler) {
-            try {
-              const askpassPath = this.securePasswordHandler.createAskPassScript(sudoConfig.password);
-              const secureCommand = `SUDO_ASKPASS=${askpassPath} ${sudoCmd} -A ${command}`;
-              
-              // Schedule cleanup after a short delay
-              setTimeout(() => {
-                try {
-                  this.securePasswordHandler?.cleanup();
-                } catch {
-                  // Ignore cleanup errors
-                }
-              }, 1000);
-              
-              return secureCommand;
-            } catch (error) {
-              console.error('Failed to create secure askpass, falling back to stdin method:', error);
-              return `echo '${sudoConfig.password}' | sudo -S ${command}`;
-            }
-          }
-          // Fall through to stdin if no handler
-          return `echo '${sudoConfig.password}' | sudo -S ${command}`;
-          
+        case 'secure-askpass': {
+          // For SSH, we need to create the askpass script on the remote machine
+
+          const scriptId = Math.random().toString(36).substring(7);
+          const remoteAskpassPath = `/tmp/askpass-${scriptId}.sh`;
+
+          // Escape password for safe embedding in script
+          const escapedPassword = sudoConfig.password.replace(/'/g, "'\\''")
+
+          // Create askpass script on remote machine and execute command
+          const remoteScript = [
+            `cat > ${remoteAskpassPath} << 'EOF'`,
+            `#!/bin/sh`,
+            `echo '${escapedPassword}'`,
+            `EOF`,
+            `chmod 700 ${remoteAskpassPath}`,
+            `SUDO_ASKPASS=${remoteAskpassPath} ${sudoCmd} -A ${command}`,
+            `rm -f ${remoteAskpassPath}`
+          ].join(' && ');
+
+          return remoteScript;
+        }
+
         default:
           return `${sudoCmd} ${command}`;
       }
@@ -563,19 +583,19 @@ export class SSHAdapter extends BaseAdapter {
       switch (sudo.passwordMethod) {
         case 'stdin':
           return `echo '${sudo.password}' | sudo -S ${command}`;
-        
+
         case 'askpass':
           // For askpass, we need to set up a temporary askpass script
           // This is more complex and would require additional setup
           return `SUDO_ASKPASS=/tmp/askpass_$$ ${sudoCmd} -A ${command}`;
-        
+
         case 'secure':
           // Use secure password handler if available
           if (this.securePasswordHandler) {
             try {
               const askpassPath = this.securePasswordHandler.createAskPassScript(sudo.password);
               const secureCommand = `SUDO_ASKPASS=${askpassPath} ${sudoCmd} -A ${command}`;
-              
+
               // Schedule cleanup after a short delay
               setTimeout(() => {
                 try {
@@ -584,7 +604,7 @@ export class SSHAdapter extends BaseAdapter {
                   // Ignore cleanup errors
                 }
               }, 1000);
-              
+
               return secureCommand;
             } catch (error) {
               console.error('Failed to create secure askpass, falling back to stdin method:', error);
@@ -592,7 +612,7 @@ export class SSHAdapter extends BaseAdapter {
             }
           }
           break;
-          
+
         default:
           return `${sudoCmd} ${command}`;
       }
@@ -613,10 +633,10 @@ export class SSHAdapter extends BaseAdapter {
           cleaned++;
         }
       }
-      
+
       if (cleaned > 0) {
         this.metricsCollector.onCleanup();
-        
+
         // Emit cleanup event
         this.emitAdapterEvent('ssh:pool-cleanup', {
           cleaned,
@@ -635,13 +655,13 @@ export class SSHAdapter extends BaseAdapter {
       // Extract host info from connection key
       const [hostPort] = key.split('@').slice(-1);
       const [host = 'unknown', port = '22'] = (hostPort || 'unknown:22').split(':');
-      
+
       // Emit SSH-specific disconnect event
       this.emitAdapterEvent('ssh:disconnect', {
         host,
         reason: 'pool_removal'
       });
-      
+
       // Emit generic connection close event
       this.emitAdapterEvent('connection:close', {
         host,
@@ -649,11 +669,11 @@ export class SSHAdapter extends BaseAdapter {
         type: 'ssh',
         reason: 'pool_removal'
       });
-      
+
       connection.ssh.dispose();
       this.connectionPool.delete(key);
       this.metricsCollector.onConnectionDestroyed();
-      
+
       // Clear keep-alive timer if exists
       if (connection.keepAliveTimer) {
         clearInterval(connection.keepAliveTimer);
@@ -664,18 +684,18 @@ export class SSHAdapter extends BaseAdapter {
   private async reconnectConnection(connection: PooledConnection): Promise<PooledConnection | null> {
     const maxAttempts = this.sshConfig.connectionPool.maxReconnectAttempts ?? 3;
     const delay = this.sshConfig.connectionPool.reconnectDelay ?? 1000;
-    
+
     if (connection.reconnectAttempts >= maxAttempts) {
       this.metricsCollector.onConnectionFailed();
       return null;
     }
-    
+
     connection.reconnectAttempts++;
-    
+
     try {
       // Wait before reconnecting
       await new Promise(resolve => setTimeout(resolve, delay * connection.reconnectAttempts));
-      
+
       // Try to reconnect
       await connection.ssh.connect({
         host: connection.config.host,
@@ -685,21 +705,21 @@ export class SSHAdapter extends BaseAdapter {
         passphrase: connection.config.passphrase,
         password: connection.config.password
       });
-      
+
       // Reset error count on successful reconnect
       connection.errors = 0;
       connection.lastUsed = Date.now();
-      
+
       // Re-setup keep-alive
       if (this.sshConfig.connectionPool.keepAlive) {
         this.setupKeepAlive(connection);
       }
-      
+
       this.emitAdapterEvent('ssh:reconnect', {
         host: connection.host,
         attempts: connection.reconnectAttempts
       });
-      
+
       return connection;
     } catch (error) {
       connection.errors++;
@@ -710,25 +730,25 @@ export class SSHAdapter extends BaseAdapter {
 
   private setupKeepAlive(connection: PooledConnection): void {
     const interval = this.sshConfig.connectionPool.keepAliveInterval ?? 30000;
-    
+
     // Clear existing timer if any
     if (connection.keepAliveTimer) {
       clearInterval(connection.keepAliveTimer);
     }
-    
+
     connection.keepAliveTimer = setInterval(async () => {
       try {
         // Send a simple command to keep connection alive
-        await connection.ssh.execCommand('echo "keep-alive"', { 
-          cwd: '/', 
-          execOptions: { pty: false } 
+        await connection.ssh.execCommand('echo "keep-alive"', {
+          cwd: '/',
+          execOptions: { pty: false }
         });
       } catch (error) {
         // Connection might be dead, will be handled on next use
         connection.errors++;
       }
     }, interval);
-    
+
     // Unref the timer so it doesn't keep the process alive
     connection.keepAliveTimer.unref();
   }
@@ -736,14 +756,14 @@ export class SSHAdapter extends BaseAdapter {
   private removeOldestIdleConnection(): void {
     let oldestKey: string | null = null;
     let oldestTime = Date.now();
-    
+
     for (const [key, connection] of this.connectionPool.entries()) {
       if (connection.lastUsed < oldestTime) {
         oldestTime = connection.lastUsed;
         oldestKey = key;
       }
     }
-    
+
     if (oldestKey) {
       this.removeFromPool(oldestKey);
     }
@@ -751,7 +771,7 @@ export class SSHAdapter extends BaseAdapter {
 
   private getPoolMetrics() {
     const connections = new Map<string, PooledConnectionMetrics>();
-    
+
     for (const [key, conn] of this.connectionPool.entries()) {
       connections.set(key, {
         created: new Date(conn.created),
@@ -761,7 +781,7 @@ export class SSHAdapter extends BaseAdapter {
         errors: conn.errors
       });
     }
-    
+
     return this.metricsCollector.getMetrics(this.connectionPool.size, connections);
   }
 
@@ -776,7 +796,12 @@ export class SSHAdapter extends BaseAdapter {
 
     // Close all tunnels
     for (const [id, tunnel] of this.activeTunnels) {
-      await tunnel.close();
+      try {
+        await tunnel.close();
+      } catch (error) {
+        // Log error but continue closing other tunnels
+        console.error(`Failed to close tunnel ${id}:`, error);
+      }
     }
     this.activeTunnels.clear();
 
@@ -786,7 +811,7 @@ export class SSHAdapter extends BaseAdapter {
         host: connection.host,
         reason: 'adapter_dispose'
       });
-      
+
       // Emit generic connection close event
       this.emitAdapterEvent('connection:close', {
         host: connection.host,
@@ -794,7 +819,7 @@ export class SSHAdapter extends BaseAdapter {
         type: 'ssh',
         reason: 'adapter_dispose'
       });
-      
+
       connection.ssh.dispose();
     }
 
@@ -818,12 +843,8 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     const connection = await this.getConnection(options);
-    
-    try {
-      await connection.ssh.putFile(localPath, remotePath);
-    } catch (error) {
-      throw error;
-    }
+
+    await connection.ssh.putFile(localPath, remotePath);
   }
 
   async downloadFile(
@@ -836,12 +857,8 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     const connection = await this.getConnection(options);
-    
-    try {
-      await connection.ssh.getFile(localPath, remotePath);
-    } catch (error) {
-      throw error;
-    }
+
+    await connection.ssh.getFile(localPath, remotePath);
   }
 
   async uploadDirectory(
@@ -854,14 +871,10 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     const connection = await this.getConnection(options);
-    
-    try {
-      await connection.ssh.putDirectory(localPath, remotePath, {
-        concurrency: this.sshConfig.sftp.concurrency
-      });
-    } catch (error) {
-      throw error;
-    }
+
+    await connection.ssh.putDirectory(localPath, remotePath, {
+      concurrency: this.sshConfig.sftp.concurrency
+    });
   }
 
   async portForward(
@@ -871,7 +884,7 @@ export class SSHAdapter extends BaseAdapter {
     options: SSHAdapterOptions
   ): Promise<void> {
     const connection = await this.getConnection(options);
-    
+
     await connection.ssh.forwardOut(
       '127.0.0.1',
       localPort,
@@ -898,13 +911,13 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     const connection = await this.getConnection(sshOptions);
-    
+
     // Create tunnel using ssh.ts built-in functionality
     const tunnelInfo = await connection.ssh.createTunnel(options);
-    
+
     // Generate ID for tracking
     const tunnelId = `${tunnelInfo.localPort}-${options.remoteHost}:${options.remotePort}`;
-    
+
     // Wrap with additional functionality
     const tunnel = {
       ...tunnelInfo,
@@ -915,7 +928,7 @@ export class SSHAdapter extends BaseAdapter {
       close: async () => {
         await tunnelInfo.close();
         this.activeTunnels.delete(tunnelId);
-        
+
         // Emit tunnel closed event
         this.emitAdapterEvent('ssh:tunnel-closed', {
           localPort: tunnelInfo.localPort,
@@ -924,17 +937,17 @@ export class SSHAdapter extends BaseAdapter {
         });
       }
     };
-    
+
     // Track the tunnel
     this.activeTunnels.set(tunnelId, tunnel);
-    
+
     // Emit SSH-specific tunnel created event
     this.emitAdapterEvent('ssh:tunnel-created', {
       localPort: tunnelInfo.localPort,
       remoteHost: options.remoteHost,
       remotePort: options.remotePort
     });
-    
+
     // Emit generic tunnel created event
     this.emitAdapterEvent('tunnel:created', {
       localPort: tunnelInfo.localPort,
@@ -942,7 +955,7 @@ export class SSHAdapter extends BaseAdapter {
       remotePort: options.remotePort,
       type: 'ssh'
     });
-    
+
     return tunnel;
   }
 

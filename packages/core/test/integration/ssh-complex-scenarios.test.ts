@@ -673,10 +673,7 @@ EOF`;
         // Create a command that fails first time but succeeds on retry
         const result = await $ssh.retry({ 
           maxRetries: 2, 
-          initialDelay: 100,
-          onRetry: (attempt: number, error: any) => {
-            console.log(`Retry attempt ${attempt} for ${container.name}: ${error.stdout}`);
-          }
+          initialDelay: 100
         })`
           COUNT=$(cat ${counterFile})
           NEXT=$((COUNT + 1))

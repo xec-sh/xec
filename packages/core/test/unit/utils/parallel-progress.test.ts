@@ -5,6 +5,7 @@ import { parallel, ParallelEngine } from '../../../src/utils/parallel.js';
 
 import type { Command } from '../../../src/core/command.js';
 import type { ExecutionResult } from '../../../src/core/result.js';
+import type { ParallelResult, ParallelOptions } from '../../../src/utils/parallel.js';
 
 // Mock execution engine
 class MockExecutionEngine {
@@ -17,7 +18,21 @@ class MockExecutionEngine {
   }
   
   async execute(command: Command): Promise<ExecutionResult> {
-    await new Promise(resolve => setTimeout(resolve, this.delay));
+    // Handle abort signal for timeout
+    if (command.signal) {
+      const abortPromise = new Promise<never>((_, reject) => {
+        command.signal!.addEventListener('abort', () => {
+          reject(new Error('Command aborted due to timeout'));
+        });
+      });
+      
+      const delayPromise = new Promise<void>(resolve => setTimeout(resolve, this.delay));
+      
+      // Race between delay and abort
+      await Promise.race([delayPromise, abortPromise]);
+    } else {
+      await new Promise(resolve => setTimeout(resolve, this.delay));
+    }
     
     if (this.shouldFail && command.command?.includes('fail')) {
       throw new Error(`Command failed: ${command.command}`);
@@ -95,9 +110,10 @@ describe('Parallel Execution with Progress', () => {
       });
       
       const lastUpdate = progressUpdates[progressUpdates.length - 1];
-      expect(lastUpdate.completed).toBe(5);
-      expect(lastUpdate.succeeded).toBe(3);
-      expect(lastUpdate.failed).toBe(2);
+      expect(lastUpdate).toBeDefined();
+      expect(lastUpdate?.completed).toBe(5);
+      expect(lastUpdate?.succeeded).toBe(3);
+      expect(lastUpdate?.failed).toBe(2);
     });
     
     it('should call onProgress with limited concurrency', async () => {
@@ -138,32 +154,54 @@ describe('Parallel Execution with Progress', () => {
       const progressUpdates: number[] = [];
       
       // Mock the parallel.settled method
-      const mockSettled = jest.fn().mockImplementation(async (commands, options) => {
+      const mockSettled = jest.fn<
+        (commands: (string | Command)[], options?: ParallelOptions) => Promise<ParallelResult>
+      >().mockImplementation(async (commands: (string | Command)[], options?: ParallelOptions) => {
         // Simulate progress
         const total = commands.length;
         for (let i = 1; i <= total; i++) {
-          if (options.onProgress) {
+          if (options?.onProgress) {
             options.onProgress(i, total, i, 0);
           }
         }
         
         return {
-          results: commands.map((cmd: any) => ({
+          results: commands.map((cmd) => ({
             stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
             stderr: '',
-            exitCode: 0
+            exitCode: 0,
+            signal: undefined,
+            command: typeof cmd === 'string' ? cmd : cmd.command || '',
+            duration: 10,
+            startedAt: new Date(),
+            finishedAt: new Date(),
+            adapter: 'mock',
+            toString: () => `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
+            toJSON: () => ({ stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`, stderr: '', exitCode: 0 }),
+            throwIfFailed: () => {},
+            isSuccess: () => true
           })),
-          succeeded: commands.map((cmd: any) => ({
+          succeeded: commands.map((cmd) => ({
             stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
             stderr: '',
-            exitCode: 0
+            exitCode: 0,
+            signal: undefined,
+            command: typeof cmd === 'string' ? cmd : cmd.command || '',
+            duration: 10,
+            startedAt: new Date(),
+            finishedAt: new Date(),
+            adapter: 'mock',
+            toString: () => `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
+            toJSON: () => ({ stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`, stderr: '', exitCode: 0 }),
+            throwIfFailed: () => {},
+            isSuccess: () => true
           })),
           failed: [],
           duration: 100
         };
       });
       
-      engine.parallel.settled = mockSettled;
+      engine.parallel.settled = mockSettled as any;
       
       const result = await engine.batch(
         ['cmd1', 'cmd2', 'cmd3', 'cmd4', 'cmd5'],
@@ -189,14 +227,16 @@ describe('Parallel Execution with Progress', () => {
     it('should use default concurrency if not specified', async () => {
       const engine = new ExecutionEngine();
       
-      const mockSettled = jest.fn().mockResolvedValue({
+      const mockSettled = jest.fn<
+        (commands: (string | Command)[], options?: ParallelOptions) => Promise<ParallelResult>
+      >().mockResolvedValue({
         results: [],
         succeeded: [],
         failed: [],
         duration: 0
       });
       
-      engine.parallel.settled = mockSettled;
+      engine.parallel.settled = mockSettled as any;
       
       await engine.batch(['cmd1', 'cmd2']);
       
@@ -258,23 +298,37 @@ describe('Parallel Execution with Progress', () => {
     
     it('should handle timeout with progress tracking', async () => {
       const slowEngine = new MockExecutionEngine(100);
-      const progressUpdates: number[] = [];
+      const progressData: Array<{
+        completed: number;
+        total: number;
+        succeeded: number;
+        failed: number;
+      }> = [];
       
-      await parallel(
+      const result = await parallel(
         ['cmd1', 'cmd2', 'cmd3'],
         slowEngine as any,
         {
           timeout: 50, // Timeout before completion
           stopOnError: false,
           onProgress: (completed, total, succeeded, failed) => {
-            progressUpdates.push(failed);
+            progressData.push({ completed, total, succeeded, failed });
           }
         }
       );
       
-      // All should fail due to timeout
-      const lastUpdate = progressUpdates[progressUpdates.length - 1];
-      expect(lastUpdate).toBe(3);
+      // Check that we got progress updates
+      expect(progressData.length).toBeGreaterThan(0);
+      
+      // Check final result
+      expect(result.failed.length).toBe(3);
+      expect(result.succeeded.length).toBe(0);
+      
+      // Last progress update should show all failed
+      const lastUpdate = progressData[progressData.length - 1];
+      expect(lastUpdate).toBeDefined();
+      expect(lastUpdate?.completed).toBe(3);
+      expect(lastUpdate?.failed).toBe(3);
     });
   });
   
@@ -315,6 +369,164 @@ describe('Parallel Execution with Progress', () => {
       expect(result.succeeded.length).toBe(3);
       expect(finalProgress.completed).toBe(3);
       expect(finalProgress.total).toBe(3);
+    });
+  });
+
+  describe('ParallelEngine additional methods', () => {
+    it('should handle errors in ParallelEngine.all', async () => {
+      const failEngine = new MockExecutionEngine(10, true);
+      const parallelEngine = new ParallelEngine(failEngine as any);
+      
+      await expect(
+        parallelEngine.all(['cmd1', 'fail1', 'cmd2'])
+      ).rejects.toThrow('Command failed: fail1');
+    });
+    
+    it('should execute race correctly', async () => {
+      const varyingDelayEngine = {
+        async execute(command: Command): Promise<ExecutionResult> {
+          const delay = command.command === 'fast' ? 10 : 100;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          return {
+            stdout: `Output: ${command.command}`,
+            stderr: '',
+            exitCode: 0,
+            signal: undefined,
+            command: command.command || '',
+            duration: delay,
+            startedAt: new Date(),
+            finishedAt: new Date(),
+            adapter: 'mock',
+            toString: () => `Output: ${command.command}`,
+            toJSON: () => ({ stdout: `Output: ${command.command}`, stderr: '', exitCode: 0 }),
+            throwIfFailed: () => {},
+            isSuccess: () => true
+          };
+        }
+      };
+      
+      const parallelEngine = new ParallelEngine(varyingDelayEngine as any);
+      const result = await parallelEngine.race(['slow', 'fast', 'slower']);
+      
+      expect(result.stdout).toBe('Output: fast');
+    });
+    
+    it('should filter items based on command success', async () => {
+      const filterEngine = {
+        async execute(command: Command): Promise<ExecutionResult> {
+          const shouldSucceed = command.command?.includes('pass');
+          
+          if (!shouldSucceed) {
+            throw new Error('Command failed');
+          }
+          
+          return {
+            stdout: 'passed',
+            stderr: '',
+            exitCode: 0,
+            signal: undefined,
+            command: command.command || '',
+            duration: 10,
+            startedAt: new Date(),
+            finishedAt: new Date(),
+            adapter: 'mock',
+            toString: () => 'passed',
+            toJSON: () => ({ stdout: 'passed', stderr: '', exitCode: 0 }),
+            throwIfFailed: () => {},
+            isSuccess: () => true
+          };
+        }
+      };
+      
+      const parallelEngine = new ParallelEngine(filterEngine as any);
+      const items = ['item1', 'item2', 'item3', 'item4'];
+      
+      const filtered = await parallelEngine.filter(
+        items,
+        (item) => item.includes('2') || item.includes('4') ? 'pass' : 'fail'
+      );
+      
+      expect(filtered).toEqual(['item2', 'item4']);
+    });
+    
+    it('should check if some commands succeed', async () => {
+      const mixedEngine = new MockExecutionEngine(10, true);
+      const parallelEngine = new ParallelEngine(mixedEngine as any);
+      
+      const result = await parallelEngine.some(['fail1', 'cmd1', 'fail2']);
+      expect(result).toBe(true);
+      
+      const allFail = await parallelEngine.some(['fail1', 'fail2', 'fail3']);
+      expect(allFail).toBe(false);
+    });
+    
+    it('should check if every command succeeds', async () => {
+      const mixedEngine = new MockExecutionEngine(10, true);
+      const parallelEngine = new ParallelEngine(mixedEngine as any);
+      
+      const allSucceed = await parallelEngine.every(['cmd1', 'cmd2', 'cmd3']);
+      expect(allSucceed).toBe(true);
+      
+      const someFail = await parallelEngine.every(['cmd1', 'fail1', 'cmd2']);
+      expect(someFail).toBe(false);
+    });
+  });
+  
+  describe('Edge cases and error handling', () => {
+    it('should handle errors with limited concurrency and progress', async () => {
+      const failEngine = new MockExecutionEngine(10, true);
+      const progressData: Array<{ failed: number }> = [];
+      
+      const result = await parallel(
+        ['cmd1', 'fail1', 'cmd2', 'fail2', 'cmd3'],
+        failEngine as any,
+        {
+          maxConcurrency: 2,
+          stopOnError: false,
+          onProgress: (completed, total, succeeded, failed) => {
+            progressData.push({ failed });
+          }
+        }
+      );
+      
+      expect(result.failed.length).toBe(2);
+      expect(result.succeeded.length).toBe(3);
+      expect(progressData.length).toBeGreaterThan(0);
+    });
+    
+    it('should handle non-throwing errors in commands', async () => {
+      const customEngine = {
+        async execute(command: Command): Promise<ExecutionResult> {
+          return {
+            stdout: '',
+            stderr: 'Error occurred',
+            exitCode: 1,
+            signal: undefined,
+            command: command.command || '',
+            duration: 10,
+            startedAt: new Date(),
+            finishedAt: new Date(),
+            adapter: 'mock',
+            toString: () => 'Error occurred',
+            toJSON: () => ({ stdout: '', stderr: 'Error occurred', exitCode: 1 }),
+            throwIfFailed: () => { throw new Error('Command failed'); },
+            isSuccess: () => false
+          };
+        }
+      };
+      
+      const result = await parallel(
+        ['cmd1', 'cmd2'],
+        customEngine as any,
+        { stopOnError: false }
+      );
+      
+      expect(result.succeeded.length).toBe(2);
+      expect(result.failed.length).toBe(0);
+      result.results.forEach(r => {
+        expect((r as ExecutionResult).exitCode).toBe(1);
+      });
     });
   });
 });

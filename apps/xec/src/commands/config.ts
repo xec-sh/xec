@@ -6,8 +6,8 @@ import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
-import { getConfig } from '../utils/config.js';
 import { BaseCommand } from '../utils/command-base.js';
+import { getConfig, ConfigMigrator } from '../utils/config.js';
 
 interface ConfigGetOptions {
   format?: 'text' | 'json' | 'yaml';
@@ -44,6 +44,7 @@ class ConfigCommand extends BaseCommand {
     this.addValidateCommand(config);
     this.addProfileCommand(config);
     this.addInitCommand(config);
+    this.addMigrateCommand(config);
 
     return config;
   }
@@ -545,6 +546,67 @@ class ConfigCommand extends BaseCommand {
     // This is called when 'config' is run without subcommands
     const program = this.create();
     program.outputHelp();
+  }
+
+  private addMigrateCommand(config: Command): void {
+    config
+      .command('migrate')
+      .description('Migrate old configuration format to new unified format')
+      .option('--dry-run', 'Preview migration without making changes')
+      .option('--force', 'Force migration even if config appears up to date')
+      .action(async (options) => {
+        try {
+          clack.intro(chalk.blue('🔄 Configuration Migration'));
+
+          // Check if migration is needed
+          const needsMigration = await ConfigMigrator.needsMigration();
+          
+          if (!needsMigration && !options.force) {
+            this.log('Configuration is already in the latest format', 'success');
+            return;
+          }
+
+          if (options.dryRun) {
+            this.log('Running migration in dry-run mode...', 'info');
+            const migratedConfig = await ConfigMigrator.migrate(true);
+            if (migratedConfig) {
+              console.log('\nMigrated configuration preview:');
+              console.log(chalk.gray('─'.repeat(50)));
+              console.log(yaml.dump(migratedConfig, { indent: 2 }));
+              console.log(chalk.gray('─'.repeat(50)));
+              this.log('\nThis is a preview. Run without --dry-run to apply changes.', 'info');
+            }
+          } else {
+            const confirm = await clack.confirm({
+              message: 'This will migrate your configuration to the new format. Continue?',
+              initialValue: true
+            });
+
+            if (!confirm) {
+              this.log('Migration cancelled', 'warn');
+              return;
+            }
+
+            await ConfigMigrator.migrate(false);
+            
+            // Reload config after migration
+            const configManager = getConfig();
+            await configManager.load();
+            
+            this.log('\nConfiguration migrated successfully!', 'success');
+            this.log('\nYour configuration now uses the unified format:', 'info');
+            this.log('  • Hosts are defined at the root level', 'info');
+            this.log('  • Containers and pods follow the same pattern', 'info');
+            this.log('  • Profiles can extend and override settings', 'info');
+            this.log('\nOld configuration files have been backed up.', 'info');
+          }
+
+          clack.outro(chalk.green('✨ Migration complete'));
+        } catch (error) {
+          this.log(error instanceof Error ? error.message : String(error), 'error');
+          process.exit(1);
+        }
+      });
   }
 }
 

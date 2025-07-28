@@ -130,21 +130,29 @@ function createK8sPod(
   baseOptions: Omit<KubernetesAdapterOptions, 'type' | 'pod'>
 ): K8sPod {
   const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
-    const k8sEngine = engine.k8s({
-      ...baseOptions,
-      pod: name,
-      namespace
+    const k8sEngine = engine.with({
+      adapter: 'kubernetes',
+      adapterOptions: {
+        type: 'kubernetes',
+        ...baseOptions,
+        pod: name,
+        namespace
+      }
     });
-    return (k8sEngine as any).run(strings, ...values);
+    return k8sEngine.run(strings, ...values);
   };
   
   const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
-    const k8sEngine = engine.k8s({
-      ...baseOptions,
-      pod: name,
-      namespace
+    const k8sEngine = engine.with({
+      adapter: 'kubernetes',
+      adapterOptions: {
+        type: 'kubernetes',
+        ...baseOptions,
+        pod: name,
+        namespace
+      }
     });
-    return (k8sEngine as any).raw(strings, ...values);
+    return k8sEngine.raw(strings, ...values);
   };
   
   return {
@@ -265,8 +273,19 @@ export function createK8sExecutionContext(
       throw new Error('Pod must be specified for direct execution');
     }
     
-    const k8sEngine = engine.k8s(k8sOptions as Omit<KubernetesAdapterOptions, 'type'>);
-    return (k8sEngine as any).run(strings, ...values);
+    const k8sEngine = engine.with({
+      adapter: 'kubernetes',
+      adapterOptions: {
+        type: 'kubernetes',
+        pod: k8sOptions.pod,
+        ...(k8sOptions.namespace && { namespace: k8sOptions.namespace }),
+        ...(k8sOptions.container && { container: k8sOptions.container }),
+        ...(k8sOptions.execFlags && { execFlags: k8sOptions.execFlags }),
+        ...(k8sOptions.tty !== undefined && { tty: k8sOptions.tty }),
+        ...(k8sOptions.stdin !== undefined && { stdin: k8sOptions.stdin })
+      }
+    });
+    return k8sEngine.run(strings, ...values);
   };
   
   const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
@@ -274,8 +293,19 @@ export function createK8sExecutionContext(
       throw new Error('Pod must be specified for direct execution');
     }
     
-    const k8sEngine = engine.k8s(k8sOptions as Omit<KubernetesAdapterOptions, 'type'>);
-    return (k8sEngine as any).raw(strings, ...values);
+    const k8sEngine = engine.with({
+      adapter: 'kubernetes',
+      adapterOptions: {
+        type: 'kubernetes',
+        pod: k8sOptions.pod,
+        ...(k8sOptions.namespace && { namespace: k8sOptions.namespace }),
+        ...(k8sOptions.container && { container: k8sOptions.container }),
+        ...(k8sOptions.execFlags && { execFlags: k8sOptions.execFlags }),
+        ...(k8sOptions.tty !== undefined && { tty: k8sOptions.tty }),
+        ...(k8sOptions.stdin !== undefined && { stdin: k8sOptions.stdin })
+      }
+    });
+    return k8sEngine.raw(strings, ...values);
   };
   
   const context = Object.assign(exec, {

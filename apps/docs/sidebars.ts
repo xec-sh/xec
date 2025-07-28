@@ -8,12 +8,11 @@ const sidebars: SidebarsConfig = {
       label: 'Getting Started',
       link: {
         type: 'generated-index',
-        description: 'Learn about Xec Platform and get up and running in minutes',
+        description: 'Learn about Xec - The Universal Shell for TypeScript',
       },
       collapsed: false,
       items: [
         'intro',
-        'documentation-index',
         'getting-started/installation',
         'getting-started/quick-start',
         'getting-started/first-project',
@@ -28,6 +27,44 @@ const sidebars: SidebarsConfig = {
       },
       items: [
         'projects/cli/commands',
+        'projects/cli/custom-commands',
+        'projects/cli/advanced-features',
+        'projects/cli/secure-password-handling',
+        'projects/cli/real-world-examples',
+        'projects/cli/troubleshooting',
+        'projects/cli/configuration-guide',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Core Concepts',
+      items: [
+        'projects/core/getting-started/basic-concepts',
+        'projects/core/core-features/template-literals',
+        'projects/core/core-features/command-execution',
+        'projects/core/core-features/process-promise',
+        'projects/core/core-features/configuration',
+        'projects/core/advanced/error-handling',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Execution Contexts',
+      items: [
+        'projects/core/adapters/local',
+        'projects/core/adapters/ssh',
+        'projects/core/adapters/docker',
+        'projects/core/adapters/kubernetes',
+        'projects/core/adapters/remote-docker',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Guides',
+      items: [
+        'projects/core/getting-started/first-steps',
+        'projects/core/examples/index',
+        'projects/core/utilities/interactive-prompts',
       ],
     },
     {
@@ -40,36 +77,6 @@ const sidebars: SidebarsConfig = {
       items: [
         {
           type: 'category',
-          label: 'Getting Started',
-          items: [
-            'projects/core/getting-started/installation',
-            'projects/core/getting-started/basic-concepts',
-            'projects/core/getting-started/first-steps',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Core Features',
-          items: [
-            'projects/core/core-features/command-execution',
-            'projects/core/core-features/template-literals',
-            'projects/core/core-features/process-promise',
-            'projects/core/core-features/configuration',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Execution Adapters',
-          items: [
-            'projects/core/adapters/local',
-            'projects/core/adapters/ssh',
-            'projects/core/adapters/docker',
-            'projects/core/adapters/kubernetes',
-            'projects/core/adapters/remote-docker',
-          ],
-        },
-        {
-          type: 'category',
           label: 'Advanced Features',
           items: [
             'projects/core/advanced/parallel-execution',
@@ -80,6 +87,7 @@ const sidebars: SidebarsConfig = {
             'projects/core/advanced/caching',
             'projects/core/advanced/connection-pooling',
             'projects/core/advanced/progress-tracking',
+            'projects/core/advanced/piping',
           ],
         },
         {
@@ -102,6 +110,7 @@ const sidebars: SidebarsConfig = {
             'projects/core/api-reference/adapters',
             'projects/core/api-reference/events',
             'projects/core/api-reference/types',
+            'projects/core/api-reference/kubernetes-types',
           ],
         },
         {

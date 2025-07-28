@@ -319,9 +319,26 @@ class CopyCommand extends BaseCommand {
       username: remote.user || process.env['USER'] || 'root'
     };
 
-    // Use scp command for SSH transfers
-    const remoteUrl = `${remote.user || sshOptions.username || 'root'}@${remote.host}:${remote.path}`;
-    await $`scp ${localPath} ${remoteUrl}`;
+    // Use SSH adapter from core
+    const $ssh = $.ssh(sshOptions);
+    
+    // Progress handler for verbose mode
+    const progressHandler = options.verbose ? (progress: number) => {
+      this.stopSpinner();
+      this.log(`Progress: ${Math.round(progress * 100)}%`, 'info');
+      this.startSpinner(`Copying to ${remote.adapter}...`);
+    } : undefined;
+    
+    try {
+      await $ssh.uploadFile(localPath, remote.path);
+    } catch (error) {
+      // Fallback to scp if core method fails
+      if (options.verbose) {
+        this.log('Using fallback scp method', 'warn');
+      }
+      const remoteUrl = `${remote.user || sshOptions.username || 'root'}@${remote.host}:${remote.path}`;
+      await $`scp ${localPath} ${remoteUrl}`;
+    }
   }
 
   private async copyFromSSH(remote: Location, localPath: string, options: CopyOptions): Promise<void> {
@@ -333,9 +350,19 @@ class CopyCommand extends BaseCommand {
       username: remote.user || process.env['USER'] || 'root'
     };
 
-    // Use scp command for SSH transfers
-    const remoteUrl = `${remote.user || sshOptions.username || 'root'}@${remote.host}:${remote.path}`;
-    await $`scp ${remoteUrl} ${localPath}`;
+    // Use SSH adapter from core
+    const $ssh = $.ssh(sshOptions);
+    
+    try {
+      await $ssh.downloadFile(remote.path, localPath);
+    } catch (error) {
+      // Fallback to scp if core method fails
+      if (options.verbose) {
+        this.log('Using fallback scp method', 'warn');
+      }
+      const remoteUrl = `${remote.user || sshOptions.username || 'root'}@${remote.host}:${remote.path}`;
+      await $`scp ${remoteUrl} ${localPath}`;
+    }
   }
 
   private async copyToDocker(localPath: string, remote: Location, options: CopyOptions): Promise<void> {

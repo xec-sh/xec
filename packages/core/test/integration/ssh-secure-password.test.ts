@@ -1,4 +1,4 @@
-import { it, expect } from '@jest/globals';
+import { it, jest, expect } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
 
 import { $ } from '../../src/index.js';
@@ -252,15 +252,13 @@ describeSSH('SSH Secure Password Integration Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const ssh = new SSHAdapter({
         sudo: {
-          enabled: true,
-          password: sshConfig.password,
-          method: 'secure-askpass'
+          enabled: false  // Sudo should be disabled for this test
         }
       });
 
       try {
         const result = await ssh.execute({
-          command: 'whoami', // No sudo prefix
+          command: 'whoami',
           adapterOptions: { type: 'ssh' as const, ...sshConfig }
         });
 

@@ -2,21 +2,19 @@
 sidebar_position: 1
 ---
 
-# Introduction to Xec
+# Introduction to Xec: The Universal Shell for TypeScript
 
-Welcome to **Xec** - a universal shell with TypeScript/JavaScript API that provides a consistent interface for executing commands across different environments.
+Welcome to **Xec** - the universal shell that lets you write once and execute anywhere. Xec provides a single, elegant TypeScript interface to run commands on your local machine, remote servers via SSH, in Docker containers, or Kubernetes pods.
 
-## What is Xec?
+## One Interface. Any Environment.
 
-Xec is a TypeScript/JavaScript library that extends the capabilities of traditional shells by providing:
+Xec is not just another process execution library - it's a fundamental rethink of how we interact with command execution in the TypeScript ecosystem:
 
-- **Unified command execution API** using template literals
-- **Type-safe command execution** with full TypeScript support
-- **Multi-environment execution** - same API works locally, over SSH, in Docker containers, and Kubernetes pods
-- **Built-in safety features** including automatic escaping and secure credential handling
-- **Advanced execution features** like streaming, parallel execution, and automatic retries
-
-At its core, Xec is a powerful shell that can execute commands anywhere while maintaining the familiar syntax of shell scripting.
+- **Fluent & Familiar API** - Enjoy a `zx`-like syntax with template literals. No more awkward `spawn` or `exec` calls
+- **Seamless Context Switching** - Jump from your local machine into an SSH session or a Docker container with a single method call
+- **Robust and Type-Safe** - Built with TypeScript and a `Result`-based error handling model for reliable, maintainable execution logic
+- **Batteries-Included** - Ready to use with adapters for Local, SSH, Docker, and Kubernetes environments out of the box
+- **Designed for Complex Scripting** - Full TypeScript power with immutable configuration and interactive prompts
 
 ## Core Features
 
