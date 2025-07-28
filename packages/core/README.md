@@ -27,6 +27,8 @@
 - **File Transfer** - Copy files across environments
 - **Parallel Execution** - Run commands concurrently
 - **Retry Logic** - Automatic retry with backoff
+- **Command Suggestions** - Smart typo detection and suggestions
+- **Enhanced Errors** - Context-aware error messages with solutions
 
 ## 📦 Installation
 
@@ -200,6 +202,8 @@ await parallel(commands, {
 
 ### Error Handling
 
+#### Basic Error Handling
+
 ```typescript
 import { CommandError, TimeoutError } from '@xec-sh/core';
 
@@ -223,6 +227,41 @@ if (result.isSuccess()) {
 }
 ```
 
+#### Enhanced Error System
+
+Xec provides an enhanced error system with context-aware messages and suggestions:
+
+```typescript
+import { enhanceError, EnhancedExecutionError } from '@xec-sh/core';
+
+try {
+  await $.ssh({ host: 'unknown-host' })`date`;
+} catch (error) {
+  const enhanced = enhanceError(error, {
+    cwd: process.cwd(),
+    timestamp: new Date()
+  }) as EnhancedExecutionError;
+  
+  console.error(enhanced.message);
+  console.error('Details:', enhanced.details);
+  console.error('Suggestions:', enhanced.suggestions);
+  
+  // Output:
+  // SSH connection failed: ENOTFOUND
+  // Details: { host: 'unknown-host', port: 22, code: 'ENOTFOUND' }
+  // Suggestions: [
+  //   'Check if the hostname is correct',
+  //   'Verify DNS resolution: nslookup unknown-host',
+  //   'Try using IP address instead of hostname'
+  // ]
+}
+```
+
+The enhanced error system provides:
+- **Contextual Information**: Relevant details about the error
+- **Actionable Suggestions**: Steps to resolve the issue
+- **Error Classification**: Different error types with specific handling
+
 ### Event System
 
 ```typescript
@@ -241,6 +280,48 @@ $.on('ssh:connection:open', (event) => {
   console.log(`Connected to ${event.host}`);
 });
 ```
+
+### Command Suggestions
+
+The command registry system provides intelligent typo detection and suggestions:
+
+```typescript
+import { CommandRegistry, checkForCommandTypo } from '@xec-sh/core';
+
+// Create and populate registry
+const registry = new CommandRegistry();
+registry.registerAll([
+  {
+    command: 'deploy',
+    description: 'Deploy application',
+    usage: 'xec deploy [options]'
+  },
+  {
+    command: 'test',
+    description: 'Run tests',
+    aliases: ['t', 'check']
+  }
+]);
+
+// Check for typos
+const suggestion = checkForCommandTypo('deply', registry);
+if (suggestion) {
+  console.log(suggestion);
+  // Output:
+  // Did you mean:
+  //   deploy - Deploy application
+  //     Usage: xec deploy [options]
+}
+
+// Find similar commands
+const similar = registry.findSimilarCommands('dep', 3);
+// Returns array of matching commands
+```
+
+The system uses Levenshtein distance algorithm to find the closest matches and supports:
+- Command aliases
+- Usage examples
+- Formatted suggestions with color support
 
 ## 🧪 Testing
 

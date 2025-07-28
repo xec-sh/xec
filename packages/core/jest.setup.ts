@@ -23,8 +23,15 @@ const shouldManageContainersGlobally = () => {
   // Check if we're running SSH tests without the new helper
   const testFiles = process.argv.filter(arg => arg.endsWith('.test.ts'));
   const isRunningOldSSHTests = testFiles.some(file =>
-    file.includes('ssh-docker-integration.test.ts') &&
-    !file.includes('package-managers.test.ts')
+    // Only manage containers for tests that don't use describeSSH helper
+    (file.includes('ssh') && file.includes('test.ts')) &&
+    !file.includes('ssh-docker-integration.test.ts') && // Uses describeSSH
+    !file.includes('package-managers.test.ts') && // Uses describeSSH
+    !file.includes('ssh-authentication.test.ts') && // Uses describeSSH
+    !file.includes('ssh-file-transfer.test.ts') && // Uses describeSSH
+    !file.includes('ssh-performance.test.ts') && // Uses describeSSH
+    !file.includes('ssh-complex-scenarios.test.ts') && // Uses describeSSH
+    !file.includes('ssh-high-level.test.ts') // Uses describeSSH
   );
 
   return isRunningOldSSHTests && !dockerManager.shouldSkipSSHTests();

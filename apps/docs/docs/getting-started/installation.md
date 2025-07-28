@@ -319,6 +319,6 @@ rm -rf ~/.xec
 If you encounter any issues:
 
 1. Search [GitHub Issues](https://github.com/xec-sh/xec/issues)
-2. Check the [Documentation](../documentation-index)
+2. Check the [Documentation](../intro)
 
 Welcome to the Xec community! 🎉

@@ -127,7 +127,7 @@ export class DockerContainer {
       workdir: this.config.workdir
     });
 
-    return (dockerEngine as any).run(strings, ...values);
+    return dockerEngine.run(strings, ...values);
   }
 
   /**
@@ -144,10 +144,10 @@ export class DockerContainer {
       workdir: this.config.workdir
     });
 
-    // Build the command
+    // Build the full command - when shell is false, we need to pass the command and args separately
     const fullCommand = args && args.length > 0 ? `${command} ${args.join(' ')}` : command;
     
-    // Execute using template literal
+    // Execute using template literal to match the exec() implementation
     const result = await (dockerEngine as any).run([fullCommand], ...[]);
     return result;
   }

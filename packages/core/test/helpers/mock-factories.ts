@@ -95,6 +95,10 @@ export class MockAdapter extends BaseAdapter {
     this.executeResults = [];
     this.nextResult = null;
   }
+  
+  async dispose(): Promise<void> {
+    this.reset();
+  }
 }
 
 export function createErrorResult(message: string, code: number = 1): ExecutionResult {

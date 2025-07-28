@@ -1,23 +1,25 @@
+import { attachConvenienceMethods } from './utils/convenience.js';
 import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-engine.js';
 
 import type { CallableExecutionEngine } from './types/engine.js';
 
-export { pipe } from './utils/pipe.js';
-export { Pipeline } from './utils/pipeline.js';
+export { pipeUtils } from './utils/pipe.js';
 export { isDisposable } from './types/disposable.js';
 export { within, withinSync } from './utils/within.js';
 export { DockerContainer } from './utils/docker-api.js';
 export { LocalAdapter } from './adapters/local-adapter.js';
 export { withTempDir, withTempFile } from './utils/temp.js';
-
-export type { ExecutionEngineConfig };
 export { ExecutionEngine } from './core/execution-engine.js';
 export { DockerAdapter } from './adapters/docker-adapter.js';
+
+export type { ExecutionEngineConfig };
 export { parallel, ParallelEngine } from './utils/parallel.js';
 export { SSHKeyValidator } from './utils/ssh-key-validator.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
 export { SecurePasswordHandler } from './utils/secure-password.js';
 export { KubernetesAdapter } from './adapters/kubernetes-adapter.js';
+export { RemoteDockerAdapter } from './adapters/remote-docker-adapter.js';
+export { unifiedConfig, UnifiedConfigLoader } from './config/unified-config.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
   return new Proxy(function () { } as any, {
@@ -52,7 +54,7 @@ export function createCallableEngine(engine: ExecutionEngine): CallableExecution
         // Methods that return a new engine instance
         const chainableMethods = [
           'with', 'k8s', 'remoteDocker',
-          'local', 'cd', 'env', 'timeout', 'shell', 'retry', 'defaults'
+          'local', 'cd', 'env', 'timeout', 'shell', 'retry', 'defaults', 'raw'
         ];
 
         if (chainableMethods.includes(prop)) {
@@ -79,27 +81,49 @@ let defaultEngineInstance: ExecutionEngine | null = null;
 export const $ = new Proxy(function () { } as any, {
   get(target, prop: string) {
     if (!defaultEngine) {
-      defaultEngineInstance = new ExecutionEngine();
-      defaultEngine = createCallableEngine(defaultEngineInstance);
+      defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine());
+      defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
     }
     return (defaultEngine as any)[prop];
   },
 
   apply(target, thisArg, args) {
     if (!defaultEngine) {
-      defaultEngineInstance = new ExecutionEngine();
-      defaultEngine = createCallableEngine(defaultEngineInstance);
+      defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine());
+      defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
     }
     return (defaultEngine as any)(...args);
   }
 }) as CallableExecutionEngine;
 
+let isConfiguringPromise: Promise<void> | null = null;
+
 export function configure(config: ExecutionEngineConfig): void {
+  // Create a synchronous version that schedules cleanup asynchronously
   if (defaultEngineInstance) {
-    cleanupEngine();
+    // Store the old instance to clean up
+    const oldInstance = defaultEngineInstance;
+
+    // Create new instance immediately to avoid race conditions
+    defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine(config));
+    defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
+
+    // Schedule cleanup of old instance asynchronously
+    isConfiguringPromise = (async () => {
+      try {
+        if (typeof (oldInstance as any).dispose === 'function') {
+          await (oldInstance as any).dispose();
+        }
+      } catch (error) {
+        // Ignore errors during cleanup
+      } finally {
+        isConfiguringPromise = null;
+      }
+    })();
+  } else {
+    defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine(config));
+    defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
   }
-  defaultEngineInstance = new ExecutionEngine(config);
-  defaultEngine = createCallableEngine(defaultEngineInstance);
 }
 
 async function cleanupEngine(): Promise<void> {
@@ -121,6 +145,10 @@ async function cleanupEngine(): Promise<void> {
 
 // Export a way to dispose the global engine (for manual cleanup if needed)
 export async function dispose(): Promise<void> {
+  // Wait for any ongoing configuration to complete
+  if (isConfiguringPromise) {
+    await isConfiguringPromise;
+  }
   await cleanupEngine();
 }
 
@@ -164,61 +192,83 @@ function registerCleanupHandlers(): void {
     }
   });
 
-  // Handle uncaught exceptions
-  process.on('uncaughtException', async (error) => {
-    console.error('Uncaught Exception:', error);
-    try {
-      await cleanupEngine();
-    } catch {
-      // Ignore errors
-    } finally {
-      process.exit(1);
-    }
-  });
+  // Handle uncaught exceptions (skip in test environment)
+  if (process.env['NODE_ENV'] !== 'test' && !process.env['JEST_WORKER_ID']) {
+    process.on('uncaughtException', async (error) => {
+      try {
+        await cleanupEngine();
+      } catch {
+        // Ignore errors
+      } finally {
+        process.exit(1);
+      }
+    });
 
-  // Handle unhandled promise rejections
-  process.on('unhandledRejection', async (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    try {
-      await cleanupEngine();
-    } catch {
-      // Ignore errors
-    } finally {
-      process.exit(1);
-    }
-  });
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', async (reason, promise) => {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      try {
+        await cleanupEngine();
+      } catch {
+        // Ignore errors
+      } finally {
+        process.exit(1);
+      }
+    });
+  }
 }
 
 // Register cleanup handlers when the module is first loaded
 registerCleanupHandlers();
 
-export { RemoteDockerAdapter } from './adapters/remote-docker-adapter.js';
+export { ConvenienceAPI, attachConvenienceMethods } from './utils/convenience.js';
 export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';
 
 export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
+export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh-adapter.js';
+
+export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
+
 export {
+  DockerError,
   CommandError,
   TimeoutError,
-  ConnectionError
+  AdapterError,
+  ExecutionError,
+  ConnectionError,
+  KubernetesError
 } from './core/error.js';
-export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh-adapter.js';
+export {
+  enhanceError,
+  EnhancedCommandError,
+  EnhancedTimeoutError,
+  EnhancedExecutionError,
+  EnhancedConnectionError
+} from './core/enhanced-error.js';
 export type { EventFilter } from './types/events.js';
 export type { ExecutionResult } from './core/result.js';
-export type { PipelineOptions } from './utils/pipeline.js';
-
 export type { RetryOptions } from './utils/retry-adapter.js';
 
 export type { SSHExecutionContext } from './utils/ssh-api.js';
+
+export type { PipeTarget } from './core/pipe-implementation.js';
+export type { CommandSuggestion } from './utils/suggestions.js';
+
 export type { ProcessPromise } from './core/execution-engine.js';
 
 export type { CallableExecutionEngine } from './types/engine.js';
-
 export type { Disposable, DisposableContainer } from './types/disposable.js';
 export type { DockerContext, DockerContainerConfig } from './utils/docker-api.js';
+export type {
+  ErrorContext,
+  ErrorSuggestion,
+  EnhancedErrorDetails
+} from './core/enhanced-error.js';
 export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './utils/kubernetes-api.js';
+export type { PodConfig, HostConfig, UnifiedConfig, ProfileConfig, ContainerConfig } from './config/unified-config.js';
 export type {
   Command,
   AdapterType,

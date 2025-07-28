@@ -63,7 +63,8 @@ export class LocalAdapter extends BaseAdapter {
         result.signal ?? undefined,
         this.buildCommandString(mergedCommand),
         startTime,
-        endTime
+        endTime,
+        { originalCommand: mergedCommand }
       );
     } catch (error) {
       if (error instanceof CommandError || error instanceof AdapterError) {
@@ -101,7 +102,8 @@ export class LocalAdapter extends BaseAdapter {
         result.signal ?? undefined,
         this.buildCommandString(mergedCommand),
         startTime,
-        endTime
+        endTime,
+        { originalCommand: mergedCommand }
       );
     } catch (error) {
       if (error instanceof CommandError || error instanceof AdapterError) {

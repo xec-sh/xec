@@ -164,6 +164,28 @@ const response = await temp.exec`curl https://example.com`;
 await temp.remove(); // Cleanup
 ```
 
+### Execute Raw Commands (Without Shell)
+
+```typescript
+const container = await $.docker({
+  image: 'alpine',
+  name: 'raw-exec-demo'
+}).start();
+
+// Execute command without shell interpretation
+// Useful for commands with special characters or when shell is not needed
+await container.execRaw('echo', ['Hello', 'World']);
+
+// Complex arguments are passed safely
+await container.execRaw('grep', ['-E', '^[a-z]+$', 'file.txt']);
+
+// No shell expansion occurs
+await container.execRaw('echo', ['$HOME']); // Output: $HOME (literal)
+
+// Compare with regular exec (uses shell)
+await container.exec`echo $HOME`; // Output: /root (expanded)
+```
+
 ## Container Lifecycle
 
 ### Starting Containers

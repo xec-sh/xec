@@ -108,6 +108,37 @@ $.remoteDocker(options: RemoteDockerOptions): CallableExecutionEngine
 $.with(config: Partial<Command>): CallableExecutionEngine
 ```
 
+##### Batch Processing
+
+```typescript
+// Execute commands in batches with limited concurrency
+$.batch(commands: Array<string | Command>, options?: BatchOptions): Promise<ParallelResult>
+
+interface BatchOptions extends ParallelOptions {
+  concurrency?: number; // Alias for maxConcurrency
+}
+```
+
+Example:
+
+```typescript
+// Process files in batches with progress tracking
+const results = await $.batch([
+  'process file1.txt',
+  'process file2.txt',
+  'process file3.txt',
+  'process file4.txt',
+  'process file5.txt'
+], {
+  concurrency: 2,
+  onProgress: (completed, total, succeeded, failed) => {
+    console.log(`Progress: ${completed}/${total} (${succeeded} succeeded, ${failed} failed)`);
+  }
+});
+
+console.log(`Processed ${results.succeeded.length} files successfully`);
+```
+
 ## ProcessPromise
 
 Extended Promise returned by command execution.
@@ -212,6 +243,28 @@ await fs.writeFile('data.txt.gz', compressed);
 ```
 
 ### Execution Control
+
+#### $.raw`command`
+
+Execute commands without shell escaping. Useful when you need to preserve special characters or when working with complex shell constructs:
+
+```typescript
+// Regular execution escapes special characters
+const name = "John's file";
+await $`echo ${name}`;  // Executes: echo 'John'"'"'s file'
+
+// Raw execution preserves the exact string
+await $.raw`echo ${name}`;  // Executes: echo John's file
+
+// Useful for shell expansions
+await $.raw`echo ~/Documents/*.txt`;  // Shell expands the glob pattern
+
+// Complex shell constructs
+const script = 'if [ -f "$1" ]; then echo "exists"; fi';
+await $.raw`bash -c '${script}' -- myfile.txt`;
+```
+
+**Note:** Use raw execution carefully as it bypasses safety escaping and can be vulnerable to command injection if used with untrusted input.
 
 #### .nothrow()
 
@@ -725,13 +778,21 @@ $.offFiltered('command:start', { adapter: 'ssh' }, handler);
 
 ### parallel()
 
-Execute functions in parallel with concurrency control.
+Execute commands in parallel with concurrency control.
 
 ```typescript
-function parallel<T>(
-  tasks: Array<() => Promise<T>>,
+function parallel(
+  commands: Array<string | Command>,
+  engine: ExecutionEngine | CallableExecutionEngine,
   options?: ParallelOptions
-): Promise<Array<T | Error>>
+): Promise<ParallelResult>
+
+interface ParallelResult {
+  results: (ExecutionResult | Error)[];
+  succeeded: ExecutionResult[];
+  failed: Error[];
+  duration: number;
+}
 
 interface ParallelOptions {
   maxConcurrent?: number;
@@ -744,14 +805,109 @@ interface ParallelOptions {
 Example:
 
 ```typescript
+import { parallel } from '@xec-sh/core';
+
+// Execute commands in parallel
 const results = await parallel([
-  () => $`test1`,
-  () => $`test2`,
-  () => $`test3`
-], { 
-  maxConcurrent: 2,
-  stopOnError: false 
+  'npm install',
+  'npm run build',
+  'npm test'
+], $, { 
+  maxConcurrency: 2,
+  stopOnError: false,
+  onProgress: (completed, total, succeeded, failed) => {
+    console.log(`Progress: ${completed}/${total}`);
+  }
 });
+
+// With custom commands
+const commands = [
+  { command: 'git pull', cwd: '/repo1' },
+  { command: 'git pull', cwd: '/repo2' },
+  { command: 'git pull', cwd: '/repo3' }
+];
+
+const results2 = await parallel(commands, $, {
+  maxConcurrency: 3
+});
+```
+
+### ParallelEngine
+
+Advanced parallel execution with additional methods.
+
+```typescript
+class ParallelEngine {
+  constructor(engine: ExecutionEngine | CallableExecutionEngine)
+  
+  // Execute all commands, throw on first error
+  all(commands: Array<string | Command>, options?: ParallelOptions): Promise<ExecutionResult[]>
+  
+  // Execute all commands, return all results
+  settled(commands: Array<string | Command>, options?: ParallelOptions): Promise<ParallelResult>
+  
+  // Execute commands and return first to complete
+  race(commands: Array<string | Command>): Promise<ExecutionResult>
+  
+  // Map over items and execute commands
+  map<T>(
+    items: T[],
+    fn: (item: T, index: number) => string | Command,
+    options?: ParallelOptions
+  ): Promise<ParallelResult>
+  
+  // Filter items based on command success
+  filter<T>(
+    items: T[],
+    fn: (item: T, index: number) => string | Command,
+    options?: ParallelOptions
+  ): Promise<T[]>
+  
+  // Check if any command succeeds
+  some(commands: Array<string | Command>, options?: ParallelOptions): Promise<boolean>
+  
+  // Check if all commands succeed
+  every(commands: Array<string | Command>, options?: ParallelOptions): Promise<boolean>
+}
+```
+
+Example:
+
+```typescript
+import { ParallelEngine } from '@xec-sh/core';
+
+const parallel = new ParallelEngine($);
+
+// Map over files and process them
+const files = ['file1.txt', 'file2.txt', 'file3.txt'];
+const results = await parallel.map(
+  files,
+  (file) => `process ${file}`,
+  {
+    maxConcurrency: 2,
+    onProgress: (completed, total) => {
+      console.log(`Processed ${completed}/${total} files`);
+    }
+  }
+);
+
+// Filter items based on test results
+const validItems = await parallel.filter(
+  items,
+  (item) => `test -f ${item}` // Check if file exists
+);
+
+// Run tests and throw on first failure
+try {
+  await parallel.all([
+    'npm run test:unit',
+    'npm run test:integration',
+    'npm run test:e2e'
+  ]);
+  console.log('All tests passed!');
+} catch (error) {
+  console.error('Test failed:', error);
+}
 ```
 
 ### Pipeline
@@ -949,24 +1105,6 @@ const sum = await reduceOperator(
   lines,
   0,
   async (total, line) => total + parseInt(line)
-);
-```
-
-### pipe()
-
-Pipe commands together.
-
-```typescript
-function pipe(...commands: ProcessPromise[]): Promise<ExecutionResult>
-```
-
-Example:
-
-```typescript
-const result = await pipe(
-  $`cat file.txt`,
-  $`grep pattern`,
-  $`wc -l`
 );
 ```
 

@@ -1,7 +1,7 @@
 # @xec-sh/cli - Command Line Interface
 
 ## 🎯 Package Mission
-Command-line interface for Xec universal command execution system, providing script execution, dynamic commands, and rich interactive features.
+Command-line interface for Xec universal command execution system, providing intuitive multi-environment command execution with a focus on simplicity and user experience. The CLI follows the principle of "think about WHERE to run, then WHAT to run."
 
 ## 🏛 Architecture
 
@@ -9,19 +9,22 @@ Command-line interface for Xec universal command execution system, providing scr
 src/
 ├── main.ts               # CLI entry point
 ├── commands/             # Built-in commands
+│   ├── on.ts            # SSH execution (NEW)
+│   ├── in.ts            # Container/pod execution (NEW)
 │   ├── config.ts        # Configuration management
 │   ├── copy.ts          # File transfer
-│   ├── docker.ts        # Docker operations
+│   ├── docker.ts        # Docker operations (DEPRECATED)
 │   ├── env.ts           # Environment variables
-│   ├── exec.ts          # Direct execution
+│   ├── exec.ts          # Direct execution (DEPRECATED)
 │   ├── init.ts          # Project initialization
-│   ├── k8s.ts           # Kubernetes operations
+│   ├── k8s.ts           # Kubernetes operations (DEPRECATED)
 │   ├── list.ts          # List resources
-│   ├── ssh.ts           # SSH operations
+│   ├── ssh.ts           # SSH operations (DEPRECATED)
 │   ├── version.ts       # Version info
 │   └── watch.ts         # File watching
 ├── utils/
-│   ├── config.ts        # Configuration helpers
+│   ├── config.ts        # YAML configuration support
+│   ├── direct-execution.ts # Smart command routing (NEW)
 │   └── dynamic-commands.ts # Dynamic command loading
 └── bin/xec              # Executable entry
 ```
@@ -116,17 +119,53 @@ await loadEnv('.env.local');
 ### Project Structure
 ```
 .xec/
-├── config.json      # Project configuration
+├── config.yaml      # Project configuration (YAML)
 ├── commands/        # Custom commands
 ├── scripts/         # Shared scripts
 └── cache/          # Cache directory
 ```
 
+### Unified Configuration (YAML)
+The CLI uses a unified YAML configuration system shared with @xec-sh/core:
+
+```yaml
+# .xec/config.yaml
+name: my-project
+description: My project configuration
+
+defaults:
+  timeout: 30s
+  shell: /bin/bash
+  env:
+    NODE_ENV: production
+
+hosts:
+  prod:
+    host: prod.example.com
+    username: deploy
+    privateKeyPath: ~/.ssh/id_rsa
+
+containers:
+  app:
+    name: myapp-prod
+    
+pods:
+  web:
+    name: web-deployment
+    namespace: production
+
+aliases:
+  deploy: xec on prod deploy.sh
+  logs: xec in app tail -f /var/log/app.log
+```
+
 ### Config Priority
 1. Command line arguments (highest)
-2. Environment variables
-3. `.xec/config.json`
-4. Default values (lowest)
+2. Environment variables (XEC_*)
+3. Active profile settings
+4. `.xec/config.yaml` (project)
+5. `~/.xec/config.yaml` (global)
+6. Default values (lowest)
 
 ## 📋 Command Patterns
 

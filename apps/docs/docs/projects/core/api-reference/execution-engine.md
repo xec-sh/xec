@@ -122,6 +122,20 @@ interface ExecutionEngineConfig extends EventConfig {
 }
 ```
 
+### Configuration Validation
+
+The ExecutionEngine validates configuration values to ensure correct operation:
+
+- **defaultTimeout**: Must be a positive number or undefined
+  - Error: `Invalid timeout value: <value>`
+- **encoding**: Must be a valid Node.js encoding
+  - Valid values: `'ascii'`, `'utf8'`, `'utf-8'`, `'utf16le'`, `'ucs2'`, `'ucs-2'`, `'base64'`, `'base64url'`, `'latin1'`, `'binary'`, `'hex'`
+  - Error: `Unsupported encoding: <value>`
+- **maxBuffer**: Must be a positive number (in bytes)
+  - Error: `Invalid buffer size: <value>`
+- **maxEventListeners**: Must be a positive number  
+  - Error: `Invalid max event listeners: <value>`
+
 ## Template Literal API
 
 The primary way to execute commands is through template literals:

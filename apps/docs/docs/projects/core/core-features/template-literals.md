@@ -497,6 +497,47 @@ for (const file of files) {
 }
 ```
 
+### Promise and Thenable Interpolation
+
+Xec automatically awaits promises and thenables in template literals:
+
+```typescript
+// Simple promise interpolation
+const namePromise = Promise.resolve('world');
+await $`echo hello ${namePromise}`; // Output: hello world
+
+// Array promises
+const filesPromise = Promise.resolve(['file1.txt', 'file2.txt']);
+await $`cat ${filesPromise}`; // Executes: cat file1.txt file2.txt
+
+// Nested command execution
+const cmd1 = $`echo foo`;
+const cmd2 = Promise.resolve(['bar', 'baz']);
+await $`echo ${cmd1} ${cmd2}`; // Output: foo bar baz
+
+// Custom thenables
+const customThenable = {
+  then(resolve: (value: string) => void) {
+    resolve('resolved-value');
+  }
+};
+await $`echo ${customThenable}`; // Output: resolved-value
+
+// Multiple promises
+const p1 = Promise.resolve('one');
+const p2 = Promise.resolve('two');
+const p3 = Promise.resolve('three');
+await $`echo ${p1} ${p2} ${p3}`; // Output: one two three
+
+// Promise rejection handling
+try {
+  const failingPromise = Promise.reject(new Error('Failed'));
+  await $`echo ${failingPromise}`; // Throws error
+} catch (error) {
+  console.error('Promise rejected:', error.message);
+}
+```
+
 ## Debugging Template Literals
 
 ### Inspect Generated Commands
@@ -537,7 +578,8 @@ Template literals in @xec-sh/core provide:
 1. **Natural Syntax** - Write commands as you think them
 2. **Automatic Safety** - All interpolations are escaped
 3. **Type Safety** - Full TypeScript support
-4. **Flexibility** - Handle any data type
-5. **Raw Mode** - When you need shell features
+4. **Flexibility** - Handle any data type, including promises
+5. **Promise Support** - Automatically awaits promises and thenables
+6. **Raw Mode** - When you need shell features
 
 Remember: Always use normal mode with user input, and only use raw mode when you explicitly need shell features and trust all inputs.

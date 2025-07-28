@@ -42,8 +42,8 @@ interface ProcessPromise extends Promise<ExecutionResult> {
   stdout(stream: StreamOption): ProcessPromise;
   stderr(stream: StreamOption): ProcessPromise;
   
-  // Piping
-  pipe(target: ProcessPromise | WritableStream | TemplateStringsArray, ...args: any[]): ProcessPromise;
+  // Piping - comprehensive pipe support
+  pipe(target: PipeTarget | TemplateStringsArray, ...args: any[]): ProcessPromise;
   
   // Output formats
   text(): Promise<string>;
@@ -394,20 +394,26 @@ await $`sort | uniq`
 ### Command to Command
 
 ```typescript
-// Basic pipe
+// Basic pipe using template literals
 await $`echo "hello world"`
-  .pipe($`tr 'a-z' 'A-Z'`);
+  .pipe`tr 'a-z' 'A-Z'`;
 // Output: "HELLO WORLD"
 
 // Multiple pipes
 await $`cat data.txt`
-  .pipe($`grep ERROR`)
-  .pipe($`sort`)
-  .pipe($`uniq -c`);
+  .pipe`grep ERROR`
+  .pipe`sort`
+  .pipe`uniq -c`;
 
-// Conditional piping
-const result = await $`find . -name "*.js"`
-  .pipe(includeTests ? $`cat` : $`grep -v test`);
+// Using string commands
+const command = 'tr a-z A-Z';
+await $`echo "hello"`.pipe(command);
+
+// Using command objects
+await $`echo "test"`.pipe({
+  command: 'grep',
+  args: ['pattern']
+});
 ```
 
 ### Command to Stream
@@ -415,35 +421,71 @@ const result = await $`find . -name "*.js"`
 ```typescript
 // Pipe to Node.js transform stream
 import { Transform } from 'stream';
+import { pipeUtils } from '@xec-sh/core';
 
-const upperCase = new Transform({
+// Using built-in pipe utilities
+await $`echo "hello world"`
+  .pipe(pipeUtils.toUpperCase());
+// Output: "HELLO WORLD"
+
+await $`cat file.txt`
+  .pipe(pipeUtils.grep('error'))  // Filter lines containing 'error'
+  .pipe(pipeUtils.replace('error', 'ERROR')); // Replace text
+
+// Custom transform
+const doubleNumbers = new Transform({
   transform(chunk, encoding, callback) {
-    callback(null, chunk.toString().toUpperCase());
+    const num = parseInt(chunk.toString());
+    callback(null, String(num * 2));
   }
 });
 
-await $`echo "hello"`
-  .pipe(upperCase)
-  .pipe(process.stdout);
+await $`echo "5"`.pipe(doubleNumbers); // Output: "10"
 
 // Pipe to file stream
 const output = createWriteStream('sorted.txt');
 await $`sort input.txt`
   .pipe(output);
+
+// Tee - split output to multiple destinations
+const log1 = createWriteStream('log1.txt');
+const log2 = createWriteStream('log2.txt');
+
+await $`generate-report`
+  .pipe(pipeUtils.tee(log1, log2)); // Write to both files
 ```
 
-### Template Literal Piping
+### Function Piping
 
 ```typescript
-// Pipe using template literals
-const count = await $`ls -la`
-  .pipe`wc -l`
-  .text();
+// Process output line by line
+const lines: string[] = [];
+await $`cat file.txt`
+  .pipe((line: string) => {
+    lines.push(line.toUpperCase());
+  }, { lineByLine: true });
 
-// With interpolation
-const pattern = '*.js';
-await $`find . -name ${pattern}`
-  .pipe`xargs grep TODO`;
+// Process entire output
+await $`echo "data"`
+  .pipe((output: string) => {
+    console.log('Got:', output);
+  }, { lineByLine: false });
+
+// Custom line separator
+await $`echo "a,b,c"`
+  .pipe((item: string) => {
+    console.log('Item:', item);
+  }, { lineByLine: true, lineSeparator: ',' });
+
+// Conditional command piping
+await $`ls -la`
+  .pipe((result: ExecutionResult) => {
+    const fileCount = result.stdout.split('\n').length;
+    if (fileCount > 10) {
+      return 'echo "Many files detected"';
+    }
+    return null; // Skip piping
+  });
 ```
 
 ## Error Handling
@@ -573,6 +615,62 @@ proc.child?.on('spawn', () => {
 
 // Wait for result
 await proc;
+```
+
+## Pipe Utilities
+
+### Built-in Transforms
+
+```typescript
+import { pipeUtils } from '@xec-sh/core';
+
+// toUpperCase() - Convert text to uppercase
+await $`echo "hello"`.pipe(pipeUtils.toUpperCase());
+// Output: "HELLO"
+
+// grep(pattern) - Filter lines matching pattern
+await $`cat log.txt`
+  .pipe(pipeUtils.grep('ERROR'))     // String pattern
+  .pipe(pipeUtils.grep(/^\[WARN/)); // Regex pattern
+
+// replace(search, replacement) - Replace text
+await $`echo "hello world"`
+  .pipe(pipeUtils.replace('world', 'universe'))      // String
+  .pipe(pipeUtils.replace(/h\w+o/g, 'REPLACED'));  // Regex
+
+// tee(...destinations) - Split output to multiple streams
+const file1 = createWriteStream('output1.txt');
+const file2 = createWriteStream('output2.txt');
+await $`generate-data`
+  .pipe(pipeUtils.tee(file1, file2));
+```
+
+### Pipe Options
+
+```typescript
+interface PipeOptions {
+  // Whether to throw if previous command failed
+  throwOnError?: boolean; // default: true
+  
+  // Encoding for string operations
+  encoding?: BufferEncoding; // default: 'utf8'
+  
+  // Process line by line for functions
+  lineByLine?: boolean; // default: true
+  
+  // Custom separator for line processing
+  lineSeparator?: string; // default: '\n'
+}
+
+// Example with options
+await $`cat data.csv`
+  .pipe((field: string) => {
+    console.log('Field:', field);
+  }, {
+    lineByLine: true,
+    lineSeparator: ',',
+    encoding: 'utf8'
+  });
 ```
 
 ## Advanced Patterns

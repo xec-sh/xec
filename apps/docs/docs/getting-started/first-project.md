@@ -15,37 +15,40 @@ We'll build an automation system that:
 - Performs health checks and rollbacks
 - Sends notifications on success/failure
 
-## Project Structure
+## Project Setup
 
-Create a new directory for your project:
+Let's start by initializing a new Xec project:
 
 ```bash
-mkdir deployment-automation
+# Create and initialize the project
+xec init deployment-automation
 cd deployment-automation
-npm init -y
 ```
 
-Install Xec dependencies:
+This creates a basic project structure in the `.xec` directory. Now let's set up our deployment project:
 
 ```bash
+# Install additional dependencies
+npm init -y
 npm install @xec-sh/core typescript @types/node
 npm install --save-dev ts-node
 ```
 
-Create the following structure:
+Create the following additional structure:
 
 ```
 deployment-automation/
+├── .xec/                 # Created by xec init
+│   ├── config.yaml
+│   ├── scripts/
+│   ├── commands/
+│   └── ...
 ├── package.json
 ├── tsconfig.json
 ├── .env.example
 ├── config/
 │   ├── environments.ts
 │   └── settings.ts
-├── scripts/
-│   ├── deploy.ts
-│   ├── rollback.ts
-│   └── health-check.ts
 ├── lib/
 │   ├── ssh-manager.ts
 │   ├── docker-utils.ts
@@ -549,9 +552,19 @@ if (require.main === module) {
 export { healthCheck };
 ```
 
-## Creating Recipes
+## Creating Custom Scripts and Commands
 
-Create `recipes/full-deploy.ts`:
+First, let's use Xec's template system to create our deployment script:
+
+```bash
+# Create an advanced deployment script
+xec new script deploy --advanced -d "Deploy application to various environments"
+
+# Create a rollback command
+xec new command rollback -d "Rollback to previous version"
+```
+
+Now let's create additional recipes. Create `recipes/full-deploy.ts`:
 
 ```typescript
 import { deploy } from '../scripts/deploy';
@@ -712,8 +725,10 @@ Use this as a foundation for your own automation projects. The patterns and prac
 
 ## Next Steps
 
-1. Explore the [API Reference](../projects/core/api-reference)
-2. Discover [More Examples](../projects/core/examples)
-3. Join the [Xec Community](https://github.com/xec-sh/xec)
+1. Learn about [Creating Custom Commands](../projects/cli/custom-commands)
+2. Explore the [API Reference](../projects/core/api-reference)
+3. Discover [More Examples](../projects/core/examples)
+4. Check out [Real-World Examples](../projects/cli/real-world-examples)
+5. Join the [Xec Community](https://github.com/xec-sh/xec)
 
 Happy automating! 🚀

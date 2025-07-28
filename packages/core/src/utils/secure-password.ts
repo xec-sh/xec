@@ -98,19 +98,18 @@ export class SecurePasswordHandler implements Disposable {
     const scriptId = randomBytes(8).toString('hex');
     const scriptPath = join(tmpdir(), `askpass-${scriptId}.sh`);
     
-    // Store password securely instead of embedding it in the script
+    // Store password securely for cleanup tracking
     this.storePassword(scriptId, password);
     
-    // Create a more secure askpass script that retrieves password from environment
+    // Escape password for safe embedding in script
+    const escapedPassword = password.replace(/'/g, "'\\''")
+    
+    // Create askpass script with embedded password
+    // This is necessary for SSH execution where we can't pass environment variables
     const scriptContent = `#!/bin/sh
 # Temporary askpass script - auto-generated
 # This file will be deleted after use
-# Password is passed via environment variable for better security
-if [ -z "$SUDO_PASS_${scriptId}" ]; then
-  echo "Error: Password not found in environment" >&2
-  exit 1
-fi
-echo "$SUDO_PASS_${scriptId}"
+echo '${escapedPassword}'
 `;
     
     try {

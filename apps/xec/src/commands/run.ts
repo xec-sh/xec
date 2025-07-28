@@ -8,6 +8,8 @@ import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 import * as clack from '@clack/prompts';
 
+import { handleError } from '../utils/error-handler.js';
+
 export default function (program: Command) {
   program
     .command('run [file]')
@@ -38,11 +40,11 @@ export default function (program: Command) {
           process.exit(1);
         }
       } catch (error) {
-        clack.log.error(error instanceof Error ? error.message : 'Unknown error');
-        if (process.env['XEC_DEBUG']) {
-          console.error(error);
-        }
-        process.exit(1);
+        handleError(error, {
+          verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+          quiet: options.parent?.opts()?.quiet,
+          output: 'text'
+        });
       }
     });
 }
@@ -97,7 +99,11 @@ export async function runScript(scriptPath: string, args: string[], options: any
         clack.log.info(chalk.dim(`Running ${scriptPath}...`));
         await executeScript(wrappedCode, fullPath, context);
       } catch (error) {
-        clack.log.error(error instanceof Error ? error.message : 'Script error');
+        handleError(error, {
+          verbose: false,
+          quiet: false,
+          output: 'text'
+        });
       }
     };
 
@@ -158,9 +164,16 @@ async function executeScript(code: string, filename: string, context: any) {
 async function createScriptContext(scriptPath: string, args: string[]) {
   const require = createRequire(scriptPath === '<eval>' || scriptPath === '<repl>' ? import.meta.url : scriptPath);
 
+  // Set script mode environment variable
+  process.env['XEC_SCRIPT_MODE'] = 'true';
+
   // Import Xec script utilities
   const { $ } = await import('@xec-sh/core');
   const scriptUtils = await import('../script-utils.js');
+  
+  // Import CLI configuration API
+  const cliApi = await import('../cli.js');
+  await cliApi.loadCliConfig(); // Ensure config is loaded
 
   // Create global context with available utilities
   const context = vm.createContext({
@@ -193,6 +206,15 @@ async function createScriptContext(scriptPath: string, args: string[]) {
     // Core Xec utilities
     $,
     ...scriptUtils.default,
+    
+    // CLI configuration API
+    config: cliApi.config,
+    hosts: cliApi.hosts,
+    containers: cliApi.containers,
+    pods: cliApi.pods,
+    resolveAlias: cliApi.resolveAlias,
+    runAlias: cliApi.runAlias,
+    useProfile: cliApi.useProfile,
 
     // Helper functions
     log: console.log,
@@ -271,7 +293,11 @@ export async function startRepl() {
           this.displayPrompt();
         })
         .catch((error) => {
-          console.error(chalk.red('Error:'), error.message);
+          handleError(error, {
+            verbose: false,
+            quiet: false,
+            output: 'text'
+          });
           this.displayPrompt();
         });
     }

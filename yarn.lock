@@ -6470,12 +6470,14 @@ __metadata:
   dependencies:
     "@types/dockerode": "npm:^3.3.42"
     "@types/jest": "npm:^30.0.0"
+    "@types/js-yaml": "npm:^4.0.9"
     "@types/node": "npm:^24.0.13"
     "@types/ssh2": "npm:^1.15.5"
     "@types/ssh2-streams": "npm:^0.1.12"
     "@xec-sh/test-utils": "workspace:*"
     dockerode: "npm:^4.0.7"
     jest: "npm:^30.0.4"
+    js-yaml: "npm:^4.1.0"
     node-pty: "npm:^1.0.0"
     sb-promise-queue: "npm:^2.1.1"
     sb-scandir: "npm:^3.1.1"
@@ -6484,6 +6486,7 @@ __metadata:
     ssh2-streams: "npm:^0.4.10"
     ts-jest: "npm:^29.4.0"
     typescript: "npm:^5.8.3"
+    zod: "npm:^4.0.10"
   languageName: unknown
   linkType: soft
 
@@ -20570,6 +20573,13 @@ __metadata:
   version: 3.25.76
   resolution: "zod@npm:3.25.76"
   checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
+  languageName: node
+  linkType: hard
+
+"zod@npm:^4.0.10":
+  version: 4.0.10
+  resolution: "zod@npm:4.0.10"
+  checksum: 10c0/8d1145e767c22b571a7967c198632f69ef15ce571b5021cdba84cf31d9af2ca40b033ea2fcbe5797cfd2da9c67b3a6ebe435938eabfbb1d1f3ab2f17f00f443b
   languageName: node
   linkType: hard
 

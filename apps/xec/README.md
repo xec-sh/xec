@@ -42,6 +42,25 @@ npm install -g @xec-sh/cli
 
 ## 🚀 Quick Start
 
+### Direct Command Execution
+
+```bash
+# Execute locally
+xec ls -la
+xec "echo Hello World"
+
+# Execute on SSH host
+xec on server1 "uptime"
+xec on prod "systemctl status nginx"
+
+# Execute in container/pod
+xec in myapp "npm test"
+xec in pod:webapp "date"
+
+# Execute on multiple hosts
+xec on server1,server2 "uptime" --parallel
+```
+
 ### Running Scripts
 
 ```bash
@@ -63,6 +82,33 @@ xec dev.js --watch
 
 ### Using Commands
 
+#### New Simplified Commands (Recommended)
+
+```bash
+# SSH operations - use 'on' command
+xec on server1 "uptime"                    # Single host
+xec on prod "systemctl status nginx"       # Using configured alias
+xec on web-1,web-2 "npm restart" --parallel # Multiple hosts
+xec on staging -e NODE_ENV=production "npm test" # With environment
+
+# Container/Pod operations - use 'in' command  
+xec in myapp "npm test"                    # Docker container
+xec in pod:webapp "date"                   # Kubernetes pod
+xec in pod:webapp -n production "ls"       # With namespace
+xec in webapp -c nginx "nginx -t"          # Specific container
+xec in myapp                                # Interactive shell
+
+# Direct local execution
+xec ls -la                                  # Direct passthrough
+xec "find . -name '*.js' | wc -l"          # Complex commands
+
+# Smart execution (auto-detects target)
+xec prod uptime                             # Runs on 'prod' SSH host
+xec myapp npm test                          # Runs in 'myapp' container
+```
+
+#### Classic Commands (Legacy)
+
 ```bash
 # Show help
 xec --help
@@ -74,17 +120,19 @@ xec init
 xec config set
 xec config get
 
-# SSH operations
-xec ssh connect user@host
-xec ssh tunnel user@host 8080:80
+# File operations
+xec copy local.txt user@host:/remote/path   # Copy to SSH host
+xec copy container:app.log ./local.log      # Copy from container
+xec copy pod:data.json ./data.json          # Copy from pod
 
-# Docker operations
-xec docker ps
-xec docker exec container-name "ls -la"
+# Port forwarding
+xec forward server:8080 3000                 # SSH tunnel
+xec forward pod:webapp:80 8080               # K8s port forward
 
-# Kubernetes operations
-xec k8s pods
-xec k8s exec pod-name "date"
+# View logs
+xec logs myapp                               # Container logs
+xec logs pod:webapp -f                       # Follow pod logs
+xec logs server:/var/log/app.log             # Remote file logs
 
 # Copy files
 xec copy local.txt user@host:/remote/path
@@ -293,11 +341,59 @@ if (await confirm('Deploy to all servers?')) {
 
 ## 🔧 Configuration
 
-The CLI stores configuration in `.xec/` directory:
+Xec uses YAML configuration files for defining hosts, containers, pods, and aliases. Configuration can be stored in:
+- `~/.xec/config.yaml` - Global configuration
+- `./.xec/config.yaml` - Project-specific configuration
+
+### Configuration Structure
+
+```yaml
+# ~/.xec/config.yaml
+defaults:
+  timeout: 30s
+  shell: /bin/bash
+
+# SSH hosts
+hosts:
+  prod:
+    host: production.example.com
+    username: deploy
+    privateKey: ~/.ssh/id_rsa_prod
+    
+  staging:
+    host: staging.example.com
+    username: ubuntu
+
+# Docker containers  
+containers:
+  app:
+    name: myapp-production
+    
+  db:
+    name: postgres-main
+
+# Kubernetes pods
+pods:
+  web:
+    name: web-deployment-*
+    namespace: production
+    
+# Command aliases
+aliases:
+  deploy: "xec on prod ./deploy.sh"
+  logs: "xec in app tail -f /var/log/app.log"
+  status: "xec on prod,staging uptime --parallel"
+```
+
+See [examples/config.yaml](examples/config.yaml) for a complete example.
+
+### Legacy Directory Structure
+
+The CLI also supports legacy directory structure in `.xec/`:
 
 ```bash
 .xec/
-├── config.json     # CLI configuration
+├── config.json     # Legacy JSON configuration (deprecated)
 ├── commands/       # Custom commands
 └── scripts/        # Shared scripts
 ```
@@ -319,6 +415,96 @@ export default {
     await $`npm run deploy:${env}`;
   }
 };
+```
+
+## 🛠 Troubleshooting
+
+### Enhanced Error Messages
+
+Xec provides context-aware error messages with helpful suggestions:
+
+```bash
+# Typo in command name
+$ xec shs server1 uptime
+✖ Unknown command 'shs'
+
+Did you mean:
+  ssh - Execute commands on remote hosts via SSH
+    Usage: xec ssh <hosts...>
+
+# Connection errors with context
+$ xec on unknown-host "date"
+✖ SSH connection failed: ENOTFOUND
+
+Error Details:
+  Host: unknown-host
+  Port: 22
+  
+Suggestions:
+  • Check if the hostname is correct
+  • Verify DNS resolution: nslookup unknown-host
+  • Try using IP address instead of hostname
+  • Check SSH configuration: ~/.ssh/config
+
+# Permission errors with solutions
+$ xec in protected-container "ls"
+✖ Docker permission denied
+
+Error Details:
+  Container: protected-container
+  Operation: exec
+  
+Suggestions:
+  • Add your user to docker group: sudo usermod -aG docker $USER
+  • Run with sudo (not recommended)
+  • Check container status: docker ps -a
+```
+
+### Command Not Found
+
+If a command is not recognized, Xec will suggest similar commands:
+
+```bash
+$ xec kube get pods
+✖ Unknown command 'kube'
+
+Did you mean:
+  k8s - Kubernetes operations
+    Usage: xec k8s
+
+$ xec foward pod:web:8080
+✖ Unknown command 'foward'
+
+Did you mean:
+  forward - Set up port forwarding
+    Usage: xec forward <source> [to] <destination>
+```
+
+### Smart Error Recovery
+
+Xec automatically suggests fixes for common issues:
+
+```bash
+# Missing configuration
+$ xec on prod uptime
+✖ Host 'prod' not found in configuration
+
+Suggestions:
+  • Add host to ~/.xec/config.yaml:
+    hosts:
+      prod:
+        host: production.example.com
+        username: deploy
+  • Use full hostname: xec on production.example.com uptime
+
+# Container not running
+$ xec in myapp "npm test"
+✖ Container 'myapp' is not running
+
+Suggestions:
+  • Start the container: docker start myapp
+  • List all containers: docker ps -a
+  • Use container ID instead of name
 ```
 
 ## 🤝 Contributing

@@ -88,6 +88,22 @@ describe('ExecutionResult', () => {
       
       expect(result.toString()).toBe('line1\nline2\nline3');
     });
+    
+    it('should handle stdout with only whitespace', () => {
+      const result = createMockExecutionResult({
+        stdout: '   \n\t\n   '
+      });
+      
+      expect(result.toString()).toBe('');
+    });
+    
+    it('should handle stdout with leading/trailing whitespace and content', () => {
+      const result = createMockExecutionResult({
+        stdout: '\n\n   content   \n\n'
+      });
+      
+      expect(result.toString()).toBe('content');
+    });
   });
   
   describe('toJSON()', () => {
@@ -187,6 +203,39 @@ describe('ExecutionResult', () => {
         expect(error.signal).toBe('SIGKILL');
       }
     });
+    
+    it('should not throw when exit code is 0 even with signal', () => {
+      const result = createMockExecutionResult({
+        exitCode: 0,
+        signal: 'SIGTERM',
+        stdout: 'Process terminated gracefully'
+      });
+      
+      expect(() => result.throwIfFailed()).not.toThrow();
+    });
+    
+    it('should throw with detailed error information', () => {
+      const result = createMockExecutionResult({
+        command: 'complex-command --with-args',
+        exitCode: 127,
+        stdout: 'Some output before failure',
+        stderr: 'Command not found',
+        duration: 1500
+      });
+      
+      try {
+        result.throwIfFailed();
+        fail('Should have thrown');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(CommandError);
+        expect(error.command).toBe('complex-command --with-args');
+        expect(error.exitCode).toBe(127);
+        expect(error.stdout).toBe('Some output before failure');
+        expect(error.stderr).toBe('Command not found');
+        expect(error.duration).toBe(1500);
+        expect(error.message).toContain('exit code 127');
+      }
+    });
   });
   
   describe('Factory function', () => {
@@ -245,6 +294,41 @@ describe('ExecutionResult', () => {
       expect(typeof result.toString).toBe('function');
       expect(typeof result.toJSON).toBe('function');
       expect(typeof result.throwIfFailed).toBe('function');
+      expect(typeof result.isSuccess).toBe('function');
+    });
+  });
+  
+  describe('isSuccess()', () => {
+    it('should return true for exit code 0', () => {
+      const result = createMockExecutionResult({
+        exitCode: 0
+      });
+      
+      expect(result.isSuccess()).toBe(true);
+    });
+    
+    it('should return false for non-zero exit code', () => {
+      const result = createMockExecutionResult({
+        exitCode: 1
+      });
+      
+      expect(result.isSuccess()).toBe(false);
+    });
+    
+    it('should return false for negative exit code', () => {
+      const result = createMockExecutionResult({
+        exitCode: -1
+      });
+      
+      expect(result.isSuccess()).toBe(false);
+    });
+    
+    it('should return false for large exit code', () => {
+      const result = createMockExecutionResult({
+        exitCode: 255
+      });
+      
+      expect(result.isSuccess()).toBe(false);
     });
   });
 });

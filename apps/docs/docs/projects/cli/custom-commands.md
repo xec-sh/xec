@@ -609,7 +609,7 @@ switch (action) {
 1. Initialize your project: `xec init my-project`
 2. Create your first script: `xec new script my-task`
 3. Create a custom command: `xec new command my-tool`
-4. Explore the [API documentation](/docs/api) for available functions
-5. Check [example scripts](https://github.com/xec-sh/xec/tree/main/examples)
+4. Explore the [API documentation](../core/api-reference) for available functions
+5. Check [example scripts](https://github.com/xec-sh/xec/tree/main/packages/core/examples)
 
 Remember: Start simple, test thoroughly, and gradually add complexity as needed!

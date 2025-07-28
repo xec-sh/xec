@@ -24,10 +24,10 @@ abstract class BaseAdapter implements Disposable {
   abstract name: string;
   abstract execute(command: Command): Promise<ExecutionResult>;
   abstract isAvailable(): Promise<boolean>;
+  abstract dispose(): Promise<void>;
   
   // Optional lifecycle methods
   initialize?(): Promise<void>;
-  dispose?(): Promise<void>;
   
   // Event handling
   on(event: string, handler: Function): void;
@@ -70,6 +70,87 @@ Cleans up adapter resources.
 // Always clean up when done
 await adapter.dispose();
 ```
+
+### Sensitive Data Masking
+
+BaseAdapter automatically masks sensitive data in command output, logs, and error messages to prevent accidental exposure of secrets.
+
+#### Configuration
+
+```typescript
+interface SensitiveDataMaskingConfig {
+  enabled: boolean;           // Enable/disable masking (default: true)
+  patterns: RegExp[];         // Custom patterns to mask
+  replacement: string;        // Replacement text (default: '[REDACTED]')
+}
+
+// Configure masking in adapter
+const adapter = new LocalAdapter({
+  sensitiveDataMasking: {
+    enabled: true,
+    replacement: '***HIDDEN***',
+    patterns: [
+      /custom-secret=(\S+)/gi,  // Add custom patterns
+    ]
+  }
+});
+```
+
+#### Default Masked Patterns
+
+The following sensitive data patterns are automatically masked:
+
+- **API Keys**: `api_key=...`, `apikey: "..."`, `access_token=...`
+- **Passwords**: `password=...`, `passwd: ...`, `pwd="..."`
+- **Authorization Headers**: `Authorization: Bearer ...`, `Authorization: Basic ...` (supports Base64 with padding)
+- **Cloud Credentials**: 
+  - AWS: `AWS_ACCESS_KEY_ID=...`, `aws_secret_access_key=...`
+  - GitHub: `ghp_...`, `ghs_...`, `github_token=...`
+- **SSH Private Keys**: Full RSA, DSA, EC, and OpenSSH private keys
+- **Environment Variables**: Any env var containing SECRET, TOKEN, KEY, PASSWORD, etc.
+- **Command Line Arguments**: `--password ...`, `--client-secret ...`
+
+#### Example Usage
+
+```typescript
+// Sensitive data is automatically masked in results
+const result = await adapter.execute({
+  command: 'echo $API_KEY'
+});
+// If API_KEY="sk-secret123", result.stdout will be "[REDACTED]"
+
+// Masking in error messages
+try {
+  await adapter.execute({
+    command: 'curl -H "Authorization: Bearer secret-token" https://api.example.com'
+  });
+} catch (error) {
+  // error.stderr will contain "Authorization: Bearer [REDACTED]"
+}
+
+// Disable masking when needed (use with caution!)
+const adapter = new LocalAdapter({
+  sensitiveDataMasking: { enabled: false }
+});
+```
+
+#### Custom Patterns
+
+Add your own patterns for application-specific secrets:
+
+```typescript
+const adapter = new LocalAdapter({
+  sensitiveDataMasking: {
+    patterns: [
+      // Keep default patterns and add custom ones
+      /(internal-api-key):\s*(\S+)/gi,
+      /company-secret=([^&\s]+)/gi,
+    ]
+  }
+});
+```
+
+> ⚠️ **Security Note**: Sensitive data masking helps prevent accidental exposure but should not be the only security measure. Always follow security best practices like using environment variables, secure storage, and proper access controls.
 
 ## Local Adapter
 

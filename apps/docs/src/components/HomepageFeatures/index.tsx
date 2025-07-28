@@ -83,12 +83,12 @@ const FeatureList: FeatureItem[] = [
   {
     title: translate({
       id: 'homepage.features.extensible.title',
-      message: 'Extensible & Pluggable',
+      message: 'Designed for Complex Scripting',
     }),
     Svg: ExtensibleSvg,
     description: (
       <Translate id="homepage.features.extensible.description">
-        Extend functionality with custom providers, adapters, and plugins. Built on a modular architecture that grows with your needs. Create your own adapters for any execution environment.
+        Chain calls like .cd(), .env(), and .timeout() to create configured execution environments. Use full TypeScript power with variables, loops, functions, and libraries directly in your scripts.
       </Translate>
     ),
   },

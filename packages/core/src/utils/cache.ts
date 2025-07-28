@@ -19,6 +19,7 @@ export interface CachedResult {
 
 export class ResultCache {
   private cache: Map<string, CachedResult> = new Map();
+  private inflight: Map<string, Promise<ExecutionResult>> = new Map();
   private cleanupInterval: NodeJS.Timeout;
   private eventEmitter?: EnhancedEventEmitter;
 
@@ -47,6 +48,27 @@ export class ResultCache {
       .createHash('sha256')
       .update(JSON.stringify(data))
       .digest('hex');
+  }
+
+  /**
+   * Get an inflight promise if it exists
+   */
+  getInflight(key: string): Promise<ExecutionResult> | null {
+    return this.inflight.get(key) || null;
+  }
+
+  /**
+   * Set an inflight promise
+   */
+  setInflight(key: string, promise: Promise<ExecutionResult>): void {
+    this.inflight.set(key, promise);
+  }
+
+  /**
+   * Clear an inflight promise
+   */
+  clearInflight(key: string): void {
+    this.inflight.delete(key);
   }
 
   /**
@@ -151,6 +173,7 @@ export class ResultCache {
    */
   clear(): void {
     this.cache.clear();
+    this.inflight.clear();
   }
 
   /**

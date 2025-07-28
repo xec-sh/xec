@@ -2,20 +2,29 @@
 sidebar_position: 1
 ---
 
-# Xec CLI Reference
+# Xec CLI - Universal Command Orchestration
 
-The Xec Command Line Interface (CLI) is your primary tool for interacting with the Xec platform. It provides commands for executing scripts, managing configurations, and automating multi-environment operations.
+Xec CLI is a powerful command-line tool that revolutionizes how you execute commands and manage automation across multiple environments. With seamless support for local execution, SSH, Docker, and Kubernetes, Xec enables you to orchestrate complex workflows with simple JavaScript.
 
-## Overview
+## 🚀 Key Features
 
-The Xec CLI (`@xec-sh/cli`) offers:
-- Script execution across multiple environments
-- Configuration management
-- Built-in commands for common operations
-- Integration with Docker and Kubernetes
-- File operations and transfers
-- SSH connection management
-- Real-time monitoring and watching
+### Universal Execution
+- **One API, Multiple Environments**: Execute commands locally, via SSH, in Docker containers, or Kubernetes pods using the same intuitive API
+- **JavaScript-Powered**: Write automation scripts in JavaScript/TypeScript with full async/await support
+- **Template Literals**: Use familiar JavaScript template literals for command execution
+
+### Advanced Capabilities
+- **SSH Tunnels**: Create secure tunnels for database access and service forwarding
+- **Container Lifecycle**: Full Docker container management with streaming logs and health checks
+- **Kubernetes Integration**: Port forwarding, log streaming, and file operations for pods
+- **Connection Pooling**: Automatic SSH connection reuse for optimal performance
+- **Parallel Execution**: Run commands concurrently with built-in concurrency control
+
+### Developer Experience
+- **Interactive Prompts**: Built-in prompts for user interaction
+- **Progress Indicators**: Spinners and progress bars for long-running operations
+- **Error Handling**: Comprehensive error handling with detailed messages
+- **Event System**: Subscribe to command lifecycle events for monitoring
 
 ## Installation
 
@@ -30,83 +39,157 @@ yarn global add @xec-sh/cli
 xec --version
 ```
 
-## Basic Usage
+## 🎯 Quick Examples
 
+### Execute JavaScript Files
 ```bash
-# Execute a script
-xec script.js
+# Run automation scripts directly
+xec deploy.js --env=production
 
-# Execute inline code
-xec eval 'await $`echo "Hello from Xec!"`'
-
-# Run a specific command
-xec exec 'ls -la'
-
-# Get help
-xec --help
+# TypeScript is supported out of the box
+xec build-and-test.ts
 ```
 
-## Core Concepts
+### Multi-Environment Commands
+```javascript
+// deploy.js - Deploy to multiple environments
+import { $ } from '@xec-sh/core';
 
-### Script Execution
+// Local build
+await $`npm run build`;
 
-Xec can execute JavaScript/TypeScript files with full access to the Xec API:
+// Deploy to server via SSH
+const server = $.ssh({ host: 'prod.example.com', username: 'deploy' });
+await server`docker pull myapp:latest`;
+await server`docker-compose up -d`;
 
-```bash
-# Execute a local script
-xec ./deploy.js
-
-# Execute with arguments
-xec ./script.js --env=production --dry-run
-
-# Execute with Node.js options
-xec --node-options="--max-old-space-size=4096" ./heavy-script.js
+// Update Kubernetes
+const k8s = $.k8s({ namespace: 'production' });
+await $`kubectl set image deployment/myapp app=myapp:latest`;
 ```
 
-### Environment Detection
+### Advanced Features in Action
+```javascript
+// database-backup.js - Secure database backup with SSH tunnel
+const ssh = $.ssh({ host: 'db.example.com' });
 
-Xec automatically detects and configures the execution environment:
-- Local machine execution
-- SSH remote execution
-- Docker container execution
-- Kubernetes pod execution
+// Create secure tunnel to database
+const tunnel = await ssh.tunnel({
+  localPort: 0,  // Dynamic port allocation
+  remoteHost: 'localhost',
+  remotePort: 5432
+});
 
-### Configuration Management
+// Backup through tunnel
+await $`pg_dump -h localhost -p ${tunnel.localPort} mydb > backup.sql`;
+await tunnel.close();
 
-Xec uses a hierarchical configuration system:
-1. Default configuration
-2. Global configuration (`~/.xec/config.json`)
-3. Project configuration (`.xec/config.json`)
-4. Environment variables
-5. Command-line arguments
+// Upload to S3
+await $`aws s3 cp backup.sql s3://backups/$(date +%Y%m%d)-backup.sql`;
+```
 
-## Global Options
+## 📚 Documentation
 
-Options available for all commands:
+### Getting Started
+- [**Installation Guide**](../../getting-started/installation) - Get Xec up and running
+- [**Quick Start Tutorial**](../../getting-started/quick-start) - Your first Xec script
+- [**Basic Concepts**](../core/getting-started/basic-concepts) - Understanding Xec fundamentals
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--help, -h` | Show help | - |
-| `--version, -v` | Show version | - |
-| `--config, -c` | Path to config file | Auto-detected |
-| `--verbose` | Enable verbose output | false |
-| `--debug` | Enable debug output | false |
-| `--quiet, -q` | Suppress output | false |
-| `--no-color` | Disable colored output | false |
-| `--node-options` | Node.js runtime options | - |
+### Command Reference
+- [**Complete Command List**](./commands) - All CLI commands with examples
+- [**Custom Commands**](./custom-commands) - Extend Xec with your own commands
 
-## Environment Variables
+### Advanced Topics
+- [**Advanced Features**](./advanced-features) - SSH tunnels, Docker lifecycle, K8s operations
+- [**Real-World Examples**](./real-world-examples) - Production-ready scripts and patterns
+- [**Performance Optimization**](./performance-optimization) - Tips for large-scale operations
 
-Xec recognizes these environment variables:
+## 💡 Why Xec?
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `XEC_CONFIG` | Path to config file | `/path/to/config.json` |
-| `XEC_SHELL` | Default shell | `/bin/bash` |
-| `XEC_TIMEOUT` | Default timeout (ms) | `60000` |
-| `XEC_DEBUG` | Enable debug mode | `true` |
-| `XEC_NO_COLOR` | Disable colors | `true` |
-| `XEC_SSH_KEY` | Default SSH key path | `~/.ssh/id_rsa` |
+### Unified Interface
+Stop switching between `ssh`, `docker exec`, `kubectl exec`, and local commands. Xec provides one consistent API for all environments.
+
+### Type Safety
+Full TypeScript support means autocomplete, type checking, and better developer experience.
+
+### Production Ready
+- Automatic connection pooling
+- Built-in retry logic
+- Comprehensive error handling
+- Resource cleanup
+
+### Extensible
+Create custom commands, add plugins, and extend functionality to match your workflow.
+
+## ⚙️ Configuration
+
+### Project Structure
+```
+my-project/
+├── .xec/
+│   ├── config.yaml        # Project configuration
+│   ├── scripts/           # Automation scripts
+│   │   ├── deploy.js
+│   │   ├── backup.js
+│   │   └── monitor.js
+│   └── commands/          # Custom CLI commands
+│       └── release.js
+├── package.json
+└── README.md
+```
+
+### Configuration File
+```yaml
+# .xec/config.yaml
+defaultShell: /bin/bash
+timeout: 300000
+
+environments:
+  production:
+    ssh:
+      host: prod.example.com
+      username: deploy
+      privateKey: ~/.ssh/id_rsa_prod
+    kubernetes:
+      context: production-cluster
+      namespace: default
+  
+  staging:
+    ssh:
+      host: staging.example.com
+    docker:
+      registry: staging-registry.example.com
+
+docker:
+  defaultImage: node:18-alpine
+  
+kubernetes:
+  defaultNamespace: default
+```
+
+## 🎮 Interactive Development
+
+### Create New Projects
+```bash
+# Initialize a new Xec project
+xec init my-automation
+
+# Create new scripts from templates
+xec new script deploy --advanced
+xec new command release --description "Release automation"
+```
+
+### Development Workflow
+```bash
+# Watch files and run tests
+xec watch '**/*.js' --exec 'npm test'
+
+# Interactive command execution
+xec ssh user@server --interactive
+
+# Port forwarding for development
+xec k8s port-forward my-service 3000:3000
+```
 
 ## Configuration File
 
@@ -146,215 +229,181 @@ Example `.xec/config.json`:
 }
 ```
 
-## Command Categories
+## 🔥 Powerful Use Cases
 
-### Execution Commands
-- `exec` - Execute shell commands
-- `run` - Run scripts or recipes
-- `eval` - Evaluate JavaScript code
-- `watch` - Watch and execute on changes
+### DevOps Automation
+```javascript
+// Blue-green deployment with zero downtime
+// Health checks and automatic rollback
+// SSH tunnels for secure database access
+```
+
+### Microservices Management
+```javascript
+// Start entire development environment
+// Stream logs from multiple services
+// Coordinate deployments across services
+```
+
+### Data Processing
+```javascript
+// ETL pipelines across environments
+// Parallel processing with progress tracking
+// Automatic retry and error handling
+```
+
+### Infrastructure Monitoring
+```javascript
+// Real-time health dashboards
+// Log aggregation from multiple sources
+// Automated incident response
+```
+
+See [Real-World Examples](./real-world-examples) for complete implementations.
+
+## 🛠️ Command Overview
+
+### Core Commands
+| Command | Description | Example |
+|---------|-------------|---------|  
+| `xec script.js` | Execute JavaScript/TypeScript files | `xec deploy.js --prod` |
+| `exec` | Run shell commands | `xec exec 'docker ps'` |
+| `run` | Execute named scripts | `xec run backup` |
+| `config` | Manage configuration | `xec config set timeout 60000` |
 
 ### Environment Commands
-- `ssh` - SSH operations
-- `docker` - Docker operations
-- `k8s` - Kubernetes operations
-- `env` - Environment management
+| Command | Description | Example |
+|---------|-------------|---------|
+| `ssh` | SSH operations | `xec ssh user@host 'uptime'` |
+| `docker` | Docker management | `xec docker exec app-1 npm test` |
+| `k8s` | Kubernetes operations | `xec k8s logs my-pod -f` |
 
-### File Operations
-- `copy` - Copy files between environments
-- `list` - List files and directories
+### Development Commands  
+| Command | Description | Example |
+|---------|-------------|---------|
+| `init` | Create new project | `xec init my-automation` |
+| `new` | Generate templates | `xec new script deploy` |
+| `watch` | Monitor file changes | `xec watch '*.js' -x 'npm test'` |
 
-### Configuration Commands
-- `config` - Manage configuration
-- `init` - Initialize new project
+See [Complete Command Reference](./commands) for detailed documentation.
 
-### Utility Commands
-- `version` - Show version information
-- `help` - Get help on commands
+## 🚦 Getting Started
 
-## Common Workflows
-
-### 1. Remote Server Management
-
+### Installation
 ```bash
-# Execute command on remote server
-xec ssh user@server.com 'systemctl status nginx'
-
-# Copy files to remote
-xec copy ./app.tar.gz user@server.com:/tmp/
-
-# Interactive SSH session
-xec ssh user@server.com --interactive
-```
-
-### 2. Container Operations
-
-```bash
-# Execute in running container
-xec docker exec my-container 'npm test'
-
-# Start new container and execute
-xec docker run node:18 'node --version'
-
-# Copy files from container
-xec copy my-container:/app/logs ./logs
-```
-
-### 3. Kubernetes Management
-
-```bash
-# Execute in pod
-xec k8s exec my-pod -n production 'ps aux'
-
-# Get pod logs
-xec k8s logs my-pod -n production --tail=100
-
-# Port forwarding
-xec k8s port-forward my-pod 8080:80
-```
-
-### 4. Development Workflow
-
-```bash
-# Watch files and run tests
-xec watch '**/*.js' --exec 'npm test'
-
-# Run deployment recipe
-xec run deploy --env=staging
-
-# Initialize new project
-xec init my-project
-```
-
-## Extending the CLI
-
-### Custom Commands
-
-Create custom commands by placing scripts in `.xec/commands/`:
-
-```javascript
-// .xec/commands/deploy.js
-export default {
-  name: 'deploy',
-  description: 'Deploy application',
-  options: [
-    { name: 'env', type: 'string', required: true },
-    { name: 'dry-run', type: 'boolean', default: false }
-  ],
-  async execute(options) {
-    console.log(`Deploying to ${options.env}`);
-    // Your deployment logic
-  }
-};
-```
-
-### Plugins
-
-Install and use CLI plugins:
-
-```bash
-# Install a plugin
-npm install xec-plugin-aws
-
-# Use plugin command
-xec aws s3 ls
-
-# List installed plugins
-xec plugins list
-```
-
-## Error Handling
-
-Xec provides detailed error messages:
-
-```bash
-# Verbose error output
-xec --verbose failing-script.js
-
-# Debug mode for maximum detail
-xec --debug complex-script.js
-
-# Quiet mode for CI/CD
-xec --quiet script.js || echo "Failed"
-```
-
-## Performance Tips
-
-1. **Use Connection Pooling**: Xec automatically pools SSH connections
-2. **Parallel Execution**: Use `parallel` for concurrent operations
-3. **Caching**: Enable result caching for expensive operations
-4. **Streaming**: Use streaming for large outputs
-
-## Security Considerations
-
-1. **Credentials**: Never hardcode credentials in scripts
-2. **SSH Keys**: Use SSH key authentication over passwords
-3. **Environment Variables**: Use env vars for sensitive data
-4. **Audit Logging**: Enable audit logs for production
-
-## Troubleshooting
-
-Common issues and solutions:
-
-### Command Not Found
-```bash
-# Check installation
-npm list -g @xec-sh/cli
-
-# Ensure PATH includes npm global bin
-export PATH="$(npm config get prefix)/bin:$PATH"
-```
-
-### Permission Denied
-```bash
-# For global installation issues
-sudo npm install -g @xec-sh/cli
-
-# Or use a Node version manager
-nvm use 18
+# Install globally
 npm install -g @xec-sh/cli
+
+# Or with yarn
+yarn global add @xec-sh/cli
+
+# Verify installation
+xec --version
 ```
 
-### SSH Connection Issues
-```bash
-# Test SSH connection directly
-ssh -v user@server.com
+### Your First Script
+```javascript
+// hello-xec.js
+import { $ } from '@xec-sh/core';
 
-# Check SSH key permissions
-chmod 600 ~/.ssh/id_rsa
+// Local execution
+const hostname = await $`hostname`;
+console.log(`Local: ${hostname.stdout}`);
+
+// Remote execution
+const server = $.ssh({ host: 'example.com' });
+const remoteHost = await server`hostname`;
+console.log(`Remote: ${remoteHost.stdout}`);
+
+// Docker execution
+const container = await $.docker({ image: 'alpine' }).start();
+const containerHost = await container.exec`hostname`;
+console.log(`Container: ${containerHost.stdout}`);
+await container.remove();
 ```
 
-## Best Practices
-
-1. **Version Control**: Keep your Xec scripts in Git
-2. **Environment Separation**: Use different configs for dev/staging/prod
-3. **Error Handling**: Always handle command failures
-4. **Logging**: Use appropriate log levels
-5. **Testing**: Test scripts in development before production
-
-## Next Steps
-
-- Explore [individual commands](./commands) in detail
-- Learn how to [create custom commands and scripts](./custom-commands)
-- Review the configuration examples above
-
-## Getting Help
-
+Run it:
 ```bash
-# General help
+xec hello-xec.js
+```
+
+## 🏆 Best Practices
+
+### Script Organization
+```javascript
+// Modular script structure
+import { $ } from '@xec-sh/core';
+import { spinner, confirm } from '@xec-sh/cli';
+
+// Configuration at the top
+const config = {
+  production: { host: 'prod.example.com' },
+  staging: { host: 'staging.example.com' }
+};
+
+// Helper functions
+async function deployToServer(server, version) {
+  const spin = spinner(`Deploying ${version}...`);
+  try {
+    await server`docker pull myapp:${version}`;
+    await server`docker-compose up -d`;
+    spin.succeed('Deployment complete');
+  } catch (error) {
+    spin.fail('Deployment failed');
+    throw error;
+  }
+}
+
+// Main logic with error handling
+try {
+  const env = process.argv[2] || 'staging';
+  const server = $.ssh(config[env]);
+  await deployToServer(server, 'latest');
+} catch (error) {
+  console.error('Error:', error.message);
+  process.exit(1);
+}
+```
+
+### Security
+- Store credentials in environment variables
+- Use SSH keys instead of passwords  
+- Enable audit logging for production scripts
+- Validate all user inputs
+
+### Performance
+- Leverage connection pooling (automatic)
+- Use parallel execution for independent tasks
+- Stream large outputs instead of buffering
+- Cache expensive operations
+
+See [Advanced Features](./advanced-features) for more patterns.
+
+## 🤝 Community & Support
+
+### Resources
+- [GitHub Repository](https://github.com/xec-sh/xec) - Source code and issues
+- [API Documentation](../core/api-reference) - Complete API reference
+- [Examples Collection](./real-world-examples) - Production-ready scripts
+
+### Getting Help
+```bash
+# Built-in help
 xec --help
-
-# Command-specific help
 xec ssh --help
 
-# List all commands
-xec help commands
-
-# Online documentation
-xec help --online
+# Interactive documentation
+xec help --web
 ```
 
-Join the Xec community for support:
-- GitHub: [github.com/xec-sh/xec](https://github.com/xec-sh/xec)
-- Discord: [discord.gg/xec](https://discord.gg/xec)
-- Stack Overflow: [stackoverflow.com/questions/tagged/xec](https://stackoverflow.com/questions/tagged/xec)
+## 🚀 Start Building
+
+Ready to revolutionize your command-line automation? 
+
+1. [Install Xec CLI](#installation)
+2. [Create your first script](#your-first-script)
+3. [Explore advanced features](./advanced-features)
+4. [Learn from real examples](./real-world-examples)
+
+Join thousands of developers using Xec to automate their infrastructure and streamline their workflows!
+

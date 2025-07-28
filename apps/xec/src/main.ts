@@ -3,10 +3,13 @@ import process from 'process';
 import { Command } from 'commander';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
-import * as clack from '@clack/prompts';
+import { checkForCommandTypo } from '@xec-sh/core';
 
 import { loadConfig } from './utils/config.js';
+import { handleError } from './utils/error-handler.js';
 import { loadDynamicCommands } from './utils/dynamic-commands.js';
+import { registerCliCommands } from './utils/command-registry.js';
+import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -100,16 +103,64 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       }
     }
 
+    // Check if this is a direct command execution
+    if (args.length > 0 && isDirectCommand(args)) {
+      const options = {
+        verbose: args.includes('-v') || args.includes('--verbose'),
+        quiet: args.includes('-q') || args.includes('--quiet'),
+        cwd: undefined as string | undefined,
+      };
+      
+      // Extract --cwd if present
+      const cwdIndex = args.indexOf('--cwd');
+      if (cwdIndex !== -1 && args[cwdIndex + 1]) {
+        options.cwd = args[cwdIndex + 1];
+        // Remove --cwd and its value from args
+        args.splice(cwdIndex, 2);
+      }
+      
+      // Remove other flags from args
+      const cleanArgs = args.filter(arg => 
+        !arg.startsWith('-') || 
+        (arg.startsWith('-') && !['--verbose', '-v', '--quiet', '-q'].includes(arg))
+      );
+      
+      await executeDirectCommand(cleanArgs, options);
+      return;
+    }
+
     await loadCommands(program);
+    
+    // Build command registry for suggestions
+    const commandRegistry = registerCliCommands(program);
+    
+    // Set up command not found handler
+    program.on('command:*', () => {
+      const unknownCommand = program.args[0];
+      console.error(`✖ Unknown command '${unknownCommand}'`);
+      
+      // Check for typos and suggest similar commands
+      if (unknownCommand) {
+        const suggestion = checkForCommandTypo(unknownCommand, commandRegistry);
+        if (suggestion) {
+          console.error('');
+          console.error(suggestion);
+        }
+      }
+      
+      console.error('');
+      console.error(`Run 'xec --help' for a list of available commands`);
+      process.exit(1);
+    });
+    
     await program.parseAsync(argv);
   } catch (error) {
-    if (error instanceof Error) {
-      if (!program.opts()['quiet']) {
-        clack.log.error(error.message);
-      }
-      process.exit(1);
-    }
-    throw error;
+    // Use enhanced error handler
+    handleError(error, {
+      verbose: program.opts()['verbose'],
+      quiet: program.opts()['quiet'],
+      output: 'text'
+    });
   }
 }
 

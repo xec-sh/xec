@@ -335,13 +335,38 @@ export XEC_DEBUG=true
 XEC_DEBUG=true xec script.js
 ```
 
+## Creating Your Own Project
+
+Ready to create your own Xec project? Initialize a new project with:
+
+```bash
+# Create a new project with examples
+xec init my-project
+
+# Or create a minimal project
+xec init my-project --minimal
+```
+
+Then use the `new` command to create templates:
+
+```bash
+# Create a new script
+xec new script deploy
+
+# Create a new command
+xec new command backup
+```
+
+Learn more about [creating custom commands and scripts](../projects/cli/custom-commands).
+
 ## Next Steps
 
 Now that you've seen the basics, explore:
 
 1. **[First Project](./first-project)** - Build a complete automation project
-2. **[Examples](../projects/core/examples)** - Learn from practical examples
-3. **[API Reference](../projects/core/api-reference)** - Explore all available functions
+2. **[Custom Commands](../projects/cli/custom-commands)** - Create your own CLI commands
+3. **[Examples](../projects/core/examples)** - Learn from practical examples
+4. **[API Reference](../projects/core/api-reference)** - Explore all available functions
 
 ## Tips for Success
 

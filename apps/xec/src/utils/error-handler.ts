@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import * as clack from '@clack/prompts';
+import { enhanceError, type ErrorContext, type EnhancedExecutionError } from '@xec-sh/core';
 
 import { ValidationError } from './validation.js';
 import { CommandOptions } from './command-base.js';
@@ -80,17 +81,17 @@ export function handleError(error: any, options: CommandOptions): void {
     process.exit(1);
   }
 
-  // Extract error information
-  const errorInfo = extractErrorInfo(error);
+  // Enhance error with core system if not already enhanced
+  const enhancedError = enhanceErrorWithContext(error, options);
   
   // Display error based on format
   if (options.output === 'json') {
-    console.error(JSON.stringify(errorInfo, null, 2));
+    console.error(JSON.stringify(formatEnhancedErrorAsJSON(enhancedError), null, 2));
   } else if (options.output === 'yaml') {
     const yaml = require('js-yaml');
-    console.error(yaml.dump(errorInfo));
+    console.error(yaml.dump(formatEnhancedErrorAsJSON(enhancedError)));
   } else {
-    displayTextError(errorInfo, options);
+    displayEnhancedError(enhancedError, options);
   }
 
   // Exit with appropriate code
@@ -159,7 +160,81 @@ function extractErrorInfo(error: any): any {
 }
 
 /**
- * Display error in text format
+ * Enhance error with CLI context
+ */
+function enhanceErrorWithContext(error: any, options: CommandOptions): EnhancedExecutionError {
+  // Build context from CLI options and environment
+  const context: ErrorContext = {
+    cwd: process.cwd(),
+    timestamp: new Date()
+    // Note: adapter, host, container, env would come from specific command options
+    // For now, we just use the base context
+  };
+
+  // If it's already an enhanced error, just add context
+  if (error.context && error.suggestions) {
+    Object.assign(error.context, context);
+    return error;
+  }
+
+  // Enhance the error with core system
+  return enhanceError(error, context) as EnhancedExecutionError;
+}
+
+/**
+ * Format enhanced error as JSON
+ */
+function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
+  return {
+    error: true,
+    message: error.message,
+    code: error.code || 'UNKNOWN_ERROR',
+    timestamp: new Date().toISOString(),
+    context: error.context,
+    suggestions: error.suggestions,
+    systemInfo: error.systemInfo,
+    type: error.name
+  };
+}
+
+/**
+ * Display enhanced error in text format
+ */
+function displayEnhancedError(error: EnhancedExecutionError, options: CommandOptions): void {
+  // Use the formatted output from enhanced error
+  const formatted = error.format(options.verbose);
+  
+  // Split by lines and apply CLI coloring
+  const lines = formatted.split('\n');
+  lines.forEach(line => {
+    if (line.startsWith('Error:')) {
+      clack.log.error(chalk.bold(line));
+    } else if (line.includes('Context:') || line.includes('Suggestions:')) {
+      console.error(chalk.yellow(line));
+    } else if (line.includes('Try:') || line.includes('See:')) {
+      console.error(chalk.cyan(line));
+    } else if (line.includes('Code:')) {
+      console.error(chalk.gray(line));
+    } else {
+      console.error(line);
+    }
+  });
+  
+  // Add CLI-specific hints
+  if (!options.verbose) {
+    console.error('');
+    console.error(chalk.dim('Run with --verbose for more details'));
+  }
+  
+  // Show help command for context
+  if (error.context?.command) {
+    const baseCommand = error.context.command.split(' ')[0];
+    console.error(chalk.dim(`Run 'xec ${baseCommand} --help' for usage information`));
+  }
+}
+
+/**
+ * Display error in text format (legacy)
  */
 function displayTextError(errorInfo: any, options: CommandOptions): void {
   // Error header

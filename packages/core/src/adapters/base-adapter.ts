@@ -45,7 +45,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       // API keys and tokens - capture the value part
       /\b(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|authentication[_-]?token|private[_-]?key|secret[_-]?key)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
       // Authorization headers - preserve "Bearer" or "Basic" prefix
-      /(Authorization:\s*)(Bearer|Basic)(\s+)([a-zA-Z0-9_\-/.+]+)/gi,
+      /(Authorization:\s*)(Bearer|Basic)(\s+)([a-zA-Z0-9_\-/.+=]+)/gi,
       // AWS credentials
       /\b(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
       // GitHub tokens with pattern - direct matches
@@ -77,7 +77,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       defaultShell: config.defaultShell ?? true,
       encoding: config.encoding ?? 'utf8',
       maxBuffer: config.maxBuffer ?? 10 * 1024 * 1024, // 10MB
-      throwOnNonZeroExit: config.throwOnNonZeroExit ?? true,
+      throwOnNonZeroExit: config.throwOnNonZeroExit !== undefined ? config.throwOnNonZeroExit : true,
       sensitiveDataMasking: {
         enabled: config.sensitiveDataMasking?.enabled ?? true,
         patterns: config.sensitiveDataMasking?.patterns ?? defaultPatterns,
@@ -362,9 +362,9 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       return this.config.throwOnNonZeroExit;
     }
 
-    // If nothrow is explicitly set on the command, don't throw
-    if (command.nothrow) {
-      return false;
+    // If nothrow is explicitly set on the command, respect it
+    if (command.nothrow !== undefined) {
+      return !command.nothrow;
     }
 
     // Otherwise, follow the global configuration
@@ -434,7 +434,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       defaultShell: config.defaultShell ?? this.config.defaultShell,
       encoding: config.encoding ?? this.config.encoding,
       maxBuffer: config.maxBuffer ?? this.config.maxBuffer,
-      throwOnNonZeroExit: config.throwOnNonZeroExit ?? this.config.throwOnNonZeroExit,
+      throwOnNonZeroExit: config.throwOnNonZeroExit !== undefined ? config.throwOnNonZeroExit : this.config.throwOnNonZeroExit,
       sensitiveDataMasking: newSensitiveDataMasking
     };
 
