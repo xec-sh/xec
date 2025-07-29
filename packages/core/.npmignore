@@ -1,7 +1,14 @@
 test
-apps
-doc
-/pres
+src/__tests__
+*.test.js
+*.test.ts  
+*.spec.js
+*.spec.ts
+coverage
+.nyc_output
+jest.config.js
+jest.config.ts
+tsconfig.test.json
 *.log
 *.pid
 examples
@@ -9,8 +16,6 @@ examples
 .github
 .cache-require-paths.json
 *.heapsnapshot
-packager
-artifacts
 .editorconfig
 .bithoundrc
 dist

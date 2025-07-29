@@ -12,14 +12,14 @@ const workspacePatterns = rootPackageJson.workspaces || ["apps/*", "packages/*"]
 const getPackages = () => {
   const packages = new Set<string>();
 
-  workspacePatterns.forEach(pattern => {
+  workspacePatterns.forEach((pattern: string) => {
     const basePath = pattern.replace('/*', '');
     const workspaceDir = path.join(process.cwd(), basePath);
 
     if (fs.existsSync(workspaceDir)) {
       fs.readdirSync(workspaceDir, { withFileTypes: true })
-        .filter(dirent => dirent.isDirectory())
-        .forEach(dirent => packages.add(dirent.name));
+        .filter((dirent: fs.Dirent) => dirent.isDirectory())
+        .forEach((dirent: fs.Dirent) => packages.add(dirent.name));
     }
   });
 
@@ -29,8 +29,8 @@ const getPackages = () => {
 const publishPackage = (packageName: string) => {
   // Search for package in all workspace directories
   const packagePath = workspacePatterns
-    .map(pattern => path.join(process.cwd(), pattern.replace('/*', ''), packageName))
-    .find(dir => fs.existsSync(dir));
+    .map((pattern: string) => path.join(process.cwd(), pattern.replace('/*', ''), packageName))
+    .find((dir: string) => fs.existsSync(dir));
 
   if (!packagePath) {
     console.error(`❌ Package ${packageName} not found in workspaces`);
