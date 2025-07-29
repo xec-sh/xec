@@ -2,10 +2,10 @@ import fs from 'fs'
 import net from 'net'
 import fsPath from 'path'
 import stream from 'stream'
-import makeDir from 'make-dir'
-import isStream from 'is-stream'
+import { makeDirectory } from 'make-dir'
 import scanDirectory from 'sb-scandir'
 import shellEscape from 'shell-escape'
+import { isReadableStream } from 'is-stream'
 import { PromiseQueue } from 'sb-promise-queue'
 import invariant, { AssertionError } from 'assert'
 import SSH2, {
@@ -350,7 +350,7 @@ export class NodeSSH {
     invariant(options != null && typeof options === 'object', 'options must be a valid object')
     invariant(options.cwd == null || typeof options.cwd === 'string', 'options.cwd must be a valid string')
     invariant(
-      options.stdin == null || typeof options.stdin === 'string' || isStream.readable(options.stdin),
+      options.stdin == null || typeof options.stdin === 'string' || isReadableStream(options.stdin),
       'options.stdin must be a valid string or readable stream',
     )
     invariant(
@@ -401,7 +401,7 @@ export class NodeSSH {
           output.stderr.push(chunk.toString(options.encoding))
         })
         if (options.stdin != null) {
-          if (isStream.readable(options.stdin)) {
+          if (isReadableStream(options.stdin)) {
             options.stdin.pipe(channel, {
               end: true,
             })
@@ -776,7 +776,7 @@ export class NodeSSH {
         directories.forEach((directory) => {
           queue
             .add(async () => {
-              await makeDir(fsPath.join(localDirectory, directory))
+              await makeDirectory(fsPath.join(localDirectory, directory))
             })
             .catch(reject)
         })
@@ -952,7 +952,7 @@ export class NodeSSH {
 
       server.on('connection', (socket: net.Socket) => {
         connections.add(socket);
-        
+
         this.forwardOut(
           socket.remoteAddress || '127.0.0.1',
           socket.remotePort || 0,
@@ -960,12 +960,12 @@ export class NodeSSH {
           options.remotePort
         ).then(channel => {
           socket.pipe(channel).pipe(socket);
-          
+
           socket.on('close', () => {
             connections.delete(socket);
             channel.close();
           });
-          
+
           channel.on('close', () => {
             socket.end();
           });
@@ -991,7 +991,7 @@ export class NodeSSH {
                 socket.end();
               }
               connections.clear();
-              
+
               // Close the server
               return new Promise<void>((resolve, reject) => {
                 server.close((err?: Error) => {

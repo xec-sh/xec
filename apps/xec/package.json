@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/cli",
   "description": "Xec: The Universal Shell for TypeScript",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "author": "DevGrid",
   "type": "module",
   "license": "MIT",
@@ -11,6 +11,10 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "bin",
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
