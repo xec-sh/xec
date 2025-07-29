@@ -642,10 +642,10 @@ export function command(program: Command): void {
 
           // Now add files after all changes are made
           await $`git add .`;
-          
+
           // Check if there are any changes to commit
           const hasChanges = await $`git diff --cached --exit-code`.nothrow().then(r => r.exitCode !== 0);
-          
+
           if (hasChanges) {
             await $`git commit -m "chore: release v${config.version}"`;
             rollbackState.gitCommitCreated = true;
@@ -655,14 +655,14 @@ export function command(program: Command): void {
 
           // Check if tag already exists
           const tagExists = await $`git tag -l v${config.version}`.then(r => r.stdout.trim() !== '');
-          
+
           if (tagExists) {
             s.stop(`⚠️  Tag v${config.version} already exists`);
             const overwriteTag = await promptWithCancel(() => clack.confirm({
               message: `Tag v${config.version} already exists. Delete and recreate it?`,
               initialValue: false
             }));
-            
+
             if (overwriteTag) {
               // Delete existing tag locally
               await $`git tag -d v${config.version}`;
@@ -718,47 +718,66 @@ export function command(program: Command): void {
           if (!config.skipNpm) {
             // Create .npmrc if token provided
             if (config.npmToken) {
-              await withTempFile(async (npmrcPath) => {
-                writeFileSync(npmrcPath.path, `//registry.npmjs.org/:_authToken=${config.npmToken}\n`);
+              const npmrcPath = join(process.cwd(), '.npmrc');
+              const npmrcContent = `//registry.npmjs.org/:_authToken=${config.npmToken}\n`;
+              
+              // Check if .npmrc already exists and save original content
+              let originalNpmrc: string | null = null;
+              if (existsSync(npmrcPath)) {
+                originalNpmrc = readFileSync(npmrcPath, 'utf8');
+              } else {
+                rollbackState.createdFiles.push(npmrcPath);
+              }
+              
+              try {
+                // Create .npmrc in project root
+                writeFileSync(npmrcPath, npmrcContent);
 
                 // Core packages must be published first
                 const corePackages = config.packages.filter(p => p.name === '@xec-sh/core');
                 const otherPackages = config.packages.filter(p => p.name !== '@xec-sh/core');
 
-                try {
-                  // Publish core first (dependency for others)
-                  if (corePackages.length > 0) {
-                    s.start(`Publishing ${corePackages[0].name}...`);
-                    await $.env({ NPM_CONFIG_USERCONFIG: npmrcPath.path })
-                      `yarn workspace ${corePackages[0].name} npm publish --access public`;
-                  }
-
-                  // Publish others in parallel with progress
-                  if (otherPackages.length > 0) {
-                    const publishResult = await $.env({ NPM_CONFIG_USERCONFIG: npmrcPath.path })
-                      .parallel.settled(
-                        otherPackages.map(pkg =>
-                          `yarn workspace ${pkg.name} npm publish --access public`
-                        ),
-                        {
-                          maxConcurrency: 2, // NPM rate limiting
-                          onProgress: (done, total, succeeded) => {
-                            s.start(`Publishing packages: ${done}/${total} completed`);
-                          }
-                        }
-                      );
-
-                    if (publishResult.failed.length > 0) {
-                      throw new Error(`Failed to publish ${publishResult.failed.length} packages`);
-                    }
-                  }
-
-                  s.stop(`✅ Published ${config.packages.length} packages to NPM`);
-                } catch (error) {
-                  s.stop('❌ NPM publishing failed');
-                  throw error;
+                // Publish core first (dependency for others)
+                if (corePackages.length > 0) {
+                  s.start(`Publishing ${corePackages[0].name}...`);
+                  await $`yarn workspace ${corePackages[0].name} npm publish --access public`;
                 }
-              });
+
+                // Publish others in parallel with progress
+                if (otherPackages.length > 0) {
+                  const publishResult = await $.parallel.settled(
+                    otherPackages.map(pkg =>
+                      `yarn workspace ${pkg.name} npm publish --access public`
+                    ),
+                    {
+                      maxConcurrency: 2, // NPM rate limiting
+                      onProgress: (done, total, succeeded) => {
+                        s.start(`Publishing packages: ${done}/${total} completed`);
+                      }
+                    }
+                  );
+
+                  if (publishResult.failed.length > 0) {
+                    throw new Error(`Failed to publish ${publishResult.failed.length} packages`);
+                  }
+                }
+
+                s.stop(`✅ Published ${config.packages.length} packages to NPM`);
+              } catch (error) {
+                s.stop('❌ NPM publishing failed');
+                throw error;
+              } finally {
+                // Clean up .npmrc
+                if (originalNpmrc !== null) {
+                  // Restore original content
+                  writeFileSync(npmrcPath, originalNpmrc);
+                } else {
+                  // Remove created file
+                  try {
+                    await $`rm -f ${npmrcPath}`.nothrow();
+                  } catch {}
+                }
+              }
             } else {
               // Publish without token - use sequential for auth prompts
               for (const pkg of config.packages) {
@@ -837,12 +856,12 @@ export function command(program: Command): void {
 
           // Push branch and tag in parallel
           const pushCommands = [`git push origin ${currentBranch}`];
-          
+
           // Only push tag if it was created or updated
           if (rollbackState.gitTagCreated) {
             pushCommands.push(`git push origin v${config.version}`);
           }
-          
+
           await $.parallel.all(pushCommands);
 
           s.stop('✅ Pushed to GitHub');
@@ -934,20 +953,20 @@ Created with ❤️ by Xec Release Manager
 
               // Check if release already exists
               const releaseExists = await $`gh release view v${config.version}`.nothrow().then(r => r.exitCode === 0);
-              
+
               if (releaseExists) {
                 clack.log.warn(`GitHub release v${config.version} already exists`);
                 const updateRelease = await promptWithCancel(() => clack.confirm({
                   message: `Release v${config.version} already exists. Update it?`,
                   initialValue: true
                 }));
-                
+
                 if (!updateRelease) {
                   clack.log.info('Skipping GitHub release update');
                 } else {
                   // Delete and recreate release
                   await $`gh release delete v${config.version} --yes`.nothrow();
-                  
+
                   // Create release
                   try {
                     if (config.githubToken) {
