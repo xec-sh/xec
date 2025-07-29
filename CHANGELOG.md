@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- CHANGELOG-INSERT-MARKER -->
 <!-- New releases will be inserted here automatically -->
 
+## [0.7.3] - 2025-07-29
+
+- Various improvements and bug fixes
+
+
 ## [0.7.2] - 2025-07-29
 
 - Various improvements and bug fixes
