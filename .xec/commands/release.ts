@@ -437,11 +437,14 @@ export function command(program: Command): void {
               { value: 'minor', label: `Minor (${semver.inc(currentVersion, 'minor')})` },
               { value: 'major', label: `Major (${semver.inc(currentVersion, 'major')})` },
               { value: 'prerelease', label: `Prerelease (${semver.inc(currentVersion, 'prerelease', options.prerelease || 'alpha')})` },
+              { value: 'keep', label: `Keep unchanged (${currentVersion})` },
               { value: 'custom', label: 'Custom version' }
             ]
           }));
 
-          if (versionType === 'custom') {
+          if (versionType === 'keep') {
+            newVersion = currentVersion;
+          } else if (versionType === 'custom') {
             newVersion = await promptWithCancel(() => clack.text({
               message: 'Enter custom version:',
               validate: (value) => {
