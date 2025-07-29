@@ -22,7 +22,8 @@
     "docs:start": "cd apps/docs && yarn start",
     "docs:build": "cd apps/docs && yarn build",
     "docs:serve": "cd apps/docs && yarn serve",
-    "docs:deploy": "cd apps/docs && yarn deploy"
+    "docs:deploy": "cd apps/docs && yarn deploy",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.5",

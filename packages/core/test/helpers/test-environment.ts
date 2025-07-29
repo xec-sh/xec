@@ -115,7 +115,7 @@ export async function setupTestEnvironment(): Promise<TestEnvironment> {
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
 
-  const tempDir = await mkdtemp(join(tmpdir(), 'ush-test-'));
+  const tempDir = await mkdtemp(join(tmpdir(), 'xec-test-'));
 
   return {
     tempDir,

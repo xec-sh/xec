@@ -89,12 +89,303 @@ const files = await glob('dist/**/*.js');
 log.step(`Found ${files.length} files to deploy`);
 ```
 
+### Global Utilities API
+
+Xec provides a rich set of utilities available globally in all scripts and commands:
+
+#### Module Loading
+
+Xec provides a unified import syntax with prefixes for loading modules from various sources:
+
+```javascript
+// Import from NPM CDN (doesn't require local installation)
+const dayjs = await import('npm:dayjs');
+const lodash = await import('npm:lodash-es@4.17.21');
+
+// Import from JSR (Deno's package registry)
+const encoding = await import('jsr:@std/encoding@0.224.0');
+
+// Import from specific CDN
+const mitt = await import('esm:mitt');           // esm.sh
+const react = await import('unpkg:react@18');    // unpkg.com
+const vue = await import('skypack:vue@3');       // skypack.dev
+const jquery = await import('jsdelivr:jquery');  // jsdelivr.net
+
+// Import local packages (no prefix needed)
+const { $ } = await import('@xec-sh/core');
+const chalk = await import('chalk');
+```
+
+**Note**: Prefixed imports are automatically transformed to use Xec's module loader during execution.
+
+#### Core Utilities
+
+##### Process Execution
+```javascript
+// Execute commands with $ from @xec-sh/core
+const result = await $`npm test`;
+
+// Chain methods
+await $`npm build`
+  .cwd('/project')
+  .env({ NODE_ENV: 'production' })
+  .quiet();
+```
+
+##### File System Operations
+```javascript
+// fs-extra - enhanced file operations
+await fs.copy('src', 'dist');
+await fs.ensureDir('logs');
+await fs.remove('temp');
+const exists = await fs.pathExists('config.json');
+const json = await fs.readJson('package.json');
+
+// glob - pattern matching
+const files = await glob('**/*.js');
+const tests = await glob('test/**/*.spec.ts', { ignore: 'node_modules/**' });
+
+// path utilities
+const fullPath = path.join(process.cwd(), 'src', 'index.js');
+const ext = path.extname('file.txt'); // '.txt'
+const dir = path.dirname('/path/to/file.js'); // '/path/to'
+```
+
+##### Interactive Prompts
+```javascript
+// Text input
+const name = await question('What is your name?');
+
+// Confirmation
+const proceed = await confirm({
+  message: 'Continue with deployment?',
+  initialValue: true
+});
+
+// Selection
+const env = await select({
+  message: 'Select environment',
+  options: [
+    { value: 'dev', label: 'Development' },
+    { value: 'staging', label: 'Staging' },
+    { value: 'prod', label: 'Production' }
+  ]
+});
+
+// Multiple selection
+const features = await multiselect({
+  message: 'Select features to enable',
+  options: [
+    { value: 'auth', label: 'Authentication' },
+    { value: 'api', label: 'API Gateway' },
+    { value: 'db', label: 'Database' }
+  ]
+});
+
+// Password input
+const password = await password({
+  message: 'Enter password',
+  validate: (value) => value.length < 8 ? 'Password must be at least 8 characters' : undefined
+});
+```
+
+##### Progress Indicators
+```javascript
+// Create spinner
+const spinner = spinner();
+spinner.start('Processing...');
+// ... do work ...
+spinner.stop('Complete!');
+
+// With error handling
+try {
+  spinner.start('Building application...');
+  await $`npm run build`;
+  spinner.stop('Build successful');
+} catch (error) {
+  spinner.stop('Build failed');
+  throw error;
+}
+```
+
+##### Logging
+```javascript
+// Structured logging
+log.info('Information message');
+log.success('✅ Operation completed');
+log.error('❌ Something went wrong');
+log.warning('⚠️  Warning message');
+log.step('→ Processing step');
+
+// With colors using chalk
+log.info(chalk.blue('Blue text'));
+log.success(chalk.green.bold('Bold green'));
+log.error(chalk.red.underline('Underlined red'));
+
+// Chalk color utilities
+const text = chalk.hex('#FFA500')('Orange text');
+const rainbow = chalk.rgb(255, 0, 0)('R') + chalk.rgb(0, 255, 0)('G') + chalk.rgb(0, 0, 255)('B');
+```
+
+##### Environment and Process
+```javascript
+// Environment variables
+const apiKey = env('API_KEY'); // Get env var
+const port = env('PORT', '3000'); // With default
+setEnv('NODE_ENV', 'production'); // Set env var
+
+// Process control
+exit(0); // Exit with code
+kill(12345); // Kill process by PID
+kill(12345, 'SIGKILL'); // With specific signal
+
+// Process listing
+const processes = await ps();
+const nodeProcesses = processes.filter(p => p.name.includes('node'));
+```
+
+##### Utilities
+```javascript
+// Sleep/delay
+await sleep(1000); // Sleep for 1 second
+
+// Retry with exponential backoff
+const result = await retry(
+  async () => {
+    const response = await fetch('https://api.example.com/data');
+    if (!response.ok) throw new Error('Request failed');
+    return response.json();
+  },
+  {
+    retries: 3,
+    delay: 1000,
+    backoff: 2,
+    onRetry: (error, attempt) => {
+      log.warning(`Retry attempt ${attempt}: ${error.message}`);
+    }
+  }
+);
+
+// Which - find executable
+const gitPath = await which('git');
+if (!gitPath) {
+  log.error('Git is not installed');
+  exit(1);
+}
+
+// Quote shell arguments
+const safeArg = quote("file with spaces.txt");
+await $`cat ${safeArg}`;
+
+// Template strings
+const message = template`Hello, ${name}! You have ${count} messages.`;
+
+// Working directory
+const currentDir = pwd();
+cd('../'); // Change directory
+cd('/absolute/path'); // Absolute path
+const newDir = cd(); // Get current directory
+
+// Echo output
+echo('Hello, World!');
+echo('Multiple', 'arguments', 'supported');
+```
+
+##### HTTP Requests
+```javascript
+// Fetch API
+const response = await fetch('https://api.example.com/users');
+const users = await response.json();
+
+// POST request
+const result = await fetch('https://api.example.com/users', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: 'John', email: 'john@example.com' })
+});
+```
+
+##### File Formats
+```javascript
+// YAML parsing
+const { parse, stringify } = await yaml();
+const config = parse(await fs.readFile('config.yaml', 'utf8'));
+const yamlString = stringify({ key: 'value' });
+
+// CSV parsing
+const { parse: parseCSV, stringify: stringifyCSV } = await csv();
+const records = parseCSV('name,age\nJohn,30\nJane,25');
+const csvString = stringifyCSV([
+  ['name', 'age'],
+  ['John', 30],
+  ['Jane', 25]
+]);
+
+// Diff comparison
+const changes = await diff('old content', 'new content');
+changes.forEach(part => {
+  const color = part.added ? chalk.green : part.removed ? chalk.red : chalk.gray;
+  process.stdout.write(color(part.value));
+});
+```
+
+##### Temporary Files
+```javascript
+// Get temp directory
+const tempDir = tmpdir(); // e.g., /tmp
+
+// Generate temp file path
+const tempFile = tmpfile('data-', '.json'); // e.g., /tmp/data-abc123.json
+
+// Use temp file
+await fs.writeJson(tempFile, { data: 'test' });
+// ... use file ...
+await fs.remove(tempFile); // Clean up
+```
+
+##### Advanced Utilities
+```javascript
+// Parse command-line arguments
+const args = await parseArgs(process.argv.slice(2));
+// node script.js --name=John --verbose -> { name: 'John', verbose: true }
+
+// Load .env file
+await loadEnv(); // Load .env from current directory
+await loadEnv('.env.production'); // Load specific file
+
+// Scoped execution
+const result = await within(
+  { 
+    cwd: '/project',
+    env: { NODE_ENV: 'test' }
+  },
+  async () => {
+    // This runs in /project with NODE_ENV=test
+    return await $`npm test`;
+  }
+);
+// Original cwd and env are restored
+```
+
+##### Operating System
+```javascript
+// OS information
+const platform = os.platform(); // 'darwin', 'linux', 'win32'
+const arch = os.arch(); // 'x64', 'arm64'
+const cpus = os.cpus(); // CPU information
+const totalMem = os.totalmem(); // Total memory in bytes
+const freeMem = os.freemem(); // Free memory in bytes
+const homeDir = os.homedir(); // User home directory
+const hostname = os.hostname(); // Machine hostname
+```
+
 Advanced script template includes:
 - Command-line argument parsing
 - Error handling
 - Progress indicators
 - Environment validation
 - Helper functions
+- Full access to global utilities API
 
 ### Running Scripts
 
@@ -291,7 +582,9 @@ export function command(program) {
     .option('-u, --uppercase', 'Output in uppercase')
     .option('-r, --repeat <times>', 'Repeat the message', '1')
     .action(async (name = 'World', options) => {
+      // Import utilities dynamically
       const { log } = await import('@clack/prompts');
+      const { $ } = await import('@xec-sh/core');
       
       let message = `Hello, ${name}!`;
       
@@ -303,6 +596,35 @@ export function command(program) {
       for (let i = 0; i < times; i++) {
         log.success(message);
       }
+    });
+}
+```
+
+### Module Loading in Commands
+
+Commands have access to the global module context for flexible dependency management:
+
+```javascript
+export async function command(program) {
+  program
+    .command('analyze <file>')
+    .description('Analyze file with various tools')
+    .action(async (file) => {
+      // Load modules from CDN without local installation
+      const dayjs = await import('npm:dayjs@1.11.10');
+      const lodash = await import('npm:lodash-es@4.17.21');
+      
+      // Load local packages
+      const { $ } = await import('@xec-sh/core');
+      const { log } = await import('@clack/prompts');
+      
+      // Use the loaded modules
+      const stats = await fs.stat(file);
+      const modified = dayjs.default(stats.mtime).format('YYYY-MM-DD HH:mm:ss');
+      
+      log.info(`File: ${file}`);
+      log.info(`Modified: ${modified}`);
+      log.info(`Size: ${lodash.default.round(stats.size / 1024, 2)} KB`);
     });
 }
 ```

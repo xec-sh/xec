@@ -6,10 +6,10 @@ import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
 import * as clack from '@clack/prompts';
-import { $ as ushDollar } from '@xec-sh/core';
+import { $ as xecDollar } from '@xec-sh/core';
 
 // Re-export USH $ with enhanced features
-export const $ = ushDollar;
+export const $ = xecDollar;
 
 // Current working directory management
 let currentDir = process.cwd();

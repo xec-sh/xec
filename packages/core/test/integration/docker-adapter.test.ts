@@ -22,7 +22,7 @@ const describeIfDocker = DOCKER_AVAILABLE ? describe : describe.skip;
 describeIfDocker('DockerAdapter Integration Tests', () => {
   let adapter: DockerAdapter;
   const TEST_IMAGE = 'alpine:latest';
-  const TEST_CONTAINER = `ush-test-${Date.now()}`;
+  const TEST_CONTAINER = `xec-test-${Date.now()}`;
 
   beforeAll(async () => {
     adapter = new DockerAdapter();

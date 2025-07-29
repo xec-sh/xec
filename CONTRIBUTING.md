@@ -1,196 +1,360 @@
 # Contributing to Xec
 
-Thank you for your interest in contributing to Xec! This document provides guidelines and instructions for contributing to the project.
+Welcome to Xec! We're excited to have you contribute to the universal command execution system. This guide will help you get started and ensure your contributions align with our project standards.
 
-## Table of Contents
+## 🎯 Table of Contents
 
+- [Philosophy & Principles](#philosophy--principles)
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
-- [Testing](#testing)
-- [Code Style](#code-style)
+- [Coding Standards](#coding-standards)
+- [Testing Guidelines](#testing-guidelines)
+- [Documentation](#documentation)
 - [Commit Guidelines](#commit-guidelines)
 - [Pull Request Process](#pull-request-process)
-- [Debugging](#debugging)
+- [Release Process](#release-process)
 - [Common Tasks](#common-tasks)
+- [Troubleshooting](#troubleshooting)
 
-## Code of Conduct
+## 🌟 Philosophy & Principles
 
-By participating in this project, you agree to maintain a respectful and inclusive environment for all contributors.
+Before contributing, please understand our core principles:
 
-## Getting Started
+### 1. ⚠️ Task Focus
+**CRITICAL**: Only implement what is explicitly requested. No additional features or files unless specified.
 
-1. Fork the repository on GitHub
-2. Clone your fork locally:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/xec.git
-   cd xec
-   ```
-3. Add the upstream repository:
-   ```bash
-   git remote add upstream https://github.com/xec-sh/xec.git
-   ```
+### 2. 📝 Change Tracking
+**MANDATORY**: All code changes MUST be documented in `CHANGES.md`:
+- Follow the format in `CHANGES.md.example`
+- Write user-focused descriptions
+- Group by category (Features, Improvements, Fixes, etc.)
 
-## Development Setup
+### 3. 🔒 Type Safety First
+- No `any` types in public APIs
+- Full TypeScript strict mode
+- Comprehensive type definitions
+
+### 4. 📦 Error Handling with Result Pattern
+```typescript
+// ✅ Use Result pattern
+return { ok: false, error: new ExecutionError('Failed', 'ERROR_CODE') };
+
+// ❌ Avoid throwing in public APIs
+throw new Error('Failed');
+```
+
+### 5. 🧪 Test Everything
+- 90%+ code coverage target
+- Tests before implementation (TDD)
+- Real implementations over mocks
+
+## 📜 Code of Conduct
+
+We are committed to providing a friendly, safe, and welcoming environment for all contributors. Please:
+
+- Be respectful and inclusive
+- Welcome newcomers and help them get started
+- Focus on what is best for the community
+- Show empathy towards other community members
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
-- Yarn 1.22+
-- Git
+- **Node.js** 18+ (recommend using [nvm](https://github.com/nvm-sh/nvm))
+- **Git** 2.25+
+- **Yarn** 4.9.2 (via Corepack)
+- **Docker** (optional, for testing adapters)
+- **kubectl** (optional, for Kubernetes adapter testing)
 
-### Installation
+### Quick Start
 
-```bash
-# Install dependencies
-yarn install
+1. **Fork the repository**
+   - Go to https://github.com/xec-sh/xec
+   - Click "Fork" button
+   - Clone your fork:
+     ```bash
+     git clone https://github.com/YOUR_USERNAME/xec.git
+     cd xec
+     ```
 
-# Build all packages
-yarn build
+2. **Set up remotes**
+   ```bash
+   git remote add upstream https://github.com/xec-sh/xec.git
+   git fetch upstream
+   ```
 
-# Run tests
-yarn test
-```
+3. **Enable Corepack and install dependencies**
+   ```bash
+   corepack enable    # Enables Yarn 4.9.2
+   yarn install       # Install all dependencies
+   ```
 
-## Project Structure
+4. **Build the project**
+   ```bash
+   yarn build         # Build all packages
+   ```
 
-Xec is a monorepo with the following structure:
+5. **Run tests**
+   ```bash
+   yarn test          # Run all tests
+   ```
+
+## 🏗 Development Setup
+
+### Monorepo Structure
 
 ```
 xec/
 ├── apps/
-│   └── xec/           # CLI application (@xec-sh/cli)
+│   ├── xec/          # CLI application (@xec-sh/cli)
+│   └── docs/         # Documentation site
 ├── packages/
-│   ├── core/          # Core execution engine (@xec-sh/core)
-│   └── ush/           # Universal shell execution engine (@xec-sh/core)
-├── package.json       # Root package.json
-├── turbo.json         # Turborepo configuration
-└── README.md          # Project documentation
+│   ├── core/         # Core execution engine (@xec-sh/core)
+│   └── test-utils/   # Shared testing utilities
+├── docker/           # Test containers
+├── .xec/             # Project-specific commands
+├── CHANGES.md        # Pending changes (MUST UPDATE!)
+├── CLAUDE.md         # AI assistant instructions
+└── turbo.json        # Build orchestration
 ```
 
-Each package has its own:
-- `src/` - Source code
-- `test/` - Tests
-- `README.md` - Package documentation
+### Environment Setup
 
-## Development Workflow
+1. **Install recommended VSCode extensions**:
+   ```json
+   {
+     "recommendations": [
+       "dbaeumer.vscode-eslint",
+       "esbenp.prettier-vscode",
+       "ms-vscode.vscode-typescript-next",
+       "orta.vscode-jest"
+     ]
+   }
+   ```
 
-### 1. Create a Feature Branch
+2. **Configure Git hooks**:
+   ```bash
+   yarn install  # Automatically sets up Lefthook
+   ```
 
+3. **Set up test containers** (optional):
+   ```bash
+   yarn workspace @xec-sh/core docker:start
+   ```
+
+## 🔄 Development Workflow
+
+### 1. Sync with upstream
 ```bash
-git checkout -b feature/your-feature-name
-# or
-git checkout -b fix/your-bug-fix
+git fetch upstream
+git checkout main
+git merge upstream/main
 ```
 
-### 2. Make Your Changes
-
-Follow these guidelines:
-- Write code in TypeScript
-- Add tests for new functionality
-- Update documentation as needed
-- Follow existing code patterns
-
-### 3. Run Tests Locally
-
+### 2. Create a feature branch
 ```bash
-# Test all packages
-yarn test
-
-# Test specific package
-yarn test packages/ush
-
-# Run type checking
-yarn build
-
-# Format and lint code
-yarn fix:all
+git checkout -b <type>/<short-description>
+# Examples:
+# feat/add-retry-logic
+# fix/ssh-connection-leak
+# docs/update-api-reference
 ```
 
-### 4. Commit Your Changes
+### 3. Make your changes
 
-See [Commit Guidelines](#commit-guidelines) below.
+Follow these steps:
 
-## Testing
+1. **Update CHANGES.md first** - Document what you plan to change
+2. **Write failing tests** - TDD approach
+3. **Implement the feature** - Make tests pass
+4. **Update documentation** - Keep docs in sync
+5. **Run quality checks**:
+   ```bash
+   yarn test            # Run tests
+   yarn fix:all         # Fix linting/formatting
+   yarn build           # Ensure it builds
+   ```
+
+### 4. Commit your changes
+
+Follow our [commit conventions](#commit-guidelines):
+```bash
+git add .
+git commit -m "feat(core): add retry logic for network operations"
+```
+
+### 5. Push and create PR
+```bash
+git push origin feat/add-retry-logic
+```
+
+Then create a Pull Request on GitHub.
+
+## 💻 Coding Standards
+
+### TypeScript Guidelines
+
+```typescript
+// ✅ Good: Explicit types, clear naming
+export interface ExecutionOptions {
+  timeout?: number;
+  retries?: number;
+  env?: Record<string, string>;
+}
+
+export async function execute(
+  command: string,
+  options: ExecutionOptions = {}
+): Promise<Result<string>> {
+  // Implementation
+}
+
+// ❌ Bad: Any types, unclear naming
+export async function run(cmd: any, opts?: any): Promise<any> {
+  // Implementation
+}
+```
+
+### Key Principles
+
+1. **Single Responsibility** - Each module/function does one thing well
+2. **Composition over Inheritance** - Build complex behavior from simple functions
+3. **Immutability** - Prefer immutable data structures
+4. **Explicit over Implicit** - Clear, self-documenting code
+5. **Error Handling** - Use Result pattern for recoverable errors
+
+### Code Style Rules
+
+- Use 2 spaces for indentation
+- Maximum line length: 100 characters
+- Use single quotes for strings
+- Add trailing commas in multi-line structures
+- Order imports: external → internal → relative
+- Use early returns to reduce nesting
+
+## 🧪 Testing Guidelines
 
 ### Test Structure
 
-- **Unit Tests**: `test/unit/` - Test individual components
-- **Integration Tests**: `test/integration/` - Test component interactions
-- **E2E Tests**: Test complete workflows through the CLI
+```
+test/
+├── unit/           # Isolated component tests
+├── integration/    # Component interaction tests
+├── fixtures/       # Test data and mocks
+└── helpers/        # Test utilities
+```
 
 ### Writing Tests
 
 ```typescript
-import { test, expect, describe } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
+import { TestEnvironment } from '@xec-sh/test-utils';
 
-describe('Feature Name', () => {
-  test('should do something', async () => {
+describe('FeatureName', () => {
+  let env: TestEnvironment;
+
+  beforeEach(async () => {
+    env = await TestEnvironment.setup();
+  });
+
+  afterEach(async () => {
+    await env.cleanup();
+  });
+
+  test('should handle specific scenario', async () => {
     // Arrange
-    const input = 'test';
+    const input = 'test-input';
     
     // Act
     const result = await myFunction(input);
     
     // Assert
-    expect(result).toBe('expected');
+    expect(result.ok).toBe(true);
+    expect(result.value).toBe('expected-output');
   });
 });
 ```
 
+### Test Categories
+
+1. **Unit Tests** - Test individual functions/classes
+2. **Integration Tests** - Test component interactions
+3. **Adapter Tests** - Test specific adapter implementations
+4. **E2E Tests** - Test complete user workflows
+
 ### Running Tests
 
 ```bash
-# Run all tests
+# All tests
 yarn test
 
-# Run tests in watch mode
+# Specific workspace
+yarn workspace @xec-sh/core test
+
+# Watch mode
 yarn test --watch
 
-# Run tests with coverage
+# Coverage report
 yarn test --coverage
 
-# Run specific test file
-yarn test path/to/test.ts
+# Specific test file
+yarn test path/to/test.spec.ts
+
+# Integration tests only
+yarn test:integration
 ```
 
-## Code Style
+## 📚 Documentation
 
-### TypeScript Guidelines
+### Where to Document
 
-- Use TypeScript strict mode
-- Prefer interfaces over type aliases for object shapes
-- Use explicit return types for public APIs
-- Avoid `any` type - use `unknown` if type is truly unknown
+| Type | Location | Format |
+|------|----------|--------|
+| API Documentation | Source code | JSDoc with examples |
+| Architecture | `/docs` | Markdown |
+| Package Usage | Package `README.md` | Markdown with examples |
+| Examples | `/examples` | Runnable code |
+| Tutorials | `/apps/docs` | Docusaurus |
 
-### General Guidelines
+### Documentation Standards
 
-- Use meaningful variable and function names
-- Keep functions small and focused
-- Add JSDoc comments for public APIs
-- Use early returns to reduce nesting
-- Prefer async/await over callbacks
-
-### Formatting
-
-The project uses Prettier and ESLint for code formatting:
-
-```bash
-# Format and fix all files
-yarn fix:all
-
-# Check formatting without fixing
-yarn lint
+```typescript
+/**
+ * Executes a command in the specified environment
+ * 
+ * @param command - The command to execute
+ * @param options - Execution options
+ * @returns A Result containing the output or an error
+ * 
+ * @example
+ * ```typescript
+ * const result = await execute('ls -la', { 
+ *   timeout: 5000,
+ *   cwd: '/tmp' 
+ * });
+ * 
+ * if (result.ok) {
+ *   console.log(result.value);
+ * }
+ * ```
+ */
+export async function execute(
+  command: string,
+  options: ExecutionOptions = {}
+): Promise<Result<string>> {
+  // Implementation
+}
 ```
 
-## Commit Guidelines
+## 📝 Commit Guidelines
 
-We follow conventional commits specification:
+We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ### Format
-
 ```
 <type>(<scope>): <subject>
 
@@ -201,188 +365,209 @@ We follow conventional commits specification:
 
 ### Types
 
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, etc.)
-- `refactor`: Code refactoring
-- `test`: Test additions or modifications
-- `chore`: Maintenance tasks
-- `perf`: Performance improvements
+| Type | Description | Example |
+|------|-------------|---------|
+| `feat` | New feature | `feat(cli): add progress bar for long operations` |
+| `fix` | Bug fix | `fix(core): prevent memory leak in SSH connections` |
+| `docs` | Documentation | `docs(readme): update installation instructions` |
+| `style` | Code style | `style(core): format with prettier` |
+| `refactor` | Code refactoring | `refactor(cli): extract command parser` |
+| `perf` | Performance | `perf(core): optimize connection pooling` |
+| `test` | Tests | `test(ssh): add timeout scenarios` |
+| `build` | Build system | `build: update turbo configuration` |
+| `ci` | CI/CD | `ci: add coverage reporting` |
+| `chore` | Maintenance | `chore: update dependencies` |
+
+### Scope
+
+Common scopes:
+- `core` - Core package changes
+- `cli` - CLI package changes
+- `ssh` - SSH adapter
+- `docker` - Docker adapter
+- `k8s` - Kubernetes adapter
 
 ### Examples
 
 ```bash
-# Feature
-git commit -m "feat(ush): add retry logic for network errors"
-
-# Bug fix
-git commit -m "fix(core): handle undefined adapter gracefully"
-
-# Documentation
-git commit -m "docs(readme): update installation instructions"
+# Simple
+git commit -m "feat(cli): add --quiet flag"
 
 # With body
-git commit -m "feat(cli): add progress indicators
+git commit -m "fix(core): handle SIGTERM gracefully
 
-- Add spinner for long operations
-- Show progress bar for file transfers
-- Update UI to be more responsive"
+- Add signal handlers for graceful shutdown
+- Clean up resources before exit
+- Wait for pending operations to complete
+
+Fixes #123"
+
+# Breaking change
+git commit -m "feat(core)!: change Result API
+
+BREAKING CHANGE: Result.value is now Result.data
 ```
 
-## Pull Request Process
+## 🔄 Pull Request Process
 
-### Before Submitting
+### Before Creating a PR
 
-1. **Update from upstream**:
-   ```bash
-   git fetch upstream
-   git rebase upstream/main
-   ```
+- [ ] Update `CHANGES.md` with your changes
+- [ ] All tests pass (`yarn test`)
+- [ ] Code is formatted (`yarn fix:all`)
+- [ ] Build succeeds (`yarn build`)
+- [ ] Documentation is updated
+- [ ] Commit messages follow conventions
 
-2. **Ensure all tests pass**:
-   ```bash
-   yarn test
-   yarn build
-   ```
+### PR Template
 
-3. **Update documentation** if needed
+```markdown
+## Description
+Brief description of changes
 
-4. **Add tests** for new functionality
+## Type of Change
+- [ ] Bug fix (non-breaking change)
+- [ ] New feature (non-breaking change)
+- [ ] Breaking change
+- [ ] Documentation update
 
-### Submitting a PR
+## Changes Made
+- List specific changes
+- Include relevant details
 
-1. Push your branch to your fork:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+## Testing
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual testing completed
 
-2. Create a Pull Request on GitHub
+## Checklist
+- [ ] CHANGES.md updated
+- [ ] Tests added/updated
+- [ ] Documentation updated
+- [ ] No new warnings
+```
 
-3. Fill out the PR template with:
-   - Clear description of changes
-   - Related issue numbers
-   - Test plan
-   - Screenshots (if UI changes)
+### Review Process
 
-### PR Review Process
+1. **Automated Checks** - CI must pass
+2. **Code Review** - At least 1 approval required
+3. **Testing** - Reviewer may request additional tests
+4. **Documentation** - Must be complete and accurate
 
-- PRs require at least one approval
-- Address review feedback promptly
-- Keep PRs focused - one feature/fix per PR
-- Ensure CI passes
+### After Merge
 
-## Debugging
+- Delete your feature branch
+- Sync your fork with upstream
+- Celebrate! 🎉
 
-### VSCode Configuration
+## 📦 Release Process
 
-The project includes VSCode debug configurations in `.vscode/launch.json`:
+Releases are automated but follow these guidelines:
 
-- Debug current test file
-- Debug all tests
-- Debug CLI execution
+1. **Version Bumping** - Based on conventional commits
+2. **Changelog Generation** - From `CHANGES.md` entries
+3. **Publishing** - Automated to npm
+4. **Documentation** - Auto-deployed to website
 
-### Common Debugging Tips
+### Release Types
 
-1. **Use verbose mode** for more output:
+- **Patch** (x.x.X) - Bug fixes
+- **Minor** (x.X.0) - New features
+- **Major** (X.0.0) - Breaking changes
+
+## 🛠 Common Tasks
+
+### Adding a New Adapter
+
+1. Create adapter file:
    ```typescript
-   const engine = new ExecutionEngine({ verbose: true });
+   // packages/core/src/adapters/my-adapter.ts
+   export class MyAdapter extends BaseAdapter {
+     // Implementation
+   }
    ```
 
-2. **Enable debug logging**:
+2. Add tests:
+   ```typescript
+   // packages/core/test/unit/adapters/my-adapter.test.ts
+   ```
+
+3. Update documentation:
+   - Add to API reference
+   - Create usage guide
+   - Add examples
+
+### Adding a CLI Command
+
+1. Create command file:
+   ```typescript
+   // apps/xec/src/commands/my-command.ts
+   export const myCommand = new Command('my-command')
+     .description('Description')
+     .action(async (options) => {
+       // Implementation
+     });
+   ```
+
+2. Register in CLI
+3. Add tests
+4. Update help documentation
+
+### Debugging
+
+1. **Enable debug output**:
    ```bash
    DEBUG=xec:* yarn test
    ```
 
-3. **Use breakpoints** in VSCode or `debugger` statements
+2. **Use VSCode debugger**:
+   - Set breakpoints
+   - Use included launch configurations
 
-## Common Tasks
+3. **Verbose mode**:
+   ```bash
+   yarn xec --verbose <command>
+   ```
 
-### Adding a New Feature
+## 🚨 Troubleshooting
 
-1. **Determine the appropriate package**:
-   - `ush`: Shell execution functionality
-   - `core`: Execution and automation logic
-   - `cli`: User interface
+### Common Issues
 
-2. **Write tests first** (TDD approach)
+1. **Build fails**
+   ```bash
+   yarn clean
+   yarn install
+   yarn build
+   ```
 
-3. **Implement the feature**
+2. **Tests fail locally but pass in CI**
+   - Check Node.js version
+   - Clear test cache: `yarn test --clearCache`
+   - Check for timing issues
 
-4. **Update documentation**:
-   - Package README.md
-   - API documentation
-   - Examples if applicable
+3. **Type errors**
+   ```bash
+   yarn fix:types
+   ```
 
-### Fixing a Bug
+### Getting Help
 
-1. **Reproduce the issue** with a failing test
+1. Check existing [issues](https://github.com/xec-sh/xec/issues)
+2. Review [documentation](https://xec.sh)
+3. Ask in [discussions](https://github.com/xec-sh/xec/discussions)
+4. Join our [Discord](https://discord.gg/xec) (if available)
 
-2. **Fix the bug**
+## 🎯 Final Checklist
 
-3. **Verify the test passes**
+Before submitting any contribution:
 
-4. **Check for regressions**
+- [ ] Changes documented in `CHANGES.md`
+- [ ] Tests written and passing
+- [ ] Documentation updated
+- [ ] Code follows style guide
+- [ ] Commits follow conventions
+- [ ] PR description is complete
 
-### Adding a New Adapter (ush)
+---
 
-1. Create adapter file in `packages/ush/src/adapters/`
-2. Extend `BaseAdapter` class
-3. Implement required methods
-4. Add comprehensive tests
-5. Update documentation
-
-### Updating Dependencies
-
-```bash
-# Update dependencies interactively
-yarn upgrade-interactive
-
-# Update specific package
-yarn workspace @xec-sh/core add package-name@latest
-
-# Update all workspaces
-yarn workspaces foreach install
-```
-
-## Performance Considerations
-
-- Minimize synchronous operations
-- Use streaming for large data
-- Implement proper connection pooling
-- Add benchmarks for performance-critical code
-
-## Security
-
-- Never commit secrets or credentials
-- Validate all user inputs
-- Use secure defaults
-- Follow OWASP guidelines
-- Report security issues privately
-
-## Documentation
-
-### Where to Document
-
-- **API Changes**: Update TypeScript interfaces and JSDoc
-- **New Features**: Update package README.md
-- **Examples**: Add to `examples/` directory
-- **Architecture**: Update documentation
-
-### Documentation Style
-
-- Use clear, concise language
-- Include code examples
-- Explain the "why" not just the "what"
-- Keep examples runnable
-
-## Getting Help
-
-- Check existing issues and PRs
-- Read package documentation
-- Review test files for examples
-- Ask questions in issues
-
-## License
-
-By contributing to Xec, you agree that your contributions will be licensed under the same license as the project.
+Thank you for contributing to Xec! Your efforts help make command execution universal and seamless for developers worldwide. 🚀

@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/cli",
   "description": "Xec: The Universal Shell for TypeScript",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "author": "DevGrid",
   "type": "module",
   "license": "MIT",
@@ -14,6 +14,34 @@
   "files": [
     "bin",
     "dist"
+  ],
+  "keywords": [
+    "cli",
+    "command-line",
+    "shell",
+    "universal-shell",
+    "typescript",
+    "javascript",
+    "automation",
+    "devops",
+    "orchestration",
+    "ssh",
+    "docker",
+    "kubernetes",
+    "scripting",
+    "template-literals",
+    "interactive-prompts",
+    "multi-environment",
+    "remote-execution",
+    "container-management",
+    "deployment",
+    "infrastructure",
+    "workflow-automation",
+    "repl",
+    "project-management",
+    "configuration-management",
+    "file-operations",
+    "process-execution"
   ],
   "scripts": {
     "build": "tsc",
@@ -51,7 +79,7 @@
   "homepage": "https://github.com/xec-sh/xec/tree/main/apps/xec#readme",
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@xec-sh/core": "workspace:*",
+    "@xec-sh/core": "^0.7.2",
     "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
     "commander": "^14.0.0",
