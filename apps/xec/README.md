@@ -8,6 +8,13 @@ Command-line interface for universal command orchestration across local, SSH, Do
 npm install -g @xec-sh/cli
 ```
 
+## Documentation
+
+- 🌐 [Official Documentation](https://xec.sh/docs/projects/cli)
+- 📚 [API Reference](https://xec.sh/docs/projects/cli/commands)
+- 🚀 [Getting Started](https://xec.sh/docs/getting-started/quick-start)
+- 💡 [Examples](https://xec.sh/docs/projects/cli/real-world-examples)
+
 ## Features
 
 - **JavaScript/TypeScript Execution** - Run scripts with full async/await support
@@ -172,6 +179,35 @@ for (const host of servers) {
 }
 ```
 
+## Custom Commands
+
+Create custom commands in `.xec/commands/`:
+
+```javascript
+// .xec/commands/deploy.js
+export function command(program) {
+  program
+    .command('deploy <env>')
+    .description('Deploy to environment')
+    .action(async (env) => {
+      const { $ } = await import('@xec-sh/core');
+      await $`npm run build`;
+      await $`npm run deploy:${env}`;
+    });
+}
+```
+
+## Contributing
+
+See [Contributing Guide](https://github.com/xec-sh/xec/blob/main/CONTRIBUTING.md)
+
+## Links
+
+- 🌐 [Website](https://xec.sh)
+- 📖 [Documentation](https://xec.sh/docs)
+- 💬 [GitHub Discussions](https://github.com/xec-sh/xec/discussions)
+- 🐛 [Issue Tracker](https://github.com/xec-sh/xec/issues)
+
 ## License
 
-MIT
+MIT © [Xec Contributors](https://github.com/xec-sh/xec/graphs/contributors)

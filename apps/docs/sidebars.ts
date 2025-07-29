@@ -28,8 +28,8 @@ const sidebars: SidebarsConfig = {
       items: [
         'projects/cli/commands',
         'projects/cli/custom-commands',
+        'projects/cli/script-api',
         'projects/cli/advanced-features',
-        'projects/cli/module-loading',
         'projects/cli/secure-password-handling',
         'projects/cli/real-world-examples',
         'projects/cli/troubleshooting',

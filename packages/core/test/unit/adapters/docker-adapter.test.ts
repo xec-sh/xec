@@ -10,7 +10,7 @@ const sleep = promisify(setTimeout);
 
 // Test container configuration
 const TEST_IMAGE = 'alpine:latest';
-const TEST_CONTAINER_PREFIX = 'ush-test-';
+const TEST_CONTAINER_PREFIX = 'xec-test-';
 let testContainerName: string;
 let testContainers: string[] = [];
 
@@ -22,10 +22,10 @@ async function execDocker(args: string[]): Promise<{ stdout: string; stderr: str
     });
     let stdout = '';
     let stderr = '';
-    
+
     proc.stdout.on('data', (data) => { stdout += data.toString(); });
     proc.stderr.on('data', (data) => { stderr += data.toString(); });
-    
+
     proc.on('exit', (exitCode) => {
       resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: exitCode || 0 });
     });
@@ -47,21 +47,21 @@ async function ensureTestContainer(containerName: string): Promise<void> {
 // Cleanup helper
 async function cleanupTestContainers(): Promise<void> {
   for (const container of testContainers) {
-    await execDocker(['rm', '-f', container]).catch(() => {});
+    await execDocker(['rm', '-f', container]).catch(() => { });
   }
   testContainers = [];
 }
 
 describe('DockerAdapter Enhanced Tests', () => {
   let adapter: DockerAdapter;
-  
+
   // Store original PATH
   const originalPath = process.env['PATH'];
 
   beforeAll(async () => {
     // Ensure Docker is in PATH
     process.env['PATH'] = `/usr/local/bin:${process.env['PATH']}`;
-    
+
     // Pull test image if needed
     const { exitCode } = await execDocker(['images', '-q', TEST_IMAGE]);
     if (exitCode !== 0 || !await execDocker(['images', '-q', TEST_IMAGE]).then(r => r.stdout)) {
@@ -74,7 +74,7 @@ describe('DockerAdapter Enhanced Tests', () => {
     jest.clearAllMocks();
     // Generate unique container name for this test
     testContainerName = `${TEST_CONTAINER_PREFIX}${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    
+
     adapter = new DockerAdapter({
       throwOnNonZeroExit: false,
       defaultExecOptions: {
@@ -114,7 +114,7 @@ describe('DockerAdapter Enhanced Tests', () => {
   describe('Basic command execution', () => {
     it('should execute commands in Docker container', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const result = await adapter.execute({
         command: 'echo "Hello from Docker"',
         adapterOptions: {
@@ -129,7 +129,7 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     it('should execute commands with shell', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const result = await adapter.execute({
         command: 'echo $((40 + 2))',
         shell: true,
@@ -165,7 +165,7 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     it('should handle command failures', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const result = await adapter.execute({
         command: 'nonexistentcommand',
         adapterOptions: {
@@ -180,7 +180,7 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     it('should capture combined stdout and stderr', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const result = await adapter.execute({
         command: 'echo "This is stdout" && echo "This is stderr" >&2',
         adapterOptions: {
@@ -326,13 +326,13 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     afterEach(async () => {
       // Cleanup any containers created in these tests
-      await execDocker(['rm', '-f', managementContainerName]).catch(() => {});
+      await execDocker(['rm', '-f', managementContainerName]).catch(() => { });
     });
 
     it('should list containers', async () => {
       // Create a container to list
       await ensureTestContainer(testContainerName);
-      
+
       const containers = await adapter.listContainers();
       expect(containers).toContain(testContainerName);
     });
@@ -341,10 +341,10 @@ describe('DockerAdapter Enhanced Tests', () => {
       // Create a stopped container
       await execDocker(['create', '--name', managementContainerName, TEST_IMAGE]);
       testContainers.push(managementContainerName);
-      
+
       const allContainers = await adapter.listContainers(true);
       const runningContainers = await adapter.listContainers(false);
-      
+
       expect(allContainers).toContain(managementContainerName);
       expect(runningContainers).not.toContain(managementContainerName);
     });
@@ -368,12 +368,12 @@ describe('DockerAdapter Enhanced Tests', () => {
       // Create a stopped container
       await execDocker(['create', '--name', managementContainerName, TEST_IMAGE, 'sh', '-c', 'while true; do sleep 1; done']);
       testContainers.push(managementContainerName);
-      
+
       await adapter.startContainer(managementContainerName);
-      
+
       // Give container a moment to fully start
       await sleep(500);
-      
+
       // Verify container is running
       const { stdout } = await execDocker(['ps', '--format', '{{.Names}}']);
       const runningContainers = stdout.split('\n').filter(Boolean);
@@ -383,9 +383,9 @@ describe('DockerAdapter Enhanced Tests', () => {
     it('should stop container', async () => {
       // Create and start a container
       await ensureTestContainer(managementContainerName);
-      
+
       await adapter.stopContainer(managementContainerName);
-      
+
       // Verify container is stopped
       const { stdout } = await execDocker(['ps', '--format', '{{.Names}}']);
       expect(stdout).not.toContain(managementContainerName);
@@ -394,13 +394,13 @@ describe('DockerAdapter Enhanced Tests', () => {
     it('should remove container', async () => {
       // Create a stopped container
       await execDocker(['create', '--name', managementContainerName, TEST_IMAGE]);
-      
+
       await adapter.removeContainer(managementContainerName);
-      
+
       // Verify container is removed
       const { exitCode } = await execDocker(['inspect', managementContainerName]);
       expect(exitCode).not.toBe(0);
-      
+
       // Remove from our cleanup list since it's already removed
       testContainers = testContainers.filter(c => c !== managementContainerName);
     });
@@ -408,13 +408,13 @@ describe('DockerAdapter Enhanced Tests', () => {
     it('should force remove container', async () => {
       // Create and start a container
       await ensureTestContainer(managementContainerName);
-      
+
       await adapter.removeContainer(managementContainerName, true);
-      
+
       // Verify container is removed
       const { exitCode } = await execDocker(['inspect', managementContainerName]);
       expect(exitCode).not.toBe(0);
-      
+
       // Remove from our cleanup list since it's already removed
       testContainers = testContainers.filter(c => c !== managementContainerName);
     });
@@ -433,7 +433,7 @@ describe('DockerAdapter Enhanced Tests', () => {
         await autoCreateAdapter.dispose();
       }
       // Clean up any auto-created containers
-      await execDocker(['rm', '-f', autoContainerName]).catch(() => {});
+      await execDocker(['rm', '-f', autoContainerName]).catch(() => { });
     });
 
     it('should create temporary container if enabled and container does not exist', async () => {
@@ -455,7 +455,7 @@ describe('DockerAdapter Enhanced Tests', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trim()).toBe('test');
-      
+
       // The container created will have a different name (temp-ush-*)
       // Let's verify at least one temp container exists
       const { stdout } = await execDocker(['ps', '-a', '--format', '{{.Names}}']);
@@ -527,7 +527,7 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     it('should throw DockerError when throwOnNonZeroExit is true', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const strictAdapter = new DockerAdapter({
         throwOnNonZeroExit: true
       });
@@ -539,7 +539,7 @@ describe('DockerAdapter Enhanced Tests', () => {
           container: testContainerName
         }
       })).rejects.toThrow(DockerError);
-      
+
       await strictAdapter.dispose();
     });
   });
@@ -547,7 +547,7 @@ describe('DockerAdapter Enhanced Tests', () => {
   describe('Process timeout', () => {
     it('should handle long running commands', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       // Since DockerAdapter doesn't implement timeout, we'll test that long commands work
       const result = await adapter.execute({
         command: 'sleep 1',
@@ -556,7 +556,7 @@ describe('DockerAdapter Enhanced Tests', () => {
           container: testContainerName
         }
       });
-      
+
       expect(result.exitCode).toBe(0);
       expect(result.duration).toBeGreaterThanOrEqual(1000);
     });
@@ -565,28 +565,28 @@ describe('DockerAdapter Enhanced Tests', () => {
   describe('TTY detection', () => {
     it('should warn when TTY requested but not available', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       // Mock console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+
       // Save original TTY values
       const originalStdinTTY = process.stdin.isTTY;
       const originalStdoutTTY = process.stdout.isTTY;
       const originalStderrTTY = process.stderr.isTTY;
-      
+
       // Set TTY to false
-      Object.defineProperty(process.stdin, 'isTTY', { 
-        value: false, 
+      Object.defineProperty(process.stdin, 'isTTY', {
+        value: false,
         writable: true,
         configurable: true
       });
-      Object.defineProperty(process.stdout, 'isTTY', { 
-        value: false, 
+      Object.defineProperty(process.stdout, 'isTTY', {
+        value: false,
         writable: true,
         configurable: true
       });
-      Object.defineProperty(process.stderr, 'isTTY', { 
-        value: false, 
+      Object.defineProperty(process.stderr, 'isTTY', {
+        value: false,
         writable: true,
         configurable: true
       });
@@ -607,17 +607,17 @@ describe('DockerAdapter Enhanced Tests', () => {
 
       // Restore
       consoleWarnSpy.mockRestore();
-      Object.defineProperty(process.stdin, 'isTTY', { 
+      Object.defineProperty(process.stdin, 'isTTY', {
         value: originalStdinTTY,
         writable: true,
         configurable: true
       });
-      Object.defineProperty(process.stdout, 'isTTY', { 
+      Object.defineProperty(process.stdout, 'isTTY', {
         value: originalStdoutTTY,
         writable: true,
         configurable: true
       });
-      Object.defineProperty(process.stderr, 'isTTY', { 
+      Object.defineProperty(process.stderr, 'isTTY', {
         value: originalStderrTTY,
         writable: true,
         configurable: true
@@ -687,12 +687,12 @@ describe('DockerAdapter Enhanced Tests', () => {
       for (const name of validNames) {
         const fullName = `${TEST_CONTAINER_PREFIX}valid-${name}`;
         await ensureTestContainer(fullName);
-        
+
         const result = await adapter.execute({
           command: 'echo ok',
           adapterOptions: { type: 'docker', container: fullName }
         });
-        
+
         expect(result.exitCode).toBe(0);
         expect(result.stdout.trim()).toBe('ok');
       }
@@ -702,12 +702,12 @@ describe('DockerAdapter Enhanced Tests', () => {
   describe.skip('Abort signal handling', () => {
     // Note: DockerAdapter doesn't currently implement abort signal handling
     // These tests are skipped until that functionality is added
-    
+
     it('should handle abort signal during command execution', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const abortController = new AbortController();
-      
+
       // Start a long-running command
       const executePromise = adapter.execute({
         command: 'sleep 10',
@@ -722,7 +722,7 @@ describe('DockerAdapter Enhanced Tests', () => {
       setTimeout(() => abortController.abort(), 100);
 
       const result = await executePromise;
-      
+
       // When aborted, the process is killed with SIGTERM
       expect(result.exitCode).not.toBe(0);
       expect(result.signal).toBeDefined();
@@ -731,10 +731,10 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     it('should handle pre-aborted signal', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       const abortController = new AbortController();
       abortController.abort(); // Pre-abort
-      
+
       await expect(adapter.execute({
         command: 'echo test',
         signal: abortController.signal,
@@ -749,7 +749,7 @@ describe('DockerAdapter Enhanced Tests', () => {
   describe('Configuration with custom exec options', () => {
     it('should apply custom exec options from config', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       // Create adapter with privileged mode
       const privilegedAdapter = new DockerAdapter({
         defaultExecOptions: {
@@ -772,13 +772,13 @@ describe('DockerAdapter Enhanced Tests', () => {
       expect(result.exitCode).toBe(0);
       // Privileged containers have all capabilities
       expect(result.stdout).toContain('CapEff');
-      
+
       await privilegedAdapter.dispose();
     });
 
     it('should handle custom working directory from exec options', async () => {
       await ensureTestContainer(testContainerName);
-      
+
       // Create directory first
       await adapter.execute({
         command: 'mkdir -p /custom/workdir',
@@ -806,7 +806,7 @@ describe('DockerAdapter Enhanced Tests', () => {
       });
 
       expect(result.stdout.trim()).toBe('/custom/workdir');
-      
+
       await customAdapter.dispose();
     });
   });
@@ -928,10 +928,10 @@ describe('DockerAdapter Enhanced Tests', () => {
     it('should handle Docker not being available', async () => {
       // Save original PATH
       const originalPath = process.env['PATH'];
-      
+
       // Remove docker from PATH to simulate it not being available
       process.env['PATH'] = '/tmp/nonexistent';
-      
+
       const badAdapter = new DockerAdapter();
 
       const available = await badAdapter.isAvailable();
@@ -946,7 +946,7 @@ describe('DockerAdapter Enhanced Tests', () => {
       })).rejects.toThrow();
 
       await badAdapter.dispose();
-      
+
       // Restore PATH
       process.env['PATH'] = originalPath;
     });
@@ -960,7 +960,7 @@ describe('DockerAdapter Enhanced Tests', () => {
     it('should handle large Buffer stdin', async () => {
       // Create a large buffer (1MB)
       const largeBuffer = Buffer.alloc(1024 * 1024, 'x');
-      
+
       const result = await adapter.execute({
         command: 'wc -c',
         stdin: largeBuffer,
@@ -976,7 +976,7 @@ describe('DockerAdapter Enhanced Tests', () => {
 
     it('should handle multiline string stdin', async () => {
       const multilineInput = 'line1\nline2\nline3\n';
-      
+
       const result = await adapter.execute({
         command: 'wc -l',
         stdin: multilineInput,
@@ -1100,7 +1100,7 @@ describe('DockerAdapter Integration-like Tests', () => {
   afterEach(async () => {
     await adapter.dispose();
     // Clean up integration test containers
-    await execDocker(['rm', '-f', integrationContainerName]).catch(() => {});
+    await execDocker(['rm', '-f', integrationContainerName]).catch(() => { });
   });
 
   afterAll(async () => {
@@ -1110,15 +1110,15 @@ describe('DockerAdapter Integration-like Tests', () => {
   it('should handle complex multi-command scenario', async () => {
     // List containers before
     const containersBefore = await adapter.listContainers();
-    
+
     // Create and start new container
     // Need to create with a command that keeps container running
     await execDocker(['run', '-d', '--name', integrationContainerName, TEST_IMAGE, 'sh', '-c', 'while true; do sleep 1; done']);
     testContainers.push(integrationContainerName);
-    
+
     // Give container time to start
     await sleep(500);
-    
+
     // Verify container is in list
     const containersAfter = await adapter.listContainers();
     expect(containersAfter).toContain(integrationContainerName);
@@ -1137,7 +1137,7 @@ describe('DockerAdapter Integration-like Tests', () => {
     // Stop and remove
     await adapter.stopContainer(integrationContainerName);
     await adapter.removeContainer(integrationContainerName);
-    
+
     // Remove from cleanup list since we removed it
     testContainers = testContainers.filter(c => c !== integrationContainerName);
 

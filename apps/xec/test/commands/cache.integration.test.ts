@@ -79,8 +79,8 @@ describe('cache command integration tests', () => {
       const option = preloadCmd?.options.find(opt => opt.long === '--cdn');
       
       expect(option).toBeDefined();
-      expect(option?.description).toBe('Preferred CDN (jsr, esm.sh, unpkg, skypack, jsdelivr)');
-      expect(option?.defaultValue).toBe('jsr');
+      expect(option?.description).toBe('Preferred CDN (esm.sh, jsr.io)');
+      expect(option?.defaultValue).toBe('esm.sh');
     });
   });
 

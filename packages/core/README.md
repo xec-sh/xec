@@ -8,6 +8,13 @@ Universal execution engine providing a unified API for running commands across l
 npm install @xec-sh/core
 ```
 
+## Documentation
+
+- 🌐 [Official Documentation](https://xec.sh/docs/projects/core)
+- 📚 [API Reference](https://xec.sh/docs/projects/core/api-reference)
+- 🚀 [Getting Started](https://xec.sh/docs/projects/core/getting-started/first-steps)
+- 💡 [Examples](https://github.com/xec-sh/xec/tree/main/packages/core/examples)
+
 ## Features
 
 - **Universal API** - Same syntax works everywhere
@@ -140,12 +147,41 @@ $.on('command:error', (event) => {
 });
 ```
 
-## Documentation
+## API Reference
 
-- [API Reference](./docs/API.md)
-- [Examples](./examples/)
-- [Migration Guide](./docs/MIGRATION.md)
+### Core Functions
+- `$` - Main execution function
+- `$.ssh()` - SSH adapter
+- `$.docker()` - Docker adapter
+- `$.k8s()` - Kubernetes adapter
+- `configure()` - Global configuration
+- `parallel()` - Parallel execution
+
+### Utilities
+- `escapeShellArg()` - Shell argument escaping
+- `quoteShellArg()` - Shell argument quoting
+- `RuntimeDetector` - Runtime detection
+- `ProcessPromise` - Promise-based process handling
+
+## More Documentation
+
+- 📖 [Full API Reference](https://xec.sh/docs/projects/core/api-reference)
+- 🔧 [Configuration Guide](https://xec.sh/docs/projects/core/core-features/configuration)
+- 🎯 [Advanced Features](https://xec.sh/docs/projects/core/advanced)
+- 🐛 [Troubleshooting](https://xec.sh/docs/projects/cli/troubleshooting)
+
+## Contributing
+
+See [Contributing Guide](https://github.com/xec-sh/xec/blob/main/CONTRIBUTING.md)
+
+## Links
+
+- 🌐 [Website](https://xec.sh)
+- 📖 [Documentation](https://xec.sh/docs)
+- 💬 [GitHub Discussions](https://github.com/xec-sh/xec/discussions)
+- 🐛 [Issue Tracker](https://github.com/xec-sh/xec/issues)
+- 📦 [npm Package](https://www.npmjs.com/package/@xec-sh/core)
 
 ## License
 
-MIT
+MIT © [Xec Contributors](https://github.com/xec-sh/xec/graphs/contributors)

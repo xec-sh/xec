@@ -1,17 +1,19 @@
 /**
- * 🚀 Xec Release Command
+ * 🚀 Xec Release Command - Optimized with Native Parallel Execution
  * 
- * A comprehensive release command that demonstrates the power of Xec
- * while providing flexible release management for the Xec monorepo.
+ * Demonstrates advanced Xec features with maximum performance:
+ * - Native $.parallel.all() for fail-fast operations
+ * - Native $.parallel.settled() for resilient batch operations
+ * - Progress tracking with onProgress callbacks
+ * - Efficient error handling with nothrow()
+ * - Optimal concurrency limits for different operations
+ * - Smart rollback with parallel cleanup
  * 
- * Features:
- * - Version management with semver
- * - Git operations (tags, commits)
- * - GitHub release creation
- * - NPM publishing
- * - JSR.io publishing
- * - Progress tracking
- * - Rollback on failure
+ * Performance improvements:
+ * - Git operations run in parallel where safe
+ * - Package builds use optimal concurrency
+ * - NPM/JSR publishing respects rate limits
+ * - File operations batched for speed
  * 
  * This command will be available as: xec release [version]
  */
@@ -20,52 +22,16 @@ import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// Universal module loading support
-const moduleContext = globalThis.__xecModuleContext || {
-  import: (spec) => import(spec),
-  importJSR: (pkg) => import('https://jsr.io/' + pkg),
-  importNPM: (pkg) => import('https://esm.sh/' + pkg)
-};
+// Core dependencies - minimal imports
+const clack = await import('@clack/prompts');
+const { $, withTempFile } = await import('@xec-sh/core');
+const chalk = (await import('chalk')).default;
 
-// Load dependencies
-const clack = await moduleContext.import('@clack/prompts');
-const { $, parallel, Pipeline, withTempFile, withTempDir } = await moduleContext.import('@xec-sh/core');
-const chalkModule = await moduleContext.import('chalk');
-const chalk = chalkModule.default || chalkModule;
-
-// For packages not in dependencies, use dynamic imports with fallback
-let semver: any;
-let ora: any;
-
-try {
-  // Try local import first
-  semver = await moduleContext.import('semver');
-} catch {
-  // Fallback to NPM if not found locally
-  try {
-    semver = await moduleContext.importNPM('semver@7');
-  } catch (err) {
-    console.error('Failed to load semver package. Please install it with: npm install semver');
-    process.exit(1);
-  }
-}
-
-try {
-  // Try local import first
-  ora = await moduleContext.import('ora');
-} catch {
-  // For ora, we can use a simple spinner fallback
-  ora = (options: any) => ({
-    start: (text?: string) => {
-      if (text) console.log('⏳', text);
-      return {
-        text: '',
-        succeed: (text?: string) => console.log('✅', text || ''),
-        fail: (text?: string) => console.log('❌', text || ''),
-        stop: () => { }
-      };
-    }
-  });
+// Dynamic imports with efficient loading
+const semver = await import('semver').catch(() => import('npm:semver@7'));
+if (!semver) {
+  console.error('Failed to load semver. Install with: npm install semver');
+  process.exit(1);
 }
 
 // Package configurations
@@ -87,6 +53,34 @@ interface ReleaseConfig {
   githubToken?: string;
   npmToken?: string;
   jsrToken?: string;
+  runTests?: boolean;
+  skipDepCheck: boolean;
+}
+
+// Rollback state to track changes
+interface RollbackState {
+  originalPackageJsons: Map<string, string>;
+  createdFiles: string[];
+  gitCommitCreated: boolean;
+  gitTagCreated: boolean;
+  tagName: string;
+  originalChangelog?: string;
+  originalChangesFile?: string;
+}
+
+// Helper to handle user cancellation
+function handleCancel(): never {
+  clack.outro(chalk.yellow('✋ Release cancelled by user'));
+  process.exit(0);
+}
+
+// Wrap clack prompts to handle cancellation
+async function promptWithCancel<T>(fn: () => Promise<T | symbol>): Promise<T> {
+  const result = await fn();
+  if (clack.isCancel(result)) {
+    handleCancel();
+  }
+  return result as T;
 }
 
 // Helper to read package.json
@@ -112,64 +106,202 @@ function createJsrJson(packageJson: any): any {
   };
 }
 
-// Helper to generate changelog from git commits
-async function generateChangelog(fromVersion: string, toVersion: string): Promise<string> {
-  const commits = await $`git log v${fromVersion}..HEAD --pretty=format:"%h - %s (%an)" --no-merges`.nothrow();
-
-  if (commits.exitCode !== 0) {
-    return '- Various improvements and bug fixes\n';
+// Helper to parse CHANGES.md and convert to changelog format
+async function parseChangesFile(): Promise<string | null> {
+  const changesPath = 'CHANGES.md';
+  if (!existsSync(changesPath)) {
+    return null;
   }
 
-  const lines = commits.stdout.trim().split('\n').filter(Boolean);
-  const categorized = {
-    features: [] as string[],
-    fixes: [] as string[],
-    other: [] as string[]
+  const content = readFileSync(changesPath, 'utf8');
+  if (!content.trim()) {
+    return null;
+  }
+
+  // Parse CHANGES.md format and convert to changelog sections
+  const sections: Record<string, string[]> = {
+    added: [],
+    changed: [],
+    fixed: [],
+    deprecated: [],
+    removed: [],
+    security: []
   };
 
+  let currentSection = '';
+  const lines = content.split('\n');
+
   for (const line of lines) {
-    if (line.includes('feat:') || line.includes('feature:')) {
-      categorized.features.push(line);
-    } else if (line.includes('fix:') || line.includes('bug:')) {
-      categorized.fixes.push(line);
-    } else {
-      categorized.other.push(line);
+    // Skip headers and empty lines
+    if (line.startsWith('#') || !line.trim()) continue;
+
+    // Detect section headers
+    if (line.includes('New Features') || line.includes('What Changed') || line.includes('Key Improvements')) {
+      currentSection = 'changed';
+    } else if (line.includes('Fixed Issues') || line.includes('Bug Fixes')) {
+      currentSection = 'fixed';
+    } else if (line.includes('Security')) {
+      currentSection = 'security';
+    } else if (line.startsWith('- ') || line.startsWith('* ') || line.match(/^\d+\.\s/)) {
+      // Process bullet points
+      const cleanLine = line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
+      if (cleanLine && currentSection && sections[currentSection]) {
+        sections[currentSection].push(cleanLine);
+      }
     }
   }
 
+  // Build changelog format
   let changelog = '';
-  if (categorized.features.length > 0) {
-    changelog += '### 🚀 Features\n' + categorized.features.map(f => `- ${f}`).join('\n') + '\n\n';
+
+  if (sections.added.length > 0) {
+    changelog += '### Added\n' + sections.added.map(item => `- ${item}`).join('\n') + '\n\n';
   }
-  if (categorized.fixes.length > 0) {
-    changelog += '### 🐛 Bug Fixes\n' + categorized.fixes.map(f => `- ${f}`).join('\n') + '\n\n';
+  if (sections.changed.length > 0) {
+    changelog += '### Changed\n' + sections.changed.map(item => `- ${item}`).join('\n') + '\n\n';
   }
-  if (categorized.other.length > 0) {
-    changelog += '### 📝 Other Changes\n' + categorized.other.map(f => `- ${f}`).join('\n') + '\n\n';
+  if (sections.fixed.length > 0) {
+    changelog += '### Fixed\n' + sections.fixed.map(item => `- ${item}`).join('\n') + '\n\n';
+  }
+  if (sections.deprecated.length > 0) {
+    changelog += '### Deprecated\n' + sections.deprecated.map(item => `- ${item}`).join('\n') + '\n\n';
+  }
+  if (sections.removed.length > 0) {
+    changelog += '### Removed\n' + sections.removed.map(item => `- ${item}`).join('\n') + '\n\n';
+  }
+  if (sections.security.length > 0) {
+    changelog += '### Security\n' + sections.security.map(item => `- ${item}`).join('\n') + '\n\n';
   }
 
-  return changelog || '- Various improvements and bug fixes\n';
+  return changelog.trim();
 }
 
-// Helper to check for dependency updates
-async function checkDependencyUpdates(): Promise<{ hasUpdates: boolean; updates: string[] }> {
-  const updates: string[] = [];
+// Helper to update CHANGELOG.md with new release
+async function updateChangelog(version: string, content: string): Promise<void> {
+  const changelogPath = 'CHANGELOG.md';
+  const changelog = readFileSync(changelogPath, 'utf8');
 
-  // Check with npm outdated
-  const outdated = await $`npm outdated --json`.nothrow();
-  if (outdated.exitCode === 0 && outdated.stdout.trim()) {
-    try {
-      const data = JSON.parse(outdated.stdout);
-      for (const [pkg, info] of Object.entries(data)) {
-        updates.push(`${pkg}: ${(info as any).current} → ${(info as any).wanted}`);
-      }
-    } catch { }
+  // Find the marker
+  const marker = '<!-- CHANGELOG-INSERT-MARKER -->';
+  const markerIndex = changelog.indexOf(marker);
+
+  if (markerIndex === -1) {
+    throw new Error('CHANGELOG.md is missing the insert marker');
   }
 
-  return {
-    hasUpdates: updates.length > 0,
-    updates
-  };
+  // Find the end of the marker section (next line after marker comments)
+  const afterMarker = changelog.indexOf('\n\n', markerIndex) + 2;
+
+  // Format date
+  const date = new Date().toISOString().split('T')[0];
+
+  // Create new release entry
+  const newEntry = `## [${version}] - ${date}\n\n${content}\n\n`;
+
+  // Insert new entry after marker
+  const updatedChangelog =
+    changelog.slice(0, afterMarker) +
+    newEntry +
+    changelog.slice(afterMarker);
+
+  writeFileSync(changelogPath, updatedChangelog);
+}
+
+// Helper to generate changelog from git commits - optimized
+async function generateChangelog(fromVersion: string, toVersion: string): Promise<string> {
+  const result = await $`git log v${fromVersion}..HEAD --pretty=format:"%h - %s (%an)" --no-merges`.nothrow();
+
+  if (result.exitCode !== 0 || !result.stdout.trim()) {
+    return '- Various improvements and bug fixes\n';
+  }
+
+  // Parse commits efficiently
+  const lines = result.stdout.trim().split('\n');
+  const categorized = lines.reduce((acc, line) => {
+    if (line.includes('feat:') || line.includes('feature:')) {
+      acc.features.push(line);
+    } else if (line.includes('fix:') || line.includes('bug:')) {
+      acc.fixes.push(line);
+    } else {
+      acc.other.push(line);
+    }
+    return acc;
+  }, { features: [] as string[], fixes: [] as string[], other: [] as string[] });
+
+  // Build changelog sections
+  const sections = [
+    categorized.features.length && `### 🚀 Features\n${categorized.features.map(f => `- ${f}`).join('\n')}`,
+    categorized.fixes.length && `### 🐛 Bug Fixes\n${categorized.fixes.map(f => `- ${f}`).join('\n')}`,
+    categorized.other.length && `### 📝 Other Changes\n${categorized.other.map(f => `- ${f}`).join('\n')}`
+  ].filter(Boolean).join('\n\n');
+
+  return sections ? sections + '\n\n' : '- Various improvements and bug fixes\n';
+}
+
+// Helper to check for dependency updates - optimized with streaming
+async function checkDependencyUpdates(): Promise<{ hasUpdates: boolean; updates: string[] }> {
+  // Use nothrow to handle exit code 1 (outdated packages)
+  const result = await $`npm outdated --json`.nothrow();
+
+  if (!result.stdout.trim()) {
+    return { hasUpdates: false, updates: [] };
+  }
+
+  try {
+    const data = JSON.parse(result.stdout);
+    const updates = Object.entries(data).map(([pkg, info]: [string, any]) =>
+      `${pkg}: ${info.current} → ${info.wanted}`
+    );
+
+    return { hasUpdates: updates.length > 0, updates };
+  } catch {
+    return { hasUpdates: false, updates: [] };
+  }
+}
+
+// Safe rollback function - optimized with parallel operations
+async function performRollback(state: RollbackState, config: ReleaseConfig): Promise<void> {
+  const s = clack.spinner();
+  s.start('Performing safe rollback...');
+
+  try {
+    // Parallel file operations
+    const fileOps: (Promise<void>)[] = [];
+
+    // Restore package.json files
+    for (const [path, content] of state.originalPackageJsons.entries()) {
+      fileOps.push((async () => writeFileSync(path, content))());
+    }
+
+    // Restore other files
+    if (state.originalChangelog) {
+      fileOps.push((async () => writeFileSync('CHANGELOG.md', state.originalChangelog!))());
+    }
+    if (state.originalChangesFile) {
+      fileOps.push((async () => writeFileSync('CHANGES.md', state.originalChangesFile!))());
+    }
+
+    // Execute file restores in parallel
+    await Promise.all(fileOps);
+
+    // Remove created files and git operations in parallel
+    const cleanupOps = [
+      // Remove created files
+      ...state.createdFiles.map(file =>
+        $`test -f ${file} && rm -f ${file} || true`.nothrow()
+      ),
+      // Git operations
+      ...(state.gitTagCreated && state.tagName ? [$`git tag -d ${state.tagName}`.nothrow()] : []),
+      // ...(state.gitCommitCreated && !config.skipGit ? [$`git reset --soft HEAD~1`.nothrow()] : [])
+    ];
+
+    await $.parallel.settled(cleanupOps, { maxConcurrency: 5 });
+
+    s.stop('✅ Rollback completed successfully');
+  } catch (error) {
+    s.stop('⚠️  Rollback completed with warnings');
+    console.error('Some rollback operations failed:', error);
+  }
 }
 
 export function command(program: Command): void {
@@ -189,8 +321,33 @@ export function command(program: Command): void {
     .option('--config <path>', 'Path to release configuration file')
     .action(async (version: string | undefined, options: any) => {
       const s = clack.spinner();
+      const rollbackState: RollbackState = {
+        originalPackageJsons: new Map(),
+        createdFiles: [],
+        gitCommitCreated: false,
+        gitTagCreated: false,
+        tagName: ''
+      };
+      let usedChangesFile = false;
 
       clack.intro(chalk.bgMagenta.black(' 🚀 Xec Release Manager '));
+      clack.log.info(chalk.dim('Press ESC at any prompt to cancel safely'));
+
+      let config: ReleaseConfig = {
+        version: '',
+        previousVersion: '',
+        packages: [],
+        dryRun: false,
+        skipGit: false,
+        skipGithub: false,
+        skipNpm: false,
+        skipJsr: false,
+        githubToken: '',
+        npmToken: '',
+        jsrToken: '',
+        runTests: false,
+        skipDepCheck: false
+      };
 
       try {
         // Load configuration file if specified
@@ -214,25 +371,6 @@ export function command(program: Command): void {
         // Merge file config with command options
         options = { ...fileConfig, ...options };
 
-        // Execute pre-release hook if defined
-        if (fileConfig.hooks?.preRelease && !options.dryRun) {
-          s.start('Running pre-release hook...');
-          try {
-            await $.raw`${fileConfig.hooks.preRelease}`;
-            s.stop('✅ Pre-release hook completed');
-          } catch (error) {
-            s.stop('⚠️  Pre-release hook failed');
-            const continueAnyway = await clack.confirm({
-              message: 'Pre-release hook failed. Continue anyway?',
-              initialValue: false
-            });
-            if (!continueAnyway) {
-              clack.outro(chalk.yellow('Release cancelled'));
-              process.exit(1);
-            }
-          }
-        }
-
         // Step 1: Check repository state
         s.start('Checking repository state...');
 
@@ -243,68 +381,56 @@ export function command(program: Command): void {
           process.exit(1);
         }
 
-        // Check git status
-        const gitStatus = await $`git status --porcelain`.nothrow();
-        if (gitStatus.stdout.trim() && !options.dryRun) {
-          s.stop('❌ Working directory not clean');
-          const proceed = await clack.confirm({
-            message: 'Working directory has uncommitted changes. Continue anyway?',
-            initialValue: false
-          });
-          if (!proceed) {
-            clack.outro(chalk.yellow('Release cancelled'));
-            process.exit(0);
+        // Store original package.json contents for rollback
+        for (const pkg of PACKAGES) {
+          const packageJsonPath = join(pkg.path, 'package.json');
+          if (existsSync(packageJsonPath)) {
+            rollbackState.originalPackageJsons.set(packageJsonPath, readFileSync(packageJsonPath, 'utf8'));
           }
         }
 
-        // Get current branch
-        const currentBranch = (await $`git branch --show-current`).stdout.trim();
+        // Check git status and branch in parallel
+        const [gitStatus, branchResult] = await $.parallel.all([
+          `git status --porcelain`,
+          `git branch --show-current`
+        ]);
+
+        const currentBranch = branchResult.stdout.trim();
+
+        if (gitStatus.stdout.trim() && !options.dryRun) {
+          s.stop('❌ Working directory not clean');
+          const proceed = await promptWithCancel(() => clack.confirm({
+            message: 'Working directory has uncommitted changes. Continue anyway?',
+            initialValue: false
+          }));
+          if (!proceed) {
+            handleCancel();
+          }
+        }
+
         if (currentBranch !== 'main' && !options.dryRun) {
           s.stop(`⚠️  Not on main branch (current: ${currentBranch})`);
-          const proceed = await clack.confirm({
+          const proceed = await promptWithCancel(() => clack.confirm({
             message: 'You are not on the main branch. Continue anyway?',
             initialValue: false
-          });
+          }));
           if (!proceed) {
-            clack.outro(chalk.yellow('Release cancelled'));
-            process.exit(0);
+            handleCancel();
           }
         }
 
         s.stop('✅ Repository state checked');
 
-        // Progress tracking
-        const steps = [
-          'Check repository',
-          'Select version',
-          'Update versions',
-          'Check dependencies',
-          'Build packages',
-          'Run tests',
-          'Git operations',
-          'NPM publish',
-          'JSR publish',
-          'GitHub push',
-          'GitHub release'
-        ];
-        let currentStep = 1;
+        // Step 2: Collect all release parameters
+        clack.log.info(chalk.bold('\n📋 Release Configuration'));
 
-        const showProgress = (step: string) => {
-          const progress = Math.round((currentStep / steps.length) * 100);
-          clack.log.info(chalk.dim(`[${currentStep}/${steps.length}] ${progress}%`) + ` ${chalk.bold(step)}`);
-          currentStep++;
-        };
-
-        showProgress('Repository checked');
-
-        // Step 2: Determine version
-        showProgress('Determining version');
         const currentPkg = readPackageJson('packages/core');
         const currentVersion = currentPkg.version;
 
+        // Determine version
         let newVersion = version;
         if (!newVersion) {
-          const versionType = await clack.select({
+          const versionType = await promptWithCancel(() => clack.select({
             message: `Select version type (current: ${currentVersion})`,
             options: [
               { value: 'patch', label: `Patch (${semver.inc(currentVersion, 'patch')})` },
@@ -313,10 +439,10 @@ export function command(program: Command): void {
               { value: 'prerelease', label: `Prerelease (${semver.inc(currentVersion, 'prerelease', options.prerelease || 'alpha')})` },
               { value: 'custom', label: 'Custom version' }
             ]
-          });
+          }));
 
           if (versionType === 'custom') {
-            newVersion = await clack.text({
+            newVersion = await promptWithCancel(() => clack.text({
               message: 'Enter custom version:',
               validate: (value) => {
                 if (!semver.valid(value)) {
@@ -326,16 +452,16 @@ export function command(program: Command): void {
                   return `Version must be greater than ${currentVersion}`;
                 }
               }
-            });
+            }));
           } else if (versionType === 'prerelease') {
-            const prereleaseType = options.prerelease || await clack.select({
+            const prereleaseType = options.prerelease || await promptWithCancel(() => clack.select({
               message: 'Select prerelease type:',
               options: [
                 { value: 'alpha', label: 'Alpha' },
                 { value: 'beta', label: 'Beta' },
                 { value: 'rc', label: 'Release Candidate' }
               ]
-            });
+            }));
             newVersion = semver.inc(currentVersion, 'prerelease', prereleaseType);
           } else {
             newVersion = semver.inc(currentVersion, versionType as any);
@@ -348,52 +474,14 @@ export function command(program: Command): void {
           process.exit(1);
         }
 
-        // Step 3: Show release plan
-        clack.log.info(chalk.bold('📋 Release Plan:\n'));
-        clack.log.info(`  Version: ${chalk.green(currentVersion)} → ${chalk.green(newVersion)}`);
-        clack.log.info(`  Packages to release:`);
-        for (const pkg of PACKAGES) {
-          clack.log.info(`    - ${pkg.name}`);
-        }
-
-        if (!options.skipGit) {
-          clack.log.info(`  Git operations:`);
-          clack.log.info(`    - Create commit: "chore: release v${newVersion}"`);
-          clack.log.info(`    - Create tag: v${newVersion}`);
-          clack.log.info(`    - Push to origin`);
-        }
-
-        if (!options.skipGithub) {
-          clack.log.info(`  GitHub:`);
-          clack.log.info(`    - Create release for v${newVersion}`);
-        }
-
-        if (!options.skipNpm) {
-          clack.log.info(`  NPM:`);
-          clack.log.info(`    - Publish all packages`);
-        }
-
-        if (!options.skipJsr) {
-          clack.log.info(`  JSR.io:`);
-          clack.log.info(`    - Publish @xec-sh/core and @xec-sh/cli`);
-        }
-
-        if (options.dryRun) {
-          clack.log.info(chalk.yellow('\n  🔸 DRY RUN MODE - No changes will be made'));
-        }
-
-        const proceed = await clack.confirm({
-          message: 'Proceed with release?',
+        // Collect other options
+        const runTests = !options.dryRun && await promptWithCancel(() => clack.confirm({
+          message: 'Run tests before publishing?',
           initialValue: true
-        });
-
-        if (!proceed) {
-          clack.outro(chalk.yellow('Release cancelled'));
-          process.exit(0);
-        }
+        }));
 
         // Create release config
-        const config: ReleaseConfig = {
+        config = {
           version: newVersion!,
           previousVersion: currentVersion,
           packages: PACKAGES,
@@ -404,11 +492,108 @@ export function command(program: Command): void {
           skipJsr: options.skipJsr,
           githubToken: options.githubToken,
           npmToken: options.npmToken,
-          jsrToken: options.jsrToken
+          jsrToken: options.jsrToken,
+          runTests: runTests as boolean,
+          skipDepCheck: options.skipDepCheck
         };
 
+        rollbackState.tagName = `v${config.version}`;
+
+        // Show release plan
+        clack.log.info(chalk.bold('\n📋 Release Plan:\n'));
+        clack.log.info(`  Version: ${chalk.green(currentVersion)} → ${chalk.green(newVersion)}`);
+        clack.log.info(`  Packages to release:`);
+        for (const pkg of PACKAGES) {
+          clack.log.info(`    - ${pkg.name}`);
+        }
+
+        if (!config.skipGit) {
+          clack.log.info(`  Git operations:`);
+          clack.log.info(`    - Update package versions`);
+          clack.log.info(`    - Create commit: "chore: release v${config.version}"`);
+          clack.log.info(`    - Create tag: v${config.version}`);
+          clack.log.info(`    - Push to origin`);
+        }
+
+        if (!config.skipGithub) {
+          clack.log.info(`  GitHub:`);
+          clack.log.info(`    - Create release for v${config.version}`);
+        }
+
+        if (!config.skipNpm) {
+          clack.log.info(`  NPM:`);
+          clack.log.info(`    - Publish all packages`);
+        }
+
+        if (!config.skipJsr) {
+          clack.log.info(`  JSR.io:`);
+          clack.log.info(`    - Publish @xec-sh/core and @xec-sh/cli`);
+        }
+
+        if (config.runTests) {
+          clack.log.info(`  Testing:`);
+          clack.log.info(`    - Run test suite before publishing`);
+        }
+
+        if (config.dryRun) {
+          clack.log.info(chalk.yellow('\n  🔸 DRY RUN MODE - No changes will be made'));
+        }
+
+        const proceed = await promptWithCancel(() => clack.confirm({
+          message: 'Proceed with release?',
+          initialValue: true
+        }));
+
+        if (!proceed) {
+          handleCancel();
+        }
+
+        // Execute pre-release hook if defined
+        if (fileConfig.hooks?.preRelease && !config.dryRun) {
+          s.start('Running pre-release hook...');
+          const hookResult = await $.raw`${fileConfig.hooks.preRelease}`.nothrow();
+
+          if (hookResult.exitCode !== 0) {
+            s.stop('⚠️  Pre-release hook failed');
+            const continueAnyway = await promptWithCancel(() => clack.confirm({
+              message: 'Pre-release hook failed. Continue anyway?',
+              initialValue: false
+            }));
+            if (!continueAnyway) {
+              handleCancel();
+            }
+          } else {
+            s.stop('✅ Pre-release hook completed');
+          }
+        }
+
+        // Now apply all changes after collecting parameters
+        clack.log.info(chalk.bold('\n🚀 Starting Release Process\n'));
+
+        // Step 3: Check dependencies
+        if (!config.skipDepCheck) {
+          s.start('Checking for dependency updates...');
+          const depCheck = await checkDependencyUpdates();
+
+          if (depCheck.hasUpdates) {
+            s.stop('⚠️  Found outdated dependencies');
+            clack.log.warn('Outdated dependencies found:');
+            depCheck.updates.forEach(u => clack.log.info(`  - ${u}`));
+
+            const continueWithOutdated = await promptWithCancel(() => clack.confirm({
+              message: 'Continue with outdated dependencies?',
+              initialValue: true
+            }));
+
+            if (!continueWithOutdated) {
+              handleCancel();
+            }
+          } else {
+            s.stop('✅ All dependencies up to date');
+          }
+        }
+
         // Step 4: Update versions
-        showProgress('Updating package versions');
         s.start('Updating package versions...');
 
         if (!config.dryRun) {
@@ -431,104 +616,122 @@ export function command(program: Command): void {
 
         s.stop('✅ Package versions updated');
 
-        // Step 5: Check dependencies
-        showProgress('Checking dependencies');
-        if (!options.skipDepCheck) {
-          s.start('Checking for dependency updates...');
-          const depCheck = await checkDependencyUpdates();
+        // Step 4.5: Update CHANGELOG.md from CHANGES.md
+        s.start('Updating CHANGELOG...');
 
-          if (depCheck.hasUpdates) {
-            s.stop('⚠️  Found outdated dependencies');
-            clack.log.warn('Outdated dependencies found:');
-            depCheck.updates.forEach(u => clack.log.info(`  - ${u}`));
+        let changelogContent = '';
 
-            const continueWithOutdated = await clack.confirm({
-              message: 'Continue with outdated dependencies?',
-              initialValue: true
-            });
+        if (!config.dryRun) {
+          // Parallel file reads for better performance
+          const [changelogExists, changesExists] = await $.parallel.settled([
+            `test -f CHANGELOG.md && echo true || echo false`,
+            `test -f CHANGES.md && echo true || echo false`
+          ]).then(r => r.results.map(res =>
+            res instanceof Error ? false : res.stdout.trim() === 'true'
+          ));
 
-            if (!continueWithOutdated) {
-              clack.outro(chalk.yellow('Release cancelled - please update dependencies first'));
-              process.exit(0);
-            }
-          } else {
-            s.stop('✅ All dependencies up to date');
+          // Save originals in parallel if they exist
+          const backupTasks: (Promise<void>)[] = [];
+          if (changelogExists) {
+            backupTasks.push((async () => {
+              rollbackState.originalChangelog = readFileSync('CHANGELOG.md', 'utf8');
+            })());
           }
+          if (changesExists) {
+            backupTasks.push((async () => {
+              rollbackState.originalChangesFile = readFileSync('CHANGES.md', 'utf8');
+            })());
+          }
+          await Promise.all(backupTasks);
+
+          // Try CHANGES.md first
+          const changesContent = await parseChangesFile();
+          if (changesContent) {
+            changelogContent = changesContent;
+            usedChangesFile = true;
+            clack.log.info('Using content from CHANGES.md for changelog');
+          } else {
+            // Fallback to git commits
+            changelogContent = await generateChangelog(config.previousVersion, config.version);
+            clack.log.info('Generated changelog from git commits');
+          }
+
+          // Update CHANGELOG.md
+          try {
+            await updateChangelog(config.version, changelogContent);
+            s.stop('✅ CHANGELOG.md updated');
+          } catch (error) {
+            s.stop('⚠️  Failed to update CHANGELOG.md');
+            clack.log.warn('Could not update CHANGELOG.md: ' + error);
+          }
+        } else {
+          s.stop('✅ CHANGELOG.md update skipped (dry run)');
         }
 
-        // Step 6: Build packages
-        showProgress('Building packages');
+        // Step 5: Build packages
         s.start('Building packages...');
 
         if (!config.dryRun) {
-          // Build in parallel for better performance
-          const buildSpinner = ora({ text: 'Building packages in parallel...', spinner: 'dots' }).start();
+          // Use $.batch for cleaner API with concurrency control
+          const buildResult = await $.batch(
+            config.packages.map(pkg => `cd ${pkg.path} && yarn build`),
+            {
+              concurrency: 3, // Optimal for most systems
+              onProgress: (done, total, succeeded, failed) => {
+                s.start(`Building packages: ${done}/${total} (✓ ${succeeded}, ✗ ${failed})`);
+              }
+            }
+          );
 
-          const buildTasks = config.packages.map(pkg => async () => {
-            buildSpinner.text = `Building ${pkg.name}...`;
-            await $.cd(pkg.path)`yarn build`;
-            return pkg.name;
-          });
-
-          try {
-            const results = await parallel(...buildTasks);
-            buildSpinner.succeed(`Built ${results.length} packages successfully`);
-          } catch (error) {
-            buildSpinner.fail('Build failed');
-            throw error;
+          if (buildResult.failed.length > 0) {
+            s.stop('❌ Build failed');
+            await performRollback(rollbackState, config);
+            throw new Error(`Build failed for ${buildResult.failed.length} packages`);
           }
+
+          s.stop(`✅ Built ${buildResult.succeeded.length} packages successfully`);
+        } else {
+          s.stop('✅ Package build skipped (dry run)');
         }
 
-        s.stop('✅ Packages built');
-
-        // Step 6: Git operations
-        if (!config.skipGit && !config.dryRun) {
-          s.start('Creating git commit and tag...');
-
-          await $`git add .`;
-          await $`git commit -m "chore: release v${config.version}"`;
-          await $`git tag -a v${config.version} -m "Release v${config.version}"`;
-
-          s.stop('✅ Git commit and tag created');
-        }
-
-        // Step 7: Run tests (optional but recommended)
-        showProgress('Running tests');
-        const runTests = await clack.confirm({
-          message: 'Run tests before publishing?',
-          initialValue: true
-        });
-
-        if (runTests && !config.dryRun) {
+        // Step 6: Run tests if requested
+        if (config.runTests && !config.dryRun) {
           s.start('Running tests...');
 
           const testResult = await $`yarn test`.nothrow();
           if (testResult.exitCode !== 0) {
             s.stop('❌ Tests failed');
 
-            const continueAnyway = await clack.confirm({
+            const continueAnyway = await promptWithCancel(() => clack.confirm({
               message: 'Tests failed. Continue anyway?',
               initialValue: false
-            });
+            }));
 
             if (!continueAnyway) {
-              // Rollback
-              if (!config.skipGit) {
-                s.start('Rolling back git changes...');
-                await $`git reset --hard HEAD~1`;
-                await $`git tag -d v${config.version}`;
-                s.stop('✅ Rolled back');
-              }
-              clack.outro(chalk.red('Release cancelled due to test failures'));
-              process.exit(1);
+              await performRollback(rollbackState, config);
+              handleCancel();
             }
           } else {
             s.stop('✅ Tests passed');
           }
         }
 
+        // Step 7: Git operations
+        if (!config.skipGit && !config.dryRun) {
+          s.start('Creating git commit and tag...');
+
+          // Now add files after all changes are made
+          await $`git add .`;
+          await $`git commit -m "chore: release v${config.version}"`;
+          rollbackState.gitCommitCreated = true;
+
+          await $`git tag -a v${config.version} -m "Release v${config.version}"`;
+          rollbackState.gitTagCreated = true;
+
+          s.stop('✅ Git commit and tag created');
+        }
+
         // Step 8: NPM publishing
-        showProgress('Publishing to NPM');
         if (!config.skipNpm && !config.dryRun) {
           s.start('Publishing to NPM...');
 
@@ -537,23 +740,23 @@ export function command(program: Command): void {
           if (npmWhoami.exitCode !== 0 && !config.npmToken) {
             s.stop('⚠️  Not authenticated to NPM');
 
-            const authMethod = await clack.select({
+            const authMethod = await promptWithCancel(() => clack.select({
               message: 'How would you like to authenticate to NPM?',
               options: [
                 { value: 'browser', label: 'Open browser to login' },
                 { value: 'token', label: 'Enter NPM token' },
                 { value: 'skip', label: 'Skip NPM publishing' }
               ]
-            });
+            }));
 
             if (authMethod === 'browser') {
               s.start('Opening NPM login...');
               await $`npm login`;
               s.stop('✅ NPM authentication complete');
             } else if (authMethod === 'token') {
-              config.npmToken = await clack.password({
+              config.npmToken = await promptWithCancel(() => clack.password({
                 message: 'Enter NPM authentication token:'
-              });
+              }));
             } else {
               config.skipNpm = true;
             }
@@ -563,44 +766,52 @@ export function command(program: Command): void {
             // Create .npmrc if token provided
             if (config.npmToken) {
               await withTempFile(async (npmrcPath) => {
-                writeFileSync(npmrcPath, `//registry.npmjs.org/:_authToken=${config.npmToken}\n`);
-
-                // Publish packages in parallel (where safe)
-                const publishSpinner = ora({ text: 'Publishing packages...', spinner: 'dots' }).start();
+                writeFileSync(npmrcPath.path, `//registry.npmjs.org/:_authToken=${config.npmToken}\n`);
 
                 // Core packages must be published first
                 const corePackages = config.packages.filter(p => p.name === '@xec-sh/core');
                 const otherPackages = config.packages.filter(p => p.name !== '@xec-sh/core');
 
-                // Publish core first
-                for (const pkg of corePackages) {
-                  publishSpinner.text = `Publishing ${pkg.name}...`;
-                  await $.env({ NPM_CONFIG_USERCONFIG: npmrcPath })
-                    `yarn workspace ${pkg.name} npm publish --access public`;
-                }
+                try {
+                  // Publish core first (dependency for others)
+                  if (corePackages.length > 0) {
+                    s.start(`Publishing ${corePackages[0].name}...`);
+                    await $.env({ NPM_CONFIG_USERCONFIG: npmrcPath.path })
+                      `yarn workspace ${corePackages[0].name} npm publish --access public`;
+                  }
 
-                // Then publish others in parallel
-                if (otherPackages.length > 0) {
-                  const publishTasks = otherPackages.map(pkg => async () => {
-                    await $.env({ NPM_CONFIG_USERCONFIG: npmrcPath })
-                      `yarn workspace ${pkg.name} npm publish --access public`;
-                    return pkg.name;
-                  });
+                  // Publish others in parallel with progress
+                  if (otherPackages.length > 0) {
+                    const publishResult = await $.env({ NPM_CONFIG_USERCONFIG: npmrcPath.path })
+                      .parallel.settled(
+                        otherPackages.map(pkg =>
+                          `yarn workspace ${pkg.name} npm publish --access public`
+                        ),
+                        {
+                          maxConcurrency: 2, // NPM rate limiting
+                          onProgress: (done, total, succeeded) => {
+                            s.start(`Publishing packages: ${done}/${total} completed`);
+                          }
+                        }
+                      );
 
-                  const published = await parallel(...publishTasks);
-                  publishSpinner.succeed(`Published ${corePackages.length + published.length} packages`);
-                } else {
-                  publishSpinner.succeed(`Published ${corePackages.length} packages`);
+                    if (publishResult.failed.length > 0) {
+                      throw new Error(`Failed to publish ${publishResult.failed.length} packages`);
+                    }
+                  }
+
+                  s.stop(`✅ Published ${config.packages.length} packages to NPM`);
+                } catch (error) {
+                  s.stop('❌ NPM publishing failed');
+                  throw error;
                 }
               });
             } else {
-              // Publish without token (assumes already authenticated)
-              const publishTasks = config.packages.map(pkg => async () => {
+              // Publish without token - use sequential for auth prompts
+              for (const pkg of config.packages) {
                 clack.log.step(`Publishing ${pkg.name}...`);
                 await $`yarn workspace ${pkg.name} npm publish --access public`;
-              });
-
-              await Pipeline.sequential(...publishTasks);
+              }
             }
 
             s.stop('✅ Published to NPM');
@@ -608,7 +819,6 @@ export function command(program: Command): void {
         }
 
         // Step 9: JSR.io publishing
-        showProgress('Publishing to JSR.io');
         if (!config.skipJsr && !config.dryRun) {
           s.start('Publishing to JSR.io...');
 
@@ -617,62 +827,71 @@ export function command(program: Command): void {
             p.name === '@xec-sh/core' || p.name === '@xec-sh/cli'
           );
 
-          for (const pkg of jsrPackages) {
-            // Create jsr.json
-            const packageJson = readPackageJson(pkg.path);
-            const jsrJson = createJsrJson(packageJson);
-            writeFileSync(join(pkg.path, 'jsr.json'), JSON.stringify(jsrJson, null, 2) + '\n');
+          // Check deno once for all packages
+          const denoExists = await $`which deno`.nothrow().then(r => r.exitCode === 0);
 
-            // Check if deno is installed
-            const denoCheck = await $`which deno`.nothrow();
-            if (denoCheck.exitCode !== 0) {
-              s.stop('⚠️  Deno not installed');
+          if (!denoExists) {
+            s.stop('⚠️  Deno not installed');
+            const installDeno = await promptWithCancel(() => clack.confirm({
+              message: 'Deno is required for JSR publishing. Install it now?',
+              initialValue: true
+            }));
 
-              const installDeno = await clack.confirm({
-                message: 'Deno is required for JSR publishing. Install it now?',
-                initialValue: true
-              });
-
-              if (installDeno) {
-                s.start('Installing Deno...');
-                await $`curl -fsSL https://deno.land/install.sh | sh`;
-                s.stop('✅ Deno installed');
-              } else {
-                config.skipJsr = true;
-                continue;
-              }
-            }
-
-            if (!config.skipJsr) {
-              clack.log.step(`Publishing ${pkg.name} to JSR.io...`);
-
-              // JSR publishing requires authentication
-              if (config.jsrToken) {
-                await $.env({ JSR_TOKEN: config.jsrToken })
-                  .cd(pkg.path)`deno publish --token $JSR_TOKEN`;
-              } else {
-                // Interactive auth
-                await $.cd(pkg.path)`deno publish`;
-              }
+            if (installDeno) {
+              s.start('Installing Deno...');
+              await $`curl -fsSL https://deno.land/install.sh | sh`;
+              s.stop('✅ Deno installed');
+            } else {
+              config.skipJsr = true;
             }
           }
 
-          s.stop('✅ Published to JSR.io');
+          if (!config.skipJsr) {
+            // Create all jsr.json files in parallel
+            await Promise.all(jsrPackages.map(pkg => {
+              const packageJson = readPackageJson(pkg.path);
+              const jsrJson = createJsrJson(packageJson);
+              const jsrJsonPath = join(pkg.path, 'jsr.json');
+              writeFileSync(jsrJsonPath, JSON.stringify(jsrJson, null, 2) + '\n');
+              rollbackState.createdFiles.push(jsrJsonPath);
+            }));
+
+            // Publish packages with appropriate concurrency
+            const publishCommands = jsrPackages.map(pkg =>
+              config.jsrToken
+                ? $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg.path)`deno publish --token $JSR_TOKEN`
+                : $.cd(pkg.path)`deno publish`
+            );
+
+            const jsrResult = await $.parallel.settled(publishCommands, {
+              maxConcurrency: 1, // JSR may have rate limits
+              onProgress: (done, total) => {
+                s.start(`Publishing to JSR.io: ${done}/${total}`);
+              }
+            });
+
+            if (jsrResult.failed.length > 0) {
+              throw new Error(`Failed to publish ${jsrResult.failed.length} packages to JSR.io`);
+            }
+
+            s.stop(`✅ Published ${jsrResult.succeeded.length} packages to JSR.io`);
+          }
         }
 
         // Step 10: Push to GitHub
-        showProgress('Pushing to GitHub');
         if (!config.skipGit && !config.dryRun) {
           s.start('Pushing to GitHub...');
 
-          await $`git push origin ${currentBranch}`;
-          await $`git push origin v${config.version}`;
+          // Push branch and tag in parallel
+          await $.parallel.all([
+            `git push origin ${currentBranch}`,
+            `git push origin v${config.version}`
+          ]);
 
           s.stop('✅ Pushed to GitHub');
         }
 
         // Step 11: Create GitHub release
-        showProgress('Creating GitHub release');
         if (!config.skipGithub && !config.dryRun) {
           s.start('Creating GitHub release...');
 
@@ -687,23 +906,23 @@ export function command(program: Command): void {
             if (ghAuth.exitCode !== 0 && !config.githubToken) {
               s.stop('⚠️  Not authenticated to GitHub');
 
-              const authMethod = await clack.select({
+              const authMethod = await promptWithCancel(() => clack.select({
                 message: 'How would you like to authenticate to GitHub?',
                 options: [
                   { value: 'browser', label: 'Open browser to login' },
                   { value: 'token', label: 'Enter GitHub token' },
                   { value: 'skip', label: 'Skip GitHub release' }
                 ]
-              });
+              }));
 
               if (authMethod === 'browser') {
                 s.start('Opening GitHub login...');
                 await $`gh auth login`;
                 s.stop('✅ GitHub authentication complete');
               } else if (authMethod === 'token') {
-                config.githubToken = await clack.password({
+                config.githubToken = await promptWithCancel(() => clack.password({
                   message: 'Enter GitHub personal access token:'
-                });
+                }));
               } else {
                 config.skipGithub = true;
               }
@@ -757,10 +976,15 @@ Created with ❤️ by Xec Release Manager
 `;
 
               // Create release
-              if (config.githubToken) {
-                await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
-              } else {
-                await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+              try {
+                if (config.githubToken) {
+                  await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                } else {
+                  await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                }
+              } catch (error) {
+                clack.log.error('Failed to create GitHub release');
+                throw error;
               }
 
               s.stop('✅ GitHub release created');
@@ -771,11 +995,23 @@ Created with ❤️ by Xec Release Manager
         // Execute post-release hook if defined
         if (fileConfig.hooks?.postRelease && !config.dryRun) {
           s.start('Running post-release hook...');
+          const hookResult = await $.env({ RELEASE_VERSION: config.version })
+            .raw`${fileConfig.hooks.postRelease}`
+            .nothrow();
+
+          s.stop(hookResult.exitCode === 0
+            ? '✅ Post-release hook completed'
+            : '⚠️  Post-release hook failed (non-critical)'
+          );
+        }
+
+        // Clear CHANGES.md if we used it
+        if (usedChangesFile && !config.dryRun) {
           try {
-            await $.env({ RELEASE_VERSION: config.version }).raw`${fileConfig.hooks.postRelease}`;
-            s.stop('✅ Post-release hook completed');
+            writeFileSync('CHANGES.md', '');
+            clack.log.info('Cleared CHANGES.md after successful release');
           } catch (error) {
-            s.stop('⚠️  Post-release hook failed (non-critical)');
+            clack.log.warn('Could not clear CHANGES.md: ' + error);
           }
         }
 
@@ -799,21 +1035,14 @@ ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
         clack.log.error(error.message);
 
         // Attempt rollback
-        if (!options.skipGit && !options.dryRun) {
+        if (!options.dryRun) {
           const rollback = await clack.confirm({
-            message: 'Would you like to rollback git changes?',
+            message: 'Would you like to rollback changes?',
             initialValue: true
           });
 
-          if (rollback) {
-            s.start('Rolling back...');
-            try {
-              await $`git reset --hard HEAD~1`.nothrow();
-              await $`git tag -d v${version}`.nothrow();
-              s.stop('✅ Rolled back');
-            } catch (e) {
-              s.stop('❌ Rollback failed');
-            }
+          if (clack.isCancel(rollback) || rollback) {
+            await performRollback(rollbackState, config);
           }
         }
 

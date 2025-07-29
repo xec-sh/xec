@@ -217,11 +217,13 @@ function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
  */
 function displayEnhancedError(error: EnhancedExecutionError, options: CommandOptions): void {
   // Use the formatted output from enhanced error
-  const formatted = error.format(options.verbose);
+  const formatted = error.format ? error.format(options.verbose) : error.message;
   
   // Split by lines and apply CLI coloring
   const lines = formatted.split('\n');
   lines.forEach(line => {
+    if (!line) return; // Skip empty lines
+    
     if (line.startsWith('Error:')) {
       clack.log.error(chalk.bold(line));
     } else if (line.includes('Context:') || line.includes('Suggestions:')) {

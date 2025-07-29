@@ -142,7 +142,14 @@ export class DynamicCommandLoader {
       // For TypeScript files, transform them first
       if (ext === '.ts' || ext === '.tsx') {
         const content = await fs.readFile(filePath, 'utf-8');
-        const transformedCode = await this.moduleLoader.transformTypeScript(content, filePath);
+        
+        // Transform import() calls with prefixes to use __xecImport
+        const processedContent = content.replace(
+          /import\s*\(\s*['"`]((npm|jsr|esm|unpkg|skypack|jsdelivr):[^'"`]*?)['"`]\s*\)/g,
+          "globalThis.__xecImport('$1')"
+        );
+        
+        const transformedCode = await this.moduleLoader.transformTypeScript(processedContent, filePath);
         
         // Find a directory with node_modules for the temporary file
         let tempDir = process.cwd();
@@ -194,8 +201,65 @@ export class DynamicCommandLoader {
           await fs.remove(tempPath).catch(() => {});
         }
       } else {
-        // For JavaScript files, import directly
-        moduleExports = await import(pathToFileURL(filePath).href);
+        // For JavaScript files, we also need to use a temp file to ensure proper module resolution
+        // This is especially important when xec is installed globally
+        const content = await fs.readFile(filePath, 'utf-8');
+        
+        // Transform import() calls with prefixes to use __xecImport
+        const processedContent = content.replace(
+          /import\s*\(\s*['"`]((npm|jsr|esm|unpkg|skypack|jsdelivr):[^'"`]*?)['"`]\s*\)/g,
+          "globalThis.__xecImport('$1')"
+        );
+        
+        // Find a directory with node_modules for the temporary file
+        let tempDir = process.cwd();
+        
+        // First, try to find node_modules relative to the CLI installation
+        // This is important for global npm installations
+        const cliScriptPath = import.meta.url.replace('file://', '');
+        let cliDir = path.dirname(cliScriptPath);
+        
+        // Search upwards from CLI location for node_modules
+        for (let i = 0; i < 5; i++) {
+          if (await fs.pathExists(path.join(cliDir, 'node_modules'))) {
+            tempDir = cliDir;
+            break;
+          }
+          const parentDir = path.dirname(cliDir);
+          if (parentDir === cliDir) break;
+          cliDir = parentDir;
+        }
+        
+        // If not found, search from the command file location
+        if (tempDir === process.cwd()) {
+          let searchDir = path.dirname(filePath);
+          for (let i = 0; i < 10; i++) {
+            if (await fs.pathExists(path.join(searchDir, 'node_modules'))) {
+              tempDir = searchDir;
+              break;
+            }
+            const parentDir = path.dirname(searchDir);
+            if (parentDir === searchDir) break;
+            searchDir = parentDir;
+          }
+        }
+        
+        // Create temp directory in the xec installation directory
+        const tempDirPath = path.join(tempDir, '.xec-temp');
+        await fs.ensureDir(tempDirPath);
+        
+        // Write the processed JS file content
+        const tempFileName = `${commandName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}.mjs`;
+        const tempPath = path.join(tempDirPath, tempFileName);
+        await fs.writeFile(tempPath, processedContent);
+        
+        try {
+          // Import the module
+          moduleExports = await import(pathToFileURL(tempPath).href);
+        } finally {
+          // Clean up
+          await fs.remove(tempPath).catch(() => {});
+        }
       }
       
       if (!moduleExports) {

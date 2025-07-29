@@ -1,7 +1,7 @@
 import type { Command } from '../core/command.js';
 import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
-import type { ExecutionEngine } from '../core/execution-engine.js';
+import type { ExecutionEngine, ProcessPromise } from '../core/execution-engine.js';
 
 export interface ParallelOptions {
   maxConcurrency?: number;
@@ -18,7 +18,7 @@ export interface ParallelResult {
 }
 
 export async function parallel(
-  commands: Array<string | Command>,
+  commands: Array<string | Command | ProcessPromise>,
   engine: ExecutionEngine | CallableExecutionEngine,
   options: ParallelOptions = {}
 ): Promise<ParallelResult> {
@@ -34,14 +34,23 @@ export async function parallel(
   const succeeded: ExecutionResult[] = [];
   const failed: Error[] = [];
 
-  const normalizedCommands = commands.map(cmd =>
-    typeof cmd === 'string' ? { command: cmd } : cmd
-  );
+  // Helper to check if an object is a ProcessPromise
+  const isProcessPromise = (obj: any): obj is ProcessPromise =>
+    obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
+
+  // Normalize commands and create promises
+  const promises = commands.map(cmd => {
+    if (isProcessPromise(cmd)) {
+      // ProcessPromise is already executing, just return it
+      return cmd;
+    } else {
+      // Convert string or Command to a promise
+      const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
+      return executeWithTimeout(engine, normalizedCmd, timeout);
+    }
+  });
 
   if (maxConcurrency === Infinity) {
-    const promises = normalizedCommands.map(cmd =>
-      executeWithTimeout(engine, cmd, timeout)
-    );
 
     const settled = await Promise.allSettled(promises);
 
@@ -59,24 +68,33 @@ export async function parallel(
       
       // Call progress callback
       if (onProgress) {
-        onProgress(i + 1, normalizedCommands.length, succeeded.length, failed.length);
+        onProgress(i + 1, commands.length, succeeded.length, failed.length);
       }
     }
   } else {
+    // Limited concurrency execution
     const executing: Promise<void>[] = [];
     let index = 0;
     let shouldStop = false;
 
     async function executeNext(): Promise<void> {
-      if (shouldStop || index >= normalizedCommands.length) return;
+      if (shouldStop || index >= commands.length) return;
 
       const currentIndex = index++;
-      const cmd = normalizedCommands[currentIndex];
+      const cmd = commands[currentIndex];
 
       if (!cmd) return;
 
       try {
-        const result = await executeWithTimeout(engine, cmd, timeout);
+        let result: ExecutionResult;
+        if (isProcessPromise(cmd)) {
+          // ProcessPromise is already executing
+          result = await cmd;
+        } else {
+          // Convert and execute
+          const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
+          result = await executeWithTimeout(engine, normalizedCmd, timeout);
+        }
         results[currentIndex] = result;
         succeeded.push(result);
       } catch (error) {
@@ -90,15 +108,15 @@ export async function parallel(
       // Call progress callback
       if (onProgress) {
         const completed = succeeded.length + failed.length;
-        onProgress(completed, normalizedCommands.length, succeeded.length, failed.length);
+        onProgress(completed, commands.length, succeeded.length, failed.length);
       }
 
-      if (!shouldStop && index < normalizedCommands.length) {
+      if (!shouldStop && index < commands.length) {
         await executeNext();
       }
     }
 
-    for (let i = 0; i < Math.min(maxConcurrency, normalizedCommands.length); i++) {
+    for (let i = 0; i < Math.min(maxConcurrency, commands.length); i++) {
       executing.push(executeNext());
     }
 
@@ -136,7 +154,7 @@ async function executeWithTimeout(
 export class ParallelEngine {
   constructor(private engine: ExecutionEngine | CallableExecutionEngine) { }
 
-  async all(commands: Array<string | Command>, options?: ParallelOptions): Promise<ExecutionResult[]> {
+  async all(commands: Array<string | Command | ProcessPromise>, options?: ParallelOptions): Promise<ExecutionResult[]> {
     const result = await parallel(commands, this.engine, { ...options, stopOnError: true });
 
     if (result.failed.length > 0) {
@@ -146,12 +164,19 @@ export class ParallelEngine {
     return result.succeeded;
   }
 
-  async settled(commands: Array<string | Command>, options?: ParallelOptions): Promise<ParallelResult> {
+  async settled(commands: Array<string | Command | ProcessPromise>, options?: ParallelOptions): Promise<ParallelResult> {
     return parallel(commands, this.engine, options);
   }
 
-  async race(commands: Array<string | Command>): Promise<ExecutionResult> {
+  async race(commands: Array<string | Command | ProcessPromise>): Promise<ExecutionResult> {
+    // Helper to check if an object is a ProcessPromise
+    const isProcessPromise = (obj: any): obj is ProcessPromise =>
+      obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
+    
     const promises = commands.map(cmd => {
+      if (isProcessPromise(cmd)) {
+        return cmd;
+      }
       const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
       return this.engine.execute(normalizedCmd);
     });
@@ -161,7 +186,7 @@ export class ParallelEngine {
 
   async map<T>(
     items: T[],
-    fn: (item: T, index: number) => string | Command,
+    fn: (item: T, index: number) => string | Command | ProcessPromise,
     options?: ParallelOptions
   ): Promise<ParallelResult> {
     const commands = items.map((item, index) => fn(item, index));
@@ -170,9 +195,13 @@ export class ParallelEngine {
 
   async filter<T>(
     items: T[],
-    fn: (item: T, index: number) => string | Command,
+    fn: (item: T, index: number) => string | Command | ProcessPromise,
     options?: ParallelOptions
   ): Promise<T[]> {
+    // Helper to check if an object is a ProcessPromise
+    const isProcessPromise = (obj: any): obj is ProcessPromise =>
+      obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
+    
     const commandsWithItems = items.map((item, index) => ({
       item,
       command: fn(item, index)
@@ -180,6 +209,9 @@ export class ParallelEngine {
 
     const results = await Promise.allSettled(
       commandsWithItems.map(({ command }) => {
+        if (isProcessPromise(command)) {
+          return command;
+        }
         const normalizedCmd = typeof command === 'string' ? { command } : command;
         return this.engine.execute(normalizedCmd);
       })
@@ -194,10 +226,17 @@ export class ParallelEngine {
   }
 
   async some(
-    commands: Array<string | Command>,
+    commands: Array<string | Command | ProcessPromise>,
     options?: ParallelOptions
   ): Promise<boolean> {
+    // Helper to check if an object is a ProcessPromise
+    const isProcessPromise = (obj: any): obj is ProcessPromise =>
+      obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
+    
     const promises = commands.map(cmd => {
+      if (isProcessPromise(cmd)) {
+        return cmd.then(() => true).catch(() => false);
+      }
       const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
       return this.engine.execute(normalizedCmd)
         .then(() => true)
@@ -215,7 +254,7 @@ export class ParallelEngine {
   }
 
   async every(
-    commands: Array<string | Command>,
+    commands: Array<string | Command | ProcessPromise>,
     options?: ParallelOptions
   ): Promise<boolean> {
     const result = await parallel(commands, this.engine, {

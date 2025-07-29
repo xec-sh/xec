@@ -1,0 +1,297 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals';
+import path from 'path';
+import fs from 'fs-extra';
+import os from 'os';
+import { 
+  UniversalScriptLoader, 
+  createUniversalLoader, 
+  runUniversalScript,
+  evalUniversalCode,
+  loadModule
+} from '../../src/utils/universal-loader.js';
+
+describe('UniversalScriptLoader', () => {
+  const fixturesDir = path.join(__dirname, '../fixtures/scripts');
+  const tempDir = path.join(os.tmpdir(), 'xec-test-loader');
+  let loader: UniversalScriptLoader;
+  
+  beforeAll(async () => {
+    await fs.ensureDir(tempDir);
+  });
+  
+  afterAll(async () => {
+    await fs.remove(tempDir);
+  });
+  
+  beforeEach(() => {
+    loader = new UniversalScriptLoader({
+      verbose: false,
+      cache: true,
+      cacheDir: path.join(tempDir, 'cache'),
+      cdnFallback: false // Disable CDN for predictable tests
+    });
+  });
+  
+  describe('constructor', () => {
+    it('should create loader with default options', () => {
+      const defaultLoader = new UniversalScriptLoader();
+      const context = defaultLoader.getScriptContext();
+      
+      expect(context.runtime).toMatch(/node|bun|deno/);
+      expect(context.features.esm).toBe(true);
+    });
+    
+    it('should respect custom options', () => {
+      const customLoader = new UniversalScriptLoader({
+        runtime: 'node',
+        typescript: true,
+        verbose: true
+      });
+      
+      const context = customLoader.getScriptContext();
+      expect(context.runtime).toBe('node');
+    });
+  });
+  
+  describe('loadScript', () => {
+    it('should load and execute JavaScript files', async () => {
+      const scriptPath = path.join(fixturesDir, 'simple.js');
+      const result = await loader.loadScript(scriptPath, ['arg1', 'arg2']);
+      
+      expect(result.result).toBeDefined();
+      expect(result.result.message).toBe('Script completed');
+      expect(result.result.args).toEqual(['arg1', 'arg2']);
+    });
+    
+    it('should load and execute TypeScript files', async () => {
+      const scriptPath = path.join(fixturesDir, 'typescript.ts');
+      const result = await loader.loadScript(scriptPath);
+      
+      expect(result.result).toBeDefined();
+      expect(result.result.message).toBe('TypeScript script executed');
+      expect(result.result.platform).toBe(process.platform);
+    });
+    
+    it('should extract and execute code from Markdown files', async () => {
+      const scriptPath = path.join(fixturesDir, 'code-in-markdown.md');
+      const result = await loader.loadScript(scriptPath);
+      
+      expect(result.markdownResult).toBe('Markdown code executed');
+      expect(result.secondResult).toBe('Second block executed');
+    });
+    
+    it('should handle non-existent files', async () => {
+      await expect(loader.loadScript('/non/existent/file.js')).rejects.toThrow('Script not found');
+    });
+    
+    it('should handle directory paths', async () => {
+      await expect(loader.loadScript(fixturesDir)).rejects.toThrow('Cannot execute directory');
+    });
+    
+    it('should set up global script context', async () => {
+      const testScript = path.join(tempDir, 'context-test.js');
+      await fs.writeFile(testScript, `
+        export const context = {
+          args: globalThis.__xecScriptContext?.args,
+          filename: globalThis.__xecScriptContext?.__filename,
+          dirname: globalThis.__xecScriptContext?.__dirname
+        };
+      `);
+      
+      const result = await loader.loadScript(testScript, ['test-arg']);
+      
+      expect(result.context.args).toEqual(['test-arg']);
+      expect(result.context.filename).toBe(testScript);
+      expect(result.context.dirname).toBe(tempDir);
+    });
+  });
+  
+  describe('evalCode', () => {
+    it('should evaluate JavaScript code', async () => {
+      const code = `
+        export const result = {
+          message: 'Code evaluated',
+          args: globalThis.__xecScriptContext?.args || []
+        };
+      `;
+      
+      const result = await loader.evalCode(code, ['eval-arg']);
+      expect(result.result.message).toBe('Code evaluated');
+      expect(result.result.args).toEqual(['eval-arg']);
+    });
+    
+    it('should evaluate TypeScript code', async () => {
+      const code = `
+        interface Result {
+          success: boolean;
+          value: number;
+        }
+        
+        export const result: Result = {
+          success: true,
+          value: 42
+        };
+      `;
+      
+      const result = await loader.evalCode(code);
+      expect(result.result.success).toBe(true);
+      expect(result.result.value).toBe(42);
+    });
+  });
+  
+  describe('module loading', () => {
+    it('should initialize global module context', async () => {
+      // Load a script to trigger context initialization
+      const testScript = path.join(tempDir, 'module-context-test.js');
+      await fs.writeFile(testScript, 'export const test = true;');
+      
+      await loader.loadScript(testScript);
+      
+      const context = (globalThis as any).__xecModuleContext;
+      expect(context).toBeDefined();
+      expect(typeof context.import).toBe('function');
+      expect(typeof context.importJSR).toBe('function');
+      expect(typeof context.importNPM).toBe('function');
+    });
+    
+    it('should load scripts with imports', async () => {
+      const scriptPath = path.join(fixturesDir, 'with-imports.ts');
+      const result = await loader.loadScript(scriptPath);
+      
+      expect(result.result).toBeDefined();
+      expect(result.result.success).toBe(true);
+    });
+  });
+  
+  describe('caching', () => {
+    it('should cache loaded modules', async () => {
+      const cacheLoader = new UniversalScriptLoader({
+        cache: true,
+        cacheDir: path.join(tempDir, 'test-cache')
+      });
+      
+      const stats1 = await cacheLoader.getCacheStats();
+      expect(stats1.entries).toBe(0);
+      
+      // Load a script (this would cache if it was from URL)
+      const testScript = path.join(tempDir, 'cache-test.js');
+      await fs.writeFile(testScript, 'export const cached = true;');
+      await cacheLoader.loadScript(testScript);
+      
+      // Cache stats might not increase for local files
+      const stats2 = await cacheLoader.getCacheStats();
+      expect(stats2.entries).toBeGreaterThanOrEqual(0);
+    });
+    
+    it('should clear cache', async () => {
+      const cacheLoader = new UniversalScriptLoader({
+        cache: true,
+        cacheDir: path.join(tempDir, 'clear-cache-test')
+      });
+      
+      await cacheLoader.clearCache();
+      
+      const stats = await cacheLoader.getCacheStats();
+      expect(stats.entries).toBe(0);
+    });
+  });
+  
+  describe('getScriptContext', () => {
+    it('should return correct runtime context', () => {
+      const context = loader.getScriptContext();
+      
+      expect(context.runtime).toMatch(/node|bun|deno/);
+      expect(context.version).toBeTruthy();
+      expect(context.features).toBeDefined();
+      expect(context.features.esm).toBe(true);
+      
+      if (context.runtime === 'node') {
+        expect(context.features.typescript).toBe(false);
+        expect(context.features.workers).toBe(true);
+      }
+    });
+  });
+  
+  describe('supportsFeature', () => {
+    it('should check feature support', () => {
+      expect(loader.supportsFeature('esm')).toBe(true);
+      
+      const context = loader.getScriptContext();
+      if (context.runtime === 'node') {
+        expect(loader.supportsFeature('typescript')).toBe(false);
+      }
+    });
+  });
+  
+  describe('createContext', () => {
+    it('should create REPL context with utilities', async () => {
+      const context = await loader.createContext('/test/script.js', ['arg1']);
+      
+      expect(context.console).toBeDefined();
+      expect(context.process).toBeDefined();
+      expect(context.$).toBeDefined();
+      expect(context.args).toEqual(['arg1']);
+      expect(context.argv).toContain('/test/script.js');
+      expect(context.log).toBe(console.log);
+      expect(typeof context.import).toBe('function');
+    });
+  });
+  
+  describe('helper functions', () => {
+    it('createUniversalLoader should create loader instance', () => {
+      const loader = createUniversalLoader({ verbose: true });
+      expect(loader).toBeInstanceOf(UniversalScriptLoader);
+    });
+    
+    it('runUniversalScript should load and run script', async () => {
+      const scriptPath = path.join(fixturesDir, 'simple.js');
+      const result = await runUniversalScript(scriptPath, ['test'], { verbose: false });
+      
+      expect(result.result).toBeDefined();
+      expect(result.result.message).toBe('Script completed');
+    });
+    
+    it('evalUniversalCode should evaluate code', async () => {
+      const result = await evalUniversalCode('export const value = 123;', [], { verbose: false });
+      expect(result.value).toBe(123);
+    });
+    
+    it('loadModule should handle local modules', async () => {
+      const testModule = path.join(tempDir, 'test-module.js');
+      await fs.writeFile(testModule, 'export const loaded = true;');
+      
+      const module = await loadModule(testModule);
+      expect(module.loaded).toBe(true);
+    });
+  });
+  
+  describe('error handling', () => {
+    it('should handle syntax errors in scripts', async () => {
+      const errorScript = path.join(tempDir, 'error.js');
+      await fs.writeFile(errorScript, 'export const { = "syntax error";');
+      
+      await expect(loader.loadScript(errorScript)).rejects.toThrow();
+    });
+    
+    it('should handle runtime errors in scripts', async () => {
+      const errorScript = path.join(tempDir, 'runtime-error.js');
+      await fs.writeFile(errorScript, 'throw new Error("Runtime error");');
+      
+      await expect(loader.loadScript(errorScript)).rejects.toThrow('Runtime error');
+    });
+  });
+  
+  describe('TypeScript detection', () => {
+    it('should detect TypeScript code', async () => {
+      const tsCode = 'interface Test { value: string; }';
+      const jsCode = 'const test = { value: "string" };';
+      
+      // This is a private method, so we test it indirectly
+      const tsResult = await loader.evalCode(tsCode + '\nexport const detected = "ts";');
+      const jsResult = await loader.evalCode(jsCode + '\nexport const detected = "js";');
+      
+      expect(tsResult.detected).toBe('ts');
+      expect(jsResult.detected).toBe('js');
+    });
+  });
+});

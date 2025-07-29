@@ -16,33 +16,33 @@ describe('KubernetesAdapter Enhanced Tests', () => {
   beforeAll(async () => {
     // Set up PATH to include kubectl and kind
     process.env['PATH'] = `${process.env['PATH']}:/usr/local/bin:/opt/homebrew/bin`;
-    
+
     // Create kind cluster
     cluster = new KindClusterManager({ name: 'ush-k8s-enhanced-tests' });
     await cluster.createCluster();
     kubeConfigPath = cluster.getKubeConfigPath();
-    
+
     // Create necessary namespaces
     try {
       await cluster.kubectl('create namespace test');
     } catch (e) {
       // Namespace might already exist
     }
-    
+
     try {
       await cluster.kubectl('create namespace production');
     } catch (e) {
       // Namespace might already exist
     }
-    
+
     // Deploy test pods
     await cluster.deployTestPod('test-pod', 'test');
     await cluster.createMultiContainerPod('multi-container-pod', 'production');
     await cluster.deployTestPod('my-pod', 'default');
-    
+
     // Wait for pods to be ready
     await new Promise(resolve => setTimeout(resolve, 5000));
-    
+
     // Create adapter with cluster's kubeconfig
     adapter = new KubernetesAdapter({
       throwOnNonZeroExit: false,
@@ -78,8 +78,8 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'echo',
         args: ['Hello from Kubernetes'],
-        adapterOptions: { 
-          type: 'kubernetes', 
+        adapterOptions: {
+          type: 'kubernetes',
           pod: 'my-pod',
           namespace: 'default'
         }
@@ -94,8 +94,8 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'echo',
         args: ['from app container'],
-        adapterOptions: { 
-          type: 'kubernetes', 
+        adapterOptions: {
+          type: 'kubernetes',
           pod: 'multi-container-pod',
           container: 'app',
           namespace: 'production'
@@ -110,8 +110,8 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'echo $((6 * 7))',
         shell: true,
-        adapterOptions: { 
-          type: 'kubernetes', 
+        adapterOptions: {
+          type: 'kubernetes',
           pod: 'my-pod'
         }
       });
@@ -124,8 +124,8 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'echo',
         args: ['default namespace'],
-        adapterOptions: { 
-          type: 'kubernetes', 
+        adapterOptions: {
+          type: 'kubernetes',
           pod: 'my-pod'
         }
       });
@@ -143,9 +143,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
     it('should handle non-existent pod', async () => {
       const result = await adapter.execute({
         command: 'ls',
-        adapterOptions: { 
-          type: 'kubernetes', 
-          pod: 'non-existent' 
+        adapterOptions: {
+          type: 'kubernetes',
+          pod: 'non-existent'
         }
       });
 
@@ -205,9 +205,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'echo',
         args: ['value1', 'value2'],
-        adapterOptions: { 
-          type: 'kubernetes', 
-          pod: 'my-pod' 
+        adapterOptions: {
+          type: 'kubernetes',
+          pod: 'my-pod'
         }
       });
 
@@ -221,9 +221,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'cat',
         stdin: 'test input',
-        adapterOptions: { 
-          type: 'kubernetes', 
-          pod: 'my-pod' 
+        adapterOptions: {
+          type: 'kubernetes',
+          pod: 'my-pod'
         }
       });
 
@@ -235,9 +235,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await adapter.execute({
         command: 'cat',
         stdin: Buffer.from('buffer input'),
-        adapterOptions: { 
-          type: 'kubernetes', 
-          pod: 'my-pod' 
+        adapterOptions: {
+          type: 'kubernetes',
+          pod: 'my-pod'
         }
       });
 
@@ -249,16 +249,16 @@ describe('KubernetesAdapter Enhanced Tests', () => {
   describe('Pod management methods', () => {
     it('should get pod from selector', async () => {
       const pod = await adapter.getPodFromSelector('app=test', 'test');
-      
+
       expect(pod).toBeTruthy();
       expect(['test-pod', 'multi-container-pod']).toContain(pod);
     });
 
     it('should check if pod is ready', async () => {
       const ready = await adapter.isPodReady('test-pod', 'test');
-      
+
       expect(ready).toBe(true);
-      
+
       const notReady = await adapter.isPodReady('non-existent-pod', 'test');
       expect(notReady).toBe(false);
     });
@@ -267,7 +267,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       // Alpine pods might not have any logs initially
       // Let's check that the command at least executes successfully
       const result = await adapter['executeKubectl'](['logs', 'my-pod', '--tail=10']);
-      
+
       // The pod might have empty logs, so just check exit code
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBeDefined();
@@ -277,7 +277,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const testContent = 'Test file content';
       const localFile = `/tmp/test-${Date.now()}.txt`;
       writeFileSync(localFile, testContent);
-      
+
       try {
         // Copy file to pod
         await adapter.copyFiles(
@@ -285,7 +285,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
           'test-pod:/tmp/copied.txt',
           { namespace: 'test', direction: 'to' }
         );
-        
+
         // Verify file was copied
         const result = await adapter.execute({
           command: 'cat',
@@ -297,7 +297,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
             namespace: 'test'
           }
         });
-        
+
         expect(result.stdout.trim()).toBe(testContent);
       } finally {
         // Cleanup
@@ -309,7 +309,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
 
     it('should execute kubectl describe pod', async () => {
       const result = await adapter['executeKubectl'](['describe', 'pod', 'my-pod']);
-      
+
       expect(result.stdout).toBeTruthy();
       expect(result.stdout).toContain('Name:');
       expect(result.stdout).toContain('my-pod');
@@ -325,7 +325,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
         throwOnNonZeroExit: true,
         kubeconfig: kubeConfigPath
       });
-      
+
       // Try to execute kubectl command that will fail with non-zero exit
       await expect(
         strictAdapter['executeKubectl'](['exec', 'non-existent-pod', '--', 'ls'], { throwOnNonZeroExit: true })
@@ -336,12 +336,12 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       // Try to execute in a non-existent pod - this should fail with non-zero exit
       const result = await adapter.execute({
         command: 'test',
-        adapterOptions: { 
-          type: 'kubernetes', 
-          pod: 'non-existent-pod-xyz' 
+        adapterOptions: {
+          type: 'kubernetes',
+          pod: 'non-existent-pod-xyz'
         }
       });
-      
+
       // Since throwOnNonZeroExit is false, it should return with non-zero exit code
       expect(result.exitCode).not.toBe(0);
       expect(result.stderr).toContain('not found');
@@ -356,9 +356,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       await expect(
         strictAdapter.execute({
           command: 'false',
-          adapterOptions: { 
-            type: 'kubernetes', 
-            pod: 'my-pod' 
+          adapterOptions: {
+            type: 'kubernetes',
+            pod: 'my-pod'
           }
         })
       ).rejects.toThrow();
@@ -371,9 +371,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
         adapter.execute({
           command: 'sleep 10',
           timeout: 100,
-          adapterOptions: { 
-            type: 'kubernetes', 
-            pod: 'my-pod' 
+          adapterOptions: {
+            type: 'kubernetes',
+            pod: 'my-pod'
           }
         })
       ).rejects.toThrow(TimeoutError);
@@ -390,9 +390,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await customAdapter.execute({
         command: 'echo',
         args: ['custom kubectl'],
-        adapterOptions: { 
-          type: 'kubernetes', 
-          pod: 'my-pod' 
+        adapterOptions: {
+          type: 'kubernetes',
+          pod: 'my-pod'
         }
       });
 
@@ -409,8 +409,8 @@ describe('KubernetesAdapter Enhanced Tests', () => {
       const result = await customAdapter.execute({
         command: 'echo',
         args: ['ok'],
-        adapterOptions: { 
-          type: 'kubernetes', 
+        adapterOptions: {
+          type: 'kubernetes',
           pod: 'test-pod' // This pod exists in 'test' namespace
         }
       });
@@ -428,7 +428,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
           this.push(null);
         }
       });
-      
+
       const result = await adapter.execute({
         command: 'cat',
         stdin: inputStream,
@@ -437,7 +437,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
           pod: 'my-pod'
         }
       });
-      
+
       expect(result.stdout).toBe('Stream content');
     });
 
@@ -453,7 +453,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
           namespace: 'test'
         }
       });
-      
+
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain('nginx version');
     });
@@ -468,7 +468,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
           namespace: 'test'
         }
       });
-      
+
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trim()).toBeTruthy();
     });
@@ -483,7 +483,7 @@ describe('KubernetesAdapter Enhanced Tests', () => {
           execFlags: ['--pod-running-timeout=5m']
         }
       });
-      
+
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trim()).toBe('with exec flags');
     });
@@ -498,20 +498,20 @@ describe('KubernetesAdapter Complex Scenarios', () => {
     // This test runs in the same process after the main test suite,
     // so we'll create our own cluster manager instance but check if cluster exists
     const cluster = new KindClusterManager({ name: 'ush-k8s-enhanced-tests' });
-    
+
     // Check if cluster is already running (from main test suite)
     const isRunning = await cluster.isClusterRunning();
     if (!isRunning) {
       // If not running, create it
       await cluster.createCluster();
     }
-    
+
     kubeConfigPath = cluster.getKubeConfigPath();
-    
+
     adapter = new KubernetesAdapter({
       kubeconfig: kubeConfigPath
     });
-    
+
     // Create additional test pods for this scenario
     const webPodYaml = (name: string) => `
 apiVersion: v1
@@ -527,9 +527,9 @@ spec:
     image: alpine:3.18
     command: ['sh', '-c', 'while true; do echo \"${name} is running\"; sleep 10; done']
 `;
-    
+
     // Deploy web pods using cluster helper
-    const tempDir = mkdtempSync(join(tmpdir(), 'ush-test-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'xec-test-'));
     for (const podName of ['web-1', 'web-2']) {
       const podPath = join(tempDir, `${podName}.yaml`);
       writeFileSync(podPath, webPodYaml(podName));
@@ -539,7 +539,7 @@ spec:
         console.error(`Failed to create ${podName}:`, e);
       }
     }
-    
+
     // Wait for pods to be ready
     await new Promise(resolve => setTimeout(resolve, 15000));
   }, 300000);

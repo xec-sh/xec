@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/core",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Universal shell execution engine",
   "author": "LuxQuant",
   "license": "MIT",
@@ -9,6 +9,33 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist"
+  ],
+  "keywords": [
+    "shell",
+    "command-execution",
+    "ssh",
+    "docker",
+    "kubernetes",
+    "automation",
+    "typescript",
+    "javascript",
+    "devops",
+    "orchestration",
+    "template-literals",
+    "streaming",
+    "connection-pooling",
+    "error-handling",
+    "parallel-execution",
+    "file-transfer",
+    "port-forwarding",
+    "tunnels",
+    "container-management",
+    "remote-execution",
+    "process-management",
+    "infrastructure-automation",
+    "deployment",
+    "ci-cd",
+    "system-administration"
   ],
   "scripts": {
     "build": "tsc",

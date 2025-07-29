@@ -1438,6 +1438,75 @@ await dispose();
 await $`echo "New engine instance"`;
 ```
 
+## Script Context and Module Loading
+
+When using `@xec-sh/core` in Xec scripts or custom commands, additional utilities and module loading capabilities are automatically available through the global context.
+
+### Global Module Context
+
+The `__xecModuleContext` provides dynamic module loading with CDN fallback support:
+
+```typescript
+interface XecModuleContext {
+  // Import any module with intelligent resolution
+  import(spec: string): Promise<any>;
+  
+  // Import from NPM via CDN (doesn't require local installation)
+  importNPM(pkg: string): Promise<any>;
+  
+  // Import from JSR (JavaScript Registry)
+  importJSR(pkg: string): Promise<any>;
+  
+  // Resolve module URL
+  resolveModule(spec: string): Promise<string>;
+}
+```
+
+Usage in scripts:
+
+```typescript
+// The module context is globally available in Xec scripts
+const dayjs = await __xecModuleContext.importNPM('dayjs@1.11.10');
+const lodash = await __xecModuleContext.importNPM('lodash-es');
+
+// Import from JSR
+const encoding = await __xecModuleContext.importJSR('@std/encoding@0.224.0');
+
+// Local packages work seamlessly
+const { $ } = await __xecModuleContext.import('@xec-sh/core');
+```
+
+### Script Utilities Integration
+
+When running scripts with Xec CLI, all script utilities are available globally. This includes file system operations, prompts, HTTP requests, and more. See the [Script API Reference](/docs/projects/cli/script-api) for complete documentation of available utilities.
+
+Example script using global utilities:
+
+```typescript
+#!/usr/bin/env xec
+
+// All utilities are globally available
+const files = await glob('src/**/*.ts');
+log.info(`Found ${files.length} TypeScript files`);
+
+const spinner = spinner();
+spinner.start('Building project...');
+
+try {
+  await $`npm run build`;
+  spinner.stop('Build complete');
+} catch (error) {
+  spinner.stop('Build failed');
+  log.error(error.message);
+  exit(1);
+}
+
+// Use module context for dynamic imports
+const semver = await __xecModuleContext.importNPM('semver');
+const version = semver.default.inc('1.0.0', 'minor');
+log.success(`Next version: ${version}`);
+```
+
 ## Advanced Usage
 
 ### Custom Adapters

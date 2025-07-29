@@ -38,32 +38,37 @@ export function parseTimeout(timeout: string | number): number {
  * @returns Formatted duration string
  */
 export function formatDuration(ms: number): string {
-  if (ms < 1000) {
+  const isNegative = ms < 0;
+  const absMs = Math.abs(ms);
+  
+  if (absMs < 1000) {
     return `${ms}ms`;
   }
 
-  const seconds = Math.floor(ms / 1000);
+  const seconds = Math.floor(absMs / 1000);
   if (seconds < 60) {
-    return `${seconds}s`;
+    return isNegative ? `-${seconds}s` : `${seconds}s`;
   }
 
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   
   if (minutes < 60) {
-    return remainingSeconds > 0 
+    const result = remainingSeconds > 0 
       ? `${minutes}m ${remainingSeconds}s`
       : `${minutes}m`;
+    return isNegative ? `-${result}` : result;
   }
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   
   if (remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}m`;
+    const result = `${hours}h ${remainingMinutes}m`;
+    return isNegative ? `-${result}` : result;
   }
   
-  return `${hours}h`;
+  return isNegative ? `-${hours}h` : `${hours}h`;
 }
 
 /**
@@ -103,10 +108,10 @@ export function parseInterval(interval: string): {
 
   // Simple interval
   const everyMatch = interval.match(/^every\s+(.+)$/i);
-  if (everyMatch) {
+  if (everyMatch && everyMatch[1]) {
     return {
       type: 'interval',
-      value: parseTimeout(everyMatch[1] || '0'),
+      value: parseTimeout(everyMatch[1]),
     };
   }
 

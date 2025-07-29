@@ -24,6 +24,7 @@ interface CacheEntry {
   content: string;
   timestamp: number;
   headers?: Record<string, string>;
+  moduleType?: 'esm' | 'cjs' | 'umd' | 'unknown';
 }
 
 const CDN_URLS = {
@@ -68,13 +69,69 @@ export class UnifiedModuleLoader {
       this.nodeModulesPath = await this.findNodeModulesPath();
     }
 
-    // Set up global module context
+    // We cannot override the native import keyword, but we can provide a global function
+    // Set up global import function that supports prefixes
+    (globalThis as any).Import = (spec: string) => this.importModule(spec);
+    
+    // Set up module context with the new import function
     (globalThis as any).__xecModuleContext = {
-      import: (spec: string) => this.importModule(spec),
-      importNPM: (pkg: string) => this.importFromCDN(pkg, 'npm'),
-      importJSR: (pkg: string) => this.importFromCDN(pkg, 'jsr'),
-      importCDN: (spec: string) => this.importFromCDN(spec, 'auto')
+      import: (spec: string) => this.importModule(spec)
     };
+    
+    // Store reference for scripts
+    (globalThis as any).__xecImport = (spec: string) => this.importModule(spec);
+
+    // Load script utilities and make them globally available
+    try {
+      const scriptUtils = await import('./script-utils.js');
+      
+      // Make all utilities globally available
+      Object.assign(globalThis, scriptUtils.default);
+      
+      // Ensure individual utilities are also available
+      Object.assign(globalThis, {
+        $: scriptUtils.$,
+        log: scriptUtils.log,
+        question: scriptUtils.question,
+        confirm: scriptUtils.confirm,
+        select: scriptUtils.select,
+        multiselect: scriptUtils.multiselect,
+        password: scriptUtils.password,
+        spinner: scriptUtils.spinner,
+        echo: scriptUtils.echo,
+        cd: scriptUtils.cd,
+        pwd: scriptUtils.pwd,
+        fs: scriptUtils.fs,
+        glob: scriptUtils.glob,
+        path: scriptUtils.path,
+        os: scriptUtils.os,
+        fetch: scriptUtils.fetch,
+        chalk: scriptUtils.chalk,
+        which: scriptUtils.which,
+        sleep: scriptUtils.sleep,
+        retry: scriptUtils.retry,
+        within: scriptUtils.within,
+        env: scriptUtils.env,
+        setEnv: scriptUtils.setEnv,
+        exit: scriptUtils.exit,
+        kill: scriptUtils.kill,
+        ps: scriptUtils.ps,
+        tmpdir: scriptUtils.tmpdir,
+        tmpfile: scriptUtils.tmpfile,
+        yaml: scriptUtils.yaml,
+        csv: scriptUtils.csv,
+        diff: scriptUtils.diff,
+        parseArgs: scriptUtils.parseArgs,
+        loadEnv: scriptUtils.loadEnv,
+        quote: scriptUtils.quote,
+        template: scriptUtils.template,
+      });
+    } catch (error) {
+      // Log error but don't fail initialization
+      if (this.options.verbose) {
+        console.warn('[ModuleLoader] Failed to load script utilities:', error);
+      }
+    }
 
     this.isInitialized = true;
   }
@@ -83,37 +140,19 @@ export class UnifiedModuleLoader {
    * Find node_modules path by searching upwards
    */
   private async findNodeModulesPath(): Promise<string | null> {
-    // First, check if we're running from a global installation
-    // When installed globally, the CLI binary is in /usr/local/bin or similar
-    // and the actual code is in the global node_modules
-    const scriptPath = import.meta.url.replace('file://', '');
-    const scriptDir = path.dirname(scriptPath);
-    
-    // Check for node_modules relative to the script location (for global installs)
-    let checkDir = scriptDir;
-    for (let i = 0; i < 5; i++) {
-      const nodeModulesDir = path.join(checkDir, 'node_modules');
-      if (existsSync(nodeModulesDir)) {
-        return nodeModulesDir;
+    const checkPaths = [
+      path.dirname(import.meta.url.replace('file://', '')),
+      process.cwd()
+    ];
+
+    for (const startPath of checkPaths) {
+      let dir = startPath;
+      for (let i = 0; i < 10 && dir !== path.dirname(dir); i++) {
+        const nodeModulesDir = path.join(dir, 'node_modules');
+        if (existsSync(nodeModulesDir)) return nodeModulesDir;
+        dir = path.dirname(dir);
       }
-      const parentDir = path.dirname(checkDir);
-      if (parentDir === checkDir) break;
-      checkDir = parentDir;
     }
-    
-    // Then check from current working directory (for local project usage)
-    let currentDir = process.cwd();
-    for (let i = 0; i < 10; i++) {
-      const nodeModulesDir = path.join(currentDir, 'node_modules');
-      if (existsSync(nodeModulesDir)) {
-        return nodeModulesDir;
-      }
-      
-      const parentDir = path.dirname(currentDir);
-      if (parentDir === currentDir) break; // Reached root
-      currentDir = parentDir;
-    }
-    
     return null;
   }
 
@@ -132,7 +171,8 @@ export class UnifiedModuleLoader {
 
     // Handle local modules
     if (this.isLocalModule(specifier)) {
-      return import(specifier);
+      const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
+      return originalImport(specifier);
     }
 
     // Check if already loading
@@ -151,37 +191,33 @@ export class UnifiedModuleLoader {
   }
 
   private async _importModule(specifier: string): Promise<any> {
-    // Try local node_modules first if available
-    if (this.nodeModulesPath && !specifier.startsWith('node:')) {
-      try {
-        const modulePath = path.join(this.nodeModulesPath, specifier);
-        if (existsSync(modulePath)) {
-          const packageJsonPath = path.join(modulePath, 'package.json');
-          if (existsSync(packageJsonPath)) {
-            const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
-            const mainFile = packageJson.module || packageJson.main || 'index.js';
-            const fullPath = path.join(modulePath, mainFile);
-            return await import(pathToFileURL(fullPath).href);
-          }
-        }
-      } catch (error) {
-        if (this.options.verbose) {
-          console.log(`[ModuleLoader] Failed to load ${specifier} from local node_modules:`, error);
-        }
-      }
-    }
+    // Try local resolution first
+    const localModule = await this.tryLocalImport(specifier);
+    if (localModule) return localModule;
 
     // Try direct import for built-in modules
     try {
-      return await import(specifier);
-    } catch (error) {
-      if (this.options.verbose) {
-        console.log(`[ModuleLoader] Failed direct import of ${specifier}, trying CDN fallback`);
-      }
+      const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
+      return await originalImport(specifier);
+    } catch {
+      // Fallback to CDN
+      return this.importFromCDN(specifier, 'auto');
     }
+  }
 
-    // Fallback to CDN
-    return this.importFromCDN(specifier, 'auto');
+  private async tryLocalImport(specifier: string): Promise<any> {
+    if (!this.nodeModulesPath || specifier.startsWith('node:')) return null;
+
+    try {
+      const modulePath = path.join(this.nodeModulesPath, specifier, 'package.json');
+      if (existsSync(modulePath)) {
+        const pkg = JSON.parse(await fs.readFile(modulePath, 'utf-8'));
+        const mainFile = pkg.module || pkg.main || 'index.js';
+        const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
+        return await originalImport(pathToFileURL(path.join(this.nodeModulesPath, specifier, mainFile)).href);
+      }
+    } catch {}
+    return null;
   }
 
   /**
@@ -189,7 +225,7 @@ export class UnifiedModuleLoader {
    */
   private async importFromCDN(pkg: string, source: 'npm' | 'jsr' | 'esm' | 'unpkg' | 'skypack' | 'jsdelivr' | 'auto'): Promise<any> {
     const cacheKey = `${source}:${pkg}`;
-    
+
     // Check if already loading
     if (this.pendingLoads.has(cacheKey)) {
       return this.pendingLoads.get(cacheKey)!;
@@ -207,28 +243,32 @@ export class UnifiedModuleLoader {
 
   private async _importFromCDN(pkg: string, source: 'npm' | 'jsr' | 'esm' | 'unpkg' | 'skypack' | 'jsdelivr' | 'auto'): Promise<any> {
     const cdnUrl = this.getCDNUrl(pkg, source);
-    
+
     if (this.options.verbose) {
-      console.log(`[ModuleLoader] Loading ${pkg} from CDN: ${cdnUrl}`);
+      console.debug(`[ModuleLoader] Loading ${pkg} from CDN: ${cdnUrl}`);
     }
 
     try {
       // Check cache first
       const cached = await this.loadFromCache(cdnUrl);
       if (cached) {
-        return await this.executeModule(cached, cdnUrl);
+        const cacheEntry = this.memoryCache.get(cdnUrl);
+        return await this.executeModule(cached, cdnUrl, cacheEntry?.headers);
       }
 
       // Fetch from CDN
       const content = await this.fetchFromCDN(cdnUrl);
-      
-      // Save to cache
+
+      // Transform the content if needed before caching
+      const transformedContent = this.transformESMContent(content, cdnUrl);
+
+      // Save transformed content to cache
       if (this.options.cache) {
-        await this.saveToCache(cdnUrl, content);
+        await this.saveToCache(cdnUrl, transformedContent);
       }
 
       // Execute the module
-      return await this.executeModule(content, cdnUrl);
+      return await this.executeModule(transformedContent, cdnUrl);
     } catch (error) {
       if (this.options.verbose) {
         console.error(`[ModuleLoader] Failed to import ${pkg} from CDN:`, error);
@@ -253,46 +293,18 @@ export class UnifiedModuleLoader {
    * Get CDN URL for a package
    */
   private getCDNUrl(pkg: string, source: 'npm' | 'jsr' | 'esm' | 'unpkg' | 'skypack' | 'jsdelivr' | 'auto'): string {
-    if (pkg.startsWith('http://') || pkg.startsWith('https://')) {
-      return pkg;
-    }
+    if (pkg.startsWith('http')) return pkg;
 
-    // Handle JSR packages
+    const cdnKey = source === 'auto' ? this.options.preferredCDN || 'esm.sh' : 
+                   source === 'npm' || source === 'esm' ? 'esm.sh' : source;
+
+    const baseUrl = CDN_URLS[cdnKey as keyof typeof CDN_URLS] || CDN_URLS['esm.sh'];
+
     if (source === 'jsr' || (source === 'auto' && pkg.startsWith('@'))) {
-      // Use esm.sh as proxy for JSR packages
-      return `https://esm.sh/jsr/${pkg}`;
+      return `${baseUrl}/jsr/${pkg}${cdnKey === 'esm.sh' ? '?bundle' : ''}`;
     }
 
-    // Determine CDN based on source
-    let cdnKey: keyof typeof CDN_URLS;
-    switch (source) {
-      case 'npm':
-      case 'esm':
-        cdnKey = 'esm.sh';
-        break;
-      case 'unpkg':
-        cdnKey = 'unpkg';
-        break;
-      case 'skypack':
-        cdnKey = 'skypack';
-        break;
-      case 'jsdelivr':
-        cdnKey = 'jsdelivr';
-        break;
-      case 'auto':
-      default:
-        cdnKey = this.options.preferredCDN || 'esm.sh';
-    }
-
-    const baseUrl = CDN_URLS[cdnKey];
-    
-    // Add appropriate query params for esm.sh
-    if (cdnKey === 'esm.sh') {
-      // Use ?bundle for self-contained modules
-      return `${baseUrl}/${pkg}?bundle`;
-    }
-    
-    return `${baseUrl}/${pkg}`;
+    return `${baseUrl}/${pkg}${cdnKey === 'esm.sh' ? '?bundle' : ''}`;
   }
 
   /**
@@ -300,7 +312,7 @@ export class UnifiedModuleLoader {
    */
   private async fetchFromCDN(url: string): Promise<string> {
     const response = await fetch(url, {
-      headers: { 
+      headers: {
         'User-Agent': 'xec-cli/1.0',
         'Accept': 'application/javascript, text/javascript, */*'
       }
@@ -311,120 +323,131 @@ export class UnifiedModuleLoader {
     }
 
     const content = await response.text();
+    
+    // Store headers for module type detection
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headers[key.toLowerCase()] = value;
+    });
+    
+    // Store headers in a temporary variable to pass to saveToCache
+    (this as any)._tempHeaders = headers;
 
     // Handle esm.sh redirects
-    if (url.includes('esm.sh') && (content.includes('export * from "/') || content.includes('export { default } from "/'))) {
-      const matches = content.match(/from\s+["'](\/.+?)["']/);
-      if (matches && matches[1]) {
-        const redirectUrl = `https://esm.sh${matches[1]}`;
-        if (this.options.verbose) {
-          console.log(`[ModuleLoader] Following redirect to ${redirectUrl}`);
-        }
-        return this.fetchFromCDN(redirectUrl);
-      }
+    const redirectMatch = content.match(/export (?:\* from|\{ default \} from) ["'](\/.+?)["']/);
+    if (url.includes('esm.sh') && redirectMatch?.[1]) {
+      return this.fetchFromCDN(`https://esm.sh${redirectMatch[1]}`);
     }
 
     return content;
   }
 
   /**
+   * Detect module type from content and metadata
+   */
+  private detectModuleType(content: string, headers?: Record<string, string>): 'esm' | 'cjs' | 'umd' | 'unknown' {
+    // Check headers first for hints
+    const contentType = headers?.['content-type'] || '';
+    const xModuleType = headers?.['x-module-type'];
+    
+    if (xModuleType) return xModuleType as any;
+    
+    // Remove comments for analysis
+    const cleanContent = content
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*/g, '')
+      .replace(/["'][^"']*["']/g, ''); // Remove string literals
+    
+    // ESM detection patterns
+    const esmPatterns = [
+      /^\s*import\s+[\w{},\s*]+\s+from\s+["']/m,
+      /^\s*import\s+["']/m,
+      /^\s*export\s+(?:default|const|let|var|function|class|async|{)/m,
+      /^\s*export\s*\{[^}]+\}\s*from\s*["']/m,
+      /^\s*export\s*\*\s*from\s*["']/m
+    ];
+    
+    // CJS detection patterns
+    const cjsPatterns = [
+      /^\s*module\.exports\s*=/m,
+      /^\s*exports\.[\w$]+\s*=/m,
+      /^\s*Object\.defineProperty\s*\(\s*exports/m,
+      /\brequire\s*\(["'][^"']+["']\)/
+    ];
+    
+    // UMD detection patterns
+    const umdPatterns = [
+      /typeof\s+exports\s*===\s*["']object["']\s*&&\s*typeof\s+module\s*!==\s*["']undefined["']/,
+      /typeof\s+define\s*===\s*["']function["']\s*&&\s*define\.amd/,
+      /\(function\s*\(.*?\)\s*{[\s\S]*?}\s*\(.*?typeof\s+exports.*?\)\)/
+    ];
+    
+    // Check for UMD first (as it can contain both ESM and CJS patterns)
+    if (umdPatterns.some(pattern => pattern.test(cleanContent))) {
+      return 'umd';
+    }
+    
+    const hasEsmSyntax = esmPatterns.some(pattern => pattern.test(cleanContent));
+    const hasCjsSyntax = cjsPatterns.some(pattern => pattern.test(cleanContent));
+    
+    // If it has both, it's likely transpiled ESM or a complex module
+    if (hasEsmSyntax && hasCjsSyntax) {
+      // Check if it's transpiled ESM (common pattern from bundlers)
+      if (cleanContent.includes('__esModule')) {
+        return 'esm';
+      }
+      return 'umd';
+    }
+    
+    if (hasEsmSyntax) return 'esm';
+    if (hasCjsSyntax) return 'cjs';
+    
+    // Check for simple function exports (common in older modules)
+    if (/^\s*\(\s*function\s*\([^)]*\)\s*{/.test(cleanContent)) {
+      return 'cjs';
+    }
+    
+    return 'unknown';
+  }
+
+  /**
    * Execute module content
    */
-  private async executeModule(content: string, specifier: string): Promise<any> {
+  private async executeModule(content: string, specifier: string, headers?: Record<string, string>): Promise<any> {
     try {
-      // For modules from CDN, we need to handle them specially
-      // First, try to detect if this is a bundled ESM module
-      const isBundled = content.includes('?bundle') || specifier.includes('?bundle');
+      const moduleType = this.detectModuleType(content, headers);
       
-      if (isBundled || content.includes('import ') || content.includes('export ')) {
-        // This is an ESM module, we need to save it to a temp file to import it
-        const tempDir = path.join(this.cacheDir, 'temp');
-        await fs.mkdir(tempDir, { recursive: true });
+      if (this.options.verbose) {
+        console.debug(`[ModuleLoader] Detected module type for ${specifier}: ${moduleType}`);
+      }
+      
+      switch (moduleType) {
+        case 'esm':
+          return await this.executeESMModule(content, specifier);
         
-        // Generate unique filename
-        const hash = crypto.createHash('sha256').update(specifier).digest('hex').substring(0, 8);
-        const tempFile = path.join(tempDir, `module-${hash}-${Date.now()}.mjs`);
+        case 'cjs':
+          return this.executeCJSModule(content);
         
-        // Transform imports in the content to use esm.sh directly
-        let transformedContent = content;
-        if (specifier.includes('esm.sh')) {
-          // Replace relative imports with absolute esm.sh URLs
-          transformedContent = transformedContent.replace(
-            /from\s+["'](\/.+?)["']/g,
-            (match, importPath) => `from "https://esm.sh${importPath}"`
-          );
-          
-          // Also handle dynamic imports
-          transformedContent = transformedContent.replace(
-            /import\s*\(\s*["'](\/.+?)["']\s*\)/g,
-            (match, importPath) => `import("https://esm.sh${importPath}")`
-          );
-        }
+        case 'umd':
+          return this.executeUMDModule(content, specifier);
         
-        // Write the module to temp file
-        await fs.writeFile(tempFile, transformedContent);
-        
-        try {
-          // Import the module
-          const module = await import(pathToFileURL(tempFile).href);
-          
-          // Clean up temp file
-          await fs.unlink(tempFile).catch(() => {});
-          
-          return module;
-        } catch (importError) {
-          // Clean up temp file
-          await fs.unlink(tempFile).catch(() => {});
-          
-          if (this.options.verbose) {
-            console.error(`[ModuleLoader] Failed to import temp module:`, importError);
+        case 'unknown':
+        default:
+          // Try ESM first, fallback to CJS
+          try {
+            return await this.executeESMModule(content, specifier);
+          } catch (esmError) {
+            if (this.options.verbose) {
+              console.debug(`[ModuleLoader] ESM execution failed, trying CJS:`, esmError);
+            }
+            return this.executeCJSModule(content);
           }
-          
-          // Try fallback method
-          throw importError;
-        }
       }
-      
-      // For non-ESM modules, use Function constructor
-      const wrapperCode = `
-        'use strict';
-        const exports = {};
-        const module = { exports };
-        
-        ${content}
-        
-        // Return the exports
-        if (typeof module.exports === 'function' || (typeof module.exports === 'object' && module.exports !== exports)) {
-          return module.exports;
-        } else if (Object.keys(exports).length > 0) {
-          return exports;
-        } else {
-          return {};
-        }
-      `;
-      
-      const func = new Function(wrapperCode);
-      const result = func();
-      
-      // Ensure we always return an object
-      if (typeof result === 'function') {
-        return { default: result };
-      }
-      
-      return result || {};
     } catch (error) {
       if (this.options.verbose) {
         console.error(`[ModuleLoader] Failed to execute module ${specifier}:`, error);
       }
-      
-      // Last resort - return a mock object
-      console.warn(`[ModuleLoader] Using fallback for ${specifier}`);
-      return {
-        default: function(...args: any[]) {
-          console.log(`[ModuleLoader] Mock call to ${specifier}`, args);
-          return {};
-        }
-      };
+      throw error;
     }
   }
 
@@ -434,37 +457,34 @@ export class UnifiedModuleLoader {
   private async loadFromCache(url: string): Promise<string | null> {
     if (!this.options.cache) return null;
 
-    // Check memory cache
+    // Check memory cache first
     const memCached = this.memoryCache.get(url);
-    if (memCached && Date.now() - memCached.timestamp < 3600000) { // 1 hour
-      if (this.options.verbose) {
-        console.log(`[ModuleLoader] Loading ${url} from memory cache`);
-      }
+    if (memCached && Date.now() - memCached.timestamp < 3600000) {
       return memCached.content;
     }
 
     // Check file cache
-    const cacheKey = this.getCacheKey(url);
-    const cachePath = path.join(this.cacheDir, `${cacheKey}.js`);
-
-    if (!existsSync(cachePath)) return null;
-
     try {
+      const cacheKey = this.getCacheKey(url);
+      const cachePath = path.join(this.cacheDir, `${cacheKey}.js`);
+      const metaPath = path.join(this.cacheDir, `${cacheKey}.meta.json`);
+      
       const stat = await fs.stat(cachePath);
-      // Cache valid for 7 days
-      if (Date.now() - stat.mtimeMs > 7 * 24 * 3600000) {
-        return null;
-      }
-
+      
+      if (Date.now() - stat.mtimeMs > 7 * 24 * 3600000) return null;
+      
       const content = await fs.readFile(cachePath, 'utf-8');
       
-      // Update memory cache
-      this.memoryCache.set(url, { content, timestamp: Date.now() });
-      
-      if (this.options.verbose) {
-        console.log(`[ModuleLoader] Loading ${url} from file cache`);
+      // Try to load metadata
+      let headers: Record<string, string> = {};
+      try {
+        const meta = JSON.parse(await fs.readFile(metaPath, 'utf-8'));
+        headers = meta.headers || {};
+      } catch {
+        // Metadata file might not exist for old cache entries
       }
       
+      this.memoryCache.set(url, { content, timestamp: Date.now(), headers });
       return content;
     } catch {
       return null;
@@ -477,20 +497,17 @@ export class UnifiedModuleLoader {
   private async saveToCache(url: string, content: string): Promise<void> {
     if (!this.options.cache) return;
 
-    // Update memory cache
-    this.memoryCache.set(url, { content, timestamp: Date.now() });
-
-    // Save to file cache
-    const cacheKey = this.getCacheKey(url);
-    const cachePath = path.join(this.cacheDir, `${cacheKey}.js`);
-
-    try {
-      await fs.writeFile(cachePath, content);
-    } catch (error) {
-      if (this.options.verbose) {
-        console.warn(`[ModuleLoader] Failed to cache ${url}:`, error);
-      }
-    }
+    const headers = (this as any)._tempHeaders || {};
+    delete (this as any)._tempHeaders;
+    
+    this.memoryCache.set(url, { content, timestamp: Date.now(), headers });
+    
+    const cachePath = path.join(this.cacheDir, `${this.getCacheKey(url)}.js`);
+    await fs.writeFile(cachePath, content).catch(() => {});
+    
+    // Save metadata
+    const metaPath = path.join(this.cacheDir, `${this.getCacheKey(url)}.meta.json`);
+    await fs.writeFile(metaPath, JSON.stringify({ headers, timestamp: Date.now() })).catch(() => {});
   }
 
   /**
@@ -498,6 +515,211 @@ export class UnifiedModuleLoader {
    */
   private getCacheKey(url: string): string {
     return crypto.createHash('sha256').update(url).digest('hex');
+  }
+
+  /**
+   * Transform ESM.sh content
+   */
+  private transformESMContent(content: string, cdnUrl: string): string {
+    if (!cdnUrl.includes('esm.sh')) return content;
+
+    return content
+      // Transform from statements
+      .replace(/from\s+["'](\/.+?)["']/g, (match, importPath) => {
+        if (importPath.startsWith('/node/')) {
+          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
+          // Handle special cases
+          switch (moduleName) {
+            case 'process':
+            case 'buffer':
+            case 'stream':
+            case 'events':
+            case 'util':
+            case 'path':
+            case 'fs':
+            case 'crypto':
+            case 'os':
+            case 'url':
+            case 'querystring':
+            case 'string_decoder':
+              return `from "node:${moduleName}"`;
+            default:
+              return `from "node:${moduleName}"`;
+          }
+        }
+        return `from "https://esm.sh${importPath}"`;
+      })
+      // Transform dynamic imports
+      .replace(/import\s*\(\s*["'](\/.+?)["']\s*\)/g, (match, importPath) => {
+        if (importPath.startsWith('/node/')) {
+          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
+          return `import("node:${moduleName}")`;
+        }
+        return `import("https://esm.sh${importPath}")`;
+      })
+      // Transform static imports
+      .replace(/import\s+["'](\/.+?)["'];/g, (match, importPath) => {
+        if (importPath.startsWith('/node/')) {
+          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
+          return `import "node:${moduleName}";`;
+        }
+        return `import "https://esm.sh${importPath}";`;
+      })
+      // Transform export statements with paths
+      .replace(/export\s+(?:\*|\{[^}]+\})\s+from\s+["'](\/.+?)["']/g, (match, importPath) => {
+        if (importPath.startsWith('/node/')) {
+          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
+          return match.replace(importPath, `node:${moduleName}`);
+        }
+        return match.replace(importPath, `https://esm.sh${importPath}`);
+      });
+  }
+
+  /**
+   * Execute ESM module
+   */
+  private async executeESMModule(content: string, specifier: string): Promise<any> {
+    const tempDir = path.join(this.cacheDir, 'temp');
+    await fs.mkdir(tempDir, { recursive: true });
+
+    const hash = crypto.createHash('sha256').update(specifier).digest('hex').substring(0, 8);
+    const tempFile = path.join(tempDir, `module-${hash}-${Date.now()}.mjs`);
+
+    try {
+      await fs.writeFile(tempFile, content);
+      const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
+      const module = await originalImport(pathToFileURL(tempFile).href);
+      await fs.unlink(tempFile).catch(() => {});
+      return module;
+    } catch (error) {
+      await fs.unlink(tempFile).catch(() => {});
+      throw error;
+    }
+  }
+
+  /**
+   * Execute CommonJS module
+   */
+  private executeCJSModule(content: string): any {
+    const moduleExports = {};
+    const moduleObj = { exports: moduleExports };
+    const requireStub = (id: string) => {
+      // Basic require stub for common Node.js modules
+      if (id === 'util' || id === 'path' || id === 'fs') {
+        throw new Error(`Cannot require '${id}' in browser environment`);
+      }
+      throw new Error(`require('${id}') not supported in CDN modules`);
+    };
+    
+    try {
+      const func = new Function('exports', 'module', 'require', '__dirname', '__filename', content);
+      func(moduleExports, moduleObj, requireStub, '/', '/module.js');
+    } catch (error) {
+      // Try without __dirname/__filename for simpler modules
+      const func = new Function('exports', 'module', 'require', content);
+      func(moduleExports, moduleObj, requireStub);
+    }
+    
+    const result = moduleObj.exports;
+    
+    // Handle different export patterns
+    if (result && typeof result === 'object' && Object.keys(result).length === 0) {
+      // Empty exports, might be a function module
+      return { default: {} };
+    }
+    
+    // If it's a single function export, wrap it
+    if (typeof result === 'function') {
+      const wrapped: any = { default: result };
+      // Copy function properties
+      Object.assign(wrapped, result);
+      return wrapped;
+    }
+    
+    // If it has a default property already, return as is
+    if (result && typeof result === 'object' && 'default' in result) {
+      return result;
+    }
+    
+    // Otherwise wrap in default
+    const wrapped: any = { default: result };
+    if (result && typeof result === 'object') {
+      Object.assign(wrapped, result);
+    }
+    return wrapped;
+  }
+
+  /**
+   * Execute UMD module
+   */
+  private executeUMDModule(content: string, specifier: string): any {
+    // UMD modules are designed to work in multiple environments
+    // We'll execute them in a CommonJS-like environment
+    const moduleExports = {};
+    const moduleObj = { exports: moduleExports };
+    
+    // Create a fake AMD define if needed
+    const define = (deps: any, factory: any) => {
+      if (typeof deps === 'function') {
+        factory = deps;
+        deps = [];
+      }
+      if (factory) {
+        const result = factory();
+        if (result !== undefined) {
+          moduleObj.exports = result;
+        }
+      }
+    };
+    define.amd = true;
+    
+    try {
+      // Create a more complete global context for UMD
+      const func = new Function(
+        'exports', 
+        'module', 
+        'define', 
+        'global',
+        'globalThis',
+        'window',
+        'self',
+        content
+      );
+      
+      const globalObj = globalThis;
+      func(
+        moduleExports, 
+        moduleObj, 
+        define,
+        globalObj,
+        globalObj,
+        globalObj,
+        globalObj
+      );
+      
+      const result = moduleObj.exports;
+      
+      // Handle UMD export patterns
+      if (typeof result === 'function') {
+        const wrapped: any = { default: result };
+        // Copy function properties
+        Object.assign(wrapped, result);
+        return wrapped;
+      }
+      
+      if (result && typeof result === 'object' && 'default' in result) {
+        return result;
+      }
+      
+      const wrapped: any = { default: result };
+      if (result && typeof result === 'object') {
+        Object.assign(wrapped, result);
+      }
+      return wrapped;
+    } catch (error) {
+      // Fallback to simple CJS execution
+      return this.executeCJSModule(content);
+    }
   }
 
   /**
@@ -522,15 +744,13 @@ export class UnifiedModuleLoader {
   async loadScript(scriptPath: string, args: string[] = []): Promise<any> {
     await this.init();
 
-    const ext = path.extname(scriptPath);
     let content = await fs.readFile(scriptPath, 'utf-8');
+    const ext = path.extname(scriptPath);
 
-    // Transform TypeScript if needed
     if (ext === '.ts' || ext === '.tsx') {
       content = await this.transformTypeScript(content, scriptPath);
     }
 
-    // Set up script context
     (globalThis as any).__xecScriptContext = {
       args,
       argv: [process.argv[0], scriptPath, ...args],
@@ -539,9 +759,7 @@ export class UnifiedModuleLoader {
     };
 
     try {
-      // Create data URL and import
-      const dataUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(content)}`;
-      return await import(dataUrl);
+      return await this.executeESMModule(content, scriptPath);
     } finally {
       delete (globalThis as any).__xecScriptContext;
     }

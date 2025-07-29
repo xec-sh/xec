@@ -3,8 +3,8 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
+import { formatBytes } from '../utils/formatters.js';
 import { getModuleLoader } from '../utils/unified-module-loader.js';
-import { formatBytes, formatRelativeTime } from '../utils/formatters.js';
 
 export default function (program: Command) {
   const cache = program
