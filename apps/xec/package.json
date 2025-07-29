@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/cli",
   "description": "Xec: The Universal Shell for TypeScript",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "author": "DevGrid",
   "type": "module",
   "license": "MIT",
@@ -79,7 +79,7 @@
   "homepage": "https://github.com/xec-sh/xec/tree/main/apps/xec#readme",
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "@xec-sh/core": "^0.7.4",
+    "@xec-sh/core": "^0.7.5",
     "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
     "commander": "^14.0.0",

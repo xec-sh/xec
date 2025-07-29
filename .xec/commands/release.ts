@@ -665,11 +665,11 @@ export function command(program: Command): void {
             // Update .yarnrc.yml if token provided
             if (config.npmToken) {
               const yarnrcPath = join(process.cwd(), '.yarnrc.yml');
-              
+
               // Check if .yarnrc.yml already exists and save original content
               let originalYarnrc: string | null = null;
               let yarnrcConfig: any = {};
-              
+
               if (existsSync(yarnrcPath)) {
                 originalYarnrc = readFileSync(yarnrcPath, 'utf8');
                 // Parse YAML manually (simple key: value pairs)
@@ -677,7 +677,7 @@ export function command(program: Command): void {
                 for (const line of lines) {
                   const trimmedLine = line.trim();
                   if (!trimmedLine || trimmedLine.startsWith('#')) continue;
-                  
+
                   const colonIndex = trimmedLine.indexOf(':');
                   if (colonIndex > 0) {
                     const key = trimmedLine.substring(0, colonIndex).trim();
@@ -690,13 +690,13 @@ export function command(program: Command): void {
               } else {
                 rollbackState.createdFiles.push(yarnrcPath);
               }
-              
+
               try {
                 // Update yarnrc config with new token
                 yarnrcConfig.npmAuthToken = config.npmToken;
                 yarnrcConfig.npmPublishRegistry = yarnrcConfig.npmPublishRegistry || 'https://registry.npmjs.org';
                 yarnrcConfig.npmRegistryServer = yarnrcConfig.npmRegistryServer || 'https://registry.npmjs.org';
-                
+
                 // Convert back to YAML format
                 const yarnrcContent = Object.entries(yarnrcConfig)
                   .map(([key, value]) => {
@@ -710,7 +710,7 @@ export function command(program: Command): void {
                     }
                   })
                   .join('\n\n') + '\n';
-                
+
                 // Create .yarnrc.yml in project root
                 writeFileSync(yarnrcPath, yarnrcContent);
 
@@ -745,6 +745,7 @@ export function command(program: Command): void {
 
                 s.stop(`✅ Published ${config.packages.length} packages to NPM`);
               } catch (error) {
+                console.error(error);
                 s.stop('❌ NPM publishing failed');
                 throw error;
               } finally {
@@ -756,7 +757,7 @@ export function command(program: Command): void {
                   // Remove created file
                   try {
                     await $`rm -f ${yarnrcPath}`.nothrow();
-                  } catch {}
+                  } catch { }
                 }
               }
             } else {
