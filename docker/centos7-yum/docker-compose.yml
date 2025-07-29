@@ -1,7 +1,0 @@
-services:
-  centos7-yum:
-    build: .
-    container_name: centos7-yum
-    ports:
-      - "2202:22"
-    restart: unless-stopped

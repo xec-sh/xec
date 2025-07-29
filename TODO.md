@@ -1,0 +1,7 @@
+- Analytics on common typos to improve suggestions
+- More sophisticated error pattern matching
+- Auto-correction with user confirmation
+- Integration with shell completion systems
+- Implement SSH Tunnel SOCKS proxy support
+- Add more granular events for port forwarding
+- Batch file operations for efficiency

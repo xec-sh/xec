@@ -1,7 +1,0 @@
-services:
-  ubuntu-brew:
-    build: .
-    container_name: ubuntu-brew
-    ports:
-      - "2206:22"
-    restart: unless-stopped

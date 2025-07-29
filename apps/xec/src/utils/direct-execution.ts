@@ -244,7 +244,7 @@ async function executeLocally(
 /**
  * Check if arguments look like a direct command (not a subcommand)
  */
-export function isDirectCommand(args: string[]): boolean {
+export function isDirectCommand(args: string[], commandRegistry?: string[]): boolean {
   if (args.length === 0) {
     return false;
   }
@@ -259,15 +259,24 @@ export function isDirectCommand(args: string[]): boolean {
     return false;
   }
   
-  // Known subcommands (this list should be maintained)
-  const knownSubcommands = [
-    'exec', 'ssh', 'docker', 'k8s', 'run', 'init', 'config',
-    'env', 'copy', 'list', 'new', 'version', 'watch',
-    'on', 'in', 'help'
-  ];
-  
-  if (knownSubcommands.includes(firstArg)) {
-    return false;
+  // Use command registry if provided
+  if (commandRegistry) {
+    // Check if the first arg is a known command
+    if (commandRegistry.includes(firstArg)) {
+      return false;
+    }
+  } else {
+    // Fallback to static list if no registry provided
+    const knownSubcommands = [
+      'exec', 'ssh', 'docker', 'k8s', 'run', 'init', 'config',
+      'env', 'copy', 'list', 'new', 'version', 'watch',
+      'on', 'in', 'help', 'cache', 'forward', 'interactive', 'logs',
+      'release', 'r', 'i', 'v' // Include aliases and dynamic commands
+    ];
+    
+    if (knownSubcommands.includes(firstArg)) {
+      return false;
+    }
   }
   
   // If the first argument is quoted or contains spaces, it's likely a command

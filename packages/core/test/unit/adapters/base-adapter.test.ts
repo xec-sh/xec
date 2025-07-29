@@ -1,4 +1,4 @@
-import { test, expect, describe, jest } from '@jest/globals';
+import { test, jest, expect, describe } from '@jest/globals';
 
 import { Command } from '../../../src/core/command';
 import { ExecutionResult } from '../../../src/core/result';

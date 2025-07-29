@@ -16,16 +16,16 @@ export class RuntimeDetector {
       this._bunVersion = globalThis.Bun.version;
       return 'bun';
     }
-    
+
     if (typeof globalThis.Deno !== 'undefined' && globalThis.Deno) {
       this._runtime = 'deno';
       return 'deno';
     }
-    
+
     this._runtime = 'node';
     return 'node';
   }
-  
+
   static getBunVersion(): string | null {
     if (this._bunVersion !== null) {
       return this._bunVersion;
@@ -39,24 +39,24 @@ export class RuntimeDetector {
 
     return null;
   }
-  
+
   static hasFeature(feature: 'spawn' | 'serve' | 'sqlite'): boolean {
     const runtime = this.detect();
-    
+
     if (runtime === 'bun') {
       const bunGlobal = globalThis.Bun;
       if (!bunGlobal) return false;
-      
+
       switch (feature) {
-        case 'spawn': 
+        case 'spawn':
           return typeof bunGlobal.spawn === 'function';
-        case 'serve': 
+        case 'serve':
           return typeof (bunGlobal as any).serve === 'function';
-        case 'sqlite': 
+        case 'sqlite':
           return typeof (bunGlobal as any).SQLite === 'function';
       }
     }
-    
+
     if (runtime === 'node') {
       switch (feature) {
         case 'spawn':
@@ -66,7 +66,7 @@ export class RuntimeDetector {
           return false;
       }
     }
-    
+
     return false;
   }
 

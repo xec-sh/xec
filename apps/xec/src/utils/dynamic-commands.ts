@@ -4,6 +4,7 @@ import { pathToFileURL } from 'url';
 import { Command } from 'commander';
 import { transform } from 'esbuild';
 import * as clack from '@clack/prompts';
+import { createUniversalLoader } from './universal-loader.js';
 
 interface DynamicCommand {
   name: string;
@@ -34,9 +35,17 @@ export class DynamicCommandLoader {
    * Load all dynamic commands
    */
   async loadCommands(program: Command): Promise<void> {
+    if (process.env['XEC_DEBUG']) {
+      clack.log.info(`Loading dynamic commands from directories: ${this.commandDirs.join(', ')}`);
+    }
     for (const dir of this.commandDirs) {
       if (await fs.pathExists(dir)) {
+        if (process.env['XEC_DEBUG']) {
+          clack.log.info(`Loading commands from directory: ${dir}`);
+        }
         await this.loadCommandsFromDirectory(dir, program);
+      } else if (process.env['XEC_DEBUG']) {
+        clack.log.warn(`Command directory does not exist: ${dir}`);
       }
     }
   }
@@ -99,6 +108,13 @@ export class DynamicCommandLoader {
     try {
       let module;
 
+      // Set up global module context for dynamic imports
+      (globalThis as any).__xecModuleContext = {
+        import: (spec: string) => import(spec),
+        importJSR: (pkg: string) => import('https://jsr.io/' + pkg),
+        importNPM: (pkg: string) => import('https://esm.sh/' + pkg)
+      };
+
       // Handle TypeScript files
       if (ext === '.ts' || ext === '.tsx') {
         const content = await fs.readFile(filePath, 'utf-8');
@@ -142,6 +158,9 @@ export class DynamicCommandLoader {
       if (process.env['XEC_DEBUG']) {
         console.error(`Failed to load command ${commandName}:`, error);
       }
+    } finally {
+      // Clean up global context
+      delete (globalThis as any).__xecModuleContext;
     }
   }
 
@@ -151,12 +170,14 @@ export class DynamicCommandLoader {
   private async transpileTypeScript(content: string, filename: string): Promise<string> {
     const result = await transform(content, {
       format: 'esm',
-      target: 'node16',
+      target: 'esnext', // Changed to support top-level await
       loader: filename.endsWith('.tsx') ? 'tsx' : 'ts',
       sourcemap: 'inline',
       sourcefile: filename,
       platform: 'node',
-      // external: ['@xec-sh/core', 'commander', '@clack/prompts'] // Not supported in transform
+      supported: {
+        'top-level-await': true
+      }
     });
     return result.code;
   }

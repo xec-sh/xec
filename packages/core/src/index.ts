@@ -9,10 +9,11 @@ export { within, withinSync } from './utils/within.js';
 export { DockerContainer } from './utils/docker-api.js';
 export { LocalAdapter } from './adapters/local-adapter.js';
 export { withTempDir, withTempFile } from './utils/temp.js';
+export { RuntimeDetector } from './utils/runtime-detect.js';
 export { ExecutionEngine } from './core/execution-engine.js';
-export { DockerAdapter } from './adapters/docker-adapter.js';
 
 export type { ExecutionEngineConfig };
+export { DockerAdapter } from './adapters/docker-adapter.js';
 export { parallel, ParallelEngine } from './utils/parallel.js';
 export { SSHKeyValidator } from './utils/ssh-key-validator.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
