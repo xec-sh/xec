@@ -1,5 +1,37 @@
 # Changes in Xec CLI
 
+## 🐛 Fixed Dynamic Command Loading & Release Issues
+
+### What Changed:
+Fixed critical issues with dynamic command loading in `.xec/commands` directory and corrected `.npmrc` file creation in the release command.
+
+### Key Improvements:
+
+#### 1. **Fixed Module Resolution for Dynamic Commands**
+- Commands now properly locate `node_modules` directory in monorepo structures
+- Temporary files are created in the correct directory with access to dependencies
+- Fixed "Cannot find package '@clack/prompts'" errors
+
+#### 2. **Fixed `.npmrc` Creation in Release Command**
+- `.npmrc` is now created in the project root directory (not as a temp file)
+- Proper cleanup and restoration of existing `.npmrc` files
+- Ensures npm authentication works correctly during package publishing
+
+### Technical Details:
+- Enhanced directory traversal to find `node_modules` in parent directories
+- Support for `apps/xec/node_modules` in monorepo structure
+- Proper handling of existing `.npmrc` files with backup and restore
+
+### What This Means for You:
+
+✅ **Dynamic commands work reliably** - No more module loading errors
+
+✅ **Release command works properly** - NPM authentication fixed
+
+✅ **Better monorepo support** - Commands work from any directory in the project
+
+---
+
 ## 📝 Improved Development Workflow
 
 ### What Changed:
