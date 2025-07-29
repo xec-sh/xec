@@ -241,4 +241,35 @@ await $.batch(packages.map(pkg => `cd ${pkg.path} && yarn build`), {
 
 ---
 
+## 🧹 Simplified Release Command
+
+### What Changed:
+Removed unnecessary dependency checking and test running from the release command to streamline the release process.
+
+### Key Improvements:
+
+#### 1. **Removed Outdated Package Checking**
+- No more prompts about outdated dependencies during release
+- Faster release process without unnecessary checks
+- Trust developers to manage dependencies separately
+
+#### 2. **Removed Automatic Test Running**
+- Tests should be run in CI/CD, not during release
+- Eliminates release failures due to test issues
+- Cleaner, more focused release workflow
+
+### What This Means for You:
+
+✅ **Faster Releases** - No waiting for dependency checks or tests
+
+✅ **Fewer Interruptions** - No prompts about outdated packages
+
+✅ **Cleaner Workflow** - Release command focuses only on releasing
+
+### Removed Options:
+- `--skip-dep-check` - No longer needed as check is removed
+- Test running prompt - Tests should be run before release
+
+---
+
 *These changes are part of the work to improve the dynamic module loading system in Xec CLI.*
