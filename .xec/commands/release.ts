@@ -722,24 +722,26 @@ export function command(program: Command): void {
                 if (corePackages.length > 0) {
                   s.start(`Publishing ${corePackages[0].name}...`);
                   await $`yarn workspace ${corePackages[0].name} npm publish --access public`;
+                  
+                  // Wait a bit for NPM to process the package
+                  s.start('Waiting for NPM to process the package...');
+                  await new Promise(resolve => setTimeout(resolve, 5000));
                 }
 
-                // Publish others in parallel with progress
-                if (otherPackages.length > 0) {
-                  const publishResult = await $.parallel.settled(
-                    otherPackages.map(pkg =>
-                      `yarn workspace ${pkg.name} npm publish --access public`
-                    ),
-                    {
-                      maxConcurrency: 2, // NPM rate limiting
-                      onProgress: (done, total, succeeded) => {
-                        s.start(`Publishing packages: ${done}/${total} completed`);
-                      }
+                // Publish others sequentially to avoid "Failed to save packument" error
+                for (let i = 0; i < otherPackages.length; i++) {
+                  const pkg = otherPackages[i];
+                  s.start(`Publishing ${pkg.name}... (${i + 1}/${otherPackages.length})`);
+                  
+                  try {
+                    await $`yarn workspace ${pkg.name} npm publish --access public`;
+                    
+                    // Wait between publishes to avoid NPM rate limiting
+                    if (i < otherPackages.length - 1) {
+                      await new Promise(resolve => setTimeout(resolve, 3000));
                     }
-                  );
-
-                  if (publishResult.failed.length > 0) {
-                    throw new Error(`Failed to publish ${publishResult.failed.length} packages`);
+                  } catch (error) {
+                    throw new Error(`Failed to publish ${pkg.name}: ${error}`);
                   }
                 }
 
@@ -810,25 +812,28 @@ export function command(program: Command): void {
               rollbackState.createdFiles.push(jsrJsonPath);
             }));
 
-            // Publish packages with appropriate concurrency
-            const publishCommands = jsrPackages.map(pkg =>
-              config.jsrToken
-                ? $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg.path)`deno publish --token $JSR_TOKEN`
-                : $.cd(pkg.path)`deno publish`
-            );
-
-            const jsrResult = await $.parallel.settled(publishCommands, {
-              maxConcurrency: 1, // JSR may have rate limits
-              onProgress: (done, total) => {
-                s.start(`Publishing to JSR.io: ${done}/${total}`);
+            // Publish packages sequentially with delays
+            for (let i = 0; i < jsrPackages.length; i++) {
+              const pkg = jsrPackages[i];
+              s.start(`Publishing ${pkg.name} to JSR.io... (${i + 1}/${jsrPackages.length})`);
+              
+              try {
+                if (config.jsrToken) {
+                  await $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg.path)`deno publish --token $JSR_TOKEN`;
+                } else {
+                  await $.cd(pkg.path)`deno publish`;
+                }
+                
+                // Wait between publishes to avoid rate limiting
+                if (i < jsrPackages.length - 1) {
+                  await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+              } catch (error) {
+                throw new Error(`Failed to publish ${pkg.name} to JSR.io: ${error}`);
               }
-            });
-
-            if (jsrResult.failed.length > 0) {
-              throw new Error(`Failed to publish ${jsrResult.failed.length} packages to JSR.io`);
             }
 
-            s.stop(`✅ Published ${jsrResult.succeeded.length} packages to JSR.io`);
+            s.stop(`✅ Published ${jsrPackages.length} packages to JSR.io`);
           }
         }
 
