@@ -44,3 +44,5 @@ test-results.json
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+
+.xec/module-cache

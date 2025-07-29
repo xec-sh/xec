@@ -1,17 +1,22 @@
-import path from 'path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
 import { glob } from 'glob';
 import { Command } from 'commander';
+import { fileURLToPath } from 'url';
+import path, { join, dirname } from 'path';
 
 import { getConfig } from '../utils/config.js';
 import { BaseCommand } from '../utils/command-base.js';
 import { getDynamicCommandLoader } from '../utils/dynamic-commands.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 interface ListOptions {
   format?: 'table' | 'json' | 'simple';
   filter?: string;
   verbose?: boolean;
+  sort?: 'name' | 'type' | 'status';
 }
 
 interface ListableItem {
@@ -21,7 +26,27 @@ interface ListableItem {
   type?: string;
   status?: string;
   error?: string;
+  category?: string;
 }
+
+// Built-in command descriptions
+const BUILTIN_DESCRIPTIONS: Record<string, string> = {
+  cache: 'Manage execution cache',
+  config: 'Manage configuration settings',
+  copy: 'Copy files between locations',
+  env: 'Display environment variables',
+  forward: 'Set up port forwarding',
+  in: 'Execute commands in containers or pods',
+  init: 'Initialize a new Xec project',
+  interactive: 'Start interactive shell',
+  list: 'List available resources',
+  logs: 'Stream logs from various sources',
+  new: 'Create new scripts or commands from templates',
+  on: 'Execute commands on remote hosts',
+  run: 'Run scripts or evaluate code',
+  version: 'Display version information',
+  watch: 'Watch files and execute commands on change'
+};
 
 class ListCommand extends BaseCommand {
   constructor() {
@@ -38,6 +63,11 @@ class ListCommand extends BaseCommand {
         {
           flags: '--filter <pattern>',
           description: 'Filter results by pattern'
+        },
+        {
+          flags: '--sort <field>',
+          description: 'Sort by field (name|type|status)',
+          defaultValue: 'name'
         }
       ],
       examples: [
@@ -130,10 +160,25 @@ class ListCommand extends BaseCommand {
       { title: 'Batches', items: await this.getBatches(options) }
     ];
 
+    let totalCount = 0;
+    const sectionCounts: Record<string, number> = {};
+
     for (const section of sections) {
+      sectionCounts[section.title] = section.items.length;
+      totalCount += section.items.length;
+      
       if (section.items.length > 0) {
-        console.log(`\n${chalk.bold.cyan(section.title)}:`);
+        console.log(`\n${chalk.bold.cyan(section.title)} ${chalk.dim(`(${section.items.length})`)}:`);
         this.displayItems(section.items, options);
+      }
+    }
+
+    // Display summary
+    console.log(`\n${chalk.bold('Summary:')}`);
+    console.log(`  Total resources: ${chalk.green(totalCount)}`);
+    for (const [title, count] of Object.entries(sectionCounts)) {
+      if (count > 0) {
+        console.log(`  ${title}: ${chalk.cyan(count)}`);
       }
     }
 
@@ -157,10 +202,25 @@ class ListCommand extends BaseCommand {
     const commands = await this.getCommands(options);
     
     if (commands.length === 0) {
-      this.log('No custom commands found', 'warn');
-      this.log('Create commands in .xec/commands/', 'info');
+      this.log('No commands found matching filter', 'warn');
     } else {
-      this.displayItems(commands, options);
+      // Group by category
+      const builtIn = commands.filter(c => c.category === 'built-in');
+      const custom = commands.filter(c => c.category === 'custom');
+      
+      if (builtIn.length > 0) {
+        console.log(`\n${chalk.bold.cyan('Built-in Commands')} ${chalk.dim(`(${builtIn.length})`)}:`);
+        this.displayItems(builtIn, options);
+      }
+      
+      if (custom.length > 0) {
+        console.log(`\n${chalk.bold.cyan('Custom Commands')} ${chalk.dim(`(${custom.length})`)}:`);
+        this.displayItems(custom, options);
+      } else if (!options.filter) {
+        console.log(`\n${chalk.dim('No custom commands found. Create commands in .xec/commands/')}`);
+      }
+      
+      console.log(`\n${chalk.bold('Total:')} ${chalk.green(commands.length)} command${commands.length === 1 ? '' : 's'}`);
     }
   }
 
@@ -237,42 +297,110 @@ class ListCommand extends BaseCommand {
       ignore: ['**/*.test.*', '**/*.spec.*']
     });
 
-    return files
-      .filter(file => ['.js', '.ts', '.mjs', '.sh'].some(ext => file.endsWith(ext)))
-      .map(file => ({
-        name: file,
-        path: path.join(scriptsDir, file),
-        type: 'script'
-      }));
+    const scripts = await Promise.all(
+      files
+        .filter(file => ['.js', '.ts', '.mjs', '.sh'].some(ext => file.endsWith(ext)))
+        .map(async (file) => {
+          const fullPath = path.join(scriptsDir, file);
+          let description = '';
+          
+          // Try to extract description from script
+          if (options.verbose) {
+            try {
+              const content = await fs.readFile(fullPath, 'utf-8');
+              const lines = content.split('\n');
+              
+              // Look for description in comments
+              for (const line of lines.slice(0, 10)) {
+                if (line.match(/^\s*(\/\/|#)\s*@description\s+(.+)$/)) {
+                  description = RegExp.$2;
+                  break;
+                } else if (line.match(/^\s*(\/\/|#)\s*Description:\s*(.+)$/i)) {
+                  description = RegExp.$2;
+                  break;
+                }
+              }
+            } catch {}
+          }
+          
+          return {
+            name: file,
+            path: fullPath,
+            type: 'script',
+            description
+          };
+        })
+    );
+
+    return this.sortItems(scripts, options);
   }
 
   private async getCommands(options: ListOptions): Promise<ListableItem[]> {
     const loader = getDynamicCommandLoader();
     const commands = loader.getCommands();
 
-    const items: ListableItem[] = commands
-      .filter(cmd => !options.filter || cmd.name.includes(options.filter))
-      .map(cmd => ({
-        name: cmd.name,
-        path: cmd.path,
-        type: 'command',
-        status: cmd.loaded ? 'loaded' : 'failed',
-        error: cmd.error
-      }));
+    const items: ListableItem[] = [];
 
-    // Also add built-in commands if no filter or filter matches
-    const builtInCommands = ['init', 'run', 'exec', 'ssh', 'docker', 'k8s', 'list', 'version'];
+    // Get built-in commands dynamically from the commands directory
+    const builtInCommands = await this.getBuiltInCommands();
+    
+    // Add built-in commands
     for (const cmd of builtInCommands) {
       if (!options.filter || cmd.includes(options.filter)) {
-        items.unshift({
+        items.push({
           name: cmd,
+          description: BUILTIN_DESCRIPTIONS[cmd],
           type: 'built-in',
-          status: 'loaded'
+          status: 'loaded',
+          category: 'built-in'
         });
       }
     }
 
+    // Add custom commands
+    const customCommands = commands
+      .filter(cmd => !options.filter || cmd.name.includes(options.filter))
+      .map(cmd => ({
+        name: cmd.name,
+        path: cmd.path,
+        type: 'custom',
+        status: cmd.loaded ? 'loaded' : 'failed',
+        error: cmd.error,
+        category: 'custom'
+      }));
+
+    items.push(...customCommands);
+
+    // Sort by category (built-in first) then by name
+    items.sort((a, b) => {
+      if (a.category !== b.category) {
+        return a.category === 'built-in' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
     return items;
+  }
+
+  private async getBuiltInCommands(): Promise<string[]> {
+    const commandsDir = join(__dirname, '../commands');
+    const builtInCommands: string[] = [];
+
+    if (await fs.pathExists(commandsDir)) {
+      const files = await fs.readdir(commandsDir);
+      for (const file of files) {
+        // Skip declaration files and test files
+        if ((file.endsWith('.js') || file.endsWith('.ts')) && 
+            !file.endsWith('.d.ts') && 
+            !file.endsWith('.test.ts') && 
+            !file.endsWith('.test.js')) {
+          const commandName = file.replace(/\.(js|ts)$/, '');
+          builtInCommands.push(commandName);
+        }
+      }
+    }
+
+    return builtInCommands.sort();
   }
 
   private async getProfiles(options: ListOptions): Promise<ListableItem[]> {
@@ -297,7 +425,7 @@ class ListCommand extends BaseCommand {
       .filter(([name]) => !options.filter || name.includes(options.filter))
       .map(([name, hostConfig]: [string, any]) => ({
         name,
-        description: `${hostConfig.user || 'root'}@${hostConfig.host || name}`,
+        description: `${hostConfig.user || 'root'}@${hostConfig.host || name}${hostConfig.port ? ':' + hostConfig.port : ''}`,
         type: 'ssh-host'
       }));
   }
@@ -314,11 +442,15 @@ class ListCommand extends BaseCommand {
       nodir: true
     });
 
-    return files.map(file => ({
-      name: file,
-      path: path.join(templatesDir, file),
-      type: 'template'
-    }));
+    return this.sortItems(
+      files.map(file => ({
+        name: file,
+        path: path.join(templatesDir, file),
+        type: 'template',
+        description: file.replace(/\.(yaml|yml|json|js|ts)$/, '')
+      })),
+      options
+    );
   }
 
   private async getPipelines(options: ListOptions): Promise<ListableItem[]> {
@@ -334,13 +466,17 @@ class ListCommand extends BaseCommand {
       ignore: ['**/*.test.*', '**/*.spec.*']
     });
 
-    return files
-      .filter(file => ['.yaml', '.yml', '.json'].some(ext => file.endsWith(ext)))
-      .map(file => ({
-        name: file,
-        path: path.join(pipelinesDir, file),
-        type: 'pipeline'
-      }));
+    return this.sortItems(
+      files
+        .filter(file => ['.yaml', '.yml', '.json'].some(ext => file.endsWith(ext)))
+        .map(file => ({
+          name: file,
+          path: path.join(pipelinesDir, file),
+          type: 'pipeline',
+          description: path.basename(file, path.extname(file))
+        })),
+      options
+    );
   }
 
   private async getBatches(options: ListOptions): Promise<ListableItem[]> {
@@ -356,13 +492,17 @@ class ListCommand extends BaseCommand {
       ignore: ['**/*.test.*', '**/*.spec.*']
     });
 
-    return files
-      .filter(file => ['.yaml', '.yml', '.json'].some(ext => file.endsWith(ext)))
-      .map(file => ({
-        name: file,
-        path: path.join(batchesDir, file),
-        type: 'batch'
-      }));
+    return this.sortItems(
+      files
+        .filter(file => ['.yaml', '.yml', '.json'].some(ext => file.endsWith(ext)))
+        .map(file => ({
+          name: file,
+          path: path.join(batchesDir, file),
+          type: 'batch',
+          description: path.basename(file, path.extname(file))
+        })),
+      options
+    );
   }
 
   private displayItems(items: ListableItem[], options: ListOptions): void {
@@ -376,35 +516,88 @@ class ListCommand extends BaseCommand {
       return;
     }
 
-    // Table format
+    // Table format with icons
     items.forEach(item => {
-      let line = `  ${chalk.cyan(item.name)}`;
+      let icon = '  ';
+      const nameColor = chalk.cyan;
       
-      if (item.status === 'active') {
-        line += chalk.green(' (active)');
-      } else if (item.status === 'failed') {
-        line += chalk.red(' (failed)');
+      // Choose icon based on type
+      switch (item.type) {
+        case 'script':
+          icon = chalk.green('  ▶ ');
+          break;
+        case 'built-in':
+          icon = chalk.blue('  ⌘ ');
+          break;
+        case 'custom':
+          icon = chalk.yellow('  ★ ');
+          break;
+        case 'profile':
+          icon = chalk.magenta('  ⚙ ');
+          break;
+        case 'ssh-host':
+          icon = chalk.cyan('  ⇄ ');
+          break;
+        case 'template':
+          icon = chalk.gray('  ≡ ');
+          break;
+        case 'pipeline':
+          icon = chalk.blue('  ⇨ ');
+          break;
+        case 'batch':
+          icon = chalk.yellow('  ☰ ');
+          break;
       }
       
-      if (item.type === 'built-in') {
-        line += chalk.dim(' [built-in]');
+      let line = `${icon}${nameColor(item.name)}`;
+      
+      if (item.status === 'active') {
+        line += chalk.green(' ✓');
+      } else if (item.status === 'failed') {
+        line += chalk.red(' ✗');
       }
       
       if (item.description) {
-        line += chalk.gray(` - ${item.description}`);
+        const maxDescLen = process.stdout.columns ? process.stdout.columns - 40 : 60;
+        const desc = item.description.length > maxDescLen 
+          ? item.description.substring(0, maxDescLen - 3) + '...'
+          : item.description;
+        line += chalk.gray(` - ${desc}`);
       }
       
       console.log(line);
       
       if (options.verbose) {
         if (item.path) {
-          console.log(`    ${chalk.dim('Path:')} ${item.path}`);
+          console.log(`      ${chalk.dim('Path:')} ${chalk.dim(item.path)}`);
         }
         if (item.error) {
-          console.log(`    ${chalk.red('Error:')} ${item.error}`);
+          console.log(`      ${chalk.red('Error:')} ${item.error}`);
+        }
+        if (item.type && !['built-in', 'custom'].includes(item.type)) {
+          console.log(`      ${chalk.dim('Type:')} ${item.type}`);
         }
       }
     });
+  }
+
+  private sortItems(items: ListableItem[], options: ListOptions): ListableItem[] {
+    const sorted = [...items];
+    
+    switch (options.sort) {
+      case 'type':
+        sorted.sort((a, b) => (a.type || '').localeCompare(b.type || ''));
+        break;
+      case 'status':
+        sorted.sort((a, b) => (a.status || '').localeCompare(b.status || ''));
+        break;
+      case 'name':
+      default:
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+    
+    return sorted;
   }
 }
 

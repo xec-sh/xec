@@ -1,10 +1,10 @@
 import { it, jest, expect, describe } from '@jest/globals';
 
 import { 
-  pipeUtils, 
   retry, 
-  within,
-  parallel, 
+  within, 
+  parallel,
+  pipeUtils, 
   withinSync, 
   RetryError,
   ParallelEngine,
@@ -155,17 +155,13 @@ describe('Utility Exports', () => {
     
     it('should use within function correctly', async () => {
       const testConfig = { defaultTimeout: 5000 };
-      const result = await within(testConfig, async () => {
-        return 42;
-      });
+      const result = await within(testConfig, async () => 42);
       expect(result).toBe(42);
     });
     
     it('should use withinSync function correctly', () => {
       const testConfig = { defaultTimeout: 5000 };
-      const result = withinSync(testConfig, () => {
-        return 42;
-      });
+      const result = withinSync(testConfig, () => 42);
       expect(result).toBe(42);
     });
     
@@ -189,9 +185,7 @@ describe('Utility Exports', () => {
     });
     
     it('should handle retry exhaustion', async () => {
-      const testFunction = jest.fn(async () => {
-        return { exitCode: 1, stdout: '', stderr: 'Always fails', command: 'test' } as any;
-      });
+      const testFunction = jest.fn(async () => ({ exitCode: 1, stdout: '', stderr: 'Always fails', command: 'test' } as any));
       
       await expect(retry(testFunction, {
         maxRetries: 2,
@@ -288,9 +282,7 @@ describe('Utility Exports', () => {
       const result = await within(outerConfig, async () => {
         const outerResult = 'outer';
         
-        const innerResult = await within(innerConfig, async () => {
-          return 'inner';
-        });
+        const innerResult = await within(innerConfig, async () => 'inner');
         
         return { outer: outerResult, inner: innerResult };
       });

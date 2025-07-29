@@ -1,8 +1,0 @@
-
-services:
-  alpine-apk:
-    build: .
-    container_name: alpine-apk
-    ports:
-      - "2204:22"
-    restart: unless-stopped

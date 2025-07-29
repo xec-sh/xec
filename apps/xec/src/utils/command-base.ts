@@ -52,8 +52,8 @@ export abstract class BaseCommand {
     
     command
       .description(this.config.description)
-      .option('-v, --verbose', 'Enable verbose output')
-      .option('-q, --quiet', 'Suppress output')
+      // Don't add verbose/quiet options as they conflict with parent program options
+      // These are inherited from the parent command
       .option('-o, --output <format>', 'Output format (text|json|yaml|csv)', 'text')
       .option('-c, --config <path>', 'Path to configuration file')
       .option('--dry-run', 'Perform a dry run without making changes');
@@ -87,9 +87,11 @@ export abstract class BaseCommand {
     command.action(async (...args) => {
       try {
         const options = args[args.length - 1];
+        // Get verbose and quiet from parent command
+        const parentOptions = options.parent?.opts() || {};
         this.options = {
-          verbose: options.verbose || false,
-          quiet: options.quiet || false,
+          verbose: parentOptions.verbose || options.verbose || false,
+          quiet: parentOptions.quiet || options.quiet || false,
           output: options.output || 'text',
           config: options.config,
           dryRun: options.dryRun || false,

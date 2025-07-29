@@ -1,0 +1,29 @@
+{
+  "skipDepCheck": false,
+  "skipTests": false,
+  "skipJsr": false,
+  "defaultBranch": "main",
+  "packages": [
+    {
+      "name": "@xec-sh/core",
+      "path": "packages/core"
+    },
+    {
+      "name": "@xec-sh/cli",
+      "path": "apps/xec"
+    }
+  ],
+  "npm": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "github": {
+    "owner": "xec-sh",
+    "repo": "xec",
+    "releaseDraft": false
+  },
+  "hooks": {
+    "preRelease": "echo 'Starting release process...'",
+    "postRelease": "echo 'Release completed!'"
+  }
+}

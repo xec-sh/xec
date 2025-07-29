@@ -1,4 +1,4 @@
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
+import { it, expect, describe, afterEach } from '@jest/globals';
 
 import { $ } from '../../src/index.js';
 

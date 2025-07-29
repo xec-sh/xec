@@ -8,8 +8,8 @@ import { checkForCommandTypo } from '@xec-sh/core';
 import { loadConfig } from './utils/config.js';
 import { handleError } from './utils/error-handler.js';
 import { loadDynamicCommands } from './utils/dynamic-commands.js';
-import { registerCliCommands } from './utils/command-registry.js';
 import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
+import { registerCliCommands } from './utils/command-registry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -67,6 +67,14 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
   // Load configuration
   await loadConfig();
+  
+  // Load all commands first (built-in and dynamic)
+  await loadCommands(program);
+  
+  // Build command registry for validation
+  const commandRegistry = registerCliCommands(program);
+  const commandNames = program.commands.map(cmd => cmd.name())
+    .concat(program.commands.flatMap(cmd => cmd.aliases() || []));
 
   try {
     // Check if this is a script execution
@@ -104,7 +112,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     }
 
     // Check if this is a direct command execution
-    if (args.length > 0 && isDirectCommand(args)) {
+    if (args.length > 0 && isDirectCommand(args, commandNames)) {
       const options = {
         verbose: args.includes('-v') || args.includes('--verbose'),
         quiet: args.includes('-q') || args.includes('--quiet'),
@@ -129,10 +137,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       return;
     }
 
-    await loadCommands(program);
-    
-    // Build command registry for suggestions
-    const commandRegistry = registerCliCommands(program);
+    // Commands already loaded above
     
     // Set up command not found handler
     program.on('command:*', () => {
@@ -174,13 +179,13 @@ async function runScriptDirectly(scriptPath: string, args: string[], options: an
 async function evalCodeDirectly(code: string, args: string[], options: any) {
   const scriptModule = await import('./commands/run.js');
   const { evalCode } = scriptModule;
-  await evalCode(code, args);
+  await evalCode(code, args, options);
 }
 
 async function startReplDirectly(options: any) {
   const scriptModule = await import('./commands/run.js');
   const { startRepl } = scriptModule;
-  await startRepl();
+  await startRepl(options);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

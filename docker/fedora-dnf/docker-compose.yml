@@ -1,7 +1,0 @@
-services:
-  fedora-dnf:
-    build: .
-    container_name: fedora-dnf
-    ports:
-      - "2203:22"
-    restart: unless-stopped
