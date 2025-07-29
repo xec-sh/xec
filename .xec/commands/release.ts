@@ -1022,6 +1022,9 @@ ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
 
 🎉 Happy coding with Xec!
         `));
+        
+        // Exit successfully
+        process.exit(0);
 
       } catch (error: any) {
         s.stop('❌ Release failed');
