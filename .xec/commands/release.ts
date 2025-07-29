@@ -53,8 +53,6 @@ interface ReleaseConfig {
   githubToken?: string;
   npmToken?: string;
   jsrToken?: string;
-  runTests?: boolean;
-  skipDepCheck: boolean;
 }
 
 // Rollback state to track changes
@@ -238,26 +236,6 @@ async function generateChangelog(fromVersion: string, toVersion: string): Promis
   return sections ? sections + '\n\n' : '- Various improvements and bug fixes\n';
 }
 
-// Helper to check for dependency updates - optimized with streaming
-async function checkDependencyUpdates(): Promise<{ hasUpdates: boolean; updates: string[] }> {
-  // Use nothrow to handle exit code 1 (outdated packages)
-  const result = await $`npm outdated --json`.nothrow();
-
-  if (!result.stdout.trim()) {
-    return { hasUpdates: false, updates: [] };
-  }
-
-  try {
-    const data = JSON.parse(result.stdout);
-    const updates = Object.entries(data).map(([pkg, info]: [string, any]) =>
-      `${pkg}: ${info.current} → ${info.wanted}`
-    );
-
-    return { hasUpdates: updates.length > 0, updates };
-  } catch {
-    return { hasUpdates: false, updates: [] };
-  }
-}
 
 // Safe rollback function - optimized with parallel operations
 async function performRollback(state: RollbackState, config: ReleaseConfig): Promise<void> {
@@ -317,7 +295,6 @@ export function command(program: Command): void {
     .option('--github-token <token>', 'GitHub authentication token')
     .option('--jsr-token <token>', 'JSR.io authentication token')
     .option('--prerelease <tag>', 'Create a prerelease version (alpha, beta, rc)')
-    .option('--skip-dep-check', 'Skip dependency update check')
     .option('--config <path>', 'Path to release configuration file')
     .action(async (version: string | undefined, options: any) => {
       const s = clack.spinner();
@@ -345,8 +322,6 @@ export function command(program: Command): void {
         githubToken: '',
         npmToken: '',
         jsrToken: '',
-        runTests: false,
-        skipDepCheck: false
       };
 
       try {
@@ -451,8 +426,8 @@ export function command(program: Command): void {
                 if (!semver.valid(value)) {
                   return 'Invalid semver version';
                 }
-                if (!semver.gt(value, currentVersion)) {
-                  return `Version must be greater than ${currentVersion}`;
+                if (semver.lt(value, currentVersion)) {
+                  return `Version must be greater than or equal to ${currentVersion}`;
                 }
               }
             }));
@@ -477,12 +452,6 @@ export function command(program: Command): void {
           process.exit(1);
         }
 
-        // Collect other options
-        const runTests = !options.dryRun && await promptWithCancel(() => clack.confirm({
-          message: 'Run tests before publishing?',
-          initialValue: true
-        }));
-
         // Create release config
         config = {
           version: newVersion!,
@@ -496,8 +465,6 @@ export function command(program: Command): void {
           githubToken: options.githubToken,
           npmToken: options.npmToken,
           jsrToken: options.jsrToken,
-          runTests: runTests as boolean,
-          skipDepCheck: options.skipDepCheck
         };
 
         rollbackState.tagName = `v${config.version}`;
@@ -531,11 +498,6 @@ export function command(program: Command): void {
         if (!config.skipJsr) {
           clack.log.info(`  JSR.io:`);
           clack.log.info(`    - Publish @xec-sh/core and @xec-sh/cli`);
-        }
-
-        if (config.runTests) {
-          clack.log.info(`  Testing:`);
-          clack.log.info(`    - Run test suite before publishing`);
         }
 
         if (config.dryRun) {
@@ -573,30 +535,7 @@ export function command(program: Command): void {
         // Now apply all changes after collecting parameters
         clack.log.info(chalk.bold('\n🚀 Starting Release Process\n'));
 
-        // Step 3: Check dependencies
-        if (!config.skipDepCheck) {
-          s.start('Checking for dependency updates...');
-          const depCheck = await checkDependencyUpdates();
-
-          if (depCheck.hasUpdates) {
-            s.stop('⚠️  Found outdated dependencies');
-            clack.log.warn('Outdated dependencies found:');
-            depCheck.updates.forEach(u => clack.log.info(`  - ${u}`));
-
-            const continueWithOutdated = await promptWithCancel(() => clack.confirm({
-              message: 'Continue with outdated dependencies?',
-              initialValue: true
-            }));
-
-            if (!continueWithOutdated) {
-              handleCancel();
-            }
-          } else {
-            s.stop('✅ All dependencies up to date');
-          }
-        }
-
-        // Step 4: Update versions
+        // Step 3: Update versions
         s.start('Updating package versions...');
 
         if (!config.dryRun) {
@@ -619,7 +558,7 @@ export function command(program: Command): void {
 
         s.stop('✅ Package versions updated');
 
-        // Step 4.5: Update CHANGELOG.md from CHANGES.md
+        // Step 3.5: Update CHANGELOG.md from CHANGES.md
         s.start('Updating CHANGELOG...');
 
         let changelogContent = '';
@@ -671,7 +610,7 @@ export function command(program: Command): void {
           s.stop('✅ CHANGELOG.md update skipped (dry run)');
         }
 
-        // Step 5: Build packages
+        // Step 4: Build packages
         s.start('Building packages...');
 
         if (!config.dryRun) {
@@ -697,44 +636,55 @@ export function command(program: Command): void {
           s.stop('✅ Package build skipped (dry run)');
         }
 
-        // Step 6: Run tests if requested
-        if (config.runTests && !config.dryRun) {
-          s.start('Running tests...');
-
-          const testResult = await $`yarn test`.nothrow();
-          if (testResult.exitCode !== 0) {
-            s.stop('❌ Tests failed');
-
-            const continueAnyway = await promptWithCancel(() => clack.confirm({
-              message: 'Tests failed. Continue anyway?',
-              initialValue: false
-            }));
-
-            if (!continueAnyway) {
-              await performRollback(rollbackState, config);
-              handleCancel();
-            }
-          } else {
-            s.stop('✅ Tests passed');
-          }
-        }
-
-        // Step 7: Git operations
+        // Step 5: Git operations
         if (!config.skipGit && !config.dryRun) {
           s.start('Creating git commit and tag...');
 
           // Now add files after all changes are made
           await $`git add .`;
-          await $`git commit -m "chore: release v${config.version}"`;
-          rollbackState.gitCommitCreated = true;
+          
+          // Check if there are any changes to commit
+          const hasChanges = await $`git diff --cached --exit-code`.nothrow().then(r => r.exitCode !== 0);
+          
+          if (hasChanges) {
+            await $`git commit -m "chore: release v${config.version}"`;
+            rollbackState.gitCommitCreated = true;
+          } else {
+            clack.log.info('No changes to commit');
+          }
 
-          await $`git tag -a v${config.version} -m "Release v${config.version}"`;
-          rollbackState.gitTagCreated = true;
+          // Check if tag already exists
+          const tagExists = await $`git tag -l v${config.version}`.then(r => r.stdout.trim() !== '');
+          
+          if (tagExists) {
+            s.stop(`⚠️  Tag v${config.version} already exists`);
+            const overwriteTag = await promptWithCancel(() => clack.confirm({
+              message: `Tag v${config.version} already exists. Delete and recreate it?`,
+              initialValue: false
+            }));
+            
+            if (overwriteTag) {
+              // Delete existing tag locally
+              await $`git tag -d v${config.version}`;
+              // Delete remote tag if it exists
+              await $`git push origin :refs/tags/v${config.version}`.nothrow();
+              // Create new tag
+              await $`git tag -a v${config.version} -m "Release v${config.version}"`;
+              rollbackState.gitTagCreated = true;
+            } else {
+              // Skip tag creation but continue with release
+              clack.log.info(`Using existing tag v${config.version}`);
+            }
+          } else {
+            // Create new tag
+            await $`git tag -a v${config.version} -m "Release v${config.version}"`;
+            rollbackState.gitTagCreated = true;
+          }
 
           s.stop('✅ Git commit and tag created');
         }
 
-        // Step 8: NPM publishing
+        // Step 6: NPM publishing
         if (!config.skipNpm && !config.dryRun) {
           s.start('Publishing to NPM...');
 
@@ -821,7 +771,7 @@ export function command(program: Command): void {
           }
         }
 
-        // Step 9: JSR.io publishing
+        // Step 7: JSR.io publishing
         if (!config.skipJsr && !config.dryRun) {
           s.start('Publishing to JSR.io...');
 
@@ -881,20 +831,24 @@ export function command(program: Command): void {
           }
         }
 
-        // Step 10: Push to GitHub
+        // Step 8: Push to GitHub
         if (!config.skipGit && !config.dryRun) {
           s.start('Pushing to GitHub...');
 
           // Push branch and tag in parallel
-          await $.parallel.all([
-            `git push origin ${currentBranch}`,
-            `git push origin v${config.version}`
-          ]);
+          const pushCommands = [`git push origin ${currentBranch}`];
+          
+          // Only push tag if it was created or updated
+          if (rollbackState.gitTagCreated) {
+            pushCommands.push(`git push origin v${config.version}`);
+          }
+          
+          await $.parallel.all(pushCommands);
 
           s.stop('✅ Pushed to GitHub');
         }
 
-        // Step 11: Create GitHub release
+        // Step 9: Create GitHub release
         if (!config.skipGithub && !config.dryRun) {
           s.start('Creating GitHub release...');
 
@@ -978,16 +932,46 @@ ${changelog}
 Created with ❤️ by Xec Release Manager
 `;
 
-              // Create release
-              try {
-                if (config.githubToken) {
-                  await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+              // Check if release already exists
+              const releaseExists = await $`gh release view v${config.version}`.nothrow().then(r => r.exitCode === 0);
+              
+              if (releaseExists) {
+                clack.log.warn(`GitHub release v${config.version} already exists`);
+                const updateRelease = await promptWithCancel(() => clack.confirm({
+                  message: `Release v${config.version} already exists. Update it?`,
+                  initialValue: true
+                }));
+                
+                if (!updateRelease) {
+                  clack.log.info('Skipping GitHub release update');
                 } else {
-                  await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                  // Delete and recreate release
+                  await $`gh release delete v${config.version} --yes`.nothrow();
+                  
+                  // Create release
+                  try {
+                    if (config.githubToken) {
+                      await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                    } else {
+                      await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                    }
+                  } catch (error) {
+                    clack.log.error('Failed to create GitHub release');
+                    throw error;
+                  }
                 }
-              } catch (error) {
-                clack.log.error('Failed to create GitHub release');
-                throw error;
+              } else {
+                // Create release
+                try {
+                  if (config.githubToken) {
+                    await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                  } else {
+                    await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                  }
+                } catch (error) {
+                  clack.log.error('Failed to create GitHub release');
+                  throw error;
+                }
               }
 
               s.stop('✅ GitHub release created');
