@@ -84,6 +84,21 @@ export function handleError(error: any, options: CommandOptions): void {
   // Enhance error with core system if not already enhanced
   const enhancedError = enhanceErrorWithContext(error, options);
   
+  // Log detailed error info in debug mode
+  if (process.env['XEC_DEBUG'] === '1' || process.env['XEC_DEBUG'] === 'true') {
+    console.error(chalk.red('\n=== DEBUG ERROR INFO ==='));
+    console.error(chalk.gray('Error type:'), error.constructor.name);
+    console.error(chalk.gray('Error code:'), error.code || 'none');
+    console.error(chalk.gray('Error message:'), error.message);
+    if (error.path) console.error(chalk.gray('Path:'), error.path);
+    if (error.syscall) console.error(chalk.gray('Syscall:'), error.syscall);
+    if (error.stack) {
+      console.error(chalk.gray('\nStack trace:'));
+      console.error(chalk.gray(error.stack));
+    }
+    console.error(chalk.red('======================\n'));
+  }
+  
   // Display error based on format
   if (options.output === 'json') {
     console.error(JSON.stringify(formatEnhancedErrorAsJSON(enhancedError), null, 2));
@@ -348,7 +363,7 @@ function getSystemErrorSuggestion(error: any): string {
     case 'ENOTDIR':
       return 'Path should point to a directory, not a file';
     case 'EISDIR':
-      return 'Path should point to a file, not a directory';
+      return `Path points to a directory but a file was expected${error.path ? ': ' + error.path : ''}. Check the command or script path.`;
     case 'EMFILE':
       return 'Too many open files. Try closing some applications';
     case 'ENOMEM':

@@ -966,7 +966,8 @@ export default function (program: Command) {
     .option('-d, --description <desc>', 'Description for the template')
     .option('-f, --force', 'Overwrite existing file')
     .option('--advanced', 'Use advanced template with more features')
-    .action(async (type: string, name: string, options: NewOptions) => {
+    .option('--js', 'Create JavaScript version (default: TypeScript)')
+    .action(async (type: string, name: string, options: NewOptions & { js?: boolean }) => {
       try {
         // Validate type
         if (!['script', 'command'].includes(type)) {
@@ -999,7 +1000,8 @@ export default function (program: Command) {
         }
 
         const subDir = type === 'script' ? 'scripts' : 'commands';
-        const fileName = `${name}.js`;
+        const fileExt = options.js ? '.js' : '.ts';
+        const fileName = `${name}${fileExt}`;
         const filePath = path.join(xecDir, subDir, fileName);
 
         // Check if file exists
@@ -1020,10 +1022,20 @@ export default function (program: Command) {
 
         // Select template
         let template: string;
-        if (type === 'script') {
-          template = options.advanced ? ADVANCED_JS_SCRIPT_TEMPLATE : BASIC_JS_SCRIPT_TEMPLATE;
+        if (options.js) {
+          // JavaScript templates
+          if (type === 'script') {
+            template = options.advanced ? ADVANCED_JS_SCRIPT_TEMPLATE : BASIC_JS_SCRIPT_TEMPLATE;
+          } else {
+            template = options.advanced ? ADVANCED_JS_COMMAND_TEMPLATE : BASIC_JS_COMMAND_TEMPLATE;
+          }
         } else {
-          template = options.advanced ? ADVANCED_JS_COMMAND_TEMPLATE : BASIC_JS_COMMAND_TEMPLATE;
+          // TypeScript templates (default)
+          if (type === 'script') {
+            template = options.advanced ? ADVANCED_TS_SCRIPT_TEMPLATE : BASIC_TS_SCRIPT_TEMPLATE;
+          } else {
+            template = options.advanced ? ADVANCED_TS_COMMAND_TEMPLATE : BASIC_TS_COMMAND_TEMPLATE;
+          }
         }
 
         // Replace placeholders
@@ -1049,11 +1061,11 @@ export default function (program: Command) {
         // Show next steps
         clack.log.info('\nNext steps:');
         if (type === 'script') {
-          clack.log.info(`  ${chalk.cyan('xec')} .xec/scripts/${name}.js`);
-          clack.log.info(`  ${chalk.cyan('edit')} .xec/scripts/${name}.js`);
+          clack.log.info(`  ${chalk.cyan('xec')} .xec/scripts/${fileName}`);
+          clack.log.info(`  ${chalk.cyan('edit')} .xec/scripts/${fileName}`);
         } else {
           clack.log.info(`  ${chalk.cyan('xec')} ${name} --help`);
-          clack.log.info(`  ${chalk.cyan('edit')} .xec/commands/${name}.js`);
+          clack.log.info(`  ${chalk.cyan('edit')} .xec/commands/${fileName}`);
         }
 
         if (!options.advanced) {
