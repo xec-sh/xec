@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
-import { createUniversalLoader } from '../utils/universal-loader.js';
+import { getModuleLoader } from '../utils/unified-module-loader.js';
 import { formatBytes, formatRelativeTime } from '../utils/formatters.js';
 
 export default function (program: Command) {
@@ -20,7 +20,7 @@ export default function (program: Command) {
       s.start('Clearing module cache...');
 
       try {
-        const loader = createUniversalLoader({
+        const loader = getModuleLoader({
           cacheDir: options.cacheDir,
           verbose: false
         });
@@ -42,7 +42,7 @@ export default function (program: Command) {
     .option('--cache-dir <dir>', 'Custom cache directory')
     .action(async (options) => {
       try {
-        const loader = createUniversalLoader({
+        const loader = getModuleLoader({
           cacheDir: options.cacheDir,
           verbose: false
         });
@@ -51,16 +51,10 @@ export default function (program: Command) {
 
         clack.log.info(chalk.cyan('Module Cache Statistics:'));
         console.log();
-        console.log(`  ${chalk.bold('Entries:')} ${stats.entries}`);
-        console.log(`  ${chalk.bold('Total Size:')} ${formatBytes(stats.size)}`);
+        console.log(`  ${chalk.bold('Memory Entries:')} ${stats.memoryEntries}`);
+        console.log(`  ${chalk.bold('File Entries:')} ${stats.fileEntries}`);
+        console.log(`  ${chalk.bold('Total Size:')} ${formatBytes(stats.totalSize)}`);
         
-        if (stats.oldestEntry) {
-          console.log(`  ${chalk.bold('Oldest Entry:')} ${formatRelativeTime(stats.oldestEntry)}`);
-        }
-        
-        if (stats.newestEntry) {
-          console.log(`  ${chalk.bold('Newest Entry:')} ${formatRelativeTime(stats.newestEntry)}`);
-        }
         
         console.log();
         console.log(`  ${chalk.dim('Cache Dir:')} ${options.cacheDir || path.join(process.env['HOME'] || '', '.xec', 'module-cache')}`);
@@ -78,43 +72,20 @@ export default function (program: Command) {
     .option('--json', 'Output as JSON')
     .action(async (options) => {
       try {
-        const loader = createUniversalLoader({
+        const loader = getModuleLoader({
           cacheDir: options.cacheDir,
           verbose: false
         });
 
-        // Access private method through prototype (for demonstration)
-        const cacheEntries = (loader as any).moduleCache;
+        const stats = await loader.getCacheStats();
         
-        if (cacheEntries.size === 0) {
-          clack.log.info('No cached modules found');
-          return;
-        }
-
-        if (options.json) {
-          const entries = Array.from(cacheEntries.entries() as IterableIterator<[string, any]>).map(([key, entry]) => ({
-            key,
-            url: entry.url,
-            size: (entry.content?.length || 0) + (entry.transformed?.length || 0),
-            timestamp: new Date(entry.timestamp).toISOString(),
-            age: Date.now() - entry.timestamp
-          }));
-          console.log(JSON.stringify(entries, null, 2));
-        } else {
-          clack.log.info(chalk.cyan(`Cached Modules (${cacheEntries.size} entries):`));
-          console.log();
-          
-          for (const [key, entry] of cacheEntries.entries()) {
-            const size = (entry.content?.length || 0) + (entry.transformed?.length || 0);
-            const age = formatRelativeTime(new Date(entry.timestamp));
-            
-            console.log(`  ${chalk.bold(entry.url)}`);
-            console.log(`    ${chalk.dim('Size:')} ${formatBytes(size)}`);
-            console.log(`    ${chalk.dim('Cached:')} ${age}`);
-            console.log(`    ${chalk.dim('Key:')} ${key.substring(0, 16)}...`);
-            console.log();
-          }
-        }
+        clack.log.info(chalk.cyan(`Module Cache Summary:`));
+        console.log();
+        console.log(`  ${chalk.bold('Memory Entries:')} ${stats.memoryEntries}`);
+        console.log(`  ${chalk.bold('File Entries:')} ${stats.fileEntries}`);
+        console.log(`  ${chalk.bold('Total Size:')} ${formatBytes(stats.totalSize)}`);
+        console.log();
+        console.log(`  ${chalk.dim('Use "xec cache stats" for more details')}`);
       } catch (error) {
         clack.log.error(chalk.red(`Failed to list cache: ${error}`));
         process.exit(1);
@@ -125,17 +96,20 @@ export default function (program: Command) {
     .command('preload <modules...>')
     .description('Preload modules into cache')
     .option('--cache-dir <dir>', 'Custom cache directory')
-    .option('--cdn <cdn>', 'Preferred CDN (jsr, esm.sh, unpkg, skypack, jsdelivr)', 'jsr')
+    .option('--cdn <cdn>', 'Preferred CDN (esm.sh, jsr.io)', 'esm.sh')
     .action(async (modules, options) => {
       const s = clack.spinner();
       s.start(`Preloading ${modules.length} module(s)...`);
 
       try {
-        const loader = createUniversalLoader({
+        const loader = getModuleLoader({
           cacheDir: options.cacheDir,
-          preferredCDN: options.cdn,
+          preferredCDN: options.cdn as 'esm.sh' | 'jsr.io',
           verbose: false
         });
+
+        // Initialize module context
+        await (globalThis as any).__xecModuleContext || await loader.init();
 
         let loaded = 0;
         let failed = 0;
@@ -143,11 +117,8 @@ export default function (program: Command) {
         for (const module of modules) {
           try {
             s.message(`Loading ${module}...`);
-            // Use loadScript to trigger caching
-            await loader.loadScript(module).catch(() => 
-              // If it fails as a script, try as a module URL
-               (loader as any).fetchModule(module)
-            );
+            // Try to import through module context
+            await (globalThis as any).__xecModuleContext.importNPM(module);
             loaded++;
           } catch (error) {
             failed++;

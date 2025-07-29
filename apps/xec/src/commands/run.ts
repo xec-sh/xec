@@ -1,9 +1,11 @@
+import path from 'path';
+import fs from 'fs/promises';
 import chalk from 'chalk';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
 import { handleError } from '../utils/error-handler.js';
-import { createUniversalLoader } from '../utils/universal-loader.js';
+import { getModuleLoader, initializeGlobalModuleContext } from '../utils/unified-module-loader.js';
 
 export default function (program: Command) {
   program
@@ -50,19 +52,24 @@ export default function (program: Command) {
  * Run script using universal loader
  */
 export async function runScript(scriptPath: string, args: string[], options: any) {
-  const loader = createUniversalLoader({
-    runtime: options.runtime || 'auto',
-    typescript: options.typescript,
-    watch: options.watch,
+  // Initialize global module context
+  await initializeGlobalModuleContext({
     verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+    preferredCDN: 'esm.sh'
+  });
+  
+  // Get module loader
+  const loader = getModuleLoader({
+    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+    cache: true,
+    preferredCDN: 'esm.sh'
   });
 
   // Display runtime info
-  const context = loader.getScriptContext();
   if (!options.parent?.opts()?.quiet) {
-    clack.log.info(`Running with ${chalk.cyan(context.runtime)} ${chalk.dim(context.version)}`);
+    clack.log.info(`Running script: ${chalk.cyan(scriptPath)}`);
     
-    if (context.features.typescript && (scriptPath.endsWith('.ts') || scriptPath.endsWith('.tsx'))) {
+    if (scriptPath.endsWith('.ts') || scriptPath.endsWith('.tsx')) {
       clack.log.info(chalk.dim('TypeScript support: ') + chalk.green('✓'));
     }
   }
@@ -74,7 +81,27 @@ export async function runScript(scriptPath: string, args: string[], options: any
       const runAndLog = async () => {
         try {
           clack.log.info(chalk.dim(`Running ${scriptPath}...`));
-          await loader.loadScript(scriptPath, args);
+          // Create a temporary context for the script
+        (globalThis as any).__xecScriptContext = {
+          args,
+          argv: [process.argv[0], scriptPath, ...args],
+          __filename: scriptPath,
+          __dirname: path.dirname(scriptPath),
+        };
+        
+        try {
+          const content = await fs.readFile(scriptPath, 'utf-8');
+          const ext = path.extname(scriptPath);
+          let transformedCode = content;
+          
+          if (ext === '.ts' || ext === '.tsx') {
+            transformedCode = await loader.transformTypeScript(content, scriptPath);
+          }
+          const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
+          await import(dataUrl);
+        } finally {
+          delete (globalThis as any).__xecScriptContext;
+        }
         } catch (error) {
           handleError(error, {
             verbose: false,
@@ -96,7 +123,28 @@ export async function runScript(scriptPath: string, args: string[], options: any
       // Keep process alive
       process.stdin.resume();
     } else {
-      await loader.loadScript(scriptPath, args);
+      // Create a temporary context for the script
+      (globalThis as any).__xecScriptContext = {
+        args,
+        argv: [process.argv[0], scriptPath, ...args],
+        __filename: scriptPath,
+        __dirname: path.dirname(scriptPath),
+      };
+      
+      try {
+        const content = await fs.readFile(scriptPath, 'utf-8');
+        const ext = path.extname(scriptPath);
+        let transformedCode = content;
+        
+        if (ext === '.ts' || ext === '.tsx') {
+          transformedCode = await loader.transformTypeScript(content, scriptPath);
+        }
+        
+        const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
+        await import(dataUrl);
+      } finally {
+        delete (globalThis as any).__xecScriptContext;
+      }
     }
   } catch (error) {
     // If runtime not available, provide helpful message
@@ -118,33 +166,46 @@ export async function runScript(scriptPath: string, args: string[], options: any
  * Evaluate code using universal loader
  */
 export async function evalCode(code: string, args: string[], options: any) {
-  const loader = createUniversalLoader({
-    runtime: options.runtime || 'auto',
-    typescript: options.typescript,
+  // Initialize global module context
+  await initializeGlobalModuleContext({
     verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+    preferredCDN: 'esm.sh'
+  });
+  
+  // Get module loader
+  const loader = getModuleLoader({
+    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+    cache: true,
+    preferredCDN: 'esm.sh'
   });
 
   // Display runtime info
-  const context = loader.getScriptContext();
   if (!options.parent?.opts()?.quiet) {
-    clack.log.info(`Evaluating with ${chalk.cyan(context.runtime)} ${chalk.dim(context.version)}`);
+    clack.log.info(`Evaluating code...`);
   }
 
   try {
-    await loader.evalCode(code, args);
-  } catch (error) {
-    // If runtime not available, provide helpful message
-    if (error instanceof Error && error.message.includes('runtime requested but not available')) {
-      clack.log.error(error.message);
-      
-      const runtime = options.runtime || 'auto';
-      if (runtime !== 'auto') {
-        clack.log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
-        clack.log.info(`  ${chalk.cyan(`${runtime} xec -e "${code}"`)}`);
-      }
-    } else {
-      throw error;
+    // Transform TypeScript if needed and evaluate
+    const transformedCode = code.includes('interface') || code.includes('type ') || options.typescript
+      ? await loader.transformTypeScript(code, '<eval>')
+      : code;
+    
+    // Create a temporary script context
+    (globalThis as any).__xecScriptContext = {
+      args,
+      argv: ['xec', '<eval>', ...args],
+      __filename: '<eval>',
+      __dirname: process.cwd(),
+    };
+    
+    try {
+      const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
+      await import(dataUrl);
+    } finally {
+      delete (globalThis as any).__xecScriptContext;
     }
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -153,16 +214,21 @@ export async function evalCode(code: string, args: string[], options: any) {
  * Start REPL using universal loader
  */
 export async function startRepl(options: any) {
-  const loader = createUniversalLoader({
-    runtime: options.runtime || 'auto',
-    typescript: true, // Always enable TypeScript in REPL
+  // Initialize global module context
+  await initializeGlobalModuleContext({
     verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+    preferredCDN: 'esm.sh'
+  });
+  
+  // Get module loader
+  const loader = getModuleLoader({
+    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+    cache: true,
+    preferredCDN: 'esm.sh'
   });
 
   // Display runtime info
-  const context = loader.getScriptContext();
   clack.log.info(chalk.bold('Xec Interactive Shell'));
-  clack.log.info(`Using ${chalk.cyan(context.runtime)} ${chalk.dim(context.version)}`);
   clack.log.info(chalk.dim('Type .help for commands'));
 
   const repl = await import('repl');
@@ -172,9 +238,19 @@ export async function startRepl(options: any) {
     breakEvalOnSigint: true
   });
 
-  // Add context from loader
-  const scriptContext = await loader.createContext('<repl>', []);
-  Object.assign(replServer.context, scriptContext);
+  // Add xec utilities and module context
+  const { $ } = await import('@xec-sh/core');
+  const scriptUtils = await import('../script-utils.js');
+  
+  Object.assign(replServer.context, {
+    $,
+    ...scriptUtils.default,
+    console,
+    process,
+    import: (spec: string) => (globalThis as any).__xecModuleContext.import(spec),
+    importNPM: (pkg: string) => (globalThis as any).__xecModuleContext.importNPM(pkg),
+    importJSR: (pkg: string) => (globalThis as any).__xecModuleContext.importJSR(pkg)
+  });
 
   // Add custom commands
   replServer.defineCommand('load', {
@@ -206,12 +282,11 @@ export async function startRepl(options: any) {
   replServer.defineCommand('runtime', {
     help: 'Show current runtime information',
     action() {
-      const ctx = loader.getScriptContext();
-      console.log(`Runtime: ${chalk.cyan(ctx.runtime)} ${chalk.dim(ctx.version)}`);
+      console.log(`Runtime: ${chalk.cyan('Node.js')} ${chalk.dim(process.version)}`);
       console.log(`Features:`);
-      Object.entries(ctx.features).forEach(([feature, enabled]) => {
-        console.log(`  ${feature}: ${enabled ? chalk.green('✓') : chalk.red('✗')}`);
-      });
+      console.log(`  TypeScript: ${chalk.green('✓')}`);
+      console.log(`  ESM: ${chalk.green('✓')}`);
+      console.log(`  Workers: ${chalk.green('✓')}`);
       this.displayPrompt();
     }
   });

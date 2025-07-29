@@ -378,14 +378,14 @@ function generateConnectionErrorSuggestions(
     });
     suggestions.push({
       message: 'Check firewall rules',
-      documentation: 'https://docs.xec.sh/troubleshooting/network'
+      documentation: 'https://xec.sh/docs/projects/cli/troubleshooting'
     });
   }
 
   if (errorMsg.includes('authentication') || errorMsg.includes('permission')) {
     suggestions.push({
       message: 'Authentication failed - check credentials',
-      documentation: 'https://docs.xec.sh/authentication'
+      documentation: 'https://xec.sh/docs/projects/cli/troubleshooting'
     });
 
     if (adapter === 'ssh') {
@@ -439,7 +439,7 @@ function generateTimeoutErrorSuggestions(
 
   suggestions.push({
     message: 'Run command directly to see why it\'s slow',
-    documentation: 'https://docs.xec.sh/performance'
+    documentation: 'https://xec.sh/docs/projects/cli/troubleshooting'
   });
 
   return suggestions;
@@ -525,7 +525,7 @@ export function enhanceError(
     context || {},
     [{
       message: 'An unexpected error occurred',
-      documentation: 'https://docs.xec.sh/troubleshooting'
+      documentation: 'https://xec.sh/docs/projects/cli/troubleshooting'
     }]
   );
 }

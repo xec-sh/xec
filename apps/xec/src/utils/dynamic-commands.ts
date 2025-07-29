@@ -1,10 +1,10 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { pathToFileURL } from 'url';
 import { Command } from 'commander';
-import { transform } from 'esbuild';
+import { pathToFileURL } from 'url';
 import * as clack from '@clack/prompts';
-import { createUniversalLoader } from './universal-loader.js';
+
+import { getModuleLoader, initializeGlobalModuleContext } from './unified-module-loader.js';
 
 interface DynamicCommand {
   name: string;
@@ -16,6 +16,10 @@ interface DynamicCommand {
 export class DynamicCommandLoader {
   private commands: Map<string, DynamicCommand> = new Map();
   private commandDirs: string[] = [];
+  private moduleLoader = getModuleLoader({
+    verbose: process.env['XEC_DEBUG'] === 'true',
+    preferredCDN: 'esm.sh'
+  });
 
   constructor() {
     // Default command directories
@@ -24,11 +28,35 @@ export class DynamicCommandLoader {
       path.join(process.cwd(), '.xec', 'cli')
     ];
 
+    // Also check parent directories for .xec/commands (up to 3 levels)
+    let currentDir = process.cwd();
+    for (let i = 0; i < 3; i++) {
+      const parentDir = path.dirname(currentDir);
+      if (parentDir === currentDir) break; // Reached root
+      
+      const parentCommandsDir = path.join(parentDir, '.xec', 'commands');
+      if (!this.commandDirs.includes(parentCommandsDir)) {
+        this.commandDirs.push(parentCommandsDir);
+      }
+      
+      currentDir = parentDir;
+    }
+
     // Add paths from XEC_COMMANDS_PATH env variable
     if (process.env['XEC_COMMANDS_PATH']) {
       const additionalPaths = process.env['XEC_COMMANDS_PATH'].split(':');
       this.commandDirs.push(...additionalPaths);
     }
+    
+    // Initialize global module context
+    initializeGlobalModuleContext({
+      verbose: process.env['XEC_DEBUG'] === 'true',
+      preferredCDN: 'esm.sh'
+    }).catch(err => {
+      if (process.env['XEC_DEBUG']) {
+        console.warn('Failed to initialize module context:', err);
+      }
+    });
   }
 
   /**
@@ -106,43 +134,86 @@ export class DynamicCommandLoader {
     });
 
     try {
-      let module;
-
-      // Set up global module context for dynamic imports
-      (globalThis as any).__xecModuleContext = {
-        import: (spec: string) => import(spec),
-        importJSR: (pkg: string) => import('https://jsr.io/' + pkg),
-        importNPM: (pkg: string) => import('https://esm.sh/' + pkg)
-      };
-
-      // Handle TypeScript files
+      let moduleExports: any;
+      
+      // Ensure module context is initialized
+      await initializeGlobalModuleContext();
+      
+      // For TypeScript files, transform them first
       if (ext === '.ts' || ext === '.tsx') {
         const content = await fs.readFile(filePath, 'utf-8');
-        const transpiled = await this.transpileTypeScript(content, filePath);
+        const transformedCode = await this.moduleLoader.transformTypeScript(content, filePath);
         
-        // Write transpiled code to temporary file
-        const tempPath = filePath.replace(/\.tsx?$/, '.mjs');
-        await fs.writeFile(tempPath, transpiled);
+        // Find a directory with node_modules for the temporary file
+        let tempDir = process.cwd();
+        
+        // First, try to find node_modules relative to the CLI installation
+        // This is important for global npm installations
+        const cliScriptPath = import.meta.url.replace('file://', '');
+        let cliDir = path.dirname(cliScriptPath);
+        
+        // Search upwards from CLI location for node_modules
+        for (let i = 0; i < 5; i++) {
+          if (await fs.pathExists(path.join(cliDir, 'node_modules'))) {
+            tempDir = cliDir;
+            break;
+          }
+          const parentDir = path.dirname(cliDir);
+          if (parentDir === cliDir) break;
+          cliDir = parentDir;
+        }
+        
+        // If not found, search from the command file location
+        if (tempDir === process.cwd()) {
+          let searchDir = path.dirname(filePath);
+          for (let i = 0; i < 10; i++) {
+            if (await fs.pathExists(path.join(searchDir, 'node_modules'))) {
+              tempDir = searchDir;
+              break;
+            }
+            const parentDir = path.dirname(searchDir);
+            if (parentDir === searchDir) break;
+            searchDir = parentDir;
+          }
+        }
+        
+        // Create temp directory in the xec installation directory
+        const tempDirPath = path.join(tempDir, '.xec-temp');
+        await fs.ensureDir(tempDirPath);
+        
+        // Write transformed file
+        const tempFileName = `${commandName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}.mjs`;
+        const tempPath = path.join(tempDirPath, tempFileName);
+        await fs.writeFile(tempPath, transformedCode);
         
         try {
-          module = await import(pathToFileURL(tempPath).href);
+          // Import the module
+          moduleExports = await import(pathToFileURL(tempPath).href);
         } finally {
-          // Clean up temporary file
+          // Clean up
           await fs.remove(tempPath).catch(() => {});
         }
       } else {
-        // Import JavaScript modules directly
-        module = await import(pathToFileURL(filePath).href);
+        // For JavaScript files, import directly
+        moduleExports = await import(pathToFileURL(filePath).href);
+      }
+      
+      if (!moduleExports) {
+        throw new Error('Module did not export anything');
       }
 
       // Register command
-      if (module.command && typeof module.command === 'function') {
+      if (moduleExports.command && typeof moduleExports.command === 'function') {
         // New style: export function command(program) {}
-        module.command(program);
+        moduleExports.command(program);
         this.commands.get(commandName)!.loaded = true;
-      } else if (module.default && typeof module.default === 'function') {
-        // Old style: export default function(program) {}
-        module.default(program);
+      } else if (typeof moduleExports === 'function') {
+        // Direct default export
+        moduleExports(program);
+        this.commands.get(commandName)!.loaded = true;
+      } else if (moduleExports.default && typeof moduleExports.default === 'function') {
+        // ES module default export
+        moduleExports.default(program);
         this.commands.get(commandName)!.loaded = true;
       } else {
         throw new Error('Command file must export a "command" function or default function');
@@ -157,29 +228,14 @@ export class DynamicCommandLoader {
       
       if (process.env['XEC_DEBUG']) {
         console.error(`Failed to load command ${commandName}:`, error);
+        if (error instanceof Error && error.stack) {
+          console.error('Stack trace:', error.stack);
+        }
+      } else {
+        // Always show critical loading errors
+        clack.log.error(`Failed to load command '${commandName}': ${errorMessage}`);
       }
-    } finally {
-      // Clean up global context
-      delete (globalThis as any).__xecModuleContext;
     }
-  }
-
-  /**
-   * Transpile TypeScript to JavaScript
-   */
-  private async transpileTypeScript(content: string, filename: string): Promise<string> {
-    const result = await transform(content, {
-      format: 'esm',
-      target: 'esnext', // Changed to support top-level await
-      loader: filename.endsWith('.tsx') ? 'tsx' : 'ts',
-      sourcemap: 'inline',
-      sourcefile: filename,
-      platform: 'node',
-      supported: {
-        'top-level-await': true
-      }
-    });
-    return result.code;
   }
 
   /**
@@ -201,6 +257,26 @@ export class DynamicCommandLoader {
    */
   getFailedCommands(): DynamicCommand[] {
     return this.getCommands().filter(cmd => !cmd.loaded && cmd.error);
+  }
+
+  /**
+   * Report loading summary
+   */
+  reportLoadingSummary(): void {
+    const commands = this.getCommands();
+    const loaded = this.getLoadedCommands();
+    const failed = this.getFailedCommands();
+    
+    if (process.env['XEC_DEBUG'] && commands.length > 0) {
+      clack.log.info(`Dynamic commands: ${loaded.length} loaded, ${failed.length} failed`);
+      
+      if (failed.length > 0) {
+        clack.log.warn('Failed commands:');
+        failed.forEach(cmd => {
+          clack.log.error(`  - ${cmd.name}: ${cmd.error}`);
+        });
+      }
+    }
   }
 
   /**
@@ -311,4 +387,5 @@ export function getDynamicCommandLoader(): DynamicCommandLoader {
 export async function loadDynamicCommands(program: Command): Promise<void> {
   const loader = getDynamicCommandLoader();
   await loader.loadCommands(program);
+  loader.reportLoadingSummary();
 }

@@ -8,8 +8,8 @@ import { checkForCommandTypo } from '@xec-sh/core';
 import { loadConfig } from './utils/config.js';
 import { handleError } from './utils/error-handler.js';
 import { loadDynamicCommands } from './utils/dynamic-commands.js';
-import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
 import { registerCliCommands } from './utils/command-registry.js';
+import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -68,6 +68,8 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   // Load configuration
   await loadConfig();
   
+  // Module loader is initialized lazily when needed by commands
+  
   // Load all commands first (built-in and dynamic)
   await loadCommands(program);
   
@@ -103,11 +105,21 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       // Check if first argument is a file
       const potentialFile = firstArg;
       if (potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') ||
-        potentialFile.endsWith('.mjs') || fs.existsSync(potentialFile)) {
+        potentialFile.endsWith('.mjs')) {
         // Run as script
         const scriptArgs = args.slice(1);
         await runScriptDirectly(potentialFile, scriptArgs, {});
         return;
+      }
+      // Also check if it's an existing file (not a directory)
+      if (fs.existsSync(potentialFile)) {
+        const stats = fs.statSync(potentialFile);
+        if (stats.isFile()) {
+          // Run as script
+          const scriptArgs = args.slice(1);
+          await runScriptDirectly(potentialFile, scriptArgs, {});
+          return;
+        }
       }
     }
 
