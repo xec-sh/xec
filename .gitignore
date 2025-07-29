@@ -46,3 +46,5 @@ CLAUDE.md
 GEMINI.md
 
 .xec/module-cache
+.xec/cache
+.xec/logs
