@@ -104,7 +104,7 @@ function createJsrJson(packageJson: any): any {
   };
 }
 
-// Helper to parse CHANGES.md and convert to changelog format
+// Helper to parse CHANGES.md and return its content as is
 async function parseChangesFile(): Promise<string | null> {
   const changesPath = 'CHANGES.md';
   if (!existsSync(changesPath)) {
@@ -116,62 +116,8 @@ async function parseChangesFile(): Promise<string | null> {
     return null;
   }
 
-  // Parse CHANGES.md format and convert to changelog sections
-  const sections: Record<string, string[]> = {
-    added: [],
-    changed: [],
-    fixed: [],
-    deprecated: [],
-    removed: [],
-    security: []
-  };
-
-  let currentSection = '';
-  const lines = content.split('\n');
-
-  for (const line of lines) {
-    // Skip headers and empty lines
-    if (line.startsWith('#') || !line.trim()) continue;
-
-    // Detect section headers
-    if (line.includes('New Features') || line.includes('What Changed') || line.includes('Key Improvements')) {
-      currentSection = 'changed';
-    } else if (line.includes('Fixed Issues') || line.includes('Bug Fixes')) {
-      currentSection = 'fixed';
-    } else if (line.includes('Security')) {
-      currentSection = 'security';
-    } else if (line.startsWith('- ') || line.startsWith('* ') || line.match(/^\d+\.\s/)) {
-      // Process bullet points
-      const cleanLine = line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
-      if (cleanLine && currentSection && sections[currentSection]) {
-        sections[currentSection].push(cleanLine);
-      }
-    }
-  }
-
-  // Build changelog format
-  let changelog = '';
-
-  if (sections.added.length > 0) {
-    changelog += '### Added\n' + sections.added.map(item => `- ${item}`).join('\n') + '\n\n';
-  }
-  if (sections.changed.length > 0) {
-    changelog += '### Changed\n' + sections.changed.map(item => `- ${item}`).join('\n') + '\n\n';
-  }
-  if (sections.fixed.length > 0) {
-    changelog += '### Fixed\n' + sections.fixed.map(item => `- ${item}`).join('\n') + '\n\n';
-  }
-  if (sections.deprecated.length > 0) {
-    changelog += '### Deprecated\n' + sections.deprecated.map(item => `- ${item}`).join('\n') + '\n\n';
-  }
-  if (sections.removed.length > 0) {
-    changelog += '### Removed\n' + sections.removed.map(item => `- ${item}`).join('\n') + '\n\n';
-  }
-  if (sections.security.length > 0) {
-    changelog += '### Security\n' + sections.security.map(item => `- ${item}`).join('\n') + '\n\n';
-  }
-
-  return changelog.trim();
+  // Simply return the content as is
+  return content.trim();
 }
 
 // Helper to update CHANGELOG.md with new release
@@ -716,22 +662,57 @@ export function command(program: Command): void {
           }
 
           if (!config.skipNpm) {
-            // Create .npmrc if token provided
+            // Update .yarnrc.yml if token provided
             if (config.npmToken) {
-              const npmrcPath = join(process.cwd(), '.npmrc');
-              const npmrcContent = `//registry.npmjs.org/:_authToken=${config.npmToken}\n`;
+              const yarnrcPath = join(process.cwd(), '.yarnrc.yml');
               
-              // Check if .npmrc already exists and save original content
-              let originalNpmrc: string | null = null;
-              if (existsSync(npmrcPath)) {
-                originalNpmrc = readFileSync(npmrcPath, 'utf8');
+              // Check if .yarnrc.yml already exists and save original content
+              let originalYarnrc: string | null = null;
+              let yarnrcConfig: any = {};
+              
+              if (existsSync(yarnrcPath)) {
+                originalYarnrc = readFileSync(yarnrcPath, 'utf8');
+                // Parse YAML manually (simple key: value pairs)
+                const lines = originalYarnrc.split('\n');
+                for (const line of lines) {
+                  const trimmedLine = line.trim();
+                  if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+                  
+                  const colonIndex = trimmedLine.indexOf(':');
+                  if (colonIndex > 0) {
+                    const key = trimmedLine.substring(0, colonIndex).trim();
+                    const value = trimmedLine.substring(colonIndex + 1).trim().replace(/^["']|["']$/g, '');
+                    if (key && value) {
+                      yarnrcConfig[key] = value;
+                    }
+                  }
+                }
               } else {
-                rollbackState.createdFiles.push(npmrcPath);
+                rollbackState.createdFiles.push(yarnrcPath);
               }
               
               try {
-                // Create .npmrc in project root
-                writeFileSync(npmrcPath, npmrcContent);
+                // Update yarnrc config with new token
+                yarnrcConfig.npmAuthToken = config.npmToken;
+                yarnrcConfig.npmPublishRegistry = yarnrcConfig.npmPublishRegistry || 'https://registry.npmjs.org';
+                yarnrcConfig.npmRegistryServer = yarnrcConfig.npmRegistryServer || 'https://registry.npmjs.org';
+                
+                // Convert back to YAML format
+                const yarnrcContent = Object.entries(yarnrcConfig)
+                  .map(([key, value]) => {
+                    // Keep npmAuthToken without quotes, quote URLs
+                    if (key === 'npmAuthToken' || key === 'nodeLinker') {
+                      return `${key}: ${value}`;
+                    } else if (typeof value === 'string' && (value.includes('://') || value.includes('registry'))) {
+                      return `${key}: "${value}"`;
+                    } else {
+                      return `${key}: ${value}`;
+                    }
+                  })
+                  .join('\n\n') + '\n';
+                
+                // Create .yarnrc.yml in project root
+                writeFileSync(yarnrcPath, yarnrcContent);
 
                 // Core packages must be published first
                 const corePackages = config.packages.filter(p => p.name === '@xec-sh/core');
@@ -767,14 +748,14 @@ export function command(program: Command): void {
                 s.stop('❌ NPM publishing failed');
                 throw error;
               } finally {
-                // Clean up .npmrc
-                if (originalNpmrc !== null) {
+                // Clean up .yarnrc.yml
+                if (originalYarnrc !== null) {
                   // Restore original content
-                  writeFileSync(npmrcPath, originalNpmrc);
+                  writeFileSync(yarnrcPath, originalYarnrc);
                 } else {
                   // Remove created file
                   try {
-                    await $`rm -f ${npmrcPath}`.nothrow();
+                    await $`rm -f ${yarnrcPath}`.nothrow();
                   } catch {}
                 }
               }

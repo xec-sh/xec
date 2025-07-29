@@ -1,112 +1,53 @@
 # Changes in Xec CLI
 
-## 🐛 Fixed Dynamic Command Loading & Release Issues
+## 🚀 Enhanced Dynamic Command Loading & Release System
 
 ### What Changed:
-Fixed critical issues with dynamic command loading in `.xec/commands` directory and corrected `.npmrc` file creation in the release command.
+Completely redesigned the mechanism for loading user commands and modules, and optimized the release command with native parallel execution capabilities.
 
 ### Key Improvements:
 
-#### 1. **Fixed Module Resolution for Dynamic Commands**
+#### 1. **Fixed Module Resolution**
 - Commands now properly locate `node_modules` directory in monorepo structures
-- Temporary files are created in the correct directory with access to dependencies
-- Fixed "Cannot find package '@clack/prompts'" errors
-
-#### 2. **Fixed `.npmrc` Creation in Release Command**
-- `.npmrc` is now created in the project root directory (not as a temp file)
-- Proper cleanup and restoration of existing `.npmrc` files
-- Ensures npm authentication works correctly during package publishing
-
-### Technical Details:
 - Enhanced directory traversal to find `node_modules` in parent directories
 - Support for `apps/xec/node_modules` in monorepo structure
-- Proper handling of existing `.npmrc` files with backup and restore
-
-### What This Means for You:
-
-✅ **Dynamic commands work reliably** - No more module loading errors
-
-✅ **Release command works properly** - NPM authentication fixed
-
-✅ **Better monorepo support** - Commands work from any directory in the project
-
----
-
-## 📝 Improved Development Workflow
-
-### What Changed:
-Added mandatory change tracking through CHANGES.md for all code modifications. This ensures proper documentation of all changes and automatic changelog generation during releases.
-
-### Key Improvements:
-
-#### 1. **Updated Development Guidelines**
-- Added mandatory CHANGES.md tracking to CLAUDE.md
-- All code changes must now be documented before release
-- Clear instructions for developers and AI assistants
-
-#### 2. **Enhanced CHANGES.md.example**
-- More comprehensive format with clear examples
-- Better section organization with emojis
-- Detailed guidelines for writing user-focused descriptions
-- Automatic mapping to Keep a Changelog format
-
-#### 3. **Release Process Integration**
-- CHANGES.md is automatically processed during release
-- Content is formatted and added to CHANGELOG.md
-- File is cleared after successful release
-- Proper rollback support if release fails
-
-### What This Means for You:
-
-✅ **Better Change Tracking** - All modifications are properly documented
-
-✅ **Automatic Changelog** - No manual changelog editing needed
-
-✅ **Consistent Format** - Standardized change documentation across the project
-
----
-
-## 🚀 New Dynamic Command Loading Architecture
-
-### What Changed:
-The mechanism for loading user commands and modules has been completely redesigned. Xec now correctly finds and loads commands from the `.xec/commands` directory in your project.
-
-### Key Improvements:
-
-#### 1. **Fixed Module Loading**
-- Commands now properly find dependencies (`node_modules`)
-- Monorepo support - automatic search for `node_modules` up the directory tree
-- Correct handling of TypeScript commands
+- Fixed "Cannot find package" errors
 
 #### 2. **Universal Module Loader**
 - Support for loading modules from CDN (esm.sh, JSR.io, unpkg and others)
 - Caching of loaded modules for fast reuse
 - Automatic TypeScript to JavaScript transformation
+- Temporary files created in correct directory with access to dependencies
 
-#### 3. **Extended Documentation**
-- New guide for creating custom commands (`custom-commands.md`)
-- Detailed API documentation for scripts (`script-api.md`)
-- Usage examples and best practices
+#### 3. **Optimized Release Command**
+- Native parallel execution with `$.parallel.all()` and `$.parallel.settled()`
+- Git operations run in parallel (status + branch checks)
+- Package builds use `$.batch()` with optimal concurrency (3)
+- NPM publishing respects rate limits with maxConcurrency: 2
+- Real-time progress tracking for all operations
+- Fixed `.npmrc` creation in project root with proper cleanup
 
-#### 4. **Improved Project Structure**
-- Refactored internal architecture for better modularity
-- Moved utilities to separate `utils` directory
-- Removed deprecated code
+#### 4. **Simplified Release Process**
+- Removed unnecessary dependency checking and test running
+- Faster release process without interruptions
+- Focus on core release functionality
 
-#### 5. **Extended Testing**
+#### 5. **Extended Documentation & Testing**
+- New guides for creating custom commands and API documentation
 - Added tests for all major components
-- Tests for dynamic command loading
 - Integration tests for universal loader
 
 ### What This Means for You:
 
-✅ **Commands now work reliably** - fixed the "Cannot find package" error
+✅ **Commands work reliably** - Fixed all module loading errors
 
-✅ **More capabilities** - load modules from CDN without local installation
+✅ **Faster releases** - ~40% faster execution with parallel operations
 
-✅ **TypeScript out of the box** - write commands in TypeScript without additional setup
+✅ **Better monorepo support** - Commands work from any directory
 
-✅ **Better performance** - module caching speeds up repeated runs
+✅ **More capabilities** - Load modules from CDN without local installation
+
+✅ **TypeScript out of the box** - Write commands in TypeScript without setup
 
 ### How to Use:
 
@@ -129,13 +70,30 @@ export function command(program) {
 }
 ```
 
+### Technical Highlights:
+```typescript
+// Parallel execution in release command
+const [gitStatus, branchResult] = await $.parallel.all([
+  `git status --porcelain`,
+  `git branch --show-current`
+]);
+
+// Batch operations with progress
+await $.batch(packages.map(pkg => `cd ${pkg.path} && yarn build`), {
+  concurrency: 3,
+  onProgress: (done, total, succeeded, failed) => {
+    console.log(`Building: ${done}/${total} (✓ ${succeeded}, ✗ ${failed})`);
+  }
+});
+```
+
 ### Fixed Issues:
 - 🐛 Module loading error in monorepos
 - 🐛 Incorrect resolution of paths to `node_modules`
-- 🐛 Issues with importing dependencies in dynamic commands
-- 🐛 Fixed temporary file creation in wrong directory causing "Cannot find package" errors
-- 🐛 Improved node_modules discovery for monorepo structures
-- 🐛 Fixed "Build failed" error in release command - replaced incorrect usage of `parallel` function
+- 🐛 Temporary file creation in wrong directory
+- 🐛 Fixed "Build failed" error in release command
+- 🐛 Fixed `.npmrc` creation and npm authentication
+- 🐛 Removed unnecessary dependency checks and test prompts
 
 ---
 
@@ -201,106 +159,6 @@ The parallel execution documentation and API in @xec-sh/core have been completel
 - 🐛 Inability to reuse existing ProcessPromise instances
 - 🐛 Incorrect function signatures in examples
 - 🐛 Undefined variables in code fragments
-
----
-
-## 🚀 Optimized Release Command with Native Parallel Execution
-
-### What Changed:
-The `.xec/commands/release.ts` command has been completely optimized to demonstrate the full power of Xec's native parallel execution capabilities, achieving maximum performance and code clarity.
-
-### Key Improvements:
-
-#### 1. **Native Parallel Execution**
-- Replaced custom `parallel()` helper with native `$.parallel.all()` and `$.parallel.settled()`
-- Git status and branch checks now run in parallel
-- Package builds use `$.batch()` with optimal concurrency (3)
-- NPM publishing respects rate limits with maxConcurrency: 2
-
-#### 2. **Progress Tracking**
-- Real-time progress updates for builds, publishing, and other long operations
-- Clear visual feedback: `Building packages: 2/3 (✓ 2, ✗ 0)`
-- onProgress callbacks for all batch operations
-
-#### 3. **Optimized Operations**
-- File existence checks run in parallel
-- Rollback operations execute cleanup tasks concurrently
-- Push operations (branch + tag) happen simultaneously
-- JSR.json files created in parallel
-
-#### 4. **Cleaner Code**
-- Removed redundant imports and custom parallel implementation
-- Streamlined error handling with `.nothrow()`
-- More concise helper functions using modern JavaScript
-- Better use of Xec's built-in features
-
-#### 5. **Performance Improvements**
-- ~40% faster execution due to parallel operations
-- Reduced memory usage with streaming
-- Optimal concurrency limits for different services
-- Smart batching of file operations
-
-### What This Means for You:
-
-✅ **Faster Releases** - Parallel execution significantly reduces release time
-
-✅ **Better Feedback** - Real-time progress tracking for all operations
-
-✅ **More Reliable** - Respects rate limits and handles errors gracefully
-
-✅ **Learning Resource** - Perfect example of advanced Xec patterns
-
-### Technical Highlights:
-```typescript
-// Before: Sequential operations
-await $`git status --porcelain`;
-await $`git branch --show-current`;
-
-// After: Parallel execution
-const [gitStatus, branchResult] = await $.parallel.all([
-  `git status --porcelain`,
-  `git branch --show-current`
-]);
-
-// Batch operations with progress
-await $.batch(packages.map(pkg => `cd ${pkg.path} && yarn build`), {
-  concurrency: 3,
-  onProgress: (done, total, succeeded, failed) => {
-    console.log(`Building: ${done}/${total} (✓ ${succeeded}, ✗ ${failed})`);
-  }
-});
-```
-
----
-
-## 🧹 Simplified Release Command
-
-### What Changed:
-Removed unnecessary dependency checking and test running from the release command to streamline the release process.
-
-### Key Improvements:
-
-#### 1. **Removed Outdated Package Checking**
-- No more prompts about outdated dependencies during release
-- Faster release process without unnecessary checks
-- Trust developers to manage dependencies separately
-
-#### 2. **Removed Automatic Test Running**
-- Tests should be run in CI/CD, not during release
-- Eliminates release failures due to test issues
-- Cleaner, more focused release workflow
-
-### What This Means for You:
-
-✅ **Faster Releases** - No waiting for dependency checks or tests
-
-✅ **Fewer Interruptions** - No prompts about outdated packages
-
-✅ **Cleaner Workflow** - Release command focuses only on releasing
-
-### Removed Options:
-- `--skip-dep-check` - No longer needed as check is removed
-- Test running prompt - Tests should be run before release
 
 ---
 
