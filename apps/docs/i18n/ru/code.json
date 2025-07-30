@@ -149,5 +149,41 @@
   },
   "homepage.features.extensible.description": {
     "message": "Расширяйте функциональность с помощью пользовательских провайдеров, адаптеров и плагинов. Построен на модульной архитектуре, которая растет вместе с вашими потребностями."
+  },
+  "theme.SearchBar.label": {
+    "message": "Поиск",
+    "description": "The ARIA label and placeholder for search button"
+  },
+  "theme.SearchPage.documentsFound.plurals": {
+    "message": "Найден {count} документ|Найдено {count} документа|Найдено {count} документов",
+    "description": "Pluralized label for \"{count} documents found\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
+  },
+  "theme.SearchPage.existingResultsTitle": {
+    "message": "Результаты поиска для \"{query}\"",
+    "description": "The search page title for non-empty query"
+  },
+  "theme.SearchPage.emptyResultsTitle": {
+    "message": "Поиск по документации",
+    "description": "The search page title for empty query"
+  },
+  "theme.SearchPage.inputPlaceholder": {
+    "message": "Введите здесь ваш поиск",
+    "description": "The placeholder for search page input"
+  },
+  "theme.SearchPage.inputLabel": {
+    "message": "Поиск",
+    "description": "The ARIA label for search page input"
+  },
+  "theme.SearchPage.algoliaLabel": {
+    "message": "Поиск от Algolia",
+    "description": "The ARIA label for Algolia mention"
+  },
+  "theme.SearchPage.noResultsText": {
+    "message": "Результаты не найдены",
+    "description": "The paragraph for empty search result"
+  },
+  "theme.SearchPage.fetchingNewResults": {
+    "message": "Загрузка новых результатов...",
+    "description": "The paragraph for fetching new search results"
   }
 }

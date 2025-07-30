@@ -107,6 +107,24 @@ const config: Config = {
         disableInDev: false,
       },
     ],
+    [
+      require.resolve('@easyops-cn/docusaurus-search-local'),
+      {
+        hashed: true,
+        language: ['en', 'ru'],
+        highlightSearchTermsOnTargetPage: true,
+        explicitSearchResultPath: true,
+        docsRouteBasePath: '/docs',
+        blogRouteBasePath: '/blog',
+        indexDocs: true,
+        indexBlog: true,
+        indexPages: false,
+        removeDefaultStopWordFilter: false,
+        removeDefaultStemmer: false,
+        searchResultLimits: 8,
+        searchResultContextMaxLength: 50,
+      },
+    ],
   ],
 
   markdown: {
