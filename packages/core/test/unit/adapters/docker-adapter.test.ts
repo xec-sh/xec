@@ -1146,3 +1146,141 @@ describe('DockerAdapter Integration-like Tests', () => {
     expect(exitCode).not.toBe(0);
   });
 });
+
+describe('DockerAdapter - Run Mode', () => {
+  let adapter: DockerAdapter;
+
+  beforeEach(() => {
+    adapter = new DockerAdapter();
+  });
+
+  afterEach(async () => {
+    await adapter.dispose();
+  });
+
+  afterAll(async () => {
+    await cleanupTestContainers();
+  });
+
+  it('should execute command in ephemeral container using run mode', async () => {
+    const result = await adapter.execute({
+      command: 'echo',
+      args: ['Hello from ephemeral container'],
+      adapterOptions: {
+        type: 'docker',
+        container: 'ephemeral',
+        runMode: 'run',
+        image: TEST_IMAGE,
+        autoRemove: true
+      }
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('Hello from ephemeral container');
+  });
+
+  it('should mount volumes in run mode', async () => {
+    const result = await adapter.execute({
+      command: 'ls',
+      args: ['-la', '/data'],
+      adapterOptions: {
+        type: 'docker',
+        container: 'ephemeral',
+        runMode: 'run',
+        image: TEST_IMAGE,
+        volumes: [`${process.cwd()}:/data:ro`],
+        autoRemove: true
+      }
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('total');
+  });
+
+  it('should set working directory in run mode', async () => {
+    const result = await adapter.execute({
+      command: 'pwd',
+      adapterOptions: {
+        type: 'docker',
+        container: 'ephemeral',
+        runMode: 'run',
+        image: TEST_IMAGE,
+        workdir: '/tmp',
+        autoRemove: true
+      }
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('/tmp');
+  });
+
+  it('should handle environment variables in run mode', async () => {
+    const result = await adapter.execute({
+      command: 'sh',
+      args: ['-c', 'echo $TEST_VAR'],
+      env: { TEST_VAR: 'test_value' },
+      adapterOptions: {
+        type: 'docker',
+        container: 'ephemeral',
+        runMode: 'run',
+        image: TEST_IMAGE,
+        autoRemove: true
+      }
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.trim()).toBe('test_value');
+  });
+
+  it('should handle named containers in run mode', async () => {
+    const containerName = `${TEST_CONTAINER_PREFIX}run-mode-${Date.now()}`;
+    testContainers.push(containerName);
+
+    const result = await adapter.execute({
+      command: 'hostname',
+      adapterOptions: {
+        type: 'docker',
+        container: containerName,
+        runMode: 'run',
+        image: TEST_IMAGE,
+        autoRemove: false
+      }
+    });
+
+    expect(result.exitCode).toBe(0);
+    
+    // Clean up
+    await execDocker(['rm', '-f', containerName]);
+    testContainers = testContainers.filter(c => c !== containerName);
+  });
+
+  it('should fail if image is not specified in run mode', async () => {
+    await expect(adapter.execute({
+      command: 'echo',
+      args: ['test'],
+      adapterOptions: {
+        type: 'docker',
+        container: 'ephemeral',
+        runMode: 'run'
+        // image is missing
+      }
+    })).rejects.toThrow('Image must be specified for run mode');
+  });
+
+  it('should handle complex command with shell in run mode', async () => {
+    const result = await adapter.execute({
+      command: 'echo "Count:"; ls -1 /etc | wc -l',
+      shell: true,
+      adapterOptions: {
+        type: 'docker',
+        container: 'ephemeral',
+        runMode: 'run',
+        image: TEST_IMAGE,
+        autoRemove: true
+      }
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/Count:\s*\d+/);
+  });
+});

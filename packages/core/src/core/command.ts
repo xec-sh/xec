@@ -28,6 +28,10 @@ export interface DockerAdapterOptions {
   user?: string;
   workdir?: string;
   tty?: boolean;
+  runMode?: 'exec' | 'run';
+  image?: string;
+  volumes?: string[];
+  autoRemove?: boolean;
 }
 
 export interface LocalAdapterOptions {

@@ -7,6 +7,7 @@ import { checkForCommandTypo } from '@xec-sh/core';
 
 import { loadConfig } from './utils/config.js';
 import { handleError } from './utils/error-handler.js';
+import { customizeHelp } from './utils/help-customizer.js';
 import { loadDynamicCommands } from './utils/dynamic-commands.js';
 import { registerCliCommands } from './utils/command-registry.js';
 import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
@@ -41,7 +42,7 @@ export function createProgram(): Command {
   return program;
 }
 
-export async function loadCommands(program: Command): Promise<void> {
+export async function loadCommands(program: Command): Promise<string[]> {
   const commandsDir = join(__dirname, './commands');
 
   // Load built-in commands
@@ -59,7 +60,10 @@ export async function loadCommands(program: Command): Promise<void> {
   }
 
   // Load dynamic commands using the new loader
-  await loadDynamicCommands(program);
+  const dynamicCommandNames = await loadDynamicCommands(program);
+
+  // Return dynamic command names for later use
+  return dynamicCommandNames;
 }
 
 export async function run(argv: string[] = process.argv): Promise<void> {
@@ -67,12 +71,15 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
   // Load configuration
   await loadConfig();
-  
+
   // Module loader is initialized lazily when needed by commands
-  
+
   // Load all commands first (built-in and dynamic)
-  await loadCommands(program);
-  
+  const dynamicCommandNames = await loadCommands(program);
+
+  // Customize help output with dynamic commands info
+  customizeHelp(program, dynamicCommandNames);
+
   // Build command registry for validation
   const commandRegistry = registerCliCommands(program);
   const commandNames = program.commands.map(cmd => cmd.name())
@@ -130,7 +137,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
         quiet: args.includes('-q') || args.includes('--quiet'),
         cwd: undefined as string | undefined,
       };
-      
+
       // Extract --cwd if present
       const cwdIndex = args.indexOf('--cwd');
       if (cwdIndex !== -1 && args[cwdIndex + 1]) {
@@ -138,24 +145,24 @@ export async function run(argv: string[] = process.argv): Promise<void> {
         // Remove --cwd and its value from args
         args.splice(cwdIndex, 2);
       }
-      
+
       // Remove other flags from args
-      const cleanArgs = args.filter(arg => 
-        !arg.startsWith('-') || 
+      const cleanArgs = args.filter(arg =>
+        !arg.startsWith('-') ||
         (arg.startsWith('-') && !['--verbose', '-v', '--quiet', '-q'].includes(arg))
       );
-      
+
       await executeDirectCommand(cleanArgs, options);
       return;
     }
 
     // Commands already loaded above
-    
+
     // Set up command not found handler
     program.on('command:*', () => {
       const unknownCommand = program.args[0];
       console.error(`✖ Unknown command '${unknownCommand}'`);
-      
+
       // Check for typos and suggest similar commands
       if (unknownCommand) {
         const suggestion = checkForCommandTypo(unknownCommand, commandRegistry);
@@ -164,12 +171,16 @@ export async function run(argv: string[] = process.argv): Promise<void> {
           console.error(suggestion);
         }
       }
-      
+
       console.error('');
       console.error(`Run 'xec --help' for a list of available commands`);
       process.exit(1);
     });
-    
+
+    // If no arguments provided, show help by triggering help handler
+    if (argv.length === 2) {
+      argv.push('--help');
+    }
     await program.parseAsync(argv);
   } catch (error) {
     // Use enhanced error handler

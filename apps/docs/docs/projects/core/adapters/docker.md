@@ -4,19 +4,62 @@ sidebar_position: 3
 
 # Docker Adapter
 
-Execute commands in Docker containers with full lifecycle management, streaming logs, and Docker Compose support.
+Execute commands in Docker containers with support for both ephemeral and persistent containers.
 
 ## Overview
 
 The Docker adapter provides:
 
-- **Container Lifecycle** - Create, start, stop, remove containers
-- **Command Execution** - Run commands in new or existing containers
-- **Log Streaming** - Real-time log monitoring
-- **File Operations** - Copy files to/from containers
+- **Ephemeral Containers** - Run single commands in auto-removed containers
+- **Persistent Container Execution** - Execute commands in existing containers
 - **Docker Compose** - Multi-container application management
-- **Health Checks** - Container health monitoring
-- **Volume Management** - Persistent data handling
+- **Volume Management** - Mount host directories and named volumes
+- **Network Configuration** - Custom networks and port mapping
+- **Environment Variables** - Pass configuration to containers
+
+## Simplified API (Recommended)
+
+The Docker adapter provides a simplified API that automatically handles ephemeral vs persistent containers:
+
+### Ephemeral Containers
+
+When you specify an `image`, the adapter runs commands in ephemeral containers that are automatically removed after execution:
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+// Run command in ephemeral container
+await $.docker({
+  image: 'alpine:latest',
+  volumes: ['/data:/data']
+})`echo "Hello" > /data/output.txt`;
+
+// Using fluent API
+await $.docker()
+  .ephemeral('node:18-alpine')
+  .workdir('/app')
+  .env({ NODE_ENV: 'production' })
+  .run`node --version`;
+```
+
+### Persistent Containers
+
+When you specify a `container` name, the adapter executes commands in existing containers:
+
+```typescript
+// Execute in existing container
+await $.docker({
+  container: 'my-app',
+  workdir: '/app'
+})`npm test`;
+
+// Using fluent API
+await $.docker()
+  .container('my-app')
+  .workdir('/app')
+  .user('node')
+  .exec`npm start`;
+```
 
 ## Basic Usage
 
@@ -31,56 +74,36 @@ await container`ps aux`;
 await container`cat /etc/hostname`;
 ```
 
-### Container Lifecycle Management
+### Execute in Ephemeral Container
 
 ```typescript
-// Create and manage a new container
-const app = await $.docker({
-  image: 'node:18',
-  name: 'my-node-app',
-  ports: { '3000': '3000' },
-  volumes: { './src': '/app' },
-  env: { NODE_ENV: 'development' }
-}).start();
+// One-off execution (auto-removed after execution)
+const result = await $.docker({ image: 'alpine' })`echo "Hello from Alpine"`;
 
-// Execute commands
-await app.exec`npm install`;
-await app.exec`npm start`;
-
-// Clean up
-await app.stop();
-await app.remove();
+// With configuration
+const result2 = await $.docker({
+  image: 'ubuntu:latest',
+  volumes: ['./data:/data'],
+  workdir: '/data',
+  env: { MY_VAR: 'value' }
+})`ls -la && echo $MY_VAR`;
 ```
 
 ## Container Configuration
 
-### Full Options
+### Ephemeral Container Options
 
 ```typescript
-const container = await $.docker({
+// All options for ephemeral containers
+const result = await $.docker({
   // Required
   image: 'ubuntu:22.04',
   
   // Container settings
-  name: 'my-container',
-  hostname: 'myhost',
   workdir: '/app',
   user: 'node:node',
   
-  // Port mapping
-  ports: {
-    '8080': '80',      // host:container
-    '3306': '3306'
-  },
-  // Or array format
-  ports: ['8080:80', '3306:3306'],
-  
   // Volume mounting
-  volumes: {
-    './data': '/data',
-    'my-vol': '/persist'
-  },
-  // Or array format
   volumes: ['./data:/data', 'my-vol:/persist'],
   
   // Environment variables
@@ -92,13 +115,8 @@ const container = await $.docker({
   // Network
   network: 'my-network',
   
-  // Restart policy
-  restart: 'unless-stopped', // 'no' | 'always' | 'unless-stopped' | 'on-failure'
-  
-  // Command to run
-  command: ['node', 'server.js'],
-  // Or string
-  command: 'node server.js',
+  // Port mapping (if needed for ephemeral containers)
+  ports: ['8080:80', '3306:3306'],
   
   // Labels
   labels: {
@@ -107,246 +125,65 @@ const container = await $.docker({
   },
   
   // Privileged mode
-  privileged: false,
-  
-  // Health check
-  healthcheck: {
-    test: 'curl -f http://localhost/health || exit 1',
-    interval: '30s',
-    timeout: '10s',
-    retries: 3,
-    startPeriod: '40s'
-  }
-}).start();
+  privileged: false
+})`node server.js`;
 ```
 
-## Command Execution
-
-### Execute in Running Container
+### Persistent Container Options
 
 ```typescript
+// Execute in existing container with options
+const app = $.docker({
+  container: 'my-app',
+  workdir: '/app',
+  user: 'node',
+  env: {
+    NODE_ENV: 'test'
+  }
+});
+
+await app`npm test`;
+await app`npm run coverage`;
+```
+
+## Container Lifecycle Management
+
+For containers that need full lifecycle management, use Docker CLI commands:
+
+```typescript
+// Create and start a container
+await $`docker run -d \
+  --name my-app \
+  -p 3000:3000 \
+  -v ./src:/app \
+  -e NODE_ENV=development \
+  node:18 npm start`;
+
+// Execute commands in the running container
 const app = $.docker({ container: 'my-app' });
+await app`npm install`;
+await app`npm test`;
 
-// Simple command
-await app`ls -la`;
-
-// With working directory
-const appWithDir = $.docker({ 
-  container: 'my-app',
-  workdir: '/app'
-});
-await appWithDir`npm test`;
-
-// With user
-const appAsUser = $.docker({
-  container: 'my-app',
-  user: 'node'
-});
-await appAsUser`whoami`; // Output: node
-```
-
-### Execute in New Container
-
-```typescript
-// One-off execution
-const result = await $.docker({ image: 'alpine' })`echo "Hello from Alpine"`;
-
-// With auto-cleanup
-const temp = await $.docker({
-  image: 'ubuntu:latest',
-  name: 'temp-container'
-}).start();
-
-await temp.exec`apt update`;
-await temp.exec`apt install -y curl`;
-const response = await temp.exec`curl https://example.com`;
-
-await temp.remove(); // Cleanup
-```
-
-### Execute Raw Commands (Without Shell)
-
-```typescript
-const container = await $.docker({
-  image: 'alpine',
-  name: 'raw-exec-demo'
-}).start();
-
-// Execute command without shell interpretation
-// Useful for commands with special characters or when shell is not needed
-await container.execRaw('echo', ['Hello', 'World']);
-
-// Complex arguments are passed safely
-await container.execRaw('grep', ['-E', '^[a-z]+$', 'file.txt']);
-
-// No shell expansion occurs
-await container.execRaw('echo', ['$HOME']); // Output: $HOME (literal)
-
-// Compare with regular exec (uses shell)
-await container.exec`echo $HOME`; // Output: /root (expanded)
-```
-
-## Container Lifecycle
-
-### Starting Containers
-
-```typescript
-// Basic start
-const nginx = await $.docker({
-  image: 'nginx:latest',
-  name: 'web-server',
-  ports: { '8080': '80' }
-}).start();
-
-// With health check wait
-const app = await $.docker({
-  image: 'my-app:latest',
-  healthcheck: {
-    test: 'curl -f http://localhost:3000/health',
-    interval: '10s'
-  }
-}).start();
-
-await app.waitForHealthy(60000); // Wait up to 60 seconds
-console.log('Application is healthy!');
-```
-
-### Managing Containers
-
-```typescript
-const container = await $.docker({
-  image: 'redis:alpine',
-  name: 'cache'
-}).start();
-
-// Check if running
-console.log('Started:', container.started); // true
-
-// Stop container
-await container.stop();
-
-// Restart
-await container.restart();
+// Container management
+await $`docker stop my-app`;
+await $`docker start my-app`;
+await $`docker restart my-app`;
 
 // Get container info
-const info = await container.inspect();
-console.log('Container ID:', info.Id);
-console.log('State:', info.State.Status);
+const info = await $`docker inspect my-app`;
+const containerInfo = JSON.parse(info.stdout)[0];
+console.log('Container ID:', containerInfo.Id);
+console.log('State:', containerInfo.State.Status);
 
-// Remove when done
-await container.remove();
-console.log('Removed:', container.removed); // true
-```
+// View logs
+await $`docker logs my-app --tail 50`;
 
-## Log Management
+// Follow logs in real-time
+await $`docker logs -f my-app`;
 
-### Get Logs
-
-```typescript
-const app = await $.docker({
-  image: 'my-app',
-  name: 'app-instance'
-}).start();
-
-// Get recent logs
-const logs = await app.logs({ tail: 100 });
-console.log('Recent logs:', logs);
-
-// Get logs with timestamps
-const timedLogs = await app.logs({ 
-  timestamps: true,
-  since: '2024-01-01T00:00:00Z'
-});
-```
-
-### Stream Logs
-
-```typescript
-// Stream logs in real-time
-await app.streamLogs((line) => {
-  console.log(`[LOG] ${line}`);
-});
-
-// Stream with options
-await app.streamLogs(
-  (line) => {
-    // Parse and process each line
-    if (line.includes('ERROR')) {
-      console.error('❌', line);
-    } else {
-      console.log('📝', line);
-    }
-  },
-  {
-    follow: true,      // Keep following
-    tail: 50,          // Start with last 50 lines
-    timestamps: true   // Include timestamps
-  }
-);
-
-// Follow logs (alias for streamLogs with follow: true)
-await app.follow((line) => {
-  console.log(line);
-});
-```
-
-### Multi-Container Log Aggregation
-
-```typescript
-// Start multiple containers
-const containers = await Promise.all([
-  $.docker({ image: 'web-app', name: 'web' }).start(),
-  $.docker({ image: 'api-app', name: 'api' }).start(),
-  $.docker({ image: 'worker-app', name: 'worker' }).start()
-]);
-
-// Stream logs from all containers
-const streams = containers.map((container, index) => {
-  const prefix = ['WEB', 'API', 'WORKER'][index];
-  return container.streamLogs((line) => {
-    console.log(`[${prefix}] ${line.trim()}`);
-  });
-});
-
-// Wait for some time
-await new Promise(resolve => setTimeout(resolve, 60000));
-
-// Stop all streams
-streams.forEach(stream => stream.stop());
-```
-
-## File Operations
-
-### Copy Files To Container
-
-```typescript
-const app = await $.docker({
-  image: 'node:18',
-  name: 'app'
-}).start();
-
-// Copy single file
-await app.copyTo('./config.json', '/app/config.json');
-
-// Copy directory
-await app.copyTo('./src', '/app/src');
-
-// Verify copy
-const files = await app.exec`ls -la /app`;
-console.log(files.stdout);
-```
-
-### Copy Files From Container
-
-```typescript
-// Copy file from container
-await app.copyFrom('/app/output.log', './output.log');
-
-// Copy directory
-await app.copyFrom('/app/build', './dist');
-
-// Copy with different names
-await app.copyFrom('/etc/nginx/nginx.conf', './nginx-backup.conf');
+// Clean up
+await $`docker stop my-app`;
+await $`docker rm my-app`;
 ```
 
 ## Volume Management
@@ -354,51 +191,43 @@ await app.copyFrom('/etc/nginx/nginx.conf', './nginx-backup.conf');
 ### Named Volumes
 
 ```typescript
-// Use named volumes for persistence
-const db = await $.docker({
-  image: 'postgres:15',
-  name: 'database',
-  volumes: {
-    'pgdata': '/var/lib/postgresql/data'  // Named volume
-  },
-  env: {
-    POSTGRES_PASSWORD: 'secret',
-    POSTGRES_DB: 'myapp'
-  }
-}).start();
+// Create container with named volume
+await $`docker run -d \
+  --name database \
+  -v pgdata:/var/lib/postgresql/data \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=myapp \
+  postgres:15`;
+
+// Execute commands
+const db = $.docker({ container: 'database' });
+await db`psql -U postgres -c "SELECT version();"`;
 
 // Data persists even after container removal
-await db.stop();
-await db.remove();
+await $`docker stop database && docker rm database`;
 
-// Recreate with same volume
-const db2 = await $.docker({
-  image: 'postgres:15',
-  name: 'database-new',
-  volumes: {
-    'pgdata': '/var/lib/postgresql/data'  // Same data
-  }
-}).start();
+// Recreate with same volume - data is preserved
+await $`docker run -d \
+  --name database-new \
+  -v pgdata:/var/lib/postgresql/data \
+  postgres:15`;
 ```
 
 ### Bind Mounts
 
 ```typescript
 // Development with live reload
-const dev = await $.docker({
-  image: 'node:18',
-  name: 'dev-server',
-  volumes: {
-    './src': '/app/src',               // Source code
-    './package.json': '/app/package.json',
-    './node_modules': '/app/node_modules'
-  },
-  workdir: '/app',
-  ports: { '3000': '3000' },
-  command: 'npm run dev'
-}).start();
+await $`docker run -d \
+  --name dev-server \
+  -v ./src:/app/src \
+  -v ./package.json:/app/package.json \
+  -w /app \
+  -p 3000:3000 \
+  node:18 npm run dev`;
 
 // Changes to ./src are reflected immediately
+const dev = $.docker({ container: 'dev-server' });
+await dev`npm install`;
 ```
 
 ## Network Management
@@ -406,99 +235,91 @@ const dev = await $.docker({
 ### Custom Networks
 
 ```typescript
-// Create network first (using docker CLI)
+// Create network
 await $`docker network create app-network`;
 
-// Connect containers to network
-const api = await $.docker({
-  image: 'api:latest',
-  name: 'api-server',
-  network: 'app-network'
-}).start();
+// Start containers on network
+await $`docker run -d \
+  --name api-server \
+  --network app-network \
+  my-api:latest`;
 
-const web = await $.docker({
-  image: 'web:latest',
-  name: 'web-server',
-  network: 'app-network',
-  env: {
-    API_URL: 'http://api-server:3000'  // Use container name
-  }
-}).start();
+await $`docker run -d \
+  --name web-server \
+  --network app-network \
+  -e API_URL=http://api-server:3000 \
+  my-web:latest`;
 
 // Containers can communicate by name
-await web.exec`curl http://api-server:3000/health`;
+const web = $.docker({ container: 'web-server' });
+await web`curl http://api-server:3000/health`;
+
+// Cleanup
+await $`docker stop api-server web-server`;
+await $`docker rm api-server web-server`;
+await $`docker network rm app-network`;
 ```
 
-### Port Publishing
+## File Operations
+
+### Copy Files To/From Containers
 
 ```typescript
-// Multiple port mappings
-const app = await $.docker({
-  image: 'complex-app',
-  ports: {
-    '8080': '80',      // HTTP
-    '8443': '443',     // HTTPS
-    '9000': '9000',    // Metrics
-    '3306': '3306'     // Database
-  }
-}).start();
+// Start a container
+await $`docker run -d --name app node:18 sleep 3600`;
 
-// Random host port
-const service = await $.docker({
-  image: 'service',
-  ports: ['0:8080']  // Random available port
-}).start();
+// Copy file to container
+await $`docker cp ./config.json app:/app/config.json`;
 
-// Get assigned port
-const info = await service.inspect();
-const assignedPort = info.NetworkSettings.Ports['8080/tcp'][0].HostPort;
-console.log(`Service available at localhost:${assignedPort}`);
+// Copy directory to container  
+await $`docker cp ./src app:/app/src`;
+
+// Verify copy
+const app = $.docker({ container: 'app' });
+const files = await app`ls -la /app`;
+console.log(files.stdout);
+
+// Copy file from container
+await $`docker cp app:/app/output.log ./output.log`;
+
+// Copy directory from container
+await $`docker cp app:/app/build ./dist`;
+
+// Cleanup
+await $`docker rm -f app`;
 ```
 
-## Health Monitoring
-
-### Health Checks
+## Health Checks
 
 ```typescript
-// Define health check
-const healthy = await $.docker({
-  image: 'web-app',
-  healthcheck: {
-    test: ['CMD', 'curl', '-f', 'http://localhost/health'],
-    interval: '30s',
-    timeout: '10s',
-    retries: 3,
-    startPeriod: '40s'
-  }
-}).start();
+// Run container with health check
+await $`docker run -d \
+  --name healthy-app \
+  --health-cmd "curl -f http://localhost:3000/health || exit 1" \
+  --health-interval 30s \
+  --health-timeout 10s \
+  --health-retries 3 \
+  --health-start-period 40s \
+  my-app:latest`;
 
-// Wait for healthy state
-try {
-  await healthy.waitForHealthy(120000); // 2 minutes
-  console.log('Container is healthy!');
-} catch (error) {
-  console.error('Container failed health check');
-  const logs = await healthy.logs({ tail: 50 });
-  console.error('Recent logs:', logs);
+// Wait for container to be healthy
+let healthy = false;
+for (let i = 0; i < 60; i++) {
+  const status = await $`docker inspect healthy-app --format '{{.State.Health.Status}}'`.nothrow();
+  if (status.stdout.trim() === 'healthy') {
+    healthy = true;
+    break;
+  }
+  await new Promise(resolve => setTimeout(resolve, 2000));
 }
-```
 
-### Container Stats
-
-```typescript
-// Monitor resource usage
-const stats = await container.stats();
-console.log('CPU Usage:', stats.cpu_stats.cpu_usage.total_usage);
-console.log('Memory Usage:', stats.memory_stats.usage);
-console.log('Network RX:', stats.networks.eth0.rx_bytes);
-console.log('Network TX:', stats.networks.eth0.tx_bytes);
-
-// Continuous monitoring
-setInterval(async () => {
-  const stats = await container.stats();
-  const memoryMB = stats.memory_stats.usage / 1024 / 1024;
-  console.log(`Memory: ${memoryMB.toFixed(2)} MB`);
-}, 5000);
+if (healthy) {
+  console.log('Container is healthy!');
+} else {
+  console.error('Container failed health check');
+  const logs = await $`docker logs healthy-app --tail 50`;
+  console.error('Recent logs:', logs.stdout);
+}
 ```
 
 ## Docker Compose
@@ -507,217 +328,208 @@ setInterval(async () => {
 
 ```typescript
 // Compose up
-await $.docker.composeUp({
-  file: './docker-compose.yml',
-  projectName: 'myapp'
-});
+await $`docker-compose -f docker-compose.yml up -d`;
 
 // Check status
-const status = await $.docker.composePs({
-  file: './docker-compose.yml'
-});
-console.log(status);
+const status = await $`docker-compose ps`;
+console.log(status.stdout);
 
-// View logs
-const logs = await $.docker.composeLogs('web', {
-  file: './docker-compose.yml'
-});
+// View logs for specific service
+await $`docker-compose logs web --tail 50`;
+
+// Execute command in service container
+const web = $.docker({ container: 'myapp_web_1' });
+await web`npm test`;
 
 // Compose down
-await $.docker.composeDown({
-  file: './docker-compose.yml'
-});
+await $`docker-compose down`;
+
+// With volume removal
+await $`docker-compose down -v`;
 ```
 
 ### Multiple Compose Files
 
 ```typescript
-// Use multiple compose files
-await $.docker.composeUp({
-  file: ['docker-compose.yml', 'docker-compose.override.yml'],
-  projectName: 'dev-env'
-});
+// Development environment
+await $`docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d`;
 
-// Production setup
-await $.docker.composeUp({
-  file: ['docker-compose.yml', 'docker-compose.prod.yml'],
-  projectName: 'prod-app'
-});
+// Production environment
+await $`docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d`;
+```
+
+## Fluent API
+
+The Docker adapter provides a fluent API for more readable container configuration:
+
+### Basic Fluent Usage
+
+```typescript
+// Ephemeral container with method chaining
+await $.docker()
+  .ephemeral('alpine:latest')
+  .volumes(['/data:/data'])
+  .workdir('/app')
+  .user('nobody')
+  .env({ NODE_ENV: 'production' })
+  .run`echo "Hello from fluent API"`;
+
+// Existing container execution
+await $.docker()
+  .container('my-app')
+  .workdir('/app')
+  .exec`npm test`;
+```
+
+### Advanced Fluent Configuration
+
+```typescript
+// Complex ephemeral setup
+const result = await $.docker()
+  .ephemeral('node:18-alpine')
+  .volumes([
+    './src:/app/src:ro',
+    './dist:/app/dist'
+  ])
+  .workdir('/app')
+  .user('node')
+  .env({
+    NODE_ENV: 'production',
+    API_KEY: process.env.API_KEY
+  })
+  .network('my-network')
+  .ports(['3000:3000'])
+  .labels({
+    app: 'my-service',
+    version: '1.0.0'
+  })
+  .privileged()
+  .run`npm run build`;
+```
+
+### Build and Run Pattern
+
+```typescript
+// Build an image
+await $`docker build -t myapp:latest \
+  --build-arg VERSION=1.0.0 \
+  -f Dockerfile.prod \
+  ./docker/myapp`;
+
+// Run with the built image
+await $.docker()
+  .ephemeral('myapp:latest')
+  .volumes(['./data:/data'])
+  .run`process-data /data/input.json`;
 ```
 
 ## Advanced Patterns
 
-### Container Factory
+### Container Factory Pattern
 
 ```typescript
-class ContainerFactory {
-  static async createWebServer(config: {
-    name: string;
-    port: number;
-    env?: Record<string, string>;
-  }) {
-    return $.docker({
-      image: 'nginx:alpine',
-      name: config.name,
-      ports: { [config.port]: '80' },
-      volumes: {
-        './nginx.conf': '/etc/nginx/nginx.conf:ro',
-        './public': '/usr/share/nginx/html:ro'
-      },
-      env: config.env || {},
-      restart: 'unless-stopped'
-    }).start();
-  }
-  
-  static async createDatabase(config: {
-    name: string;
-    password: string;
-    volume: string;
-  }) {
-    return $.docker({
-      image: 'postgres:15',
-      name: config.name,
-      volumes: { [config.volume]: '/var/lib/postgresql/data' },
-      env: {
-        POSTGRES_PASSWORD: config.password,
-        POSTGRES_DB: 'app'
-      },
-      healthcheck: {
-        test: 'pg_isready -U postgres',
-        interval: '10s'
-      }
-    }).start();
-  }
+// Helper function for common container configurations
+function createService(name: string, image: string, port: number) {
+  return $`docker run -d \
+    --name ${name} \
+    -p ${port}:${port} \
+    --restart unless-stopped \
+    ${image}`;
 }
 
-// Usage
-const web = await ContainerFactory.createWebServer({
-  name: 'web-prod',
-  port: 80
-});
-
-const db = await ContainerFactory.createDatabase({
-  name: 'db-prod',
-  password: 'secret',
-  volume: 'prod-db-data'
-});
+// Create services
+await createService('web', 'nginx:alpine', 80);
+await createService('api', 'my-api:latest', 3000);
+await createService('cache', 'redis:alpine', 6379);
 ```
 
 ### Development Environment
 
 ```typescript
-class DevEnvironment {
-  private containers: Map<string, any> = new Map();
+// Start development stack
+async function startDevStack() {
+  // Create network
+  await $`docker network create dev-net`.nothrow();
   
-  async start() {
-    // Start database
-    const db = await $.docker({
-      image: 'postgres:15',
-      name: 'dev-db',
-      ports: { '5432': '5432' },
-      env: {
-        POSTGRES_PASSWORD: 'devpass',
-        POSTGRES_DB: 'devdb'
-      }
-    }).start();
-    this.containers.set('db', db);
-    
-    // Start Redis
-    const redis = await $.docker({
-      image: 'redis:alpine',
-      name: 'dev-redis',
-      ports: { '6379': '6379' }
-    }).start();
-    this.containers.set('redis', redis);
-    
-    // Start app with hot reload
-    const app = await $.docker({
-      image: 'node:18',
-      name: 'dev-app',
-      volumes: {
-        '.': '/app',
-        '/app/node_modules': '' // Anonymous volume for node_modules
-      },
-      workdir: '/app',
-      ports: { '3000': '3000' },
-      env: {
-        NODE_ENV: 'development',
-        DATABASE_URL: 'postgresql://postgres:devpass@dev-db:5432/devdb',
-        REDIS_URL: 'redis://dev-redis:6379'
-      },
-      command: 'npm run dev'
-    }).start();
-    this.containers.set('app', app);
-    
-    // Stream logs
-    await app.follow((line) => {
-      console.log(`[APP] ${line}`);
-    });
-  }
+  // Start database
+  await $`docker run -d \
+    --name dev-db \
+    --network dev-net \
+    -p 5432:5432 \
+    -e POSTGRES_PASSWORD=devpass \
+    -e POSTGRES_DB=devdb \
+    postgres:15`;
   
-  async stop() {
-    for (const [name, container] of this.containers) {
-      console.log(`Stopping ${name}...`);
-      await container.stop();
-      await container.remove();
-    }
-    this.containers.clear();
-  }
+  // Start Redis
+  await $`docker run -d \
+    --name dev-redis \
+    --network dev-net \
+    -p 6379:6379 \
+    redis:alpine`;
+  
+  // Start app with hot reload
+  await $`docker run -d \
+    --name dev-app \
+    --network dev-net \
+    -p 3000:3000 \
+    -v ${process.cwd()}:/app \
+    -w /app \
+    -e NODE_ENV=development \
+    -e DATABASE_URL=postgresql://postgres:devpass@dev-db:5432/devdb \
+    -e REDIS_URL=redis://dev-redis:6379 \
+    node:18 npm run dev`;
+  
+  console.log('Development stack started!');
 }
 
-const dev = new DevEnvironment();
-await dev.start();
-// ... development ...
-await dev.stop();
+// Stop development stack
+async function stopDevStack() {
+  await $`docker stop dev-app dev-redis dev-db`.nothrow();
+  await $`docker rm dev-app dev-redis dev-db`.nothrow();
+  await $`docker network rm dev-net`.nothrow();
+  console.log('Development stack stopped!');
+}
 ```
 
 ### Testing with Containers
 
 ```typescript
-// Integration test setup
-async function setupTestEnvironment() {
-  // Start test database
-  const db = await $.docker({
-    image: 'postgres:15',
-    name: 'test-db',
-    env: {
-      POSTGRES_PASSWORD: 'test',
-      POSTGRES_DB: 'test'
+// Run tests in isolated environment
+async function runIntegrationTests() {
+  const testId = Date.now();
+  
+  try {
+    // Start test database
+    await $`docker run -d \
+      --name test-db-${testId} \
+      -e POSTGRES_PASSWORD=test \
+      -e POSTGRES_DB=test \
+      postgres:15`;
+    
+    // Wait for database to be ready
+    for (let i = 0; i < 30; i++) {
+      const ready = await $`docker exec test-db-${testId} pg_isready -U postgres`.nothrow();
+      if (ready.ok) break;
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-  }).start();
-  
-  // Wait for database
-  await db.waitForHealthy();
-  
-  // Run migrations
-  await db.exec`psql -U postgres -d test -f /schema.sql`;
-  
-  // Start application
-  const app = await $.docker({
-    image: 'app:test',
-    name: 'test-app',
-    env: {
-      DATABASE_URL: 'postgresql://postgres:test@test-db:5432/test',
-      NODE_ENV: 'test'
-    },
-    network: 'bridge'
-  }).start();
-  
-  // Wait for app
-  await app.waitForHealthy();
-  
-  return { db, app };
-}
-
-// Run tests
-const env = await setupTestEnvironment();
-try {
-  // Run test suite
-  await $`npm test`;
-} finally {
-  // Cleanup
-  await env.app.remove();
-  await env.db.remove();
+    
+    // Run tests in container
+    const result = await $.docker({
+      image: 'node:18',
+      volumes: [`${process.cwd()}:/app`],
+      workdir: '/app',
+      env: {
+        DATABASE_URL: `postgresql://postgres:test@test-db-${testId}:5432/test`,
+        NODE_ENV: 'test'
+      },
+      network: 'bridge'
+    })`npm test`;
+    
+    return result;
+  } finally {
+    // Cleanup
+    await $`docker rm -f test-db-${testId}`.nothrow();
+  }
 }
 ```
 
@@ -726,76 +538,138 @@ try {
 ### 1. Always Clean Up
 
 ```typescript
-// ✅ Use try-finally for cleanup
-const container = await $.docker({ image: 'app' }).start();
+// ✅ Good - ephemeral containers auto-remove
+await $.docker({ image: 'alpine' })`echo "test"`;
+
+// ✅ Good - manual cleanup for persistent containers
+await $`docker run -d --name test-app my-app`;
 try {
-  await container.exec`run-tests`;
+  const app = $.docker({ container: 'test-app' });
+  await app`run-tests`;
 } finally {
-  await container.stop();
-  await container.remove();
+  await $`docker rm -f test-app`;
 }
 
-// ❌ No cleanup
-const container = await $.docker({ image: 'app' }).start();
-await container.exec`run-tests`;
-// Container keeps running!
+// ❌ Bad - leaves containers running
+await $`docker run -d --name test-app my-app`;
+// No cleanup!
 ```
 
-### 2. Use Health Checks
+### 2. Use Specific Image Tags
 
 ```typescript
-// ✅ Define health checks
-const app = await $.docker({
-  image: 'web-app',
-  healthcheck: {
-    test: 'curl -f http://localhost/health',
-    interval: '30s'
-  }
-}).start();
+// ✅ Good - pinned version
+await $.docker({ image: 'node:18.17.0-alpine' })`node --version`;
 
-await app.waitForHealthy();
-
-// ❌ No health verification
-const app = await $.docker({ image: 'web-app' }).start();
-// Might not be ready!
+// ❌ Bad - latest tag can change
+await $.docker({ image: 'node:latest' })`node --version`;
 ```
 
 ### 3. Name Your Containers
 
 ```typescript
-// ✅ Use descriptive names
-const db = await $.docker({
-  image: 'postgres',
-  name: 'myapp-postgres-dev'
-}).start();
+// ✅ Good - descriptive names for persistent containers
+await $`docker run -d --name myapp-postgres-dev postgres:15`;
 
-// ❌ Random names make debugging hard
-const db = await $.docker({ image: 'postgres' }).start();
+// ❌ Bad - random names make debugging hard
+await $`docker run -d postgres:15`;
 ```
 
-### 4. Use Specific Tags
+### 4. Use Health Checks for Critical Services
 
 ```typescript
-// ✅ Pin versions
-const app = await $.docker({
-  image: 'node:18.17.0-alpine'
-}).start();
+// ✅ Good - health check ensures readiness
+await $`docker run -d \
+  --name api \
+  --health-cmd "curl -f http://localhost:3000/health" \
+  --health-interval 10s \
+  my-api:latest`;
 
-// ❌ Latest tag can break
-const app = await $.docker({
-  image: 'node:latest'
-}).start();
+// Wait for health
+let attempts = 0;
+while (attempts < 30) {
+  const health = await $`docker inspect api --format '{{.State.Health.Status}}'`.nothrow();
+  if (health.stdout.trim() === 'healthy') break;
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  attempts++;
+}
 ```
 
-### 5. Handle Logs Appropriately
+### 5. Handle Volumes Appropriately
 
 ```typescript
-// ✅ Stream logs for long-running containers
-const app = await $.docker({ image: 'app' }).start();
-const logStream = await app.follow((line) => {
-  logger.info(line);
-});
+// ✅ Good - use named volumes for data persistence
+await $`docker run -d \
+  --name db \
+  -v postgres-data:/var/lib/postgresql/data \
+  postgres:15`;
 
-// ❌ Getting all logs can use lots of memory
-const logs = await app.logs(); // Might be gigabytes!
+// ✅ Good - use bind mounts for development
+await $`docker run -d \
+  --name dev-app \
+  -v ./src:/app/src:ro \
+  my-app:dev`;
+```
+
+## Migration from Old API
+
+If you're using the deprecated DockerContext API, here's how to migrate:
+
+### Old API (Deprecated)
+```typescript
+// Old lifecycle management
+const container = await $.docker({
+  image: 'nginx',
+  name: 'web'
+}).start();
+await container.exec`nginx -v`;
+await container.stop();
+await container.remove();
+```
+
+### New API (Recommended)
+```typescript
+// Use Docker CLI for lifecycle management
+await $`docker run -d --name web nginx`;
+const container = $.docker({ container: 'web' });
+await container`nginx -v`;
+await $`docker stop web`;
+await $`docker rm web`;
+
+// Or use ephemeral containers
+await $.docker({ image: 'nginx' })`nginx -v`;
+```
+
+## Troubleshooting
+
+### Container Not Found
+
+```typescript
+// Check if container exists
+const exists = await $`docker ps -a --filter name=my-app --format '{{.Names}}'`.nothrow();
+if (!exists.stdout.includes('my-app')) {
+  console.error('Container not found');
+}
+```
+
+### Permission Denied
+
+```typescript
+// Run with specific user
+await $.docker({
+  container: 'my-app',
+  user: '1000:1000'  // uid:gid
+})`ls -la`;
+```
+
+### Network Issues
+
+```typescript
+// Check container network
+const network = await $`docker inspect my-app --format '{{.NetworkSettings.Networks}}'`;
+console.log('Networks:', network.stdout);
+
+// Test connectivity
+const app = $.docker({ container: 'my-app' });
+await app`ping -c 1 google.com`;
 ```

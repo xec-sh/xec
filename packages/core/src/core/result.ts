@@ -7,6 +7,10 @@ export interface ExecutionResult {
   exitCode: number;                     // Exit code
   signal?: string;                      // Exit signal
 
+  // Status
+  ok: boolean;                          // Success status (exitCode === 0)
+  cause?: string;                       // Error cause (exitCode or signal) when not ok
+
   // Metadata
   command: string;                      // Executed command
   duration: number;                     // Execution time (ms)
@@ -22,10 +26,16 @@ export interface ExecutionResult {
   toString(): string;
   toJSON(): object;
   throwIfFailed(): void;
+  /**
+   * @deprecated Use `result.ok` instead
+   */
   isSuccess(): boolean;
 }
 
 export class ExecutionResultImpl implements ExecutionResult {
+  public readonly ok: boolean;
+  public readonly cause?: string;
+
   constructor(
     public stdout: string,
     public stderr: string,
@@ -38,7 +48,12 @@ export class ExecutionResultImpl implements ExecutionResult {
     public adapter: string,
     public host?: string,
     public container?: string
-  ) { }
+  ) {
+    this.ok = exitCode === 0;
+    if (!this.ok) {
+      this.cause = signal ? `signal: ${signal}` : `exitCode: ${exitCode}`;
+    }
+  }
 
   toString(): string {
     return this.stdout.trim();
@@ -73,7 +88,10 @@ export class ExecutionResultImpl implements ExecutionResult {
     }
   }
 
+  /**
+   * @deprecated Use `result.ok` instead
+   */
   isSuccess(): boolean {
-    return this.exitCode === 0;
+    return this.ok;
   }
 }

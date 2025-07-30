@@ -48,9 +48,11 @@ await $`echo "Hello, World!"`;
 const ssh = $.ssh({ host: 'server.com' });
 await ssh`uptime`;
 
-// Docker
-const container = $.docker({ image: 'node:18' });
-await container.exec`npm test`;
+// Docker - ephemeral container
+await $.docker({ image: 'node:18' })`npm test`;
+
+// Docker - existing container
+await $.docker({ container: 'my-app' })`npm test`;
 
 // Kubernetes
 const pod = $.k8s().pod('web-app');
@@ -65,8 +67,10 @@ await parallel([$`task1`, $`task2`, $`task3`]);
 
 // Error handling
 const result = await $`command`.nothrow();
-if (result.isSuccess()) {
+if (result.ok) {
   console.log(result.stdout);
+} else {
+  console.log('Failed:', result.cause);
 }
 ```
 

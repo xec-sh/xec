@@ -19,7 +19,8 @@ await $`echo "Hello, World!"`;
 const result = await $`echo "Hello from xec!"`;
 console.log('Output:', result.stdout);       // Command standard output
 console.log('Exit code:', result.exitCode);  // Return code (0 = success)
-console.log('Success:', result.isSuccess()); // true if exitCode === 0
+console.log('Success:', result.ok);          // true if exitCode === 0
+console.log('Cause:', result.cause);         // undefined when ok is true
 
 // 3. Variable interpolation in commands
 // Variables are automatically escaped for security

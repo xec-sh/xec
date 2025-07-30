@@ -29,7 +29,8 @@ const result = await $`echo "Hello, World!"`;
 console.log('Output:', result.stdout);      // "Hello, World!\n"
 console.log('Errors:', result.stderr);      // ""
 console.log('Exit code:', result.exitCode); // 0
-console.log('Success?', result.isSuccess()); // true
+console.log('Success?', result.ok);         // true
+console.log('Cause:', result.cause);        // undefined (when ok is true)
 ```
 
 ## Template Literal Interpolation
@@ -93,10 +94,11 @@ Use `.nothrow()` to handle errors manually:
 ```typescript
 const result = await $`exit 1`.nothrow();
 
-if (result.isSuccess()) {
+if (result.ok) {
   console.log('Success!');
 } else {
   console.log('Failed with code:', result.exitCode);
+  console.log('Cause:', result.cause); // "exitCode: 1"
 }
 ```
 
@@ -226,7 +228,7 @@ await $`echo "More data" >> output.txt`;
 ```typescript
 async function commandExists(cmd: string): Promise<boolean> {
   const result = await $`which ${cmd}`.nothrow();
-  return result.isSuccess();
+  return result.ok;
 }
 
 if (await commandExists('docker')) {
@@ -239,7 +241,7 @@ if (await commandExists('docker')) {
 ```typescript
 async function getGitBranch(): Promise<string> {
   const result = await $`git branch --show-current`.nothrow();
-  return result.isSuccess() ? result.text() : 'main';
+  return result.ok ? result.text() : 'main';
 }
 ```
 
@@ -309,7 +311,7 @@ async function checkGitRepos(dirs: string[]) {
     
     const result = await $.cd(dir)`git status --porcelain`.nothrow();
     
-    if (!result.isSuccess()) {
+    if (!result.ok) {
       console.log('  Not a git repository');
       continue;
     }
