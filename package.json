@@ -52,8 +52,7 @@
   },
   "workspaces": [
     "apps/*",
-    "packages/*",
-    "docs"
+    "packages/*"
   ],
   "publishConfig": {
     "workspaceProtocol": "version"
