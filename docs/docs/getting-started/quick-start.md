@@ -24,9 +24,6 @@ Create a file called `hello.js`:
 ```javascript
 #!/usr/bin/env xec
 
-// Import the global $ function
-import { $ } from '@xec-sh/core';
-
 // Execute commands with template literals
 await $`echo "Starting automation..."`;
 

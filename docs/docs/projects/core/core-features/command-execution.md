@@ -384,7 +384,7 @@ Use `.nothrow()` for manual handling:
 ```typescript
 const result = await $`potentially-failing-command`.nothrow();
 
-if (result.isSuccess()) {
+if (result.ok) {
   console.log('Success:', result.stdout);
 } else {
   console.log('Failed:', result.exitCode);
@@ -466,7 +466,7 @@ await $`cat ${file}`.raw;
 ```typescript
 // ✅ Good - handle errors
 const result = await $`risky-command`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   // Handle error
 }
 

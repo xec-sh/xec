@@ -869,7 +869,7 @@ const spinner = spinner();
 spinner.start('Running tests...');
 
 const testResult = await $`npm test`.nothrow();
-if (!testResult.isSuccess()) {
+if (!testResult.ok) {
   spinner.stop('Tests failed');
   log.error(testResult.stderr);
   exit(1);

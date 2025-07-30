@@ -235,7 +235,7 @@ async function ensureContainerRunning(name: string) {
     shouldRetry: async (error) => {
       // Check if container exists
       const exists = await $`docker ps -a --filter name=${name} -q`.nothrow();
-      return exists.isSuccess() && exists.stdout.trim() !== '';
+      return exists.ok && exists.stdout.trim() !== '';
     }
   });
 }
@@ -515,7 +515,7 @@ describe('Retry functionality', () => {
       .retry(3)
       .nothrow();
     
-    expect(result.isSuccess()).toBe(true);
+    expect(result.ok).toBe(true);
     expect(attempts).toBe(3);
   });
   

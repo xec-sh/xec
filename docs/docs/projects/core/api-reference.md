@@ -272,13 +272,13 @@ Don't throw on non-zero exit code:
 
 ```typescript
 const result = await $`test -f missing.txt`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('File does not exist');
 }
 
 // Check command availability
 const hasDocker = await $`which docker`.nothrow();
-if (hasDocker.isSuccess()) {
+if (hasDocker.ok) {
   console.log('Docker is installed');
 }
 ```
@@ -343,7 +343,7 @@ interface ExecutionResult {
   signal?: string;
   
   // Check if successful (exitCode === 0)
-  isSuccess(): boolean;
+  ok: boolean;
   
   // Get stdout as string
   toString(): string;
@@ -1521,7 +1521,7 @@ class MyAdapter extends BaseAdapter {
       stdout: '',
       stderr: '',
       exitCode: 0,
-      isSuccess: () => true,
+      ok: true,
       toString: () => ''
     };
   }

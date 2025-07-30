@@ -196,10 +196,10 @@ async function runLoadTest(config: LoadTestConfig) {
 
 async function detectLoadTestTool(): Promise<string | null> {
   const ab = await $`which ab`.nothrow();
-  if (ab.isSuccess()) return 'ab';
+  if (ab.ok) return 'ab';
   
   const wrk = await $`which wrk`.nothrow();
-  if (wrk.isSuccess()) return 'wrk';
+  if (wrk.ok) return 'wrk';
   
   return null;
 }

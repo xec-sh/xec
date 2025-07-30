@@ -355,7 +355,7 @@ describe('ExecutionEngine', () => {
       const result = await promise.nothrow();
       
       expect(result.exitCode).toBe(42);
-      expect(result.isSuccess()).toBe(false);
+      expect(result.ok).toBe(false);
     });
 
     it('should support quiet() method', async () => {

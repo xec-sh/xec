@@ -94,7 +94,7 @@ const result = await $`echo "test"`;
 result.stdout    // "test\n"
 result.stderr    // ""
 result.exitCode  // 0
-result.isSuccess() // true
+result.ok // true
 ```
 
 ## Async/Await Model
@@ -149,7 +149,7 @@ try {
 
 // Suppress errors
 const result = await $`exit 1`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Command failed');
 }
 ```
@@ -294,7 +294,7 @@ async function deploy() {
 
 ```typescript
 const hasDocker = await $`which docker`.nothrow();
-if (hasDocker.isSuccess()) {
+if (hasDocker.ok) {
   await $`docker build -t app .`;
 }
 ```
@@ -303,7 +303,7 @@ if (hasDocker.isSuccess()) {
 
 ```typescript
 const backup = await $`pg_dump mydb > backup.sql`.nothrow();
-if (!backup.isSuccess()) {
+if (!backup.ok) {
   // Try alternative method
   await $`mysqldump mydb > backup.sql`;
 }
@@ -327,7 +327,7 @@ await $.raw`cat ${file}`;
 ```typescript
 // ✅ Good - Explicit error handling
 const result = await $`risky-command`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.error('Command failed:', result.stderr);
 }
 

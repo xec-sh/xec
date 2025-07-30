@@ -283,7 +283,7 @@ const resultsWithErrors = await Promise.all(
 );
 
 resultsWithErrors.forEach((result, i) => {
-  if (result.isSuccess()) {
+  if (result.ok) {
     console.log(`Task ${i + 1}: Success`);
     console.log(`  Output: ${result.stdout.trim()}`);
   } else {

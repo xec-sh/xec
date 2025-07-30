@@ -13,7 +13,7 @@ describe('Unified Execution Engine - Integration Tests', () => {
       const result = await promise.nothrow();
       
       expect(result.exitCode).toBe(1);
-      expect(result.isSuccess()).toBe(false);
+      expect(result.ok).toBe(false);
     });
 
     it('should execute simple commands', async () => {
@@ -60,7 +60,7 @@ describe('Unified Execution Engine - Integration Tests', () => {
       const result = await local$`exit 1`;
       
       expect(result.exitCode).toBe(1);
-      expect(result.isSuccess()).toBe(false);
+      expect(result.ok).toBe(false);
     });
   });
 

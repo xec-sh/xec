@@ -567,7 +567,7 @@ await $`problematic command`;
 ```javascript
 // Always handle errors
 const result = await $`risky-command`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.error('Command failed:', result.stderr);
   // Handle failure gracefully
 }

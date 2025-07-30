@@ -494,7 +494,7 @@ await $`rsync -avh --progress /source/ /dest/`;
 ```typescript
 async function validateTransfer(source: string, dest: string) {
   // Check existence
-  if (!(await $`test -f ${dest}`.nothrow()).isSuccess()) {
+  if (!(await $`test -f ${dest}`.nothrow()).ok) {
     throw new Error('Destination file not found');
   }
   

@@ -25,7 +25,7 @@ const $retryWithDelay = $.retry({
 });
 
 const result = await $retryWithDelay`ping -c 1 example.com || exit 1`.nothrow();
-if (result.isSuccess()) {
+if (result.ok) {
   console.log('Хост доступен');
 } else {
   console.log('Хост недоступен после всех попыток');
@@ -96,7 +96,7 @@ const fileChecks = files.map(file =>
 
 const results = await Promise.all(fileChecks);
 results.forEach((result, i) => {
-  console.log(`Файл ${files[i]}: ${result.isSuccess() ? 'существует' : 'не найден'}`);
+  console.log(`Файл ${files[i]}: ${result.ok ? 'существует' : 'не найден'}`);
 });
 
 // 7. Простой пример ожидания сервиса
@@ -136,7 +136,7 @@ const $smartRetry = $.retry({
 });
 
 const apiResult = await $smartRetry`curl -f -X POST http://example.com/api/test || exit 2`.nothrow();
-if (apiResult.isSuccess()) {
+if (apiResult.ok) {
   console.log('API вызов успешен');
 } else {
   console.log(`API вызов неудачен: exit code ${apiResult.exitCode}`);

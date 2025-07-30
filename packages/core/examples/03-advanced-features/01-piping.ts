@@ -39,7 +39,7 @@ console.log('Filtered files:', filtered.stdout);
 // 6. Error handling in pipe
 // If any part of pipe fails, entire command will fail
 const pipeResult = await $`echo "test" | grep "nonexistent" | wc -l`.nothrow();
-if (!pipeResult.isSuccess()) {
+if (!pipeResult.ok) {
   console.log('Pipe finished with error');
   console.log('Exit code:', pipeResult.exitCode);
 } else {

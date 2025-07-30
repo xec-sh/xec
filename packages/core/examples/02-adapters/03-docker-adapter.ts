@@ -65,7 +65,7 @@ const $app = $.docker({ container: 'my-app' });
 
 // Health check
 const healthCheck = await $app`curl -f http://localhost:3000/health || exit 1`.nothrow();
-if (healthCheck.isSuccess()) {
+if (healthCheck.ok) {
   console.log('Application is running normally');
 } else {
   console.log('Application is not responding');

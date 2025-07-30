@@ -20,7 +20,6 @@ Depending on which features you plan to use:
 
 - **Docker** - For Docker adapter functionality
 - **kubectl** - For Kubernetes adapter functionality
-- **SSH client** - For SSH remote execution
 
 ## Installation Methods
 
@@ -186,119 +185,6 @@ This creates `~/.xec/config.json` with default settings:
 }
 ```
 
-## Setting up Environments
-
-### Local Environment
-
-No additional setup required - local execution works out of the box.
-
-### SSH Environment
-
-Ensure you have SSH access configured:
-
-```bash
-# Generate SSH key if needed
-ssh-keygen -t ed25519 -C "your-email@example.com"
-
-# Copy public key to remote server
-ssh-copy-id user@remote-server
-
-# Test SSH connection
-ssh user@remote-server
-```
-
-### Docker Environment
-
-Ensure Docker is running:
-
-```bash
-# Check Docker status
-docker --version
-docker ps
-
-# Pull commonly used images
-docker pull node:18
-docker pull ubuntu:latest
-```
-
-### Kubernetes Environment
-
-Configure kubectl access:
-
-```bash
-# Check kubectl configuration
-kubectl config view
-
-# Test cluster access
-kubectl cluster-info
-kubectl get nodes
-```
-
-## Troubleshooting Installation
-
-### Common Issues
-
-#### Permission Denied (npm)
-
-If you get permission errors during global installation:
-
-```bash
-# Option 1: Use a Node version manager (recommended)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-nvm install 18
-nvm use 18
-
-# Option 2: Change npm's default directory
-mkdir ~/.npm-global
-npm config set prefix '~/.npm-global'
-echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
-source ~/.bashrc
-```
-
-#### Command Not Found
-
-If `xec` command is not found after installation:
-
-```bash
-# Check npm global bin directory
-npm config get prefix
-
-# Add to PATH (adjust path as needed)
-export PATH="$(npm config get prefix)/bin:$PATH"
-
-# Make permanent
-echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.bashrc
-```
-
-#### Node Version Too Old
-
-If you have an older Node.js version:
-
-```bash
-# Check current version
-node --version
-
-# Update Node.js
-# macOS with Homebrew
-brew upgrade node
-
-# Linux with NodeSource
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Or use nvm
-nvm install 18
-nvm alias default 18
-```
-
-## Next Steps
-
-Now that Xec is installed, you're ready to:
-
-1. Follow the [Quick Start](./quick-start) guide
-2. Explore [example scripts](../projects/core/examples)
-3. Create your [first project](./first-project)
-
 ## Uninstalling
 
 If you need to uninstall Xec:
@@ -314,11 +200,10 @@ npm uninstall @xec-sh/core @xec-sh/cli
 rm -rf ~/.xec
 ```
 
-## Getting Help
+## Next Steps
 
-If you encounter any issues:
+Now that Xec is installed, you're ready to:
 
-1. Search [GitHub Issues](https://github.com/xec-sh/xec/issues)
-2. Check the [Documentation](../intro)
-
-Welcome to the Xec community! 🎉
+1. Follow the [Quick Start](./quick-start) guide
+2. Explore [example scripts](../projects/core/examples)
+3. Create your [first project](./first-project)

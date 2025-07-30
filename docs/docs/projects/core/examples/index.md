@@ -133,7 +133,7 @@ const forward = await pod.portForward(8080, 80);
 ```typescript
 // Don't throw on error
 const result = await $`test -f missing.txt`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('File not found');
 }
 
@@ -288,7 +288,7 @@ await $`npm build`;
 ### Conditional Execution
 ```typescript
 const hasGit = await $`which git`.nothrow();
-if (hasGit.isSuccess()) {
+if (hasGit.ok) {
   await $`git pull`;
 }
 ```
@@ -318,7 +318,7 @@ for (const [index, file] of files.entries()) {
 ```typescript
 // Check if command exists
 const hasCommand = await $`which mycommand`.nothrow();
-if (!hasCommand.isSuccess()) {
+if (!hasCommand.ok) {
   console.error('mycommand is not installed');
 }
 ```
@@ -337,7 +337,7 @@ try {
 ```typescript
 // Check if Docker is running
 const dockerCheck = await $`docker info`.nothrow();
-if (!dockerCheck.isSuccess()) {
+if (!dockerCheck.ok) {
   console.error('Docker is not running');
 }
 ```

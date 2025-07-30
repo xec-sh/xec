@@ -1158,7 +1158,7 @@ describe('CustomAdapter', () => {
     
     expect(result.stdout).toBe('test\n');
     expect(result.exitCode).toBe(0);
-    expect(result.isSuccess()).toBe(true);
+    expect(result.ok).toBe(true);
   });
   
   test('handles errors', async () => {

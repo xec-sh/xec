@@ -38,7 +38,7 @@ await $`touch ${filename}`;
 
 // Error handling
 const result = await $`grep pattern file.txt`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Pattern not found');
 }
 ```

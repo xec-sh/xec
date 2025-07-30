@@ -394,7 +394,7 @@ await $.cd(projectDir)`npm install`;
 const shells = ['/bin/bash', '/bin/zsh', '/usr/bin/fish'];
 for (const shell of shells) {
   const result = await $`which ${shell}`.nothrow();
-  if (result.isSuccess()) {
+  if (result.ok) {
     console.log(`${shell} is available`);
   }
 }
@@ -407,7 +407,7 @@ async function detectShell(): Promise<string> {
   const shells = ['/bin/zsh', '/bin/bash', '/bin/sh'];
   for (const shell of shells) {
     const result = await $`test -x ${shell}`.nothrow();
-    if (result.isSuccess()) {
+    if (result.ok) {
       return shell;
     }
   }
@@ -462,7 +462,7 @@ configure({
 ```typescript
 // Use nothrow() for specific commands
 const result = await $`might-fail`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Failed but continuing');
 }
 

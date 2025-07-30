@@ -11,7 +11,7 @@ describe('ExecutionEngine throwOnNonZeroExit configuration', () => {
     const result = await $`sh -c "exit 42"`;
     
     expect(result.exitCode).toBe(42);
-    expect(result.isSuccess()).toBe(false);
+    expect(result.ok).toBe(false);
     expect(result.stdout).toBe('');
   });
 

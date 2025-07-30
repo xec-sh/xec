@@ -151,7 +151,7 @@ const detailed = new DetailedProgress(20);
 for (let i = 0; i < 20; i++) {
   const success = Math.random() > 0.1; // 90% успех
   const result = await $`test ${success ? '1' : '0'} -eq 1`.nothrow();
-  detailed.update(result.isSuccess());
+  detailed.update(result.ok);
 }
 
 detailed.finish();
@@ -245,7 +245,7 @@ for (const check of systemChecks) {
   
   try {
     const result = await check.cmd.nothrow();
-    if (result.isSuccess()) {
+    if (result.ok) {
       process.stdout.write(`\r✓ ${check.name}                    \n`);
     } else {
       process.stdout.write(`\r✗ ${check.name}                    \n`);

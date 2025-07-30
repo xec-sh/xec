@@ -4,7 +4,8 @@
   "scripts": {
     "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use Yarn to install dependencies. Run: corepack enable && yarn install')\"",
     "postinstall": "node -e \"console.log('✅ Dependencies installed with Yarn ' + process.env.npm_config_user_agent.split('/')[1])\"",
-    "build": "turbo build",
+    "build": "turbo build --filter=@xec-sh/cli",
+    "build:full": "turbo build",
     "dev": "turbo dev",
     "test": "turbo test",
     "lint": "eslint \"{apps,packages}/**/*.{js,jsx,ts,tsx}\"",

@@ -323,7 +323,7 @@ async function monorepoBuilder(packages: string[]) {
     // Проверяем, изменился ли пакет
     const hasChanges = await $`git diff HEAD^ HEAD --quiet ${pkgPath}`.nothrow();
     
-    if (!hasChanges.isSuccess()) {
+    if (!hasChanges.ok) {
       const $pkg = $.cd(pkgPath);
       await $pkg`npm run build`;
       console.log(`✓ ${pkg} собран`);

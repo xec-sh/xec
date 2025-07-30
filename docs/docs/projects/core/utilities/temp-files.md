@@ -277,7 +277,7 @@ await withTempDir(async (buildDir) => {
   // Run tests
   const testResult = await $.cd(buildDir.path)`npm test`.nothrow();
   
-  if (testResult.isSuccess()) {
+  if (testResult.ok) {
     // Copy artifacts
     await $`cp -r ${buildDir.path}/dist ./`;
   }

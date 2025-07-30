@@ -24,9 +24,6 @@ xec eval 'await $`echo "Hello from Xec!"`'
 ```javascript
 #!/usr/bin/env xec
 
-// Импортируйте глобальную функцию $
-import { $ } from '@xec-sh/core';
-
 // Выполняйте команды с шаблонными литералами
 await $`echo "Starting automation..."`;
 

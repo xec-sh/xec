@@ -16,3 +16,9 @@
   - Updated GitHub workflow paths for documentation deployment
   - Updated all project references and documentation paths
   - Modified workspace configuration to include docs at root level
+- **Core API**: Deprecated `isSuccess()` method in favor of new `ok` property on ExecutionResult:
+  - Updated all tests to use `result.ok` instead of `result.isSuccess()`
+  - Updated all examples (26 occurrences across 13 files) to use the new API
+  - Updated all documentation files (50 occurrences across 20 files) to reflect the change
+  - The `ok` property provides the same functionality with cleaner syntax
+  - The `cause` property provides error reason ("exitCode: N" or "signal: NAME") when command fails
