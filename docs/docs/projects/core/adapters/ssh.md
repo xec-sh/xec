@@ -443,7 +443,7 @@ try {
 ```typescript
 // Handle command failures
 const result = await remote`test -f /nonexistent`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('File does not exist');
 }
 

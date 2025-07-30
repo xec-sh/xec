@@ -194,7 +194,7 @@ const shells = ['/bin/bash', '/bin/zsh', '/bin/sh'];
 
 for (const shell of shells) {
   const result = await $`which ${shell}`.nothrow();
-  if (result.isSuccess()) {
+  if (result.ok) {
     console.log(`${shell} is available`);
   }
 }
@@ -215,7 +215,7 @@ try {
 
 // Suppress errors
 const result = await $`exit 1`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Failed with code:', result.exitCode);
 }
 ```
@@ -300,7 +300,7 @@ await $.cd('output')`touch file.txt`;
 ```typescript
 async function hasCommand(cmd: string): Promise<boolean> {
   const result = await $`which ${cmd}`.nothrow();
-  return result.isSuccess();
+  return result.ok;
 }
 
 // Usage

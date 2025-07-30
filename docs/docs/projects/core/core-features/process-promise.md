@@ -169,11 +169,11 @@ try {
 // With nothrow - returns result
 const result = await $`exit 1`.nothrow();
 console.log('Exit code:', result.exitCode); // 1
-console.log('Success:', result.isSuccess()); // false
+console.log('Success:', result.ok); // false
 
 // Useful for checking existence
 const exists = await $`which docker`.nothrow();
-if (exists.isSuccess()) {
+if (exists.ok) {
   console.log('Docker is installed');
 }
 ```
@@ -306,7 +306,7 @@ interface ExecutionResult {
   signal?: string;       // Termination signal (if any)
   
   // Methods
-  isSuccess(): boolean;  // True if exitCode === 0
+  ok: boolean;           // True if exitCode === 0
   toString(): string;    // Returns stdout
 }
 ```
@@ -317,7 +317,7 @@ interface ExecutionResult {
 const result = await $`ls -la`;
 
 // Check success
-if (result.isSuccess()) {
+if (result.ok) {
   console.log('Files:', result.stdout);
 } else {
   console.error('Failed:', result.stderr);
@@ -337,7 +337,7 @@ const { stdout, stderr, exitCode } = await $`command`;
 ```typescript
 // Execute based on previous result
 const checkResult = await $`which docker`.nothrow();
-if (checkResult.isSuccess()) {
+if (checkResult.ok) {
   const version = await $`docker --version`.text();
   console.log('Docker version:', version);
 } else {
@@ -351,7 +351,7 @@ if (checkResult.isSuccess()) {
 async function retryCommand(times: number) {
   for (let i = 0; i < times; i++) {
     const result = await $`flaky-command`.nothrow();
-    if (result.isSuccess()) {
+    if (result.ok) {
       return result;
     }
     console.log(`Attempt ${i + 1} failed, retrying...`);
@@ -406,13 +406,13 @@ const result = await withTimeout($`slow-command`, 5000);
 async function getSystemInfo() {
   // Try systemctl first
   let result = await $`systemctl status`.nothrow();
-  if (result.isSuccess()) {
+  if (result.ok) {
     return result.stdout;
   }
   
   // Fall back to service
   result = await $`service --status-all`.nothrow();
-  if (result.isSuccess()) {
+  if (result.ok) {
     return result.stdout;
   }
   
@@ -497,7 +497,7 @@ const json = await $`cat config.json`.json();
 
 ```typescript
 async function commandExists(cmd: string): Promise<boolean> {
-  return (await $`which ${cmd}`.nothrow()).isSuccess();
+  return (await $`which ${cmd}`.nothrow()).ok;
 }
 ```
 
@@ -506,7 +506,7 @@ async function commandExists(cmd: string): Promise<boolean> {
 ```typescript
 async function readFileSafe(path: string): Promise<string | null> {
   const result = await $`cat ${path}`.nothrow();
-  return result.isSuccess() ? result.text() : null;
+  return result.ok ? result.text() : null;
 }
 ```
 

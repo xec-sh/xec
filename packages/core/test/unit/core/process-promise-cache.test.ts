@@ -174,7 +174,7 @@ describe('ProcessPromise Cache', () => {
       // First, use nothrow to run a failing command and verify behavior
       const failResult = await engine.run`sh -c "exit 1"`.nothrow().cache({ key: cacheKey });
       expect(failResult.exitCode).toBe(1);
-      expect(failResult.isSuccess()).toBe(false);
+      expect(failResult.ok).toBe(false);
       
       // With nothrow, the failed result SHOULD be cached
       const cachedFail = await engine.run`echo "should not run"`.nothrow().cache({ key: cacheKey });
@@ -209,7 +209,7 @@ describe('ProcessPromise Cache', () => {
       // First call with nothrow returns error result
       const result1 = await engine.run`exit 42`.nothrow().cache({ key: 'nothrow-test' });
       expect(result1.exitCode).toBe(42);
-      expect(result1.isSuccess()).toBe(false);
+      expect(result1.ok).toBe(false);
       
       // Error results are cached
       const result2 = await engine.run`exit 0`.nothrow().cache({ key: 'nothrow-test' });

@@ -47,7 +47,7 @@ const result = await $`ls -la`;
 console.log(result.stdout);      // Стандартный вывод
 console.log(result.stderr);      // Стандартная ошибка
 console.log(result.exitCode);    // Код выхода
-console.log(result.isSuccess()); // Проверка успеха
+console.log(result.ok); // Проверка успеха
 ```
 
 ### Управление средой
@@ -83,7 +83,7 @@ const results = await parallel([
 ```typescript
 // Не выбрасывать исключения при ненулевых кодах выхода
 const result = await $`grep pattern file.txt`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Pattern not found');
 }
 

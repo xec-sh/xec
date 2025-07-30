@@ -722,7 +722,7 @@ export function command(program: Command): void {
                 if (corePackages.length > 0) {
                   s.start(`Publishing ${corePackages[0].name}...`);
                   await $`yarn workspace ${corePackages[0].name} npm publish --access public`;
-                  
+
                   // Wait a bit for NPM to process the package
                   s.start('Waiting for NPM to process the package...');
                   await new Promise(resolve => setTimeout(resolve, 5000));
@@ -732,10 +732,10 @@ export function command(program: Command): void {
                 for (let i = 0; i < otherPackages.length; i++) {
                   const pkg = otherPackages[i];
                   s.start(`Publishing ${pkg.name}... (${i + 1}/${otherPackages.length})`);
-                  
+
                   try {
                     await $`yarn workspace ${pkg.name} npm publish --access public`;
-                    
+
                     // Wait between publishes to avoid NPM rate limiting
                     if (i < otherPackages.length - 1) {
                       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -816,14 +816,14 @@ export function command(program: Command): void {
             for (let i = 0; i < jsrPackages.length; i++) {
               const pkg = jsrPackages[i];
               s.start(`Publishing ${pkg.name} to JSR.io... (${i + 1}/${jsrPackages.length})`);
-              
+
               try {
                 if (config.jsrToken) {
                   await $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg.path)`deno publish --token $JSR_TOKEN`;
                 } else {
                   await $.cd(pkg.path)`deno publish`;
                 }
-                
+
                 // Wait between publishes to avoid rate limiting
                 if (i < jsrPackages.length - 1) {
                   await new Promise(resolve => setTimeout(resolve, 3000));
@@ -1022,7 +1022,7 @@ ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
 
 🎉 Happy coding with Xec!
         `));
-        
+
         // Exit successfully
         process.exit(0);
 

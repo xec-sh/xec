@@ -231,7 +231,7 @@ async function processMonitor(processName?: string) {
   
   const result = await $`${command}`.nothrow();
   
-  if (!result.isSuccess() || !result.stdout.trim()) {
+  if (!result.ok || !result.stdout.trim()) {
     console.log(`Процесс ${processName} не найден`);
     return;
   }
@@ -475,9 +475,9 @@ async function checkProcessService(service: ServiceConfig): Promise<ServiceStatu
   
   return {
     name: service.name,
-    healthy: result.isSuccess() && result.stdout.trim() !== '',
+    healthy: result.ok && result.stdout.trim() !== '',
     responseTime: 0,
-    error: result.isSuccess() ? null : 'Process not found'
+    error: result.ok ? null : 'Process not found'
   };
 }
 
@@ -487,7 +487,7 @@ async function dockerMonitor() {
   
   // Проверяем, установлен ли Docker
   const dockerCheck = await $`docker --version`.nothrow();
-  if (!dockerCheck.isSuccess()) {
+  if (!dockerCheck.ok) {
     console.log('Docker не установлен или недоступен');
     return;
   }
@@ -505,7 +505,7 @@ async function dockerMonitor() {
   // Проверяем здоровье контейнеров
   const healthChecks = await $`docker ps --format "{{.Names}}" | xargs -I {} docker inspect {} --format '{{.Name}}: {{.State.Health.Status}}'`.nothrow();
   
-  if (healthChecks.isSuccess() && healthChecks.stdout.trim()) {
+  if (healthChecks.ok && healthChecks.stdout.trim()) {
     console.log('\nЗдоровье контейнеров:');
     healthChecks.stdout.split('\n').filter(Boolean).forEach(line => {
       const [name, status] = line.split(': ');

@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# Introduction to Xec: The Universal Shell for TypeScript
+# Intro
 
 Welcome to **Xec** - the universal shell that lets you write once and execute anywhere. Xec provides a single, elegant TypeScript interface to run commands on your local machine, remote servers via SSH, in Docker containers, or Kubernetes pods.
 
@@ -47,7 +47,7 @@ const result = await $`ls -la`;
 console.log(result.stdout);      // Standard output
 console.log(result.stderr);      // Standard error
 console.log(result.exitCode);    // Exit code
-console.log(result.isSuccess()); // Success check
+console.log(result.ok); // Success check
 ```
 
 ### Environment Control
@@ -83,7 +83,7 @@ const results = await parallel([
 ```typescript
 // Don't throw on non-zero exit codes
 const result = await $`grep pattern file.txt`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Pattern not found');
 }
 

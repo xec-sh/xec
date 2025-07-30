@@ -16,7 +16,7 @@ async function checkGitStatus() {
   // Проверяем, является ли директория git репозиторием
   const isGitRepo = await $`git rev-parse --is-inside-work-tree 2>/dev/null`.nothrow();
 
-  if (!isGitRepo.isSuccess()) {
+  if (!isGitRepo.ok) {
     console.log('Это не git репозиторий');
     return;
   }
@@ -237,7 +237,7 @@ async function branchManagement(autoDelete: boolean = false) {
   // Находим слитые ветки
   const merged = await $`git branch --merged main | grep -v "main\|master"`.nothrow();
 
-  if (merged.isSuccess() && merged.stdout.trim()) {
+  if (merged.ok && merged.stdout.trim()) {
     console.log('\nСлитые ветки:');
     const mergedBranches = merged.stdout.trim().split('\n');
     mergedBranches.forEach(branch => console.log(`  - ${branch.trim()}`));

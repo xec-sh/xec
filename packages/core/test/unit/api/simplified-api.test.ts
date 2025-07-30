@@ -57,7 +57,7 @@ describe('Simplified API', () => {
       // Test with nothrow to verify behavior without throwing
       const result = await $`exit 42`.nothrow();
       expect(result.exitCode).toBe(42);
-      expect(result.isSuccess()).toBe(false);
+      expect(result.ok).toBe(false);
       
       // Create isolated engine instance to test throwing behavior
       // (Known Jest issue: global $ instance can have isolation problems)
@@ -286,7 +286,7 @@ describe('Simplified API', () => {
     test('should support nothrow method', async () => {
       const result = await $`exit 123`.nothrow();
       expect(result.exitCode).toBe(123);
-      expect(result.isSuccess()).toBe(false);
+      expect(result.ok).toBe(false);
     });
 
     test('should support quiet method', async () => {

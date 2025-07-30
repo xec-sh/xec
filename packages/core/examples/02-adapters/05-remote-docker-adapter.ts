@@ -165,7 +165,7 @@ const deployTasks = hosts.map(host => {
 
 const deployResults = await Promise.all(deployTasks);
 deployResults.forEach((result, i) => {
-  console.log(`Deploy on ${hosts[i]}: ${result.isSuccess() ? 'SUCCESS' : 'FAILED'}`);
+  console.log(`Deploy on ${hosts[i]}: ${result.ok ? 'SUCCESS' : 'FAILED'}`);
 });
 
 // 10. Cleaning old containers via SSH
@@ -196,7 +196,7 @@ const $healthCheck = $.remoteDocker({
 });
 
 const health = await $healthCheck`curl -f http://localhost/health || exit 1`.nothrow();
-if (!health.isSuccess()) {
+if (!health.ok) {
   console.log('Application unavailable!');
   console.log('Error:', health.stderr);
 }

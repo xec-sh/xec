@@ -274,7 +274,7 @@ async function rollingUpdate(hosts: string[], image: string) {
     
     // Health check
     const health = await remote`curl -f http://localhost/health`.nothrow();
-    if (!health.isSuccess()) {
+    if (!health.ok) {
       throw new Error(`Health check failed on ${host}`);
     }
     
@@ -304,8 +304,8 @@ async function runOnAllHosts(hosts: string[], command: string) {
   
   // Process results
   results.forEach((result, i) => {
-    console.log(`${hosts[i]}: ${result.isSuccess() ? 'OK' : 'FAILED'}`);
-    if (!result.isSuccess()) {
+    console.log(`${hosts[i]}: ${result.ok ? 'OK' : 'FAILED'}`);
+    if (!result.ok) {
       console.error(`  Error: ${result.stderr}`);
     }
   });

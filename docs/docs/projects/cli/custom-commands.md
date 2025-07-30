@@ -478,7 +478,7 @@ log.info(chalk.bold(`🚀 Deploying ${branch} to ${environment}`));
 
 // Run tests first
 const tests = await $`npm test`.nothrow();
-if (!tests.isSuccess()) {
+if (!tests.ok) {
   log.error('Tests failed! Aborting deployment.');
   process.exit(1);
 }
@@ -818,7 +818,7 @@ log.info('Testing custom commands...');
 
 // Test command exists
 const helpResult = await $`xec greet --help`.nothrow();
-assert(helpResult.isSuccess(), 'greet command should exist');
+assert(helpResult.ok, 'greet command should exist');
 
 // Test command execution
 const greetResult = await $`xec greet Test`.nothrow();

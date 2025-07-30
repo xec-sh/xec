@@ -73,7 +73,7 @@ try {
 
   // Check that it exists
   const exists = await $`test -d ${targetDir1} && echo "exists"`.nothrow();
-  if (exists.isSuccess()) {
+  if (exists.ok) {
     const $inTarget = $.cd(targetDir1);
     await $inTarget`touch file.txt`;
     await $inTarget`ls`;

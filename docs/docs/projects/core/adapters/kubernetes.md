@@ -349,14 +349,14 @@ async function debugSession() {
 async function checkPodHealth(pod: K8sPod) {
   // Check if pod is running
   const hostname = await pod.exec`hostname`.nothrow();
-  if (!hostname.isSuccess()) {
+  if (!hostname.ok) {
     console.error('Pod is not responding');
     return false;
   }
   
   // Check application health
   const health = await pod.exec`curl -s http://localhost:8080/health`.nothrow();
-  if (!health.isSuccess()) {
+  if (!health.ok) {
     console.error('Health check failed');
     return false;
   }
@@ -386,7 +386,7 @@ async function monitorDeployment(deployment: string, namespace: string) {
     
     // Check readiness
     const ready = await pod.exec`test -f /tmp/ready`.nothrow();
-    console.log(`Ready: ${ready.isSuccess()}`);
+    console.log(`Ready: ${ready.ok}`);
     
     // Get recent logs
     const logs = await pod.logs({ tail: 10 });
@@ -544,7 +544,7 @@ async function deployAndTest(image: string, namespace: string) {
   // Run tests
   const testResult = await pod.exec`npm test`.nothrow();
   
-  if (!testResult.isSuccess()) {
+  if (!testResult.ok) {
     // Rollback on failure
     await $`kubectl rollout undo deployment/app -n ${namespace}`;
     throw new Error('Tests failed, rolled back');

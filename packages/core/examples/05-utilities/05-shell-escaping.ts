@@ -87,7 +87,7 @@ console.log('Пользовательский ввод:', userInput);
 // Специальные символы будут экранированы
 try {
   const found = await $`find . -name ${userInput} -type f`.nothrow();
-  if (found.isSuccess()) {
+  if (found.ok) {
     console.log('Найденные файлы:', found.stdout);
   } else {
     console.log('Файлы не найдены');
@@ -212,7 +212,7 @@ await $`touch ${pathWithSpaces}/${fileWithSpecialChars}`;
 
 // Проверяем создание
 const checkFile = await $`ls -la ${pathWithSpaces}/${fileWithSpecialChars}`.nothrow();
-if (checkFile.isSuccess()) {
+if (checkFile.ok) {
   console.log('\nФайл создан успешно');
 }
 

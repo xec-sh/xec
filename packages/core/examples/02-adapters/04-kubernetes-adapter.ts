@@ -66,7 +66,7 @@ for (const podName of deploymentPods) {
   console.log(`\n=== Logs from ${podName} ===`);
   const logs = await $pod`tail -n 50 /var/log/app.log`.nothrow();
   
-  if (logs.isSuccess()) {
+  if (logs.ok) {
     console.log(logs.stdout);
   } else {
     console.log(`Failed to get logs: ${logs.stderr}`);
@@ -81,7 +81,7 @@ const $healthCheck = $.k8s({
 });
 
 const health = await $healthCheck`curl -s http://localhost:8080/health`.nothrow();
-if (health.isSuccess()) {
+if (health.ok) {
   const status = JSON.parse(health.stdout);
   console.log('Application status:', status);
 } else {
@@ -118,7 +118,7 @@ const $debug = $.k8s({
 
 // DNS check
 const dnsCheck = await $debug`nslookup kubernetes.default.svc.cluster.local`.nothrow();
-if (dnsCheck.isSuccess()) {
+if (dnsCheck.ok) {
   console.log('DNS is working correctly');
 }
 
@@ -145,7 +145,7 @@ for (const step of steps) {
       break;
     case 'Tests':
       const testResult = await $testPod`cd /app && npm test`.nothrow();
-      if (!testResult.isSuccess()) {
+      if (!testResult.ok) {
         console.error('Tests failed!');
         process.exit(1);
       }

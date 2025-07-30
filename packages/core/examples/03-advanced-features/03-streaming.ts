@@ -162,7 +162,7 @@ const nonExistentFile = '/non/existent/file.txt';
 
 const fileResult = await $`cat ${nonExistentFile} 2>&1`.nothrow();
 
-if (fileResult.isSuccess()) {
+if (fileResult.ok) {
   console.log('File content:', fileResult.stdout);
 } else {
   console.log('File read error');
