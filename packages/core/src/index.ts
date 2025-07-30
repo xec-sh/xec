@@ -229,10 +229,11 @@ export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
+export { DockerFluentAPI, DockerFluentBuildAPI } from './utils/docker-fluent-api.js';
+
 export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh-adapter.js';
 
 export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
-
 export {
   DockerError,
   CommandError,
@@ -251,16 +252,15 @@ export {
 } from './core/enhanced-error.js';
 export type { EventFilter } from './types/events.js';
 export type { ExecutionResult } from './core/result.js';
+
 export type { RetryOptions } from './utils/retry-adapter.js';
 
 export type { SSHExecutionContext } from './utils/ssh-api.js';
-
 export type { PipeTarget } from './core/pipe-implementation.js';
+
 export type { CommandSuggestion } from './utils/suggestions.js';
-
-export type { ProcessPromise } from './core/execution-engine.js';
-
 export type { CallableExecutionEngine } from './types/engine.js';
+
 export type { Disposable, DisposableContainer } from './types/disposable.js';
 export type { DockerContext, DockerContainerConfig } from './utils/docker-api.js';
 export type {
@@ -270,6 +270,7 @@ export type {
 } from './core/enhanced-error.js';
 export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './utils/kubernetes-api.js';
 export type { PodConfig, HostConfig, UnifiedConfig, ProfileConfig, ContainerConfig } from './config/unified-config.js';
+export type { DockerOptions, ProcessPromise, DockerEphemeralOptions, DockerPersistentOptions } from './core/execution-engine.js';
 export type {
   Command,
   AdapterType,

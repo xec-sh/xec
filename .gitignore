@@ -29,6 +29,7 @@ out/
 build
 dist
 
+experiments
 
 # Debug
 npm-debug.log*

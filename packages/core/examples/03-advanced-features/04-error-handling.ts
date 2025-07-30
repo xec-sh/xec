@@ -21,8 +21,9 @@ try {
 // 2. Using nothrow
 // nothrow() doesn't throw exception on error
 const result = await $`false`.nothrow();
-if (!result.isSuccess()) {
+if (!result.ok) {
   console.log('Command failed');
+  console.log('Cause:', result.cause);
   console.log('Exit code:', result.exitCode);
   console.log('Stderr:', result.stderr);
 }
@@ -91,7 +92,7 @@ class ValidationError extends Error {
 async function validateAndRun(filename: string) {
   // Check file existence
   const exists = await $`test -f ${filename}`.nothrow();
-  if (!exists.isSuccess()) {
+  if (!exists.ok) {
     throw new ValidationError(`File ${filename} doesn't exist`);
   }
 
@@ -220,11 +221,11 @@ const partialResults: any[] = [];
 for (let i = 0; i < 5; i++) {
   const partialResult = await $`echo "Processing item ${i}" && test ${i} -ne 2`.nothrow();
 
-  if (partialResult.isSuccess()) {
+  if (partialResult.ok) {
     partialResults.push({ index: i, success: true, output: partialResult.stdout.trim() });
   } else {
-    partialResults.push({ index: i, success: false, exitCode: partialResult.exitCode });
-    console.log(`Warning: Error processing item ${i}`);
+    partialResults.push({ index: i, success: false, cause: partialResult.cause });
+    console.log(`Warning: Error processing item ${i} - ${partialResult.cause}`);
   }
 }
 

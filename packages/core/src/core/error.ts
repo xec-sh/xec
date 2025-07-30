@@ -40,27 +40,32 @@ export function sanitizeCommandForError(command: string): string {
   if (process.env['NODE_ENV'] === 'test' || process.env['JEST_WORKER_ID'] !== undefined) {
     return command;
   }
-  
+
+  // Skip sanitization if explicitly disabled (default behavior)
+  if (process.env['XEC_SANITIZE_COMMANDS'] !== 'true') {
+    return command;
+  }
+
   // Extract just the command name without arguments
   const parts = command.trim().split(/\s+/);
   if (parts.length === 0) return command;
-  
+
   const baseCommand = parts[0];
   if (!baseCommand) return command;
-  
+
   // For common commands that might expose sensitive paths, just show the command
   const sensitiveCommands = ['cat', 'ls', 'rm', 'cp', 'mv', 'chmod', 'chown', 'find', 'grep'];
   const commandName = baseCommand.split('/').pop() || baseCommand;
-  
+
   if (sensitiveCommands.includes(commandName) && parts.length > 1) {
     return `${commandName} [arguments hidden]`;
   }
-  
+
   // For other commands, show limited info
   if (parts.length > 3) {
     return `${baseCommand} ... (${parts.length - 1} arguments)`;
   }
-  
+
   return command;
 }
 
@@ -112,7 +117,7 @@ export class AdapterError extends ExecutionError {
     public readonly originalError?: Error
   ) {
     let message: string;
-    
+
     if (originalError) {
       // Handle specific error cases for better error messages
       const err = originalError as any;
@@ -129,7 +134,7 @@ export class AdapterError extends ExecutionError {
     } else {
       message = `Adapter '${adapter}' failed during '${operation}'`;
     }
-    
+
     super(message, 'ADAPTER_ERROR', {
       adapter,
       operation,

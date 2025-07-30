@@ -7,6 +7,7 @@ import { stream } from '../utils/stream.js';
 import { TransferEngine } from '../utils/transfer.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
 import { globalCache, CacheOptions } from '../utils/cache.js';
+import { DockerFluentAPI } from '../utils/docker-fluent-api.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
 import { ExecutionResult, ExecutionResultImpl } from './result.js';
@@ -14,6 +15,7 @@ import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
+import { DockerContext, DockerContainerConfig } from '../utils/docker-api.js';
 import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
 import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
 import { SSHExecutionContext, createSSHExecutionContext } from '../utils/ssh-api.js';
@@ -23,13 +25,35 @@ import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-ada
 import { executePipe, type PipeTarget, type PipeOptions } from './pipe-implementation.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../utils/kubernetes-api.js';
 import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
-import { DockerContext, createDockerContext, DockerContainerConfig } from '../utils/docker-api.js';
 import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../adapters/remote-docker-adapter.js';
 import { Command, StreamOption, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from './command.js';
 
 import type { Disposable } from '../types/disposable.js';
 import type { UshEventMap, EventConfig } from '../types/events.js';
 
+
+// Docker API types for simplified usage
+export interface DockerEphemeralOptions {
+  image: string;
+  volumes?: string[];
+  env?: Record<string, string>;
+  workdir?: string;
+  user?: string;
+  network?: string;
+  ports?: string[];
+  labels?: Record<string, string>;
+  privileged?: boolean;
+  // autoRemove is always true for ephemeral
+}
+
+export interface DockerPersistentOptions {
+  container: string;
+  workdir?: string;
+  user?: string;
+  env?: Record<string, string>;
+}
+
+export type DockerOptions = DockerEphemeralOptions | DockerPersistentOptions;
 
 export interface ExecutionEngineConfig extends EventConfig {
   // Global settings
@@ -195,7 +219,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     validatedConfig.throwOnNonZeroExit = config.throwOnNonZeroExit ?? true;
     validatedConfig.encoding = config.encoding ?? 'utf8';
     validatedConfig.maxBuffer = config.maxBuffer ?? 10 * 1024 * 1024;
-    
+
     // Preserve event configuration
     validatedConfig.enableEvents = config.enableEvents;
     validatedConfig.maxEventListeners = config.maxEventListeners;
@@ -226,14 +250,12 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     };
     this.adapters.set('kubernetes', new KubernetesAdapter(k8sConfig));
 
-    // Initialize Docker adapter if config provided
-    if (this._config.adapters?.docker) {
-      const dockerConfig = {
-        ...this.getBaseAdapterConfig(),
-        ...this._config.adapters.docker
-      };
-      this.adapters.set('docker', new DockerAdapter(dockerConfig));
-    }
+    // Initialize Docker adapter (always available for lazy loading)
+    const dockerConfig = {
+      ...this.getBaseAdapterConfig(),
+      ...this._config.adapters?.docker
+    };
+    this.adapters.set('docker', new DockerAdapter(dockerConfig));
 
     // Initialize Remote Docker adapter if config provided
     if (this._config.adapters?.remoteDocker) {
@@ -484,7 +506,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             // Cache hit - returning cached result
             return cached;
           }
-          
+
           // Check if there's an inflight request for this key
           const inflight = globalCache.getInflight(cacheKey);
           if (inflight) {
@@ -497,7 +519,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         let executePromise: Promise<ExecutionResult>;
         try {
           executePromise = this.execute(currentCommand);
-          
+
           // Track as inflight if caching is enabled
           if (cacheOptions) {
             const cacheKey = cacheOptions.key || globalCache.generateKey(
@@ -507,9 +529,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             );
             globalCache.setInflight(cacheKey, executePromise);
           }
-          
+
           result = await executePromise;
-          
+
           // Store result in cache if enabled AND (successful OR nothrow is set)
           if (cacheOptions && (result.exitCode === 0 || currentCommand.nothrow)) {
             const cacheKey = cacheOptions.key || globalCache.generateKey(
@@ -774,7 +796,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             // Cache hit - returning cached result
             return cached;
           }
-          
+
           // Check if there's an inflight request for this key
           const inflight = globalCache.getInflight(cacheKey);
           if (inflight) {
@@ -787,7 +809,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         let executePromise: Promise<ExecutionResult>;
         try {
           executePromise = this.execute(currentCommand);
-          
+
           // Track as inflight if caching is enabled
           if (cacheOptions) {
             const cacheKey = cacheOptions.key || globalCache.generateKey(
@@ -797,9 +819,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             );
             globalCache.setInflight(cacheKey, executePromise);
           }
-          
+
           result = await executePromise;
-          
+
           // Store result in cache if enabled AND (successful OR nothrow is set)
           if (cacheOptions && (result.exitCode === 0 || currentCommand.nothrow)) {
             const cacheKey = cacheOptions.key || globalCache.generateKey(
@@ -1273,20 +1295,82 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return createSSHExecutionContext(this, options);
   }
 
+  // Overloaded signatures for backward compatibility and fluent API
   docker(options: DockerContainerConfig): DockerContext;
   docker(options: Omit<DockerAdapterOptions, 'type'>): ExecutionEngine;
-  docker(options: DockerContainerConfig | Omit<DockerAdapterOptions, 'type'>): ExecutionEngine | DockerContext {
-    // If image is provided, return the enhanced Docker API
-    if ('image' in options) {
-      return createDockerContext(this, options as DockerContainerConfig);
+  docker(options: DockerOptions): ExecutionEngine;
+  docker(): any; // Returns fluent API
+  docker(options?: DockerContainerConfig | Omit<DockerAdapterOptions, 'type'> | DockerOptions): ExecutionEngine | DockerContext | any {
+    // If no options provided, return fluent API
+    if (!options) {
+      if (!this._dockerFluentAPI) {
+        this._dockerFluentAPI = new DockerFluentAPI(this);
+      }
+      return this._dockerFluentAPI;
     }
+    // // Check for old API usage (backward compatibility)
+    // if ('type' in options || 'runMode' in options) {
+    //   console.warn('[xec-core] Deprecated Docker API usage detected. Please migrate to new simplified API.');
+    //   return this.with({
+    //     adapter: 'docker',
+    //     adapterOptions: options as any
+    //   });
+    // }
 
-    // Otherwise, return standard execution engine for existing container
-    return this.with({
-      adapter: 'docker',
-      adapterOptions: { type: 'docker', ...options }
-    });
+    // // Enhanced Docker API (returns DockerContext for container lifecycle management)
+    // if ('image' in options && !('container' in options)) {
+    //   return createDockerContext(this, options as DockerContainerConfig);
+    // }
+
+    // New simplified API
+    if ('image' in options) {
+      // Ephemeral container flow
+      const ephemeralOptions = options as DockerEphemeralOptions;
+      const containerName = this.generateEphemeralContainerName(ephemeralOptions.image);
+
+      return this.with({
+        adapter: 'docker',
+        adapterOptions: {
+          type: 'docker',
+          container: containerName,
+          runMode: 'run',
+          image: ephemeralOptions.image,
+          volumes: ephemeralOptions.volumes,
+          autoRemove: true, // Always true for ephemeral
+          workdir: ephemeralOptions.workdir,
+          user: ephemeralOptions.user,
+          env: ephemeralOptions.env,
+          // Additional options not in current DockerAdapterOptions but would be passed through
+        } as DockerAdapterOptions
+      });
+    } else {
+      // Persistent container flow
+      const persistentOptions = options as DockerPersistentOptions;
+      return this.with({
+        adapter: 'docker',
+        adapterOptions: {
+          type: 'docker',
+          container: persistentOptions.container,
+          workdir: persistentOptions.workdir,
+          user: persistentOptions.user,
+          env: persistentOptions.env
+        } as DockerAdapterOptions
+      });
+    }
   }
+
+  private generateEphemeralContainerName(image: string): string {
+    // Extract image name from full image string (e.g., "registry.com/org/image:tag" -> "image")
+    const imageWithoutTag = image.split(':')[0] || image;
+    const imageParts = imageWithoutTag.split('/');
+    const imageName = imageParts[imageParts.length - 1] || 'container';
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    return `xec-${imageName}-${timestamp}-${random}`;
+  }
+
+  // Lazy-loaded fluent Docker API
+  private _dockerFluentAPI?: any;
 
   k8s(options?: Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext {
     // If no options provided, return a context that requires pod() to be called

@@ -127,35 +127,58 @@ export class DockerAdapter extends BaseAdapter {
       throw new AdapterError(this.adapterName, 'execute', new Error('Docker container options not provided'));
     }
 
-    // Validate container name for security
-    this.validateContainerName(dockerOptions.container);
-
     const startTime = Date.now();
+    let containerName = dockerOptions.container;
 
     try {
-      let container = dockerOptions.container;
+      let result: { stdout: string; stderr: string; exitCode: number; signal: string | null };
 
-      // Check if we need to create a temporary container
-      if (this.dockerConfig.autoCreate?.enabled && !await this.containerExists(container)) {
-        container = await this.createTempContainer();
+      // Auto-detect runMode based on presence of image
+      const effectiveRunMode = this.determineRunMode(dockerOptions);
 
-        // Emit docker:run event for container creation
+      // Check if we should use run mode (for ephemeral containers)
+      if (effectiveRunMode === 'run') {
+        // Use docker run for ephemeral containers
+        if (!dockerOptions.image) {
+          throw new AdapterError(this.adapterName, 'execute', new Error('Image must be specified for run mode'));
+        }
+
+        // Emit docker:run event
         this.emitAdapterEvent('docker:run', {
-          image: this.dockerConfig.autoCreate.image,
-          container,
-          command: 'sh'
+          image: dockerOptions.image,
+          container: dockerOptions.container,
+          command: this.buildCommandString(mergedCommand)
         });
+
+        const runArgs = this.buildDockerRunArgs(dockerOptions, mergedCommand);
+        result = await this.executeDockerCommand(runArgs, mergedCommand);
+      } else {
+        // Use traditional exec mode
+        // Validate container name for security
+        this.validateContainerName(dockerOptions.container);
+
+        // Check if we need to create a temporary container
+        if (this.dockerConfig.autoCreate?.enabled && !await this.containerExists(containerName)) {
+          containerName = await this.createTempContainer();
+
+          // Emit docker:run event for container creation
+          this.emitAdapterEvent('docker:run', {
+            image: this.dockerConfig.autoCreate.image,
+            container: containerName,
+            command: 'sh'
+          });
+        }
+
+        // Emit docker:exec event
+        this.emitAdapterEvent('docker:exec', {
+          container: containerName,
+          command: this.buildCommandString(mergedCommand)
+        });
+
+        // Build docker exec command
+        const dockerArgs = this.buildDockerExecArgs(containerName, dockerOptions, mergedCommand);
+        result = await this.executeDockerCommand(dockerArgs, mergedCommand);
       }
-
-      // Emit docker:exec event
-      this.emitAdapterEvent('docker:exec', {
-        container,
-        command: this.buildCommandString(mergedCommand)
-      });
-
-      // Build docker exec command
-      const dockerArgs = this.buildDockerExecArgs(container, dockerOptions, mergedCommand);
-      const result = await this.executeDockerCommand(dockerArgs, mergedCommand);
 
       const endTime = Date.now();
 
@@ -167,7 +190,7 @@ export class DockerAdapter extends BaseAdapter {
         this.buildCommandString(mergedCommand),
         startTime,
         endTime,
-        { container, originalCommand: mergedCommand }
+        { container: containerName, originalCommand: mergedCommand }
       );
     } catch (error) {
       if (error instanceof DockerError) {
@@ -285,6 +308,21 @@ export class DockerAdapter extends BaseAdapter {
     return containerName;
   }
 
+  /**
+   * Automatically determine runMode based on adapter options
+   * If image is provided, use 'run' mode for ephemeral containers
+   * Otherwise, use 'exec' mode for existing containers
+   */
+  private determineRunMode(options: DockerAdapterOptions): 'run' | 'exec' {
+    // If runMode is explicitly set, respect it
+    if (options.runMode) {
+      return options.runMode;
+    }
+    
+    // Auto-detect based on presence of image
+    return options.image ? 'run' : 'exec';
+  }
+
   private buildDockerExecArgs(
     container: string,
     dockerOptions: DockerAdapterOptions,
@@ -345,6 +383,80 @@ export class DockerAdapter extends BaseAdapter {
     if (command.shell) {
       args.push('sh', '-c', this.buildCommandString(command));
     } else {
+      args.push(command.command);
+      if (command.args) {
+        args.push(...command.args);
+      }
+    }
+
+    return args;
+  }
+
+  private buildDockerRunArgs(
+    dockerOptions: DockerAdapterOptions,
+    command: Command
+  ): string[] {
+    const args = ['run'];
+
+    // Remove container after execution
+    if (dockerOptions.autoRemove !== false) {
+      args.push('--rm');
+    }
+
+    // Get optimal TTY settings
+    const ttySettings = this.getTTYSettings(dockerOptions, command);
+
+    // Add interactive flag
+    if (ttySettings.interactive) {
+      args.push('-i');
+    }
+
+    // Add TTY flag
+    if (ttySettings.tty) {
+      args.push('-t');
+    }
+
+    // Add user
+    if (dockerOptions.user) {
+      args.push('-u', dockerOptions.user);
+    }
+
+    // Add working directory
+    if (dockerOptions.workdir) {
+      args.push('-w', dockerOptions.workdir);
+    }
+
+    // Add volumes
+    if (dockerOptions.volumes) {
+      for (const volume of dockerOptions.volumes) {
+        args.push('-v', volume);
+      }
+    }
+
+    // Add environment variables
+    if (command.env) {
+      for (const [key, value] of Object.entries(command.env)) {
+        if (key && value !== undefined) {
+          args.push('-e', `${key}=${value}`);
+        }
+      }
+    }
+
+    // Add container name if specified
+    if (dockerOptions.container && dockerOptions.container !== 'ephemeral') {
+      args.push('--name', dockerOptions.container);
+    }
+
+    // Add command
+    if (command.shell) {
+      const cmdString = this.buildCommandString(command);
+      // Override entrypoint to use shell when shell mode is requested
+      args.push('--entrypoint', 'sh');
+      args.push(dockerOptions.image!);
+      args.push('-c', cmdString);
+    } else {
+      // Add image
+      args.push(dockerOptions.image!);
       args.push(command.command);
       if (command.args) {
         args.push(...command.args);

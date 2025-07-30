@@ -46,19 +46,12 @@ yarn fix:all          # Auto-fix linting and formatting
 ### 1. ⚠️ Task Focus
 **CRITICAL**: Only implement what is explicitly requested. No additional features or files unless specified.
 
-### 2. 📝 Change Tracking
-**MANDATORY**: All code changes MUST be documented in `CHANGES.md` (root directory).
-- Follow the format in `CHANGES.md.example`
-- Group changes by category (Features, Improvements, Fixes, Security, etc.)
-- Write user-focused descriptions
-- The file will be automatically processed and cleared during release
-
-### 3. 🔒 Type Safety
+### 2. 🔒 Type Safety
 - No `any` types in public APIs
 - Full TypeScript strict mode
 - Comprehensive type definitions
 
-### 4. 📦 Error Handling
+### 3. 📦 Error Handling
 ```typescript
 // ✅ Use Result pattern
 return { ok: false, error: new ExecutionError('Failed', 'ERROR_CODE') };
@@ -67,38 +60,38 @@ return { ok: false, error: new ExecutionError('Failed', 'ERROR_CODE') };
 throw new Error('Failed');
 ```
 
-### 5. 🧩 Composition
+### 4. 🧩 Composition
 Build complex behavior from simple, composable functions.
 
-### 6. 📐 Module Boundaries
+### 5. 📐 Module Boundaries
 - Single responsibility
 - No circular dependencies
 - Explicit exports
 
-### 7. 🧪 Testing
+### 6. 🧪 Testing
 - 90%+ code coverage
 - Unit tests for all public APIs
 - Integration tests for interactions
 - Real implementations over mocks
 
-### 8. 📝 Documentation
+### 7. 📝 Documentation
 - JSDoc with examples
 - Parameter descriptions
 - Error scenarios
 - Usage examples
 
-### 9. 🚀 Performance
+### 8. 🚀 Performance
 - Lazy loading
 - Stream processing
 - Connection pooling
 - Efficient caching
 
-### 10. 🔄 State Management
+### 9. 🔄 State Management
 - Immutable updates
 - No global mutable state
 - Explicit state passing
 
-### 11. 🛡 Security
+### 10. 🛡 Security
 - No secrets in logs
 - Input sanitization
 - Secure defaults

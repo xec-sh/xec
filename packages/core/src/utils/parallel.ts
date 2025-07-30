@@ -1,7 +1,7 @@
 import type { Command } from '../core/command.js';
 import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
-import type { ExecutionEngine, ProcessPromise } from '../core/execution-engine.js';
+import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
 
 export interface ParallelOptions {
   maxConcurrency?: number;

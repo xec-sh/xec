@@ -179,8 +179,8 @@ async function executeOnTarget(
       engine = engine.timeout(timeoutMs);
     }
     
-    // Execute
-    const result = await engine`${command}`;
+    // Execute using raw mode to avoid escaping
+    const result = await engine.raw`${command}`;
     
     if (result.stdout && !options.quiet) {
       console.log(result.stdout.trim());
@@ -190,10 +190,8 @@ async function executeOnTarget(
       console.error(chalk.yellow(result.stderr.trim()));
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (!options.quiet) {
-      clack.log.error(`Failed on ${targetDisplay}: ${errorMessage}`);
-    }
+    // Don't log here, let the main error handler deal with it
+    // to avoid duplicate error messages
     throw error;
   }
 }
@@ -222,8 +220,8 @@ async function executeLocally(
       engine = engine.timeout(timeoutMs);
     }
     
-    // Execute
-    const result = await engine`${command}`;
+    // Execute using raw mode to avoid escaping
+    const result = await engine.raw`${command}`;
     
     if (result.stdout && !options.quiet) {
       console.log(result.stdout.trim());
@@ -233,10 +231,8 @@ async function executeLocally(
       console.error(chalk.yellow(result.stderr.trim()));
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (!options.quiet) {
-      clack.log.error(errorMessage);
-    }
+    // Don't log here, let the main error handler deal with it
+    // to avoid duplicate error messages
     throw error;
   }
 }

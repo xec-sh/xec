@@ -329,6 +329,7 @@ export class DockerContainer {
 
 /**
  * Docker API context for creating and managing containers
+ * @deprecated Use new simplified Docker API: $.docker({ image: 'alpine' }) or $.docker().ephemeral('alpine').run
  */
 export interface DockerContext {
   /**

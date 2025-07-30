@@ -48,7 +48,8 @@ try {
 // nothrow() method allows getting result even on error
 const nothrowResult = await $`false`.nothrow();
 console.log('Exit code:', nothrowResult.exitCode); // 1
-console.log('Success:', nothrowResult.isSuccess()); // false
+console.log('Success:', nothrowResult.ok);        // false
+console.log('Cause:', nothrowResult.cause);       // "exitCode: 1"
 
 // 6. Getting full result information
 // ExecutionResult contains all information about command execution
@@ -57,7 +58,8 @@ console.log({
   stdout: fullResult.stdout,       // Standard output
   stderr: fullResult.stderr,       // Error output
   exitCode: fullResult.exitCode,   // Return code
-  success: fullResult.isSuccess(), // true if exitCode === 0
+  success: fullResult.ok,          // true if exitCode === 0
+  cause: fullResult.cause,         // Error cause when not ok
   command: fullResult.command      // Executed command
 });
 

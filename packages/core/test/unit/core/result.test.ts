@@ -289,6 +289,8 @@ describe('ExecutionResult', () => {
       expect(result).toHaveProperty('adapter');
       expect(result).toHaveProperty('host');
       expect(result).toHaveProperty('container');
+      expect(result).toHaveProperty('ok');
+      expect(result).toHaveProperty('cause');
       
       // Test methods
       expect(typeof result.toString).toBe('function');
@@ -298,7 +300,83 @@ describe('ExecutionResult', () => {
     });
   });
   
-  describe('isSuccess()', () => {
+  describe('ok property', () => {
+    it('should be true for exit code 0', () => {
+      const result = createMockExecutionResult({
+        exitCode: 0
+      });
+      
+      expect(result.ok).toBe(true);
+    });
+    
+    it('should be false for non-zero exit code', () => {
+      const result = createMockExecutionResult({
+        exitCode: 1
+      });
+      
+      expect(result.ok).toBe(false);
+    });
+    
+    it('should be false for negative exit code', () => {
+      const result = createMockExecutionResult({
+        exitCode: -1
+      });
+      
+      expect(result.ok).toBe(false);
+    });
+    
+    it('should be false for large exit code', () => {
+      const result = createMockExecutionResult({
+        exitCode: 255
+      });
+      
+      expect(result.ok).toBe(false);
+    });
+  });
+
+  describe('cause property', () => {
+    it('should be undefined for successful execution', () => {
+      const result = createMockExecutionResult({
+        exitCode: 0
+      });
+      
+      expect(result.cause).toBeUndefined();
+    });
+    
+    it('should contain exit code for failed execution', () => {
+      const result = createMockExecutionResult({
+        exitCode: 1
+      });
+      
+      expect(result.cause).toBe('exitCode: 1');
+    });
+    
+    it('should contain signal when present and failed', () => {
+      const result = createMockExecutionResult({
+        exitCode: 143,
+        signal: 'SIGTERM'
+      });
+      
+      expect(result.cause).toBe('signal: SIGTERM');
+    });
+    
+    it('should prefer signal over exitCode in cause', () => {
+      const result = createMockExecutionResult({
+        exitCode: 130,
+        signal: 'SIGINT'
+      });
+      
+      expect(result.cause).toBe('signal: SIGINT');
+    });
+    
+    it('should handle various exit codes', () => {
+      expect(createMockExecutionResult({ exitCode: 127 }).cause).toBe('exitCode: 127');
+      expect(createMockExecutionResult({ exitCode: 255 }).cause).toBe('exitCode: 255');
+      expect(createMockExecutionResult({ exitCode: -1 }).cause).toBe('exitCode: -1');
+    });
+  });
+
+  describe('isSuccess() - deprecated', () => {
     it('should return true for exit code 0', () => {
       const result = createMockExecutionResult({
         exitCode: 0
@@ -329,6 +407,14 @@ describe('ExecutionResult', () => {
       });
       
       expect(result.isSuccess()).toBe(false);
+    });
+    
+    it('should match ok property', () => {
+      const successResult = createMockExecutionResult({ exitCode: 0 });
+      expect(successResult.isSuccess()).toBe(successResult.ok);
+      
+      const failResult = createMockExecutionResult({ exitCode: 1 });
+      expect(failResult.isSuccess()).toBe(failResult.ok);
     });
   });
 });

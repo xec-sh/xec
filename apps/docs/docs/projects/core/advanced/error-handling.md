@@ -335,10 +335,10 @@ Prevent errors from being thrown and handle them manually:
 // Won't throw on non-zero exit
 const result = await $`grep "pattern" file.txt`.nothrow();
 
-if (result.isSuccess()) {
+if (result.ok) {
   console.log('Found matches:', result.stdout);
 } else {
-  console.log('No matches found (exit code:', result.exitCode, ')');
+  console.log('No matches found:', result.cause);
 }
 ```
 
@@ -348,8 +348,8 @@ if (result.isSuccess()) {
 // Multiple ways to check success
 const result = await $`test -f /etc/passwd`.nothrow();
 
-// Method 1: isSuccess()
-if (result.isSuccess()) {
+// Method 1: Using ok property
+if (result.ok) {
   console.log('File exists');
 }
 
@@ -359,7 +359,12 @@ if (result.exitCode === 0) {
 }
 
 // Method 3: Convert to boolean
-const exists = (await $`test -f config.json`.nothrow()).isSuccess();
+const exists = (await $`test -f config.json`.nothrow()).ok;
+
+// Method 4: Check failure cause
+if (!result.ok) {
+  console.log('Failed:', result.cause); // "exitCode: 1"
+}
 ```
 
 ## Error Recovery Patterns
@@ -371,13 +376,13 @@ const exists = (await $`test -f config.json`.nothrow()).isSuccess();
 async function getSystemInfo() {
   // Try lsb_release first
   let result = await $`lsb_release -a`.nothrow();
-  if (result.isSuccess()) {
+  if (result.ok) {
     return result.stdout;
   }
   
   // Fall back to /etc/os-release
   result = await $`cat /etc/os-release`.nothrow();
-  if (result.isSuccess()) {
+  if (result.ok) {
     return result.stdout;
   }
   
@@ -392,7 +397,7 @@ async function getSystemInfo() {
 // Get value or default
 async function getEnvVar(name: string, defaultValue: string): Promise<string> {
   const result = await $`echo $${name}`.nothrow();
-  return result.isSuccess() && result.stdout.trim() 
+  return result.ok && result.stdout.trim() 
     ? result.stdout.trim() 
     : defaultValue;
 }
@@ -407,15 +412,15 @@ const port = await getEnvVar('PORT', '3000');
 async function optimizedBuild() {
   // Try parallel build first
   const parallel = await $`make -j8`.nothrow();
-  if (parallel.isSuccess()) {
+  if (parallel.ok) {
     return;
   }
   
-  console.warn('Parallel build failed, trying sequential...');
+  console.warn('Parallel build failed:', parallel.cause, ', trying sequential...');
   
   // Fall back to sequential
   const sequential = await $`make`.nothrow();
-  if (sequential.isSuccess()) {
+  if (sequential.ok) {
     return;
   }
   
@@ -496,7 +501,7 @@ async function ensureContainerRunning(name: string) {
   for (let i = 0; i < maxAttempts; i++) {
     const result = await $`docker ps --filter name=${name} --format "{{.Status}}"`.nothrow();
     
-    if (result.isSuccess() && result.stdout.includes('Up')) {
+    if (result.ok && result.stdout.includes('Up')) {
       return true;
     }
     
@@ -724,8 +729,9 @@ describe('Error handling', () => {
   
   it('should not throw with nothrow', async () => {
     const result = await $`exit 1`.nothrow();
-    expect(result.isSuccess()).toBe(false);
+    expect(result.ok).toBe(false);
     expect(result.exitCode).toBe(1);
+    expect(result.cause).toBe('exitCode: 1');
   });
 });
 ```
@@ -752,7 +758,7 @@ describe('SSH error handling', () => {
       .retry(3)
       .nothrow();
     
-    expect(result.isSuccess()).toBe(true);
+    expect(result.ok).toBe(true);
     expect(attempts).toBe(3);
   });
 });

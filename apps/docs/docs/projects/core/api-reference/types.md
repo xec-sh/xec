@@ -136,6 +136,10 @@ interface ExecutionResult {
   exitCode: number;         // Process exit code
   signal?: string;          // Termination signal if any
   
+  // Status
+  ok: boolean;              // Success status (exitCode === 0)
+  cause?: string;           // Error cause (exitCode or signal) when not ok
+  
   // Metadata
   command: string;          // Executed command
   duration: number;         // Execution time in ms
@@ -151,6 +155,10 @@ interface ExecutionResult {
   toString(): string;       // Returns trimmed stdout
   toJSON(): object;         // JSON representation
   throwIfFailed(): void;    // Throws CommandError if failed
+  
+  /**
+   * @deprecated Use `result.ok` instead
+   */
   isSuccess(): boolean;     // Returns true if exitCode === 0
 }
 ```
@@ -987,7 +995,7 @@ function isPermissionError(error: unknown): boolean {
 ```typescript
 // Check execution success
 function isSuccess(result: ExecutionResult): result is ExecutionResult & { exitCode: 0 } {
-  return result.exitCode === 0;
+  return result.ok;
 }
 
 function hasOutput(result: ExecutionResult): result is ExecutionResult & { stdout: string } {
@@ -996,6 +1004,11 @@ function hasOutput(result: ExecutionResult): result is ExecutionResult & { stdou
 
 function hasError(result: ExecutionResult): result is ExecutionResult & { stderr: string } {
   return result.stderr.length > 0;
+}
+
+// Check for failure with cause
+function hasFailed(result: ExecutionResult): result is ExecutionResult & { ok: false; cause: string } {
+  return !result.ok;
 }
 
 // Check result pattern
