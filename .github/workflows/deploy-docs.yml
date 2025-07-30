@@ -5,13 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'apps/docs/**'
+      - 'docs/**'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     branches:
       - main
     paths:
-      - 'apps/docs/**'
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
@@ -53,19 +53,19 @@ jobs:
       - name: Install dependencies
         run: |
           yarn install --frozen-lockfile
-          cd apps/docs
+          cd docs
           yarn install --frozen-lockfile
 
       - name: Build documentation
         run: |
-          cd apps/docs
+          cd docs
           yarn build
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./apps/docs/build
+          path: ./docs/build
 
   deploy:
     if: github.event_name != 'pull_request'

@@ -82,7 +82,7 @@ The project follows a layered architecture, ensuring a clear separation of conce
 
 ### 4.4. `@xec-sh/docs` (Application)
 
-- **Location**: `apps/docs`
+- **Location**: `docs`
 - **Description**: The official documentation website built with Docusaurus.
 - **Features**:
     - **Internationalization (i18n)**: Supports English and Russian.
@@ -132,7 +132,7 @@ yarn docs:start
 1.  **Identify the right package**: Determine which layer (`ush`, `core`, or `cli`) your change belongs to.
 2.  **Follow existing patterns**: Adhere to the established coding style, architecture, and testing patterns within the target package.
 3.  **Add tests**: Each package has a `test/` directory. New features or bug fixes must be accompanied by tests.
-4.  **Update documentation**: If the change affects users, update the relevant documentation in `apps/docs` and any relevant `CLAUDE.md` or `README.md` files.
+4.  **Update documentation**: If the change affects users, update the relevant documentation in `docs` and any relevant `CLAUDE.md` or `README.md` files.
 
 ## 6. Testing Strategy
 

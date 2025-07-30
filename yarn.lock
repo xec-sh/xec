@@ -6641,7 +6641,7 @@ __metadata:
     "@types/node": "npm:^24.0.13"
     "@types/ssh2": "npm:^1.15.5"
     "@types/which": "npm:^3.0.4"
-    "@xec-sh/core": "npm:^0.7.6"
+    "@xec-sh/core": "workspace:*"
     chalk: "npm:^5.4.1"
     chokidar: "npm:^4.0.3"
     commander: "npm:^14.0.0"
@@ -6674,7 +6674,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/core@npm:^0.7.6, @xec-sh/core@workspace:packages/core":
+"@xec-sh/core@workspace:*, @xec-sh/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@xec-sh/core@workspace:packages/core"
   dependencies:
@@ -6702,9 +6702,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/docs@workspace:apps/docs":
+"@xec-sh/docs@workspace:docs":
   version: 0.0.0-use.local
-  resolution: "@xec-sh/docs@workspace:apps/docs"
+  resolution: "@xec-sh/docs@workspace:docs"
   dependencies:
     "@docusaurus/core": "npm:3.8.1"
     "@docusaurus/module-type-aliases": "npm:3.8.1"

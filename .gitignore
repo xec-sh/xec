@@ -41,10 +41,6 @@ yarn-error.log*
 *.pem
 test-results.json
 
-# Code agents
-AGENTS.md
-CLAUDE.md
-GEMINI.md
 CHANGES.md
 
 .xec/module-cache
