@@ -19,10 +19,10 @@
     "publish": "ts-node scripts/publish.ts",
     "link:global": "cd apps/xec && yarn build && npm link",
     "unlink:global": "cd apps/xec && npm unlink -g @xec-sh/cli",
-    "docs:start": "cd apps/docs && yarn start",
-    "docs:build": "cd apps/docs && yarn build",
-    "docs:serve": "cd apps/docs && yarn serve",
-    "docs:deploy": "cd apps/docs && yarn deploy",
+    "docs:start": "cd docs && yarn start",
+    "docs:build": "cd docs && yarn build",
+    "docs:serve": "cd docs && yarn serve",
+    "docs:deploy": "cd docs && yarn deploy",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -52,7 +52,8 @@
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "docs"
   ],
   "publishConfig": {
     "workspaceProtocol": "version"

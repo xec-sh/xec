@@ -76,5 +76,14 @@
     "ssh2-streams": "^0.4.10",
     "ts-jest": "^29.4.0",
     "typescript": "^5.8.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xec-sh/xec.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/xec-sh/xec/issues"
+  },
+  "homepage": "https://xec.sh"
 }

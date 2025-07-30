@@ -1,27 +1,17 @@
 import { unifiedConfig } from '../config/unified-config.js';
 
+import type { SSHTunnel } from './ssh-api.js';
 import type { ExecutionResult } from '../core/result.js';
 import type { K8sLogStream, K8sPortForward } from './kubernetes-api.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
-
-// Type for SSH tunnel
-export interface SSHTunnel {
-  localPort: number;
-  localHost: string;
-  remoteHost: string;
-  remotePort: number;
-  isOpen: boolean;
-  open(): Promise<void>;
-  close(): Promise<void>;
-}
 
 /**
  * Convenience API for common operations
  * Provides simple, intuitive methods that align with user mental models
  */
 export class ConvenienceAPI {
-  constructor(private engine: ExecutionEngine) {}
-  
+  constructor(private engine: ExecutionEngine) { }
+
   /**
    * Execute on a remote host (SSH)
    * @example
@@ -34,12 +24,12 @@ export class ConvenienceAPI {
     ...values: any[]
   ): Promise<ExecutionResult | ExecutionResult[]> {
     const hostArray = Array.isArray(hosts) ? hosts : [hosts];
-    
+
     // Handle single host
     if (hostArray.length === 1) {
       const hostConfig = await this.resolveHost(hostArray[0]!);
       const $ssh = this.engine.ssh(hostConfig);
-      
+
       if (typeof command === 'string') {
         const cmd = command;
         return $ssh`${cmd}`;
@@ -47,12 +37,12 @@ export class ConvenienceAPI {
         return $ssh(command, ...values);
       }
     }
-    
+
     // Handle multiple hosts in parallel
     const tasks = hostArray.map(async (host) => {
       const hostConfig = await this.resolveHost(host!);
       const $ssh = this.engine.ssh(hostConfig);
-      
+
       if (typeof command === 'string') {
         const cmd = command;
         return $ssh`${cmd}`;
@@ -60,10 +50,10 @@ export class ConvenienceAPI {
         return $ssh(command, ...values);
       }
     });
-    
+
     return Promise.all(tasks);
   }
-  
+
   /**
    * Execute in a container or pod
    * @example
@@ -81,12 +71,12 @@ export class ConvenienceAPI {
       const podName = target.substring(4);
       const podConfig = await this.resolvePod(podName);
       const $k8s = this.engine.k8s(podConfig);
-      
+
       if (!command) {
         // Interactive shell
         return $k8s`/bin/sh`;
       }
-      
+
       if (typeof command === 'string') {
         const cmd = command;
         return $k8s`${cmd}`;
@@ -95,18 +85,18 @@ export class ConvenienceAPI {
       }
     } else {
       // Default to container
-      const containerName = target.startsWith('container:') 
-        ? target.substring(10) 
+      const containerName = target.startsWith('container:')
+        ? target.substring(10)
         : target;
-      
+
       const containerConfig = await this.resolveContainer(containerName);
       const $docker = this.engine.docker(containerConfig);
-      
+
       if (!command) {
         // Interactive shell
         return $docker`/bin/sh`;
       }
-      
+
       if (typeof command === 'string') {
         const cmd = command;
         return $docker`${cmd}`;
@@ -115,7 +105,7 @@ export class ConvenienceAPI {
       }
     }
   }
-  
+
   /**
    * Copy files between local and remote locations
    * @example
@@ -127,13 +117,13 @@ export class ConvenienceAPI {
   async copy(source: string, destination: string): Promise<void> {
     const sourceInfo = this.parseLocation(source);
     const destInfo = this.parseLocation(destination);
-    
+
     // Local to local (just use cp)
     if (sourceInfo.type === 'local' && destInfo.type === 'local') {
       await this.engine.run`cp -r ${source} ${destination}`;
       return;
     }
-    
+
     // SSH operations
     if (sourceInfo.type === 'ssh' || destInfo.type === 'ssh') {
       if (sourceInfo.type === 'ssh' && destInfo.type === 'local') {
@@ -151,16 +141,16 @@ export class ConvenienceAPI {
       }
       return;
     }
-    
+
     // Docker operations
     if (sourceInfo.type === 'docker' || destInfo.type === 'docker') {
-      const containerName = sourceInfo.type === 'docker' 
-        ? sourceInfo.container! 
+      const containerName = sourceInfo.type === 'docker'
+        ? sourceInfo.container!
         : destInfo.container!;
-      
+
       const containerConfig = await this.resolveContainer(containerName);
       const container = await this.engine.docker(containerConfig).start();
-      
+
       if (sourceInfo.type === 'docker' && destInfo.type === 'local') {
         await container.copyFrom(sourceInfo.path, destInfo.path);
       } else if (sourceInfo.type === 'local' && destInfo.type === 'docker') {
@@ -170,17 +160,17 @@ export class ConvenienceAPI {
       }
       return;
     }
-    
+
     // Kubernetes operations
     if (sourceInfo.type === 'k8s' || destInfo.type === 'k8s') {
-      const podName = sourceInfo.type === 'k8s' 
-        ? sourceInfo.pod! 
+      const podName = sourceInfo.type === 'k8s'
+        ? sourceInfo.pod!
         : destInfo.pod!;
-      
+
       const podConfig = await this.resolvePod(podName);
       const k8sContext = this.engine.k8s(podConfig);
       const pod = k8sContext.pod(podConfig.pod);
-      
+
       if (sourceInfo.type === 'k8s' && destInfo.type === 'local') {
         await pod.copyFrom(sourceInfo.path, destInfo.path);
       } else if (sourceInfo.type === 'local' && destInfo.type === 'k8s') {
@@ -190,7 +180,7 @@ export class ConvenienceAPI {
       }
     }
   }
-  
+
   /**
    * Set up port forwarding
    * @example
@@ -203,7 +193,7 @@ export class ConvenienceAPI {
     localPort?: number
   ): Promise<SSHTunnel | K8sPortForward | { localPort: number; close: () => Promise<void> }> {
     const parts = source.split(':');
-    
+
     if (parts[0] === 'pod') {
       // Kubernetes port forward
       const [, podName, remotePort] = parts;
@@ -213,7 +203,7 @@ export class ConvenienceAPI {
       const podConfig = await this.resolvePod(podName);
       const k8sContext = this.engine.k8s(podConfig);
       const pod = k8sContext.pod(podConfig.pod);
-      
+
       if (localPort) {
         return pod.portForward(localPort, parseInt(remotePort, 10));
       } else {
@@ -231,17 +221,17 @@ export class ConvenienceAPI {
       }
       const hostConfig = await this.resolveHost(hostName);
       const $ssh = this.engine.ssh(hostConfig);
-      
+
       const tunnel = await $ssh.tunnel({
         localPort: localPort || 0,
         remoteHost: 'localhost',
         remotePort: parseInt(remotePort, 10)
       });
-      
+
       return tunnel;
     }
   }
-  
+
   /**
    * Stream logs from various sources
    * @example
@@ -264,7 +254,7 @@ export class ConvenienceAPI {
       const containerName = source.substring(10);
       const containerConfig = await this.resolveContainer(containerName);
       const container = await this.engine.docker(containerConfig).start();
-      
+
       if (options.follow && options.onData) {
         await container.streamLogs(options.onData, {
           follow: true,
@@ -283,7 +273,7 @@ export class ConvenienceAPI {
       const podConfig = await this.resolvePod(podName);
       const k8sContext = this.engine.k8s(podConfig);
       const pod = k8sContext.pod(podConfig.pod);
-      
+
       if (options.follow && options.onData) {
         return pod.streamLogs(options.onData, {
           follow: true,
@@ -304,17 +294,17 @@ export class ConvenienceAPI {
       }
       const hostConfig = await this.resolveHost(hostName);
       const $ssh = this.engine.ssh(hostConfig);
-      
+
       if (options.follow) {
         const tailCmd = `tail -f ${options.tail ? `-n ${options.tail}` : ''} ${filePath}`;
         const proc = $ssh`${tailCmd}`;
-        
+
         if (options.onData) {
           // Stream the output
           const stream = await proc;
           options.onData(stream.stdout);
         }
-        
+
         return proc as any;
       } else {
         const tailCmd = `tail ${options.tail ? `-n ${options.tail}` : '-n 50'} ${filePath}`;
@@ -326,12 +316,12 @@ export class ConvenienceAPI {
       if (options.follow) {
         const tailCmd = `tail -f ${options.tail ? `-n ${options.tail}` : ''} ${source}`;
         const proc = this.engine.run`${tailCmd}`;
-        
+
         if (options.onData) {
           const stream = await proc;
           options.onData(stream.stdout);
         }
-        
+
         return proc as any;
       } else {
         const tailCmd = `tail ${options.tail ? `-n ${options.tail}` : '-n 50'} ${source}`;
@@ -340,7 +330,7 @@ export class ConvenienceAPI {
       }
     }
   }
-  
+
   /**
    * Execute commands with automatic context detection
    * @example
@@ -352,7 +342,7 @@ export class ConvenienceAPI {
     const parts = command.split(' ');
     const firstPart = parts[0]!;
     const restCommand = parts.slice(1).join(' ');
-    
+
     // Try to resolve as host
     try {
       const config = await unifiedConfig.load();
@@ -360,76 +350,76 @@ export class ConvenienceAPI {
         const result = await this.onHost(firstPart, restCommand);
         return Array.isArray(result) ? result[0]! : result;
       }
-    } catch {}
-    
+    } catch { }
+
     // Try to resolve as container
     try {
       const config = await unifiedConfig.load();
       if (firstPart && config.containers?.[firstPart]) {
         return await this.in(firstPart, restCommand) as ExecutionResult;
       }
-    } catch {}
-    
+    } catch { }
+
     // Try to resolve as pod
     try {
       const config = await unifiedConfig.load();
       if (firstPart && config.pods?.[firstPart]) {
         return await this.in(`pod:${firstPart}`, restCommand) as ExecutionResult;
       }
-    } catch {}
-    
+    } catch { }
+
     // Default to local execution
     return await this.engine.run`${command}`;
   }
-  
+
   /**
    * Resolve host name to SSH configuration
    */
   private async resolveHost(name: string): Promise<any> {
     const config = await unifiedConfig.load();
     const hostConfig = config.hosts?.[name];
-    
+
     if (!hostConfig) {
       // Assume it's a direct hostname
       return { host: name };
     }
-    
+
     return unifiedConfig.hostToSSHOptions(name);
   }
-  
+
   /**
    * Resolve container name to Docker configuration
    */
   private async resolveContainer(name: string): Promise<any> {
     const config = await unifiedConfig.load();
     const containerConfig = config.containers?.[name];
-    
+
     if (!containerConfig) {
       // Assume it's a direct container name
       return { container: name };
     }
-    
+
     return {
       ...containerConfig,
       container: containerConfig.container || containerConfig.name || name
     };
   }
-  
+
   /**
    * Resolve pod name to Kubernetes configuration
    */
   private async resolvePod(name: string): Promise<any> {
     const config = await unifiedConfig.load();
     const podConfig = config.pods?.[name];
-    
+
     if (!podConfig) {
       // Assume it's a direct pod name
       return { pod: name };
     }
-    
+
     return unifiedConfig.podToK8sOptions(name);
   }
-  
+
   /**
    * Parse location string to determine type and path
    */
@@ -448,7 +438,7 @@ export class ConvenienceAPI {
         path: pathParts.join(':') || '/'
       };
     }
-    
+
     if (location.startsWith('pod:')) {
       const [podPart, ...pathParts] = location.substring(4).split(':');
       return {
@@ -457,7 +447,7 @@ export class ConvenienceAPI {
         path: pathParts.join(':') || '/'
       };
     }
-    
+
     if (location.includes(':') && !location.match(/^[a-zA-Z]:\\/)) {
       // SSH format: host:path
       const [host, ...pathParts] = location.split(':');
@@ -467,7 +457,7 @@ export class ConvenienceAPI {
         path: pathParts.join(':')
       };
     }
-    
+
     // Local path
     return {
       type: 'local',
@@ -493,7 +483,7 @@ export interface ExtendedExecutionEngine extends ExecutionEngine {
  */
 export function attachConvenienceMethods(engine: ExecutionEngine): ExtendedExecutionEngine {
   const api = new ConvenienceAPI(engine);
-  
+
   // Attach methods to the engine
   return Object.assign(engine, {
     onHost: api.onHost.bind(api),

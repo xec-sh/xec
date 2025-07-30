@@ -110,8 +110,8 @@ We are committed to providing a friendly, safe, and welcoming environment for al
 ```
 xec/
 ├── apps/
-│   ├── xec/          # CLI application (@xec-sh/cli)
-│   └── docs/         # Documentation site
+│   └── xec/          # CLI application (@xec-sh/cli)
+├── docs/             # Documentation site
 ├── packages/
 │   ├── core/         # Core execution engine (@xec-sh/core)
 │   └── test-utils/   # Shared testing utilities
@@ -318,7 +318,7 @@ yarn test:integration
 | Architecture | `/docs` | Markdown |
 | Package Usage | Package `README.md` | Markdown with examples |
 | Examples | `/examples` | Runnable code |
-| Tutorials | `/apps/docs` | Docusaurus |
+| Tutorials | `/docs` | Docusaurus |
 
 ### Documentation Standards
 

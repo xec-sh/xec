@@ -20,7 +20,7 @@ yarn deploy            # Deploy to GitHub Pages
 
 ## Project Structure
 ```
-apps/docs/
+docs/
 ├── docs/                      # English documentation (main content)
 │   ├── intro.md              # Introduction page
 │   ├── overview.md           # Platform overview

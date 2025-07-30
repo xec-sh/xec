@@ -52,10 +52,10 @@
     "description": "The ARIA label for the back to top button"
   },
   "homepage.title": {
-    "message": "Xec Infrastructure"
+    "message": "Xec: Универсальная оболочка для TypeScript"
   },
   "homepage.tagline": {
-    "message": "Современная платформа оркестрации инфраструктуры"
+    "message": "Выполняйте команды локально, по SSH, в Docker или Kubernetes с единым, элегантным API. Перестаньте бороться со shell-скриптами."
   },
   "homepage.getStarted": {
     "message": "Начать - 5мин ⏱️"
@@ -64,22 +64,22 @@
     "message": "Узнать больше"
   },
   "homepage.description": {
-    "message": "Xec - это современная платформа оркестрации инфраструктуры, которая упрощает развертывание, управление и автоматизацию вашей инфраструктуры."
+    "message": "Xec - это универсальная оболочка с TypeScript/JavaScript API, которая предоставляет единый интерфейс для выполнения команд в разных средах - локально, через SSH, в Docker контейнерах и Kubernetes подах."
   },
   "homepage.layoutTitle": {
-    "message": "Современная оркестрация инфраструктуры"
+    "message": "Универсальное выполнение команд и автоматизация"
   },
   "homepage.ecosystem.title": {
     "message": "Единая экосистема"
   },
   "homepage.ecosystem.description": {
-    "message": "Три мощных пакета, работающих вместе для оркестрации вашей инфраструктуры"
+    "message": "Мощный основной пакет и CLI, работающие вместе для выполнения команд и автоматизации задач в любой среде"
   },
   "homepage.cli.description": {
-    "message": "Интерфейс командной строки для управления инфраструктурой с помощью простых, интуитивно понятных команд."
+    "message": "Интерфейс командной строки для выполнения и автоматизации задач с мощными возможностями скриптинга на TypeScript/JavaScript."
   },
   "homepage.core.description": {
-    "message": "Основной движок оркестрации с мощным управлением состоянием и системой провайдеров."
+    "message": "Универсальный движок выполнения shell-команд для бесшовного выполнения команд в разных средах - локально, SSH, Docker и Kubernetes."
   },
   "homepage.ush.description": {
     "message": "Универсальный движок выполнения shell-команд для бесшовного выполнения команд в разных средах."
@@ -94,7 +94,7 @@
     "message": "Изучить USH документацию"
   },
   "homepage.useCases.title": {
-    "message": "Создано для современной инфраструктуры"
+    "message": "Идеально для современной разработки"
   },
   "homepage.useCases.devops.title": {
     "message": "DevOps автоматизация"
@@ -102,32 +102,32 @@
   "homepage.useCases.devops.description": {
     "message": "Автоматизируйте развертывания, управляйте конфигурациями и оркестрируйте сложные рабочие процессы с легкостью."
   },
-  "homepage.useCases.multiCloud.title": {
-    "message": "Мультиоблачное управление"
+  "homepage.useCases.remoteServer.title": {
+    "message": "Управление удаленными серверами"
   },
-  "homepage.useCases.multiCloud.description": {
-    "message": "Развертывайте и управляйте ресурсами в AWS, Azure, GCP и локальной инфраструктуре."
+  "homepage.useCases.remoteServer.description": {
+    "message": "Подключайтесь к удаленным серверам через SSH, передавайте файлы, создавайте туннели и управляйте множественными соединениями с легкостью."
   },
-  "homepage.useCases.containerization.title": {
-    "message": "Оркестрация контейнеров"
+  "homepage.useCases.taskAutomation.title": {
+    "message": "Автоматизация задач и скриптинг"
   },
-  "homepage.useCases.containerization.description": {
-    "message": "Бесшовная работа с Docker, Kubernetes и реестрами контейнеров."
+  "homepage.useCases.taskAutomation.description": {
+    "message": "Выполняйте команды параллельно, обрабатывайте потоковые данные, используйте шаблоны с переменными и создавайте сложные скрипты автоматизации."
   },
-  "homepage.useCases.compliance.title": {
-    "message": "Соответствие и безопасность"
+  "homepage.useCases.crossPlatform.title": {
+    "message": "Кроссплатформенное выполнение"
   },
-  "homepage.useCases.compliance.description": {
-    "message": "Встроенные функции безопасности, журналирование аудита и рабочие процессы, готовые к соответствию."
+  "homepage.useCases.crossPlatform.description": {
+    "message": "Выполняйте команды последовательно на локальных машинах, SSH соединениях, Docker контейнерах и Kubernetes подах."
   },
   "homepage.cta.title": {
-    "message": "Готовы преобразовать вашу инфраструктуру?"
+    "message": "Начните автоматизировать ваши задачи сегодня"
   },
   "homepage.cta.description": {
-    "message": "Присоединяйтесь к тысячам разработчиков, которые уже используют Xec для упрощения управления инфраструктурой."
+    "message": "Присоединяйтесь к тысячам разработчиков, которые уже используют Xec для упрощения своих рабочих процессов и автоматизации сложных задач."
   },
   "homepage.cta.startBuilding": {
-    "message": "Начать создавать"
+    "message": "Начать"
   },
   "homepage.cta.viewOnGitHub": {
     "message": "Посмотреть на GitHub"

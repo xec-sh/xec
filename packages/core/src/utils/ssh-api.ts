@@ -1,7 +1,17 @@
-import type { SSHTunnel } from '../utils/convenience.js';
 import type { SSHAdapterOptions } from '../core/command.js';
 import type { SSHAdapter } from '../adapters/ssh-adapter.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
+
+// Type for SSH tunnel
+export interface SSHTunnel {
+  localPort: number;
+  localHost: string;
+  remoteHost: string;
+  remotePort: number;
+  isOpen: boolean;
+  open(): Promise<void>;
+  close(): Promise<void>;
+}
 
 /**
  * Interface for the SSH execution context
@@ -9,7 +19,7 @@ import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.j
 export interface SSHExecutionContext {
   // Callable interface for template literals
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  
+
   // Methods
   exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
   raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
@@ -22,7 +32,7 @@ export interface SSHExecutionContext {
   uploadFile(localPath: string, remotePath: string): Promise<void>;
   downloadFile(remotePath: string, localPath: string): Promise<void>;
   uploadDirectory(localPath: string, remotePath: string): Promise<void>;
-  
+
   // Chainable configuration methods
   env(env: Record<string, string>): SSHExecutionContext;
   cd(dir: string): SSHExecutionContext;
@@ -55,12 +65,12 @@ export function createSSHExecutionContext(
       adapterOptions: { type: 'ssh', ...sshOptions },
       ...commandConfig
     });
-    
+
     // Apply retry if configured
     if (commandConfig.retry) {
       sshEngine = sshEngine.retry(commandConfig.retry);
     }
-    
+
     // Use the engine's run method which properly handles template literals
     return (sshEngine as any).run(strings, ...values);
   };
@@ -74,12 +84,12 @@ export function createSSHExecutionContext(
       adapterOptions: { type: 'ssh', ...sshOptions },
       ...commandConfig
     });
-    
+
     // Apply retry if configured
     if (commandConfig.retry) {
       sshEngine = sshEngine.retry(commandConfig.retry);
     }
-    
+
     return (sshEngine as any).raw(strings, ...values);
   };
 
@@ -115,9 +125,9 @@ export function createSSHExecutionContext(
       throw new Error('SSH adapter not available');
     }
 
-    await adapter.uploadFile(localPath, remotePath, { 
-      type: 'ssh', 
-      ...sshOptions 
+    await adapter.uploadFile(localPath, remotePath, {
+      type: 'ssh',
+      ...sshOptions
     });
   };
 
@@ -130,9 +140,9 @@ export function createSSHExecutionContext(
       throw new Error('SSH adapter not available');
     }
 
-    await adapter.downloadFile(remotePath, localPath, { 
-      type: 'ssh', 
-      ...sshOptions 
+    await adapter.downloadFile(remotePath, localPath, {
+      type: 'ssh',
+      ...sshOptions
     });
   };
 
@@ -145,37 +155,37 @@ export function createSSHExecutionContext(
       throw new Error('SSH adapter not available');
     }
 
-    await adapter.uploadDirectory(localPath, remotePath, { 
-      type: 'ssh', 
-      ...sshOptions 
+    await adapter.uploadDirectory(localPath, remotePath, {
+      type: 'ssh',
+      ...sshOptions
     });
   };
 
   // Chainable configuration methods
   const env = (envVars: Record<string, string>): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
-      ...commandConfig,
-      env: { ...commandConfig.env, ...envVars }
-    });
+    ...commandConfig,
+    env: { ...commandConfig.env, ...envVars }
+  });
 
   const cd = (dir: string): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
-      ...commandConfig,
-      cwd: dir
-    });
+    ...commandConfig,
+    cwd: dir
+  });
 
   const timeout = (ms: number): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
-      ...commandConfig,
-      timeout: ms
-    });
+    ...commandConfig,
+    timeout: ms
+  });
 
   const shell = (shellValue: string | boolean): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
-      ...commandConfig,
-      shell: shellValue
-    });
+    ...commandConfig,
+    shell: shellValue
+  });
 
   const retry = (options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
-      ...commandConfig,
-      retry: options
-    });
+    ...commandConfig,
+    retry: options
+  });
 
   // Create the callable object
   const context = Object.assign(exec, {

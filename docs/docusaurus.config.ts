@@ -47,7 +47,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/xec-sh/xec/tree/main/apps/docs/',
+          editUrl: 'https://github.com/xec-sh/xec/tree/main/docs/',
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,
           versions: {
@@ -65,7 +65,7 @@ const config: Config = {
         },
         blog: {
           showReadingTime: true,
-          editUrl: 'https://github.com/xec-sh/xec/tree/main/apps/docs/',
+          editUrl: 'https://github.com/xec-sh/xec/tree/main/docs/',
           feedOptions: {
             type: ['rss', 'atom'],
             xslt: true,
