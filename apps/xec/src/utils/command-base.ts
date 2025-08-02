@@ -49,7 +49,7 @@ export abstract class BaseCommand {
    */
   create(): Command {
     const command = new Command(this.config.name);
-    
+
     command
       .description(this.config.description)
       // Don't add verbose/quiet options as they conflict with parent program options
@@ -89,7 +89,20 @@ export abstract class BaseCommand {
         const options = args[args.length - 1];
         // Get verbose and quiet from parent command
         const parentOptions = options.parent?.opts() || {};
+        
+        // Extract command-specific options, excluding commander internals
+        const commandOptions: any = {};
+        for (const key in options) {
+          // Skip commander internal properties
+          if (!key.startsWith('_') && key !== 'parent' && key !== 'args' && 
+              key !== 'commands' && key !== 'options' && typeof options[key] !== 'function') {
+            commandOptions[key] = options[key];
+          }
+        }
+        
+        // Merge all options together, with defaults
         this.options = {
+          ...commandOptions,  // Include all parsed command options
           verbose: parentOptions.verbose || options.verbose || false,
           quiet: parentOptions.quiet || options.quiet || false,
           output: options.output || 'text',
@@ -132,9 +145,9 @@ export abstract class BaseCommand {
     }
   }
 
-  protected stopSpinner(message?: string): void {
+  protected stopSpinner(message?: string, code?: number): void {
     if (this.spinner) {
-      this.spinner.stop(message);
+      this.spinner.stop(message, code);
       this.spinner = null;
     }
   }
@@ -160,7 +173,7 @@ export abstract class BaseCommand {
   protected output(data: any, title?: string): void {
     this.formatter.output(data, title);
   }
-  
+
   protected table(rows: any[], headers?: string[]): void {
     const tableData = {
       columns: headers ? headers.map(h => ({ header: h })) : Object.keys(rows[0] || {}).map(k => ({ header: k })),

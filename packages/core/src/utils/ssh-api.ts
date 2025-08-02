@@ -113,7 +113,7 @@ export function createSSHExecutionContext(
     await exec`echo "Establishing connection for tunnel"`.quiet();
 
     // Now create the tunnel using the established connection
-    return adapter.tunnel(options);
+    return adapter.tunnel(options) as Promise<SSHTunnel>;
   };
 
   /**

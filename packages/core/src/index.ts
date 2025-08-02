@@ -178,7 +178,10 @@ function registerCleanupHandlers(): void {
     } catch {
       // Ignore errors
     } finally {
-      process.exit(0);
+      // Only exit if not in test environment
+      if (process.env['NODE_ENV'] !== 'test') {
+        process.exit(0);
+      }
     }
   });
 
@@ -189,7 +192,10 @@ function registerCleanupHandlers(): void {
     } catch {
       // Ignore errors
     } finally {
-      process.exit(0);
+      // Only exit if not in test environment
+      if (process.env['NODE_ENV'] !== 'test') {
+        process.exit(0);
+      }
     }
   });
 

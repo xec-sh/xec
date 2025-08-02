@@ -46,3 +46,4 @@ CHANGES.md
 .xec/module-cache
 .xec/cache
 .xec/logs
+.xec-temp

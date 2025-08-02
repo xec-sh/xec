@@ -5,11 +5,11 @@ import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { checkForCommandTypo } from '@xec-sh/core';
 
-import { loadConfig } from './utils/config.js';
 import { handleError } from './utils/error-handler.js';
 import { customizeHelp } from './utils/help-customizer.js';
 import { loadDynamicCommands } from './utils/dynamic-commands.js';
 import { registerCliCommands } from './utils/command-registry.js';
+import { TaskManager, ConfigurationManager } from './config/index.js';
 import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -69,8 +69,10 @@ export async function loadCommands(program: Command): Promise<string[]> {
 export async function run(argv: string[] = process.argv): Promise<void> {
   const program = createProgram();
 
-  // Load configuration
-  await loadConfig();
+  // Initialize v2.0 configuration system
+  const configManager = new ConfigurationManager();
+  const taskManager = new TaskManager({ configManager });
+  await taskManager.load();
 
   // Module loader is initialized lazily when needed by commands
 
@@ -130,8 +132,67 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       }
     }
 
+    // Check if this is a task execution
+    if (firstArg && !firstArg.startsWith('-') && await taskManager.exists(firstArg)) {
+      // This is a task
+      const taskName = firstArg;
+      const taskArgs = args.slice(1);
+
+      // Parse task parameters from arguments
+      const params: Record<string, any> = {};
+      const remainingArgs: string[] = [];
+
+      for (let i = 0; i < taskArgs.length; i++) {
+        const arg = taskArgs[i];
+        if (!arg) continue;
+
+        if (arg.startsWith('--') && arg.includes('=')) {
+          // --param=value format
+          const [key, value] = arg.substring(2).split('=', 2);
+          if (key) {
+            params[key] = value || '';
+          }
+        } else if (arg.startsWith('--') && i + 1 < taskArgs.length) {
+          const nextArg = taskArgs[i + 1];
+          if (nextArg && !nextArg.startsWith('-')) {
+            // --param value format
+            const key = arg.substring(2);
+            params[key] = nextArg;
+            i++;
+          } else {
+            remainingArgs.push(arg);
+          }
+        } else {
+          remainingArgs.push(arg);
+        }
+      }
+
+      // Execute the task
+      try {
+        const result = await taskManager.run(taskName, params);
+
+        if (!result.success) {
+          console.error(`Task '${taskName}' failed`);
+          process.exit(1);
+        }
+      } catch (error) {
+        handleError(error, {
+          verbose: args.includes('-v') || args.includes('--verbose'),
+          quiet: args.includes('-q') || args.includes('--quiet'),
+          output: 'text'
+        });
+        process.exit(1);
+      }
+
+      return;
+    }
+
+    // Get task names for command detection
+    const taskList = await taskManager.list();
+    const taskNames = taskList.map((t: any) => t.name);
+
     // Check if this is a direct command execution
-    if (args.length > 0 && isDirectCommand(args, commandNames)) {
+    if (args.length > 0 && isDirectCommand(args, commandNames, taskNames)) {
       const options = {
         verbose: args.includes('-v') || args.includes('--verbose'),
         quiet: args.includes('-q') || args.includes('--quiet'),

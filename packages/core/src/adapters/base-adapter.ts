@@ -1,4 +1,3 @@
-
 import { Command } from '../core/command.js';
 import { StreamHandler } from '../utils/stream.js';
 import { ProgressReporter } from '../utils/progress.js';
@@ -222,12 +221,12 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
           const quotedDouble = groups[3];
           const quotedSingle = groups[4];
           const unquoted = groups[5];
-          
+
           // For command line arguments
           if (key.startsWith('--')) {
             return key + ' ' + this.config.sensitiveDataMasking.replacement;
           }
-          
+
           // For key=value or key: value patterns
           return key + separator + this.config.sensitiveDataMasking.replacement;
         }
@@ -443,7 +442,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   getConfig(): Readonly<ResolvedBaseAdapterConfig> {
     return { ...this.config };
   }
-  
+
   /**
    * Dispose of any resources held by this adapter.
    * Subclasses should override this method to clean up their specific resources.

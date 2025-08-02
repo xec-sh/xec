@@ -4,25 +4,306 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
+import { InteractiveHelpers } from '../utils/interactive-helpers.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
+
 interface NewOptions {
-  type?: 'script' | 'command';
+  force?: boolean;
+  minimal?: boolean;
+  skipGit?: boolean;
   name?: string;
   description?: string;
-  force?: boolean;
+  type?: string;
   advanced?: boolean;
-  js?: boolean; // Generate JavaScript instead of TypeScript
+  js?: boolean;
+  profile?: string;
+  from?: string;
+  interactive?: boolean;
 }
 
-// JavaScript Script templates
-const BASIC_JS_SCRIPT_TEMPLATE = `#!/usr/bin/env xec
+// Artifact types
+type ArtifactType = 'project' | 'script' | 'command' | 'task' | 'profile' | 'extension';
+
+// Template registry
+const TEMPLATES = {
+  project: {
+    minimal: {
+      files: {
+        '.xec/config.yaml': `version: "2.0"
+name: {name}
+description: {description}
+
+# Define your targets
+targets:
+  hosts:
+    # example:
+    #   host: example.com
+    #   user: deploy
+
+# Define your tasks
+tasks:
+  hello:
+    description: Example task
+    command: echo "Hello from Xec!"
+`,
+        '.xec/.gitignore': `.env
+.env.*
+cache/
+logs/
+tmp/
+`,
+      }
+    },
+    standard: {
+      files: {
+        '.xec/config.yaml': `version: "2.0"
+name: {name}
+description: {description}
+
+# Variables for reuse
+vars:
+  app_name: {name}
+  deploy_path: /opt/apps/{name}
+  log_level: info
+
+# Define your targets
+targets:
+  # Default settings for all targets
+  defaults:
+    timeout: 30s
+    shell: /bin/bash
+    
+  # SSH hosts
+  hosts:
+    # staging:
+    #   host: staging.example.com
+    #   user: deploy
+    #   privateKey: ~/.ssh/id_rsa
+    
+    # production:
+    #   host: prod.example.com
+    #   user: deploy
+    #   privateKey: ~/.ssh/id_rsa
+
+  # Docker containers
+  containers:
+    # app:
+    #   image: node:18
+    #   volumes:
+    #     - ./:/app
+    #   workdir: /app
+
+  # Kubernetes pods
+  pods:
+    # web:
+    #   namespace: default
+    #   selector: app=web
+
+# Environment profiles
+profiles:
+  development:
+    vars:
+      log_level: debug
+    env:
+      NODE_ENV: development
+      
+  production:
+    vars:
+      log_level: error
+    env:
+      NODE_ENV: production
+
+# Executable tasks
+tasks:
+  # Simple command task
+  hello:
+    description: Say hello
+    command: echo "Hello from {name}!"
+    
+  # Multi-step task
+  deploy:
+    description: Deploy application
+    params:
+      - name: version
+        required: true
+        description: Version to deploy
+    steps:
+      - name: Build application
+        command: npm run build
+        
+      - name: Run tests
+        command: npm test
+        onFailure: abort
+        
+      - name: Deploy to servers
+        targets: [hosts.staging, hosts.production]
+        command: |
+          cd \${vars.deploy_path}
+          git pull origin \${params.version}
+          npm install --production
+          npm run migrate
+          pm2 reload app
+
+  # Scheduled backup task
+  backup:
+    description: Backup database and files
+    schedule: "0 2 * * *"  # 2 AM daily
+    target: hosts.production
+    command: |
+      pg_dump myapp > /backup/db-$(date +%Y%m%d).sql
+      tar -czf /backup/files-$(date +%Y%m%d).tar.gz /app/uploads
+
+# Script configuration
+scripts:
+  env:
+    API_URL: https://api.example.com
+  globals:
+    - lodash
+    - dayjs
+
+# Command defaults
+commands:
+  copy:
+    compress: true
+    progress: true
+  watch:
+    interval: 1000
+    clear: true
+
+# Secrets configuration
+secrets:
+  provider: local
+  config:
+    storageDir: .xec/secrets
+`,
+        '.xec/.gitignore': `.env
+.env.*
+cache/
+logs/
+tmp/
+secrets/
+*.log
+`,
+        '.xec/scripts/example.js': `#!/usr/bin/env xec
+
+/**
+ * Example Xec script
+ * Run with: xec scripts/example.js
+ */
+
+// Use the $ function from @xec-sh/core
+const result = await $\`echo "Hello from Xec!"\`;
+log.success(result.stdout);
+
+// Interactive prompts
+const name = await question({
+  message: 'What is your name?',
+  defaultValue: 'World'
+});
+
+log.info(\`Hello, \${name}!\`);
+
+// Work with files
+const files = await glob('*.js');
+log.step(\`Found \${files.length} JavaScript files\`);
+
+// HTTP requests
+const response = await fetch('https://api.github.com/users/github');
+const data = await response.json();
+log.info(\`GitHub has \${data.public_repos} public repos\`);
+
+// Parallel execution
+const results = await Promise.all([
+  $\`echo "Task 1"\`,
+  $\`echo "Task 2"\`,
+  $\`echo "Task 3"\`
+]);
+
+log.success('All tasks completed!');
+`,
+        '.xec/commands/hello.js': `/**
+ * Example dynamic CLI command
+ * This will be available as: xec hello [name]
+ */
+
+export function command(program) {
+  program
+    .command('hello [name]')
+    .description('Say hello')
+    .option('-u, --uppercase', 'Output in uppercase')
+    .option('-r, --repeat <times>', 'Repeat the message', '1')
+    .action(async (name = 'World', options) => {
+      const { log } = await import('@clack/prompts');
+      
+      let message = \`Hello, \${name}!\`;
+      
+      if (options.uppercase) {
+        message = message.toUpperCase();
+      }
+      
+      const times = parseInt(options.repeat, 10);
+      for (let i = 0; i < times; i++) {
+        log.success(message);
+      }
+    });
+}
+`,
+        '.xec/README.md': `# {name}
+
+{description}
+
+## Getting Started
+
+1. Run example script:
+   \`\`\`bash
+   xec scripts/example.js
+   \`\`\`
+
+2. Try the custom command:
+   \`\`\`bash
+   xec hello YourName
+   \`\`\`
+
+3. Run a task:
+   \`\`\`bash
+   xec tasks:run hello
+   \`\`\`
+
+## Project Structure
+
+- \`.xec/config.yaml\` - Project configuration
+- \`.xec/scripts/\` - Xec scripts
+- \`.xec/commands/\` - Custom CLI commands
+- \`.xec/cache/\` - Cache directory
+- \`.xec/logs/\` - Log files
+
+## Configuration
+
+Edit \`.xec/config.yaml\` to:
+- Add SSH hosts, Docker containers, or Kubernetes pods
+- Define reusable tasks
+- Set up environment profiles
+- Configure secrets management
+
+## Learn More
+
+- [Xec Documentation](https://xec.sh/docs)
+- [Configuration Reference](https://xec.sh/docs/config)
+- [Task System](https://xec.sh/docs/tasks)
+`,
+      }
+    }
+  },
+
+  script: {
+    basic: {
+      js: `#!/usr/bin/env xec
 
 /**
  * {description}
  * 
- * Usage: xec .xec/scripts/{name}.js
+ * Usage: xec {filepath}
  */
-
-import { $ } from '@xec-sh/core';
 
 // Your script logic here
 log.info('Running {name} script...');
@@ -46,20 +327,65 @@ if (answer.toLowerCase() === 'yes') {
 } else {
   log.info('Operation cancelled');
 }
-`;
-
-const ADVANCED_JS_SCRIPT_TEMPLATE = `#!/usr/bin/env xec
+`,
+      ts: `#!/usr/bin/env xec
 
 /**
  * {description}
  * 
- * Usage: xec .xec/scripts/{name}.js [options]
- * 
- * Options can be passed as arguments:
- *   xec .xec/scripts/{name}.js --env=production --dry-run
+ * Usage: xec {filepath}
  */
 
-import { $ } from '@xec-sh/core';
+// Type-safe command execution
+const result = await $\`echo "Hello from TypeScript!"\`;
+log.success(result.stdout);
+
+// Work with files using built-in fs
+const files = await glob('**/*.ts');
+log.step(\`Found \${files.length} TypeScript files\`);
+
+// Interactive prompts with type inference
+const name = await question({
+  message: 'What is your name?',
+  defaultValue: 'Developer'
+});
+
+// Use chalk for colored output
+log.info(chalk.blue(\`Hello, \${name}!\`));
+
+// Example: Fetch data from API
+interface GitHubRepo {
+  name: string;
+  description: string;
+  stargazers_count: number;
+}
+
+try {
+  const response = await fetch('https://api.github.com/repos/xec-sh/xec');
+  const repo: GitHubRepo = await response.json();
+  
+  log.step(\`Repo: \${chalk.cyan(repo.name)}\`);
+  log.step(\`Stars: \${chalk.yellow('⭐')} \${repo.stargazers_count}\`);
+} catch (error) {
+  log.error(\`Failed to fetch repo info: \${error}\`);
+}
+
+log.success('✅ Script completed successfully!');
+`
+    },
+    advanced: {
+      js: `#!/usr/bin/env xec
+
+/**
+ * {description}
+ * 
+ * Usage: xec {filepath} [options]
+ * 
+ * Options:
+ *   --env <environment>  Environment to run in
+ *   --dry-run           Show what would be done
+ *   --verbose           Enable verbose output
+ */
 
 // Parse command line arguments
 const options = {
@@ -71,6 +397,15 @@ const options = {
 // Configure logging
 if (options.verbose) {
   $.verbose = true;
+}
+
+// Load configuration
+const config = await xec.config.load();
+const profile = config.profiles?.[options.env];
+
+if (profile) {
+  xec.config.applyProfile(options.env);
+  log.info(chalk.dim(\`Applied profile: \${options.env}\`));
 }
 
 log.info(chalk.bold('🚀 {description}'));
@@ -109,7 +444,6 @@ try {
 
 // Helper functions
 async function validateEnvironment(env) {
-  // Add your validation logic here
   const validEnvs = ['development', 'staging', 'production'];
   if (!validEnvs.includes(env)) {
     throw new Error(\`Invalid environment: \${env}\`);
@@ -117,14 +451,11 @@ async function validateEnvironment(env) {
 }
 
 async function executeMainOperation(options) {
-  // Add your main logic here
+  // Example: Use targets from config
+  const targets = await xec.config.getTargets();
   
-  // Example: SSH operations
-  if (options.env === 'production') {
-    const $prod = $.ssh({
-      host: 'production.example.com',
-      username: 'deploy'
-    });
+  if (options.env === 'production' && targets.hosts?.production) {
+    const $prod = $.ssh(targets.hosts.production);
     
     await $prod\`uptime\`;
     await $prod\`df -h\`;
@@ -135,15 +466,196 @@ async function executeMainOperation(options) {
 }
 
 async function cleanup() {
-  // Add cleanup logic here
   if (await fs.exists('.tmp')) {
     await fs.remove('.tmp');
   }
 }
-`;
+`,
+      ts: `#!/usr/bin/env xec
 
-// JavaScript Command templates
-const BASIC_JS_COMMAND_TEMPLATE = `/**
+/**
+ * {description}
+ * 
+ * Usage: xec {filepath} [options]
+ * 
+ * Options:
+ *   --env <environment>  Environment to run in
+ *   --dry-run           Show what would be done
+ *   --verbose           Enable verbose output
+ */
+
+import type { ExecutionEngine } from '@xec-sh/core';
+
+// Parse command line arguments with type safety
+interface Options {
+  env: 'development' | 'staging' | 'production';
+  dryRun: boolean;
+  verbose: boolean;
+  _: string[];
+}
+
+const options = argv as unknown as Options;
+const environment = options.env || 'development';
+const isDryRun = options['dry-run'] || false;
+const isVerbose = options.verbose || false;
+
+// Configure execution
+if (isVerbose) {
+  $.verbose = true;
+}
+
+// Load and apply configuration
+const config = await xec.config.load();
+const profile = config.profiles?.[environment];
+
+if (profile) {
+  xec.config.applyProfile(environment);
+  log.info(chalk.dim(\`Applied profile: \${environment}\`));
+}
+
+log.info(chalk.bold('🚀 {description}'));
+log.step(\`Environment: \${chalk.cyan(environment)}\`);
+log.step(\`Dry run: \${isDryRun ? chalk.yellow('yes') : chalk.green('no')}\`);
+
+// Type-safe configuration
+interface Config {
+  apiUrl: string;
+  timeout: number;
+  retries: number;
+}
+
+const configs: Record<typeof environment, Config> = {
+  development: {
+    apiUrl: 'http://localhost:3000',
+    timeout: 5000,
+    retries: 1
+  },
+  staging: {
+    apiUrl: 'https://staging.example.com',
+    timeout: 10000,
+    retries: 2
+  },
+  production: {
+    apiUrl: 'https://api.example.com',
+    timeout: 30000,
+    retries: 3
+  }
+};
+
+const envConfig = configs[environment];
+const spinner = clack.spinner();
+
+try {
+  // Step 1: Validation
+  spinner.start('Validating environment...');
+  await validateEnvironment(environment);
+  spinner.stop('Environment validated');
+
+  // Step 2: Connect to services
+  if (environment === 'production') {
+    spinner.start('Connecting to production services...');
+    
+    const targets = await xec.config.getTargets();
+    const prodHost = targets.hosts?.production;
+    
+    if (prodHost && !isDryRun) {
+      const $prod = $.ssh(prodHost);
+      
+      const uptimeResult = await $prod\`uptime\`;
+      log.step('Server uptime: ' + uptimeResult.stdout.trim());
+    }
+    
+    spinner.stop('Connected to production');
+  }
+
+  // Step 3: Main operation with retry logic
+  if (!isDryRun) {
+    spinner.start('Executing main operation...');
+    
+    await retry(
+      async () => {
+        await executeMainOperation(envConfig);
+      },
+      {
+        retries: envConfig.retries,
+        delay: 1000,
+        onRetry: (error, attempt) => {
+          log.warning(\`Retry \${attempt}/\${envConfig.retries}: \${error.message}\`);
+        }
+      }
+    );
+    
+    spinner.stop('Operation completed');
+  } else {
+    log.info('Dry run mode - skipping execution');
+  }
+
+  // Step 4: Cleanup
+  spinner.start('Cleaning up...');
+  await cleanup();
+  spinner.stop('Cleanup completed');
+
+  log.success(chalk.green('✅ Script completed successfully!'));
+  
+} catch (error) {
+  spinner.stop(chalk.red('Operation failed'));
+  log.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+
+// Helper functions with proper typing
+async function validateEnvironment(env: string): Promise<void> {
+  const validEnvs = ['development', 'staging', 'production'];
+  if (!validEnvs.includes(env)) {
+    throw new Error(\`Invalid environment: \${env}\`);
+  }
+  
+  // Check required environment variables
+  const requiredVars = ['API_KEY'];
+  const missing = requiredVars.filter(v => !process.env[v]);
+  
+  if (missing.length > 0) {
+    throw new Error(\`Missing required environment variables: \${missing.join(', ')}\`);
+  }
+}
+
+async function executeMainOperation(config: Config): Promise<void> {
+  // Example: API call with timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.timeout);
+  
+  try {
+    const response = await fetch(config.apiUrl + '/health', {
+      signal: controller.signal,
+      headers: {
+        'Authorization': \`Bearer \${env('API_KEY')}\`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(\`API returned \${response.status}\`);
+    }
+    
+    const data = await response.json();
+    log.step(\`API health: \${data.status}\`);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function cleanup(): Promise<void> {
+  const tempFiles = await glob('.tmp-{name}-*');
+  for (const file of tempFiles) {
+    await fs.remove(file);
+  }
+}
+`
+    }
+  },
+
+  command: {
+    basic: {
+      js: `/**
  * {description}
  * 
  * This command will be available as: xec {name} [arguments]
@@ -172,9 +684,53 @@ export function command(program) {
       log.success(result.stdout);
     });
 }
-`;
+`,
+      ts: `/**
+ * {description}
+ * 
+ * This command will be available as: xec {name} [arguments]
+ */
 
-const ADVANCED_JS_COMMAND_TEMPLATE = `/**
+import type { Command } from 'commander';
+
+export function command(program: Command): void {
+  program
+    .command('{name} [args...]')
+    .description('{description}')
+    .option('-v, --verbose', 'Enable verbose output')
+    .option('-f, --format <type>', 'Output format', 'json')
+    .action(async (args: string[], options: { verbose: boolean; format: string }) => {
+      const { log } = await import('@clack/prompts');
+      
+      // Your command logic here
+      log.info('Running {name} command...');
+      
+      if (options.verbose) {
+        log.step('Verbose mode enabled');
+        log.step(\`Arguments: \${args.join(', ') || 'none'}\`);
+        log.step(\`Format: \${options.format}\`);
+      }
+      
+      // Example: Use $ from @xec-sh/core with type safety
+      const { $ } = await import('@xec-sh/core');
+      const result = await $\`echo "Command {name} executed successfully!"\`;
+      
+      // Format output based on option
+      if (options.format === 'json') {
+        console.log(JSON.stringify({
+          success: true,
+          message: result.stdout.trim(),
+          args
+        }, null, 2));
+      } else {
+        log.success(result.stdout);
+      }
+    });
+}
+`
+    },
+    advanced: {
+      js: `/**
  * {description}
  * 
  * This command will be available as: xec {name} <action> [options]
@@ -292,7 +848,7 @@ export function command(program) {
     });
 }
 
-// Helper functions (these would typically be in a separate module)
+// Helper functions
 async function getItems(filter) {
   // Mock implementation - replace with your logic
   const allItems = [
@@ -310,317 +866,24 @@ async function getItems(filter) {
 }
 
 async function createItem(name, options) {
-  // Mock implementation - replace with your logic
   const { $ } = await import('@xec-sh/core');
   await $\`echo "Creating item: \${name} (type: \${options.type})"\`;
 }
 
 async function deleteItem(name) {
-  // Mock implementation - replace with your logic
   const { $ } = await import('@xec-sh/core');
   await $\`echo "Deleting item: \${name}"\`;
 }
-`;
-
-// TypeScript Script templates
-const BASIC_TS_SCRIPT_TEMPLATE = `#!/usr/bin/env xec
-
-/**
- * {description}
- * 
- * Usage: xec .xec/scripts/{name}.ts
- * 
- * This script demonstrates the universal loader features:
- * - Cross-runtime support (Node.js, Bun, Deno)
- * - TypeScript support out of the box
- * - Global utilities available without imports
- * - CDN module loading
- */
-
-// The $ function from @xec-sh/core is globally available
-log.info('🚀 Running {name} script...');
-
-// Type-safe command execution
-const result = await $\`echo "Hello from TypeScript!"\`;
-log.success(result.stdout);
-
-// Work with files using built-in fs
-const files = await glob('**/*.ts');
-log.step(\`Found \${files.length} TypeScript files\`);
-
-// Interactive prompts with type inference
-const name = await question({
-  message: 'What is your name?',
-  defaultValue: 'Developer'
-});
-
-// Use chalk for colored output
-log.info(chalk.blue(\`Hello, \${name}!\`));
-
-// Example: Fetch data from API
-interface GitHubRepo {
-  name: string;
-  description: string;
-  stargazers_count: number;
-}
-
-try {
-  const response = await fetch('https://api.github.com/repos/xec-sh/xec');
-  const repo: GitHubRepo = await response.json();
-  
-  log.step(\`Repo: \${chalk.cyan(repo.name)}\`);
-  log.step(\`Stars: \${chalk.yellow('⭐')} \${repo.stargazers_count}\`);
-} catch (error) {
-  log.error(\`Failed to fetch repo info: \${error}\`);
-}
-
-// Temporary file operations
-const tempFile = tmpfile('demo-', '.json');
-await fs.writeJson(tempFile, { message: 'Hello from TypeScript!' });
-log.step(\`Created temp file: \${tempFile}\`);
-
-// Clean up
-await fs.remove(tempFile);
-log.success('✅ Script completed successfully!');
-`;
-
-const ADVANCED_TS_SCRIPT_TEMPLATE = `#!/usr/bin/env xec
-
-/**
- * {description}
- * 
- * Usage: xec .xec/scripts/{name}.ts [options]
- * 
- * Options:
- *   --env <environment>  Environment to run in (development, staging, production)
- *   --dry-run           Show what would be done without executing
- *   --verbose           Enable verbose output
- */
-
-import type { ExecutionEngine } from '@xec-sh/core';
-
-// Parse command line arguments with type safety
-interface Options {
-  env: 'development' | 'staging' | 'production';
-  dryRun: boolean;
-  verbose: boolean;
-  _: string[];
-}
-
-const options = argv as unknown as Options;
-const environment = options.env || 'development';
-const isDryRun = options['dry-run'] || false;
-const isVerbose = options.verbose || false;
-
-// Configure logging
-if (isVerbose) {
-  log.info(chalk.dim('Verbose mode enabled'));
-}
-
-log.info(chalk.bold('🚀 {description}'));
-log.step(\`Environment: \${chalk.cyan(environment)}\`);
-log.step(\`Dry run: \${isDryRun ? chalk.yellow('yes') : chalk.green('no')}\`);
-
-// Type-safe configuration
-interface Config {
-  apiUrl: string;
-  timeout: number;
-  retries: number;
-}
-
-const configs: Record<typeof environment, Config> = {
-  development: {
-    apiUrl: 'http://localhost:3000',
-    timeout: 5000,
-    retries: 1
-  },
-  staging: {
-    apiUrl: 'https://staging.example.com',
-    timeout: 10000,
-    retries: 2
-  },
-  production: {
-    apiUrl: 'https://api.example.com',
-    timeout: 30000,
-    retries: 3
-  }
-};
-
-const config = configs[environment];
-const spinner = clack.spinner();
-
-try {
-  // Step 1: Validation
-  spinner.start('Validating environment...');
-  await validateEnvironment(environment);
-  spinner.stop('Environment validated');
-
-  // Step 2: Connect to services
-  if (environment === 'production') {
-    spinner.start('Connecting to production services...');
-    
-    // Example: SSH with type-safe configuration
-    interface SSHConfig {
-      host: string;
-      username: string;
-      privateKey?: string;
-    }
-    
-    const sshConfig: SSHConfig = {
-      host: 'production.example.com',
-      username: 'deploy',
-      privateKey: env('SSH_KEY_PATH')
-    };
-    
-    const $prod = $.ssh(sshConfig);
-    
-    if (!isDryRun) {
-      const uptimeResult = await $prod\`uptime\`;
-      log.step('Server uptime: ' + uptimeResult.stdout.trim());
-    }
-    
-    spinner.stop('Connected to production');
-  }
-
-  // Step 3: Main operation with retry logic
-  if (!isDryRun) {
-    spinner.start('Executing main operation...');
-    
-    await retry(
-      async () => {
-        await executeMainOperation(config);
-      },
-      {
-        retries: config.retries,
-        delay: 1000,
-        onRetry: (error, attempt) => {
-          log.warning(\`Retry \${attempt}/\${config.retries}: \${error.message}\`);
-        }
-      }
-    );
-    
-    spinner.stop('Operation completed');
-  } else {
-    log.info('Dry run mode - skipping execution');
-  }
-
-  // Step 4: Cleanup
-  spinner.start('Cleaning up...');
-  await cleanup();
-  spinner.stop('Cleanup completed');
-
-  log.success(chalk.green('✅ Script completed successfully!'));
-  
-} catch (error) {
-  spinner.stop(chalk.red('Operation failed'));
-  log.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-}
-
-// Helper functions with proper typing
-async function validateEnvironment(env: string): Promise<void> {
-  const validEnvs = ['development', 'staging', 'production'];
-  if (!validEnvs.includes(env)) {
-    throw new Error(\`Invalid environment: \${env}\`);
-  }
-  
-  // Check required environment variables
-  const requiredVars = ['API_KEY', 'DATABASE_URL'];
-  const missing = requiredVars.filter(v => !process.env[v]);
-  
-  if (missing.length > 0) {
-    throw new Error(\`Missing required environment variables: \${missing.join(', ')}\`);
-  }
-}
-
-async function executeMainOperation(config: Config): Promise<void> {
-  // Example: API call with timeout
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), config.timeout);
-  
-  try {
-    const response = await fetch(config.apiUrl + '/health', {
-      signal: controller.signal,
-      headers: {
-        'Authorization': \`Bearer \${env('API_KEY')}\`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(\`API returned \${response.status}\`);
-    }
-    
-    const data = await response.json();
-    log.step(\`API health: \${data.status}\`);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function cleanup(): Promise<void> {
-  // Clean up temporary files
-  const tempFiles = await glob('.tmp-{name}-*');
-  for (const file of tempFiles) {
-    await fs.remove(file);
-  }
-}
-`;
-
-// TypeScript Command templates
-const BASIC_TS_COMMAND_TEMPLATE = `/**
- * {description}
- * 
- * This command will be available as: xec {name} [arguments]
- */
-
-import type { Command } from 'commander';
-
-export function command(program: Command): void {
-  program
-    .command('{name} [args...]')
-    .description('{description}')
-    .option('-v, --verbose', 'Enable verbose output')
-    .option('-f, --format <type>', 'Output format', 'json')
-    .action(async (args: string[], options: { verbose: boolean; format: string }) => {
-      const { log } = await import('@clack/prompts');
-      
-      // Your command logic here
-      log.info('Running {name} command...');
-      
-      if (options.verbose) {
-        log.step('Verbose mode enabled');
-        log.step(\`Arguments: \${args.join(', ') || 'none'}\`);
-        log.step(\`Format: \${options.format}\`);
-      }
-      
-      // Example: Use $ from @xec-sh/core with type safety
-      const { $ } = await import('@xec-sh/core');
-      const result = await $\`echo "Command {name} executed successfully!"\`;
-      
-      // Format output based on option
-      if (options.format === 'json') {
-        console.log(JSON.stringify({
-          success: true,
-          message: result.stdout.trim(),
-          args
-        }, null, 2));
-      } else {
-        log.success(result.stdout);
-      }
-    });
-}
-`;
-
-const ADVANCED_TS_COMMAND_TEMPLATE = `/**
+`,
+      ts: `/**
  * {description}
  * 
  * This command will be available as: xec {name} <action> [options]
  * 
  * Examples:
  *   xec {name} list --filter=active
- *   xec {name} create myitem --type=service --priority=high
+ *   xec {name} create myitem --type=service
  *   xec {name} delete myitem --force
- *   xec {name} status myitem --json
  */
 
 import type { Command } from 'commander';
@@ -631,7 +894,6 @@ interface Item {
   name: string;
   type: 'service' | 'task' | 'resource';
   status: 'active' | 'inactive' | 'pending';
-  priority: 'low' | 'medium' | 'high';
   created: Date;
   metadata?: Record<string, any>;
 }
@@ -640,15 +902,12 @@ interface ListOptions {
   filter?: string;
   type?: Item['type'];
   status?: Item['status'];
-  limit?: number;
   json?: boolean;
 }
 
 interface CreateOptions {
   type: Item['type'];
-  priority: Item['priority'];
   description?: string;
-  metadata?: string;
 }
 
 export function command(program: Command): void {
@@ -661,9 +920,8 @@ export function command(program: Command): void {
     .command('list')
     .description('List all items')
     .option('-f, --filter <pattern>', 'Filter by name pattern')
-    .option('-t, --type <type>', 'Filter by type (service|task|resource)')
+    .option('-t, --type <type>', 'Filter by type')
     .option('-s, --status <status>', 'Filter by status')
-    .option('-l, --limit <n>', 'Limit results', '10')
     .option('--json', 'Output as JSON')
     .action(async (options: ListOptions) => {
       const { log, spinner } = await import('@clack/prompts');
@@ -673,7 +931,6 @@ export function command(program: Command): void {
       s.start('Loading items...');
       
       try {
-        // Your list logic here
         const items = await getItems(options);
         s.stop('Found ' + items.length + ' items');
         
@@ -685,24 +942,21 @@ export function command(program: Command): void {
         if (options.json) {
           console.log(JSON.stringify(items, null, 2));
         } else {
-          // Display items in a formatted table
           const chalk = await import('chalk');
           
-          console.log(chalk.default.bold('\nItems:'));
+          console.log(chalk.default.bold('\\nItems:'));
           console.log(chalk.default.gray('─'.repeat(60)));
           
           items.forEach(item => {
             const statusColor = item.status === 'active' ? 'green' : 
                               item.status === 'inactive' ? 'red' : 'yellow';
-            const priorityIcon = item.priority === 'high' ? '🔴' :
-                               item.priority === 'medium' ? '🟡' : '🟢';
             
             const statusText = statusColor === 'green' ? chalk.default.green(item.status) :
                               statusColor === 'red' ? chalk.default.red(item.status) :
                               chalk.default.yellow(item.status);
             
             console.log(
-              priorityIcon + ' ' + chalk.default.bold(item.name) + ' ' +
+              chalk.default.bold(item.name) + ' ' +
               '(' + chalk.default.blue(item.type) + ') - ' +
               statusText
             );
@@ -723,9 +977,7 @@ export function command(program: Command): void {
     .command('create <name>')
     .description('Create a new item')
     .requiredOption('-t, --type <type>', 'Item type (service|task|resource)')
-    .option('-p, --priority <priority>', 'Priority level', 'medium')
     .option('-d, --description <desc>', 'Item description')
-    .option('-m, --metadata <json>', 'Additional metadata as JSON')
     .action(async (name: string, options: CreateOptions) => {
       const { log, confirm } = await import('@clack/prompts');
       const { $ } = await import('@xec-sh/core');
@@ -733,41 +985,19 @@ export function command(program: Command): void {
       
       // Validate options
       const validTypes: Item['type'][] = ['service', 'task', 'resource'];
-      const validPriorities: Item['priority'][] = ['low', 'medium', 'high'];
       
       if (!validTypes.includes(options.type)) {
         log.error(\`Invalid type: \${options.type}. Must be one of: \${validTypes.join(', ')}\`);
         process.exit(1);
       }
       
-      if (!validPriorities.includes(options.priority)) {
-        log.error(\`Invalid priority: \${options.priority}. Must be one of: \${validPriorities.join(', ')}\`);
-        process.exit(1);
-      }
-      
-      // Parse metadata if provided
-      let metadata: Record<string, any> = {};
-      if (options.metadata) {
-        try {
-          metadata = JSON.parse(options.metadata);
-        } catch (error) {
-          log.error('Invalid metadata JSON');
-          process.exit(1);
-        }
-      }
-      
       // Display creation summary
       log.info(chalk.default.bold('Creating new item:'));
       log.step(\`Name: \${chalk.default.cyan(name)}\`);
       log.step(\`Type: \${chalk.default.blue(options.type)}\`);
-      log.step(\`Priority: \${options.priority}\`);
       
       if (options.description) {
         log.step(\`Description: \${options.description}\`);
-      }
-      
-      if (Object.keys(metadata).length > 0) {
-        log.step(\`Metadata: \${JSON.stringify(metadata)}\`);
       }
       
       const shouldCreate = await confirm({
@@ -781,15 +1011,13 @@ export function command(program: Command): void {
       }
       
       try {
-        // Your create logic here
         const item: Item = {
           id: crypto.randomUUID(),
           name,
           type: options.type,
           status: 'pending',
-          priority: options.priority,
           created: new Date(),
-          metadata: { ...metadata, description: options.description }
+          metadata: { description: options.description }
         };
         
         await createItem(item);
@@ -835,7 +1063,6 @@ export function command(program: Command): void {
       }
       
       try {
-        // Your delete logic here
         await deleteItem(item.id);
         log.success(\`Item '\${name}' deleted successfully!\`);
       } catch (error) {
@@ -843,49 +1070,9 @@ export function command(program: Command): void {
         process.exit(1);
       }
     });
-    
-  // Subcommand: status
-  cmd
-    .command('status <name>')
-    .description('Get item status')
-    .option('--json', 'Output as JSON')
-    .action(async (name: string, options: { json?: boolean }) => {
-      const { log } = await import('@clack/prompts');
-      const chalk = await import('chalk');
-      
-      try {
-        const item = await getItemByName(name);
-        if (!item) {
-          log.error(\`Item '\${name}' not found\`);
-          process.exit(1);
-        }
-        
-        if (options.json) {
-          console.log(JSON.stringify(item, null, 2));
-        } else {
-          console.log(chalk.default.bold('\\nItem Status:'));
-          console.log(chalk.default.gray('─'.repeat(40)));
-          console.log(\`ID:       \${item.id}\`);
-          console.log(\`Name:     \${chalk.default.cyan(item.name)}\`);
-          console.log(\`Type:     \${chalk.default.blue(item.type)}\`);
-          console.log(\`Status:   \${item.status === 'active' ? chalk.default.green(item.status) : chalk.default.yellow(item.status)}\`);
-          console.log(\`Priority: \${item.priority}\`);
-          console.log(\`Created:  \${item.created.toLocaleString()}\`);
-          
-          if (item.metadata && Object.keys(item.metadata).length > 0) {
-            console.log(\`Metadata: \${JSON.stringify(item.metadata, null, 2)}\`);
-          }
-          
-          console.log(chalk.default.gray('─'.repeat(40)));
-        }
-      } catch (error) {
-        log.error(\`Failed to get status: \${error instanceof Error ? error.message : String(error)}\`);
-        process.exit(1);
-      }
-    });
 }
 
-// Helper functions (these would typically be in a separate module)
+// Helper functions
 async function getItems(options: ListOptions): Promise<Item[]> {
   // Mock implementation - replace with your logic
   const allItems: Item[] = [
@@ -894,7 +1081,6 @@ async function getItems(options: ListOptions): Promise<Item[]> {
       name: 'example-service', 
       type: 'service', 
       status: 'active',
-      priority: 'high',
       created: new Date('2024-01-01')
     },
     { 
@@ -902,7 +1088,6 @@ async function getItems(options: ListOptions): Promise<Item[]> {
       name: 'backup-task', 
       type: 'task', 
       status: 'pending',
-      priority: 'medium',
       created: new Date('2024-01-02')
     }
   ];
@@ -922,10 +1107,6 @@ async function getItems(options: ListOptions): Promise<Item[]> {
     filtered = filtered.filter(item => item.status === options.status);
   }
   
-  if (options.limit) {
-    filtered = filtered.slice(0, parseInt(options.limit.toString(), 10));
-  }
-  
   return filtered;
 }
 
@@ -935,145 +1116,947 @@ async function getItemByName(name: string): Promise<Item | null> {
 }
 
 async function createItem(item: Item): Promise<void> {
-  // Mock implementation - replace with your logic
   const { $ } = await import('@xec-sh/core');
   await $\`echo "Creating item: \${item.name} (ID: \${item.id})"\`;
-  
-  // In a real implementation, you would:
-  // - Save to database
-  // - Call external APIs
-  // - Update configuration files
-  // - etc.
 }
 
 async function deleteItem(id: string): Promise<void> {
-  // Mock implementation - replace with your logic
   const { $ } = await import('@xec-sh/core');
   await $\`echo "Deleting item with ID: \${id}"\`;
-  
-  // In a real implementation, you would:
-  // - Remove from database
-  // - Clean up resources
-  // - Update related services
-  // - etc.
 }
-`;
+`
+    }
+  },
+
+  task: {
+    simple: `# Simple command task
+{name}:
+  description: {description}
+  command: echo "Task {name} executed!"
+`,
+    standard: `# Standard task with parameters
+{name}:
+  description: {description}
+  params:
+    - name: message
+      description: Message to display
+      default: "Hello from {name}"
+  command: |
+    echo "Starting {name} task..."
+    echo "\${params.message}"
+    echo "Task completed!"
+`,
+    advanced: `# Advanced multi-step task
+{name}:
+  description: {description}
+  params:
+    - name: target
+      description: Target environment
+      required: true
+      values: [development, staging, production]
+    - name: version
+      description: Version to deploy
+      required: true
+      pattern: "^v\\\\d+\\\\.\\\\d+\\\\.\\\\d+$"
+  
+  # Task-specific variables
+  env:
+    LOG_LEVEL: info
+    DEPLOY_PATH: /opt/apps/myapp
+  
+  steps:
+    # Step 1: Validation
+    - name: Validate environment
+      command: |
+        if [ "\${params.target}" = "production" ]; then
+          echo "⚠️  Production deployment - proceed with caution!"
+        fi
+      onFailure: abort
+    
+    # Step 2: Build
+    - name: Build application
+      command: npm run build:\${params.target}
+      register: build_output
+    
+    # Step 3: Run tests
+    - name: Run tests
+      command: npm test
+      when: params.target != 'production'
+      onFailure:
+        retry: 2
+        delay: 5s
+    
+    # Step 4: Deploy to target
+    - name: Deploy to \${params.target}
+      target: hosts.\${params.target}
+      command: |
+        cd \${env.DEPLOY_PATH}
+        git fetch origin
+        git checkout \${params.version}
+        npm install --production
+        npm run migrate
+        pm2 reload app
+      alwaysRun: true
+    
+    # Step 5: Health check
+    - name: Verify deployment
+      command: |
+        sleep 5
+        curl -f http://\${params.target}.example.com/health || exit 1
+      onFailure:
+        command: |
+          echo "Health check failed!"
+          # Rollback logic here
+  
+  # Hooks
+  hooks:
+    before:
+      - command: echo "🚀 Starting deployment to \${params.target}"
+    after:
+      - command: echo "✅ Deployment completed successfully"
+    onError:
+      - command: echo "❌ Deployment failed"
+      - task: notify:slack
+        args:
+          message: "Deployment to \${params.target} failed"
+  
+  # Success/error handlers
+  onSuccess:
+    emit: deployment:completed
+  onError:
+    emit: deployment:failed
+`
+  },
+
+  profile: {
+    basic: `# Basic environment profile
+{name}:
+  description: {description}
+  
+  # Profile-specific variables
+  vars:
+    environment: {name}
+    log_level: info
+  
+  # Environment variables
+  env:
+    NODE_ENV: {name}
+    LOG_LEVEL: \${vars.log_level}
+`,
+    advanced: `# Advanced environment profile with targets
+{name}:
+  description: {description}
+  extends: base  # Inherit from base profile
+  
+  # Profile-specific variables
+  vars:
+    environment: {name}
+    region: us-east-1
+    deploy_path: /opt/apps/myapp
+    log_level: info
+    api_url: https://api-{name}.example.com
+  
+  # Environment variables
+  env:
+    NODE_ENV: {name}
+    API_URL: \${vars.api_url}
+    AWS_REGION: \${vars.region}
+    LOG_LEVEL: \${vars.log_level}
+  
+  # Profile-specific targets
+  targets:
+    hosts:
+      app-server:
+        host: {name}.example.com
+        user: deploy
+        privateKey: ~/.ssh/{name}_rsa
+    
+    containers:
+      app:
+        image: myapp:{name}
+        env:
+          - NODE_ENV=\${vars.environment}
+          - API_URL=\${vars.api_url}
+    
+    pods:
+      web:
+        namespace: {name}
+        selector: app=web,env={name}
+`
+  },
+
+  extension: {
+    basic: `# Basic Xec extension
+name: {name}
+description: {description}
+version: 1.0.0
+
+# Tasks provided by this extension
+tasks:
+  {name}:hello:
+    description: Say hello from {name} extension
+    command: echo "Hello from {name} extension!"
+  
+  {name}:info:
+    description: Show extension information
+    command: |
+      echo "Extension: {name}"
+      echo "Version: 1.0.0"
+      echo "Description: {description}"
+
+# Configuration schema
+config:
+  type: object
+  properties:
+    enabled:
+      type: boolean
+      default: true
+    settings:
+      type: object
+      properties:
+        option1:
+          type: string
+          default: "default value"
+`,
+    advanced: `# Advanced Xec extension
+name: {name}
+description: {description}
+version: 1.0.0
+author: Your Name
+
+# Dependencies
+requires:
+  - xec: ">=2.0.0"
+  - node: ">=18.0.0"
+
+# Tasks provided by this extension
+tasks:
+  # Setup task
+  {name}:setup:
+    description: Setup {name} extension
+    params:
+      - name: config
+        description: Configuration file path
+        default: ./{name}.config.json
+    command: |
+      echo "Setting up {name} extension..."
+      if [ ! -f "\${params.config}" ]; then
+        echo '{
+          "version": "1.0.0",
+          "settings": {}
+        }' > "\${params.config}"
+      fi
+      echo "Setup complete!"
+  
+  # Main task with multiple steps
+  {name}:run:
+    description: Run {name} main task
+    params:
+      - name: mode
+        description: Execution mode
+        values: [fast, normal, thorough]
+        default: normal
+    steps:
+      - name: Validate environment
+        command: |
+          if ! command -v node &> /dev/null; then
+            echo "Node.js is required but not installed"
+            exit 1
+          fi
+      
+      - name: Execute main logic
+        script: ./scripts/{name}-main.js
+        env:
+          MODE: \${params.mode}
+      
+      - name: Generate report
+        command: |
+          echo "Generating report..."
+          echo "Mode: \${params.mode}"
+          echo "Timestamp: $(date)"
+  
+  # Cleanup task
+  {name}:clean:
+    description: Clean up {name} resources
+    command: |
+      echo "Cleaning up {name} resources..."
+      rm -rf ./{name}-temp/
+      rm -f ./{name}.log
+      echo "Cleanup complete!"
+
+# Hooks that other tasks can use
+hooks:
+  before_{name}:
+    description: Hook to run before {name} tasks
+    command: echo "Preparing {name} environment..."
+  
+  after_{name}:
+    description: Hook to run after {name} tasks
+    command: echo "{name} task completed"
+
+# Configuration schema
+config:
+  type: object
+  required: [enabled]
+  properties:
+    enabled:
+      type: boolean
+      default: true
+      description: Enable or disable this extension
+    
+    settings:
+      type: object
+      properties:
+        logLevel:
+          type: string
+          enum: [debug, info, warn, error]
+          default: info
+        
+        timeout:
+          type: number
+          minimum: 0
+          default: 30
+          description: Task timeout in seconds
+        
+        features:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Enabled features
+
+# Scripts included with the extension
+scripts:
+  - scripts/{name}-main.js
+  - scripts/{name}-utils.js
+
+# Documentation
+docs:
+  readme: README.md
+  examples: examples/
+`
+  }
+};
+
+async function getArtifactType(): Promise<ArtifactType> {
+  const type = await clack.select({
+    message: 'What would you like to create?',
+    options: [
+      { value: 'project', label: '📁 Project - Initialize a new Xec project' },
+      { value: 'script', label: '📜 Script - Create an executable script' },
+      { value: 'command', label: '⚡ Command - Add a CLI command' },
+      { value: 'task', label: '🔧 Task - Define a reusable task' },
+      { value: 'profile', label: '🌍 Profile - Environment configuration' },
+      { value: 'extension', label: '🧩 Extension - Create an Xec extension' },
+    ]
+  }) as ArtifactType;
+
+  if (InteractiveHelpers.isCancelled(type)) {
+    throw new Error('cancelled');
+  }
+
+  return type;
+}
+
+function validateName(name: string, type: ArtifactType): string | undefined {
+  if (!name) return 'Name is required';
+
+  // Different validation rules for different types
+  switch (type) {
+    case 'project':
+      if (!/^[a-z0-9-_]+$/i.test(name)) {
+        return 'Project name must contain only letters, numbers, hyphens, and underscores';
+      }
+      break;
+    case 'command':
+    case 'task':
+    case 'profile':
+    case 'extension':
+      if (!/^[a-z0-9-_:]+$/i.test(name)) {
+        return 'Name must contain only letters, numbers, hyphens, underscores, and colons';
+      }
+      break;
+    case 'script':
+      if (!/^[a-z0-9-_.]+$/i.test(name)) {
+        return 'Script name must contain only letters, numbers, hyphens, underscores, and dots';
+      }
+      if (name.includes('/') || name.includes('\\')) {
+        return 'Script name cannot contain path separators';
+      }
+      break;
+  }
+
+  return undefined;
+}
+
+async function createProject(name: string, options: NewOptions) {
+  const targetDir = path.resolve(name);
+  const xecDir = path.join(targetDir, '.xec');
+
+  // Check if directory exists
+  if (fs.existsSync(targetDir) && !options.force) {
+    const files = await fs.readdir(targetDir);
+    if (files.length > 0) {
+      const shouldContinue = await clack.confirm({
+        message: `Directory ${name} is not empty. Continue?`,
+        initialValue: false
+      });
+
+      if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
+        clack.log.info('Project creation cancelled');
+        return;
+      }
+    }
+  }
+
+  // Get project description
+  const description = options.description || await clack.text({
+    message: 'Project description:',
+    defaultValue: 'An Xec automation project'
+  }) as string;
+
+  if (InteractiveHelpers.isCancelled(description)) {
+    throw new Error('cancelled');
+  }
+
+  const spinner = clack.spinner();
+  spinner.start('Creating project structure...');
+
+  // Select template
+  const template = options.minimal ? TEMPLATES.project.minimal : TEMPLATES.project.standard;
+
+  // Create all files
+  for (const [filePath, content] of Object.entries(template.files)) {
+    const fullPath = path.join(targetDir, filePath);
+    await fs.ensureDir(path.dirname(fullPath));
+
+    const processedContent = content
+      .replace(/{name}/g, path.basename(name))
+      .replace(/{description}/g, description);
+
+    await fs.writeFile(fullPath, processedContent);
+
+    // Make scripts executable
+    if (filePath.includes('/scripts/') && filePath.endsWith('.js')) {
+      await fs.chmod(fullPath, '755');
+    }
+  }
+
+  // Create additional directories
+  const dirs = ['.xec/cache', '.xec/logs', '.xec/tmp'];
+  for (const dir of dirs) {
+    await fs.ensureDir(path.join(targetDir, dir));
+  }
+
+  spinner.stop('Project structure created');
+
+  // Initialize git if not skipped
+  if (!options.skipGit && !fs.existsSync(path.join(targetDir, '.git'))) {
+    const shouldInitGit = await clack.confirm({
+      message: 'Initialize git repository?',
+      initialValue: true
+    });
+
+    if (InteractiveHelpers.isCancelled(shouldInitGit)) {
+      return;
+    }
+
+    if (shouldInitGit) {
+      spinner.start('Initializing git repository...');
+      const { $ } = await import('@xec-sh/core');
+      await $`cd ${targetDir} && git init`;
+      await $`cd ${targetDir} && git add .`;
+      await $`cd ${targetDir} && git commit -m "Initial Xec project setup"`.nothrow();
+      spinner.stop('Git repository initialized');
+    }
+  }
+
+
+  clack.outro(chalk.green('✅ Xec project initialized successfully!'));
+
+  // Show next steps
+  clack.log.info('\nNext steps:');
+  clack.log.info(`  ${chalk.cyan('cd')} ${name}`);
+  if (!options.minimal) {
+    clack.log.info(`  ${chalk.cyan('xec')} scripts/example.js`);
+    clack.log.info(`  ${chalk.cyan('xec')} hello World`);
+    clack.log.info(`  ${chalk.cyan('xec')} tasks:run hello`);
+  }
+  clack.log.info(`  ${chalk.cyan('xec')} new script my-script`);
+  clack.log.info(`  ${chalk.cyan('xec')} new task deploy`);
+}
+
+async function createScript(name: string, options: NewOptions) {
+  const xecDir = path.join(process.cwd(), '.xec');
+  if (!fs.existsSync(xecDir)) {
+    clack.log.error('Not in an Xec project directory. Run "xec new project" first.');
+    process.exit(1);
+  }
+
+  // Determine file path
+  const isJs = options.js ?? false;
+  const ext = isJs ? '.js' : '.ts';
+  const fileName = name.endsWith('.js') || name.endsWith('.ts') ? name : `${name}${ext}`;
+  const filePath = path.join(xecDir, 'scripts', fileName);
+
+  // Check if file exists
+  if (fs.existsSync(filePath) && !options.force) {
+    const shouldOverwrite = await clack.confirm({
+      message: `Script ${fileName} already exists. Overwrite?`,
+      initialValue: false
+    });
+
+    if (InteractiveHelpers.isCancelled(shouldOverwrite) || !shouldOverwrite) {
+      clack.log.info('Script creation cancelled');
+      return;
+    }
+  }
+
+  // Get description
+  const description = options.description || await clack.text({
+    message: 'Script description:',
+    defaultValue: `Custom script ${name}`
+  }) as string;
+
+  if (InteractiveHelpers.isCancelled(description)) {
+    throw new Error('cancelled');
+  }
+
+  // Select template
+  const templateKey = options.advanced ? 'advanced' : 'basic';
+  const template = TEMPLATES.script[templateKey][isJs ? 'js' : 'ts'];
+
+  // Process template
+  const content = template
+    .replace(/{name}/g, path.basename(name, ext))
+    .replace(/{description}/g, description)
+    .replace(/{filepath}/g, path.relative(process.cwd(), filePath));
+
+  // Write file
+  await fs.ensureDir(path.dirname(filePath));
+  await fs.writeFile(filePath, content);
+  await fs.chmod(filePath, '755');
+
+  clack.outro(chalk.green(`✅ Created script: ${fileName}`));
+
+  // Show usage
+  clack.log.info('\nUsage:');
+  clack.log.info(`  ${chalk.cyan('xec')} scripts/${fileName}`);
+  clack.log.info(`  ${chalk.cyan('xec')} scripts/${fileName} --env=production`);
+}
+
+async function createCommand(name: string, options: NewOptions) {
+  const xecDir = path.join(process.cwd(), '.xec');
+  if (!fs.existsSync(xecDir)) {
+    clack.log.error('Not in an Xec project directory. Run "xec new project" first.');
+    process.exit(1);
+  }
+
+  // Determine file path
+  const isJs = options.js ?? false;
+  const ext = isJs ? '.js' : '.ts';
+  const fileName = `${name}${ext}`;
+  const filePath = path.join(xecDir, 'commands', fileName);
+
+  // Check if file exists
+  if (fs.existsSync(filePath) && !options.force) {
+    const shouldOverwrite = await clack.confirm({
+      message: `Command ${fileName} already exists. Overwrite?`,
+      initialValue: false
+    });
+
+    if (InteractiveHelpers.isCancelled(shouldOverwrite) || !shouldOverwrite) {
+      clack.log.info('Command creation cancelled');
+      return;
+    }
+  }
+
+  // Get description
+  const description = options.description || await clack.text({
+    message: 'Command description:',
+    defaultValue: `Custom command ${name}`
+  }) as string;
+
+  if (InteractiveHelpers.isCancelled(description)) {
+    throw new Error('cancelled');
+  }
+
+  // Select template
+  const templateKey = options.advanced ? 'advanced' : 'basic';
+  const template = TEMPLATES.command[templateKey][isJs ? 'js' : 'ts'];
+
+  // Process template
+  const content = template
+    .replace(/{name}/g, name)
+    .replace(/{description}/g, description);
+
+  // Write file
+  await fs.ensureDir(path.dirname(filePath));
+  await fs.writeFile(filePath, content);
+
+  clack.outro(chalk.green(`✅ Created command: ${fileName}`));
+
+  // Show usage
+  clack.log.info('\nUsage:');
+  clack.log.info(`  ${chalk.cyan('xec')} ${name} --help`);
+  if (options.advanced) {
+    clack.log.info(`  ${chalk.cyan('xec')} ${name} list`);
+    clack.log.info(`  ${chalk.cyan('xec')} ${name} create myitem`);
+  }
+}
+
+async function createTask(name: string, options: NewOptions) {
+  const configManager = new ConfigurationManager();
+  const config = await configManager.load();
+
+  if (!config) {
+    clack.log.error('No configuration found. Run "xec new project" first.');
+    process.exit(1);
+  }
+
+  // Get description
+  const description = options.description || await clack.text({
+    message: 'Task description:',
+    defaultValue: `Task ${name}`
+  }) as string;
+
+  if (InteractiveHelpers.isCancelled(description)) {
+    throw new Error('cancelled');
+  }
+
+  // Select complexity
+  const complexity = options.advanced ? 'advanced' :
+    await clack.select({
+      message: 'Task complexity:',
+      options: [
+        { value: 'simple', label: 'Simple - Single command' },
+        { value: 'standard', label: 'Standard - With parameters' },
+        { value: 'advanced', label: 'Advanced - Multi-step with hooks' }
+      ]
+    }) as string;
+
+  if (InteractiveHelpers.isCancelled(complexity)) {
+    throw new Error('cancelled');
+  }
+
+  // Get template
+  const template = TEMPLATES.task[complexity as keyof typeof TEMPLATES.task];
+  const taskYaml = template
+    .replace(/{name}/g, name)
+    .replace(/{description}/g, description);
+
+  // Parse the task YAML
+  const yaml = await import('js-yaml');
+  const taskConfig = yaml.load(taskYaml) as any;
+
+  // Add to configuration
+  const existingTasks = configManager.get('tasks') || {};
+  const updatedTasks = { ...existingTasks, ...taskConfig };
+  configManager.set('tasks', updatedTasks);
+
+  // Save configuration
+  await configManager.save();
+
+  clack.outro(chalk.green(`✅ Created task: ${name}`));
+
+  // Show usage
+  clack.log.info('\nUsage:');
+  clack.log.info(`  ${chalk.cyan('xec')} tasks:run ${name}`);
+  if (complexity !== 'simple') {
+    clack.log.info(`  ${chalk.cyan('xec')} tasks:run ${name} --help`);
+  }
+}
+
+async function createProfile(name: string, options: NewOptions) {
+  const configManager = new ConfigurationManager();
+  const config = await configManager.load();
+
+  if (!config) {
+    clack.log.error('No configuration found. Run "xec new project" first.');
+    process.exit(1);
+  }
+
+  // Get description
+  const description = options.description || await clack.text({
+    message: 'Profile description:',
+    defaultValue: `${name} environment profile`
+  }) as string;
+
+  if (InteractiveHelpers.isCancelled(description)) {
+    throw new Error('cancelled');
+  }
+
+  // Select template
+  const templateKey = options.advanced ? 'advanced' : 'basic';
+  const template = TEMPLATES.profile[templateKey];
+
+  const profileYaml = template
+    .replace(/{name}/g, name)
+    .replace(/{description}/g, description);
+
+  // Parse the profile YAML
+  const yaml = await import('js-yaml');
+  const profileConfig = yaml.load(profileYaml) as any;
+
+  // Add to configuration
+  const existingProfiles = configManager.get('profiles') || {};
+  const updatedProfiles = { ...existingProfiles, ...profileConfig };
+  configManager.set('profiles', updatedProfiles);
+
+  // Save configuration
+  await configManager.save();
+
+  clack.outro(chalk.green(`✅ Created profile: ${name}`));
+
+  // Show usage
+  clack.log.info('\nUsage:');
+  clack.log.info(`  ${chalk.cyan('xec')} --profile ${name} <command>`);
+  clack.log.info(`  ${chalk.cyan('XEC_PROFILE=')}${name} xec <command>`);
+}
+
+async function createExtension(name: string, options: NewOptions) {
+  const targetDir = path.resolve(name);
+
+  // Check if directory exists
+  if (fs.existsSync(targetDir) && !options.force) {
+    const shouldContinue = await clack.confirm({
+      message: `Directory ${name} already exists. Continue?`,
+      initialValue: false
+    });
+
+    if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
+      clack.log.info('Extension creation cancelled');
+      return;
+    }
+  }
+
+  // Get description
+  const description = options.description || await clack.text({
+    message: 'Extension description:',
+    defaultValue: `Xec extension ${name}`
+  }) as string;
+
+  if (InteractiveHelpers.isCancelled(description)) {
+    throw new Error('cancelled');
+  }
+
+  const spinner = clack.spinner();
+  spinner.start('Creating extension structure...');
+
+  // Select template
+  const templateKey = options.advanced ? 'advanced' : 'basic';
+  const template = TEMPLATES.extension[templateKey];
+
+  const extensionYaml = template
+    .replace(/{name}/g, name)
+    .replace(/{description}/g, description);
+
+  // Create extension structure
+  await fs.ensureDir(targetDir);
+  await fs.writeFile(path.join(targetDir, 'extension.yaml'), extensionYaml);
+
+  // Create additional files for advanced template
+  if (options.advanced) {
+    // Scripts directory
+    await fs.ensureDir(path.join(targetDir, 'scripts'));
+    await fs.writeFile(
+      path.join(targetDir, 'scripts', `${name}-main.js`),
+      `#!/usr/bin/env node
+// Main script for ${name} extension
+
+const mode = process.env.MODE || 'normal';
+console.log(\`Running ${name} in \${mode} mode...\`);
+
+// Your extension logic here
+`
+    );
+
+    await fs.writeFile(
+      path.join(targetDir, 'scripts', `${name}-utils.js`),
+      `// Utility functions for ${name} extension
+
+export function helper() {
+  return 'Helper function';
+}
+`
+    );
+
+    // Examples directory
+    await fs.ensureDir(path.join(targetDir, 'examples'));
+    await fs.writeFile(
+      path.join(targetDir, 'examples', 'basic.yaml'),
+      `# Example usage of ${name} extension
+
+extensions:
+  - source: ./${name}
+    config:
+      enabled: true
+      settings:
+        logLevel: info
+
+tasks:
+  example:
+    description: Example using ${name}
+    steps:
+      - task: ${name}:setup
+      - task: ${name}:run
+        args:
+          mode: fast
+`
+    );
+
+    // README
+    await fs.writeFile(
+      path.join(targetDir, 'README.md'),
+      `# ${name}
+
+${description}
+
+## Installation
+
+\`\`\`yaml
+# In your .xec/config.yaml
+extensions:
+  - source: path/to/${name}
+    config:
+      enabled: true
+\`\`\`
+
+## Usage
+
+\`\`\`bash
+# Setup the extension
+xec tasks:run ${name}:setup
+
+# Run the main task
+xec tasks:run ${name}:run --mode=fast
+\`\`\`
+
+## Configuration
+
+See \`extension.yaml\` for configuration options.
+
+## Tasks
+
+- \`${name}:setup\` - Initial setup
+- \`${name}:run\` - Main task
+- \`${name}:clean\` - Cleanup resources
+`
+    );
+  }
+
+  // Create package.json for npm distribution
+  await fs.writeFile(
+    path.join(targetDir, 'package.json'),
+    JSON.stringify({
+      name: `xec-ext-${name}`,
+      version: '1.0.0',
+      description,
+      main: 'extension.yaml',
+      keywords: ['xec', 'extension', name],
+      files: ['extension.yaml', 'scripts', 'examples', 'README.md'],
+      engines: {
+        xec: '>=2.0.0'
+      }
+    }, null, 2)
+  );
+
+  spinner.stop('Extension structure created');
+
+  clack.outro(chalk.green(`✅ Created extension: ${name}`));
+
+  // Show next steps
+  clack.log.info('\nNext steps:');
+  clack.log.info(`  ${chalk.cyan('cd')} ${name}`);
+  clack.log.info(`  ${chalk.cyan('edit')} extension.yaml`);
+  clack.log.info('\nTo use in a project:');
+  clack.log.info(`  Add to .xec/config.yaml:`);
+  clack.log.info(`  ${chalk.gray('extensions:')}`);
+  clack.log.info(`  ${chalk.gray('  - source:')} ${targetDir}`);
+}
 
 export default function (program: Command) {
   program
-    .command('new <type> <name>')
-    .description('Create a new script or command template')
-    .option('-d, --description <desc>', 'Description for the template')
-    .option('-f, --force', 'Overwrite existing file')
+    .command('new [type] [name]')
+    .alias('n')
+    .description('Create a new Xec artifact (project, script, command, task, profile, or extension)')
+    .option('-d, --description <desc>', 'Description for the artifact')
+    .option('-f, --force', 'Overwrite existing files')
+    .option('-m, --minimal', 'Create minimal structure (projects only)')
+    .option('--skip-git', 'Skip git initialization (projects only)')
     .option('--advanced', 'Use advanced template with more features')
-    .option('--js', 'Create JavaScript version (default: TypeScript)')
-    .action(async (type: string, name: string, options: NewOptions & { js?: boolean }) => {
+    .option('--js', 'Create JavaScript instead of TypeScript (scripts/commands only)')
+    .option('--from <template>', 'Create from a template or example')
+    .option('-p, --profile <name>', 'Apply profile after creation')
+    .option('-i, --interactive', 'Enable interactive mode (default for this command)')
+    .action(async (type?: string, name?: string, options?: NewOptions) => {
       try {
-        // Validate type
-        if (!['script', 'command'].includes(type)) {
-          clack.log.error(`Invalid type: ${type}. Use 'script' or 'command'`);
-          process.exit(1);
+        // Set up cancel handlers for interactive mode
+        InteractiveHelpers.setupCancelHandlers();
+        
+        clack.intro(chalk.bold('🎨 Create new Xec artifact'));
+
+        // Determine artifact type
+        let artifactType: ArtifactType;
+        if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
+          artifactType = type as ArtifactType;
+        } else if (type && !name) {
+          // If only one argument provided and it's not a valid type, treat it as name for project
+          artifactType = 'project';
+          name = type;
+        } else {
+          artifactType = await getArtifactType();
         }
 
-        // Validate name
-        if (!/^[a-z0-9-_]+$/i.test(name)) {
-          clack.log.error('Name must contain only letters, numbers, hyphens, and underscores');
-          process.exit(1);
-        }
-
-        clack.intro(chalk.bold(`🎨 Create new ${type}: ${name}`));
-
-        // Get description if not provided
-        let description = options.description;
-        if (!description) {
-          description = await clack.text({
-            message: `Description for the ${type}:`,
-            defaultValue: `Custom ${type} created with Xec`
+        // Get name if not provided
+        if (!name) {
+          const defaultName = artifactType === 'project' ? 'my-xec-project' : `my-${artifactType}`;
+          name = await clack.text({
+            message: `${artifactType.charAt(0).toUpperCase() + artifactType.slice(1)} name:`,
+            defaultValue: defaultName,
+            validate: (value) => validateName(value, artifactType)
           }) as string;
-        }
 
-        // Determine paths
-        const xecDir = path.join(process.cwd(), '.xec');
-        if (!fs.existsSync(xecDir)) {
-          clack.log.error('Not in an Xec project directory. Run "xec init" first.');
-          process.exit(1);
-        }
-
-        const subDir = type === 'script' ? 'scripts' : 'commands';
-        const fileExt = options.js ? '.js' : '.ts';
-        const fileName = `${name}${fileExt}`;
-        const filePath = path.join(xecDir, subDir, fileName);
-
-        // Check if file exists
-        if (fs.existsSync(filePath) && !options.force) {
-          const shouldOverwrite = await clack.confirm({
-            message: `File ${fileName} already exists. Overwrite?`,
-            initialValue: false
-          });
-
-          if (!shouldOverwrite) {
-            clack.log.info('Operation cancelled');
-            return;
-          }
-        }
-
-        const spinner = clack.spinner();
-        spinner.start(`Creating ${type} template...`);
-
-        // Select template
-        let template: string;
-        if (options.js) {
-          // JavaScript templates
-          if (type === 'script') {
-            template = options.advanced ? ADVANCED_JS_SCRIPT_TEMPLATE : BASIC_JS_SCRIPT_TEMPLATE;
-          } else {
-            template = options.advanced ? ADVANCED_JS_COMMAND_TEMPLATE : BASIC_JS_COMMAND_TEMPLATE;
+          if (InteractiveHelpers.isCancelled(name)) {
+            throw new Error('cancelled');
           }
         } else {
-          // TypeScript templates (default)
-          if (type === 'script') {
-            template = options.advanced ? ADVANCED_TS_SCRIPT_TEMPLATE : BASIC_TS_SCRIPT_TEMPLATE;
-          } else {
-            template = options.advanced ? ADVANCED_TS_COMMAND_TEMPLATE : BASIC_TS_COMMAND_TEMPLATE;
+          // Validate provided name
+          const error = validateName(name, artifactType);
+          if (error) {
+            clack.log.error(error);
+            process.exit(1);
           }
         }
 
-        // Replace placeholders
-        const content = template
-          .replace(/{name}/g, name)
-          .replace(/{description}/g, description);
-
-        // Ensure directory exists
-        await fs.ensureDir(path.dirname(filePath));
-
-        // Write file
-        await fs.writeFile(filePath, content);
-
-        // Make script executable if it's a script
-        if (type === 'script') {
-          await fs.chmod(filePath, '755');
-        }
-
-        spinner.stop(`${type} created successfully`);
-
-        clack.outro(chalk.green(`✅ Created ${type}: ${fileName}`));
-
-        // Show next steps
-        clack.log.info('\nNext steps:');
-        if (type === 'script') {
-          clack.log.info(`  ${chalk.cyan('xec')} .xec/scripts/${fileName}`);
-          clack.log.info(`  ${chalk.cyan('edit')} .xec/scripts/${fileName}`);
-        } else {
-          clack.log.info(`  ${chalk.cyan('xec')} ${name} --help`);
-          clack.log.info(`  ${chalk.cyan('edit')} .xec/commands/${fileName}`);
-        }
-
-        if (!options.advanced) {
-          clack.log.info(`\n💡 Tip: Use --advanced flag for a more feature-rich template`);
+        // Create the artifact
+        switch (artifactType) {
+          case 'project':
+            await createProject(name, options || {});
+            break;
+          case 'script':
+            await createScript(name, options || {});
+            break;
+          case 'command':
+            await createCommand(name, options || {});
+            break;
+          case 'task':
+            await createTask(name, options || {});
+            break;
+          case 'profile':
+            await createProfile(name, options || {});
+            break;
+          case 'extension':
+            await createExtension(name, options || {});
+            break;
         }
 
       } catch (error) {
-        clack.log.error(error instanceof Error ? error.message : 'Failed to create template');
+        if (error instanceof Error && error.message.includes('cancelled')) {
+          // User cancelled, exit gracefully
+          process.exit(0);
+        }
+        clack.log.error(error instanceof Error ? error.message : 'Creation failed');
         process.exit(1);
       }
     });

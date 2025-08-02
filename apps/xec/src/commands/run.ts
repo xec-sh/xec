@@ -5,37 +5,52 @@ import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
 import { handleError } from '../utils/error-handler.js';
+import { TaskManager } from '../config/task-manager.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
 import { getModuleLoader, initializeGlobalModuleContext } from '../utils/unified-module-loader.js';
 
-export default function (program: Command) {
+export default function command(program: Command) {
   program
-    .command('run [file]')
+    .command('run [fileOrTask]')
     .alias('r')
-    .description('Run an Xec script')
+    .description('Run an Xec script or task')
     .option('-e, --eval <code>', 'Evaluate code')
     .option('--repl', 'Start interactive REPL')
     .option('--typescript', 'Enable TypeScript support')
     .option('--watch', 'Watch for file changes')
     .option('--runtime <runtime>', 'Specify runtime: auto, node, bun, deno (default: auto)')
     .option('--no-universal', 'Disable universal loader (legacy mode)')
+    .option('-p, --param <key=value...>', 'Task parameters', (value, previous: string[] = []) => {
+      previous.push(value);
+      return previous;
+    }, [])
     .allowUnknownOption(true)
     .helpOption('-h, --help', 'Display help for command')
-    .action(async (file, options, command) => {
+    .action(async (fileOrTask, options, command) => {
       try {
         // Get script arguments (everything after --)
-        const scriptArgs = command.args.slice(command.args.indexOf(file) + 1);
+        const scriptArgs = command.args.slice(command.args.indexOf(fileOrTask) + 1);
 
         if (options.repl) {
           await startRepl(options);
         } else if (options.eval) {
           await evalCode(options.eval, scriptArgs, options);
-        } else if (file) {
-          await runScript(file, scriptArgs, options);
+        } else if (fileOrTask) {
+          // Check if it's a file or task
+          const isFile = fileOrTask.includes('.') || fileOrTask.includes('/') || fileOrTask.includes('\\');
+
+          if (isFile) {
+            await runScript(fileOrTask, scriptArgs, options);
+          } else {
+            // Try to run as task
+            await runTask(fileOrTask, options);
+          }
         } else {
-          clack.log.error('No script file specified');
-          clack.log.info('Usage: xec <file> [args...]');
-          clack.log.info('       xec -e <code>');
-          clack.log.info('       xec --repl');
+          clack.log.error('No script file or task specified');
+          clack.log.info('Usage: xec run <file> [args...]');
+          clack.log.info('       xec run <task> [options]');
+          clack.log.info('       xec run -e <code>');
+          clack.log.info('       xec run --repl');
           process.exit(1);
         }
       } catch (error) {
@@ -288,5 +303,100 @@ export async function startRepl(options: any) {
       this.displayPrompt();
     }
   });
+}
+
+/**
+ * Run a task from configuration
+ */
+export async function runTask(taskName: string, options: any) {
+  try {
+    // Initialize configuration
+    const configManager = new ConfigurationManager({
+      projectRoot: process.cwd(),
+    });
+
+    // Initialize task manager
+    const taskManager = new TaskManager({
+      configManager,
+      debug: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+      dryRun: false,
+    });
+
+    // Load tasks
+    await taskManager.load();
+
+    // Check if task exists
+    if (!await taskManager.exists(taskName)) {
+      // Try as script file if task doesn't exist
+      try {
+        await fs.access(taskName);
+        // It's a file without extension
+        return await runScript(taskName, [], options);
+      } catch {
+        // Not a file either
+        clack.log.error(`Task '${taskName}' not found`);
+        clack.log.info(chalk.dim('\nRun "xec tasks" to see available tasks'));
+        process.exit(1);
+      }
+    }
+
+    // Parse parameters
+    const params: Record<string, any> = {};
+    if (options.param) {
+      for (const param of options.param) {
+        const [key, ...valueParts] = param.split('=');
+        const value = valueParts.join('=');
+
+        if (!value) {
+          clack.log.error(`Invalid parameter format: ${param}`);
+          clack.log.info(chalk.dim('Use --param key=value'));
+          process.exit(1);
+        }
+
+        // Try to parse value
+        let parsedValue: any = value;
+        if (value === 'true') parsedValue = true;
+        else if (value === 'false') parsedValue = false;
+        else if (!isNaN(Number(value))) parsedValue = Number(value);
+        else if (value.startsWith('[') || value.startsWith('{')) {
+          try {
+            parsedValue = JSON.parse(value);
+          } catch {
+            // Keep as string
+          }
+        }
+
+        params[key] = parsedValue;
+      }
+    }
+
+    // Display task info
+    if (!options.parent?.opts()?.quiet) {
+      clack.log.info(`Running task: ${chalk.cyan(taskName)}`);
+      if (Object.keys(params).length > 0) {
+        clack.log.info(chalk.dim('Parameters:'));
+        for (const [key, value] of Object.entries(params)) {
+          clack.log.info(chalk.dim(`  ${key}: ${JSON.stringify(value)}`));
+        }
+      }
+    }
+
+    // Run task
+    const result = await taskManager.run(taskName, params);
+
+    if (!result.success) {
+      clack.log.error(`Task '${taskName}' failed`);
+      if (result.error) {
+        clack.log.error(result.error.message);
+      }
+      process.exit(1);
+    }
+
+    if (!options.parent?.opts()?.quiet) {
+      clack.log.success(`Task '${taskName}' completed successfully`);
+    }
+  } catch (error) {
+    throw error;
+  }
 }
 

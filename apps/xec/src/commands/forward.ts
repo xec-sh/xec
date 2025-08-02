@@ -1,335 +1,582 @@
 import { z } from 'zod';
 import chalk from 'chalk';
+import * as net from 'net';
+import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
-import { $ , ConvenienceAPI } from '@xec-sh/core';
 
-import { getConfig } from '../utils/config.js';
-import { BaseCommand } from '../utils/command-base.js';
 import { validateOptions } from '../utils/validation.js';
+import { ConfigAwareCommand, ConfigAwareOptions } from './base/config-aware-command.js';
+import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
-interface ForwardOptions {
-  namespace?: string;
-  container?: string;
-  host?: string;
-  dynamic?: boolean;
+import type { ResolvedTarget } from '../config/types.js';
+
+interface ForwardOptions extends ConfigAwareOptions, InteractiveOptions {
+  bind?: string;
+  reverse?: boolean;
   background?: boolean;
-  verbose?: boolean;
 }
 
-interface ActiveForward {
-  id: string;
-  type: 'ssh' | 'kubernetes' | 'docker';
-  source: string;
-  localPort: number;
-  remotePort: number;
-  forward: any; // SSH tunnel or K8s port forward
-  startTime: Date;
+interface PortMapping {
+  local: number;
+  remote: number;
 }
 
-class ForwardCommand extends BaseCommand {
-  private static activeForwards: Map<string, ActiveForward> = new Map();
+interface ForwardSession {
+  target: ResolvedTarget;
+  mapping: PortMapping;
+  process?: any;
+  cleanup?: () => Promise<void>;
+}
+
+export class ForwardCommand extends ConfigAwareCommand {
+  private sessions: Map<string, ForwardSession> = new Map();
 
   constructor() {
     super({
       name: 'forward',
-      description: 'Set up port forwarding (SSH tunnels, K8s port forwards)',
-      arguments: '<source> [localPort]',
+      description: 'Forward ports from remote systems',
+      arguments: '<target> <port-mapping>',
       options: [
         {
-          flags: '-n, --namespace <namespace>',
-          description: 'Kubernetes namespace (for pod forwarding)'
+          flags: '-p, --profile <profile>',
+          description: 'Configuration profile to use',
         },
         {
-          flags: '-d, --dynamic',
-          description: 'Use dynamic local port allocation'
+          flags: '-i, --interactive',
+          description: 'Interactive mode for setting up port forwarding',
         },
         {
-          flags: '-b, --background',
-          description: 'Run in background (return immediately)'
+          flags: '-b, --bind <address>',
+          description: 'Local bind address (default: 127.0.0.1)',
+          defaultValue: '127.0.0.1',
         },
         {
-          flags: '--list',
-          description: 'List active port forwards'
+          flags: '-r, --reverse',
+          description: 'Reverse port forwarding (remote to local)',
         },
         {
-          flags: '--stop <id>',
-          description: 'Stop a specific port forward'
+          flags: '--background',
+          description: 'Run in background',
         },
-        {
-          flags: '--stop-all',
-          description: 'Stop all active port forwards'
-        }
       ],
       examples: [
         {
-          command: 'xec forward prod:3306 3307',
-          description: 'SSH tunnel: prod server port 3306 to local 3307'
+          command: 'xec forward hosts.db 5432',
+          description: 'Forward PostgreSQL port from SSH host',
         },
         {
-          command: 'xec forward staging:5432',
-          description: 'SSH tunnel with same local port as remote'
+          command: 'xec forward pods.webapp 8080:80',
+          description: 'Forward local 8080 to pod port 80',
         },
         {
-          command: 'xec forward pod:web:80 8080',
-          description: 'K8s: forward pod web port 80 to local 8080'
+          command: 'xec forward containers.redis 6379',
+          description: 'Forward Redis port from Docker container',
         },
         {
-          command: 'xec forward pod:db:5432 -n production -d',
-          description: 'K8s: dynamic local port for production pod'
+          command: 'xec forward hosts.gateway 8080:80,9090:90',
+          description: 'Forward multiple ports',
         },
         {
-          command: 'xec forward container:redis:6379',
-          description: 'Docker: forward container port to local'
+          command: 'xec forward hosts.server 0:3000',
+          description: 'Auto-select available local port',
         },
-        {
-          command: 'xec forward --list',
-          description: 'List all active port forwards'
-        }
       ],
       validateOptions: (options) => {
         const schema = z.object({
-          namespace: z.string().optional(),
-          container: z.string().optional(),
-          host: z.string().optional(),
-          dynamic: z.boolean().optional(),
+          profile: z.string().optional(),
+          interactive: z.boolean().optional(),
+          bind: z.string().optional(),
+          reverse: z.boolean().optional(),
           background: z.boolean().optional(),
           verbose: z.boolean().optional(),
-          list: z.boolean().optional(),
-          stop: z.string().optional(),
-          stopAll: z.boolean().optional()
+          quiet: z.boolean().optional(),
+          dryRun: z.boolean().optional(),
         });
         validateOptions(options, schema);
-      }
+      },
     });
   }
 
-  override async execute(args: any[]): Promise<void> {
-    const [source, localPortStr] = args.slice(0, 2);
-    const options = args[args.length - 1] as ForwardOptions & { list?: boolean; stop?: string; stopAll?: boolean };
-
-    // Handle special operations
-    if (options.list) {
-      return this.listForwards();
-    }
-
-    if (options.stopAll) {
-      return this.stopAllForwards();
-    }
-
-    if (options.stop) {
-      return this.stopForward(options.stop);
-    }
-
-    // Normal port forwarding
-    if (!source) {
-      throw new Error('Source is required (e.g., host:port, pod:name:port)');
-    }
-
-    // Parse source and determine local port
-    const localPort = options.dynamic ? undefined : (localPortStr ? parseInt(localPortStr, 10) : undefined);
-    
-    // Set up the forward
-    await this.setupForward(source, localPort, options);
+  protected getCommandConfigKey(): string {
+    return 'forward';
   }
 
-  private async setupForward(source: string, localPort: number | undefined, options: ForwardOptions): Promise<void> {
-    const config = getConfig();
-    const helpers = new ConvenienceAPI($ as any);
+  async execute(args: any[]): Promise<void> {
+    let [targetSpec, portSpec] = args.slice(0, -1);
+    const options = args[args.length - 1] as ForwardOptions;
 
-    // Create progress indicator
-    this.startSpinner(`Setting up port forward for ${source}...`);
+    // Handle interactive mode
+    if (options.interactive) {
+      const interactiveResult = await this.runInteractiveMode(options);
+      if (!interactiveResult) return;
+      
+      targetSpec = interactiveResult.targetSpec;
+      portSpec = interactiveResult.portSpec;
+      Object.assign(options, interactiveResult.options);
+    }
+
+    if (!targetSpec || !portSpec) {
+      // Only enter interactive mode if explicitly not in quiet/background mode
+      if (!options.quiet && !options.background && process.stdin.isTTY) {
+        const interactiveResult = await this.runInteractiveMode(options);
+        if (!interactiveResult) return;
+        
+        targetSpec = interactiveResult.targetSpec;
+        portSpec = interactiveResult.portSpec;
+        Object.assign(options, interactiveResult.options);
+      } else {
+        throw new Error('Target and port mapping are required');
+      }
+    }
+
+    // Initialize configuration
+    await this.initializeConfig(options);
+
+    // Apply command defaults from config
+    const defaults = this.getCommandDefaults();
+    const mergedOptions = this.applyDefaults(options, defaults);
+
+    // Resolve target
+    const target = await this.resolveTarget(targetSpec);
+
+    // Parse port mappings
+    const mappings = this.parsePortMappings(portSpec);
+
+    if (mergedOptions.dryRun) {
+      this.log('[DRY RUN] Would forward ports:', 'info');
+      for (const mapping of mappings) {
+        this.log(`  ${mergedOptions.bind}:${mapping.local} -> ${this.formatTargetDisplay(target)}:${mapping.remote}`, 'info');
+      }
+      return;
+    }
+
+    // Set up signal handlers for cleanup
+    this.setupCleanupHandlers();
+
+    // Forward each port
+    for (const mapping of mappings) {
+      await this.forwardPort(target, mapping, mergedOptions);
+    }
+
+    // If not running in background, wait for interrupt
+    if (!mergedOptions.background) {
+      this.log('Press Ctrl+C to stop port forwarding...', 'info');
+      await new Promise(() => { }); // Wait indefinitely
+    }
+  }
+
+  private parsePortMappings(portSpec: string): PortMapping[] {
+    const mappings: PortMapping[] = [];
+    const parts = portSpec.split(',');
+
+    for (const part of parts) {
+      const [localStr, remoteStr] = part.includes(':') ? part.split(':') : [part, part];
+      const local = parseInt(localStr || '0', 10);
+      const remote = parseInt(remoteStr || '0', 10);
+
+      if (isNaN(remote) || remote < 1 || remote > 65535) {
+        throw new Error(`Invalid remote port: ${remoteStr}`);
+      }
+
+      if (localStr !== '0' && (isNaN(local) || local < 1 || local > 65535)) {
+        throw new Error(`Invalid local port: ${localStr}`);
+      }
+
+      mappings.push({ local, remote });
+    }
+
+    return mappings;
+  }
+
+  private async forwardPort(
+    target: ResolvedTarget,
+    mapping: PortMapping,
+    options: ForwardOptions
+  ): Promise<void> {
+    // Auto-select local port if needed
+    let localPort = mapping.local;
+    if (localPort === 0) {
+      localPort = await this.findAvailablePort();
+      mapping.local = localPort;
+    }
+
+    const sessionId = `${target.id}:${mapping.local}:${mapping.remote}`;
+
+    if (this.sessions.has(sessionId)) {
+      throw new Error(`Port forwarding already active for ${sessionId}`);
+    }
+
+    const targetDisplay = this.formatTargetDisplay(target);
+
+    if (!options.quiet) {
+      this.startSpinner(`Setting up port forward ${options.bind}:${localPort} -> ${targetDisplay}:${mapping.remote}...`);
+    }
 
     try {
-      // Use convenience helper to set up forwarding
-      const forward = await helpers.forward(source, localPort);
-      
-      // Determine forward type and details
-      let type: 'ssh' | 'kubernetes' | 'docker';
-      let remotePort: number;
-      let actualLocalPort: number;
+      let session: ForwardSession;
 
-      if (source.includes('pod:')) {
-        type = 'kubernetes';
-        const parts = source.split(':');
-        remotePort = parseInt(parts[2] || '80', 10);
-        actualLocalPort = forward.localPort;
-      } else if (source.includes('container:')) {
-        type = 'docker';
-        const parts = source.split(':');
-        remotePort = parseInt(parts[2] || '80', 10);
-        actualLocalPort = forward.localPort;
-      } else {
-        type = 'ssh';
-        const parts = source.split(':');
-        remotePort = parseInt(parts[1] || '22', 10);
-        actualLocalPort = forward.localPort;
+      switch (target.type) {
+        case 'ssh':
+          session = await this.forwardSSH(target, mapping, options);
+          break;
+        case 'docker':
+          session = await this.forwardDocker(target, mapping, options);
+          break;
+        case 'k8s':
+          session = await this.forwardKubernetes(target, mapping, options);
+          break;
+        default:
+          throw new Error(`Port forwarding not supported for target type: ${target.type}`);
       }
 
-      // Generate ID
-      const id = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      this.sessions.set(sessionId, session);
 
-      // Store active forward
-      const activeForward: ActiveForward = {
-        id,
-        type,
-        source,
-        localPort: actualLocalPort,
-        remotePort,
-        forward,
-        startTime: new Date()
-      };
-      ForwardCommand.activeForwards.set(id, activeForward);
-
-      this.stopSpinner();
-      
-      // Display success message
-      this.log(chalk.green('✓') + ' Port forward established:', 'success');
-      this.log(`  Type: ${type}`, 'info');
-      this.log(`  Source: ${source}`, 'info');
-      this.log(`  Local: localhost:${actualLocalPort}`, 'info');
-      this.log(`  Remote: port ${remotePort}`, 'info');
-      this.log(`  ID: ${id}`, 'info');
-      
-      // Additional info based on type
-      if (type === 'ssh') {
-        this.log(`\n  Access: ${chalk.cyan(`http://localhost:${actualLocalPort}`)}`, 'info');
-      } else if (type === 'kubernetes') {
-        this.log(`\n  Access: ${chalk.cyan(`kubectl port-forward ${source.split(':')[1]} ${actualLocalPort}:${remotePort}`)}`, 'info');
-      }
-
-      // Handle background mode
-      if (!options.background) {
-        this.log('\nPort forward is active. Press Ctrl+C to stop...', 'info');
-        
-        // Set up graceful shutdown
-        process.on('SIGINT', async () => {
-          this.log('\n\nStopping port forward...', 'info');
-          await this.stopForward(id);
-          process.exit(0);
-        });
-
-        // Keep process alive
-        await new Promise(() => {}); // Wait forever
-      } else {
-        this.log('\nRunning in background. Use --list to see active forwards.', 'info');
-        this.log(`To stop: ${chalk.cyan(`xec forward --stop ${id}`)}`, 'info');
-        
-        // Detach the forward so it continues after CLI exits
-        // In a real implementation, we'd need a daemon process
-        this.log(chalk.yellow('\nNote: Background mode requires the terminal to stay open.'), 'warn');
+      if (!options.quiet) {
+        this.stopSpinner();
+        this.log(
+          `${chalk.green('✓')} Forwarding ${chalk.cyan(`${options.bind}:${localPort}`)} -> ${chalk.cyan(`${targetDisplay}:${mapping.remote}`)}`,
+          'success'
+        );
       }
     } catch (error) {
-      this.stopSpinner();
-      if (error instanceof Error) {
-        throw new Error(`Failed to set up port forward: ${error.message}`);
+      if (!options.quiet) {
+        this.stopSpinner();
       }
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.log(`${chalk.red('✗')} Failed to forward port: ${errorMessage}`, 'error');
       throw error;
     }
   }
 
-  private async listForwards(): Promise<void> {
-    if (ForwardCommand.activeForwards.size === 0) {
-      this.log('No active port forwards.', 'info');
-      return;
+  private async forwardSSH(
+    target: ResolvedTarget,
+    mapping: PortMapping,
+    options: ForwardOptions
+  ): Promise<ForwardSession> {
+    const config = target.config as any;
+    const sshOptions = {
+      host: config.host,
+      username: config.user || process.env['USER'] || 'root',
+      port: config.port || 22,
+      privateKey: config.privateKey,
+      password: config.password,
+      privateKeyPath: config.privateKeyPath,
+    };
+
+    // Create SSH tunnel
+    const engine = $.ssh(sshOptions);
+
+    if (options.reverse) {
+      // Reverse tunnel: remote port -> local port
+      // Note: Reverse tunnels may require different handling
+      throw new Error('Reverse tunneling is not yet implemented in this version');
+    } else {
+      // Forward tunnel: local port -> remote port
+      await engine.tunnel({
+        localPort: mapping.local,
+        localHost: options.bind || 'localhost',
+        remoteHost: 'localhost',
+        remotePort: mapping.remote
+      });
     }
 
-    this.log('Active port forwards:', 'info');
-    this.log('', 'info');
-    
-    const now = new Date();
-    
-    ForwardCommand.activeForwards.forEach((forward) => {
-      const duration = Math.floor((now.getTime() - forward.startTime.getTime()) / 1000);
-      const durationStr = this.formatDuration(duration);
-      
-      this.log(`  ${chalk.cyan(forward.id)}`, 'info');
-      this.log(`    Type: ${forward.type}`, 'info');
-      this.log(`    Source: ${forward.source}`, 'info');
-      this.log(`    Local Port: ${forward.localPort}`, 'info');
-      this.log(`    Remote Port: ${forward.remotePort}`, 'info');
-      this.log(`    Duration: ${durationStr}`, 'info');
-      this.log(`    Status: ${chalk.green('Active')}`, 'info');
-      this.log('', 'info');
-    });
-    
-    this.log(`Total: ${ForwardCommand.activeForwards.size} active forward(s)`, 'info');
+    return {
+      target,
+      mapping,
+      cleanup: async () => {
+        // SSH tunnels are automatically cleaned up when the process exits
+      },
+    };
   }
 
-  private async stopForward(id: string): Promise<void> {
-    const forward = ForwardCommand.activeForwards.get(id);
-    
-    if (!forward) {
-      throw new Error(`No active forward found with ID: ${id}`);
+  private async forwardDocker(
+    target: ResolvedTarget,
+    mapping: PortMapping,
+    options: ForwardOptions
+  ): Promise<ForwardSession> {
+    const config = target.config as any;
+    const container = config.container || target.name;
+
+    if (options.reverse) {
+      throw new Error('Reverse port forwarding is not supported for Docker containers');
     }
-    
-    this.startSpinner(`Stopping port forward ${id}...`);
-    
+
+    // Use docker port forwarding via socat in a separate container
+    const socatContainer = `xec-forward-${container}-${mapping.local}-${mapping.remote}`;
+
+    // Create a local engine with shell set to true to let node find the shell
+    const local = () => $.local().with({ shell: true });
+
+    // Stop any existing socat container
     try {
-      // Close the forward
-      if (forward.forward && typeof forward.forward.close === 'function') {
-        await forward.forward.close();
-      }
-      
-      // Remove from active list
-      ForwardCommand.activeForwards.delete(id);
-      
-      this.stopSpinner();
-      this.log(`${chalk.green('✓')} Port forward ${id} stopped`, 'success');
-    } catch (error) {
-      this.stopSpinner();
-      throw new Error(`Failed to stop port forward: ${error instanceof Error ? error.message : String(error)}`);
-    }
+      await local()`/usr/local/bin/docker stop ${socatContainer}`.nothrow();
+      await local()`/usr/local/bin/docker rm ${socatContainer}`.nothrow();
+    } catch { }
+
+    // Get container network
+    const inspectResult = await local()`/usr/local/bin/docker inspect ${container} --format='{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}'`;
+    const networkId = inspectResult.stdout.trim();
+
+    // Start socat container
+    const socatCommand = `socat TCP-LISTEN:${mapping.remote},fork,reuseaddr TCP:${container}:${mapping.remote}`;
+
+    await local()`/usr/local/bin/docker run -d --name ${socatContainer} --network ${networkId} -p ${options.bind}:${mapping.local}:${mapping.remote} alpine/socat ${socatCommand}`;
+
+    return {
+      target,
+      mapping,
+      process: socatContainer,
+      cleanup: async () => {
+        try {
+          await local()`/usr/local/bin/docker stop ${socatContainer}`;
+          await local()`/usr/local/bin/docker rm ${socatContainer}`;
+        } catch { }
+      },
+    };
   }
 
-  private async stopAllForwards(): Promise<void> {
-    if (ForwardCommand.activeForwards.size === 0) {
-      this.log('No active port forwards to stop.', 'info');
-      return;
+  private async forwardKubernetes(
+    target: ResolvedTarget,
+    mapping: PortMapping,
+    options: ForwardOptions
+  ): Promise<ForwardSession> {
+    const config = target.config as any;
+    const namespace = config.namespace || 'default';
+    const pod = config.pod || target.name;
+
+    if (options.reverse) {
+      throw new Error('Reverse port forwarding is not supported for Kubernetes pods');
     }
-    
-    const count = ForwardCommand.activeForwards.size;
-    this.startSpinner(`Stopping ${count} port forward(s)...`);
-    
-    const errors: string[] = [];
-    
-    for (const [id, forward] of ForwardCommand.activeForwards) {
-      try {
-        if (forward.forward && typeof forward.forward.close === 'function') {
-          await forward.forward.close();
+
+    // Use kubectl port-forward
+    const args = [
+      'port-forward',
+      '-n', namespace,
+      pod,
+      `${mapping.local}:${mapping.remote}`,
+      '--address', options.bind || '127.0.0.1'
+    ];
+
+    // Start port forwarding in background
+    const process = $.local()`kubectl ${args.join(' ')}`.nothrow();
+
+    // Wait a bit to ensure it started
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    return {
+      target,
+      mapping,
+      process,
+      cleanup: async () => {
+        // The process will be killed automatically when the parent exits
+        if (process && typeof process.kill === 'function') {
+          process.kill();
         }
-      } catch (error) {
-        errors.push(`${id}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-    
-    ForwardCommand.activeForwards.clear();
-    
-    this.stopSpinner();
-    
-    if (errors.length > 0) {
-      this.log(`${chalk.yellow('⚠')} Stopped with ${errors.length} error(s):`, 'warn');
-      errors.forEach(err => this.log(`  - ${err}`, 'error'));
-    } else {
-      this.log(`${chalk.green('✓')} All ${count} port forward(s) stopped`, 'success');
-    }
+      },
+    };
   }
 
-  private formatDuration(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m ${secs}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${secs}s`;
-    } else {
-      return `${secs}s`;
+  private async findAvailablePort(startPort: number = 20000): Promise<number> {
+    for (let port = startPort; port < 65535; port++) {
+      if (await this.isPortAvailable(port)) {
+        return port;
+      }
+    }
+    throw new Error('No available ports found');
+  }
+
+  private isPortAvailable(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const server = net.createServer();
+
+      server.once('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          resolve(false);
+        } else {
+          // Other errors we treat as port available
+          resolve(true);
+        }
+      });
+
+      server.once('listening', () => {
+        server.close();
+        resolve(true);
+      });
+
+      // Try to listen on 127.0.0.1 specifically
+      server.listen(port, '127.0.0.1');
+    });
+  }
+
+  private setupCleanupHandlers(): void {
+    const cleanup = async () => {
+      this.log('\nStopping port forwards...', 'info');
+
+      for (const [sessionId, session] of this.sessions) {
+        try {
+          if (session.cleanup) {
+            await session.cleanup();
+          }
+          this.log(`Stopped forwarding for ${sessionId}`, 'info');
+        } catch (error) {
+          this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
+        }
+      }
+
+      this.sessions.clear();
+      process.exit(0);
+    };
+
+    process.once('SIGINT', cleanup);
+    process.once('SIGTERM', cleanup);
+  }
+
+  private async runInteractiveMode(options: ForwardOptions): Promise<{
+    targetSpec: string;
+    portSpec: string;
+    options: Partial<ForwardOptions>;
+  } | null> {
+    InteractiveHelpers.startInteractiveMode('Interactive Port Forward Mode');
+
+    try {
+      // Select target type
+      const targetType = await InteractiveHelpers.selectFromList(
+        'What do you want to forward from?',
+        [
+          { value: 'ssh', label: 'SSH host' },
+          { value: 'docker', label: 'Docker container' },
+          { value: 'k8s', label: 'Kubernetes pod' },
+        ],
+        (item) => `${InteractiveHelpers.getTargetIcon(item.value)} ${item.label}`
+      );
+
+      if (!targetType) return null;
+
+      // Select target
+      const target = await InteractiveHelpers.selectTarget({
+        message: 'Select target:',
+        type: targetType.value as any,
+        allowCustom: true,
+      });
+
+      if (!target || Array.isArray(target)) return null;
+
+      // Get remote port
+      const remotePort = await InteractiveHelpers.inputText('Enter remote port:', {
+        placeholder: '3306, 5432, 6379, 8080, etc.',
+        validate: (value) => {
+          const port = parseInt(value);
+          if (isNaN(port) || port < 1 || port > 65535) {
+            return 'Please enter a valid port number (1-65535)';
+          }
+          return undefined;
+        },
+      });
+
+      if (!remotePort) return null;
+
+      // Local port configuration
+      const localPortOption = await InteractiveHelpers.selectFromList(
+        'Local port configuration:',
+        [
+          { value: 'same', label: `Use same port (${remotePort})` },
+          { value: 'custom', label: 'Specify custom port' },
+          { value: 'auto', label: 'Auto-select available port' },
+        ],
+        (item) => item.label
+      );
+
+      if (!localPortOption) return null;
+
+      let localPort: string;
+      switch (localPortOption.value) {
+        case 'same':
+          localPort = remotePort;
+          break;
+        case 'custom': {
+          const customPort = await InteractiveHelpers.inputText('Enter local port:', {
+            placeholder: '8080',
+            validate: (value) => {
+              const port = parseInt(value);
+              if (isNaN(port) || port < 1 || port > 65535) {
+                return 'Please enter a valid port number (1-65535)';
+              }
+              return undefined;
+            },
+          });
+          if (!customPort) return null;
+          localPort = customPort;
+          break;
+        }
+        case 'auto':
+          localPort = '0';
+          break;
+        default:
+          localPort = remotePort;
+      }
+
+      // Additional options
+      const forwardOptions: Partial<ForwardOptions> = {};
+
+      // Bind address
+      const customBind = await InteractiveHelpers.confirmAction(
+        'Use custom bind address? (default: 127.0.0.1)',
+        false
+      );
+
+      if (customBind) {
+        const bindAddress = await InteractiveHelpers.inputText('Enter bind address:', {
+          placeholder: '0.0.0.0',
+          initialValue: '127.0.0.1',
+        });
+        if (bindAddress) {
+          forwardOptions.bind = bindAddress;
+        }
+      }
+
+      // Background mode
+      forwardOptions.background = await InteractiveHelpers.confirmAction(
+        'Run in background?',
+        false
+      );
+
+      // Build specs
+      const targetSpec = target.id;
+      const portSpec = localPort === remotePort ? remotePort : `${localPort}:${remotePort}`;
+
+      // Show summary
+      InteractiveHelpers.showInfo('\nPort Forward Summary:');
+      console.log(`  Target: ${chalk.cyan(targetSpec)} (${target.type})`);
+      console.log(`  Port mapping: ${chalk.cyan(`${forwardOptions.bind || '127.0.0.1'}:${localPort === '0' ? 'auto' : localPort} → ${remotePort}`)}`);
+      if (forwardOptions.background) console.log(`  Mode: ${chalk.gray('background')}`);
+
+      const confirm = await InteractiveHelpers.confirmAction(
+        '\nProceed with port forwarding?',
+        true
+      );
+
+      if (!confirm) {
+        InteractiveHelpers.endInteractiveMode('Port forwarding cancelled');
+        return null;
+      }
+
+      return {
+        targetSpec,
+        portSpec,
+        options: forwardOptions,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        InteractiveHelpers.endInteractiveMode('Port forwarding cancelled');
+      } else {
+        InteractiveHelpers.showError(error instanceof Error ? error.message : String(error));
+      }
+      return null;
     }
   }
 }
 
-export default function forwardCommand(program: Command): void {
+export default function command(program: Command): void {
   const cmd = new ForwardCommand();
   program.addCommand(cmd.create());
 }
