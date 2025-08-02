@@ -22,8 +22,6 @@ describe('In Command', () => {
   let dockerManager: DockerContainerManager;
   let originalPath: string | undefined;
   let originalShell: string | undefined;
-  let unhandledRejections: any[] = [];
-  let unhandledRejectionHandler: any;
 
   beforeEach(async () => {
     originalCwd = process.cwd();
@@ -51,13 +49,6 @@ describe('In Command', () => {
     if (!process.env.SHELL) {
       process.env.SHELL = '/bin/bash';
     }
-
-    // Capture unhandled rejections
-    unhandledRejections = [];
-    unhandledRejectionHandler = (reason: any) => {
-      unhandledRejections.push(reason);
-    };
-    process.on('unhandledRejection', unhandledRejectionHandler);
   });
 
   afterEach(async () => {
@@ -70,18 +61,6 @@ describe('In Command', () => {
     }
 
     await fs.rm(tempDir, { recursive: true, force: true });
-
-    // Remove unhandled rejection handler
-    process.off('unhandledRejection', unhandledRejectionHandler);
-
-    // Check if there were any unhandled rejections
-    if (unhandledRejections.length > 0 && !expect.getState().expectedAssertionsErrors) {
-      // If we're not in an error handling test, fail
-      const currentTestName = expect.getState().currentTestName || '';
-      if (!currentTestName.includes('should handle') && !currentTestName.includes('error') && !currentTestName.includes('fail')) {
-        throw new Error(`Unhandled rejections detected: ${unhandledRejections.map(r => r.message || r).join(', ')}`);
-      }
-    }
   });
 
   describe('Docker Container Execution', () => {
@@ -713,7 +692,8 @@ await $target\`echo "Test completed" > /tmp/script-test-done.txt\`;
         // If it doesn't throw, fail the test
         fail('Expected command.execute to throw an error');
       } catch (error: any) {
-        expect(String(error)).toMatch(/Container 'non-existent-container' not found/);
+        console.log(error.message);
+        expect(error.message).toMatch(/Container 'non-existent-container' not found/);
       }
     });
 

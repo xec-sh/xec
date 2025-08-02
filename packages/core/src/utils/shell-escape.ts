@@ -124,9 +124,9 @@ function valueToString(value: any): string {
   } else if (value instanceof Date) {
     return value.toISOString();
   } else if (typeof value === 'object') {
-    // Check if it's an ExecutionResult (has stdout property and toString method)
-    if ('stdout' in value && typeof value.toString === 'function') {
-      return value.toString();
+    // Check if it's an ExecutionResult (has stdout property and text method)
+    if ('stdout' in value && typeof value.text === 'function') {
+      return value.text();
     }
     // JSON stringify objects
     try {

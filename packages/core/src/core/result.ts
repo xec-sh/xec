@@ -23,13 +23,13 @@ export interface ExecutionResult {
   container?: string;                   // Container (for Docker)
 
   // Methods
-  toString(): string;
-  toJSON(): object;
+  toMetadata(): object;
   throwIfFailed(): void;
-  /**
-   * @deprecated Use `result.ok` instead
-   */
-  isSuccess(): boolean;
+
+  text(): string;
+  json<T = any>(): T;
+  lines(): string[];
+  buffer(): Buffer;
 }
 
 export class ExecutionResultImpl implements ExecutionResult {
@@ -55,11 +55,8 @@ export class ExecutionResultImpl implements ExecutionResult {
     }
   }
 
-  toString(): string {
-    return this.stdout.trim();
-  }
 
-  toJSON(): object {
+  toMetadata(): object {
     return {
       stdout: this.stdout,
       stderr: this.stderr,
@@ -88,10 +85,24 @@ export class ExecutionResultImpl implements ExecutionResult {
     }
   }
 
-  /**
-   * @deprecated Use `result.ok` instead
-   */
-  isSuccess(): boolean {
-    return this.ok;
+  text(): string {
+    return this.stdout.trim();
+  }
+
+  json<T = any>(): T {
+    const text = this.text();
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`);
+    }
+  }
+
+  lines(): string[] {
+    return this.stdout.split('\n').filter(line => line.length > 0);
+  }
+
+  buffer(): Buffer {
+    return Buffer.from(this.stdout);
   }
 }

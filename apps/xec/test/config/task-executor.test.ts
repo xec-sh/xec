@@ -234,21 +234,21 @@ describe('TaskExecutor', () => {
       // Create a script that fails on first attempt
       const scriptPath = path.join(testDir, 'retry-script.js');
       await fs.writeFile(scriptPath, `
-        const fs = require('fs');
+        import { readFileSync, writeFileSync } from 'fs';
         const attemptFile = '${attemptFile}';
         const successFile = '${successFile}';
         
         // Count attempts
         let attempts = 0;
         try {
-          const content = fs.readFileSync(attemptFile, 'utf-8');
+          const content = readFileSync(attemptFile, 'utf-8');
           attempts = parseInt(content) || 0;
         } catch (e) {
           // File doesn't exist yet
         }
         
         attempts++;
-        fs.writeFileSync(attemptFile, String(attempts));
+        writeFileSync(attemptFile, String(attempts));
         
         // Fail on first attempt
         if (attempts === 1) {
@@ -256,7 +256,7 @@ describe('TaskExecutor', () => {
         }
         
         // Succeed on retry
-        fs.writeFileSync(successFile, 'Success after retry');
+        writeFileSync(successFile, 'Success after retry');
       `);
 
       const task: TaskDefinition = {
@@ -426,8 +426,8 @@ describe('TaskExecutor', () => {
     it('should execute script tasks', async () => {
       const scriptPath = path.join(testDir, 'script.js');
       await fs.writeFile(scriptPath, `
-        const fs = require('fs');
-        fs.writeFileSync('${path.join(testDir, 'script-output.txt')}', 'Script executed');
+        import { writeFileSync } from 'fs';
+        writeFileSync('${path.join(testDir, 'script-output.txt')}', 'Script executed');
       `);
 
       const task: TaskDefinition = {
@@ -444,8 +444,8 @@ describe('TaskExecutor', () => {
     it('should execute step scripts', async () => {
       const scriptPath = path.join(testDir, 'step-script.js');
       await fs.writeFile(scriptPath, `
-        const fs = require('fs');
-        fs.writeFileSync('${path.join(testDir, 'step-script-output.txt')}', 'Step script executed');
+        import { writeFileSync } from 'fs';
+        writeFileSync('${path.join(testDir, 'step-script-output.txt')}', 'Step script executed');
       `);
 
       const task: TaskDefinition = {
@@ -587,18 +587,18 @@ describe('TaskExecutor', () => {
       // Create a script that fails on first attempt
       const scriptPath = path.join(testDir, 'retry-event-script.js');
       await fs.writeFile(scriptPath, `
-        const fs = require('fs');
+        import { readFileSync, writeFileSync } from 'fs';
         const attemptFile = '${attemptFile}';
         
         // Count attempts
         let attempts = 0;
         try {
-          const content = fs.readFileSync(attemptFile, 'utf-8');
+          const content = readFileSync(attemptFile, 'utf-8');
           attempts = parseInt(content) || 0;
         } catch (e) {}
         
         attempts++;
-        fs.writeFileSync(attemptFile, String(attempts));
+        writeFileSync(attemptFile, String(attempts));
         
         // Fail on first attempt
         if (attempts === 1) {

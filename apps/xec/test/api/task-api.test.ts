@@ -499,8 +499,8 @@ describe('Task API', () => {
       
       // Create a simple script
       await fs.writeFile(scriptFile, `
-        const fs = require('fs');
-        fs.writeFileSync('${scriptOutput}', 'Script executed');
+        import { writeFileSync } from 'fs';
+        writeFileSync('${scriptOutput}', 'Script executed');
       `);
       
       const config = {

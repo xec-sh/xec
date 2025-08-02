@@ -8,11 +8,11 @@ import type { ExecutionResult } from '../../../src/core/result.js';
 // Test implementation of BaseAdapter to test masking functionality
 class TestAdapter extends BaseAdapter {
   protected readonly adapterName = 'test';
-  
+
   async isAvailable(): Promise<boolean> {
     return true;
   }
-  
+
   async execute(command: Command): Promise<ExecutionResult> {
     // Simple mock implementation - create a proper ExecutionResult
     const result = {
@@ -27,8 +27,8 @@ class TestAdapter extends BaseAdapter {
       adapter: this.adapterName,
       toString: () => 'test output',
       toJSON: () => ({ stdout: 'test output', stderr: '', exitCode: 0 }),
-      throwIfFailed: () => {},
-      isSuccess: () => true
+      throwIfFailed: () => { },
+      ok: true
     };
     return result;
   }
@@ -44,7 +44,7 @@ class TestAdapter extends BaseAdapter {
 
   // Test output with masking by creating a result
   public testMaskedOutput(
-    stdout: string, 
+    stdout: string,
     stderr: string
   ): { stdout: string; stderr: string } {
     return {
@@ -100,7 +100,7 @@ describe('BaseAdapter Data Masking', () => {
     it('should mask multiple API keys in same text', () => {
       const input = 'API_KEY=key1 OTHER_API_KEY=key2 THIRD_KEY=key3';
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       expect(masked).toBe('API_KEY=***REDACTED*** OTHER_API_KEY=***REDACTED*** THIRD_KEY=***REDACTED***');
       expect(masked.match(/\*\*\*REDACTED\*\*\*/g)).toHaveLength(3);
     });
@@ -224,7 +224,7 @@ describe('BaseAdapter Data Masking', () => {
       }, null, 2);
 
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       expect(masked).toContain('"api_key": ***REDACTED***');
       expect(masked).toContain('"password": ***REDACTED***');
       expect(masked).toContain('"token": ***REDACTED***');
@@ -240,7 +240,7 @@ export NODE_ENV=production
       `.trim();
 
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       expect(masked).toContain('API_KEY=***REDACTED***');
       expect(masked).toContain('DATABASE_PASSWORD=***REDACTED***');
       expect(masked).toContain('JWT_SECRET=***REDACTED***');
@@ -250,7 +250,7 @@ export NODE_ENV=production
     it('should mask values in command line arguments', () => {
       const input = 'mysql -u root --password=admin123 -h localhost';
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       expect(masked).toBe('mysql -u root --password=***REDACTED*** -h localhost');
     });
 
@@ -264,7 +264,7 @@ export NODE_ENV=production
       `.trim();
 
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       expect(masked).toContain('API_KEY=***REDACTED***');
       expect(masked).toContain('password: ***REDACTED***');
       expect(masked).toContain('token=***REDACTED***');
@@ -286,7 +286,7 @@ export NODE_ENV=production
     it('should not mask partial matches', () => {
       const input = 'mypassword_field is not a password: value';
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       // Should only mask after "password:"
       expect(masked).toContain('mypassword_field');
       expect(masked).toContain('password: ***REDACTED***');
@@ -309,7 +309,7 @@ export NODE_ENV=production
     it('should mask values with special characters', () => {
       const input = 'api_key="sk$test%123&special*chars"';
       const masked = adapter.testMaskSensitiveData(input);
-      
+
       expect(masked).toBe('api_key=***REDACTED***');
     });
   });
@@ -318,26 +318,26 @@ export NODE_ENV=production
     it('should mask sensitive data in stdout', () => {
       const stdout = 'Connected with API_KEY=secret123';
       const stderr = '';
-      
+
       const { stdout: maskedOut } = adapter.testMaskedOutput(stdout, stderr);
-      
+
       expect(maskedOut).toBe('Connected with API_KEY=***REDACTED***');
     });
 
     it('should mask sensitive data in stderr', () => {
       const stdout = '';
       const stderr = 'Error: Invalid password: admin123';
-      
+
       const { stderr: maskedErr } = adapter.testMaskedOutput(stdout, stderr);
-      
+
       expect(maskedErr).toBe('Error: Invalid password: ***REDACTED***');
     });
 
     it('should mask data passed directly', () => {
       const data = 'Streaming API_KEY=secret123 data';
-      
+
       const masked = adapter.testMaskSensitiveData(data);
-      
+
       expect(masked).toBe('Streaming API_KEY=***REDACTED*** data');
     });
   });
@@ -350,14 +350,14 @@ export NODE_ENV=production
         lines.push(`Line ${i}: API_KEY=key${i} password: pass${i}`);
       }
       const largeText = lines.join('\n');
-      
+
       const start = Date.now();
       const masked = adapter.testMaskSensitiveData(largeText);
       const duration = Date.now() - start;
-      
+
       // Should complete within reasonable time
       expect(duration).toBeLessThan(100); // 100ms for 1000 lines
-      
+
       // Should mask all occurrences
       expect(masked).not.toContain('API_KEY=key');
       expect(masked).not.toContain('password: pass');
@@ -367,11 +367,11 @@ export NODE_ENV=production
     it('should cache regex patterns', () => {
       // Run multiple times to test caching
       const input = 'API_KEY=test123';
-      
+
       for (let i = 0; i < 100; i++) {
         adapter.testMaskSensitiveData(input);
       }
-      
+
       // No direct way to test caching, but this ensures
       // multiple calls work correctly
       expect(adapter.testMaskSensitiveData(input)).toBe('API_KEY=***REDACTED***');

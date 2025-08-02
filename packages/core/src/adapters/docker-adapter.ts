@@ -1000,38 +1000,99 @@ export class DockerAdapter extends BaseAdapter {
     return new Promise((resolve, reject) => {
       const child = spawn('docker', args);
       let buffer = '';
+      let resolved = false;
 
-      const processData = (data: string) => {
-        buffer += data;
-        const lines = buffer.split('\n');
-        // Keep the last incomplete line in the buffer
-        buffer = lines.pop() || '';
-        // Send complete lines
-        lines.forEach(line => {
-          if (line) {
-            onData(line + '\n');
-          }
-        });
+      const cleanup = () => {
+        if (!child.killed) {
+          child.kill('SIGTERM');
+        }
       };
 
-      child.stdout.on('data', (chunk: Buffer) => {
-        processData(chunk.toString());
-      });
-
-      child.stderr.on('data', (chunk: Buffer) => {
-        processData(chunk.toString());
-      });
-
-      child.on('error', reject);
-      child.on('exit', (code) => {
-        // Flush any remaining buffer
-        if (buffer) {
-          onData(buffer);
+      const safeOnData = (data: string) => {
+        try {
+          onData(data);
+        } catch (error) {
+          if (!resolved) {
+            resolved = true;
+            cleanup();
+            reject(new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error))));
+          }
         }
-        if (code === 0 || code === 143) { // 143 is SIGTERM which is normal when stopping container
-          resolve();
-        } else {
-          reject(new DockerError(container, 'logs', new Error('Log streaming failed')));
+      };
+
+      const processData = (data: string) => {
+        try {
+          buffer += data;
+          const lines = buffer.split('\n');
+          // Keep the last incomplete line in the buffer
+          buffer = lines.pop() || '';
+          // Send complete lines
+          lines.forEach(line => {
+            if (line && !resolved) {
+              safeOnData(line + '\n');
+            }
+          });
+        } catch (error) {
+          if (!resolved) {
+            resolved = true;
+            cleanup();
+            reject(new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error))));
+          }
+        }
+      };
+
+      child.stdout?.on('data', (chunk: Buffer) => {
+        if (!resolved) {
+          processData(chunk.toString());
+        }
+      });
+
+      child.stderr?.on('data', (chunk: Buffer) => {
+        if (!resolved) {
+          processData(chunk.toString());
+        }
+      });
+
+      child.stdout?.on('error', (error) => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          reject(new DockerError(container, 'logs', error));
+        }
+      });
+
+      child.stderr?.on('error', (error) => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          reject(new DockerError(container, 'logs', error));
+        }
+      });
+
+      child.on('error', (error) => {
+        if (!resolved) {
+          resolved = true;
+          cleanup();
+          reject(new DockerError(container, 'logs', error));
+        }
+      });
+
+      child.on('exit', (code) => {
+        if (!resolved) {
+          resolved = true;
+          try {
+            // Flush any remaining buffer
+            if (buffer) {
+              safeOnData(buffer);
+            }
+            if (code === 0 || code === 143) { // 143 is SIGTERM which is normal when stopping container
+              resolve();
+            } else {
+              reject(new DockerError(container, 'logs', new Error('Log streaming failed')));
+            }
+          } catch (error) {
+            reject(new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error))));
+          }
         }
       });
     });

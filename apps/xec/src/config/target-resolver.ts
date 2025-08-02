@@ -231,7 +231,7 @@ export class TargetResolver {
 
     // Create full config object, only copying defined values (including null)
     const fullConfig: any = { type: targetType };
-    
+
     // Copy all properties from targetConfig, excluding undefined values
     for (const key in targetConfig) {
       if (Object.prototype.hasOwnProperty.call(targetConfig, key)) {
@@ -241,7 +241,7 @@ export class TargetResolver {
         }
       }
     }
-    
+
     return {
       id: `${ref.type}.${ref.name}`,
       type: targetType,
@@ -402,7 +402,7 @@ export class TargetResolver {
 
   private async isDockerContainer(name: string): Promise<boolean> {
     try {
-      const result = await $.shell(false)`docker ps --format {{.Names}}`.nothrow();
+      const result = await $`docker ps --format "{{.Names}}"`.nothrow();
       if (!result.ok) {
         return false;
       }
@@ -423,7 +423,7 @@ export class TargetResolver {
         args.push('--context', context);
       }
 
-      const result = await $.shell(false)`kubectl ${args}`.quiet().nothrow();
+      const result = await $`kubectl ${args.join(' ')}`.quiet().nothrow();
 
       return result.ok;
     } catch {
@@ -584,26 +584,26 @@ export class TargetResolver {
 
     // Apply type-specific defaults based on target type
     let typeSpecificDefaults: any = {};
-    
+
     switch (targetConfig.type) {
       case 'ssh':
         if (defaults.ssh) {
           typeSpecificDefaults = this.applySshDefaults(defaults.ssh, targetConfig as HostConfig);
         }
         break;
-        
+
       case 'docker':
         if (defaults.docker) {
           typeSpecificDefaults = this.applyDockerDefaults(defaults.docker, targetConfig as ContainerConfig);
         }
         break;
-        
+
       case 'k8s':
         if (defaults.kubernetes) {
           typeSpecificDefaults = this.applyKubernetesDefaults(defaults.kubernetes, targetConfig as PodConfig);
         }
         break;
-        
+
       case 'local':
         // Local targets only get common defaults
         break;
@@ -613,7 +613,7 @@ export class TargetResolver {
     const withCommonDefaults = deepMerge({}, commonDefaults);
     const withTypeDefaults = deepMerge(withCommonDefaults, typeSpecificDefaults);
     let final = deepMerge(withTypeDefaults, targetConfig);
-    
+
     // Special handling for arrays that should be concatenated
     if (targetConfig.type === 'k8s') {
       const k8sTarget = targetConfig as PodConfig;
@@ -625,7 +625,7 @@ export class TargetResolver {
         };
       }
     }
-    
+
     return final as TargetConfig;
   }
 

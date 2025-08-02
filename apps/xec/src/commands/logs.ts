@@ -6,11 +6,11 @@ import * as readline from 'readline';
 
 import { validateOptions } from '../utils/validation.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
-import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
+import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 
 import type { ResolvedTarget } from '../config/types.js';
 
-interface LogsOptions extends ConfigAwareOptions, InteractiveOptions {
+interface LogsOptions extends ConfigAwareOptions {
   follow?: boolean;
   tail?: string;
   since?: string;
@@ -46,16 +46,13 @@ export class LogsCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'logs',
-      description: 'View and stream logs from targets',
-      arguments: '<target> [path]',
+      aliases: ['l'],
+      description: 'View and stream logs from targets (interactive mode if no target specified)',
+      arguments: '[target] [path]',
       options: [
         {
           flags: '-p, --profile <profile>',
           description: 'Configuration profile to use',
-        },
-        {
-          flags: '-i, --interactive',
-          description: 'Interactive mode for selecting targets and log options',
         },
         {
           flags: '-f, --follow',
@@ -132,6 +129,10 @@ export class LogsCommand extends ConfigAwareCommand {
         },
       ],
       examples: [
+        {
+          command: 'xec logs',
+          description: 'Start interactive mode to select targets and options',
+        },
         {
           command: 'xec logs containers.app',
           description: 'View last 50 lines from Docker container',
@@ -216,8 +217,8 @@ export class LogsCommand extends ConfigAwareCommand {
     let targetPattern = positionalArgs[0];
     let logPath = positionalArgs[1];
 
-    // Handle interactive mode
-    if (options.interactive || !targetPattern) {
+    // Handle interactive mode when no target is specified
+    if (!targetPattern) {
       const interactiveResult = await this.runInteractiveMode(options);
       if (!interactiveResult) return;
 
@@ -358,12 +359,23 @@ export class LogsCommand extends ConfigAwareCommand {
       this.setupCleanupHandlers();
 
       // Start streaming from all targets
-      const promises = targets.map(target =>
-        this.streamLogsWithPrefix(target, logPath, options)
-      );
+      const promises = targets.map(async (target) => {
+        try {
+          await this.streamLogsWithPrefix(target, logPath, options);
+        } catch (error) {
+          // Log error but don't stop other streams
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.log(`${chalk.red('✗')} ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
+        }
+      });
 
       // Wait for all streams (they won't complete until interrupted)
-      await Promise.all(promises);
+      try {
+        await Promise.all(promises);
+      } catch (error) {
+        // This should not happen as we handle errors above, but just in case
+        console.error('Unexpected error in parallel log streaming:', error);
+      }
     } else {
       // Batch mode - fetch from all targets
       const promises = targets.map(async (target) => {
@@ -414,7 +426,7 @@ export class LogsCommand extends ConfigAwareCommand {
         if (options.timestamps) parts.push('--timestamps');
 
         parts.push(container);
-        
+
         // Add grep filtering if requested
         if (options.grep) {
           parts.push('2>&1', '|', 'grep', '-E');
@@ -426,7 +438,7 @@ export class LogsCommand extends ConfigAwareCommand {
           // Escape the grep pattern for shell
           parts.push(`'${options.grep.replace(/'/g, "'\\''")}'`);
         }
-        
+
         break;
       }
 
@@ -448,7 +460,7 @@ export class LogsCommand extends ConfigAwareCommand {
         }
 
         parts.push(pod);
-        
+
         // Add grep filtering if requested
         if (options.grep) {
           parts.push('2>&1', '|', 'grep', '-E');
@@ -460,7 +472,7 @@ export class LogsCommand extends ConfigAwareCommand {
           // Escape the grep pattern for shell
           parts.push(`'${options.grep.replace(/'/g, "'\\''")}'`);
         }
-        
+
         break;
       }
 
@@ -520,13 +532,25 @@ export class LogsCommand extends ConfigAwareCommand {
     // Execute the command through shell to handle arguments properly
     logProcess = engine.raw`${logCommand}`.nothrow();
 
+    // Add error handling for the child process
+    if (logProcess.child) {
+      logProcess.child.on('error', (error: Error) => {
+        console.error(`Child process error for ${sessionId}:`, error);
+        this.streams.delete(sessionId);
+      });
+    }
+
     // Store session for cleanup
     this.streams.set(sessionId, {
       target,
       process: logProcess,
       cleanup: async () => {
-        if (logProcess && typeof logProcess.kill === 'function') {
-          logProcess.kill();
+        try {
+          if (logProcess && typeof logProcess.kill === 'function') {
+            logProcess.kill('SIGTERM');
+          }
+        } catch (error) {
+          // Ignore cleanup errors
         }
       },
     });
@@ -539,10 +563,20 @@ export class LogsCommand extends ConfigAwareCommand {
       });
 
       rl.on('line', (line: string) => {
-        this.displayLogLine(line, target, options);
+        try {
+          this.displayLogLine(line, target, options);
+        } catch (error) {
+          // Log display error but continue processing
+          console.error('Error displaying log line:', error);
+        }
       });
 
       rl.on('close', () => {
+        this.streams.delete(sessionId);
+      });
+
+      rl.on('error', (error) => {
+        console.error('Readline error:', error);
         this.streams.delete(sessionId);
       });
     }
@@ -550,8 +584,19 @@ export class LogsCommand extends ConfigAwareCommand {
     // Handle stderr
     if (logProcess.child?.stderr) {
       logProcess.child.stderr.on('data', (data: Buffer) => {
+        try {
+          if (options.verbose) {
+            console.error(chalk.yellow(data.toString().trim()));
+          }
+        } catch (error) {
+          // Ignore stderr display errors
+        }
+      });
+
+      logProcess.child.stderr.on('error', (error: Error) => {
+        // Log stderr stream errors but don't throw
         if (options.verbose) {
-          console.error(chalk.yellow(data.toString().trim()));
+          console.error('Stderr stream error:', error);
         }
       });
     }
@@ -1030,30 +1075,47 @@ export class LogsCommand extends ConfigAwareCommand {
 
   private setupCleanupHandlers(): void {
     const cleanup = async () => {
-      this.running = false;
-      this.log('\nStopping log streams...', 'info');
+      try {
+        this.running = false;
+        this.log('\nStopping log streams...', 'info');
 
-      for (const [sessionId, stream] of this.streams) {
-        try {
-          if (stream.cleanup) {
-            await stream.cleanup();
+        for (const [sessionId, stream] of this.streams) {
+          try {
+            if (stream.cleanup) {
+              await stream.cleanup();
+            }
+            this.log(`Stopped stream for ${sessionId}`, 'info');
+          } catch (error) {
+            this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
           }
-          this.log(`Stopped stream for ${sessionId}`, 'info');
-        } catch (error) {
-          this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
         }
-      }
 
-      this.streams.clear();
-      
-      // Only exit if not in test environment
-      if (process.env['NODE_ENV'] !== 'test') {
-        process.exit(0);
+        this.streams.clear();
+
+        // Only exit if not in test environment
+        if (process.env['NODE_ENV'] !== 'test') {
+          process.exit(0);
+        }
+      } catch (error) {
+        console.error('Error during cleanup:', error);
+        if (process.env['NODE_ENV'] !== 'test') {
+          process.exit(1);
+        }
       }
     };
 
-    process.once('SIGINT', cleanup);
-    process.once('SIGTERM', cleanup);
+    // Wrap cleanup to handle any synchronous errors
+    const safeCleanup = (...args: any[]) => {
+      cleanup().catch((error) => {
+        console.error('Unhandled error in cleanup:', error);
+        if (process.env['NODE_ENV'] !== 'test') {
+          process.exit(1);
+        }
+      });
+    };
+
+    process.once('SIGINT', safeCleanup);
+    process.once('SIGTERM', safeCleanup);
   }
 }
 

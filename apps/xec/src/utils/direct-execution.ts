@@ -97,7 +97,7 @@ async function detectTarget(arg: string): Promise<Target | null> {
   try {
     // Check Docker
     const dockerResult = await $.local()`docker ps --format "{{.Names}}" | grep -E "^${arg}$"`.quiet().nothrow();
-    if (dockerResult.isSuccess() && dockerResult.stdout.trim()) {
+    if (dockerResult.ok && dockerResult.stdout.trim()) {
       return { type: 'docker', name: arg };
     }
   } catch {
@@ -107,7 +107,7 @@ async function detectTarget(arg: string): Promise<Target | null> {
   try {
     // Check Kubernetes (default namespace)
     const k8sResult = await $.local()`kubectl get pod ${arg} -o name`.quiet().nothrow();
-    if (k8sResult.isSuccess() && k8sResult.stdout.trim()) {
+    if (k8sResult.ok && k8sResult.stdout.trim()) {
       return { type: 'kubernetes', name: arg };
     }
   } catch {
@@ -312,7 +312,7 @@ export async function createTargetEngine(target: any, options: any = {}): Promis
     case 'docker':
       return $.docker({
         container: config.container || target.name,
-        image: config.image,
+        image: config.image || 'alpine:latest',
         user: config.user,
         workingDir: config.workdir,
         tty: config.tty,

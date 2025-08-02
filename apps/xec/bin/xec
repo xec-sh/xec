@@ -60,7 +60,7 @@ process.stderr.write = function(chunk, encoding, callback) {
 
 // Enable source map support for better error traces
 try {
-  require('source-map-support/register');
+  await import('source-map-support/register');
 } catch (e) {
   // Source map support is optional
 }
