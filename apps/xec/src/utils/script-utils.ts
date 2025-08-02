@@ -39,13 +39,28 @@ export function pwd(): string {
 }
 
 // Enhanced echo with color support
-export function echo(...args: any[]): void {
-  console.log(...args);
-}
+export const echo = Object.assign(
+  function echo(...args: any[]): void {
+    console.log(...args);
+  },
+  {
+    info: (message: string) => clack.log.info(message),
+    success: (message: string) => clack.log.success(message),
+    warning: (message: string) => clack.log.warn(message),
+    error: (message: string) => clack.log.error(message),
+    debug: (message: string) => console.log(chalk.gray(`[DEBUG] ${message}`)),
+    step: (message: string) => clack.log.step(message),
+  }
+);
 
 // Spinner utility
-export function spinner(message?: string) {
-  return clack.spinner();
+export function spinner(options?: string | { text?: string; color?: string }) {
+  const message = typeof options === 'string' ? options : options?.text;
+  const s = clack.spinner();
+  if (message) {
+    s.start(message);
+  }
+  return s;
 }
 
 // Question/prompt utilities

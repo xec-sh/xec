@@ -1,3 +1,5 @@
+/// <reference path="../xec-globals.d.ts" />
+
 /**
  * 🚀 Xec Release Command - Optimized with Native Parallel Execution
  * 
@@ -23,12 +25,11 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
 // Core dependencies - using xec module loader
-const clack = await globalThis.__xecImport('npm:@clack/prompts');
-const { $, withTempFile } = await globalThis.__xecImport('npm:@xec-sh/core');
-const chalk = (await globalThis.__xecImport('npm:chalk')).default;
+const clack = await use('npm:@clack/prompts');
+const chalk = (await use('npm:chalk')).default;
 
 // Dynamic imports with efficient loading
-const semver = await globalThis.__xecImport('npm:semver@7');
+const semver = await use('npm:semver@7');
 
 // Package configurations
 const PACKAGES = [
@@ -312,9 +313,9 @@ export function command(program: Command): void {
           `git branch --show-current`
         ]);
 
-        const currentBranch = branchResult.stdout.trim();
+        const currentBranch = branchResult?.stdout.trim();
 
-        if (gitStatus.stdout.trim() && !options.dryRun) {
+        if (gitStatus?.stdout.trim() && !options.dryRun) {
           s.stop('❌ Working directory not clean');
           const proceed = await promptWithCancel(() => clack.confirm({
             message: 'Working directory has uncommitted changes. Continue anyway?',
@@ -716,8 +717,8 @@ export function command(program: Command): void {
 
                 // Publish core first (dependency for others)
                 if (corePackages.length > 0) {
-                  s.start(`Publishing ${corePackages[0].name}...`);
-                  await $`yarn workspace ${corePackages[0].name} npm publish --access public`;
+                  s.start(`Publishing ${corePackages[0]?.name}...`);
+                  await $`yarn workspace ${corePackages[0]?.name} npm publish --access public`;
 
                   // Wait a bit for NPM to process the package
                   s.start('Waiting for NPM to process the package...');
@@ -727,17 +728,17 @@ export function command(program: Command): void {
                 // Publish others sequentially to avoid "Failed to save packument" error
                 for (let i = 0; i < otherPackages.length; i++) {
                   const pkg = otherPackages[i];
-                  s.start(`Publishing ${pkg.name}... (${i + 1}/${otherPackages.length})`);
+                  s.start(`Publishing ${pkg?.name}... (${i + 1}/${otherPackages.length})`);
 
                   try {
-                    await $`yarn workspace ${pkg.name} npm publish --access public`;
+                    await $`yarn workspace ${pkg?.name} npm publish --access public`;
 
                     // Wait between publishes to avoid NPM rate limiting
                     if (i < otherPackages.length - 1) {
                       await new Promise(resolve => setTimeout(resolve, 3000));
                     }
                   } catch (error) {
-                    throw new Error(`Failed to publish ${pkg.name}: ${error}`);
+                    throw new Error(`Failed to publish ${pkg?.name}: ${error}`);
                   }
                 }
 
@@ -811,13 +812,13 @@ export function command(program: Command): void {
             // Publish packages sequentially with delays
             for (let i = 0; i < jsrPackages.length; i++) {
               const pkg = jsrPackages[i];
-              s.start(`Publishing ${pkg.name} to JSR.io... (${i + 1}/${jsrPackages.length})`);
+              s.start(`Publishing ${pkg?.name} to JSR.io... (${i + 1}/${jsrPackages.length})`);
 
               try {
                 if (config.jsrToken) {
-                  await $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg.path)`deno publish --token $JSR_TOKEN`;
+                  await $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg?.path ?? '')`deno publish --token $JSR_TOKEN`;
                 } else {
-                  await $.cd(pkg.path)`deno publish`;
+                  await $.cd(pkg?.path ?? '')`deno publish`;
                 }
 
                 // Wait between publishes to avoid rate limiting
@@ -825,7 +826,7 @@ export function command(program: Command): void {
                   await new Promise(resolve => setTimeout(resolve, 3000));
                 }
               } catch (error) {
-                throw new Error(`Failed to publish ${pkg.name} to JSR.io: ${error}`);
+                throw new Error(`Failed to publish ${pkg?.name} to JSR.io: ${error}`);
               }
             }
 

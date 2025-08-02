@@ -21,10 +21,6 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
-    "./api": {
-      "types": "./dist/api/index.d.ts",
-      "import": "./dist/api/index.js"
-    },
     "./package.json": "./package.json"
   },
   "keywords": [

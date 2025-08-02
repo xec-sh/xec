@@ -5,9 +5,10 @@ import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
+import { BaseCommand, CommandOptions } from '../utils/command-base.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
 
-interface NewOptions {
+interface NewOptions extends CommandOptions {
   force?: boolean;
   minimal?: boolean;
   skipGit?: boolean;
@@ -1975,89 +1976,165 @@ See \`extension.yaml\` for configuration options.
   clack.log.info(`  ${chalk.gray('  - source:')} ${targetDir}`);
 }
 
-export default function (program: Command) {
-  program
-    .command('new [type] [name]')
-    .alias('n')
-    .description('Create a new Xec artifact (project, script, command, task, profile, or extension)')
-    .option('-d, --description <desc>', 'Description for the artifact')
-    .option('-f, --force', 'Overwrite existing files')
-    .option('-m, --minimal', 'Create minimal structure (projects only)')
-    .option('--skip-git', 'Skip git initialization (projects only)')
-    .option('--advanced', 'Use advanced template with more features')
-    .option('--js', 'Create JavaScript instead of TypeScript (scripts/commands only)')
-    .option('--from <template>', 'Create from a template or example')
-    .option('-p, --profile <name>', 'Apply profile after creation')
-    .option('-i, --interactive', 'Enable interactive mode (default for this command)')
-    .action(async (type?: string, name?: string, options?: NewOptions) => {
-      try {
-        // Set up cancel handlers for interactive mode
-        InteractiveHelpers.setupCancelHandlers();
-        
-        clack.intro(chalk.bold('🎨 Create new Xec artifact'));
-
-        // Determine artifact type
-        let artifactType: ArtifactType;
-        if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
-          artifactType = type as ArtifactType;
-        } else if (type && !name) {
-          // If only one argument provided and it's not a valid type, treat it as name for project
-          artifactType = 'project';
-          name = type;
-        } else {
-          artifactType = await getArtifactType();
+export class NewCommand extends BaseCommand {
+  constructor() {
+    super({
+      name: 'new',
+      description: 'Create a new Xec artifact (project, script, command, task, profile, or extension)',
+      arguments: '[type] [name]',
+      aliases: ['n'],
+      options: [
+        {
+          flags: '-d, --description <desc>',
+          description: 'Description for the artifact'
+        },
+        {
+          flags: '-f, --force',
+          description: 'Overwrite existing files'
+        },
+        {
+          flags: '-m, --minimal',
+          description: 'Create minimal structure (projects only)'
+        },
+        {
+          flags: '--skip-git',
+          description: 'Skip git initialization (projects only)'
+        },
+        {
+          flags: '--advanced',
+          description: 'Use advanced template with more features'
+        },
+        {
+          flags: '--js',
+          description: 'Create JavaScript instead of TypeScript (scripts/commands only)'
+        },
+        {
+          flags: '--from <template>',
+          description: 'Create from a template or example'
+        },
+        {
+          flags: '-p, --profile <name>',
+          description: 'Apply profile after creation'
+        },
+        {
+          flags: '-i, --interactive',
+          description: 'Enable interactive mode (default for this command)'
         }
-
-        // Get name if not provided
-        if (!name) {
-          const defaultName = artifactType === 'project' ? 'my-xec-project' : `my-${artifactType}`;
-          name = await clack.text({
-            message: `${artifactType.charAt(0).toUpperCase() + artifactType.slice(1)} name:`,
-            defaultValue: defaultName,
-            validate: (value) => validateName(value, artifactType)
-          }) as string;
-
-          if (InteractiveHelpers.isCancelled(name)) {
-            throw new Error('cancelled');
-          }
-        } else {
-          // Validate provided name
-          const error = validateName(name, artifactType);
-          if (error) {
-            clack.log.error(error);
-            process.exit(1);
-          }
+      ],
+      examples: [
+        {
+          command: 'xec new',
+          description: 'Interactive mode to create any artifact'
+        },
+        {
+          command: 'xec new project my-app',
+          description: 'Create a new Xec project'
+        },
+        {
+          command: 'xec new script deploy',
+          description: 'Create a new script'
+        },
+        {
+          command: 'xec new command mycmd --advanced',
+          description: 'Create an advanced command'
+        },
+        {
+          command: 'xec new task build --description "Build the application"',
+          description: 'Create a new task with description'
         }
-
-        // Create the artifact
-        switch (artifactType) {
-          case 'project':
-            await createProject(name, options || {});
-            break;
-          case 'script':
-            await createScript(name, options || {});
-            break;
-          case 'command':
-            await createCommand(name, options || {});
-            break;
-          case 'task':
-            await createTask(name, options || {});
-            break;
-          case 'profile':
-            await createProfile(name, options || {});
-            break;
-          case 'extension':
-            await createExtension(name, options || {});
-            break;
-        }
-
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('cancelled')) {
-          // User cancelled, exit gracefully
-          process.exit(0);
-        }
-        clack.log.error(error instanceof Error ? error.message : 'Creation failed');
-        process.exit(1);
-      }
+      ]
     });
+  }
+
+  public async execute(args: any[]): Promise<void> {
+    const [type, name] = args.slice(0, -1);
+    const options = args[args.length - 1] as NewOptions;
+
+    try {
+      // Set up cancel handlers for interactive mode
+      InteractiveHelpers.setupCancelHandlers();
+      
+      clack.intro(chalk.bold('🎨 Create new Xec artifact'));
+
+      // Determine artifact type
+      let artifactType: ArtifactType;
+      if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
+        artifactType = type as ArtifactType;
+      } else if (type && !name) {
+        // If only one argument provided and it's not a valid type, treat it as name for project
+        artifactType = 'project';
+        // @ts-ignore - reassigning parameter
+        args[1] = type;
+      } else {
+        artifactType = await getArtifactType();
+      }
+
+      // Get name if not provided
+      let artifactName = name || args[1];
+      if (!artifactName) {
+        const defaultName = artifactType === 'project' ? 'my-xec-project' : `my-${artifactType}`;
+        artifactName = await clack.text({
+          message: `${artifactType.charAt(0).toUpperCase() + artifactType.slice(1)} name:`,
+          defaultValue: defaultName,
+          validate: (value) => validateName(value, artifactType)
+        }) as string;
+
+        if (InteractiveHelpers.isCancelled(artifactName)) {
+          throw new Error('cancelled');
+        }
+      } else {
+        // Validate provided name
+        const error = validateName(artifactName, artifactType);
+        if (error) {
+          clack.log.error(error);
+          throw new Error(error);
+        }
+      }
+
+      // Create the artifact
+      switch (artifactType) {
+        case 'project':
+          await createProject(artifactName, options || {});
+          break;
+        case 'script':
+          await createScript(artifactName, options || {});
+          break;
+        case 'command':
+          await createCommand(artifactName, options || {});
+          break;
+        case 'task':
+          await createTask(artifactName, options || {});
+          break;
+        case 'profile':
+          await createProfile(artifactName, options || {});
+          break;
+        case 'extension':
+          await createExtension(artifactName, options || {});
+          break;
+      }
+
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        // User cancelled, exit gracefully
+        return;
+      }
+      clack.log.error(error instanceof Error ? error.message : 'Creation failed');
+      throw error;
+    }
+  }
+}
+
+// Export for backward compatibility
+export async function createArtifact(type?: string, name?: string, options?: NewOptions): Promise<void> {
+  const command = new NewCommand();
+  const args = [];
+  if (type) args.push(type);
+  if (name) args.push(name);
+  args.push(options || {});
+  return command['execute'](args);
+}
+
+export default function command(program: Command): void {
+  const cmd = new NewCommand();
+  program.addCommand(cmd.create());
 }

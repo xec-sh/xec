@@ -13,16 +13,16 @@ import { select, confirm } from '@clack/prompts';
 
 import { formatBytes } from '../utils/formatters.js';
 import { TaskManager } from '../config/task-manager.js';
+import { getModuleLoader } from '../utils/module-loader.js';
 import { TargetResolver } from '../config/target-resolver.js';
-import { getModuleLoader } from '../utils/unified-module-loader.js';
 import { getDynamicCommandLoader } from '../utils/dynamic-commands.js';
+import { BaseCommand, CommandOptions } from '../utils/command-base.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
 import { VariableInterpolator } from '../config/variable-interpolator.js';
 
-interface InspectOptions {
+interface InspectOptions extends CommandOptions {
   filter?: string;
   format?: 'table' | 'json' | 'yaml' | 'tree';
-  verbose?: boolean;
   resolve?: boolean;
   validate?: boolean;
   explain?: boolean;
@@ -39,20 +39,72 @@ interface InspectionResult {
   metadata?: Record<string, any>;
 }
 
-const inspectCommand = new Command()
-  .name('inspect')
-  .description('Inspect and analyze xec project configuration, tasks, and resources')
-  .argument('[type]', 'Type to inspect (all, tasks, targets, vars, scripts, commands, config, system, cache)')
-  .argument('[name]', 'Specific item name to inspect')
-  .option('-f, --filter <pattern>', 'Filter results by pattern')
-  .option('--format <format>', 'Output format (table, json, yaml, tree)', 'table')
-  .option('-v, --verbose', 'Show detailed information')
-  .option('-r, --resolve', 'Resolve and show interpolated values')
-  .option('--validate', 'Validate configuration and connectivity')
-  .option('-e, --explain', 'Show execution plan and details')
-  .option('-p, --profile <name>', 'Use specific profile')
-  .option('-i, --interactive', 'Interactive browse mode')
-  .action(async (type?: string, name?: string, options?: InspectOptions) => {
+export class InspectCommand extends BaseCommand {
+  constructor() {
+    super({
+      name: 'inspect',
+      description: 'Inspect and analyze xec project configuration, tasks, and resources',
+      arguments: '[type] [name]',
+      options: [
+        {
+          flags: '-f, --filter <pattern>',
+          description: 'Filter results by pattern'
+        },
+        {
+          flags: '--format <format>',
+          description: 'Output format (table, json, yaml, tree)',
+          defaultValue: 'table'
+        },
+        {
+          flags: '-r, --resolve',
+          description: 'Resolve and show interpolated values'
+        },
+        {
+          flags: '--validate',
+          description: 'Validate configuration and connectivity'
+        },
+        {
+          flags: '-e, --explain',
+          description: 'Show execution plan and details'
+        },
+        {
+          flags: '-p, --profile <name>',
+          description: 'Use specific profile'
+        },
+        {
+          flags: '-i, --interactive',
+          description: 'Interactive browse mode'
+        }
+      ],
+      examples: [
+        {
+          command: 'xec inspect',
+          description: 'Interactive mode to browse all resources'
+        },
+        {
+          command: 'xec inspect tasks',
+          description: 'List all available tasks'
+        },
+        {
+          command: 'xec inspect targets',
+          description: 'List all configured targets'
+        },
+        {
+          command: 'xec inspect system',
+          description: 'Display system information'
+        },
+        {
+          command: 'xec inspect tasks deploy --explain',
+          description: 'Show execution plan for deploy task'
+        }
+      ]
+    });
+  }
+
+  public async execute(args: any[]): Promise<void> {
+    const [type, name] = args.slice(0, -1);
+    const options = args[args.length - 1] as InspectOptions;
+
     try {
       const inspector = new ProjectInspector(options);
       await inspector.initialize();
@@ -67,9 +119,10 @@ const inspectCommand = new Command()
       if (options?.verbose) {
         console.error(chalk.gray(error.stack));
       }
-      process.exit(1);
+      throw error;
     }
-  });
+  }
+}
 
 class ProjectInspector {
   private configManager!: ConfigurationManager;
@@ -1634,6 +1687,19 @@ class ProjectInspector {
   }
 }
 
-export default function command(program: Command) {
-  program.addCommand(inspectCommand);
+// Export for backward compatibility
+export function inspectProject(type?: string, name?: string, options?: InspectOptions) {
+  const inspector = new ProjectInspector(options);
+  return inspector.initialize().then(() => {
+    if (options?.interactive || (!type && !name)) {
+      return inspector.runInteractive();
+    } else {
+      return inspector.inspect(type as InspectType, name);
+    }
+  });
+}
+
+export default function command(program: Command): void {
+  const cmd = new InspectCommand();
+  program.addCommand(cmd.create());
 }

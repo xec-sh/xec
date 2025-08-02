@@ -11,6 +11,7 @@ import { EventEmitter } from 'events';
 
 import { TargetResolver } from './target-resolver.js';
 import { VariableInterpolator } from './variable-interpolator.js';
+import { getUnifiedScriptLoader } from '../utils/script-loader.js';
 
 import type {
   TaskStep,
@@ -25,16 +26,16 @@ import type {
 export interface TaskExecutorOptions {
   /** Variable interpolator instance */
   interpolator: VariableInterpolator;
-  
+
   /** Target resolver instance */
   targetResolver: TargetResolver;
-  
+
   /** Global timeout for tasks (ms) */
   defaultTimeout?: number;
-  
+
   /** Enable debug output */
   debug?: boolean;
-  
+
   /** Dry run mode - don't execute commands */
   dryRun?: boolean;
 }
@@ -42,22 +43,22 @@ export interface TaskExecutorOptions {
 export interface TaskExecutionOptions {
   /** Parameters passed to the task */
   params?: Record<string, any>;
-  
+
   /** Variables for interpolation */
   vars?: Record<string, any>;
-  
+
   /** Override target */
   target?: string;
-  
+
   /** Additional environment variables */
   env?: Record<string, string>;
-  
+
   /** Working directory */
   cwd?: string;
-  
+
   /** Timeout override */
   timeout?: number;
-  
+
   /** Suppress output */
   quiet?: boolean;
 }
@@ -107,23 +108,23 @@ export class TaskExecutor extends EventEmitter {
         // Pipeline execution
         const stepResults = await this.executePipeline(task, context, options);
         result.steps = stepResults;
-        
+
         // Pipeline is successful if:
         // 1. It completed all steps (no early exit due to failFast)
         // 2. Failed steps only had 'continue' or 'ignore' handlers
         const hasUnhandledFailure = stepResults.some(step => {
           if (step.success) return false;
-          
+
           const taskStep = task.steps?.find(s => s.name === step.name);
           const handler = taskStep?.onFailure;
-          
+
           // No handler or handler that doesn't allow continuation = unhandled failure
           return !handler || (handler !== 'continue' && handler !== 'ignore');
         });
-        
+
         // Check if pipeline was aborted (fewer results than steps means early exit)
         const wasAborted = stepResults.length < task.steps.length;
-        
+
         result.success = !wasAborted && !hasUnhandledFailure;
       } else if (task.script) {
         // Script execution
@@ -134,19 +135,19 @@ export class TaskExecutor extends EventEmitter {
 
       result.duration = Date.now() - startTime;
       this.emit('task:complete', { task: taskName, result });
-      
+
       return result;
     } catch (error) {
       result.duration = Date.now() - startTime;
       result.error = error as Error;
-      
+
       this.emit('task:error', { task: taskName, error, result });
-      
+
       // Handle task-level error handlers
       if (task.onError) {
         await this.handleTaskError(task.onError, error as Error, context);
       }
-      
+
       return result;
     }
   }
@@ -161,7 +162,7 @@ export class TaskExecutor extends EventEmitter {
   ): Promise<ExecutionResult> {
     // Interpolate command
     const command = this.options.interpolator.interpolate(task.command!, context);
-    
+
     if (this.options.dryRun) {
       console.log(`[DRY RUN] Would execute: ${command}`);
       return { stdout: '', stderr: '', exitCode: 0, ok: true } as ExecutionResult;
@@ -183,7 +184,7 @@ export class TaskExecutor extends EventEmitter {
 
     // Execute command
     const result = await engine.raw`${command}`.env(cmdOptions.env || {}).cwd(cmdOptions.cwd || process.cwd()).timeout(cmdOptions.timeout || 60000).nothrow();
-    
+
     if (!options.quiet) {
       if (result.stdout) console.log(result.stdout);
       if (result.stderr) console.error(result.stderr);
@@ -206,7 +207,7 @@ export class TaskExecutor extends EventEmitter {
   ): Promise<StepResult[]> {
     const steps = task.steps!;
     const results: StepResult[] = [];
-    
+
     // Determine execution mode
     const parallel = task.parallel || false;
     const maxConcurrent = task.maxConcurrent || steps.length;
@@ -249,7 +250,7 @@ export class TaskExecutor extends EventEmitter {
       if (!stepResult.success && !step.alwaysRun) {
         // Check if step has onFailure handler that allows continuation
         const shouldContinue = step.onFailure === 'continue' || step.onFailure === 'ignore';
-        
+
         if (failFast && !shouldContinue) {
           break;
         }
@@ -278,14 +279,14 @@ export class TaskExecutor extends EventEmitter {
       while (queue.length > 0 && executing.size < maxConcurrent) {
         const step = queue.shift()!;
         const promise = this.executeStep(step, context, options);
-        
+
         executing.add(promise);
-        
+
         // Handle completion
         promise.then(result => {
           results.push(result);
           executing.delete(promise);
-          
+
           // Check for fail-fast
           if (!result.success && failFast) {
             queue.length = 0; // Clear queue
@@ -377,7 +378,7 @@ export class TaskExecutor extends EventEmitter {
           return retryResult;
         }
       }
-      
+
       // Step failed and was not handled
       result.success = false;
 
@@ -394,7 +395,7 @@ export class TaskExecutor extends EventEmitter {
     options: TaskExecutionOptions
   ): Promise<ExecutionResult> {
     const command = this.options.interpolator.interpolate(step.command!, context);
-    
+
     if (this.options.dryRun) {
       console.log(`[DRY RUN] Step: ${step.name || 'unnamed'} - Would execute: ${command}`);
       return { stdout: '', stderr: '', exitCode: 0, ok: true } as ExecutionResult;
@@ -404,11 +405,11 @@ export class TaskExecutor extends EventEmitter {
     if (step.targets && step.targets.length > 0) {
       // Execute on multiple targets
       const results = await Promise.all(
-        step.targets.map(targetRef => 
+        step.targets.map(targetRef =>
           this.executeOnTarget(command, targetRef, context, options)
         )
       );
-      
+
       // Combine outputs
       return {
         stdout: results.map(r => r.stdout).join('\n'),
@@ -452,16 +453,49 @@ export class TaskExecutor extends EventEmitter {
     context: VariableContext,
     options: TaskExecutionOptions
   ): Promise<ExecutionResult> {
-    // Simplified script execution
-    // Full script execution with proper context will be implemented later
     const scriptPath = this.options.interpolator.interpolate(step.script!, context);
-    const command = `node ${scriptPath}`;
-    
-    return this.executeStepCommand(
-      { ...step, command },
-      context,
-      options
-    );
+
+    // Check if script file exists
+    try {
+      await fs.access(scriptPath);
+    } catch (error) {
+      throw new Error(`Script file not found: ${scriptPath}`);
+    }
+
+    // Resolve target for script execution
+    const targetRef = step.target || options.target;
+    const target = targetRef ? await this.resolveTarget(targetRef, context) : null;
+    const targetEngine = target ? await this.createTargetEngine(target) : null;
+
+    // Use ScriptLoader for proper module resolution
+    const scriptLoader = getUnifiedScriptLoader({
+      verbose: this.options.debug,
+      quiet: options.quiet,
+    });
+
+    const result = await scriptLoader.executeScript(scriptPath, {
+      target: target || undefined,
+      targetEngine: targetEngine || undefined,
+      context: {
+        args: [],
+        argv: [process.argv[0] || 'node', scriptPath],
+        __filename: scriptPath,
+        __dirname: require('path').dirname(scriptPath),
+      },
+      quiet: options.quiet,
+    });
+
+    if (!result.success) {
+      const errorMessage = result.error?.message || 'Script execution failed';
+      throw new Error(errorMessage);
+    }
+
+    return {
+      stdout: result.output || '',
+      stderr: '',
+      exitCode: 0,
+      ok: true,
+    } as ExecutionResult;
   }
 
   /**
@@ -472,23 +506,49 @@ export class TaskExecutor extends EventEmitter {
     context: VariableContext,
     options: TaskExecutionOptions
   ): Promise<ExecutionResult> {
-    // Simplified script execution for tasks
     const scriptPath = this.options.interpolator.interpolate(task.script!, context);
-    
+
     // Check if script file exists
     try {
       await fs.access(scriptPath);
     } catch (error) {
       throw new Error(`Script file not found: ${scriptPath}`);
     }
-    
-    const command = `node ${scriptPath}`;
-    
-    return await this.executeCommand(
-      { ...task, command, script: undefined },
-      context,
-      options
-    );
+
+    // Resolve target for script execution
+    const targetRef = options.target || task.target;
+    const target = targetRef ? await this.resolveTarget(targetRef, context) : null;
+    const targetEngine = target ? await this.createTargetEngine(target) : null;
+
+    // Use ScriptLoader for proper module resolution and CDN loading
+    const scriptLoader = getUnifiedScriptLoader({
+      verbose: this.options.debug,
+      quiet: options.quiet,
+    });
+
+    const result = await scriptLoader.executeScript(scriptPath, {
+      target: target || undefined,
+      targetEngine: targetEngine || undefined,
+      context: {
+        args: [],
+        argv: [process.argv[0] || 'node', scriptPath],
+        __filename: scriptPath,
+        __dirname: require('path').dirname(scriptPath),
+      },
+      quiet: options.quiet,
+    });
+
+    if (!result.success) {
+      const errorMessage = result.error?.message || 'Script execution failed';
+      throw new Error(errorMessage);
+    }
+
+    return {
+      stdout: result.output || '',
+      stderr: '',
+      exitCode: 0,
+      ok: true,
+    } as ExecutionResult;
   }
 
   /**
@@ -524,9 +584,9 @@ export class TaskExecutor extends EventEmitter {
 
       for (let i = 0; i < retries; i++) {
         this.emit('step:retry', { step, attempt: i + 1, maxAttempts: retries });
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
-        
+
         try {
           const result = await this.executeStepCommand(step, context, options);
           if (result.ok) {
@@ -605,15 +665,15 @@ export class TaskExecutor extends EventEmitter {
             passphrase: config.passphrase,
             ...config
           });
-          
+
           // Apply environment variables from config
           if (config.env && Object.keys(config.env).length > 0) {
             return sshEngine.env(config.env);
           }
-          
+
           return sshEngine;
         }
-        
+
       case 'docker':
         {
           const dockerOptions: any = {
@@ -632,15 +692,15 @@ export class TaskExecutor extends EventEmitter {
           });
 
           const dockerEngine = $.docker(dockerOptions);
-          
+
           // Apply environment variables from config
           if (config.env && Object.keys(config.env).length > 0) {
             return (dockerEngine as any).env(config.env);
           }
-          
+
           return dockerEngine;
         }
-        
+
       case 'k8s':
         {
           const k8sOptions: any = {
@@ -661,7 +721,7 @@ export class TaskExecutor extends EventEmitter {
 
           return $.k8s(k8sOptions);
         }
-        
+
       case 'local':
       default:
         return $.local();
