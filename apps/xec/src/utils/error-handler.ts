@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import * as yaml from 'js-yaml';
 import * as clack from '@clack/prompts';
 import { enhanceError, type ErrorContext, type EnhancedExecutionError } from '@xec-sh/core';
 
@@ -103,7 +104,6 @@ export function handleError(error: any, options: CommandOptions): void {
   if (options.output === 'json') {
     console.error(JSON.stringify(formatEnhancedErrorAsJSON(enhancedError), null, 2));
   } else if (options.output === 'yaml') {
-    const yaml = require('js-yaml');
     console.error(yaml.dump(formatEnhancedErrorAsJSON(enhancedError)));
   } else {
     displayEnhancedError(enhancedError, options);

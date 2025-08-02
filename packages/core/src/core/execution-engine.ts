@@ -15,6 +15,36 @@ import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
+
+// Global handler for unhandled promise rejections from xec promises
+// This prevents Node.js from logging unhandled rejection warnings for xec promises
+// that will be handled later when awaited or chained
+let unhandledRejectionHandler: ((reason: any, promise: Promise<any>) => void) | null = null;
+
+function setupUnhandledRejectionHandler() {
+  if (unhandledRejectionHandler) return; // Already set up
+
+  unhandledRejectionHandler = (reason: any, promise: Promise<any>) => {
+    // Check if this is an xec promise by looking for xec-specific error types or properties
+    const isXecPromise = (promise as any).__isXecPromise ||
+      (reason && reason.code === 'COMMAND_FAILED') ||
+      (reason && reason.constructor && reason.constructor.name === 'CommandError');
+
+    if (isXecPromise) {
+      // Suppress the unhandled rejection warning for xec promises
+      // They will be handled when awaited or chained
+      return;
+    }
+
+    // For non-xec promises, log the unhandled rejection as usual
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  };
+
+  process.on('unhandledRejection', unhandledRejectionHandler);
+}
+
+// Set up the handler when this module is loaded
+setupUnhandledRejectionHandler();
 import { DockerContext, DockerContainerConfig } from '../utils/docker-api.js';
 import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
 import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
@@ -591,6 +621,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
     const promise = executeCommand() as ProcessPromise;
 
+    // Mark this promise as an xec promise to handle unhandled rejections
+    (promise as any).__isXecPromise = true;
+
     // Track active process
     this._activeProcesses.add(promise);
     promise.finally(() => {
@@ -717,20 +750,16 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       return promise;
     };
 
-    // Add zx-compatible methods
-    promise.text = async (): Promise<string> => {
-      const result = await promise;
-      return result.stdout.trim();
-    };
+    // Return a new promise that properly handles the chain
+    promise.text = (): Promise<string> => promise.then(result => result.stdout.trim());
 
-    promise.json = async <T = any>(): Promise<T> => {
-      const text = await promise.text();
+    promise.json = <T = any>(): Promise<T> => promise.text().then(text => {
       try {
         return JSON.parse(text);
       } catch (error) {
         throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`);
       }
-    };
+    });
 
     promise.lines = async (): Promise<string[]> => {
       const result = await promise;
@@ -881,6 +910,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
     const promise = executeCommand() as ProcessPromise;
 
+    // Mark this promise as an xec promise to handle unhandled rejections
+    (promise as any).__isXecPromise = true;
+
     // Track active process
     this._activeProcesses.add(promise);
     promise.finally(() => {
@@ -1010,20 +1042,16 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       return this.createProcessPromise(currentCommand);
     };
 
-    // Add zx-compatible methods
-    promise.text = async (): Promise<string> => {
-      const result = await promise;
-      return result.stdout.trim();
-    };
+    // Return a new promise that properly handles the chain
+    promise.text = (): Promise<string> => promise.then(result => result.stdout.trim());
 
-    promise.json = async <T = any>(): Promise<T> => {
-      const text = await promise.text();
+    promise.json = <T = any>(): Promise<T> => promise.text().then(text => {
       try {
         return JSON.parse(text);
       } catch (error) {
         throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`);
       }
-    };
+    });
 
     promise.lines = async (): Promise<string[]> => {
       const result = await promise;

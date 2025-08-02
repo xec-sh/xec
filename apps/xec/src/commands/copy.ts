@@ -31,6 +31,7 @@ export class CopyCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'copy',
+      aliases: ['cp'],
       description: 'Copy files between targets',
       arguments: '<source> <destination>',
       options: [
@@ -112,7 +113,7 @@ export class CopyCommand extends ConfigAwareCommand {
     if (options.interactive) {
       const interactiveResult = await this.runInteractiveMode(options);
       if (!interactiveResult) return;
-      
+
       sourceSpec = interactiveResult.sourceSpec;
       destinationSpec = interactiveResult.destinationSpec;
       Object.assign(options, interactiveResult.options);
@@ -830,10 +831,10 @@ export class CopyCommand extends ConfigAwareCommand {
       }
 
       // Build source and destination specs
-      const sourceSpec = sourceTarget.type === 'local' 
-        ? sourcePath 
+      const sourceSpec = sourceTarget.type === 'local'
+        ? sourcePath
         : `${sourceTarget.id}:${sourcePath}`;
-      
+
       const destinationSpec = destTarget.type === 'local'
         ? destPath
         : `${destTarget.id}:${destPath}`;

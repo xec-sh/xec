@@ -98,14 +98,6 @@ export class ScriptLoader {
         throw new Error(`Script file not found: ${scriptPath}`);
       }
 
-      // Display runtime info
-      if (!this.options.quiet && !options.quiet) {
-        clack.log.info(`Running script: ${chalk.cyan(scriptPath)}`);
-        if (scriptPath.endsWith('.ts') || scriptPath.endsWith('.tsx')) {
-          clack.log.info(chalk.dim('TypeScript support: ') + chalk.green('✓'));
-        }
-      }
-
       // Handle watch mode
       if (options.watch) {
         return await this.executeWithWatch(absolutePath, options);

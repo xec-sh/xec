@@ -1,25 +1,5 @@
 /// <reference path="../xec-globals.d.ts" />
 
-/**
- * 🚀 Xec Release Command - Optimized with Native Parallel Execution
- * 
- * Demonstrates advanced Xec features with maximum performance:
- * - Native $.parallel.all() for fail-fast operations
- * - Native $.parallel.settled() for resilient batch operations
- * - Progress tracking with onProgress callbacks
- * - Efficient error handling with nothrow()
- * - Optimal concurrency limits for different operations
- * - Smart rollback with parallel cleanup
- * 
- * Performance improvements:
- * - Git operations run in parallel where safe
- * - Package builds use optimal concurrency
- * - NPM/JSR publishing respects rate limits
- * - File operations batched for speed
- * 
- * This command will be available as: xec release [version]
- */
-
 import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';

@@ -34,6 +34,7 @@ export class ForwardCommand extends ConfigAwareCommand {
   constructor() {
     super({
       name: 'forward',
+      aliases: ['fwd'],
       description: 'Forward ports from remote systems',
       arguments: '<target> <port-mapping>',
       options: [
@@ -109,7 +110,7 @@ export class ForwardCommand extends ConfigAwareCommand {
     if (options.interactive) {
       const interactiveResult = await this.runInteractiveMode(options);
       if (!interactiveResult) return;
-      
+
       targetSpec = interactiveResult.targetSpec;
       portSpec = interactiveResult.portSpec;
       Object.assign(options, interactiveResult.options);
@@ -120,7 +121,7 @@ export class ForwardCommand extends ConfigAwareCommand {
       if (!options.quiet && !options.background && process.stdin.isTTY) {
         const interactiveResult = await this.runInteractiveMode(options);
         if (!interactiveResult) return;
-        
+
         targetSpec = interactiveResult.targetSpec;
         portSpec = interactiveResult.portSpec;
         Object.assign(options, interactiveResult.options);

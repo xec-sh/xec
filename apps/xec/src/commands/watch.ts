@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import * as fs from 'fs';
 import chalk from 'chalk';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
@@ -548,7 +549,7 @@ export class WatchCommand extends ConfigAwareCommand {
             args: [],
             argv: [process.argv[0] || 'node', options.script],
             __filename: options.script,
-            __dirname: require('path').dirname(options.script),
+            __dirname: path.dirname(options.script),
           },
           quiet: options.quiet,
         });
@@ -756,7 +757,6 @@ export class WatchCommand extends ConfigAwareCommand {
                 return 'Script path cannot be empty';
               }
               // Check if file exists
-              const fs = require('fs');
               if (!fs.existsSync(value.trim())) {
                 return 'Script file not found';
               }

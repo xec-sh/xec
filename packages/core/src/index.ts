@@ -213,6 +213,16 @@ function registerCleanupHandlers(): void {
 
     // Handle unhandled promise rejections
     process.on('unhandledRejection', async (reason, promise) => {
+      // Check if this is an xec promise that will be handled later
+      const isXecPromise = (promise as any).__isXecPromise || 
+                          (reason && (reason as any).code === 'COMMAND_FAILED') ||
+                          (reason && (reason as any).constructor && (reason as any).constructor.name === 'CommandError');
+      
+      if (isXecPromise) {
+        // Suppress the warning for xec promises - they will be handled when awaited
+        return;
+      }
+      
       console.error('Unhandled Rejection at:', promise, 'reason:', reason);
       try {
         await cleanupEngine();

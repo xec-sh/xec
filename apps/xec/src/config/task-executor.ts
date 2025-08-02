@@ -1,10 +1,6 @@
-/**
- * Task executor for Xec configuration v2.0
- * Executes tasks with support for parallel execution, error handling, and pipelines
- */
-
 import type { ExecutionResult } from '@xec-sh/core';
 
+import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 import { EventEmitter } from 'events';
@@ -480,7 +476,7 @@ export class TaskExecutor extends EventEmitter {
         args: [],
         argv: [process.argv[0] || 'node', scriptPath],
         __filename: scriptPath,
-        __dirname: require('path').dirname(scriptPath),
+        __dirname: path.dirname(scriptPath),
       },
       quiet: options.quiet,
     });
@@ -533,7 +529,7 @@ export class TaskExecutor extends EventEmitter {
         args: [],
         argv: [process.argv[0] || 'node', scriptPath],
         __filename: scriptPath,
-        __dirname: require('path').dirname(scriptPath),
+        __dirname: path.dirname(scriptPath),
       },
       quiet: options.quiet,
     });
