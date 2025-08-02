@@ -22,17 +22,13 @@ import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// Core dependencies - minimal imports
-const clack = await import('@clack/prompts');
-const { $, withTempFile } = await import('@xec-sh/core');
-const chalk = (await import('chalk')).default;
+// Core dependencies - using xec module loader
+const clack = await globalThis.__xecImport('npm:@clack/prompts');
+const { $, withTempFile } = await globalThis.__xecImport('npm:@xec-sh/core');
+const chalk = (await globalThis.__xecImport('npm:chalk')).default;
 
 // Dynamic imports with efficient loading
-const semver = await import('semver').catch(() => import('npm:semver@7'));
-if (!semver) {
-  console.error('Failed to load semver. Install with: npm install semver');
-  process.exit(1);
-}
+const semver = await globalThis.__xecImport('npm:semver@7');
 
 // Package configurations
 const PACKAGES = [

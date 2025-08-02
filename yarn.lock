@@ -6642,6 +6642,7 @@ __metadata:
     "@types/ssh2": "npm:^1.15.5"
     "@types/which": "npm:^3.0.4"
     "@xec-sh/core": "workspace:*"
+    "@xec-sh/test-utils": "workspace:*"
     chalk: "npm:^5.4.1"
     chokidar: "npm:^4.0.3"
     commander: "npm:^14.0.0"
@@ -6657,11 +6658,13 @@ __metadata:
     handlebars: "npm:^4.7.8"
     jest: "npm:^30.0.4"
     js-yaml: "npm:^4.1.0"
+    minimatch: "npm:^10.0.3"
     minimist: "npm:^1.2.8"
     node-fetch: "npm:^3.3.2"
     ps-list: "npm:^8.1.1"
     source-map-support: "npm:^0.5.21"
     table: "npm:^6.9.0"
+    tempy: "npm:^3.1.0"
     ts-jest: "npm:^29.4.0"
     ts-loader: "npm:^9.5.2"
     ts-node: "npm:^10.9.2"
@@ -12497,6 +12500,13 @@ __metadata:
   version: 2.0.1
   resolution: "is-stream@npm:2.0.1"
   checksum: 10c0/7c284241313fc6efc329b8d7f08e16c0efeb6baab1b4cd0ba579eb78e5af1aa5da11e68559896a2067cd6c526bd29241dda4eb1225e627d5aa1a89a76d4635a5
+  languageName: node
+  linkType: hard
+
+"is-stream@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "is-stream@npm:3.0.0"
+  checksum: 10c0/eb2f7127af02ee9aa2a0237b730e47ac2de0d4e76a4a905a50a11557f2339df5765eaea4ceb8029f1efa978586abe776908720bfcb1900c20c6ec5145f6f29d8
   languageName: node
   linkType: hard
 
@@ -19292,6 +19302,25 @@ __metadata:
   languageName: node
   linkType: hard
 
+"temp-dir@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "temp-dir@npm:3.0.0"
+  checksum: 10c0/a86978a400984cd5f315b77ebf3fe53bb58c61f192278cafcb1f3fb32d584a21dc8e08b93171d7874b7cc972234d3455c467306cc1bfc4524b622e5ad3bfd671
+  languageName: node
+  linkType: hard
+
+"tempy@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "tempy@npm:3.1.0"
+  dependencies:
+    is-stream: "npm:^3.0.0"
+    temp-dir: "npm:^3.0.0"
+    type-fest: "npm:^2.12.2"
+    unique-string: "npm:^3.0.0"
+  checksum: 10c0/b88e70baa8d935ba8f0e0372b59ad1a961121f098da5fb4a6e05bec98ec32a49026b553532fb75c1c102ec782fd4c6a6bde0d46cbe87013fa324451ce476fb76
+  languageName: node
+  linkType: hard
+
 "term-size@npm:^2.1.0":
   version: 2.2.1
   resolution: "term-size@npm:2.2.1"
@@ -19710,7 +19739,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"type-fest@npm:^2.13.0, type-fest@npm:^2.5.0":
+"type-fest@npm:^2.12.2, type-fest@npm:^2.13.0, type-fest@npm:^2.5.0":
   version: 2.19.0
   resolution: "type-fest@npm:2.19.0"
   checksum: 10c0/a5a7ecf2e654251613218c215c7493574594951c08e52ab9881c9df6a6da0aeca7528c213c622bc374b4e0cb5c443aa3ab758da4e3c959783ce884c3194e12cb

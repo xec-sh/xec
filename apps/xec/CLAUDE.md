@@ -68,8 +68,8 @@ export default {
 - **env** - Environment variable management
 - **exec** - Execute commands directly
 - **init** - Initialize new projects
+- **inspect** - Inspect and analyze project configuration, tasks, and resources
 - **k8s** - Kubernetes pod operations
-- **list** - List available resources
 - **ssh** - SSH connections and tunnels
 - **watch** - Watch files for changes
 

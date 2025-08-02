@@ -347,25 +347,26 @@ describe('time utils', () => {
     }, 10000);
     
     it('should apply timeout to each attempt', async () => {
+      // Mock a function that never resolves
       const fn = jest.fn().mockImplementation(() => 
-        new Promise(resolve => setTimeout(() => resolve('success'), 2000))
+        new Promise(() => {}) // Never resolves
       );
-      
-      const promise = retryWithBackoff(fn, {
-        maxRetries: 1,
-        timeout: '1s',
-        initialDelay: '100ms'
-      });
       
       // Use real timers for this test
       jest.useRealTimers();
       
+      const promise = retryWithBackoff(fn, {
+        maxRetries: 1,
+        timeout: '10ms',  // Very short timeout
+        initialDelay: '5ms'  // Very short delay
+      });
+      
       await expect(promise).rejects.toThrow('Operation timed out');
-      expect(fn).toHaveBeenCalledTimes(2);
+      expect(fn).toHaveBeenCalledTimes(2); // Initial attempt + 1 retry
       
       // Restore fake timers
       jest.useFakeTimers();
-    }, 20000); // Increased timeout to 20 seconds
+    }, 1000); // 1 second should be plenty
     
     it('should use default options', async () => {
       const fn = jest.fn()

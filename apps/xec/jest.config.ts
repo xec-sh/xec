@@ -7,12 +7,24 @@ const tsConfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.test.json
 export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
+  testEnvironmentOptions: {
+    env: {
+      NODE_ENV: 'test'
+    }
+  },
   verbose: true,
   clearMocks: true,
+  forceExit: true,
+  maxWorkers: 1, // Run tests sequentially to avoid interference
   collectCoverage: false, // Disable for now due to import.meta issues
   coverageDirectory: 'coverage',
   moduleFileExtensions: ['ts', 'js', 'json', 'mjs'],
-  testMatch: ['<rootDir>/test/**/*.test.ts', '<rootDir>/test/**/*.spec.ts'],
+  testMatch: [
+    '<rootDir>/test/**/*.test.ts',
+    '<rootDir>/test/**/*.spec.ts',
+    '<rootDir>/src/**/__tests__/**/*.test.ts',
+    '<rootDir>/src/**/__tests__/**/*.spec.ts'
+  ],
   extensionsToTreatAsEsm: ['.ts'],
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', {

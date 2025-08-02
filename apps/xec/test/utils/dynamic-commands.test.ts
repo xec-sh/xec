@@ -6,6 +6,12 @@ import { it, jest, expect, describe, afterAll, beforeAll, beforeEach } from '@je
 
 import { loadDynamicCommands, DynamicCommandLoader, getDynamicCommandLoader } from '../../src/utils/dynamic-commands.js';
 
+// Mock @xec-sh/core to avoid import errors
+jest.mock('@xec-sh/core', () => ({
+  $: jest.fn(),
+  unifiedConfig: {}
+}));
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -16,10 +22,27 @@ describe('DynamicCommandLoader', () => {
   beforeAll(() => {
     // Set up test environment
     delete process.env['XEC_DEBUG']; // Disable debug output for cleaner tests
+    
+    // Mock the global module context to avoid import errors
+    (globalThis as any).__xecModuleContext = {
+      import: jest.fn().mockImplementation((module: string) => {
+        if (module === 'chalk') {
+          return Promise.resolve({ default: {} });
+        }
+        if (module === '@clack/prompts') {
+          return Promise.resolve({ 
+            log: { info: jest.fn(), error: jest.fn() },
+            spinner: jest.fn(() => ({ start: jest.fn(), stop: jest.fn() }))
+          });
+        }
+        return Promise.reject(new Error(`Module not found: ${module}`));
+      })
+    };
   });
   
   afterAll(() => {
     delete process.env['XEC_DEBUG'];
+    delete (globalThis as any).__xecModuleContext;
   });
   
   beforeEach(() => {
@@ -217,7 +240,7 @@ describe('DynamicCommandLoader', () => {
       
       consoleLogSpy.mockRestore();
       consoleErrorSpy.mockRestore();
-      process.env['XEC_DEBUG'] = 'false';
+      delete process.env['XEC_DEBUG'];
     });
   });
   
@@ -226,6 +249,9 @@ describe('DynamicCommandLoader', () => {
       const program = new Command();
       loader.addCommandDirectory(fixturesDir);
       
+      // Suppress expected console errors from test fixtures
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      
       await loader.loadCommands(program);
       
       // Check that global module context is available
@@ -233,6 +259,8 @@ describe('DynamicCommandLoader', () => {
       expect(typeof (globalThis as any).__xecModuleContext.import).toBe('function');
       // unified-module-loader only provides import function
       // importJSR and importNPM are handled through the main import with prefixes
+      
+      consoleErrorSpy.mockRestore();
     });
   });
 });

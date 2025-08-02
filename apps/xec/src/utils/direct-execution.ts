@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import { $ } from '@xec-sh/core';
 import * as clack from '@clack/prompts';
 
-import { getConfig } from './config.js';
 import { parseTimeout } from './time.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
 
 interface DirectExecutionOptions {
   verbose?: boolean;
@@ -20,11 +20,9 @@ export async function executeDirectCommand(
   args: string[],
   options: DirectExecutionOptions = {}
 ): Promise<void> {
-  const config = getConfig();
-  
   // Join all arguments as the command
   const command = args.join(' ');
-  
+
   if (!command.trim()) {
     throw new Error('No command specified');
   }
@@ -36,9 +34,9 @@ export async function executeDirectCommand(
     await executeLocally(command, options);
     return;
   }
-  
+
   const target = await detectTarget(firstArg);
-  
+
   if (target) {
     // Execute on detected target
     await executeOnTarget(target, args.slice(1).join(' '), options);
@@ -58,40 +56,43 @@ interface Target {
  * Detect if the first argument is a known target
  */
 async function detectTarget(arg: string): Promise<Target | null> {
-  const config = getConfig();
-  
+  // Create a new configuration manager instance
+  const configManager = new ConfigurationManager();
+  const config = await configManager.load();
+
+  // Check targets section (new structure)
+  const targets = config.targets || {};
+
   // Check SSH hosts
-  const sshHosts = config.getValue('adapters.ssh.hosts') || {};
-  const unifiedHosts = config.getValue('hosts') || {};
-  
-  if (sshHosts[arg] || unifiedHosts[arg]) {
+  const hosts = targets.hosts || {};
+  if (hosts[arg]) {
     return {
       type: 'ssh',
       name: arg,
-      config: sshHosts[arg] || unifiedHosts[arg],
+      config: { ...hosts[arg], type: 'ssh' },
     };
   }
-  
+
   // Check containers
-  const containers = config.getValue('containers') || {};
+  const containers = targets.containers || {};
   if (containers[arg]) {
     return {
       type: 'docker',
       name: arg,
-      config: containers[arg],
+      config: { ...containers[arg], type: 'docker' },
     };
   }
-  
+
   // Check pods
-  const pods = config.getValue('pods') || {};
+  const pods = targets.pods || {};
   if (pods[arg]) {
     return {
       type: 'kubernetes',
       name: arg,
-      config: pods[arg],
+      config: { ...pods[arg], type: 'k8s' },
     };
   }
-  
+
   // Try to detect running containers/pods
   try {
     // Check Docker
@@ -102,7 +103,7 @@ async function detectTarget(arg: string): Promise<Target | null> {
   } catch {
     // Ignore
   }
-  
+
   try {
     // Check Kubernetes (default namespace)
     const k8sResult = await $.local()`kubectl get pod ${arg} -o name`.quiet().nothrow();
@@ -112,7 +113,7 @@ async function detectTarget(arg: string): Promise<Target | null> {
   } catch {
     // Ignore
   }
-  
+
   return null;
 }
 
@@ -129,14 +130,14 @@ async function executeOnTarget(
   }
 
   const targetDisplay = chalk.cyan(target.name);
-  
+
   if (!options.quiet) {
     clack.log.info(`Executing on ${targetDisplay} (${target.type})...`);
   }
-  
+
   try {
     let engine: any;
-    
+
     switch (target.type) {
       case 'ssh':
         const sshConfig = target.config || { host: target.name };
@@ -149,12 +150,12 @@ async function executeOnTarget(
           passphrase: sshConfig.passphrase,
         });
         break;
-        
+
       case 'docker':
         const containerName = target.config?.name || target.name;
         engine = $.docker({ container: containerName });
         break;
-        
+
       case 'kubernetes':
         const podConfig = target.config || {};
         engine = $.k8s({
@@ -164,28 +165,28 @@ async function executeOnTarget(
         });
         break;
     }
-    
+
     // Apply options
     if (options.cwd) {
       engine = engine.cd(options.cwd);
     }
-    
+
     if (options.env) {
       engine = engine.env(options.env);
     }
-    
+
     if (options.timeout) {
       const timeoutMs = parseTimeout(options.timeout);
       engine = engine.timeout(timeoutMs);
     }
-    
+
     // Execute using raw mode to avoid escaping
     const result = await engine.raw`${command}`;
-    
+
     if (result.stdout && !options.quiet) {
       console.log(result.stdout.trim());
     }
-    
+
     if (result.stderr && options.verbose) {
       console.error(chalk.yellow(result.stderr.trim()));
     }
@@ -205,28 +206,28 @@ async function executeLocally(
 ): Promise<void> {
   try {
     let engine = $.local();
-    
+
     // Apply options
     if (options.cwd) {
       engine = engine.cd(options.cwd);
     }
-    
+
     if (options.env) {
       engine = engine.env(options.env);
     }
-    
+
     if (options.timeout) {
       const timeoutMs = parseTimeout(options.timeout);
       engine = engine.timeout(timeoutMs);
     }
-    
+
     // Execute using raw mode to avoid escaping
     const result = await engine.raw`${command}`;
-    
+
     if (result.stdout && !options.quiet) {
       console.log(result.stdout.trim());
     }
-    
+
     if (result.stderr && options.verbose) {
       console.error(chalk.yellow(result.stderr.trim()));
     }
@@ -240,21 +241,26 @@ async function executeLocally(
 /**
  * Check if arguments look like a direct command (not a subcommand)
  */
-export function isDirectCommand(args: string[], commandRegistry?: string[]): boolean {
+export function isDirectCommand(args: string[], commandRegistry?: string[], taskNames?: string[]): boolean {
   if (args.length === 0) {
     return false;
   }
-  
+
   const firstArg = args[0];
   if (!firstArg) {
     return false;
   }
-  
+
   // If first arg starts with -, it's probably an option
   if (firstArg.startsWith('-')) {
     return false;
   }
-  
+
+  // Check if it's a task name
+  if (taskNames && taskNames.includes(firstArg)) {
+    return false;
+  }
+
   // Use command registry if provided
   if (commandRegistry) {
     // Check if the first arg is a known command
@@ -267,19 +273,69 @@ export function isDirectCommand(args: string[], commandRegistry?: string[]): boo
       'exec', 'ssh', 'docker', 'k8s', 'run', 'init', 'config',
       'env', 'copy', 'list', 'new', 'version', 'watch',
       'on', 'in', 'help', 'cache', 'forward', 'interactive', 'logs',
-      'release', 'r', 'i', 'v' // Include aliases and dynamic commands
+      'release', 'r', 'i', 'v', // Include aliases and dynamic commands
+      'tasks', 'explain' // Add new task-related commands
     ];
-    
+
     if (knownSubcommands.includes(firstArg)) {
       return false;
     }
   }
-  
+
   // If the first argument is quoted or contains spaces, it's likely a command
   if (firstArg && (firstArg.includes(' ') || (firstArg.startsWith('"') && firstArg.endsWith('"')))) {
     return true;
   }
-  
+
   // Otherwise, it might be a direct command
   return true;
+}
+
+/**
+ * Create execution engine for a target
+ */
+export async function createTargetEngine(target: any, options: any = {}): Promise<any> {
+  const config = target.config as any;
+
+  switch (target.type) {
+    case 'local':
+      return $;
+
+    case 'ssh':
+      return $.ssh({
+        host: config.host,
+        username: config.user || config.username,
+        port: config.port,
+        privateKey: config.privateKey,
+        password: config.password,
+        passphrase: config.passphrase,
+        keepAlive: config.keepAlive,
+        keepAliveInterval: config.keepAliveInterval,
+        ...options
+      });
+
+    case 'docker':
+      return $.docker({
+        container: config.container || target.name,
+        image: config.image,
+        user: config.user,
+        workingDir: config.workdir,
+        tty: config.tty,
+        ...options
+      });
+
+    case 'k8s':
+    case 'kubernetes':
+      return $.k8s({
+        pod: config.pod || target.name,
+        namespace: config.namespace || 'default',
+        container: config.container,
+        context: config.context,
+        kubeconfig: config.kubeconfig,
+        ...options
+      });
+
+    default:
+      throw new Error(`Unsupported target type: ${target.type}`);
+  }
 }

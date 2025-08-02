@@ -15,6 +15,18 @@
     "bin",
     "dist"
   ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "import": "./dist/api/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "keywords": [
     "cli",
     "command-line",
@@ -60,8 +72,10 @@
     "@types/node": "^24.0.13",
     "@types/ssh2": "^1.15.5",
     "@types/which": "^3.0.4",
+    "@xec-sh/test-utils": "workspace:*",
     "jest": "^30.0.4",
     "source-map-support": "^0.5.21",
+    "tempy": "^3.1.0",
     "ts-jest": "^29.4.0",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
@@ -94,6 +108,7 @@
     "glob": "^11.0.3",
     "handlebars": "^4.7.8",
     "js-yaml": "^4.1.0",
+    "minimatch": "^10.0.3",
     "minimist": "^1.2.8",
     "node-fetch": "^3.3.2",
     "ps-list": "^8.1.1",

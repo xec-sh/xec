@@ -76,6 +76,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI**: Fixed array command arguments being incorrectly passed to Docker containers in `experiments/hard-guard-wall/.xec/commands/onion.ts`:
   - Arrays passed to template literals were converted to comma-separated strings causing "unrecognised argument: -c" error
   - Fixed by properly joining array elements with spaces before passing to Docker run mode
+- **CLI**: Created configuration integration proposal to properly separate dynamic commands, tasks, and scripts:
+  - Dynamic commands (`.xec/commands/`) remain as full CLI extensions with Commander.js integration
+  - Tasks in `config.yaml` become simple aliases and workflows executed via `xec run <task>`
+  - Scripts are JavaScript/TypeScript files executed via `xec run <script>`
+  - Unified execution model through enhanced `run` command
+  - Clear separation of concerns and progressive complexity path
+  - Created detailed proposal document at `apps/xec/configuration-integration-proposal.md`
 
 ### Improvements
 - **CLI**: Enhanced command listing with grouped display - built-in commands shown separately from dynamic commands loaded from .xec/commands directory

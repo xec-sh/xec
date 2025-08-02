@@ -163,6 +163,13 @@ nodes:
   }
 
   async deployTestPod(name: string = 'test-pod', namespace: string = 'test'): Promise<void> {
+    // Ensure namespace exists
+    try {
+      this.exec(`kubectl create namespace ${namespace}`, { silent: true });
+    } catch {
+      // Namespace might already exist, ignore error
+    }
+
     const podYaml = `
 apiVersion: v1
 kind: Pod
@@ -172,13 +179,21 @@ metadata:
   labels:
     app: test
 spec:
+  automountServiceAccountToken: false
   containers:
   - name: main
     image: alpine:3.18
     command: ['sh', '-c', 'while true; do sleep 3600; done']
-  - name: nginx
-    image: nginx:alpine
-    # nginx runs automatically, no need for command
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+  # Remove nginx container for now since it causes permission issues
+  # - name: nginx
+  #   image: nginx:alpine
+  #   # nginx runs automatically, no need for command
+  #   securityContext:
+  #     runAsUser: 1000
+  #     runAsGroup: 1000
 `;
     
     const podPath = join(this.tempDir, `${name}.yaml`);
@@ -250,6 +265,13 @@ spec:
   }
 
   async createMultiContainerPod(name: string = 'multi-pod', namespace: string = 'test'): Promise<void> {
+    // Ensure namespace exists
+    try {
+      this.exec(`kubectl create namespace ${namespace}`, { silent: true });
+    } catch {
+      // Namespace might already exist, ignore error
+    }
+
     const podYaml = `
 apiVersion: v1
 kind: Pod
@@ -259,13 +281,20 @@ metadata:
   labels:
     app: test
 spec:
+  automountServiceAccountToken: false
   containers:
   - name: app
     image: alpine:3.18
     command: ['sh', '-c', 'while true; do echo "App container running"; sleep 10; done']
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
   - name: sidecar
     image: alpine:3.18
     command: ['sh', '-c', 'while true; do echo "Sidecar container running"; sleep 10; done']
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
 `;
     
     const podPath = join(this.tempDir, `${name}.yaml`);

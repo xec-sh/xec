@@ -7,6 +7,57 @@ if (major < 18) {
   process.exit(1);
 }
 
+// Suppress annoying "module not found" messages from optional dependencies
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+const originalStdoutWrite = process.stdout.write;
+const originalStderrWrite = process.stderr.write;
+
+const suppressMessages = [
+  'module "./crypto/build/Release/sshcrypto.node" not found',
+  'module "cpu-features" not found'
+];
+
+// Intercept console methods
+console.log = function(...args) {
+  const message = args.join(' ');
+  if (!suppressMessages.some(msg => message.includes(msg))) {
+    originalConsoleLog.apply(console, args);
+  }
+};
+
+console.warn = function(...args) {
+  const message = args.join(' ');
+  if (!suppressMessages.some(msg => message.includes(msg))) {
+    originalConsoleWarn.apply(console, args);
+  }
+};
+
+console.error = function(...args) {
+  const message = args.join(' ');
+  if (!suppressMessages.some(msg => message.includes(msg))) {
+    originalConsoleError.apply(console, args);
+  }
+};
+
+// Intercept direct stdout/stderr writes
+process.stdout.write = function(chunk, encoding, callback) {
+  const message = chunk.toString();
+  if (!suppressMessages.some(msg => message.includes(msg))) {
+    return originalStdoutWrite.apply(process.stdout, arguments);
+  }
+  return true;
+};
+
+process.stderr.write = function(chunk, encoding, callback) {
+  const message = chunk.toString();
+  if (!suppressMessages.some(msg => message.includes(msg))) {
+    return originalStderrWrite.apply(process.stderr, arguments);
+  }
+  return true;
+};
+
 // Enable source map support for better error traces
 try {
   require('source-map-support/register');

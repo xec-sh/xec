@@ -17,7 +17,7 @@ export interface ModuleLoaderOptions {
   preferredCDN?: 'esm.sh' | 'jsr.io' | 'unpkg' | 'skypack' | 'jsdelivr';
   verbose?: boolean;
   cache?: boolean;
-  nodeModulesPath?: string;
+  cdnOnly?: boolean; // Force CDN-only loading, no node_modules
 }
 
 interface CacheEntry {
@@ -41,17 +41,16 @@ export class UnifiedModuleLoader {
   private memoryCache = new Map<string, CacheEntry>();
   private pendingLoads = new Map<string, Promise<any>>();
   private isInitialized = false;
-  private nodeModulesPath: string | null = null;
 
   constructor(options: ModuleLoaderOptions = {}) {
     this.options = {
       cache: true,
       preferredCDN: 'esm.sh',
       verbose: false,
+      cdnOnly: false,
       ...options
     };
     this.cacheDir = this.options.cacheDir || path.join(os.homedir(), '.xec', 'module-cache');
-    this.nodeModulesPath = options.nodeModulesPath || null;
   }
 
   /**
@@ -62,11 +61,6 @@ export class UnifiedModuleLoader {
 
     if (this.options.cache) {
       await fs.mkdir(this.cacheDir, { recursive: true });
-    }
-
-    // Find node_modules path if not provided
-    if (!this.nodeModulesPath) {
-      this.nodeModulesPath = await this.findNodeModulesPath();
     }
 
     // We cannot override the native import keyword, but we can provide a global function
@@ -136,25 +130,6 @@ export class UnifiedModuleLoader {
     this.isInitialized = true;
   }
 
-  /**
-   * Find node_modules path by searching upwards
-   */
-  private async findNodeModulesPath(): Promise<string | null> {
-    const checkPaths = [
-      path.dirname(import.meta.url.replace('file://', '')),
-      process.cwd()
-    ];
-
-    for (const startPath of checkPaths) {
-      let dir = startPath;
-      for (let i = 0; i < 10 && dir !== path.dirname(dir); i++) {
-        const nodeModulesDir = path.join(dir, 'node_modules');
-        if (existsSync(nodeModulesDir)) return nodeModulesDir;
-        dir = path.dirname(dir);
-      }
-    }
-    return null;
-  }
 
   /**
    * Import a module with CDN fallback
@@ -191,10 +166,11 @@ export class UnifiedModuleLoader {
   }
 
   private async _importModule(specifier: string): Promise<any> {
-    // Try local resolution first
-    const localModule = await this.tryLocalImport(specifier);
-    if (localModule) return localModule;
-
+    // If CDN-only mode is enabled, go straight to CDN
+    if (this.options.cdnOnly) {
+      return this.importFromCDN(specifier, 'auto');
+    }
+    
     // Try direct import for built-in modules
     try {
       const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
@@ -205,20 +181,6 @@ export class UnifiedModuleLoader {
     }
   }
 
-  private async tryLocalImport(specifier: string): Promise<any> {
-    if (!this.nodeModulesPath || specifier.startsWith('node:')) return null;
-
-    try {
-      const modulePath = path.join(this.nodeModulesPath, specifier, 'package.json');
-      if (existsSync(modulePath)) {
-        const pkg = JSON.parse(await fs.readFile(modulePath, 'utf-8'));
-        const mainFile = pkg.module || pkg.main || 'index.js';
-        const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
-        return await originalImport(pathToFileURL(path.join(this.nodeModulesPath, specifier, mainFile)).href);
-      }
-    } catch {}
-    return null;
-  }
 
   /**
    * Import from CDN with proper source selection
@@ -281,6 +243,16 @@ export class UnifiedModuleLoader {
    * Check if specifier is a local module
    */
   private isLocalModule(specifier: string): boolean {
+    // In CDN-only mode, only truly local files and node: modules are considered local
+    if (this.options.cdnOnly) {
+      return specifier.startsWith('./') ||
+        specifier.startsWith('../') ||
+        specifier.startsWith('file://') ||
+        specifier.startsWith('node:') ||
+        path.isAbsolute(specifier);
+    }
+    
+    // In normal mode, also treat @xec-sh/* as local
     return specifier.startsWith('@xec-sh/') ||
       specifier.startsWith('./') ||
       specifier.startsWith('../') ||
@@ -523,55 +495,43 @@ export class UnifiedModuleLoader {
   private transformESMContent(content: string, cdnUrl: string): string {
     if (!cdnUrl.includes('esm.sh')) return content;
 
+    // First, handle all /node/ paths regardless of context
+    content = content.replace(/["']\/node\/([^"']+?)["']/g, (match, modulePath) => {
+      const moduleName = modulePath.replace(/\.m?js$/, '');
+      // Use the same quote style as the original
+      const quote = match[0];
+      return `${quote}node:${moduleName}${quote}`;
+    });
+
+    // Then handle other esm.sh paths
     return content
       // Transform from statements
       .replace(/from\s+["'](\/.+?)["']/g, (match, importPath) => {
-        if (importPath.startsWith('/node/')) {
-          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
-          // Handle special cases
-          switch (moduleName) {
-            case 'process':
-            case 'buffer':
-            case 'stream':
-            case 'events':
-            case 'util':
-            case 'path':
-            case 'fs':
-            case 'crypto':
-            case 'os':
-            case 'url':
-            case 'querystring':
-            case 'string_decoder':
-              return `from "node:${moduleName}"`;
-            default:
-              return `from "node:${moduleName}"`;
-          }
+        if (!importPath.startsWith('/node/')) { // Already handled above
+          return `from "https://esm.sh${importPath}"`;
         }
-        return `from "https://esm.sh${importPath}"`;
+        return match;
       })
       // Transform dynamic imports
       .replace(/import\s*\(\s*["'](\/.+?)["']\s*\)/g, (match, importPath) => {
-        if (importPath.startsWith('/node/')) {
-          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
-          return `import("node:${moduleName}")`;
+        if (!importPath.startsWith('/node/')) { // Already handled above
+          return `import("https://esm.sh${importPath}")`;
         }
-        return `import("https://esm.sh${importPath}")`;
+        return match;
       })
-      // Transform static imports
-      .replace(/import\s+["'](\/.+?)["'];/g, (match, importPath) => {
-        if (importPath.startsWith('/node/')) {
-          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
-          return `import "node:${moduleName}";`;
+      // Transform static imports (side-effect imports)
+      .replace(/import\s+["'](\/.+?)["'](?:\s*;)?/g, (match, importPath) => {
+        if (!importPath.startsWith('/node/')) { // Already handled above
+          return `import "https://esm.sh${importPath}"`;
         }
-        return `import "https://esm.sh${importPath}";`;
+        return match;
       })
       // Transform export statements with paths
       .replace(/export\s+(?:\*|\{[^}]+\})\s+from\s+["'](\/.+?)["']/g, (match, importPath) => {
-        if (importPath.startsWith('/node/')) {
-          const moduleName = importPath.replace('/node/', '').replace(/\.m?js$/, '');
-          return match.replace(importPath, `node:${moduleName}`);
+        if (!importPath.startsWith('/node/')) { // Already handled above
+          return match.replace(importPath, `https://esm.sh${importPath}`);
         }
-        return match.replace(importPath, `https://esm.sh${importPath}`);
+        return match;
       });
   }
 
@@ -844,4 +804,19 @@ export async function importModule(specifier: string): Promise<any> {
   const instance = getModuleLoader();
   await instance.init();
   return instance.importModule(specifier);
+}
+
+/**
+ * Create a CDN-only module loader instance
+ * This loader will ONLY load modules from CDN, never from node_modules
+ * Useful for xec scripts that should be completely independent of local installations
+ */
+export function createCDNOnlyLoader(options?: Omit<ModuleLoaderOptions, 'cdnOnly'>): UnifiedModuleLoader {
+  return new UnifiedModuleLoader({
+    ...options,
+    cdnOnly: true,
+    verbose: options?.verbose ?? false,
+    cache: options?.cache ?? true,
+    preferredCDN: options?.preferredCDN ?? 'esm.sh'
+  });
 }

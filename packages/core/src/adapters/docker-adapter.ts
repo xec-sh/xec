@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
+import { statSync, existsSync } from 'node:fs';
 
 import { StreamHandler } from '../utils/stream.js';
 import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
@@ -108,6 +109,29 @@ export class DockerAdapter extends BaseAdapter {
     };
   }
 
+  private findDockerPath(): string {
+    // Check common docker paths
+    const paths = [
+      '/usr/local/bin/docker',
+      '/usr/bin/docker',
+      '/opt/homebrew/bin/docker',
+      'docker' // fallback to PATH
+    ];
+
+    for (const path of paths) {
+      try {
+        if (path === 'docker') return path; // Let spawn handle PATH lookup
+        if (existsSync(path) && statSync(path).isFile()) {
+          return path;
+        }
+      } catch {
+        // Ignore errors, try next path
+      }
+    }
+
+    return 'docker'; // fallback
+  }
+
   async isAvailable(): Promise<boolean> {
     try {
       // Check if docker CLI is available
@@ -167,6 +191,11 @@ export class DockerAdapter extends BaseAdapter {
             container: containerName,
             command: 'sh'
           });
+        }
+
+        // Check for container existence before executing
+        if (!await this.containerExists(containerName)) {
+          throw new DockerError(containerName, 'execute', new Error(`Container '${containerName}' not found`));
         }
 
         // Emit docker:exec event
@@ -318,7 +347,7 @@ export class DockerAdapter extends BaseAdapter {
     if (options.runMode) {
       return options.runMode;
     }
-    
+
     // Auto-detect based on presence of image
     return options.image ? 'run' : 'exec';
   }
@@ -492,7 +521,10 @@ export class DockerAdapter extends BaseAdapter {
     const hasInteractive = args.includes('-i');
     const useInheritStdin = hasTTY && hasInteractive && process.stdin.isTTY;
 
-    const child = spawn('docker', args, {
+    // Try to find docker in common locations
+    const dockerPath = this.findDockerPath();
+
+    const child = spawn(dockerPath, args, {
       env,
       cwd: command.cwd || process.cwd(), // Use command's cwd if provided
       windowsHide: true,
