@@ -30,7 +30,7 @@ const TEMPLATES = {
   project: {
     minimal: {
       files: {
-        '.xec/config.yaml': `version: "2.0"
+        '.xec/config.yaml': `version: "1.0"
 name: {name}
 description: {description}
 
@@ -57,7 +57,7 @@ tmp/
     },
     standard: {
       files: {
-        '.xec/config.yaml': `version: "2.0"
+        '.xec/config.yaml': `version: "1.0"
 name: {name}
 description: {description}
 
@@ -1327,7 +1327,7 @@ author: Your Name
 
 # Dependencies
 requires:
-  - xec: ">=2.0.0"
+  - xec: ">=0.7.0"
   - node: ">=18.0.0"
 
 # Tasks provided by this extension
@@ -1957,7 +1957,7 @@ See \`extension.yaml\` for configuration options.
       keywords: ['xec', 'extension', name],
       files: ['extension.yaml', 'scripts', 'examples', 'README.md'],
       engines: {
-        xec: '>=2.0.0'
+        xec: '>=0.7.0'
       }
     }, null, 2)
   );
@@ -2053,7 +2053,7 @@ export class NewCommand extends BaseCommand {
     try {
       // Set up cancel handlers for interactive mode
       InteractiveHelpers.setupCancelHandlers();
-      
+
       clack.intro(chalk.bold('🎨 Create new Xec artifact'));
 
       // Determine artifact type

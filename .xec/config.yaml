@@ -1,44 +1,65 @@
-# Xec Project Configuration
+version: '1.0'
+targets:
+  local:
+    type: local
+  defaults:
+    ssh:
+      port: 22
+      keepAlive: true
+      keepAliveInterval: 30000
+    docker:
+      workdir: /app
+      tty: true
+    kubernetes:
+      namespace: default
+commands:
+  in:
+    defaultTimeout: 30s
+  'on':
+    parallel: false
+  copy:
+    compress: true
+    progress: true
+  forward:
+    dynamic: true
+  watch:
+    interval: 2
+    clear: true
+  exec:
+    shell: /bin/sh
+    tty: true
+  logs:
+    tail: '50'
+    timestamps: false
+    follow: false
+    prefix: false
+  cp:
+    recursive: true
+    preserveMode: true
+    preserveTimestamps: false
 name: xec-sh
 description: An Xec automation project
-
-# Default settings
 defaults:
   adapter: local
   shell: /bin/bash
   timeout: 30000
-
-# Environment-specific settings  
 environments:
   development:
     env:
       NODE_ENV: development
       DEBUG: true
-  
   production:
     env:
       NODE_ENV: production
       DEBUG: false
-
-# SSH hosts configuration
 ssh:
   defaults:
     port: 22
     keepAlive: true
-  
-  hosts:
-    # example-server:
-    #   host: example.com
-    #   user: deploy
-    #   key: ~/.ssh/id_rsa
-
-# Docker configuration  
+  hosts: null
 docker:
   defaults:
     network: bridge
-
-# Kubernetes configuration
 kubernetes:
   defaults:
     namespace: default
-    # context: my-cluster

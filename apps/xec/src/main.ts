@@ -7,10 +7,9 @@ import { checkForCommandTypo } from '@xec-sh/core';
 
 import { handleError } from './utils/error-handler.js';
 import { customizeHelp } from './utils/help-customizer.js';
-import { loadDynamicCommands } from './utils/dynamic-commands.js';
-import { registerCliCommands } from './utils/command-registry.js';
 import { TaskManager, ConfigurationManager } from './config/index.js';
 import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
+import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
