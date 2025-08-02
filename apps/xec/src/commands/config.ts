@@ -1,0 +1,1870 @@
+import chalk from 'chalk';
+import * as yaml from 'js-yaml';
+import { Command } from 'commander';
+import { join, dirname } from 'path';
+import * as clack from '@clack/prompts';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
+
+import { BaseCommand } from '../utils/command-base.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
+
+/**
+ * Config command options
+ */
+interface ConfigOptions {
+  global?: boolean;
+  project?: string;
+  format?: 'json' | 'yaml';
+  output?: string;
+  interactive?: boolean;
+}
+
+/**
+ * Config command implementation
+ */
+export class ConfigCommand extends BaseCommand {
+  protected override configManager!: ConfigurationManager;
+  
+  constructor() {
+    super({
+      name: 'config',
+      description: 'Manage xec configuration',
+      aliases: ['conf', 'cfg']
+    });
+  }
+
+  /**
+   * Create command with subcommands
+   */
+  override create(): Command {
+    const command = new Command(this.config.name)
+      .description(this.config.description);
+
+    // Add aliases
+    if (this.config.aliases) {
+      this.config.aliases.forEach(alias => command.alias(alias));
+    }
+
+    // Set up action for when no subcommand is provided
+    command.action(async () => {
+      await this.execute([]);
+    });
+
+    // Set up subcommands
+    this.setupSubcommands(command);
+
+    return command;
+  }
+
+  override async execute(args: string[]): Promise<void> {
+    await this.ensureInitialized();
+
+    // If no subcommand specified, show interactive mode
+    if (process.stdin.isTTY) {
+      await this.interactiveMode();
+    }
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.configManager) {
+      this.configManager = new ConfigurationManager({
+        projectRoot: process.cwd(),
+        profile: undefined
+      });
+    }
+  }
+
+  private setupSubcommands(command: Command): void {
+    // Doctor command
+    command
+      .command('doctor')
+      .description('Check and fix configuration issues')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.runDoctor();
+      });
+
+    // Validate command
+    command
+      .command('validate')
+      .description('Validate configuration')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.validateConfig();
+      });
+
+    // Init command
+    command
+      .command('init')
+      .description('Initialize new project configuration')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.initProject();
+      });
+
+    // View command
+    command
+      .command('view')
+      .description('View current configuration')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.viewConfig();
+      });
+
+    // Set up target subcommands
+    this.setupTargetCommands(command);
+
+    // Set up variable subcommands
+    this.setupVarCommands(command);
+
+    // Set up task subcommands
+    this.setupTaskCommands(command);
+
+    // Set up defaults subcommands
+    this.setupDefaultsCommands(command);
+  }
+
+  private setupTargetCommands(parent: Command): void {
+    const targets = parent
+      .command('targets')
+      .description('Manage targets');
+
+    targets
+      .command('list')
+      .description('List all targets')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.listTargets();
+      });
+
+    targets
+      .command('add')
+      .description('Add new target')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.addTarget();
+      });
+
+    targets
+      .command('edit <name>')
+      .description('Edit target')
+      .action(async (name) => {
+        await this.ensureInitialized();
+        await this.editTargetWithName(name);
+      });
+
+    targets
+      .command('delete <name>')
+      .description('Delete target')
+      .action(async (name) => {
+        await this.ensureInitialized();
+        await this.deleteTargetWithName(name);
+      });
+
+    targets
+      .command('test <name>')
+      .description('Test target connection')
+      .action(async (name) => {
+        await this.ensureInitialized();
+        await this.testTargetWithName(name);
+      });
+  }
+
+  private setupVarCommands(parent: Command): void {
+    const vars = parent
+      .command('vars')
+      .description('Manage variables');
+
+    vars
+      .command('list')
+      .description('List all variables')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.listVars();
+      });
+
+    vars
+      .command('set <key> [value]')
+      .description('Set variable')
+      .action(async (key, value) => {
+        await this.ensureInitialized();
+        await this.setVarWithKeyValue(key, value);
+      });
+
+    vars
+      .command('delete <key>')
+      .description('Delete variable')
+      .action(async (key) => {
+        await this.ensureInitialized();
+        await this.deleteVarWithKey(key);
+      });
+
+    vars
+      .command('import <file>')
+      .description('Import variables from file')
+      .action(async (file) => {
+        await this.ensureInitialized();
+        await this.importVarsFromFile(file);
+      });
+
+    vars
+      .command('export <file>')
+      .description('Export variables to file')
+      .action(async (file) => {
+        await this.ensureInitialized();
+        await this.exportVarsToFile(file);
+      });
+  }
+
+  private setupTaskCommands(parent: Command): void {
+    const tasks = parent
+      .command('tasks')
+      .description('Manage tasks');
+
+    tasks
+      .command('list')
+      .description('List all tasks')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.listTasks();
+      });
+
+    tasks
+      .command('view <name>')
+      .description('View task details')
+      .action(async (name) => {
+        await this.ensureInitialized();
+        await this.viewTaskWithName(name);
+      });
+
+    tasks
+      .command('create')
+      .description('Create new task')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.createTask();
+      });
+
+    tasks
+      .command('delete <name>')
+      .description('Delete task')
+      .action(async (name) => {
+        await this.ensureInitialized();
+        await this.deleteTaskWithName(name);
+      });
+
+    tasks
+      .command('validate')
+      .description('Validate all tasks')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.validateTasks();
+      });
+  }
+
+  private setupDefaultsCommands(parent: Command): void {
+    const defaults = parent
+      .command('defaults')
+      .description('Manage default configurations');
+
+    defaults
+      .command('view')
+      .description('View current defaults')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.viewDefaults();
+      });
+
+    defaults
+      .command('ssh')
+      .description('Set SSH defaults')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.setSSHDefaults();
+      });
+
+    defaults
+      .command('docker')
+      .description('Set Docker defaults')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.setDockerDefaults();
+      });
+
+    defaults
+      .command('k8s')
+      .description('Set Kubernetes defaults')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.setK8sDefaults();
+      });
+
+    defaults
+      .command('commands')
+      .description('Set command defaults')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.setCommandDefaults();
+      });
+
+    defaults
+      .command('reset')
+      .description('Reset to system defaults')
+      .action(async () => {
+        await this.ensureInitialized();
+        await this.resetDefaults();
+      });
+  }
+
+  private async interactiveMode(): Promise<void> {
+    clack.intro('🔧 Xec Configuration Manager');
+
+    const action = await clack.select({
+      message: 'What would you like to do?',
+      options: [
+        { value: 'view', label: '📖 View configuration' },
+        { value: 'targets', label: '🎯 Manage targets' },
+        { value: 'vars', label: '📝 Manage variables' },
+        { value: 'tasks', label: '⚡ Manage tasks' },
+        { value: 'defaults', label: '⚙️  Manage defaults' },
+        { value: 'doctor', label: '🏥 Run doctor (add all defaults)' },
+        { value: 'validate', label: '✅ Validate configuration' },
+        { value: 'init', label: '🚀 Initialize new project' },
+      ],
+    });
+
+    if (clack.isCancel(action)) {
+      clack.cancel('Configuration management cancelled');
+      return;
+    }
+
+    switch (action) {
+      case 'view':
+        await this.viewConfig();
+        break;
+      case 'targets':
+        await this.manageTargets();
+        break;
+      case 'vars':
+        await this.manageVars();
+        break;
+      case 'tasks':
+        await this.manageTasks();
+        break;
+      case 'defaults':
+        await this.manageDefaults();
+        break;
+      case 'doctor':
+        await this.runDoctor();
+        break;
+      case 'validate':
+        await this.validateConfig();
+        break;
+      case 'init':
+        await this.initProject();
+        break;
+    }
+
+    clack.outro('✨ Configuration updated successfully');
+  }
+
+  private async viewConfig(): Promise<void> {
+    const config = await this.configManager.load();
+    console.log(yaml.dump(config, { indent: 2, sortKeys: true }));
+  }
+
+  private async manageTargets(): Promise<void> {
+    const action = await clack.select({
+      message: 'Target management',
+      options: [
+        { value: 'list', label: 'List all targets' },
+        { value: 'add', label: 'Add new target' },
+        { value: 'edit', label: 'Edit existing target' },
+        { value: 'delete', label: 'Delete target' },
+        { value: 'test', label: 'Test target connection' },
+      ],
+    });
+
+    if (clack.isCancel(action)) return;
+
+    switch (action) {
+      case 'list':
+        await this.listTargets();
+        break;
+      case 'add':
+        await this.addTarget();
+        break;
+      case 'edit':
+        await this.editTarget();
+        break;
+      case 'delete':
+        await this.deleteTarget();
+        break;
+      case 'test':
+        await this.testTarget();
+        break;
+    }
+  }
+
+  private async listTargets(): Promise<void> {
+    const config = await this.configManager.load();
+    const targets = config.targets || {};
+
+    console.log('\n🎯 Configured Targets:\n');
+
+    // Local target
+    if (targets.local) {
+      console.log('  📍 local (type: local)');
+    }
+
+    // SSH hosts
+    if (targets.hosts) {
+      console.log('\n  SSH Hosts:');
+      for (const [name, host] of Object.entries(targets.hosts)) {
+        console.log(`    🖥️  ${name} (${(host as any).host}:${(host as any).port || 22})`);
+      }
+    }
+
+    // Docker containers
+    if (targets.containers) {
+      console.log('\n  Docker Containers:');
+      for (const [name, container] of Object.entries(targets.containers)) {
+        console.log(`    🐳 ${name} (${(container as any).container || (container as any).image})`);
+      }
+    }
+
+    // Kubernetes pods
+    if (targets.pods) {
+      console.log('\n  Kubernetes Pods:');
+      for (const [name, pod] of Object.entries(targets.pods)) {
+        console.log(`    ☸️  ${name} (${(pod as any).namespace || 'default'}/${(pod as any).pod})`);
+      }
+    }
+  }
+
+  private async addTarget(): Promise<void> {
+    const targetType = await clack.select({
+      message: 'Select target type',
+      options: [
+        { value: 'ssh', label: '🖥️  SSH Host' },
+        { value: 'docker', label: '🐳 Docker Container' },
+        { value: 'k8s', label: '☸️  Kubernetes Pod' },
+      ],
+    }) as string;
+
+    if (clack.isCancel(targetType)) return;
+
+    const name = await clack.text({
+      message: 'Target name',
+      placeholder: 'my-target',
+      validate: (value) => {
+        if (!value) return 'Name is required';
+        if (!/^[a-z0-9-]+$/.test(value)) return 'Name must contain only lowercase letters, numbers, and hyphens';
+        return;
+      },
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    let targetConfig: any = { type: targetType };
+
+    switch (targetType) {
+      case 'ssh':
+        targetConfig = await this.promptSSHConfig();
+        break;
+      case 'docker':
+        targetConfig = await this.promptDockerConfig();
+        break;
+      case 'k8s':
+        targetConfig = await this.promptK8sConfig();
+        break;
+    }
+
+    if (!targetConfig) return;
+
+    // Load current config
+    const config = await this.configManager.load();
+    
+    // Ensure targets structure exists
+    if (!config.targets) config.targets = {};
+    
+    // Add target to appropriate section
+    switch (targetType) {
+      case 'ssh':
+        if (!config.targets.hosts) config.targets.hosts = {};
+        config.targets.hosts[name] = targetConfig;
+        break;
+      case 'docker':
+        if (!config.targets.containers) config.targets.containers = {};
+        config.targets.containers[name] = targetConfig;
+        break;
+      case 'k8s':
+        if (!config.targets.pods) config.targets.pods = {};
+        config.targets.pods[name] = targetConfig;
+        break;
+    }
+
+    // Save config
+    await this.saveConfig(config);
+    clack.log.success(`Target '${name}' added successfully`);
+  }
+
+  private async promptSSHConfig(): Promise<any> {
+    const host = await clack.text({
+      message: 'SSH host',
+      placeholder: 'example.com',
+      validate: (value) => value ? undefined : 'Host is required',
+    }) as string;
+
+    if (clack.isCancel(host)) return null;
+
+    const port = await clack.text({
+      message: 'SSH port',
+      placeholder: '22',
+      defaultValue: '22',
+    }) as string;
+
+    if (clack.isCancel(port)) return null;
+
+    const username = await clack.text({
+      message: 'SSH username',
+      placeholder: 'user',
+      validate: (value) => value ? undefined : 'Username is required',
+    }) as string;
+
+    if (clack.isCancel(username)) return null;
+
+    const authMethod = await clack.select({
+      message: 'Authentication method',
+      options: [
+        { value: 'key', label: '🔑 SSH Key' },
+        { value: 'password', label: '🔒 Password (not recommended)' },
+      ],
+    }) as string;
+
+    if (clack.isCancel(authMethod)) return null;
+
+    const config: any = {
+      type: 'ssh',
+      host,
+      port: parseInt(port),
+      username,
+    };
+
+    if (authMethod === 'key') {
+      const privateKey = await clack.text({
+        message: 'Path to SSH private key',
+        placeholder: '~/.ssh/id_rsa',
+        defaultValue: '~/.ssh/id_rsa',
+      }) as string;
+
+      if (clack.isCancel(privateKey)) return null;
+      config.privateKey = privateKey;
+
+      const passphrase = await clack.password({
+        message: 'SSH key passphrase (optional)',
+      }) as string;
+
+      if (passphrase && !clack.isCancel(passphrase)) {
+        clack.log.warn('⚠️  Passphrase will be stored in plain text. Consider using the secrets command instead.');
+        config.passphrase = passphrase;
+      }
+    } else {
+      clack.log.error('❌ Password authentication is not supported in config. Use the secrets command to manage passwords securely.');
+      return null;
+    }
+
+    return config;
+  }
+
+  private async promptDockerConfig(): Promise<any> {
+    const useContainer = await clack.confirm({
+      message: 'Use existing container?',
+    });
+
+    const config: any = { type: 'docker' };
+
+    if (useContainer) {
+      const container = await clack.text({
+        message: 'Container name or ID',
+        placeholder: 'my-container',
+        validate: (value) => value ? undefined : 'Container is required',
+      }) as string;
+
+      if (clack.isCancel(container)) return null;
+      config.container = container;
+    } else {
+      const image = await clack.text({
+        message: 'Docker image',
+        placeholder: 'ubuntu:latest',
+        validate: (value) => value ? undefined : 'Image is required',
+      }) as string;
+
+      if (clack.isCancel(image)) return null;
+      config.image = image;
+
+      const workdir = await clack.text({
+        message: 'Working directory (optional)',
+        placeholder: '/app',
+      }) as string;
+
+      if (workdir && !clack.isCancel(workdir)) {
+        config.workdir = workdir;
+      }
+    }
+
+    return config;
+  }
+
+  private async promptK8sConfig(): Promise<any> {
+    const pod = await clack.text({
+      message: 'Pod name',
+      placeholder: 'my-pod',
+      validate: (value) => value ? undefined : 'Pod name is required',
+    }) as string;
+
+    if (clack.isCancel(pod)) return null;
+
+    const namespace = await clack.text({
+      message: 'Namespace',
+      placeholder: 'default',
+      defaultValue: 'default',
+    }) as string;
+
+    if (clack.isCancel(namespace)) return null;
+
+    const container = await clack.text({
+      message: 'Container name (for multi-container pods)',
+      placeholder: 'main',
+    }) as string;
+
+    const config: any = {
+      type: 'k8s',
+      pod,
+      namespace,
+    };
+
+    if (container && !clack.isCancel(container)) {
+      config.container = container;
+    }
+
+    const context = await clack.text({
+      message: 'Kubernetes context (optional)',
+      placeholder: 'default',
+    }) as string;
+
+    if (context && !clack.isCancel(context)) {
+      config.context = context;
+    }
+
+    return config;
+  }
+
+  private async editTarget(): Promise<void> {
+    const config = await this.configManager.load();
+    const allTargets: string[] = [];
+
+    // Collect all targets
+    if (config.targets?.hosts) {
+      for (const name of Object.keys(config.targets.hosts)) {
+        allTargets.push(`hosts.${name}`);
+      }
+    }
+    if (config.targets?.containers) {
+      for (const name of Object.keys(config.targets.containers)) {
+        allTargets.push(`containers.${name}`);
+      }
+    }
+    if (config.targets?.pods) {
+      for (const name of Object.keys(config.targets.pods)) {
+        allTargets.push(`pods.${name}`);
+      }
+    }
+
+    if (allTargets.length === 0) {
+      clack.log.warn('No targets configured');
+      return;
+    }
+
+    const target = await clack.select({
+      message: 'Select target to edit',
+      options: allTargets.map(t => ({ value: t, label: t })),
+    }) as string;
+
+    if (clack.isCancel(target)) return;
+
+    const [type, name] = target.split('.');
+    
+    if (!name) {
+      clack.log.error('Invalid target format');
+      return;
+    }
+    
+    // Get current config
+    let currentConfig: any;
+    switch (type) {
+      case 'hosts':
+        currentConfig = config.targets!.hosts![name];
+        break;
+      case 'containers':
+        currentConfig = config.targets!.containers![name];
+        break;
+      case 'pods':
+        currentConfig = config.targets!.pods![name];
+        break;
+    }
+
+    clack.log.info('Current configuration:');
+    console.log(yaml.dump(currentConfig, { indent: 2 }));
+
+    const edit = await clack.confirm({
+      message: 'Edit this target?',
+    });
+
+    if (!edit || clack.isCancel(edit)) return;
+
+    // Re-prompt for new configuration
+    let newConfig: any;
+    switch (type) {
+      case 'hosts':
+        newConfig = await this.promptSSHConfig();
+        break;
+      case 'containers':
+        newConfig = await this.promptDockerConfig();
+        break;
+      case 'pods':
+        newConfig = await this.promptK8sConfig();
+        break;
+    }
+
+    if (!newConfig) return;
+
+    // Update config
+    if (name) {
+      switch (type) {
+        case 'hosts':
+          config.targets!.hosts![name] = newConfig;
+          break;
+        case 'containers':
+          config.targets!.containers![name] = newConfig;
+          break;
+        case 'pods':
+          config.targets!.pods![name] = newConfig;
+          break;
+      }
+    }
+
+    await this.saveConfig(config);
+    clack.log.success(`Target '${target}' updated successfully`);
+  }
+
+  private async deleteTarget(): Promise<void> {
+    const config = await this.configManager.load();
+    const allTargets: string[] = [];
+
+    // Collect all targets
+    if (config.targets?.hosts) {
+      for (const name of Object.keys(config.targets.hosts)) {
+        allTargets.push(`hosts.${name}`);
+      }
+    }
+    if (config.targets?.containers) {
+      for (const name of Object.keys(config.targets.containers)) {
+        allTargets.push(`containers.${name}`);
+      }
+    }
+    if (config.targets?.pods) {
+      for (const name of Object.keys(config.targets.pods)) {
+        allTargets.push(`pods.${name}`);
+      }
+    }
+
+    if (allTargets.length === 0) {
+      clack.log.warn('No targets configured');
+      return;
+    }
+
+    const target = await clack.select({
+      message: 'Select target to delete',
+      options: allTargets.map(t => ({ value: t, label: t })),
+    }) as string;
+
+    if (clack.isCancel(target)) return;
+
+    const confirm = await clack.confirm({
+      message: `Are you sure you want to delete '${target}'?`,
+    });
+
+    if (!confirm || clack.isCancel(confirm)) return;
+
+    const [type, name] = target.split('.');
+    
+    if (!name) {
+      clack.log.error('Invalid target format');
+      return;
+    }
+    
+    // Delete from config
+    switch (type) {
+      case 'hosts':
+        delete config.targets!.hosts![name];
+        break;
+      case 'containers':
+        delete config.targets!.containers![name];
+        break;
+      case 'pods':
+        delete config.targets!.pods![name];
+        break;
+    }
+
+    await this.saveConfig(config);
+    clack.log.success(`Target '${target}' deleted successfully`);
+  }
+
+  private async testTarget(): Promise<void> {
+    clack.log.info('Target testing will be implemented with the test command');
+  }
+
+  private async manageVars(): Promise<void> {
+    const action = await clack.select({
+      message: 'Variable management',
+      options: [
+        { value: 'list', label: 'List all variables' },
+        { value: 'set', label: 'Set variable' },
+        { value: 'delete', label: 'Delete variable' },
+        { value: 'import', label: 'Import from .env file' },
+        { value: 'export', label: 'Export to .env file' },
+      ],
+    });
+
+    if (clack.isCancel(action)) return;
+
+    switch (action) {
+      case 'list':
+        await this.listVars();
+        break;
+      case 'set':
+        await this.setVar();
+        break;
+      case 'delete':
+        await this.deleteVar();
+        break;
+      case 'import':
+        await this.importVars();
+        break;
+      case 'export':
+        await this.exportVars();
+        break;
+    }
+  }
+
+  private async listVars(): Promise<void> {
+    const config = await this.configManager.load();
+    const vars = config.vars || {};
+
+    if (Object.keys(vars).length === 0) {
+      clack.log.info('No variables configured');
+      return;
+    }
+
+    console.log('\n📝 Variables:\n');
+    for (const [key, value] of Object.entries(vars)) {
+      // Check if it's a secret reference
+      if (typeof value === 'string' && value.startsWith('$secret:')) {
+        console.log(`  ${key}: 🔒 [secret]`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+  }
+
+  private async setVar(): Promise<void> {
+    const name = await clack.text({
+      message: 'Variable name',
+      placeholder: 'MY_VAR',
+      validate: (value) => {
+        if (!value) return 'Name is required';
+        if (!/^[A-Z][A-Z0-9_]*$/.test(value)) return 'Variable names should be UPPER_SNAKE_CASE';
+        return;
+      },
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    const isSecret = await clack.confirm({
+      message: 'Is this a secret value?',
+    });
+
+    if (clack.isCancel(isSecret)) return;
+
+    if (isSecret) {
+      clack.log.error('❌ Secrets cannot be managed through the config command. Use the secrets command instead.');
+      clack.log.info('Run: xec secrets set ' + name);
+      return;
+    }
+
+    const value = await clack.text({
+      message: 'Variable value',
+      placeholder: 'value',
+      validate: (value) => value ? undefined : 'Value is required',
+    }) as string;
+
+    if (clack.isCancel(value)) return;
+
+    const config = await this.configManager.load();
+    if (!config.vars) config.vars = {};
+    config.vars[name] = value;
+
+    await this.saveConfig(config);
+    clack.log.success(`Variable '${name}' set successfully`);
+  }
+
+  private async deleteVar(): Promise<void> {
+    const config = await this.configManager.load();
+    const vars = config.vars || {};
+
+    if (Object.keys(vars).length === 0) {
+      clack.log.info('No variables configured');
+      return;
+    }
+
+    const name = await clack.select({
+      message: 'Select variable to delete',
+      options: Object.keys(vars).map(v => ({ value: v, label: v })),
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    const confirm = await clack.confirm({
+      message: `Delete variable '${name}'?`,
+    });
+
+    if (!confirm || clack.isCancel(confirm)) return;
+
+    delete config.vars![name];
+    await this.saveConfig(config);
+    clack.log.success(`Variable '${name}' deleted successfully`);
+  }
+
+  private async importVars(): Promise<void> {
+    const envFile = await clack.text({
+      message: 'Path to .env file',
+      placeholder: '.env',
+      defaultValue: '.env',
+    }) as string;
+
+    if (clack.isCancel(envFile)) return;
+
+    if (!existsSync(envFile)) {
+      clack.log.error(`File not found: ${envFile}`);
+      return;
+    }
+
+    const content = readFileSync(envFile, 'utf-8');
+    const lines = content.split('\n');
+    const vars: Record<string, string> = {};
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      
+      const [key, ...valueParts] = trimmed.split('=');
+      if (key) {
+        const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+        vars[key] = value;
+      }
+    }
+
+    if (Object.keys(vars).length === 0) {
+      clack.log.warn('No variables found in .env file');
+      return;
+    }
+
+    const config = await this.configManager.load();
+    if (!config.vars) config.vars = {};
+
+    for (const [key, value] of Object.entries(vars)) {
+      config.vars[key] = value;
+    }
+
+    await this.saveConfig(config);
+    clack.log.success(`Imported ${Object.keys(vars).length} variables from ${envFile}`);
+  }
+
+  private async exportVars(): Promise<void> {
+    const config = await this.configManager.load();
+    const vars = config.vars || {};
+
+    if (Object.keys(vars).length === 0) {
+      clack.log.info('No variables to export');
+      return;
+    }
+
+    const envFile = await clack.text({
+      message: 'Output .env file',
+      placeholder: '.env',
+      defaultValue: '.env',
+    }) as string;
+
+    if (clack.isCancel(envFile)) return;
+
+    const lines: string[] = ['# Exported from Xec configuration'];
+    for (const [key, value] of Object.entries(vars)) {
+      if (typeof value === 'string' && value.startsWith('$secret:')) {
+        lines.push(`# ${key}=[secret - use 'xec secrets get ${key}']`);
+      } else {
+        lines.push(`${key}="${value}"`);
+      }
+    }
+
+    writeFileSync(envFile, lines.join('\n'));
+    clack.log.success(`Exported ${Object.keys(vars).length} variables to ${envFile}`);
+  }
+
+  private async manageTasks(): Promise<void> {
+    const action = await clack.select({
+      message: 'Task management',
+      options: [
+        { value: 'list', label: 'List all tasks' },
+        { value: 'view', label: 'View task details' },
+        { value: 'create', label: 'Create new task' },
+        { value: 'edit', label: 'Edit task' },
+        { value: 'delete', label: 'Delete task' },
+        { value: 'validate', label: 'Validate tasks' },
+      ],
+    });
+
+    if (clack.isCancel(action)) return;
+
+    switch (action) {
+      case 'list':
+        await this.listTasks();
+        break;
+      case 'view':
+        await this.viewTask();
+        break;
+      case 'create':
+        await this.createTask();
+        break;
+      case 'edit':
+        await this.editTask();
+        break;
+      case 'delete':
+        await this.deleteTask();
+        break;
+      case 'validate':
+        await this.validateTasks();
+        break;
+    }
+  }
+
+  private async listTasks(): Promise<void> {
+    const config = await this.configManager.load();
+    const tasks = config.tasks || {};
+
+    if (Object.keys(tasks).length === 0) {
+      clack.log.info('No tasks configured');
+      return;
+    }
+
+    console.log('\n⚡ Tasks:\n');
+    for (const [name, task] of Object.entries(tasks)) {
+      console.log(`  ${name}: ${(task as any).description || 'No description'}`);
+    }
+  }
+
+  private async viewTask(): Promise<void> {
+    const config = await this.configManager.load();
+    const tasks = config.tasks || {};
+
+    if (Object.keys(tasks).length === 0) {
+      clack.log.info('No tasks configured');
+      return;
+    }
+
+    const name = await clack.select({
+      message: 'Select task to view',
+      options: Object.keys(tasks).map(t => ({ value: t, label: t })),
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    console.log('\nTask configuration:');
+    console.log(yaml.dump(tasks[name], { indent: 2 }));
+  }
+
+  private async createTask(): Promise<void> {
+    const name = await clack.text({
+      message: 'Task name',
+      placeholder: 'my-task',
+      validate: (value) => {
+        if (!value) return 'Name is required';
+        if (!/^[a-z][a-z0-9-]*$/.test(value)) return 'Task names should be lowercase with hyphens';
+        return;
+      },
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    const description = await clack.text({
+      message: 'Task description',
+      placeholder: 'Describe what this task does',
+    }) as string;
+
+    if (clack.isCancel(description)) return;
+
+    const taskType = await clack.select({
+      message: 'Task type',
+      options: [
+        { value: 'command', label: 'Shell command' },
+        { value: 'script', label: 'Script file' },
+        { value: 'composite', label: 'Multiple steps' },
+      ],
+    }) as string;
+
+    if (clack.isCancel(taskType)) return;
+
+    const config = await this.configManager.load();
+    if (!config.tasks) config.tasks = {};
+
+    const task: any = {
+      description,
+    };
+
+    switch (taskType) {
+      case 'command':
+        const command = await clack.text({
+          message: 'Command to run',
+          placeholder: 'echo "Hello, World!"',
+          validate: (value) => value ? undefined : 'Command is required',
+        }) as string;
+        if (clack.isCancel(command)) return;
+        task.steps = [{ command }];
+        break;
+
+      case 'script':
+        const script = await clack.text({
+          message: 'Script file path',
+          placeholder: './scripts/my-script.sh',
+          validate: (value) => value ? undefined : 'Script path is required',
+        }) as string;
+        if (clack.isCancel(script)) return;
+        task.steps = [{ script }];
+        break;
+
+      case 'composite':
+        clack.log.info('Multi-step tasks can be edited manually in the config file');
+        task.steps = [
+          { name: 'Step 1', command: 'echo "Step 1"' },
+          { name: 'Step 2', command: 'echo "Step 2"' },
+        ];
+        break;
+    }
+
+    config.tasks[name] = task;
+    await this.saveConfig(config);
+    clack.log.success(`Task '${name}' created successfully`);
+  }
+
+  private async editTask(): Promise<void> {
+    clack.log.info('Task editing can be done manually in the config file');
+    const config = await this.configManager.load();
+    const configPath = this.getConfigPath();
+    clack.log.info(`Edit tasks in: ${configPath}`);
+  }
+
+  private async deleteTask(): Promise<void> {
+    const config = await this.configManager.load();
+    const tasks = config.tasks || {};
+
+    if (Object.keys(tasks).length === 0) {
+      clack.log.info('No tasks configured');
+      return;
+    }
+
+    const name = await clack.select({
+      message: 'Select task to delete',
+      options: Object.keys(tasks).map(t => ({ value: t, label: t })),
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    const confirm = await clack.confirm({
+      message: `Delete task '${name}'?`,
+    });
+
+    if (!confirm || clack.isCancel(confirm)) return;
+
+    delete config.tasks![name];
+    await this.saveConfig(config);
+    clack.log.success(`Task '${name}' deleted successfully`);
+  }
+
+  private async validateTasks(): Promise<void> {
+    const config = await this.configManager.load();
+    const tasks = config.tasks || {};
+
+    if (Object.keys(tasks).length === 0) {
+      clack.log.info('No tasks to validate');
+      return;
+    }
+
+    clack.log.info('Validating tasks...');
+    
+    let hasErrors = false;
+    for (const [name, task] of Object.entries(tasks)) {
+      const taskConfig = task as any;
+      
+      // Check for required fields
+      if (!taskConfig.steps || !Array.isArray(taskConfig.steps)) {
+        clack.log.error(`Task '${name}': Missing or invalid 'steps' field`);
+        hasErrors = true;
+        continue;
+      }
+
+      // Validate each step
+      for (let i = 0; i < taskConfig.steps.length; i++) {
+        const step = taskConfig.steps[i];
+        if (!step.command && !step.script && !step.task) {
+          clack.log.error(`Task '${name}', step ${i + 1}: Must have either 'command', 'script', or 'task'`);
+          hasErrors = true;
+        }
+      }
+    }
+
+    if (!hasErrors) {
+      clack.log.success('All tasks are valid');
+    }
+  }
+
+  private async manageDefaults(): Promise<void> {
+    const action = await clack.select({
+      message: 'Defaults management',
+      options: [
+        { value: 'view', label: 'View current defaults' },
+        { value: 'ssh', label: 'Set SSH defaults' },
+        { value: 'docker', label: 'Set Docker defaults' },
+        { value: 'k8s', label: 'Set Kubernetes defaults' },
+        { value: 'commands', label: 'Set command defaults' },
+        { value: 'reset', label: 'Reset to system defaults' },
+      ],
+    });
+
+    if (clack.isCancel(action)) return;
+
+    switch (action) {
+      case 'view':
+        await this.viewDefaults();
+        break;
+      case 'ssh':
+        await this.setSSHDefaults();
+        break;
+      case 'docker':
+        await this.setDockerDefaults();
+        break;
+      case 'k8s':
+        await this.setK8sDefaults();
+        break;
+      case 'commands':
+        await this.setCommandDefaults();
+        break;
+      case 'reset':
+        await this.resetDefaults();
+        break;
+    }
+  }
+
+  private async viewDefaults(): Promise<void> {
+    const config = await this.configManager.load();
+    const defaults = config.targets?.defaults || {};
+
+    if (Object.keys(defaults).length === 0) {
+      clack.log.info('No custom defaults configured (using system defaults)');
+      return;
+    }
+
+    console.log('\n⚙️  Current Defaults:\n');
+    console.log(yaml.dump(defaults, { indent: 2 }));
+  }
+
+  private async setSSHDefaults(): Promise<void> {
+    const config = await this.configManager.load();
+    if (!config.targets) config.targets = {};
+    if (!config.targets.defaults) config.targets.defaults = {};
+    if (!config.targets.defaults.ssh) config.targets.defaults.ssh = {};
+
+    const port = await clack.text({
+      message: 'Default SSH port',
+      placeholder: '22',
+      defaultValue: '22',
+    }) as string;
+
+    if (!clack.isCancel(port)) {
+      config.targets.defaults.ssh.port = parseInt(port);
+    }
+
+    // Note: SSH username and private key are configured per target, not as defaults
+    // Only connection-related settings are part of SSH defaults
+    
+    const keepAlive = await clack.confirm({
+      message: 'Enable SSH keep alive?',
+    });
+
+    if (!clack.isCancel(keepAlive)) {
+      config.targets.defaults.ssh.keepAlive = keepAlive;
+    }
+
+    const keepAliveInterval = await clack.text({
+      message: 'Keep alive interval (ms)',
+      placeholder: '30000',
+      defaultValue: '30000',
+    }) as string;
+
+    if (!clack.isCancel(keepAliveInterval)) {
+      config.targets.defaults.ssh.keepAliveInterval = parseInt(keepAliveInterval);
+    }
+
+    await this.saveConfig(config);
+    clack.log.success('SSH defaults updated');
+  }
+
+  private async setDockerDefaults(): Promise<void> {
+    const config = await this.configManager.load();
+    if (!config.targets) config.targets = {};
+    if (!config.targets.defaults) config.targets.defaults = {};
+    if (!config.targets.defaults.docker) config.targets.defaults.docker = {};
+
+    const workdir = await clack.text({
+      message: 'Default working directory',
+      placeholder: '/app',
+    }) as string;
+
+    if (workdir && !clack.isCancel(workdir)) {
+      config.targets.defaults.docker.workdir = workdir;
+    }
+
+    const user = await clack.text({
+      message: 'Default user',
+      placeholder: 'root',
+    }) as string;
+
+    if (user && !clack.isCancel(user)) {
+      config.targets.defaults.docker.user = user;
+    }
+
+    await this.saveConfig(config);
+    clack.log.success('Docker defaults updated');
+  }
+
+  private async setK8sDefaults(): Promise<void> {
+    const config = await this.configManager.load();
+    if (!config.targets) config.targets = {};
+    if (!config.targets.defaults) config.targets.defaults = {};
+    if (!config.targets.defaults.kubernetes) config.targets.defaults.kubernetes = {};
+
+    const namespace = await clack.text({
+      message: 'Default namespace',
+      placeholder: 'default',
+      defaultValue: 'default',
+    }) as string;
+
+    if (!clack.isCancel(namespace)) {
+      config.targets.defaults.kubernetes.namespace = namespace;
+    }
+
+    const context = await clack.text({
+      message: 'Default context',
+      placeholder: 'Current context',
+    }) as string;
+
+    if (context && !clack.isCancel(context)) {
+      // Note: context is not part of KubernetesDefaults
+    }
+
+    await this.saveConfig(config);
+    clack.log.success('Kubernetes defaults updated');
+  }
+
+  private async setCommandDefaults(): Promise<void> {
+    const config = await this.configManager.load();
+    if (!config.commands) config.commands = {};
+
+    const command = await clack.select({
+      message: 'Select command to configure defaults for',
+      options: [
+        { value: 'exec', label: 'exec' },
+        { value: 'logs', label: 'logs' },
+        { value: 'cp', label: 'cp' },
+        { value: 'sync', label: 'sync' },
+      ],
+    }) as string;
+
+    if (clack.isCancel(command)) return;
+
+    if (!config.commands[command]) config.commands[command] = {};
+
+    clack.log.info(`Setting defaults for '${command}' command`);
+
+    // Command-specific defaults
+    switch (command) {
+      case 'logs':
+        const tail = await clack.text({
+          message: 'Default number of lines to tail',
+          placeholder: '50',
+          defaultValue: '50',
+        }) as string;
+        if (!clack.isCancel(tail)) {
+          if (!config.commands['logs']) config.commands['logs'] = {};
+          config.commands['logs']['tail'] = tail;
+        }
+
+        const timestamps = await clack.confirm({
+          message: 'Show timestamps by default?',
+        });
+        if (!clack.isCancel(timestamps)) {
+          if (!config.commands['logs']) config.commands['logs'] = {};
+          config.commands['logs']['timestamps'] = timestamps;
+        }
+        break;
+
+      case 'exec':
+        const shell = await clack.text({
+          message: 'Default shell',
+          placeholder: '/bin/sh',
+          defaultValue: '/bin/sh',
+        }) as string;
+        if (!clack.isCancel(shell)) {
+          if (!config.commands['exec']) config.commands['exec'] = {};
+          config.commands['exec']['shell'] = shell;
+        }
+        break;
+
+      case 'cp':
+      case 'sync':
+        const recursive = await clack.confirm({
+          message: 'Recursive by default?',
+        });
+        if (!clack.isCancel(recursive)) {
+          if (!config.commands[command]) config.commands[command] = {};
+          config.commands[command]['recursive'] = recursive;
+        }
+        break;
+    }
+
+    await this.saveConfig(config);
+    clack.log.success(`Defaults for '${command}' command updated`);
+  }
+
+  private async resetDefaults(): Promise<void> {
+    const confirm = await clack.confirm({
+      message: 'Reset all defaults to system values?',
+    });
+
+    if (!confirm || clack.isCancel(confirm)) return;
+
+    const config = await this.configManager.load();
+    if (config.targets?.defaults) {
+      delete config.targets.defaults;
+    }
+    if (config.commands) {
+      delete config.commands;
+    }
+
+    await this.saveConfig(config);
+    clack.log.success('Defaults reset to system values');
+  }
+
+  private async runDoctor(): Promise<void> {
+    clack.log.info('🏥 Running configuration doctor...\n');
+
+    const config = await this.configManager.load();
+    const recommendations: string[] = [];
+
+    // Check for basic configuration
+    if (!config.name) {
+      recommendations.push('Set project name');
+      config.name = await clack.text({
+        message: 'Project name',
+        placeholder: 'my-project',
+      }) as string;
+      if (clack.isCancel(config.name)) return;
+    }
+
+    if (!config.description) {
+      recommendations.push('Add project description');
+      config.description = await clack.text({
+        message: 'Project description',
+        placeholder: 'Describe your project',
+      }) as string;
+      if (clack.isCancel(config.description)) delete config.description;
+    }
+
+    // Ensure all default sections exist
+    if (!config.targets) config.targets = {};
+    if (!config.targets.defaults) config.targets.defaults = {};
+    
+    // Add SSH defaults
+    if (!config.targets.defaults.ssh) {
+      config.targets.defaults.ssh = {
+        port: 22,
+        keepAlive: true,
+        keepAliveInterval: 30000,
+      };
+      recommendations.push('Added SSH defaults');
+    }
+
+    // Add Docker defaults
+    if (!config.targets.defaults.docker) {
+      config.targets.defaults.docker = {
+        workdir: '/app',
+        tty: true,
+      };
+      recommendations.push('Added Docker defaults');
+    }
+
+    // Add K8s defaults
+    if (!config.targets.defaults.kubernetes) {
+      config.targets.defaults.kubernetes = {
+        namespace: 'default',
+      };
+      recommendations.push('Added Kubernetes defaults');
+    }
+
+    // Add command defaults
+    if (!config.commands) config.commands = {};
+    
+    if (!config.commands['exec']) {
+      config.commands['exec'] = {
+        shell: '/bin/sh',
+        tty: true,
+      };
+      recommendations.push('Added exec command defaults');
+    }
+
+    if (!config.commands['logs']) {
+      config.commands['logs'] = {
+        tail: '50',
+        timestamps: false,
+        follow: false,
+        prefix: false,
+      };
+      recommendations.push('Added logs command defaults');
+    }
+
+    if (!config.commands['cp']) {
+      config.commands['cp'] = {
+        recursive: true,
+        preserveMode: true,
+        preserveTimestamps: false,
+      };
+      recommendations.push('Added cp command defaults');
+    }
+
+    // Note: environment configuration can be added as needed
+
+    // Save updated configuration
+    await this.saveConfig(config);
+
+    // Report results
+    if (recommendations.length > 0) {
+      clack.log.success('Doctor made the following improvements:');
+      for (const rec of recommendations) {
+        console.log(`  ✅ ${rec}`);
+      }
+    } else {
+      clack.log.success('Configuration is healthy! No changes needed.');
+    }
+
+    // Validate configuration
+    await this.validateConfig();
+  }
+
+  private async validateConfig(): Promise<void> {
+    clack.log.info('Validating configuration...\n');
+
+    try {
+      const config = await this.configManager.load();
+      
+      // Basic validation
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Check project name
+      if (!config.name) {
+        errors.push('Project name is missing');
+      }
+
+      // Check targets
+      if (config.targets) {
+        // Validate SSH hosts
+        if (config.targets.hosts) {
+          for (const [name, host] of Object.entries(config.targets.hosts)) {
+            const h = host as any;
+            if (!h.host) {
+              errors.push(`SSH host '${name}': missing 'host' field`);
+            }
+            if (!h.username && !h.user) {
+              warnings.push(`SSH host '${name}': no username specified`);
+            }
+            if (!h.privateKey && !h.password) {
+              warnings.push(`SSH host '${name}': no authentication method specified`);
+            }
+          }
+        }
+
+        // Validate Docker containers
+        if (config.targets.containers) {
+          for (const [name, container] of Object.entries(config.targets.containers)) {
+            const c = container as any;
+            if (!c.container && !c.image) {
+              errors.push(`Docker container '${name}': must specify either 'container' or 'image'`);
+            }
+          }
+        }
+
+        // Validate K8s pods
+        if (config.targets.pods) {
+          for (const [name, pod] of Object.entries(config.targets.pods)) {
+            const p = pod as any;
+            if (!p.pod) {
+              errors.push(`Kubernetes pod '${name}': missing 'pod' field`);
+            }
+          }
+        }
+      }
+
+      // Validate tasks
+      if (config.tasks) {
+        for (const [name, task] of Object.entries(config.tasks)) {
+          const t = task as any;
+          if (!t.steps || !Array.isArray(t.steps)) {
+            errors.push(`Task '${name}': missing or invalid 'steps' field`);
+          } else {
+            for (let i = 0; i < t.steps.length; i++) {
+              const step = t.steps[i];
+              if (!step.command && !step.script && !step.task) {
+                errors.push(`Task '${name}', step ${i + 1}: must have either 'command', 'script', or 'task'`);
+              }
+            }
+          }
+        }
+      }
+
+      // Report results
+      if (errors.length > 0) {
+        clack.log.error('Configuration has errors:');
+        for (const error of errors) {
+          console.log(`  ❌ ${error}`);
+        }
+      }
+
+      if (warnings.length > 0) {
+        clack.log.warn('Configuration warnings:');
+        for (const warning of warnings) {
+          console.log(`  ⚠️  ${warning}`);
+        }
+      }
+
+      if (errors.length === 0 && warnings.length === 0) {
+        clack.log.success('✅ Configuration is valid');
+      }
+    } catch (error) {
+      clack.log.error(`Failed to validate configuration: ${error}`);
+    }
+  }
+
+  private async initProject(): Promise<void> {
+    const name = await clack.text({
+      message: 'Project name',
+      placeholder: 'my-project',
+      validate: (value) => {
+        if (!value) return 'Name is required';
+        if (!/^[a-z][a-z0-9-]*$/.test(value)) return 'Project names should be lowercase with hyphens';
+        return;
+      },
+    }) as string;
+
+    if (clack.isCancel(name)) return;
+
+    const description = await clack.text({
+      message: 'Project description',
+      placeholder: 'A great project',
+    }) as string;
+
+    if (clack.isCancel(description)) return;
+
+    const includeExamples = await clack.confirm({
+      message: 'Include example configurations?',
+    });
+
+    const config: any = {
+      name,
+      description: description || undefined,
+      version: '1.0.0',
+      targets: {
+        local: {
+          type: 'local',
+        },
+      },
+    };
+
+    if (includeExamples && !clack.isCancel(includeExamples)) {
+      // Add example SSH host
+      config.targets.hosts = {
+        'example-server': {
+          type: 'ssh',
+          host: 'example.com',
+          port: 22,
+          username: 'user',
+          privateKey: '~/.ssh/id_rsa',
+        },
+      };
+
+      // Add example Docker container
+      config.targets.containers = {
+        'example-app': {
+          type: 'docker',
+          image: 'node:18-alpine',
+          workdir: '/app',
+        },
+      };
+
+      // Add example task
+      config.tasks = {
+        'hello-world': {
+          description: 'A simple hello world task',
+          steps: [
+            {
+              name: 'Say hello',
+              command: 'echo "Hello from Xec!"',
+            },
+          ],
+        },
+        'build': {
+          description: 'Build the project',
+          steps: [
+            {
+              name: 'Install dependencies',
+              command: 'npm install',
+            },
+            {
+              name: 'Build',
+              command: 'npm run build',
+            },
+          ],
+        },
+      };
+
+      // Add example variables
+      config.vars = {
+        NODE_ENV: 'development',
+        PORT: '3000',
+      };
+    }
+
+    await this.saveConfig(config);
+    clack.log.success(`Project '${name}' initialized successfully`);
+
+    const configPath = this.getConfigPath();
+    clack.log.info(`Configuration saved to: ${configPath}`);
+  }
+
+  private getConfigPath(): string {
+    return join(process.cwd(), '.xec', 'config.yaml');
+  }
+
+  private async saveConfig(config: any): Promise<void> {
+    const configPath = this.getConfigPath();
+    const configDir = dirname(configPath);
+
+    // Ensure directory exists
+    if (!existsSync(configDir)) {
+      const { mkdirSync } = await import('fs');
+      mkdirSync(configDir, { recursive: true });
+    }
+
+    // Save as YAML
+    const yamlContent = yaml.dump(config, {
+      indent: 2,
+      sortKeys: false,
+      lineWidth: -1,
+    });
+
+    writeFileSync(configPath, yamlContent);
+  }
+  // Wrapper methods for CLI commands with parameters
+  private async editTargetWithName(name: string): Promise<void> {
+    // Set the target name for editing
+    const config = await this.configManager.load();
+    const allTargets = [
+      ...Object.keys(config.targets?.hosts || {}),
+      ...Object.keys(config.targets?.containers || {}),
+      ...Object.keys(config.targets?.pods || {})
+    ];
+    if (!allTargets.includes(name)) {
+      console.error(chalk.red(`Target '${name}' not found`));
+      process.exit(1);
+    }
+    await this.editTarget();
+  }
+
+  private async deleteTargetWithName(name: string): Promise<void> {
+    const config = await this.configManager.load();
+    const allTargets = [
+      ...Object.keys(config.targets?.hosts || {}),
+      ...Object.keys(config.targets?.containers || {}),
+      ...Object.keys(config.targets?.pods || {})
+    ];
+    if (!allTargets.includes(name)) {
+      console.error(chalk.red(`Target '${name}' not found`));
+      process.exit(1);
+    }
+    await this.deleteTarget();
+  }
+
+  private async testTargetWithName(name: string): Promise<void> {
+    const config = await this.configManager.load();
+    const allTargets = [
+      ...Object.keys(config.targets?.hosts || {}),
+      ...Object.keys(config.targets?.containers || {}),
+      ...Object.keys(config.targets?.pods || {})
+    ];
+    if (!allTargets.includes(name)) {
+      console.error(chalk.red(`Target '${name}' not found`));
+      process.exit(1);
+    }
+    await this.testTarget();
+  }
+
+  private async setVarWithKeyValue(key: string, value?: string): Promise<void> {
+    await this.setVar();
+  }
+
+  private async deleteVarWithKey(key: string): Promise<void> {
+    await this.deleteVar();
+  }
+
+  private async importVarsFromFile(file: string): Promise<void> {
+    await this.importVars();
+  }
+
+  private async exportVarsToFile(file: string): Promise<void> {
+    await this.exportVars();
+  }
+
+  private async viewTaskWithName(name: string): Promise<void> {
+    await this.viewTask();
+  }
+
+  private async deleteTaskWithName(name: string): Promise<void> {
+    await this.deleteTask();
+  }
+}
+
+/**
+ * Export command registration function
+ */
+export default function command(program: Command): void {
+  const cmd = new ConfigCommand();
+  program.addCommand(cmd.create());
+}

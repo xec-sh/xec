@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { rm } from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach, jest } from '@jest/globals';
+import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ModuleLoader } from '../../src/utils/module-loader.js';
 

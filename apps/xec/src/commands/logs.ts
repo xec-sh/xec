@@ -5,8 +5,8 @@ import { Command } from 'commander';
 import * as readline from 'readline';
 
 import { validateOptions } from '../utils/validation.js';
-import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
+import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 
 import type { ResolvedTarget } from '../config/types.js';
 

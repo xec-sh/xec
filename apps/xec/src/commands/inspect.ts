@@ -16,7 +16,7 @@ import { formatBytes } from '../utils/formatters.js';
 import { TaskManager } from '../config/task-manager.js';
 import { getModuleLoader } from '../utils/module-loader.js';
 import { TargetResolver } from '../config/target-resolver.js';
-import { getDynamicCommandLoader } from '../utils/dynamic-commands.js';
+import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
 import { VariableInterpolator } from '../config/variable-interpolator.js';
@@ -233,7 +233,7 @@ class ProjectInspector {
           { value: 'targets', label: '🎯 Targets - Hosts, containers, and pods' },
           { value: 'vars', label: '📝 Variables - Configuration variables' },
           { value: 'scripts', label: '📜 Scripts - JavaScript/TypeScript files' },
-          { value: 'commands', label: '⌘  Commands - Dynamic and built-in commands' },
+          { value: 'commands', label: '⌘  Commands - Dynamic and built-in CLI commands' },
           { value: 'config', label: '⚙️  Configuration - Full configuration tree' },
           { value: 'system', label: '💻 System - Version and environment information' },
           { value: 'cache', label: '📦 Cache - Module cache information' },
@@ -408,44 +408,26 @@ class ProjectInspector {
 
   private async inspectCommands(name?: string): Promise<InspectionResult[]> {
     const results: InspectionResult[] = [];
-    const loader = getDynamicCommandLoader();
-    const dynamicCommands = loader.getCommands();
+    
+    // Use unified command discovery
+    const allCommands = await discoverAllCommands();
 
-    // Get built-in commands
-    const builtInCommands = await this.getBuiltInCommands();
-
-    // Process built-in commands
-    for (const cmdName of builtInCommands) {
-      if (name && cmdName !== name) continue;
-
-      results.push({
-        type: 'command',
-        name: cmdName,
-        data: {
-          type: 'built-in',
-          description: this.getCommandDescription(cmdName),
-        },
-        metadata: {
-          category: 'built-in',
-        },
-      });
-    }
-
-    // Process dynamic commands
-    for (const cmd of dynamicCommands) {
+    // Process all commands uniformly
+    for (const cmd of allCommands) {
       if (name && cmd.name !== name) continue;
 
       results.push({
         type: 'command',
         name: cmd.name,
         data: {
-          type: 'dynamic',
+          type: cmd.type,
+          description: cmd.description,
           path: cmd.path,
           loaded: cmd.loaded,
           error: cmd.error,
         },
         metadata: {
-          category: 'custom',
+          category: cmd.type === 'built-in' ? 'built-in' : 'custom',
         },
       });
     }
@@ -1350,41 +1332,7 @@ class ProjectInspector {
     return null;
   }
 
-  private async getBuiltInCommands(): Promise<string[]> {
-    const commandsDir = path.join(path.dirname(new URL(import.meta.url).pathname), '../commands');
-    const commands: string[] = [];
 
-    if (await fs.pathExists(commandsDir)) {
-      const files = await fs.readdir(commandsDir);
-      for (const file of files) {
-        if (file.endsWith('.js') && !file.endsWith('.test.js')) {
-          commands.push(file.replace('.js', ''));
-        }
-      }
-    }
-
-    return commands.sort();
-  }
-
-  private getCommandDescription(command: string): string {
-    const descriptions: Record<string, string> = {
-      config: 'Manage configuration settings',
-      copy: 'Copy files between locations',
-      explain: 'Explain what a task will do',
-      forward: 'Set up port forwarding',
-      in: 'Execute commands in containers or pods',
-      inspect: 'Inspect project configuration and resources',
-      list: 'List available resources',
-      new: 'Create new scripts or commands from templates',
-      on: 'Execute commands on remote hosts',
-      run: 'Run scripts or evaluate code',
-      secrets: 'Manage secrets',
-      tasks: 'List available tasks',
-      watch: 'Watch files and execute commands on change',
-    };
-
-    return descriptions[command] || 'No description available';
-  }
 
   private getTableHeaders(type: string): string[] {
     switch (type) {

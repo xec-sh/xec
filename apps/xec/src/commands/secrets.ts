@@ -27,13 +27,17 @@ export class SecretsCommand extends ConfigAwareCommand {
    */
   override create(): Command {
     const command = new Command(this.config.name)
-      .description(this.config.description)
-      .option('-i, --interactive', 'Run in interactive mode');
+      .description(this.config.description);
 
     // Add aliases
     if (this.config.aliases) {
       this.config.aliases.forEach(alias => command.alias(alias));
     }
+
+    // Set up action for when no subcommand is provided
+    command.action(async () => {
+      await this.execute([]);
+    });
 
     // Set up subcommands
     this.setupSubcommands(command);
@@ -124,18 +128,11 @@ export class SecretsCommand extends ConfigAwareCommand {
   }
 
   /**
-   * Execute method - shows help if no subcommand or enters interactive mode
+   * Execute method - enters interactive mode when no subcommand is provided
    */
   override async execute(args: any[]): Promise<void> {
-    const options = args[args.length - 1]?.opts?.() || {};
-
-    if (options.interactive) {
-      await this.runInteractiveMode();
-    } else {
-      // This shouldn't be called for subcommand-based commands
-      const command = args[args.length - 1];
-      command.help();
-    }
+    // If no subcommand is provided, enter interactive mode
+    await this.runInteractiveMode();
   }
 
   /**

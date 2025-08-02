@@ -439,15 +439,15 @@ export class ScriptLoader {
         throw new Error('Module did not export anything');
       }
 
-      // Register command
-      if (moduleExports.command && typeof moduleExports.command === 'function') {
+      // Register command (prefer default export)
+      if (moduleExports.default && typeof moduleExports.default === 'function') {
+        moduleExports.default(program);
+      } else if (moduleExports.command && typeof moduleExports.command === 'function') {
         moduleExports.command(program);
       } else if (typeof moduleExports === 'function') {
         moduleExports(program);
-      } else if (moduleExports.default && typeof moduleExports.default === 'function') {
-        moduleExports.default(program);
       } else {
-        throw new Error('Command file must export a "command" function or default function');
+        throw new Error('Command file must export a default function or "command" function');
       }
 
       if (this.options.verbose) {
