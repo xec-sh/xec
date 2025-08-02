@@ -6,7 +6,8 @@ import { Command } from 'commander';
 import * as chokidar from 'chokidar';
 
 import { validateOptions } from '../utils/validation.js';
-import { ConfigAwareCommand, ConfigAwareOptions } from './base/config-aware-command.js';
+import { getUnifiedScriptLoader } from '../utils/script-loader.js';
+import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
 import type { ResolvedTarget } from '../config/types.js';
@@ -16,6 +17,7 @@ interface WatchOptions extends ConfigAwareOptions, InteractiveOptions {
   exclude?: string[];
   command?: string;
   task?: string;
+  script?: string;
   debounce?: string;
   initial?: boolean;
   poll?: boolean;
@@ -58,6 +60,10 @@ export class WatchCommand extends ConfigAwareCommand {
         {
           flags: '--task <task>',
           description: 'Task to run on change',
+        },
+        {
+          flags: '--script <script>',
+          description: 'Script file to execute on change',
         },
         {
           flags: '-d, --debounce <ms>',
@@ -103,6 +109,10 @@ export class WatchCommand extends ConfigAwareCommand {
           command: 'xec watch pods.frontend /app --exclude "node_modules" --task reload',
           description: 'Watch pod files excluding node_modules',
         },
+        {
+          command: 'xec watch local "src/**/*.ts" --script ./scripts/build.js',
+          description: 'Watch TypeScript files and run build script',
+        },
       ],
       validateOptions: (options) => {
         const schema = z.object({
@@ -111,6 +121,7 @@ export class WatchCommand extends ConfigAwareCommand {
           exclude: z.array(z.string()).optional(),
           command: z.string().optional(),
           task: z.string().optional(),
+          script: z.string().optional(),
           debounce: z.string().optional(),
           initial: z.boolean().optional(),
           poll: z.boolean().optional(),
@@ -125,11 +136,11 @@ export class WatchCommand extends ConfigAwareCommand {
     });
   }
 
-  protected getCommandConfigKey(): string {
+  protected override getCommandConfigKey(): string {
     return 'watch';
   }
 
-  async execute(args: any[]): Promise<void> {
+  override async execute(args: any[]): Promise<void> {
     const [targetSpec, ...paths] = args.slice(0, -1);
     const options = args[args.length - 1] as WatchOptions;
 
@@ -142,8 +153,8 @@ export class WatchCommand extends ConfigAwareCommand {
       throw new Error('Target specification is required');
     }
 
-    if (!options.command && !options.task) {
-      throw new Error('Either --command or --task must be specified');
+    if (!options.command && !options.task && !options.script) {
+      throw new Error('Either --command, --task, or --script must be specified');
     }
 
     // Initialize configuration
@@ -169,7 +180,11 @@ export class WatchCommand extends ConfigAwareCommand {
       if (mergedOptions.exclude) {
         this.log(`  Exclude: ${mergedOptions.exclude.join(', ')}`, 'info');
       }
-      const action = mergedOptions.command ? `command: ${mergedOptions.command}` : `task: ${mergedOptions.task}`;
+      const action = mergedOptions.command
+        ? `command: ${mergedOptions.command}`
+        : mergedOptions.task
+          ? `task: ${mergedOptions.task}`
+          : `script: ${mergedOptions.script}`;
       this.log(`  Action: ${action}`, 'info');
       return;
     }
@@ -519,6 +534,37 @@ export class WatchCommand extends ConfigAwareCommand {
           // In quiet mode, still throw error  
           throw new Error(`Command failed with exit code ${result.exitCode}`);
         }
+      } else if (options.script) {
+        // Execute script using ScriptLoader
+        const scriptLoader = getUnifiedScriptLoader({
+          verbose: options.verbose,
+          quiet: options.quiet,
+        });
+
+        const result = await scriptLoader.executeScript(options.script, {
+          target,
+          targetEngine: engine,
+          context: {
+            args: [],
+            argv: [process.argv[0] || 'node', options.script],
+            __filename: options.script,
+            __dirname: require('path').dirname(options.script),
+          },
+          quiet: options.quiet,
+        });
+
+        if (!options.quiet) {
+          this.stopSpinner();
+
+          if (result.success) {
+            this.log(`${chalk.green('✓')} Script executed successfully`, 'success');
+          } else {
+            throw new Error(result.error?.message || 'Script execution failed');
+          }
+        } else if (!result.success) {
+          // In quiet mode, still throw error
+          throw new Error(result.error?.message || 'Script execution failed');
+        }
       } else if (options.task && this.taskManager) {
         // Execute task
         const result = await this.taskManager.run(options.task, {}, {
@@ -661,8 +707,15 @@ export class WatchCommand extends ConfigAwareCommand {
       // Step 5: Choose action type
       const actionType = await InteractiveHelpers.selectFromList(
         'What should run when files change?',
-        ['command', 'task'],
-        (type) => type === 'command' ? '🔧 Execute a shell command' : '📋 Run a configured task'
+        ['command', 'task', 'script'],
+        (type) => {
+          switch (type) {
+            case 'command': return '🔧 Execute a shell command';
+            case 'task': return '📋 Run a configured task';
+            case 'script': return '📜 Execute a script file';
+            default: return type;
+          }
+        }
       );
 
       if (!actionType) {
@@ -672,6 +725,7 @@ export class WatchCommand extends ConfigAwareCommand {
 
       let command: string | undefined;
       let task: string | undefined;
+      let script: string | undefined;
 
       if (actionType === 'command') {
         const commandInput = await InteractiveHelpers.inputText(
@@ -689,6 +743,30 @@ export class WatchCommand extends ConfigAwareCommand {
         command = commandInput || undefined;
 
         if (!command) {
+          InteractiveHelpers.endInteractiveMode('Cancelled');
+          return;
+        }
+      } else if (actionType === 'script') {
+        const scriptInput = await InteractiveHelpers.inputText(
+          'Enter script file path:',
+          {
+            placeholder: './scripts/build.js, ./tasks/deploy.ts',
+            validate: (value) => {
+              if (!value?.trim()) {
+                return 'Script path cannot be empty';
+              }
+              // Check if file exists
+              const fs = require('fs');
+              if (!fs.existsSync(value.trim())) {
+                return 'Script file not found';
+              }
+              return undefined;
+            },
+          }
+        );
+        script = scriptInput || undefined;
+
+        if (!script) {
           InteractiveHelpers.endInteractiveMode('Cancelled');
           return;
         }
@@ -831,6 +909,9 @@ export class WatchCommand extends ConfigAwareCommand {
       if (task) {
         console.log(`  Task: ${task}`);
       }
+      if (script) {
+        console.log(`  Script: ${script}`);
+      }
       console.log(`  Debounce: ${debounce}ms`);
       if (poll) {
         console.log(`  Polling: ${interval}ms`);
@@ -858,6 +939,7 @@ export class WatchCommand extends ConfigAwareCommand {
         exclude: excludes,
         command,
         task,
+        script,
         debounce,
         initial,
         poll,

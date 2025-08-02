@@ -5,7 +5,7 @@ import { Command } from 'commander';
 import * as readline from 'readline';
 
 import { validateOptions } from '../utils/validation.js';
-import { ConfigAwareCommand, ConfigAwareOptions } from './base/config-aware-command.js';
+import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
 import type { ResolvedTarget } from '../config/types.js';
@@ -200,11 +200,11 @@ export class LogsCommand extends ConfigAwareCommand {
     });
   }
 
-  protected getCommandConfigKey(): string {
+  protected override getCommandConfigKey(): string {
     return 'logs';
   }
 
-  async execute(args: any[]): Promise<void> {
+  override async execute(args: any[]): Promise<void> {
     // Check if the last arg is a Command object (Commander.js pattern)
     const lastArg = args[args.length - 1];
     const isCommand = lastArg && typeof lastArg === 'object' && lastArg.constructor && lastArg.constructor.name === 'Command';
@@ -1057,7 +1057,7 @@ export class LogsCommand extends ConfigAwareCommand {
   }
 }
 
-export default function logsCommand(program: Command): void {
+export default function command(program: Command): void {
   const cmd = new LogsCommand();
   program.addCommand(cmd.create());
 }

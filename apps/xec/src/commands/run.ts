@@ -1,315 +1,252 @@
 import path from 'path';
 import chalk from 'chalk';
 import fs from 'fs/promises';
+import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
-import { handleError } from '../utils/error-handler.js';
 import { TaskManager } from '../config/task-manager.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
-import { getModuleLoader, initializeGlobalModuleContext } from '../utils/unified-module-loader.js';
+import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
+import { ScriptLoader, type ExecutionOptions } from '../utils/script-loader.js';
 
-export default function command(program: Command) {
-  program
-    .command('run [fileOrTask]')
-    .alias('r')
-    .description('Run an Xec script or task')
-    .option('-e, --eval <code>', 'Evaluate code')
-    .option('--repl', 'Start interactive REPL')
-    .option('--typescript', 'Enable TypeScript support')
-    .option('--watch', 'Watch for file changes')
-    .option('--runtime <runtime>', 'Specify runtime: auto, node, bun, deno (default: auto)')
-    .option('--no-universal', 'Disable universal loader (legacy mode)')
-    .option('-p, --param <key=value...>', 'Task parameters', (value, previous: string[] = []) => {
-      previous.push(value);
-      return previous;
-    }, [])
-    .allowUnknownOption(true)
-    .helpOption('-h, --help', 'Display help for command')
-    .action(async (fileOrTask, options, command) => {
-      try {
-        // Get script arguments (everything after --)
-        const scriptArgs = command.args.slice(command.args.indexOf(fileOrTask) + 1);
+interface RunOptions extends ConfigAwareOptions {
+  eval?: string;
+  repl?: boolean;
+  typescript?: boolean;
+  watch?: boolean;
+  runtime?: string;
+  universal?: boolean;
+  param?: string[];
+}
 
-        if (options.repl) {
-          await startRepl(options);
-        } else if (options.eval) {
-          await evalCode(options.eval, scriptArgs, options);
-        } else if (fileOrTask) {
-          // Check if it's a file or task
-          const isFile = fileOrTask.includes('.') || fileOrTask.includes('/') || fileOrTask.includes('\\');
+export class RunCommand extends BaseCommand {
+  private scriptLoader: ScriptLoader;
 
-          if (isFile) {
-            await runScript(fileOrTask, scriptArgs, options);
-          } else {
-            // Try to run as task
-            await runTask(fileOrTask, options);
-          }
-        } else {
-          clack.log.error('No script file or task specified');
-          clack.log.info('Usage: xec run <file> [args...]');
-          clack.log.info('       xec run <task> [options]');
-          clack.log.info('       xec run -e <code>');
-          clack.log.info('       xec run --repl');
-          process.exit(1);
+  constructor() {
+    super({
+      name: 'run',
+      description: 'Run an Xec script or task',
+      arguments: '[fileOrTask]',
+      aliases: ['r'],
+      options: [
+        {
+          flags: '-e, --eval <code>',
+          description: 'Evaluate code'
+        },
+        {
+          flags: '--repl',
+          description: 'Start interactive REPL'
+        },
+        {
+          flags: '--typescript',
+          description: 'Enable TypeScript support'
+        },
+        {
+          flags: '--watch',
+          description: 'Watch for file changes'
+        },
+        {
+          flags: '--runtime <runtime>',
+          description: 'Specify runtime: auto, node, bun, deno (default: auto)'
+        },
+        {
+          flags: '--no-universal',
+          description: 'Disable universal loader (legacy mode)'
         }
-      } catch (error) {
-        handleError(error, {
-          verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-          quiet: options.parent?.opts()?.quiet,
-          output: 'text'
-        });
-      }
+      ],
+      examples: [
+        {
+          command: 'xec run script.js',
+          description: 'Run a JavaScript file'
+        },
+        {
+          command: 'xec run script.ts',
+          description: 'Run a TypeScript file'
+        },
+        {
+          command: 'xec run build',
+          description: 'Run a task named "build"'
+        },
+        {
+          command: 'xec run -e "console.log(\'Hello\')"',
+          description: 'Evaluate inline code'
+        },
+        {
+          command: 'xec run --repl',
+          description: 'Start interactive REPL'
+        }
+      ]
     });
-}
 
-/**
- * Run script using universal loader
- */
-export async function runScript(scriptPath: string, args: string[], options: any) {
-  // Initialize global module context
-  await initializeGlobalModuleContext({
-    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-    preferredCDN: 'esm.sh'
-  });
+    this.scriptLoader = new ScriptLoader({
+      verbose: process.env['XEC_DEBUG'] === 'true',
+      cache: true,
+      preferredCDN: 'esm.sh'
+    });
+  }
 
-  // Get module loader
-  const loader = getModuleLoader({
-    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-    cache: true,
-    preferredCDN: 'esm.sh'
-  });
+  /**
+   * Override create to handle special option parsing for params
+   */
+  override create(): Command {
+    const command = super.create();
 
-  // Display runtime info
-  if (!options.parent?.opts()?.quiet) {
-    clack.log.info(`Running script: ${chalk.cyan(scriptPath)}`);
+    // Override the param option to accumulate values
+    // Simply add a new option handler that will override the default behavior
+    command.option(
+      '-p, --param <key=value...>',
+      'Task parameters (can be used multiple times)',
+      (value, previous: string[] = []) => {
+        previous.push(value);
+        return previous;
+      },
+      []
+    );
 
-    if (scriptPath.endsWith('.ts') || scriptPath.endsWith('.tsx')) {
-      clack.log.info(chalk.dim('TypeScript support: ') + chalk.green('✓'));
+    // Allow unknown options for script arguments
+    command.allowUnknownOption(true);
+
+    return command;
+  }
+
+  /**
+   * Execute the run command
+   */
+  public async execute(args: any[]): Promise<void> {
+    const fileOrTask = args[0];
+    const options = args[args.length - 1] as RunOptions;
+
+    // Get script arguments (everything after the fileOrTask)
+    const scriptArgs = args.slice(1, args.length - 1);
+
+    if (options.repl) {
+      await this.startRepl(options);
+    } else if (options.eval) {
+      await this.evalCode(options.eval, scriptArgs, options);
+    } else if (fileOrTask) {
+      // Check if it's a file or task
+      const isFile = fileOrTask.includes('.') || fileOrTask.includes('/') || fileOrTask.includes('\\');
+
+      if (isFile) {
+        await this.runScript(fileOrTask, scriptArgs, options);
+      } else {
+        // Try to run as task
+        await this.runTask(fileOrTask, options);
+      }
+    } else {
+      clack.log.error('No script file or task specified');
+      clack.log.info('Usage: xec run <file> [args...]');
+      clack.log.info('       xec run <task> [options]');
+      clack.log.info('       xec run -e <code>');
+      clack.log.info('       xec run --repl');
+      throw new Error('No script file or task specified');
     }
   }
 
-  // Utilities are already loaded globally in initializeGlobalModuleContext
-
-  try {
-    if (options.watch) {
-      const { watch } = await import('chokidar');
-
-      const runAndLog = async () => {
-        try {
-          clack.log.info(chalk.dim(`Running ${scriptPath}...`));
-          // Create a temporary context for the script
-          (globalThis as any).__xecScriptContext = {
-            args,
-            argv: [process.argv[0], scriptPath, ...args],
-            __filename: scriptPath,
-            __dirname: path.dirname(scriptPath),
-          };
-
-          try {
-            const content = await fs.readFile(scriptPath, 'utf-8');
-            const ext = path.extname(scriptPath);
-            let transformedCode = content;
-
-            if (ext === '.ts' || ext === '.tsx') {
-              transformedCode = await loader.transformTypeScript(content, scriptPath);
-            }
-            const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
-            await import(dataUrl);
-          } finally {
-            delete (globalThis as any).__xecScriptContext;
-          }
-        } catch (error) {
-          handleError(error, {
-            verbose: false,
-            quiet: false,
-            output: 'text'
-          });
-        }
-      };
-
-      await runAndLog();
-
-      const watcher = watch(scriptPath, { ignoreInitial: true });
-      watcher.on('change', async () => {
-        console.clear();
-        clack.log.info(chalk.dim('File changed, rerunning...'));
-        await runAndLog();
-      });
-
-      // Keep process alive
-      process.stdin.resume();
-    } else {
-      // Create a temporary context for the script
-      (globalThis as any).__xecScriptContext = {
+  /**
+   * Run script using unified loader
+   */
+  private async runScript(scriptPath: string, args: string[], options: RunOptions): Promise<void> {
+    // Build execution options
+    const execOptions: ExecutionOptions = {
+      verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
+      quiet: this.options.quiet,
+      typescript: options.typescript,
+      watch: options.watch,
+      context: {
         args,
-        argv: [process.argv[0], scriptPath, ...args],
-        __filename: scriptPath,
-        __dirname: path.dirname(scriptPath),
-      };
+        argv: [process.argv[0] || 'node', scriptPath, ...args],
+        __filename: path.resolve(scriptPath),
+        __dirname: path.dirname(path.resolve(scriptPath)),
+      },
+      // Add local target for compatibility
+      target: {
+        type: 'local',
+        name: 'local',
+        config: {}
+      } as any,
+      targetEngine: $
+    };
 
-      try {
-        const content = await fs.readFile(scriptPath, 'utf-8');
-        const ext = path.extname(scriptPath);
-        let transformedCode = content;
+    // Execute the script
+    const result = await this.scriptLoader.executeScript(scriptPath, execOptions);
 
-        if (ext === '.ts' || ext === '.tsx') {
-          transformedCode = await loader.transformTypeScript(content, scriptPath);
+    if (!result.success && result.error) {
+      // If runtime not available, provide helpful message
+      if (result.error.message.includes('runtime requested but not available')) {
+        clack.log.error(result.error.message);
+
+        const runtime = options.runtime || 'auto';
+        if (runtime !== 'auto') {
+          clack.log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
+          clack.log.info(`  ${chalk.cyan(`${runtime} xec run ${scriptPath}`)}`);
         }
-
-        const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
-        await import(dataUrl);
-      } finally {
-        delete (globalThis as any).__xecScriptContext;
+      } else {
+        throw result.error;
       }
     }
-  } catch (error) {
-    // If runtime not available, provide helpful message
-    if (error instanceof Error && error.message.includes('runtime requested but not available')) {
-      clack.log.error(error.message);
-
-      const runtime = options.runtime || 'auto';
-      if (runtime !== 'auto') {
-        clack.log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
-        clack.log.info(`  ${chalk.cyan(`${runtime} xec run ${scriptPath}`)}`);
-      }
-    } else {
-      throw error;
-    }
-  }
-}
-
-/**
- * Evaluate code using universal loader
- */
-export async function evalCode(code: string, args: string[], options: any) {
-  // Initialize global module context
-  await initializeGlobalModuleContext({
-    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-    preferredCDN: 'esm.sh'
-  });
-
-  // Get module loader
-  const loader = getModuleLoader({
-    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-    cache: true,
-    preferredCDN: 'esm.sh'
-  });
-
-  // Display runtime info
-  if (!options.parent?.opts()?.quiet) {
-    clack.log.info(`Evaluating code...`);
   }
 
-  // Transform TypeScript if needed and evaluate
-  const transformedCode = code.includes('interface') || code.includes('type ') || options.typescript
-    ? await loader.transformTypeScript(code, '<eval>')
-    : code;
 
-  // Create a temporary script context
-  (globalThis as any).__xecScriptContext = {
-    args,
-    argv: ['xec', '<eval>', ...args],
-    __filename: '<eval>',
-    __dirname: process.cwd(),
-  };
+  /**
+   * Evaluate code using unified loader
+   */
+  private async evalCode(code: string, args: string[], options: RunOptions): Promise<void> {
+    // Build execution options
+    const execOptions: ExecutionOptions = {
+      verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
+      quiet: this.options.quiet,
+      typescript: options.typescript,
+      context: {
+        args,
+        argv: ['xec', '<eval>', ...args],
+        __filename: '<eval>',
+        __dirname: process.cwd(),
+      },
+      // Add local target for compatibility
+      target: {
+        type: 'local',
+        name: 'local',
+        config: {}
+      } as any,
+      targetEngine: $
+    };
 
-  try {
-    const dataUrl = `data:text/javascript;base64,${Buffer.from(transformedCode).toString('base64')}`;
-    await import(dataUrl);
-  } finally {
-    delete (globalThis as any).__xecScriptContext;
+    // Evaluate the code
+    const result = await this.scriptLoader.evaluateCode(code, execOptions);
+
+    if (!result.success && result.error) {
+      throw result.error;
+    }
   }
-}
 
+  /**
+   * Start REPL using unified loader
+   */
+  private async startRepl(options: RunOptions): Promise<void> {
+    // Build execution options
+    const execOptions: ExecutionOptions = {
+      verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
+      quiet: this.options.quiet,
+      typescript: options.typescript,
+      // Add local target for compatibility
+      target: {
+        type: 'local',
+        name: 'local',
+        config: {}
+      } as any,
+      targetEngine: $
+    };
 
-/**
- * Start REPL using universal loader
- */
-export async function startRepl(options: any) {
-  // Initialize global module context
-  await initializeGlobalModuleContext({
-    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-    preferredCDN: 'esm.sh'
-  });
+    // Start REPL
+    await this.scriptLoader.startRepl(execOptions);
+  }
 
-  // Get module loader
-  const loader = getModuleLoader({
-    verbose: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
-    cache: true,
-    preferredCDN: 'esm.sh'
-  });
-
-  // Display runtime info
-  clack.log.info(chalk.bold('Xec Interactive Shell'));
-  clack.log.info(chalk.dim('Type .help for commands'));
-
-  const repl = await import('repl');
-  const replServer = repl.start({
-    prompt: chalk.cyan('xec> '),
-    useGlobal: false,
-    breakEvalOnSigint: true
-  });
-
-  // Add xec utilities and module context
-  const { $ } = await import('@xec-sh/core');
-  const scriptUtils = await import('../utils/script-utils.js');
-
-  Object.assign(replServer.context, {
-    $,
-    ...scriptUtils.default,
-    console,
-    process,
-    import: (spec: string) => (globalThis as any).__xecModuleContext.import(spec),
-    importNPM: (pkg: string) => (globalThis as any).__xecModuleContext.importNPM(pkg),
-    importJSR: (pkg: string) => (globalThis as any).__xecModuleContext.importJSR(pkg)
-  });
-
-  // Add custom commands
-  replServer.defineCommand('load', {
-    help: 'Load and run a script file',
-    action(filename: string) {
-      runScript(filename.trim(), [], options)
-        .then(() => {
-          this.displayPrompt();
-        })
-        .catch((error) => {
-          handleError(error, {
-            verbose: false,
-            quiet: false,
-            output: 'text'
-          });
-          this.displayPrompt();
-        });
-    }
-  });
-
-  replServer.defineCommand('clear', {
-    help: 'Clear the console',
-    action() {
-      console.clear();
-      this.displayPrompt();
-    }
-  });
-
-  replServer.defineCommand('runtime', {
-    help: 'Show current runtime information',
-    action() {
-      console.log(`Runtime: ${chalk.cyan('Node.js')} ${chalk.dim(process.version)}`);
-      console.log(`Features:`);
-      console.log(`  TypeScript: ${chalk.green('✓')}`);
-      console.log(`  ESM: ${chalk.green('✓')}`);
-      console.log(`  Workers: ${chalk.green('✓')}`);
-      this.displayPrompt();
-    }
-  });
-}
-
-/**
- * Run a task from configuration
- */
-export async function runTask(taskName: string, options: any) {
-  try {
+  /**
+   * Run a task from configuration
+   */
+  private async runTask(taskName: string, options: RunOptions): Promise<void> {
     // Initialize configuration
     const configManager = new ConfigurationManager({
       projectRoot: process.cwd(),
@@ -318,7 +255,7 @@ export async function runTask(taskName: string, options: any) {
     // Initialize task manager
     const taskManager = new TaskManager({
       configManager,
-      debug: process.env['XEC_DEBUG'] === 'true' || options.parent?.opts()?.verbose,
+      debug: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
       dryRun: false,
     });
 
@@ -331,12 +268,12 @@ export async function runTask(taskName: string, options: any) {
       try {
         await fs.access(taskName);
         // It's a file without extension
-        return await runScript(taskName, [], options);
+        return await this.runScript(taskName, [], options);
       } catch {
         // Not a file either
         clack.log.error(`Task '${taskName}' not found`);
         clack.log.info(chalk.dim('\nRun "xec tasks" to see available tasks'));
-        process.exit(1);
+        throw new Error(`Task '${taskName}' not found`);
       }
     }
 
@@ -347,10 +284,10 @@ export async function runTask(taskName: string, options: any) {
         const [key, ...valueParts] = param.split('=');
         const value = valueParts.join('=');
 
-        if (!value) {
+        if (!key || !value) {
           clack.log.error(`Invalid parameter format: ${param}`);
           clack.log.info(chalk.dim('Use --param key=value'));
-          process.exit(1);
+          throw new Error(`Invalid parameter format: ${param}`);
         }
 
         // Try to parse value
@@ -371,7 +308,7 @@ export async function runTask(taskName: string, options: any) {
     }
 
     // Display task info
-    if (!options.parent?.opts()?.quiet) {
+    if (!this.options.quiet) {
       clack.log.info(`Running task: ${chalk.cyan(taskName)}`);
       if (Object.keys(params).length > 0) {
         clack.log.info(chalk.dim('Parameters:'));
@@ -389,14 +326,38 @@ export async function runTask(taskName: string, options: any) {
       if (result.error) {
         clack.log.error(result.error.message);
       }
-      process.exit(1);
+      throw new Error(`Task '${taskName}' failed`);
     }
 
-    if (!options.parent?.opts()?.quiet) {
+    if (!this.options.quiet) {
       clack.log.success(`Task '${taskName}' completed successfully`);
     }
-  } catch (error) {
-    throw error;
+
   }
 }
 
+// Export for backward compatibility
+export async function runScript(scriptPath: string, args: string[], options: any) {
+  const command = new RunCommand();
+  return command['runScript'](scriptPath, args, options);
+}
+
+export async function evalCode(code: string, args: string[], options: any) {
+  const command = new RunCommand();
+  return command['evalCode'](code, args, options);
+}
+
+export async function startRepl(options: any) {
+  const command = new RunCommand();
+  return command['startRepl'](options);
+}
+
+export async function runTask(taskName: string, options: any) {
+  const command = new RunCommand();
+  return command['runTask'](taskName, options);
+}
+
+export default function command(program: Command): void {
+  const cmd = new RunCommand();
+  program.addCommand(cmd.create());
+}

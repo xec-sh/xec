@@ -135,11 +135,12 @@ async function executeOnTarget(
     clack.log.info(`Executing on ${targetDisplay} (${target.type})...`);
   }
 
-  try {
-    let engine: any;
+  let engine: any;
 
-    switch (target.type) {
-      case 'ssh':
+  // eslint-disable-next-line default-case
+  switch (target.type) {
+    case 'ssh':
+      {
         const sshConfig = target.config || { host: target.name };
         engine = $.ssh({
           host: sshConfig.host || target.name,
@@ -150,13 +151,17 @@ async function executeOnTarget(
           passphrase: sshConfig.passphrase,
         });
         break;
+      }
 
-      case 'docker':
+    case 'docker':
+      {
         const containerName = target.config?.name || target.name;
         engine = $.docker({ container: containerName });
         break;
+      }
 
-      case 'kubernetes':
+    case 'kubernetes':
+      {
         const podConfig = target.config || {};
         engine = $.k8s({
           pod: podConfig.name || target.name,
@@ -164,36 +169,32 @@ async function executeOnTarget(
           container: podConfig.container,
         });
         break;
-    }
+      }
+  }
 
-    // Apply options
-    if (options.cwd) {
-      engine = engine.cd(options.cwd);
-    }
+  // Apply options
+  if (options.cwd) {
+    engine = engine.cd(options.cwd);
+  }
 
-    if (options.env) {
-      engine = engine.env(options.env);
-    }
+  if (options.env) {
+    engine = engine.env(options.env);
+  }
 
-    if (options.timeout) {
-      const timeoutMs = parseTimeout(options.timeout);
-      engine = engine.timeout(timeoutMs);
-    }
+  if (options.timeout) {
+    const timeoutMs = parseTimeout(options.timeout);
+    engine = engine.timeout(timeoutMs);
+  }
 
-    // Execute using raw mode to avoid escaping
-    const result = await engine.raw`${command}`;
+  // Execute using raw mode to avoid escaping
+  const result = await engine.raw`${command}`;
 
-    if (result.stdout && !options.quiet) {
-      console.log(result.stdout.trim());
-    }
+  if (result.stdout && !options.quiet) {
+    console.log(result.stdout.trim());
+  }
 
-    if (result.stderr && options.verbose) {
-      console.error(chalk.yellow(result.stderr.trim()));
-    }
-  } catch (error) {
-    // Don't log here, let the main error handler deal with it
-    // to avoid duplicate error messages
-    throw error;
+  if (result.stderr && options.verbose) {
+    console.error(chalk.yellow(result.stderr.trim()));
   }
 }
 
@@ -204,37 +205,31 @@ async function executeLocally(
   command: string,
   options: DirectExecutionOptions
 ): Promise<void> {
-  try {
-    let engine = $.local();
+  let engine = $.local();
 
-    // Apply options
-    if (options.cwd) {
-      engine = engine.cd(options.cwd);
-    }
+  // Apply options
+  if (options.cwd) {
+    engine = engine.cd(options.cwd);
+  }
 
-    if (options.env) {
-      engine = engine.env(options.env);
-    }
+  if (options.env) {
+    engine = engine.env(options.env);
+  }
 
-    if (options.timeout) {
-      const timeoutMs = parseTimeout(options.timeout);
-      engine = engine.timeout(timeoutMs);
-    }
+  if (options.timeout) {
+    const timeoutMs = parseTimeout(options.timeout);
+    engine = engine.timeout(timeoutMs);
+  }
 
-    // Execute using raw mode to avoid escaping
-    const result = await engine.raw`${command}`;
+  // Execute using raw mode to avoid escaping
+  const result = await engine.raw`${command}`;
 
-    if (result.stdout && !options.quiet) {
-      console.log(result.stdout.trim());
-    }
+  if (result.stdout && !options.quiet) {
+    console.log(result.stdout.trim());
+  }
 
-    if (result.stderr && options.verbose) {
-      console.error(chalk.yellow(result.stderr.trim()));
-    }
-  } catch (error) {
-    // Don't log here, let the main error handler deal with it
-    // to avoid duplicate error messages
-    throw error;
+  if (result.stderr && options.verbose) {
+    console.error(chalk.yellow(result.stderr.trim()));
   }
 }
 

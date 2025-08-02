@@ -5,7 +5,7 @@ import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 
 import { validateOptions } from '../utils/validation.js';
-import { ConfigAwareCommand, ConfigAwareOptions } from './base/config-aware-command.js';
+import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
 import type { ResolvedTarget } from '../config/types.js';
@@ -97,11 +97,11 @@ export class ForwardCommand extends ConfigAwareCommand {
     });
   }
 
-  protected getCommandConfigKey(): string {
+  protected override getCommandConfigKey(): string {
     return 'forward';
   }
 
-  async execute(args: any[]): Promise<void> {
+  override async execute(args: any[]): Promise<void> {
     let [targetSpec, portSpec] = args.slice(0, -1);
     const options = args[args.length - 1] as ForwardOptions;
 

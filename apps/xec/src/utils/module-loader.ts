@@ -1,8 +1,3 @@
-/**
- * Unified Module Loader for Xec
- * Handles ESM imports with transparent CDN fallback and caching
- */
-
 import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
@@ -35,7 +30,7 @@ const CDN_URLS = {
   'jsdelivr': 'https://cdn.jsdelivr.net/npm'
 } as const;
 
-export class UnifiedModuleLoader {
+export class ModuleLoader {
   private options: ModuleLoaderOptions;
   private cacheDir: string;
   private memoryCache = new Map<string, CacheEntry>();
@@ -63,25 +58,28 @@ export class UnifiedModuleLoader {
       await fs.mkdir(this.cacheDir, { recursive: true });
     }
 
-    // We cannot override the native import keyword, but we can provide a global function
-    // Set up global import function that supports prefixes
+    // Set up minimalistic global import functions
+    // Primary user-friendly function: use()
+    (globalThis as any).use = (spec: string) => this.importModule(spec);
+
+    // Alternative shorthand: x() for ultra-minimal
+    (globalThis as any).x = (spec: string) => this.importModule(spec);
+
+    // Keep legacy support for backward compatibility
     (globalThis as any).Import = (spec: string) => this.importModule(spec);
-    
-    // Set up module context with the new import function
+
+    // Set up module context
     (globalThis as any).__xecModuleContext = {
       import: (spec: string) => this.importModule(spec)
     };
-    
-    // Store reference for scripts
-    (globalThis as any).__xecImport = (spec: string) => this.importModule(spec);
 
     // Load script utilities and make them globally available
     try {
       const scriptUtils = await import('./script-utils.js');
-      
+
       // Make all utilities globally available
       Object.assign(globalThis, scriptUtils.default);
-      
+
       // Ensure individual utilities are also available
       Object.assign(globalThis, {
         $: scriptUtils.$,
@@ -170,7 +168,7 @@ export class UnifiedModuleLoader {
     if (this.options.cdnOnly) {
       return this.importFromCDN(specifier, 'auto');
     }
-    
+
     // Try direct import for built-in modules
     try {
       const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
@@ -251,7 +249,7 @@ export class UnifiedModuleLoader {
         specifier.startsWith('node:') ||
         path.isAbsolute(specifier);
     }
-    
+
     // In normal mode, also treat @xec-sh/* as local
     return specifier.startsWith('@xec-sh/') ||
       specifier.startsWith('./') ||
@@ -267,8 +265,8 @@ export class UnifiedModuleLoader {
   private getCDNUrl(pkg: string, source: 'npm' | 'jsr' | 'esm' | 'unpkg' | 'skypack' | 'jsdelivr' | 'auto'): string {
     if (pkg.startsWith('http')) return pkg;
 
-    const cdnKey = source === 'auto' ? this.options.preferredCDN || 'esm.sh' : 
-                   source === 'npm' || source === 'esm' ? 'esm.sh' : source;
+    const cdnKey = source === 'auto' ? this.options.preferredCDN || 'esm.sh' :
+      source === 'npm' || source === 'esm' ? 'esm.sh' : source;
 
     const baseUrl = CDN_URLS[cdnKey as keyof typeof CDN_URLS] || CDN_URLS['esm.sh'];
 
@@ -295,13 +293,13 @@ export class UnifiedModuleLoader {
     }
 
     const content = await response.text();
-    
+
     // Store headers for module type detection
     const headers: Record<string, string> = {};
     response.headers.forEach((value, key) => {
       headers[key.toLowerCase()] = value;
     });
-    
+
     // Store headers in a temporary variable to pass to saveToCache
     (this as any)._tempHeaders = headers;
 
@@ -321,15 +319,15 @@ export class UnifiedModuleLoader {
     // Check headers first for hints
     const contentType = headers?.['content-type'] || '';
     const xModuleType = headers?.['x-module-type'];
-    
+
     if (xModuleType) return xModuleType as any;
-    
+
     // Remove comments for analysis
     const cleanContent = content
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*/g, '')
       .replace(/["'][^"']*["']/g, ''); // Remove string literals
-    
+
     // ESM detection patterns
     const esmPatterns = [
       /^\s*import\s+[\w{},\s*]+\s+from\s+["']/m,
@@ -338,7 +336,7 @@ export class UnifiedModuleLoader {
       /^\s*export\s*\{[^}]+\}\s*from\s*["']/m,
       /^\s*export\s*\*\s*from\s*["']/m
     ];
-    
+
     // CJS detection patterns
     const cjsPatterns = [
       /^\s*module\.exports\s*=/m,
@@ -346,22 +344,22 @@ export class UnifiedModuleLoader {
       /^\s*Object\.defineProperty\s*\(\s*exports/m,
       /\brequire\s*\(["'][^"']+["']\)/
     ];
-    
+
     // UMD detection patterns
     const umdPatterns = [
       /typeof\s+exports\s*===\s*["']object["']\s*&&\s*typeof\s+module\s*!==\s*["']undefined["']/,
       /typeof\s+define\s*===\s*["']function["']\s*&&\s*define\.amd/,
       /\(function\s*\(.*?\)\s*{[\s\S]*?}\s*\(.*?typeof\s+exports.*?\)\)/
     ];
-    
+
     // Check for UMD first (as it can contain both ESM and CJS patterns)
     if (umdPatterns.some(pattern => pattern.test(cleanContent))) {
       return 'umd';
     }
-    
+
     const hasEsmSyntax = esmPatterns.some(pattern => pattern.test(cleanContent));
     const hasCjsSyntax = cjsPatterns.some(pattern => pattern.test(cleanContent));
-    
+
     // If it has both, it's likely transpiled ESM or a complex module
     if (hasEsmSyntax && hasCjsSyntax) {
       // Check if it's transpiled ESM (common pattern from bundlers)
@@ -370,15 +368,15 @@ export class UnifiedModuleLoader {
       }
       return 'umd';
     }
-    
+
     if (hasEsmSyntax) return 'esm';
     if (hasCjsSyntax) return 'cjs';
-    
+
     // Check for simple function exports (common in older modules)
     if (/^\s*\(\s*function\s*\([^)]*\)\s*{/.test(cleanContent)) {
       return 'cjs';
     }
-    
+
     return 'unknown';
   }
 
@@ -388,21 +386,21 @@ export class UnifiedModuleLoader {
   private async executeModule(content: string, specifier: string, headers?: Record<string, string>): Promise<any> {
     try {
       const moduleType = this.detectModuleType(content, headers);
-      
+
       if (this.options.verbose) {
         console.debug(`[ModuleLoader] Detected module type for ${specifier}: ${moduleType}`);
       }
-      
+
       switch (moduleType) {
         case 'esm':
           return await this.executeESMModule(content, specifier);
-        
+
         case 'cjs':
           return this.executeCJSModule(content);
-        
+
         case 'umd':
           return this.executeUMDModule(content, specifier);
-        
+
         case 'unknown':
         default:
           // Try ESM first, fallback to CJS
@@ -440,13 +438,13 @@ export class UnifiedModuleLoader {
       const cacheKey = this.getCacheKey(url);
       const cachePath = path.join(this.cacheDir, `${cacheKey}.js`);
       const metaPath = path.join(this.cacheDir, `${cacheKey}.meta.json`);
-      
+
       const stat = await fs.stat(cachePath);
-      
+
       if (Date.now() - stat.mtimeMs > 7 * 24 * 3600000) return null;
-      
+
       const content = await fs.readFile(cachePath, 'utf-8');
-      
+
       // Try to load metadata
       let headers: Record<string, string> = {};
       try {
@@ -455,7 +453,7 @@ export class UnifiedModuleLoader {
       } catch {
         // Metadata file might not exist for old cache entries
       }
-      
+
       this.memoryCache.set(url, { content, timestamp: Date.now(), headers });
       return content;
     } catch {
@@ -471,15 +469,15 @@ export class UnifiedModuleLoader {
 
     const headers = (this as any)._tempHeaders || {};
     delete (this as any)._tempHeaders;
-    
+
     this.memoryCache.set(url, { content, timestamp: Date.now(), headers });
-    
+
     const cachePath = path.join(this.cacheDir, `${this.getCacheKey(url)}.js`);
-    await fs.writeFile(cachePath, content).catch(() => {});
-    
+    await fs.writeFile(cachePath, content).catch(() => { });
+
     // Save metadata
     const metaPath = path.join(this.cacheDir, `${this.getCacheKey(url)}.meta.json`);
-    await fs.writeFile(metaPath, JSON.stringify({ headers, timestamp: Date.now() })).catch(() => {});
+    await fs.writeFile(metaPath, JSON.stringify({ headers, timestamp: Date.now() })).catch(() => { });
   }
 
   /**
@@ -549,10 +547,10 @@ export class UnifiedModuleLoader {
       await fs.writeFile(tempFile, content);
       const originalImport = (globalThis as any).__originalImport || (async (spec: string) => import(spec));
       const module = await originalImport(pathToFileURL(tempFile).href);
-      await fs.unlink(tempFile).catch(() => {});
+      await fs.unlink(tempFile).catch(() => { });
       return module;
     } catch (error) {
-      await fs.unlink(tempFile).catch(() => {});
+      await fs.unlink(tempFile).catch(() => { });
       throw error;
     }
   }
@@ -570,7 +568,7 @@ export class UnifiedModuleLoader {
       }
       throw new Error(`require('${id}') not supported in CDN modules`);
     };
-    
+
     try {
       const func = new Function('exports', 'module', 'require', '__dirname', '__filename', content);
       func(moduleExports, moduleObj, requireStub, '/', '/module.js');
@@ -579,15 +577,15 @@ export class UnifiedModuleLoader {
       const func = new Function('exports', 'module', 'require', content);
       func(moduleExports, moduleObj, requireStub);
     }
-    
+
     const result = moduleObj.exports;
-    
+
     // Handle different export patterns
     if (result && typeof result === 'object' && Object.keys(result).length === 0) {
       // Empty exports, might be a function module
       return { default: {} };
     }
-    
+
     // If it's a single function export, wrap it
     if (typeof result === 'function') {
       const wrapped: any = { default: result };
@@ -595,12 +593,12 @@ export class UnifiedModuleLoader {
       Object.assign(wrapped, result);
       return wrapped;
     }
-    
+
     // If it has a default property already, return as is
     if (result && typeof result === 'object' && 'default' in result) {
       return result;
     }
-    
+
     // Otherwise wrap in default
     const wrapped: any = { default: result };
     if (result && typeof result === 'object') {
@@ -617,7 +615,7 @@ export class UnifiedModuleLoader {
     // We'll execute them in a CommonJS-like environment
     const moduleExports = {};
     const moduleObj = { exports: moduleExports };
-    
+
     // Create a fake AMD define if needed
     const define = (deps: any, factory: any) => {
       if (typeof deps === 'function') {
@@ -632,33 +630,33 @@ export class UnifiedModuleLoader {
       }
     };
     define.amd = true;
-    
+
     try {
       // Create a more complete global context for UMD
       const func = new Function(
-        'exports', 
-        'module', 
-        'define', 
+        'exports',
+        'module',
+        'define',
         'global',
         'globalThis',
         'window',
         'self',
         content
       );
-      
+
       const globalObj = globalThis;
       func(
-        moduleExports, 
-        moduleObj, 
+        moduleExports,
+        moduleObj,
         define,
         globalObj,
         globalObj,
         globalObj,
         globalObj
       );
-      
+
       const result = moduleObj.exports;
-      
+
       // Handle UMD export patterns
       if (typeof result === 'function') {
         const wrapped: any = { default: result };
@@ -666,11 +664,11 @@ export class UnifiedModuleLoader {
         Object.assign(wrapped, result);
         return wrapped;
       }
-      
+
       if (result && typeof result === 'object' && 'default' in result) {
         return result;
       }
-      
+
       const wrapped: any = { default: result };
       if (result && typeof result === 'object') {
         Object.assign(wrapped, result);
@@ -773,14 +771,14 @@ export class UnifiedModuleLoader {
 }
 
 // Singleton instance
-let loader: UnifiedModuleLoader | null = null;
+let loader: ModuleLoader | null = null;
 
 /**
  * Get or create the global module loader
  */
-export function getModuleLoader(options?: ModuleLoaderOptions): UnifiedModuleLoader {
+export function getModuleLoader(options?: ModuleLoaderOptions): ModuleLoader {
   if (!loader) {
-    loader = new UnifiedModuleLoader(options);
+    loader = new ModuleLoader(options);
   }
   return loader;
 }
@@ -811,8 +809,8 @@ export async function importModule(specifier: string): Promise<any> {
  * This loader will ONLY load modules from CDN, never from node_modules
  * Useful for xec scripts that should be completely independent of local installations
  */
-export function createCDNOnlyLoader(options?: Omit<ModuleLoaderOptions, 'cdnOnly'>): UnifiedModuleLoader {
-  return new UnifiedModuleLoader({
+export function createCDNOnlyLoader(options?: Omit<ModuleLoaderOptions, 'cdnOnly'>): ModuleLoader {
+  return new ModuleLoader({
     ...options,
     cdnOnly: true,
     verbose: options?.verbose ?? false,

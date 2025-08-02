@@ -1,9 +1,9 @@
-const globals = require('globals');
-const eslintJs = require('@eslint/js');
-const eslintTs = require('typescript-eslint');
-const importPlugin = require('eslint-plugin-import');
-const perfectionistPlugin = require('eslint-plugin-perfectionist');
-const unusedImportsPlugin = require('eslint-plugin-unused-imports');
+import globals from 'globals';
+import eslintJs from '@eslint/js';
+import eslintTs from 'typescript-eslint';
+import importPlugin from 'eslint-plugin-import';
+import perfectionistPlugin from 'eslint-plugin-perfectionist';
+import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 
 // ----------------------------------------------------------------------
 
@@ -118,7 +118,7 @@ const customConfig = {
       ...importPlugin.configs.typescript.settings['import/resolver'],
       typescript: {
         alwaysTryTypes: true,
-        tsconfigRootDir: __dirname,
+        tsconfigRootDir: import.meta.dirname,
         project: './tsconfig.json',
       },
     },
@@ -133,7 +133,7 @@ const customConfig = {
 
 // ----------------------------------------------------------------------
 
-module.exports = [
+export default [
   { files: ['{apps,packages}/*/*.{js,mjs,cjs,ts,jsx,tsx}'] },
   { ignores: ['!apps/*/src/**/*', '!packages/*/src/**/*', 'eslint.config.*', '**/dist/**', '**/coverage/**', '**/node_modules/**', '**/*.d.ts'] },
   {
@@ -141,7 +141,7 @@ module.exports = [
       parser: eslintTs.parser,
       parserOptions: {
         project: './tsconfig.json',
-        tsconfigRootDir: __dirname,
+        tsconfigRootDir: import.meta.dirname,
       },
       globals: { ...globals.browser, ...globals.node },
     },

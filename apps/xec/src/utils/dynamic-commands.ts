@@ -1,10 +1,10 @@
 import path from 'path';
 import fs from 'fs-extra';
 import { Command } from 'commander';
-import { pathToFileURL } from 'url';
 import * as clack from '@clack/prompts';
 
-import { getModuleLoader, initializeGlobalModuleContext } from './unified-module-loader.js';
+import { ScriptLoader } from './script-loader.js';
+import { initializeGlobalModuleContext } from './module-loader.js';
 
 interface DynamicCommand {
   name: string;
@@ -16,9 +16,10 @@ interface DynamicCommand {
 export class DynamicCommandLoader {
   private commands: Map<string, DynamicCommand> = new Map();
   private commandDirs: string[] = [];
-  private moduleLoader = getModuleLoader({
+  private scriptLoader = new ScriptLoader({
     verbose: process.env['XEC_DEBUG'] === 'true',
-    preferredCDN: 'esm.sh'
+    preferredCDN: 'esm.sh',
+    cache: true
   });
 
   constructor() {
@@ -133,172 +134,13 @@ export class DynamicCommandLoader {
       loaded: false
     });
 
-    try {
-      let moduleExports: any;
+    // Use ScriptLoader to load the dynamic command
+    const result = await this.scriptLoader.loadDynamicCommand(filePath, program, commandName);
 
-      // Ensure module context is initialized
-      await initializeGlobalModuleContext();
-
-      // For TypeScript files, transform them first
-      if (ext === '.ts' || ext === '.tsx') {
-        const content = await fs.readFile(filePath, 'utf-8');
-
-        // Transform import() calls with prefixes to use __xecImport
-        const processedContent = content.replace(
-          /import\s*\(\s*['"`]((npm|jsr|esm|unpkg|skypack|jsdelivr):[^'"`]*?)['"`]\s*\)/g,
-          "globalThis.__xecImport('$1')"
-        );
-
-        const transformedCode = await this.moduleLoader.transformTypeScript(processedContent, filePath);
-
-        // Find a directory with node_modules for the temporary file
-        let tempDir = process.cwd();
-
-        // First, try to find node_modules relative to the CLI installation
-        // This is important for global npm installations
-        const cliScriptPath = import.meta.url.replace('file://', '');
-        let cliDir = path.dirname(cliScriptPath);
-
-        // Search upwards from CLI location for node_modules
-        for (let i = 0; i < 5; i++) {
-          if (await fs.pathExists(path.join(cliDir, 'node_modules'))) {
-            tempDir = cliDir;
-            break;
-          }
-          const parentDir = path.dirname(cliDir);
-          if (parentDir === cliDir) break;
-          cliDir = parentDir;
-        }
-
-        // If not found, search from the command file location
-        if (tempDir === process.cwd()) {
-          let searchDir = path.dirname(filePath);
-          for (let i = 0; i < 10; i++) {
-            if (await fs.pathExists(path.join(searchDir, 'node_modules'))) {
-              tempDir = searchDir;
-              break;
-            }
-            const parentDir = path.dirname(searchDir);
-            if (parentDir === searchDir) break;
-            searchDir = parentDir;
-          }
-        }
-
-        // Create temp directory in the xec installation directory
-        const tempDirPath = path.join(tempDir, '.xec-temp');
-        await fs.ensureDir(tempDirPath);
-
-        // Write transformed file
-        const tempFileName = `${commandName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}.mjs`;
-        const tempPath = path.join(tempDirPath, tempFileName);
-        await fs.writeFile(tempPath, transformedCode);
-
-        try {
-          // Import the module
-          moduleExports = await import(pathToFileURL(tempPath).href);
-        } finally {
-          // Clean up
-          await fs.remove(tempPath).catch(() => { });
-        }
-      } else {
-        // For JavaScript files, we also need to use a temp file to ensure proper module resolution
-        // This is especially important when xec is installed globally
-        const content = await fs.readFile(filePath, 'utf-8');
-
-        // Transform import() calls with prefixes to use __xecImport
-        const processedContent = content.replace(
-          /import\s*\(\s*['"`]((npm|jsr|esm|unpkg|skypack|jsdelivr):[^'"`]*?)['"`]\s*\)/g,
-          "globalThis.__xecImport('$1')"
-        );
-
-        // Find a directory with node_modules for the temporary file
-        let tempDir = process.cwd();
-
-        // First, try to find node_modules relative to the CLI installation
-        // This is important for global npm installations
-        const cliScriptPath = import.meta.url.replace('file://', '');
-        let cliDir = path.dirname(cliScriptPath);
-
-        // Search upwards from CLI location for node_modules
-        for (let i = 0; i < 5; i++) {
-          if (await fs.pathExists(path.join(cliDir, 'node_modules'))) {
-            tempDir = cliDir;
-            break;
-          }
-          const parentDir = path.dirname(cliDir);
-          if (parentDir === cliDir) break;
-          cliDir = parentDir;
-        }
-
-        // If not found, search from the command file location
-        if (tempDir === process.cwd()) {
-          let searchDir = path.dirname(filePath);
-          for (let i = 0; i < 10; i++) {
-            if (await fs.pathExists(path.join(searchDir, 'node_modules'))) {
-              tempDir = searchDir;
-              break;
-            }
-            const parentDir = path.dirname(searchDir);
-            if (parentDir === searchDir) break;
-            searchDir = parentDir;
-          }
-        }
-
-        // Create temp directory in the xec installation directory
-        const tempDirPath = path.join(tempDir, '.xec-temp');
-        await fs.ensureDir(tempDirPath);
-
-        // Write the processed JS file content
-        const tempFileName = `${commandName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}.mjs`;
-        const tempPath = path.join(tempDirPath, tempFileName);
-        await fs.writeFile(tempPath, processedContent);
-
-        try {
-          // Import the module
-          moduleExports = await import(pathToFileURL(tempPath).href);
-        } finally {
-          // Clean up
-          await fs.remove(tempPath).catch(() => { });
-        }
-      }
-
-      if (!moduleExports) {
-        throw new Error('Module did not export anything');
-      }
-
-      // Register command
-      if (moduleExports.command && typeof moduleExports.command === 'function') {
-        // New style: export function command(program) {}
-        moduleExports.command(program);
-        this.commands.get(commandName)!.loaded = true;
-      } else if (typeof moduleExports === 'function') {
-        // Direct default export
-        moduleExports(program);
-        this.commands.get(commandName)!.loaded = true;
-      } else if (moduleExports.default && typeof moduleExports.default === 'function') {
-        // ES module default export
-        moduleExports.default(program);
-        this.commands.get(commandName)!.loaded = true;
-      } else {
-        throw new Error('Command file must export a "command" function or default function');
-      }
-
-      if (process.env['XEC_DEBUG']) {
-        clack.log.info(`Loaded dynamic command: ${commandName}`);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.commands.get(commandName)!.error = errorMessage;
-
-      if (process.env['XEC_DEBUG']) {
-        console.error(`Failed to load command ${commandName}:`, error);
-        if (error instanceof Error && error.stack) {
-          console.error('Stack trace:', error.stack);
-        }
-      } else {
-        // Always show critical loading errors
-        clack.log.error(`Failed to load command '${commandName}': ${errorMessage}`);
-      }
+    if (result.success) {
+      this.commands.get(commandName)!.loaded = true;
+    } else {
+      this.commands.get(commandName)!.error = result.error;
     }
   }
 

@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import path from 'path';
 import chalk from 'chalk';
 import { Command } from 'commander';
 
 import { parseTimeout } from '../utils/time.js';
 import { validateOptions } from '../utils/validation.js';
-import { ScriptExecutor } from '../utils/script-executor.js';
-import { ConfigAwareCommand, ConfigAwareOptions } from './base/config-aware-command.js';
+import { ScriptLoader, type ExecutionOptions } from '../utils/script-loader.js';
+import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
 import type { ResolvedTarget } from '../config/types.js';
@@ -123,11 +124,11 @@ export class OnCommand extends ConfigAwareCommand {
     });
   }
 
-  protected getCommandConfigKey(): string {
+  protected override getCommandConfigKey(): string {
     return 'on';
   }
 
-  async execute(args: any[]): Promise<void> {
+  override async execute(args: any[]): Promise<void> {
     let [hostPattern, ...commandParts] = args.slice(0, -1);
     const options = args[args.length - 1] as OnOptions;
 
@@ -135,7 +136,7 @@ export class OnCommand extends ConfigAwareCommand {
     if (options.interactive) {
       const interactiveResult = await this.runInteractiveMode(options);
       if (!interactiveResult) return;
-      
+
       hostPattern = interactiveResult.hostPattern;
       commandParts = interactiveResult.commandParts || [];
       Object.assign(options, interactiveResult.options);
@@ -472,7 +473,12 @@ export class OnCommand extends ConfigAwareCommand {
     scriptPath: string,
     options: OnOptions
   ): Promise<void> {
-    const executor = new ScriptExecutor();
+    const scriptLoader = new ScriptLoader({
+      verbose: options.verbose || process.env['XEC_DEBUG'] === 'true',
+      quiet: options.quiet,
+      cache: true,
+      preferredCDN: 'esm.sh'
+    });
 
     const executeScriptOnTarget = async (target: ResolvedTarget) => {
       const targetDisplay = this.formatTargetDisplay(target);
@@ -482,7 +488,20 @@ export class OnCommand extends ConfigAwareCommand {
       }
 
       const engine = await this.createTargetEngine(target);
-      const result = await executor.executeWithTarget(scriptPath, target, engine, process.argv.slice(3));
+      const execOptions: ExecutionOptions = {
+        target,
+        targetEngine: engine,
+        context: {
+          args: process.argv.slice(3),
+          argv: [process.argv[0] || 'node', scriptPath, ...process.argv.slice(3)],
+          __filename: path.resolve(scriptPath),
+          __dirname: path.dirname(path.resolve(scriptPath))
+        },
+        verbose: options.verbose,
+        quiet: options.quiet
+      };
+
+      const result = await scriptLoader.executeScript(scriptPath, execOptions);
 
       if (result.success) {
         if (!options.quiet) {
@@ -524,10 +543,23 @@ export class OnCommand extends ConfigAwareCommand {
     const targetDisplay = this.formatTargetDisplay(target);
     this.log(`Starting REPL with $target configured for ${targetDisplay}...`, 'info');
 
-    const executor = new ScriptExecutor();
+    const scriptLoader = new ScriptLoader({
+      verbose: options.verbose || process.env['XEC_DEBUG'] === 'true',
+      quiet: options.quiet,
+      cache: true,
+      preferredCDN: 'esm.sh'
+    });
+
     const engine = await this.createTargetEngine(target);
 
-    await executor.startRepl(target, engine);
+    const execOptions: ExecutionOptions = {
+      target,
+      targetEngine: engine,
+      verbose: options.verbose,
+      quiet: options.quiet
+    };
+
+    await scriptLoader.startRepl(execOptions);
   }
 
   private async runInteractiveMode(options: OnOptions): Promise<{
@@ -536,7 +568,7 @@ export class OnCommand extends ConfigAwareCommand {
     options: Partial<OnOptions>;
   } | null> {
     InteractiveHelpers.startInteractiveMode('Interactive SSH Execution Mode');
-    
+
     try {
       // Select SSH hosts
       const hosts = await InteractiveHelpers.selectTarget({
@@ -580,6 +612,7 @@ export class OnCommand extends ConfigAwareCommand {
       let commandParts: string[] = [];
 
       // Configure based on execution type
+      // eslint-disable-next-line default-case
       switch (executionType?.value) {
         case 'command': {
           const command = await InteractiveHelpers.inputText('Enter command to execute:', {
@@ -827,7 +860,7 @@ export class OnCommand extends ConfigAwareCommand {
   }
 }
 
-export default function onCommand(program: Command): void {
+export default function command(program: Command): void {
   const cmd = new OnCommand();
   program.addCommand(cmd.create());
 }

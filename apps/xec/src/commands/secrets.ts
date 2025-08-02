@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
 import { SecretManager } from '../secrets/index.js';
-import { ConfigAwareCommand } from './base/config-aware-command.js';
+import { ConfigAwareCommand } from '../utils/command-base.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 
 /**
@@ -18,7 +18,7 @@ export class SecretsCommand extends ConfigAwareCommand {
     });
   }
 
-  protected getCommandConfigKey(): string {
+  protected override getCommandConfigKey(): string {
     return 'secrets';
   }
 
@@ -126,9 +126,9 @@ export class SecretsCommand extends ConfigAwareCommand {
   /**
    * Execute method - shows help if no subcommand or enters interactive mode
    */
-  async execute(args: any[]): Promise<void> {
+  override async execute(args: any[]): Promise<void> {
     const options = args[args.length - 1]?.opts?.() || {};
-    
+
     if (options.interactive) {
       await this.runInteractiveMode();
     } else {
@@ -188,6 +188,7 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Handle interactive mode actions
    */
   private async handleInteractiveAction(action: string): Promise<void> {
+    // eslint-disable-next-line default-case
     switch (action) {
       case 'set':
         await this.interactiveSetSecret();
@@ -357,7 +358,7 @@ export class SecretsCommand extends ConfigAwareCommand {
     if (clack.isCancel(format)) return;
 
     let file: string | undefined;
-    
+
     if (source === 'file') {
       const filePath = await clack.text({
         message: 'Enter file path:',
@@ -400,9 +401,9 @@ export class SecretsCommand extends ConfigAwareCommand {
 
   private async setSecret(key: string, options: any): Promise<void> {
     const manager = await this.getSecretManager();
-    
+
     let value = options.value;
-    
+
     if (value === undefined) {
       // Prompt for value if not provided
       const input = await clack.password({
@@ -414,18 +415,18 @@ export class SecretsCommand extends ConfigAwareCommand {
           return undefined;
         }
       });
-      
+
       if (clack.isCancel(input)) {
         clack.cancel('Operation cancelled');
         process.exit(1);
       }
-      
+
       value = input;
     }
-    
+
     const spinner = clack.spinner();
     spinner.start(`Setting secret '${key}'`);
-    
+
     try {
       await manager.set(key, value);
       spinner.stop(`Secret '${key}' set successfully`);
@@ -438,19 +439,19 @@ export class SecretsCommand extends ConfigAwareCommand {
 
   private async getSecret(key: string): Promise<void> {
     const manager = await this.getSecretManager();
-    
+
     const spinner = clack.spinner();
     spinner.start(`Retrieving secret '${key}'`);
-    
+
     try {
       const value = await manager.get(key);
       spinner.stop();
-      
+
       if (value === null) {
         clack.log.error(`Secret '${key}' not found`);
         process.exit(1);
       }
-      
+
       // Output the value directly for scripting
       console.log(value);
     } catch (error) {
@@ -461,21 +462,21 @@ export class SecretsCommand extends ConfigAwareCommand {
 
   private async listSecrets(): Promise<void> {
     const manager = await this.getSecretManager();
-    
+
     const spinner = clack.spinner();
     spinner.start('Loading secrets');
-    
+
     try {
       const keys = await manager.list();
       spinner.stop();
-      
+
       if (keys.length === 0) {
         clack.log.info('No secrets found');
         return;
       }
-      
+
       clack.log.message(chalk.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
-      
+
       for (const key of keys.sort()) {
         console.log(`  ${chalk.cyan('•')} ${key}`);
       }
@@ -487,21 +488,21 @@ export class SecretsCommand extends ConfigAwareCommand {
 
   private async deleteSecret(key: string, options: any): Promise<void> {
     const manager = await this.getSecretManager();
-    
+
     if (!options.force) {
       const confirm = await clack.confirm({
         message: `Are you sure you want to delete secret '${key}'?`
       });
-      
+
       if (clack.isCancel(confirm) || !confirm) {
         clack.cancel('Operation cancelled');
         process.exit(1);
       }
     }
-    
+
     const spinner = clack.spinner();
     spinner.start(`Deleting secret '${key}'`);
-    
+
     try {
       await manager.delete(key);
       spinner.stop(`Secret '${key}' deleted`);
@@ -515,34 +516,34 @@ export class SecretsCommand extends ConfigAwareCommand {
   private async generateSecret(key: string, options: any): Promise<void> {
     const manager = await this.getSecretManager();
     const length = parseInt(options.length, 10);
-    
+
     if (isNaN(length) || length < 1 || length > 256) {
       clack.log.error('Invalid length. Must be between 1 and 256.');
       process.exit(1);
     }
-    
+
     // Check if secret already exists
     if (await manager.has(key) && !options.force) {
       const confirm = await clack.confirm({
         message: `Secret '${key}' already exists. Overwrite?`
       });
-      
+
       if (clack.isCancel(confirm) || !confirm) {
         clack.cancel('Operation cancelled');
         process.exit(1);
       }
     }
-    
+
     const spinner = clack.spinner();
     spinner.start(`Generating ${length}-character secret`);
-    
+
     try {
       const { generateSecret } = await import('../secrets/crypto.js');
       const value = generateSecret(length);
-      
+
       await manager.set(key, value);
       spinner.stop(`Secret '${key}' generated and stored`);
-      
+
       // Show the generated value
       clack.log.message(`Generated value: ${chalk.gray(value)}`);
       clack.outro(chalk.green('✓') + ' Secret stored securely');
@@ -554,34 +555,34 @@ export class SecretsCommand extends ConfigAwareCommand {
 
   private async exportSecrets(options: any): Promise<void> {
     const manager = await this.getSecretManager();
-    
+
     if (!options.force) {
       const confirm = await clack.confirm({
         message: chalk.yellow('WARNING: This will output all secrets in plain text. Continue?')
       });
-      
+
       if (clack.isCancel(confirm) || !confirm) {
         clack.cancel('Export cancelled');
         process.exit(1);
       }
     }
-    
+
     const spinner = clack.spinner();
     spinner.start('Exporting secrets');
-    
+
     try {
       const keys = await manager.list();
       const secrets: Record<string, string> = {};
-      
+
       for (const key of keys) {
         const value = await manager.get(key);
         if (value !== null) {
           secrets[key] = value;
         }
       }
-      
+
       spinner.stop();
-      
+
       if (options.format === 'env') {
         // Export as environment variables
         for (const [key, value] of Object.entries(secrets)) {
@@ -600,9 +601,9 @@ export class SecretsCommand extends ConfigAwareCommand {
 
   private async importSecrets(options: any): Promise<void> {
     const manager = await this.getSecretManager();
-    
+
     let content: string;
-    
+
     if (options.file) {
       const fs = await import('fs/promises');
       content = await fs.readFile(options.file, 'utf-8');
@@ -615,13 +616,13 @@ export class SecretsCommand extends ConfigAwareCommand {
         process.stdin.on('end', () => resolve(data));
       });
     }
-    
+
     const spinner = clack.spinner();
     spinner.start('Importing secrets');
-    
+
     try {
       let secrets: Record<string, string> = {};
-      
+
       if (options.format === 'env') {
         // Parse environment variable format
         const lines = content.split('\n');
@@ -637,15 +638,15 @@ export class SecretsCommand extends ConfigAwareCommand {
         // Parse JSON format
         secrets = JSON.parse(content);
       }
-      
+
       const keys = Object.keys(secrets);
       let imported = 0;
-      
+
       for (const [key, value] of Object.entries(secrets)) {
         await manager.set(key, value);
         imported++;
       }
-      
+
       spinner.stop(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
       clack.outro(chalk.green('✓') + ' Secrets imported successfully');
     } catch (error) {
@@ -656,7 +657,7 @@ export class SecretsCommand extends ConfigAwareCommand {
 }
 
 // Export command registration function
-export default function secretsCommand(program: Command): void {
+export default function command(program: Command): void {
   const command = new SecretsCommand();
   const secretsCmd = command.create();
   program.addCommand(secretsCmd);
