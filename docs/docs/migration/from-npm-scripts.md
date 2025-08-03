@@ -563,8 +563,7 @@ spin.succeed('Build complete!');
 
 - Run `xec new task` for task templates
 - Check `xec run --help` for execution options
-- Visit [Xec Documentation](https://xec.sh/docs)
-- Join [Community Discord](https://discord.gg/xec)
+- Visit [Xec Documentation](https://xec.sh/docs/introduction/)
 
 ## Summary
 
