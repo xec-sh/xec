@@ -154,7 +154,6 @@ const config: Config = {
     metadata: [
       { name: 'keywords', content: 'xec, universal execution, typescript, ssh, docker, kubernetes, command execution, automation, devops' },
       { name: 'description', content: 'Universal Command Execution System - One execution API for local, SSH, Docker, and Kubernetes environments' },
-      { name: 'twitter:card', content: 'summary_large_image' },
     ],
 
     // Navigation

@@ -1,83 +1,252 @@
 # Xec Documentation
 
-Official documentation website for the Xec Universal Command Execution System, built with Docusaurus.
+Official documentation for the **Xec Universal Command Execution System** - a unified TypeScript API for seamless command execution across local, SSH, Docker, and Kubernetes environments.
 
-## Development
+## 🌐 Live Documentation
+
+Visit [xec.sh](https://xec.sh) for the full documentation experience.
+
+## 📚 Documentation Structure
+
+```
+docs/
+├── introduction/           # Getting started & core concepts
+│   ├── what-is-xec.md     # Universal command execution system
+│   ├── quick-start.md     # 5-minute introduction
+│   ├── installation.md    # Installation methods
+│   ├── core-concepts.md   # Execution engine, adapters, targets
+│   └── architecture.md    # System architecture overview
+├── execution-engine/      # Core execution engine (@xec-sh/core)
+│   ├── template-literals.md  # $`command` syntax
+│   ├── adapters/          # Multi-environment adapters
+│   └── features/          # Advanced capabilities
+├── commands/              # CLI commands reference
+│   ├── built-in/          # Core commands
+│   ├── custom/            # Creating custom commands
+│   └── cli-reference.md   # Complete CLI reference
+├── configuration/         # Configuration system
+│   ├── config-file.md     # .xec/config.yaml structure
+│   ├── targets/           # Target definitions
+│   └── tasks/             # Task automation
+├── api/                   # API documentation
+├── changelog/             # Version history
+└── i18n/                  # Internationalization
+    └── ru/                # Russian translation
+```
+
+## 🚀 Development
+
+### Prerequisites
 
 ```bash
+# Enable Yarn 4.9.2
+corepack enable
+
 # Install dependencies
 yarn install
+```
 
-# Start development server
+### Local Development
+
+```bash
+# Start development server with hot reload
 yarn start
 
-# Build for production
+# The site opens at http://localhost:3000
+```
+
+### Production Build
+
+```bash
+# Build static site
 yarn build
 
-# Test production build
+# Test production build locally
 yarn serve
 ```
 
-## Structure
+## ✍️ Writing Documentation
 
-```
-docs/              # English documentation
-├── intro.md       # Introduction
-├── getting-started/   # Quick start guides
-├── projects/      # Package documentation
-│   ├── core/      # @xec-sh/core docs
-│   └── cli/       # @xec-sh/cli docs
-i18n/              # Translations
-└── ru/            # Russian translation
-```
+### Documentation Standards
 
-## Writing Documentation
+Following the **Surgical Precision Requirement** from our docs-spec:
 
-### Page Structure
+1. **No approximations** - Every behavior must be described exactly as implemented
+2. **Code verification** - All examples must be tested against actual implementation
+3. **Complete enumeration** - All possible values, options, and their effects must be documented
+4. **Implementation-based** - Documentation must reflect the actual code behavior
+
+### Page Template
 
 ```markdown
 ---
-sidebar_position: 1
+title: Feature Name
+description: One-line description
+keywords: [tag1, tag2, tag3]
+source_files:
+  - packages/core/src/feature.ts
+key_functions:
+  - functionName()
+verification_date: 2025-08-03
 ---
 
-# Title
+# Feature Name
 
-Brief description.
+## Implementation Reference
 
-## Section
+**Source Files:**
+- `packages/core/src/feature.ts` - Main implementation
 
-Content with examples.
+**Key Functions:**
+- `functionName()` - Description (lines X-Y)
+
+## Overview
+
+Brief description of the feature.
+
+## Examples
+
+\`\`\`typescript
+// Verified example
+await $\`command\`;
+\`\`\`
+
+## API Reference
+
+Complete API documentation...
 ```
 
 ### Features
 
-- **Code Blocks** - Syntax highlighting for multiple languages
-- **Mermaid Diagrams** - Flowcharts and diagrams support
-- **Math Support** - KaTeX for mathematical expressions
-- **MDX Components** - React components in Markdown
-- **Internationalization** - Multi-language support
+- **🎨 Syntax Highlighting** - TypeScript, JavaScript, Bash, YAML, and more
+- **📊 Mermaid Diagrams** - Architecture and flow diagrams
+- **🔍 Local Search** - Full-text search with docusaurus-search-local
+- **🌍 Internationalization** - English and Russian support
+- **📝 MDX Support** - React components in Markdown
+- **🎯 Admonitions** - Notes, warnings, tips, and info boxes
 
-## Deployment
+### Code Examples
 
-The site is deployed to GitHub Pages at [xec.sh](https://xec.sh).
+Always verify examples against implementation:
+
+```typescript
+// ✅ Good - Verified against actual API
+await $.docker({ container: 'app' })`npm test`;
+
+// ❌ Bad - Hypothetical API
+await $.docker.run('app').command('npm test');
+```
+
+## 🌐 Deployment
 
 ### Automatic Deployment
 
-Pushes to `main` branch trigger deployment via GitHub Actions.
+Pushes to `main` branch automatically deploy via GitHub Actions.
 
 ### Manual Deployment
 
 ```bash
-GIT_USER=<username> yarn deploy
+# Deploy to GitHub Pages
+GIT_USER=<github-username> yarn deploy
 ```
 
-## Configuration
+## ⚙️ Configuration
 
-- **URL**: https://xec.sh
+### Site Configuration
+
+- **Production URL**: https://xec.sh
 - **Base URL**: `/`
-- **Languages**: English (default), Russian
-- **Theme**: Classic with custom styling
+- **Organization**: xec-sh
+- **Project**: xec
 
-## License
+### Search Configuration
 
-MIT
+Local search powered by `@easyops-cn/docusaurus-search-local`:
+- **Languages**: English, Russian
+- **Index Blogs**: false
+- **Highlight Search Terms**: true
+
+### Theme Configuration
+
+- **Primary Color**: `#2e8555`
+- **Dark Mode**: Enabled
+- **Code Theme**: Prism with TypeScript support
+- **Navbar**: Fixed with version dropdown
+- **Footer**: Links to GitHub, Discord, documentation
+
+## 📋 Content Guidelines
+
+### v0.8.0 Documentation Standards
+
+1. **Implementation References** - Every page must reference source files
+2. **Verified Examples** - All code examples tested against v0.8.0
+3. **Complete Coverage** - All CLI commands, API methods, and options documented
+4. **Performance Metrics** - Based on actual measurements, not estimates
+
+### Documentation Types
+
+1. **Conceptual** - Explain what and why
+2. **Procedural** - Step-by-step guides
+3. **Reference** - Complete API documentation
+4. **Examples** - Real-world use cases
+
+## 🤝 Contributing
+
+### Adding Documentation
+
+1. Create new `.md` file in appropriate directory
+2. Add frontmatter with metadata
+3. Write content following standards
+4. Test all code examples
+5. Submit PR with verification notes
+
+### Translations
+
+To add a new language:
+
+1. Copy `i18n/en` to `i18n/<lang>`
+2. Translate content files
+3. Update `docusaurus.config.js` with locale
+4. Test language switching
+
+## 📊 Analytics
+
+The site includes:
+- Page view tracking
+- Search query analysis
+- Popular content identification
+- User journey mapping
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Build fails with module errors:**
+```bash
+yarn cache clean
+rm -rf node_modules
+yarn install
+```
+
+**Search not working:**
+```bash
+yarn build
+yarn serve  # Test with production build
+```
+
+**Broken links:**
+```bash
+yarn build  # Will report broken links
+```
+
+## 📄 License
+
+MIT © [Xec Contributors](https://github.com/xec-sh/xec/graphs/contributors)
+
+---
+
+<div align="center">
+  <strong>Documentation for the Universal Command Execution System</strong>
+  <br>
+  <sub>Making infrastructure automation universal, type-safe, and delightful</sub>
+</div>

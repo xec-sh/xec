@@ -295,8 +295,6 @@ Natural command syntax using JavaScript's template literal feature for intuitive
 ## 🤝 Join the Community
 
 - **GitHub**: [github.com/xec-sh/xec](https://github.com/xec-sh/xec)
-- **Discord**: [discord.gg/xec](https://discord.gg/xec)
-- **Twitter**: [@xec_sh](https://twitter.com/xec_sh)
 
 ---
 
