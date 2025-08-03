@@ -12,6 +12,119 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## Version History
 
+### [0.8.0] - 2025-08-03
+
+#### Major Refactoring & Enhanced Configuration System
+
+**🎯 Overview**
+Major release featuring comprehensive codebase refactoring, enhanced configuration management, and improved developer experience. This release aligns with the Universal Configuration System specification and introduces significant improvements to command execution, module loading, and documentation.
+
+**✨ Major Features**
+
+1. **Enhanced Config Command**
+   - **Continuous Interactive Mode**: New interactive configuration management with persistent menu
+   - **Custom Parameters Management**: Support for arbitrary custom configuration parameters
+   - **Dot Notation Support**: Nested parameter access (e.g., `api.endpoints.auth`)
+   - **Export Functionality**: Export custom parameters as JSON or YAML
+   - **Protected Parameters**: Prevents accidental modification of system parameters (targets, vars, tasks, defaults)
+
+2. **Script Execution Overhaul**
+   - **Unified ScriptLoader**: Complete rewrite of script execution engine
+   - **Module Loading**: Enhanced CDN module support (npm, jsr, esm.sh, unpkg, skypack, jsdelivr)
+   - **Target Context Injection**: Automatic `$target` and `$targetInfo` injection for cross-environment execution
+   - **TypeScript Support**: Full TypeScript transpilation with proper source maps
+   - **Watch Mode**: Improved watch mode for iterative development
+
+3. **Command Base Refactoring**
+   - **Simplified Architecture**: Removed ConfigAwareCommand, unified under CommandBase
+   - **Global Context**: New global context system for commands and scripts
+   - **Enhanced Target Resolution**: Improved target detection and resolution
+   - **Better Error Handling**: Consistent error handling across all commands
+
+**🔧 Technical Improvements**
+
+1. **Module System**
+   - Renamed `unified-module-loader.ts` to `module-loader.ts` for clarity
+   - Enhanced module resolution with better CDN support
+   - Improved caching mechanism in `~/.xec/module-cache`
+   - Better TypeScript transformation pipeline
+
+2. **Task Execution**
+   - Enhanced TaskExecutor with better script support
+   - Proper context injection for tasks
+   - Improved parameter interpolation
+   - Better error reporting with source maps
+
+3. **Commands Enhanced**
+   - **watch**: Script execution support with proper target context
+   - **in/on**: Full script and task execution support
+   - **inspect**: Enhanced output with better formatting
+   - **new**: Improved templates and prompts
+   - **run**: Complete overhaul with unified script loading
+   - **secrets**: Better secret management interface
+
+**📚 Documentation Updates**
+
+1. **Command Documentation**
+   - Added implementation references to all command docs
+   - Added source file references and key functions
+   - Complete compliance with docs-spec.md requirements
+   - Added command-structure.md and command-testing.md
+
+2. **Surgical Precision**
+   - All documentation now verified against actual implementation
+   - Exit codes mapped to error-handler.ts
+   - Performance characteristics based on real measurements
+   - Complete option enumeration from source code
+
+**⚠️ Breaking Changes**
+
+1. **Script Execution Context**
+   - Scripts now receive `$target` instead of requiring manual configuration
+   - `$targetInfo` provides target metadata
+   - Module imports may need adjustment for new loader
+
+2. **Dynamic Commands**
+   - Command loading mechanism simplified
+   - Some internal APIs changed for dynamic commands
+
+**🐛 Bug Fixes**
+- Fixed script execution in various contexts
+- Fixed module resolution in monorepo structures
+- Fixed target resolution edge cases
+- Fixed configuration merging issues
+- Fixed watch command script execution
+- Fixed REPL mode with proper context
+
+**🔄 Migration Guide**
+
+**Script Updates:**
+```typescript
+// Old approach
+import { $ } from '@xec-sh/core';
+const $remote = $.ssh('user@host');
+await $remote`command`;
+
+// New approach (when run via xec on/in)
+// $target is automatically injected
+await $target`command`;
+```
+
+**Dynamic Commands:**
+```typescript
+// Commands now have access to enhanced globals
+export function command(program) {
+  program.command('example')
+    .action(async () => {
+      // New global context available
+      const { $, config, tasks } = await import('@xec-sh/cli');
+      // Command logic
+    });
+}
+```
+
+---
+
 ### [0.7.7] - 2025-07-30
 
 #### Enhanced Docker API & Simplified Operations

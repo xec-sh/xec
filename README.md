@@ -1,76 +1,167 @@
 # Xec - Universal Command Execution System
 
-Universal TypeScript interface for executing commands across local, SSH, Docker, and Kubernetes environments.
+[![Version](https://img.shields.io/npm/v/@xec-sh/core.svg)](https://npmjs.org/package/@xec-sh/core)
+[![License](https://img.shields.io/npm/l/@xec-sh/core.svg)](https://github.com/xec-sh/xec/blob/main/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 
-## Features
+**Universal command execution for the modern stack** - A unified TypeScript API for seamless command execution across local, SSH, Docker, and Kubernetes environments.
 
-- **Universal API** - Single interface for all execution environments
-- **Type-Safe** - Full TypeScript support with comprehensive type definitions
-- **Template Literals** - Natural command syntax with automatic escaping
-- **Multi-Environment** - Local, SSH, Docker, Kubernetes adapters included
-- **Performance** - Connection pooling, parallel execution, streaming support
+## 🎯 The Problem
 
-## Quick Start
+Modern infrastructure spans multiple environments, each requiring different tools and APIs. This fragmentation leads to duplicated code, context switching, inconsistent error handling, and complex deployment scripts.
+
+## ✨ The Solution
+
+Xec provides **one API to rule them all** - the same intuitive template literal syntax works everywhere:
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+// Same API, different environments
+await $`npm test`;                                    // Local execution
+await $.ssh('server.com')`npm test`;                 // SSH execution
+await $.docker({ container: 'app' })`npm test`;      // Docker execution
+await $.k8s({ pod: 'app-pod' })`npm test`;          // Kubernetes execution
+```
+
+## 🚀 Features
+
+### Core Capabilities
+- **🌍 Universal Execution Engine** - Single API for all environments
+- **📝 Template Literal Magic** - Natural command syntax with `$\`command\``
+- **🔄 Multi-Environment Native** - Local, SSH, Docker, Kubernetes adapters
+- **⚡ Enterprise Performance** - Connection pooling, parallel execution, streaming
+- **🔒 Type-Safe Everything** - Full TypeScript with IntelliSense
+- **🛡️ Production Ready** - Automatic retries, proper error handling, secure by default
+
+### v0.8.0 Highlights
+- **Enhanced Configuration System** - Interactive config management with custom parameters
+- **Script Context Revolution** - Automatic `$target` injection for write-once, run-anywhere scripts
+- **Module Loading 2.0** - CDN module support (npm, jsr, esm.sh, unpkg)
+- **Documentation Precision** - Every feature verified against implementation
+
+## 📦 Installation
 
 ```bash
 # Install CLI globally
 npm install -g @xec-sh/cli
 
-# Install core library
+# Or add to your project
 npm install @xec-sh/core
 ```
+
+## 🎮 Quick Start
+
+### Basic Usage
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Local execution
-await $`echo "Hello, World!"`;
+// Simple command execution
+const result = await $`ls -la`;
+console.log(result.stdout);
 
-// SSH execution
-const remote = $.ssh({ host: 'server.com', username: 'user' });
-await remote`uname -a`;
-
-// Docker execution
-const container = $.docker({ image: 'node:18' });
-await container.exec`npm --version`;
-
-// Kubernetes execution
-const k8s = $.k8s({ namespace: 'default' });
-await k8s.pod('my-app').exec`date`;
+// With error handling
+if (result.ok) {
+  console.log('Success!');
+} else {
+  console.error(`Failed: ${result.cause}`);
+}
 ```
 
-## Packages
+### Method Chaining
 
-| Package | Description |
-|---------|-------------|
-| [@xec-sh/core](./packages/core) | Core execution engine with adapters |
-| [@xec-sh/cli](./apps/xec) | Command-line interface |
-| [@xec-sh/test-utils](./packages/test-utils) | Testing utilities |
+```typescript
+await $`npm test`
+  .cwd('/project')
+  .env({ NODE_ENV: 'test' })
+  .timeout(30000)
+  .retry(3);
+```
 
-## Documentation
+### Multi-Environment Execution
 
-- [Getting Started](https://xec.sh/docs/getting-started/quick-start)
-- [Core Documentation](https://xec.sh/docs/projects/core)
-- [CLI Documentation](https://xec.sh/docs/projects/cli)
-- [Examples](./packages/core/examples)
+```typescript
+// SSH with connection pooling
+const server = $.ssh({ 
+  host: 'prod.example.com',
+  username: 'deploy'
+});
+await server`docker restart app`;
 
-## Development
+// Docker with auto-cleanup
+await $.docker({ image: 'node:20' })`npm test`;
+
+// Kubernetes with namespace
+const k8s = $.k8s({ namespace: 'production' });
+await k8s.pod('api-server')`date`;
+```
+
+### Write Once, Run Anywhere
+
+New in v0.8.0 - Scripts automatically adapt to their execution context:
+
+```typescript
+// script.ts - works in ANY environment
+await $target`npm install`;
+await $target`npm test`;
+await $target`npm run build`;
+```
+
+Execute the same script everywhere:
+```bash
+xec run script.ts                    # Local execution
+xec on server.com script.ts          # SSH execution
+xec in container-name script.ts      # Docker execution
+xec in pod:app-pod script.ts        # Kubernetes execution
+```
+
+## 📚 Documentation
+
+- 🏠 [Homepage](https://xec.sh)
+- 📖 [Getting Started](https://xec.sh/docs/introduction/quick-start)
+- 🔧 [API Reference](https://xec.sh/docs/api)
+- 💡 [Examples](./packages/core/examples)
+- 📝 [Changelog](https://xec.sh/docs/changelog)
+
+## 🏗️ Project Structure
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| [@xec-sh/core](./packages/core) | ![npm](https://img.shields.io/npm/v/@xec-sh/core) | Core execution engine |
+| [@xec-sh/cli](./apps/xec) | ![npm](https://img.shields.io/npm/v/@xec-sh/cli) | Command-line interface |
+| [@xec-sh/test-utils](./packages/test-utils) | ![npm](https://img.shields.io/npm/v/@xec-sh/test-utils) | Testing utilities |
+
+## 🛠️ Development
 
 ```bash
-# Setup
-corepack enable
-yarn install
+# Prerequisites
+corepack enable          # Enable Yarn 4.9.2
+yarn install            # Install dependencies
 
-# Build
-yarn build
+# Development
+yarn dev                # Watch mode
+yarn test              # Run tests
+yarn build             # Build all packages
 
-# Test
-yarn test
-
-# Development mode
-yarn dev
+# Quality
+yarn lint              # Lint code
+yarn type-check        # Type checking
+yarn test:coverage     # Coverage report
 ```
 
-## License
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## 📄 License
 
 MIT © [Xec Contributors](https://github.com/xec-sh/xec/graphs/contributors)
+
+---
+
+<div align="center">
+  <strong>Built with ❤️ by developers, for developers</strong>
+  <br>
+  <sub>Making command execution universal, type-safe, and delightful</sub>
+</div>

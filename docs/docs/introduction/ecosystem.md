@@ -406,7 +406,6 @@ module.exports = {
 
 ### Getting Help
 - **Documentation**: Comprehensive guides and API references
-- **Discord Community**: Real-time help and discussions
 - **GitHub Issues**: Bug reports and feature requests
 - **Stack Overflow**: Tagged questions with `xec`
 
