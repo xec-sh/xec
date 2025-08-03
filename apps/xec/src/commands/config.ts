@@ -7,6 +7,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 import { BaseCommand } from '../utils/command-base.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
+import { getDefaultConfig, sortConfigKeys, mergeWithDefaults, isDefaultValue } from '../config/defaults.js';
 
 
 /**
@@ -108,18 +109,20 @@ export class ConfigCommand extends BaseCommand {
     command
       .command('view')
       .description('View current configuration (alias for list)')
-      .action(async () => {
+      .option('--defaults', 'Show default values in dimmer color')
+      .action(async (options) => {
         await this.ensureInitialized();
-        await this.viewConfig();
+        await this.viewConfig(options);
       });
 
     // Doctor command
     command
       .command('doctor')
       .description('Check and fix configuration issues')
-      .action(async () => {
+      .option('--defaults', 'Show all possible configuration options with default values')
+      .action(async (options) => {
         await this.ensureInitialized();
-        await this.runDoctor();
+        await this.runDoctor(options);
       });
 
     // Validate command
@@ -368,7 +371,7 @@ export class ConfigCommand extends BaseCommand {
       // eslint-disable-next-line default-case
       switch (action) {
         case 'view':
-          await this.viewConfig();
+          await this.viewConfig({ defaults: true });
           break;
         case 'targets':
           await this.manageTargets();
@@ -386,7 +389,13 @@ export class ConfigCommand extends BaseCommand {
           await this.manageCustomParameters();
           break;
         case 'doctor':
-          await this.runDoctor();
+          const showDefaults = await clack.confirm({
+            message: 'Show all possible configuration options with default values?',
+            initialValue: false
+          });
+          if (!clack.isCancel(showDefaults)) {
+            await this.runDoctor({ defaults: showDefaults });
+          }
           break;
         case 'validate':
           await this.validateConfig();
@@ -395,9 +404,59 @@ export class ConfigCommand extends BaseCommand {
     }
   }
 
-  private async viewConfig(): Promise<void> {
-    const config = await this.configManager.load();
-    console.log(yaml.dump(config, { indent: 2, sortKeys: true }));
+  private async viewConfig(options?: { defaults?: boolean }): Promise<void> {
+    let config = await this.configManager.load();
+    
+    if (options?.defaults) {
+      // Merge with defaults and show default values in dimmer color
+      const defaults = getDefaultConfig();
+      const merged = mergeWithDefaults(config, defaults);
+      const sorted = sortConfigKeys(merged);
+      
+      // Custom YAML formatter to dim default values
+      const formattedYaml = this.formatYamlWithDefaults(sorted, config, '');
+      console.log(formattedYaml);
+    } else {
+      // Sort config keys according to defined order
+      const sorted = sortConfigKeys(config);
+      console.log(yaml.dump(sorted, { indent: 2 }));
+    }
+  }
+
+  private formatYamlWithDefaults(obj: any, userConfig: any, path: string, indent: number = 0): string {
+    const defaults = getDefaultConfig();
+    let result = '';
+    const indentStr = '  '.repeat(indent);
+    
+    for (const key in obj) {
+      const fullPath = path ? `${path}.${key}` : key;
+      const value = obj[key];
+      const userValue = userConfig?.[key];
+      const isUserDefined = userValue !== undefined;
+      
+      if (value === null || value === undefined) {
+        continue;
+      }
+      
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        result += `${indentStr}${key}:\n`;
+        result += this.formatYamlWithDefaults(value, userValue || {}, fullPath, indent + 1);
+      } else {
+        const valueStr = yaml.dump({ [key]: value }, { indent: 2 })
+          .replace(/^\{\s*/, '')
+          .replace(/\s*\}$/, '')
+          .trim();
+        
+        if (isUserDefined) {
+          result += `${indentStr}${valueStr}\n`;
+        } else {
+          // Dim default values
+          result += chalk.dim(`${indentStr}${valueStr}`) + '\n';
+        }
+      }
+    }
+    
+    return result;
   }
 
   private async getConfigValue(key: string): Promise<void> {
@@ -1464,7 +1523,7 @@ export class ConfigCommand extends BaseCommand {
     }
   }
 
-  private readonly MANAGED_KEYS = ['targets', 'vars', 'tasks', 'defaults', 'commands', 'name', 'description'];
+  private readonly MANAGED_KEYS = ['version', 'targets', 'vars', 'tasks', 'defaults', 'commands', 'name', 'description'];
 
   private isCustomParameter(key: string): boolean {
     const topLevelKey = key.split('.')[0];
@@ -1696,7 +1755,7 @@ export class ConfigCommand extends BaseCommand {
 
     if (clack.isCancel(filename)) return;
 
-    const content = format === 'json' 
+    const content = format === 'json'
       ? JSON.stringify(customParams, null, 2)
       : yaml.dump(customParams, { indent: 2, sortKeys: false });
 
@@ -1911,10 +1970,29 @@ export class ConfigCommand extends BaseCommand {
     clack.log.success('Defaults reset to system values');
   }
 
-  private async runDoctor(): Promise<void> {
+  private async runDoctor(options?: { defaults?: boolean }): Promise<void> {
+    if (options?.defaults) {
+      // Write all default values to the configuration file
+      clack.log.info('📋 Adding all default values to configuration...\n');
+      
+      const config = await this.configManager.load();
+      const defaults = getDefaultConfig();
+      const merged = mergeWithDefaults(config, defaults);
+      const sorted = sortConfigKeys(merged);
+      
+      // Save configuration with all defaults
+      await this.saveConfig(sorted);
+      
+      clack.log.success('✅ All default values have been written to the configuration file');
+      console.log('\nUpdated configuration:');
+      console.log(yaml.dump(sorted, { indent: 2 }));
+      
+      return;
+    }
+    
     clack.log.info('🏥 Running configuration doctor...\n');
 
-    const config = await this.configManager.load();
+    let config = await this.configManager.load();
     const recommendations: string[] = [];
 
     // Check for basic configuration
@@ -1999,6 +2077,9 @@ export class ConfigCommand extends BaseCommand {
 
     // Note: environment configuration can be added as needed
 
+    // Sort configuration keys before saving
+    config = sortConfigKeys(config);
+    
     // Save updated configuration
     await this.saveConfig(config);
 

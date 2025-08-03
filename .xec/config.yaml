@@ -1,4 +1,10 @@
 version: '1.0'
+name: xec-sh
+description: An Xec automation project
+defaults:
+  adapter: local
+  shell: /bin/bash
+  timeout: 30000
 targets:
   local:
     type: local
@@ -7,12 +13,33 @@ targets:
       port: 22
       keepAlive: true
       keepAliveInterval: 30000
+      timeout: 60000
     docker:
       workdir: /app
       tty: true
+      interactive: true
     kubernetes:
       namespace: default
 commands:
+  exec:
+    shell: /bin/sh
+    tty: true
+    interactive: true
+  logs:
+    tail: '50'
+    timestamps: false
+    follow: false
+    prefix: false
+    color: true
+  cp:
+    recursive: true
+    preserveMode: true
+    preserveTimestamps: false
+    followSymlinks: false
+  sync:
+    delete: false
+    exclude: []
+    dryRun: false
   in:
     defaultTimeout: 30s
   'on':
@@ -25,24 +52,10 @@ commands:
   watch:
     interval: 2
     clear: true
-  exec:
-    shell: /bin/sh
-    tty: true
-  logs:
-    tail: '50'
-    timestamps: false
-    follow: false
-    prefix: false
-  cp:
-    recursive: true
-    preserveMode: true
-    preserveTimestamps: false
-name: xec-sh
-description: An Xec automation project
-defaults:
-  adapter: local
-  shell: /bin/bash
-  timeout: 30000
+secrets:
+  provider: env
+vars: {}
+tasks: {}
 environments:
   development:
     env:
@@ -52,14 +65,3 @@ environments:
     env:
       NODE_ENV: production
       DEBUG: false
-ssh:
-  defaults:
-    port: 22
-    keepAlive: true
-  hosts: null
-docker:
-  defaults:
-    network: bridge
-kubernetes:
-  defaults:
-    namespace: default

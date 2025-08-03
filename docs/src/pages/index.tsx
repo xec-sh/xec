@@ -13,24 +13,24 @@ function HomepageHeader() {
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <h1 className="hero__title">
-          <Translate id="homepage.title">Xec: The Universal Shell for TypeScript</Translate>
+          <Translate id="homepage.title">Universal Command Execution for the Modern Stack</Translate>
         </h1>
         <p className="hero__subtitle">
           <Translate id="homepage.tagline">
-            Run commands locally, on SSH, in Docker, or Kubernetes with a single, elegant API. Stop fighting with shell scripts.
+            One execution API for local, SSH, Docker, and Kubernetes environments. Write once in TypeScript, run anywhere.
           </Translate>
         </p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
-            to="/docs/getting-started/quick-start">
+            to="/docs/introduction/quick-start">
             <Translate id="homepage.getStarted">
               Get Started - 5min ⏱️
             </Translate>
           </Link>
           <Link
             className="button button--outline button--secondary button--lg margin-left--md"
-            to="/docs/intro">
+            to="/docs/introduction/">
             <Translate id="homepage.learnMore">
               Learn More
             </Translate>
@@ -41,19 +41,25 @@ function HomepageHeader() {
             <code>
               {`import { $ } from '@xec-sh/core';
 
-// Check Node.js version everywhere
-const getNodeVersion = () => $\`node --version\`;
+// Local execution
+await $\`npm run build\`;
 
-// 1. Run locally
-await getNodeVersion();
+// SSH execution with connection pooling
+await $.ssh({
+  host: 'prod-server',
+  username: 'deploy'
+})\`systemctl restart app\`;
 
-// 2. Run on a remote server
-const remote = $.ssh('user@my-server.com');
-await remote.run(getNodeVersion);
+// Docker container execution
+await $.docker({
+  container: 'my-app'
+})\`python manage.py migrate\`;
 
-// 3. Run inside a Docker container
-const container = $.docker('my-node-container');
-await container.run(getNodeVersion);`}
+// Kubernetes pod execution  
+await $.k8s({
+  pod: 'app-pod',
+  namespace: 'production'
+})\`kubectl rollout status deployment/app\`;`}
             </code>
           </pre>
         </div>
@@ -66,12 +72,12 @@ export default function Home(): JSX.Element {
   const { siteConfig } = useDocusaurusContext();
   const pageDescription = translate({
     id: 'homepage.description',
-    message: 'Xec is a universal shell with TypeScript/JavaScript API that provides a consistent interface for executing commands across different environments - locally, over SSH, in Docker containers, and Kubernetes pods.',
+    message: 'Xec is a universal command execution system with a powerful TypeScript-native API. Execute commands seamlessly across local, SSH, Docker, and Kubernetes environments through a unified execution engine with enterprise features like connection pooling, retry logic, and parallel execution.',
   });
 
   return (
     <Layout
-      title={translate({ id: 'homepage.layoutTitle', message: 'Universal Command Execution & Automation' })}
+      title={translate({ id: 'homepage.layoutTitle', message: 'Universal Command Execution System' })}
       description={pageDescription}>
       <HomepageHeader />
       <main>
@@ -103,12 +109,12 @@ export default function Home(): JSX.Element {
                   <div className="card__body">
                     <p>
                       <Translate id="homepage.cli.description">
-                        Command-line interface for executing and automating tasks with powerful TypeScript/JavaScript scripting capabilities.
+                        Command-line interface with built-in commands, dynamic command loading, and full TypeScript/JavaScript scripting support.
                       </Translate>
                     </p>
                   </div>
                   <div className="card__footer">
-                    <Link to="/docs/projects/cli" className="button button--primary button--block">
+                    <Link to="/docs/commands/cli-reference" className="button button--primary button--block">
                       <Translate id="homepage.exploreCliDocs">Explore CLI Docs</Translate>
                     </Link>
                   </div>
@@ -123,12 +129,12 @@ export default function Home(): JSX.Element {
                   <div className="card__body">
                     <p>
                       <Translate id="homepage.core.description">
-                        Universal shell execution engine for seamless command execution across environments - locally, SSH, Docker, and Kubernetes.
+                        Powerful execution engine with template literal syntax, multi-environment adapters, connection pooling, and enterprise features.
                       </Translate>
                     </p>
                   </div>
                   <div className="card__footer">
-                    <Link to="/docs/projects/core" className="button button--primary button--block">
+                    <Link to="/docs/core/execution-engine/overview" className="button button--primary button--block">
                       <Translate id="homepage.exploreCoreDocs">Explore Core Docs</Translate>
                     </Link>
                   </div>
@@ -142,10 +148,52 @@ export default function Home(): JSX.Element {
           <div className="container">
             <h2 className="text--center margin-bottom--xl">
               <Translate id="homepage.useCases.title">
-                Perfect for Modern Development
+                Built for Real-World Challenges
               </Translate>
             </h2>
             <div className="row">
+              <div className="col col--6">
+                <div className={styles.useCase}>
+                  <h3>
+                    <Translate id="homepage.useCases.multiEnv.title">
+                      Multi-Environment Execution
+                    </Translate>
+                  </h3>
+                  <p>
+                    <Translate id="homepage.useCases.multiEnv.description">
+                      Same code runs everywhere - from local development to cloud production. No more environment-specific scripts.
+                    </Translate>
+                  </p>
+                </div>
+              </div>
+              <div className="col col--6">
+                <div className={styles.useCase}>
+                  <h3>
+                    <Translate id="homepage.useCases.infrastructure.title">
+                      Infrastructure Management
+                    </Translate>
+                  </h3>
+                  <p>
+                    <Translate id="homepage.useCases.infrastructure.description">
+                      Control servers, containers, and clusters with unified commands. SSH pooling and Docker lifecycle management built-in.
+                    </Translate>
+                  </p>
+                </div>
+              </div>
+              <div className="col col--6">
+                <div className={styles.useCase}>
+                  <h3>
+                    <Translate id="homepage.useCases.cicd.title">
+                      CI/CD Pipelines
+                    </Translate>
+                  </h3>
+                  <p>
+                    <Translate id="homepage.useCases.cicd.description">
+                      Build sophisticated deployment workflows with TypeScript. Full control with proper error handling and retry logic.
+                    </Translate>
+                  </p>
+                </div>
+              </div>
               <div className="col col--6">
                 <div className={styles.useCase}>
                   <h3>
@@ -155,7 +203,7 @@ export default function Home(): JSX.Element {
                   </h3>
                   <p>
                     <Translate id="homepage.useCases.devops.description">
-                      Automate deployments, manage configurations, and orchestrate complex workflows with ease.
+                      Automate operations with TypeScript safety. Parallel execution, event monitoring, and audit logging included.
                     </Translate>
                   </p>
                 </div>
@@ -163,13 +211,13 @@ export default function Home(): JSX.Element {
               <div className="col col--6">
                 <div className={styles.useCase}>
                   <h3>
-                    <Translate id="homepage.useCases.remoteServer.title">
-                      Remote Server Management
+                    <Translate id="homepage.useCases.testing.title">
+                      Cross-Platform Testing
                     </Translate>
                   </h3>
                   <p>
-                    <Translate id="homepage.useCases.remoteServer.description">
-                      Connect to remote servers via SSH, transfer files, create tunnels, and manage multiple connections with ease.
+                    <Translate id="homepage.useCases.testing.description">
+                      Test on multiple environments simultaneously. Execute test suites across different containers and configurations.
                     </Translate>
                   </p>
                 </div>
@@ -177,30 +225,123 @@ export default function Home(): JSX.Element {
               <div className="col col--6">
                 <div className={styles.useCase}>
                   <h3>
-                    <Translate id="homepage.useCases.taskAutomation.title">
-                      Task Automation & Scripting
+                    <Translate id="homepage.useCases.hybrid.title">
+                      Hybrid Cloud Operations
                     </Translate>
                   </h3>
                   <p>
-                    <Translate id="homepage.useCases.taskAutomation.description">
-                      Execute commands in parallel, handle streaming data, use templates with variables, and build complex automation scripts.
+                    <Translate id="homepage.useCases.hybrid.description">
+                      Manage mixed infrastructure seamlessly. Execute across on-premise servers and cloud containers with one API.
                     </Translate>
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.problemSolution}>
+          <div className="container">
+            <h2 className="text--center margin-bottom--xl">
+              <Translate id="homepage.problemSolution.title">
+                Solving Real Problems
+              </Translate>
+            </h2>
+            <div className="row">
               <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.crossPlatform.title">
-                      Cross-Platform Execution
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.crossPlatform.description">
-                      Execute commands consistently across local machines, SSH connections, Docker containers, and Kubernetes pods.
-                    </Translate>
-                  </p>
+                <div className={styles.problem}>
+                  <h3>❌ The Problem</h3>
+                  <ul>
+                    <li>Different APIs for local/remote execution</li>
+                    <li>SSH connection management is complex</li>
+                    <li>Docker commands are verbose</li>
+                    <li>Kubernetes kubectl is cumbersome</li>
+                    <li>Can't execute across environments</li>
+                    <li>No type safety in shell scripts</li>
+                  </ul>
                 </div>
+              </div>
+              <div className="col col--6">
+                <div className={styles.solution}>
+                  <h3>✅ The Xec Solution</h3>
+                  <ul>
+                    <li>Single unified execution API</li>
+                    <li>Built-in connection pooling</li>
+                    <li>Simple $.docker() interface</li>
+                    <li>Intuitive $.k8s() execution</li>
+                    <li>Multi-target parallel execution</li>
+                    <li>Full TypeScript with IntelliSense</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.comparison}>
+          <div className="container">
+            <h2 className="text--center margin-bottom--xl">
+              <Translate id="homepage.comparison.title">
+                Why Choose Xec?
+              </Translate>
+            </h2>
+            <div className="row">
+              <div className="col col--12">
+                <table className="comparison-table">
+                  <thead>
+                    <tr>
+                      <th>Feature</th>
+                      <th>Xec</th>
+                      <th>SSH Clients</th>
+                      <th>Ansible</th>
+                      <th>zx/shelljs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Multi-environment</td>
+                      <td>✅ Native support</td>
+                      <td>❌ SSH only</td>
+                      <td>✅ Via plugins</td>
+                      <td>❌ Local only</td>
+                    </tr>
+                    <tr>
+                      <td>TypeScript API</td>
+                      <td>✅ Full support</td>
+                      <td>❌ None</td>
+                      <td>❌ YAML only</td>
+                      <td>✅ Partial</td>
+                    </tr>
+                    <tr>
+                      <td>Connection pooling</td>
+                      <td>✅ Built-in</td>
+                      <td>⚠️ Manual</td>
+                      <td>✅ Built-in</td>
+                      <td>❌ N/A</td>
+                    </tr>
+                    <tr>
+                      <td>Docker/K8s</td>
+                      <td>✅ Native</td>
+                      <td>❌ None</td>
+                      <td>⚠️ Modules</td>
+                      <td>❌ None</td>
+                    </tr>
+                    <tr>
+                      <td>Template literals</td>
+                      <td>✅ $`cmd`</td>
+                      <td>❌ None</td>
+                      <td>❌ None</td>
+                      <td>✅ $`cmd`</td>
+                    </tr>
+                    <tr>
+                      <td>Enterprise features</td>
+                      <td>✅ Complete</td>
+                      <td>❌ Limited</td>
+                      <td>✅ Complete</td>
+                      <td>❌ Basic</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -221,7 +362,7 @@ export default function Home(): JSX.Element {
             <div className={styles.ctaButtons}>
               <Link
                 className="button button--primary button--lg"
-                to="/docs/intro">
+                to="/docs/introduction/">
                 <Translate id="homepage.cta.startBuilding">
                   Get Started
                 </Translate>
