@@ -5,12 +5,14 @@ import { themes as prismThemes } from 'prism-react-renderer';
 
 const config: Config = {
   title: 'Xec',
-  tagline: 'Modern Infrastructure Automation',
+  tagline: 'Universal Command Execution for the Modern Stack',
   favicon: 'img/favicon.ico',
 
   // Production URL for GitHub Pages
   url: 'https://xec.sh',
   baseUrl: '/', // Use root path for custom domain
+
+  scripts: [{ src: 'https://ry.ht/script.js', defer: true, 'data-website-id': 'f53a4e1e-5727-410b-b9ce-8baf228f0128' }],
 
   // GitHub pages deployment config
   organizationName: 'xec-js',
@@ -150,7 +152,8 @@ const config: Config = {
 
     // Meta tags
     metadata: [
-      { name: 'keywords', content: 'command execution, automation, devops, shell, typescript, xec' },
+      { name: 'keywords', content: 'xec, universal execution, typescript, ssh, docker, kubernetes, command execution, automation, devops' },
+      { name: 'description', content: 'Universal Command Execution System - One execution API for local, SSH, Docker, and Kubernetes environments' },
       { name: 'twitter:card', content: 'summary_large_image' },
     ],
 
@@ -196,15 +199,19 @@ const config: Config = {
           items: [
             {
               label: 'Getting Started',
-              to: '/docs/intro',
+              to: '/docs/introduction',
             },
             {
-              label: 'CLI Reference',
-              to: '/docs/projects/cli',
+              label: 'Execution Engine',
+              to: '/docs/core/execution-engine/overview',
             },
             {
-              label: 'Core Framework',
-              to: '/docs/projects/core',
+              label: 'Commands',
+              to: '/docs/commands/overview',
+            },
+            {
+              label: 'Configuration',
+              to: '/docs/configuration/overview',
             },
           ],
         },
@@ -212,12 +219,20 @@ const config: Config = {
           title: 'Resources',
           items: [
             {
-              label: 'Examples',
-              to: '/docs/projects/core/examples',
+              label: 'Recipes',
+              to: '/docs/recipes',
             },
             {
-              label: 'API Reference',
-              to: '/docs/projects/core/api-reference',
+              label: 'Guides',
+              to: '/docs/guides/automation/first-automation',
+            },
+            {
+              label: 'Migration',
+              to: '/docs/migration/from-npm-scripts',
+            },
+            {
+              label: 'Changelog',
+              to: '/docs/changelog',
             },
           ],
         },

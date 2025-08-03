@@ -129,6 +129,95 @@
   margin-top: 0;
 }
 
+/* Problem/Solution Section */
+.problemSolution {
+  padding: 4rem 0;
+}
+
+.problem, .solution {
+  padding: 2rem;
+  border-radius: 12px;
+  height: 100%;
+  border: 2px solid;
+}
+
+.problem {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.05) 0%, rgba(255, 100, 0, 0.05) 100%);
+  border-color: rgba(255, 0, 0, 0.2);
+}
+
+.solution {
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.05) 0%, rgba(0, 200, 100, 0.05) 100%);
+  border-color: rgba(0, 255, 0, 0.2);
+}
+
+[data-theme='dark'] .problem {
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.1) 0%, rgba(255, 100, 0, 0.1) 100%);
+  border-color: rgba(255, 0, 0, 0.3);
+}
+
+[data-theme='dark'] .solution {
+  background: linear-gradient(135deg, rgba(0, 255, 0, 0.1) 0%, rgba(0, 200, 100, 0.1) 100%);
+  border-color: rgba(0, 255, 0, 0.3);
+}
+
+.problem h3 {
+  color: var(--ifm-color-danger);
+  margin-top: 0;
+}
+
+.solution h3 {
+  color: var(--ifm-color-success);
+  margin-top: 0;
+}
+
+.problem ul, .solution ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.problem li, .solution li {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+/* Comparison Section */
+.comparison {
+  padding: 4rem 0;
+  background-color: var(--ifm-background-surface-color);
+}
+
+.comparison table {
+  display: table;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.comparison th {
+  background: var(--ifm-color-primary);
+  color: white;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.comparison tr:hover td {
+  background: var(--ifm-background-surface-color);
+}
+
+.comparison td:first-child {
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-900);
+}
+
+[data-theme='dark'] .comparison th {
+  background: var(--ifm-color-primary-dark);
+}
+
+[data-theme='dark'] .comparison td {
+  background: var(--ifm-background-color);
+}
+
 /* CTA Section */
 .cta {
   padding: 4rem 0;

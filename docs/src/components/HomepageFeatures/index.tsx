@@ -59,72 +59,72 @@ const FeatureList: FeatureItem[] = [
   {
     title: translate({
       id: 'homepage.features.universal.title',
-      message: 'Universal Execution',
+      message: 'Universal Execution Engine',
     }),
     Svg: UniversalSvg,
     description: (
       <Translate id="homepage.features.universal.description">
-        Execute commands seamlessly across local, SSH, Docker, Kubernetes and other environments with a unified API. Write once, run anywhere with the same familiar JavaScript syntax.
+        Single API for all environments via @xec-sh/core. Execute commands across local, SSH, Docker, and Kubernetes with the same consistent interface and automatic adapter selection.
       </Translate>
     ),
   },
   {
     title: translate({
-      id: 'homepage.features.typeSafe.title',
-      message: 'Type-Safe & Modern',
+      id: 'homepage.features.multiEnvironment.title',
+      message: 'Multi-Environment Native',
     }),
     Svg: TypeSafeSvg,
     description: (
-      <Translate id="homepage.features.typeSafe.description">
-        Built with TypeScript from the ground up. Enjoy full IDE support, autocompletion, and compile-time safety for your infrastructure code. Catch errors before they reach production.
+      <Translate id="homepage.features.multiEnvironment.description">
+        Seamless execution across local shells, SSH connections, Docker containers, and Kubernetes pods. Built-in adapters with environment-specific optimizations.
       </Translate>
     ),
   },
   {
     title: translate({
-      id: 'homepage.features.extensible.title',
-      message: 'Designed for Complex Scripting',
+      id: 'homepage.features.templateLiterals.title',
+      message: 'TypeScript Template Literals',
     }),
     Svg: ExtensibleSvg,
     description: (
-      <Translate id="homepage.features.extensible.description">
-        Chain calls like .cd(), .env(), and .timeout() to create configured execution environments. Use full TypeScript power with variables, loops, functions, and libraries directly in your scripts.
+      <Translate id="homepage.features.templateLiterals.description">
+        Intuitive $`command` syntax with full type safety. Natural command writing with automatic escaping, interpolation, and IntelliSense support.
       </Translate>
     ),
   },
   {
     title: translate({
-      id: 'homepage.features.powerful.title',
-      message: 'Powerful Features',
+      id: 'homepage.features.enterprise.title',
+      message: 'Enterprise Features',
     }),
     Svg: PowerfulSvg,
     description: (
-      <Translate id="homepage.features.powerful.description">
-        SSH tunnels, port forwarding, file transfers, streaming logs, parallel execution, retry logic, caching, and more. Everything you need for modern infrastructure automation.
+      <Translate id="homepage.features.enterprise.description">
+        Connection pooling, retry logic, error handling, caching, event system, and audit logging built-in. Production-ready with comprehensive monitoring and debugging.
       </Translate>
     ),
   },
   {
     title: translate({
-      id: 'homepage.features.secure.title',
-      message: 'Secure by Design',
-    }),
-    Svg: SecureSvg,
-    description: (
-      <Translate id="homepage.features.secure.description">
-        Built-in security features including SSH key validation, secure password handling, audit logging, and secret management. Your credentials and sensitive data are always protected.
-      </Translate>
-    ),
-  },
-  {
-    title: translate({
-      id: 'homepage.features.scalable.title',
-      message: 'Scalable Architecture',
+      id: 'homepage.features.parallel.title',
+      message: 'Parallel Execution',
     }),
     Svg: ScalableSvg,
     description: (
-      <Translate id="homepage.features.scalable.description">
-        Connection pooling, resource management, and efficient execution engine. Handle everything from simple scripts to complex multi-environment orchestrations with ease.
+      <Translate id="homepage.features.parallel.description">
+        Execute commands across multiple targets simultaneously. Built-in batch processing, concurrency control, and stream multiplexing for efficient operations.
+      </Translate>
+    ),
+  },
+  {
+    title: translate({
+      id: 'homepage.features.flexible.title',
+      message: 'Flexible Approach',
+    }),
+    Svg: SecureSvg,
+    description: (
+      <Translate id="homepage.features.flexible.description">
+        Use imperative TypeScript scripts or declarative YAML configuration. Mix and match approaches to suit your workflow and team preferences.
       </Translate>
     ),
   },

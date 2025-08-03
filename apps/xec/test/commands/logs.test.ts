@@ -491,7 +491,16 @@ targets:
       await kindManager.createCluster();
 
       // Deploy test pods with custom logging
-      // First, create a pod that generates logs
+      // First, delete any existing test-pod to ensure fresh logs
+      try {
+        await $`kubectl delete pod test-pod -n default --ignore-not-found=true`.env({ KUBECONFIG: kindManager.getKubeConfigPath() });
+        // Wait for deletion to complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (e) {
+        // Ignore errors, pod might not exist
+      }
+      
+      // Create a pod that generates logs
       const loggingPodYaml = `
 apiVersion: v1
 kind: Pod
@@ -516,6 +525,9 @@ spec:
       
       // Wait for pod to be ready
       await kindManager.waitForPod('test-pod', 'default');
+      
+      // Wait a bit more for initial logs to be available
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Deploy multi-container pod
       await kindManager.createMultiContainerPod('multi-pod', 'default');
