@@ -53,7 +53,7 @@ describe('new command', () => {
 
   describe('project creation', () => {
     it('should create minimal project structure', async () => {
-      runXec('new project test-project --minimal --skip-git --force --description "Test project"');
+      runXec('new project test-project --minimal --skip-git --force --desc "Test project"');
       
       const projectDir = path.join(tempDir, 'test-project');
       
@@ -72,7 +72,7 @@ describe('new command', () => {
     });
 
     it('should create standard project structure', async () => {
-      runXec('new project test-project --skip-git --force --description "Test project"');
+      runXec('new project test-project --skip-git --force --desc "Test project"');
       
       const projectDir = path.join(tempDir, 'test-project');
       
@@ -93,7 +93,7 @@ describe('new command', () => {
     });
 
     it('should create project with custom description', async () => {
-      runXec('new project test-project --description "My awesome project" --skip-git --force');
+      runXec('new project test-project --desc "My awesome project" --skip-git --force');
       
       const projectDir = path.join(tempDir, 'test-project');
       const config = await fs.readFile(path.join(projectDir, '.xec/config.yaml'), 'utf-8');
@@ -106,10 +106,10 @@ describe('new command', () => {
       await fs.ensureDir(path.join(tempDir, 'test-project', '.xec'));
       
       // Create the project with force flag first time
-      runXec('new project test-project --skip-git --force --description "First"');
+      runXec('new project test-project --skip-git --force --desc "First"');
       
       // Try to create project again with force flag - should succeed and overwrite
-      runXec('new project test-project --skip-git --force --description "Overwritten"');
+      runXec('new project test-project --skip-git --force --desc "Overwritten"');
       
       const projectDir = path.join(tempDir, 'test-project');
       const config = await fs.readFile(path.join(projectDir, '.xec/config.yaml'), 'utf-8');
@@ -125,7 +125,7 @@ describe('new command', () => {
     });
 
     it('should create basic JavaScript script with --js flag', async () => {
-      runXec('new script deploy --js --force --description "Deploy script"');
+      runXec('new script deploy --js --force --desc "Deploy script"');
       
       const scriptPath = path.join(tempDir, '.xec/scripts/deploy.js');
       expect(await fs.pathExists(scriptPath)).toBe(true);
@@ -142,7 +142,7 @@ describe('new command', () => {
     });
 
     it('should create TypeScript script by default (without --js flag)', async () => {
-      runXec('new script deploy --force --description "Deploy script"');
+      runXec('new script deploy --force --desc "Deploy script"');
       
       const scriptPath = path.join(tempDir, '.xec/scripts/deploy.ts');
       expect(await fs.pathExists(scriptPath)).toBe(true);
@@ -153,7 +153,7 @@ describe('new command', () => {
     });
 
     it('should create advanced script template', async () => {
-      runXec('new script deploy --advanced --js --force --description "Deploy script"');
+      runXec('new script deploy --advanced --js --force --desc "Deploy script"');
       
       const scriptPath = path.join(tempDir, '.xec/scripts/deploy.js');
       const content = await fs.readFile(scriptPath, 'utf-8');
@@ -169,7 +169,7 @@ describe('new command', () => {
       await fs.remove(path.join(tempDir, '.xec'));
       
       expect(() => {
-        runXec('new script test --description "Test"');
+        runXec('new script test --desc "Test"');
       }).toThrow();
     });
   });
@@ -182,7 +182,7 @@ describe('new command', () => {
     });
 
     it('should create basic command', async () => {
-      runXec('new command deploy --js --force --description "Deploy command"');
+      runXec('new command deploy --js --force --desc "Deploy command"');
       
       const commandPath = path.join(tempDir, '.xec/commands/deploy.js');
       expect(await fs.pathExists(commandPath)).toBe(true);
@@ -195,7 +195,7 @@ describe('new command', () => {
     });
 
     it('should create TypeScript command by default (without --js flag)', async () => {
-      runXec('new command deploy --force --description "Deploy command"');
+      runXec('new command deploy --force --desc "Deploy command"');
       
       const commandPath = path.join(tempDir, '.xec/commands/deploy.ts');
       expect(await fs.pathExists(commandPath)).toBe(true);
@@ -206,7 +206,7 @@ describe('new command', () => {
     });
 
     it('should create advanced command with subcommands', async () => {
-      runXec('new command manage --advanced --force --js --description "Manage command"');
+      runXec('new command manage --advanced --force --js --desc "Manage command"');
       
       const commandPath = path.join(tempDir, '.xec/commands/manage.js');
       const content = await fs.readFile(commandPath, 'utf-8');
@@ -228,7 +228,7 @@ describe('new command', () => {
     });
 
     it('should create advanced task with hooks', async () => {
-      runXec('new task deploy --advanced --force --description "Deploy task"');
+      runXec('new task deploy --advanced --force --desc "Deploy task"');
       
       const config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('deploy:');
@@ -251,7 +251,7 @@ describe('new command', () => {
     });
 
     it('should add profile to configuration', async () => {
-      runXec('new profile production --force --description "Production profile"');
+      runXec('new profile production --force --desc "Production profile"');
       
       const config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('profiles:');
@@ -261,7 +261,7 @@ describe('new command', () => {
     });
 
     it('should create advanced profile with targets', async () => {
-      runXec('new profile staging --advanced --force --description "Staging profile"');
+      runXec('new profile staging --advanced --force --desc "Staging profile"');
       
       const config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('staging:');
@@ -274,7 +274,7 @@ describe('new command', () => {
 
   describe('extension creation', () => {
     it('should create basic extension structure', async () => {
-      runXec('new extension my-ext --force --description "My extension"');
+      runXec('new extension my-ext --force --desc "My extension"');
       
       const extDir = path.join(tempDir, 'my-ext');
       expect(await fs.pathExists(path.join(extDir, 'extension.yaml'))).toBe(true);
@@ -294,7 +294,7 @@ describe('new command', () => {
     });
 
     it('should create advanced extension with scripts', async () => {
-      runXec('new extension my-ext --advanced --force --description "My extension"');
+      runXec('new extension my-ext --advanced --force --desc "My extension"');
       
       const extDir = path.join(tempDir, 'my-ext');
       expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-main.js'))).toBe(true);
@@ -307,7 +307,7 @@ describe('new command', () => {
   describe('validation', () => {
     it('should reject invalid project names', async () => {
       expect(() => {
-        runXec('new project "invalid name!" --force --description "Test"');
+        runXec('new project "invalid name!" --force --desc "Test"');
       }).toThrow();
     });
 
@@ -317,7 +317,7 @@ describe('new command', () => {
       
       // Use a simple invalid name that should fail validation
       expect(() => {
-        runXec('new script "invalid/name" --force --description "Test"');
+        runXec('new script "invalid/name" --force --desc "Test"');
       }).toThrow();
     });
   });
@@ -326,7 +326,7 @@ describe('new command', () => {
     it('should handle artifact type as a name when not a valid type', async () => {
       // When given 'my-awesome-project' as first argument (not a valid artifact type),
       // it should be treated as the project name
-      runXec('new my-awesome-project --skip-git --force --description "My project"');
+      runXec('new my-awesome-project --skip-git --force --desc "My project"');
       
       const projectDir = path.join(tempDir, 'my-awesome-project');
       
@@ -341,7 +341,7 @@ describe('new command', () => {
   describe('error handling', () => {
     it('should provide helpful error for missing .xec directory', async () => {
       expect(() => {
-        runXec('new script test --description "Test"');
+        runXec('new script test --desc "Test"');
       }).toThrow();
     });
 
@@ -356,7 +356,7 @@ describe('new command', () => {
       );
       
       // Try to add a task with the same name - should work with --force
-      runXec('new task test --advanced --force --description "New test task"');
+      runXec('new task test --advanced --force --desc "New test task"');
       
       const config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('test:');
@@ -371,7 +371,7 @@ describe('new command', () => {
       await fs.writeFile(path.join(tempDir, '.xec/scripts/test.js'), '// existing content');
       
       // Overwrite with force flag
-      runXec('new script test --js --force --description "New content"');
+      runXec('new script test --js --force --desc "New content"');
       
       const content = await fs.readFile(path.join(tempDir, '.xec/scripts/test.js'), 'utf-8');
       expect(content).toContain('#!/usr/bin/env xec'); // New content
@@ -380,7 +380,7 @@ describe('new command', () => {
 
     it('should create project with git by default when not skipped', async () => {
       // Create a project without --skip-git
-      runXec('new project test-git --force --description "Git project"');
+      runXec('new project test-git --force --desc "Git project"');
       
       const projectDir = path.join(tempDir, 'test-git');
       
@@ -416,7 +416,7 @@ describe('new command', () => {
         }
 
         const skipGit = artifact.type === 'project' ? '--skip-git' : '';
-        runXec(`new ${artifact.type} ${artifact.name} --force --description "Test ${artifact.type}" ${skipGit}`);
+        runXec(`new ${artifact.type} ${artifact.name} --force --desc "Test ${artifact.type}" ${skipGit}`);
         
         expect(await fs.pathExists(path.join(tempDir, artifact.path))).toBe(true);
       }
@@ -431,7 +431,7 @@ describe('new command', () => {
       );
 
       // Add new task with advanced flag to avoid prompts
-      runXec('new task new-task --advanced --force --description "New task"');
+      runXec('new task new-task --advanced --force --desc "New task"');
       
       let config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('existing_task:');
@@ -440,7 +440,7 @@ describe('new command', () => {
       expect(config).toContain('description: Original description');
       
       // Add new profile
-      runXec('new profile dev --force --description "Dev profile"');
+      runXec('new profile dev --force --desc "Dev profile"');
       
       config = await fs.readFile(path.join(tempDir, '.xec/config.yaml'), 'utf-8');
       expect(config).toContain('profiles:');

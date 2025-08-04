@@ -144,7 +144,7 @@ describe('Forward Command', () => {
         yaml.dump(config)
       );
 
-      // Start a simple HTTP server on the SSH host
+      // Create SSH connection engine
       const sshEngine = $.ssh({
         host: sshConfig.host,
         port: sshConfig.port,
@@ -152,54 +152,37 @@ describe('Forward Command', () => {
         password: sshConfig.password
       });
 
-      // Create a simple HTTP server using Python
-      const serverPort = 8888;
-      const serverProcess = sshEngine`python3 -m http.server ${serverPort} > /dev/null 2>&1`.nothrow();
-
-      // Wait for server to start
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Forward the port
+      // Forward SSH port itself for testing - simpler and more reliable
       await command.execute([
         'hosts.test',
-        `${localPort}:${serverPort}`,
+        `${localPort}:22`,
         { background: true, quiet: true }
       ]);
 
       // Wait for tunnel to establish
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Test the forwarded port by making an HTTP request
-      const testConnection = () => new Promise((resolve, reject) => {
-        const client = net.createConnection({ port: localPort }, () => {
-          client.write('GET / HTTP/1.0\r\n\r\n');
-        });
-
-        let data = '';
-        client.on('data', (chunk) => {
-          data += chunk.toString();
-        });
-
-        client.on('end', () => {
-          resolve(data);
-        });
-
-        client.on('error', reject);
-
-        setTimeout(() => {
-          client.destroy();
-          reject(new Error('Connection timeout'));
-        }, 5000);
+      // Verify tunnel is working by connecting to SSH through it
+      const tunnelTest = $.ssh({
+        host: 'localhost',
+        port: localPort,
+        username: sshConfig.username,
+        password: sshConfig.password
       });
 
-      const response = await testConnection() as string;
-      expect(response).toContain('HTTP/1.0 200 OK');
+      // Execute a command through the tunnel to verify it works
+      const result = await tunnelTest`echo "tunnel works"`;
+      expect(result.stdout.trim()).toBe('tunnel works');
 
-      // Cleanup: Kill the server
-      if (serverProcess.child) {
-        serverProcess.child.kill();
-      }
-      await sshEngine`pkill -f "python3 -m http.server"`.nothrow();
+      // Verify the session is tracked
+      expect(command['sessions'].size).toBeGreaterThan(0);
+      
+      // Get the session to verify it's correctly stored
+      const sessionKey = Array.from(command['sessions'].keys())[0];
+      const session = command['sessions'].get(sessionKey);
+      expect(session).toBeDefined();
+      expect(session.mapping.local).toBe(localPort);
+      expect(session.mapping.remote).toBe(22);
     });
 
     it('should forward multiple ports simultaneously', async () => {
@@ -227,7 +210,7 @@ describe('Forward Command', () => {
         yaml.dump(config)
       );
 
-      // Start two simple servers on different ports
+      // Create test files on the remote host
       const sshEngine = $.ssh({
         host: sshConfig.host,
         port: sshConfig.port,
@@ -235,67 +218,50 @@ describe('Forward Command', () => {
         password: sshConfig.password
       });
 
-      // Create test files to serve
-      await sshEngine`echo "Server 1" > /tmp/server1.txt`;
-      await sshEngine`echo "Server 2" > /tmp/server2.txt`;
+      // Create test files
+      await sshEngine`echo "test1" > /tmp/test1.txt`;
+      await sshEngine`echo "test2" > /tmp/test2.txt`;
 
-      // Start servers
-      const server1Process = sshEngine`cd /tmp && python3 -m http.server 8881 > /dev/null 2>&1`.nothrow();
-      const server2Process = sshEngine`cd /tmp && python3 -m http.server 8882 > /dev/null 2>&1`.nothrow();
-
-      // Wait for servers to start
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Forward both ports
+      // Forward multiple ports - use SSH port twice with different local ports
+      // This is simpler and more reliable than starting HTTP servers
       await command.execute([
         'hosts.test',
-        `${localPort1}:8881,${localPort2}:8882`,
+        `${localPort1}:22,${localPort2}:22`,
         { background: true, quiet: true }
       ]);
 
       // Wait for tunnels to establish
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Test both forwarded ports
-      const testPort = async (port: number, expectedContent: string) => {
-        const response = await new Promise<string>((resolve, reject) => {
-          const client = net.createConnection({ port }, () => {
-            client.write('GET /server1.txt HTTP/1.0\r\n\r\n');
-          });
+      // Test both tunnels work
+      const tunnelTest1 = $.ssh({
+        host: 'localhost',
+        port: localPort1,
+        username: sshConfig.username,
+        password: sshConfig.password
+      });
 
-          let data = '';
-          client.on('data', (chunk) => {
-            data += chunk.toString();
-          });
+      const tunnelTest2 = $.ssh({
+        host: 'localhost',
+        port: localPort2,
+        username: sshConfig.username,
+        password: sshConfig.password
+      });
 
-          client.on('end', () => {
-            resolve(data);
-          });
-
-          client.on('error', reject);
-
-          setTimeout(() => {
-            client.destroy();
-            reject(new Error('Connection timeout'));
-          }, 5000);
-        });
-
-        return response.includes('200 OK');
-      };
-
+      // Execute commands through both tunnels
       const [result1, result2] = await Promise.all([
-        testPort(localPort1, 'Server 1'),
-        testPort(localPort2, 'Server 2')
+        tunnelTest1`cat /tmp/test1.txt`,
+        tunnelTest2`cat /tmp/test2.txt`
       ]);
 
-      expect(result1).toBe(true);
-      expect(result2).toBe(true);
+      expect(result1.stdout.trim()).toBe('test1');
+      expect(result2.stdout.trim()).toBe('test2');
+
+      // Verify both sessions are tracked
+      expect(command['sessions'].size).toBe(2);
 
       // Cleanup
-      if (server1Process.child) server1Process.child.kill();
-      if (server2Process.child) server2Process.child.kill();
-      await sshEngine`pkill -f "python3 -m http.server"`.nothrow();
-      await sshEngine`rm -f /tmp/server1.txt /tmp/server2.txt`;
+      await sshEngine`rm -f /tmp/test1.txt /tmp/test2.txt`;
     });
 
     it('should handle auto port selection', async () => {
