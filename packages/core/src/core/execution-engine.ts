@@ -1,20 +1,20 @@
-
 import * as os from 'os';
 import * as path from 'path';
 
 import { AdapterError } from './error.js';
 import { stream } from '../utils/stream.js';
+import { ExecutionResult } from './result.js';
+import { CacheOptions } from '../utils/cache.js';
 import { TransferEngine } from '../utils/transfer.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
-import { globalCache, CacheOptions } from '../utils/cache.js';
 import { DockerFluentAPI } from '../utils/docker-fluent-api.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
-import { ExecutionResult, ExecutionResultImpl } from './result.js';
 import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
+import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 
 // Global handler for unhandled promise rejections from xec promises
 // This prevents Node.js from logging unhandled rejection warnings for xec promises
@@ -45,6 +45,7 @@ function setupUnhandledRejectionHandler() {
 
 // Set up the handler when this module is loaded
 setupUnhandledRejectionHandler();
+import { type PipeTarget } from './pipe-implementation.js';
 import { DockerContext, DockerContainerConfig } from '../utils/docker-api.js';
 import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
 import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
@@ -52,7 +53,6 @@ import { SSHExecutionContext, createSSHExecutionContext } from '../utils/ssh-api
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
-import { executePipe, type PipeTarget, type PipeOptions } from './pipe-implementation.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../utils/kubernetes-api.js';
 import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
 import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../adapters/remote-docker-adapter.js';
@@ -174,6 +174,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   private currentConfig: Partial<Command> = {};
   private _tempTracker: Set<TempFile | TempDir> = new Set();
   private _activeProcesses: Set<ProcessPromise> = new Set();
+
+  // Optimized process promise builder
+  private processBuilder = new ProcessPromiseBuilder(this);
 
   constructor(config: ExecutionEngineConfig = {}, existingAdapters?: Map<string, BaseAdapter>) {
     super();
@@ -496,597 +499,19 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return this.run(strings, ...values);
   }
 
-  // Create a deferred process promise that awaits command resolution first
+  // Optimized: Create a deferred process promise (reduced from 298 lines to 3 lines!)
   createDeferredProcessPromise(commandResolver: () => Promise<Partial<Command>>): ProcessPromise {
-    let pendingModifications: Partial<Command> = {};
-    let isQuiet = false;
-    let abortController: AbortController | undefined;
-    let cacheOptions: CacheOptions | undefined;
-
-    const executeCommand = async (): Promise<ExecutionResult> => {
-      try {
-        // Create abort controller if not already present
-        if (!pendingModifications.signal) {
-          abortController = new AbortController();
-          pendingModifications.signal = abortController.signal;
-        }
-
-        // Resolve the command first (this is where thenables are awaited)
-        const commandParts = await commandResolver();
-        // Apply global throwOnNonZeroExit configuration if not explicitly set
-        const globalNothrow = this._config.throwOnNonZeroExit === false;
-        const currentCommand: Command = {
-          ...this.currentConfig,
-          ...commandParts,
-          ...pendingModifications, // Include any modifications from chained methods
-          // Apply global nothrow if not explicitly set
-          nothrow: pendingModifications.nothrow ?? commandParts.nothrow ?? (globalNothrow ? true : undefined)
-        } as Command;
-
-        // Check cache if enabled
-        if (cacheOptions) {
-          const cacheKey = cacheOptions.key || globalCache.generateKey(
-            currentCommand.command || '',
-            currentCommand.cwd,
-            currentCommand.env
-          );
-
-          const cached = globalCache.get(cacheKey);
-          if (cached) {
-            // Cache hit - returning cached result
-            return cached;
-          }
-
-          // Check if there's an inflight request for this key
-          const inflight = globalCache.getInflight(cacheKey);
-          if (inflight) {
-            return inflight;
-          }
-        }
-
-        // Execute the command (possibly as an inflight request)
-        let result: ExecutionResult;
-        let executePromise: Promise<ExecutionResult>;
-        try {
-          executePromise = this.execute(currentCommand);
-
-          // Track as inflight if caching is enabled
-          if (cacheOptions) {
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.setInflight(cacheKey, executePromise);
-          }
-
-          result = await executePromise;
-
-          // Store result in cache if enabled AND (successful OR nothrow is set)
-          if (cacheOptions && (result.exitCode === 0 || currentCommand.nothrow)) {
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.set(cacheKey, result, cacheOptions.ttl || 60000); // Default 1 minute TTL
-            globalCache.clearInflight(cacheKey);
-
-            // Invalidate related cache entries
-            if (cacheOptions.invalidateOn) {
-              globalCache.invalidate(cacheOptions.invalidateOn);
-            }
-          } else if (cacheOptions) {
-            // Clear inflight for failed commands that won't be cached
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.clearInflight(cacheKey);
-          }
-        } catch (error) {
-          // Clear inflight on error
-          if (cacheOptions) {
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.clearInflight(cacheKey);
-          }
-          throw error;
-        }
-
-        return result;
-      } catch (error) {
-        if (pendingModifications.nothrow) {
-          // Return error as result
-          const errorResult = new ExecutionResultImpl(
-            '',
-            error instanceof Error ? error.message : String(error),
-            1,
-            undefined,
-            pendingModifications.command || '',
-            0,
-            new Date(),
-            new Date(),
-            'local'
-          );
-          return errorResult;
-        }
-        throw error;
-      }
-    };
-
-    const promise = executeCommand() as ProcessPromise;
-
-    // Mark this promise as an xec promise to handle unhandled rejections
-    (promise as any).__isXecPromise = true;
-
-    // Track active process
-    this._activeProcesses.add(promise);
-    promise.finally(() => {
-      this._activeProcesses.delete(promise);
-    });
-
-    // Add stream properties (simplified implementation)
-    promise.stdin = null as any;
-
-    // Add method chaining - these methods modify the deferred command
-    promise.pipe = (target: PipeTarget, optionsOrFirstValue?: PipeOptions | any, ...args: any[]): ProcessPromise => {
-      // Handle overloaded signatures for template literals
-      let pipeOptions: PipeOptions = {};
-      let templateArgs: any[] = args;
-
-      // If target is template literal and second arg is not options
-      if (Array.isArray(target) && 'raw' in target &&
-        optionsOrFirstValue !== undefined &&
-        (typeof optionsOrFirstValue !== 'object' || optionsOrFirstValue === null ||
-          !('throwOnError' in optionsOrFirstValue || 'encoding' in optionsOrFirstValue ||
-            'lineByLine' in optionsOrFirstValue || 'lineSeparator' in optionsOrFirstValue))) {
-        // It's a template value, not options
-        templateArgs = [optionsOrFirstValue, ...args];
-        pipeOptions = {};
-      } else if (typeof optionsOrFirstValue === 'object' && optionsOrFirstValue !== null) {
-        pipeOptions = optionsOrFirstValue;
-      }
-
-      // Create a new ProcessPromise that handles piping
-      const pipedPromise = (async () => {
-        const result = await executePipe(
-          promise,
-          target,
-          this,
-          {
-            throwOnError: !pendingModifications.nothrow,
-            ...pipeOptions
-          },
-          ...templateArgs
-        );
-        return result;
-      })() as ProcessPromise;
-
-      // Copy over the ProcessPromise methods
-      pipedPromise.stdin = null as any;
-      pipedPromise.pipe = promise.pipe;
-      pipedPromise.signal = promise.signal;
-      pipedPromise.timeout = promise.timeout;
-      pipedPromise.quiet = promise.quiet;
-      pipedPromise.nothrow = promise.nothrow;
-      pipedPromise.interactive = promise.interactive;
-      pipedPromise.cache = promise.cache;
-      pipedPromise.env = promise.env;
-      pipedPromise.cwd = promise.cwd;
-      pipedPromise.shell = promise.shell;
-      pipedPromise.stdout = promise.stdout;
-      pipedPromise.stderr = promise.stderr;
-      pipedPromise.text = promise.text;
-      pipedPromise.json = promise.json;
-      pipedPromise.lines = promise.lines;
-      pipedPromise.buffer = promise.buffer;
-      pipedPromise.kill = promise.kill;
-
-      return pipedPromise;
-    };
-
-    promise.signal = (signal: AbortSignal): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, signal };
-      return promise;
-    };
-
-    promise.timeout = (ms: number, timeoutSignal?: string): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, timeout: ms };
-      if (timeoutSignal) {
-        pendingModifications.timeoutSignal = timeoutSignal;
-      }
-      return promise;
-    };
-
-    promise.quiet = (): ProcessPromise => {
-      isQuiet = true;
-      return promise;
-    };
-
-    promise.nothrow = (): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, nothrow: true };
-      return promise;
-    };
-
-    promise.interactive = (): ProcessPromise => {
-      pendingModifications = {
-        ...pendingModifications,
-        stdout: 'inherit',
-        stderr: 'inherit',
-        stdin: process.stdin as any
-      };
-      return promise;
-    };
-
-    // Configuration methods
-    promise.cwd = (dir: string): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, cwd: dir };
-      return promise;
-    };
-
-    promise.env = (env: Record<string, string>): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, env: { ...pendingModifications.env, ...env } };
-      return promise;
-    };
-
-    promise.shell = (shell: string | boolean): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, shell };
-      return promise;
-    };
-
-    // Stream configuration methods
-    promise.stdout = (stream: StreamOption): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, stdout: stream };
-      return promise;
-    };
-
-    promise.stderr = (stream: StreamOption): ProcessPromise => {
-      pendingModifications = { ...pendingModifications, stderr: stream };
-      return promise;
-    };
-
-    // Return a new promise that properly handles the chain
-    promise.text = (): Promise<string> => promise.then(result => result.stdout.trim());
-
-    promise.json = <T = any>(): Promise<T> => promise.text().then(text => {
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`);
-      }
-    });
-
-    promise.lines = async (): Promise<string[]> => {
-      const result = await promise;
-      return result.stdout.split('\n').filter(line => line.length > 0);
-    };
-
-    promise.buffer = async (): Promise<Buffer> => {
-      const result = await promise;
-      return Buffer.from(result.stdout);
-    };
-
-    promise.cache = (options?: CacheOptions): ProcessPromise => {
-      cacheOptions = options || {};
-      return promise;
-    };
-
-    promise.kill = (signal = 'SIGTERM'): void => {
-      if (abortController && !abortController.signal.aborted) {
-        abortController.abort();
-      } else if (pendingModifications.signal && typeof pendingModifications.signal.dispatchEvent === 'function') {
-        // Trigger abort event on the signal
-        const event = new Event('abort');
-        pendingModifications.signal.dispatchEvent(event);
-      }
-      // Additional kill logic would depend on the adapter implementation
-    };
-
-    // Add process-related properties
-    promise.child = undefined; // Will be set by adapter if available
-
-    Object.defineProperty(promise, 'exitCode', {
-      get: () => promise.then(result => result.exitCode)
-    });
-
-    return promise;
+    return this.processBuilder.createProcessPromise(commandResolver);
   }
 
-  // Create a process promise for advanced usage
+  // Helper method for context-based creation
+  createProcessPromiseWithContext(context: ProcessContext): ProcessPromise {
+    return this.processBuilder.createProcessPromiseWithContext(context);
+  }
+
+  // Optimized: Create a process promise (reduced from 289 lines to 3 lines!)
   createProcessPromise(command: Command): ProcessPromise {
-    const currentCommand = { ...command };
-    let isQuiet = false;
-    let abortController: AbortController | undefined;
-    let cacheOptions: CacheOptions | undefined;
-
-    const executeCommand = async (): Promise<ExecutionResult> => {
-      try {
-        // Create abort controller if not already present
-        if (!currentCommand.signal) {
-          abortController = new AbortController();
-          currentCommand.signal = abortController.signal;
-        }
-
-        // Check cache if enabled
-        if (cacheOptions) {
-          const cacheKey = cacheOptions.key || globalCache.generateKey(
-            currentCommand.command || '',
-            currentCommand.cwd,
-            currentCommand.env
-          );
-
-          const cached = globalCache.get(cacheKey);
-          if (cached) {
-            // Cache hit - returning cached result
-            return cached;
-          }
-
-          // Check if there's an inflight request for this key
-          const inflight = globalCache.getInflight(cacheKey);
-          if (inflight) {
-            return inflight;
-          }
-        }
-
-        // Execute the command (possibly as an inflight request)
-        let result: ExecutionResult;
-        let executePromise: Promise<ExecutionResult>;
-        try {
-          executePromise = this.execute(currentCommand);
-
-          // Track as inflight if caching is enabled
-          if (cacheOptions) {
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.setInflight(cacheKey, executePromise);
-          }
-
-          result = await executePromise;
-
-          // Store result in cache if enabled AND (successful OR nothrow is set)
-          if (cacheOptions && (result.exitCode === 0 || currentCommand.nothrow)) {
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.set(cacheKey, result, cacheOptions.ttl || 60000); // Default 1 minute TTL
-            globalCache.clearInflight(cacheKey);
-
-            // Invalidate related cache entries
-            if (cacheOptions.invalidateOn) {
-              globalCache.invalidate(cacheOptions.invalidateOn);
-            }
-          } else if (cacheOptions) {
-            // Clear inflight for failed commands that won't be cached
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.clearInflight(cacheKey);
-          }
-        } catch (error) {
-          // Clear inflight on error
-          if (cacheOptions) {
-            const cacheKey = cacheOptions.key || globalCache.generateKey(
-              currentCommand.command || '',
-              currentCommand.cwd,
-              currentCommand.env
-            );
-            globalCache.clearInflight(cacheKey);
-          }
-          throw error;
-        }
-
-        return result;
-      } catch (error) {
-        if (currentCommand.nothrow) {
-          // Return error as result
-          const errorResult = new ExecutionResultImpl(
-            '',
-            error instanceof Error ? error.message : String(error),
-            1,
-            undefined,
-            currentCommand.command || '',
-            0,
-            new Date(),
-            new Date(),
-            'local'
-          );
-          return errorResult;
-        }
-        throw error;
-      }
-    };
-
-    const promise = executeCommand() as ProcessPromise;
-
-    // Mark this promise as an xec promise to handle unhandled rejections
-    (promise as any).__isXecPromise = true;
-
-    // Track active process
-    this._activeProcesses.add(promise);
-    promise.finally(() => {
-      this._activeProcesses.delete(promise);
-    });
-
-    // Add stream properties (simplified implementation)
-    promise.stdin = null as any;
-
-    // Add method chaining
-    promise.pipe = (target: PipeTarget, optionsOrFirstValue?: PipeOptions | any, ...args: any[]): ProcessPromise => {
-      // Handle overloaded signatures for template literals
-      let pipeOptions: PipeOptions = {};
-      let templateArgs: any[] = args;
-
-      // If target is template literal and second arg is not options
-      if (Array.isArray(target) && 'raw' in target &&
-        optionsOrFirstValue !== undefined &&
-        (typeof optionsOrFirstValue !== 'object' || optionsOrFirstValue === null ||
-          !('throwOnError' in optionsOrFirstValue || 'encoding' in optionsOrFirstValue ||
-            'lineByLine' in optionsOrFirstValue || 'lineSeparator' in optionsOrFirstValue))) {
-        // It's a template value, not options
-        templateArgs = [optionsOrFirstValue, ...args];
-        pipeOptions = {};
-      } else if (typeof optionsOrFirstValue === 'object' && optionsOrFirstValue !== null) {
-        pipeOptions = optionsOrFirstValue;
-      }
-
-      // Create a new ProcessPromise that handles piping
-      const pipedPromise = (async () => {
-        const result = await executePipe(
-          promise,
-          target,
-          this,
-          {
-            throwOnError: !currentCommand.nothrow,
-            ...pipeOptions
-          },
-          ...templateArgs
-        );
-        return result;
-      })() as ProcessPromise;
-
-      // Copy over the ProcessPromise methods
-      pipedPromise.stdin = null as any;
-      pipedPromise.pipe = promise.pipe;
-      pipedPromise.signal = promise.signal;
-      pipedPromise.timeout = promise.timeout;
-      pipedPromise.quiet = promise.quiet;
-      pipedPromise.nothrow = promise.nothrow;
-      pipedPromise.interactive = promise.interactive;
-      pipedPromise.cache = promise.cache;
-      pipedPromise.env = promise.env;
-      pipedPromise.cwd = promise.cwd;
-      pipedPromise.shell = promise.shell;
-      pipedPromise.stdout = promise.stdout;
-      pipedPromise.stderr = promise.stderr;
-      pipedPromise.text = promise.text;
-      pipedPromise.json = promise.json;
-      pipedPromise.lines = promise.lines;
-      pipedPromise.buffer = promise.buffer;
-      pipedPromise.kill = promise.kill;
-
-      // Track the piped promise too
-      this._activeProcesses.add(pipedPromise);
-      pipedPromise.finally(() => {
-        this._activeProcesses.delete(pipedPromise);
-      });
-
-      return pipedPromise;
-    };
-
-    promise.signal = (signal: AbortSignal): ProcessPromise => {
-      currentCommand.signal = signal;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.timeout = (ms: number, timeoutSignal?: string): ProcessPromise => {
-      currentCommand.timeout = ms;
-      if (timeoutSignal) {
-        currentCommand.timeoutSignal = timeoutSignal;
-      }
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.quiet = (): ProcessPromise => {
-      isQuiet = true;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.nothrow = (): ProcessPromise => {
-      currentCommand.nothrow = true;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.interactive = (): ProcessPromise => {
-      currentCommand.stdout = 'inherit';
-      currentCommand.stderr = 'inherit';
-      currentCommand.stdin = process.stdin as any;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    // Configuration methods
-    promise.cwd = (dir: string): ProcessPromise => {
-      currentCommand.cwd = dir;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.env = (env: Record<string, string>): ProcessPromise => {
-      currentCommand.env = { ...currentCommand.env, ...env };
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.shell = (shell: string | boolean): ProcessPromise => {
-      currentCommand.shell = shell;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    // Stream configuration methods
-    promise.stdout = (stream: StreamOption): ProcessPromise => {
-      currentCommand.stdout = stream;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    promise.stderr = (stream: StreamOption): ProcessPromise => {
-      currentCommand.stderr = stream;
-      return this.createProcessPromise(currentCommand);
-    };
-
-    // Return a new promise that properly handles the chain
-    promise.text = (): Promise<string> => promise.then(result => result.stdout.trim());
-
-    promise.json = <T = any>(): Promise<T> => promise.text().then(text => {
-      try {
-        return JSON.parse(text);
-      } catch (error) {
-        throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`);
-      }
-    });
-
-    promise.lines = async (): Promise<string[]> => {
-      const result = await promise;
-      return result.stdout.split('\n').filter(line => line.length > 0);
-    };
-
-    promise.buffer = async (): Promise<Buffer> => {
-      const result = await promise;
-      return Buffer.from(result.stdout);
-    };
-
-    promise.cache = (options?: CacheOptions): ProcessPromise => {
-      cacheOptions = options || {};
-      return promise;
-    };
-
-    promise.kill = (signal = 'SIGTERM'): void => {
-      if (abortController && !abortController.signal.aborted) {
-        abortController.abort();
-      } else if (currentCommand.signal && typeof currentCommand.signal.dispatchEvent === 'function') {
-        // Trigger abort event on the signal
-        const event = new Event('abort');
-        currentCommand.signal.dispatchEvent(event);
-      }
-      // Additional kill logic would depend on the adapter implementation
-    };
-
-    // Add process-related properties
-    promise.child = undefined; // Will be set by adapter if available
-
-    Object.defineProperty(promise, 'exitCode', {
-      get: () => promise.then(result => result.exitCode)
-    });
-
-    return promise;
+    return this.processBuilder.createProcessPromise(command);
   }
 
   // Adapter selection
@@ -1336,21 +761,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       }
       return this._dockerFluentAPI;
     }
-    // // Check for old API usage (backward compatibility)
-    // if ('type' in options || 'runMode' in options) {
-    //   console.warn('[xec-core] Deprecated Docker API usage detected. Please migrate to new simplified API.');
-    //   return this.with({
-    //     adapter: 'docker',
-    //     adapterOptions: options as any
-    //   });
-    // }
 
-    // // Enhanced Docker API (returns DockerContext for container lifecycle management)
-    // if ('image' in options && !('container' in options)) {
-    //   return createDockerContext(this, options as DockerContainerConfig);
-    // }
-
-    // New simplified API
     if ('image' in options) {
       // Ephemeral container flow
       const ephemeralOptions = options as DockerEphemeralOptions;
@@ -1586,12 +997,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   }
 
   async isCommandAvailable(command: string): Promise<boolean> {
-    const path = await this.which(command);
-    return path !== null;
-  }
-
-  async commandExists(command: string): Promise<boolean> {
-    return this.isCommandAvailable(command);
+    return await this.which(command) !== null;
   }
 
   /**
@@ -1653,6 +1059,4 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   registerAdapter(name: string, adapter: BaseAdapter): void {
     this.adapters.set(name, adapter);
   }
-
 }
-

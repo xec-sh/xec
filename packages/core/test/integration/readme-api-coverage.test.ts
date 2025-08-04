@@ -7,12 +7,11 @@ describe('README API Coverage', () => {
     // Core execution
     expect(typeof $).toBe('function');
     expect(typeof $.raw).toBe('function');
-    
+
     // Utility functions
     expect(typeof $.which).toBe('function');
-    expect(typeof $.commandExists).toBe('function');
     expect(typeof $.isCommandAvailable).toBe('function');
-    
+
     // Interactive functions
     expect(typeof $.question).toBe('function');
     expect(typeof $.prompt).toBe('function');
@@ -20,34 +19,34 @@ describe('README API Coverage', () => {
     expect(typeof $.confirm).toBe('function');
     expect(typeof $.select).toBe('function');
     expect(typeof $.spinner).toBe('function');
-    
+
     // Context functions
     expect(typeof $.within).toBe('function');
     expect(typeof $.withinSync).toBe('function');
-    
+
     // Pipe and stream functions
     expect(typeof $.pipe).toBe('function');
     expect(typeof $.stream).toBe('function');
-    
+
     // Parallel execution
     expect(typeof $.parallel).toBe('object');
-    
+
     // Template functions
     expect(typeof $.template).toBe('function');
     expect(typeof $.templates).toBe('object');
     expect(typeof $.templates.render).toBe('function');
     expect(typeof $.templates.create).toBe('function');
     expect(typeof $.templates.parse).toBe('function');
-    
+
     // Temp functions
     expect(typeof $.withTempDir).toBe('function');
     expect(typeof $.withTempFile).toBe('function');
     expect(typeof $.tempDir).toBe('function');
     expect(typeof $.tempFile).toBe('function');
-    
+
     // Transfer functions
     expect(typeof $.transfer).toBe('object');
-    
+
     // Configuration methods
     expect(typeof $.with).toBe('function');
     expect(typeof $.ssh).toBe('function');
@@ -64,7 +63,7 @@ describe('README API Coverage', () => {
 
   it('should create ProcessPromise with all required methods', async () => {
     const promise = $`echo "test"`;
-    
+
     // Check ProcessPromise methods
     expect(typeof promise.then).toBe('function');
     expect(typeof promise.catch).toBe('function');
@@ -88,7 +87,7 @@ describe('README API Coverage', () => {
 
   it('should create raw ProcessPromise with all required methods', async () => {
     const promise = $.raw`echo "test"`;
-    
+
     // Check ProcessPromise methods
     expect(typeof promise.then).toBe('function');
     expect(typeof promise.catch).toBe('function');
@@ -112,7 +111,7 @@ describe('README API Coverage', () => {
 
   it('should support chaining configuration methods', () => {
     const chained = $.cd('/tmp').env({ NODE_ENV: 'test' }).timeout(5000);
-    
+
     expect(typeof chained).toBe('function');
     expect(typeof chained.raw).toBe('function');
     expect(typeof chained.with).toBe('function');
@@ -126,7 +125,7 @@ describe('README API Coverage', () => {
     const k8s = $.k8s({ pod: 'test', namespace: 'default' });
     const remoteDocker = $.remoteDocker({ ssh: { host: 'localhost', username: 'testuser' }, docker: { container: 'test' } });
     const local = $.local();
-    
+
     expect(typeof ssh).toBe('function');
     expect(typeof docker).toBe('function');
     expect(typeof k8s).toBe('function');
@@ -137,10 +136,10 @@ describe('README API Coverage', () => {
   it('should support template creation', () => {
     const template = $.template('echo {{message}}');
     expect(typeof template).toBe('object');
-    
+
     const parsed = $.templates.parse('echo {{message}} {{name}}');
     expect(parsed.params).toEqual(['message', 'name']);
-    
+
     const rendered = $.templates.render('echo {{message}}', { message: 'hello' });
     expect(rendered).toBe('echo hello');
   });

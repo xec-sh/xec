@@ -921,101 +921,68 @@ export class SSHAdapter extends BaseAdapter {
 
     const connection = await this.getConnection(sshOptions);
 
-    // Create tunnel using net module and SSH2 forwardOut
-    const localPort = options.localPort || 0;
-    const localHost = options.localHost || 'localhost';
-    const remoteHost = options.remoteHost;
-    const remotePort = options.remotePort;
+    // Use NodeSSH's built-in createTunnel method
+    const tunnelResult = await connection.ssh.createTunnel({
+      localPort: options.localPort,
+      localHost: options.localHost,
+      remoteHost: options.remoteHost,
+      remotePort: options.remotePort
+    });
 
-    // Dynamically import net to avoid issues in browser environments
-    const net = await import('net');
+    // Generate ID for tracking
+    const tunnelId = `${tunnelResult.localPort}-${options.remoteHost}:${options.remotePort}`;
     
-    return new Promise((resolve, reject) => {
-      const server = net.createServer();
-      
-      server.on('error', reject);
-      
-      server.listen(localPort, localHost, () => {
-        const actualPort = (server.address() as any).port;
+    // Create tunnel object with proper state management
+    let isOpen = true;
+    const tunnel = {
+      localPort: tunnelResult.localPort,
+      localHost: tunnelResult.localHost,
+      remoteHost: tunnelResult.remoteHost,
+      remotePort: tunnelResult.remotePort,
+      get isOpen() {
+        return isOpen;
+      },
+      open: async () => {
+        // Already opened when created
+      },
+      close: async () => {
+        if (!isOpen) {
+          // Already closed
+          return;
+        }
         
-        server.on('connection', (clientSocket) => {
-          // Access the underlying SSH2 connection
-          const ssh2Connection = (connection.ssh as any).connection;
-          
-          ssh2Connection.forwardOut(
-            clientSocket.remoteAddress || '127.0.0.1',
-            clientSocket.remotePort || 0,
-            remoteHost,
-            remotePort,
-            (err: any, stream: any) => {
-              if (err) {
-                clientSocket.destroy();
-                return;
-              }
-              
-              clientSocket.pipe(stream).pipe(clientSocket);
-              
-              stream.on('close', () => {
-                clientSocket.end();
-              });
-              
-              clientSocket.on('close', () => {
-                stream.end();
-              });
-            }
-          );
-        });
+        isOpen = false;
+        await tunnelResult.close();
+        this.activeTunnels.delete(tunnelId);
         
-        // Generate ID for tracking
-        const tunnelId = `${actualPort}-${remoteHost}:${remotePort}`;
-        
-        // Create tunnel object
-        const tunnel = {
-          localPort: actualPort,
-          localHost,
-          remoteHost,
-          remotePort,
-          isOpen: true,
-          open: async () => {
-            // Already opened when created
-          },
-          close: async () => new Promise<void>((resolveClose) => {
-              server.close(() => {
-                this.activeTunnels.delete(tunnelId);
-                
-                // Emit tunnel closed event
-                this.emitAdapterEvent('ssh:tunnel-closed', {
-                  localPort: actualPort,
-                  remoteHost: options.remoteHost,
-                  remotePort: options.remotePort
-                });
-                
-                resolveClose();
-              });
-            })
-        };
-        
-        // Track the tunnel
-        this.activeTunnels.set(tunnelId, tunnel);
-        
-        // Emit SSH-specific tunnel created event
-        this.emitAdapterEvent('ssh:tunnel-created', {
-          localPort: actualPort,
+        // Emit tunnel closed event
+        this.emitAdapterEvent('ssh:tunnel-closed', {
+          localPort: tunnelResult.localPort,
           remoteHost: options.remoteHost,
           remotePort: options.remotePort
         });
-        
-        // Emit generic tunnel created event
-        this.emitAdapterEvent('tunnel:created', {
-          localPort: actualPort,
-          remoteHost: options.remoteHost,
-          remotePort: options.remotePort,
-          type: 'ssh'
-        });
-        
-        resolve(tunnel);
-      });
+      }
+    };
+    
+    // Track the tunnel
+    this.activeTunnels.set(tunnelId, tunnel);
+    
+    // Emit SSH-specific tunnel created event
+    this.emitAdapterEvent('ssh:tunnel-created', {
+      localPort: tunnelResult.localPort,
+      remoteHost: options.remoteHost,
+      remotePort: options.remotePort
     });
+    
+    // Emit generic tunnel created event
+    this.emitAdapterEvent('tunnel:created', {
+      localPort: tunnelResult.localPort,
+      remoteHost: options.remoteHost,
+      remotePort: options.remotePort,
+      type: 'ssh'
+    });
+    
+    return tunnel;
   }
 
 }
