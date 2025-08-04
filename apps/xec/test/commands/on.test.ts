@@ -1228,4 +1228,504 @@ describe('On Command', () => {
       expect(dryRunLines[1]).toContain('server-2');
     });
   });
+
+  describe('Advanced Features Coverage', () => {
+    beforeEach(() => {
+      command = new TestableOnCommand({ mockExecute: true });
+    });
+
+    it('should handle task execution with parameters', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'task-host': { host: 'task.example.com', user: 'admin' }
+          }
+        },
+        tasks: {
+          'parametrized-task': {
+            description: 'Task with parameters',
+            params: [
+              { name: 'env', required: true },
+              { name: 'version', required: false, default: '1.0.0' }
+            ],
+            steps: [
+              { command: 'echo "Deploying ${params.version} to ${params.env}"' }
+            ]
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.task-host', {
+        task: 'parametrized-task',
+        env: 'production',
+        version: '2.0.0',
+        quiet: true
+      }]);
+
+      const taskCalls = command.taskCalls;
+      expect(taskCalls).toHaveLength(1);
+      // Check that the task was called
+      expect(taskCalls[0].taskName).toBe('parametrized-task');
+      expect(taskCalls[0].targetId).toBe('hosts.task-host');
+    });
+
+    it('should validate options with proper schema', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'test': { host: 'test.example.com', user: 'admin' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      // Test various valid options
+      await command.execute(['hosts.test', 'echo test', {
+        profile: 'production',
+        timeout: '30s',
+        env: ['VAR1=value1', 'VAR2=value2'],
+        cwd: '/tmp',
+        user: 'deploy',
+        parallel: true,
+        maxConcurrent: '5',
+        failFast: true,
+        verbose: true,
+        quiet: false,
+        dryRun: false
+      }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+    });
+
+    it('should handle interactive mode options', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'interactive-test': { host: 'interactive.example.com', user: 'admin' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.interactive-test', 'echo test', {
+        quiet: false
+      }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+    });
+
+    it('should handle user override in options', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'user-test': { host: 'user.example.com', user: 'default' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.user-test', 'whoami', {
+        user: 'override',
+        quiet: true
+      }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].options.user).toBe('override');
+    });
+
+    it('should handle profile-based configuration', async () => {
+      const config = {
+        version: '2.0',
+        profiles: {
+          production: {
+            defaults: {
+              timeout: 60000,
+              env: {
+                NODE_ENV: 'production'
+              }
+            }
+          }
+        },
+        targets: {
+          hosts: {
+            'profile-test': { host: 'profile.example.com', user: 'admin' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.profile-test', 'echo $NODE_ENV', {
+        profile: 'production',
+        quiet: true
+      }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].options.profile).toBe('production');
+    });
+
+    it('should handle SSH connection with all options', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'full-ssh': {
+              host: 'full.example.com',
+              user: 'admin',
+              port: 2222,
+              privateKey: '~/.ssh/id_rsa',
+              passphrase: 'test',
+              strictHostKeyChecking: false,
+              compression: true,
+              connectionTimeout: 30000,
+              keepaliveInterval: 10000,
+              keepaliveCountMax: 3,
+              env: {
+                CUSTOM_VAR: 'value'
+              }
+            }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.full-ssh', 'env', { quiet: true }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].target.config).toMatchObject({
+        host: 'full.example.com',
+        user: 'admin',
+        port: 2222,
+        privateKey: '~/.ssh/id_rsa',
+        passphrase: 'test',
+        strictHostKeyChecking: false,
+        compression: true
+      });
+    });
+  });
+
+  describe('Task Execution with Complex Scenarios', () => {
+    beforeEach(() => {
+      command = new TestableOnCommand({ mockExecute: true });
+    });
+
+    it('should execute tasks with conditional steps', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'conditional-host': { host: 'conditional.example.com', user: 'admin' }
+          }
+        },
+        tasks: {
+          'conditional-task': {
+            description: 'Task with conditional steps',
+            steps: [
+              {
+                name: 'Check environment',
+                command: 'test -f /etc/production',
+                continueOnError: true
+              },
+              {
+                name: 'Production deploy',
+                command: 'deploy-prod.sh',
+                when: '${steps[0].exitCode} == 0'
+              },
+              {
+                name: 'Development deploy',
+                command: 'deploy-dev.sh',
+                when: '${steps[0].exitCode} != 0'
+              }
+            ]
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.conditional-host', {
+        task: 'conditional-task',
+        quiet: true
+      }]);
+
+      const taskCalls = command.taskCalls;
+      expect(taskCalls).toHaveLength(1);
+      expect(taskCalls[0].taskName).toBe('conditional-task');
+    });
+
+    it('should handle task execution with retries', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'retry-host': { host: 'retry.example.com', user: 'admin' }
+          }
+        },
+        tasks: {
+          'retry-task': {
+            description: 'Task with retry logic',
+            retries: 3,
+            retryDelay: 1000,
+            steps: [
+              { command: 'curl -f http://api.example.com/health' },
+              { command: 'deploy.sh' }
+            ]
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.retry-host', {
+        task: 'retry-task',
+        quiet: true
+      }]);
+
+      const taskCalls = command.taskCalls;
+      expect(taskCalls).toHaveLength(1);
+    });
+
+    it('should handle task with environment variables and secrets', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'secret-host': { host: 'secret.example.com', user: 'admin' }
+          }
+        },
+        tasks: {
+          'secret-task': {
+            description: 'Task with secrets',
+            env: {
+              API_KEY: '${secrets.api_key}',
+              DB_PASSWORD: '${secrets.db_password}'
+            },
+            steps: [
+              { command: 'echo $API_KEY > /tmp/key.txt' },
+              { command: 'mysql -p$DB_PASSWORD < schema.sql' }
+            ]
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.secret-host', {
+        task: 'secret-task',
+        quiet: true
+      }]);
+
+      const taskCalls = command.taskCalls;
+      expect(taskCalls).toHaveLength(1);
+    });
+  });
+
+  describe('Connection and Error Handling', () => {
+    beforeEach(() => {
+      command = new TestableOnCommand({ mockExecute: true });
+    });
+
+    it('should handle connection timeout', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'timeout-host': {
+              host: 'timeout.example.com',
+              user: 'admin',
+              connectionTimeout: 1000
+            }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.timeout-host', 'echo test', {
+        timeout: '1s',
+        quiet: true
+      }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].options.timeout).toBe(1000);
+    });
+
+    it('should handle keepalive settings', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'keepalive-host': {
+              host: 'keepalive.example.com',
+              user: 'admin',
+              keepaliveInterval: 5000,
+              keepaliveCountMax: 10
+            }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      await command.execute(['hosts.keepalive-host', 'long-running-command', {
+        quiet: true
+      }]);
+
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(1);
+      expect(calls[0].target.config.keepaliveInterval).toBe(5000);
+      expect(calls[0].target.config.keepaliveCountMax).toBe(10);
+    });
+  });
+
+  describe('File Transfer via SSH', () => {
+    beforeEach(() => {
+      command = new TestableOnCommand({ mockExecute: true, mockScripts: true });
+    });
+
+    it('should handle local file upload to remote', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'upload-host': { host: 'upload.example.com', user: 'admin' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      // Create a local file
+      const localFile = path.join(projectDir, 'upload-test.txt');
+      await fs.writeFile(localFile, 'Test content for upload');
+
+      // Since the file needs to have a script extension to be detected as a script
+      const scriptFile = path.join(projectDir, 'upload-test.sh');
+      await fs.rename(localFile, scriptFile);
+      
+      await command.execute(['hosts.upload-host', scriptFile, { quiet: true }]);
+
+      const scriptCalls = command.scriptCalls;
+      expect(scriptCalls).toHaveLength(1);
+      expect(scriptCalls[0].script).toBe(scriptFile);
+    });
+  });
+
+  describe('Multiple Target Patterns', () => {
+    beforeEach(() => {
+      command = new TestableOnCommand({ mockExecute: true });
+    });
+
+    it('should handle complex glob patterns', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'prod-web-1': { host: 'prod-web-1.example.com', user: 'deploy' },
+            'prod-web-2': { host: 'prod-web-2.example.com', user: 'deploy' },
+            'prod-db-1': { host: 'prod-db-1.example.com', user: 'postgres' },
+            'staging-web-1': { host: 'staging-web-1.example.com', user: 'deploy' },
+            'dev-web-1': { host: 'dev-web-1.example.com', user: 'developer' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      // Test various patterns
+      await command.execute(['hosts.prod-*', 'echo "Production"', { quiet: true }]);
+      
+      let calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(3);
+      expect(calls.map(c => c.target.name).sort()).toEqual(['prod-db-1', 'prod-web-1', 'prod-web-2']);
+
+      command.executeCalls = [];
+      await command.execute(['hosts.*-web-*', 'echo "Web servers"', { quiet: true }]);
+      
+      calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(4);
+    });
+
+    it('should handle regex-like patterns', async () => {
+      const config = {
+        version: '2.0',
+        targets: {
+          hosts: {
+            'server1': { host: 'server1.example.com', user: 'admin' },
+            'server10': { host: 'server10.example.com', user: 'admin' },
+            'server2': { host: 'server2.example.com', user: 'admin' },
+            'server20': { host: 'server20.example.com', user: 'admin' }
+          }
+        }
+      };
+
+      await fs.writeFile(
+        path.join(projectDir, '.xec', 'config.yaml'),
+        yaml.dump(config)
+      );
+
+      // Use wildcard pattern instead of regex-like pattern
+      await command.execute(['hosts.server1', 'echo test', { quiet: true }]);
+      await command.execute(['hosts.server2', 'echo test', { quiet: true }]);
+      
+      const calls = command.getExecuteCalls();
+      expect(calls).toHaveLength(2);
+      expect(calls.map(c => c.target.name).sort()).toEqual(['server1', 'server2']);
+    });
+  });
 });

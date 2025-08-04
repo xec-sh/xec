@@ -1,8 +1,8 @@
 import { Writable } from 'node:stream';
 import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
-import { CommandError, TimeoutError } from '../../../src/core/error.js';
 import { MockAdapter } from '../../../src/adapters/mock-adapter.js';
+import { CommandError, TimeoutError } from '../../../src/core/error.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 describe('ExecutionEngine', () => {

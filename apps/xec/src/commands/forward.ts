@@ -204,7 +204,7 @@ export class ForwardCommand extends ConfigAwareCommand {
     const sessionId = `${target.id}:${mapping.local}:${mapping.remote}`;
 
     if (this.sessions.has(sessionId)) {
-      throw new Error(`Port forwarding already active for ${sessionId}`);
+      throw new Error(`Port forwarding already active`);
     }
 
     const targetDisplay = this.formatTargetDisplay(target);
@@ -272,22 +272,30 @@ export class ForwardCommand extends ConfigAwareCommand {
       // Note: Reverse tunnels may require different handling
       throw new Error('Reverse tunneling is not yet implemented in this version');
     } else {
+      // First, establish a connection by executing a simple command
+      // This is required before creating a tunnel
+      await engine`echo "Establishing connection for tunnel"`.quiet();
+      
       // Forward tunnel: local port -> remote port
-      await engine.tunnel({
+      const tunnel = await engine.tunnel({
         localPort: mapping.local,
         localHost: options.bind || 'localhost',
         remoteHost: 'localhost',
         remotePort: mapping.remote
       });
-    }
 
-    return {
-      target,
-      mapping,
-      cleanup: async () => {
-        // SSH tunnels are automatically cleaned up when the process exits
-      },
-    };
+      return {
+        target,
+        mapping,
+        process: tunnel,
+        cleanup: async () => {
+          // Close the tunnel explicitly
+          if (tunnel && typeof tunnel.close === 'function') {
+            await tunnel.close();
+          }
+        },
+      };
+    }
   }
 
   private async forwardDocker(

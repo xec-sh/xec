@@ -13,7 +13,7 @@ interface NewOptions extends CommandOptions {
   minimal?: boolean;
   skipGit?: boolean;
   name?: string;
-  description?: string;
+  desc?: string;
   type?: string;
   advanced?: boolean;
   js?: boolean;
@@ -794,8 +794,8 @@ export function command(program) {
       log.info(\`Creating item: \${name}\`);
       log.step(\`Type: \${options.type}\`);
       
-      if (options.description) {
-        log.step(\`Description: \${options.description}\`);
+      if (options.desc) {
+        log.step(\`Description: \${options.desc}\`);
       }
       
       const shouldCreate = await confirm({
@@ -997,8 +997,8 @@ export function command(program: Command): void {
       log.step(\`Name: \${chalk.default.cyan(name)}\`);
       log.step(\`Type: \${chalk.default.blue(options.type)}\`);
       
-      if (options.description) {
-        log.step(\`Description: \${options.description}\`);
+      if (options.desc) {
+        log.step(\`Description: \${options.desc}\`);
       }
       
       const shouldCreate = await confirm({
@@ -1018,7 +1018,7 @@ export function command(program: Command): void {
           type: options.type,
           status: 'pending',
           created: new Date(),
-          metadata: { description: options.description }
+          metadata: { description: options.desc }
         };
         
         await createItem(item);
@@ -1463,6 +1463,7 @@ function validateName(name: string, type: ArtifactType): string | undefined {
   if (!name) return 'Name is required';
 
   // Different validation rules for different types
+  // eslint-disable-next-line default-case
   switch (type) {
     case 'project':
       if (!/^[a-z0-9-_]+$/i.test(name)) {
@@ -1494,10 +1495,18 @@ async function createProject(name: string, options: NewOptions) {
   const targetDir = path.resolve(name);
   const xecDir = path.join(targetDir, '.xec');
 
+  // Extract the description from desc option
+  const description = options.desc;
+
   // Check if directory exists
   if (fs.existsSync(targetDir) && !options.force) {
     const files = await fs.readdir(targetDir);
     if (files.length > 0) {
+      // In non-interactive mode, fail
+      if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+        throw new Error(`Directory ${name} is not empty. Use --force to overwrite.`);
+      }
+
       const shouldContinue = await clack.confirm({
         message: `Directory ${name} is not empty. Continue?`,
         initialValue: false
@@ -1511,13 +1520,24 @@ async function createProject(name: string, options: NewOptions) {
   }
 
   // Get project description
-  const description = options.description || await clack.text({
-    message: 'Project description:',
-    defaultValue: 'An Xec automation project'
-  }) as string;
+  let projectDescription = description;
 
-  if (InteractiveHelpers.isCancelled(description)) {
-    throw new Error('cancelled');
+  if (!projectDescription) {
+    // In non-interactive mode (CI), use default
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      projectDescription = 'An Xec automation project';
+    } else {
+      const result = await clack.text({
+        message: 'Project description:',
+        defaultValue: 'An Xec automation project'
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        throw new Error('cancelled');
+      }
+
+      projectDescription = result as string || 'An Xec automation project';
+    }
   }
 
   const spinner = clack.spinner();
@@ -1533,7 +1553,7 @@ async function createProject(name: string, options: NewOptions) {
 
     const processedContent = content
       .replace(/{name}/g, path.basename(name))
-      .replace(/{description}/g, description);
+      .replace(/{description}/g, String(projectDescription || ''));
 
     await fs.writeFile(fullPath, processedContent);
 
@@ -1553,13 +1573,20 @@ async function createProject(name: string, options: NewOptions) {
 
   // Initialize git if not skipped
   if (!options.skipGit && !fs.existsSync(path.join(targetDir, '.git'))) {
-    const shouldInitGit = await clack.confirm({
-      message: 'Initialize git repository?',
-      initialValue: true
-    });
+    // In non-interactive mode, skip git init unless explicitly enabled
+    let shouldInitGit = false;
 
-    if (InteractiveHelpers.isCancelled(shouldInitGit)) {
-      return;
+    if (!(process.env['CI'] || process.env['XEC_NO_INTERACTIVE'])) {
+      const result = await clack.confirm({
+        message: 'Initialize git repository?',
+        initialValue: true
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        return;
+      }
+
+      shouldInitGit = result as boolean;
     }
 
     if (shouldInitGit) {
@@ -1588,6 +1615,9 @@ async function createProject(name: string, options: NewOptions) {
 }
 
 async function createScript(name: string, options: NewOptions) {
+  // Extract the description from desc option
+  const description = options.desc;
+
   const xecDir = path.join(process.cwd(), '.xec');
   if (!fs.existsSync(xecDir)) {
     clack.log.error('Not in an Xec project directory. Run "xec new project" first.');
@@ -1602,6 +1632,11 @@ async function createScript(name: string, options: NewOptions) {
 
   // Check if file exists
   if (fs.existsSync(filePath) && !options.force) {
+    // In non-interactive mode, fail
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      throw new Error(`Script ${fileName} already exists. Use --force to overwrite.`);
+    }
+
     const shouldOverwrite = await clack.confirm({
       message: `Script ${fileName} already exists. Overwrite?`,
       initialValue: false
@@ -1614,13 +1649,24 @@ async function createScript(name: string, options: NewOptions) {
   }
 
   // Get description
-  const description = options.description || await clack.text({
-    message: 'Script description:',
-    defaultValue: `Custom script ${name}`
-  }) as string;
+  let scriptDescription = description;
 
-  if (InteractiveHelpers.isCancelled(description)) {
-    throw new Error('cancelled');
+  if (!scriptDescription) {
+    // In non-interactive mode (CI), use default
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      scriptDescription = `Custom script ${name}`;
+    } else {
+      const result = await clack.text({
+        message: 'Script description:',
+        defaultValue: `Custom script ${name}`
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        throw new Error('cancelled');
+      }
+
+      scriptDescription = result as string || `Custom script ${name}`;
+    }
   }
 
   // Select template
@@ -1630,7 +1676,7 @@ async function createScript(name: string, options: NewOptions) {
   // Process template
   const content = template
     .replace(/{name}/g, path.basename(name, ext))
-    .replace(/{description}/g, description)
+    .replace(/{description}/g, String(scriptDescription || ''))
     .replace(/{filepath}/g, path.relative(process.cwd(), filePath));
 
   // Write file
@@ -1647,6 +1693,9 @@ async function createScript(name: string, options: NewOptions) {
 }
 
 async function createCommand(name: string, options: NewOptions) {
+  // Extract the description from desc option
+  const description = options.desc;
+
   const xecDir = path.join(process.cwd(), '.xec');
   if (!fs.existsSync(xecDir)) {
     clack.log.error('Not in an Xec project directory. Run "xec new project" first.');
@@ -1661,6 +1710,11 @@ async function createCommand(name: string, options: NewOptions) {
 
   // Check if file exists
   if (fs.existsSync(filePath) && !options.force) {
+    // In non-interactive mode, fail
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      throw new Error(`Command ${fileName} already exists. Use --force to overwrite.`);
+    }
+
     const shouldOverwrite = await clack.confirm({
       message: `Command ${fileName} already exists. Overwrite?`,
       initialValue: false
@@ -1673,13 +1727,24 @@ async function createCommand(name: string, options: NewOptions) {
   }
 
   // Get description
-  const description = options.description || await clack.text({
-    message: 'Command description:',
-    defaultValue: `Custom command ${name}`
-  }) as string;
+  let commandDescription = description;
 
-  if (InteractiveHelpers.isCancelled(description)) {
-    throw new Error('cancelled');
+  if (!commandDescription) {
+    // In non-interactive mode (CI), use default
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      commandDescription = `Custom command ${name}`;
+    } else {
+      const result = await clack.text({
+        message: 'Command description:',
+        defaultValue: `Custom command ${name}`
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        throw new Error('cancelled');
+      }
+
+      commandDescription = result as string || `Custom command ${name}`;
+    }
   }
 
   // Select template
@@ -1689,7 +1754,7 @@ async function createCommand(name: string, options: NewOptions) {
   // Process template
   const content = template
     .replace(/{name}/g, name)
-    .replace(/{description}/g, description);
+    .replace(/{description}/g, String(commandDescription || ''));
 
   // Write file
   await fs.ensureDir(path.dirname(filePath));
@@ -1707,6 +1772,9 @@ async function createCommand(name: string, options: NewOptions) {
 }
 
 async function createTask(name: string, options: NewOptions) {
+  // Extract the description from desc option
+  const description = options.desc;
+
   const configManager = new ConfigurationManager();
   const config = await configManager.load();
 
@@ -1716,35 +1784,56 @@ async function createTask(name: string, options: NewOptions) {
   }
 
   // Get description
-  const description = options.description || await clack.text({
-    message: 'Task description:',
-    defaultValue: `Task ${name}`
-  }) as string;
+  let taskDescription = description;
 
-  if (InteractiveHelpers.isCancelled(description)) {
-    throw new Error('cancelled');
+  if (!taskDescription) {
+    // In non-interactive mode (CI), use default
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      taskDescription = `Task ${name}`;
+    } else {
+      const result = await clack.text({
+        message: 'Task description:',
+        defaultValue: `Task ${name}`
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        throw new Error('cancelled');
+      }
+
+      taskDescription = result as string || `Task ${name}`;
+    }
   }
 
   // Select complexity
-  const complexity = options.advanced ? 'advanced' :
-    await clack.select({
+  let complexity: string;
+
+  if (options.advanced) {
+    complexity = 'advanced';
+  } else if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    // Default to simple in non-interactive mode
+    complexity = 'simple';
+  } else {
+    const result = await clack.select({
       message: 'Task complexity:',
       options: [
         { value: 'simple', label: 'Simple - Single command' },
         { value: 'standard', label: 'Standard - With parameters' },
         { value: 'advanced', label: 'Advanced - Multi-step with hooks' }
       ]
-    }) as string;
+    });
 
-  if (InteractiveHelpers.isCancelled(complexity)) {
-    throw new Error('cancelled');
+    if (InteractiveHelpers.isCancelled(result)) {
+      throw new Error('cancelled');
+    }
+
+    complexity = result as string || 'simple';
   }
 
   // Get template
   const template = TEMPLATES.task[complexity as keyof typeof TEMPLATES.task];
   const taskYaml = template
     .replace(/{name}/g, name)
-    .replace(/{description}/g, description);
+    .replace(/{description}/g, String(taskDescription || ''));
 
   // Parse the task YAML
   const yaml = await import('js-yaml');
@@ -1769,6 +1858,9 @@ async function createTask(name: string, options: NewOptions) {
 }
 
 async function createProfile(name: string, options: NewOptions) {
+  // Extract the description from desc option
+  const description = options.desc;
+
   const configManager = new ConfigurationManager();
   const config = await configManager.load();
 
@@ -1778,13 +1870,24 @@ async function createProfile(name: string, options: NewOptions) {
   }
 
   // Get description
-  const description = options.description || await clack.text({
-    message: 'Profile description:',
-    defaultValue: `${name} environment profile`
-  }) as string;
+  let profileDescription = description;
 
-  if (InteractiveHelpers.isCancelled(description)) {
-    throw new Error('cancelled');
+  if (!profileDescription) {
+    // In non-interactive mode (CI), use default
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      profileDescription = `${name} environment profile`;
+    } else {
+      const result = await clack.text({
+        message: 'Profile description:',
+        defaultValue: `${name} environment profile`
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        throw new Error('cancelled');
+      }
+
+      profileDescription = result as string || `${name} environment profile`;
+    }
   }
 
   // Select template
@@ -1793,7 +1896,7 @@ async function createProfile(name: string, options: NewOptions) {
 
   const profileYaml = template
     .replace(/{name}/g, name)
-    .replace(/{description}/g, description);
+    .replace(/{description}/g, String(profileDescription || ''));
 
   // Parse the profile YAML
   const yaml = await import('js-yaml');
@@ -1816,10 +1919,18 @@ async function createProfile(name: string, options: NewOptions) {
 }
 
 async function createExtension(name: string, options: NewOptions) {
+  // Extract the description from desc option
+  const description = options.desc;
+
   const targetDir = path.resolve(name);
 
   // Check if directory exists
   if (fs.existsSync(targetDir) && !options.force) {
+    // In non-interactive mode, fail
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      throw new Error(`Directory ${name} already exists. Use --force to overwrite.`);
+    }
+
     const shouldContinue = await clack.confirm({
       message: `Directory ${name} already exists. Continue?`,
       initialValue: false
@@ -1832,13 +1943,24 @@ async function createExtension(name: string, options: NewOptions) {
   }
 
   // Get description
-  const description = options.description || await clack.text({
-    message: 'Extension description:',
-    defaultValue: `Xec extension ${name}`
-  }) as string;
+  let extensionDescription = options.desc;
 
-  if (InteractiveHelpers.isCancelled(description)) {
-    throw new Error('cancelled');
+  if (!extensionDescription) {
+    // In non-interactive mode (CI), use default
+    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      extensionDescription = `Xec extension ${name}`;
+    } else {
+      const result = await clack.text({
+        message: 'Extension description:',
+        defaultValue: `Xec extension ${name}`
+      });
+
+      if (InteractiveHelpers.isCancelled(result)) {
+        throw new Error('cancelled');
+      }
+
+      extensionDescription = result as string || `Xec extension ${name}`;
+    }
   }
 
   const spinner = clack.spinner();
@@ -1850,7 +1972,7 @@ async function createExtension(name: string, options: NewOptions) {
 
   const extensionYaml = template
     .replace(/{name}/g, name)
-    .replace(/{description}/g, description);
+    .replace(/{description}/g, String(extensionDescription || ''));
 
   // Create extension structure
   await fs.ensureDir(targetDir);
@@ -1911,7 +2033,7 @@ tasks:
       path.join(targetDir, 'README.md'),
       `# ${name}
 
-${description}
+${extensionDescription}
 
 ## Installation
 
@@ -1952,7 +2074,7 @@ See \`extension.yaml\` for configuration options.
     JSON.stringify({
       name: `xec-ext-${name}`,
       version: '1.0.0',
-      description,
+      description: extensionDescription,
       main: 'extension.yaml',
       keywords: ['xec', 'extension', name],
       files: ['extension.yaml', 'scripts', 'examples', 'README.md'],
@@ -1985,7 +2107,7 @@ export class NewCommand extends BaseCommand {
       aliases: ['n'],
       options: [
         {
-          flags: '-d, --description <desc>',
+          flags: '-d, --desc <desc>',
           description: 'Description for the artifact'
         },
         {
@@ -2048,7 +2170,15 @@ export class NewCommand extends BaseCommand {
 
   public async execute(args: any[]): Promise<void> {
     const [type, name] = args.slice(0, -1);
-    const options = args[args.length - 1] as NewOptions;
+    const commandObject = args[args.length - 1];
+
+    // Extract actual options from Commander object
+    let options: NewOptions;
+    if (typeof commandObject?.opts === 'function') {
+      options = commandObject.opts() as NewOptions;
+    } else {
+      options = commandObject as NewOptions;
+    }
 
     try {
       // Set up cancel handlers for interactive mode
@@ -2092,6 +2222,7 @@ export class NewCommand extends BaseCommand {
       }
 
       // Create the artifact
+      // eslint-disable-next-line default-case
       switch (artifactType) {
         case 'project':
           await createProject(artifactName, options || {});

@@ -1,12 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
-import { createServer, Server } from 'net';
-import { promises as fs } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { describeSSH, getSSHConfig } from '@xec-sh/test-utils';
+import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SSHAdapter } from '../../../src/adapters/ssh-adapter.js';
+
 import type { Command } from '../../../src/core/command.js';
-import { describeSSH, getSSHConfig } from '@xec-sh/test-utils';
 
 // Test with real SSH connections using Docker containers
 describeSSH('SSH Adapter Tunnel Tests', () => {
@@ -529,8 +526,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Verify tunnels are actually closed by trying to connect
       const net = await import('net');
       
-      const canConnect = async (port: number): Promise<boolean> => {
-        return new Promise((resolve) => {
+      const canConnect = async (port: number): Promise<boolean> => new Promise((resolve) => {
           const client = new net.Socket();
           client.on('connect', () => {
             client.destroy();
@@ -545,7 +541,6 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
             resolve(false);
           }, 100);
         });
-      };
 
       // Both tunnels should be closed
       expect(await canConnect(tunnel1Port)).toBe(false);
