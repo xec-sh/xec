@@ -10,6 +10,9 @@ export interface MockResponse {
   signal?: string;
   delay?: number;
   error?: Error;
+  // For lazy error creation
+  errorType?: 'timeout' | 'command' | 'adapter';
+  errorDelay?: number;
 }
 
 export interface MockAdapterConfig extends BaseAdapterConfig {
@@ -76,6 +79,11 @@ export class MockAdapter extends BaseAdapter {
       // Throw error if configured
       if (mockResponse.error) {
         throw mockResponse.error;
+      }
+      
+      // Handle lazy error creation for timeout
+      if (mockResponse.errorType === 'timeout') {
+        throw new TimeoutError(commandString, mockResponse.errorDelay || delay);
       }
 
       const endTime = Date.now();
@@ -179,7 +187,9 @@ export class MockAdapter extends BaseAdapter {
   mockTimeout(command: string | RegExp, delay: number = 5000): void {
     this.mockCommand(command, { 
       delay,
-      error: new TimeoutError('Command timed out', delay)
+      // Store error info instead of creating the error immediately
+      errorType: 'timeout',
+      errorDelay: delay
     });
   }
 

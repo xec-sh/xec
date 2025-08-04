@@ -55,12 +55,11 @@
   "dependencies": {
     "is-stream": "4.0.1",
     "js-yaml": "^4.1.0",
-    "make-dir": "^5.0.0",
     "sb-promise-queue": "^2.1.1",
     "sb-scandir": "^3.1.1",
     "shell-escape": "^0.2.0",
     "ssh2": "^1.16.0",
-    "zod": "^4.0.10"
+    "zod": "4.0.14"
   },
   "devDependencies": {
     "@types/dockerode": "^3.3.42",

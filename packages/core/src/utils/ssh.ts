@@ -1,11 +1,10 @@
-import fs from 'fs'
-import net from 'net'
 import fsPath from 'path'
 import stream from 'stream'
+import fs from 'fs/promises'
 import scanDirectory from 'sb-scandir'
 import shellEscape from 'shell-escape'
-import { makeDirectory } from 'make-dir'
 import { isReadableStream } from 'is-stream'
+import { constants as fsConstants } from 'fs'
 import { PromiseQueue } from 'sb-promise-queue'
 import invariant, { AssertionError } from 'assert'
 import SSH2, {
@@ -114,15 +113,7 @@ function unixifyPath(path: string) {
 }
 
 async function readFile(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    fs.readFile(filePath, 'utf8', (err, res) => {
-      if (err) {
-        reject(err)
-      } else {
-        resolve(res)
-      }
-    })
-  })
+  return fs.readFile(filePath, 'utf8')
 }
 
 const SFTP_MKDIR_ERR_CODE_REGEXP = /Error: (E[\S]+): /
@@ -537,14 +528,11 @@ export class NodeSSH {
     invariant(typeof remoteFile === 'string', 'remoteFile must be a valid string')
     invariant(givenSftp == null || typeof givenSftp === 'object', 'sftp must be a valid object')
     invariant(transferOptions == null || typeof transferOptions === 'object', 'transferOptions must be a valid object')
-    invariant(
-      await new Promise((resolve) => {
-        fs.access(localFile, fs.constants.R_OK, (err) => {
-          resolve(err === null)
-        })
-      }),
-      `localFile does not exist at ${localFile}`,
-    )
+    try {
+      await fs.access(localFile, fsConstants.R_OK)
+    } catch {
+      throw new Error(`localFile does not exist at ${localFile}`)
+    }
     const sftp = givenSftp || (await this.requestSFTP())
 
     const putFile = (retry: boolean) => new Promise<void>((resolve, reject) => {
@@ -628,11 +616,12 @@ export class NodeSSH {
     invariant(typeof localDirectory === 'string' && localDirectory, 'localDirectory must be a string')
     invariant(typeof remoteDirectory === 'string' && remoteDirectory, 'remoteDirectory must be a string')
 
-    const localDirectoryStat: fs.Stats = await new Promise((resolve) => {
-      fs.stat(localDirectory, (err, stat) => {
-        resolve(stat || null)
-      })
-    })
+    let localDirectoryStat: Awaited<ReturnType<typeof fs.stat>> | null = null
+    try {
+      localDirectoryStat = await fs.stat(localDirectory)
+    } catch {
+      // Directory doesn't exist
+    }
 
     invariant(localDirectoryStat != null, `localDirectory does not exist at ${localDirectory}`)
     invariant(localDirectoryStat.isDirectory(), `localDirectory is not a directory at ${localDirectory}`)
@@ -713,11 +702,12 @@ export class NodeSSH {
     invariant(typeof localDirectory === 'string' && localDirectory, 'localDirectory must be a string')
     invariant(typeof remoteDirectory === 'string' && remoteDirectory, 'remoteDirectory must be a string')
 
-    const localDirectoryStat: fs.Stats = await new Promise((resolve) => {
-      fs.stat(localDirectory, (err, stat) => {
-        resolve(stat || null)
-      })
-    })
+    let localDirectoryStat: Awaited<ReturnType<typeof fs.stat>> | null = null
+    try {
+      localDirectoryStat = await fs.stat(localDirectory)
+    } catch {
+      // Directory doesn't exist
+    }
 
     invariant(localDirectoryStat != null, `localDirectory does not exist at ${localDirectory}`)
     invariant(localDirectoryStat.isDirectory(), `localDirectory is not a directory at ${localDirectory}`)
@@ -776,7 +766,7 @@ export class NodeSSH {
         directories.forEach((directory) => {
           queue
             .add(async () => {
-              await makeDirectory(fsPath.join(localDirectory, directory))
+              await fs.mkdir(fsPath.join(localDirectory, directory), { recursive: true })
             })
             .catch(reject)
         })
@@ -946,11 +936,14 @@ export class NodeSSH {
     const localHost = options.localHost || '127.0.0.1';
     const localPort = options.localPort || 0; // 0 = dynamic port
 
+    // Use dynamic import for ES modules
+    const net = await import('net');
+
     return new Promise((resolve, reject) => {
-      const server = require('net').createServer();
+      const server = net.createServer();
       const connections = new Set<any>();
 
-      server.on('connection', (socket: net.Socket) => {
+      server.on('connection', (socket: any) => {
         connections.add(socket);
 
         this.forwardOut(

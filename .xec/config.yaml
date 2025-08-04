@@ -1,10 +1,7 @@
 version: '1.0'
-name: xec-sh
-description: An Xec automation project
-defaults:
-  adapter: local
-  shell: /bin/bash
-  timeout: 30000
+name: test-project
+description: My test project
+defaults: {}
 targets:
   local:
     type: local
@@ -56,12 +53,3 @@ secrets:
   provider: env
 vars: {}
 tasks: {}
-environments:
-  development:
-    env:
-      NODE_ENV: development
-      DEBUG: true
-  production:
-    env:
-      NODE_ENV: production
-      DEBUG: false
