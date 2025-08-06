@@ -1,9 +1,9 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
+import { within } from '../../src/utils/within.js';
 import { CommandError } from '../../src/core/error.js';
 import { MockAdapter } from '../../src/adapters/mock/index.js';
 import { ExecutionEngine, createCallableEngine } from '../../src/index.js';
-import { within } from '../../src/utils/within.js';
 
 describe('Unified Execution Engine - Integration Tests', () => {
   describe('Basic functionality', () => {

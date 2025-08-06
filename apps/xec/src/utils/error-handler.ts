@@ -1,10 +1,10 @@
 import chalk from 'chalk';
 import * as yaml from 'js-yaml';
 import * as clack from '@clack/prompts';
-import { enhanceError, type ErrorContext, type EnhancedExecutionError } from '@xec-sh/core';
 
 import { ValidationError } from './validation.js';
 import { CommandOptions } from './command-base.js';
+import { enhanceError, type ErrorContext, type EnhancedExecutionError } from './enhanced-error.js';
 
 export interface ErrorDetails {
   code?: string;

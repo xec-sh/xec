@@ -1,5 +1,5 @@
-/// <reference path="../apps/xec/dist/globals.d.ts" />
-/// <reference path="../apps/xec/dist/index.d.ts" />
+/// <reference path="./dist/globals.d.ts" />
+/// <reference path="./dist/index.d.ts" />
 
 /**
  * Global type definitions for xec scripts.
@@ -7,6 +7,6 @@
  */
 
 // Ensure the globals are available
-import '../apps/xec/dist/globals.js';
+import './dist/globals.js';
 
 export { };

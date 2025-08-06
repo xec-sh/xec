@@ -75,7 +75,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
   // Module loader is initialized lazily when needed by commands
 
-  // Load all commands first (built-in and dynamic)
+  // Load all commands first (built-in and dynamic) BEFORE processing arguments
   const dynamicCommandNames = await loadCommands(program);
 
   // Customize help output with dynamic commands info
@@ -83,8 +83,10 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
   // Build command registry for validation
   const commandRegistry = registerCliCommands(program);
+  // Include dynamic command names in the command list
   const commandNames = program.commands.map(cmd => cmd.name())
-    .concat(program.commands.flatMap(cmd => cmd.aliases() || []));
+    .concat(program.commands.flatMap(cmd => cmd.aliases() || []))
+    .concat(dynamicCommandNames);
 
   try {
     // Check if this is a script execution
@@ -131,8 +133,8 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       }
     }
 
-    // Check if this is a task execution
-    if (firstArg && !firstArg.startsWith('-') && await taskManager.exists(firstArg)) {
+    // Check if this is a task execution (but not a registered command)
+    if (firstArg && !firstArg.startsWith('-') && !commandNames.includes(firstArg) && await taskManager.exists(firstArg)) {
       // This is a task
       const taskName = firstArg;
       const taskArgs = args.slice(1);
