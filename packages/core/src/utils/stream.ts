@@ -3,7 +3,7 @@ import { createWriteStream } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 import { Readable, Writable, Transform, PassThrough } from 'node:stream';
 
-import type { Command } from '../core/command.js';
+import type { Command } from '../types/command.js';
 import type { ExecutionEngine } from '../core/execution-engine.js';
 
 // Core StreamHandler functionality (previously in core/stream-handler.ts)
@@ -68,7 +68,7 @@ export class StreamHandler {
           callback(error as Error);
         }
       },
-      
+
       // Add autoDestroy to ensure the stream is destroyed when it ends
       autoDestroy: true
     });

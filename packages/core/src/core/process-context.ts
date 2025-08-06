@@ -4,32 +4,11 @@ import { executePipe } from './pipe-implementation.js';
 
 import type { ExecutionResult } from './result.js';
 import type { CacheOptions } from '../utils/cache.js';
-import type { Command, StreamOption } from './command.js';
+import type { ProcessPromise } from '../types/process.js';
+import type { Command, StreamOption } from '../types/command.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
 
-// Export the ProcessPromise interface (already defined in execution-engine.ts)
-export interface ProcessPromise extends Promise<ExecutionResult> {
-  stdin: NodeJS.WritableStream;
-  pipe(target: PipeTarget | TemplateStringsArray, ...args: any[]): ProcessPromise;
-  signal(signal: AbortSignal): ProcessPromise;
-  timeout(ms: number, timeoutSignal?: string): ProcessPromise;
-  quiet(): ProcessPromise;
-  nothrow(): ProcessPromise;
-  kill(signal?: string): void;
-  cwd(dir: string): ProcessPromise;
-  env(env: Record<string, string>): ProcessPromise;
-  shell(shell: string | boolean): ProcessPromise;
-  interactive(): ProcessPromise;
-  stdout(stream: StreamOption): ProcessPromise;
-  stderr(stream: StreamOption): ProcessPromise;
-  text(): Promise<string>;
-  json<T = any>(): Promise<T>;
-  lines(): Promise<string[]>;
-  buffer(): Promise<Buffer>;
-  cache(options?: CacheOptions): ProcessPromise;
-  child?: any;
-  exitCode: Promise<number | null>;
-}
+export { ProcessPromise } from '../types/process.js';
 
 /**
  * Process context with minimal state and maximum performance

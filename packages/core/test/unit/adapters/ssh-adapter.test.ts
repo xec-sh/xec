@@ -5,7 +5,7 @@ import { rmSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
 
 import { $ } from '../../../src/index.js';
-import { SSHAdapter } from '../../../src/adapters/ssh-adapter.js';
+import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
 describeSSH('SSHAdapter - Real SSH Tests', () => {
   let adapter: SSHAdapter;

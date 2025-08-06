@@ -2,7 +2,7 @@ import { test, expect, describe } from '@jest/globals';
 
 import { $, ExecutionEngine } from '../../src/index';
 import { ExecutionResultImpl } from '../../src/core/result';
-import { MockAdapter } from '../../src/adapters/mock-adapter';
+import { MockAdapter } from '../../../src/adapters/mock/index';
 
 // Helper function to create ExecutionResult
 function createResult(options: {

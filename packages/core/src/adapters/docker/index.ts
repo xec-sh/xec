@@ -2,11 +2,11 @@ import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
 import { statSync, existsSync } from 'node:fs';
 
-import { StreamHandler } from '../utils/stream.js';
-import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
-import { Command, DockerAdapterOptions } from '../core/command.js';
-import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
-import { DockerError, AdapterError, sanitizeCommandForError } from '../core/error.js';
+import { StreamHandler } from '../../utils/stream.js';
+import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
+import { Command, DockerAdapterOptions } from '../../types/command.js';
+import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
+import { DockerError, AdapterError, sanitizeCommandForError } from '../../core/error.js';
 
 export interface DockerAutoCreateOptions {
   enabled: boolean;

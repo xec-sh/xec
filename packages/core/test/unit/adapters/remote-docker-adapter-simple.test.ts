@@ -1,6 +1,6 @@
 import { test, expect, describe } from '@jest/globals';
 
-import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../../../src/adapters/remote-docker-adapter';
+import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../../../src/adapters/remote-docker/index';
 
 describe('RemoteDockerAdapter - Simple Tests', () => {
   test('should create adapter instance', () => {

@@ -1,8 +1,8 @@
-import { DockerError } from '../core/error.js';
+import { DockerError } from '../../core/error.js';
 
-import type { ExecutionResult } from '../core/result.js';
-import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
-import type { DockerAdapter, DockerLogsOptions, DockerHealthCheckOptions } from '../adapters/docker-adapter.js';
+import type { ExecutionResult } from '../../core/result.js';
+import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
+import type { DockerAdapter, DockerLogsOptions, DockerHealthCheckOptions } from './index.js';
 
 /**
  * Docker container configuration

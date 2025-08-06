@@ -1,6 +1,6 @@
 import { it, expect, describe } from '@jest/globals';
 
-import { LocalAdapter } from '../../../src/adapters/local-adapter.js';
+import { LocalAdapter } from '../../../src/adapters/local/index.js';
 
 describe('LocalAdapter - Basic Tests', () => {
   let adapter: LocalAdapter;

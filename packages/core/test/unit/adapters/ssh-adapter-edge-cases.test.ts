@@ -1,6 +1,6 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { SSHAdapter } from '../../../src/adapters/ssh-adapter.js';
+import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { AdapterError, TimeoutError, ConnectionError } from '../../../src/core/error.js';
 
 describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {

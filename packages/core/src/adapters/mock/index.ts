@@ -1,7 +1,7 @@
-import { Command } from '../core/command.js';
-import { ExecutionResult } from '../core/result.js';
-import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
-import { AdapterError, CommandError, TimeoutError } from '../core/error.js';
+import { Command } from '../../types/command.js';
+import { ExecutionResult } from '../../core/result.js';
+import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
+import { AdapterError, CommandError, TimeoutError } from '../../core/error.js';
 
 export interface MockResponse {
   stdout?: string;
@@ -45,7 +45,7 @@ export class MockAdapter extends BaseAdapter {
   async execute(command: Command): Promise<ExecutionResult> {
     const mergedCommand = this.mergeCommand(command);
     let commandString: string;
-    
+
     // Handle shell option like other adapters
     if (mergedCommand.shell) {
       const shellCmd = typeof mergedCommand.shell === 'string' ? mergedCommand.shell : 'sh';
@@ -53,7 +53,7 @@ export class MockAdapter extends BaseAdapter {
     } else {
       commandString = this.buildCommandString(mergedCommand);
     }
-    
+
     const startTime = Date.now();
 
     // Record command if enabled
@@ -64,7 +64,7 @@ export class MockAdapter extends BaseAdapter {
     try {
       // Find mock response
       const mockResponse = this.findMockResponse(commandString);
-      
+
       // Simulate delay
       const delay = mockResponse.delay ?? this.mockConfig.defaultDelay ?? 10;
       if (delay > 0) {
@@ -80,7 +80,7 @@ export class MockAdapter extends BaseAdapter {
       if (mockResponse.error) {
         throw mockResponse.error;
       }
-      
+
       // Handle lazy error creation for timeout
       if (mockResponse.errorType === 'timeout') {
         throw new TimeoutError(commandString, mockResponse.errorDelay || delay);
@@ -103,7 +103,7 @@ export class MockAdapter extends BaseAdapter {
       if (error instanceof CommandError || error instanceof TimeoutError || error instanceof AdapterError) {
         throw error;
       }
-      
+
       throw new AdapterError(
         this.adapterName,
         'execute',
@@ -185,7 +185,7 @@ export class MockAdapter extends BaseAdapter {
   }
 
   mockTimeout(command: string | RegExp, delay: number = 5000): void {
-    this.mockCommand(command, { 
+    this.mockCommand(command, {
       delay,
       // Store error info instead of creating the error immediately
       errorType: 'timeout',
@@ -215,17 +215,17 @@ export class MockAdapter extends BaseAdapter {
 
   assertCommandsExecutedInOrder(commands: (string | RegExp)[]): void {
     let lastIndex = -1;
-    
+
     for (const command of commands) {
       const index = this.executedCommands.findIndex((cmd, i) => {
         if (i <= lastIndex) return false;
         return typeof command === 'string' ? cmd === command : command.test(cmd);
       });
-      
+
       if (index === -1) {
         throw new Error(`Expected command "${command}" to be executed in order, but it was not found after index ${lastIndex}`);
       }
-      
+
       lastIndex = index;
     }
   }

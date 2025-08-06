@@ -1,10 +1,19 @@
 import type { Readable, Writable } from 'node:stream';
-
 import type { RetryOptions } from '../utils/retry-adapter.js';
 
+/**
+ * Stream configuration options for command execution
+ */
 export type StreamOption = 'pipe' | 'ignore' | 'inherit' | Writable;
+
+/**
+ * Supported adapter types for command execution
+ */
 export type AdapterType = 'local' | 'ssh' | 'docker' | 'kubernetes' | 'remote-docker' | 'auto' | 'mock';
 
+/**
+ * SSH adapter configuration options
+ */
 export interface SSHAdapterOptions {
   type: 'ssh';
   host: string;
@@ -22,6 +31,9 @@ export interface SSHAdapterOptions {
   };
 }
 
+/**
+ * Docker adapter configuration options
+ */
 export interface DockerAdapterOptions {
   type: 'docker';
   container: string;
@@ -34,10 +46,16 @@ export interface DockerAdapterOptions {
   autoRemove?: boolean;
 }
 
+/**
+ * Local adapter configuration options
+ */
 export interface LocalAdapterOptions {
   type: 'local';
 }
 
+/**
+ * Kubernetes adapter configuration options
+ */
 export interface KubernetesAdapterOptions {
   type: 'kubernetes';
   pod: string;
@@ -48,12 +66,18 @@ export interface KubernetesAdapterOptions {
   stdin?: boolean;
 }
 
+/**
+ * Remote Docker adapter configuration options
+ */
 export interface RemoteDockerAdapterOptions {
   type: 'remote-docker';
   ssh: Omit<SSHAdapterOptions, 'type'>;
   docker: Omit<DockerAdapterOptions, 'type'>;
 }
 
+/**
+ * Union type for all adapter-specific options
+ */
 export type AdapterSpecificOptions =
   | SSHAdapterOptions
   | DockerAdapterOptions
@@ -61,6 +85,9 @@ export type AdapterSpecificOptions =
   | KubernetesAdapterOptions
   | RemoteDockerAdapterOptions;
 
+/**
+ * Command execution configuration
+ */
 export interface Command {
   // Basic
   command: string;                      // Command to execute

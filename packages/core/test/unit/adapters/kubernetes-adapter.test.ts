@@ -1,7 +1,7 @@
 import { it, expect, describe } from '@jest/globals';
 
 import { ExecutionError } from '../../../src/core/error.js';
-import { KubernetesAdapter } from '../../../src/adapters/kubernetes-adapter.js';
+import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 describe('KubernetesAdapter Simple Unit Tests', () => {
   describe('constructor', () => {

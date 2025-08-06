@@ -1,6 +1,6 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
-import { MockAdapter } from '../../../src/adapters/mock-adapter.js';
+import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { AdapterError, CommandError, TimeoutError } from '../../../src/core/error.js';
 
 describe('MockAdapter', () => {

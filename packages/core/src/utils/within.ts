@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-import type { ExecutionConfig } from '../core/config.js';
+import type { ExecutionConfig } from '../types/execution.js';
 
 // Export the AsyncLocalStorage instance so ExecutionEngine can use the same one
 export const asyncLocalStorage = new AsyncLocalStorage<Partial<ExecutionConfig>>();

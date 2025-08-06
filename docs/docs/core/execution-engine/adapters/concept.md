@@ -1,75 +1,75 @@
 ---
-title: Концепция адаптеров
-sidebar_label: Концепция
-description: Архитектура системы адаптеров для выполнения команд в различных окружениях
+title: Adapter Concept
+sidebar_label: Concept
+description: Architecture of the adapter system for executing commands in various environments
 ---
 
-# Концепция адаптеров
+# Adapter Concept
 
-Адаптеры — это ключевой компонент архитектуры Xec, обеспечивающий выполнение команд в различных окружениях через единый API. Каждый адаптер инкапсулирует специфику конкретного окружения, предоставляя универсальный интерфейс.
+Adapters are a key component of the Xec architecture, providing command execution in various environments through a unified API. Each adapter encapsulates the specifics of a particular environment while providing a universal interface.
 
-## Архитектура системы адаптеров
+## Adapter System Architecture
 
 ```
 ┌─────────────────────────────────────────────┐
 │              ExecutionEngine                │
 │                                             │
-│  • Управление адаптерами                    │
-│  • Маршрутизация команд                     │
-│  • Конфигурация и контекст                 │
+│  • Adapter management                       │
+│  • Command routing                          │
+│  • Configuration and context                │
 └──────────────────┬──────────────────────────┘
                    │
                    ▼
 ┌─────────────────────────────────────────────┐
 │              BaseAdapter                    │
 │                                             │
-│  • Базовая функциональность                 │
-│  • Обработка потоков                        │
-│  • Маскирование данных                      │
-│  • Обработка ошибок                         │
-└──────┬──────┬──────┬──────┬──────┬─────────┘
-       │      │      │      │      │
-       ▼      ▼      ▼      ▼      ▼
+│  • Base functionality                       │
+│  • Stream processing                        │
+│  • Data masking                             │
+│  • Error handling                           │
+└──────┬──────┬──────┬───────┬───────┬────────┘
+       │      │      │       │       │
+       ▼      ▼      ▼       ▼       ▼
    ┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐
    │Local ││ SSH  ││Docker││ K8s  ││Remote│
    └──────┘└──────┘└──────┘└──────┘└──────┘
 ```
 
-## Базовый класс адаптера
+## Base Adapter Class
 
-Все адаптеры наследуются от `BaseAdapter`:
+All adapters inherit from `BaseAdapter`:
 
 ```typescript
 export abstract class BaseAdapter extends EnhancedEventEmitter {
   protected config: BaseAdapterConfig;
   protected abstract readonly adapterName: string;
   
-  // Основной метод выполнения
+  // Main execution method
   abstract execute(command: Command): Promise<ExecutionResult>;
   
-  // Проверка доступности
+  // Availability check
   abstract isAvailable(): Promise<boolean>;
   
-  // Очистка ресурсов
+  // Resource cleanup
   abstract dispose(): Promise<void>;
   
-  // Опциональная синхронная версия
+  // Optional synchronous version
   executeSync?(command: Command): ExecutionResult;
 }
 ```
 
-### Конфигурация адаптера
+### Adapter Configuration
 
 ```typescript
 interface BaseAdapterConfig {
-  defaultTimeout?: number;        // Таймаут по умолчанию
-  defaultCwd?: string;            // Рабочая директория
-  defaultEnv?: Record<string, string>; // Переменные окружения
-  defaultShell?: string | boolean;    // Shell для выполнения
-  encoding?: BufferEncoding;      // Кодировка вывода
-  maxBuffer?: number;             // Максимальный размер буфера
-  throwOnNonZeroExit?: boolean;  // Бросать исключение при ошибке
-  sensitiveDataMasking?: {        // Маскирование данных
+  defaultTimeout?: number;        // Default timeout
+  defaultCwd?: string;            // Working directory
+  defaultEnv?: Record<string, string>; // Environment variables
+  defaultShell?: string | boolean;    // Shell for execution
+  encoding?: BufferEncoding;      // Output encoding
+  maxBuffer?: number;             // Maximum buffer size
+  throwOnNonZeroExit?: boolean;  // Throw exception on error
+  sensitiveDataMasking?: {        // Data masking
     enabled: boolean;
     patterns: RegExp[];
     replacement: string;
@@ -77,28 +77,28 @@ interface BaseAdapterConfig {
 }
 ```
 
-## Жизненный цикл выполнения
+## Execution Lifecycle
 
-### 1. Выбор адаптера
+### 1. Adapter Selection
 
 ```typescript
-// Явный выбор
+// Explicit selection
 await $.ssh({ host: 'server' })`ls`;
 
-// Через конфигурацию
+// Through configuration
 await $.with({ 
   adapter: 'docker',
   adapterOptions: { container: 'app' }
 })`ls`;
 
-// Автоматический выбор
-await $`ls`;  // Использует LocalAdapter
+// Automatic selection
+await $`ls`;  // Uses LocalAdapter
 ```
 
-### 2. Подготовка команды
+### 2. Command Preparation
 
 ```typescript
-// Адаптер объединяет настройки
+// Adapter merges settings
 protected mergeCommand(command: Command): Command {
   return {
     ...command,
@@ -110,17 +110,17 @@ protected mergeCommand(command: Command): Command {
 }
 ```
 
-### 3. Выполнение
+### 3. Execution
 
 ```typescript
-// Каждый адаптер реализует свою логику
+// Each adapter implements its own logic
 async execute(command: Command): Promise<ExecutionResult> {
   const merged = this.mergeCommand(command);
   
-  // Специфичная для адаптера реализация
+  // Adapter-specific implementation
   const result = await this.runInEnvironment(merged);
   
-  // Создание унифицированного результата
+  // Creating unified result
   return this.createResult(
     result.stdout,
     result.stderr,
@@ -131,43 +131,43 @@ async execute(command: Command): Promise<ExecutionResult> {
 }
 ```
 
-### 4. Обработка результата
+### 4. Result Processing
 
 ```typescript
 interface ExecutionResult {
-  stdout: string;         // Стандартный вывод
-  stderr: string;         // Вывод ошибок
-  exitCode: number;       // Код завершения
-  signal?: string;        // Сигнал завершения
-  duration: number;       // Время выполнения
-  startTime: Date;        // Начало выполнения
-  endTime: Date;          // Конец выполнения
-  adapter: string;        // Использованный адаптер
-  host?: string;          // Хост (для SSH)
-  container?: string;     // Контейнер (для Docker)
+  stdout: string;         // Standard output
+  stderr: string;         // Error output
+  exitCode: number;       // Exit code
+  signal?: string;        // Termination signal
+  duration: number;       // Execution time
+  startTime: Date;        // Start time
+  endTime: Date;          // End time
+  adapter: string;        // Used adapter
+  host?: string;          // Host (for SSH)
+  container?: string;     // Container (for Docker)
 }
 ```
 
-## Типы адаптеров
+## Adapter Types
 
 ### LocalAdapter
 
-Выполнение команд в локальной системе:
+Command execution in the local system:
 
 ```typescript
 const local = $.local();
 await local`ls -la`;
 ```
 
-**Особенности:**
-- Прямое выполнение через child_process
-- Поддержка Bun runtime
-- Синхронное выполнение
-- Минимальные накладные расходы
+**Features:**
+- Direct execution via child_process
+- Bun runtime support
+- Synchronous execution
+- Minimal overhead
 
 ### SSHAdapter
 
-Выполнение команд на удалённых серверах:
+Command execution on remote servers:
 
 ```typescript
 const ssh = $.ssh({
@@ -178,15 +178,15 @@ const ssh = $.ssh({
 await ssh`ls -la`;
 ```
 
-**Особенности:**
-- Пул SSH соединений
-- SSH туннели
-- Передача файлов (SCP/SFTP)
-- Sudo поддержка
+**Features:**
+- SSH connection pool
+- SSH tunnels
+- File transfer (SCP/SFTP)
+- Sudo support
 
 ### DockerAdapter
 
-Выполнение команд в Docker контейнерах:
+Command execution in Docker containers:
 
 ```typescript
 const docker = $.docker({
@@ -195,30 +195,30 @@ const docker = $.docker({
 await docker`ls -la`;
 ```
 
-**Особенности:**
-- Управление жизненным циклом контейнеров
-- Потоковая передача логов
-- Монтирование томов
-- Docker Compose интеграция
+**Features:**
+- Container lifecycle management
+- Log streaming
+- Volume mounting
+- Docker Compose integration
 
 ### KubernetesAdapter
 
-Выполнение команд в Kubernetes подах:
+Command execution in Kubernetes pods:
 
 ```typescript
 const k8s = $.k8s().pod('my-pod');
 await k8s`ls -la`;
 ```
 
-**Особенности:**
+**Features:**
 - Port forwarding
-- Логи контейнеров
-- Копирование файлов
-- Namespace поддержка
+- Container logs
+- File copying
+- Namespace support
 
 ### RemoteDockerAdapter
 
-Docker через SSH соединение:
+Docker via SSH connection:
 
 ```typescript
 const remote = $.remoteDocker({
@@ -228,17 +228,17 @@ const remote = $.remoteDocker({
 await remote`ls -la`;
 ```
 
-**Особенности:**
-- Комбинация SSH и Docker
-- Удалённое управление контейнерами
-- Туннелирование Docker API
+**Features:**
+- SSH and Docker combination
+- Remote container management
+- Docker API tunneling
 
-## Общие возможности адаптеров
+## Common Adapter Capabilities
 
-### Обработка потоков
+### Stream Processing
 
 ```typescript
-// StreamHandler для всех адаптеров
+// StreamHandler for all adapters
 protected createStreamHandler(options?: {
   onData?: (chunk: string) => void
 }): StreamHandler {
@@ -250,10 +250,10 @@ protected createStreamHandler(options?: {
 }
 ```
 
-### Маскирование чувствительных данных
+### Sensitive Data Masking
 
 ```typescript
-// Автоматическое скрытие паролей и ключей
+// Automatic password and key hiding
 protected maskSensitiveData(text: string): string {
   if (!this.config.sensitiveDataMasking.enabled) {
     return text;
@@ -267,23 +267,23 @@ protected maskSensitiveData(text: string): string {
 }
 ```
 
-**Примеры маскирования:**
+**Masking Examples:**
 
 ```typescript
-// Пароли
+// Passwords
 "password=secret123" → "password=[REDACTED]"
 
-// API ключи
+// API keys
 "api_key: abc123" → "api_key: [REDACTED]"
 
-// Bearer токены
+// Bearer tokens
 "Authorization: Bearer xyz789" → "Authorization: Bearer [REDACTED]"
 
-// SSH ключи
+// SSH keys
 "-----BEGIN RSA PRIVATE KEY-----..." → "[REDACTED]"
 ```
 
-### Обработка таймаутов
+### Timeout Handling
 
 ```typescript
 protected async handleTimeout(
@@ -307,10 +307,10 @@ protected async handleTimeout(
 }
 ```
 
-### События адаптеров
+### Adapter Events
 
 ```typescript
-// Каждый адаптер может генерировать события
+// Each adapter can generate events
 adapter.on('connection:established', ({ host }) => {
   console.log(`Connected to ${host}`);
 });
@@ -324,9 +324,9 @@ adapter.on('container:created', ({ id, name }) => {
 });
 ```
 
-## Создание собственного адаптера
+## Creating Your Own Adapter
 
-### Шаг 1: Наследование от BaseAdapter
+### Step 1: Inherit from BaseAdapter
 
 ```typescript
 import { BaseAdapter, BaseAdapterConfig } from '@xec-sh/core';
@@ -347,7 +347,7 @@ export class CustomAdapter extends BaseAdapter {
 }
 ```
 
-### Шаг 2: Реализация execute
+### Step 2: Implement execute
 
 ```typescript
 async execute(command: Command): Promise<ExecutionResult> {
@@ -355,7 +355,7 @@ async execute(command: Command): Promise<ExecutionResult> {
   const startTime = Date.now();
   
   try {
-    // Ваша логика выполнения
+    // Your execution logic
     const result = await this.runCustomCommand(merged);
     
     return this.createResult(
@@ -377,12 +377,12 @@ async execute(command: Command): Promise<ExecutionResult> {
 }
 ```
 
-### Шаг 3: Проверка доступности
+### Step 3: Availability Check
 
 ```typescript
 async isAvailable(): Promise<boolean> {
   try {
-    // Проверка, что окружение доступно
+    // Check that environment is available
     await this.checkEnvironment();
     return true;
   } catch {
@@ -391,22 +391,22 @@ async isAvailable(): Promise<boolean> {
 }
 ```
 
-### Шаг 4: Очистка ресурсов
+### Step 4: Resource Cleanup
 
 ```typescript
 async dispose(): Promise<void> {
-  // Закрытие соединений
+  // Close connections
   await this.closeConnections();
   
-  // Очистка временных файлов
+  // Clean up temporary files
   await this.cleanupTemp();
   
-  // Удаление слушателей событий
+  // Remove event listeners
   this.removeAllListeners();
 }
 ```
 
-### Шаг 5: Регистрация адаптера
+### Step 5: Register the Adapter
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -417,33 +417,33 @@ $.registerAdapter('custom', new CustomAdapter({
   customOption: 'value'
 }));
 
-// Использование
+// Usage
 await $.with({ adapter: 'custom' })`custom-command`;
 ```
 
-## Управление ресурсами
+## Resource Management
 
-### Пулы соединений
+### Connection Pools
 
-SSH и другие сетевые адаптеры используют пулы:
+SSH and other network adapters use pools:
 
 ```typescript
 class ConnectionPool {
   private connections = new Map<string, Connection>();
   private maxConnections = 10;
-  private ttl = 300000; // 5 минут
+  private ttl = 300000; // 5 minutes
   
   async getConnection(key: string): Promise<Connection> {
-    // Переиспользование существующего
+    // Reuse existing
     if (this.connections.has(key)) {
       return this.connections.get(key)!;
     }
     
-    // Создание нового
+    // Create new
     const conn = await this.createConnection();
     this.connections.set(key, conn);
     
-    // Автоочистка по TTL
+    // Auto-cleanup by TTL
     setTimeout(() => {
       this.closeConnection(key);
     }, this.ttl);
@@ -453,9 +453,9 @@ class ConnectionPool {
 }
 ```
 
-### Ленивая инициализация
+### Lazy Initialization
 
-Адаптеры создаются только при необходимости:
+Adapters are created only when needed:
 
 ```typescript
 class ExecutionEngine {
@@ -464,7 +464,7 @@ class ExecutionEngine {
   private async selectAdapter(command: Command): Promise<BaseAdapter> {
     const type = command.adapter || 'local';
     
-    // Создание при первом использовании
+    // Create on first use
     if (!this.adapters.has(type)) {
       this.adapters.set(type, this.createAdapter(type));
     }
@@ -474,12 +474,12 @@ class ExecutionEngine {
 }
 ```
 
-## Обработка ошибок
+## Error Handling
 
-### Типы ошибок
+### Error Types
 
 ```typescript
-// Ошибка адаптера
+// Adapter error
 class AdapterError extends Error {
   constructor(
     public adapter: string,
@@ -490,7 +490,7 @@ class AdapterError extends Error {
   }
 }
 
-// Ошибка команды
+// Command error
 class CommandError extends Error {
   constructor(
     public command: string,
@@ -501,7 +501,7 @@ class CommandError extends Error {
   }
 }
 
-// Ошибка таймаута
+// Timeout error
 class TimeoutError extends Error {
   constructor(
     public command: string,
@@ -512,10 +512,10 @@ class TimeoutError extends Error {
 }
 ```
 
-### Стратегии обработки
+### Handling Strategies
 
 ```typescript
-// Автоматический retry
+// Automatic retry
 async executeWithRetry(command: Command): Promise<ExecutionResult> {
   let lastError;
   
@@ -531,7 +531,7 @@ async executeWithRetry(command: Command): Promise<ExecutionResult> {
   throw lastError;
 }
 
-// Fallback на другой адаптер
+// Fallback to another adapter
 async executeWithFallback(command: Command): Promise<ExecutionResult> {
   try {
     return await this.primaryAdapter.execute(command);
@@ -541,9 +541,9 @@ async executeWithFallback(command: Command): Promise<ExecutionResult> {
 }
 ```
 
-## Производительность
+## Performance
 
-### Метрики адаптеров
+### Adapter Metrics
 
 ```typescript
 interface AdapterMetrics {
@@ -554,7 +554,7 @@ interface AdapterMetrics {
   cacheHitRate: number;
 }
 
-// Сбор метрик
+// Metric collection
 adapter.on('command:complete', ({ duration }) => {
   metrics.totalExecutions++;
   metrics.averageDuration = 
@@ -563,22 +563,22 @@ adapter.on('command:complete', ({ duration }) => {
 });
 ```
 
-### Оптимизации
+### Optimizations
 
-1. **Кэширование результатов** - для идемпотентных команд
-2. **Пулы соединений** - переиспользование подключений
-3. **Потоковая обработка** - для больших выводов
-4. **Параллельное выполнение** - для независимых команд
-5. **Ленивая загрузка** - создание по требованию
+1. **Result caching** - for idempotent commands
+2. **Connection pools** - connection reuse
+3. **Stream processing** - for large outputs
+4. **Parallel execution** - for independent commands
+5. **Lazy loading** - creation on demand
 
-## Заключение
+## Conclusion
 
-Система адаптеров в Xec обеспечивает:
+The adapter system in Xec provides:
 
-- **Универсальность**: единый API для всех окружений
-- **Расширяемость**: легкое добавление новых адаптеров
-- **Безопасность**: маскирование чувствительных данных
-- **Производительность**: оптимизации для каждого окружения
-- **Надёжность**: обработка ошибок и восстановление
+- **Universality**: unified API for all environments
+- **Extensibility**: easy addition of new adapters
+- **Security**: sensitive data masking
+- **Performance**: optimizations for each environment
+- **Reliability**: error handling and recovery
 
-Адаптеры являются основой для создания мощных инструментов автоматизации, работающих в любых окружениях.
+Adapters are the foundation for creating powerful automation tools that work in any environment.

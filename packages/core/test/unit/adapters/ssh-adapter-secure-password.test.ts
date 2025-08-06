@@ -1,7 +1,7 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { AdapterError } from '../../../src/core/error.js';
-import { SSHAdapter } from '../../../src/adapters/ssh-adapter.js';
+import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { SecurePasswordHandler } from '../../../src/utils/secure-password.js';
 
 describe('SSHAdapter - Secure Password Integration', () => {

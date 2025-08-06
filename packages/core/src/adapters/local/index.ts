@@ -1,15 +1,15 @@
-/// <reference path="../types/globals.d.ts" />
+/// <reference path="../../types/globals.d.ts" />
 
 import { platform } from 'node:os';
 import { Readable } from 'node:stream';
 import { spawn, spawnSync } from 'node:child_process';
 
-import { Command } from '../core/command.js';
-import { StreamHandler } from '../utils/stream.js';
-import { ExecutionResult } from '../core/result.js';
-import { RuntimeDetector } from '../utils/runtime-detect.js';
-import { CommandError, AdapterError } from '../core/error.js';
-import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
+import { Command } from '../../types/command.js';
+import { StreamHandler } from '../../utils/stream.js';
+import { RuntimeDetector } from './runtime-detect.js';
+import { ExecutionResult } from '../../core/result.js';
+import { CommandError, AdapterError } from '../../core/error.js';
+import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 
 export interface LocalAdapterConfig extends BaseAdapterConfig {
   preferBun?: boolean;
@@ -445,7 +445,7 @@ export class LocalAdapter extends BaseAdapter {
 
     // Handle stdio - convert Stream objects to 'pipe' for spawn
     const isStream = (value: any) => value && typeof value === 'object' && typeof value.write === 'function';
-    
+
     options.stdio = [
       command.stdin ? 'pipe' : 'ignore',
       (typeof command.stdout === 'string' ? command.stdout : 'pipe') || 'pipe',

@@ -1,47 +1,14 @@
 import { promisify } from 'node:util';
 import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
-import type { Command } from './command.js';
+import type { Command } from '../types/command.js';
 import type { ExecutionResult } from './result.js';
-import type { ProcessPromise, ExecutionEngine } from './execution-engine.js';
+import type { ExecutionEngine } from './execution-engine.js';
+import type { PipeTarget, PipeOptions, ProcessPromise } from '../types/process.js';
+
+export { PipeTarget, PipeOptions } from '../types/process.js';
 
 const pipelineAsync = promisify(pipeline);
-
-export type PipeTarget = 
-  | string // Command string
-  | Command // Command object
-  | TemplateStringsArray // Template literal
-  | ProcessPromise // Another ProcessPromise
-  | Transform // Node.js Transform stream
-  | Writable // Node.js Writable stream
-  | ((line: string) => void | Promise<void>) // Line processor function
-  | ((result: ExecutionResult) => Command | string | null); // Conditional function
-
-export interface PipeOptions {
-  /**
-   * Whether to throw if previous command failed
-   * @default true
-   */
-  throwOnError?: boolean;
-  
-  /**
-   * Encoding for string operations
-   * @default 'utf8'
-   */
-  encoding?: BufferEncoding;
-  
-  /**
-   * Whether to process line by line for functions
-   * @default true
-   */
-  lineByLine?: boolean;
-  
-  /**
-   * Custom separator for line processing
-   * @default '\n'
-   */
-  lineSeparator?: string;
-}
 
 /**
  * Enhanced pipe implementation for ProcessPromise
@@ -62,14 +29,14 @@ export async function executePipe(
 
   // Wait for source result
   const sourceResult = await source;
-  
+
   // Check for errors
   if (throwOnError && sourceResult.exitCode !== 0) {
     throw new Error(`Previous command failed with exit code ${sourceResult.exitCode}`);
   }
 
   // Handle different target types
-  
+
   // 1. Template literal
   if (Array.isArray(target) && 'raw' in target) {
     const command = interpolateTemplate(target as TemplateStringsArray, ...templateArgs);
@@ -79,7 +46,7 @@ export async function executePipe(
       shell: true
     });
   }
-  
+
   // 2. String command
   if (typeof target === 'string') {
     return engine.execute({
@@ -88,7 +55,7 @@ export async function executePipe(
       shell: true
     });
   }
-  
+
   // 3. Command object
   if (isCommand(target)) {
     return engine.execute({
@@ -96,7 +63,7 @@ export async function executePipe(
       stdin: sourceResult.stdout
     });
   }
-  
+
   // 4. Another ProcessPromise
   if (isProcessPromise(target)) {
     // Chain the promises
@@ -110,45 +77,45 @@ export async function executePipe(
       throw new Error('Invalid ProcessPromise target');
     });
   }
-  
+
   // 5. Transform stream
   if (target instanceof Transform) {
     return pipeToTransform(sourceResult, target, encoding);
   }
-  
+
   // 6. Writable stream
   if (isWritableStream(target)) {
     return pipeToWritable(sourceResult, target as Writable);
   }
-  
+
   // 7. Function (line processor or conditional)
   if (typeof target === 'function') {
     // For line-by-line processing, just process the lines
     if (lineByLine) {
       return processLineByLine(sourceResult, target as (line: string) => void | Promise<void>, lineSeparator);
     }
-    
+
     // Otherwise, try to determine if it's a conditional function
     // Conditional functions take ExecutionResult and return Command|string|null
     try {
       const testResult = await (target as any)(sourceResult);
       if (testResult && (typeof testResult === 'string' || isCommand(testResult))) {
         // It's a conditional function that returned a command
-        const nextCommand = typeof testResult === 'string' 
+        const nextCommand = typeof testResult === 'string'
           ? { command: testResult, shell: true, stdin: sourceResult.stdout }
           : { ...testResult, stdin: sourceResult.stdout };
-          
+
         return engine.execute(nextCommand);
       }
     } catch (e) {
       // If it fails, it might be a line processor expecting a string
     }
-    
+
     // Fallback: treat as whole-text processor
     await (target as (text: string) => void | Promise<void>)(sourceResult.stdout);
     return sourceResult;
   }
-  
+
   throw new Error(`Unsupported pipe target type: ${typeof target}`);
 }
 
@@ -167,7 +134,7 @@ function interpolateTemplate(strings: TemplateStringsArray, ...values: any[]): s
  * Check if object is a Command
  */
 function isCommand(obj: any): obj is Command {
-  return obj && typeof obj === 'object' && 
+  return obj && typeof obj === 'object' &&
     (typeof obj.command === 'string' || Array.isArray(obj.args));
 }
 
@@ -175,7 +142,7 @@ function isCommand(obj: any): obj is Command {
  * Check if object is a ProcessPromise
  */
 function isProcessPromise(obj: any): obj is ProcessPromise {
-  return obj && typeof obj.then === 'function' && 
+  return obj && typeof obj.then === 'function' &&
     typeof obj.pipe === 'function' &&
     typeof obj.nothrow === 'function';
 }
@@ -184,7 +151,7 @@ function isProcessPromise(obj: any): obj is ProcessPromise {
  * Check if object is a Writable stream
  */
 function isWritableStream(obj: any): obj is Writable {
-  return obj && 
+  return obj &&
     typeof obj.write === 'function' &&
     typeof obj.end === 'function' &&
     typeof obj.on === 'function';
@@ -200,7 +167,7 @@ async function pipeToTransform(
 ): Promise<ExecutionResult> {
   const chunks: Buffer[] = [];
   const input = Readable.from(result.stdout);
-  
+
   await pipelineAsync(
     input,
     transform,
@@ -211,7 +178,7 @@ async function pipeToTransform(
       }
     })
   );
-  
+
   const output = Buffer.concat(chunks).toString(encoding);
   return {
     ...result,
@@ -240,13 +207,13 @@ async function processLineByLine(
   separator: string
 ): Promise<ExecutionResult> {
   const lines = result.stdout.split(separator);
-  
+
   for (const line of lines) {
     if (line.length > 0) {
       await processor(line);
     }
   }
-  
+
   return result;
 }
 
@@ -264,7 +231,7 @@ export const pipeUtils = {
       }
     });
   },
-  
+
   /**
    * Create a transform that filters lines
    */
@@ -280,7 +247,7 @@ export const pipeUtils = {
       }
     });
   },
-  
+
   /**
    * Create a transform that replaces text
    */
@@ -293,7 +260,7 @@ export const pipeUtils = {
       }
     });
   },
-  
+
   /**
    * Tee - split output to multiple destinations
    */

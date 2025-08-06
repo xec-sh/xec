@@ -4,15 +4,14 @@ import * as path from 'path';
 import { AdapterError } from './error.js';
 import { stream } from '../utils/stream.js';
 import { ExecutionResult } from './result.js';
-import { CacheOptions } from '../utils/cache.js';
 import { TransferEngine } from '../utils/transfer.js';
+import { SSHAdapter } from '../adapters/ssh/index.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
-import { DockerFluentAPI } from '../utils/docker-fluent-api.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
 import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
-import { SSHAdapter, SSHAdapterConfig } from '../adapters/ssh-adapter.js';
+import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 
@@ -45,102 +44,25 @@ function setupUnhandledRejectionHandler() {
 
 // Set up the handler when this module is loaded
 setupUnhandledRejectionHandler();
-import { type PipeTarget } from './pipe-implementation.js';
-import { DockerContext, DockerContainerConfig } from '../utils/docker-api.js';
-import { LocalAdapter, LocalAdapterConfig } from '../adapters/local-adapter.js';
-import { DockerAdapter, DockerAdapterConfig } from '../adapters/docker-adapter.js';
-import { SSHExecutionContext, createSSHExecutionContext } from '../utils/ssh-api.js';
+import { LocalAdapter } from '../adapters/local/index.js';
+import { DockerAdapter } from '../adapters/docker/index.js';
+import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
+import { RemoteDockerAdapter } from '../adapters/remote-docker/index.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
+import { DockerContext, DockerContainerConfig } from '../adapters/docker/docker-api.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
-import { K8sExecutionContext, createK8sExecutionContext } from '../utils/kubernetes-api.js';
-import { KubernetesAdapter, KubernetesAdapterConfig } from '../adapters/kubernetes-adapter.js';
-import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../adapters/remote-docker-adapter.js';
-import { Command, StreamOption, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from './command.js';
+import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
+import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
+import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from '../types/command.js';
 
+import type { UshEventMap } from '../types/events.js';
 import type { Disposable } from '../types/disposable.js';
-import type { UshEventMap, EventConfig } from '../types/events.js';
+import type { ProcessPromise } from '../types/process.js';
+import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
 
-
-// Docker API types for simplified usage
-export interface DockerEphemeralOptions {
-  image: string;
-  volumes?: string[];
-  env?: Record<string, string>;
-  workdir?: string;
-  user?: string;
-  network?: string;
-  ports?: string[];
-  labels?: Record<string, string>;
-  privileged?: boolean;
-  // autoRemove is always true for ephemeral
-}
-
-export interface DockerPersistentOptions {
-  container: string;
-  workdir?: string;
-  user?: string;
-  env?: Record<string, string>;
-}
-
-export type DockerOptions = DockerEphemeralOptions | DockerPersistentOptions;
-
-export interface ExecutionEngineConfig extends EventConfig {
-  // Global settings
-  defaultTimeout?: number;
-  defaultCwd?: string;
-  defaultEnv?: Record<string, string>;
-  defaultShell?: string | boolean;
-
-  // Adapter settings
-  adapters?: {
-    local?: LocalAdapterConfig;
-    ssh?: SSHAdapterConfig;
-    docker?: DockerAdapterConfig;
-    kubernetes?: KubernetesAdapterConfig;
-    remoteDocker?: RemoteDockerAdapterConfig;
-  };
-
-  // Behavior
-  throwOnNonZeroExit?: boolean;
-  encoding?: BufferEncoding;
-  maxBuffer?: number;
-
-  // Runtime specific settings
-  runtime?: {
-    preferBun?: boolean;
-    bunPath?: string;
-  };
-
-}
-
-export interface ProcessPromise extends Promise<ExecutionResult> {
-  stdin: NodeJS.WritableStream;
-  pipe(target: PipeTarget | TemplateStringsArray, ...args: any[]): ProcessPromise;
-  signal(signal: AbortSignal): ProcessPromise;
-  timeout(ms: number, timeoutSignal?: string): ProcessPromise;
-  quiet(): ProcessPromise;
-  nothrow(): ProcessPromise;
-  kill(signal?: string): void;
-  // Configuration methods
-  cwd(dir: string): ProcessPromise;
-  env(env: Record<string, string>): ProcessPromise;
-  shell(shell: string | boolean): ProcessPromise;
-  // Stream configuration methods
-  interactive(): ProcessPromise;
-  stdout(stream: StreamOption): ProcessPromise;
-  stderr(stream: StreamOption): ProcessPromise;
-  // New methods for zx compatibility
-  text(): Promise<string>;
-  json<T = any>(): Promise<T>;
-  lines(): Promise<string[]>;
-  buffer(): Promise<Buffer>;
-  // Caching
-  cache(options?: CacheOptions): ProcessPromise;
-  // Process-related properties
-  child?: any;
-  exitCode: Promise<number | null>;
-}
+export { ProcessPromise } from '../types/process.js';
+export { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
 
 export class ExecutionEngine extends EnhancedEventEmitter implements Disposable {
   // Core features
@@ -264,8 +186,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     // Initialize local adapter (always available)
     const localConfig = {
       ...this.getBaseAdapterConfig(),
-      ...this._config.adapters?.local,
-      preferBun: this._config.runtime?.preferBun
+      ...this._config.adapters?.local
     };
     this.adapters.set('local', new LocalAdapter(localConfig));
 

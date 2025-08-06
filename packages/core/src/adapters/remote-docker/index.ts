@@ -1,11 +1,11 @@
 import { Readable } from 'node:stream';
 import { Client, ConnectConfig } from 'ssh2';
 
-import { StreamHandler } from '../utils/stream.js';
-import { ExecutionResult } from '../core/result.js';
-import { BaseAdapter, BaseAdapterConfig } from './base-adapter.js';
-import { Command, SSHAdapterOptions, DockerAdapterOptions } from '../core/command.js';
-import { DockerError, AdapterError, TimeoutError, ConnectionError } from '../core/error.js';
+import { StreamHandler } from '../../utils/stream.js';
+import { ExecutionResult } from '../../core/result.js';
+import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
+import { Command, SSHAdapterOptions, DockerAdapterOptions } from '../../types/command.js';
+import { DockerError, AdapterError, TimeoutError, ConnectionError } from '../../core/error.js';
 
 export interface RemoteDockerAdapterOptions {
   type: 'remote-docker';
@@ -53,7 +53,7 @@ export class RemoteDockerAdapter extends BaseAdapter {
         ...config.autoCreate
       }
     };
-            }
+  }
 
   async isAvailable(): Promise<boolean> {
     try {
@@ -78,7 +78,7 @@ export class RemoteDockerAdapter extends BaseAdapter {
 
     try {
       const client = await this.getConnection();
-      
+
       // Check if container exists or needs to be created
       let container = remoteDockerOptions.docker.container;
       if (this.remoteDockerConfig.autoCreate?.enabled) {
@@ -90,11 +90,11 @@ export class RemoteDockerAdapter extends BaseAdapter {
 
       // Build docker exec command
       const dockerCmd = this.buildDockerExecCommand(container, remoteDockerOptions.docker, mergedCommand);
-      
+
       // Execute through SSH
       const result = await this.executeSSHCommand(
-        client, 
-        dockerCmd, 
+        client,
+        dockerCmd,
         mergedCommand.stdin,
         mergedCommand.timeout,
         mergedCommand.signal
@@ -131,7 +131,7 @@ export class RemoteDockerAdapter extends BaseAdapter {
     if (command.adapterOptions?.type === 'remote-docker') {
       return command.adapterOptions as RemoteDockerAdapterOptions;
     }
-    
+
     // Support inline options
     if (command.adapterOptions?.type === 'ssh' && (command.adapterOptions as any).docker) {
       const sshOpts = command.adapterOptions as SSHAdapterOptions;
@@ -243,14 +243,14 @@ export class RemoteDockerAdapter extends BaseAdapter {
     createArgs.push(this.remoteDockerConfig.autoCreate!.image, 'tail', '-f', '/dev/null');
 
     const result = await this.executeSSHCommand(client, createArgs.join(' '));
-    
+
     if (result.exitCode !== 0) {
       throw new DockerError(containerName, 'create', new Error(result.stderr));
     }
 
     this.tempContainers.add(containerName);
     return containerName;
-    }
+  }
 
   private async getConnection(): Promise<Client> {
     // Check if we have an active connection
@@ -296,13 +296,13 @@ export class RemoteDockerAdapter extends BaseAdapter {
       client.once('ready', () => {
         clearTimeout(timeout);
         this.sshClient = client;
-        
+
         resolve(client);
       });
 
       client.once('error', (err) => {
         clearTimeout(timeout);
-        
+
         reject(new ConnectionError(this.remoteDockerConfig.ssh.host, err));
       });
 
@@ -387,7 +387,7 @@ export class RemoteDockerAdapter extends BaseAdapter {
 
         stream.on('close', (code: number, signalName?: string) => {
           cleanup();
-          
+
           const stdout = stdoutHandler.getContent();
           const stderr = stderrHandler.getContent();
           resolve({ stdout, stderr, exitCode: code ?? -1, signal: signalName });
@@ -419,7 +419,7 @@ export class RemoteDockerAdapter extends BaseAdapter {
 
     // Close SSH connection
     if (this.sshClient) {
-      
+
       this.sshClient.end();
       this.sshClient = null;
     }

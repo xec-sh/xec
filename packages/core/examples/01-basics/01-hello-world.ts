@@ -7,7 +7,7 @@
  * in Node.js/TypeScript, inspired by google/zx, but with extended capabilities.
  */
 
-import { $, CommandError } from '@xec-sh/core';
+import { $, CommandError } from '../../src/index.js';
 
 // 1. Simple command execution
 // $ is a global function for executing commands

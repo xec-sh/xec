@@ -1,4 +1,4 @@
-import type { Command } from '../core/command.js';
+import type { Command } from '../types/command.js';
 import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
@@ -56,7 +56,7 @@ export async function parallel(
 
     for (let i = 0; i < settled.length; i++) {
       const result = settled[i];
-      
+
       if (result && result.status === 'fulfilled') {
         results.push(result.value);
         succeeded.push(result.value);
@@ -65,7 +65,7 @@ export async function parallel(
         failed.push(result.reason);
         if (stopOnError) break;
       }
-      
+
       // Call progress callback
       if (onProgress) {
         onProgress(i + 1, commands.length, succeeded.length, failed.length);
@@ -104,7 +104,7 @@ export async function parallel(
           shouldStop = true;
         }
       }
-      
+
       // Call progress callback
       if (onProgress) {
         const completed = succeeded.length + failed.length;
@@ -172,7 +172,7 @@ export class ParallelEngine {
     // Helper to check if an object is a ProcessPromise
     const isProcessPromise = (obj: any): obj is ProcessPromise =>
       obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-    
+
     const promises = commands.map(cmd => {
       if (isProcessPromise(cmd)) {
         return cmd;
@@ -201,7 +201,7 @@ export class ParallelEngine {
     // Helper to check if an object is a ProcessPromise
     const isProcessPromise = (obj: any): obj is ProcessPromise =>
       obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-    
+
     const commandsWithItems = items.map((item, index) => ({
       item,
       command: fn(item, index)
@@ -232,7 +232,7 @@ export class ParallelEngine {
     // Helper to check if an object is a ProcessPromise
     const isProcessPromise = (obj: any): obj is ProcessPromise =>
       obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
-    
+
     const promises = commands.map(cmd => {
       if (isProcessPromise(cmd)) {
         return cmd.then(() => true).catch(() => false);

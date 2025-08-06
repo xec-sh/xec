@@ -356,3 +356,4 @@ The SSH adapter is implemented in:
 - [Port Forwarding](/docs/core/execution-engine/features/port-forwarding)
 - [Error Handling](/docs/core/execution-engine/features/error-handling)
 - [SSH Environment Setup](/docs/environments/ssh/setup)
+- [Secure Sudo Password Handling](/docs/environments/ssh/sudo-security)

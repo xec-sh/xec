@@ -7,8 +7,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach, beforeAll, afterAll } from '@jest/globals';
-import { DockerContainerManager, DOCKER_CONTAINERS } from '@xec-sh/test-utils';
+import { DockerContainerManager } from '@xec-sh/test-utils';
+import { it, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
 import { OnCommand } from '../../src/commands/on.js';
 

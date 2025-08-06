@@ -2,7 +2,7 @@ import { it, jest, expect } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
 
 import { $ } from '../../src/index.js';
-import { SSHAdapter } from '../../src/adapters/ssh-adapter.js';
+import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { SecurePasswordHandler } from '../../src/utils/secure-password.js';
 
 describeSSH('SSH Secure Password Integration Tests', () => {

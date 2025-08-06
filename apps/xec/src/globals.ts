@@ -13,8 +13,6 @@
 import type {
   K8sPod,
   Command,
-  PodConfig,
-  HostConfig,
   PipeTarget,
   Disposable,
   AdapterType,
@@ -24,14 +22,11 @@ import type {
   ErrorContext,
   DockerOptions,
   DockerContext,
-  UnifiedConfig,
-  ProfileConfig,
   ProgressEvent,
   ProcessPromise,
   SSHSudoOptions,
   K8sPortForward,
   ExecutionResult,
-  ContainerConfig,
   ProgressOptions,
   ErrorSuggestion,
   SSHAdapterConfig,
@@ -138,14 +133,6 @@ declare global {
       K8sLogStream,
       K8sPortForward,
       K8sExecutionContext,
-    };
-
-    export type {
-      PodConfig,
-      HostConfig,
-      UnifiedConfig,
-      ProfileConfig,
-      ContainerConfig,
     };
 
     export type {
