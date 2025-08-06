@@ -1,11 +1,13 @@
 import path from 'path';
 import fs from 'fs-extra';
 import chalk from 'chalk';
+import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import * as clack from '@clack/prompts';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
+import { sortConfigKeys, getDefaultConfig } from '../config/defaults.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
 
 interface NewOptions extends CommandOptions {
@@ -27,275 +29,7 @@ type ArtifactType = 'project' | 'script' | 'command' | 'task' | 'profile' | 'ext
 
 // Template registry
 const TEMPLATES = {
-  project: {
-    minimal: {
-      files: {
-        '.xec/config.yaml': `version: "1.0"
-name: {name}
-description: {description}
-
-# Define your targets
-targets:
-  hosts:
-    # example:
-    #   host: example.com
-    #   user: deploy
-
-# Define your tasks
-tasks:
-  hello:
-    description: Example task
-    command: echo "Hello from Xec!"
-`,
-        '.xec/.gitignore': `.env
-.env.*
-cache/
-logs/
-tmp/
-`,
-      }
-    },
-    standard: {
-      files: {
-        '.xec/config.yaml': `version: "1.0"
-name: {name}
-description: {description}
-
-# Variables for reuse
-vars:
-  app_name: {name}
-  deploy_path: /opt/apps/{name}
-  log_level: info
-
-# Define your targets
-targets:
-  # Default settings for all targets
-  defaults:
-    timeout: 30s
-    shell: /bin/bash
-    
-  # SSH hosts
-  hosts:
-    # staging:
-    #   host: staging.example.com
-    #   user: deploy
-    #   privateKey: ~/.ssh/id_rsa
-    
-    # production:
-    #   host: prod.example.com
-    #   user: deploy
-    #   privateKey: ~/.ssh/id_rsa
-
-  # Docker containers
-  containers:
-    # app:
-    #   image: node:18
-    #   volumes:
-    #     - ./:/app
-    #   workdir: /app
-
-  # Kubernetes pods
-  pods:
-    # web:
-    #   namespace: default
-    #   selector: app=web
-
-# Environment profiles
-profiles:
-  development:
-    vars:
-      log_level: debug
-    env:
-      NODE_ENV: development
-      
-  production:
-    vars:
-      log_level: error
-    env:
-      NODE_ENV: production
-
-# Executable tasks
-tasks:
-  # Simple command task
-  hello:
-    description: Say hello
-    command: echo "Hello from {name}!"
-    
-  # Multi-step task
-  deploy:
-    description: Deploy application
-    params:
-      - name: version
-        required: true
-        description: Version to deploy
-    steps:
-      - name: Build application
-        command: npm run build
-        
-      - name: Run tests
-        command: npm test
-        onFailure: abort
-        
-      - name: Deploy to servers
-        targets: [hosts.staging, hosts.production]
-        command: |
-          cd \${vars.deploy_path}
-          git pull origin \${params.version}
-          npm install --production
-          npm run migrate
-          pm2 reload app
-
-  # Scheduled backup task
-  backup:
-    description: Backup database and files
-    schedule: "0 2 * * *"  # 2 AM daily
-    target: hosts.production
-    command: |
-      pg_dump myapp > /backup/db-$(date +%Y%m%d).sql
-      tar -czf /backup/files-$(date +%Y%m%d).tar.gz /app/uploads
-
-# Script configuration
-scripts:
-  env:
-    API_URL: https://api.example.com
-  globals:
-    - lodash
-    - dayjs
-
-# Command defaults
-commands:
-  copy:
-    compress: true
-    progress: true
-  watch:
-    interval: 1000
-    clear: true
-
-# Secrets configuration
-secrets:
-  provider: local
-  config:
-    storageDir: .xec/secrets
-`,
-        '.xec/.gitignore': `.env
-.env.*
-cache/
-logs/
-tmp/
-secrets/
-*.log
-`,
-        '.xec/scripts/example.js': `#!/usr/bin/env xec
-
-/**
- * Example Xec script
- * Run with: xec scripts/example.js
- */
-
-// Use the $ function from @xec-sh/core
-const result = await $\`echo "Hello from Xec!"\`;
-log.success(result.stdout);
-
-// Interactive prompts
-const name = await question({
-  message: 'What is your name?',
-  defaultValue: 'World'
-});
-
-log.info(\`Hello, \${name}!\`);
-
-// Work with files
-const files = await glob('*.js');
-log.step(\`Found \${files.length} JavaScript files\`);
-
-// HTTP requests
-const response = await fetch('https://api.github.com/users/github');
-const data = await response.json();
-log.info(\`GitHub has \${data.public_repos} public repos\`);
-
-// Parallel execution
-const results = await Promise.all([
-  $\`echo "Task 1"\`,
-  $\`echo "Task 2"\`,
-  $\`echo "Task 3"\`
-]);
-
-log.success('All tasks completed!');
-`,
-        '.xec/commands/hello.js': `/**
- * Example dynamic CLI command
- * This will be available as: xec hello [name]
- */
-
-export function command(program) {
-  program
-    .command('hello [name]')
-    .description('Say hello')
-    .option('-u, --uppercase', 'Output in uppercase')
-    .option('-r, --repeat <times>', 'Repeat the message', '1')
-    .action(async (name = 'World', options) => {
-      const { log } = await import('@clack/prompts');
-      
-      let message = \`Hello, \${name}!\`;
-      
-      if (options.uppercase) {
-        message = message.toUpperCase();
-      }
-      
-      const times = parseInt(options.repeat, 10);
-      for (let i = 0; i < times; i++) {
-        log.success(message);
-      }
-    });
-}
-`,
-        '.xec/README.md': `# {name}
-
-{description}
-
-## Getting Started
-
-1. Run example script:
-   \`\`\`bash
-   xec scripts/example.js
-   \`\`\`
-
-2. Try the custom command:
-   \`\`\`bash
-   xec hello YourName
-   \`\`\`
-
-3. Run a task:
-   \`\`\`bash
-   xec tasks:run hello
-   \`\`\`
-
-## Project Structure
-
-- \`.xec/config.yaml\` - Project configuration
-- \`.xec/scripts/\` - Xec scripts
-- \`.xec/commands/\` - Custom CLI commands
-- \`.xec/cache/\` - Cache directory
-- \`.xec/logs/\` - Log files
-
-## Configuration
-
-Edit \`.xec/config.yaml\` to:
-- Add SSH hosts, Docker containers, or Kubernetes pods
-- Define reusable tasks
-- Set up environment profiles
-- Configure secrets management
-
-## Learn More
-
-- [Xec Documentation](https://xec.sh/docs)
-- [Configuration Reference](https://xec.sh/docs/config)
-- [Task System](https://xec.sh/docs/tasks)
-`,
-      }
-    }
-  },
-
+  // project templates removed - now using getDefaultConfig() instead
   script: {
     basic: {
       js: `#!/usr/bin/env xec
@@ -330,6 +64,7 @@ if (answer.toLowerCase() === 'yes') {
 }
 `,
       ts: `#!/usr/bin/env xec
+/// <reference path="{globalsPath}" />
 
 /**
  * {description}
@@ -473,6 +208,7 @@ async function cleanup() {
 }
 `,
       ts: `#!/usr/bin/env xec
+/// <reference path="{globalsPath}" />
 
 /**
  * {description}
@@ -678,15 +414,16 @@ export function command(program) {
         log.step(\`Arguments: \${args.join(', ') || 'none'}\`);
       }
       
-      // Example: Use $ from @xec-sh/core
-      const { $ } = await import('@xec-sh/core');
+      // Example: Use $ from @xec-sh/cli
       const result = await $\`echo "Command {name} executed successfully!"\`;
       
       log.success(result.stdout);
     });
 }
 `,
-      ts: `/**
+      ts: `/// <reference path="{globalsPath}" />
+
+/**
  * {description}
  * 
  * This command will be available as: xec {name} [arguments]
@@ -876,7 +613,9 @@ async function deleteItem(name) {
   await $\`echo "Deleting item: \${name}"\`;
 }
 `,
-      ts: `/**
+      ts: `/// <reference path="{globalsPath}" />
+
+/**
  * {description}
  * 
  * This command will be available as: xec {name} <action> [options]
@@ -1366,7 +1105,7 @@ tasks:
           fi
       
       - name: Execute main logic
-        script: ./scripts/{name}-main.js
+        script: ./scripts/{name}-main.ts
         env:
           MODE: \${params.mode}
       
@@ -1428,8 +1167,8 @@ config:
 
 # Scripts included with the extension
 scripts:
-  - scripts/{name}-main.js
-  - scripts/{name}-utils.js
+  - scripts/{name}-main.ts
+  - scripts/{name}-utils.ts
 
 # Documentation
 docs:
@@ -1543,30 +1282,272 @@ async function createProject(name: string, options: NewOptions) {
   const spinner = clack.spinner();
   spinner.start('Creating project structure...');
 
-  // Select template
-  const template = options.minimal ? TEMPLATES.project.minimal : TEMPLATES.project.standard;
+  // Get absolute path to globals.d.ts
+  const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
 
-  // Create all files
-  for (const [filePath, content] of Object.entries(template.files)) {
-    const fullPath = path.join(targetDir, filePath);
-    await fs.ensureDir(path.dirname(fullPath));
+  // Generate configuration from defaults
+  const defaultConfig = getDefaultConfig();
+  const config = {
+    ...defaultConfig,
+    name: path.basename(name),
+    description: projectDescription || 'An Xec automation project'
+  };
 
-    const processedContent = content
-      .replace(/{name}/g, path.basename(name))
-      .replace(/{description}/g, String(projectDescription || ''));
+  // For minimal projects, keep only essential fields
+  if (options.minimal) {
+    const minimalConfig = {
+      version: config.version,
+      name: config.name,
+      description: config.description,
+      targets: {
+        local: config.targets?.local || { type: 'local' },
+        hosts: {},
+        containers: {},
+        pods: {}
+      },
+      tasks: {
+        hello: {
+          description: 'Example task',
+          command: 'echo "Hello from Xec!"'
+        }
+      }
+    };
+    // Sort and save minimal config
+    const sortedConfig = sortConfigKeys(minimalConfig);
+    const configPath = path.join(xecDir, 'config.yaml');
+    await fs.ensureDir(path.dirname(configPath));
+    await fs.writeFile(configPath, yaml.dump(sortedConfig, { indent: 2, lineWidth: -1 }));
+  } else {
+    // For standard projects, use full default config with some example content
+    config.vars = {
+      app_name: config.name,
+      deploy_path: `/opt/apps/${config.name}`,
+      log_level: 'info'
+    };
 
-    await fs.writeFile(fullPath, processedContent);
+    // Add example tasks
+    config.tasks = {
+      hello: {
+        description: 'Say hello',
+        command: `echo "Hello from ${config.name}!"`
+      },
+      deploy: {
+        description: 'Deploy application',
+        params: [
+          {
+            name: 'version',
+            required: true,
+            description: 'Version to deploy'
+          }
+        ],
+        steps: [
+          {
+            name: 'Build application',
+            command: 'npm run build'
+          },
+          {
+            name: 'Run tests',
+            command: 'npm test',
+            onFailure: 'abort'
+          },
+          {
+            name: 'Deploy to servers',
+            targets: ['hosts.staging', 'hosts.production'],
+            command: `cd \${vars.deploy_path}
+git pull origin \${params.version}
+npm install --production
+npm run migrate
+pm2 reload app`
+          }
+        ]
+      },
+      backup: {
+        description: 'Backup database and files',
+        schedule: '0 2 * * *',
+        target: 'hosts.production',
+        command: `pg_dump myapp > /backup/db-$(date +%Y%m%d).sql
+tar -czf /backup/files-$(date +%Y%m%d).tar.gz /app/uploads`
+      }
+    };
 
-    // Make scripts executable
-    if (filePath.includes('/scripts/') && filePath.endsWith('.js')) {
-      await fs.chmod(fullPath, '755');
-    }
+    // Add profiles
+    (config as any).profiles = {
+      development: {
+        vars: {
+          log_level: 'debug'
+        },
+        env: {
+          NODE_ENV: 'development'
+        }
+      },
+      production: {
+        vars: {
+          log_level: 'error'
+        },
+        env: {
+          NODE_ENV: 'production'
+        }
+      }
+    };
+
+    // Add example comments in the hosts section
+    if (!config.targets) config.targets = {};
+    config.targets.hosts = {
+      '# staging': {
+        '#   host': 'staging.example.com',
+        '#   user': 'deploy',
+        '#   privateKey': '~/.ssh/id_rsa'
+      },
+      '# production': {
+        '#   host': 'prod.example.com',
+        '#   user': 'deploy',
+        '#   privateKey': '~/.ssh/id_rsa'
+      }
+    };
+
+    if (!config.targets) config.targets = {};
+    config.targets.containers = {
+      '# app': {
+        '#   image': 'node:18',
+        '#   volumes': ['./:/app'],
+        '#   workdir': '/app'
+      }
+    };
+
+    if (!config.targets) config.targets = {};
+    config.targets.pods = {
+      '# web': {
+        '#   namespace': 'default',
+        '#   selector': 'app=web'
+      }
+    };
+
+    // Sort and save config
+    const sortedConfig = sortConfigKeys(config);
+    const configPath = path.join(xecDir, 'config.yaml');
+    await fs.ensureDir(path.dirname(configPath));
+
+    // Convert to YAML and add comments manually
+    let yamlContent = yaml.dump(sortedConfig, { indent: 2, lineWidth: -1 });
+
+    // Fix comment formatting
+    yamlContent = yamlContent.replace(/ {2}'# /g, '  # ');
+    yamlContent = yamlContent.replace(/'# {3}/g, '  #   ');
+    yamlContent = yamlContent.replace(/: {}/g, '');
+
+    await fs.writeFile(configPath, yamlContent);
+  }
+
+  // Create .gitignore
+  const gitignoreContent = `.env
+.env.*
+cache/
+logs/
+tmp/
+secrets/
+*.log
+`;
+  await fs.writeFile(path.join(xecDir, '.gitignore'), gitignoreContent);
+
+  // Create example script for non-minimal projects
+  if (!options.minimal) {
+    const scriptsDir = path.join(xecDir, 'scripts');
+    await fs.ensureDir(scriptsDir);
+
+    const exampleScript = `#!/usr/bin/env xec
+/// <reference path="${globalsPath}" />
+
+/**
+ * Example Xec script
+ * Run with: xec scripts/example.ts
+ */
+
+// Use the $ function from @xec-sh/core
+const result = await $\`echo "Hello from Xec!"\`;
+log.success(result.stdout);
+
+// Interactive prompts
+const name = await prompt('What is your name?');
+log.info(\`Hello, \${name}!\`);
+
+// Work with targets
+const hosts = config.targets.hosts || {};
+log.info(\`Found \${Object.keys(hosts).length} hosts\`);
+
+// Use helper functions
+await sleep(1000);
+log.info('Done!');
+`;
+    const exampleScriptPath = path.join(scriptsDir, 'example.ts');
+    await fs.writeFile(exampleScriptPath, exampleScript);
+    await fs.chmod(exampleScriptPath, '755');
+
+    // Create README.md
+    const readmeContent = `# ${config.name}
+
+${config.description}
+
+## Getting Started
+
+1. Install Xec CLI globally:
+   \`\`\`bash
+   npm install -g @xec-sh/cli
+   \`\`\`
+
+2. Explore the project:
+   \`\`\`bash
+   xec inspect
+   \`\`\`
+
+3. Run the example task:
+   \`\`\`bash
+   xec tasks:run hello
+   \`\`\`
+
+## Project Structure
+
+- \`.xec/config.yaml\` - Project configuration
+- \`.xec/scripts/\` - Xec TypeScript scripts
+- \`.xec/commands/\` - Custom CLI commands
+- \`.xec/cache/\` - Cache directory
+- \`.xec/logs/\` - Log files
+
+## Configuration
+
+Edit \`.xec/config.yaml\` to:
+- Add SSH hosts, Docker containers, or Kubernetes pods
+- Define reusable tasks
+- Set up environment profiles
+- Configure secrets management
+
+## Learn More
+
+- [Xec Documentation](https://xec.sh/docs)
+- [Configuration Reference](https://xec.sh/docs/config)
+- [Task System](https://xec.sh/docs/tasks)
+`;
+    await fs.writeFile(path.join(targetDir, 'README.md'), readmeContent);
   }
 
   // Create additional directories
-  const dirs = ['.xec/cache', '.xec/logs', '.xec/tmp'];
+  const dirs = ['cache', 'logs', 'tmp'];
   for (const dir of dirs) {
-    await fs.ensureDir(path.join(targetDir, dir));
+    await fs.ensureDir(path.join(xecDir, dir));
+  }
+
+  // Create package.json for non-minimal projects
+  if (!options.minimal) {
+    const packageJsonPath = path.join(targetDir, 'package.json');
+    const packageJson = {
+      name: path.basename(name),
+      description: projectDescription || '',
+      type: 'module',
+      devDependencies: {
+        'commander': '^14.0.0'
+      }
+    };
+
+    await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   }
 
   spinner.stop('Project structure created');
@@ -1606,7 +1587,7 @@ async function createProject(name: string, options: NewOptions) {
   clack.log.info('\nNext steps:');
   clack.log.info(`  ${chalk.cyan('cd')} ${name}`);
   if (!options.minimal) {
-    clack.log.info(`  ${chalk.cyan('xec')} scripts/example.js`);
+    clack.log.info(`  ${chalk.cyan('xec')} scripts/example.ts`);
     clack.log.info(`  ${chalk.cyan('xec')} hello World`);
     clack.log.info(`  ${chalk.cyan('xec')} tasks:run hello`);
   }
@@ -1673,11 +1654,15 @@ async function createScript(name: string, options: NewOptions) {
   const templateKey = options.advanced ? 'advanced' : 'basic';
   const template = TEMPLATES.script[templateKey][isJs ? 'js' : 'ts'];
 
+  // Get absolute path to globals.d.ts
+  const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
+
   // Process template
   const content = template
     .replace(/{name}/g, path.basename(name, ext))
     .replace(/{description}/g, String(scriptDescription || ''))
-    .replace(/{filepath}/g, path.relative(process.cwd(), filePath));
+    .replace(/{filepath}/g, path.relative(process.cwd(), filePath))
+    .replace(/{globalsPath}/g, globalsPath);
 
   // Write file
   await fs.ensureDir(path.dirname(filePath));
@@ -1751,10 +1736,14 @@ async function createCommand(name: string, options: NewOptions) {
   const templateKey = options.advanced ? 'advanced' : 'basic';
   const template = TEMPLATES.command[templateKey][isJs ? 'js' : 'ts'];
 
+  // Get absolute path to globals.d.ts
+  const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
+
   // Process template
   const content = template
     .replace(/{name}/g, name)
-    .replace(/{description}/g, String(commandDescription || ''));
+    .replace(/{description}/g, String(commandDescription || ''))
+    .replace(/{globalsPath}/g, globalsPath);
 
   // Write file
   await fs.ensureDir(path.dirname(filePath));
@@ -1982,9 +1971,12 @@ async function createExtension(name: string, options: NewOptions) {
   if (options.advanced) {
     // Scripts directory
     await fs.ensureDir(path.join(targetDir, 'scripts'));
+    const mainScriptPath = path.join(targetDir, 'scripts', `${name}-main.ts`);
     await fs.writeFile(
-      path.join(targetDir, 'scripts', `${name}-main.js`),
+      mainScriptPath,
       `#!/usr/bin/env node
+/// <reference path="${path.resolve(import.meta.dirname, '../../../globals.d.ts')}" />
+
 // Main script for ${name} extension
 
 const mode = process.env.MODE || 'normal';
@@ -1993,12 +1985,15 @@ console.log(\`Running ${name} in \${mode} mode...\`);
 // Your extension logic here
 `
     );
+    await fs.chmod(mainScriptPath, '755');
 
     await fs.writeFile(
-      path.join(targetDir, 'scripts', `${name}-utils.js`),
-      `// Utility functions for ${name} extension
+      path.join(targetDir, 'scripts', `${name}-utils.ts`),
+      `/// <reference path="${path.resolve(import.meta.dirname, '../../../globals.d.ts')}" />
 
-export function helper() {
+// Utility functions for ${name} extension
+
+export function helper(): string {
   return 'Helper function';
 }
 `

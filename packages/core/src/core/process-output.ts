@@ -1,4 +1,5 @@
 import { TextDecoder } from 'util';
+
 import type { ProcessOutputOptions } from '../types/process.js';
 
 export { ProcessOutputOptions } from '../types/process.js';

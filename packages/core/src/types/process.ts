@@ -1,6 +1,7 @@
+import type { Writable, Transform } from 'node:stream';
+
 import type { ExecutionResult } from './result.js';
-import type { StreamOption, Command } from './command.js';
-import type { Transform, Writable } from 'node:stream';
+import type { Command, StreamOption } from './command.js';
 
 /**
  * Options for creating ProcessOutput instances

@@ -1,13 +1,13 @@
 import { it, expect, describe } from '@jest/globals';
 
-import { CommandError, TimeoutError, ConnectionError } from '../../../src/core/error.js';
+import { CommandError, TimeoutError, ConnectionError } from '@xec-sh/core';
 import {
   enhanceError,
   EnhancedCommandError,
   EnhancedTimeoutError,
   EnhancedExecutionError,
   EnhancedConnectionError
-} from '../../../src/core/enhanced-error.js';
+} from '../../src/utils/enhanced-error.js';
 
 describe('Enhanced Error System', () => {
   describe('EnhancedExecutionError', () => {

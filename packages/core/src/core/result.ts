@@ -1,4 +1,5 @@
 import { CommandError } from './error.js';
+
 import type { ExecutionResult } from '../types/result.js';
 
 export { ExecutionResult } from '../types/result.js';

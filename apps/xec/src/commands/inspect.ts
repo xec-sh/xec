@@ -30,7 +30,7 @@ interface InspectOptions extends CommandOptions {
   profile?: string;
 }
 
-type InspectType = 'all' | 'tasks' | 'targets' | 'vars' | 'scripts' | 'commands' | 'config' | 'system' | 'cache';
+type InspectType = 'all' | 'tasks' | 'targets' | 'vars' | 'scripts' | 'commands' | 'system' | 'cache';
 
 interface InspectionResult {
   type: string;
@@ -203,10 +203,6 @@ class ProjectInspector {
       results.push(...await this.inspectCommands(name));
     }
 
-    if (inspectType === 'config') {
-      results.push(...await this.inspectConfig(name));
-    }
-
     if (inspectType === 'all' || inspectType === 'system') {
       results.push(...await this.inspectSystem(name));
     }
@@ -234,7 +230,6 @@ class ProjectInspector {
           { value: 'vars', label: '📝 Variables - Configuration variables' },
           { value: 'scripts', label: '📜 Scripts - JavaScript/TypeScript files' },
           { value: 'commands', label: '⌘  Commands - Dynamic and built-in CLI commands' },
-          { value: 'config', label: '⚙️  Configuration - Full configuration tree' },
           { value: 'system', label: '💻 System - Version and environment information' },
           { value: 'cache', label: '📦 Cache - Module cache information' },
           { value: 'validate', label: '✅ Validate - Check configuration and connectivity' },
@@ -408,7 +403,7 @@ class ProjectInspector {
 
   private async inspectCommands(name?: string): Promise<InspectionResult[]> {
     const results: InspectionResult[] = [];
-    
+
     // Use unified command discovery
     const allCommands = await discoverAllCommands();
 
@@ -435,33 +430,6 @@ class ProjectInspector {
     return results;
   }
 
-  private async inspectConfig(path?: string): Promise<InspectionResult[]> {
-    const config = this.configManager.getConfig();
-
-    if (path) {
-      // Get specific path
-      const value = this.configManager.get(path);
-      return [{
-        type: 'config',
-        name: path,
-        data: value,
-        metadata: {
-          path,
-          exists: value !== undefined,
-        },
-      }];
-    }
-
-    // Return full config
-    return [{
-      type: 'config',
-      name: 'Full Configuration',
-      data: config,
-      metadata: {
-        profile: this.configManager.getCurrentProfile(),
-      },
-    }];
-  }
 
   private async inspectCache(action?: string): Promise<InspectionResult[]> {
     const results: InspectionResult[] = [];
@@ -510,8 +478,8 @@ class ProjectInspector {
     const require = createRequire(import.meta.url);
 
     // Version Information
-    if (!category || category === 'version') {
-      const versionData: any = {
+    if (!category || category === 'runtime') {
+      const runtimeData: any = {
         xec: {},
         node: {},
         system: {},
@@ -522,11 +490,12 @@ class ProjectInspector {
         const { readFileSync } = await import('fs');
         const { join } = await import('path');
         const cliPkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
-        versionData.xec.cli = cliPkg.version;
-        versionData.xec.name = cliPkg.name;
-        versionData.xec.description = cliPkg.description;
+        runtimeData.xec.cli = cliPkg.version;
+        runtimeData.xec.name = cliPkg.name;
+        runtimeData.xec.description = cliPkg.description;
+        runtimeData.xec.path = join(__dirname, '../../bin/xec');
       } catch (e) {
-        versionData.xec.cli = 'unknown';
+        runtimeData.xec.cli = 'unknown';
       }
 
       // Get Core version
@@ -534,23 +503,29 @@ class ProjectInspector {
         const corePath = path.dirname(require.resolve('@xec-sh/core'));
         const corePkgPath = path.join(corePath, '../package.json');
         const corePkg = JSON.parse(await fs.readFile(corePkgPath, 'utf-8'));
-        versionData.xec.core = corePkg.version;
+        runtimeData.xec.core = corePkg.version;
       } catch {
-        versionData.xec.core = 'not installed';
+        runtimeData.xec.core = 'not installed';
       }
 
-      // Node.js version
-      versionData.node.version = process.version;
-      versionData.node.modules = process.versions.modules;
-      versionData.node.v8 = process.versions.v8;
-      versionData.node.openssl = process.versions.openssl;
+      try {
+        runtimeData.node.path = (await (process.platform === 'win32'
+          ? $`where node`
+          : $`which node`).lines())[0];
+      } catch {
+        runtimeData.node.path = 'not found';
+      }
+      runtimeData.node.version = process.version;
+      runtimeData.node.modules = process.versions.modules;
+      runtimeData.node.v8 = process.versions.v8;
+      runtimeData.node.openssl = process.versions.openssl;
 
       results.push({
         type: 'system',
-        name: 'version',
-        data: versionData,
+        name: 'runtime',
+        data: runtimeData,
         metadata: {
-          category: 'version',
+          category: 'runtime',
         },
       });
     }
@@ -850,7 +825,6 @@ class ProjectInspector {
       case 'vars': return this.inspectVariables();
       case 'scripts': return this.inspectScripts();
       case 'commands': return this.inspectCommands();
-      case 'config': return this.inspectConfig();
       case 'system': return this.inspectSystem();
       case 'cache': return this.inspectCache();
       default: return [];
@@ -988,14 +962,16 @@ class ProjectInspector {
     const data = result.data;
 
     switch (result.name) {
-      case 'version':
+      case 'runtime':
         console.log(chalk.bold('Xec:'));
+        console.log(`  ${chalk.cyan('Path:')} ${data.xec.path}`);
         console.log(`  ${chalk.cyan('CLI:')} ${data.xec.cli}`);
         console.log(`  ${chalk.cyan('Core:')} ${data.xec.core}`);
         console.log(`  ${chalk.cyan('Name:')} ${data.xec.name}`);
         console.log(`  ${chalk.cyan('Description:')} ${data.xec.description}`);
 
         console.log(chalk.bold('\nNode.js:'));
+        console.log(`  ${chalk.cyan('Path:')} ${data.node.path}`);
         console.log(`  ${chalk.cyan('Version:')} ${data.node.version}`);
         console.log(`  ${chalk.cyan('V8:')} ${data.node.v8}`);
         console.log(`  ${chalk.cyan('OpenSSL:')} ${data.node.openssl}`);
@@ -1683,7 +1659,6 @@ class ProjectInspector {
       variable: '📝',
       script: '📜',
       command: '⌘',
-      config: '⚙️',
       system: '💻',
       cache: '📦',
     };

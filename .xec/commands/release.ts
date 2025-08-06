@@ -1,4 +1,4 @@
-/// <reference path="../xec-globals.d.ts" />
+/// <reference path="../../apps/xec/globals.d.ts" />
 
 import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';

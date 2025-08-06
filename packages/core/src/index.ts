@@ -256,13 +256,6 @@ export {
   ConnectionError,
   KubernetesError
 } from './core/error.js';
-export {
-  enhanceError,
-  EnhancedCommandError,
-  EnhancedTimeoutError,
-  EnhancedExecutionError,
-  EnhancedConnectionError
-} from './core/enhanced-error.js';
 export type { EventFilter } from './types/events.js';
 export type { PipeTarget } from './types/process.js';
 

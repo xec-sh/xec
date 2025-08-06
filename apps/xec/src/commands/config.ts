@@ -1984,13 +1984,14 @@ export class ConfigCommand extends BaseCommand {
 
     let config = await this.configManager.load();
     const recommendations: string[] = [];
+    const defaultConfig = getDefaultConfig();
 
     // Check for basic configuration
     if (!config.name) {
       recommendations.push('Set project name');
       config.name = await clack.text({
         message: 'Project name',
-        placeholder: 'my-project',
+        placeholder: defaultConfig.name || 'my-project',
       }) as string;
       if (clack.isCancel(config.name)) return;
     }
@@ -1999,7 +2000,7 @@ export class ConfigCommand extends BaseCommand {
       recommendations.push('Add project description');
       config.description = await clack.text({
         message: 'Project description',
-        placeholder: 'Describe your project',
+        placeholder: defaultConfig.description || 'Describe your project',
       }) as string;
       if (clack.isCancel(config.description)) delete config.description;
     }
@@ -2008,69 +2009,61 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets) config.targets = {};
     if (!config.targets.defaults) config.targets.defaults = {};
 
-    // Add SSH defaults
+    // Add SSH defaults from defaultConfig
     if (!config.targets.defaults.ssh) {
-      config.targets.defaults.ssh = {
-        port: 22,
-        keepAlive: true,
-        keepAliveInterval: 30000,
-      };
+      config.targets.defaults.ssh = defaultConfig.targets?.defaults?.ssh;
       recommendations.push('Added SSH defaults');
     }
 
-    // Add Docker defaults
+    // Add Docker defaults from defaultConfig
     if (!config.targets.defaults.docker) {
-      config.targets.defaults.docker = {
-        workdir: '/app',
-        tty: true,
-      };
+      config.targets.defaults.docker = defaultConfig.targets?.defaults?.docker;
       recommendations.push('Added Docker defaults');
     }
 
-    // Add K8s defaults
+    // Add K8s defaults from defaultConfig
     if (!config.targets.defaults.kubernetes) {
-      config.targets.defaults.kubernetes = {
-        namespace: 'default',
-      };
+      config.targets.defaults.kubernetes = defaultConfig.targets?.defaults?.kubernetes;
       recommendations.push('Added Kubernetes defaults');
     }
 
-    // Add command defaults
+    // Add command defaults from defaultConfig
     if (!config.commands) config.commands = {};
 
     if (!config.commands['exec']) {
-      config.commands['exec'] = {
-        shell: '/bin/sh',
-        tty: true,
-      };
+      config.commands['exec'] = defaultConfig.commands?.exec || {};
       recommendations.push('Added exec command defaults');
     }
 
     if (!config.commands['logs']) {
-      config.commands['logs'] = {
-        tail: '50',
-        timestamps: false,
-        follow: false,
-        prefix: false,
-      };
+      config.commands['logs'] = defaultConfig.commands?.logs || {};
       recommendations.push('Added logs command defaults');
     }
 
     if (!config.commands['cp']) {
-      config.commands['cp'] = {
-        recursive: true,
-        preserveMode: true,
-        preserveTimestamps: false,
-      };
+      config.commands['cp'] = defaultConfig.commands?.cp || {};
       recommendations.push('Added cp command defaults');
+    }
+
+    if (!config.commands['sync']) {
+      config.commands['sync'] = defaultConfig.commands?.sync || {};
+      recommendations.push('Added sync command defaults');
+    }
+
+    // Add secrets configuration if missing
+    if (!config.secrets && defaultConfig.secrets) {
+      config.secrets = {
+        provider: defaultConfig.secrets.provider as 'local' | 'vault' | '1password' | 'aws-secrets' | 'env' | 'dotenv',
+        config: defaultConfig.secrets.path ? { path: defaultConfig.secrets.path } : undefined
+      };
+      recommendations.push('Added secrets configuration');
     }
 
     if (options?.defaults) {
       // Write all default values to the configuration file
       clack.log.info('📋 Adding all default values to configuration...');
-      config = mergeWithDefaults(config, getDefaultConfig());
+      config = mergeWithDefaults(config, defaultConfig);
     }
-    // Note: environment configuration can be added as needed
 
     // Sort configuration keys before saving
     config = sortConfigKeys(config);

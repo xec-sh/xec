@@ -1,7 +1,8 @@
-import { ExecutionError } from './error.js';
-import type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '../types/error.js';
+import { ExecutionError } from '@xec-sh/core';
 
-export { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '../types/error.js';
+import type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '@xec-sh/core';
+
+export type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails };
 
 /**
  * Enhanced error class with suggestions and detailed context
