@@ -1,69 +1,69 @@
 ---
 title: LocalAdapter
-sidebar_label: Локальный адаптер
-description: Выполнение команд в локальной системе через child_process
+sidebar_label: Local Adapter
+description: Command execution in local system through child_process
 ---
 
-# LocalAdapter - Локальное выполнение
+# LocalAdapter - Local Execution
 
-LocalAdapter обеспечивает выполнение команд в локальной системе через Node.js child_process API. Это базовый и наиболее производительный адаптер.
+LocalAdapter provides command execution in the local system through Node.js child_process API. This is the basic and most performant adapter.
 
-## Основные возможности
+## Core Features
 
-- ✅ Прямое выполнение через spawn/spawnSync
-- ✅ Поддержка Bun runtime
-- ✅ Синхронное и асинхронное выполнение
-- ✅ Потоковая обработка вывода
-- ✅ Полный контроль над процессами
-- ✅ Минимальные накладные расходы
+- ✅ Direct execution through spawn/spawnSync
+- ✅ Bun runtime support
+- ✅ Synchronous and asynchronous execution
+- ✅ Stream output processing
+- ✅ Full process control
+- ✅ Minimal overhead
 
-## Использование
+## Usage
 
-### Базовое выполнение
+### Basic Execution
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// По умолчанию используется LocalAdapter
+// LocalAdapter is used by default
 await $`ls -la`;
 
-// Явное указание
+// Explicit specification
 const local = $.local();
 await local`pwd`;
 ```
 
-### Конфигурация
+### Configuration
 
 ```typescript
 const $ = new ExecutionEngine({
   adapters: {
     local: {
-      preferBun: true,          // Предпочитать Bun runtime
+      preferBun: true,          // Prefer Bun runtime
       uid: 1000,                // Unix user ID
       gid: 1000,                // Unix group ID
-      killSignal: 'SIGTERM',    // Сигнал для завершения
-      defaultShell: '/bin/bash' // Shell по умолчанию
+      killSignal: 'SIGTERM',    // Signal for termination
+      defaultShell: '/bin/bash' // Default shell
     }
   }
 });
 ```
 
-## Режимы выполнения
+## Execution Modes
 
-### Shell режим
+### Shell Mode
 
 ```typescript
-// Автоматический shell (true)
+// Automatic shell (true)
 await $`echo $HOME && ls *.txt`;
 
-// Конкретный shell
+// Specific shell
 await $`echo $0`.shell('/bin/zsh');
 
-// Без shell (false) - безопаснее
+// Without shell (false) - safer
 await $`ls`.shell(false);
 ```
 
-### Синхронное выполнение
+### Synchronous Execution
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
@@ -71,7 +71,7 @@ import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine();
 const adapter = $.getAdapter('local');
 
-// Синхронное выполнение (блокирует event loop)
+// Synchronous execution (blocks event loop)
 const result = adapter.executeSync({
   command: 'ls',
   args: ['-la'],
@@ -81,19 +81,19 @@ const result = adapter.executeSync({
 console.log(result.stdout);
 ```
 
-## Управление процессами
+## Process Management
 
-### Сигналы и завершение
+### Signals and Termination
 
 ```typescript
-// Graceful shutdown с таймаутом
+// Graceful shutdown with timeout
 const server = $`node server.js`;
 
 setTimeout(() => {
-  server.kill('SIGTERM');  // Мягкое завершение
+  server.kill('SIGTERM');  // Graceful termination
   
   setTimeout(() => {
-    server.kill('SIGKILL'); // Принудительное
+    server.kill('SIGKILL'); // Force termination
   }, 5000);
 }, 30000);
 
@@ -107,7 +107,7 @@ const controller = new AbortController();
 
 const longTask = $`sleep 100`.signal(controller.signal);
 
-// Отмена через 5 секунд
+// Cancel after 5 seconds
 setTimeout(() => controller.abort(), 5000);
 
 try {
@@ -117,12 +117,12 @@ try {
 }
 ```
 
-## Работа с потоками
+## Stream Handling
 
 ### Stdin
 
 ```typescript
-// Строка
+// String
 await $`cat`.stdin('Hello, World!');
 
 // Buffer
@@ -138,59 +138,59 @@ await $`sort`.stdin(stream);
 ### Stdout/Stderr
 
 ```typescript
-// Перенаправление в файл
+// Redirect to file
 import { createWriteStream } from 'fs';
 const output = createWriteStream('output.txt');
 await $`ls -la`.stdout(output);
 
-// Inherit - вывод в консоль
+// Inherit - output to console
 await $`npm install`.stdout('inherit').stderr('inherit');
 
-// Ignore - игнорировать вывод
+// Ignore - ignore output
 await $`noisy-command`.stdout('ignore');
 
-// Pipe - по умолчанию, собирает вывод
+// Pipe - default, collects output
 const result = await $`echo test`.stdout('pipe');
 console.log(result.stdout); // 'test\n'
 ```
 
-## Окружение и контекст
+## Environment and Context
 
-### Рабочая директория
+### Working Directory
 
 ```typescript
-// Изменение директории
-await $`pwd`.cwd('/tmp');  // Выведет: /tmp
+// Change directory
+await $`pwd`.cwd('/tmp');  // Output: /tmp
 
-// Цепочка с cd
+// Chain with cd
 const project = $.cd('/projects/my-app');
 await project`npm install`;
 await project`npm test`;
 ```
 
-### Переменные окружения
+### Environment Variables
 
 ```typescript
-// Добавление переменных
+// Add variables
 await $`node app.js`.env({
   NODE_ENV: 'production',
   PORT: '3000'
 });
 
-// Слияние с существующими
+// Merge with existing
 const withEnv = $.env({ API_KEY: 'secret' });
 await withEnv`curl $API_URL`;
 
-// Очистка окружения
-await $`printenv`.env({});  // Пустое окружение
+// Clear environment
+await $`printenv`.env({});  // Empty environment
 ```
 
-## Обработка ошибок
+## Error Handling
 
-### Exit коды
+### Exit Codes
 
 ```typescript
-// По умолчанию бросает исключение при exitCode !== 0
+// By default throws exception when exitCode !== 0
 try {
   await $`exit 1`;
 } catch (error) {
@@ -198,99 +198,99 @@ try {
   console.log('Stderr:', error.stderr);
 }
 
-// Отключение исключений
+// Disable exceptions
 const result = await $`exit 1`.nothrow();
 if (result.exitCode !== 0) {
   console.log('Command failed');
 }
 ```
 
-### Таймауты
+### Timeouts
 
 ```typescript
-// Таймаут выполнения
+// Execution timeout
 try {
-  await $`sleep 100`.timeout(1000);  // 1 секунда
+  await $`sleep 100`.timeout(1000);  // 1 second
 } catch (error) {
   console.log('Command timed out');
 }
 
-// С custom сигналом
+// With custom signal
 await $`server`.timeout(5000, 'SIGINT');
 ```
 
-## Интерактивный режим
+## Interactive Mode
 
 ```typescript
-// Полностью интерактивный
+// Fully interactive
 await $`npm init`.interactive();
 
-// Частично интерактивный
+// Partially interactive
 await $`ssh user@host`
   .stdin(process.stdin)
   .stdout('inherit')
   .stderr('inherit');
 ```
 
-## Bun runtime поддержка
+## Bun Runtime Support
 
 ```typescript
 const $ = new ExecutionEngine({
   adapters: {
     local: {
-      preferBun: true,  // Использовать Bun если доступен
-      forceImplementation: 'bun' // Принудительно Bun
+      preferBun: true,  // Use Bun if available
+      forceImplementation: 'bun' // Force Bun
     }
   }
 });
 
-// Автоопределение
+// Auto-detection
 if (RuntimeDetector.isBun()) {
   console.log('Running with Bun!');
 }
 ```
 
-## Производительность
+## Performance
 
-### Сравнение режимов
+### Mode Comparison
 
-| Режим | Скорость | Безопасность | Использование |
-|-------|----------|--------------|---------------|
-| shell: false | Быстро | Высокая | Простые команды |
-| shell: true | Средне | Средняя | Сложные пайплайны |
-| shell: '/bin/sh' | Быстро | Средняя | POSIX совместимость |
-| sync | Очень быстро | Высокая | Скрипты, CLI |
+| Mode | Speed | Security | Usage |
+|------|-------|----------|-------|
+| shell: false | Fast | High | Simple commands |
+| shell: true | Medium | Medium | Complex pipelines |
+| shell: '/bin/sh' | Fast | Medium | POSIX compatibility |
+| sync | Very fast | High | Scripts, CLI |
 
-### Оптимизации
+### Optimizations
 
 ```typescript
-// Переиспользование процессов
+// Process reuse
 const node = $`node`.interactive();
 for (const script of scripts) {
   await node.stdin.write(`require('${script}')\n`);
 }
 
-// Batch обработка
+// Batch processing
 const files = ['file1', 'file2', 'file3'];
-await $`process ${files}`;  // Один процесс
+await $`process ${files}`;  // One process
 
-// Вместо:
+// Instead of:
 for (const file of files) {
-  await $`process ${file}`;  // N процессов
+  await $`process ${file}`;  // N processes
 }
 ```
 
-## Специфичные для платформы команды
+## Platform-Specific Commands
 
 ```typescript
 import { platform } from 'os';
 
-// Кроссплатформенные команды
+// Cross-platform commands
 const isWindows = platform() === 'win32';
 const listCmd = isWindows ? 'dir' : 'ls -la';
 await $`${listCmd}`;
 
-// Или через shell
+// Or through shell
 if (isWindows) {
   await $`dir`.shell('cmd.exe');
 } else {
@@ -298,9 +298,9 @@ if (isWindows) {
 }
 ```
 
-## Отладка
+## Debugging
 
-### Логирование команд
+### Command Logging
 
 ```typescript
 const $ = new ExecutionEngine();
@@ -314,7 +314,7 @@ $.on('command:complete', ({ exitCode, duration }) => {
 });
 ```
 
-### Детальный вывод
+### Detailed Output
 
 ```typescript
 // Verbose mode
@@ -323,22 +323,22 @@ const verbose = $.with({
   stderr: 'inherit'
 });
 
-await verbose`npm install`;  // Вывод в реальном времени
+await verbose`npm install`;  // Real-time output
 ```
 
-## Безопасность
+## Security
 
-### Предотвращение инъекций
+### Injection Prevention
 
 ```typescript
-// Опасно - shell injection
+// Dangerous - shell injection
 const userInput = "'; rm -rf /";
-await $.raw`echo ${userInput}`;  // НЕ ДЕЛАЙТЕ ТАК!
+await $.raw`echo ${userInput}`;  // DON'T DO THIS!
 
-// Безопасно - автоматическое экранирование
-await $`echo ${userInput}`;  // Выведет: '; rm -rf /
+// Safe - automatic escaping
+await $`echo ${userInput}`;  // Output: '; rm -rf /
 
-// Ещё безопаснее - без shell
+// Even safer - without shell
 await $.local().execute({
   command: 'echo',
   args: [userInput],
@@ -346,23 +346,23 @@ await $.local().execute({
 });
 ```
 
-### Ограничение ресурсов
+### Resource Limitation
 
 ```typescript
-// Ограничение размера вывода
+// Limit output size
 const $ = new ExecutionEngine({
-  maxBuffer: 1024 * 1024  // 1MB максимум
+  maxBuffer: 1024 * 1024  // 1MB maximum
 });
 
-// Ограничение времени выполнения
+// Limit execution time
 await $`untrusted-script`
-  .timeout(5000)  // 5 секунд максимум
-  .nothrow();     // Не падать при ошибке
+  .timeout(5000)  // 5 seconds maximum
+  .nothrow();     // Don't fail on error
 ```
 
-## Примеры использования
+## Usage Examples
 
-### Git операции
+### Git Operations
 
 ```typescript
 async function gitStatus() {
@@ -379,7 +379,7 @@ async function gitStatus() {
 }
 ```
 
-### Системный мониторинг
+### System Monitoring
 
 ```typescript
 async function systemInfo() {
@@ -393,78 +393,78 @@ async function systemInfo() {
 }
 ```
 
-### Build pipeline
+### Build Pipeline
 
 ```typescript
 async function build() {
-  // Очистка
+  // Clean
   await $`rm -rf dist`;
   
-  // Установка зависимостей
+  // Install dependencies
   await $`npm ci`.stdout('inherit');
   
-  // Линтинг
+  // Linting
   const lintResult = await $`npm run lint`.nothrow();
   if (lintResult.exitCode !== 0) {
     console.warn('Lint warnings:', lintResult.stderr);
   }
   
-  // Сборка
+  // Build
   await $`npm run build`;
   
-  // Тесты
+  // Tests
   await $`npm test`;
 }
 ```
 
 ## Troubleshooting
 
-### Проблемы с PATH
+### PATH Issues
 
 ```typescript
-// Явное указание пути
+// Explicit path specification
 await $`/usr/local/bin/node script.js`;
 
-// Или через env
+// Or through env
 await $`node script.js`.env({
   PATH: '/usr/local/bin:/usr/bin:/bin'
 });
 ```
 
-### Проблемы с кодировкой
+### Encoding Issues
 
 ```typescript
-// Указание кодировки
+// Specify encoding
 const $ = new ExecutionEngine({
-  encoding: 'latin1'  // или 'utf16le', 'base64', etc.
+  encoding: 'latin1'  // or 'utf16le', 'base64', etc.
 });
 
-// Или для конкретной команды
+// Or for specific command
 const result = await $.execute({
   command: 'cat file.txt',
   encoding: 'utf8'
 });
 ```
 
-### Zombie процессы
+### Zombie Processes
 
 ```typescript
-// Всегда очищайте ресурсы
+// Always clean up resources
 const engine = new ExecutionEngine();
 
 try {
   await engine`long-running-task`;
 } finally {
-  await engine.dispose();  // Очистка всех процессов
+  await engine.dispose();  // Clean up all processes
 }
 ```
 
-## Заключение
+## Conclusion
 
-LocalAdapter - это основа для быстрого и безопасного выполнения команд в локальной системе. Его преимущества:
+LocalAdapter is the foundation for fast and secure command execution in the local system. Its advantages:
 
-- **Производительность**: минимальные накладные расходы
-- **Гибкость**: полный контроль над процессами
-- **Безопасность**: автоматическое экранирование
-- **Совместимость**: работает везде, где есть Node.js
-- **Простота**: интуитивный API
+- **Performance**: minimal overhead
+- **Flexibility**: full process control
+- **Security**: automatic escaping
+- **Compatibility**: works everywhere Node.js is available
+- **Simplicity**: intuitive API

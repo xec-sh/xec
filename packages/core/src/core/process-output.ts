@@ -1,15 +1,7 @@
 import { TextDecoder } from 'util';
+import type { ProcessOutputOptions } from '../types/process.js';
 
-export interface ProcessOutputOptions {
-  stdout?: string | Buffer;
-  stderr?: string | Buffer;
-  stdall?: string | Buffer;
-  exitCode: number | null;
-  signal?: NodeJS.Signals | null;
-  duration?: number;
-  command?: string;
-  cwd?: string;
-}
+export { ProcessOutputOptions } from '../types/process.js';
 
 /**
  * ProcessOutput represents the result of command execution

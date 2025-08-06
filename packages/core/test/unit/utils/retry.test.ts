@@ -2,7 +2,7 @@ import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/index';
 import { ExecutionResultImpl } from '../../../src/core/result';
-import { LocalAdapter } from '../../../src/adapters/local-adapter';
+import { LocalAdapter } from '../../../src/adapters/local/index';
 import { RetryError, withExecutionRetry, createRetryableAdapter } from '../../../src/utils/retry-adapter';
 
 // Helper function to create ExecutionResult

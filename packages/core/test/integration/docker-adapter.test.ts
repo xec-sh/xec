@@ -1,7 +1,7 @@
 import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { $ } from '../../src/index.js';
-import { DockerAdapter } from '../../src/adapters/docker-adapter.js';
+import { DockerAdapter } from '../../../src/adapters/docker/index.js';
 
 // Skip if Docker is not available
 const DOCKER_AVAILABLE = await (async () => {

@@ -1,4 +1,4 @@
-import type { DockerOptions, ProcessPromise, ExecutionEngine, DockerEphemeralOptions } from '../core/execution-engine.js';
+import type { DockerOptions, ProcessPromise, ExecutionEngine, DockerEphemeralOptions } from '../../core/execution-engine.js';
 
 /**
  * Fluent API for Docker operations

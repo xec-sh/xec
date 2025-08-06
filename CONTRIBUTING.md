@@ -21,7 +21,7 @@ Welcome to Xec! We're excited to have you contribute to the universal command ex
 
 ## 🌟 Philosophy & Principles
 
-Before contributing, please understand our core principles:
+Before contributing, please understand our core principles. For comprehensive development guidelines, testing strategy, and architecture details, see [CLAUDE.md](./CLAUDE.md).
 
 ### 1. ⚠️ Task Focus
 **CRITICAL**: Only implement what is explicitly requested. No additional features or files unless specified.

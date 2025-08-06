@@ -34,16 +34,35 @@ await $.k8s('app-pod')`kubectl rollout status deployment/app`;
 
 ```yaml
 # .xec/config.yaml
+version: "1.0"
+
 targets:
-  prod: { type: ssh, host: prod.example.com }
-  staging: { type: docker, container: staging-app }
-  dev: { type: k8s, namespace: development }
+  hosts:
+    prod:
+      host: prod.example.com
+      user: deploy
+  containers:
+    staging:
+      container: staging-app
+  pods:
+    dev:
+      namespace: development
+      pod: app-pod
 
 tasks:
   deploy:
+    description: Deploy to all environments
     parallel: true
-    targets: [prod, staging, dev]
-    command: ./deploy.sh
+    steps:
+      - name: Deploy to production
+        target: hosts.prod
+        command: ./deploy.sh
+      - name: Deploy to staging
+        target: containers.staging
+        command: ./deploy.sh
+      - name: Deploy to development
+        target: pods.dev
+        command: ./deploy.sh
 ```
 
 ## ✨ Key Features
@@ -128,7 +147,7 @@ async function deploy(config: DeployConfig) {
 Run tests across different platforms in parallel:
 ```typescript
 const testResults = await Promise.all([
-  $.local`npm test`,
+  $`npm test`,
   $.docker('node:18')`npm test`,
   $.docker('node:20')`npm test`,
 ]);
@@ -228,16 +247,20 @@ xec deploy.ts
 
 Create `.xec/config.yaml`:
 ```yaml
+version: "1.0"
+name: my-project
+
 targets:
-  staging:
-    type: ssh
-    host: staging.example.com
-    user: deploy
+  hosts:
+    staging:
+      host: staging.example.com
+      user: deploy
+      port: 22
     
 tasks:
   deploy:
     description: Deploy to staging
-    targets: [staging]
+    target: hosts.staging
     steps:
       - name: Pull latest code
         command: git pull origin main

@@ -2,7 +2,7 @@ import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globa
 
 import { $, ExecutionEngine } from '../../src';
 import { DockerError } from '../../src/core/error';
-import { RemoteDockerAdapter } from '../../src/adapters/remote-docker-adapter';
+import { RemoteDockerAdapter } from '../../../src/adapters/remote-docker/index';
 
 // Mock SSH client for testing
 class MockSSHClient {

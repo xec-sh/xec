@@ -1,6 +1,6 @@
-import type { KubernetesAdapterOptions } from '../core/command.js';
-import type { KubernetesAdapter } from '../adapters/kubernetes-adapter.js';
-import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
+import type { KubernetesAdapter } from './index.js';
+import type { KubernetesAdapterOptions } from '../../types/command.js';
+import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
 
 /**
  * Kubernetes port forward instance
@@ -26,27 +26,27 @@ export interface K8sLogStream {
 export interface K8sPod {
   name: string;
   namespace: string;
-  
+
   /**
    * Execute a command in the pod
    */
   exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  
+
   /**
    * Execute a raw command in the pod
    */
   raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  
+
   /**
    * Port forward from local to pod
    */
   portForward(localPort: number, remotePort: number): Promise<K8sPortForward>;
-  
+
   /**
    * Port forward with dynamic local port
    */
   portForwardDynamic(remotePort: number): Promise<K8sPortForward>;
-  
+
   /**
    * Get logs from the pod
    */
@@ -56,7 +56,7 @@ export interface K8sPod {
     previous?: boolean;
     timestamps?: boolean;
   }): Promise<string>;
-  
+
   /**
    * Stream logs from the pod
    */
@@ -70,7 +70,7 @@ export interface K8sPod {
       timestamps?: boolean;
     }
   ): Promise<K8sLogStream>;
-  
+
   /**
    * Follow logs (alias for streamLogs with follow: true)
    */
@@ -82,12 +82,12 @@ export interface K8sPod {
       timestamps?: boolean;
     }
   ): Promise<K8sLogStream>;
-  
+
   /**
    * Copy file to the pod
    */
   copyTo(localPath: string, remotePath: string, container?: string): Promise<void>;
-  
+
   /**
    * Copy file from the pod
    */
@@ -102,17 +102,17 @@ export interface K8sExecutionContext {
    * Execute a command (for backwards compatibility)
    */
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  
+
   /**
    * Get a pod instance
    */
   pod(name: string): K8sPod;
-  
+
   /**
    * Execute in a specific pod
    */
   exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  
+
   /**
    * Execute raw command
    */
@@ -141,7 +141,7 @@ function createK8sPod(
     });
     return k8sEngine.run(strings, ...values);
   };
-  
+
   const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
     const k8sEngine = engine.with({
       adapter: 'kubernetes',
@@ -154,28 +154,28 @@ function createK8sPod(
     });
     return k8sEngine.raw(strings, ...values);
   };
-  
+
   return {
     name,
     namespace,
     exec,
     raw,
-    
+
     async portForward(localPort: number, remotePort: number): Promise<K8sPortForward> {
       const pf = await adapter.portForward(name, localPort, remotePort, { namespace });
       await pf.open();
       return pf;
     },
-    
+
     async portForwardDynamic(remotePort: number): Promise<K8sPortForward> {
-      const pf = await adapter.portForward(name, 0, remotePort, { 
+      const pf = await adapter.portForward(name, 0, remotePort, {
         namespace,
-        dynamicLocalPort: true 
+        dynamicLocalPort: true
       });
       await pf.open();
       return pf;
     },
-    
+
     async logs(options?: {
       container?: string;
       tail?: number;
@@ -184,30 +184,30 @@ function createK8sPod(
     }): Promise<string> {
       // Use kubectl logs command
       const args = ['logs', '-n', namespace];
-      
+
       if (options?.container) {
         args.push('-c', options.container);
       }
-      
+
       if (options?.tail !== undefined) {
         args.push('--tail', String(options.tail));
       }
-      
+
       if (options?.previous) {
         args.push('--previous');
       }
-      
+
       if (options?.timestamps) {
         args.push('--timestamps');
       }
-      
+
       args.push(name);
-      
+
       // Execute kubectl directly
       const result = await adapter.executeKubectl(args, { throwOnNonZeroExit: true });
       return result.stdout;
     },
-    
+
     async streamLogs(
       onData: (data: string) => void,
       options?: {
@@ -223,7 +223,7 @@ function createK8sPod(
         ...options
       });
     },
-    
+
     async follow(
       onData: (data: string) => void,
       options?: {
@@ -234,7 +234,7 @@ function createK8sPod(
     ): Promise<K8sLogStream> {
       return this.streamLogs(onData, { ...options, follow: true });
     },
-    
+
     async copyTo(localPath: string, remotePath: string, container?: string): Promise<void> {
       const podPath = container ? `${name}:${remotePath} -c ${container}` : `${name}:${remotePath}`;
       await adapter.copyFiles(localPath, podPath, {
@@ -243,7 +243,7 @@ function createK8sPod(
         direction: 'to'
       });
     },
-    
+
     async copyFrom(remotePath: string, localPath: string, container?: string): Promise<void> {
       const podPath = container ? `${name}:${remotePath} -c ${container}` : `${name}:${remotePath}`;
       await adapter.copyFiles(podPath, localPath, {
@@ -266,13 +266,13 @@ export function createK8sExecutionContext(
   if (!adapter) {
     throw new Error('Kubernetes adapter not available');
   }
-  
+
   // For backwards compatibility - execute in specified pod
   const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
     if (!k8sOptions.pod) {
       throw new Error('Pod must be specified for direct execution');
     }
-    
+
     const k8sEngine = engine.with({
       adapter: 'kubernetes',
       adapterOptions: {
@@ -287,12 +287,12 @@ export function createK8sExecutionContext(
     });
     return k8sEngine.run(strings, ...values);
   };
-  
+
   const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
     if (!k8sOptions.pod) {
       throw new Error('Pod must be specified for direct execution');
     }
-    
+
     const k8sEngine = engine.with({
       adapter: 'kubernetes',
       adapterOptions: {
@@ -307,16 +307,16 @@ export function createK8sExecutionContext(
     });
     return k8sEngine.raw(strings, ...values);
   };
-  
+
   const context = Object.assign(exec, {
     exec,
     raw,
-    
+
     pod(name: string): K8sPod {
       const namespace = k8sOptions.namespace || 'default';
       return createK8sPod(engine, adapter, name, namespace, k8sOptions);
     }
   });
-  
+
   return context;
 }

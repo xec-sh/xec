@@ -1,9 +1,9 @@
 import { jest } from '@jest/globals';
 
-import { createK8sExecutionContext } from '../../../src/utils/kubernetes-api.js';
+import { createK8sExecutionContext } from '../../../src/adapters/kubernetes/kubernetes-api.js';
 
 import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
-import type { KubernetesAdapter } from '../../../src/adapters/kubernetes-adapter.js';
+import type { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 describe('Kubernetes API', () => {
   let mockEngine: jest.Mocked<ExecutionEngine>;

@@ -1,6 +1,6 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { KubernetesAdapter } from '../../../src/adapters/kubernetes-adapter.js';
+import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 /**
  * True unit tests for KubernetesAdapter that do not require a real Kubernetes cluster

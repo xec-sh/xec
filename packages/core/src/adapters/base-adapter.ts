@@ -1,8 +1,9 @@
-import { Command } from '../core/command.js';
+import { Command } from '../types/command.js';
 import { StreamHandler } from '../utils/stream.js';
 import { ProgressReporter } from '../utils/progress.js';
 import { TimeoutError, AdapterError } from '../core/error.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
+import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
 
 import type { UshEventMap } from '../types/events.js';
@@ -33,6 +34,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   protected config: ResolvedBaseAdapterConfig;
   protected abstract readonly adapterName: string;
   public name: string;
+  private maskSensitiveDataOptimized: ((text: string) => string) | null = null;
 
   constructor(config: BaseAdapterConfig = {}) {
     super();
@@ -84,6 +86,13 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       }
     };
 
+    // Initialize optimized masker if masking is enabled
+    if (this.config.sensitiveDataMasking.enabled) {
+      this.maskSensitiveDataOptimized = createOptimizedMasker(
+        this.config.sensitiveDataMasking.patterns,
+        this.config.sensitiveDataMasking.replacement
+      );
+    }
 
     // Name will be set by subclasses
     this.name = '';
@@ -174,102 +183,11 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   }
 
   protected maskSensitiveData(text: string): string {
-    if (!this.config.sensitiveDataMasking.enabled || !text) {
+    if (!this.maskSensitiveDataOptimized || !text) {
       return text;
     }
 
-    let maskedText = text;
-
-    for (const pattern of this.config.sensitiveDataMasking.patterns) {
-      // Create a copy of the pattern with global flag to ensure all matches are replaced
-      const globalPattern = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
-
-      maskedText = maskedText.replace(globalPattern, (match, ...args) => {
-        // Special case for SSH keys - replace entire key
-        if (match.includes('BEGIN') && match.includes('PRIVATE KEY')) {
-          return this.config.sensitiveDataMasking.replacement;
-        }
-
-        // Special case for GitHub tokens that match the pattern directly
-        if (match.match(/^gh[ps]_[a-zA-Z0-9]{16,}$/)) {
-          return this.config.sensitiveDataMasking.replacement;
-        }
-
-        // The last two args are offset and full string, remove them
-        const groups = args.slice(0, -2);
-
-        // If no capture groups, replace the whole match
-        if (groups.length === 0 || groups.every(g => g === undefined)) {
-          return this.config.sensitiveDataMasking.replacement;
-        }
-
-        // JSON pattern: "key": "value"
-        if (groups.length === 2 && match.includes('":')) {
-          return `"${groups[0]}": ${this.config.sensitiveDataMasking.replacement}`;
-        }
-
-        // Authorization headers with Bearer/Basic (4 groups: Authorization:, Bearer/Basic, space, token)
-        if (groups.length === 4 && groups[0] && groups[0].includes('Authorization') && groups[1] && groups[2] !== undefined && groups[3]) {
-          return groups[0] + groups[1] + ' ' + this.config.sensitiveDataMasking.replacement;
-        }
-
-        // Patterns with quoted/unquoted values (6 groups: key, separator, full_value, double_quoted, single_quoted, unquoted)
-        if (groups.length === 6) {
-          const key = groups[0];
-          const separator = groups[1];
-          // Check which capture group has the actual value
-          const quotedDouble = groups[3];
-          const quotedSingle = groups[4];
-          const unquoted = groups[5];
-
-          // For command line arguments
-          if (key.startsWith('--')) {
-            return key + ' ' + this.config.sensitiveDataMasking.replacement;
-          }
-
-          // For key=value or key: value patterns
-          return key + separator + this.config.sensitiveDataMasking.replacement;
-        }
-
-        // Patterns with quoted/unquoted values (5 groups: command, space, full_value, quoted_value, unquoted_value)
-        if (groups.length === 5 && groups[0] && groups[0].startsWith('--')) {
-          return groups[0] + ' ' + this.config.sensitiveDataMasking.replacement;
-        }
-
-        // For patterns with 3 groups (key, separator, value) or Bearer standalone
-        if (groups.length === 3 && groups[0] && groups[1] !== undefined && groups[2]) {
-          // Check if it's a Bearer token pattern
-          if (groups[0] === 'Bearer') {
-            return groups[0] + ' ' + this.config.sensitiveDataMasking.replacement;
-          }
-          return groups[0] + groups[1] + this.config.sensitiveDataMasking.replacement;
-        }
-
-        // For patterns with 2 groups
-        if (groups.length === 2 && groups[0] && groups[1]) {
-          return groups[0] + this.config.sensitiveDataMasking.replacement;
-        }
-
-        // For single group patterns
-        if (groups.length === 1 && groups[0]) {
-          return this.config.sensitiveDataMasking.replacement;
-        }
-
-        // Default: try to preserve structure if possible
-        if (match.includes('=')) {
-          const [key,] = match.split('=', 2);
-          return key + '=' + this.config.sensitiveDataMasking.replacement;
-        } else if (match.includes(':')) {
-          const [key,] = match.split(':', 2);
-          return key + ': ' + this.config.sensitiveDataMasking.replacement;
-        }
-
-        // Fallback - replace the whole match
-        return this.config.sensitiveDataMasking.replacement;
-      });
-    }
-
-    return maskedText;
+    return this.maskSensitiveDataOptimized(text);
   }
 
   protected createResultSync(

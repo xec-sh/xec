@@ -1,34 +1,7 @@
 import { ExecutionError } from './error.js';
+import type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '../types/error.js';
 
-export interface ErrorContext {
-  command?: string;
-  adapter?: string;
-  host?: string;
-  container?: string;
-  pod?: string;
-  cwd?: string;
-  env?: Record<string, string>;
-  timestamp?: Date;
-  duration?: number;
-}
-
-export interface ErrorSuggestion {
-  message: string;
-  command?: string;
-  documentation?: string;
-}
-
-export interface EnhancedErrorDetails {
-  code: string;
-  context: ErrorContext;
-  suggestions: ErrorSuggestion[];
-  relatedErrors?: string[];
-  systemInfo?: {
-    platform: string;
-    arch: string;
-    nodeVersion: string;
-  };
-}
+export { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '../types/error.js';
 
 /**
  * Enhanced error class with suggestions and detailed context

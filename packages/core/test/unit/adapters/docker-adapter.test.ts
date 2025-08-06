@@ -3,8 +3,8 @@ import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
 import { it, jest, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
+import { DockerAdapter } from '../../../src/adapters/docker/index.js';
 import { DockerError, AdapterError } from '../../../src/core/error.js';
-import { DockerAdapter } from '../../../src/adapters/docker-adapter.js';
 
 const sleep = promisify(setTimeout);
 

@@ -1,4 +1,3 @@
-import { attachConvenienceMethods } from './utils/convenience.js';
 import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-engine.js';
 
 import type { CallableExecutionEngine } from './types/engine.js';
@@ -6,21 +5,20 @@ import type { CallableExecutionEngine } from './types/engine.js';
 export { pipeUtils } from './utils/pipe.js';
 export { isDisposable } from './types/disposable.js';
 export { within, withinSync } from './utils/within.js';
-export { DockerContainer } from './utils/docker-api.js';
-export { LocalAdapter } from './adapters/local-adapter.js';
+export { LocalAdapter } from './adapters/local/index.js';
+export { DockerAdapter } from './adapters/docker/index.js';
 export { withTempDir, withTempFile } from './utils/temp.js';
-export { RuntimeDetector } from './utils/runtime-detect.js';
 export { ExecutionEngine } from './core/execution-engine.js';
+export { parallel, ParallelEngine } from './utils/parallel.js';
 
 export type { ExecutionEngineConfig };
-export { DockerAdapter } from './adapters/docker-adapter.js';
-export { parallel, ParallelEngine } from './utils/parallel.js';
-export { SSHKeyValidator } from './utils/ssh-key-validator.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
-export { SecurePasswordHandler } from './utils/secure-password.js';
-export { KubernetesAdapter } from './adapters/kubernetes-adapter.js';
-export { RemoteDockerAdapter } from './adapters/remote-docker-adapter.js';
-export { unifiedConfig, UnifiedConfigLoader } from './config/unified-config.js';
+export { DockerContainer } from './adapters/docker/docker-api.js';
+export { KubernetesAdapter } from './adapters/kubernetes/index.js';
+export { RuntimeDetector } from './adapters/local/runtime-detect.js';
+export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
+export { RemoteDockerAdapter } from './adapters/remote-docker/index.js';
+export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
   return new Proxy(function () { } as any, {
@@ -82,16 +80,16 @@ let defaultEngineInstance: ExecutionEngine | null = null;
 export const $ = new Proxy(function () { } as any, {
   get(target, prop: string) {
     if (!defaultEngine) {
-      defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine());
-      defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
+      defaultEngineInstance = new ExecutionEngine();
+      defaultEngine = createCallableEngine(defaultEngineInstance);
     }
     return (defaultEngine as any)[prop];
   },
 
   apply(target, thisArg, args) {
     if (!defaultEngine) {
-      defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine());
-      defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
+      defaultEngineInstance = new ExecutionEngine();
+      defaultEngine = createCallableEngine(defaultEngineInstance);
     }
     return (defaultEngine as any)(...args);
   }
@@ -106,8 +104,8 @@ export function configure(config: ExecutionEngineConfig): void {
     const oldInstance = defaultEngineInstance;
 
     // Create new instance immediately to avoid race conditions
-    defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine(config));
-    defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
+    defaultEngineInstance = new ExecutionEngine(config);
+    defaultEngine = createCallableEngine(defaultEngineInstance);
 
     // Schedule cleanup of old instance asynchronously
     isConfiguringPromise = (async () => {
@@ -122,8 +120,8 @@ export function configure(config: ExecutionEngineConfig): void {
       }
     })();
   } else {
-    defaultEngineInstance = attachConvenienceMethods(new ExecutionEngine(config));
-    defaultEngine = createCallableEngine(defaultEngineInstance as ExecutionEngine);
+    defaultEngineInstance = new ExecutionEngine(config);
+    defaultEngine = createCallableEngine(defaultEngineInstance);
   }
 }
 
@@ -214,15 +212,15 @@ function registerCleanupHandlers(): void {
     // Handle unhandled promise rejections
     process.on('unhandledRejection', async (reason, promise) => {
       // Check if this is an xec promise that will be handled later
-      const isXecPromise = (promise as any).__isXecPromise || 
-                          (reason && (reason as any).code === 'COMMAND_FAILED') ||
-                          (reason && (reason as any).constructor && (reason as any).constructor.name === 'CommandError');
-      
+      const isXecPromise = (promise as any).__isXecPromise ||
+        (reason && (reason as any).code === 'COMMAND_FAILED') ||
+        (reason && (reason as any).constructor && (reason as any).constructor.name === 'CommandError');
+
       if (isXecPromise) {
         // Suppress the warning for xec promises - they will be handled when awaited
         return;
       }
-      
+
       console.error('Unhandled Rejection at:', promise, 'reason:', reason);
       try {
         await cleanupEngine();
@@ -238,16 +236,15 @@ function registerCleanupHandlers(): void {
 // Register cleanup handlers when the module is first loaded
 registerCleanupHandlers();
 
-export { ConvenienceAPI, attachConvenienceMethods } from './utils/convenience.js';
 export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';
 
 export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
-export { DockerFluentAPI, DockerFluentBuildAPI } from './utils/docker-fluent-api.js';
+export { DockerFluentAPI, DockerFluentBuildAPI } from './adapters/docker/docker-fluent-api.js';
 
-export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh-adapter.js';
+export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
 
 export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
 export {
@@ -267,26 +264,26 @@ export {
   EnhancedConnectionError
 } from './core/enhanced-error.js';
 export type { EventFilter } from './types/events.js';
+export type { PipeTarget } from './types/process.js';
+
 export type { ExecutionResult } from './core/result.js';
 
+export type { ProcessPromise } from './types/process.js';
 export type { RetryOptions } from './utils/retry-adapter.js';
-
-export type { SSHExecutionContext } from './utils/ssh-api.js';
-export type { PipeTarget } from './core/pipe-implementation.js';
 
 export type { CommandSuggestion } from './utils/suggestions.js';
 export type { CallableExecutionEngine } from './types/engine.js';
 
+export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
 export type { Disposable, DisposableContainer } from './types/disposable.js';
-export type { DockerContext, DockerContainerConfig } from './utils/docker-api.js';
+export type { DockerContext, DockerContainerConfig } from './adapters/docker/docker-api.js';
 export type {
   ErrorContext,
   ErrorSuggestion,
   EnhancedErrorDetails
-} from './core/enhanced-error.js';
-export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './utils/kubernetes-api.js';
-export type { PodConfig, HostConfig, UnifiedConfig, ProfileConfig, ContainerConfig } from './config/unified-config.js';
-export type { DockerOptions, ProcessPromise, DockerEphemeralOptions, DockerPersistentOptions } from './core/execution-engine.js';
+} from './types/error.js';
+export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
+export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './adapters/kubernetes/kubernetes-api.js';
 export type {
   Command,
   AdapterType,
@@ -294,4 +291,4 @@ export type {
   DockerAdapterOptions,
   KubernetesAdapterOptions,
   RemoteDockerAdapterOptions
-} from './core/command.js';
+} from './types/command.js';

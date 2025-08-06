@@ -1,7 +1,7 @@
 import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { DockerError, CommandError } from '../../../src/core/error';
-import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../../../src/adapters/remote-docker-adapter';
+import { RemoteDockerAdapter, RemoteDockerAdapterConfig } from '../../../src/adapters/remote-docker/index';
 
 // Create a mock Client constructor
 const MockClient = jest.fn();

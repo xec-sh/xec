@@ -1,39 +1,39 @@
 ---
-title: Универсальный движок выполнения
-sidebar_label: Обзор
-description: Архитектура и принципы работы универсального движка выполнения команд Xec
+title: Universal Execution Engine
+sidebar_label: Overview
+description: Architecture and principles of Xec's universal command execution engine
 ---
 
-# Универсальный движок выполнения
+# Universal Execution Engine
 
-Движок выполнения (`ExecutionEngine`) — это ядро системы Xec, обеспечивающее единообразное выполнение команд в различных окружениях. Он предоставляет универсальный API для работы с локальными процессами, SSH-соединениями, Docker-контейнерами и Kubernetes-подами.
+The Execution Engine (`ExecutionEngine`) is the core of the Xec system, providing unified command execution across diverse environments. It offers a universal API for working with local processes, SSH connections, Docker containers, and Kubernetes pods.
 
-## Основные концепции
+## Core Concepts
 
-### Универсальность выполнения
+### Universal Execution
 
-Движок абстрагирует детали конкретных окружений, позволяя использовать один и тот же код для разных целевых систем:
+The engine abstracts environment-specific details, allowing the same code to work across different target systems:
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Локальное выполнение
+// Local execution
 await $`ls -la`;
 
-// SSH выполнение
+// SSH execution
 const remote = $.ssh({ host: 'server.com', username: 'user' });
 await remote`ls -la`;
 
-// Docker выполнение
+// Docker execution
 const container = $.docker({ container: 'my-app' });
 await container`ls -la`;
 
-// Kubernetes выполнение
+// Kubernetes execution
 const pod = $.k8s().pod('my-pod');
 await pod`ls -la`;
 ```
 
-### Архитектура движка
+### Engine Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -56,49 +56,49 @@ await pod`ls -la`;
 └────────┘ └────────┘ └────────┘ └────────┘ └────────┘
 ```
 
-## Жизненный цикл команды
+## Command Lifecycle
 
-### 1. Построение команды
+### 1. Command Building
 
-Команда формируется через template literal с автоматическим экранированием:
+Commands are built through template literals with automatic escaping:
 
 ```typescript
 const file = "file with spaces.txt";
 const dangerous = "'; rm -rf /";
 
-// Безопасное экранирование
+// Safe escaping
 await $`cat ${file}`;        // cat "file with spaces.txt"
 await $`echo ${dangerous}`;  // echo "'; rm -rf /"
 ```
 
-### 2. Конфигурация контекста
+### 2. Context Configuration
 
-Команда обогащается контекстом выполнения:
+Commands are enriched with execution context:
 
 ```typescript
-// Глобальная конфигурация
+// Global configuration
 const $ = new ExecutionEngine({
   defaultTimeout: 30000,
   defaultCwd: '/app',
   defaultEnv: { NODE_ENV: 'production' }
 });
 
-// Локальная конфигурация
+// Local configuration
 await $`npm start`
   .cwd('/projects/app')
   .env({ DEBUG: 'true' })
   .timeout(60000);
 ```
 
-### 3. Выбор адаптера
+### 3. Adapter Selection
 
-Движок автоматически выбирает подходящий адаптер:
+The engine automatically selects the appropriate adapter:
 
 ```typescript
-// Явный выбор через метод
+// Explicit selection via method
 const ssh = $.ssh({ host: 'server' });
 
-// Автоматический выбор через опции
+// Automatic selection via options
 await $.execute({
   command: 'ls',
   adapter: 'docker',
@@ -106,49 +106,49 @@ await $.execute({
 });
 ```
 
-### 4. Выполнение и обработка результата
+### 4. Execution and Result Processing
 
 ```typescript
 const result = await $`ls -la`;
 
-// Результат содержит:
-result.stdout;      // Стандартный вывод
-result.stderr;      // Вывод ошибок
-result.exitCode;    // Код завершения
-result.duration;    // Время выполнения
-result.startTime;   // Время начала
-result.endTime;     // Время окончания
+// Result contains:
+result.stdout;      // Standard output
+result.stderr;      // Error output
+result.exitCode;    // Exit code
+result.duration;    // Execution time
+result.startTime;   // Start time
+result.endTime;     // End time
 ```
 
 ## ProcessPromise API
 
-`ProcessPromise` — это расширенный Promise с дополнительными методами для управления выполнением:
+`ProcessPromise` is an extended Promise with additional methods for execution control:
 
-### Управление потоками
+### Stream Management
 
 ```typescript
-// Перенаправление вывода
+// Output redirection
 await $`ls -la`
   .stdout(process.stdout)
   .stderr(process.stderr);
 
-// Интерактивный режим
+// Interactive mode
 await $`npm init`.interactive();
 
-// Тихий режим (без вывода)
+// Quiet mode (no output)
 await $`npm install`.quiet();
 ```
 
-### Обработка ошибок
+### Error Handling
 
 ```typescript
-// Не бросать исключение при ошибке
+// Don't throw on error
 const result = await $`may-fail`.nothrow();
 if (result.exitCode !== 0) {
   console.log('Command failed:', result.stderr);
 }
 
-// Повтор при ошибке
+// Retry on failure
 await $`flaky-command`.retry({
   maxRetries: 3,
   delay: 1000,
@@ -156,67 +156,67 @@ await $`flaky-command`.retry({
 });
 ```
 
-### Управление выполнением
+### Execution Control
 
 ```typescript
-// Таймаут
+// Timeout
 await $`long-running`.timeout(5000);
 
-// Отмена через AbortSignal
+// Cancellation via AbortSignal
 const controller = new AbortController();
 const promise = $`sleep 100`.signal(controller.signal);
 setTimeout(() => controller.abort(), 1000);
 
-// Принудительное завершение
+// Force termination
 const proc = $`server`;
 setTimeout(() => proc.kill(), 5000);
 ```
 
-### Преобразование результата
+### Result Transformation
 
 ```typescript
-// Получить текст без пробелов по краям
+// Get trimmed text
 const text = await $`cat file.txt`.text();
 
-// Парсинг JSON
+// Parse JSON
 const data = await $`cat config.json`.json();
 
-// Массив строк
+// Array of lines
 const lines = await $`ls`.lines();
 
 // Buffer
 const buffer = await $`cat binary.dat`.buffer();
 ```
 
-## Конвейеры (Piping)
+## Piping
 
-Движок поддерживает Unix-подобные конвейеры:
+The engine supports Unix-like pipes:
 
 ```typescript
-// Простой конвейер
+// Simple pipe
 await $`cat file.txt`.pipe($`grep pattern`).pipe($`wc -l`);
 
-// Конвейер с обработкой
+// Pipe with processing
 await $`ls -la`.pipe(async (output) => {
   const files = output.split('\n');
   return files.filter(f => f.includes('.txt'));
 });
 
-// Конвейер в файл
+// Pipe to file
 await $`generate-report`.pipe('report.txt');
 ```
 
-## Параллельное выполнение
+## Parallel Execution
 
 ```typescript
-// Параллельное выполнение нескольких команд
+// Execute multiple commands in parallel
 const results = await $.parallel.all([
   $`test-unit`,
   $`test-integration`,
   $`test-e2e`
 ]);
 
-// С ограничением параллелизма
+// With concurrency limit
 await $.batch(commands, {
   concurrency: 5,
   onProgress: (completed, total) => {
@@ -225,9 +225,9 @@ await $.batch(commands, {
 });
 ```
 
-## События и мониторинг
+## Events and Monitoring
 
-Движок предоставляет систему событий для мониторинга:
+The engine provides an event system for monitoring:
 
 ```typescript
 const $ = new ExecutionEngine();
@@ -245,37 +245,37 @@ $.on('command:error', ({ command, error }) => {
 });
 ```
 
-## Кэширование результатов
+## Result Caching
 
 ```typescript
-// Кэширование результата команды
+// Cache command results
 const data = await $`expensive-operation`.cache({
-  ttl: 60000,  // 1 минута
+  ttl: 60000,  // 1 minute
   key: 'operation-result'
 });
 
-// Повторный вызов вернёт кэшированный результат
+// Subsequent calls return cached result
 const cached = await $`expensive-operation`.cache({
   key: 'operation-result'
 });
 ```
 
-## Контекстное выполнение
+## Contextual Execution
 
 ```typescript
-// Создание контекста с настройками
+// Create context with settings
 const context = $.with({
   cwd: '/app',
   env: { NODE_ENV: 'production' },
   timeout: 30000
 });
 
-// Все команды в контексте наследуют настройки
+// All commands in context inherit settings
 await context`npm install`;
 await context`npm build`;
 await context`npm test`;
 
-// Вложенные контексты
+// Nested contexts
 await $.within(async () => {
   $.cd('/project');
   await $`npm install`;
@@ -283,10 +283,10 @@ await $.within(async () => {
 });
 ```
 
-## Шаблоны команд
+## Command Templates
 
 ```typescript
-// Создание шаблона
+// Create a template
 const gitClone = $.template('git clone {{repo}} {{dir}}', {
   defaults: { dir: '.' },
   validate: (params) => {
@@ -296,40 +296,40 @@ const gitClone = $.template('git clone {{repo}} {{dir}}', {
   }
 });
 
-// Использование шаблона
+// Use the template
 await gitClone.execute($, {
   repo: 'https://github.com/user/repo.git',
   dir: '/projects/repo'
 });
 ```
 
-## Утилиты и хелперы
+## Utilities and Helpers
 
-### Временные файлы
+### Temporary Files
 
 ```typescript
-// Создание временного файла
+// Create temporary file
 const temp = await $.tempFile({ prefix: 'data-' });
 await $`echo "test" > ${temp.path}`;
 await temp.cleanup();
 
-// Автоматическая очистка
+// Automatic cleanup
 await $.withTempFile(async (path) => {
   await $`process-data > ${path}`;
   return $`upload ${path}`;
 });
 ```
 
-### Передача файлов
+### File Transfer
 
 ```typescript
-// Между адаптерами
+// Between adapters
 await $.transfer.copy(
   '/local/file.txt',
   'remote:/server/file.txt'
 );
 
-// С прогрессом
+// With progress
 await $.transfer.sync('/source', '/dest', {
   onProgress: (transferred, total) => {
     console.log(`${transferred}/${total} bytes`);
@@ -337,25 +337,25 @@ await $.transfer.sync('/source', '/dest', {
 });
 ```
 
-### Интерактивные промпты
+### Interactive Prompts
 
 ```typescript
-// Ввод текста
+// Text input
 const name = await $.question('Enter name: ');
 
-// Подтверждение
+// Confirmation
 const proceed = await $.confirm('Continue?');
 
-// Выбор из списка
+// Selection
 const option = await $.select('Choose:', {
   choices: ['dev', 'staging', 'prod']
 });
 
-// Ввод пароля
+// Password input
 const password = await $.password('Password: ');
 ```
 
-## Обработка ошибок
+## Error Handling
 
 ```typescript
 try {
@@ -367,60 +367,60 @@ try {
   }
 }
 
-// Или через nothrow
+// Or with nothrow
 const result = await $`risky-command`.nothrow();
 if (!result.ok) {
   console.log('Failed with:', result.stderr);
 }
 ```
 
-## Производительность и оптимизации
+## Performance and Optimizations
 
-### Пул соединений
+### Connection Pooling
 
-SSH и другие адаптеры автоматически управляют пулом соединений:
+SSH and other adapters automatically manage connection pools:
 
 ```typescript
 const ssh = $.ssh({ host: 'server' });
 
-// Использует одно соединение
+// Uses single connection
 for (const file of files) {
   await ssh`process ${file}`;
 }
 ```
 
-### Ленивая инициализация
+### Lazy Initialization
 
-Адаптеры создаются только при первом использовании:
+Adapters are created only on first use:
 
 ```typescript
-// Docker адаптер создастся только здесь
+// Docker adapter created only here
 await $.docker({ container: 'app' })`ls`;
 ```
 
-### Потоковая обработка
+### Stream Processing
 
 ```typescript
-// Обработка больших выводов
+// Process large outputs
 await $`generate-huge-output`
   .stdout(async (chunk) => {
     await processChunk(chunk);
   });
 ```
 
-## Безопасность
+## Security
 
-### Автоматическое экранирование
+### Automatic Escaping
 
-Все значения в template literals автоматически экранируются:
+All template literal values are automatically escaped:
 
 ```typescript
 const userInput = "'; DROP TABLE users; --";
 await $`mysql -e "SELECT * FROM data WHERE name = ${userInput}"`;
-// Безопасно! Инъекция невозможна
+// Safe! Injection is impossible
 ```
 
-### Маскирование чувствительных данных
+### Sensitive Data Masking
 
 ```typescript
 const $ = new ExecutionEngine({
@@ -431,24 +431,24 @@ const $ = new ExecutionEngine({
   }
 });
 
-// Пароли будут скрыты в логах
+// Passwords are hidden in logs
 await $`curl -u admin:secret123 https://api.example.com`;
-// Вывод: curl -u admin:[REDACTED] https://api.example.com
+// Output: curl -u admin:[REDACTED] https://api.example.com
 ```
 
-### Безопасная передача паролей
+### Secure Password Handling
 
 ```typescript
 import { SecureString } from '@xec-sh/core';
 
 const password = new SecureString('secret123');
 await $`mysql -p${password} -e "SHOW DATABASES"`;
-// Пароль не попадёт в логи
+// Password won't appear in logs
 ```
 
-## Интеграция с async/await
+## Integration with async/await
 
-Движок полностью совместим с async/await и Promise API:
+The engine is fully compatible with async/await and Promise APIs:
 
 ```typescript
 // Promise chaining
@@ -470,9 +470,9 @@ const fastest = await Promise.race([
 ]);
 ```
 
-## Расширяемость
+## Extensibility
 
-### Регистрация адаптеров
+### Registering Adapters
 
 ```typescript
 import { CustomAdapter } from './custom-adapter';
@@ -483,37 +483,37 @@ $.registerAdapter('custom', new CustomAdapter());
 await $.with({ adapter: 'custom' })`custom-command`;
 ```
 
-### Плагины и middleware
+### Plugins and Middleware
 
 ```typescript
-// Добавление middleware для логирования
+// Add logging middleware
 $.on('command:start', async (event) => {
   await logger.log('Command started', event);
 });
 
-// Модификация результатов
+// Modify results
 $.on('command:complete', (event) => {
   event.stdout = sanitize(event.stdout);
 });
 ```
 
-## Примеры использования
+## Usage Examples
 
-### CI/CD пайплайн
+### CI/CD Pipeline
 
 ```typescript
 async function deploy(environment: string) {
   const $ = new ExecutionEngine();
   
-  // Сборка
+  // Build
   await $`npm ci`;
   await $`npm run build`;
   
-  // Тесты
+  // Tests
   await $`npm test`.nothrow() || 
     throw new Error('Tests failed');
   
-  // Деплой
+  // Deploy
   const server = $.ssh({
     host: `${environment}.example.com`,
     username: 'deploy'
@@ -525,28 +525,28 @@ async function deploy(environment: string) {
 }
 ```
 
-### Обработка данных
+### Data Processing
 
 ```typescript
 async function processLogs() {
-  // Получение логов из разных источников
+  // Get logs from different sources
   const [app1, app2, db] = await $.parallel.all([
     $.docker({ container: 'app1' })`tail -n 1000 /logs/app.log`,
     $.docker({ container: 'app2' })`tail -n 1000 /logs/app.log`,
     $.ssh({ host: 'db-server' })`tail -n 1000 /var/log/mysql/error.log`
   ]);
   
-  // Обработка и агрегация
+  // Process and aggregate
   const errors = [...app1.stdout, ...app2.stdout, ...db.stdout]
     .split('\n')
     .filter(line => line.includes('ERROR'));
   
-  // Сохранение результата
+  // Save results
   await $`echo ${errors.join('\n')} > errors-report.txt`;
 }
 ```
 
-### Мониторинг системы
+### System Monitoring
 
 ```typescript
 async function monitorSystem() {
@@ -569,14 +569,14 @@ async function monitorSystem() {
 }
 ```
 
-## Заключение
+## Conclusion
 
-ExecutionEngine предоставляет мощный и гибкий API для выполнения команд в различных окружениях. Его ключевые преимущества:
+The ExecutionEngine provides a powerful and flexible API for command execution across various environments. Its key advantages:
 
-- **Универсальность**: единый API для всех окружений
-- **Безопасность**: автоматическое экранирование и маскирование данных
-- **Производительность**: пулы соединений и кэширование
-- **Удобство**: интуитивный API с поддержкой современного JavaScript
-- **Расширяемость**: система адаптеров и событий
+- **Universality**: Single API for all environments
+- **Security**: Automatic escaping and data masking
+- **Performance**: Connection pooling and caching
+- **Convenience**: Intuitive API with modern JavaScript support
+- **Extensibility**: Adapter and event systems
 
-Движок является основой для построения сложных систем автоматизации, CI/CD пайплайнов и инструментов управления инфраструктурой.
+The engine serves as a foundation for building complex automation systems, CI/CD pipelines, and infrastructure management tools.

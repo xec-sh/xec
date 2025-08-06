@@ -3,7 +3,7 @@ import { it, expect, describe } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/test-utils';
 
 import { $ } from '../../src/index';
-import { SSHAdapter } from '../../src/adapters/ssh-adapter';
+import { SSHAdapter } from '../../../src/adapters/ssh/index';
 
 // Performance tests may take longer
 const LONG_TIMEOUT = 120000; // 2 minutes

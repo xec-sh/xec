@@ -3,7 +3,7 @@ import { expect, describe } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
 
 import { $ } from '../../src/index';
-import { SSHAdapter } from '../../src/adapters/ssh-adapter';
+import { SSHAdapter } from '../../../src/adapters/ssh/index';
 
 // Helper to get configured SSH instance
 function getConfiguredSSH(sshConfig: any) {

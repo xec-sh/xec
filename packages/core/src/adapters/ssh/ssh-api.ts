@@ -1,6 +1,6 @@
-import type { SSHAdapterOptions } from '../core/command.js';
-import type { SSHAdapter } from '../adapters/ssh-adapter.js';
-import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
+import type { SSHAdapter } from './index.js';
+import type { SSHAdapterOptions } from '../../types/command.js';
+import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
 
 // Type for SSH tunnel
 export interface SSHTunnel {

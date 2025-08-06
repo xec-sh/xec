@@ -2,7 +2,7 @@ import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { $ } from '../../../src/index.js';
 import { CommandError } from '../../../src/core/error.js';
-import { MockAdapter } from '../../../src/adapters/mock-adapter.js';
+import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 describe('ExecutionEngine - Promise Chain Handling', () => {

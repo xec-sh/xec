@@ -6,7 +6,7 @@ import { expect, beforeEach } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
 
 import { $ } from '../../src/index';
-import { SSHAdapter } from '../../src/adapters/ssh-adapter';
+import { SSHAdapter } from '../../../src/adapters/ssh/index';
 
 describeSSH('SSH File Transfer Tests', () => {
   let localTempDir: string;

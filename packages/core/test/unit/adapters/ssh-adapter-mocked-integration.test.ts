@@ -1,7 +1,7 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ConnectionError } from '../../../src/core/error.js';
-import { SSHAdapter } from '../../../src/adapters/ssh-adapter.js';
+import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
 describe('SSHAdapter - Mocked Integration Tests', () => {
   let adapter: SSHAdapter;

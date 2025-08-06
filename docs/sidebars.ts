@@ -94,6 +94,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'environments/ssh/setup',
             'environments/ssh/authentication',
+            'environments/ssh/sudo-security',
             'environments/ssh/tunneling',
             'environments/ssh/batch-operations',
             'environments/ssh/connection-mgmt',

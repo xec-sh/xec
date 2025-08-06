@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { chmod, unlink, writeFile } from 'node:fs/promises';
 import { scryptSync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
 
-import type { Disposable } from '../types/disposable.js';
+import type { Disposable } from '../../types/disposable.js';
 
 /**
  * Secure password handling utilities with improved security features:

@@ -1,8 +1,8 @@
-import type { SSHExecutionContext } from '../utils/ssh-api.js';
-import type { K8sExecutionContext } from '../utils/kubernetes-api.js';
+import type { SSHExecutionContext } from '../adapters/ssh/ssh-api.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
-import type { DockerContext, DockerContainerConfig } from '../utils/docker-api.js';
-import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from '../core/command.js';
+import type { K8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
+import type { DockerContext, DockerContainerConfig } from '../adapters/docker/docker-api.js';
+import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from '../types/command.js';
 
 // Callable ExecutionEngine interface
 export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'k8s' | 'remoteDocker' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'retry' | 'defaults'> {
@@ -26,13 +26,13 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   shell(shell: string | boolean): CallableExecutionEngine;
   retry(options: any): CallableExecutionEngine;
   defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): CallableExecutionEngine;
-  
+
   // Configuration property
   readonly config: {
     set(updates: Partial<import('../core/execution-engine.js').ExecutionEngineConfig>): void;
     get(): Readonly<import('../core/execution-engine.js').ExecutionEngineConfig>;
   };
-  
+
   // Directory operations
   pwd(): string;
 }

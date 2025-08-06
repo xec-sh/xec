@@ -1,6 +1,6 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
-import { MockAdapter } from '../../../src/adapters/mock-adapter.js';
+import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 describe('Templates', () => {

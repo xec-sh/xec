@@ -6,7 +6,7 @@ import { existsSync, unlinkSync, mkdtempSync, writeFileSync } from 'fs';
 import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { TimeoutError } from '../../../src/core/error.js';
-import { KubernetesAdapter } from '../../../src/adapters/kubernetes-adapter.js';
+import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 describe('KubernetesAdapter Enhanced Tests', () => {
   let adapter: KubernetesAdapter;

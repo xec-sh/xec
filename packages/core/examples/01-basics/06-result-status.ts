@@ -68,29 +68,29 @@ async function deployApp() {
   if (!buildResult.ok) {
     return { success: false, error: `Build failed: ${buildResult.cause}` };
   }
-  
+
   const testResult = await $`npm test`.nothrow();
   if (!testResult.ok) {
     return { success: false, error: `Tests failed: ${testResult.cause}` };
   }
-  
+
   const deployResult = await $`npm run deploy`.nothrow();
   if (!deployResult.ok) {
     return { success: false, error: `Deploy failed: ${deployResult.cause}` };
   }
-  
+
   return { success: true };
 }
 
-// 7. Migration from isSuccess() to ok
+// 7. Migration from `ok` to ok
 // Old way (deprecated):
-// if (result.isSuccess()) { ... }
+// if (result.ok) { ... }
 
 // New way:
 // if (result.ok) { ... }
 
 // The ok property provides the same functionality but with cleaner syntax
 const migrationExample = await $`echo "test"`;
-console.log('Old way (deprecated):', migrationExample.isSuccess());
+console.log('Old way (deprecated):', migrationExample.ok);
 console.log('New way:', migrationExample.ok);
-console.log('Both return the same value:', migrationExample.isSuccess() === migrationExample.ok);
+console.log('Both return the same value:', migrationExample.ok === migrationExample.ok);

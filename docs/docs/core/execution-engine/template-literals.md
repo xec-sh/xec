@@ -1,28 +1,28 @@
 ---
 title: Template Literals API
 sidebar_label: Template Literals
-description: Безопасное построение команд через template literals с автоматическим экранированием
+description: Safe command building through template literals with automatic escaping
 ---
 
 # Template Literals API
 
-Template literals — это основной способ построения команд в Xec. Этот API обеспечивает безопасное внедрение переменных в команды с автоматическим экранированием, предотвращая инъекции и ошибки.
+Template literals are the primary way to build commands in Xec. This API provides safe variable injection into commands with automatic escaping, preventing injections and errors.
 
-## Основы использования
+## Basic Usage
 
-### Простое выполнение команд
+### Simple Command Execution
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Простая команда
+// Simple command
 await $`ls -la`;
 
-// С переменными
+// With variables
 const dir = '/home/user';
 await $`ls -la ${dir}`;
 
-// Многострочные команды
+// Multi-line commands
 await $`
   echo "Starting process..."
   npm install
@@ -31,33 +31,33 @@ await $`
 `;
 ```
 
-### Автоматическое экранирование
+### Automatic Escaping
 
-Все значения, подставляемые через `${}`, автоматически экранируются:
+All values substituted through `${}` are automatically escaped:
 
 ```typescript
-// Файлы с пробелами
+// Files with spaces
 const file = "my document.txt";
 await $`cat ${file}`;
-// Выполнится: cat "my document.txt"
+// Executes: cat "my document.txt"
 
-// Специальные символы
+// Special characters
 const dangerous = "'; rm -rf /; echo '";
 await $`echo ${dangerous}`;
-// Выполнится: echo "'; rm -rf /; echo '"
-// Вывод: '; rm -rf /; echo '
+// Executes: echo "'; rm -rf /; echo '"
+// Output: '; rm -rf /; echo '
 
-// Попытка инъекции команд
+// Command injection attempt
 const userInput = "$(malicious command)";
 await $`echo ${userInput}`;
-// Безопасно! Выведет: $(malicious command)
+// Safe! Outputs: $(malicious command)
 ```
 
-## Типы данных и их обработка
+## Data Types and Their Handling
 
-### Строки
+### Strings
 
-Строки экранируются с учетом контекста:
+Strings are escaped with context awareness:
 
 ```typescript
 const text = "Hello, World!";
@@ -70,7 +70,7 @@ const quote = 'He said "Hello"';
 await $`echo ${quote}`;  // echo "He said \"Hello\""
 ```
 
-### Числа и булевы значения
+### Numbers and Boolean Values
 
 ```typescript
 const port = 3000;
@@ -82,27 +82,27 @@ await $`head -n ${count} file.txt`;       // head -n 42
 await $`./script.sh --verbose ${enabled}`; // --verbose true
 ```
 
-### Массивы
+### Arrays
 
-Массивы разворачиваются в отдельные аргументы:
+Arrays are expanded into separate arguments:
 
 ```typescript
 const files = ['file1.txt', 'file2.txt', 'file3.txt'];
 await $`rm ${files}`;
-// Выполнится: rm file1.txt file2.txt file3.txt
+// Executes: rm file1.txt file2.txt file3.txt
 
 const flags = ['-v', '--recursive', '--force'];
 await $`command ${flags} target`;
-// Выполнится: command -v --recursive --force target
+// Executes: command -v --recursive --force target
 
-// Пустой массив игнорируется
+// Empty array is ignored
 const empty: string[] = [];
 await $`ls ${empty} -la`;  // ls -la
 ```
 
-### Объекты
+### Objects
 
-Объекты преобразуются в JSON:
+Objects are converted to JSON:
 
 ```typescript
 const config = { 
@@ -112,13 +112,13 @@ const config = {
 };
 
 await $`echo ${config}`;
-// Выполнится: echo '{"name":"app","version":"1.0.0","port":3000}'
+// Executes: echo '{"name":"app","version":"1.0.0","port":3000}'
 
-// Использование в конфигурационных файлах
+// Use in configuration files
 await $`echo ${config} > config.json`;
 ```
 
-### null и undefined
+### null and undefined
 
 ```typescript
 const nullValue = null;
@@ -127,32 +127,32 @@ const undefinedValue = undefined;
 await $`echo "Value: ${nullValue}"`;      // echo "Value: "
 await $`echo "Value: ${undefinedValue}"`; // echo "Value: "
 
-// Полезно для опциональных параметров
+// Useful for optional parameters
 const optionalFlag = condition ? '--verbose' : undefined;
 await $`command ${optionalFlag} file.txt`;
-// Если condition false: command file.txt
-// Если condition true: command --verbose file.txt
+// If condition false: command file.txt
+// If condition true: command --verbose file.txt
 ```
 
-### Promises и async значения
+### Promises and Async Values
 
-Template literals автоматически ожидают разрешения промисов:
+Template literals automatically await promise resolution:
 
 ```typescript
-// Функция возвращает Promise
+// Function returns Promise
 async function getVersion() {
   return '1.2.3';
 }
 
-// Promise автоматически разрешается
+// Promise is automatically resolved
 await $`npm publish --tag ${getVersion()}`;
-// Выполнится: npm publish --tag 1.2.3
+// Executes: npm publish --tag 1.2.3
 
-// Цепочка промисов
+// Promise chaining
 const data = fetch('/api/config').then(r => r.json());
 await $`deploy --config ${data}`;
 
-// Параллельное разрешение
+// Parallel resolution
 const [user, host] = [
   Promise.resolve('admin'),
   Promise.resolve('server.com')
@@ -160,44 +160,44 @@ const [user, host] = [
 await $`ssh ${user}@${host}`;
 ```
 
-## Raw mode - без экранирования
+## Raw Mode - Without Escaping
 
-Для случаев, когда нужно отключить экранирование:
+For cases when you need to disable escaping:
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';
 
 const $ = new ExecutionEngine();
 
-// Обычный режим - с экранированием
+// Normal mode - with escaping
 const pattern = '*.txt';
-await $`ls ${pattern}`;  // ls "*.txt" (ищет файл с именем *.txt)
+await $`ls ${pattern}`;  // ls "*.txt" (looks for file named *.txt)
 
-// Raw режим - без экранирования
-await $.raw`ls ${pattern}`;  // ls *.txt (работает как glob)
+// Raw mode - without escaping
+await $.raw`ls ${pattern}`;  // ls *.txt (works as glob)
 
-// Полезно для:
-// - Glob паттернов
+// Useful for:
+// - Glob patterns
 const files = '*.{js,ts}';
 await $.raw`rm ${files}`;
 
-// - Перенаправлений
+// - Redirections
 const output = '> output.txt';
 await $.raw`echo "test" ${output}`;
 
-// - Пайпов
+// - Pipes
 const pipe = '| grep error';
 await $.raw`cat log.txt ${pipe}`;
 ```
 
-⚠️ **Внимание**: Используйте raw mode только с доверенными данными!
+⚠️ **Warning**: Use raw mode only with trusted data!
 
-## Сложные примеры
+## Complex Examples
 
-### Динамическое построение команд
+### Dynamic Command Building
 
 ```typescript
-// Условные флаги
+// Conditional flags
 const verbose = process.env.DEBUG === 'true';
 const dryRun = process.env.DRY_RUN === 'true';
 
@@ -210,10 +210,10 @@ const flags = [
 await $`npm publish ${flags}`;
 ```
 
-### Шаблонизация команд
+### Command Templating
 
 ```typescript
-// Создание переиспользуемого шаблона
+// Creating a reusable template
 function gitCommit(message: string, files: string[] = []) {
   return $`git add ${files.length ? files : '.'} && git commit -m ${message}`;
 }
@@ -222,7 +222,7 @@ await gitCommit('Initial commit');
 await gitCommit('Add features', ['src/feature.ts', 'tests/feature.test.ts']);
 ```
 
-### Работа с путями
+### Working with Paths
 
 ```typescript
 import * as path from 'path';
@@ -231,96 +231,96 @@ const baseDir = '/projects';
 const projectName = 'my-app';
 const fileName = 'config.json';
 
-// Безопасное построение путей
+// Safe path construction
 const fullPath = path.join(baseDir, projectName, fileName);
 await $`cat ${fullPath}`;
 
-// Множественные пути
+// Multiple paths
 const dirs = ['src', 'tests', 'docs'].map(d => path.join(baseDir, d));
 await $`ls -la ${dirs}`;
 ```
 
-### Работа с окружением
+### Working with Environment
 
 ```typescript
-// Переменные окружения в командах
+// Environment variables in commands
 const env = {
   NODE_ENV: 'production',
   PORT: '3000',
   API_KEY: 'secret-key'
 };
 
-// Передача через env
+// Pass through env
 await $`node app.js`.env(env);
 
-// Или inline
+// Or inline
 const port = 3000;
 const host = 'localhost';
 await $`NODE_ENV=production npm start -- --port ${port} --host ${host}`;
 ```
 
-## Специальные символы и их обработка
+## Special Characters and Their Handling
 
-### Кавычки
+### Quotes
 
 ```typescript
-// Одинарные кавычки
+// Single quotes
 const single = "It's a test";
 await $`echo ${single}`;  // echo "It's a test"
 
-// Двойные кавычки
+// Double quotes
 const double = 'Say "Hello"';
 await $`echo ${double}`;  // echo "Say \"Hello\""
 
-// Смешанные
+// Mixed
 const mixed = `It's "complex"`;
 await $`echo ${mixed}`;  // echo "It's \"complex\""
 ```
 
-### Символы shell
+### Shell Characters
 
 ```typescript
-// Специальные символы экранируются
+// Special characters are escaped
 const special = '$HOME && ls || rm -rf /';
 await $`echo ${special}`;
-// Вывод: $HOME && ls || rm -rf /
+// Output: $HOME && ls || rm -rf /
 
-// Обратные кавычки
+// Backticks
 const backticks = '`command`';
 await $`echo ${backticks}`;  // echo "\`command\`"
 
-// Переменные shell
+// Shell variables
 const shellVar = '${PATH}';
 await $`echo ${shellVar}`;  // echo "\${PATH}"
 ```
 
-### Unicode и эмодзи
+### Unicode and Emoji
 
 ```typescript
-// Unicode поддерживается
-const unicode = 'Привет, мир! 你好世界';
+// Unicode is supported
+const unicode = 'Hello, world! 你好世界';
 await $`echo ${unicode}`;
 
-// Эмодзи работают
+// Emoji work
 const emoji = '🚀 Deploying...';
 await $`echo ${emoji}`;
 
-// Специальные символы
+// Special characters
 const special = '→ ← ↑ ↓ • × ÷';
 await $`echo ${special}`;
 ```
 
-## Интерполяция функций
+## Function Interpolation
 
 ```typescript
-// Функции вызываются автоматически
+// Functions are called automatically
 function getTimestamp() {
   return new Date().toISOString();
 }
 
 await $`echo "Deployed at: ${getTimestamp()}"`;
 
-// Async функции
+// Async functions
 async function getGitHash() {
   const result = await $`git rev-parse HEAD`;
   return result.stdout.trim();
@@ -328,7 +328,7 @@ async function getGitHash() {
 
 await $`docker build -t app:${getGitHash()} .`;
 
-// Методы объектов
+// Object methods
 const config = {
   getConnectionString() {
     return 'postgresql://localhost/db';
@@ -338,45 +338,45 @@ const config = {
 await $`psql ${config.getConnectionString()}`;
 ```
 
-## Вложенные template literals
+## Nested Template Literals
 
 ```typescript
-// Команды могут быть вложенными
+// Commands can be nested
 const branch = await $`git branch --show-current`.text();
 await $`git push origin ${branch}`;
 
-// Или в одну строку
+// Or in one line
 await $`git push origin ${await $`git branch --show-current`.text()}`;
 
-// Сложные композиции
+// Complex compositions
 const files = await $`find . -name "*.js"`.lines();
 await $`eslint ${files}`;
 ```
 
-## Многострочные команды
+## Multi-line Commands
 
 ```typescript
-// Shell скрипты
+// Shell scripts
 await $`
   set -e
   echo "Starting deployment..."
   
-  # Обновление кода
+  # Update code
   git pull origin main
   
-  # Установка зависимостей
+  # Install dependencies
   npm ci
   
-  # Сборка
+  # Build
   npm run build
   
-  # Перезапуск
+  # Restart
   pm2 restart app
   
   echo "Deployment completed!"
 `;
 
-// С переменными
+// With variables
 const appName = 'my-app';
 const environment = 'production';
 
@@ -388,18 +388,18 @@ await $`
 `;
 ```
 
-## Обработка ошибок в template literals
+## Error Handling in Template Literals
 
 ```typescript
-// Неправильное использование
+// Incorrect usage
 try {
-  const result = $`command`;  // Забыли await!
-  // result - это ProcessPromise, не результат
+  const result = $`command`;  // Forgot await!
+  // result is ProcessPromise, not result
 } catch (e) {
-  // Этот блок не выполнится
+  // This block won't execute
 }
 
-// Правильное использование
+// Correct usage
 try {
   const result = await $`command`;
   console.log(result.stdout);
@@ -407,107 +407,107 @@ try {
   console.error('Command failed:', error.stderr);
 }
 
-// С nothrow
+// With nothrow
 const result = await $`may-fail`.nothrow();
 if (result.exitCode !== 0) {
   console.log('Failed but continued');
 }
 ```
 
-## Производительность и оптимизации
+## Performance and Optimizations
 
-### Переиспользование строк
+### String Reuse
 
 ```typescript
-// Неэффективно - создаёт новую строку каждый раз
+// Inefficient - creates new string each time
 for (const file of files) {
   await $`process ${file}`;
 }
 
-// Эффективнее - batch обработка
+// More efficient - batch processing
 await $`process ${files}`;
 
-// Или параллельно
+// Or in parallel
 await $.parallel.map(files, file => $`process ${file}`);
 ```
 
-### Кэширование результатов
+### Result Caching
 
 ```typescript
-// Кэширование дорогих операций
+// Caching expensive operations
 const getData = () => $`expensive-operation`.cache({ ttl: 60000 });
 
-// Первый вызов выполнит команду
+// First call executes the command
 const data1 = await getData();
 
-// Второй вызов вернёт кэш
+// Second call returns cache
 const data2 = await getData();
 ```
 
-## Отладка template literals
+## Debugging Template Literals
 
 ```typescript
-// Просмотр итоговой команды
+// View the final command
 const file = "test file.txt";
 const cmd = $`cat ${file}`;
 
-// Не выполняя, можно увидеть команду
-console.log(cmd.toString());  // ProcessPromise не имеет toString
+// Without executing, you can see the command
+console.log(cmd.toString());  // ProcessPromise doesn't have toString
 
-// Для отладки используйте dry-run
+// For debugging use dry-run
 const $ = new ExecutionEngine();
 $.on('command:start', ({ command }) => {
   console.log('Executing:', command);
 });
 
 await $`cat ${file}`;
-// Выведет: Executing: cat "test file.txt"
+// Outputs: Executing: cat "test file.txt"
 ```
 
 ## Best Practices
 
-### ✅ Хорошие практики
+### ✅ Good Practices
 
 ```typescript
-// Используйте переменные для читаемости
+// Use variables for readability
 const sourceDir = '/source';
 const destDir = '/dest';
 await $`rsync -av ${sourceDir}/ ${destDir}/`;
 
-// Разбивайте сложные команды
+// Break down complex commands
 const files = await $`find . -type f -name "*.ts"`.lines();
 const filtered = files.filter(f => !f.includes('node_modules'));
 await $`prettier --write ${filtered}`;
 
-// Используйте деструктуризацию
+// Use destructuring
 const { stdout: version } = await $`node --version`;
 ```
 
-### ❌ Избегайте
+### ❌ Avoid
 
 ```typescript
-// Не используйте конкатенацию строк
-const bad = 'ls ' + userInput;  // Опасно!
+// Don't use string concatenation
+const bad = 'ls ' + userInput;  // Dangerous!
 await $`${bad}`;
 
-// Не забывайте await
-const result = $`command`;  // Это Promise, не результат!
+// Don't forget await
+const result = $`command`;  // This is Promise, not result!
 
-// Не используйте raw без необходимости
-await $.raw`rm ${userInput}`;  // Опасно!
+// Don't use raw without necessity
+await $.raw`rm ${userInput}`;  // Dangerous!
 
-// Не передавайте непроверенные данные
-await $`mysql -p${userPassword}`;  // Пароль в логах!
+// Don't pass unchecked data
+await $`mysql -p${userPassword}`;  // Password in logs!
 ```
 
-## Заключение
+## Conclusion
 
-Template literals API в Xec обеспечивает:
+The Template Literals API in Xec provides:
 
-- **Безопасность**: автоматическое экранирование предотвращает инъекции
-- **Удобство**: естественный синтаксис JavaScript
-- **Гибкость**: поддержка всех типов данных JavaScript
-- **Асинхронность**: автоматическая обработка промисов
-- **Читаемость**: код выглядит как обычные shell команды
+- **Security**: automatic escaping prevents injections
+- **Convenience**: natural JavaScript syntax
+- **Flexibility**: support for all JavaScript data types
+- **Asynchronicity**: automatic promise handling
+- **Readability**: code looks like regular shell commands
 
-Этот API является основой для безопасного и удобного выполнения команд во всех окружениях, поддерживаемых Xec.
+This API is the foundation for safe and convenient command execution across all environments supported by Xec.

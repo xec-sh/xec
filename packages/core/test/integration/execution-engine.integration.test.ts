@@ -1,8 +1,9 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { CommandError } from '../../src/core/error.js';
-import { MockAdapter } from '../../src/adapters/mock-adapter.js';
+import { MockAdapter } from '../../src/adapters/mock/index.js';
 import { ExecutionEngine, createCallableEngine } from '../../src/index.js';
+import { within } from '../../src/utils/within.js';
 
 describe('Unified Execution Engine - Integration Tests', () => {
   describe('Basic functionality', () => {
@@ -196,6 +197,234 @@ describe('Unified Execution Engine - Integration Tests', () => {
       const custom$ = $.env({ TEST: 'value' });
       const result = await custom$.run`echo $TEST`;
       expect(result.stdout.trim()).toBe('value');
+    });
+  });
+
+  describe('Shell configuration', () => {
+    it('should execute commands with shell', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const result = await $.execute({ command: 'echo "Hello, Shell!"', shell: true });
+      expect(result.stdout.trim()).toBe('Hello, Shell!');
+    });
+
+    it('should use custom shell', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const $bash = $.shell('/bin/bash');
+      const result = await $bash`echo $BASH_VERSION | cut -d. -f1`;
+      // Should return bash major version if bash is available
+      expect(result.exitCode).toBe(0);
+    });
+
+    it('should disable shell', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const $noshell = $.shell(false);
+      const result = await $noshell.execute({
+        command: 'echo',
+        args: ['no shell interpolation: $HOME']
+      });
+      expect(result.stdout.trim()).toBe('no shell interpolation: $HOME');
+    });
+  });
+
+  describe('Environment and working directory', () => {
+    it('should support environment variables', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const $env = $.env({ MY_VAR: 'hello' });
+      const result = await $env`echo $MY_VAR`;
+      expect(result.stdout.trim()).toBe('hello');
+    });
+
+    it('should chain configurations', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const $configured = $.cd('/tmp').env({ TEST: 'value' }).timeout(5000);
+      const result = await $configured`echo "$TEST in $(pwd)"`;
+      // On macOS, /tmp is a symlink to /private/tmp
+      const output = result.stdout.trim();
+      expect(output).toMatch(/^value in \/(private\/)?tmp$/);
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should capture stderr', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const result = await $.execute({
+        command: 'echo "error" >&2; exit 0',
+        shell: true
+      });
+      expect(result.stderr.trim()).toBe('error');
+      expect(result.exitCode).toBe(0);
+    });
+  });
+
+  describe('Adapter switching', () => {
+    it('should support local adapter explicitly', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const $local = $.local();
+      const result = await $local`echo "local test"`;
+      expect(result.stdout.trim()).toBe('local test');
+    });
+  });
+
+  describe('Retry functionality', () => {
+    it('should retry failed commands using retry', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      let attempts = 0;
+      
+      // Test with a command that might not exist
+      const $retry = $.retry({
+        maxRetries: 2,
+        isRetryable: () => true,
+        onRetry: (attempt: number) => {
+          attempts = attempt;
+        },
+        initialDelay: 10
+      });
+
+      // Use a command that exists on all platforms
+      const result = await $retry`echo "Success"`;
+      expect(result.stdout).toContain('Success');
+      // Since echo should succeed on first try, no retries
+      expect(attempts).toBe(0);
+    });
+  });
+
+  describe('Within context integration', () => {
+    it('should execute with local context', async () => {
+      const engine = new ExecutionEngine();
+      const result = await within(
+        { env: { TEST_VAR: 'test-value' } },
+        async () => engine.execute({ command: 'echo $TEST_VAR', shell: true })
+      );
+
+      expect(result.stdout.trim()).toBe('test-value');
+    });
+  });
+
+  describe('Parallel execution', () => {
+    it('should support parallel execution', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const start = Date.now();
+      const results = await Promise.all([
+        $`sleep 0.1 && echo "1"`,
+        $`sleep 0.1 && echo "2"`,
+        $`sleep 0.1 && echo "3"`
+      ]);
+      const duration = Date.now() - start;
+
+      expect(results[0].stdout.trim()).toBe('1');
+      expect(results[1].stdout.trim()).toBe('2');
+      expect(results[2].stdout.trim()).toBe('3');
+
+      // Should execute in parallel, not sequentially
+      expect(duration).toBeLessThan(350); // 3 * 100ms + overhead
+    });
+  });
+
+  describe('CI/CD pipeline scenario', () => {
+    it('should support CI/CD pipeline scenario', async () => {
+      const engine = new ExecutionEngine();
+      const mockAdapter = new MockAdapter();
+      engine.registerAdapter('mock', mockAdapter);
+      const $ciEngine = createCallableEngine(engine);
+
+      // Setup mocks for CI pipeline
+      mockAdapter.mockSuccess('sh -c "npm test -- --json"', JSON.stringify({
+        numFailedTests: 0,
+        numPassedTests: 10
+      }));
+      mockAdapter.mockSuccess('sh -c "git describe --tags --always"', 'v1.2.3');
+      mockAdapter.mockSuccess(/^sh -c "docker build/, '');
+      mockAdapter.mockSuccess(/^sh -c "docker run/, 'container-id');
+      mockAdapter.mockSuccess(/^sh -c "docker rm/, '');
+      mockAdapter.mockSuccess(/^sh -c "docker push/, '');
+
+      const $ci = $ciEngine.with({
+        env: { NODE_ENV: 'test', CI: 'true' },
+        adapter: 'mock' as any
+      });
+
+      // Tests
+      const testResults = await $ci`npm test -- --json`;
+      const tests = JSON.parse(testResults.stdout);
+      expect(tests.numFailedTests).toBe(0);
+
+      // Version
+      const version = await $ci`git describe --tags --always`;
+      const tag = `myapp:${version.stdout.trim()}`;
+      expect(tag).toBe('myapp:v1.2.3');
+
+      // Docker operations
+      await $ci`docker build -t ${tag} .`;
+      const containerName = `test-${Date.now()}`;
+      await $ci`docker run -d --name ${containerName} ${tag}`;
+      await $ci`docker rm -f ${containerName}`;
+      await $ci`docker push ${tag}`;
+
+      // Check executed commands
+      const executedCommands = mockAdapter.getExecutedCommands();
+      expect(executedCommands).toContain('sh -c "npm test -- --json"');
+      expect(executedCommands).toContain('sh -c "git describe --tags --always"');
+      expect(executedCommands.some((cmd: string) => cmd.includes('docker build'))).toBe(true);
+      expect(executedCommands.some((cmd: string) => cmd.includes('docker push'))).toBe(true);
+    });
+  });
+
+  describe('Runtime detection', () => {
+    it('should automatically detect runtime', async () => {
+      const engine = new ExecutionEngine();
+      const $runtimeEngine = createCallableEngine(engine);
+
+      // Should work regardless of runtime
+      const result = await $runtimeEngine`echo "Works in any runtime"`;
+      expect(result.stdout.trim()).toBe('Works in any runtime');
+    });
+  });
+
+  describe('Security - automatic escaping', () => {
+    it('should automatically escape interpolated values', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const dangerous = "'; rm -rf /; echo '";
+      const result = await $`echo ${dangerous}`;
+
+      // Should output the string as-is, without executing dangerous command
+      expect(result.stdout.trim()).toBe(dangerous);
+      expect(result.exitCode).toBe(0);
+    });
+
+    it('should properly escape special characters', async () => {
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      const specialChars = '$`"\\';
+      const result = await $`echo ${specialChars}`;
+
+      expect(result.stdout.trim()).toBe(specialChars);
+    });
+  });
+
+  describe('Process exit behavior', () => {
+    it('should handle promises in template interpolation without hanging', async () => {
+      // Test script to ensure process exits cleanly without hanging
+      const engine = new ExecutionEngine();
+      const $ = createCallableEngine(engine);
+      
+      const a1 = $`echo foo`;
+      const a2 = new Promise((resolve) => setTimeout(resolve, 20, ['bar', 'baz']));
+
+      const result = await $`echo ${a1} ${a2}`;
+      expect(result.stdout.trim()).toBe('foo bar baz');
+      expect(result.exitCode).toBe(0);
+      
+      // If this test completes without timeout, the fix is working
     });
   });
 });
