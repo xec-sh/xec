@@ -74,7 +74,7 @@
     "node-pty": "^1.0.0",
     "ssh2-streams": "^0.4.10",
     "ts-jest": "^29.4.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.2"
   },
   "repository": {
     "type": "git",
