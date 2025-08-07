@@ -17,6 +17,10 @@ export { PluginRegistry } from './plugins/registry.js';
 export { emojiPlugin } from './plugins/emoji-plugin.js';
 export { backSymbol, cancelSymbol } from './core/types.js';
 export { ComponentExplorer } from './dev-tools/component-explorer.js';
+
+// Core infrastructure
+export { StreamHandler, type StreamHandlerOptions } from './core/stream-handler.js';
+export { StreamHandlerFactory } from './core/stream-handler-factory.js';
 // Primitive components
 export { TextPrompt, type TextOptions } from './components/primitives/text.js';
 // Developer tools
@@ -228,6 +232,8 @@ import { panel } from './components/layout/panel.js';
 import { wizard } from './components/layout/wizard.js';
 // Import plugin system
 import { PluginRegistry } from './plugins/registry.js';
+// Create global plugin registry instance
+const pluginRegistry = new PluginRegistry();
 // Import contextual help
 import { createHelp } from './utils/contextual-help.js';
 import { MouseSupport } from './utils/mouse-support.js';
@@ -456,7 +462,7 @@ export async function autocomplete<T = string>(
   maybeOptions?: AutocompleteOptions<T>
 ): Promise<T> {
   const config = typeof messageOrOptions === 'string'
-    ? { message: messageOrOptions, ...maybeOptions! }
+    ? { ...maybeOptions!, message: messageOrOptions }
     : messageOrOptions;
   
   const prompt = new AutocompletePrompt(config);
@@ -484,7 +490,7 @@ export async function table<T = any>(
   maybeOptions?: TableOptions<T>
 ): Promise<T | T[]> {
   const config = typeof messageOrOptions === 'string'
-    ? { message: messageOrOptions, ...maybeOptions! }
+    ? { ...maybeOptions!, message: messageOrOptions }
     : messageOrOptions;
   
   const prompt = new TablePrompt(config);
@@ -580,7 +586,7 @@ export const kit = {
   
   // Phase 3: Plugin system
   use(plugin: KitPlugin) {
-    PluginRegistry.register(plugin);
+    pluginRegistry.register(plugin);
   },
   
   // Phase 3: Debug

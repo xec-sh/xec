@@ -1,9 +1,26 @@
 #!/usr/bin/env node
-import { reactive, validators } from '@xec-sh/kit';
+import { reactive, validators } from '../../src/index.js';
+
+// Keep process alive
+if (process.stdin.ref) {
+  console.log('DEBUG: Calling process.stdin.ref() at start');
+  process.stdin.ref();
+}
+
+// Prevent Node.js from exiting
+process.on('beforeExit', (code) => {
+  console.log('DEBUG: Process is about to exit with code:', code);
+});
 
 // Example: Reactive form with real-time validation
 async function main() {
-  const result = await reactive({
+  console.log('Starting reactive form demo...');
+  console.log('Press Ctrl+C to exit at any time\n');
+  console.log('TTY:', process.stdin.isTTY);
+  console.log('setRawMode:', typeof process.stdin.setRawMode);
+  
+  console.log('DEBUG: Creating reactive prompt...');
+  const reactivePrompt = reactive({
     initialValues: {
       username: '',
       email: '',
@@ -70,7 +87,11 @@ async function main() {
         when: () => state.get('email').includes('@'),
       },
     ],
-  }).prompt();
+  });
+  
+  console.log('DEBUG: Reactive prompt created, calling prompt()...');
+  const result = await reactivePrompt.prompt();
+  console.log('DEBUG: prompt() completed');
 
   console.log('\nRegistration Complete!');
   console.log('Username:', result.username);
@@ -79,4 +100,12 @@ async function main() {
   console.log('Newsletter:', result.newsletter ? 'Subscribed' : 'Not subscribed');
 }
 
-main().catch(console.error);
+main()
+  .then(() => {
+    console.log('DEBUG: main() completed successfully');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('DEBUG: main() error:', error);
+    process.exit(1);
+  });

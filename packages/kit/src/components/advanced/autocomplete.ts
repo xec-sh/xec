@@ -81,11 +81,11 @@ export class AutocompletePrompt<T = string> extends Prompt<T, AutocompleteOption
       if (state.input) {
         // If cursor is at the end, add a space for the cursor
         const cursorChar = state.cursor < state.input.length 
-          ? state.input[state.cursor] 
+          ? (state.input[state.cursor] ?? ' ')
           : ' ';
         inputLine = 
           state.input.slice(0, state.cursor) +
-          theme.formatters.inverse(cursorChar || ' ') +
+          theme.formatters.inverse(cursorChar) +
           state.input.slice(state.cursor + (state.cursor < state.input.length ? 1 : 0));
       } else {
         inputLine = theme.formatters.muted(placeholder);

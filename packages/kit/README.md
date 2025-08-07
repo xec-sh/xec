@@ -159,6 +159,37 @@ try {
 }
 ```
 
+## Running Examples
+
+The examples directory contains various demonstrations of the kit features. To run an example:
+
+```bash
+# Make sure you're in the kit package directory
+cd packages/kit
+
+# Build the package first
+yarn build
+
+# Run an example using tsx
+yarn tsx examples/reactive/reactive-form.ts
+
+# Or if you have tsx installed globally
+tsx examples/reactive/reactive-form.ts
+```
+
+**Important Note about TTY**: The interactive examples require a TTY-enabled terminal. If you're running through:
+- An IDE terminal that doesn't provide full TTY support
+- An SSH session without TTY allocation
+- A CI/CD environment
+- Scripts that pipe output
+
+The examples may exit immediately without accepting input. In such cases, run the examples in a real terminal application (Terminal.app on macOS, Windows Terminal, etc.).
+
+To check if your environment supports TTY, run:
+```bash
+node -e "console.log('TTY support:', process.stdin.isTTY && process.stdout.isTTY)"
+```
+
 ## License
 
 MIT

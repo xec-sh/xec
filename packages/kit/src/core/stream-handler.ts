@@ -8,6 +8,7 @@ export interface StreamHandlerOptions {
   input?: NodeJS.ReadStream;
   output?: NodeJS.WriteStream;
   isTTY?: boolean;
+  shared?: boolean; // Enable shared mode for multiple prompts
 }
 
 export class StreamHandler extends EventEmitter {
@@ -16,16 +17,50 @@ export class StreamHandler extends EventEmitter {
   private isTTY: boolean;
   private isRaw = false;
   private listeners: Array<() => void> = [];
+  
+  // Shared mode support
+  private isShared: boolean;
+  private refCount = 0;
+  private started = false;
 
   constructor(options: StreamHandlerOptions = {}) {
     super();
     this.input = options.input ?? process.stdin;
     this.output = options.output ?? process.stdout;
     this.isTTY = options.isTTY ?? (this.input.isTTY && this.output.isTTY);
+    this.isShared = options.shared ?? false;
   }
 
+  // Reference counting for shared mode
+  acquire(): void {
+    if (this.isShared) {
+      this.refCount++;
+      if (this.refCount === 1 && !this.started) {
+        this.start();
+      }
+    }
+  }
+  
+  release(): void {
+    if (this.isShared) {
+      this.refCount--;
+      if (this.refCount === 0 && this.started) {
+        this.stop();
+      }
+    }
+  }
+  
+  // Check if can start exclusively
+  canStartExclusive(): boolean {
+    return !this.isShared || this.refCount === 0;
+  }
+  
   start(): void {
     if (!this.isTTY) return;
+    
+    // Prevent multiple starts
+    if (this.started) return;
+    this.started = true;
 
     // Enable raw mode
     if (this.input.setRawMode) {
@@ -60,6 +95,14 @@ export class StreamHandler extends EventEmitter {
   }
 
   stop(): void {
+    // Prevent stopping if still referenced in shared mode
+    if (this.isShared && this.refCount > 0) {
+      return;
+    }
+    
+    if (!this.started) return;
+    this.started = false;
+    
     // Restore terminal
     if (this.isRaw && this.input.setRawMode) {
       this.input.setRawMode(false);
@@ -119,6 +162,57 @@ export class StreamHandler extends EventEmitter {
     return this.isTTY;
   }
 
+  // Ownership transfer methods
+  transferOwnership(): StreamHandler {
+    if (!this.isShared) {
+      throw new Error('Cannot transfer ownership of non-shared stream');
+    }
+    
+    // Create a new exclusive stream with the same input/output
+    const newStream = new StreamHandler({
+      input: this.input,
+      output: this.output,
+      isTTY: this.isTTY,
+      shared: false
+    });
+    
+    // Transfer state if we're the last reference
+    if (this.refCount === 1 && this.started) {
+      this.release(); // This will stop the shared stream
+      newStream.start();
+    } else if (this.refCount > 1) {
+      // Release one reference
+      this.release();
+      if (this.started) {
+        newStream.start();
+      }
+    }
+    
+    return newStream;
+  }
+  
+  clone(): StreamHandler {
+    return new StreamHandler({
+      input: this.input,
+      output: this.output,
+      isTTY: this.isTTY,
+      shared: this.isShared
+    });
+  }
+  
+  // Getters for state inspection
+  getRefCount(): number {
+    return this.refCount;
+  }
+  
+  isActive(): boolean {
+    return this.started;
+  }
+  
+  isSharedMode(): boolean {
+    return this.isShared;
+  }
+  
   private parseKey(data: string): Key {
     const key: Key = {
       sequence: data,

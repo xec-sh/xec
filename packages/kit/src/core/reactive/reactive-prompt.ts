@@ -5,7 +5,25 @@ import { ReactiveState } from './reactive-state.js';
 import { StreamHandler } from '../stream-handler.js';
 import { createDefaultTheme } from '../../themes/default.js';
 
+// Import all prompt types
+import { TextPrompt } from '../../components/primitives/text.js';
+import { SelectPrompt } from '../../components/primitives/select.js';
+import { ConfirmPrompt } from '../../components/primitives/confirm.js';
+import { NumberPrompt } from '../../components/primitives/number.js';
+import { MultiSelectPrompt } from '../../components/primitives/multiselect.js';
+import { PasswordPrompt } from '../../components/primitives/password.js';
+
 import type { Key, Theme } from '../types.js';
+
+// Wrapper to manage child prompts without full lifecycle
+interface PromptWrapper<T = any> {
+  definition: ReactivePromptDefinition;
+  instance: Prompt<T, any>;
+  render(): Promise<string>;
+  handleInput(key: Key): Promise<void>;
+  getValue(): T | undefined;
+  validate(): Promise<boolean | string>;
+}
 
 export interface ReactivePromptConfig<T extends Record<string, any>> {
   initialValues: T;
@@ -15,7 +33,7 @@ export interface ReactivePromptConfig<T extends Record<string, any>> {
 
 export interface ReactivePromptDefinition {
   id: string;
-  type: 'text' | 'select' | 'confirm' | 'number' | 'multiselect';
+  type: 'text' | 'select' | 'confirm' | 'number' | 'multiselect' | 'password';
   message: string | (() => string);
   value?: any;
   options?: any[] | (() => any[]);
@@ -27,13 +45,12 @@ export interface ReactivePromptDefinition {
 
 export class ReactivePrompt<T extends Record<string, any>> extends EventEmitter {
   private state: ReactiveState<T>;
-  private prompts: ReactivePromptDefinition[] = [];
-  private currentPromptIndex = 0;
+  private prompts: PromptWrapper[] = [];
+  private currentIndex = 0;
   private renderer: Renderer;
   private stream: StreamHandler;
   private theme: Theme;
-  private activePrompts: Map<string, Prompt<any, any>> = new Map();
-  private isRendering = false;
+  private isRunning = false;
   private disposed = false;
 
   constructor(config: ReactivePromptConfig<T>) {
@@ -41,193 +58,244 @@ export class ReactivePrompt<T extends Record<string, any>> extends EventEmitter 
 
     this.state = new ReactiveState(config.initialValues);
     this.theme = { ...createDefaultTheme(), ...config.theme };
-    this.stream = new StreamHandler();
+    
+    // Single shared stream for all operations
+    this.stream = new StreamHandler({ shared: true });
     this.renderer = new Renderer({ theme: this.theme, stream: this.stream });
 
-    // Initialize prompts
-    this.updatePrompts(config.prompts);
-
-    // Subscribe to state changes
-    this.state.subscribeAll(({ key, newValue }) => {
-      // Check if any prompts depend on this key
-      const dependentPrompts = this.prompts.filter(p =>
-        p.dependencies?.includes(String(key)) || !p.dependencies
-      );
-
-      if (dependentPrompts.length > 0) {
-        this.rerender();
-      }
-
-      // Notify onChange handlers
-      const prompt = this.prompts.find(p => p.id === String(key));
-      if (prompt?.onChange) {
-        prompt.onChange(newValue);
-      }
-    });
+    // Initialize prompts with wrapper
+    this.initializePrompts(config.prompts);
   }
 
   /**
-   * Update the prompt definitions
+   * Initialize prompts with wrapper for shared stream management
    */
-  updatePrompts(promptsFn: (state: ReactiveState<T>) => ReactivePromptDefinition[]): void {
-    this.prompts = promptsFn(this.state);
+  private initializePrompts(promptsFn: (state: ReactiveState<T>) => ReactivePromptDefinition[]): void {
+    const definitions = promptsFn(this.state);
+    
+    this.prompts = definitions.map(def => this.createPromptWrapper(def));
+  }
+  
+  /**
+   * Create a wrapper for managing child prompts without full lifecycle
+   */
+  private createPromptWrapper(definition: ReactivePromptDefinition): PromptWrapper {
+    const instance = this.createPromptInstance(definition);
+    
+    return {
+      definition,
+      instance,
+      render: () => instance.renderOnly(),
+      handleInput: (key: Key) => instance.handleInputOnly(key),
+      getValue: () => instance.getValue(),
+      validate: async () => {
+        if (!definition.validate) return true;
+        const value = instance.getValue();
+        return definition.validate(value);
+      }
+    };
   }
 
   /**
-   * Get the current active prompt
+   * Get the current active prompt wrapper
    */
-  getCurrentPrompt(): ReactivePromptDefinition | null {
-    // Find the first visible prompt from current index
-    for (let i = this.currentPromptIndex; i < this.prompts.length; i++) {
+  private getCurrentPrompt(): PromptWrapper | null {
+    // Find first visible prompt from current index
+    for (let i = this.currentIndex; i < this.prompts.length; i++) {
       const prompt = this.prompts[i];
-      if (prompt && (!prompt.when || prompt.when())) {
+      if (!prompt) continue;
+      
+      const def = prompt.definition;
+      
+      if (!def.when || def.when()) {
         return prompt;
       }
     }
+    
     return null;
   }
 
   /**
    * Render the current state
    */
-  async render(): Promise<string> {
-    if (this.isRendering) return '';
-    this.isRendering = true;
-
-    try {
-      const lines: string[] = [];
-
-      // Render completed prompts
-      for (let i = 0; i < this.currentPromptIndex; i++) {
-        const prompt = this.prompts[i];
-        if (prompt && (!prompt.when || prompt.when())) {
-          const value = this.state.get(prompt.id as keyof T);
-          if (value !== undefined) {
-            lines.push(this.formatCompletedPrompt(prompt, value));
-          }
-        }
+  private async renderCurrent(): Promise<void> {
+    const lines: string[] = [];
+    
+    // Render completed prompts
+    for (let i = 0; i < this.currentIndex; i++) {
+      const prompt = this.prompts[i];
+      if (!prompt) continue;
+      
+      const value = this.state.get(prompt.definition.id as keyof T);
+      
+      if (value !== undefined) {
+        lines.push(this.formatCompleted(prompt.definition, value));
       }
-
-      // Render current prompt
-      const currentPrompt = this.getCurrentPrompt();
-      if (currentPrompt) {
-        const promptInstance = await this.getOrCreatePrompt(currentPrompt);
-        if (promptInstance) {
-          const promptOutput = await promptInstance.render();
-          lines.push(promptOutput);
-        }
-      }
-
-      return lines.join('\n');
-    } finally {
-      this.isRendering = false;
     }
+    
+    // Render current prompt
+    const current = this.getCurrentPrompt();
+    if (current) {
+      const output = await current.render();
+      lines.push(output);
+    }
+    
+    // Clear and render all
+    this.renderer.clear();
+    this.renderer.render(lines.join('\n'));
   }
 
   /**
    * Handle keyboard input
    */
-  async handleInput(key: Key): Promise<void> {
-    const currentPrompt = this.getCurrentPrompt();
-    if (!currentPrompt) return;
-
-    const promptInstance = await this.getOrCreatePrompt(currentPrompt);
-    if (!promptInstance) return;
-
-    // Special handling for navigation between prompts
-    if (key.name === 'up' && key.shift && this.currentPromptIndex > 0) {
-      // Go to previous prompt
-      this.currentPromptIndex--;
-      await this.rerender();
-      return;
-    }
-
-    if (key.name === 'down' && key.shift && this.currentPromptIndex < this.prompts.length - 1) {
-      // Go to next prompt if current has value
-      const value = this.state.get(currentPrompt.id as keyof T);
-      if (value !== undefined) {
-        this.currentPromptIndex++;
-        await this.rerender();
+  private async handleKey(key: Key): Promise<void> {
+    try {
+      // Handle cancel
+      if (key.ctrl && key.name === 'c') {
+        this.emit('cancel');
         return;
       }
-    }
-
-    // Handle Enter to submit current prompt
-    if (key.name === 'enter' || key.name === 'return') {
-      const value = await this.getPromptValue(promptInstance);
-      if (value !== undefined) {
-        // Validate the value
-        if (currentPrompt.validate) {
-          const validation = await currentPrompt.validate(value);
-          if (typeof validation === 'string') {
-            // Show validation error
-            this.emit('validation-error', { prompt: currentPrompt, error: validation });
-            return;
-          }
-          if (validation === false) {
-            this.emit('validation-error', { prompt: currentPrompt, error: 'Invalid value' });
-            return;
-          }
+      
+      // Handle submit
+      if (key.name === 'enter' || key.name === 'return') {
+        const current = this.getCurrentPrompt();
+        if (!current) return;
+        
+        const value = current.getValue();
+        if (value === undefined) {
+          // Let the prompt handle the input if no value yet
+          await current.handleInput(key);
+          await this.renderCurrent();
+          return;
         }
-
+        
+        // Validate
+        const validation = await current.validate();
+        if (validation !== true) {
+          // Show error inline
+          await this.renderError(validation as string);
+          return;
+        }
+        
         // Update state
-        this.state.set(currentPrompt.id as keyof T, value);
-
-        // Move to next prompt
-        this.currentPromptIndex++;
-
-        // Check if we're done
-        const nextPrompt = this.getCurrentPrompt();
-        if (!nextPrompt) {
+        this.state.set(
+          current.definition.id as keyof T, 
+          value
+        );
+        
+        // Call onChange if defined
+        if (current.definition.onChange) {
+          current.definition.onChange(value);
+        }
+        
+        // Move to next
+        this.currentIndex++;
+        
+        // Check if done
+        if (this.currentIndex >= this.prompts.length || !this.getCurrentPrompt()) {
           this.emit('complete', this.state.getState());
         } else {
-          await this.rerender();
+          await this.renderCurrent();
         }
+        
         return;
       }
+      
+      // Let current prompt handle input
+      const current = this.getCurrentPrompt();
+      if (current) {
+        await current.handleInput(key);
+        await this.renderCurrent();
+      }
+    } catch (error) {
+      this.emit('error', error);
     }
-
-    // Let the prompt handle the input
-    await promptInstance.handleInput(key);
-
-    // Rerender to show updates
-    await this.rerender();
+  }
+  
+  /**
+   * Render validation error
+   */
+  private async renderError(message: string): Promise<void> {
+    const lines: string[] = [];
+    
+    // Render completed prompts
+    for (let i = 0; i < this.currentIndex; i++) {
+      const prompt = this.prompts[i];
+      if (!prompt) continue;
+      
+      const value = this.state.get(prompt.definition.id as keyof T);
+      
+      if (value !== undefined) {
+        lines.push(this.formatCompleted(prompt.definition, value));
+      }
+    }
+    
+    // Render current prompt with error
+    const current = this.getCurrentPrompt();
+    if (current) {
+      const output = await current.render();
+      lines.push(output);
+      lines.push(this.theme.formatters.error(`  ✖ ${message}`));
+    }
+    
+    // Clear and render all
+    this.renderer.clear();
+    this.renderer.render(lines.join('\n'));
   }
 
   /**
    * Run the reactive prompt flow
    */
   async prompt(): Promise<T> {
-    this.stream.start();
+    if (this.isRunning) {
+      throw new Error('ReactivePrompt is already running');
+    }
+    
+    this.isRunning = true;
+    this.stream.acquire(); // Use shared stream
     this.stream.hideCursor();
-
+    
     try {
       // Initial render
-      await this.rerender();
-
-      // Wait for completion
+      await this.renderCurrent();
+      
       return new Promise((resolve, reject) => {
-        this.once('complete', (state) => {
+        const handleKeyEvent = async (key: Key) => {
+          await this.handleKey(key);
+        };
+        
+        const handleComplete = (state: T) => {
+          cleanup();
           resolve(state);
-        });
-
-        this.once('cancel', () => {
-          reject(new Error('Prompt cancelled'));
-        });
-
-        // Handle input
-        this.stream.on('key', async (key: Key) => {
-          if (key.ctrl && key.name === 'c') {
-            this.emit('cancel');
-            return;
-          }
-
-          await this.handleInput(key);
-        });
+        };
+        
+        const handleCancel = () => {
+          cleanup();
+          reject(new Error('Cancelled'));
+        };
+        
+        const handleError = (error: Error) => {
+          cleanup();
+          reject(error);
+        };
+        
+        const cleanup = () => {
+          this.stream.off('key', handleKeyEvent);
+          this.off('complete', handleComplete);
+          this.off('cancel', handleCancel);
+          this.off('error', handleError);
+        };
+        
+        // Set up event handlers
+        this.stream.on('key', handleKeyEvent);
+        this.once('complete', handleComplete);
+        this.once('cancel', handleCancel);
+        this.once('error', handleError);
       });
     } finally {
+      this.isRunning = false;
       this.stream.showCursor();
-      this.stream.stop();
+      this.stream.release(); // Release shared stream
       this.dispose();
     }
   }
@@ -254,114 +322,82 @@ export class ReactivePrompt<T extends Record<string, any>> extends EventEmitter 
     this.disposed = true;
 
     this.state.dispose();
-    this.activePrompts.forEach(prompt => {
-      if ('dispose' in prompt && typeof prompt.dispose === 'function') {
-        prompt.dispose();
+    this.prompts.forEach(wrapper => {
+      // Cleanup prompt instances if they have dispose
+      const instance = wrapper.instance as any;
+      if (instance.dispose && typeof instance.dispose === 'function') {
+        instance.dispose();
       }
     });
-    this.activePrompts.clear();
+    this.prompts = [];
     this.removeAllListeners();
   }
 
-  private async rerender(): Promise<void> {
-    const output = await this.render();
-    this.renderer.clear();
-    this.renderer.render(output);
-  }
 
-  private async getOrCreatePrompt(definition: ReactivePromptDefinition): Promise<Prompt<any, any> | null> {
-    const existing = this.activePrompts.get(definition.id);
-    if (existing) return existing;
-
-    // Create new prompt based on type
-    let prompt: Prompt<any, any> | null = null;
-
-    // Import the appropriate component dynamically
-    // eslint-disable-next-line default-case
+  /**
+   * Create prompt instance with shared stream
+   */
+  private createPromptInstance(definition: ReactivePromptDefinition): Prompt<any, any> {
+    const baseConfig = {
+      stream: this.stream, // Share our stream
+      theme: this.theme,
+      message: typeof definition.message === 'function' 
+        ? definition.message() 
+        : definition.message
+    };
+    
     switch (definition.type) {
-      case 'text': {
-        const { TextPrompt } = await import('../../components/primitives/text.js');
-        const message = typeof definition.message === 'function'
-          ? definition.message()
-          : definition.message;
-        prompt = new TextPrompt({
-          message,
-          defaultValue: definition.value || this.state.get(definition.id as keyof T),
-          theme: this.theme,
+      case 'text':
+        return new TextPrompt({
+          ...baseConfig,
+          initialValue: definition.value || this.state.get(definition.id as keyof T)
         });
-        break;
-      }
+      
       case 'select': {
-        const { SelectPrompt } = await import('../../components/primitives/select.js');
-        const message = typeof definition.message === 'function'
-          ? definition.message()
-          : definition.message;
         const options = typeof definition.options === 'function'
           ? definition.options()
           : definition.options || [];
-        prompt = new SelectPrompt({
-          message,
-          options,
-          theme: this.theme,
+        return new SelectPrompt({
+          ...baseConfig,
+          options
         });
-        break;
       }
-      case 'confirm': {
-        const { ConfirmPrompt } = await import('../../components/primitives/confirm.js');
-        const message = typeof definition.message === 'function'
-          ? definition.message()
-          : definition.message;
-        prompt = new ConfirmPrompt({
-          message,
-          defaultValue: definition.value ?? true,
-          theme: this.theme,
+      
+      case 'confirm':
+        return new ConfirmPrompt({
+          ...baseConfig,
+          defaultValue: definition.value ?? true
         });
-        break;
-      }
-      case 'number': {
-        const { NumberPrompt } = await import('../../components/primitives/number.js');
-        const message = typeof definition.message === 'function'
-          ? definition.message()
-          : definition.message;
-        prompt = new NumberPrompt({
-          message,
-          default: definition.value,
-          theme: this.theme,
+      
+      case 'number':
+        return new NumberPrompt({
+          ...baseConfig,
+          default: definition.value
         });
-        break;
-      }
+      
       case 'multiselect': {
-        const { MultiSelectPrompt } = await import('../../components/primitives/multiselect.js');
-        const message = typeof definition.message === 'function'
-          ? definition.message()
-          : definition.message;
         const options = typeof definition.options === 'function'
           ? definition.options()
           : definition.options || [];
-        prompt = new MultiSelectPrompt({
-          message,
-          options,
-          theme: this.theme,
+        return new MultiSelectPrompt({
+          ...baseConfig,
+          options
         });
-        break;
       }
+      
+      case 'password':
+        return new PasswordPrompt({
+          ...baseConfig,
+          defaultValue: definition.value || this.state.get(definition.id as keyof T)
+        });
+      
+      default:
+        throw new Error(`Unknown prompt type: ${definition.type}`);
     }
-
-    if (prompt) {
-      this.activePrompts.set(definition.id, prompt);
-    }
-
-    return prompt;
   }
 
-  private async getPromptValue(prompt: Prompt<any, any>): Promise<any> {
-    // Since we can't directly access the protected state property,
-    // we'll wait for the prompt to complete and get the value from the result
-    // This is a limitation of the current design
-    return undefined;
-  }
 
-  private formatCompletedPrompt(prompt: ReactivePromptDefinition, value: any): string {
+  private formatCompleted(prompt: ReactivePromptDefinition, value: any): string {
     const message = typeof prompt.message === 'function'
       ? prompt.message()
       : prompt.message;
@@ -378,6 +414,8 @@ export class ReactivePrompt<T extends Record<string, any>> extends EventEmitter 
         return value ? 'Yes' : 'No';
       case 'multiselect':
         return Array.isArray(value) ? value.join(', ') : String(value);
+      case 'password':
+        return '•'.repeat(String(value).length);
       default:
         return String(value);
     }
