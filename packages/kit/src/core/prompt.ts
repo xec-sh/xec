@@ -14,6 +14,7 @@ import type {
   PromptConfig,
   RenderContext
 } from './types.js';
+import { PromptLifecycle } from './types.js';
 
 export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
   protected state: StateManager<any>;
@@ -21,8 +22,11 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
   protected stream: StreamHandler;
   protected config: PromptConfig<TValue, TConfig> & TConfig;
   protected theme: Theme;
+  protected lifecycle: PromptLifecycle = PromptLifecycle.Created;
   private unsubscribers: Array<() => void> = [];
   private isActive = false;
+  private ownStream: boolean;
+  private isInitialized = false;
   private resolvePromise?: (value: TValue | symbol) => void;
 
   constructor(config: PromptConfig<TValue, TConfig> & TConfig) {
@@ -30,7 +34,18 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
     this.config = config;
     this.theme = { ...createDefaultTheme(), ...config.theme };
     
-    this.stream = new StreamHandler();
+    // Use provided stream or create new one
+    if (config.stream) {
+      this.stream = config.stream;
+      this.ownStream = false;
+    } else {
+      this.stream = new StreamHandler({ 
+        shared: config.sharedStream ?? false
+      });
+      this.ownStream = true;
+    }
+    
+    // Renderer always uses our stream
     this.renderer = new Renderer({ theme: this.theme, stream: this.stream });
     
     this.state = new StateManager({
@@ -39,6 +54,17 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
       error: undefined,
       cursor: 0
     });
+  }
+
+  abstract render(): string;
+  abstract handleInput(key: Key): void | Promise<void>;
+  
+  // Separate initialization from construction
+  protected async initialize(): Promise<void> {
+    if (this.lifecycle !== PromptLifecycle.Created) return;
+    
+    this.lifecycle = PromptLifecycle.Initialized;
+    this.isInitialized = true;
     
     // Subscribe to state changes for re-rendering
     this.unsubscribers.push(
@@ -49,16 +75,41 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
       })
     );
   }
-
-  abstract render(): string;
-  abstract handleInput(key: Key): void | Promise<void>;
+  
+  // Public API for rendering without full prompt lifecycle
+  async renderOnly(): Promise<string> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    return this.render();
+  }
+  
+  // Handle input without full prompt lifecycle
+  async handleInputOnly(key: Key): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    await this.handleInput(key);
+  }
+  
+  // Get current value without completing prompt
+  getValue(): TValue | undefined {
+    const state = this.state.getState();
+    return state.value;
+  }
 
   async prompt(): Promise<TValue | symbol> {
     if (!this.stream.isInteractive()) {
       return this.handleNonInteractive();
     }
+    
+    // Initialize if not already done
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
 
     this.isActive = true;
+    this.lifecycle = PromptLifecycle.Active;
     this.state.setState((s: any) => ({ ...s, status: 'active' }));
     this.emit('start');
 
@@ -68,7 +119,11 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
       this.renderer.render(this.render());
 
       // Start stream handling
-      this.stream.start();
+      if (this.ownStream) {
+        this.stream.start();
+      } else if (this.stream.isSharedMode()) {
+        this.stream.acquire();
+      }
 
       // Handle key events
       const onKey = async (key: Key) => {
@@ -227,7 +282,7 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
     });
   }
 
-  private handleNonInteractive(): TValue | symbol {
+  protected handleNonInteractive(): TValue | symbol {
     // In non-TTY mode, return initial value or cancel
     const { value } = this.state.getState();
     if (value !== undefined) {
@@ -236,12 +291,21 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
     return Symbol.for('kit.cancel');
   }
 
-  private cleanup(): void {
+  protected cleanup(): void {
     this.isActive = false;
+    this.lifecycle = PromptLifecycle.Completed;
     
-    // Stop stream
-    this.stream.stop();
-    this.stream.showCursor();
+    // Stop stream handling
+    if (this.ownStream) {
+      this.stream.stop();
+      this.stream.showCursor();
+    } else if (this.stream.isSharedMode()) {
+      this.stream.release();
+      // Only show cursor if last reference
+      if (this.stream.getRefCount() === 0) {
+        this.stream.showCursor();
+      }
+    }
     
     // Clear and render final state
     this.renderer.clear();
@@ -256,6 +320,8 @@ export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
     
     // Remove all event listeners
     this.removeAllListeners();
+    
+    this.lifecycle = PromptLifecycle.Disposed;
   }
 
   protected renderFinal(): string {

@@ -32,6 +32,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "files": [
     "dist",
     "README.md",
@@ -39,6 +40,15 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:production": "NODE_ENV=production tsup",
+    "build:analyze": "ANALYZE_BUNDLE=true NODE_ENV=production tsup",
+    "analyze": "tsx scripts/analyze-bundle.ts",
+    "test:tree-shaking": "tsx scripts/test-tree-shaking.ts",
+    "test:startup": "tsx scripts/measure-startup.ts",
+    "test:memory": "tsx scripts/profile-memory.ts",
+    "audit:security": "tsx scripts/security-audit.ts",
+    "test:compatibility": "tsx scripts/test-compatibility.ts",
+    "release:check": "tsx scripts/prepare-release.ts",
     "build:watch": "tsup --watch",
     "dev": "vitest",
     "lint": "eslint src test --ext .ts,.tsx",
@@ -46,7 +56,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "yarn build && yarn test && yarn typecheck"
+    "example": "tsx",
+    "prepublishOnly": "yarn build:production && yarn test && yarn typecheck"
   },
   "dependencies": {
     "picocolors": "^1.1.1",
@@ -55,9 +66,11 @@
   "devDependencies": {
     "@types/node": "^24.2.0",
     "@vitest/coverage-v8": "^3.2.4",
+    "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "systeminformation": "^5.27.7",
     "tsup": "^8.5.0",
+    "tsx": "^4.20.3",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },

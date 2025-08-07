@@ -9,6 +9,7 @@ import type { Theme, Region, RenderNode, Dimensions } from './types.js';
 export interface RendererOptions {
   theme: Theme;
   stream?: StreamHandler;
+  renderContextId?: string; // Unique ID for render context isolation
 }
 
 export class Renderer {
@@ -19,10 +20,16 @@ export class Renderer {
   private frameBuffer = '';
   private lastRenderTime = 0;
   private minRenderInterval = 16; // ~60fps
+  
+  // Context isolation support
+  private contextId?: string;
+  private renderRegion?: Region;
+  private frameStore = new Map<string, string>(); // Store frames by context
 
   constructor(options: RendererOptions) {
     this.theme = options.theme;
     this.stream = options.stream ?? new StreamHandler();
+    this.contextId = options.renderContextId;
   }
 
   render(content: string | RenderNode): void {
@@ -43,10 +50,18 @@ export class Renderer {
         ? content
         : this.renderNode(content);
 
-      if (output !== this.previousFrame) {
+      const prevFrame = this.getPreviousFrame();
+      if (output !== prevFrame) {
         this.clear();
-        this.stream.write(output);
-        this.previousFrame = output;
+        
+        // Apply region constraints if set
+        if (this.renderRegion) {
+          this.renderToRegion(output);
+        } else {
+          this.stream.write(output);
+        }
+        
+        this.setPreviousFrame(output);
       }
     } finally {
       this.isRendering = false;
@@ -54,16 +69,61 @@ export class Renderer {
   }
 
   clear(): void {
-    if (this.previousFrame) {
-      const lines = this.previousFrame.split('\n').length;
-      // First, clear the current line
-      this.stream.clearLine();
-      // Then move up and clear each line
-      for (let i = 0; i < lines - 1; i++) {
-        this.stream.write(cursor.up(1) + erase.line);
+    const prevFrame = this.getPreviousFrame();
+    if (prevFrame) {
+      if (this.renderRegion) {
+        this.clearRegion();
+      } else {
+        const lines = prevFrame.split('\n').length;
+        // First, clear the current line
+        this.stream.clearLine();
+        // Then move up and clear each line
+        for (let i = 0; i < lines - 1; i++) {
+          this.stream.write(cursor.up(1) + erase.line);
+        }
+        // The cursor is now at the top of where the previous frame started
       }
-      // The cursor is now at the top of where the previous frame started
     }
+  }
+  
+  private renderToRegion(content: string): void {
+    if (!this.renderRegion) return;
+    
+    const { x, y, width, height } = this.renderRegion;
+    
+    // Save cursor position
+    this.stream.write(cursor.save);
+    
+    // Split content into lines and apply region constraints
+    const lines = content.split('\n');
+    const truncatedLines = lines.slice(0, height);
+    
+    truncatedLines.forEach((line, i) => {
+      this.stream.cursorTo(x, y + i);
+      const truncatedLine = line.slice(0, width);
+      this.stream.write(truncatedLine);
+    });
+    
+    // Restore cursor position
+    this.stream.write(cursor.restore);
+  }
+  
+  private clearRegion(): void {
+    if (!this.renderRegion) return;
+    
+    const { x, y, width, height } = this.renderRegion;
+    
+    // Save cursor position
+    this.stream.write(cursor.save);
+    
+    // Clear the region
+    for (let i = 0; i < height; i++) {
+      this.stream.cursorTo(x, y + i);
+      this.stream.write(' '.repeat(width));
+    }
+    
+    // Restore cursor position
+    this.stream.write(cursor.restore);
   }
 
   clearScreen(): void {
@@ -113,6 +173,52 @@ export class Renderer {
 
   setTheme(theme: Theme): void {
     this.theme = theme;
+  }
+  
+  // Region management for multi-prompt scenarios
+  setRenderRegion(region: Region): void {
+    this.renderRegion = region;
+  }
+  
+  clearRenderRegion(): void {
+    this.renderRegion = undefined;
+  }
+  
+  // Context management
+  switchContext(contextId: string): void {
+    // Save current frame to store
+    if (this.contextId) {
+      this.frameStore.set(this.contextId, this.previousFrame);
+    }
+    
+    // Switch context
+    this.contextId = contextId;
+    
+    // Restore frame from store
+    this.previousFrame = this.frameStore.get(contextId) || '';
+  }
+  
+  clearContext(contextId?: string): void {
+    const id = contextId || this.contextId;
+    if (id) {
+      this.frameStore.delete(id);
+    }
+  }
+  
+  // Get isolated previous frame
+  private getPreviousFrame(): string {
+    if (this.contextId) {
+      return this.frameStore.get(this.contextId) || '';
+    }
+    return this.previousFrame;
+  }
+  
+  // Set isolated previous frame
+  private setPreviousFrame(frame: string): void {
+    if (this.contextId) {
+      this.frameStore.set(this.contextId, frame);
+    }
+    this.previousFrame = frame;
   }
 
   private renderNode(node: RenderNode): string {

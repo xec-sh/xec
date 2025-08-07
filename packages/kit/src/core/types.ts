@@ -1,5 +1,7 @@
 // Core type definitions for @xec-sh/kit
 
+import type { StreamHandler } from './stream-handler.js';
+
 export type Primitive = string | number | boolean | null | undefined;
 
 export interface Key {
@@ -65,9 +67,19 @@ export interface PromptConfig<TValue = any, TConfig = {}> {
   theme?: Partial<Theme>;
   validate?: (value: TValue) => string | undefined | Promise<string | undefined>;
   placeholder?: string;
+  stream?: StreamHandler; // Allow injecting a shared stream
+  sharedStream?: boolean; // Create a shared stream if not provided
 }
 
 export type PromptState = 'idle' | 'active' | 'submit' | 'cancel' | 'error' | 'done';
+
+export enum PromptLifecycle {
+  Created = 'created',
+  Initialized = 'initialized',
+  Active = 'active',
+  Completed = 'completed',
+  Disposed = 'disposed'
+}
 
 export interface PromptEvents {
   start: () => void;

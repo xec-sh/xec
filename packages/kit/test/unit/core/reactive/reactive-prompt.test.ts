@@ -17,7 +17,7 @@ describe('ReactivePrompt', () => {
   });
 
   describe('basic functionality', () => {
-    it('should create reactive prompt', () => {
+    it('should create reactive prompt with shared stream', () => {
       const prompt = reactive({
         initialValues: {
           name: '',
@@ -42,6 +42,10 @@ describe('ReactivePrompt', () => {
         name: '',
         age: 0,
       });
+      
+      // Check that stream is shared mode
+      const stream = (prompt as any).stream;
+      expect(stream.isSharedMode()).toBe(true);
     });
 
     it('should update state', () => {

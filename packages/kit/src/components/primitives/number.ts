@@ -177,10 +177,11 @@ export class NumberPrompt extends Prompt<number, NumberOptions> {
     const questionSymbol = theme.symbols?.question || '?';
     output += questionSymbol + ' ' + pc.bold(this.config.message) + ' ';
     
-    // Input with cursor
-    const beforeCursor = value.slice(0, cursorPosition);
-    const atCursor = value[cursorPosition] || ' ';
-    const afterCursor = value.slice(cursorPosition + 1);
+    // Input with cursor - ensure value is a string
+    const strValue = String(value || '');
+    const beforeCursor = strValue.slice(0, cursorPosition);
+    const atCursor = strValue[cursorPosition] || ' ';
+    const afterCursor = strValue.slice(cursorPosition + 1);
     
     output += pc.cyan(beforeCursor);
     output += pc.inverse(atCursor);
