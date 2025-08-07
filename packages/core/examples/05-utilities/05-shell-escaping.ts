@@ -204,7 +204,7 @@ console.log('Безопасный результат:', safeResult.stdout.trim()
 
 // 13. Работа с путями содержащими пробелы
 const pathWithSpaces = "/tmp/my test directory";
-const fileWithSpecialChars = "file'with"quotes.txt";
+const fileWithSpecialChars = "file'with\"quotes.txt";
 
 // Создаём директорию и файл с пробелами/кавычками
 await $`mkdir -p ${pathWithSpaces}`;

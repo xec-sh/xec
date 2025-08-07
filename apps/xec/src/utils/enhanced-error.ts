@@ -1,6 +1,6 @@
-import { ExecutionError } from '@xec-sh/core';
-
 import type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails } from '@xec-sh/core';
+
+import { ExecutionError } from '@xec-sh/core';
 
 export type { ErrorContext, ErrorSuggestion, EnhancedErrorDetails };
 
