@@ -1,0 +1,70 @@
+{
+  "name": "@xec-sh/kit",
+  "version": "0.0.0",
+  "description": "Modern, type-safe CLI interaction library",
+  "keywords": [
+    "cli",
+    "prompts",
+    "terminal",
+    "interactive",
+    "ui",
+    "typescript"
+  ],
+  "homepage": "https://github.com/xec-sh/xec/tree/main/packages/kit",
+  "bugs": {
+    "url": "https://github.com/xec-sh/xec/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xec-sh/xec.git",
+    "directory": "packages/kit"
+  },
+  "license": "MIT",
+  "author": "xec-sh",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "dev": "vitest",
+    "lint": "eslint src test --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "yarn build && yarn test && yarn typecheck"
+  },
+  "dependencies": {
+    "picocolors": "^1.1.1",
+    "sisteransi": "^1.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "eslint": "^9.32.0",
+    "systeminformation": "^5.27.7",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

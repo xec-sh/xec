@@ -4,9 +4,9 @@
  * Показывает реальные сценарии работы с базами данных
  */
 
-import { $, withTempDir } from '@xec-sh/core';
-import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as fs from 'fs/promises';
+import { $, withTempDir } from '@xec-sh/core';
 
 // 1. Резервное копирование баз данных
 async function databaseBackup(config: BackupConfig) {
@@ -184,7 +184,7 @@ async function databaseRestore(config: RestoreConfig) {
     // В @xec-sh/core нет interactive, просто предупреждаем
     console.log(`⚠️  Внимание: восстановление базы ${config.database} из бэкапа.`);
     console.log('Все текущие данные будут потеряны!');
-    console.log('Используйте параметр force: true для автоматического подтверждения.'');
+    console.log('Используйте параметр force: true для автоматического подтверждения.');
     const confirm = false; // По умолчанию отменяем
     
     if (!confirm) {
@@ -963,7 +963,7 @@ interface DatabaseMetrics {
 export {
   databaseBackup,
   databaseRestore,
+  optimizeDatabase,
   runDatabaseMigrations,
-  monitorDatabasePerformance,
-  optimizeDatabase
+  monitorDatabasePerformance
 };

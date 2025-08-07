@@ -1,5 +1,55 @@
 # Changes for Next Release
 
+## 🎨 New Package: @xec-sh/kit
+
+### What's New:
+Introducing a comprehensive UI kit for building interactive terminal applications with rich components and reactive state management.
+
+### Key Features:
+
+#### **Component Library**
+- 🧩 **Feedback Components**: Progress bars, spinners, and task lists with real-time updates
+- 🧩 **Primitive Components**: Text input, select, multiselect, number input, password, and confirm dialogs  
+- 🧩 **Advanced Components**: Autocomplete, command palette, file picker, forms, and data tables
+- 🧩 **Layout Components**: Columns, groups, panels, and step-by-step wizards
+
+#### **Reactive System**
+- ⚡ **State Management**: Reactive state with automatic UI updates
+- ⚡ **Computed Values**: Derived state with dependency tracking
+- ⚡ **Validation**: Built-in form validation with real-time feedback
+- ⚡ **Event System**: Type-safe event handling and component lifecycle
+
+#### **Development Tools**
+- 🛠️ **Component Explorer**: Interactive component testing and development
+- 🛠️ **Debug Tools**: Runtime debugging and performance monitoring
+- 🛠️ **Plugin System**: Extensible architecture with emoji and custom plugins
+- 🛠️ **Theme Support**: Customizable themes and styling
+
+#### **Testing & Quality**
+- 🧪 **Comprehensive Tests**: 80+ tests covering all components and core functionality
+- 🧪 **Mock Utilities**: TTY mocking and test helpers for reliable testing
+- 🧪 **High Coverage**: 97%+ test coverage on all feedback components
+- 🧪 **Integration Tests**: End-to-end testing of component interactions
+
+### Benefits:
+- 🎯 **Developer Experience**: Rich IntelliSense, TypeScript support, and comprehensive documentation
+- 🎯 **Performance**: Optimized rendering with minimal redraws and efficient state updates
+- 🎯 **Accessibility**: TTY-aware components with proper cursor and keyboard handling
+- 🎯 **Extensibility**: Plugin architecture for custom components and functionality
+
+## 🔧 Enhanced Error Handling
+
+### Improvements:
+- ✨ **Enhanced Error Classes**: Improved error types with contextual suggestions
+- ✨ **Better Diagnostics**: Enhanced error messages with actionable recommendations
+- 🧪 **Comprehensive Testing**: Full test coverage for error handling scenarios
+
+## 📚 Updated Examples
+
+### Changes:
+- 📖 **Shell Escaping**: Updated examples with current best practices
+- 📖 **Database Operations**: Enhanced real-world usage examples
+
 ## 🚀 Core Engine Architecture Optimization
 
 ### What Changed:
