@@ -2,6 +2,7 @@
 
 
 import { Renderer } from './renderer.js';
+import { PromptLifecycle } from './types.js';
 import { EventEmitter } from './event-emitter.js';
 import { StateManager } from './state-manager.js';
 import { StreamHandler } from './stream-handler.js';
@@ -14,7 +15,6 @@ import type {
   PromptConfig,
   RenderContext
 } from './types.js';
-import { PromptLifecycle } from './types.js';
 
 export abstract class Prompt<TValue = any, TConfig = {}> extends EventEmitter {
   protected state: StateManager<any>;

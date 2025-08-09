@@ -17,8 +17,10 @@ export interface FileInfo {
 
 export interface FilePickerOptions {
   message: string;
+  title?: string; // Alternative to message
   root?: string;
   filter?: (file: FileInfo) => boolean;
+  filters?: Array<{ name: string; extensions: string[] }>; // File type filters
   multiple?: boolean;
   showHidden?: boolean;
   showSize?: boolean;
@@ -26,6 +28,9 @@ export interface FilePickerOptions {
   directories?: boolean;
   files?: boolean;
   maxDepth?: number;
+  preview?: boolean; // Show file preview
+  actions?: Array<{ key: string; label: string; action: (filePath: string) => void }>; // Custom actions
+  breadcrumbs?: boolean; // Show path navigation
   theme?: any;
 }
 

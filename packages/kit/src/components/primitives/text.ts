@@ -35,6 +35,22 @@ export interface TextOptions {
    * @default ''
    */
   defaultValue?: string;
+  
+  /**
+   * Alias for defaultValue (for compatibility)
+   * @default ''
+   */
+  default?: string;
+  
+  /**
+   * Suggestions for auto-completion
+   */
+  suggestions?: string[];
+  
+  /**
+   * Help text to display
+   */
+  help?: string;
 
   /**
    * Character or function to mask input (useful for passwords)
@@ -127,7 +143,7 @@ export class TextPrompt extends Prompt<string, TextOptions> {
    */
   constructor(config: PromptConfig<string, TextOptions> & TextOptions) {
     super(config);
-    const initialValue = config.defaultValue || config.initialValue || '';
+    const initialValue = config.defaultValue || config.default || config.initialValue || '';
     if (initialValue) {
       this.state.setState((s: any) => ({ ...s, value: initialValue }));
       this.cursor = initialValue.length;

@@ -22,6 +22,9 @@ export interface TableOptions<T = any> {
   filter?: (row: T, query: string) => boolean;
   initialSelection?: T[];
   theme?: any;
+  onSelect?: (row: T) => void | Promise<void>;
+  interactive?: boolean; // Keep table open after selection
+  refreshData?: () => T[] | Promise<T[]>; // Callback to refresh data
 }
 
 interface TableState<T> {
@@ -88,7 +91,7 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
     // Column headers
     const headerLine = this.renderHeader(state);
     lines.push(theme.formatters.bold(headerLine));
-    lines.push(this.renderSeparator());
+    lines.push(this.renderSeparator())
 
     // Virtual scrolling - calculate visible rows
     const pageSize = this.config.pageSize || 10;
@@ -131,6 +134,15 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
       lines.push(theme.formatters.success(`${state.selectedRows.size} row(s) selected`));
     }
 
+    // Status line for interactive mode
+    if (state.status === 'processing') {
+      lines.push('');
+      lines.push(theme.formatters.warning('Processing...'));
+    } else if (state.status === 'error' && state.error) {
+      lines.push('');
+      lines.push(theme.formatters.error(`Error: ${state.error}`));
+    }
+
     // Help text
     lines.push('');
     const helpTexts = [];
@@ -142,6 +154,11 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
     }
     if (this.config.search) helpTexts.push('/: search');
     if (this.config.sort) helpTexts.push('s: sort');
+    if (this.config.interactive) {
+      if (this.config.onSelect) helpTexts.push('Enter: action');
+      if (this.config.refreshData) helpTexts.push('r: refresh');
+      helpTexts.push('q: exit');
+    }
     helpTexts.push('↑↓: navigate');
     
     lines.push(theme.formatters.muted(helpTexts.join(' • ')));
@@ -212,18 +229,65 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
       return;
     }
 
-    // Submit
+    // Submit/Select
     if (key.name === 'return' || key.name === 'enter') {
-      if (this.config.selectable === 'single') {
+      // If onSelect is provided and we're in interactive mode or single selection
+      if (this.config.onSelect && (this.config.interactive || this.config.selectable === 'single')) {
         const selected = state.filteredData[state.focusedIndex];
         if (selected) {
-          await this.submit(selected);
+          try {
+            // Show loading state
+            this.state.setState({ ...state, status: 'processing' });
+            await this.config.onSelect(selected);
+            
+            // If refreshData is provided, refresh the data
+            if (this.config.refreshData) {
+              await this.refreshTableData();
+            } else {
+              this.state.setState({ ...state, status: 'idle' });
+            }
+            
+            // If not interactive mode, close after selection
+            if (!this.config.interactive) {
+              await this.submit(selected);
+            }
+          } catch (error) {
+            this.state.setState({ 
+              ...state, 
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Selection failed'
+            });
+          }
         }
-      } else if (this.config.selectable === 'multiple') {
+      } else {
+        // Original behavior when onSelect is not provided
+        if (this.config.selectable === 'single') {
+          const selected = state.filteredData[state.focusedIndex];
+          if (selected) {
+            await this.submit(selected);
+          }
+        } else if (this.config.selectable === 'multiple') {
+          await this.submit(Array.from(state.selectedRows));
+        } else {
+          // Non-selectable table - just close
+          await this.submit(state.filteredData as any);
+        }
+      }
+      return;
+    }
+    
+    // Refresh data (r key in interactive mode)
+    if (this.config.interactive && this.config.refreshData && key.name === 'r') {
+      await this.refreshTableData();
+      return;
+    }
+    
+    // Exit interactive mode (q key)
+    if (this.config.interactive && key.name === 'q') {
+      if (this.config.selectable === 'multiple') {
         await this.submit(Array.from(state.selectedRows));
       } else {
-        // Non-selectable table - just close
-        await this.submit(state.filteredData as any);
+        await this.cancel();
       }
       return;
     }
@@ -272,14 +336,19 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
   private renderHeader(state: TableState<T>): string {
     const { theme } = this.getRenderContext();
     const parts: string[] = [];
-
+    
+    // Row indicator column (2 chars)
+    parts.push('  ');
+    
     // Selection column
     if (this.config.selectable) {
-      parts.push('  '); // Space for checkbox
+      parts.push(' '); // Separator
+      parts.push('   '); // Space for checkbox [ ] (3 chars)
     }
 
     // Data columns
-    this.config.columns.forEach(column => {
+    this.config.columns.forEach((column, index) => {
+      parts.push(' │ '); // Column separator
       const width = column.width || 20;
       let label = column.label;
       
@@ -288,40 +357,53 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
         label += state.sortDirection === 'asc' ? ' ↑' : ' ↓';
       }
       
-      const aligned = this.alignText(label, width, column.align || 'left');
+      const aligned = this.alignText(label, width, column.align || 'center');
       parts.push(aligned);
     });
 
-    return parts.join(' │ ');
+    return parts.join('');
   }
 
   private renderSeparator(): string {
     const parts: string[] = [];
-
+    
+    // Row indicator column (2 chars)
+    parts.push('──');
+    
+    // Selection column
     if (this.config.selectable) {
-      parts.push('──');
+      parts.push('─'); // Separator
+      parts.push('───'); // Match checkbox width (3 chars)
     }
 
-    this.config.columns.forEach(column => {
+    // Data columns
+    this.config.columns.forEach((column, index) => {
+      parts.push('─┼─'); // Column separator
       const width = column.width || 20;
       parts.push('─'.repeat(width));
     });
 
-    return parts.join('─┼─');
+    return parts.join('');
   }
 
   private renderRow(row: T, isFocused: boolean, isSelected: boolean, state: TableState<T>): string {
     const { theme } = this.getRenderContext();
     const parts: string[] = [];
+    
+    // Row indicator (2 chars)
+    const indicator = isFocused ? '▶ ' : '  ';
+    parts.push(indicator);
 
-    // Selection indicator
+    // Selection checkbox
     if (this.config.selectable) {
+      parts.push(' '); // Separator
       const checkbox = isSelected ? '[✓]' : '[ ]';
       parts.push(checkbox);
     }
 
     // Data columns
-    this.config.columns.forEach(column => {
+    this.config.columns.forEach((column, index) => {
+      parts.push(' │ '); // Column separator
       const value = (row as any)[column.key];
       const formatted = column.format ? column.format(value, row) : String(value ?? '');
       const width = column.width || 20;
@@ -329,15 +411,15 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
       parts.push(aligned);
     });
 
-    const line = parts.join(' │ ');
+    const line = parts.join('');
 
     // Apply styling
     if (isFocused) {
-      return theme.formatters.primary('▶ ' + line);
+      return theme.formatters.primary(line);
     } else if (isSelected) {
-      return theme.formatters.success('  ' + line);
+      return theme.formatters.success(line);
     } else {
-      return '  ' + line;
+      return line;
     }
   }
 
@@ -359,12 +441,19 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
     return theme.formatters.muted(`[${bar}]`);
   }
 
-  private alignText(text: string, width: number, align: 'left' | 'center' | 'right'): string {
-    if (text.length > width) {
-      return text.substring(0, width - 3) + '...';
+  private alignText(text: string, width: number, align: 'left' | 'center' | 'right' = 'left'): string {
+    // Get visual width accounting for Unicode and emojis
+    const visualWidth = this.getVisualWidth(text);
+    
+    if (visualWidth > width) {
+      // Truncate text while accounting for visual width
+      const truncated = this.truncateText(text, width - 1);
+      const truncatedWidth = this.getVisualWidth(truncated);
+      const ellipsis = '…';
+      return truncated + ellipsis + ' '.repeat(Math.max(0, width - truncatedWidth - 1));
     }
     
-    const padding = width - text.length;
+    const padding = width - visualWidth;
     
     switch (align) {
       case 'center':
@@ -377,6 +466,122 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
       
       default: // left
         return text + ' '.repeat(padding);
+    }
+  }
+
+  private getVisualWidth(text: string): number {
+    // Strip ANSI codes if any
+    const stripped = text.replace(/\x1b\[[^m]*m/g, '');
+    
+    // Count visual width accounting for emojis and Unicode
+    let width = 0;
+    const chars = Array.from(stripped);
+    
+    for (const char of chars) {
+      // Basic emoji and wide character detection
+      const code = char.codePointAt(0);
+      if (!code) continue;
+      
+      // Check for combining characters and zero-width characters
+      if (
+        (code >= 0x0300 && code <= 0x036F) || // Combining diacritical marks
+        (code >= 0x1AB0 && code <= 0x1AFF) || // Combining diacritical marks extended
+        (code >= 0x1DC0 && code <= 0x1DFF) || // Combining diacritical marks supplement
+        (code >= 0x20D0 && code <= 0x20FF) || // Combining diacritical marks for symbols
+        (code >= 0xFE00 && code <= 0xFE0F) || // Variation selectors
+        (code >= 0xFE20 && code <= 0xFE2F) || // Combining half marks
+        (code === 0x200B) || // Zero-width space
+        (code === 0x200C) || // Zero-width non-joiner
+        (code === 0x200D) || // Zero-width joiner
+        (code === 0xFEFF)    // Zero-width no-break space
+      ) {
+        width += 0; // Zero-width characters
+      } else if (
+        (code >= 0x1F300 && code <= 0x1FAF8) || // Emojis
+        (code >= 0x2600 && code <= 0x27BF) ||   // Misc symbols
+        (code >= 0x2300 && code <= 0x23FF) ||   // Misc technical
+        (code >= 0x2700 && code <= 0x27BF) ||   // Dingbats
+        (code >= 0xFF00 && code <= 0xFFEF) ||   // Full-width forms
+        (code >= 0x4E00 && code <= 0x9FFF) ||   // CJK ideographs
+        (code >= 0x3000 && code <= 0x303F) ||   // CJK symbols
+        (code >= 0xAC00 && code <= 0xD7AF)      // Hangul syllables
+      ) {
+        width += 2; // Wide characters
+      } else if (code >= 0x20 && code <= 0x7E) {
+        width += 1; // ASCII printable
+      } else if (code === 0x09) {
+        width += 4; // Tab
+      } else if (code < 0x20 || (code >= 0x7F && code <= 0x9F)) {
+        width += 0; // Control characters
+      } else {
+        width += 1; // Default
+      }
+    }
+    
+    return width;
+  }
+
+  private truncateText(text: string, maxWidth: number): string {
+    if (maxWidth <= 0) return '';
+    
+    const chars = Array.from(text);
+    let width = 0;
+    let result = '';
+    
+    for (const char of chars) {
+      const charWidth = this.getCharWidth(char);
+      if (width + charWidth > maxWidth) break;
+      width += charWidth;
+      result += char;
+    }
+    
+    return result;
+  }
+  
+  private getCharWidth(char: string): number {
+    const code = char.codePointAt(0);
+    if (!code) return 0;
+    
+    // Check for combining characters and zero-width characters
+    if (
+      (code >= 0x0300 && code <= 0x036F) || // Combining diacritical marks
+      (code >= 0x1AB0 && code <= 0x1AFF) || // Combining diacritical marks extended
+      (code >= 0x1DC0 && code <= 0x1DFF) || // Combining diacritical marks supplement
+      (code >= 0x20D0 && code <= 0x20FF) || // Combining diacritical marks for symbols
+      (code >= 0xFE00 && code <= 0xFE0F) || // Variation selectors
+      (code >= 0xFE20 && code <= 0xFE2F) || // Combining half marks
+      (code === 0x200B) || // Zero-width space
+      (code === 0x200C) || // Zero-width non-joiner
+      (code === 0x200D) || // Zero-width joiner
+      (code === 0xFEFF)    // Zero-width no-break space
+    ) {
+      return 0; // Zero-width characters
+    } else if (
+      (code >= 0x1F300 && code <= 0x1FAF8) || // Emojis
+      (code >= 0x2600 && code <= 0x27BF) ||   // Misc symbols  
+      (code >= 0x2300 && code <= 0x23FF) ||   // Misc technical
+      (code >= 0x2700 && code <= 0x27BF) ||   // Dingbats
+      (code >= 0x231A && code <= 0x231B) ||   // Watch  
+      (code >= 0x23E9 && code <= 0x23F3) ||   // Hourglass and others
+      (code >= 0x23F8 && code <= 0x23FA) ||   // Pause/stop/record
+      (code >= 0x25AA && code <= 0x25AB) ||   // Small squares
+      (code >= 0x25FB && code <= 0x25FE) ||   // Medium squares
+      (code >= 0x2B1B && code <= 0x2B1C) ||   // Large squares
+      (code >= 0x2B50 && code <= 0x2B55) ||   // Stars
+      (code >= 0xFF00 && code <= 0xFFEF) ||   // Full-width forms
+      (code >= 0x4E00 && code <= 0x9FFF) ||   // CJK ideographs
+      (code >= 0x3000 && code <= 0x303F) ||   // CJK symbols
+      (code >= 0xAC00 && code <= 0xD7AF)      // Hangul syllables
+    ) {
+      return 2; // Wide characters
+    } else if (code >= 0x20 && code <= 0x7E) {
+      return 1; // ASCII printable
+    } else if (code === 0x09) {
+      return 4; // Tab
+    } else if (code < 0x20 || (code >= 0x7F && code <= 0x9F)) {
+      return 0; // Control characters
+    } else {
+      return 1; // Default
     }
   }
 
@@ -510,6 +715,71 @@ export class TablePrompt<T = any> extends Prompt<T | T[], TableOptions<T>> {
       sortColumn: column,
       sortDirection: direction
     });
+  }
+
+  private async refreshTableData(): Promise<void> {
+    if (!this.config.refreshData) return;
+    
+    const state = this.state.getState() as TableState<T>;
+    
+    try {
+      this.state.setState({ ...state, status: 'processing' });
+      
+      // Get fresh data
+      const newData = await this.config.refreshData();
+      
+      // Reapply filters and sorting
+      let filteredData = newData;
+      
+      // Apply search filter if active
+      if (state.searchQuery) {
+        if (this.config.filter) {
+          filteredData = newData.filter(row => this.config.filter!(row, state.searchQuery));
+        } else {
+          const lowerQuery = state.searchQuery.toLowerCase();
+          filteredData = newData.filter(row => 
+            this.config.columns.some(column => {
+              const value = (row as any)[column.key];
+              return String(value ?? '').toLowerCase().includes(lowerQuery);
+            })
+          );
+        }
+      }
+      
+      // Reapply sorting if active
+      if (state.sortColumn) {
+        filteredData = [...filteredData].sort((a, b) => {
+          const aVal = (a as any)[state.sortColumn!];
+          const bVal = (b as any)[state.sortColumn!];
+          
+          if (aVal === bVal) return 0;
+          if (aVal == null) return 1;
+          if (bVal == null) return -1;
+          
+          const result = aVal < bVal ? -1 : 1;
+          return state.sortDirection === 'asc' ? result : -result;
+        });
+      }
+      
+      // Update state with new data
+      this.state.setState({
+        ...state,
+        data: newData,
+        filteredData,
+        status: 'idle',
+        error: undefined
+      });
+      
+      // Update original data reference
+      this.originalData = [...newData];
+      
+    } catch (error) {
+      this.state.setState({
+        ...state,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Failed to refresh data'
+      });
+    }
   }
 
   protected override formatValue(value: T | T[]): string {

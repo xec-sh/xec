@@ -1,6 +1,6 @@
 import chalk from 'chalk';
-import * as yaml from 'js-yaml';
-import * as clack from '@clack/prompts';
+import jsYaml from 'js-yaml';
+import { kit } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
 import { CommandOptions } from './command-base.js';
@@ -104,7 +104,7 @@ export function handleError(error: any, options: CommandOptions): void {
   if (options.output === 'json') {
     console.error(JSON.stringify(formatEnhancedErrorAsJSON(enhancedError), null, 2));
   } else if (options.output === 'yaml') {
-    console.error(yaml.dump(formatEnhancedErrorAsJSON(enhancedError)));
+    console.error(jsYaml.dump(formatEnhancedErrorAsJSON(enhancedError)));
   } else {
     displayEnhancedError(enhancedError, options);
   }
@@ -221,11 +221,13 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
   
   // Split by lines and apply CLI coloring
   const lines = formatted.split('\n');
+  const logger = kit.log;
+  
   lines.forEach(line => {
     if (!line) return; // Skip empty lines
     
     if (line.startsWith('Error:')) {
-      clack.log.error(chalk.bold(line));
+      logger.error(chalk.bold(line));
     } else if (line.includes('Context:') || line.includes('Suggestions:')) {
       console.error(chalk.yellow(line));
     } else if (line.includes('Try:') || line.includes('See:')) {
@@ -255,7 +257,8 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
  */
 function displayTextError(errorInfo: any, options: CommandOptions): void {
   // Error header
-  clack.log.error(chalk.bold(errorInfo.message));
+  const logger = kit.log;
+  logger.error(chalk.bold(errorInfo.message));
 
   // Error details
   if (errorInfo.field) {

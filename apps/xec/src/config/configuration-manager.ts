@@ -4,7 +4,7 @@
 
 import * as path from 'path';
 import { homedir } from 'os';
-import * as yaml from 'js-yaml';
+import jsYaml from 'js-yaml';
 import * as fs from 'fs/promises';
 
 import { deepMerge } from './utils.js';
@@ -142,7 +142,7 @@ export class ConfigurationManager {
    */
   get<T = any>(path: string): T | undefined {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call load() first.');
+      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
 
     return this.getByPath(this.merged, path) as T;
@@ -153,7 +153,7 @@ export class ConfigurationManager {
    */
   set(path: string, value: any): void {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call load() first.');
+      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
 
     this.setByPath(this.merged, path, value);
@@ -171,7 +171,7 @@ export class ConfigurationManager {
    */
   async useProfile(profileName: string): Promise<void> {
     this.options.profile = profileName;
-    await this.load();
+    await jsYaml.load();
   }
 
   /**
@@ -208,7 +208,7 @@ export class ConfigurationManager {
    */
   getConfig(): Configuration {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call load() first.');
+      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
     return this.merged;
   }
@@ -218,7 +218,7 @@ export class ConfigurationManager {
    */
   getTargetResolver(): TargetResolver {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call load() first.');
+      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
     return new TargetResolver(this.merged);
   }
@@ -228,7 +228,7 @@ export class ConfigurationManager {
    */
   async validate(): Promise<ValidationError[]> {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call load() first.');
+      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
     return this.validator.validate(this.merged);
   }
@@ -248,7 +248,7 @@ export class ConfigurationManager {
     await fs.mkdir(dir, { recursive: true });
 
     // Convert to YAML
-    const yamlContent = yaml.dump(this.merged, {
+    const yamlContent = jsYaml.dump(this.merged, {
       indent: 2,
       lineWidth: 120,
       sortKeys: false
@@ -263,7 +263,7 @@ export class ConfigurationManager {
    */
   async validateFile(filePath: string): Promise<ValidationError[]> {
     const content = await fs.readFile(filePath, 'utf-8');
-    const config = yaml.load(content) as Configuration;
+    const config = jsYaml.load(content) as Configuration;
     return this.validator.validate(config);
   }
 
@@ -283,7 +283,7 @@ export class ConfigurationManager {
 
     try {
       const content = await fs.readFile(globalPath, 'utf-8');
-      const config = yaml.load(content) as Configuration;
+      const config = jsYaml.load(content) as Configuration;
 
       this.sources.push({
         type: 'global',
@@ -311,7 +311,7 @@ export class ConfigurationManager {
     for (const location of locations) {
       try {
         const content = await fs.readFile(location, 'utf-8');
-        const config = yaml.load(content) as Configuration;
+        const config = jsYaml.load(content) as Configuration;
 
         this.sources.push({
           type: 'project',
@@ -356,7 +356,7 @@ export class ConfigurationManager {
     if (configPath) {
       try {
         const content = await fs.readFile(configPath, 'utf-8');
-        const config = yaml.load(content) as Configuration;
+        const config = jsYaml.load(content) as Configuration;
 
         this.sources.push({
           type: 'env',
@@ -444,7 +444,7 @@ export class ConfigurationManager {
 
         try {
           const content = await fs.readFile(profilePath, 'utf-8');
-          profileConfig = yaml.load(content) as ProfileConfig;
+          profileConfig = jsYaml.load(content) as ProfileConfig;
         } catch (error: any) {
           if (error.code !== 'ENOENT') {
             console.warn(`Failed to load profile ${currentName}: ${error.message}`);

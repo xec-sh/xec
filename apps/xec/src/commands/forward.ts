@@ -536,7 +536,7 @@ export class ForwardCommand extends ConfigAwareCommand {
       if (customBind) {
         const bindAddress = await InteractiveHelpers.inputText('Enter bind address:', {
           placeholder: '0.0.0.0',
-          initialValue: '127.0.0.1',
+          defaultValue: '127.0.0.1',
         });
         if (bindAddress) {
           forwardOptions.bind = bindAddress;

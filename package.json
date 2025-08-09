@@ -30,10 +30,12 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
     "@types/add": "^2.0.3",
+    "@types/debug": "^4",
     "@types/node": "^24.0.13",
     "@typescript-eslint/eslint-plugin": "^8.36.0",
     "@typescript-eslint/parser": "8.36.0",
     "add": "^2.0.6",
+    "debug": "^4.4.1",
     "eslint": "^9.31.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",

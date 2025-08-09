@@ -5,7 +5,7 @@ import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
-import * as clack from '@clack/prompts';
+import { kit } from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
 
 // Re-export USH $ with enhanced features
@@ -44,31 +44,37 @@ export const echo = Object.assign(
     console.log(...args);
   },
   {
-    info: (message: string) => clack.log.info(message),
-    success: (message: string) => clack.log.success(message),
-    warning: (message: string) => clack.log.warn(message),
-    error: (message: string) => clack.log.error(message),
+    info: (message: string) => {
+      kit.log.info(message);
+    },
+    success: (message: string) => {
+      kit.log.success(message);
+    },
+    warning: (message: string) => {
+      kit.log.warning(message);
+    },
+    error: (message: string) => {
+      kit.log.error(message);
+    },
     debug: (message: string) => console.log(chalk.gray(`[DEBUG] ${message}`)),
-    step: (message: string) => clack.log.step(message),
+    step: (message: string) => {
+      kit.log.step(message);
+    },
   }
 );
 
 // Spinner utility
 export function spinner(options?: string | { text?: string; color?: string }) {
   const message = typeof options === 'string' ? options : options?.text;
-  const s = clack.spinner();
-  if (message) {
-    s.start(message);
-  }
-  return s;
+  return kit.spinner(message || '');
 }
 
 // Question/prompt utilities
-export const question = clack.text;
-export const confirm = clack.confirm;
-export const select = clack.select;
-export const multiselect = clack.multiselect;
-export const password = clack.password;
+export const question = kit.text;
+export const confirm = kit.confirm;
+export const select = kit.select;
+export const multiselect = kit.multiselect;
+export const password = kit.password;
 
 // File system utilities
 export { os, path };
@@ -162,10 +168,10 @@ export function tmpfile(prefix: string = 'xec-', suffix: string = ''): string {
 
 // YAML utilities
 export async function yaml() {
-  const YAML = await import('js-yaml');
+  const jsYaml = await import('js-yaml');
   return {
-    parse: YAML.load,
-    stringify: YAML.dump,
+    parse: jsYaml.default.load,
+    stringify: jsYaml.default.dump,
   };
 }
 
@@ -231,11 +237,21 @@ export async function within<T>(
 
 // Logging utilities
 export const log = {
-  info: (message: string) => clack.log.info(message),
-  success: (message: string) => clack.log.success(message),
-  warning: (message: string) => clack.log.warn(message),
-  error: (message: string) => clack.log.error(message),
-  step: (message: string) => clack.log.step(message),
+  info: (message: string) => {
+    kit.log.info(message);
+  },
+  success: (message: string) => {
+    kit.log.success(message);
+  },
+  warning: (message: string) => {
+    kit.log.warning(message);
+  },
+  error: (message: string) => {
+    kit.log.error(message);
+  },
+  step: (message: string) => {
+    kit.log.step(message);
+  },
 };
 
 // Color utilities

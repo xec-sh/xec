@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import * as clack from '@clack/prompts';
+import { kit } from '@xec-sh/kit';
 
 import { ConfigurationManager } from '../config/configuration-manager.js';
 
@@ -16,9 +16,17 @@ export interface TargetSelectorOptions {
   allowCustom?: boolean;
 }
 
+export interface CommandOption {
+  id: string;
+  title: string;
+  icon?: string;
+  shortcut?: string;
+  action: () => Promise<void>;
+}
+
 export class InteractiveHelpers {
-  private static cancelled = false;
   private static configManager: ConfigurationManager | null = null;
+  private static recentCommands: string[] = [];
 
   static async getConfigManager(): Promise<ConfigurationManager> {
     if (!this.configManager) {
@@ -28,20 +36,14 @@ export class InteractiveHelpers {
     return this.configManager;
   }
 
-  static setupCancelHandlers(): void {
-    // Handle Ctrl+C
+  private static setupCancelHandlers(): void {
+    // Handle Ctrl+C globally
     process.on('SIGINT', () => {
-      this.cancelled = true;
-      clack.outro(chalk.gray('Cancelled'));
+      kit.log.message(`${'─'.repeat(40)}\n${chalk.gray('Cancelled')}\n`);
       process.exit(0);
     });
-
-    // Handle ESC in prompts (clack handles this internally)
   }
 
-  static isCancelled(value: any): boolean {
-    return clack.isCancel(value) || this.cancelled;
-  }
 
   static async selectTarget(options: TargetSelectorOptions): Promise<ResolvedTarget | ResolvedTarget[] | null> {
     const configManager = await this.getConfigManager();
@@ -52,24 +54,24 @@ export class InteractiveHelpers {
     if (config.targets) {
       for (const [name, targetConfig] of Object.entries(config.targets)) {
         if (!targetConfig || !targetConfig.type) continue;
-        
+
         const targetType = targetConfig.type as TargetType;
-        
+
         // Filter by type if specified
         if (options.type && options.type !== 'all') {
           // Map legacy types to new types
           const typeMap: Record<string, TargetType> = {
             'ssh': 'ssh',
-            'docker': 'docker', 
+            'docker': 'docker',
             'k8s': 'k8s',
             'local': 'local'
           };
-          
+
           if (targetType !== typeMap[options.type]) {
             continue;
           }
         }
-        
+
         targets.push({
           id: `targets.${name}`,
           type: targetType,
@@ -81,8 +83,8 @@ export class InteractiveHelpers {
     }
 
     // Add local target if not already present and requested
-    if ((options.type === 'all' || options.type === 'local') && 
-        !targets.some(t => t.type === 'local')) {
+    if ((options.type === 'all' || options.type === 'local') &&
+      !targets.some(t => t.type === 'local')) {
       targets.push({
         id: 'local',
         type: 'local',
@@ -92,31 +94,37 @@ export class InteractiveHelpers {
       });
     }
 
+    if (targets.length === 0 && !options.allowCustom) {
+      kit.log.warning('No targets configured. Use "xec new profile" to create a configuration.');
+      return null;
+    }
+
     const targetOptions = targets.map(target => ({
       value: target,
-      label: `${this.getTargetIcon(target.type)} ${target.id} ${chalk.gray(`(${target.type})`)}`,
+      label: this.getTargetIcon(target.type) + ' ' + target.id,
+      hint: chalk.gray(target.type),
     }));
 
     if (options.allowCustom) {
       targetOptions.push({
         value: { custom: true } as any,
-        label: chalk.cyan('→ Enter custom target...'),
+        label: '→ Enter custom target...',
+        hint: chalk.cyan('Custom'),
       });
     }
 
     if (targetOptions.length === 0) {
-      clack.log.warning('No targets configured. Use "xec new profile" to create a configuration.');
+      kit.log.warning('No targets available');
       return null;
     }
 
     if (options.allowMultiple) {
-      const selected = await clack.multiselect({
+      const selected = await kit.multiselect({
         message: options.message,
         options: targetOptions,
-        required: true,
       });
 
-      if (this.isCancelled(selected)) return null;
+      if (kit.isCancel(selected)) return null;
 
       // Handle custom target selection
       if (Array.isArray(selected) && selected.some((t: any) => typeof t === 'object' && t && 'custom' in t && t.custom)) {
@@ -125,26 +133,29 @@ export class InteractiveHelpers {
         return [customTarget];
       }
 
-      return selected as ResolvedTarget[];
+      // Kit returns option objects, extract the values
+      return (selected as any[]).map(s => s.value || s).filter(t => t && typeof t === 'object' && 'id' in t) as ResolvedTarget[];
     } else {
-      const selected = await clack.select({
+      const selected = await kit.select({
         message: options.message,
         options: targetOptions,
       });
 
-      if (this.isCancelled(selected)) return null;
+      if (kit.isCancel(selected)) return null;
 
       // Handle custom target selection
       if (typeof selected === 'object' && selected && 'custom' in selected && selected.custom) {
         return await this.enterCustomTarget();
       }
 
-      return selected as ResolvedTarget;
+      // Kit returns option object, extract the value
+      const value = (selected as any).value || selected;
+      return value as ResolvedTarget;
     }
   }
 
   static async enterCustomTarget(): Promise<ResolvedTarget | null> {
-    const targetType = await clack.select({
+    const targetType = await kit.select({
       message: 'Select target type:',
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
@@ -152,14 +163,13 @@ export class InteractiveHelpers {
         { value: 'k8s', label: '☸️  Kubernetes Pod' },
       ],
     });
-    
-    if (this.isCancelled(targetType)) return null;
 
-    if (this.isCancelled(targetType)) return null;
+    if (kit.isCancel(targetType)) return null;
 
+    // eslint-disable-next-line default-case
     switch (targetType as 'ssh' | 'docker' | 'k8s') {
       case 'ssh': {
-        const hostInput = await clack.text({
+        const hostInput = await kit.text({
           message: 'Enter SSH host:',
           placeholder: 'user@hostname or hostname',
           validate: (value) => {
@@ -170,8 +180,8 @@ export class InteractiveHelpers {
           },
         });
 
-        if (this.isCancelled(hostInput)) return null;
-        
+        if (kit.isCancel(hostInput)) return null;
+
         const hostStr = String(hostInput);
         const [user, host] = hostStr.includes('@')
           ? hostStr.split('@')
@@ -191,7 +201,7 @@ export class InteractiveHelpers {
       }
 
       case 'docker': {
-        const container = await clack.text({
+        const container = await kit.text({
           message: 'Enter container name or ID:',
           placeholder: 'myapp',
           validate: (value) => {
@@ -202,8 +212,8 @@ export class InteractiveHelpers {
           },
         });
 
-        if (this.isCancelled(container)) return null;
-        
+        if (kit.isCancel(container)) return null;
+
         const containerStr = String(container);
 
         return {
@@ -219,15 +229,15 @@ export class InteractiveHelpers {
       }
 
       case 'k8s': {
-        const namespace = await clack.text({
+        const namespace = await kit.text({
           message: 'Enter namespace:',
           placeholder: 'default',
-          initialValue: 'default',
+          defaultValue: 'default',
         });
 
-        if (this.isCancelled(namespace)) return null;
+        if (kit.isCancel(namespace)) return null;
 
-        const pod = await clack.text({
+        const pod = await kit.text({
           message: 'Enter pod name:',
           placeholder: 'myapp-pod',
           validate: (value) => {
@@ -238,8 +248,8 @@ export class InteractiveHelpers {
           },
         });
 
-        if (this.isCancelled(pod)) return null;
-        
+        if (kit.isCancel(pod)) return null;
+
         const namespaceStr = String(namespace);
         const podStr = String(pod);
 
@@ -258,6 +268,40 @@ export class InteractiveHelpers {
     }
   }
 
+  // Enhanced command palette method
+  static async showCommandPalette(commands: CommandOption[]): Promise<void> {
+    const result = await kit.commandPalette({
+      commands: commands.map(cmd => ({
+        id: cmd.id,
+        title: cmd.title,
+        icon: cmd.icon,
+        shortcut: cmd.shortcut,
+        action: cmd.action,
+      })),
+      placeholder: 'Type to search commands...',
+      recent: this.getRecentCommands(),
+    });
+
+    if (result && !kit.isCancel(result)) {
+      // Track recent command
+      this.addRecentCommand(result.id);
+      await result.action();
+    }
+  }
+
+  static getRecentCommands(): string[] {
+    return this.recentCommands;
+  }
+
+  static addRecentCommand(commandId: string): void {
+    // Remove if already exists
+    this.recentCommands = this.recentCommands.filter(id => id !== commandId);
+    // Add to front
+    this.recentCommands.unshift(commandId);
+    // Keep only last 5
+    this.recentCommands = this.recentCommands.slice(0, 5);
+  }
+
   static getTargetIcon(type: string): string {
     switch (type) {
       case 'ssh':
@@ -274,12 +318,12 @@ export class InteractiveHelpers {
   }
 
   static async confirmAction(message: string, defaultValue = false): Promise<boolean> {
-    const result = await clack.confirm({
+    const result = await kit.confirm({
       message,
-      initialValue: defaultValue,
+      defaultValue,
     });
 
-    return !this.isCancelled(result) && (result as boolean);
+    return !kit.isCancel(result) && (result as boolean);
   }
 
   static async selectFromList<T>(
@@ -289,11 +333,11 @@ export class InteractiveHelpers {
     allowCustom = false
   ): Promise<T | null> {
     if (items.length === 0) {
-      clack.log.warning('No items available');
+      kit.log.warning('No items available');
       return null;
     }
 
-    const options: Array<{value: T | {custom: boolean}, label: string}> = items.map(item => ({
+    const options: Array<{ value: T | { custom: boolean }, label: string }> = items.map(item => ({
       value: item,
       label: getLabelFn(item),
     }));
@@ -305,12 +349,12 @@ export class InteractiveHelpers {
       });
     }
 
-    const selected = await clack.select({
+    const selected = await kit.select({
       message,
       options: options as any,
     });
 
-    if (this.isCancelled(selected)) return null;
+    if (kit.isCancel(selected)) return null;
 
     return selected as T;
   }
@@ -319,18 +363,18 @@ export class InteractiveHelpers {
     message: string,
     options: {
       placeholder?: string;
-      initialValue?: string;
+      defaultValue?: string;
       validate?: (value: string) => string | undefined;
     } = {}
   ): Promise<string | null> {
-    const result = await clack.text({
+    const result = await kit.text({
       message,
       placeholder: options.placeholder,
-      initialValue: options.initialValue,
+      defaultValue: options.defaultValue,
       validate: options.validate,
     });
 
-    if (this.isCancelled(result)) return null;
+    if (kit.isCancel(result)) return null;
 
     return result as string;
   }
@@ -342,58 +386,52 @@ export class InteractiveHelpers {
     required = true
   ): Promise<T[] | null> {
     if (items.length === 0) {
-      clack.log.warning('No items available');
+      kit.log.warning('No items available');
       return null;
     }
 
-    const options: Array<{value: T, label: string}> = items.map(item => ({
+    const options: Array<{ value: T, label: string }> = items.map(item => ({
       value: item,
       label: getLabelFn(item),
     }));
 
-    const selected = await clack.multiselect({
+    const selected = await kit.multiselect({
       message,
       options: options as any,
       required,
     });
 
-    if (this.isCancelled(selected)) return null;
+    if (kit.isCancel(selected)) return null;
 
     return selected as T[];
   }
 
   static startInteractiveMode(title: string): void {
     this.setupCancelHandlers();
-    clack.intro(chalk.bgBlue(` ${title} `));
+    kit.log.message(`\n${chalk.bgBlue(` ${title} `)}\n${'─'.repeat(40)}`);
   }
 
   static endInteractiveMode(message?: string): void {
-    if (message) {
-      clack.outro(chalk.green(message));
-    } else {
-      clack.outro(chalk.green('✓ Done!'));
-    }
+    kit.log.message(`${'─'.repeat(40)}\n${chalk.green(message || '✓ Done!')}\n`);
   }
 
   static showError(message: string): void {
-    clack.log.error(chalk.red(message));
+    kit.log.error(chalk.red(message));
   }
 
   static showSuccess(message: string): void {
-    clack.log.success(chalk.green(message));
+    kit.log.success(chalk.green(message));
   }
 
   static showInfo(message: string): void {
-    clack.log.info(chalk.blue(message));
+    kit.log.info(chalk.blue(message));
   }
 
   static showWarning(message: string): void {
-    clack.log.warning(chalk.yellow(message));
+    kit.log.warning(chalk.yellow(message));
   }
 
   static createSpinner(message: string): any {
-    const spinner = clack.spinner();
-    spinner.start(message);
-    return spinner;
+    return kit.spinner(message);
   }
 }

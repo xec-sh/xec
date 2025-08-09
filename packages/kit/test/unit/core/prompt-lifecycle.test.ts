@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
-import { TextPrompt } from '../../../src/components/primitives/text.js';
 import { PromptLifecycle } from '../../../src/core/types.js';
-import { StreamHandler } from '../../../src/core/stream-handler.js';
 import { mockProcessStreams } from '../../helpers/mock-tty.js';
+import { StreamHandler } from '../../../src/core/stream-handler.js';
+import { TextPrompt } from '../../../src/components/primitives/text.js';
 
 describe('Prompt Lifecycle', () => {
   let streams: ReturnType<typeof mockProcessStreams>;

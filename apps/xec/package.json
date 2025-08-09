@@ -54,7 +54,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' jest"
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "typecheck": "tsc --noEmit"
   },
   "bin": {
     "xec": "bin/xec"
@@ -89,8 +90,9 @@
   },
   "homepage": "https://xec.sh",
   "dependencies": {
-    "@clack/prompts": "^0.11.0",
     "@xec-sh/core": "workspace:*",
+    "@xec-sh/kit": "workspace:*",
+    "@xec-sh/terex": "workspace:*",
     "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
     "commander": "^14.0.0",
@@ -111,7 +113,7 @@
     "ps-list": "^8.1.1",
     "table": "^6.9.0",
     "which": "^5.0.0",
-    "zod": "^3.25.76"
+    "zod": "^4.0.15"
   },
   "installConfig": {
     "hoistingLimits": "workspaces"

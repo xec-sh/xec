@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
-import { EventEmitter } from 'events';
 
 import { StreamHandler } from '../../src/core/stream-handler.js';
+
 import type { Key } from '../../src/core/types.js';
 
 /**

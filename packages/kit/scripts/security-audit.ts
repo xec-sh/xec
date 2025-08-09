@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
+import { statSync, readdirSync, readFileSync } from 'fs';
 
 interface SecurityIssue {
   file: string;

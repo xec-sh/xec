@@ -1,6 +1,6 @@
 import chalk from 'chalk';
+import jsYaml from 'js-yaml';
 import { table } from 'table';
-import * as yaml from 'js-yaml';
 
 export type OutputFormat = 'text' | 'json' | 'yaml' | 'csv';
 
@@ -105,7 +105,7 @@ export class OutputFormatter {
         console.log(JSON.stringify(data, null, 2));
         break;
       case 'yaml':
-        console.log(yaml.dump(data, { lineWidth: -1, noRefs: true }));
+        console.log(jsYaml.dump(data, { lineWidth: -1, noRefs: true }));
         break;
       case 'csv':
         this.outputCsv(data);
@@ -140,7 +140,7 @@ export class OutputFormatter {
           });
           return obj;
         });
-        console.log(yaml.dump(yamlData, { lineWidth: -1, noRefs: true }));
+        console.log(jsYaml.dump(yamlData, { lineWidth: -1, noRefs: true }));
         break;
       case 'csv':
         this.outputCsv([data.columns.map(col => col.header), ...data.rows]);
@@ -166,7 +166,7 @@ export class OutputFormatter {
         console.log(JSON.stringify(data, null, 2));
         break;
       case 'yaml':
-        console.log(yaml.dump(data, { lineWidth: -1, noRefs: true }));
+        console.log(jsYaml.dump(data, { lineWidth: -1, noRefs: true }));
         break;
       case 'csv':
         const csvRows = Object.entries(data).map(([key, value]) => [key, String(value)]);
@@ -193,7 +193,7 @@ export class OutputFormatter {
         console.log(JSON.stringify(items, null, 2));
         break;
       case 'yaml':
-        console.log(yaml.dump(items, { lineWidth: -1, noRefs: true }));
+        console.log(jsYaml.dump(items, { lineWidth: -1, noRefs: true }));
         break;
       case 'csv':
         items.forEach(item => console.log(item));
@@ -241,10 +241,10 @@ export class OutputFormatter {
     const barLength = 20;
     const filledLength = Math.round((percentage / 100) * barLength);
     const bar = '█'.repeat(filledLength) + '░'.repeat(barLength - filledLength);
-    
+
     const progressText = `${bar} ${percentage}% (${current}/${total})`;
     const fullText = message ? `${message} ${progressText}` : progressText;
-    
+
     console.log(fullText);
   }
 
@@ -262,10 +262,10 @@ export class OutputFormatter {
     if (this.format === 'text') {
       const beforeLines = before.split('\n');
       const afterLines = after.split('\n');
-      
+
       console.log(chalk.red('- Before:'));
       beforeLines.forEach(line => console.log(chalk.red(`  ${line}`)));
-      
+
       console.log(chalk.green('+ After:'));
       afterLines.forEach(line => console.log(chalk.green(`  ${line}`)));
     } else {
@@ -333,7 +333,7 @@ export class OutputFormatter {
    */
   yaml(data: any): void {
     if (this.quiet) return;
-    console.log(yaml.dump(data, { lineWidth: -1, noRefs: true }));
+    console.log(jsYaml.dump(data, { lineWidth: -1, noRefs: true }));
   }
 
   /**
@@ -440,7 +440,7 @@ class CLISpinner implements Spinner {
   constructor(
     private message: string,
     private config: { quiet: boolean; colors: boolean }
-  ) {}
+  ) { }
 
   start(): void {
     if (this.config.quiet || this.isSpinning) return;

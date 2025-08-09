@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
+import { rmSync, readFileSync, writeFileSync } from 'fs';
 
 interface CompatibilityResult {
   runtime: string;

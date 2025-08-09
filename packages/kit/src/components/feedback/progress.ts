@@ -434,3 +434,29 @@ export function multiProgress(options: MultiProgressOptions): MultiProgress {
   mp.start();
   return mp;
 }
+
+// Singleton instance for simple usage
+let globalProgress: Progress | null = null;
+
+/**
+ * Get or create a global progress instance
+ */
+export function getGlobalProgress(): Progress {
+  if (!globalProgress) {
+    globalProgress = new Progress();
+  }
+  return globalProgress;
+}
+
+// Add convenience methods to progress function
+(progress as any).update = (value: number): void => {
+  getGlobalProgress().update(value);
+};
+
+(progress as any).start = (): void => {
+  getGlobalProgress().start();
+};
+
+(progress as any).complete = (): void => {
+  getGlobalProgress().complete();
+};

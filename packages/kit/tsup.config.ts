@@ -3,7 +3,16 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['cjs', 'esm'],
-  dts: false, // Temporarily disabled due to TS errors
+  dts: {
+    resolve: true,
+    // Specify entry point for type generation
+    entry: './src/index.ts',
+    // Override compiler options for type generation
+    compilerOptions: {
+      composite: false,
+      incremental: false
+    }
+  },
   splitting: true,
   sourcemap: true,
   clean: true,
@@ -15,6 +24,8 @@ export default defineConfig({
   shims: true,
   bundle: true,
   skipNodeModulesBundle: true,
+  // Explicitly specify tsconfig
+  tsconfig: './tsconfig.json',
   esbuildOptions(options) {
     options.banner = {
       js: '"use strict";'

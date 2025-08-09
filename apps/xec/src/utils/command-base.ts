@@ -1,8 +1,8 @@
 import chalk from 'chalk';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
+import { kit } from '@xec-sh/kit';
 import { Command } from 'commander';
-import * as clack from '@clack/prompts';
 
 import { handleError } from './error-handler.js';
 import { OutputFormatter } from './output-formatter.js';
@@ -397,14 +397,17 @@ export abstract class BaseCommand {
    */
   protected startSpinner(message: string): void {
     if (!this.options.quiet) {
-      this.spinner = clack.spinner();
-      this.spinner.start(message);
+      this.spinner = kit.spinner(message);
     }
   }
 
   protected stopSpinner(message?: string, code?: number): void {
     if (this.spinner) {
-      this.spinner.stop(message, code);
+      if (code === 0 || code === undefined) {
+        this.spinner.success(message || 'Done');
+      } else {
+        this.spinner.error(message || 'Failed');
+      }
       this.spinner = null;
     }
   }
@@ -414,16 +417,16 @@ export abstract class BaseCommand {
 
     switch (level) {
       case 'success':
-        clack.log.success(message);
+        kit.log.success(message);
         break;
       case 'warn':
-        clack.log.warn(message);
+        kit.log.warning(message);
         break;
       case 'error':
-        clack.log.error(message);
+        kit.log.error(message);
         break;
       default:
-        clack.log.info(message);
+        kit.log.info(message);
     }
   }
 
@@ -447,7 +450,10 @@ export abstract class BaseCommand {
 
   protected async confirm(message: string, initial = false): Promise<boolean> {
     if (this.options.quiet) return Promise.resolve(initial);
-    const result = await clack.confirm({ message, initialValue: initial });
+    
+    const promptLib = kit;
+    const result = await promptLib.confirm({ message, defaultValue: initial });
+    
     if (typeof result === 'symbol') {
       // User cancelled, return initial value
       return initial;
@@ -457,7 +463,10 @@ export abstract class BaseCommand {
 
   protected async prompt(message: string, initial?: string): Promise<string> {
     if (this.options.quiet) return Promise.resolve(initial || '');
-    const result = await clack.text({ message, initialValue: initial });
+    
+    const promptLib = kit;
+    const result = await promptLib.text({ message, defaultValue: initial });
+    
     if (typeof result === 'symbol') {
       // User cancelled, return initial value or empty string
       return initial || '';
@@ -467,7 +476,10 @@ export abstract class BaseCommand {
 
   protected async select(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string> {
     if (this.options.quiet) return Promise.resolve(options[0]?.value || '');
-    const result = await clack.select({ message, options });
+    
+    const promptLib = kit;
+    const result = await promptLib.select({ message, options });
+    
     if (typeof result === 'symbol') {
       // User cancelled, return first option or empty string
       return options[0]?.value || '';
@@ -477,7 +489,10 @@ export abstract class BaseCommand {
 
   protected async multiselect(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string[]> {
     if (this.options.quiet) return Promise.resolve([]);
-    const result = await clack.multiselect({ message, options });
+    
+    const promptLib = kit;
+    const result = await promptLib.multiselect({ message, options });
+    
     if (typeof result === 'symbol') {
       // User cancelled, return empty array
       return [];
@@ -487,13 +502,13 @@ export abstract class BaseCommand {
 
   protected intro(message: string): void {
     if (!this.options.quiet) {
-      clack.intro(message);
+      kit.log.header(message);
     }
   }
 
   protected outro(message: string): void {
     if (!this.options.quiet) {
-      clack.outro(message);
+      kit.log.footer(message);
     }
   }
 

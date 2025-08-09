@@ -3,9 +3,9 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
+import { kit } from '@xec-sh/kit';
 import { transform } from 'esbuild';
 import { pathToFileURL } from 'url';
-import * as clack from '@clack/prompts';
 
 export interface ModuleLoaderOptions {
   cacheDir?: string;
@@ -737,7 +737,7 @@ export class ModuleLoader {
     }
 
     if (this.options.verbose) {
-      clack.log.success('Module cache cleared');
+      kit.log.success('Module cache cleared');
     }
   }
 

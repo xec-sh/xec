@@ -87,7 +87,7 @@ export class Spinner {
     return this;
   }
 
-  stop(): Spinner {
+  stop(text?: string): Spinner {
     if (!this.isSpinning) return this;
     
     this.isSpinning = false;
@@ -103,7 +103,13 @@ export class Spinner {
     // Show cursor
     this.stream.write(cursor.show);
     
-    this.events.emit('stop');
+    // Display final text if provided
+    if (text) {
+      const pc = picocolors;
+      this.stream.write(pc.dim('•') + ' ' + text + '\n');
+    }
+    
+    this.events.emit('stop', text);
     return this;
   }
 

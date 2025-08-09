@@ -51,6 +51,28 @@ export class Log {
     );
   }
 
+  header(message: string): void {
+    const width = Math.min(80, (this.stdout as any).columns || 80);
+    const padding = Math.max(0, Math.floor((width - message.length - 2) / 2));
+    const line = '─'.repeat(width);
+    
+    this.stdout.write('\n');
+    this.stdout.write(this.theme.formatters.muted(line) + '\n');
+    this.stdout.write(' '.repeat(padding) + this.theme.formatters.bold(message) + '\n');
+    this.stdout.write(this.theme.formatters.muted(line) + '\n');
+    this.stdout.write('\n');
+  }
+
+  footer(message: string): void {
+    const width = Math.min(80, (this.stdout as any).columns || 80);
+    const line = '─'.repeat(width);
+    
+    this.stdout.write('\n');
+    this.stdout.write(this.theme.formatters.muted(line) + '\n');
+    this.stdout.write(this.theme.formatters.success(` ✓ ${message}`) + '\n');
+    this.stdout.write('\n');
+  }
+
   break(): void {
     this.stdout.write('\n');
   }

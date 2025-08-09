@@ -7,37 +7,37 @@
 // TypeScript utilities
 export * from './utils/types.js';
 export { log } from './utils/log.js';
-// Plugin system
-export { PluginRegistry } from './plugins/registry.js';
+export { backSymbol } from './core/types.js';
 
 // =============================================================================
 // Phase 1: Essential Components
 // =============================================================================
 
+// Plugin system
+export { PluginRegistry } from './plugins/registry.js';
 export { emojiPlugin } from './plugins/emoji-plugin.js';
-export { backSymbol, cancelSymbol } from './core/types.js';
 export { ComponentExplorer } from './dev-tools/component-explorer.js';
 
-// Core infrastructure
-export { StreamHandler, type StreamHandlerOptions } from './core/stream-handler.js';
 export { StreamHandlerFactory } from './core/stream-handler-factory.js';
+// Developer tools
+export {
+  debug,
+  DebugLevel,
+  DebugManager
+} from './dev-tools/debug.js';
 // Primitive components
 export { TextPrompt, type TextOptions } from './components/primitives/text.js';
-// Developer tools
-export { 
-  debug, 
-  DebugLevel, 
-  DebugManager 
-} from './dev-tools/debug.js';
+// Core infrastructure
+export { StreamHandler, type StreamHandlerOptions } from './core/stream-handler.js';
 export { NumberPrompt, type NumberOptions } from './components/primitives/number.js';
 
 export { ConfirmPrompt, type ConfirmOptions } from './components/primitives/confirm.js';
 export { PasswordPrompt, type PasswordOptions } from './components/primitives/password.js';
 // Feedback components
-export { 
-  Spinner, 
-  spinner, 
-  type SpinnerOptions 
+export {
+  Spinner,
+  spinner,
+  type SpinnerOptions
 } from './components/feedback/spinner.js';
 
 // =============================================================================
@@ -45,40 +45,39 @@ export {
 // =============================================================================
 
 export { SelectPrompt, type SelectOption, type SelectOptions } from './components/primitives/select.js';
-export { 
-  TablePrompt, 
-  type TableColumn, 
-  type TableOptions 
+export {
+  TablePrompt,
+  type TableColumn,
+  type TableOptions
 } from './components/advanced/table.js';
-export { 
-  panel, 
-  PanelPrompt, 
-  type PanelAction, 
-  type PanelOptions 
-} from './components/layout/panel.js';
-export { 
-  wizard, 
-  WizardPrompt, 
-  type WizardPage, 
-  type WizardOptions 
+export {
+  WizardPrompt,
+  type WizardPage,
+  type WizardOptions
 } from './components/layout/wizard.js';
+export {
+  panel,
+  PanelPrompt,
+  type PanelAction,
+  type PanelOptions
+} from './components/layout/panel.js';
 
-export { 
-  FormPrompt, 
-  type FormStep, 
-  type FormField, 
-  type FormOptions 
+export {
+  FormPrompt,
+  type FormStep,
+  type FormField,
+  type FormOptions
 } from './components/advanced/form.js';
-export { 
-  type FileInfo, 
-  FilePickerPrompt, 
-  type FilePickerOptions 
+export {
+  type FileInfo,
+  FilePickerPrompt,
+  type FilePickerOptions
 } from './components/advanced/file-picker.js';
-export { 
-  columns, 
-  ColumnsPrompt, 
-  type ColumnPane, 
-  type ColumnsOptions 
+export {
+  columns,
+  ColumnsPrompt,
+  type ColumnPane,
+  type ColumnsOptions
 } from './components/layout/columns.js';
 export { MultiSelectPrompt, type MultiSelectOption, type MultiSelectOptions } from './components/primitives/multiselect.js';
 
@@ -87,37 +86,54 @@ export { MultiSelectPrompt, type MultiSelectOption, type MultiSelectOptions } fr
 // =============================================================================
 
 // Advanced interactive components
-export { 
-  AutocompletePrompt, 
-  type AutocompleteOption, 
-  type AutocompleteOptions 
+export {
+  AutocompletePrompt,
+  type AutocompleteOption,
+  type AutocompleteOptions
 } from './components/advanced/autocomplete.js';
 
-export { 
-  TaskList, 
-  taskList, 
-  type Task, 
-  type TaskInstance, 
-  type TaskListOptions 
+// Live output for streaming command execution
+export {
+  LiveOutput,
+  liveOutput,
+  type LiveOutputResult,
+  type LiveOutputOptions
+} from './components/feedback/live-output.js';
+
+export {
+  TaskList,
+  taskList,
+  type Task,
+  type TaskInstance,
+  type TaskListOptions
 } from './components/feedback/task-list.js';
+
 // Layout components
-export { 
-  group, 
-  GroupPrompt, 
-  type GroupConfig, 
-  type GroupOptions, 
-  type GroupPromptItem 
+export {
+  group,
+  GroupPrompt,
+  type GroupConfig,
+  type GroupOptions,
+  type GroupPromptItem
 } from './components/layout/group.js';
+// Task runner for dependency-based task execution
+export {
+  TaskRunner,
+  taskRunner,
+  type TaskRunnerTask,
+  type TaskRunnerResult,
+  type TaskRunnerOptions
+} from './components/advanced/task-runner.js';
 // Advanced interactions
-export { 
-  type Command, 
-  CommandPalette, 
-  commandPalette, 
-  type CommandGroup, 
-  type CommandPaletteOptions 
+export {
+  type Command,
+  CommandPalette,
+  commandPalette,
+  type CommandGroup,
+  type CommandPaletteOptions
 } from './components/advanced/command-palette.js';
 
-export { 
+export {
   withHelp,
   createHelp,
   type WithHelp,
@@ -126,6 +142,15 @@ export {
   renderMarkdownHelp,
   type ContextualHelpOptions
 } from './utils/contextual-help.js';
+export {
+  Progress,
+  progress,
+  MultiProgress,
+  multiProgress,
+  type ProgressTask,
+  type ProgressOptions,
+  type MultiProgressOptions
+} from './components/feedback/progress.js';
 // Performance optimizations
 export {
   RenderBatcher,
@@ -136,17 +161,8 @@ export {
   DynamicVirtualScroller,
   type VirtualScrollOptions
 } from './utils/performance.js';
-export { 
-  Progress, 
-  progress, 
-  MultiProgress, 
-  multiProgress, 
-  type ProgressTask, 
-  type ProgressOptions, 
-  type MultiProgressOptions 
-} from './components/feedback/progress.js';
 // Reactive system
-export { 
+export {
   memo,
   watch,
   derived,
@@ -190,23 +206,23 @@ export {
 
 export type { Theme } from './core/types.js';
 
-export type { 
-  DebugConfig, 
-  DebugLogEntry, 
-  PerformanceEntry 
+export type {
+  DebugConfig,
+  DebugLogEntry,
+  PerformanceEntry
 } from './dev-tools/debug.js';
 
-export type { 
-  KitPlugin, 
-  PluginMeta, 
-  PluginContext, 
-  ComponentDefinition 
+export type {
+  KitPlugin,
+  PluginMeta,
+  PluginContext,
+  ComponentDefinition
 } from './plugins/plugin.js';
 
-export type { 
-  ComponentDoc, 
-  ComponentExample, 
-  ComponentExplorerOptions 
+export type {
+  ComponentDoc,
+  ComponentExample,
+  ComponentExplorerOptions
 } from './dev-tools/component-explorer.js';
 
 export type {
@@ -229,9 +245,11 @@ import { debug } from './dev-tools/debug.js';
 // Import layout factory functions
 import { group } from './components/layout/group.js';
 import { panel } from './components/layout/panel.js';
-import { wizard } from './components/layout/wizard.js';
 // Import plugin system
 import { PluginRegistry } from './plugins/registry.js';
+import { saveState, loadState, clearState } from './utils/state.js';
+import { registerGlobalShortcut } from './utils/global-shortcuts.js';
+import { type WizardOptions, wizard as createWizard } from './components/layout/wizard.js';
 // Create global plugin registry instance
 const pluginRegistry = new PluginRegistry();
 // Import contextual help
@@ -243,6 +261,8 @@ import { spinner } from './components/feedback/spinner.js';
 import { taskList } from './components/feedback/task-list.js';
 // Import keyboard and mouse support
 import { KeyboardShortcuts } from './utils/keyboard-shortcuts.js';
+import { taskRunner } from './components/advanced/task-runner.js';
+import { liveOutput } from './components/feedback/live-output.js';
 // Import advanced factory functions
 import { commandPalette } from './components/advanced/command-palette.js';
 import { progress, multiProgress } from './components/feedback/progress.js';
@@ -278,14 +298,14 @@ export async function text(
   const config = typeof messageOrOptions === 'string'
     ? { message: messageOrOptions, ...maybeOptions }
     : messageOrOptions;
-  
+
   const prompt = new TextPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -306,14 +326,14 @@ export async function confirm(
   const config = typeof messageOrOptions === 'string'
     ? { message: messageOrOptions, ...maybeOptions }
     : messageOrOptions;
-  
+
   const prompt = new ConfirmPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -334,14 +354,14 @@ export async function password(
   const config = typeof messageOrOptions === 'string'
     ? { message: messageOrOptions, ...maybeOptions }
     : messageOrOptions;
-  
+
   const prompt = new PasswordPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -362,14 +382,14 @@ export async function number(
   const config = typeof messageOrOptions === 'string'
     ? { message: messageOrOptions, ...maybeOptions }
     : messageOrOptions;
-  
+
   const prompt = new NumberPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -388,7 +408,7 @@ export async function select<T = string>(
   maybeOptions?: T[] | SelectOptions<T>
 ): Promise<T> {
   let config: SelectOptions<T> & { message: string };
-  
+
   if (typeof messageOrOptions === 'string') {
     // Handle array of options
     if (Array.isArray(maybeOptions)) {
@@ -399,14 +419,14 @@ export async function select<T = string>(
   } else {
     config = messageOrOptions;
   }
-  
+
   const prompt = new SelectPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -425,7 +445,7 @@ export async function multiselect<T = string>(
   maybeOptions?: T[] | MultiSelectOptions<T>
 ): Promise<T[]> {
   let config: MultiSelectOptions<T> & { message: string };
-  
+
   if (typeof messageOrOptions === 'string') {
     // Handle array of options
     if (Array.isArray(maybeOptions)) {
@@ -436,14 +456,14 @@ export async function multiselect<T = string>(
   } else {
     config = messageOrOptions;
   }
-  
+
   const prompt = new MultiSelectPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -464,14 +484,14 @@ export async function autocomplete<T = string>(
   const config = typeof messageOrOptions === 'string'
     ? { ...maybeOptions!, message: messageOrOptions }
     : messageOrOptions;
-  
+
   const prompt = new AutocompletePrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -492,14 +512,14 @@ export async function table<T = any>(
   const config = typeof messageOrOptions === 'string'
     ? { ...maybeOptions!, message: messageOrOptions }
     : messageOrOptions;
-  
+
   const prompt = new TablePrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
 }
 
@@ -511,11 +531,11 @@ export async function form<T = Record<string, any>>(
 ): Promise<T> {
   const prompt = new FormPrompt(options);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result as T;
 }
 
@@ -533,18 +553,53 @@ export async function filePicker(
   messageOrOptions: string | (FilePickerOptions & { message: string }),
   maybeOptions?: FilePickerOptions
 ): Promise<string | string[]> {
-  const config = typeof messageOrOptions === 'string'
-    ? { message: messageOrOptions, ...maybeOptions }
-    : messageOrOptions;
-  
+  let config: FilePickerOptions & { message: string };
+
+  if (typeof messageOrOptions === 'string') {
+    config = { message: messageOrOptions, ...maybeOptions };
+  } else {
+    // Handle title as an alternative to message
+    const opts = messageOrOptions as any;
+    config = {
+      ...opts,
+      message: opts.message || opts.title || 'Select file'
+    };
+  }
+
   const prompt = new FilePickerPrompt(config);
   const result = await prompt.prompt();
-  
+
   if (typeof result === 'symbol') {
-    throw new Error('Cancelled');
+    return null as any;
   }
-  
+
   return result;
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Display a multi-step wizard
+ */
+export async function wizard(options: WizardOptions): Promise<Record<string, any> | null> {
+  const wizardPrompt = createWizard(options);
+  const result = await wizardPrompt.prompt();
+
+  if (typeof result === 'symbol') {
+    return null;
+  }
+
+  return result;
+}
+
+/**
+ * Check if a value represents a cancelled prompt
+ * @deprecated Use null check instead
+ */
+export function isCancel(value: any): boolean {
+  return value === null || value === Symbol.for('kit.cancel');
 }
 
 // =============================================================================
@@ -562,42 +617,55 @@ export const kit = {
   number,
   select,
   multiselect,
-  
+
   // Advanced prompts
   autocomplete,
   table,
   form,
   filePicker,
-  
+
   // Feedback
   spinner,
   progress,
   multiProgress,
   taskList,
-  
+  taskRunner,
+  liveOutput,
+
   // Layout
   group,
   panel,
   wizard,
   columns,
-  
+
   // Utilities
   log,
-  
+
+  // Cancellation
+  isCancel,
+
+  // State management
+  saveState,
+  loadState,
+  clearState,
+
+  // Global shortcuts
+  registerGlobalShortcut,
+
   // Phase 3: Plugin system
   use(plugin: KitPlugin) {
     pluginRegistry.register(plugin);
   },
-  
+
   // Phase 3: Debug
   debug,
-  
+
   // Phase 4: Reactive
   reactive,
   computed,
   watch,
   validators,
-  
+
   // Phase 4: Advanced
   commandPalette,
   help: createHelp,

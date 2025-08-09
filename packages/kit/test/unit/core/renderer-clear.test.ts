@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { Renderer } from '../../../src/core/renderer.js';
-import { createDefaultTheme } from '../../../src/themes/default.js';
 import { mockProcessStreams } from '../../helpers/mock-tty.js';
+import { createDefaultTheme } from '../../../src/themes/default.js';
 
 describe('Renderer clear() method', () => {
   let streams: ReturnType<typeof mockProcessStreams>;

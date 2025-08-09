@@ -8,12 +8,14 @@
     "lib": [
       "ESNext"
     ],
+    "noImplicitAny": false
   },
   "include": [
     "src/**/*.ts"
   ],
   "exclude": [
     "**/*spec.ts",
-    "src/commands/disabled/**/*"
+    "src/commands/disabled/**/*",
+    "src/commands/*-enhanced.ts"
   ]
 }

@@ -7,11 +7,11 @@
  */
 
 import { 
+  Key,
   TextPrompt,
   SelectPrompt,
-  MultiSelectPrompt,
   StreamHandler,
-  Key
+  MultiSelectPrompt
 } from '../src/index.js';
 
 /**
