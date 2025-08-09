@@ -4,14 +4,13 @@ import { EventEmitter } from '../event-emitter.js';
 import { ReactiveState } from './reactive-state.js';
 import { StreamHandler } from '../stream-handler.js';
 import { createDefaultTheme } from '../../themes/default.js';
-
 // Import all prompt types
 import { TextPrompt } from '../../components/primitives/text.js';
 import { SelectPrompt } from '../../components/primitives/select.js';
-import { ConfirmPrompt } from '../../components/primitives/confirm.js';
 import { NumberPrompt } from '../../components/primitives/number.js';
-import { MultiSelectPrompt } from '../../components/primitives/multiselect.js';
+import { ConfirmPrompt } from '../../components/primitives/confirm.js';
 import { PasswordPrompt } from '../../components/primitives/password.js';
+import { MultiSelectPrompt } from '../../components/primitives/multiselect.js';
 
 import type { Key, Theme } from '../types.js';
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { gzipSync } from 'zlib';
+import { readdirSync, readFileSync } from 'fs';
 
 const distDir = join(process.cwd(), 'dist');
 

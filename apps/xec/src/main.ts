@@ -10,6 +10,7 @@ import { customizeHelp } from './utils/help-customizer.js';
 import { TaskManager, ConfigurationManager } from './config/index.js';
 import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
+import { saveCommandHistory, initializeCommandPalette } from './utils/command-palette.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -72,6 +73,9 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   const configManager = new ConfigurationManager();
   const taskManager = new TaskManager({ configManager });
   await taskManager.load();
+
+  // Initialize command palette
+  await initializeCommandPalette();
 
   // Module loader is initialized lazily when needed by commands
 
@@ -244,6 +248,9 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       argv.push('--help');
     }
     await program.parseAsync(argv);
+
+    // Save command history on exit
+    await saveCommandHistory();
   } catch (error) {
     // Use enhanced error handler
     handleError(error, {
@@ -256,20 +263,17 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
 // Helper functions for direct script execution
 async function runScriptDirectly(scriptPath: string, args: string[], options: any) {
-  const scriptModule = await import('./commands/run.js');
-  const { runScript } = scriptModule;
-  await runScript(scriptPath, args, options);
+  const { executeScript } = await import('./utils/script-loader.js');
+  await executeScript(scriptPath, { ...options, context: { args } });
 }
 
 async function evalCodeDirectly(code: string, args: string[], options: any) {
-  const scriptModule = await import('./commands/run.js');
-  const { evalCode } = scriptModule;
-  await evalCode(code, args, options);
+  const { evaluateCode } = await import('./utils/script-loader.js');
+  await evaluateCode(code, { ...options, context: { args } });
 }
 
 async function startReplDirectly(options: any) {
-  const scriptModule = await import('./commands/run.js');
-  const { startRepl } = scriptModule;
+  const { startRepl } = await import('./utils/script-loader.js');
   await startRepl(options);
 }
 

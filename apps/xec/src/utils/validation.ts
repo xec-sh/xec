@@ -1,6 +1,6 @@
+import fs from 'fs';
 import { z } from 'zod';
-import * as fs from 'fs';
-import * as path from 'path';
+import path from 'path';
 
 export class ValidationError extends Error {
   constructor(message: string, public field?: string, public code?: string) {
@@ -15,9 +15,9 @@ export class ValidationError extends Error {
 export const schemas = {
   // File path validation
   filePath: z.string().refine(
-    (path) => {
+    (p) => {
       try {
-        return fs.existsSync(path);
+        return fs.existsSync(p);
       } catch {
         return false;
       }
@@ -27,9 +27,9 @@ export const schemas = {
 
   // Directory path validation
   directoryPath: z.string().refine(
-    (path) => {
+    (p) => {
       try {
-        return fs.existsSync(path) && fs.lstatSync(path).isDirectory();
+        return fs.existsSync(p) && fs.lstatSync(p).isDirectory();
       } catch {
         return false;
       }
@@ -63,7 +63,7 @@ export const schemas = {
   ),
 
   // Variables object validation
-  variables: z.record(z.any()),
+  variables: z.record(z.string(), z.any()),
 
   // Host selector validation
   hostSelector: z.string().regex(/^[a-zA-Z0-9._-]+$/, 'Invalid host selector format'),
@@ -147,7 +147,7 @@ export function validateAndParseJson(jsonString: string): any {
  */
 export function validateVariables(vars: string): Record<string, any> {
   if (!vars) return {};
-  
+
   // Try to parse as JSON first
   try {
     const parsed = JSON.parse(vars);
@@ -159,13 +159,13 @@ export function validateVariables(vars: string): Record<string, any> {
     // Try to parse as key=value pairs
     const result: Record<string, any> = {};
     const pairs = vars.split(',').map(pair => pair.trim());
-    
+
     for (const pair of pairs) {
       const [key, ...valueParts] = pair.split('=');
       if (!key || valueParts.length === 0) {
         throw new ValidationError('Invalid variable format. Use JSON or key=value format', 'variables');
       }
-      
+
       const value = valueParts.join('=');
       // Try to parse value as JSON, otherwise use as string
       try {
@@ -174,7 +174,7 @@ export function validateVariables(vars: string): Record<string, any> {
         result[key.trim()] = value;
       }
     }
-    
+
     return result;
   }
 }
@@ -184,17 +184,17 @@ export function validateVariables(vars: string): Record<string, any> {
  */
 export function validateTimeout(timeout: string | number): number {
   let timeoutMs: number;
-  
+
   if (typeof timeout === 'string') {
     // Parse timeout with units (e.g., "30s", "5m", "1h")
     const match = timeout.match(/^(\d+)([smh]?)$/);
     if (!match || !match[1]) {
       throw new ValidationError('Invalid timeout format. Use number or format like "30s", "5m", "1h"', 'timeout');
     }
-    
+
     const value = parseInt(match[1]);
     const unit = match[2] || 's';
-    
+
     switch (unit) {
       case 's':
         timeoutMs = value * 1000;
@@ -211,15 +211,15 @@ export function validateTimeout(timeout: string | number): number {
   } else {
     timeoutMs = timeout;
   }
-  
+
   if (timeoutMs < 0) {
     throw new ValidationError('Timeout must be positive', 'timeout');
   }
-  
+
   if (timeoutMs > 24 * 60 * 60 * 1000) {
     throw new ValidationError('Timeout cannot exceed 24 hours', 'timeout');
   }
-  
+
   return timeoutMs;
 }
 
@@ -252,10 +252,7 @@ export function validateOptions(options: any, schema: z.ZodSchema): void {
     schema.parse(options);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const messages = error.errors.map(err => {
-        const path = err.path.join('.');
-        return `${path}: ${err.message}`;
-      }).join(', ');
+      const messages = error.issues.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
       throw new ValidationError(`Validation failed: ${messages}`);
     }
     throw error;
@@ -289,18 +286,15 @@ export function validateXecConfig(config: any): void {
     description: z.string().optional(),
     author: z.string().optional(),
     modules: z.array(z.string()).optional(),
-    environments: z.record(z.any()).optional(),
-    defaults: z.record(z.any()).optional(),
+    environments: z.record(z.string(), z.any()).optional(),
+    defaults: z.record(z.string(), z.any()).optional(),
   });
 
   try {
     configSchema.parse(config);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const messages = error.errors.map(err => {
-        const path = err.path.join('.');
-        return `${path}: ${err.message}`;
-      }).join(', ');
+      const messages = error.issues.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
       throw new ValidationError(`Invalid xec configuration: ${messages}`);
     }
     throw error;
@@ -322,19 +316,16 @@ export function validateRecipeStructure(recipe: any): void {
       handler: z.any().optional(),
       command: z.string().optional(),
     })).optional(),
-    phases: z.record(z.any()).optional(),
-    vars: z.record(z.any()).optional(),
-    metadata: z.record(z.any()).optional(),
+    phases: z.record(z.string(), z.any()).optional(),
+    vars: z.record(z.string(), z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
   });
 
   try {
     recipeSchema.parse(recipe);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const messages = error.errors.map(err => {
-        const path = err.path.join('.');
-        return `${path}: ${err.message}`;
-      }).join(', ');
+      const messages = error.issues.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
       throw new ValidationError(`Invalid recipe structure: ${messages}`);
     }
     throw error;

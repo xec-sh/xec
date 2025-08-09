@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { $ } from '@xec-sh/core';
-import * as clack from '@clack/prompts';
+import { kit } from '@xec-sh/kit';
 
 import { parseTimeout } from './time.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
@@ -132,7 +132,7 @@ async function executeOnTarget(
   const targetDisplay = chalk.cyan(target.name);
 
   if (!options.quiet) {
-    clack.log.info(`Executing on ${targetDisplay} (${target.type})...`);
+    kit.log.info(`Executing on ${targetDisplay} (${target.type})...`);
   }
 
   let engine: any;

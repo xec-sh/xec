@@ -15,11 +15,16 @@ export interface MultiSelectOption<T = string> {
 export interface MultiSelectOptions<T = string> {
   options: MultiSelectOption<T>[] | T[];
   filter?: boolean;
+  search?: boolean; // Alias for filter
   limit?: number;
   loop?: boolean;
   required?: boolean;
   min?: number;
   max?: number;
+  showSelectAll?: boolean; // Show "Select All" option
+  selectAllLabel?: string; // Custom label for select all
+  default?: T[]; // Default selected values
+  initialValues?: T[]; // Alias for default
 }
 
 export class MultiSelectPrompt<T = string> extends Prompt<T[], MultiSelectOptions<T>> {
@@ -37,12 +42,20 @@ export class MultiSelectPrompt<T = string> extends Prompt<T[], MultiSelectOption
     this.options = this.normalizeOptions(config.options);
     this.filteredOptions = [...this.options];
     
-    // Set initial selections
-    this.options.forEach(opt => {
-      if (opt.selected) {
-        this.selected.add(opt.value);
-      }
-    });
+    // Set initial selections from default/initialValues or selected property
+    const defaultValues = config.default ?? config.initialValues;
+    if (defaultValues && defaultValues.length > 0) {
+      defaultValues.forEach(value => {
+        this.selected.add(value);
+      });
+    } else {
+      // Set initial selections from selected property
+      this.options.forEach(opt => {
+        if (opt.selected) {
+          this.selected.add(opt.value);
+        }
+      });
+    }
     
     // Set initial cursor to first non-disabled option
     this.cursor = this.options.findIndex(opt => !opt.disabled);
@@ -61,7 +74,7 @@ export class MultiSelectPrompt<T = string> extends Prompt<T[], MultiSelectOption
     output += ctx.theme.formatters.muted(` (${this.selected.size} selected)`);
     
     // Filter input
-    if (this.config.filter && status === 'active') {
+    if ((this.config.filter || this.config.search) && status === 'active') {
       output += '\n';
       output += ctx.theme.formatters.muted('Filter: ');
       output += this.filterValue;

@@ -14,8 +14,12 @@ export interface SelectOption<T = string> {
 export interface SelectOptions<T = string> {
   options: SelectOption<T>[] | T[];
   filter?: boolean;
+  search?: boolean; // Alias for filter
   limit?: number;
   loop?: boolean;
+  default?: T; // Default selected value
+  initialValue?: T; // Alias for default
+  preview?: (option: SelectOption<T>) => string; // Preview function for options
 }
 
 export class SelectPrompt<T = string> extends Prompt<T, SelectOptions<T>> {
@@ -37,9 +41,20 @@ export class SelectPrompt<T = string> extends Prompt<T, SelectOptions<T>> {
     this.options = this.normalizeOptions(config.options);
     this.filteredOptions = [...this.options];
     
-    // Set initial cursor to first non-disabled option
-    this.cursor = this.options.findIndex(opt => !opt.disabled);
-    if (this.cursor === -1) this.cursor = 0;
+    // Set initial cursor based on default/initialValue or first non-disabled option
+    const defaultValue = config.default ?? config.initialValue;
+    if (defaultValue !== undefined) {
+      const defaultIndex = this.options.findIndex(opt => opt.value === defaultValue);
+      if (defaultIndex !== -1) {
+        this.cursor = defaultIndex;
+      } else {
+        this.cursor = this.options.findIndex(opt => !opt.disabled);
+        if (this.cursor === -1) this.cursor = 0;
+      }
+    } else {
+      this.cursor = this.options.findIndex(opt => !opt.disabled);
+      if (this.cursor === -1) this.cursor = 0;
+    }
     
     // Initialize state with the selected value
     const selected = this.options[this.cursor];
@@ -59,7 +74,7 @@ export class SelectPrompt<T = string> extends Prompt<T, SelectOptions<T>> {
     output += ctx.theme.formatters.highlight(message);
     
     // Filter input
-    if (this.config.filter && status === 'active') {
+    if ((this.config.filter || this.config.search) && status === 'active') {
       output += '\n';
       output += ctx.theme.formatters.muted('Filter: ');
       output += this.filterValue;

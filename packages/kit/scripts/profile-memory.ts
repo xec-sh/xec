@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { rmSync, writeFileSync } from 'fs';
 
 const testDir = join(process.cwd(), '.memory-test');
 

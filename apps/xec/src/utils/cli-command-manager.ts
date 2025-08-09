@@ -1,8 +1,8 @@
 import path from 'path';
 import fs from 'fs-extra';
+import { kit } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
-import * as clack from '@clack/prompts';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
 import { ScriptLoader } from './script-loader.js';
@@ -225,7 +225,8 @@ export class CliCommandManager {
     const dynamicCommands = this.getDynamicCommands();
 
     if (process.env['XEC_DEBUG'] && dynamicCommands.length > 0) {
-      clack.log.info(`Loading ${dynamicCommands.length} dynamic commands`);
+      const logger = kit.log;
+      logger.info(`Loading ${dynamicCommands.length} dynamic commands`);
     }
 
     for (const cmd of dynamicCommands) {
@@ -406,12 +407,13 @@ export class CliCommandManager {
     const failed = dynamic.filter(cmd => !cmd.loaded && cmd.error);
 
     if (process.env['XEC_DEBUG'] && dynamic.length > 0) {
-      clack.log.info(`Dynamic commands: ${loaded.length} loaded, ${failed.length} failed`);
+      const logger = kit.log;
+      logger.info(`Dynamic commands: ${loaded.length} loaded, ${failed.length} failed`);
 
       if (failed.length > 0) {
-        clack.log.warn('Failed commands:');
+        logger.warning('Failed commands:');
         failed.forEach(cmd => {
-          clack.log.error(`  - ${cmd.name}: ${cmd.error}`);
+          logger.error(`  - ${cmd.name}: ${cmd.error}`);
         });
       }
     }
@@ -530,7 +532,7 @@ export default function command(program) {
     .description('${description}')
     .option('-v, --verbose', 'Enable verbose output')
     .action(async (args, options) => {
-      const { log } = await import('@clack/prompts');
+      const log = kit.log;
       
       log.info('Running ${name} command');
       

@@ -7,36 +7,54 @@ import type { Key, PromptConfig } from '../../core/types.js';
 export interface WizardPage {
   id: string;
   title?: string;
-  render: (context: Record<string, any>) => Prompt<any> | string | Promise<Prompt<any> | string>;
+  render?: (context: Record<string, any>) => Prompt<any> | string | Promise<Prompt<any> | string>; // Made optional
+  component?: (context: Record<string, any>) => Promise<any>; // Alternative to render
   skip?: (context: Record<string, any>) => boolean;
   validate?: (value: any, context: Record<string, any>) => string | undefined | Promise<string | undefined>;
 }
 
+// Alias for WizardPage
+export type WizardStep = WizardPage;
+
 export interface WizardOptions {
   title?: string;
-  pages: WizardPage[];
+  pages?: WizardPage[];
+  steps?: WizardPage[]; // Alias for pages
   showProgress?: boolean;
   showNavigation?: boolean;
   allowSkip?: boolean;
   allowBack?: boolean;
   onPageChange?: (from: string, to: string, context: Record<string, any>) => void | Promise<void>;
+  onStepComplete?: (step: string, value: any, context: Record<string, any>) => Promise<void>; // Alias for onPageChange
   onComplete?: (context: Record<string, any>) => void | Promise<void>;
 }
 
-export class WizardPrompt extends Prompt<Record<string, any>, WizardOptions> {
+// Internal interface with required pages
+interface WizardOptionsInternal extends Omit<WizardOptions, 'pages' | 'steps'> {
+  pages: WizardPage[];
+}
+
+export class WizardPrompt extends Prompt<Record<string, any>, WizardOptionsInternal> {
   private context: Record<string, any> = {};
   private currentPageIndex = 0;
   private pageHistory: number[] = [];
   private isNavigating = false;
 
   constructor(config: PromptConfig<Record<string, any>, WizardOptions> & WizardOptions) {
-    super({
+    // Handle alias for pages/steps
+    const pages = config.pages || config.steps || [];
+    
+    // Create internal config with required pages
+    const internalConfig: PromptConfig<Record<string, any>, WizardOptionsInternal> & WizardOptionsInternal = {
       ...config,
+      pages,
       showProgress: config.showProgress !== false,
       showNavigation: config.showNavigation !== false,
       allowBack: config.allowBack !== false,
       allowSkip: config.allowSkip !== false
-    });
+    };
+    
+    super(internalConfig);
   }
 
   render(): string {
@@ -98,8 +116,12 @@ export class WizardPrompt extends Prompt<Record<string, any>, WizardOptions> {
         // Render wizard chrome
         this.renderer.render(this.render());
         
-        // Render page content
-        const pageContent = await currentPage.render(this.context);
+        // Render page content using render or component
+        const renderFn = currentPage.render || currentPage.component;
+        if (!renderFn) {
+          throw new Error(`Page ${currentPage.id} must have either render or component function`);
+        }
+        const pageContent = await renderFn(this.context);
         
         // Handle string content (display panel)
         if (typeof pageContent === 'string') {

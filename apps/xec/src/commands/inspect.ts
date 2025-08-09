@@ -6,11 +6,11 @@ import { glob } from 'glob';
 import { table } from 'table';
 import { promisify } from 'util';
 import { $ } from '@xec-sh/core';
+import { kit } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { exec } from 'child_process';
 import { createRequire } from 'module';
-import { select, confirm } from '@clack/prompts';
 
 import { formatBytes } from '../utils/formatters.js';
 import { TaskManager } from '../config/task-manager.js';
@@ -222,7 +222,7 @@ class ProjectInspector {
     console.log(chalk.bold('\n🔍 Xec Project Inspector\n'));
 
     while (true) {
-      const choice = await select({
+      const choice = await kit.select({
         message: 'What would you like to inspect?',
         options: [
           { value: 'tasks', label: '📋 Tasks - Executable tasks and workflows' },
@@ -798,16 +798,16 @@ class ProjectInspector {
       label: this.formatItemLabel(r),
     }));
 
-    const selected = await select({
-      message: `Select ${type} to inspect:`,
-      options: choices,
-    });
+    try {
+      const selected = await kit.select({
+        message: `Select ${type} to inspect:`,
+        options: choices,
+      });
 
-    if (selected && typeof selected !== 'symbol') {
       this.displayDetailedResult(selected as InspectionResult);
 
       if (this.options.explain && (selected as InspectionResult).type === 'task') {
-        const explain = await confirm({
+        const explain = await kit.confirm({
           message: 'Show execution plan?',
         });
 
@@ -815,6 +815,12 @@ class ProjectInspector {
           await this.showTaskExplanation((selected as InspectionResult).name);
         }
       }
+    } catch (error: any) {
+      // User cancelled selection
+      if (error.message === 'Cancelled') {
+        return;
+      }
+      throw error;
     }
   }
 
@@ -1142,7 +1148,7 @@ class ProjectInspector {
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
 
-    const parts = [];
+    const parts: string[] = [];
     if (days > 0) parts.push(`${days}d`);
     if (hours > 0) parts.push(`${hours}h`);
     if (minutes > 0) parts.push(`${minutes}m`);

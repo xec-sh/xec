@@ -26,6 +26,8 @@ export interface CommandPaletteOptions {
   groups?: CommandGroup[];
   maxResults?: number;
   fuzzyThreshold?: number;
+  fuzzySearch?: boolean; // Enable fuzzy search
+  showShortcuts?: boolean; // Show keyboard shortcuts
   message?: string;
   theme?: Theme;
 }
@@ -341,7 +343,7 @@ export class CommandPalette extends Prompt<string | null, CommandPaletteOptions>
   }
 }
 
-export async function commandPalette(options: CommandPaletteOptions): Promise<string | null> {
+export async function commandPalette(options: CommandPaletteOptions): Promise<Command | null> {
   const prompt = new CommandPalette(options);
   const result = await prompt.prompt();
 
@@ -350,5 +352,7 @@ export async function commandPalette(options: CommandPaletteOptions): Promise<st
     return null;
   }
 
-  return result;
+  // Find the command by ID and return the command object
+  const command = options.commands.find(cmd => cmd.id === result);
+  return command || null;
 }

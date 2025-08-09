@@ -1,16 +1,16 @@
+// Type imports from @xec-sh/kit
+type LiveOutputResult = any; // TODO: Fix type import from @xec-sh/kit
+
 import path from 'path';
-import chalk from 'chalk';
-import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
-import { Command } from 'commander';
-import * as clack from '@clack/prompts';
+import { kit } from '@xec-sh/kit';
+import { spawn } from 'child_process';
 
 import { TaskManager } from '../config/task-manager.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
-import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { ScriptLoader, type ExecutionOptions } from '../utils/script-loader.js';
 
-interface RunOptions extends ConfigAwareOptions {
+interface RunOptions {
   eval?: string;
   repl?: boolean;
   typescript?: boolean;
@@ -18,67 +18,17 @@ interface RunOptions extends ConfigAwareOptions {
   runtime?: string;
   universal?: boolean;
   param?: string[];
+  verbose?: boolean;
+  quiet?: boolean;
 }
 
-export class RunCommand extends BaseCommand {
+/**
+ * Enhanced run command with live output streaming using @xec-sh/kit
+ */
+export class EnhancedRunCommand {
   private scriptLoader: ScriptLoader;
 
   constructor() {
-    super({
-      name: 'run',
-      description: 'Run an Xec script or task',
-      arguments: '[fileOrTask]',
-      aliases: ['r'],
-      options: [
-        {
-          flags: '-e, --eval <code>',
-          description: 'Evaluate code'
-        },
-        {
-          flags: '--repl',
-          description: 'Start interactive REPL'
-        },
-        {
-          flags: '--typescript',
-          description: 'Enable TypeScript support'
-        },
-        {
-          flags: '--watch',
-          description: 'Watch for file changes'
-        },
-        {
-          flags: '--runtime <runtime>',
-          description: 'Specify runtime: auto, node, bun, deno (default: auto)'
-        },
-        {
-          flags: '--no-universal',
-          description: 'Disable universal loader (legacy mode)'
-        }
-      ],
-      examples: [
-        {
-          command: 'xec run script.js',
-          description: 'Run a JavaScript file'
-        },
-        {
-          command: 'xec run script.ts',
-          description: 'Run a TypeScript file'
-        },
-        {
-          command: 'xec run build',
-          description: 'Run a task named "build"'
-        },
-        {
-          command: 'xec run -e "console.log(\'Hello\')"',
-          description: 'Evaluate inline code'
-        },
-        {
-          command: 'xec run --repl',
-          description: 'Start interactive REPL'
-        }
-      ]
-    });
-
     this.scriptLoader = new ScriptLoader({
       verbose: process.env['XEC_DEBUG'] === 'true',
       cache: true,
@@ -87,71 +37,142 @@ export class RunCommand extends BaseCommand {
   }
 
   /**
-   * Override create to handle special option parsing for params
+   * Execute script with live output streaming
    */
-  override create(): Command {
-    const command = super.create();
+  async runScriptWithLiveOutput(scriptPath: string, args: string[], options: RunOptions): Promise<void> {
+    // Live output is always enabled with kit
 
-    // Override the param option to accumulate values
-    // Simply add a new option handler that will override the default behavior
-    command.option(
-      '-p, --param <key=value...>',
-      'Task parameters (can be used multiple times)',
-      (value, previous: string[] = []) => {
-        previous.push(value);
-        return previous;
+    // Create live output display
+    const output = kit.liveOutput({
+      title: `Executing: ${path.basename(scriptPath)}`,
+      height: 20,
+      follow: true, // Auto-scroll
+      highlight: {
+        error: /error|fail|exception|fatal/i,
+        warning: /warn|warning|caution/i,
+        success: /success|done|complete|finished/i,
+        info: /info|debug/i,
       },
-      []
-    );
-
-    // Allow unknown options for script arguments
-    command.allowUnknownOption(true);
-
-    return command;
-  }
-
-  /**
-   * Execute the run command
-   */
-  public async execute(args: any[]): Promise<void> {
-    const fileOrTask = args[0];
-    const options = args[args.length - 1] as RunOptions;
-
-    // Get script arguments (everything after the fileOrTask)
-    const scriptArgs = args.slice(1, args.length - 1);
-
-    if (options.repl) {
-      await this.startRepl(options);
-    } else if (options.eval) {
-      await this.evalCode(options.eval, scriptArgs, options);
-    } else if (fileOrTask) {
-      // Check if it's a file or task
-      const isFile = fileOrTask.includes('.') || fileOrTask.includes('/') || fileOrTask.includes('\\');
-
-      if (isFile) {
-        await this.runScript(fileOrTask, scriptArgs, options);
-      } else {
-        // Try to run as task
-        await this.runTask(fileOrTask, options);
+      controls: {
+        pause: 'p',
+        clear: 'c',
+        filter: 'f',
+        quit: 'q',
       }
+    }) as LiveOutputResult;
+
+    // Determine the command to run
+    const resolvedPath = path.resolve(scriptPath);
+    const runtime = options.runtime || this.detectRuntime(scriptPath);
+
+    let command: string;
+    let commandArgs: string[];
+
+    if (runtime === 'node' || runtime === 'auto') {
+      command = process.execPath;
+      commandArgs = [resolvedPath, ...args];
+    } else if (runtime === 'bun') {
+      command = 'bun';
+      commandArgs = ['run', resolvedPath, ...args];
+    } else if (runtime === 'deno') {
+      command = 'deno';
+      commandArgs = ['run', '--allow-all', resolvedPath, ...args];
     } else {
-      clack.log.error('No script file or task specified');
-      clack.log.info('Usage: xec run <file> [args...]');
-      clack.log.info('       xec run <task> [options]');
-      clack.log.info('       xec run -e <code>');
-      clack.log.info('       xec run --repl');
-      throw new Error('No script file or task specified');
+      command = runtime;
+      commandArgs = [resolvedPath, ...args];
     }
+
+    // Spawn the process
+    const child = spawn(command, commandArgs, {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        XEC_LIVE_OUTPUT: 'true',
+      },
+      shell: false,
+    });
+
+    // Track execution metrics
+    const startTime = Date.now();
+    let lineCount = 0;
+    let errorCount = 0;
+    let warningCount = 0;
+
+    // Handle stdout
+    child.stdout?.on('data', (data: Buffer) => {
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        if (line.trim()) {
+          lineCount++;
+
+          // Detect line type
+          let lineType: 'info' | 'error' | 'warning' | 'success' = 'info';
+          if (/error|fail|exception|fatal/i.test(line)) {
+            lineType = 'error';
+            errorCount++;
+          } else if (/warn|warning|caution/i.test(line)) {
+            lineType = 'warning';
+            warningCount++;
+          } else if (/success|done|complete|finished/i.test(line)) {
+            lineType = 'success';
+          }
+
+          // Append to live output
+          output.append(line, lineType);
+        }
+      }
+    });
+
+    // Handle stderr
+    child.stderr?.on('data', (data: Buffer) => {
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        if (line.trim()) {
+          lineCount++;
+          errorCount++;
+          // Append error output
+          output.append(line, 'error');
+        }
+      }
+    });
+
+    // Handle process exit
+    return new Promise((resolve, reject) => {
+      child.on('exit', (code, signal) => {
+        const elapsed = Date.now() - startTime;
+        const elapsedStr = elapsed > 1000
+          ? `${(elapsed / 1000).toFixed(2)}s`
+          : `${elapsed}ms`;
+
+        if (code === 0) {
+          output.success(`Script completed successfully in ${elapsedStr}`);
+          if (!options.quiet) {
+            kit.log.info(`Lines: ${lineCount} | Errors: ${errorCount} | Warnings: ${warningCount}`);
+          }
+          output.destroy();
+          resolve();
+        } else {
+          output.error(`Script failed with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
+          output.destroy();
+          reject(new Error(`Script exited with code ${code}`));
+        }
+      });
+
+      child.on('error', (error) => {
+        output.error(`Failed to execute script: ${error.message}`);
+        output.destroy();
+        reject(error);
+      });
+    });
   }
 
   /**
-   * Run script using unified loader
+   * Normal script execution without live output
    */
-  private async runScript(scriptPath: string, args: string[], options: RunOptions): Promise<void> {
-    // Build execution options
+  private async runScriptNormal(scriptPath: string, args: string[], options: RunOptions): Promise<void> {
     const execOptions: ExecutionOptions = {
-      verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
-      quiet: this.options.quiet,
+      verbose: options.verbose || process.env['XEC_DEBUG'] === 'true',
+      quiet: options.quiet,
       typescript: options.typescript,
       watch: options.watch,
       context: {
@@ -160,7 +181,6 @@ export class RunCommand extends BaseCommand {
         __filename: path.resolve(scriptPath),
         __dirname: path.dirname(path.resolve(scriptPath)),
       },
-      // Add local target for compatibility
       target: {
         type: 'local',
         name: 'local',
@@ -169,52 +189,7 @@ export class RunCommand extends BaseCommand {
       targetEngine: $
     };
 
-    // Execute the script
     const result = await this.scriptLoader.executeScript(scriptPath, execOptions);
-
-    if (!result.success && result.error) {
-      // If runtime not available, provide helpful message
-      if (result.error.message.includes('runtime requested but not available')) {
-        clack.log.error(result.error.message);
-
-        const runtime = options.runtime || 'auto';
-        if (runtime !== 'auto') {
-          clack.log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
-          clack.log.info(`  ${chalk.cyan(`${runtime} xec run ${scriptPath}`)}`);
-        }
-      } else {
-        throw result.error;
-      }
-    }
-  }
-
-
-  /**
-   * Evaluate code using unified loader
-   */
-  private async evalCode(code: string, args: string[], options: RunOptions): Promise<void> {
-    // Build execution options
-    const execOptions: ExecutionOptions = {
-      verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
-      quiet: this.options.quiet,
-      typescript: options.typescript,
-      context: {
-        args,
-        argv: ['xec', '<eval>', ...args],
-        __filename: '<eval>',
-        __dirname: process.cwd(),
-      },
-      // Add local target for compatibility
-      target: {
-        type: 'local',
-        name: 'local',
-        config: {}
-      } as any,
-      targetEngine: $
-    };
-
-    // Evaluate the code
-    const result = await this.scriptLoader.evaluateCode(code, execOptions);
 
     if (!result.success && result.error) {
       throw result.error;
@@ -222,31 +197,37 @@ export class RunCommand extends BaseCommand {
   }
 
   /**
-   * Start REPL using unified loader
+   * Detect runtime based on file extension
    */
-  private async startRepl(options: RunOptions): Promise<void> {
-    // Build execution options
-    const execOptions: ExecutionOptions = {
-      verbose: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
-      quiet: this.options.quiet,
-      typescript: options.typescript,
-      // Add local target for compatibility
-      target: {
-        type: 'local',
-        name: 'local',
-        config: {}
-      } as any,
-      targetEngine: $
-    };
+  private detectRuntime(scriptPath: string): string {
+    const ext = path.extname(scriptPath);
 
-    // Start REPL
-    await this.scriptLoader.startRepl(execOptions);
+    switch (ext) {
+      case '.ts':
+      case '.tsx':
+        // Check which runtime is available
+        if (process.env['BUN_VERSION']) return 'bun';
+        if (process.env['DENO']) return 'deno';
+        return 'node'; // Will need tsx or ts-node
+
+      case '.mjs':
+      case '.js':
+      case '.cjs':
+        if (process.env['BUN_VERSION']) return 'bun';
+        if (process.env['DENO']) return 'deno';
+        return 'node';
+
+      default:
+        return 'auto';
+    }
   }
 
   /**
-   * Run a task from configuration
+   * Run task with enhanced task runner interface
    */
-  private async runTask(taskName: string, options: RunOptions): Promise<void> {
+  async runTaskWithRunner(taskName: string, options: RunOptions): Promise<void> {
+    // Task runner is always enabled with kit
+
     // Initialize configuration
     const configManager = new ConfigurationManager({
       projectRoot: process.cwd(),
@@ -255,109 +236,191 @@ export class RunCommand extends BaseCommand {
     // Initialize task manager
     const taskManager = new TaskManager({
       configManager,
-      debug: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
+      debug: options.verbose || process.env['XEC_DEBUG'] === 'true',
       dryRun: false,
     });
 
     // Load tasks
     await taskManager.load();
 
-    // Check if task exists
-    if (!await taskManager.exists(taskName)) {
-      // Try as script file if task doesn't exist
-      try {
-        await fs.access(taskName);
-        // It's a file without extension
-        return await this.runScript(taskName, [], options);
-      } catch {
-        // Not a file either
-        clack.log.error(`Task '${taskName}' not found`);
-        clack.log.info(chalk.dim('\nRun "xec tasks" to see available tasks'));
-        throw new Error(`Task '${taskName}' not found`);
-      }
+    // Get all tasks
+    const allTasks = await taskManager.list();
+
+    // Find the target task and its dependencies
+    const targetTask = allTasks.find((t: any) => t.name === taskName);
+    if (!targetTask) {
+      kit.log.error(`Task '${taskName}' not found`);
+      throw new Error(`Task '${taskName}' not found`);
     }
 
-    // Parse parameters
-    const params: Record<string, any> = {};
-    if (options.param) {
-      for (const param of options.param) {
-        const [key, ...valueParts] = param.split('=');
-        const value = valueParts.join('=');
+    // Build task graph
+    const taskGraph = this.buildTaskGraph(targetTask, allTasks);
 
-        if (!key || !value) {
-          clack.log.error(`Invalid parameter format: ${param}`);
-          clack.log.info(chalk.dim('Use --param key=value'));
-          throw new Error(`Invalid parameter format: ${param}`);
+    // Create progress instance
+    const progressBar = kit.progress({
+      title: 'Running tasks',
+      total: taskGraph.length
+    });
+    progressBar.start();
+
+    // Use kit's task runner interface
+    const runner = await kit.taskRunner({
+      tasks: taskGraph.map(t => ({
+        id: t.name,
+        title: t.description || t.name,
+        dependencies: t.dependsOn || [],
+        run: async (context) => {
+          const params = options.param ? this.parseParams(options.param) : {};
+          const result = await taskManager.run(t.name, params);
+          if (!result.success) {
+            throw new Error(result.error?.message || 'Task failed');
+          }
+          return result;
         }
-
-        // Try to parse value
-        let parsedValue: any = value;
-        if (value === 'true') parsedValue = true;
-        else if (value === 'false') parsedValue = false;
-        else if (!isNaN(Number(value))) parsedValue = Number(value);
-        else if (value.startsWith('[') || value.startsWith('{')) {
-          try {
-            parsedValue = JSON.parse(value);
-          } catch {
-            // Keep as string
+      })),
+      visualization: 'tree', // Show dependency tree
+      parallel: true, // Run independent tasks in parallel
+      onTaskStart: (task) => {
+        if (!options.quiet) {
+          kit.log.info(`Starting: ${task.title}`);
+        }
+      },
+      onTaskComplete: (task, result) => {
+        if (!options.quiet) {
+          if (result.success) {
+            kit.log.success(`✓ ${task.title}`);
+          } else {
+            kit.log.error(`✗ ${task.title}: ${result.error}`);
           }
         }
-
-        params[key] = parsedValue;
+      },
+      onProgress: (completed, total) => {
+        progressBar.update(completed);
       }
+    });
+
+    // Run the tasks
+    const results = await runner.run();
+
+    // Complete progress
+    progressBar.complete();
+
+    // Show summary
+    this.showTaskSummary(Array.from(results.values()));
+  }
+
+  /**
+   * Normal task execution without task runner interface
+   */
+  private async runTaskNormal(taskName: string, options: RunOptions): Promise<void> {
+    const configManager = new ConfigurationManager({
+      projectRoot: process.cwd(),
+    });
+
+    const taskManager = new TaskManager({
+      configManager,
+      debug: options.verbose || process.env['XEC_DEBUG'] === 'true',
+      dryRun: false,
+    });
+
+    await taskManager.load();
+
+    if (!await taskManager.exists(taskName)) {
+      throw new Error(`Task '${taskName}' not found`);
     }
 
-    // Display task info
-    if (!this.options.quiet) {
-      clack.log.info(`Running task: ${chalk.cyan(taskName)}`);
-      if (Object.keys(params).length > 0) {
-        clack.log.info(chalk.dim('Parameters:'));
-        for (const [key, value] of Object.entries(params)) {
-          clack.log.info(chalk.dim(`  ${key}: ${JSON.stringify(value)}`));
-        }
-      }
-    }
-
-    // Run task
+    const params = options.param ? this.parseParams(options.param) : {};
     const result = await taskManager.run(taskName, params);
 
     if (!result.success) {
-      clack.log.error(`Task '${taskName}' failed`);
-      if (result.error) {
-        clack.log.error(result.error.message);
-      }
       throw new Error(`Task '${taskName}' failed`);
     }
+  }
 
-    if (!this.options.quiet) {
-      clack.log.success(`Task '${taskName}' completed successfully`);
+  /**
+   * Build task dependency graph
+   */
+  private buildTaskGraph(targetTask: any, allTasks: any[]): any[] {
+    const visited = new Set<string>();
+    const graph: any[] = [];
+
+    const visit = (task: any) => {
+      if (visited.has(task.name)) return;
+      visited.add(task.name);
+
+      // Add dependencies first
+      if (task.dependsOn) {
+        for (const depName of task.dependsOn) {
+          const dep = allTasks.find((t: any) => t.name === depName);
+          if (dep) {
+            visit(dep);
+          }
+        }
+      }
+
+      graph.push(task);
+    };
+
+    visit(targetTask);
+    return graph;
+  }
+
+  /**
+   * Parse task parameters
+   */
+  private parseParams(params: string[]): Record<string, any> {
+    const result: Record<string, any> = {};
+
+    for (const param of params) {
+      const [key, ...valueParts] = param.split('=');
+      const value = valueParts.join('=');
+
+      if (!key || !value) continue;
+
+      // Try to parse value
+      let parsedValue: any = value;
+      if (value === 'true') parsedValue = true;
+      else if (value === 'false') parsedValue = false;
+      else if (!isNaN(Number(value))) parsedValue = Number(value);
+      else if (value.startsWith('[') || value.startsWith('{')) {
+        try {
+          parsedValue = JSON.parse(value);
+        } catch {
+          // Keep as string
+        }
+      }
+
+      result[key] = parsedValue;
     }
 
+    return result;
+  }
+
+  /**
+   * Show task execution summary
+   */
+  private showTaskSummary(results: any[]): void {
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    const total = results.length;
+
+    kit.log.info('\n📊 Task Execution Summary:');
+    kit.log.info(`  Total: ${total}`);
+    if (successful > 0) {
+      kit.log.success(`  ✓ Successful: ${successful}`);
+    }
+    if (failed > 0) {
+      kit.log.error(`  ✗ Failed: ${failed}`);
+    }
+
+    if (failed > 0) {
+      kit.log.error('\nFailed tasks:');
+      for (const result of results.filter(r => !r.success)) {
+        kit.log.error(`  - ${result.task}: ${result.error}`);
+      }
+    }
   }
 }
 
-// Export for backward compatibility
-export async function runScript(scriptPath: string, args: string[], options: any) {
-  const command = new RunCommand();
-  return command['runScript'](scriptPath, args, options);
-}
-
-export async function evalCode(code: string, args: string[], options: any) {
-  const command = new RunCommand();
-  return command['evalCode'](code, args, options);
-}
-
-export async function startRepl(options: any) {
-  const command = new RunCommand();
-  return command['startRepl'](options);
-}
-
-export async function runTask(taskName: string, options: any) {
-  const command = new RunCommand();
-  return command['runTask'](taskName, options);
-}
-
-export default function command(program: Command): void {
-  const cmd = new RunCommand();
-  program.addCommand(cmd.create());
-}
+// Export singleton instance
+export const enhancedRunCommand = new EnhancedRunCommand();

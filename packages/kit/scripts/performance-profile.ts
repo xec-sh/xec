@@ -10,7 +10,8 @@
  */
 
 import { performance } from 'perf_hooks';
-import { TextPrompt, SelectPrompt, MultiSelectPrompt } from '../src/index.js';
+
+import { TextPrompt } from '../src/index.js';
 import { StreamHandler } from '../src/core/stream-handler.js';
 import { ReactivePrompt } from '../src/core/reactive/reactive-prompt.js';
 
@@ -100,14 +101,10 @@ async function profileStreamHandler(profiler: PerformanceProfiler) {
   console.log('\n🔄 Profiling StreamHandler...\n');
   
   // Test exclusive stream
-  await profiler.measure('Create exclusive StreamHandler', () => {
-    return new StreamHandler();
-  });
+  await profiler.measure('Create exclusive StreamHandler', () => new StreamHandler());
   
   // Test shared stream
-  const sharedStream = await profiler.measure('Create shared StreamHandler', () => {
-    return new StreamHandler({ shared: true });
-  });
+  const sharedStream = await profiler.measure('Create shared StreamHandler', () => new StreamHandler({ shared: true }));
   
   // Test acquire/release
   await profiler.measure('Acquire shared stream (x100)', () => {
@@ -136,9 +133,7 @@ async function profilePromptLifecycle(profiler: PerformanceProfiler) {
   console.log('\n🎯 Profiling Prompt Lifecycle...\n');
   
   // Profile prompt creation
-  const prompt = await profiler.measure('Create TextPrompt', () => {
-    return new TextPrompt({ message: 'Test prompt' });
-  });
+  const prompt = await profiler.measure('Create TextPrompt', () => new TextPrompt({ message: 'Test prompt' }));
   
   // Profile initialization
   await profiler.measure('Initialize prompt (renderOnly)', async () => {
@@ -215,8 +210,7 @@ async function profileReactivePrompt(profiler: PerformanceProfiler) {
   console.log('\n⚡ Profiling ReactivePrompt...\n');
   
   // Create reactive prompt
-  const reactive = await profiler.measure('Create ReactivePrompt', () => {
-    return new ReactivePrompt({
+  const reactive = await profiler.measure('Create ReactivePrompt', () => new ReactivePrompt({
       initialValues: {
         field1: '',
         field2: '',
@@ -253,8 +247,7 @@ async function profileReactivePrompt(profiler: PerformanceProfiler) {
           options: ['A', 'B', 'C', 'D', 'E']
         }
       ]
-    });
-  });
+    }));
   
   // Profile state updates
   await profiler.measure('Update reactive state (x100)', () => {

@@ -6,8 +6,12 @@ import type { Key, PromptConfig } from '../../core/types.js';
 
 export interface ConfirmOptions {
   defaultValue?: boolean;
+  default?: boolean; // Alias for defaultValue
+  initialValue?: boolean; // Alias for defaultValue
   yesLabel?: string;
   noLabel?: string;
+  activeLabel?: string; // Alias for yesLabel
+  inactiveLabel?: string; // Alias for noLabel
 }
 
 export class ConfirmPrompt extends Prompt<boolean, ConfirmOptions> {
@@ -15,7 +19,7 @@ export class ConfirmPrompt extends Prompt<boolean, ConfirmOptions> {
 
   constructor(config: PromptConfig<boolean, ConfirmOptions> & ConfirmOptions) {
     super(config);
-    this.value = config.defaultValue ?? config.initialValue ?? false;
+    this.value = config.defaultValue ?? config.default ?? config.initialValue ?? false;
     // Initialize state with the value
     this.state.setState((s: any) => ({ ...s, value: this.value }));
   }
@@ -33,8 +37,8 @@ export class ConfirmPrompt extends Prompt<boolean, ConfirmOptions> {
     
     // Options
     if (status === 'active') {
-      const yesText = this.config.yesLabel || 'Yes';
-      const noText = this.config.noLabel || 'No';
+      const yesText = this.config.yesLabel || this.config.activeLabel || 'Yes';
+      const noText = this.config.noLabel || this.config.inactiveLabel || 'No';
       
       if (this.value) {
         output += ctx.theme.formatters.highlight(`${ctx.theme.symbols.pointer} ${yesText}`);
@@ -48,8 +52,8 @@ export class ConfirmPrompt extends Prompt<boolean, ConfirmOptions> {
       
       output += ctx.theme.formatters.muted(' (y/n)');
     } else {
-      const yesText = this.config.yesLabel || 'Yes';
-      const noText = this.config.noLabel || 'No';
+      const yesText = this.config.yesLabel || this.config.activeLabel || 'Yes';
+      const noText = this.config.noLabel || this.config.inactiveLabel || 'No';
       output += this.value ? yesText : noText;
     }
     

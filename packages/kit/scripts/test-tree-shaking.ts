@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { build } from 'esbuild';
-import { writeFileSync, readFileSync, rmSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { build } from 'esbuild';
 import { gzipSync } from 'zlib';
+import { rmSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 
 const testDir = join(process.cwd(), '.tree-shaking-test');
 

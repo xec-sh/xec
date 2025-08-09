@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
+import { mockProcessStreams } from '../helpers/mock-tty.js';
 import { TextPrompt } from '../../src/components/primitives/text.js';
 import { SelectPrompt } from '../../src/components/primitives/select.js';
 import { ConfirmPrompt } from '../../src/components/primitives/confirm.js';
 import { ReactivePrompt } from '../../src/core/reactive/reactive-prompt.js';
 import { createSharedStreamContext } from '../helpers/mock-shared-stream.js';
-import { mockProcessStreams } from '../helpers/mock-tty.js';
 
 describe('Multi-Prompt Scenarios', () => {
   let streams: ReturnType<typeof mockProcessStreams>;

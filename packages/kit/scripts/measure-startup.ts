@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { execSync } from 'child_process';
-import { writeFileSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
+import { rmSync, readFileSync, writeFileSync } from 'fs';
 
 const testDir = join(process.cwd(), '.startup-test');
 

@@ -7,13 +7,12 @@
  */
 
 import { 
-  text, 
   select, 
   confirm, 
-  multiselect,
-  StreamHandler,
   TextPrompt,
+  multiselect,
   SelectPrompt,
+  StreamHandler,
   ConfirmPrompt
 } from '../src/index.js';
 
