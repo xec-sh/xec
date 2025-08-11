@@ -6797,6 +6797,34 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@xec-sh/trm@workspace:*, @xec-sh/trm@workspace:packages/trm":
+  version: 0.0.0-use.local
+  resolution: "@xec-sh/trm@workspace:packages/trm"
+  dependencies:
+    "@types/node": "npm:24.2.1"
+    "@xec-sh/tui-tester": "workspace:*"
+    strip-ansi: "npm:^7.1.0"
+    tsup: "npm:8.5.0"
+    typescript: "npm:5.9.2"
+    vitest: "npm:3.2.4"
+  languageName: unknown
+  linkType: soft
+
+"@xec-sh/tui-tester@workspace:*, @xec-sh/tui-tester@workspace:packages/tui-tester":
+  version: 0.0.0-use.local
+  resolution: "@xec-sh/tui-tester@workspace:packages/tui-tester"
+  dependencies:
+    "@types/node": "npm:24.2.1"
+    "@xec-sh/trm": "workspace:*"
+    strip-ansi: "npm:^7.1.0"
+    tsup: "npm:8.5.0"
+    typescript: "npm:5.9.2"
+    vitest: "npm:3.2.4"
+  peerDependencies:
+    "@xec-sh/trm": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
 "@xtuc/ieee754@npm:^1.2.0":
   version: 1.2.0
   resolution: "@xtuc/ieee754@npm:1.2.0"
@@ -18970,7 +18998,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"strip-ansi@npm:^7.0.1":
+"strip-ansi@npm:^7.0.1, strip-ansi@npm:^7.1.0":
   version: 7.1.0
   resolution: "strip-ansi@npm:7.1.0"
   dependencies:

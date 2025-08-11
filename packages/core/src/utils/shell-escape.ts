@@ -1,5 +1,4 @@
 import { platform } from 'node:os';
-import shellEscape from 'shell-escape';
 
 export function escapeArg(arg: string | number | boolean): string {
   if (typeof arg === 'number' || typeof arg === 'boolean') {
@@ -8,11 +7,11 @@ export function escapeArg(arg: string | number | boolean): string {
 
   // For Windows, use different escaping
   if (platform() === 'win32') {
-    return escapeWindowsArg(arg);
+    return escapeWindows(arg);
   }
 
-  // For Unix-like systems, use shell-escape
-  return shellEscape([arg]);
+  // For Unix-like systems
+  return escapeUnix([arg]);
 }
 
 export function escapeCommand(cmd: string, args: (string | number | boolean)[] = []): string {
@@ -24,7 +23,21 @@ export function escapeCommand(cmd: string, args: (string | number | boolean)[] =
   return `${cmd} ${escapedArgs.join(' ')}`;
 }
 
-function escapeWindowsArg(arg: string): string {
+export function escapeUnix(args: string[]): string {
+  const ret: string[] = [];
+  for (const arg of args) {
+    let escaped = arg;
+    if (/[^A-Za-z0-9_/:=-]/.test(escaped)) {
+      escaped = "'" + escaped.replace(/'/g, "'\\''") + "'";
+      escaped = escaped.replace(/^(?:'')+/g, '') // unduplicate single-quote at the beginning
+        .replace(/\\'''/g, "\\'"); // remove non-escaped single-quote if there are enclosed between 2 escaped
+    }
+    ret.push(escaped);
+  }
+  return ret.join(' ');
+}
+
+function escapeWindows(arg: string): string {
   // Windows command line escaping is complex
   // Check if escaping is needed
   const needsEscaping = /[\s"\\&|<>^()@!%]/.test(arg);

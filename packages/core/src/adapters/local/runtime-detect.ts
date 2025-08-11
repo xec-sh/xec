@@ -47,6 +47,7 @@ export class RuntimeDetector {
       const bunGlobal = globalThis.Bun;
       if (!bunGlobal) return false;
 
+      // eslint-disable-next-line default-case
       switch (feature) {
         case 'spawn':
           return typeof bunGlobal.spawn === 'function';

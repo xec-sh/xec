@@ -2,7 +2,6 @@ import fsPath from 'path'
 import stream from 'stream'
 import fs from 'fs/promises'
 import scanDirectory from 'sb-scandir'
-import shellEscape from 'shell-escape'
 import { isReadableStream } from 'is-stream'
 import { constants as fsConstants } from 'fs'
 import { PromiseQueue } from 'sb-promise-queue'
@@ -23,6 +22,8 @@ import SSH2, {
   TcpConnectionDetails,
   UNIXConnectionDetails,
 } from 'ssh2'
+
+import { escapeUnix } from '../../utils/shell-escape'
 
 export type Config = ConnectConfig & {
   password?: string
@@ -366,7 +367,7 @@ export class NodeSSH {
     let command = givenCommand
 
     if (options.cwd) {
-      command = `cd ${shellEscape([options.cwd])} ; ${command}`
+      command = `cd ${escapeUnix([options.cwd])} ; ${command}`
     }
     const connection = this.getConnection()
 
@@ -443,7 +444,7 @@ export class NodeSSH {
       invariant(typeof parameters[i] === 'string', `parameters[${i}] must be a valid string`)
     }
 
-    const completeCommand = `${command}${parameters.length > 0 ? ` ${shellEscape(parameters)}` : ''}`
+    const completeCommand = `${command}${parameters.length > 0 ? ` ${escapeUnix(parameters)}` : ''}`
     const response = await this.execCommand(completeCommand, options)
 
     if (options.stream == null || options.stream === 'stdout') {

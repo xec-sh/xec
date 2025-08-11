@@ -622,20 +622,6 @@ yarn version              # Version packages
 yarn release              # Publish to npm
 ```
 
-## Tools
-```
-> which deno
-/Users/taaliman/.deno/bin/deno
-> which bun
-/Users/taaliman/.bun/bin/bun
-> which docker
-/usr/local/bin/docker
-> which kubectl
-/usr/local/bin/kubectl
-> which kind
-/opt/homebrew/bin/kind
-```
-
 ---
 
 **Remember**: Excellence through discipline. Every feature exactly as requested, every API fully tested, every resource properly managed.
