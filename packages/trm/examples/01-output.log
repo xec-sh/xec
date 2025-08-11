@@ -1,0 +1,26 @@
+=== Layout Engine Basic Example ===
+
+Viewport: 80x24
+
+Created layouts:
+  - main-flex: flex
+  - sidebar-grid: grid
+  - overlay-stack: stack
+
+Flex layout required size: 37x12
+
+Item positions after arrangement:
+  Item 1: 2,1 (20x22)
+  Item 2: 23,1 (39x22)
+  Item 3: 63,1 (15x22)
+
+--- Layout Invalidation ---
+Needs layout before invalidation: false
+Needs layout after invalidation: true
+Needs layout after arrangement: false
+
+Layouts after removing overlay-stack:
+  - main-flex
+  - sidebar-grid
+
+=== Example Complete ===

@@ -4,21 +4,20 @@
  * Demonstrates complex particle physics with gravity, collision, and trails
  */
 
+import { ColorSystem } from '../src/core/color.js';
+import { x, y, ColorDepth } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
 import { BufferManagerImpl } from '../src/core/buffer.js';
-import { ColorSystem } from '../src/core/color.js';
 import { requestAnimationFrame } from '../src/core/browser-api.js';
 import { 
-  animate, 
   spring, 
-  physics,
-  Easing, 
-  createAnimationEngine,
+  physics, 
   type Animation,
-  type PhysicsBody 
+  type PhysicsBody,
+  createAnimationEngine 
 } from '../src/advanced/animation.js';
-import { x, y, cols, rows, ColorDepth } from '../src/types.js';
-import type { Style, KeyEvent } from '../src/types.js';
+
+import type { KeyEvent } from '../src/types.js';
 
 // Particle system types
 interface Particle extends PhysicsBody {
@@ -210,7 +209,7 @@ class ParticleSystemApp {
     for (let i = 0; i < 3; i++) {
       this.smokeParticles.push({
         x: x + (Math.random() - 0.5) * 2,
-        y: y,
+        y,
         vx: (Math.random() - 0.5) * 0.5,
         vy: -0.5 - Math.random() * 0.5,
         life: 1,

@@ -5,8 +5,8 @@
  */
 
 import { ColorSystem } from '../src/core/color.js';
-import { x, y, ColorDepth, MouseButton, MouseAction } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
+import { x, y, ColorDepth, MouseButton, MouseAction } from '../src/types.js';
 
 import type {
   KeyEvent,

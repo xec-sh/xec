@@ -435,9 +435,12 @@ export class InputImpl implements Input {
         }
       };
       
-      stdin.on('data', onData);
-      stdin.on('end', onEnd);
-      stdin.on('close', onEnd);
+      // Check if stdin has event methods (Node.js stream)
+      if (typeof stdin.on === 'function') {
+        stdin.on('data', onData);
+        stdin.on('end', onEnd);
+        stdin.on('close', onEnd);
+      }
       
       try {
         while (!this.closed) {
@@ -462,10 +465,17 @@ export class InputImpl implements Input {
           }
         }
       } finally {
-        // Clean up listeners
-        stdin.off('data', onData);
-        stdin.off('end', onEnd);
-        stdin.off('close', onEnd);
+        // Clean up listeners if stdin has event methods
+        if (typeof stdin.off === 'function') {
+          stdin.off('data', onData);
+          stdin.off('end', onEnd);
+          stdin.off('close', onEnd);
+        } else if (typeof stdin.removeListener === 'function') {
+          // Fallback for older Node.js versions
+          stdin.removeListener('data', onData);
+          stdin.removeListener('end', onEnd);
+          stdin.removeListener('close', onEnd);
+        }
       }
     }
   }

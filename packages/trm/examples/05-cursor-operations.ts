@@ -7,10 +7,9 @@
 import { ansi } from '../src/core/ansi.js';
 import { CursorImpl } from '../src/core/cursor.js';
 import { ColorSystem } from '../src/core/color.js';
-import { x, y, ColorDepth } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
+import { x , y, ColorDepth, CursorShape } from '../src/types.js';
 
-import { CursorShape } from '../src/types.js';
 import type { Point } from '../src/types.js';
 
 async function main() {

@@ -98,6 +98,10 @@ describe('State Management', () => {
       expect(effectValue).toBe(0);
       
       setCount(5);
+      
+      // Wait for effect to run
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       expect(effectCount).toBe(2); // Ran again
       expect(effectValue).toBe(5);
       
@@ -125,6 +129,10 @@ describe('State Management', () => {
       expect(cleanupCount).toBe(0);
       
       setCount(5);
+      
+      // Wait for effect to run
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       expect(cleanupCount).toBe(1); // Cleanup ran before re-run
       
       dispose.dispose();
@@ -201,6 +209,9 @@ describe('State Management', () => {
         setCount2(10);
       });
       
+      // Wait for batched effect to run
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       expect(effectCount).toBe(2); // Only ran once after batch
       expect(count1()).toBe(5);
       expect(count2()).toBe(10);
@@ -226,6 +237,10 @@ describe('State Management', () => {
       expect(effectCount).toBe(1);
       
       setCount(5);
+      
+      // Wait for effect to run
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
       expect(effectCount).toBe(2); // Effect ran
     });
   });

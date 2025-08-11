@@ -3,10 +3,10 @@
  * Test script to verify buffer rendering with colors and styles
  */
 
-import { BufferManagerImpl } from '../src/core/buffer.js';
 import { ColorSystem } from '../src/core/color.js';
+import { BufferManagerImpl } from '../src/core/buffer.js';
 import { createTerminalStream } from '../src/core/stream.js';
-import { ColorDepth, x, y, cols, rows } from '../src/types.js';
+import { x, y, cols, rows, ColorDepth } from '../src/types.js';
 
 async function testRenderFix() {
   console.log('Testing buffer rendering with colors and styles...\n');

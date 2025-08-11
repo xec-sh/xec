@@ -284,5 +284,8 @@ export class CursorImpl implements Cursor {
   }
 }
 
+// Export alias for backward compatibility with tests
+export { CursorImpl as Cursor };
+
 // Export default
 export default CursorImpl;

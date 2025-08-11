@@ -4,6 +4,7 @@
  */
 
 import { TerminalImpl } from '../src/core/terminal.js';
+
 import type { KeyEvent } from '../src/types.js';
 
 async function main() {

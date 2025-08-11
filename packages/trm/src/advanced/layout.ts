@@ -9,6 +9,7 @@ import type { X, Y, Cols, Rows, Rectangle } from '../types.js';
 
 // Re-export for convenience
 export { x, y, cols, rows } from '../types.js';
+export type { Rectangle } from '../types.js';
 
 // ============================================================================
 // Types
@@ -32,6 +33,7 @@ export interface LayoutEngine {
 export interface Layout {
   readonly type: LayoutType;
   readonly bounds: Rectangle;
+  readonly children: ReadonlyArray<{ item: LayoutItem; constraints?: LayoutConstraints }>;
 
   // Child management
   add(child: LayoutItem, constraints?: LayoutConstraints): void;
@@ -57,8 +59,8 @@ export enum LayoutType {
 }
 
 export interface LayoutOptions {
-  padding?: Spacing;
-  margin?: Spacing;
+  padding?: Spacing | number;
+  margin?: Spacing | number;
   gap?: number;
 }
 
@@ -68,7 +70,6 @@ export interface FlexLayout extends Layout {
   alignItems: AlignItems;
   gap: number;
   wrap: boolean;
-  readonly children: ReadonlyArray<{ item: LayoutItem; constraints?: LayoutConstraints }>;
 }
 
 export interface GridLayout extends Layout {

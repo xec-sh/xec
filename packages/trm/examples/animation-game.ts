@@ -5,22 +5,18 @@
  */
 
 import { ColorSystem } from '../src/core/color.js';
-import { x, y, ColorDepth } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
 import { BufferManagerImpl } from '../src/core/buffer.js';
 import { requestAnimationFrame } from '../src/core/browser-api.js';
+import { x, y, ColorDepth , MouseAction, MouseButton } from '../src/types.js';
 import {
-  animate,
-  spring,
   physics,
-  Easing,
-  createAnimationEngine,
   type Animation,
-  type PhysicsBody
+  type PhysicsBody,
+  createAnimationEngine
 } from '../src/advanced/animation.js';
 
 import type { KeyEvent, MouseEvent } from '../src/types.js';
-import { MouseAction, MouseButton } from '../src/types.js';
 
 interface Ball extends PhysicsBody {
   id: number;

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { spawn } from 'child_process';
 import { join } from 'path';
+import { spawn } from 'child_process';
+import { it, expect, describe } from 'vitest';
 
 describe('Examples', () => {
   describe('01-basic-terminal.ts', () => {

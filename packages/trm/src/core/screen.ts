@@ -293,4 +293,7 @@ export class ScreenImpl implements Screen {
   }
 }
 
+// Export alias for backward compatibility with tests
+export { ScreenImpl as Screen };
+
 export default ScreenImpl;

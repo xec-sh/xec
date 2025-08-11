@@ -4,24 +4,23 @@
  * Demonstrates typewriter, matrix rain, glitch effects, and smooth text transitions
  */
 
+import { ColorSystem } from '../src/core/color.js';
+import { x, y, ColorDepth } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
 import { BufferManagerImpl } from '../src/core/buffer.js';
-import { ColorSystem } from '../src/core/color.js';
 import { requestAnimationFrame } from '../src/core/browser-api.js';
 import { 
-  animate, 
   spring, 
-  physics,
-  morph as morphAnimation,
   Easing, 
+  animate,
   parallel, 
-  sequence,
-  createAnimationEngine,
+  sequence, 
   type Animation,
-  type PhysicsBody
+  type PhysicsBody,
+  createAnimationEngine
 } from '../src/advanced/animation.js';
-import { x, y, cols, rows, ColorDepth } from '../src/types.js';
-import type { Style, KeyEvent } from '../src/types.js';
+
+import type { KeyEvent } from '../src/types.js';
 
 interface TextParticle extends PhysicsBody {
   char: string;
@@ -226,8 +225,7 @@ class TextEffectsApp {
     });
     
     // Animate particles back with spring physics
-    const animations = this.textParticles.map(particle => {
-      return parallel([
+    const animations = this.textParticles.map(particle => parallel([
         spring({
           from: { x: particle.x, y: particle.y },
           to: { x: particle.targetX, y: particle.targetY },
@@ -241,8 +239,7 @@ class TextEffectsApp {
           duration: 2000,
           easing: Easing.easeInOutQuad
         })
-      ]);
-    });
+      ]));
     
     this.currentAnimation = parallel(animations);
   }

@@ -4,7 +4,7 @@
  * Demonstrates fullscreen terminal mode with alternate buffer
  */
 
-import { x, y, cols, rows } from '../src/types.js';
+import { x, y } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
 
 async function main() {

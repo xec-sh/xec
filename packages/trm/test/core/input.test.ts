@@ -702,10 +702,29 @@ describe('Input', () => {
 
     it('should handle Node.js ReadStream fallback', async () => {
       // Mock stdin as Node.js ReadStream
+      const listeners = new Map<string, any[]>();
       const nodeStdin = {
+        on: vi.fn((event, callback) => {
+          if (!listeners.has(event)) {
+            listeners.set(event, []);
+          }
+          listeners.get(event)?.push(callback);
+          
+          // Simulate data event after a short delay
+          if (event === 'data') {
+            setTimeout(() => {
+              callback(Buffer.from('test'));
+              // Simulate end after sending data
+              const endListeners = listeners.get('end') || [];
+              endListeners.forEach(cb => cb());
+            }, 10);
+          }
+        }),
+        off: vi.fn(),
+        removeListener: vi.fn(),
         once: vi.fn((event, callback) => {
           if (event === 'data') {
-            setTimeout(() => callback(Buffer.from('test')), 0);
+            setTimeout(() => callback(Buffer.from('test')), 10);
           }
         })
       };

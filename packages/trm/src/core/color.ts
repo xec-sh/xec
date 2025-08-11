@@ -99,6 +99,26 @@ export class ColorSystem implements Colors {
     
     return this.rgb(r, g, b);
   }
+  
+  /**
+   * Create a grayscale color
+   * @param intensity Value between 0 (black) and 1 (white)
+   */
+  grayscale(intensity: number): Color {
+    // Clamp intensity to [0, 1]
+    const clampedIntensity = Math.max(0, Math.min(1, intensity));
+    
+    // Map to 256 color grayscale range (232-255)
+    if (this.colorDepth >= ColorDepth.Extended) {
+      // 24 grayscale levels from 232 to 255
+      const level = Math.round(clampedIntensity * 23) + 232;
+      return this.ansi256(level);
+    }
+    
+    // Fall back to RGB for true color
+    const value = Math.round(clampedIntensity * 255);
+    return this.rgb(value, value, value);
+  }
 
   // ============================================================================
   // Color Conversion
