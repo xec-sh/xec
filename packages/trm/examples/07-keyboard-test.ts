@@ -4,8 +4,9 @@
  * Demonstrates proper keyboard event handling using terminal.events
  */
 
-import { TerminalImpl } from '../src/core/terminal.js';
 import { x, y } from '../src/types.js';
+import { TerminalImpl } from '../src/core/terminal.js';
+
 import type { KeyEvent } from '../src/types.js';
 
 async function main() {

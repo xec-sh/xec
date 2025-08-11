@@ -3,7 +3,7 @@
  * Test script to verify animation improvements
  */
 
-import { animate, spring, Easing } from '../src/advanced/animation.js';
+import { spring, Easing, animate } from '../src/advanced/animation.js';
 
 console.log('Testing TRM Animation Features...\n');
 

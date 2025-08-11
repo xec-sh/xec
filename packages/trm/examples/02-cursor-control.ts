@@ -4,9 +4,8 @@
  * Demonstrates cursor movement, visibility, shapes, and save/restore operations
  */
 
+import { x, y , CursorShape } from '../src/types.js';
 import { TerminalImpl } from '../src/core/terminal.js';
-import { x, y } from '../src/types.js';
-import { CursorShape } from '../src/types.js';
 
 async function main() {
   console.log('=== TRM Core Example: Cursor Control ===\n');

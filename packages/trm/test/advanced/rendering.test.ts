@@ -38,7 +38,10 @@ describe('Rendering Engine Module', () => {
       const id = engine.requestFrame(callback);
       expect(id).toBeTypeOf('number');
       
-      // Advance to next frame (16ms for 60fps)
+      // Advance multiple times to ensure the render loop runs
+      // First advance starts the loop
+      vi.advanceTimersByTime(1);
+      // Then advance to next frame (16ms for 60fps)
       vi.advanceTimersByTime(16);
       
       expect(callback).toHaveBeenCalledWith(expect.any(Number));
@@ -320,31 +323,21 @@ describe('Rendering Engine Module', () => {
       engine.setFrameRate(30); // 30fps = 33.33ms per frame
       
       const callback = vi.fn();
-      let frameCount = 0;
-      let lastTime = 0;
       
-      const wrappedCallback = (time: number) => {
-        if (frameCount > 0) {
-          const delta = time - lastTime;
-          // Delta should be approximately 33.33ms
-          expect(delta).toBeCloseTo(33.33, 0);
-        }
-        lastTime = time;
-        frameCount++;
-        callback(time);
-        
-        if (frameCount < 3) {
-          engine.requestFrame(wrappedCallback);
-        }
-      };
+      engine.requestFrame(callback);
       
-      engine.requestFrame(wrappedCallback);
+      // Start the render loop
+      vi.advanceTimersByTime(1);
       
-      // Advance through 3 frames
-      vi.advanceTimersByTime(33.33);
-      vi.advanceTimersByTime(33.33);
-      vi.advanceTimersByTime(33.33);
+      // Advance through multiple frames
+      // Each frame at 30fps should be ~33.33ms
+      vi.advanceTimersByTime(33);
+      expect(callback).toHaveBeenCalledTimes(1);
       
+      vi.advanceTimersByTime(34);
+      expect(callback).toHaveBeenCalledTimes(2);
+      
+      vi.advanceTimersByTime(34);
       expect(callback).toHaveBeenCalledTimes(3);
     });
 
@@ -352,9 +345,10 @@ describe('Rendering Engine Module', () => {
       const engine = createRenderEngine();
       const layer = engine.createLayer(0);
       
-      // Add multiple drawables
+      // Add multiple drawables with mock draw functions
+      const drawables = [];
       for (let i = 0; i < 5; i++) {
-        layer.add({
+        const drawable = {
           draw: vi.fn(),
           bounds: {
             x: x(i * 10),
@@ -363,7 +357,9 @@ describe('Rendering Engine Module', () => {
             height: rows(10)
           } as Rectangle,
           dirty: true
-        });
+        };
+        drawables.push(drawable);
+        layer.add(drawable);
       }
       
       const scene = {
@@ -378,7 +374,13 @@ describe('Rendering Engine Module', () => {
       
       engine.render(scene);
       
-      expect(engine.metrics.drawCalls).toBeGreaterThanOrEqual(5);
+      // Verify draw was called on each drawable
+      for (const drawable of drawables) {
+        expect(drawable.draw).toHaveBeenCalled();
+      }
+      
+      // Check metrics
+      expect(engine.metrics.drawCalls).toBe(5);
     });
   });
 });

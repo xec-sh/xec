@@ -3,23 +3,22 @@
  * Comprehensive test suite for animation functionality
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import {
-  animate,
+  wave,
+  orbit,
+  morph,
   spring,
+  Easing,
+  animate,
+  physics,
   sequence,
   parallel,
-  createAnimationEngine,
-  Easing,
-  physics,
-  orbit,
-  wave,
-  morph,
   type Animation,
+  type PhysicsBody,
   type AnimationEngine,
-  type AnimationOptions,
-  type SpringOptions,
-  type PhysicsBody
+  createAnimationEngine
 } from '../../src/advanced/animation.js';
 
 // Mock performance.now for consistent timing
@@ -38,9 +37,7 @@ describe('Animation Module', () => {
     currentTime = 0;
     
     // Mock performance.now for predictable timing
-    vi.spyOn(performance, 'now').mockImplementation(() => {
-      return currentTime;
-    });
+    vi.spyOn(performance, 'now').mockImplementation(() => currentTime);
   });
   
   afterEach(() => {

@@ -24,6 +24,7 @@ import type {
 
 describe('Basic Functionality Integration', () => {
   let mockStdout: any;
+  let mockStderr: any;
   let mockStdin: any;
   
   beforeEach(() => {
@@ -33,6 +34,14 @@ describe('Basic Functionality Integration', () => {
       isTTY: true,
       columns: 80,
       rows: 24,
+      on: vi.fn(),
+      once: vi.fn(),
+      removeListener: vi.fn()
+    };
+    
+    mockStderr = {
+      write: vi.fn((data: any) => true),
+      isTTY: true,
       on: vi.fn(),
       once: vi.fn(),
       removeListener: vi.fn()
@@ -52,6 +61,7 @@ describe('Basic Functionality Integration', () => {
     vi.stubGlobal('process', {
       ...process,
       stdout: mockStdout,
+      stderr: mockStderr,
       stdin: mockStdin,
       platform: 'darwin',
       env: { TERM: 'xterm-256color' }
@@ -74,7 +84,7 @@ describe('Basic Functionality Integration', () => {
       expect(mockStdout.write).toHaveBeenCalledWith('Test Line\n');
       
       stream.writeError('Error Message');
-      expect(mockStdout.write).toHaveBeenCalledWith('Error Message');
+      expect(mockStderr.write).toHaveBeenCalledWith('Error Message');
     });
     
     it('should report terminal properties', () => {

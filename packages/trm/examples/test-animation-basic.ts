@@ -4,12 +4,12 @@
  */
 
 import {
-  animate,
   spring,
   Easing,
-  createAnimationEngine,
+  animate,
   physics,
-  type PhysicsBody
+  type PhysicsBody,
+  createAnimationEngine
 } from '../src/advanced/animation.js';
 
 async function testBasicAnimation() {
