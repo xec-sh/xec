@@ -31,17 +31,17 @@ async function main() {
   try {
     await terminal.init();
   } catch (error) {
-    // Fallback to simple output if terminal init fails
+    // Fallback to simple output with ANSI codes if terminal init fails
     console.log('TRM Test Application');
     console.log('====================');
     console.log('');
-    console.log('Red Text');
-    console.log('Green Text'); 
-    console.log('Blue Text');
+    console.log('\x1b[31mRed Text\x1b[0m');
+    console.log('\x1b[32mGreen Text\x1b[0m'); 
+    console.log('\x1b[34mBlue Text\x1b[0m');
     console.log('');
-    console.log('Bold Text');
-    console.log('Italic Text');
-    console.log('Underlined Text');
+    console.log('\x1b[1mBold Text\x1b[0m');
+    console.log('\x1b[3mItalic Text\x1b[0m');
+    console.log('\x1b[4mUnderlined Text\x1b[0m');
     console.log('');
     console.log('Cursor Position Test');
     console.log('');

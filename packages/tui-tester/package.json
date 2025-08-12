@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/tui-tester",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "End-to-end testing framework for terminal user interfaces",
   "type": "module",
   "main": "./dist/index.js",
@@ -163,18 +163,12 @@
     "url": "https://github.com/xec-sh/xec/issues"
   },
   "homepage": "https://xec.sh",
-  "dependencies": {
-    "@xec-sh/trm": "workspace:*"
-  },
   "devDependencies": {
     "@types/node": "24.2.1",
     "strip-ansi": "^7.1.0",
     "tsup": "8.5.0",
     "typescript": "5.9.2",
     "vitest": "3.2.4"
-  },
-  "peerDependencies": {
-    "@xec-sh/trm": "workspace:*"
   },
   "engines": {
     "node": ">=18.0.0"

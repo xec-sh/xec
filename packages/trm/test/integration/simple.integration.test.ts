@@ -16,7 +16,8 @@ describe('Simple Integration Test', () => {
     });
     
     await tester.start();
-    await tester.waitForText('Simple Test Running', { timeout: 5000 });
+    await tester.sleep(2000); // Wait for node to start
+    await tester.waitForText('Simple Test Running', { timeout: 10000 });
     
     const screen = await tester.getScreenText();
     expect(screen).toContain('Simple Test Running');

@@ -692,10 +692,16 @@ import {
 await navigateMenu(tester, 'down', 3);
 await selectMenuItem(tester, 'Settings');
 
-// Fill form
+// Fill form - traditional way
 await fillField(tester, 'Username', 'john.doe');
 await fillField(tester, 'Email', 'john@example.com');
 await submitForm(tester);
+
+// Fill form - new convenient way
+await submitForm(tester, {
+  Username: 'john.doe',
+  Email: 'john@example.com'
+});
 
 // Text operations
 await clickOnText(tester, 'Click me!');
@@ -712,8 +718,11 @@ await login(tester, 'username', 'password');
 // Execute command
 await executeCommand(tester, 'ls -la');
 
-// Search
-await search(tester, 'search term');
+// Search - now returns boolean indicating if text was found
+const found = await search(tester, 'search term');
+if (found) {
+  console.log('Text found on screen');
+}
 ```
 
 ## Snapshot Management

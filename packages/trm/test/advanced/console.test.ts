@@ -72,20 +72,37 @@ describe('Console Interception Module', () => {
     });
 
     it('should preserve original console behavior', () => {
+      // Arrange
       const interceptor = createConsoleInterceptor();
+      const messages: any[] = [];
+      interceptor.onMessage(msg => messages.push(msg));
       
-      // Track if original log was called using a spy
-      const logSpy = vi.spyOn(originalLog, 'call');
+      // Store original console.log BEFORE creating any spies
+      const originalConsoleLog = console.log;
       
+      // Act - Patch console
       const disposable = interceptor.patch({ preserveOriginal: true });
+      const patchedConsoleLog = console.log;
       
-      console.log('test');
+      // Verify patching changed console.log
+      expect(patchedConsoleLog).not.toBe(originalConsoleLog);
       
-      // Check that the original method was called
-      expect(logSpy).toHaveBeenCalled();
+      // Use the patched console
+      console.log('test message');
       
+      // Assert - Message was intercepted
+      expect(messages.length).toBe(1);
+      expect(messages[0].args).toEqual(['test message']);
+      expect(messages[0].method).toBe('log');
+      
+      // Act - Dispose to restore original
       disposable.dispose();
-      logSpy.mockRestore();
+      
+      // Assert - Original console.log was restored
+      expect(console.log).toBe(originalConsoleLog);
+      
+      // Verify interceptor is no longer active
+      expect(interceptor.isPatched).toBe(false);
     });
 
     it('should support filtering by level', () => {

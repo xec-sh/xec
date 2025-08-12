@@ -1,5 +1,5 @@
 /**
- * Performance Monitoring Module - Final Version
+ * Performance Monitoring Module
  * Comprehensive performance tracking and profiling
  */
 
@@ -27,23 +27,23 @@ export interface PerformanceMonitor {
   startMeasure(name: string): () => void;
   measure<T>(name: string, fn: () => T): T;
   measureAsync<T>(name: string, fn: () => Promise<T>): Promise<T>;
-  
+
   // Profiling
   startProfiling(name?: string): Profiler;
   stopProfiling(): ProfileData | undefined;
-  
+
   // Resource monitoring - return direct values, not signals
   readonly memory: MemoryInfo;
   readonly cpu: CPUInfo;
-  
+
   // Frame timing - return direct values, not signals
   readonly frameTime: number;
   readonly fps: number;
-  
+
   // Alerts
   setThreshold(metric: string, threshold: number | ThresholdConfig): void;
   onThresholdExceeded(handler: ThresholdHandler): Disposable;
-  
+
   // Control
   start(): void;
   stop(): void;
@@ -54,7 +54,7 @@ export interface Metrics {
   get(name: string): MetricData | undefined;
   getAll(): Map<string, MetricData>;
   clear(): void;
-  
+
   // Aggregates
   readonly average: Map<string, number>;
   readonly median: Map<string, number>;
@@ -80,7 +80,7 @@ export interface Profiler {
   readonly id: string;
   readonly name: string;
   readonly startTime: number;
-  
+
   mark(label: string): void;
   measure(name: string, startMark?: string, endMark?: string): void;
   stop(): ProfileData;
@@ -162,30 +162,30 @@ export interface ThresholdEvent {
 
 class MetricsImpl implements Metrics {
   private data = new Map<string, MetricData>();
-  
+
   get(name: string): MetricData | undefined {
     return this.data.get(name);
   }
-  
+
   getAll(): Map<string, MetricData> {
     return new Map(this.data);
   }
-  
+
   clear(): void {
     this.data.clear();
   }
-  
+
   record(name: string, value: number): void {
     const existing = this.data.get(name);
-    
+
     if (existing) {
       const samples = [...existing.samples, value];
-      
+
       // Keep only last 1000 samples
       if (samples.length > 1000) {
         samples.shift();
       }
-      
+
       this.data.set(name, {
         name,
         count: existing.count + 1,
@@ -211,7 +211,7 @@ class MetricsImpl implements Metrics {
       });
     }
   }
-  
+
   get average(): Map<string, number> {
     const result = new Map<string, number>();
     for (const [name, data] of this.data) {
@@ -219,7 +219,7 @@ class MetricsImpl implements Metrics {
     }
     return result;
   }
-  
+
   get median(): Map<string, number> {
     const result = new Map<string, number>();
     for (const [name, data] of this.data) {
@@ -232,15 +232,15 @@ class MetricsImpl implements Metrics {
     }
     return result;
   }
-  
+
   get p95(): Map<string, number> {
     return this.getPercentile(95);
   }
-  
+
   get p99(): Map<string, number> {
     return this.getPercentile(99);
   }
-  
+
   get min(): Map<string, number> {
     const result = new Map<string, number>();
     for (const [name, data] of this.data) {
@@ -248,7 +248,7 @@ class MetricsImpl implements Metrics {
     }
     return result;
   }
-  
+
   get max(): Map<string, number> {
     const result = new Map<string, number>();
     for (const [name, data] of this.data) {
@@ -256,16 +256,16 @@ class MetricsImpl implements Metrics {
     }
     return result;
   }
-  
+
   private getPercentile(percentile: number): Map<string, number> {
     const result = new Map<string, number>();
-    
+
     for (const [name, data] of this.data) {
       const sorted = [...data.samples].sort((a, b) => a - b);
       const index = Math.ceil((percentile / 100) * sorted.length) - 1;
       result.set(name, sorted[Math.max(0, index)]);
     }
-    
+
     return result;
   }
 }
@@ -278,41 +278,41 @@ class ProfilerImpl implements Profiler {
   readonly id: string;
   readonly name: string;
   readonly startTime: number;
-  
+
   private marks: ProfileMark[] = [];
   private measures: ProfileMeasure[] = [];
   private marksMap = new Map<string, number>();
-  
+
   constructor(name?: string) {
     this.id = `profile-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     this.name = name || this.id;
     this.startTime = getPerformanceNow();
   }
-  
+
   mark(label: string): void {
     const timestamp = getPerformanceNow();
     const relativeTime = timestamp - this.startTime;
-    
+
     this.marks.push({ label, timestamp, relativeTime });
     this.marksMap.set(label, timestamp);
   }
-  
+
   measure(name: string, startMark?: string, endMark?: string): void {
     let startTime: number;
     let endTime: number;
-    
+
     if (startMark) {
       startTime = this.marksMap.get(startMark) ?? this.startTime;
     } else {
       startTime = this.startTime;
     }
-    
+
     if (endMark) {
       endTime = this.marksMap.get(endMark) ?? getPerformanceNow();
     } else {
       endTime = getPerformanceNow();
     }
-    
+
     this.measures.push({
       name,
       startTime,
@@ -320,15 +320,15 @@ class ProfilerImpl implements Profiler {
       duration: endTime - startTime
     });
   }
-  
+
   getEntries(): any[] {
     return [...this.marks, ...this.measures];
   }
-  
+
   stop(): ProfileData {
     const endTime = getPerformanceNow();
     const summary = new Map<string, any>();
-    
+
     for (const measure of this.measures) {
       summary.set(measure.name, {
         duration: measure.duration,
@@ -336,7 +336,7 @@ class ProfilerImpl implements Profiler {
         endTime: measure.endTime
       });
     }
-    
+
     return {
       id: this.id,
       name: this.name,
@@ -358,27 +358,27 @@ class ProfilerImpl implements Profiler {
 
 class PerformanceMonitorImpl implements PerformanceMonitor {
   readonly metrics: Metrics;
-  
+
   private running = false;
   private profilers = new Map<string, ProfilerImpl>();
   private currentProfiler?: ProfilerImpl;
-  
+
   // Resource monitoring
   private _memory: Signal<MemoryInfo>;
   private setMemory: (value: MemoryInfo) => void;
   private _cpu: Signal<CPUInfo>;
   private setCPU: (value: CPUInfo) => void;
-  
+
   // Frame timing
   private _frameTime: Signal<number>;
   private setFrameTime: (value: number) => void;
   private _fps: Signal<number>;
   private setFPS: (value: number) => void;
-  
+
   private frameCount = 0;
   private lastFrameTime = 0;
   private lastFPSUpdate = 0;
-  
+
   // Thresholds
   private thresholds = new Map<string, {
     config: ThresholdConfig;
@@ -386,17 +386,17 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
     lastAlert?: number;
   }>();
   private thresholdHandlers = new Set<ThresholdHandler>();
-  
+
   // Monitoring intervals
   private resourceInterval?: any;
   private frameInterval?: number;
-  
+
   // Track start times for measurements
   private measurementStarts = new Map<string, number>();
-  
+
   constructor() {
     this.metrics = new MetricsImpl();
-    
+
     // Initialize signals
     const [memory, setMemory] = createSignal<MemoryInfo>({
       used: 1024 * 1024 * 100,  // 100MB default
@@ -409,7 +409,7 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
     });
     this._memory = memory;
     this.setMemory = setMemory;
-    
+
     const [cpu, setCPU] = createSignal<CPUInfo>({
       usage: 10,
       user: 5,
@@ -418,16 +418,16 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
     });
     this._cpu = cpu;
     this.setCPU = setCPU;
-    
+
     const [frameTime, setFrameTime] = createSignal(16.67);
     this._frameTime = frameTime;
     this.setFrameTime = setFrameTime;
-    
+
     const [fps, setFPS] = createSignal(60);
     this._fps = fps;
     this.setFPS = setFPS;
   }
-  
+
   get memory(): MemoryInfo {
     // Update and return current value
     if (typeof process !== 'undefined' && process.memoryUsage) {
@@ -446,7 +446,7 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
     }
     return this._memory();
   }
-  
+
   get cpu(): CPUInfo {
     // Update and return current value
     if (typeof process !== 'undefined' && process.cpuUsage) {
@@ -464,45 +464,45 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
     }
     return this._cpu();
   }
-  
+
   get frameTime(): number {
     return this._frameTime();
   }
-  
+
   get fps(): number {
     return this._fps();
   }
-  
+
   start(): void {
     if (this.running) return;
-    
+
     this.running = true;
-    
+
     // Start resource monitoring
     this.startResourceMonitoring();
-    
+
     // Start frame timing
     this.startFrameTiming();
   }
-  
+
   stop(): void {
     if (!this.running) return;
-    
+
     this.running = false;
-    
+
     // Stop resource monitoring
     if (this.resourceInterval) {
       clearInterval(this.resourceInterval);
       this.resourceInterval = undefined;
     }
-    
+
     // Stop frame timing
     if (this.frameInterval) {
       cancelAnimationFrame(this.frameInterval);
       this.frameInterval = undefined;
     }
   }
-  
+
   reset(): void {
     this.metrics.clear();
     this.profilers.clear();
@@ -512,11 +512,11 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
     this.lastFPSUpdate = 0;
     this.measurementStarts.clear();
   }
-  
+
   startMeasure(name: string): () => void {
     const startTime = getPerformanceNow();
     this.measurementStarts.set(name, startTime);
-    
+
     return () => {
       const start = this.measurementStarts.get(name) ?? startTime;
       const duration = getPerformanceNow() - start;
@@ -525,10 +525,10 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
       this.measurementStarts.delete(name);
     };
   }
-  
+
   measure<T>(name: string, fn: () => T): T {
     const startTime = getPerformanceNow();
-    
+
     try {
       const result = fn();
       const duration = getPerformanceNow() - startTime;
@@ -542,10 +542,10 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
       throw error;
     }
   }
-  
+
   async measureAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
     const startTime = getPerformanceNow();
-    
+
     try {
       const result = await fn();
       const duration = getPerformanceNow() - startTime;
@@ -559,34 +559,34 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
       throw error;
     }
   }
-  
+
   startProfiling(name?: string): Profiler {
     const profiler = new ProfilerImpl(name);
     this.profilers.set(profiler.id, profiler);
     this.currentProfiler = profiler;
     return profiler;
   }
-  
+
   stopProfiling(): ProfileData | undefined {
     if (!this.currentProfiler) return undefined;
-    
+
     const data = this.currentProfiler.stop();
     this.profilers.delete(this.currentProfiler.id);
     this.currentProfiler = undefined;
-    
+
     return data;
   }
-  
+
   setThreshold(metric: string, threshold: number | ThresholdConfig): void {
-    const config = typeof threshold === 'number' 
+    const config = typeof threshold === 'number'
       ? { value: threshold, type: 'above' as const }
       : threshold;
     this.thresholds.set(metric, { config });
   }
-  
+
   onThresholdExceeded(handler: ThresholdHandler): Disposable {
     this.thresholdHandlers.add(handler);
-    
+
     return {
       disposed: false,
       dispose: () => {
@@ -595,7 +595,7 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
       }
     };
   }
-  
+
   private startResourceMonitoring(): void {
     const updateResources = () => {
       // Memory monitoring (Node.js specific)
@@ -610,96 +610,96 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
           external: usage.external,
           arrayBuffers: usage.arrayBuffers || 0
         });
-        
+
         // Check memory thresholds
         this.checkThresholds('memory.used', usage.heapUsed);
         this.checkThresholds('memory.total', usage.heapTotal);
       }
-      
+
       // CPU monitoring (simplified)
       if (typeof process !== 'undefined' && process.cpuUsage) {
         const usage = process.cpuUsage();
         const total = usage.user + usage.system;
         const cpuPercent = total / 1000000; // Convert to percentage
-        
+
         this.setCPU({
           usage: cpuPercent,
           user: usage.user / 1000000,
           system: usage.system / 1000000,
           idle: Math.max(0, 100 - cpuPercent)
         });
-        
+
         // Check CPU thresholds
         this.checkThresholds('cpu.usage', cpuPercent);
       }
     };
-    
+
     // Update every second
     updateResources();
     this.resourceInterval = setInterval(updateResources, 1000);
   }
-  
+
   private startFrameTiming(): void {
     const measureFrame = () => {
       if (!this.running) return;
-      
+
       const now = getPerformanceNow();
-      
+
       if (this.lastFrameTime > 0) {
         const frameTime = now - this.lastFrameTime;
         this.setFrameTime(frameTime);
         (this.metrics as MetricsImpl).record('frame.time', frameTime);
-        
+
         // Check frame time threshold
         this.checkThresholds('frame.time', frameTime);
-        
+
         this.frameCount++;
-        
+
         // Update FPS every second
         if (now - this.lastFPSUpdate >= 1000) {
           const fps = this.frameCount / ((now - this.lastFPSUpdate) / 1000);
           this.setFPS(fps);
           (this.metrics as MetricsImpl).record('frame.fps', fps);
-          
+
           // Check FPS threshold
           this.checkThresholds('frame.fps', fps);
-          
+
           this.frameCount = 0;
           this.lastFPSUpdate = now;
         }
       }
-      
+
       this.lastFrameTime = now;
       this.frameInterval = requestAnimationFrame(() => measureFrame());
     };
-    
+
     measureFrame();
   }
-  
+
   private checkThresholds(metric: string, value: number): void {
     const threshold = this.thresholds.get(metric);
     if (!threshold) return;
-    
+
     const { config } = threshold;
-    const exceeded = (config.type || 'above') === 'above' 
+    const exceeded = (config.type || 'above') === 'above'
       ? value > config.value
       : value < config.value;
-    
+
     if (exceeded) {
       const now = Date.now();
-      
+
       // Check if we've been exceeding for the required duration
       if (!threshold.exceededSince) {
         threshold.exceededSince = now;
       }
-      
+
       const duration = config.duration || 0;
       if (now - (threshold.exceededSince || now) >= duration) {
         // Check cooldown
         const cooldown = config.cooldown || 0;
         if (!threshold.lastAlert || now - threshold.lastAlert >= cooldown) {
           threshold.lastAlert = now;
-          
+
           // Notify handlers immediately
           for (const handler of this.thresholdHandlers) {
             try {
@@ -747,12 +747,12 @@ export function formatBytes(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let size = bytes;
   let unitIndex = 0;
-  
+
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  
+
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
@@ -789,10 +789,10 @@ export function calculateStats(values: number[]): {
       p99: 0
     };
   }
-  
+
   const sorted = [...values].sort((a, b) => a - b);
   const sum = values.reduce((acc, v) => acc + v, 0);
-  
+
   return {
     count: values.length,
     min: sorted[0],

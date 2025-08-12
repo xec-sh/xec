@@ -4,6 +4,7 @@
  */
 
 import { StylesImpl } from './styles.js';
+import { styleComparator } from './style-comparator.js';
 
 import type {
   X,
@@ -107,7 +108,7 @@ export class ScreenBufferImpl implements ScreenBuffer {
     const newWidth = getCharWidth(char);
     
     // Mark as dirty if changed
-    if (cell.char !== char || JSON.stringify(cell.style) !== JSON.stringify(cellStyle)) {
+    if (cell.char !== char || styleComparator.differs(cell.style, cellStyle)) {
       cell.dirty = true;
     }
     
@@ -673,7 +674,7 @@ export class BufferManagerImpl implements BufferManager {
         const cell = cells[row][col];
         if (cell.char) {
           // Check if style changed
-          const styleChanged = JSON.stringify(cell.style) !== JSON.stringify(lastStyle);
+          const styleChanged = styleComparator.differs(cell.style, lastStyle);
           
           if (styleChanged) {
             // Reset previous style
@@ -820,7 +821,7 @@ export class BufferManagerImpl implements BufferManager {
     if (!a || !b) return true;
     if (a.char !== b.char) return true;
     if (a.width !== b.width) return true;
-    if (JSON.stringify(a.style) !== JSON.stringify(b.style)) return true;
+    if (styleComparator.differs(a.style, b.style)) return true;
     return false;
   }
 }

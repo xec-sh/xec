@@ -11,7 +11,7 @@ import type { OS, Runtime, Platform } from '../types.js';
 export function detectRuntime(): Runtime {
   // Use globalThis for better test mocking support
   const g = globalThis as any;
-  
+
   // @ts-ignore - Check for Deno first
   if (g.Deno && g.Deno.version?.deno) {
     return 'deno';
@@ -48,9 +48,9 @@ export function detectOS(): OS {
 
   const runtime = detectRuntime();
 
-   
+
   const g = globalThis as any;
-  
+
   switch (runtime) {
     case 'deno':
       // @ts-ignore - Deno global
@@ -101,7 +101,7 @@ export function getEnv(key: string): string | undefined {
   const runtime = detectRuntime();
 
   const g = globalThis as any;
-  
+
   switch (runtime) {
     case 'deno':
       // @ts-ignore - Deno global
@@ -194,7 +194,7 @@ export function isTTY(): boolean {
   const runtime = detectRuntime();
 
   const g = globalThis as any;
-  
+
   switch (runtime) {
     case 'node':
     case 'bun':
@@ -218,9 +218,9 @@ export function isTTY(): boolean {
 export function getTerminalSize(): { rows: number; cols: number } | undefined {
   const runtime = detectRuntime();
 
-   
+
   const g = globalThis as any;
-  
+
   switch (runtime) {
     case 'node':
     case 'bun':
@@ -365,7 +365,7 @@ export function hrtime(): bigint {
   const runtime = detectRuntime();
 
   const g = globalThis as any;
-  
+
   switch (runtime) {
     case 'node':
       return g.process?.hrtime?.bigint?.() || BigInt(Date.now() * 1_000_000);

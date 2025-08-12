@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Interactive menu app for testing navigation
+// Fixed interactive menu app for testing navigation
 const readline = require('readline');
 
 const rl = readline.createInterface({
@@ -32,7 +32,7 @@ if (process.stdin.isTTY) {
 }
 process.stdin.resume();
 
-// Direct data handling instead of keypress events which might not work reliably in tmux
+// Direct data handling instead of keypress events which might not work in tmux
 process.stdin.on('data', (chunk) => {
   const bytes = [...chunk];
   
@@ -73,4 +73,11 @@ process.stdin.on('data', (chunk) => {
 });
 
 // Keep process alive
-setInterval(() => {}, 1000);
+const keepAlive = setInterval(() => {}, 1000);
+
+// Clean exit after 30 seconds
+setTimeout(() => {
+  clearInterval(keepAlive);
+  console.log('\nTimeout - exiting');
+  process.exit(0);
+}, 30000);

@@ -114,6 +114,11 @@ const tester = createTester('command', {
   recordingEnabled: true, // Enable session recording
   snapshotDir: './snapshots' // Snapshot directory
 });
+
+// Note: Commands are now automatically wrapped in a shell if needed.
+// This improves compatibility with Node.js applications.
+// If your command is 'node app.js', it will be executed in bash
+// to ensure proper environment setup.
 ```
 
 ### 3. Input Methods
