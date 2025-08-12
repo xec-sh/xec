@@ -1,7 +1,7 @@
-import { it, expect, describe, afterEach } from 'vitest';
-import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+import { it, expect, describe, afterEach } from 'vitest';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, '../fixtures');

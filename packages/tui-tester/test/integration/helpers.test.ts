@@ -8,8 +8,7 @@ import {
   step,
   runTest,
   scenario,
-  TestRunner,
-  InteractionHelper
+  TestRunner
 } from '../../src/helpers/test-runner.js';
 import {
   login,

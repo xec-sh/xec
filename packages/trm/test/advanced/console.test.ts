@@ -1,4 +1,4 @@
-import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { createConsoleInterceptor } from '../../src/advanced/console';
 

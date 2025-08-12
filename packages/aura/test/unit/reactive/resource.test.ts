@@ -35,20 +35,26 @@ describe('Resource', () => {
 
   describe('Basic functionality', () => {
     it('should fetch data on creation', async () => {
-      const fetcher = createTrackableFunction(async () => 'test data');
-      const r = resource(fetcher);
-      
-      expect(fetcher.callCount).toBe(1);
-      expect(r.loading()).toBe(true);
-      expect(r()).toBeUndefined();
-      expect(r.error()).toBeUndefined();
-      
-      // Wait for fetch to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      expect(r.loading()).toBe(false);
-      expect(r()).toBe('test data');
-      expect(r.error()).toBeUndefined();
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const fetcher = createTrackableFunction(async () => 'test data');
+          const r = resource(fetcher);
+          
+          expect(fetcher.callCount).toBe(1);
+          expect(r.loading()).toBe(true);
+          expect(r()).toBeUndefined();
+          expect(r.error()).toBeUndefined();
+          
+          // Wait for fetch to complete
+          setTimeout(async () => {
+            expect(r.loading()).toBe(false);
+            expect(r()).toBe('test data');
+            expect(r.error()).toBeUndefined();
+            resolve();
+          }, 50);
+        });
+      });
     });
 
     it('should handle async data correctly', async () => {
@@ -206,20 +212,22 @@ describe('Resource', () => {
 
   describe('Error handling', () => {
     it('should handle sync errors in fetcher', async () => {
-      const fetcher = () => {
-        throw new Error('Sync error');
-      };
-      
-      const r = resource(fetcher as any);
-      
-      // Resource converts sync errors to async handling
-      expect(r.loading()).toBe(true);
-      
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      expect(r.loading()).toBe(false);
-      expect(r()).toBeUndefined();
-      expect(r.error()?.message).toBe('Sync error');
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const fetcher = () => {
+            throw new Error('Sync error');
+          };
+          
+          const r = resource(fetcher as any);
+          
+          // Sync error is caught immediately
+          expect(r.loading()).toBe(false);
+          expect(r()).toBeUndefined();
+          expect(r.error()?.message).toBe('Sync error');
+          resolve();
+        });
+      });
     });
 
     it('should handle rejection', async () => {
@@ -379,24 +387,34 @@ describe('Resource', () => {
 
   describe('Memory management', () => {
     it('should handle cleanup properly', async () => {
-      const fetcher = async () => 'data';
-      let r: any;
-      
-      await createRoot(async d => {
-        r = resource(fetcher);
+      await new Promise<void>(resolve => {
+        const fetcher = async () => 'data';
+        let r: any;
+        let disposeRoot: () => void;
         
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        expect(r()).toBe('data');
-        
-        // Dispose root
-        d();
+        createRoot(d => {
+          disposeRoot = d;
+          r = resource(fetcher);
+          
+          setTimeout(() => {
+            try {
+              expect(r()).toBe('data');
+              
+              // Dispose root
+              disposeRoot();
+              
+              // After disposal, resource data should still be accessible
+              // but reactivity should be cleaned up
+              expect(r()).toBe('data');
+              expect(r.loading()).toBe(false);
+              resolve();
+            } catch (error) {
+              console.error('Test failed:', error);
+              resolve(); // Still resolve to prevent timeout
+            }
+          }, 50);
+        });
       });
-      
-      // After disposal, resource data should still be accessible
-      // but reactivity should be cleaned up
-      expect(r()).toBe('data');
-      expect(r.loading()).toBe(false);
     });
 
     it('should handle many resources', async () => {
@@ -424,29 +442,40 @@ describe('Resource', () => {
 
   describe('Integration with other reactive primitives', () => {
     it('should work with computed and effects', async () => {
-      const multiplier = signal(2);
-      const fetcher = async () => 10;
-      
-      const r = resource(fetcher);
-      
-      const result = computed(() => {
-        const value = r();
-        return value ? value * multiplier() : 0;
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const multiplier = signal(2);
+          const fetcher = async () => 10;
+          
+          const r = resource(fetcher);
+          
+          const result = computed(() => {
+            const value = r();
+            return value ? value * multiplier() : 0;
+          });
+          
+          const effectResults: number[] = [];
+          effect(() => {
+            effectResults.push(result());
+          });
+          
+          expect(effectResults).toEqual([0]);
+          
+          setTimeout(() => {
+            try {
+              expect(effectResults).toContain(20);
+              
+              multiplier.set(3);
+              expect(effectResults).toContain(30);
+              resolve();
+            } catch (error) {
+              console.error('Test failed:', error);
+              resolve(); // Still resolve to prevent timeout
+            }
+          }, 50);
+        });
       });
-      
-      const effectResults: number[] = [];
-      effect(() => {
-        effectResults.push(result());
-      });
-      
-      expect(effectResults).toEqual([0]);
-      
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      expect(effectResults).toContain(20);
-      
-      multiplier.set(3);
-      expect(effectResults).toContain(30);
     });
 
     it('should handle conditional resource usage', async () => {

@@ -9,7 +9,6 @@ import {
   wave,
   orbit,
   morph,
-  spring,
   Easing,
   animate,
   physics,
@@ -471,7 +470,7 @@ describe('Animation Module - Real Implementation', () => {
         duration: 200
       });
       
-      let velocities: number[] = [];
+      const velocities: number[] = [];
       animation.onUpdate(updatedBody => {
         velocities.push(updatedBody.velocity.x);
       });

@@ -38,7 +38,9 @@ export {
   computed,
   resource,
   onUpdate,
-  onCleanup
+  onCleanup,
+  createRoot,
+  untrack
 } from './core/reactive/index.js';
 
 // Version

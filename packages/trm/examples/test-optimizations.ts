@@ -3,14 +3,13 @@
  * Test script to verify performance optimizations
  */
 
-import { TerminalImpl } from '../src/core/terminal.js';
+import { ColorDepth } from '../src/types.js';
 import { ColorSystem } from '../src/core/color.js';
+import { TerminalImpl } from '../src/core/terminal.js';
 import { BufferManagerImpl } from '../src/core/buffer.js';
-import { EventEmitterImpl } from '../src/core/events.js';
-import { CircularBuffer } from '../src/core/circular-buffer.js';
 import { BoundedQueue } from '../src/core/bounded-queue.js';
+import { CircularBuffer } from '../src/core/circular-buffer.js';
 import { styleComparator } from '../src/core/style-comparator.js';
-import { x, y, cols, rows, ColorDepth } from '../src/types.js';
 
 async function testOptimizations() {
   console.log('Testing TRM Library Optimizations\n');

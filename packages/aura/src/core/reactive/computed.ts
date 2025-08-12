@@ -2,7 +2,7 @@
  * Computed - Derived reactive values with automatic memoization
  */
 
-import { context, onCleanup, ComputationImpl } from './context.js';
+import { context, onCleanup, ComputationImpl, UpdatePriority, ComputationType } from './context.js';
 
 import type { Signal, ComputedOptions } from '../../types/reactive.js';
 
@@ -14,69 +14,74 @@ function defaultEquals(a: any, b: any): boolean {
 }
 
 /**
+ * Track currently computing computeds for circular dependency detection
+ */
+const computingStack = new Set<ComputedImpl<any>>();
+
+/**
  * Computed implementation using reactive context
  */
 class ComputedImpl<T> {
   private cache: T | undefined;
   private isStale = true;
-  private computation: ComputationImpl | null = null;
+  private isInitialized = false;  // Track if value has been computed at least once
+  private computation: ComputationImpl;
   private subscribers = new Set<(value: T) => void>();
   private computations = new Set<ComputationImpl>();  // Track dependent computations
   private equals: (a: T, b: T) => boolean;
   private isComputing = false;
+  private hasError = false;
+  private error: any;
+  private isDisposed = false;
 
   constructor(
     private fn: () => T,
     options?: ComputedOptions
   ) {
     this.equals = options?.equals || defaultEquals;
+    
     // Create computation that will recompute when dependencies change
-    this.computation = new ComputationImpl(() => {
-      // When our dependencies change, mark us as stale
-      // and invalidate all computations that depend on us
-      this.invalidate();
+    this.computation = new ComputationImpl(
+      () => {
+        // This will be called when dependencies change
+        // We just mark as stale and let next access recompute
+        this.markStale();
+      },
+      null,
+      true, // synchronous
+      UpdatePriority.SYNC, // Computeds run with SYNC priority
+      ComputationType.COMPUTED // Mark as computed type
+    );
+    
+    // Store reference to this computed in the computation for signal notification
+    (this.computation as any).__computed = this;
+    
+    // Set error handler that re-throws for computed
+    this.computation.setErrorHandler((error: Error) => {
+      throw error;
     });
     
-    // Do initial computation to set up dependencies
-    // This ensures nested computeds work correctly
-    this.initializeValue();
-  }
-  
-  // Method to invalidate this computed and propagate to dependents
-  private invalidate(): void {
-    if (this.isStale) return; // Already stale, no need to propagate
-    
-    // Store old value before marking stale
-    const oldValue = this.cache;
-    
-    // Mark as stale
-    this.isStale = true;
-    
-    // Recompute immediately to get new value
-    const newValue = context.untrack(() => this.fn());
-    
-    // Only update and propagate if value changed
-    if (!this.equals(oldValue!, newValue)) {
-      this.cache = newValue;
-      this.isStale = false;
-      
-      // Invalidate all dependent computations
-      for (const computation of this.computations) {
-computation.invalidate();
-      }
-      
-      // Notify regular subscribers
-      for (const subscriber of this.subscribers) {
-        subscriber(newValue);
-      }
-    } else {
-      // Value didn't change, just mark as not stale
-      this.isStale = false;
-    }
+    // Don't initialize immediately - let first access trigger it
+    // This avoids issues with accessing other computeds during construction
   }
 
   // Get value with dependency tracking
   get(): T {
+    // Check for circular dependency
+    if (computingStack.has(this)) {
+      console.warn('Circular dependency detected in computed value');
+      return this.cache !== undefined ? this.cache : (undefined as any);
+    }
+    
+    // If disposed, just return cached value without tracking
+    if (this.isDisposed || (this.computation as any).isDisposed) {
+      // If never initialized, compute once without tracking
+      if (!this.isInitialized && this.cache === undefined) {
+        context.untrack(() => this.computeValue());
+      }
+      return this.cache!;
+    }
+    
     // Track this computed as a dependency if we're in another computation
     context.tracking.track(this as unknown as Signal<T>);
     
@@ -87,9 +92,14 @@ computation.invalidate();
       computation.addDependency(this as any);
     }
     
-    if (this.isStale && !this.isComputing) {
-      // Recompute the value
-      this.recompute();
+    // If stale or never computed, recompute
+    if ((this.isStale || !this.isInitialized) && !this.isComputing) {
+      this.computeValue();
+    }
+    
+    // If we had an error, throw it
+    if (this.hasError) {
+      throw this.error;
     }
     
     return this.cache!;
@@ -98,8 +108,13 @@ computation.invalidate();
   peek(): T {
     if (this.isStale && !this.isComputing) {
       // Use untrack to avoid creating dependencies
-      context.untrack(() => this.recompute());
+      context.untrack(() => this.computeValue());
     }
+    
+    if (this.hasError) {
+      throw this.error;
+    }
+    
     return this.cache!;
   }
 
@@ -110,150 +125,117 @@ computation.invalidate();
     };
   }
 
-  // Initial computation to set up dependencies
-  private initializeValue(): void {
+  // Compute the value and track dependencies
+  private computeValue(): void {
     if (this.isComputing) {
-      return;
+      return; // Prevent infinite recursion
     }
 
     this.isComputing = true;
+    computingStack.add(this); // Add to computing stack for circular dependency detection
+    const oldValue = this.cache;
     
     try {
-      // Store the original execute function
-      const originalExecute = this.computation?.execute;
+      // Clear error state
+      this.hasError = false;
+      this.error = undefined;
       
-      if (this.computation) {
-        // Temporarily set execute to compute the value
-        this.computation.execute = () => {
-          try {
-            this.cache = this.fn();
-            this.isStale = false;
-          } catch (error) {
-            // If initialization fails, mark as stale so it can retry later
-            this.isStale = true;
-            throw error;
-          }
-        };
-        
-        // Run with dependency tracking
-        try {
-          this.computation.run();
-        } catch (error) {
-          // Initialization error - will retry on next access
-          this.isStale = true;
-        }
-        
+      // Replace the computation's execute function temporarily
+      const originalExecute = this.computation.execute;
+      this.computation.execute = () => {
+        this.cache = this.fn();
+      };
+      
+      try {
+        // Run the computation - this will track dependencies
+        this.computation.run();
+        this.isStale = false;
+      } finally {
         // Restore original execute function
-        if (originalExecute) {
-          this.computation.execute = originalExecute;
-        }
-      } else {
-        // Fallback if no computation
-        try {
-          this.cache = this.fn();
-          this.isStale = false;
-        } catch (error) {
-          this.isStale = true;
-        }
+        this.computation.execute = originalExecute;
       }
+      
+      // Mark as initialized after first computation
+      const wasInitialized = this.isInitialized;
+      this.isInitialized = true;
+      
+      // Check if value changed and notify subscribers
+      // Notify if value changed OR if this is the first computation with subscribers
+      const shouldNotify = this.cache !== undefined && (
+        (wasInitialized && oldValue !== undefined && !this.equals(oldValue, this.cache)) ||
+        (!wasInitialized && this.subscribers.size > 0)
+      );
+      
+      if (shouldNotify) {
+        this.notifySubscribers();
+      }
+    } catch (error) {
+      // Store error to rethrow on access
+      this.hasError = true;
+      this.error = error;
+      this.isStale = false; // Don't keep retrying on error
     } finally {
       this.isComputing = false;
+      computingStack.delete(this); // Remove from computing stack
     }
   }
-  
-  private recompute(): void {
-    // Prevent infinite loops
-    if (this.isComputing) {
-      return; // Silently return instead of warning
-    }
 
-    this.isComputing = true;
-    
-    try {
-      // Store the old value to check if it changed
-      const oldValue = this.cache;
-      
-      // Compute with proper dependency tracking
-      // We need to run this through the computation to track dependencies
-      if (this.computation) {
-        let newValue: T | undefined;
-        let error: Error | undefined;
-        
-        // Temporarily replace execute function
-        const originalExecute = this.computation.execute;
-        this.computation.execute = () => {
-          try {
-            newValue = this.fn();
-          } catch (e) {
-            error = e as Error;
-            throw e;
-          }
-        };
-        
-        // Run computation (might throw)
-        try {
-          this.computation.run();
-        } catch (e) {
-          // Restore execute function before re-throwing
-          this.computation.execute = originalExecute;
-          throw e;
-        }
-        
-        // Restore execute function
-        this.computation.execute = originalExecute;
-        
-        if (error) {
-          throw error;
-        }
-        
-        const changed = oldValue !== undefined && !this.equals(oldValue, newValue!);
-        this.cache = newValue!;
-        this.isStale = false;
-        
-        // After computation is complete, notify if value changed
-        if (changed) {
-          // Notify dependent computations
-          for (const comp of this.computations) {
-            comp.invalidate();
-          }
-          // Notify regular subscribers
-          const value = this.cache!;
-          for (const subscriber of this.subscribers) {
-            subscriber(value);
-          }
-        }
-      } else {
-        // Fallback without computation
-        const newValue = this.fn();
-        const changed = oldValue !== undefined && !this.equals(oldValue, newValue);
-        this.cache = newValue;
-        this.isStale = false;
-        
-        if (changed) {
-          for (const comp of this.computations) {
-            comp.invalidate();
-          }
-          for (const subscriber of this.subscribers) {
-            subscriber(newValue);
-          }
-        }
-      }
-    } finally {
-      this.isComputing = false;
+  // Called when dependencies change
+  private markStale(): void {
+    // Don't mark stale if disposed
+    if (this.isDisposed || (this.computation as any).isDisposed) {
+      return;
     }
+    
+    // Mark as stale
+    this.isStale = true;
+    
+    // Always invalidate dependent computations, even if already stale
+    // This is crucial for diamond dependencies where multiple paths may lead to the same computed
+    const computations = Array.from(this.computations);
+    for (const computation of computations) {
+      computation.invalidate();
+    }
+    
+    // Note: We don't recompute immediately - wait for next access
+    // This is important for efficiency and avoiding unnecessary computations
+  }
+  
+  // Mark stale without propagating to dependents (used by signal notification for diamond deps)
+  markStaleWithoutPropagation(): void {
+    // Don't mark stale if disposed
+    if (this.isDisposed || (this.computation as any).isDisposed) {
+      return;
+    }
+    
+    // Just mark as stale without propagating
+    this.isStale = true;
+  }
+
+  private notifySubscribers(): void {
+    const value = this.cache!;
+    for (const subscriber of this.subscribers) {
+      subscriber(value);
+    }
+  }
+
+  // Remove computation from subscribers
+  removeComputation(computation: ComputationImpl): void {
+    this.computations.delete(computation);
   }
 
   dispose(): void {
+    this.isDisposed = true;
     if (this.computation) {
       this.computation.dispose();
-      this.computation = null;
     }
     this.subscribers.clear();
+    this.computations.clear();
   }
 }
 
 /**
- * Create a computed signal
+ * Create a computed value
  */
 export function computed<T>(
   fn: () => T,
@@ -261,25 +243,28 @@ export function computed<T>(
 ): Signal<T> {
   const c = new ComputedImpl(fn, options);
   
-  // Create callable interface that properly forwards all methods
-  const callable = function() {
-    return c.get();
-  } as Signal<T>;
+  // Create callable interface
+  const callable = Object.assign(
+    () => c.get(),
+    {
+      peek: () => c.peek(),
+      subscribe: (fn: (value: T) => void) => c.subscribe(fn)
+    }
+  );
   
-  // Copy all methods
-  callable.peek = () => c.peek();
-  callable.subscribe = (fn: (value: T) => void) => c.subscribe(fn);
-  
-  // Store reference to implementation for internal use
-  (callable as any).__impl = c;
+  // Store the internal computed instance for cleanup
+  (callable as any).__internal = c;
   
   // Add debug representation
   Object.defineProperty(callable, Symbol.for('nodejs.util.inspect.custom'), {
     value: () => `Computed(${JSON.stringify(c.peek())})`
   });
   
-  // Register cleanup
-  onCleanup(() => c.dispose());
+  // Register for cleanup with current owner
+  const owner = context.owner;
+  if (owner) {
+    onCleanup(() => c.dispose());
+  }
   
-  return callable;
+  return callable as Signal<T>;
 }

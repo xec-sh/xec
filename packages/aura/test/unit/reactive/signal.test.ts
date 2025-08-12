@@ -181,88 +181,100 @@ describe('Effect', () => {
     });
   });
 
-  it('should re-run when dependencies change', () => {
-    createRoot(dispose => {
-      const s = signal(10);
-      const fn = vi.fn(() => s());
-      
-      effect(fn);
-      expect(fn).toHaveBeenCalledTimes(1);
-      
-      s.set(20);
-      // Effect runs async, need to wait
-      setTimeout(() => {
-        expect(fn).toHaveBeenCalledTimes(2);
-        dispose();
-      }, 0);
+  it('should re-run when dependencies change', async () => {
+    await new Promise<void>(resolve => {
+      createRoot(dispose => {
+        const s = signal(10);
+        const fn = vi.fn(() => s());
+        
+        effect(fn);
+        expect(fn).toHaveBeenCalledTimes(1);
+        
+        s.set(20);
+        // Effect runs async, need to wait
+        setTimeout(() => {
+          expect(fn).toHaveBeenCalledTimes(2);
+          dispose();
+          resolve();
+        }, 0);
+      });
     });
   });
 
-  it('should handle cleanup function', () => {
-    createRoot(dispose => {
-      const cleanup = vi.fn();
-      const s = signal(10);
-      
-      effect(() => {
-        s();
-        return cleanup;
+  it('should handle cleanup function', async () => {
+    await new Promise<void>(resolve => {
+      createRoot(dispose => {
+        const cleanup = vi.fn();
+        const s = signal(10);
+        
+        effect(() => {
+          s();
+          return cleanup;
+        });
+        
+        s.set(20);
+        setTimeout(() => {
+          expect(cleanup).toHaveBeenCalledTimes(1);
+          dispose();
+          resolve();
+        }, 0);
       });
-      
-      s.set(20);
-      setTimeout(() => {
-        expect(cleanup).toHaveBeenCalledTimes(1);
-        dispose();
-      }, 0);
     });
   });
 });
 
 describe('Batch', () => {
-  it('should batch multiple updates', () => {
-    createRoot(dispose => {
-      const a = signal(1);
-      const b = signal(2);
-      const fn = vi.fn(() => a() + b());
-      
-      effect(fn);
-      expect(fn).toHaveBeenCalledTimes(1);
-      
-      batch(() => {
-        a.set(10);
-        b.set(20);
+  it('should batch multiple updates', async () => {
+    await new Promise<void>(resolve => {
+      createRoot(dispose => {
+        const a = signal(1);
+        const b = signal(2);
+        const fn = vi.fn(() => a() + b());
+        
+        effect(fn);
+        expect(fn).toHaveBeenCalledTimes(1);
+        
+        batch(() => {
+          a.set(10);
+          b.set(20);
+        });
+        
+        // Should only run once after batch
+        setTimeout(() => {
+          expect(fn).toHaveBeenCalledTimes(2);
+          dispose();
+          resolve();
+        }, 0);
       });
-      
-      // Should only run once after batch
-      setTimeout(() => {
-        expect(fn).toHaveBeenCalledTimes(2);
-        dispose();
-      }, 0);
     });
   });
 
-  it('should handle nested batches', () => {
-    createRoot(dispose => {
-      const s = signal(0);
-      const fn = vi.fn(() => s());
-      
-      effect(fn);
-      
-      batch(() => {
-        s.set(1);
+  it('should handle nested batches', async () => {
+    await new Promise<void>(resolve => {
+      createRoot(dispose => {
+        const s = signal(0);
+        const fn = vi.fn(() => s());
+        
+        effect(fn);
+        
         batch(() => {
-          s.set(2);
+          s.set(1);
           batch(() => {
-            s.set(3);
+            s.set(2);
+            batch(() => {
+              s.set(3);
+            });
           });
         });
+        
+        // All updates batched together
+        setTimeout(() => {
+          expect(fn).toHaveBeenCalledTimes(2); // Initial + one batch
+          expect(s()).toBe(3);
+          dispose();
+          resolve();
+        }, 0);
       });
-      
-      // All updates batched together
-      setTimeout(() => {
-        expect(fn).toHaveBeenCalledTimes(2); // Initial + one batch
-        expect(s()).toBe(3);
-        dispose();
-      }, 0);
     });
   });
 });

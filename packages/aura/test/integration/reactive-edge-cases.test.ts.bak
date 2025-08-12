@@ -1,0 +1,1290 @@
+/**
+ * Reactive System Edge Cases and Advanced Scenarios
+ * Comprehensive tests for edge cases and non-standard behavior
+ */
+
+import { it, expect, describe, afterEach } from 'vitest';
+
+import {
+  batch,
+  store,
+  signal,
+  effect,
+  untrack,
+  computed,
+  resource,
+  onCleanup,
+  createRoot,
+  type Signal
+} from '../../src/core/reactive/index.js';
+
+describe('Reactive System Edge Cases', () => {
+  let dispose: (() => void) | undefined;
+
+  afterEach(() => {
+    dispose?.();
+    dispose = undefined;
+  });
+
+  describe('Race Conditions and Timing', () => {
+    it('should handle concurrent signal updates correctly', async () => {
+      await createRoot(async d => {
+        dispose = d;
+        
+        const a = signal(0);
+        const b = signal(0);
+        const sum = computed(() => a() + b());
+        const results: number[] = [];
+        
+        effect(() => {
+          results.push(sum());
+        });
+        
+        // Clear initial
+        results.length = 0;
+        
+        // Concurrent updates
+        await Promise.all([
+          Promise.resolve().then(() => a.set(1)),
+          Promise.resolve().then(() => b.set(2)),
+          Promise.resolve().then(() => a.set(3)),
+          Promise.resolve().then(() => b.set(4))
+        ]);
+        
+        // Wait for all updates
+        await new Promise(r => setTimeout(r, 10));
+        
+        // Should have final value
+        expect(sum()).toBe(7); // 3 + 4
+        // Should have some intermediate values
+        expect(results.length).toBeGreaterThan(0);
+        expect(results[results.length - 1]).toBe(7);
+      });
+    });
+    
+    it('should handle rapid synchronous updates efficiently', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const s = signal(0);
+        let computeCount = 0;
+        
+        const expensive = computed(() => {
+          computeCount++;
+          return s() * s();
+        });
+        
+        let effectCount = 0;
+        effect(() => {
+          expensive();
+          effectCount++;
+        });
+        
+        // Reset counters
+        computeCount = 0;
+        effectCount = 0;
+        
+        // Rapid updates
+        for (let i = 1; i <= 100; i++) {
+          s.set(i);
+        }
+        
+        // Should compute for final value
+        expect(s()).toBe(100);
+        expect(expensive()).toBe(10000);
+        
+        // Should batch efficiently
+        expect(computeCount).toBeLessThan(110); // Some overhead is ok
+        expect(effectCount).toBeLessThan(110);
+      });
+    });
+  });
+
+  describe('Circular Dependencies', () => {
+    it('should handle self-referential signals gracefully', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const counter = signal(0);
+        let runCount = 0;
+        
+        effect(() => {
+          runCount++;
+          const value = counter();
+          
+          // This would normally create a circular dependency
+          // But should be handled by the system
+          if (value < 5 && runCount < 10) {
+            // Schedule the update for next tick to avoid sync recursion
+            Promise.resolve().then(() => counter.set(value + 1));
+          }
+        });
+        
+        // Initial value after first run
+        expect(counter()).toBe(0);
+        expect(runCount).toBe(1);
+        
+        // Manually trigger some updates to test behavior
+        counter.set(1);
+        expect(runCount).toBe(2);
+        
+        counter.set(5);
+        expect(counter()).toBe(5);
+        expect(runCount).toBe(3);
+      });
+    });
+
+    it('should detect and prevent infinite loops in computeds', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const a = signal(1);
+        let computeCount = 0;
+        
+        // This creates a problematic computed that reads itself
+        const problematic = computed(() => {
+          computeCount++;
+          
+          // Prevent actual infinite loop in test
+          if (computeCount > 100) {
+            throw new Error('Infinite loop detected');
+          }
+          
+          return a() + (computeCount === 1 ? 0 : untrack(() => problematic()));
+        });
+        
+        // Should handle the circular reference gracefully
+        const result = problematic();
+        expect(result).toBeDefined();
+        expect(computeCount).toBeLessThan(10); // Should not loop excessively
+      });
+    });
+
+    it('should handle mutual dependencies between computeds', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const base = signal(1);
+        let aCount = 0;
+        let bCount = 0;
+        
+        // Create two computeds that reference each other
+        // This should be handled gracefully
+        let bRef: Signal<number>;
+        
+        const a = computed(() => {
+          aCount++;
+          const baseValue = base();
+          // Only reference b after first computation
+          return baseValue + (aCount === 1 ? 0 : untrack(() => bRef ? bRef() : 0));
+        });
+        
+        const b = computed(() => {
+          bCount++;
+          return untrack(() => a()) * 2;
+        });
+        
+        bRef = b;
+        
+        // Access both
+        expect(a()).toBeDefined();
+        expect(b()).toBeDefined();
+        
+        // Update base
+        base.set(2);
+        
+        // Should recompute without infinite loop
+        expect(a()).toBeDefined();
+        expect(b()).toBeDefined();
+        expect(aCount).toBeLessThan(10);
+        expect(bCount).toBeLessThan(10);
+      });
+    });
+  });
+
+  describe('Memory Pressure and Cleanup', () => {
+    it('should handle rapid creation and disposal of effects', () => {
+      const s = signal(0);
+      const disposers: (() => void)[] = [];
+      
+      // Create and immediately dispose many effects
+      for (let i = 0; i < 1000; i++) {
+        createRoot(d => {
+          effect(() => {
+            s(); // Subscribe to signal
+          });
+          disposers.push(d);
+        });
+      }
+      
+      // Dispose all
+      disposers.forEach(d => d());
+      
+      // Signal update should not trigger disposed effects
+      const updateTime = performance.now();
+      s.set(1);
+      const elapsed = performance.now() - updateTime;
+      
+      // Should be fast since no effects are running
+      expect(elapsed).toBeLessThan(10);
+    });
+
+    it('should handle deeply nested ownership hierarchies', () => {
+      const cleanupOrder: number[] = [];
+      
+      createRoot(d1 => {
+        onCleanup(() => cleanupOrder.push(1));
+        
+        createRoot(d2 => {
+          onCleanup(() => cleanupOrder.push(2));
+          
+          createRoot(d3 => {
+            onCleanup(() => cleanupOrder.push(3));
+            
+            createRoot(d4 => {
+              onCleanup(() => cleanupOrder.push(4));
+              
+              // Dispose from innermost
+              d4();
+            });
+            
+            d3();
+          });
+          
+          d2();
+        });
+        
+        d1();
+      });
+      
+      // Cleanup should happen in reverse order (innermost first)
+      expect(cleanupOrder).toEqual([4, 3, 2, 1]);
+    });
+
+    it('should handle effects that dispose themselves', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const trigger = signal(0);
+        let effectDisposer: (() => void) | null = null;
+        let runCount = 0;
+        
+        createRoot(innerDispose => {
+          effectDisposer = innerDispose;
+          
+          effect(() => {
+            runCount++;
+            const value = trigger();
+            
+            // Dispose self after certain condition
+            if (value >= 3) {
+              // Schedule disposal for next tick to avoid issues
+              Promise.resolve().then(() => effectDisposer?.());
+            }
+          });
+        });
+        
+        expect(runCount).toBe(1);
+        
+        trigger.set(1);
+        expect(runCount).toBe(2);
+        
+        trigger.set(2);
+        expect(runCount).toBe(3);
+        
+        trigger.set(3);
+        expect(runCount).toBe(4);
+        
+        // Wait for async disposal
+        setTimeout(() => {
+          trigger.set(4);
+          trigger.set(5);
+          // Should not increase after disposal
+          expect(runCount).toBe(4);
+        }, 10);
+      });
+    });
+  });
+
+  describe('Batching Edge Cases', () => {
+    it('should handle exceptions in batch without losing updates', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const a = signal(0);
+        const b = signal(0);
+        const c = signal(0);
+        let effectRuns = 0;
+        
+        effect(() => {
+          a();
+          b();
+          c();
+          effectRuns++;
+        });
+        
+        effectRuns = 0;
+        
+        // Batch with exception
+        expect(() => {
+          batch(() => {
+            a.set(1);
+            b.set(2);
+            throw new Error('Batch error');
+            c.set(3); // This won't execute
+          });
+        }).toThrow('Batch error');
+        
+        // Updates before error should still apply
+        expect(a()).toBe(1);
+        expect(b()).toBe(2);
+        expect(c()).toBe(0); // Not updated due to error
+        expect(effectRuns).toBe(1); // Effect should still run
+      });
+    });
+
+    it('should handle nested batch with different update patterns', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const values: number[] = [];
+        const s = signal(0);
+        
+        effect(() => {
+          values.push(s());
+        });
+        
+        values.length = 0;
+        
+        // Complex nested batching
+        batch(() => {
+          s.set(1);
+          
+          batch(() => {
+            s.set(2);
+            
+            // Synchronous code
+            const temp = s();
+            
+            batch(() => {
+              s.set(temp + 1);
+            });
+            
+            s.set(4);
+          });
+          
+          s.set(5);
+        });
+        
+        // Should only have one update at the end
+        expect(values).toEqual([5]);
+      });
+    });
+
+    it('should handle batch within effect', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const trigger = signal(0);
+        const result = signal(0);
+        let batchRuns = 0;
+        
+        effect(() => {
+          const value = trigger();
+          
+          // Batch within effect
+          batch(() => {
+            batchRuns++;
+            result.set(value * 2);
+            // Multiple updates in batch
+            result.set(value * 3);
+            result.set(value * 4);
+          });
+        });
+        
+        expect(result()).toBe(0);
+        expect(batchRuns).toBe(1);
+        
+        trigger.set(1);
+        expect(result()).toBe(4);
+        expect(batchRuns).toBe(2);
+      });
+    });
+  });
+
+  describe('Computed Edge Cases', () => {
+    it('should handle computed that returns different types', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const mode = signal<'number' | 'string' | 'object'>('number');
+        
+        const value = computed(() => {
+          const m = mode();
+          switch (m) {
+            case 'number': return 42;
+            case 'string': return 'hello';
+            case 'object': return { foo: 'bar' };
+          }
+        });
+        
+        expect(value()).toBe(42);
+        
+        mode.set('string');
+        expect(value()).toBe('hello');
+        
+        mode.set('object');
+        expect(value()).toEqual({ foo: 'bar' });
+      });
+    });
+
+    it('should handle computed with side effects (anti-pattern but should work)', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const source = signal(1);
+        let sideEffectCount = 0;
+        
+        // Anti-pattern: computed with side effects
+        const withSideEffect = computed(() => {
+          const value = source();
+          sideEffectCount++; // Side effect
+          return value * 2;
+        });
+        
+        // Access multiple times
+        withSideEffect();
+        withSideEffect();
+        withSideEffect();
+        
+        // Should only compute once (memoized)
+        expect(sideEffectCount).toBe(1);
+        
+        source.set(2);
+        withSideEffect();
+        
+        // Should compute again after source change
+        expect(sideEffectCount).toBe(2);
+      });
+    });
+
+    it('should handle computed that throws errors', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const shouldThrow = signal(false);
+        const fallback = signal('fallback');
+        
+        // Create a computed that might throw
+        const getRisky = () => {
+          if (shouldThrow()) {
+            throw new Error('Computed error');
+          }
+          return 'success';
+        };
+        
+        // Safe wrapper that catches errors
+        const safe = computed(() => {
+          try {
+            return getRisky();
+          } catch {
+            return fallback();
+          }
+        });
+        
+        expect(safe()).toBe('success');
+        
+        shouldThrow.set(true);
+        expect(safe()).toBe('fallback');
+        
+        fallback.set('new fallback');
+        shouldThrow.set(false); // Don't throw anymore
+        expect(safe()).toBe('success'); // Should return to success
+        
+        shouldThrow.set(true);
+        expect(safe()).toBe('new fallback'); // Use updated fallback
+      });
+    });
+  });
+
+  describe('Signal Edge Cases', () => {
+    it('should handle NaN equality correctly', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const s = signal(NaN);
+        let updateCount = 0;
+        
+        effect(() => {
+          s();
+          updateCount++;
+        });
+        
+        updateCount = 0;
+        
+        // NaN !== NaN, but Object.is(NaN, NaN) === true
+        s.set(NaN);
+        
+        // Should not trigger update (same value per Object.is)
+        expect(updateCount).toBe(0);
+        
+        s.set(0);
+        expect(updateCount).toBe(1);
+      });
+    });
+
+    it('should handle +0 and -0 correctly', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const s = signal(0);
+        let updateCount = 0;
+        
+        effect(() => {
+          s();
+          updateCount++;
+        });
+        
+        updateCount = 0;
+        
+        // Object.is(0, -0) === false
+        s.set(-0);
+        
+        // Should trigger update
+        expect(updateCount).toBe(1);
+        expect(Object.is(s(), -0)).toBe(true);
+      });
+    });
+
+    it('should handle custom equality function', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        // Custom equality that ignores case
+        const s = signal('Hello', {
+          equals: (a, b) => a.toLowerCase() === b.toLowerCase()
+        });
+        
+        let updateCount = 0;
+        
+        effect(() => {
+          s();
+          updateCount++;
+        });
+        
+        updateCount = 0;
+        
+        // Should not trigger (same per custom equality)
+        s.set('HELLO');
+        expect(updateCount).toBe(0);
+        
+        // Should trigger (different per custom equality)
+        s.set('World');
+        expect(updateCount).toBe(1);
+      });
+    });
+  });
+
+  describe('Untracking Edge Cases', () => {
+    it('should handle nested untrack calls', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const a = signal(1);
+        const b = signal(2);
+        const c = signal(3);
+        
+        const result = computed(() => {
+          const aVal = a();
+          
+          const bVal = untrack(() => {
+            // Nested untrack
+            const cVal = untrack(() => c());
+            return b() + cVal;
+          });
+          
+          return aVal + bVal;
+        });
+        
+        expect(result()).toBe(6);
+        
+        // Change untracked signals
+        b.set(10);
+        c.set(10);
+        
+        // Should not recompute
+        expect(result()).toBe(6); // Still cached
+        
+        // Change tracked signal
+        a.set(2);
+        
+        // Should recompute and see new b and c values
+        expect(result()).toBe(22);
+      });
+    });
+
+    it('should handle untrack in effect cleanup', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const trigger = signal(0);
+        const cleanup = signal(0);
+        let cleanupRuns = 0;
+        
+        effect(() => {
+          trigger();
+          
+          return () => {
+            // Cleanup should not track
+            untrack(() => {
+              cleanup();
+              cleanupRuns++;
+            });
+          };
+        });
+        
+        trigger.set(1); // Triggers cleanup and re-run
+        
+        expect(cleanupRuns).toBe(1);
+        
+        // Changing cleanup signal should not retrigger effect
+        cleanup.set(1);
+        cleanup.set(2);
+        
+        expect(cleanupRuns).toBe(1); // No additional cleanups
+      });
+    });
+  });
+
+  describe('Resource Edge Cases', () => {
+    it('should properly set loading state on dependency change', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const dep = signal(1);
+        let fetchCount = 0;
+        
+        const fetcher = async () => {
+          dep(); // Track dependency
+          fetchCount++;
+          return { count: fetchCount };
+        };
+        
+        const res = resource(fetcher);
+        
+        // Initial state should be loading
+        expect(res.loading()).toBe(true);
+        
+        // Change dependency should immediately set loading
+        dep.set(2);
+        expect(res.loading()).toBe(true);
+        
+        // Should have triggered two fetches
+        expect(fetchCount).toBe(2);
+      });
+    });
+    
+    it('should handle synchronous resources', async () => {
+      await createRoot(async d => {
+        dispose = d;
+        
+        // Synchronous fetcher that returns a promise
+        const fetcher = async () => 
+          // Immediately resolved promise
+           Promise.resolve({ data: 'immediate' })
+        ;
+        
+        const res = resource(fetcher);
+        
+        // Initially loading
+        expect(res.loading()).toBe(true);
+        
+        // Wait for promise to resolve
+        await new Promise(r => setTimeout(r, 0));
+        
+        // Should now be available
+        expect(res.loading()).toBe(false);
+        expect(res()).toEqual({ data: 'immediate' });
+        expect(res.error()).toBeUndefined();
+      });
+    });
+
+    it('should handle resource with changing dependencies', (done) => {
+      createRoot(d => {
+        dispose = d;
+        
+        const id = signal(1);
+        let fetchCount = 0;
+        
+        const fetcher = async () => {
+          const currentId = id();
+          fetchCount++;
+          await new Promise(r => setTimeout(r, 10));
+          return { id: currentId, count: fetchCount };
+        };
+        
+        const res = resource(fetcher);
+        
+        // Wait for initial load
+        setTimeout(() => {
+          expect(res()?.id).toBe(1);
+          expect(res()?.count).toBe(1);
+          
+          // Change dependency
+          id.set(2);
+          
+          // Should start loading again
+          expect(res.loading()).toBe(true);
+          
+          setTimeout(() => {
+            expect(res()?.id).toBe(2);
+            expect(res()?.count).toBe(2);
+            dispose();
+            done();
+          }, 20);
+        }, 20);
+      });
+    });
+
+    it('should handle rapid refetch calls', async () => {
+      await createRoot(async d => {
+        dispose = d;
+        
+        let fetchCount = 0;
+        const resolvers: (() => void)[] = [];
+        
+        const fetcher = async () => {
+          fetchCount++;
+          await new Promise<void>(resolve => {
+            resolvers.push(resolve);
+          });
+          return { count: fetchCount };
+        };
+        
+        const res = resource(fetcher);
+        
+        // Rapid refetch
+        res.refetch();
+        res.refetch();
+        res.refetch();
+        
+        // Should handle concurrent fetches appropriately
+        expect(res.loading()).toBe(true);
+        
+        // Resolve all
+        resolvers.forEach(r => r());
+        await new Promise(r => setTimeout(r, 10));
+        
+        // Should have latest result
+        expect(res()).toBeDefined();
+        expect(fetchCount).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('Store Edge Cases', () => {
+    it('should handle store with complex nested updates', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const state = store({
+          level1: {
+            level2: {
+              level3: {
+                level4: {
+                  value: 'deep'
+                }
+              }
+            }
+          }
+        });
+        
+        let accessCount = 0;
+        
+        effect(() => {
+          state.get('level1').level2.level3.level4.value;
+          accessCount++;
+        });
+        
+        accessCount = 0;
+        
+        // Deep update
+        state.set('level1', l1 => ({
+          ...l1,
+          level2: {
+            ...l1.level2,
+            level3: {
+              ...l1.level2.level3,
+              level4: {
+                value: 'updated'
+              }
+            }
+          }
+        }));
+        
+        expect(accessCount).toBe(1);
+        expect(state.get('level1').level2.level3.level4.value).toBe('updated');
+      });
+    });
+
+    it('should handle store with array mutations', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const state = store({
+          items: [1, 2, 3, 4, 5]
+        });
+        
+        let sum = 0;
+        
+        effect(() => {
+          sum = state.get('items').reduce((a, b) => a + b, 0);
+        });
+        
+        expect(sum).toBe(15);
+        
+        // Array mutations
+        state.set('items', items => [...items, 6]);
+        expect(sum).toBe(21);
+        
+        state.set('items', items => items.filter(x => x % 2 === 0));
+        expect(sum).toBe(12); // 2 + 4 + 6
+        
+        state.set('items', items => items.map(x => x * 2));
+        expect(sum).toBe(24); // 4 + 8 + 12
+      });
+    });
+
+    it('should handle store with mixed primitive and object values', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const state = store({
+          primitive: 42,
+          object: { nested: 'value' },
+          array: [1, 2, 3],
+          nullValue: null as { data: string } | null,
+          optional: undefined as string | undefined
+        });
+        
+        const accessed: string[] = [];
+        
+        effect(() => {
+          accessed.push('primitive');
+          state.get('primitive');
+        });
+        
+        effect(() => {
+          accessed.push('object');
+          state.get('object').nested;
+        });
+        
+        effect(() => {
+          accessed.push('array');
+          state.get('array').length;
+        });
+        
+        accessed.length = 0;
+        
+        // Update different types
+        batch(() => {
+          state.set('primitive', 100);
+          state.set('object', { nested: 'new' });
+          state.set('array', [4, 5, 6, 7]);
+          state.set('nullValue', { data: 'test' });
+          state.set('optional', 'defined');
+        });
+        
+        // All effects should run once
+        expect(accessed).toContain('primitive');
+        expect(accessed).toContain('object');
+        expect(accessed).toContain('array');
+        expect(accessed.filter(x => x === 'primitive').length).toBe(1);
+      });
+    });
+  });
+
+  describe('Effect Execution Order', () => {
+    it('should not double-run effects in sync context', () => {
+      const runs: string[] = [];
+      
+      createRoot(d => {
+        dispose = d;
+        
+        const a = signal(1);
+        const b = computed(() => a() * 2);
+        const c = computed(() => b() + 1);
+        
+        effect(() => {
+          runs.push(`effect: ${c()}`);
+        });
+        
+        // Should run once initially
+        expect(runs).toEqual(['effect: 3']);
+        
+        // Update signal
+        runs.length = 0;
+        a.set(2);
+        
+        // Should run exactly once, not twice
+        expect(runs).toEqual(['effect: 5']);
+      });
+    });
+    
+    it('should maintain correct order with nested computeds', () => {
+      const order: string[] = [];
+      
+      createRoot(d => {
+        dispose = d;
+        
+        const source = signal(1);
+        
+        const level1 = computed(() => {
+          order.push('level1');
+          return source() * 2;
+        });
+        
+        const level2 = computed(() => {
+          order.push('level2');
+          return level1() + 10;
+        });
+        
+        const level3 = computed(() => {
+          order.push('level3');
+          return level2() * 2;
+        });
+        
+        effect(() => {
+          level3();
+          order.push('effect');
+        });
+        
+        // Clear initial setup
+        order.length = 0;
+        
+        // Trigger update
+        source.set(2);
+        
+        // In a lazy evaluation system, when the effect accesses level3,
+        // it triggers computation in reverse order (level3 -> level2 -> level1)
+        // because level3 needs level2, which needs level1
+        expect(order).toEqual(['level3', 'level2', 'level1', 'effect']);
+      });
+    });
+  });
+  
+  describe('Synchronous Context Edge Cases', () => {
+    it('should handle immediate effect runs in createRoot', () => {
+      const log: number[] = [];
+      
+      createRoot(d => {
+        dispose = d;
+        
+        const s = signal(0);
+        
+        // Effect should run immediately in sync context
+        effect(() => {
+          log.push(s());
+        });
+        
+        expect(log).toEqual([0]);
+        
+        // Update should also run immediately
+        s.set(1);
+        // Wait for async to ensure no duplicate
+        setTimeout(() => {
+          expect(log).toEqual([0, 1]);
+        }, 0);
+      });
+    });
+    
+    it('should deduplicate synchronous updates', () => {
+      const updates: number[] = [];
+      
+      createRoot(d => {
+        dispose = d;
+        
+        const trigger = signal(0);
+        
+        effect(() => {
+          const value = trigger();
+          updates.push(value);
+          
+          // This could potentially cause double-run
+          if (value === 1) {
+            // Access trigger again
+            trigger();
+          }
+        });
+        
+        updates.length = 0;
+        
+        trigger.set(1);
+        
+        // Should only run once despite multiple accesses
+        expect(updates).toEqual([1]);
+      });
+    });
+  });
+  
+  describe('Performance and Stress Tests', () => {
+    it('should handle deep computation chains efficiently', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const source = signal(1);
+        const chain: Signal<number>[] = [source];
+        
+        // Create deep chain of computeds
+        for (let i = 0; i < 100; i++) {
+          const prev = chain[chain.length - 1];
+          chain.push(computed(() => prev() + 1));
+        }
+        
+        const startTime = performance.now();
+        const result = chain[chain.length - 1]();
+        const elapsed = performance.now() - startTime;
+        
+        expect(result).toBe(101);
+        expect(elapsed).toBeLessThan(10); // Should be fast
+        
+        // Update source
+        const updateStart = performance.now();
+        source.set(2);
+        const finalResult = chain[chain.length - 1]();
+        const updateElapsed = performance.now() - updateStart;
+        
+        expect(finalResult).toBe(102);
+        expect(updateElapsed).toBeLessThan(10); // Updates should also be fast
+      });
+    });
+
+    it('should handle wide dependency graphs efficiently', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const sources = Array.from({ length: 100 }, (_, i) => signal(i));
+        
+        // Single computed depending on all sources
+        const sum = computed(() => 
+          sources.reduce((acc, s) => acc + s(), 0)
+        );
+        
+        expect(sum()).toBe(4950); // Sum of 0-99
+        
+        const startTime = performance.now();
+        
+        // Update many sources in batch
+        batch(() => {
+          for (let i = 0; i < 50; i++) {
+            sources[i].set(100);
+          }
+        });
+        
+        const elapsed = performance.now() - startTime;
+        
+        // Sum of 50-99 is (50+99)*50/2 = 3725
+        // Plus 50*100 = 5000
+        // Total = 8725
+        expect(sum()).toBe(8725);
+        expect(elapsed).toBeLessThan(10); // Should be fast with batching
+      });
+    });
+
+    it('should handle effect cascades efficiently', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const trigger = signal(0);
+        const intermediate = signal(0);
+        const final = signal(0);
+        let effectCount = 0;
+        
+        // Cascading effects
+        effect(() => {
+          intermediate.set(trigger() * 2);
+          effectCount++;
+        });
+        
+        effect(() => {
+          final.set(intermediate() * 2);
+          effectCount++;
+        });
+        
+        const results: number[] = [];
+        effect(() => {
+          results.push(final());
+          effectCount++;
+        });
+        
+        effectCount = 0;
+        results.length = 0;
+        
+        const startTime = performance.now();
+        trigger.set(5);
+        const elapsed = performance.now() - startTime;
+        
+        expect(final()).toBe(20);
+        expect(results).toEqual([20]);
+        expect(effectCount).toBe(3); // Each effect runs once
+        expect(elapsed).toBeLessThan(5); // Should be very fast
+      });
+    });
+  });
+  
+  describe('Advanced Memory Management', () => {
+    it('should handle disposed computeds that are still referenced', () => {
+      let externalRef: Signal<number> | null = null;
+      
+      createRoot(d => {
+        const s = signal(1);
+        const c = computed(() => s() * 2);
+        externalRef = c;
+        
+        // Access to establish dependency
+        expect(c()).toBe(2);
+        
+        // Dispose root
+        d();
+      });
+      
+      // Accessing disposed computed should still return cached value
+      expect(externalRef!()).toBe(2);
+    });
+    
+    it('should handle complex disposal ordering', () => {
+      const log: string[] = [];
+      
+      createRoot(d1 => {
+        onCleanup(() => log.push('root'));
+        
+        effect(() => {
+          onCleanup(() => log.push('effect1'));
+        });
+        
+        createRoot(d2 => {
+          onCleanup(() => log.push('nested'));
+          
+          effect(() => {
+            onCleanup(() => log.push('effect2'));
+          });
+          
+          // Dispose nested first
+          d2();
+        });
+        
+        effect(() => {
+          onCleanup(() => log.push('effect3'));
+        });
+        
+        // Dispose root
+        d1();
+      });
+      
+      // Should dispose in correct order
+      expect(log).toEqual(['effect2', 'nested', 'effect1', 'effect3', 'root']);
+    });
+  });
+  
+  describe('Extreme Edge Cases', () => {
+    it('should handle signals with object values and custom equality', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const obj = signal(
+          { count: 0, data: [1, 2, 3] },
+          {
+            equals: (a, b) => JSON.stringify(a) === JSON.stringify(b)
+          }
+        );
+        
+        let updateCount = 0;
+        effect(() => {
+          obj();
+          updateCount++;
+        });
+        
+        updateCount = 0;
+        
+        // Same object content - should not trigger
+        obj.set({ count: 0, data: [1, 2, 3] });
+        expect(updateCount).toBe(0);
+        
+        // Different content - should trigger
+        obj.set({ count: 1, data: [1, 2, 3] });
+        expect(updateCount).toBe(1);
+      });
+    });
+    
+    it('should handle computed that depends on itself through untrack', () => {
+      createRoot(d => {
+        dispose = d;
+        
+        const base = signal(1);
+        let computeCount = 0;
+        let cached = 0;
+        
+        const recursive: Signal<number> = computed(() => {
+          computeCount++;
+          const b = base();
+          
+          // Self-reference through untrack - should not cause infinite loop
+          if (computeCount === 1) {
+            cached = b;
+            return b;
+          } else {
+            return b + untrack(() => cached);
+          }
+        });
+        
+        expect(recursive()).toBe(1);
+        expect(computeCount).toBe(1);
+        
+        base.set(2);
+        expect(recursive()).toBe(3); // 2 + 1 (cached)
+        expect(computeCount).toBe(2);
+      });
+    });
+    
+    it('should handle effect that modifies its own dependencies', (done) => {
+      createRoot(d => {
+        dispose = d;
+        
+        const counter = signal(0);
+        const double = computed(() => counter() * 2);
+        let runCount = 0;
+        let stabilized = false;
+        
+        effect(() => {
+          runCount++;
+          const value = double();
+          
+          // Modify dependency within effect - should not cause infinite loop
+          if (value < 10 && runCount < 20) {
+            // Use setTimeout to avoid synchronous recursion
+            setTimeout(() => {
+              if (!stabilized) {
+                batch(() => {
+                  counter.set(counter.peek() + 1);
+                });
+              }
+            }, 0);
+          } else if (!stabilized) {
+            stabilized = true;
+            // Give time for any pending updates
+            setTimeout(() => {
+              try {
+                // Should eventually stabilize
+                expect(counter()).toBeGreaterThanOrEqual(5);
+                expect(runCount).toBeLessThan(20);
+                done();
+              } catch (error) {
+                done(error);
+              }
+            }, 50);
+          }
+        });
+      });
+    });
+  });
+});

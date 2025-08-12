@@ -65,8 +65,8 @@ describe('Computed', () => {
     });
 
     it('should handle nested computeds', () => {
-      createRoot(d => {
-        dispose = d;
+      createRoot(disposeRoot => {
+        dispose = disposeRoot;
         const a = signal(1);
         const b = computed(() => a() * 2);
         const c = computed(() => b() * 3);
@@ -124,42 +124,45 @@ describe('Computed', () => {
         expect(sum()).toBe(12); // (1+2) + (2+3) + (1+3) = 3 + 5 + 4 = 12
         
         a.set(2);
-        expect(sum()).toBe(15); // (2+2) + (2+3) + (2+3) = 4 + 5 + 6 = 15
+        expect(sum()).toBe(14); // (2+2) + (2+3) + (2+3) = 4 + 5 + 5 = 14
         
         b.set(3);
-        expect(sum()).toBe(18); // (2+3) + (3+3) + (2+3) = 5 + 6 + 5 = 16
+        expect(sum()).toBe(16); // (2+3) + (3+3) + (2+3) = 5 + 6 + 5 = 16
         
         c.set(4);
-        expect(sum()).toBe(21); // (2+3) + (3+4) + (2+4) = 5 + 7 + 6 = 18
+        expect(sum()).toBe(18); // (2+3) + (3+4) + (2+4) = 5 + 7 + 6 = 18
       });
     });
 
-    it('should peek without tracking dependencies', () => {
-      createRoot(d => {
-        dispose = d;
-        const s = signal(10);
-        const c = computed(() => s() * 2);
-        const trackingFn = vi.fn();
-        
-        // Create an effect that depends on c
-        effect(() => {
-          c();
-          trackingFn();
+    it('should peek without tracking dependencies', async () => {
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const s = signal(10);
+          const c = computed(() => s() * 2);
+          const trackingFn = vi.fn();
+          
+          // Create an effect that depends on c
+          effect(() => {
+            c();
+            trackingFn();
+          });
+          
+          expect(trackingFn).toHaveBeenCalledTimes(1);
+          
+          // Peek should not track
+          const peekedValue = c.peek();
+          expect(peekedValue).toBe(20);
+          
+          // Changing s should still trigger the effect
+          s.set(15);
+          
+          // Wait for async effect
+          setTimeout(() => {
+            expect(trackingFn).toHaveBeenCalledTimes(2);
+            resolve();
+          }, 10);
         });
-        
-        expect(trackingFn).toHaveBeenCalledTimes(1);
-        
-        // Peek should not track
-        const peekedValue = c.peek();
-        expect(peekedValue).toBe(20);
-        
-        // Changing s should still trigger the effect
-        s.set(15);
-        
-        // Wait for async effect
-        setTimeout(() => {
-          expect(trackingFn).toHaveBeenCalledTimes(2);
-        }, 0);
       });
     });
   });
@@ -409,57 +412,61 @@ describe('Computed', () => {
   });
 
   describe('Integration with effects', () => {
-    it('should trigger effects when computed changes', (done) => {
-      createRoot(d => {
-        dispose = d;
-        const s = signal(10);
-        const doubled = computed(() => s() * 2);
-        const effectFn = vi.fn();
-        
-        effect(() => {
-          effectFn(doubled());
+    it('should trigger effects when computed changes', async () => {
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const s = signal(10);
+          const doubled = computed(() => s() * 2);
+          const effectFn = vi.fn();
+          
+          effect(() => {
+            effectFn(doubled());
+          });
+          
+          expect(effectFn).toHaveBeenCalledWith(20);
+          expect(effectFn).toHaveBeenCalledTimes(1);
+          
+          s.set(15);
+          
+          // Effects run async
+          setTimeout(() => {
+            expect(effectFn).toHaveBeenCalledWith(30);
+            expect(effectFn).toHaveBeenCalledTimes(2);
+            resolve();
+          }, 10);
         });
-        
-        expect(effectFn).toHaveBeenCalledWith(20);
-        expect(effectFn).toHaveBeenCalledTimes(1);
-        
-        s.set(15);
-        
-        // Effects run async
-        setTimeout(() => {
-          expect(effectFn).toHaveBeenCalledWith(30);
-          expect(effectFn).toHaveBeenCalledTimes(2);
-          done();
-        }, 10);
       });
     });
 
-    it('should handle computed chains in effects', (done) => {
-      createRoot(d => {
-        dispose = d;
-        const a = signal(1);
-        const b = computed(() => a() * 2);
-        const c = computed(() => b() * 3);
-        
-        const results: number[] = [];
-        effect(() => {
-          results.push(c());
-        });
-        
-        expect(results).toEqual([6]);
-        
-        a.set(2);
-        
-        setTimeout(() => {
-          expect(results).toEqual([6, 12]);
+    it('should handle computed chains in effects', async () => {
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const a = signal(1);
+          const b = computed(() => a() * 2);
+          const c = computed(() => b() * 3);
           
-          a.set(3);
+          const results: number[] = [];
+          effect(() => {
+            results.push(c());
+          });
+          
+          expect(results).toEqual([6]);
+          
+          a.set(2);
           
           setTimeout(() => {
-            expect(results).toEqual([6, 12, 18]);
-            done();
+            expect(results).toEqual([6, 12]);
+            
+            a.set(3);
+            
+            setTimeout(() => {
+              expect(results).toEqual([6, 12, 18]);
+              resolve();
+            }, 10);
           }, 10);
-        }, 10);
+        });
       });
     });
   });
@@ -488,38 +495,41 @@ describe('Computed', () => {
       });
     });
 
-    it('should handle nested batches with computeds', () => {
-      createRoot(d => {
-        dispose = d;
-        const a = signal(0);
-        const b = signal(0);
-        const c = signal(0);
-        
-        const sum = computed(() => a() + b() + c());
-        const effectFn = vi.fn();
-        
-        effect(() => {
-          effectFn(sum());
-        });
-        
-        expect(effectFn).toHaveBeenCalledTimes(1);
-        expect(effectFn).toHaveBeenCalledWith(0);
-        
-        batch(() => {
-          a.set(1);
+    it('should handle nested batches with computeds', async () => {
+      await new Promise<void>(resolve => {
+        createRoot(d => {
+          dispose = d;
+          const a = signal(0);
+          const b = signal(0);
+          const c = signal(0);
+          
+          const sum = computed(() => a() + b() + c());
+          const effectFn = vi.fn();
+          
+          effect(() => {
+            effectFn(sum());
+          });
+          
+          expect(effectFn).toHaveBeenCalledTimes(1);
+          expect(effectFn).toHaveBeenCalledWith(0);
+          
           batch(() => {
-            b.set(2);
+            a.set(1);
             batch(() => {
-              c.set(3);
+              b.set(2);
+              batch(() => {
+                c.set(3);
+              });
             });
           });
+          
+          // All updates should be batched
+          setTimeout(() => {
+            expect(effectFn).toHaveBeenCalledTimes(2);
+            expect(effectFn).toHaveBeenCalledWith(6);
+            resolve();
+          }, 10);
         });
-        
-        // All updates should be batched
-        setTimeout(() => {
-          expect(effectFn).toHaveBeenCalledTimes(2);
-          expect(effectFn).toHaveBeenCalledWith(6);
-        }, 10);
       });
     });
   });
@@ -535,7 +545,7 @@ describe('Computed', () => {
         expect(c()).toBe(20);
         
         // Get the implementation to check cleanup
-        const impl = (c as any).__impl;
+        const impl = (c as any).__internal;
         expect(impl).toBeDefined();
         
         // Clean up
@@ -570,9 +580,9 @@ describe('Computed', () => {
         expect(c3()).toBe(5); // (1+2) + (1*2) = 3 + 2 = 5
         
         // Get implementations
-        const impl1 = (c1 as any).__impl;
-        const impl2 = (c2 as any).__impl;
-        const impl3 = (c3 as any).__impl;
+        const impl1 = (c1 as any).__internal;
+        const impl2 = (c2 as any).__internal;
+        const impl3 = (c3 as any).__internal;
         
         // Dispose middle computed
         impl2.dispose();

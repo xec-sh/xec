@@ -2,7 +2,7 @@
  * Rendering Engine Tests with Real Implementations
  */
 
-import { it, expect, describe, beforeEach, afterEach } from 'vitest';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { x, y, cols, rows } from '../../src/types';
 import { BlendMode, createRenderEngine } from '../../src/advanced/rendering';
