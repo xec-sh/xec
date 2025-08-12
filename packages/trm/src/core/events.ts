@@ -4,6 +4,7 @@
  */
 
 import { BoundedQueue } from './bounded-queue.js';
+
 import type { Disposable, EventEmitter } from '../types.js';
 
 /**

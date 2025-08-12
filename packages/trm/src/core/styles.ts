@@ -174,7 +174,6 @@ export class StylesImpl implements Styles {
 
     // Handle underline style variants
     if (style.underlineStyle) {
-      // eslint-disable-next-line default-case
       switch (style.underlineStyle) {
         case 'single':
           codes.push(ansi.underline());
@@ -190,6 +189,10 @@ export class StylesImpl implements Styles {
           break;
         case 'dashed':
           codes.push('\x1b[4:5m'); // Dashed underline
+          break;
+        default:
+          // Unknown underline style - use single underline as fallback
+          codes.push(ansi.underline());
           break;
       }
     }

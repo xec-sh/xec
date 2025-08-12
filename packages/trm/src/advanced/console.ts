@@ -275,7 +275,7 @@ class ConsoleMessageImpl implements ConsoleMessage {
 class ConsoleInterceptorImpl implements ConsoleInterceptor {
   private _isPatched = false;
   private _isSuppressed = false;
-  private originalMethods: Map<string, Function> = new Map();
+  private originalMethods: Map<string, (...args: any[]) => void> = new Map();
   private messageHandlers = new Set<MessageHandler>();
   private messageBuffer: ConsoleMessage[] = [];
   private bufferSize = 100;
@@ -354,7 +354,7 @@ class ConsoleInterceptorImpl implements ConsoleInterceptor {
     this._isPatched = false;
   }
   
-  private createInterceptor(method: string, original: Function): Function {
+  private createInterceptor(method: string, original: (...args: any[]) => void): (...args: any[]) => void {
     return (...args: any[]) => {
       // Create message
       const message = new ConsoleMessageImpl(method, args, {
@@ -554,9 +554,8 @@ class ConsoleInterceptorImpl implements ConsoleInterceptor {
   }
   
   get messages(): AsyncIterable<ConsoleMessage> {
-    const self = this;
     return {
-      async *[Symbol.asyncIterator]() {
+      [Symbol.asyncIterator]: () => {
         const queue: ConsoleMessage[] = [];
         let resolve: ((value: void) => void) | null = null;
         
@@ -568,19 +567,30 @@ class ConsoleInterceptorImpl implements ConsoleInterceptor {
           }
         };
         
-        self.messageHandlers.add(handler);
+        this.messageHandlers.add(handler);
         
-        try {
-          while (true) {
+        const iterator = {
+          next: async (): Promise<IteratorResult<ConsoleMessage>> => {
             if (queue.length > 0) {
-              yield queue.shift()!;
-            } else {
-              await new Promise<void>(r => { resolve = r; });
+              return { value: queue.shift()!, done: false };
             }
+            await new Promise<void>(r => { resolve = r; });
+            return { value: queue.shift()!, done: false };
+          },
+          return: async (): Promise<IteratorResult<ConsoleMessage>> => {
+            this.messageHandlers.delete(handler);
+            return { done: true, value: undefined };
+          },
+          throw: async (error: any): Promise<IteratorResult<ConsoleMessage>> => {
+            this.messageHandlers.delete(handler);
+            throw error;
+          },
+          [Symbol.asyncIterator]() {
+            return this;
           }
-        } finally {
-          self.messageHandlers.delete(handler);
-        }
+        };
+        
+        return iterator;
       }
     };
   }

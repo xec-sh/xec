@@ -705,7 +705,8 @@ class PerformanceMonitorImpl implements PerformanceMonitor {
             try {
               handler(metric, value, config.value);
             } catch (error) {
-              // Ignore handler errors
+              // Log handler errors for debugging but continue processing
+              console.error(`Threshold handler error for metric ${metric}:`, error);
             }
           }
         }

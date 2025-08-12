@@ -113,6 +113,8 @@ class InputParser {
   }
 
   private parseCSI(): InputEvent | null {
+    // ESC character (\x1b) is necessary for parsing ANSI escape sequences
+    // eslint-disable-next-line no-control-regex
     const match = this.buffer.match(/^\x1b\[<?([0-9;]*)(.)$/);
     if (!match) {
       // Need more data
@@ -362,6 +364,9 @@ class InputParser {
         case 13: key = 'Enter'; isSpecial = true; break;
         case 27: key = 'Escape'; isSpecial = true; break;
         case 127: key = 'Backspace'; isSpecial = true; break;
+        default: 
+          // Other codes don't need special handling
+          break;
       }
     }
 

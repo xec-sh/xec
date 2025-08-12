@@ -323,9 +323,9 @@ class EffectImpl implements Disposable {
       });
       
       try {
-        const cleanup = this._fn();
-        if (typeof cleanup === 'function') {
-          this._cleanup = cleanup;
+        const cleanupFn = this._fn();
+        if (typeof cleanupFn === 'function') {
+          this._cleanup = cleanupFn;
         }
         
         // Subscribe to new dependencies
@@ -510,10 +510,8 @@ class StoreImpl<T extends object> implements Store<T> {
   }
   
   private createProxy(obj: any = this._rawState): any {
-    const that = this;
-    
     return new Proxy(obj, {
-      get(target, prop, receiver) {
+      get: (target, prop, receiver) => {
         // Special handling for known symbols
         if (prop === Symbol.toStringTag || prop === Symbol.iterator) {
           return Reflect.get(target, prop, receiver);
@@ -523,18 +521,18 @@ class StoreImpl<T extends object> implements Store<T> {
         
         // Return nested proxy for objects
         if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          return that.createProxy(value);
+          return this.createProxy(value);
         }
         
         return value;
       },
       
-      set(target, prop, value, receiver) {
+      set: (target, prop, value, receiver) => {
         // Update the property
         Reflect.set(target, prop, value, receiver);
         // Trigger state update
-        (that._stateSignal as any).set({ ...that._rawState });
-        that.notifyObservers();
+        (this._stateSignal as any).set({ ...this._rawState });
+        this.notifyObservers();
         return true;
       }
     });

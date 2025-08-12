@@ -41,12 +41,13 @@ export class CircularBuffer {
     
     if (dataBuffer.length > availableSpace) {
       switch (this.overflowStrategy) {
-        case 'drop-oldest':
+        case 'drop-oldest': {
           // Drop oldest data to make room
           const bytesToDrop = dataBuffer.length - availableSpace;
           this.readPos = (this.readPos + bytesToDrop) % this.maxSize;
           this.size -= bytesToDrop;
           break;
+        }
           
         case 'drop-newest':
           // Don't write new data if no space
@@ -54,6 +55,10 @@ export class CircularBuffer {
           
         case 'error':
           throw new Error(`Buffer overflow: need ${dataBuffer.length} bytes, have ${availableSpace} available`);
+          
+        default:
+          // Should never happen as TypeScript ensures exhaustive switch
+          throw new Error(`Unknown overflow strategy: ${this.overflowStrategy}`);
       }
     }
     

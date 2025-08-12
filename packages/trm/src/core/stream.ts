@@ -68,10 +68,9 @@ export class NodeTerminalStream implements TerminalStream {
       throw new Error('Cannot set raw mode on non-TTY stream');
     }
     
-    // @ts-ignore - setRawMode exists on TTY streams
-    if (this.stdin.setRawMode) {
-      // @ts-ignore
-      this.stdin.setRawMode(enabled);
+    // Check if stdin is a TTY stream with setRawMode method
+    if ('setRawMode' in this.stdin && typeof this.stdin.setRawMode === 'function') {
+      (this.stdin as any).setRawMode(enabled);
       this._isRaw = enabled;
     }
   }
@@ -119,8 +118,8 @@ export class NodeTerminalStream implements TerminalStream {
 
   async flush(): Promise<void> {
     return new Promise((resolve, _reject) => {
-      // @ts-ignore - _writableState exists on streams
-      if (this.stdout._writableState?.needDrain) {
+      // Check if _writableState exists on streams
+      if ((this.stdout as any)._writableState?.needDrain) {
         this.stdout.once('drain', resolve);
       } else {
         process.nextTick(resolve);
@@ -165,12 +164,12 @@ export class DenoTerminalStream implements TerminalStream {
     stdout?: WritableStream<Uint8Array>,
     stderr?: WritableStream<Uint8Array>
   ) {
-    // @ts-ignore - Deno global
-    this.stdin = stdin || Deno.stdin.readable;
-    // @ts-ignore - Deno global
-    this.stdout = stdout || Deno.stdout.writable;
-    // @ts-ignore - Deno global
-    this.stderr = stderr || Deno.stderr.writable;
+    // Deno global
+    this.stdin = stdin || (globalThis as any).Deno.stdin.readable;
+    // Deno global
+    this.stdout = stdout || (globalThis as any).Deno.stdout.writable;
+    // Deno global
+    this.stderr = stderr || (globalThis as any).Deno.stderr.writable;
     
     this.stdoutWriter = this.stdout.getWriter();
     this.stderrWriter = this.stderr.getWriter();
@@ -190,8 +189,8 @@ export class DenoTerminalStream implements TerminalStream {
   }
 
   get isTTY(): boolean {
-    // @ts-ignore - Deno global
-    return Deno.isatty(0) && Deno.isatty(1);
+    // Deno global
+    return (globalThis as any).Deno.isatty(0) && (globalThis as any).Deno.isatty(1);
   }
 
   get colorDepth(): ColorDepth {
@@ -203,8 +202,8 @@ export class DenoTerminalStream implements TerminalStream {
   }
 
   setRawMode(enabled: boolean): void {
-    // @ts-ignore - Deno global
-    Deno.stdin.setRaw(enabled);
+    // Deno global
+    (globalThis as any).Deno.stdin.setRaw(enabled);
     this._isRaw = enabled;
   }
 
@@ -294,12 +293,12 @@ export class BunTerminalStream implements TerminalStream {
     stdout?: NodeJS.WriteStream,
     stderr?: NodeJS.WriteStream
   ) {
-    // @ts-ignore - Bun globals
-    this.stdin = stdin || Bun.stdin;
-    // @ts-ignore - Bun globals
-    this.stdout = stdout || Bun.stdout;
-    // @ts-ignore - Bun globals
-    this.stderr = stderr || Bun.stderr;
+    // Bun globals
+    this.stdin = stdin || (globalThis as any).Bun.stdin;
+    // Bun globals
+    this.stdout = stdout || (globalThis as any).Bun.stdout;
+    // Bun globals
+    this.stderr = stderr || (globalThis as any).Bun.stderr;
     
     this.platform = getPlatform();
     this._colorDepth = getColorSupport() as ColorDepth;
@@ -316,8 +315,8 @@ export class BunTerminalStream implements TerminalStream {
   }
 
   get isTTY(): boolean {
-    // @ts-ignore - Bun global
-    return Bun.isatty(this.stdout) && Bun.isatty(this.stdin);
+    // Bun global
+    return (globalThis as any).Bun.isatty(this.stdout) && (globalThis as any).Bun.isatty(this.stdin);
   }
 
   get colorDepth(): ColorDepth {
@@ -329,10 +328,10 @@ export class BunTerminalStream implements TerminalStream {
   }
 
   setRawMode(enabled: boolean): void {
-    // @ts-ignore - Bun specific
-    if (this.stdin.setRawMode) {
-      // @ts-ignore
-      this.stdin.setRawMode(enabled);
+    // Bun specific
+    if ('setRawMode' in this.stdin && typeof this.stdin.setRawMode === 'function') {
+      // setRawMode method exists on Bun stdin but not in type definitions
+      (this.stdin as any).setRawMode(enabled);
       this._isRaw = enabled;
     }
   }
@@ -359,8 +358,8 @@ export class BunTerminalStream implements TerminalStream {
   }
 
   write(data: string | Uint8Array): void {
-    // @ts-ignore - Bun write method
-    Bun.write(this.stdout, data);
+    // Bun write method
+    (globalThis as any).Bun.write(this.stdout, data);
   }
 
   writeLine(data: string): void {
@@ -368,8 +367,8 @@ export class BunTerminalStream implements TerminalStream {
   }
 
   writeError(data: string | Uint8Array): void {
-    // @ts-ignore - Bun write method
-    Bun.write(this.stderr, data);
+    // Bun write method
+    (globalThis as any).Bun.write(this.stderr, data);
   }
 
   async flush(): Promise<void> {

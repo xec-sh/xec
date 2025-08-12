@@ -278,38 +278,38 @@ class AbsoluteLayout extends BaseLayout {
 
       let width: number;
       let height: number;
-      let x: number;
-      let y: number;
+      let posX: number;
+      let posY: number;
 
       if (right !== undefined && left !== undefined) {
-        x = contentRect.x + left;
+        posX = contentRect.x + left;
         width = contentRect.width - left - right;
       } else if (right !== undefined) {
         const childSize = item.measure({ width: contentRect.width, height: contentRect.height });
         width = childSize.width;
-        x = contentRect.x + contentRect.width - right - width;
+        posX = contentRect.x + contentRect.width - right - width;
       } else {
-        x = contentRect.x + left;
+        posX = contentRect.x + left;
         const childSize = item.measure({ width: contentRect.width, height: contentRect.height });
         width = childSize.width;
       }
 
       if (bottom !== undefined && top !== undefined) {
-        y = contentRect.y + top;
+        posY = contentRect.y + top;
         height = contentRect.height - top - bottom;
       } else if (bottom !== undefined) {
         const childSize = item.measure({ width: contentRect.width, height: contentRect.height });
         height = childSize.height;
-        y = contentRect.y + contentRect.height - bottom - height;
+        posY = contentRect.y + contentRect.height - bottom - height;
       } else {
-        y = contentRect.y + top;
+        posY = contentRect.y + top;
         const childSize = item.measure({ width: contentRect.width, height: contentRect.height });
         height = childSize.height;
       }
 
       item.arrange({
-        x: x as X,
-        y: y as Y,
+        x: posX as X,
+        y: posY as Y,
         width: cols(width),
         height: rows(height)
       });
@@ -339,9 +339,7 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
 
   measure(availableSpace: Size): Size {
     const isRow = this.direction === 'row' || this.direction === 'row-reverse';
-    // @ts-ignore - used for layout calculations
     const mainSize = isRow ? availableSpace.width : availableSpace.height;
-    // @ts-ignore - used for layout calculations
     const crossSize = isRow ? availableSpace.height : availableSpace.width;
 
     let totalMainSize = 0;
@@ -354,7 +352,15 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
       const flex = constraints?.flex ?? 0;
       totalFlex += flex;
 
-      const childSize = item.measure(availableSpace);
+      // Calculate available space for flex children
+      const childAvailableSpace = flex > 0 && totalFlex > 0
+        ? {
+          width: isRow ? cols(Math.floor((mainSize * flex) / totalFlex)) : availableSpace.width,
+          height: !isRow ? rows(Math.floor((mainSize * flex) / totalFlex)) : availableSpace.height
+        }
+        : availableSpace;
+
+      const childSize = item.measure(childAvailableSpace);
       childSizes.push(childSize);
 
       if (flex === 0) {
@@ -362,7 +368,7 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
       }
 
       const crossChildSize = isRow ? childSize.height : childSize.width;
-      maxCrossSize = Math.max(maxCrossSize, crossChildSize);
+      maxCrossSize = Math.max(maxCrossSize, Math.min(crossChildSize, crossSize));
     }
 
     // Add gaps
@@ -370,8 +376,10 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
       totalMainSize += this.gap * (this._children.length - 1);
     }
 
-    // Calculate final size
-    const finalMainSize = Math.max(totalMainSize, isRow ? this.padding.left + this.padding.right : this.padding.top + this.padding.bottom);
+    // Calculate final size - use available space for flex layouts
+    const finalMainSize = totalFlex > 0
+      ? mainSize
+      : Math.max(totalMainSize, isRow ? this.padding.left + this.padding.right : this.padding.top + this.padding.bottom);
     const finalCrossSize = maxCrossSize + (isRow ? this.padding.top + this.padding.bottom : this.padding.left + this.padding.right);
 
     return isRow
@@ -418,7 +426,6 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
     let mainPos = 0;
     let spacing = 0;
 
-    // eslint-disable-next-line default-case
     switch (this.justifyContent) {
       case 'flex-end':
         mainPos = mainSize - totalFixedSize;
@@ -436,6 +443,10 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
       case 'space-evenly':
         spacing = remainingSpace / (this._children.length + 1);
         mainPos = spacing;
+        break;
+      case 'flex-start':
+      default:
+        // flex-start is the default - mainPos and spacing already initialized to 0
         break;
     }
 
@@ -457,7 +468,7 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
       let crossPos = 0;
 
       const alignSelf = constraints?.alignSelf ?? this.alignItems;
-      // eslint-disable-next-line default-case
+
       switch (alignSelf) {
         case 'flex-end':
           crossPos = crossSize - childCrossSize;
@@ -467,6 +478,11 @@ class FlexLayoutImpl extends BaseLayout implements FlexLayout {
           break;
         case 'stretch':
           childCrossSize = crossSize;
+          break;
+        case 'flex-start':
+        case 'baseline':
+        default:
+          // flex-start and baseline - crossPos already initialized to 0
           break;
       }
 
@@ -664,7 +680,7 @@ class GridLayoutImpl extends BaseLayout implements GridLayout {
 
       // First pass: calculate fixed and auto sizes
       for (const track of tracks) {
-        // eslint-disable-next-line default-case
+
         switch (track.type) {
           case 'fixed':
             sizes.push(track.size);
@@ -681,6 +697,10 @@ class GridLayoutImpl extends BaseLayout implements GridLayout {
           case 'minmax':
             sizes.push(track.min);
             totalFixed += track.min;
+            break;
+          default:
+            // Unknown track type - treat as auto
+            sizes.push(0);
             break;
         }
       }
@@ -785,7 +805,6 @@ class DockLayout extends BaseLayout {
         height: contentRect.height
       });
 
-      // eslint-disable-next-line default-case
       switch (dock) {
         case 'top':
           child.item.arrange({
@@ -845,6 +864,10 @@ class DockLayout extends BaseLayout {
             width: cols(contentRect.width - childSize.width),
             height: contentRect.height
           };
+          break;
+          
+        default:
+          // Unknown dock position - skip this child
           break;
       }
     }

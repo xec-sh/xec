@@ -432,7 +432,6 @@ class RenderEngineImpl implements RenderEngine {
     // Process each layer's operations
     for (const [layer, ops] of layerOps) {
       for (const op of ops) {
-        // eslint-disable-next-line default-case
         switch (op.type) {
           case 'draw':
             if (op.element) {
@@ -447,6 +446,9 @@ class RenderEngineImpl implements RenderEngine {
             if (op.region) {
               layer.markDirty(op.region);
             }
+            break;
+          default:
+            // Unknown operation type - ignore
             break;
         }
       }
