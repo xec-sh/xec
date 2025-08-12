@@ -12,12 +12,12 @@ export function detectRuntime(): Runtime {
   // Use globalThis for better test mocking support
   const g = globalThis as any;
 
-  // @ts-ignore - Check for Deno first
+  // Check for Deno first
   if (g.Deno && g.Deno.version?.deno) {
     return 'deno';
   }
 
-  // @ts-ignore - Bun global
+  // Bun global
   if (g.Bun && g.Bun.version) {
     return 'bun';
   }
@@ -53,7 +53,7 @@ export function detectOS(): OS {
 
   switch (runtime) {
     case 'deno':
-      // @ts-ignore - Deno global
+      // Deno global
       platform = g.Deno?.build?.os;
       break;
 
@@ -70,6 +70,11 @@ export function detectOS(): OS {
         else if (ua.includes('mac')) platform = 'darwin';
         else if (ua.includes('linux')) platform = 'linux';
       }
+      break;
+
+    default:
+      // Unknown runtime - try process.platform as fallback
+      platform = g.process?.platform;
       break;
   }
 
@@ -104,7 +109,7 @@ export function getEnv(key: string): string | undefined {
 
   switch (runtime) {
     case 'deno':
-      // @ts-ignore - Deno global
+      // Deno global
       return g.Deno?.env?.get?.(key);
 
     case 'bun':
@@ -129,6 +134,8 @@ export function isWSL(): boolean {
     const runtime = detectRuntime();
 
     if (runtime === 'node' || runtime === 'bun') {
+      // Dynamic import is necessary here for runtime compatibility
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require('fs');
       const osRelease = fs.readFileSync('/proc/sys/kernel/osrelease', 'utf8');
       return osRelease.toLowerCase().includes('microsoft');
@@ -136,7 +143,7 @@ export function isWSL(): boolean {
 
     if (runtime === 'deno') {
       const g = globalThis as any;
-      // @ts-ignore - Deno global
+      // Deno global
       const osRelease = g.Deno?.readTextFileSync?.('/proc/sys/kernel/osrelease');
       return osRelease?.toLowerCase().includes('microsoft') || false;
     }
@@ -201,7 +208,7 @@ export function isTTY(): boolean {
       return !!(g.process?.stdout?.isTTY && g.process?.stdin?.isTTY);
 
     case 'deno':
-      // @ts-ignore - Deno global
+      // Deno global
       return g.Deno?.isatty?.(0) && g.Deno?.isatty?.(1);
 
     case 'browser':
@@ -234,7 +241,7 @@ export function getTerminalSize(): { rows: number; cols: number } | undefined {
 
     case 'deno':
       try {
-        // @ts-ignore - Deno global
+        // Deno global
         const size = g.Deno?.consoleSize?.();
         if (size) {
           return {
@@ -245,6 +252,10 @@ export function getTerminalSize(): { rows: number; cols: number } | undefined {
       } catch {
         // Permission denied or not available
       }
+      break;
+
+    default:
+      // Browser or unknown runtime - use defaults
       break;
   }
 
@@ -259,16 +270,15 @@ export async function initPlatform(): Promise<void> {
   const runtime = detectRuntime();
   const g = globalThis as any;
 
-  // eslint-disable-next-line default-case
   switch (runtime) {
     case 'deno':
       // Request permissions if needed
       try {
-        // @ts-ignore - Deno global
+        // Deno global
         await g.Deno?.permissions?.request?.({ name: 'env' });
-        // @ts-ignore - Deno global
+        // Deno global
         await g.Deno?.permissions?.request?.({ name: 'read' });
-        // @ts-ignore - Deno global
+        // Deno global
         await g.Deno?.permissions?.request?.({ name: 'write' });
       } catch {
         // Permissions API not available or denied
@@ -283,6 +293,11 @@ export async function initPlatform(): Promise<void> {
           // Resize handling will be done by terminal
         });
       }
+      break;
+      
+    case 'browser':
+    default:
+      // Browser or unknown runtime - no initialization needed
       break;
   }
 }
@@ -371,7 +386,7 @@ export function hrtime(): bigint {
       return g.process?.hrtime?.bigint?.() || BigInt(Date.now() * 1_000_000);
 
     case 'bun':
-      // @ts-ignore - Bun global
+      // Bun global
       return g.Bun?.nanoseconds?.() || BigInt(Date.now() * 1_000_000);
 
     case 'deno':

@@ -275,7 +275,7 @@ class AnimationImpl<T> implements Animation<T> {
   }
 
   async start(): Promise<void> {
-    if (this.running.value) return;
+    if (this.running.value) return Promise.resolve();
 
     this.running.set(true);
     this.startTime = performance.now() + this.delay;
@@ -474,11 +474,11 @@ class SpringAnimationImpl<T> implements Animation<T> {
   }
 
   async start(): Promise<void> {
-    if (this.running.value) return;
+    if (this.running.value) return Promise.resolve();
 
     this.running.set(true);
     this.position = 0;
-    this.velocity = this.velocity;
+    // Keep initial velocity from constructor
     this.lastTime = performance.now();
 
     // Register with engine
@@ -648,7 +648,7 @@ class SequenceAnimationImpl implements Animation<void> {
   }
 
   async start(): Promise<void> {
-    if (this.running.value || this.animations.length === 0) return;
+    if (this.running.value || this.animations.length === 0) return Promise.resolve();
 
     this.running.set(true);
     this.currentIndex = 0;
@@ -786,7 +786,7 @@ class ParallelAnimationImpl implements Animation<void> {
   }
 
   async start(): Promise<void> {
-    if (this.running.value || this.animations.length === 0) return;
+    if (this.running.value || this.animations.length === 0) return Promise.resolve();
 
     this.running.set(true);
     this.completedCount = 0;

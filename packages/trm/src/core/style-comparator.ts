@@ -20,7 +20,7 @@ export class StyleComparator {
     if (!style) return '';
     
     // Check cache first
-    let cached = this.cache.get(style);
+    const cached = this.cache.get(style);
     if (cached !== undefined) return cached;
     
     // Build hash from style properties
@@ -80,7 +80,7 @@ export class StyleComparator {
    */
   private colorToString(color: Color): string {
     // Check cache first
-    let cached = this.colorCache.get(color);
+    const cached = this.colorCache.get(color);
     if (cached !== undefined) return cached;
     
     let str: string;

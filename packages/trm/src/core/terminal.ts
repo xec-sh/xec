@@ -195,7 +195,6 @@ export class TerminalImpl implements Terminal {
 
     // Clear on exit if requested
     if (this.options.clearOnExit) {
-      // eslint-disable-next-line default-case
       switch (this.options.mode) {
         case 'inline':
           // Clear the last rendered content
@@ -215,6 +214,10 @@ export class TerminalImpl implements Terminal {
 
         case 'fullscreen':
           // Fullscreen mode will clear when exiting alternate buffer
+          break;
+          
+        default:
+          // Unknown mode - no clearing needed
           break;
       }
     }
@@ -289,14 +292,14 @@ export class TerminalImpl implements Terminal {
   writeStyled(
     text: string,
     style?: Style,
-    options?: { 
-      newline?: boolean; 
+    options?: {
+      newline?: boolean;
       flush?: boolean;
       position?: { x: X; y: Y };
     }
   ): void {
     let output = '';
-    
+
     // Move to position if specified
     if (options?.position) {
       output += this.ansi.cursorPosition(
@@ -304,31 +307,31 @@ export class TerminalImpl implements Terminal {
         options.position.x + 1
       );
     }
-    
+
     // Apply style if provided
     if (style) {
       output += this.styles.apply(style);
     }
-    
+
     // Add the text
     output += text;
-    
+
     // Reset style if it was applied
     if (style) {
       output += '\x1b[0m'; // Direct reset sequence
     }
-    
+
     // Add newline if requested
     if (options?.newline) {
       output += '\n';
     }
-    
+
     // Write to stream
     this.stream.write(output);
-    
+
     // Track output for cleanup
     this.lastOutput += output;
-    
+
     // Flush if requested
     if (options?.flush) {
       this.stream.flush();
@@ -342,7 +345,7 @@ export class TerminalImpl implements Terminal {
   writeTemplate(strings: TemplateStringsArray, ...values: any[]): void {
     let output = '';
     let currentStyle: Style | undefined;
-    
+
     for (let i = 0; i < strings.length; i++) {
       // Add the string part
       if (currentStyle) {
@@ -352,11 +355,11 @@ export class TerminalImpl implements Terminal {
       if (currentStyle) {
         output += '\x1b[0m'; // Reset all styles
       }
-      
+
       // Process the value if present
       if (i < values.length) {
         const value = values[i];
-        
+
         // Check if value is a style object
         if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
           // Assume it's a style object
@@ -374,7 +377,7 @@ export class TerminalImpl implements Terminal {
         }
       }
     }
-    
+
     this.stream.write(output);
     this.lastOutput += output;
   }
@@ -393,10 +396,10 @@ export class TerminalImpl implements Terminal {
         // Restore to saved position for subsequent updates
         this.cursor.restore();
       }
-      
+
       // Clear from current position down
       this.stream.write(this.ansi.clearScreenDown());
-      
+
       // Write new content
       this.lastOutput = content;
       this.stream.write(content);
@@ -521,7 +524,6 @@ export class TerminalImpl implements Terminal {
           if (this._closed) break;
 
           // Emit specific event types
-          // eslint-disable-next-line default-case
           switch (event.type) {
             case 'key':
               this.events.emit('key', event);
@@ -541,6 +543,10 @@ export class TerminalImpl implements Terminal {
               break;
             case 'resize':
               this.events.emit('resize', event.rows, event.cols);
+              break;
+            default:
+              // Unknown event type - emit as generic input event
+              this.events.emit('input', event);
               break;
           }
         }
