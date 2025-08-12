@@ -322,6 +322,44 @@ await tester.sendText('input');
 await tester.exec(`tmux send-keys -t ${session} -l "text"`);
 ```
 
+### Command Not Executing
+
+**Problem**: Commands are typed but not executed in tmux session
+
+**Note**: This issue has been fixed in recent versions with automatic shell wrapping.
+
+**Solutions**:
+
+1. **Automatic Fix (Latest Version)**: Commands are now automatically wrapped in a shell when needed:
+```typescript
+// This now works automatically
+const tester = createTester('node app.js');
+```
+
+2. **Manual Shell Specification**: If you still experience issues:
+```typescript
+// Explicitly use bash
+const tester = createTester('bash', {
+  sessionName: 'test-session'
+});
+await tester.start();
+await tester.sendCommand('node app.js');
+```
+
+3. **Debug Shell Initialization**:
+```typescript
+const tester = createTester('node app.js', {
+  debug: true  // Shows shell initialization details
+});
+```
+
+4. **Wait for Shell Ready**:
+```typescript
+await tester.start();
+await tester.sleep(1000);  // Give shell time to initialize
+await tester.sendCommand('your-command');
+```
+
 ## Performance Issues
 
 ### Slow Test Execution

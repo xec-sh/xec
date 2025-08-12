@@ -333,15 +333,39 @@ export class TestRunner {
  * Create and run a test scenario
  */
 export async function runTest(
-  name: string,
-  config: TesterConfig,
-  steps: TestStep[],
+  nameOrConfig: string | (TesterConfig & { scenarios?: TestScenario[] }),
+  config?: TesterConfig,
+  steps?: TestStep[],
   options?: TestRunnerOptions
-): Promise<TestResult> {
-  const runner = new TestRunner(options);
-  const scenario: TestScenario = { name, steps };
+): Promise<TestResult | { passed: number; failed: number; scenarios: TestResult[] }> {
+  // Handle object-style call with scenarios
+  if (typeof nameOrConfig === 'object' && 'scenarios' in nameOrConfig && nameOrConfig.scenarios) {
+    const runner = new TestRunner(options);
+    const results: TestResult[] = [];
+    
+    for (const scenario of nameOrConfig.scenarios) {
+      const result = await runner.runScenario(scenario, nameOrConfig);
+      results.push(result);
+    }
+    
+    runner.printResults();
+    
+    const passed = results.filter(r => r.passed).length;
+    const failed = results.filter(r => !r.passed).length;
+    
+    return {
+      passed,
+      failed,
+      scenarios: results
+    };
+  }
   
-  const result = await runner.runScenario(scenario, config);
+  // Handle traditional call
+  const name = nameOrConfig as string;
+  const runner = new TestRunner(options);
+  const scenario: TestScenario = { name, steps: steps || [] };
+  
+  const result = await runner.runScenario(scenario, config!);
   runner.printResults();
   
   return result;

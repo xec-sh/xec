@@ -14,9 +14,12 @@ import { EventEmitterImpl } from './events.js';
 import { BufferManagerImpl } from './buffer.js';
 import { createTerminalStream } from './stream.js';
 import {
+  type X,
+  type Y,
   type ANSI,
   type Rows,
   type Cols,
+  type Style,
   ColorDepth,
   type Input,
   type Screen,
@@ -260,6 +263,9 @@ export class TerminalImpl implements Terminal {
   // Utilities
   // ============================================================================
 
+  /**
+   * Write data to the stream
+   */
   write(data: string | Uint8Array): void {
     // Track output for clearing on exit
     if (typeof data === 'string') {
@@ -268,9 +274,109 @@ export class TerminalImpl implements Terminal {
     this.stream.write(data);
   }
 
+  /**
+   * Write a line of text
+   */
   writeLine(data: string): void {
     this.lastOutput += data + '\n';
     this.stream.writeLine(data);
+  }
+
+  /**
+   * Optimized write method with style support
+   * Writes directly to the stream with minimal overhead
+   */
+  writeStyled(
+    text: string,
+    style?: Style,
+    options?: { 
+      newline?: boolean; 
+      flush?: boolean;
+      position?: { x: X; y: Y };
+    }
+  ): void {
+    let output = '';
+    
+    // Move to position if specified
+    if (options?.position) {
+      output += this.ansi.cursorPosition(
+        options.position.y + 1,
+        options.position.x + 1
+      );
+    }
+    
+    // Apply style if provided
+    if (style) {
+      output += this.styles.apply(style);
+    }
+    
+    // Add the text
+    output += text;
+    
+    // Reset style if it was applied
+    if (style) {
+      output += '\x1b[0m'; // Direct reset sequence
+    }
+    
+    // Add newline if requested
+    if (options?.newline) {
+      output += '\n';
+    }
+    
+    // Write to stream
+    this.stream.write(output);
+    
+    // Track output for cleanup
+    this.lastOutput += output;
+    
+    // Flush if requested
+    if (options?.flush) {
+      this.stream.flush();
+    }
+  }
+
+  /**
+   * Write styled text with template literal support
+   * Allows for inline styling with tagged templates
+   */
+  writeTemplate(strings: TemplateStringsArray, ...values: any[]): void {
+    let output = '';
+    let currentStyle: Style | undefined;
+    
+    for (let i = 0; i < strings.length; i++) {
+      // Add the string part
+      if (currentStyle) {
+        output += this.styles.apply(currentStyle);
+      }
+      output += strings[i];
+      if (currentStyle) {
+        output += '\x1b[0m'; // Reset all styles
+      }
+      
+      // Process the value if present
+      if (i < values.length) {
+        const value = values[i];
+        
+        // Check if value is a style object
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          // Assume it's a style object
+          currentStyle = value as Style;
+        } else {
+          // Regular value - convert to string and apply current style
+          if (currentStyle) {
+            output += this.styles.apply(currentStyle);
+          }
+          output += String(value);
+          if (currentStyle) {
+            output += '\x1b[0m'; // Reset all styles
+            currentStyle = undefined;
+          }
+        }
+      }
+    }
+    
+    this.stream.write(output);
+    this.lastOutput += output;
   }
 
   /**

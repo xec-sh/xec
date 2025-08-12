@@ -87,7 +87,19 @@ export class TmuxTester implements TerminalTester {
       .map(([key, value]) => `-e ${key}=${escapeShellArg(value)}`)
       .join(' ');
 
-    const createCmd = `tmux new-session -d -s ${this.sessionName} -x ${cols} -y ${rows} ${envVars} -c ${escapeShellArg(this.config.cwd)}`;
+    // If command is provided but doesn't look like a shell, wrap it in bash
+    const needsShell = this.config.command.length > 0 && 
+                      !this.config.command[0].match(/^(bash|sh|zsh|fish|dash)$/);
+    
+    let createCmd: string;
+    if (needsShell) {
+      // Create session with bash and then run the command
+      createCmd = `tmux new-session -d -s ${this.sessionName} -x ${cols} -y ${rows} ${envVars} -c ${escapeShellArg(this.config.cwd)} bash`;
+    } else {
+      // Create session with the specified shell or default
+      const shell = this.config.command[0] || 'bash';
+      createCmd = `tmux new-session -d -s ${this.sessionName} -x ${cols} -y ${rows} ${envVars} -c ${escapeShellArg(this.config.cwd)} ${shell}`;
+    }
     
     this.debug(`Creating tmux session: ${createCmd}`);
     const result = await this.adapter.exec(createCmd);
@@ -99,9 +111,12 @@ export class TmuxTester implements TerminalTester {
     // Mark as running before sending commands
     this.running = true;
     
-    // Start the application
-    const appCmd = this.config.command.join(' ');
-    await this.sendCommand(appCmd);
+    // If we wrapped in shell, wait for shell to be ready then send the actual command
+    if (needsShell) {
+      await this.sleep(1000); // Wait for bash to be ready
+      const appCmd = this.config.command.join(' ');
+      await this.sendCommand(appCmd);
+    }
     
     // Wait for startup
     await this.sleep(500);

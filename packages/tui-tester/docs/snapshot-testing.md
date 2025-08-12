@@ -112,10 +112,13 @@ import {
 // Get global snapshot manager
 const manager = getSnapshotManager();
 
-// Configure
+// Configure - enhanced with new options
 manager.configure({
   snapshotDir: './test/snapshots',
-  updateSnapshots: process.env.UPDATE_SNAPSHOTS === 'true'
+  updateSnapshots: process.env.UPDATE_SNAPSHOTS === 'true',
+  format: 'json',    // Snapshot format: 'json', 'text', or 'ansi'
+  stripAnsi: true,   // Strip ANSI codes for cleaner comparison
+  trim: true         // Trim whitespace for consistent snapshots
 });
 
 // Manual operations
@@ -137,13 +140,18 @@ interface SnapshotOptions {
   // Trim whitespace
   trim?: boolean;
   
+  // Snapshot storage format
+  format?: 'json' | 'text' | 'ansi';
+  
   // Custom comparison function
   compare?: (expected: string, actual: string) => boolean;
   
-  // Diff options
+  // Enhanced diff options
   diffOptions?: {
     contextLines?: number;
     expand?: boolean;
+    ignoreAnsi?: boolean;       // Ignore ANSI codes in comparison
+    ignoreWhitespace?: boolean;  // Ignore whitespace differences
   };
 }
 ```

@@ -127,6 +127,22 @@ export class NodeTerminalStream implements TerminalStream {
       }
     });
   }
+
+  /**
+   * Dispose of the stream resources
+   */
+  async dispose(): Promise<void> {
+    // Reset raw mode if it was enabled
+    if (this._isRaw) {
+      this.setRawMode(false);
+    }
+    
+    // Flush any pending output
+    await this.flush();
+    
+    // Node streams don't need explicit cleanup
+    // but we ensure everything is flushed
+  }
 }
 
 /**
@@ -234,6 +250,30 @@ export class DenoTerminalStream implements TerminalStream {
   async flush(): Promise<void> {
     await this.stdoutWriter.ready;
   }
+
+  /**
+   * Dispose of the stream resources
+   */
+  async dispose(): Promise<void> {
+    // Reset raw mode if it was enabled
+    if (this._isRaw) {
+      this.setRawMode(false);
+    }
+    
+    try {
+      // Close and release writers
+      await this.stdoutWriter?.close();
+      await this.stderrWriter?.close();
+    } catch {
+      // If close fails, at least release the locks
+      try {
+        this.stdoutWriter?.releaseLock();
+        this.stderrWriter?.releaseLock();
+      } catch {
+        // Ignore errors in cleanup
+      }
+    }
+  }
 }
 
 /**
@@ -335,6 +375,21 @@ export class BunTerminalStream implements TerminalStream {
   async flush(): Promise<void> {
     // Bun handles flushing automatically
     return Promise.resolve();
+  }
+
+  /**
+   * Dispose of the stream resources
+   */
+  async dispose(): Promise<void> {
+    // Reset raw mode if it was enabled
+    if (this._isRaw) {
+      this.setRawMode(false);
+    }
+    
+    // Flush any pending output
+    await this.flush();
+    
+    // Bun streams don't need explicit cleanup
   }
 }
 

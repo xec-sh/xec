@@ -69,9 +69,29 @@ export async function fillField(
 
 /**
  * Submit form
+ * Optionally fill form fields before submitting
  */
-export async function submitForm(tester: TerminalTester): Promise<void> {
-  await tester.sendKey('enter');
+export async function submitForm(
+  tester: TerminalTester,
+  formData?: Record<string, string>
+): Promise<void> {
+  // If form data is provided, fill each field
+  if (formData) {
+    for (const [field, value] of Object.entries(formData)) {
+      // Wait for field to be visible
+      await tester.waitForText(field, { timeout: 5000 });
+      
+      // Type the value
+      await tester.typeText(value);
+      
+      // Press Enter to move to next field
+      await tester.sendKey('enter');
+      await tester.sleep(200);
+    }
+  } else {
+    // Just submit the form
+    await tester.sendKey('enter');
+  }
 }
 
 /**
@@ -300,14 +320,12 @@ export async function openCommandPalette(tester: TerminalTester): Promise<void> 
 export async function search(
   tester: TerminalTester,
   searchText: string
-): Promise<void> {
-  // Open search (Ctrl+F)
-  await tester.sendKey('f', { ctrl: true });
-  await tester.sleep(100);
+): Promise<boolean> {
+  // Get current screen content
+  const screen = await tester.getScreenText();
   
-  // Type search text
-  await tester.typeText(searchText);
-  await tester.sendKey('enter');
+  // Check if text exists
+  return screen.includes(searchText);
 }
 
 /**

@@ -7,8 +7,8 @@ import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { ansi } from '../../src/core/ansi.js';
 import { ColorDepth } from '../../src/types.js';
-import { Screen } from '../../src/core/screen.js';
-import { Cursor } from '../../src/core/cursor.js';
+import { ScreenImpl } from '../../src/core/screen.js';
+import { CursorImpl } from '../../src/core/cursor.js';
 import { ColorSystem } from '../../src/core/color.js';
 import { StylesImpl } from '../../src/core/styles.js';
 import { TerminalImpl } from '../../src/core/terminal.js';
@@ -64,7 +64,10 @@ describe('Basic Functionality Integration', () => {
       stderr: mockStderr,
       stdin: mockStdin,
       platform: 'darwin',
-      env: { TERM: 'xterm-256color' }
+      env: { TERM: 'xterm-256color' },
+      on: vi.fn(),
+      off: vi.fn(),
+      removeListener: vi.fn()
     });
   });
   
@@ -113,7 +116,7 @@ describe('Basic Functionality Integration', () => {
   describe('Screen Operations', () => {
     it('should clear screen', () => {
       const stream = new NodeTerminalStream();
-      const screen = new Screen(stream);
+      const screen = new ScreenImpl(stream);
       
       screen.clear();
       expect(mockStdout.write).toHaveBeenCalledWith(ansi.clearScreen());
@@ -122,7 +125,7 @@ describe('Basic Functionality Integration', () => {
     
     it('should write at position', () => {
       const stream = new NodeTerminalStream();
-      const screen = new Screen(stream);
+      const screen = new ScreenImpl(stream);
       
       screen.writeAt(10 as X, 5 as Y, 'Test');
       
@@ -133,7 +136,7 @@ describe('Basic Functionality Integration', () => {
     
     it('should draw boxes', () => {
       const stream = new NodeTerminalStream();
-      const screen = new Screen(stream);
+      const screen = new ScreenImpl(stream);
       
       screen.writeBox(0 as X, 0 as Y, 10 as Cols, 5 as Rows);
       
@@ -153,7 +156,7 @@ describe('Basic Functionality Integration', () => {
   describe('Cursor Operations', () => {
     it('should move cursor', () => {
       const stream = new NodeTerminalStream();
-      const cursor = new Cursor(stream);
+      const cursor = new CursorImpl((data) => stream.write(data));
       
       cursor.moveTo(20 as X, 10 as Y);
       expect(mockStdout.write).toHaveBeenCalledWith(ansi.cursorPosition(11, 21));
@@ -167,13 +170,13 @@ describe('Basic Functionality Integration', () => {
       cursor.moveRight(10);
       expect(mockStdout.write).toHaveBeenCalledWith(ansi.cursorForward(10));
       
-      cursor.back(2);
+      cursor.moveLeft(2);
       expect(mockStdout.write).toHaveBeenCalledWith(ansi.cursorBack(2));
     });
     
     it('should control cursor visibility', () => {
       const stream = new NodeTerminalStream();
-      const cursor = new Cursor(stream);
+      const cursor = new CursorImpl((data) => stream.write(data));
       
       cursor.hide();
       expect(mockStdout.write).toHaveBeenCalledWith(ansi.cursorHide());
@@ -186,7 +189,7 @@ describe('Basic Functionality Integration', () => {
     
     it('should save and restore position', () => {
       const stream = new NodeTerminalStream();
-      const cursor = new Cursor(stream);
+      const cursor = new CursorImpl((data) => stream.write(data));
       
       cursor.save();
       expect(mockStdout.write).toHaveBeenCalledWith(ansi.cursorSave());
@@ -389,10 +392,10 @@ describe('Basic Functionality Integration', () => {
     });
     
     it('should generate color sequences', () => {
-      expect(ansi.fg(1)).toBe('\x1b[31m'); // Red
-      expect(ansi.bg(4)).toBe('\x1b[44m'); // Blue
-      expect(ansi.fg256(123)).toBe('\x1b[38;5;123m');
-      expect(ansi.bg256(200)).toBe('\x1b[48;5;200m');
+      expect(ansi.fgColor(1)).toBe('\x1b[31m'); // Red
+      expect(ansi.bgColor(4)).toBe('\x1b[44m'); // Blue
+      expect(ansi.fgColor256(123)).toBe('\x1b[38;5;123m');
+      expect(ansi.bgColor256(200)).toBe('\x1b[48;5;200m');
       expect(ansi.fgRGB(255, 128, 0)).toBe('\x1b[38;2;255;128;0m');
       expect(ansi.bgRGB(0, 128, 255)).toBe('\x1b[48;2;0;128;255m');
     });
@@ -409,7 +412,7 @@ describe('Basic Functionality Integration', () => {
       await terminal.init();
       
       // Clear screen
-      terminal.clear();
+      terminal.screen.clear();
       
       // Write styled header
       const headerStyle = terminal.styles.builder()

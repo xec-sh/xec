@@ -4,6 +4,7 @@
  */
 
 import { ansi } from './ansi.js';
+import { CircularBuffer } from './circular-buffer.js';
 import { MouseButton, MouseAction } from '../types.js';
 
 import type {
@@ -386,6 +387,7 @@ class InputParser {
 export class InputImpl implements Input {
   private terminalStream: TerminalStream;
   private parser = new InputParser();
+  private circularBuffer: CircularBuffer;
   private _mouseEnabled = false;
   private _keyboardEnabled = true;
   private _bracketedPasteEnabled = false;
@@ -394,6 +396,11 @@ export class InputImpl implements Input {
 
   constructor(stream: TerminalStream) {
     this.terminalStream = stream;
+    // Initialize circular buffer with 1MB limit for input data
+    this.circularBuffer = new CircularBuffer({
+      maxSize: 1024 * 1024, // 1MB should be plenty for terminal input
+      overflowStrategy: 'drop-oldest' // Drop old input if buffer fills
+    });
   }
 
   // ============================================================================
@@ -412,9 +419,8 @@ export class InputImpl implements Input {
         yield chunk;
       }
     } else {
-      // Fall back to event-based reading for Node.js
+      // Fall back to event-based reading for Node.js with circular buffer
       const stdin = this.terminalStream.stdin as NodeJS.ReadStream;
-      const chunks: Buffer[] = [];
       let resolve: ((value: Buffer | null) => void) | null = null;
       
       // Set up data listener
@@ -423,7 +429,8 @@ export class InputImpl implements Input {
           resolve(chunk);
           resolve = null;
         } else {
-          chunks.push(chunk);
+          // Use circular buffer instead of unbounded array
+          this.circularBuffer.write(chunk);
         }
       };
       
@@ -444,19 +451,19 @@ export class InputImpl implements Input {
       
       try {
         while (!this.closed) {
-          // Check if there are buffered chunks
-          if (chunks.length > 0) {
-            const chunk = chunks.shift()!;
-            yield new Uint8Array(chunk);
+          // Check if there's data in the circular buffer
+          const buffered = this.circularBuffer.read();
+          if (buffered) {
+            yield new Uint8Array(buffered);
           } else {
             // Wait for next chunk
             const chunk = await new Promise<Buffer | null>((res) => {
               resolve = res;
               // Check again if data arrived while setting up promise
-              if (chunks.length > 0) {
-                const buffered = chunks.shift()!;
+              const immediateData = this.circularBuffer.read();
+              if (immediateData) {
                 resolve = null;
-                res(buffered);
+                res(immediateData);
               }
             });
             
@@ -587,6 +594,8 @@ export class InputImpl implements Input {
     this.disableMouse();
     this.disableBracketedPaste();
     this.disableFocusTracking();
+    // Clear circular buffer to free memory
+    this.circularBuffer.clear();
   }
 }
 

@@ -3,9 +3,6 @@
  * High-level functionality built on top of core terminal primitives
  */
 
-// ============================================================================
-// State Management
-// ============================================================================
 
 import {
   batch,
@@ -23,7 +20,7 @@ export {
   onMount,
   cleanup,
   onCleanup,
-  
+
   type Store,
   createMemo,
   // Types
@@ -38,9 +35,6 @@ export {
   type WritableSignal
 } from './state.js';
 
-// ============================================================================
-// Animation
-// ============================================================================
 
 import { animationEngine } from './animation.js';
 
@@ -51,7 +45,7 @@ export {
   consoleInterceptor,
   type ConsoleMessage,
   type ConsoleMethods,
-  
+
   type MessageHandler,
   createConsoleMessage,
   // Types
@@ -59,10 +53,6 @@ export {
   // Functions
   createConsoleInterceptor
 } from './console.js';
-
-// ============================================================================
-// Layout
-// ============================================================================
 
 import { layoutEngine } from './layout.js';
 
@@ -73,9 +63,9 @@ export {
   animate,
   sequence,
   parallel,
-  
+
   type Animation,
-  
+
   animationEngine,
   type SpringOptions,
   type EasingFunction,
@@ -85,10 +75,6 @@ export {
   // Functions
   createAnimationEngine
 } from './animation.js';
-
-// ============================================================================
-// Rendering
-// ============================================================================
 
 import { renderEngine } from './rendering.js';
 
@@ -105,22 +91,18 @@ export {
   createDrawable,
   type DrawContext,
   type ScreenPatch,
-  
+
   // Types
   type RenderEngine,
-  
+
   type BatchContext,
-  
+
   type RenderMetrics,
   type FrameCallback,
   // Functions
   createRenderEngine,
   type RenderOperation
 } from './rendering.js';
-
-// ============================================================================
-// Console Interception
-// ============================================================================
 
 import { consoleInterceptor } from './console.js';
 
@@ -139,23 +121,19 @@ export {
   type MemoryInfo,
   type ProfileData,
   type ProfileMark,
-  
+
   type CallTreeNode,
   performanceMonitor,
   type ProfileMeasure,
   type ThresholdEvent,
   type ThresholdConfig,
-  
+
   type ThresholdHandler,
   // Types
   type PerformanceMonitor,
   // Functions
   createPerformanceMonitor
 } from './performance.js';
-
-// ============================================================================
-// Performance Monitoring
-// ============================================================================
 
 import { performanceMonitor } from './performance.js';
 
@@ -180,11 +158,11 @@ export {
   createWrapLayout,
   // Types
   type LayoutEngine,
-  
+
   type GridAutoFlow,
-  
+
   type DockPosition,
-  
+
   createStackLayout,
   type LayoutOptions,
   type FlexDirection,
@@ -195,10 +173,6 @@ export {
   createAbsoluteLayout,
   type LayoutConstraints
 } from './layout.js';
-
-// ============================================================================
-// Composite Exports
-// ============================================================================
 
 /**
  * Create a complete advanced terminal application context
@@ -215,19 +189,19 @@ export function createAdvancedContext() {
       untrack,
       batch
     },
-    
+
     // Animation
     animation: animationEngine,
-    
+
     // Layout
     layout: layoutEngine,
-    
+
     // Rendering
     render: renderEngine,
-    
+
     // Console
     console: consoleInterceptor,
-    
+
     // Performance
     performance: performanceMonitor
   };

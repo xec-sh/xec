@@ -25,7 +25,7 @@ export class SnapshotManager {
 
   constructor(snapshotDir?: string | SnapshotOptions) {
     this.adapter = getAdapter();
-    
+
     // Handle both old and new constructor signatures
     if (typeof snapshotDir === 'string') {
       this.snapshotDir = snapshotDir;
@@ -50,7 +50,7 @@ export class SnapshotManager {
   /**
    * Configure the snapshot manager
    */
-  configure(options: Partial<SnapshotOptions> & { 
+  configure(options: Partial<SnapshotOptions> & {
     stripAnsi?: boolean;
     trim?: boolean;
   }): void {
@@ -67,7 +67,7 @@ export class SnapshotManager {
     if (options.format !== undefined) {
       this.options.format = options.format;
     }
-    
+
     // Add stripAnsi and trim to diffOptions if provided
     if (options.stripAnsi !== undefined && this.options.diffOptions) {
       this.options.diffOptions.ignoreAnsi = options.stripAnsi;
@@ -82,7 +82,7 @@ export class SnapshotManager {
    */
   createSnapshot(capture: ScreenCapture, name?: string): Snapshot {
     const snapshotName = name || `snapshot-${++this.snapshotCounter}`;
-    
+
     const snapshot: Snapshot = {
       id: this.generateSnapshotId(snapshotName),
       name: snapshotName,
@@ -92,7 +92,7 @@ export class SnapshotManager {
         format: this.options.format
       }
     };
-    
+
     this.snapshots.set(snapshot.id, snapshot);
     return snapshot;
   }
@@ -106,14 +106,14 @@ export class SnapshotManager {
     testPath?: string
   ): Promise<{ pass: boolean; message?: string; diff?: string }> {
     const snapshotPath = this.getSnapshotPath(snapshotName, testPath);
-    
+
     try {
       // Try to load existing snapshot
       const existingSnapshot = await this.loadSnapshot(snapshotPath);
-      
+
       // Compare captures
       const pass = this.compareCaptures(capture, existingSnapshot.capture);
-      
+
       if (!pass) {
         const diff = this.generateDiff(capture, existingSnapshot.capture);
         return {
@@ -122,7 +122,7 @@ export class SnapshotManager {
           diff
         };
       }
-      
+
       return { pass: true };
     } catch (error) {
       // Snapshot doesn't exist
@@ -130,7 +130,7 @@ export class SnapshotManager {
         // Create new snapshot
         const snapshot = this.createSnapshot(capture, snapshotName);
         await this.saveSnapshot(snapshot, snapshotPath);
-        
+
         return {
           pass: true,
           message: `New snapshot created for "${snapshotName}"`
@@ -152,16 +152,18 @@ export class SnapshotManager {
     switch (this.options.format) {
       case 'ansi':
         return compareScreens(actual.raw, expected.raw, this.options.diffOptions);
-      
+
       case 'text':
         return compareScreens(actual.text, expected.text, this.options.diffOptions);
-      
+
       case 'json':
       default:
         // Compare normalized text for JSON format
-        const actualNorm = normalizeText(actual.text, this.options.diffOptions);
-        const expectedNorm = normalizeText(expected.text, this.options.diffOptions);
-        return actualNorm === expectedNorm;
+        {
+          const actualNorm = normalizeText(actual.text, this.options.diffOptions);
+          const expectedNorm = normalizeText(expected.text, this.options.diffOptions);
+          return actualNorm === expectedNorm;
+        }
     }
   }
 
@@ -171,7 +173,7 @@ export class SnapshotManager {
   generateDiff(actual: ScreenCapture, expected: ScreenCapture): string {
     const actualText = this.options.format === 'ansi' ? actual.raw : actual.text;
     const expectedText = this.options.format === 'ansi' ? expected.raw : expected.text;
-    
+
     return screenDiff(actualText, expectedText);
   }
 
@@ -180,29 +182,29 @@ export class SnapshotManager {
    */
   async saveSnapshot(snapshot: Snapshot, path?: string): Promise<void> {
     const snapshotPath = path || this.getSnapshotPath(snapshot.name);
-    
+
     // Ensure directory exists
     const dir = snapshotPath.substring(0, snapshotPath.lastIndexOf('/'));
     await this.adapter.mkdir(dir, { recursive: true });
-    
+
     // Prepare snapshot data based on format
     let content: string;
-    
+
     switch (this.options.format) {
       case 'text':
         content = snapshot.capture.text;
         break;
-      
+
       case 'ansi':
         content = snapshot.capture.raw;
         break;
-      
+
       case 'json':
       default:
         content = JSON.stringify(snapshot, null, 2);
         break;
     }
-    
+
     await this.adapter.writeFile(snapshotPath, content);
   }
 
@@ -211,9 +213,9 @@ export class SnapshotManager {
    */
   async loadSnapshot(path: string): Promise<Snapshot> {
     const content = await this.adapter.readFile(path);
-    
+
     let snapshot: Snapshot;
-    
+
     switch (this.options.format) {
       case 'text':
       case 'ansi':
@@ -231,13 +233,13 @@ export class SnapshotManager {
           }
         };
         break;
-      
+
       case 'json':
       default:
         snapshot = JSON.parse(content);
         break;
     }
-    
+
     this.snapshots.set(snapshot.id, snapshot);
     return snapshot;
   }
@@ -256,15 +258,15 @@ export class SnapshotManager {
    */
   async removeSnapshot(snapshotName: string, testPath?: string): Promise<void> {
     const snapshotPath = this.getSnapshotPath(snapshotName, testPath);
-    
+
     // Remove from memory
     const snapshot = Array.from(this.snapshots.values())
       .find(s => s.name === snapshotName);
-    
+
     if (snapshot) {
       this.snapshots.delete(snapshot.id);
     }
-    
+
     // Remove file if exists
     if (await this.adapter.exists(snapshotPath)) {
       await this.adapter.exec(`rm "${snapshotPath}"`);
@@ -279,7 +281,7 @@ export class SnapshotManager {
     const result = await this.adapter.exec(
       `find "${this.options.snapshotDir}" -name "*${extension}" 2>/dev/null || true`
     );
-    
+
     return result.stdout
       .split('\n')
       .filter(line => line.trim())
@@ -291,7 +293,7 @@ export class SnapshotManager {
    */
   async clearSnapshots(): Promise<void> {
     this.snapshots.clear();
-    
+
     if (await this.adapter.exists(this.options.snapshotDir)) {
       await this.adapter.exec(`rm -rf "${this.options.snapshotDir}"`);
     }
@@ -321,7 +323,7 @@ export class SnapshotManager {
   async save(name: string, content: string): Promise<void> {
     const sanitizedName = this.sanitizeName(name);
     const filePath = `${this.snapshotDir}/${sanitizedName}.snap`;
-    
+
     // Ensure directory exists
     await this.adapter.mkdir(this.snapshotDir, { recursive: true });
     await this.adapter.writeFile(filePath, content);
@@ -343,31 +345,31 @@ export class SnapshotManager {
   /**
    * Compare two snapshots
    */
-  async compare(name1: string, name2: string): Promise<{ 
-    identical: boolean; 
+  async compare(name1: string, name2: string): Promise<{
+    identical: boolean;
     differences: Array<{ line: number; expected?: string; actual?: string }>;
     error?: string;
   }> {
     const content1 = await this.load(name1);
     const content2 = await this.load(name2);
-    
+
     if (content1 === null || content2 === null) {
-      return { 
-        identical: false, 
+      return {
+        identical: false,
         differences: [],
         error: `Snapshot does not exist: ${content1 === null ? name1 : name2}`
       };
     }
-    
+
     const lines1 = content1.split('\n');
     const lines2 = content2.split('\n');
     const differences: Array<{ line: number; expected?: string; actual?: string }> = [];
     const maxLines = Math.max(lines1.length, lines2.length);
-    
+
     for (let i = 0; i < maxLines; i++) {
       const line1 = lines1[i];
       const line2 = lines2[i];
-      
+
       if (line1 !== line2) {
         differences.push({
           line: i + 1,
@@ -376,10 +378,10 @@ export class SnapshotManager {
         });
       }
     }
-    
-    return { 
-      identical: differences.length === 0, 
-      differences 
+
+    return {
+      identical: differences.length === 0,
+      differences
     };
   }
 
@@ -392,33 +394,33 @@ export class SnapshotManager {
   }): Promise<{ identical: boolean; match?: boolean; diff?: string }> {
     const content1 = await this.load(name1);
     const content2 = await this.load(name2);
-    
+
     if (content1 === null || content2 === null) {
       return { identical: false, match: false, diff: `Snapshot does not exist: ${content1 === null ? name1 : name2}` };
     }
-    
+
     let normalized1 = content1;
     let normalized2 = content2;
-    
+
     if (options.ignoreWhitespace) {
       normalized1 = normalized1.replace(/\s+/g, ' ').trim();
       normalized2 = normalized2.replace(/\s+/g, ' ').trim();
     }
-    
+
     if (options.ignoreAnsi) {
       // Remove ANSI escape codes
       const ansiRegex = /\x1b\[[0-9;]*m/g;
       normalized1 = normalized1.replace(ansiRegex, '');
       normalized2 = normalized2.replace(ansiRegex, '');
     }
-    
+
     const match = normalized1 === normalized2;
-    
+
     if (!match) {
       const diff = this.createDiff(normalized2, normalized1);
       return { identical: false, match: false, diff };
     }
-    
+
     return { identical: true, match: true };
   }
 
@@ -429,7 +431,7 @@ export class SnapshotManager {
     try {
       const sanitizedName = this.sanitizeName(name);
       const filePath = `${this.snapshotDir}/${sanitizedName}.snap`;
-      
+
       if (await this.adapter.exists(filePath)) {
         await this.adapter.exec(`rm "${filePath}"`);
         return true;
@@ -464,11 +466,11 @@ export class SnapshotManager {
       if (!await this.adapter.exists(this.snapshotDir)) {
         return [];
       }
-      
+
       const result = await this.adapter.exec(
         `find "${this.snapshotDir}" -name "*.snap" 2>/dev/null || true`
       );
-      
+
       const files = result.stdout
         .split('\n')
         .filter(line => line.trim() && line.endsWith('.snap'))
@@ -476,12 +478,12 @@ export class SnapshotManager {
           const filename = path.substring(path.lastIndexOf('/') + 1);
           return filename.replace('.snap', '');
         });
-      
+
       if (pattern) {
         const regex = new RegExp(pattern);
         return files.filter(name => regex.test(name));
       }
-      
+
       return files;
     } catch (error) {
       return [];
@@ -500,11 +502,11 @@ export class SnapshotManager {
    */
   async needsUpdate(name: string, content: string): Promise<boolean> {
     const existing = await this.load(name);
-    
+
     if (existing === null) {
       return true; // Snapshot doesn't exist, needs creation
     }
-    
+
     return existing !== content;
   }
 
@@ -519,10 +521,10 @@ export class SnapshotManager {
         timestamp: Date.now()
       }
     }, null, 2);
-    
+
     const sanitizedName = this.sanitizeName(name);
     const filePath = `${this.snapshotDir}/${sanitizedName}.snap`;
-    
+
     await this.adapter.mkdir(this.snapshotDir, { recursive: true });
     await this.adapter.writeFile(filePath, data);
   }
@@ -535,7 +537,7 @@ export class SnapshotManager {
       const sanitizedName = this.sanitizeName(name);
       const filePath = `${this.snapshotDir}/${sanitizedName}.snap`;
       const data = await this.adapter.readFile(filePath);
-      
+
       try {
         const parsed = JSON.parse(data);
         if (parsed.content !== undefined) {
@@ -558,7 +560,7 @@ export class SnapshotManager {
   async format(name: string): Promise<string | null> {
     const content = await this.load(name);
     if (!content) return null;
-    
+
     const lines = content.split('\n');
     return lines.map((line, i) => `${i + 1}: ${line}`).join('\n');
   }
@@ -569,13 +571,13 @@ export class SnapshotManager {
   async formatWithOptions(name: string, options: { lineNumbers?: boolean; colors?: boolean }): Promise<string | null> {
     const content = await this.load(name);
     if (!content) return null;
-    
+
     const lines = content.split('\n');
-    
+
     if (options.lineNumbers) {
       return lines.map((line, i) => `${(i + 1).toString().padStart(3, ' ')} | ${line}`).join('\n');
     }
-    
+
     return content;
   }
 
@@ -585,11 +587,11 @@ export class SnapshotManager {
   async diff(name1: string, name2: string): Promise<string | null> {
     const content1 = await this.load(name1);
     const content2 = await this.load(name2);
-    
+
     if (!content1 || !content2) {
       return null;
     }
-    
+
     return this.createDiff(content1, content2);
   }
 
@@ -613,11 +615,11 @@ export class SnapshotManager {
     const actualLines = actual.split('\n');
     const maxLines = Math.max(expectedLines.length, actualLines.length);
     const diff: string[] = [];
-    
+
     for (let i = 0; i < maxLines; i++) {
       const expectedLine = expectedLines[i];
       const actualLine = actualLines[i];
-      
+
       if (expectedLine !== actualLine) {
         if (expectedLine !== undefined) {
           diff.push(`-${expectedLine}`);
@@ -627,7 +629,7 @@ export class SnapshotManager {
         }
       }
     }
-    
+
     return diff.join('\n');
   }
 
@@ -639,13 +641,13 @@ export class SnapshotManager {
 
   private getSnapshotPath(snapshotName: string, testPath?: string): string {
     const extension = this.getFileExtension();
-    
+
     if (testPath) {
       // Use test file path to organize snapshots
       const testDir = testPath.substring(0, testPath.lastIndexOf('/'));
       const testFile = testPath.substring(testPath.lastIndexOf('/') + 1);
       const testName = testFile.replace(/\.(test|spec)\.(ts|js)$/, '');
-      
+
       return `${testDir}/__snapshots__/${testName}.${snapshotName}${extension}`;
     } else {
       return `${this.options.snapshotDir}/${snapshotName}${extension}`;

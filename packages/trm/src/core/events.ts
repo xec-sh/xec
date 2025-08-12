@@ -3,6 +3,7 @@
  * Type-safe event system for terminal events
  */
 
+import { BoundedQueue } from './bounded-queue.js';
 import type { Disposable, EventEmitter } from '../types.js';
 
 /**
@@ -184,9 +185,19 @@ export class TypedEventEmitter<T extends Record<string, any[]>> implements Event
    * Create an async iterator for events
    */
   async *iterate<K extends keyof T>(event: K): AsyncIterableIterator<T[K]> {
-    const queue: T[K][] = [];
+    // Use bounded queue to prevent unbounded memory growth
+    const queue = new BoundedQueue<T[K]>({
+      maxSize: 100, // Reasonable limit for event queue
+      overflowStrategy: 'drop-oldest',
+      onOverflow: (_dropped) => {
+        // Optionally log or handle dropped events
+        // Note: We can't emit errors here as 'error' may not be in T
+        // Just silently drop the oldest events
+      }
+    });
+    
     let resolve: ((value: IteratorResult<T[K]>) => void) | null = null;
-    const disposed = false;
+    let disposed = false;
 
     const handler = (...args: T[K]) => {
       if (resolve) {
@@ -201,11 +212,18 @@ export class TypedEventEmitter<T extends Record<string, any[]>> implements Event
 
     try {
       while (!disposed) {
-        if (queue.length > 0) {
-          yield queue.shift()!;
+        const item = queue.shift();
+        if (item !== undefined) {
+          yield item;
         } else {
           const result = await new Promise<IteratorResult<T[K]>>((r) => {
             resolve = r;
+            // Check if data arrived while setting up promise
+            const immediate = queue.shift();
+            if (immediate !== undefined) {
+              resolve = null;
+              r({ value: immediate, done: false });
+            }
           });
           
           if (result.done) {
@@ -216,7 +234,9 @@ export class TypedEventEmitter<T extends Record<string, any[]>> implements Event
         }
       }
     } finally {
+      disposed = true;
       disposable.dispose();
+      queue.clear();
     }
   }
 

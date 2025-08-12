@@ -4,17 +4,17 @@
  * Simple test application for terminal integration tests
  */
 
-// Simple console output for testing
+// Simple console output with ANSI codes for testing
 console.log('TRM Test Application');
 console.log('====================');
 console.log('');
-console.log('Red Text');
-console.log('Green Text');
-console.log('Blue Text');
+console.log('\x1b[31mRed Text\x1b[0m');
+console.log('\x1b[32mGreen Text\x1b[0m');
+console.log('\x1b[34mBlue Text\x1b[0m');
 console.log('');
-console.log('Bold Text');
-console.log('Italic Text');
-console.log('Underlined Text');
+console.log('\x1b[1mBold Text\x1b[0m');
+console.log('\x1b[3mItalic Text\x1b[0m');
+console.log('\x1b[4mUnderlined Text\x1b[0m');
 console.log('');
 console.log('Cursor Position Test');
 console.log('');
@@ -26,29 +26,38 @@ console.log('Press q to quit');
 if (process.stdin.isTTY) {
   process.stdin.setRawMode(true);
   process.stdin.on('data', (chunk) => {
+    const bytes = [...chunk];
     const char = chunk.toString();
     
-    if (char === 'q' || char === '\x03') { // q or Ctrl+C
-      console.log('');
-      process.exit(0);
-    } else if (char === '\x1b[A') { // Up arrow
-      console.log('Moved Up');
-    } else if (char === '\x1b[B') { // Down arrow
-      console.log('Moved Down');
-    } else if (char === '\x1b[D') { // Left arrow
-      console.log('Moved Left');
-    } else if (char === '\x1b[C') { // Right arrow
-      console.log('Moved Right');
-    } else if (char === '\r' || char === '\n') { // Enter
-      console.log('Key pressed: Enter');
-    } else if (char === '\t') { // Tab
-      console.log('Key pressed: Tab');
-    } else if (char === '\x1b') { // Escape
-      console.log('Key pressed: Escape');
-    } else if (char === '\x01') { // Ctrl+A
-      console.log('Ctrl+A');
-    } else {
-      console.log(`Key pressed: ${char}`);
+    // Handle single byte characters
+    if (bytes.length === 1) {
+      const code = bytes[0];
+      if (code === 113 || code === 81) { // 'q' or 'Q'
+        console.log('');
+        process.exit(0);
+      } else if (code === 3) { // Ctrl+C
+        console.log('');
+        process.exit(0);
+      } else if (code === 13) { // Enter
+        console.log('Key pressed: Enter');
+      } else if (code === 9) { // Tab
+        console.log('Key pressed: Tab');
+      } else if (code === 27) { // Escape
+        console.log('Key pressed: Escape');
+      } else if (code === 1) { // Ctrl+A
+        console.log('Ctrl+A');
+      } else {
+        console.log(`Key pressed: ${char}`);
+      }
+    }
+    // Handle arrow keys (3-byte escape sequences)
+    else if (bytes.length === 3 && bytes[0] === 27 && bytes[1] === 91) {
+      switch(bytes[2]) {
+        case 65: console.log('Moved Up'); break;
+        case 66: console.log('Moved Down'); break;
+        case 67: console.log('Moved Right'); break;
+        case 68: console.log('Moved Left'); break;
+      }
     }
   });
 }
@@ -68,7 +77,12 @@ function simulateMouseEvent(x, y) {
 // Export for potential external use
 module.exports = { simulateMouseEvent };
 
-// Keep alive for 30 seconds in TTY mode, otherwise exit quickly
+// Keep process alive
+// Use setInterval instead of setTimeout to keep the event loop active
+const keepAlive = setInterval(() => {}, 1000);
+
+// Exit after 30 seconds for safety
 setTimeout(() => {
+  clearInterval(keepAlive);
   process.exit(0);
-}, process.stdin.isTTY ? 30000 : 1000);
+}, 30000);
