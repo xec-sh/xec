@@ -6,17 +6,17 @@
 import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { ansi } from '../../src/core/ansi.js';
+import { ColorDepth } from '../../src/types.js';
 import { InputImpl } from '../../src/core/input.js';
 import { ScreenImpl } from '../../src/core/screen.js';
 import { CursorImpl } from '../../src/core/cursor.js';
-import { TerminalImpl } from '../../src/core/terminal.js';
 import { ColorSystem } from '../../src/core/color.js';
 import { StylesImpl } from '../../src/core/styles.js';
-import { NodeTerminalStream } from '../../src/core/stream.js';
+import { TerminalImpl } from '../../src/core/terminal.js';
 import { TypedEventEmitter } from '../../src/core/events.js';
+import { NodeTerminalStream } from '../../src/core/stream.js';
 import { ScreenBufferImpl, BufferManagerImpl } from '../../src/core/buffer.js';
 import { isTTY, detectPlatform, getColorSupport, getTerminalSize } from '../../src/core/platform.js';
-import { ColorDepth } from '../../src/types.js';
 
 import type { 
   X, 

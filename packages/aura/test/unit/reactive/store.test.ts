@@ -205,77 +205,89 @@ describe('Store', () => {
 
   describe('Subscriptions', () => {
     it('should notify subscribers on changes', () => {
-      const s = store({
-        count: 0,
-        name: 'test'
+      createRoot(d => {
+        dispose = d;
+        
+        const s = store({
+          count: 0,
+          name: 'test'
+        });
+        
+        let callCount = 0;
+        let lastState: any = null;
+        
+        const unsubscribe = s.subscribe(state => {
+          callCount++;
+          lastState = state;
+        });
+        
+        s.set('count', 10);
+        expect(lastState).toEqual({ count: 10, name: 'test' });
+        
+        s.set('name', 'updated');
+        expect(lastState).toEqual({ count: 10, name: 'updated' });
+        
+        expect(callCount).toBe(2);
+        
+        unsubscribe();
+        
+        s.set('count', 20);
+        expect(callCount).toBe(2); // No more calls
       });
-      
-      let callCount = 0;
-      let lastState: any = null;
-      
-      const unsubscribe = s.subscribe(state => {
-        callCount++;
-        lastState = state;
-      });
-      
-      s.set('count', 10);
-      expect(lastState).toEqual({ count: 10, name: 'test' });
-      
-      s.set('name', 'updated');
-      expect(lastState).toEqual({ count: 10, name: 'updated' });
-      
-      expect(callCount).toBe(2);
-      
-      unsubscribe();
-      
-      s.set('count', 20);
-      expect(callCount).toBe(2); // No more calls
     });
 
     it('should handle multiple subscribers', () => {
-      const s = store({ value: 0 });
-      
-      let count1 = 0, count2 = 0, count3 = 0;
-      let last1: any, last2: any, last3: any;
-      
-      const unsub1 = s.subscribe(state => { count1++; last1 = state; });
-      const unsub2 = s.subscribe(state => { count2++; last2 = state; });
-      const unsub3 = s.subscribe(state => { count3++; last3 = state; });
-      
-      s.set('value', 10);
-      
-      expect(last1).toEqual({ value: 10 });
-      expect(last2).toEqual({ value: 10 });
-      expect(last3).toEqual({ value: 10 });
-      
-      unsub2();
-      
-      s.set('value', 20);
-      
-      expect(count1).toBe(2);
-      expect(count2).toBe(1); // Unsubscribed
-      expect(count3).toBe(2);
-      
-      unsub1();
-      unsub3();
+      createRoot(d => {
+        dispose = d;
+        
+        const s = store({ value: 0 });
+        
+        let count1 = 0, count2 = 0, count3 = 0;
+        let last1: any, last2: any, last3: any;
+        
+        const unsub1 = s.subscribe(state => { count1++; last1 = state; });
+        const unsub2 = s.subscribe(state => { count2++; last2 = state; });
+        const unsub3 = s.subscribe(state => { count3++; last3 = state; });
+        
+        s.set('value', 10);
+        
+        expect(last1).toEqual({ value: 10 });
+        expect(last2).toEqual({ value: 10 });
+        expect(last3).toEqual({ value: 10 });
+        
+        unsub2();
+        
+        s.set('value', 20);
+        
+        expect(count1).toBe(2);
+        expect(count2).toBe(1); // Unsubscribed
+        expect(count3).toBe(2);
+        
+        unsub1();
+        unsub3();
+      });
     });
 
     it('should provide immutable state to subscribers', () => {
-      const s = store({
-        data: { nested: 'value' }
+      createRoot(d => {
+        dispose = d;
+        
+        const s = store({
+          data: { nested: 'value' }
+        });
+        
+        let receivedState: any;
+        s.subscribe(state => {
+          receivedState = state;
+        });
+        
+        s.set('data', { nested: 'updated' });
+        
+        // Modifying received state shouldn't affect store
+        receivedState.data = { nested: 'modified' };
+        
+        expect(s.get('data')).toEqual({ nested: 'updated' });
       });
-      
-      let receivedState: any;
-      s.subscribe(state => {
-        receivedState = state;
-      });
-      
-      s.set('data', { nested: 'updated' });
-      
-      // Modifying received state shouldn't affect store
-      receivedState.data = { nested: 'modified' };
-      
-      expect(s.get('data')).toEqual({ nested: 'updated' });
     });
   });
 
@@ -640,21 +652,25 @@ describe('Store', () => {
 
   describe('Edge cases', () => {
     it('should handle empty store', () => {
-      const s = store({});
-      
-      // Should work even with no properties
-      let callCount = 0;
-      let lastState: any = null;
-      s.subscribe(state => {
-        callCount++;
-        lastState = state;
+      createRoot(d => {
+        dispose = d;
+        
+        const s = store({});
+        
+        // Should work even with no properties
+        let callCount = 0;
+        let lastState: any = null;
+        s.subscribe(state => {
+          callCount++;
+          lastState = state;
+        });
+        
+        // Add property dynamically
+        (s as any).set('newProp', 'value');
+        
+        expect(callCount).toBe(1);
+        expect(lastState).toHaveProperty('newProp', 'value');
       });
-      
-      // Add property dynamically
-      (s as any).set('newProp', 'value');
-      
-      expect(callCount).toBe(1);
-      expect(lastState).toHaveProperty('newProp', 'value');
     });
 
     it('should handle null and undefined values', () => {

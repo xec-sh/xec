@@ -7,7 +7,7 @@
 import type { Signal, WritableSignal } from '../../types/reactive.js';
 
 export type { WritableSignal };
-import { context, ComputationImpl, queueSubscriberNotification } from './context.js';
+import { context, ComputationImpl, incrementUpdateVersion, queueSubscriberNotification } from './context.js';
 
 /**
  * Default equality check
@@ -34,18 +34,18 @@ class SignalImpl<T> {
     this.equals = options?.equals || defaultEquals;
   }
 
-  // Getter - tracks dependencies
+  // Getter - tracks dependencies  
   call(): T {
     // Track dependency if we're in a computation
     context.tracking.track(this as any);
-    
+
     // Add current computation as subscriber
     const computation = context.tracking.computation;
     if (computation instanceof ComputationImpl) {
       this.computations.add(computation);
       computation.addDependency(this as any);
     }
-    
+
     return this.value;
   }
 
@@ -63,7 +63,7 @@ class SignalImpl<T> {
   subscribe(fn: (value: T) => void): () => void {
     const wrapper = () => fn(this.value);
     this.subscribers.add(wrapper);
-    
+
     // Return unsubscribe function
     return () => {
       this.subscribers.delete(wrapper);
@@ -72,13 +72,15 @@ class SignalImpl<T> {
 
   // Set value
   set(value: T | ((prev: T) => T)): void {
-    const newValue = typeof value === 'function' 
+    const newValue = typeof value === 'function'
       ? (value as (prev: T) => T)(this.value)
       : value;
-    
+
     if (!this.equals(this.value, newValue)) {
       this.value = newValue;
       this.version++;
+      // Increment update version for new update cycle
+      incrementUpdateVersion();
       this.notify();
     }
   }
@@ -97,11 +99,37 @@ class SignalImpl<T> {
 
   // Notify all subscribers
   private notify(): void {
-    // Notify computations first (they may update other signals)
-    for (const computation of this.computations) {
-      computation.invalidate();
+    // First, collect all computations to invalidate
+    const computationsToInvalidate = Array.from(this.computations);
+    
+    // For synchronous computations (computed values), we need to mark them all as stale first
+    // before any of them start propagating invalidation to prevent diamond dependency issues
+    const syncComputations = [];
+    const asyncComputations = [];
+    
+    for (const computation of computationsToInvalidate) {
+      if ((computation as any).synchronous) {
+        syncComputations.push(computation);
+      } else {
+        asyncComputations.push(computation);
+      }
     }
     
+    // First pass: Mark all sync computations as stale without propagating
+    for (const computation of syncComputations) {
+      // For computed values, we need to mark them stale directly
+      // This is a bit of a hack but necessary for diamond dependencies
+      const computedInternal = (computation as any).__computed;
+      if (computedInternal && typeof computedInternal.markStaleWithoutPropagation === 'function') {
+        computedInternal.markStaleWithoutPropagation();
+      }
+    }
+    
+    // Second pass: Now propagate invalidation for all computations
+    for (const computation of computationsToInvalidate) {
+      computation.invalidate();
+    }
+
     // Then notify regular subscribers
     for (const subscriber of this.subscribers) {
       queueSubscriberNotification(subscriber);
@@ -112,7 +140,7 @@ class SignalImpl<T> {
   removeComputation(computation: ComputationImpl): void {
     this.computations.delete(computation);
   }
-  
+
   // Get computations for debugging
   getComputations(): Set<ComputationImpl> {
     return this.computations;
@@ -127,7 +155,7 @@ export function signal<T>(
   options?: { equals?: (a: T, b: T) => boolean }
 ): WritableSignal<T> {
   const s = new SignalImpl(initial, options);
-  
+
   // Create callable interface
   const callable = Object.assign(
     () => s.call(),
@@ -139,12 +167,15 @@ export function signal<T>(
       mutate: (fn: (value: T) => void) => s.mutate(fn)
     }
   );
-  
+
+  // Store the internal signal instance for cleanup purposes
+  (callable as any).__internal = s;
+
   // Add debug representation
   Object.defineProperty(callable, Symbol.for('nodejs.util.inspect.custom'), {
     value: () => `Signal(${JSON.stringify(s.peek())})`
   });
-  
+
   return callable as WritableSignal<T>;
 }
 
@@ -159,7 +190,7 @@ export function readonly<T>(signal: WritableSignal<T>): Signal<T> {
       subscribe: (fn: (value: T) => void) => signal.subscribe(fn)
     }
   );
-  
+
   return readonlySignal as Signal<T>;
 }
 

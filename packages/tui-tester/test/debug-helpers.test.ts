@@ -1,6 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { it, expect, describe, afterEach } from 'vitest';
+
 import { createTester } from '../src/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
