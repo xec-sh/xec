@@ -1,4 +1,0 @@
-[test]
-preload = ["./test/setup.ts"]
-coverage = true
-coverageThreshold = { line = 0.9 }

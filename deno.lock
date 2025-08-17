@@ -131,6 +131,18 @@
           ]
         }
       },
+      "packages/aura": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@types/node@24.2.1",
+            "npm:@vitest/coverage-v8@3.2.4",
+            "npm:@vitest/ui@3.2.4",
+            "npm:rimraf@6.0.1",
+            "npm:typescript@5.9.2",
+            "npm:vitest@3.2.4"
+          ]
+        }
+      },
       "packages/core": {
         "packageJson": {
           "dependencies": [
@@ -170,22 +182,6 @@
             "npm:tsx@^4.20.3",
             "npm:typescript@^5.9.2",
             "npm:vitest@^3.2.4"
-          ]
-        }
-      },
-      "packages/terex": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/debug@4",
-            "npm:@types/node@24.2.1",
-            "npm:@vitest/coverage-v8@^3.2.4",
-            "npm:@vitest/ui@3.2.4",
-            "npm:debug@^4.4.1",
-            "npm:eslint@9.32.0",
-            "npm:prettier@3.6.2",
-            "npm:tsup@8.5.0",
-            "npm:typescript@5.9.2",
-            "npm:vitest@3.2.4"
           ]
         }
       },
