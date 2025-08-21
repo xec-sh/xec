@@ -118,8 +118,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     if (firstArg && !firstArg.startsWith('-') && firstArg !== 'help') {
       // Check if first argument is a file
       const potentialFile = firstArg;
-      if (potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') ||
-        potentialFile.endsWith('.mjs')) {
+      if (potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') || potentialFile.endsWith('.mjs')) {
         // Run as script
         const scriptArgs = args.slice(1);
         await runScriptDirectly(potentialFile, scriptArgs, {});

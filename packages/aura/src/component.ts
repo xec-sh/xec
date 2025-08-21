@@ -2,6 +2,7 @@ import { EventEmitter } from "events"
 import Yoga, { Edge, Display, Direction, type Config, FlexDirection } from "yoga-layout"
 
 import { MouseEvent } from "./renderer/renderer.js"
+import { MouseEventType } from "./lib/parse.mouse.js"
 import { OptimizedBuffer } from "./renderer/buffer.js"
 import { getKeyHandler, type KeyHandler } from "./lib/key-handler.js"
 import { TrackedNode, createTrackedNode } from "./lib/tracked-node.js"
@@ -29,6 +30,11 @@ export enum LayoutEvents {
 export enum RenderableEvents {
   FOCUSED = "focused",
   BLURRED = "blurred",
+}
+
+export interface RootContext {
+  requestLive(): void
+  dropLive(): void
 }
 
 export interface Position {
@@ -72,7 +78,20 @@ export interface ComponentProps extends Partial<LayoutProps> {
   height?: number | "auto" | `${number}%`
   zIndex?: number
   visible?: boolean
-  buffered?: boolean
+  buffered?: boolean;
+  live?: boolean
+
+  onMouseDown?: (event: MouseEvent) => void
+  onMouseUp?: (event: MouseEvent) => void
+  onMouseMove?: (event: MouseEvent) => void
+  onMouseDrag?: (event: MouseEvent) => void
+  onMouseDragEnd?: (event: MouseEvent) => void
+  onMouseDrop?: (event: MouseEvent) => void
+  onMouseOver?: (event: MouseEvent) => void
+  onMouseOut?: (event: MouseEvent) => void
+  onMouseScroll?: (event: MouseEvent) => void
+
+  onKeyDown?: (key: ParsedKey) => void
 }
 
 let componentNumber = 1
@@ -126,6 +145,10 @@ export function isPositionType(value: any): value is number | "auto" | `${number
   return isValidPercentage(value)
 }
 
+export function isPostionTypeType(value: any): value is PositionTypeString {
+  return value === "relative" || value === "absolute"
+}
+
 export function isDimensionType(value: any): value is number | "auto" | `${number}%` {
   return isPositionType(value)
 }
@@ -160,8 +183,8 @@ export abstract class Component extends EventEmitter {
   private _y: number = 0
   protected _width: number | "auto" | `${number}%`
   protected _height: number | "auto" | `${number}%`
-  private _widthValue: number = 0
-  private _heightValue: number = 0
+  protected _widthValue: number = 0
+  protected _heightValue: number = 0
   private _zIndex: number
   protected _visible: boolean
   public selectable: boolean = false
@@ -172,7 +195,12 @@ export abstract class Component extends EventEmitter {
   protected focusable: boolean = false
   protected _focused: boolean = false
   protected keyHandler: KeyHandler = getKeyHandler()
-  protected keypressHandler: ((key: ParsedKey) => void) | null = null
+  protected keypressHandler: ((key: ParsedKey) => void) | null = null;
+  private _live: boolean = false
+  protected _liveCount: number = 0
+
+  private _mouseListeners: Partial<Record<MouseEventType, (event: MouseEvent) => void>> = {}
+  private _keyListeners: Partial<Record<"down", (key: ParsedKey) => void>> = {}
 
   protected layoutNode: TrackedNode
   protected _positionType: PositionTypeString = "relative"
@@ -210,10 +238,14 @@ export abstract class Component extends EventEmitter {
     this._zIndex = options.zIndex ?? 0;
     this._visible = options.visible !== false;
     this.buffered = options.buffered ?? false;
+    this._live = options.live ?? false
+    this._liveCount = this._live && this._visible ? 1 : 0
 
     this.layoutNode = createTrackedNode({ renderable: this } as any);
     this.layoutNode.yogaNode.setDisplay(this._visible ? Display.Flex : Display.None);
     this.setupYogaProperties(options);
+
+    this.applyEventOptions(options);
 
     if (this.buffered) {
       this.createFrameBuffer();
@@ -225,8 +257,20 @@ export abstract class Component extends EventEmitter {
   }
 
   public set visible(value: boolean) {
+    if (this._visible === value) return
+
+    const wasVisible = this._visible
     this._visible = value
-    this.layoutNode.yogaNode.setDisplay(value ? Display.Flex : Display.None)
+    this.layoutNode.yogaNode.setDisplay(value ? Display.Flex : Display.None);
+
+    if (this._live) {
+      if (!wasVisible && value) {
+        this.propagateLiveCount(1)
+      } else if (wasVisible && !value) {
+        this.propagateLiveCount(-1)
+      }
+    }
+
     if (this._focused) {
       this.blur()
     }
@@ -258,6 +302,7 @@ export abstract class Component extends EventEmitter {
     this.needsUpdate()
 
     this.keypressHandler = (key: ParsedKey) => {
+      this._keyListeners["down"]?.(key)
       if (this.handleKeyPress) {
         this.handleKeyPress(key)
       }
@@ -283,6 +328,30 @@ export abstract class Component extends EventEmitter {
 
   public get focused(): boolean {
     return this._focused
+  }
+
+  public get live(): boolean {
+    return this._live
+  }
+
+  public get liveCount(): number {
+    return this._liveCount
+  }
+
+  public set live(value: boolean) {
+    if (this._live === value) return
+
+    this._live = value
+
+    if (this._visible) {
+      const delta = value ? 1 : -1
+      this.propagateLiveCount(delta)
+    }
+  }
+
+  protected propagateLiveCount(delta: number): void {
+    this._liveCount += delta
+    this.parent?.propagateLiveCount(delta)
   }
 
   public handleKeyPress?(key: ParsedKey | string): boolean
@@ -454,7 +523,7 @@ export abstract class Component extends EventEmitter {
       this.layoutNode.setHeight(options.height)
     }
 
-    this._positionType = options.position ?? "relative"
+    this._positionType = options.position === "absolute" ? "absolute" : "relative"
     if (this._positionType !== "relative") {
       node.setPositionType(parsePositionType(this._positionType))
     }
@@ -530,7 +599,7 @@ export abstract class Component extends EventEmitter {
   }
 
   set position(positionType: PositionTypeString) {
-    if (this._positionType === positionType) return
+    if (!isPostionTypeType(positionType) || this._positionType === positionType) return
 
     this._positionType = positionType
     this.layoutNode.yogaNode.setPositionType(parsePositionType(positionType))
@@ -839,6 +908,10 @@ export abstract class Component extends EventEmitter {
     this.needsZIndexSort = true
     this.componentMap.set(obj.id, obj)
 
+    if (obj._liveCount > 0) {
+      this.propagateLiveCount(obj._liveCount)
+    }
+
     this.requestLayout()
 
     this.emit("child:added", obj)
@@ -881,6 +954,10 @@ export abstract class Component extends EventEmitter {
     if (this.componentMap.has(id)) {
       const obj = this.componentMap.get(id)
       if (obj) {
+        if (obj._liveCount > 0) {
+          this.propagateLiveCount(-obj._liveCount)
+        }
+
         const childLayoutNode = obj.getLayoutNode()
         this.layoutNode.removeChild(childLayoutNode)
         this.requestLayout()
@@ -973,7 +1050,9 @@ export abstract class Component extends EventEmitter {
   }
 
   public processMouseEvent(event: MouseEvent): void {
+    this._mouseListeners[event.type]?.(event)
     this.onMouseEvent(event)
+
     if (this.parent && !event.defaultPrevented) {
       this.parent.processMouseEvent(event)
     }
@@ -983,14 +1062,82 @@ export abstract class Component extends EventEmitter {
     // Default implementation: do nothing
     // Override this method to provide custom event handling
   }
+
+  public set onMouseDown(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["down"] = handler
+    else delete this._mouseListeners["down"]
+  }
+
+  public set onMouseUp(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["up"] = handler
+    else delete this._mouseListeners["up"]
+  }
+
+  public set onMouseMove(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["move"] = handler
+    else delete this._mouseListeners["move"]
+  }
+
+  public set onMouseDrag(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["drag"] = handler
+    else delete this._mouseListeners["drag"]
+  }
+
+  public set onMouseDragEnd(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["drag-end"] = handler
+    else delete this._mouseListeners["drag-end"]
+  }
+
+  public set onMouseDrop(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["drop"] = handler
+    else delete this._mouseListeners["drop"]
+  }
+
+  public set onMouseOver(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["over"] = handler
+    else delete this._mouseListeners["over"]
+  }
+
+  public set onMouseOut(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["out"] = handler
+    else delete this._mouseListeners["out"]
+  }
+
+  public set onMouseScroll(handler: ((event: MouseEvent) => void) | undefined) {
+    if (handler) this._mouseListeners["scroll"] = handler
+    else delete this._mouseListeners["scroll"]
+  }
+
+  public set onKeyDown(handler: ((key: ParsedKey) => void) | undefined) {
+    if (handler) this._keyListeners["down"] = handler
+    else delete this._keyListeners["down"]
+  }
+  public get onKeyDown(): ((key: ParsedKey) => void) | undefined {
+    return this._keyListeners["down"]
+  }
+
+  private applyEventOptions(options: ComponentProps): void {
+    if (options.onMouseDown) this.onMouseDown = options.onMouseDown
+    if (options.onMouseUp) this.onMouseUp = options.onMouseUp
+    if (options.onMouseMove) this.onMouseMove = options.onMouseMove
+    if (options.onMouseDrag) this.onMouseDrag = options.onMouseDrag
+    if (options.onMouseDragEnd) this.onMouseDragEnd = options.onMouseDragEnd
+    if (options.onMouseDrop) this.onMouseDrop = options.onMouseDrop
+    if (options.onMouseOver) this.onMouseOver = options.onMouseOver
+    if (options.onMouseOut) this.onMouseOut = options.onMouseOut
+    if (options.onMouseScroll) this.onMouseScroll = options.onMouseScroll
+    if (options.onKeyDown) this.onKeyDown = options.onKeyDown
+  }
 }
 
 export class RootComponent extends Component {
-  private yogaConfig: Config
+  private yogaConfig: Config;
+  private rootContext: RootContext;
 
-  constructor(width: number, height: number, ctx: RenderContext) {
+  constructor(width: number, height: number, ctx: RenderContext, rootContext: RootContext) {
     super("__root__", { zIndex: 0, visible: true, width, height, enableLayout: true })
-    this.ctx = ctx
+    this.ctx = ctx;
+    this.rootContext = rootContext;
 
     this.yogaConfig = Yoga.Config.create()
     this.yogaConfig.setUseWebDefaults(false)
@@ -1012,14 +1159,25 @@ export class RootComponent extends Component {
     this.needsUpdate()
   }
 
+  protected propagateLiveCount(delta: number): void {
+    const oldCount = this._liveCount
+    this._liveCount += delta
+
+    if (oldCount === 0 && this._liveCount > 0) {
+      this.rootContext.requestLive()
+    } else if (oldCount > 0 && this._liveCount === 0) {
+      this.rootContext.dropLive()
+    }
+  }
+
   public calculateLayout(): void {
     this.layoutNode.yogaNode.calculateLayout(this.width, this.height, Direction.LTR)
     this.emit(LayoutEvents.LAYOUT_CHANGED)
   }
 
   public resize(width: number, height: number): void {
-    this.layoutNode.setWidth(width)
-    this.layoutNode.setHeight(height)
+    this.width = width
+    this.height = height
 
     this.emit(LayoutEvents.RESIZED, { width, height })
   }

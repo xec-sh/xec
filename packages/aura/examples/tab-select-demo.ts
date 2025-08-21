@@ -5,12 +5,12 @@ import {
   t,
   fg,
   bold,
+  TabsComponent,
   GroupComponent,
+  type TabsOption,
   RenderableEvents,
   type CliRenderer,
   createCliRenderer,
-  TabsComponent,
-  type TabsOption,
   TabSelectComponentEvents,
 } from "../src/index"
 

@@ -1,14 +1,10 @@
-import { RGBA } from "../types.js"
+import { RGBA } from "../lib/colors.js"
 import { type Pointer, type RenderLib, resolveRenderLib } from "./native.js"
 import { type BorderStyle, type BorderSides, BorderCharArrays } from "../lib/border.js"
 
 import type { TextBuffer } from "./text-buffer.js"
 
 let fbIdCounter = 0
-
-function isRGBAWithAlpha(color: RGBA): boolean {
-  return color.a < 1.0
-}
 
 // Pack drawing options into a single u32
 // bits 0-3: borderSides, bit 4: shouldFill, bits 5-6: titleAlignment
@@ -41,33 +37,6 @@ function packDrawOptions(
   packed |= alignment << 5
 
   return packed
-}
-
-function blendColors(overlay: RGBA, text: RGBA): RGBA {
-  const [overlayR, overlayG, overlayB, overlayA] = overlay.buffer
-  const [textR, textG, textB, textA] = text.buffer
-
-  if (overlayA === 1.0) {
-    return overlay
-  }
-
-  const alpha = overlayA
-
-  let perceptualAlpha: number
-
-  if (alpha > 0.8) {
-    const normalizedHighAlpha = (alpha - 0.8) * 5.0
-    const curvedHighAlpha = Math.pow(normalizedHighAlpha, 0.2)
-    perceptualAlpha = 0.8 + curvedHighAlpha * 0.2
-  } else {
-    perceptualAlpha = Math.pow(alpha, 0.9)
-  }
-
-  const r = overlayR * perceptualAlpha + textR * (1 - perceptualAlpha)
-  const g = overlayG * perceptualAlpha + textG * (1 - perceptualAlpha)
-  const b = overlayB * perceptualAlpha + textB * (1 - perceptualAlpha)
-
-  return RGBA.fromValues(r, g, b, textA)
 }
 
 export class OptimizedBuffer {

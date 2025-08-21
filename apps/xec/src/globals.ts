@@ -85,8 +85,8 @@ declare global {
   const setEnv: typeof import('./utils/script-utils.js').setEnv;
   const tmpdir: typeof import('./utils/script-utils.js').tmpdir;
   const spinner: typeof import('./utils/script-utils.js').spinner;
-  // Note: 'confirm' conflicts with the global browser confirm, but we're in Node context
-  const confirm: typeof import('./utils/script-utils.js').confirm;
+  // Renamed to avoid conflict with global confirm
+  const xecConfirm: typeof import('./utils/script-utils.js').confirm;
   const tmpfile: typeof import('./utils/script-utils.js').tmpfile;
   const loadEnv: typeof import('./utils/script-utils.js').loadEnv;
   const question: typeof import('./utils/script-utils.js').question;

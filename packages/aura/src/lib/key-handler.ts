@@ -1,6 +1,6 @@
 import { EventEmitter } from "events"
 
-import { parseKeypress } from "./parse.keypress"
+import { parseKeypress } from "./parse.keypress.js"
 
 export class KeyHandler extends EventEmitter {
   constructor() {

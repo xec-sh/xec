@@ -1,8 +1,8 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import {
   BoxComponent,
-  TextAttributes,
   TextComponent,
+  TextAttributes,
   GroupComponent,
   createCliRenderer,
 } from "../src/index"

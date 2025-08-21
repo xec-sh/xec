@@ -171,7 +171,7 @@ export class ConfigurationManager {
    */
   async useProfile(profileName: string): Promise<void> {
     this.options.profile = profileName;
-    await jsYaml.load();
+    await this.load();
   }
 
   /**

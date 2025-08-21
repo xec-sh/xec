@@ -281,34 +281,42 @@ impl CliRenderer {
         // Disable mouse tracking first
         self.disable_mouse();
         
-        // Clear any pending output
-        self.stdout_writer.flush().ok();
-        
-        // Reset cursor style
-        self.stdout_writer.write_all(ANSI::DEFAULT_CURSOR_STYLE.as_bytes()).ok();
-        
         if use_alternate_screen {
             // Switch back to main screen
             self.stdout_writer.write_all(ANSI::SWITCH_TO_MAIN_SCREEN.as_bytes()).ok();
-        } else if split_height > 0 {
-            // Clear renderer space for split mode
+            self.stdout_writer.flush().ok();
+        } else if split_height == 0 {
+            // Clear full terminal height when not in split mode
             let mut clear_output = String::new();
-            ANSI::clear_renderer_space_output(&mut clear_output, split_height).ok();
+            ANSI::clear_renderer_space_output(&mut clear_output, self.height).ok();
             self.stdout_writer.write_all(clear_output.as_bytes()).ok();
             
-            // Move cursor to bottom
+            // Move cursor to top
             let mut move_output = String::new();
-            ANSI::move_to_output(&mut move_output, 1, split_height).ok();
+            ANSI::move_to_output(&mut move_output, 1, 1).ok();
             self.stdout_writer.write_all(move_output.as_bytes()).ok();
+        } else {
+            // When split_height > 0, let TypeScript handle the clearing
+            // This matches the original Zig implementation comment:
+            // "Currently still handled in typescript"
         }
         
-        // Reset cursor color
+        // Reset terminal state
+        self.stdout_writer.write_all(ANSI::RESET.as_bytes()).ok();
         self.stdout_writer.write_all(ANSI::RESET_CURSOR_COLOR.as_bytes()).ok();
+        self.stdout_writer.write_all(ANSI::RESTORE_CURSOR_STATE.as_bytes()).ok();
+        self.stdout_writer.write_all(ANSI::DEFAULT_CURSOR_STYLE.as_bytes()).ok();
         
         // Show cursor
         self.stdout_writer.write_all(ANSI::SHOW_CURSOR.as_bytes()).ok();
         
+        // Workaround for Ghostty not showing the cursor after shutdown
+        // (matching the original Zig implementation)
         self.stdout_writer.flush().ok();
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        self.stdout_writer.write_all(ANSI::SHOW_CURSOR.as_bytes()).ok();
+        self.stdout_writer.flush().ok();
+        std::thread::sleep(std::time::Duration::from_millis(10));
     }
     
     #[inline]

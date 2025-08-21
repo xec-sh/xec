@@ -1,7 +1,7 @@
-import { Component } from ".."
-import { fonts, coordinateToCharacterIndex } from "./ascii.font"
+import { Component } from "../component.js"
+import { fonts, coordinateToCharacterIndex } from "./ascii.font.js"
 
-import type { SelectionState } from "../types"
+import type { SelectionState } from "../types.js"
 
 export class Selection {
   private _anchor: { x: number; y: number }

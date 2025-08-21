@@ -1,4 +1,4 @@
-import type { ColorInput } from "../types"
+import type { ColorInput } from "./colors.js"
 
 export interface BorderCharacters {
   topLeft: string
@@ -115,11 +115,11 @@ export function getBorderSides(border: boolean | BorderSides[]): BorderSidesConf
     ? { top: true, right: true, bottom: true, left: true }
     : Array.isArray(border)
       ? {
-          top: border.includes("top"),
-          right: border.includes("right"),
-          bottom: border.includes("bottom"),
-          left: border.includes("left"),
-        }
+        top: border.includes("top"),
+        right: border.includes("right"),
+        bottom: border.includes("bottom"),
+        left: border.includes("left"),
+      }
       : { top: false, right: false, bottom: false, left: false }
 }
 

@@ -1,7 +1,7 @@
 import { StyledText } from "./styled-text.js"
 import { createTextAttributes } from "../utils.js"
 
-import type { RGBA } from "../types.js"
+import type { RGBA } from "./colors.js"
 import type { TextChunk } from "../renderer/text-buffer.js"
 
 export interface HASTText {

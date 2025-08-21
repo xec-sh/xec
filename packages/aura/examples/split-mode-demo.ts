@@ -352,16 +352,16 @@ export function run(rendererInstance: CliRenderer): void {
   console.log(`Test output running at ${testOutputInterval}ms intervals (use M/L to adjust speed)`)
   console.log(`Mouse functionality: ${rendererInstance.useMouse ? "enabled" : "disabled"} (use U to toggle)`)
 
-  let messageCount = 0
+  const messageCount = 0
 
   const startTestOutput = () => {
     if (outputTimer) {
       clearInterval(outputTimer)
     }
-    outputTimer = setInterval(() => {
-      messageCount++
-      console.log(`Test output ${messageCount}: This should appear above the renderer and scroll naturally`)
-    }, testOutputInterval)
+    // outputTimer = setInterval(() => {
+    //   messageCount++
+    //   console.log(`Test output ${messageCount}: This should appear above the renderer and scroll naturally`)
+    // }, testOutputInterval)
   }
 
   startTestOutput()

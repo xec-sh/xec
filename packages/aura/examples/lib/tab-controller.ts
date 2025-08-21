@@ -1,11 +1,10 @@
-import { parseColor } from "../../src/utils.js"
 import { OptimizedBuffer } from "../../src/renderer/buffer.js"
 import { GroupComponent } from "../../src/components/index.js"
-import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
+import { parseColor, type ColorInput } from "../../src/lib/colors.js"
 import { TabsComponent, TabSelectComponentEvents } from "../../src/components/tabs.js"
+import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
 
-import type { ColorInput } from "../../src/types.js"
-import type { CliRenderer, TabsOption } from "../../src/index.js"
+import type { TabsOption, CliRenderer } from "../../src/index.js"
 
 export interface TabObject {
   title: string

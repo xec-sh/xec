@@ -1,8 +1,7 @@
-import { parseColor } from "../utils.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component.js"
+import { type RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
-import type { RGBA, ColorInput } from "../types.js"
 import type { ParsedKey } from "../lib/parse.keypress.js"
 
 export interface TabsOption {

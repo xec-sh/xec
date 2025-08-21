@@ -23,7 +23,7 @@ import SSH2, {
   UNIXConnectionDetails,
 } from 'ssh2'
 
-import { escapeUnix } from '../../utils/shell-escape'
+import { escapeUnix } from '../../utils/shell-escape.js'
 
 export type Config = ConnectConfig & {
   password?: string

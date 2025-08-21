@@ -1,8 +1,7 @@
-import { RGBA } from "../types.js"
-import { OptimizedBuffer } from "./buffer.js"
+import { RGBA } from "../lib/colors.js"
 import { TextBuffer } from "./text-buffer.js"
-
-import type { CursorStyle, DebugOverlayCorner } from "../types.js"
+import { OptimizedBuffer } from "./buffer.js";
+import { CursorStyle, DebugOverlayCorner } from "../types.js"
 
 export type Pointer = any;
 

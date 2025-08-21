@@ -77,15 +77,17 @@ export class ModuleLoader {
     try {
       const scriptUtils = await import('./script-utils.js');
 
-      // Make all utilities globally available
-      Object.assign(globalThis, scriptUtils.default);
+      // Make all utilities globally available, but rename confirm to xecConfirm
+      const { confirm, ...otherUtils } = scriptUtils.default;
+      Object.assign(globalThis, otherUtils);
+      Object.assign(globalThis, { xecConfirm: confirm });
 
       // Ensure individual utilities are also available
       Object.assign(globalThis, {
         $: scriptUtils.$,
         log: scriptUtils.log,
         question: scriptUtils.question,
-        confirm: scriptUtils.confirm,
+        xecConfirm: scriptUtils.confirm,
         select: scriptUtils.select,
         multiselect: scriptUtils.multiselect,
         password: scriptUtils.password,

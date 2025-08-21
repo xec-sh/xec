@@ -4,10 +4,9 @@ import path from "node:path"
 import { EventEmitter } from "events"
 import { Console } from "node:console"
 
-import { RGBA } from "../../types"
-import { parseColor } from "../../utils"
-import { OptimizedBuffer } from "../buffer"
-import { Capture, CapturedWritableStream } from "./output-capture"
+import { OptimizedBuffer } from "../buffer.js"
+import { RGBA, parseColor } from "../../lib/colors.js"
+import { Capture, CapturedWritableStream } from "./output-capture.js"
 
 import type { ColorInput, CliRenderer } from "../.."
 
