@@ -1,6 +1,6 @@
 {
   "env": {
-    "PATH": "/Users/taaliman/.nvm/versions/node/v22.18.0/bin:/Users/taaliman/.deno/bin:/Users/taaliman/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+    "PATH": "/Users/taaliman/.cargo/bin:/Users/taaliman/.nvm/versions/node/v22.18.0/bin:/Users/taaliman/.deno/bin:/Users/taaliman/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
   },
   "includeCoAuthoredBy": false
 }

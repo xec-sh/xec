@@ -1,0 +1,52 @@
+{
+  "name": "@xec-sh/aura-next",
+  "description": "Aura Next is a TypeScript library for building terminal user interfaces (TUIs)",
+  "types": "src/index.ts",
+  "module": "src/index.ts",
+  "main": "dist/index.js",
+  "version": "0.1.2",
+  "type": "module",
+  "scripts": {
+    "build": "bun run build:lib",
+    "build:lib": "node scripts/build.mjs --lib",
+    "pack": "node scripts/pack.mjs",
+    "pack:verbose": "node scripts/pack.mjs --verbose",
+    "publish": "node scripts/publish.mjs",
+    "test": "bun test",
+    "prettier:write": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "build:dev": "cd zig && zig build -Doptimize=Debug",
+    "build:prod": "cd zig && zig build -Doptimize=ReleaseFast"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xec-sh/xec",
+    "directory": "packages/aura-next"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "commander": "14.0.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "prettier": {
+    "semi": false,
+    "printWidth": 120
+  },
+  "dependencies": {
+    "vibrancy": "^0.2.1",
+    "yoga-layout": "3.2.1"
+  },
+  "optionalDependencies": {
+    "ffi-rs": "^1.3.0",
+    "koffi": "2.14.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.2.0"
+  }
+}

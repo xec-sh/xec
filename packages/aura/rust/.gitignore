@@ -1,0 +1,75 @@
+# Файлы и каталоги, создаваемые Cargo
+/target/
+**/target/
+
+# Файлы зависимостей
+Cargo.lock
+
+# Файлы сборки и временные файлы
+*.rs.bk
+*.swp
+*.swo
+*.tmp
+
+# Файлы IDE и редакторов
+.idea/
+.vscode/
+*.code-workspace
+
+# Файлы тестов и покрытия
+/coverage/
+*.profraw
+
+# Логи
+*.log
+
+# Артефакты clippy и rustfmt
+clippy.lints
+rustfmt.toml
+
+# Файлы, связанные с системой
+.DS_Store
+Thumbs.db
+
+# Файлы, связанные с Windows
+*.exe
+*.pdb
+*.dll
+
+# Файлы, связанные с Unix
+*.so
+
+# Файлы, связанные с MacOS
+*.dylib
+
+# Файлы, связанные с документацией
+/target/doc/
+
+# Файлы, связанные с кэшем
+/.cargo/
+.cargo/
+
+# Файлы, связанные с тестами
+*.gcda
+*.gcno
+*.gcov
+
+# Файлы, связанные с профилированием
+*.profdata
+*.prof
+
+# Файлы, связанные с cbindgen
+cbindgen.toml
+
+# Файлы, связанные с bindgen
+bindgen.rs
+
+# Файлы, связанные с wasm
+*.wasm
+
+# Файлы, связанные с node_modules (если используется wasm-pack или nodejs)
+node_modules/
+
+# Файлы, связанные с Python (если используются скрипты)
+__pycache__/
+*.pyc
