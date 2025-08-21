@@ -1,5 +1,5 @@
-import { parseColor } from "../utils"
-import { RGBA, type SelectionState } from "../types"
+import { SelectionState } from "../types.js"
+import { RGBA, parseColor } from "../lib/colors.js"
 import { FrameBufferComponent } from "./frame-buffer"
 import { ASCIIFontSelectionHelper } from "../lib/selection"
 import { type fonts, measureText, getCharacterPositions, renderFontToFrameBuffer } from "../lib/ascii.font"

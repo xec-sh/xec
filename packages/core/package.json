@@ -50,7 +50,8 @@
     "docker:start": "./test/helpers/docker-ssh-manager.sh start",
     "docker:stop": "./test/helpers/docker-ssh-manager.sh stop",
     "docker:status": "./test/helpers/docker-ssh-manager.sh status",
-    "docker:test": "./test/helpers/docker-ssh-manager.sh test"
+    "docker:test": "./test/helpers/docker-ssh-manager.sh test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "is-stream": "4.0.1",

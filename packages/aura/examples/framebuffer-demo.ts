@@ -4,8 +4,8 @@ import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import {
   RGBA,
   CliRenderer,
-  TextAttributes,
   TextComponent,
+  TextAttributes,
   GroupComponent,
   createCliRenderer,
   FrameBufferComponent,

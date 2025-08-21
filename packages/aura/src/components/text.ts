@@ -1,12 +1,12 @@
 import { MeasureMode } from "yoga-layout"
 
-import { parseColor } from "../utils.js"
-import { RGBA, type SelectionState } from "../types.js"
+import { RGBA, parseColor } from "../lib/colors.js"
 import { TextBuffer } from "../renderer/text-buffer.js"
 import { TextSelectionHelper } from "../lib/selection.js"
 import { Component, type ComponentProps } from "../component.js"
 import { StyledText, stringToStyledText } from "../lib/styled-text.js"
 
+import type { SelectionState } from "../types"
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 
 export interface TextProps extends ComponentProps {
@@ -43,9 +43,8 @@ export class TextComponent extends Component {
       () => this._lineInfo,
     )
 
-    if (options.content) {
-      this._text = typeof options.content === "string" ? stringToStyledText(options.content) : options.content
-    }
+    const content = options.content ?? ""
+    this._text = typeof content === "string" ? stringToStyledText(content) : content
     this._defaultFg = options.fg ? parseColor(options.fg) : RGBA.fromValues(1, 1, 1, 1)
     this._defaultBg = options.bg ? parseColor(options.bg) : RGBA.fromValues(0, 0, 0, 0)
     this._defaultAttributes = options.attributes ?? 0
@@ -59,8 +58,8 @@ export class TextComponent extends Component {
     this.textBuffer.setDefaultBg(this._defaultBg)
     this.textBuffer.setDefaultAttributes(this._defaultAttributes)
 
-    this.updateTextInfo()
     this.setupMeasureFunc()
+    this.updateTextInfo()
   }
 
   get content(): StyledText {
@@ -132,56 +131,57 @@ export class TextComponent extends Component {
     this._lineInfo.lineWidths = lineInfo.lineWidths
 
     const numLines = this._lineInfo.lineStarts.length
-    if (this._height === "auto") {
-      this.height = numLines
+    if (this._positionType === "absolute" && this._height === "auto") {
+      this._heightValue = numLines
+      this.layoutNode.yogaNode.markDirty()
     }
 
     const maxLineWidth = Math.max(...this._lineInfo.lineWidths)
     if (this._positionType === "absolute" && this._width === "auto") {
-      this.width = maxLineWidth
+      this._widthValue = maxLineWidth
+      this.layoutNode.yogaNode.markDirty()
     }
 
     const changed = this.selectionHelper.reevaluateSelection(this.width, this.height)
     if (changed) {
       this.syncSelectionToTextBuffer()
     }
+
     this.needsUpdate()
   }
 
   private setupMeasureFunc(): void {
-    if (this._positionType === "relative" && this._width === "auto") {
-      const measureFunc = (
-        width: number,
-        widthMode: MeasureMode,
-        height: number,
-        heightMode: MeasureMode,
-      ): { width: number; height: number } => {
-        const maxLineWidth = Math.max(...this._lineInfo.lineWidths, 0)
-        const numLines = this._lineInfo.lineStarts.length || 1
+    const measureFunc = (
+      width: number,
+      widthMode: MeasureMode,
+      height: number,
+      heightMode: MeasureMode,
+    ): { width: number; height: number } => {
+      const maxLineWidth = Math.max(...this._lineInfo.lineWidths, 0)
+      const numLines = this._lineInfo.lineStarts.length || 1
 
-        let measuredWidth = maxLineWidth
-        let measuredHeight = numLines
+      let measuredWidth = maxLineWidth
+      let measuredHeight = numLines
 
-        if (widthMode === MeasureMode.Exactly) {
-          measuredWidth = width
-        } else if (widthMode === MeasureMode.AtMost) {
-          measuredWidth = Math.min(maxLineWidth, width)
-        }
-
-        if (heightMode === MeasureMode.Exactly) {
-          measuredHeight = height
-        } else if (heightMode === MeasureMode.AtMost) {
-          measuredHeight = Math.min(numLines, height)
-        }
-
-        return {
-          width: Math.max(1, measuredWidth),
-          height: Math.max(1, measuredHeight),
-        }
+      if (widthMode === MeasureMode.Exactly) {
+        measuredWidth = width
+      } else if (widthMode === MeasureMode.AtMost) {
+        measuredWidth = Math.min(maxLineWidth, width)
       }
 
-      this.layoutNode.yogaNode.setMeasureFunc(measureFunc)
+      if (heightMode === MeasureMode.Exactly) {
+        measuredHeight = height
+      } else if (heightMode === MeasureMode.AtMost) {
+        measuredHeight = Math.min(numLines, height)
+      }
+
+      return {
+        width: Math.max(1, measuredWidth),
+        height: Math.max(1, measuredHeight),
+      }
     }
+
+    this.layoutNode.yogaNode.setMeasureFunc(measureFunc)
   }
 
   shouldStartSelection(x: number, y: number): boolean {

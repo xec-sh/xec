@@ -4,8 +4,9 @@
  */
 
 import { aura } from "../src/app/aura.js";
+import { RGBA } from "../src/lib/colors.js";
+import { TextAttributes } from "../src/types.js";
 import { auraApp } from "../src/app/application.js";
-import { RGBA, TextAttributes } from "../src/types.js";
 
 async function main() {
   // Test mixed component types in array

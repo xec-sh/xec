@@ -1,9 +1,9 @@
-import { parseColor } from "../utils"
+
 import { OptimizedBuffer } from "../renderer/buffer"
 import { Component, type ComponentProps } from "../component"
+import { type RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 import { fonts, measureText, renderFontToFrameBuffer } from "../lib/ascii.font"
 
-import type { RGBA, ColorInput } from "../types"
 import type { ParsedKey } from "../lib/parse.keypress"
 
 export interface SelectOption {

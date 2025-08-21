@@ -8,6 +8,7 @@ import * as consoleExample from "./console-demo"
 import * as timelineExample from "./timeline-example"
 import * as tabSelectExample from "./tab-select-demo"
 import * as splitModeExample from "./split-mode-demo"
+import * as liveStateExample from "./live-state-demo"
 import { getKeyHandler } from "../src/lib/key-handler"
 import * as transparencyDemo from "./transparency-demo"
 import * as styledTextExample from "./styled-text-demo"
@@ -78,6 +79,12 @@ const examples: Example[] = [
     description: "Convert HAST trees to syntax-highlighted text with efficient chunk generation",
     run: hastSyntaxHighlightingExample.run,
     destroy: hastSyntaxHighlightingExample.destroy,
+  },
+  {
+    name: "Live State Management Demo",
+    description: "Test automatic renderer lifecycle management with live renderables",
+    run: liveStateExample.run,
+    destroy: liveStateExample.destroy,
   },
   {
     name: "Layout System Demo",
@@ -308,7 +315,9 @@ class ExampleSelector {
       switch (key.raw) {
         case "\u0003":
           this.cleanup()
-          process.exit();
+          process.exit()
+          break
+        default:
           break
       }
     })

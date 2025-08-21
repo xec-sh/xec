@@ -1,8 +1,7 @@
 import { Edge } from "yoga-layout"
 
-import { RGBA } from "../types.js"
-import { parseColor } from "../utils.js"
 import { Component, type ComponentProps } from "../component.js"
+import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 import {
   getBorderSides,
   type BorderStyle,
@@ -12,7 +11,6 @@ import {
   type BorderSidesConfig,
 } from "../lib/index.js"
 
-import type { ColorInput } from "../types.js"
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 
 export interface BoxProps extends ComponentProps {

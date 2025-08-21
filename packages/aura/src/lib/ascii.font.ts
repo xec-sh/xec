@@ -1,4 +1,4 @@
-import { RGBA } from "../types.js"
+import { RGBA } from "./colors.js"
 import tiny from "./fonts/tiny.json"
 import block from "./fonts/block.json"
 import shade from "./fonts/shade.json"

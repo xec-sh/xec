@@ -1,4 +1,4 @@
-import { parseColor } from "../src/utils.js"
+import { parseColor } from "../src/lib/colors.js"
 import { getKeyHandler } from "../src/lib/key-handler.js"
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { SyntaxStyle, hastToStyledText, type HASTElement } from "../src/lib/hast-styled-text.js"

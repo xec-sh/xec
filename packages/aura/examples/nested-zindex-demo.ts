@@ -1,5 +1,5 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
-import { BoxComponent, TextAttributes, TextComponent, GroupComponent, createCliRenderer } from "../src/index"
+import { BoxComponent, TextComponent, TextAttributes, GroupComponent, createCliRenderer } from "../src/index"
 
 import type { CliRenderer } from "../src/index"
 

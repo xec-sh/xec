@@ -1,7 +1,6 @@
-import { RGBA } from "../types"
+import { RGBA } from "../lib/colors.js"
+import { type StyledText } from "../lib/styled-text.js"
 import { type Pointer, type RenderLib, resolveRenderLib } from "./native.js"
-
-import type { StyledText } from "../lib/styled-text"
 
 export interface TextChunk {
   __isChunk: true
