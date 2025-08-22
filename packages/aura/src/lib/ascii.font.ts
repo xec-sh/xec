@@ -1,8 +1,16 @@
 import { RGBA } from "./colors.js"
 import tiny from "./fonts/tiny.json"
+import neon from "./fonts/neon.json"
+import diam from "./fonts/diam.json"
 import block from "./fonts/block.json"
 import shade from "./fonts/shade.json"
 import slick from "./fonts/slick.json"
+import retro from "./fonts/retro.json"
+import cyber from "./fonts/cyber.json"
+import matrix from "./fonts/matrix.json"
+import braile from "./fonts/braile.json"
+import future from "./fonts/future.json"
+import cyberSmall from "./fonts/cyber-small.json"
 import { OptimizedBuffer } from "../renderer/buffer.js"
 
 /*
@@ -15,6 +23,14 @@ export const fonts = {
   block,
   shade,
   slick,
+  retro,
+  cyber,
+  neon,
+  matrix,
+  braile,
+  cyberSmall,
+  diam,
+  future,
 }
 
 type FontSegment = {

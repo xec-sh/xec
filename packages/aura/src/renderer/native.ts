@@ -395,7 +395,6 @@ export async function initializeNative() {
 
 function getOpenTUILib() {
   return dlopen(`./rust/target/release/libopentui.dylib`, {
-    // return dlopen(`./zig/lib/aarch64-macos/libopentui.dylib`, {
     // Renderer management
     createRenderer: {
       args: ["u32", "u32"],
@@ -418,7 +417,7 @@ function getOpenTUILib() {
       returns: "void",
     },
     updateStats: {
-      args: ["ptr", "f64", "u32", "f64"],
+      args: ["ptr", "f64", "u32", "f64", "f64"],
       returns: "void",
     },
     updateMemoryStats: {
@@ -684,7 +683,7 @@ export interface RenderLib {
   setUseThread: (renderer: Pointer, useThread: boolean) => void
   setBackgroundColor: (renderer: Pointer, color: RGBA) => void
   setRenderOffset: (renderer: Pointer, offset: number) => void
-  updateStats: (renderer: Pointer, time: number, fps: number, frameCallbackTime: number) => void
+  updateStats: (renderer: Pointer, time: number, fps: number, frameCallbackTime: number, animationRequestTime: number) => void
   updateMemoryStats: (renderer: Pointer, heapUsed: number, heapTotal: number, arrayBuffers: number) => void
   render: (renderer: Pointer, force: boolean) => void
   getNextBuffer: (renderer: Pointer) => OptimizedBuffer
@@ -878,8 +877,8 @@ class FFIRenderLib implements RenderLib {
     this.opentui.symbols.setRenderOffset(renderer, offset)
   }
 
-  public updateStats(renderer: Pointer, time: number, fps: number, frameCallbackTime: number) {
-    this.opentui.symbols.updateStats(renderer, time, fps, frameCallbackTime)
+  public updateStats(renderer: Pointer, time: number, fps: number, frameCallbackTime: number, animationRequestTime: number) {
+    this.opentui.symbols.updateStats(renderer, time, fps, frameCallbackTime, animationRequestTime)
   }
 
   public updateMemoryStats(renderer: Pointer, heapUsed: number, heapTotal: number, arrayBuffers: number) {

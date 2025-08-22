@@ -95,6 +95,7 @@ struct RenderStats {
     heap_total: u32,
     array_buffers: u32,
     frame_callback_time: Option<f64>,
+    animation_request_time: Option<f64>,
 }
 
 struct StatSamples {
@@ -105,6 +106,7 @@ struct StatSamples {
     stdout_write_time: Vec<f64>,
     cells_updated: Vec<u32>,
     frame_callback_time: Vec<f64>,
+    animation_request_time: Vec<f64>,
 }
 
 struct DebugOverlay {
@@ -235,6 +237,7 @@ impl CliRenderer {
                 heap_total: 0,
                 array_buffers: 0,
                 frame_callback_time: None,
+                animation_request_time: None,
             },
             
             stat_samples: StatSamples {
@@ -245,6 +248,7 @@ impl CliRenderer {
                 stdout_write_time: Vec::with_capacity(STAT_SAMPLE_CAPACITY),
                 cells_updated: Vec::with_capacity(STAT_SAMPLE_CAPACITY),
                 frame_callback_time: Vec::with_capacity(STAT_SAMPLE_CAPACITY),
+                animation_request_time: Vec::with_capacity(STAT_SAMPLE_CAPACITY),
             },
             
             last_render_time: Instant::now(),
@@ -443,13 +447,15 @@ impl CliRenderer {
         }
     }
     
-    pub fn update_stats(&mut self, time: f64, fps: u32, frame_callback_time: f64) {
+    pub fn update_stats(&mut self, time: f64, fps: u32, frame_callback_time: f64, animation_request_time: f64) {
         self.render_stats.overall_frame_time = Some(time);
         self.render_stats.fps = fps;
         self.render_stats.frame_callback_time = Some(frame_callback_time);
+        self.render_stats.animation_request_time = Some(animation_request_time);
         
         Self::add_stat_sample(&mut self.stat_samples.overall_frame_time, time);
         Self::add_stat_sample(&mut self.stat_samples.frame_callback_time, frame_callback_time);
+        Self::add_stat_sample(&mut self.stat_samples.animation_request_time, animation_request_time);
     }
     
     pub fn update_memory_stats(&mut self, heap_used: u32, heap_total: u32, array_buffers: u32) {
@@ -961,7 +967,7 @@ impl CliRenderer {
         }
         
         let width: u32 = 40;
-        let height: u32 = 11;
+        let height: u32 = 12;
         
         if self.width < width + 2 || self.height < height + 2 {
             return;
@@ -1003,6 +1009,7 @@ impl CliRenderer {
             sum / self.stat_samples.cells_updated.len() as u32
         };
         let frame_callback_time_avg = Self::get_stat_average(&self.stat_samples.frame_callback_time);
+        let animation_request_time_avg = Self::get_stat_average(&self.stat_samples.animation_request_time);
         
         // FPS
         let fps_text = format!("FPS: {}", self.render_stats.fps);
@@ -1014,6 +1021,14 @@ impl CliRenderer {
             self.render_stats.last_frame_time, last_frame_time_avg);
         unsafe { (*self.next_render_buffer).draw_text(&frame_time_text, x + 1, y + row, fg, bg, 0).ok(); }
         row += 1;
+        
+        // Animation Request Time
+        if let Some(animation_request_time) = self.render_stats.animation_request_time {
+            let animation_request_text = format!("Animation Req: {:.3}ms (avg: {:.3}ms)", 
+                animation_request_time, animation_request_time_avg);
+            unsafe { (*self.next_render_buffer).draw_text(&animation_request_text, x + 1, y + row, fg, bg, 0).ok(); }
+            row += 1;
+        }
         
         // Frame Callback Time
         if let Some(frame_callback_time) = self.render_stats.frame_callback_time {

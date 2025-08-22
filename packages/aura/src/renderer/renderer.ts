@@ -114,8 +114,8 @@ export async function createCliRenderer(config: CliRendererConfig = {}): Promise
   const renderHeight =
     config.experimental_splitHeight && config.experimental_splitHeight > 0 ? config.experimental_splitHeight : height
 
-  const ziglib = resolveRenderLib()
-  const rendererPtr = ziglib.createRenderer(width, renderHeight)
+  const nativeLib = resolveRenderLib()
+  const rendererPtr = nativeLib.createRenderer(width, renderHeight)
   if (!rendererPtr) {
     throw new Error("Failed to create renderer")
   }
@@ -128,9 +128,9 @@ export async function createCliRenderer(config: CliRendererConfig = {}): Promise
   if (process.platform === "linux") {
     config.useThread = false
   }
-  ziglib.setUseThread(rendererPtr, config.useThread)
+  nativeLib.setUseThread(rendererPtr, config.useThread)
 
-  return new Renderer(ziglib, rendererPtr, stdin, stdout, width, height, config)
+  return new Renderer(nativeLib, rendererPtr, stdin, stdout, width, height, config)
 }
 
 export enum CliRenderEvents {
@@ -1060,8 +1060,7 @@ export class Renderer extends EventEmitter {
     this.renderNative()
 
     const overallFrameTime = performance.now() - overallStart
-    // TODO: Add animationRequestTime to stats
-    this.lib.updateStats(this.rendererPtr, overallFrameTime, this.renderStats.fps, this.renderStats.frameCallbackTime)
+    this.lib.updateStats(this.rendererPtr, overallFrameTime, this.renderStats.fps, this.renderStats.frameCallbackTime, animationRequestTime)
 
     if (this.gatherStats) {
       this.collectStatSample(overallFrameTime)
