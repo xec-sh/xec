@@ -3,7 +3,7 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import {
   RGBA,
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   TextAttributes,
@@ -175,7 +175,7 @@ class ConsoleButton extends BoxComponent {
   }
 }
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   renderer.console.show()
 
@@ -262,7 +262,7 @@ export function run(renderer: CliRenderer): void {
   console.log("Console Demo initialized! Click the buttons above to test different log levels.")
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   renderer.clearFrameCallbacks()
 
   if (titleText) {

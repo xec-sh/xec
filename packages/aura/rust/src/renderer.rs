@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex, Condvar, RwLock};
 use std::thread;
 use std::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
+use once_cell::sync::Lazy;
 
 const CLEAR_CHAR: u32 = 0x0a00;
 const MAX_STAT_SAMPLES: usize = 30;
@@ -33,6 +34,16 @@ fn rgba_component_to_u8(component: f32) -> u8 {
     ((component * 255.0) + 0.5) as u8
 }
 
+#[inline(always)]
+fn rgba_to_ints(rgba: RGBA) -> [u8; 4] {
+    [
+        rgba_component_to_u8(rgba[0]),
+        rgba_component_to_u8(rgba[1]),
+        rgba_component_to_u8(rgba[2]),
+        rgba_component_to_u8(rgba[3]),
+    ]
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum CursorStyle {
     Block,
@@ -58,15 +69,17 @@ struct GlobalCursor {
     color: RGBA,
 }
 
-static mut GLOBAL_CURSOR: GlobalCursor = GlobalCursor {
-    x: DEFAULT_CURSOR_X,
-    y: DEFAULT_CURSOR_Y,
-    visible: true,
-    style: CursorStyle::Block,
-    blinking: false,
-    color: [1.0, 1.0, 1.0, 1.0],
-};
-static GLOBAL_CURSOR_MUTEX: Mutex<()> = Mutex::new(());
+// Thread-safe global cursor using RwLock
+static GLOBAL_CURSOR: Lazy<RwLock<GlobalCursor>> = Lazy::new(|| {
+    RwLock::new(GlobalCursor {
+        x: DEFAULT_CURSOR_X,
+        y: DEFAULT_CURSOR_Y,
+        visible: true,
+        style: CursorStyle::Block,
+        blinking: false,
+        color: [1.0, 1.0, 1.0, 1.0],
+    })
+});
 
 struct RenderStats {
     last_frame_time: f64,
@@ -469,10 +482,11 @@ impl CliRenderer {
             self.hit_grid_height = height;
         }
         
-        unsafe {
-            let _lock = GLOBAL_CURSOR_MUTEX.lock().unwrap();
-            GLOBAL_CURSOR.x = GLOBAL_CURSOR.x.min(width);
-            GLOBAL_CURSOR.y = GLOBAL_CURSOR.y.min(height);
+        // Update cursor position if needed (thread-safe)
+        {
+            let mut cursor = GLOBAL_CURSOR.write().unwrap();
+            cursor.x = cursor.x.min(width);
+            cursor.y = cursor.y.min(height);
         }
         
         Ok(())
@@ -736,11 +750,8 @@ impl CliRenderer {
         // Reset attributes
         output_buffer.extend_from_slice(ANSI::RESET.as_bytes());
         
-        // Handle cursor
-        let cursor = unsafe {
-            let _lock = GLOBAL_CURSOR_MUTEX.lock().unwrap();
-            GLOBAL_CURSOR.clone()
-        };
+        // Handle cursor (thread-safe read)
+        let cursor = GLOBAL_CURSOR.read().unwrap().clone();
         if cursor.visible {
             // Set cursor style
             let cursor_style_code = match (cursor.style, cursor.blinking) {
@@ -1127,14 +1138,12 @@ impl Drop for CliRenderer {
     }
 }
 
-// Global cursor functions
+// Global cursor functions (thread-safe)
 pub fn set_cursor_position_global(x: i32, y: i32, visible: bool) {
-    unsafe {
-        let _lock = GLOBAL_CURSOR_MUTEX.lock().unwrap();
-        GLOBAL_CURSOR.x = x.max(1) as u32;
-        GLOBAL_CURSOR.y = y.max(1) as u32;
-        GLOBAL_CURSOR.visible = visible;
-    }
+    let mut cursor = GLOBAL_CURSOR.write().unwrap();
+    cursor.x = x.max(1) as u32;
+    cursor.y = y.max(1) as u32;
+    cursor.visible = visible;
 }
 
 pub fn set_cursor_style_global(style: &str, blinking: bool) {
@@ -1142,20 +1151,16 @@ pub fn set_cursor_style_global(style: &str, blinking: bool) {
         return;
     }
     
-    unsafe {
-        let _lock = GLOBAL_CURSOR_MUTEX.lock().unwrap();
-        GLOBAL_CURSOR.style = match style {
-            "line" => CursorStyle::Line,
-            "underline" => CursorStyle::Underline,
-            "block" | _ => CursorStyle::Block,
-        };
-        GLOBAL_CURSOR.blinking = blinking;
-    }
+    let mut cursor = GLOBAL_CURSOR.write().unwrap();
+    cursor.style = match style {
+        "line" => CursorStyle::Line,
+        "underline" => CursorStyle::Underline,
+        "block" | _ => CursorStyle::Block,
+    };
+    cursor.blinking = blinking;
 }
 
 pub fn set_cursor_color_global(color: RGBA) {
-    unsafe {
-        let _lock = GLOBAL_CURSOR_MUTEX.lock().unwrap();
-        GLOBAL_CURSOR.color = color;
-    }
+    let mut cursor = GLOBAL_CURSOR.write().unwrap();
+    cursor.color = color;
 }

@@ -2,7 +2,7 @@
 
 import { setupCommonDemoKeys } from "./lib/standalone-keys.js"
 import { ASCIIFontComponent } from "../src/components/ascii-font.js"
-import { RGBA, CliRenderer, BoxComponent, TextComponent, GroupComponent, createCliRenderer } from "../src/index.js"
+import { RGBA, Renderer, BoxComponent, TextComponent, GroupComponent, createCliRenderer } from "../src/index.js"
 
 let mainContainer: BoxComponent | null = null
 let fontGroup: GroupComponent | null = null
@@ -14,7 +14,7 @@ let selectionEndText: TextComponent | null = null
 let debugText: TextComponent | null = null
 let allFontRenderables: ASCIIFontComponent[] = []
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.setBackgroundColor("#0d1117")
 
   mainContainer = new BoxComponent("mainContainer", {
@@ -200,7 +200,7 @@ export function run(renderer: CliRenderer): void {
   })
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   allFontRenderables = []
 
   fontGroup?.destroyRecursively()

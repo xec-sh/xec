@@ -648,7 +648,7 @@ export class WatchCommand extends ConfigAwareCommand {
         'Enter paths to watch (comma-separated):',
         {
           placeholder: './src, ./config, ./app',
-          defaultValue: '.',
+          initialValue: '.',
           validate: (value) => {
             if (!value?.trim()) {
               return 'At least one path is required';
@@ -847,7 +847,7 @@ export class WatchCommand extends ConfigAwareCommand {
         const debounceInput = await InteractiveHelpers.inputText(
           'Debounce interval (ms):',
           {
-            defaultValue: '300',
+            initialValue: '300',
             validate: (value) => {
               const num = parseInt(value, 10);
               if (isNaN(num) || num < 0) {
@@ -871,7 +871,7 @@ export class WatchCommand extends ConfigAwareCommand {
           const intervalInput = await InteractiveHelpers.inputText(
             'Polling interval (ms):',
             {
-              defaultValue: '1000',
+              initialValue: '1000',
               validate: (value) => {
                 const num = parseInt(value, 10);
                 if (isNaN(num) || num < 100) {

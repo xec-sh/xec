@@ -61,7 +61,8 @@
   },
   "dependencies": {
     "picocolors": "^1.1.1",
-    "sisteransi": "^1.0.5"
+    "sisteransi": "^1.0.5",
+    "vibrancy": "file:../../experiments/vibrancy"
   },
   "devDependencies": {
     "@types/node": "^24.2.0",

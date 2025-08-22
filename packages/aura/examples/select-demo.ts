@@ -8,14 +8,14 @@ import {
   GroupComponent,
   SelectComponent,
   RenderableEvents,
-  type CliRenderer,
+  type Renderer,
   createCliRenderer,
   type SelectOption,
   SelectComponentEvents,
 } from "../src/index"
 
 let selectElement: SelectComponent | null = null
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let keyboardHandler: ((key: any) => void) | null = null
 let keyLegendDisplay: TextComponent | null = null
 let statusDisplay: TextComponent | null = null
@@ -86,7 +86,7 @@ ${fg(lastActionColor)(lastActionText)}`
   }
 }
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
@@ -205,7 +205,7 @@ export function run(rendererInstance: CliRenderer): void {
   selectElement.focus()
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (keyboardHandler) {
     getKeyHandler().off("keypress", keyboardHandler)
     keyboardHandler = null

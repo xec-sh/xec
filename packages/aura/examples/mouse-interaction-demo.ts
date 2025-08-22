@@ -5,7 +5,7 @@ import {
   t,
   RGBA,
   engine,
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   TextAttributes,
@@ -213,7 +213,7 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
   private readonly BACKGROUND_COLOR = RGBA.fromInts(15, 15, 35, 255)
   private readonly CURSOR_COLOR = RGBA.fromInts(255, 255, 255, 255)
 
-  constructor(id: string, renderer: CliRenderer) {
+  constructor(id: string, renderer: Renderer) {
     super(id, {
       width: renderer.terminalWidth,
       height: renderer.terminalHeight,
@@ -304,7 +304,7 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
   }
 }
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   const backgroundColor = RGBA.fromInts(15, 15, 35, 255)
   renderer.setBackgroundColor(backgroundColor)
@@ -354,7 +354,7 @@ Scroll on boxes: shows direction • Escape: menu`,
   }
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   renderer.clearFrameCallbacks()
 
   if (demoContainer) {

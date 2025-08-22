@@ -7,13 +7,13 @@ import {
   createCliRenderer,
 } from "../src/index"
 
-import type { CliRenderer } from "../src/index"
+import type { Renderer } from "../src/index"
 
 let globalKeyboardHandler: ((key: Buffer) => void) | null = null
 let animationSpeed = 4000
 let animationTime = 0
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#001122")
 
@@ -285,7 +285,7 @@ export function run(renderer: CliRenderer): void {
   process.stdin.on("data", globalKeyboardHandler)
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   if (globalKeyboardHandler) {
     process.stdin.removeListener("data", globalKeyboardHandler)
     globalKeyboardHandler = null

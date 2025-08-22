@@ -9,13 +9,13 @@ import {
   GroupComponent,
   type TabsOption,
   RenderableEvents,
-  type CliRenderer,
+  type Renderer,
   createCliRenderer,
   TabSelectComponentEvents,
 } from "../src/index"
 
 let tabSelect: TabsComponent | null = null
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let keyboardHandler: ((key: any) => void) | null = null
 let parentContainer: GroupComponent | null = null
 let keyLegendDisplay: TextComponent | null = null
@@ -76,7 +76,7 @@ ${fg("#CCCCCC")(`Underline: ${underlineStatus} | Description: ${description} | S
   }
 }
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
@@ -177,7 +177,7 @@ export function run(rendererInstance: CliRenderer): void {
   tabSelect.focus()
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (keyboardHandler) {
     getKeyHandler().off("keypress", keyboardHandler)
     keyboardHandler = null

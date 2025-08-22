@@ -25,7 +25,7 @@ import { measureText, renderFontToFrameBuffer } from "../src/lib/ascii.font"
 import * as hastSyntaxHighlightingExample from "./hast-syntax-highlighting-demo"
 import {
   RGBA,
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   type ParsedKey,
@@ -39,8 +39,8 @@ import {
 interface Example {
   name: string
   description: string
-  run?: (renderer: CliRenderer) => void
-  destroy?: (renderer: CliRenderer) => void
+  run?: (renderer: Renderer) => void
+  destroy?: (renderer: Renderer) => void
 }
 
 const examples: Example[] = [
@@ -167,7 +167,7 @@ const examples: Example[] = [
 ]
 
 class ExampleSelector {
-  private renderer: CliRenderer
+  private renderer: Renderer
   private currentExample: Example | null = null
   private inMenu = true
 
@@ -177,7 +177,7 @@ class ExampleSelector {
   private selectBox: BoxComponent | null = null
   private notImplementedText: TextComponent | null = null
 
-  constructor(renderer: CliRenderer) {
+  constructor(renderer: Renderer) {
     this.renderer = renderer
     this.createStaticElements()
     this.createSelectElement()
@@ -403,7 +403,7 @@ class ExampleSelector {
 
 const renderer = await createCliRenderer({
   exitOnCtrlC: false,
-  targetFps: 30,
+  targetFps: 1000,
 })
 
 renderer.setBackgroundColor("#001122")

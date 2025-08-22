@@ -3,7 +3,7 @@ import { getKeyHandler } from "../src/lib/key-handler.js"
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { SyntaxStyle, hastToStyledText, type HASTElement } from "../src/lib/hast-styled-text.js"
 import {
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   type ParsedKey,
@@ -13,11 +13,11 @@ import {
 
 const exampleHAST: HASTElement = (await import("./assets/hast-example.json", { with: { type: "json" } })) as HASTElement
 
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let keyboardHandler: ((key: ParsedKey) => void) | null = null
 let parentContainer: GroupComponent | null = null
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.start()
   renderer.setBackgroundColor("#0D1117")
@@ -107,7 +107,7 @@ export function run(rendererInstance: CliRenderer): void {
   getKeyHandler().on("keypress", keyboardHandler)
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (keyboardHandler) {
     getKeyHandler().off("keypress", keyboardHandler)
     keyboardHandler = null

@@ -275,7 +275,7 @@ export class ForwardCommand extends ConfigAwareCommand {
       // First, establish a connection by executing a simple command
       // This is required before creating a tunnel
       await engine`echo "Establishing connection for tunnel"`.quiet();
-      
+
       // Forward tunnel: local port -> remote port
       const tunnel = await engine.tunnel({
         localPort: mapping.local,
@@ -536,7 +536,7 @@ export class ForwardCommand extends ConfigAwareCommand {
       if (customBind) {
         const bindAddress = await InteractiveHelpers.inputText('Enter bind address:', {
           placeholder: '0.0.0.0',
-          defaultValue: '127.0.0.1',
+          initialValue: '127.0.0.1',
         });
         if (bindAddress) {
           forwardOptions.bind = bindAddress;

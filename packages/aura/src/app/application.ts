@@ -19,7 +19,7 @@ import {
   mountElement,
   unmountElement
 } from './reactive-bridge.js';
-import { CliRenderer, createCliRenderer, type CliRendererConfig } from '../renderer/renderer.js';
+import { Renderer, createCliRenderer, type CliRendererConfig } from '../renderer/renderer.js';
 
 import type {
   AnyAuraElement
@@ -55,13 +55,13 @@ export interface ApplicationOptions {
  * Uses the renderer's root component directly, providing a cleaner architecture
  */
 class AuraApplication {
-  public renderer: CliRenderer;
+  public renderer: Renderer;
   private disposables: Disposable[] = [];
   private cleanupRoot: (() => void) | null = null;
   private options: ApplicationOptions;
   private isRunning: boolean = false;
 
-  constructor(options: ApplicationOptions, renderer: CliRenderer) {
+  constructor(options: ApplicationOptions, renderer: Renderer) {
     this.options = {
       ...options,
       exitOnCtrlC: options.exitOnCtrlC ?? true,
@@ -274,7 +274,7 @@ class AuraApplication {
   /**
    * Get the renderer instance
    */
-  getRenderer(): CliRenderer {
+  getRenderer(): Renderer {
     return this.renderer;
   }
 

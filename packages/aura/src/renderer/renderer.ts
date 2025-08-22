@@ -101,7 +101,7 @@ enum RendererControlState {
 
 let animationFrameId = 0;
 
-export async function createCliRenderer(config: CliRendererConfig = {}): Promise<CliRenderer> {
+export async function createCliRenderer(config: CliRendererConfig = {}): Promise<Renderer> {
   await initializeNative();
   if (process.argv.includes("--delay-start")) {
     await new Promise((resolve) => setTimeout(resolve, 5000))
@@ -130,14 +130,14 @@ export async function createCliRenderer(config: CliRendererConfig = {}): Promise
   }
   ziglib.setUseThread(rendererPtr, config.useThread)
 
-  return new CliRenderer(ziglib, rendererPtr, stdin, stdout, width, height, config)
+  return new Renderer(ziglib, rendererPtr, stdin, stdout, width, height, config)
 }
 
 export enum CliRenderEvents {
   DEBUG_OVERLAY_TOGGLE = "debugOverlay:toggle",
 }
 
-export class CliRenderer extends EventEmitter {
+export class Renderer extends EventEmitter {
   private lib: RenderLib
   public rendererPtr: Pointer
   private stdin: NodeJS.ReadStream
@@ -173,7 +173,7 @@ export class CliRenderer extends EventEmitter {
   private frameCount: number = 0
   private lastFpsTime: number = this.lastTime;
   private currentFps: number = 0
-  private targetFrameTime: number = 1000 / this.targetFps;
+  private targetFrameTime: number = 0;
   private immediateRerenderRequested: boolean = false
   private updateScheduled: boolean = false;
 
@@ -266,7 +266,7 @@ export class CliRenderer extends EventEmitter {
     this.width = width
     this.height = height
     this._useThread = config.useThread === undefined ? false : config.useThread
-    this._splitHeight = config.experimental_splitHeight || 0
+    this._splitHeight = config.experimental_splitHeight || 0;
 
     if (this._splitHeight > 0) {
       capture.on("write", this.captureCallback)
@@ -278,7 +278,8 @@ export class CliRenderer extends EventEmitter {
     this.rendererPtr = rendererPtr
     this.exitOnCtrlC = config.exitOnCtrlC === undefined ? true : config.exitOnCtrlC
     this.resizeDebounceDelay = config.debounceDelay || 100
-    this.targetFps = config.targetFps || 30
+    this.targetFps = config.targetFps || 30;
+    this.targetFrameTime = 1000 / this.targetFps;
     this.memorySnapshotInterval = config.memorySnapshotInterval || 5000
     this.gatherStats = config.gatherStats || false
     this.maxStatSamples = config.maxStatSamples || 300
@@ -367,15 +368,6 @@ export class CliRenderer extends EventEmitter {
     global.window.requestAnimationFrame = requestAnimationFrame
 
     this.queryPixelResolution()
-
-    // Prevents output from being written to the terminal, useful for debugging
-    if (process.env.OTUI_NO_NATIVE_RENDER === "true") {
-      this.renderNative = () => {
-        if (this._splitHeight > 0) {
-          this.flushStdoutCache(this._splitHeight)
-        }
-      }
-    }
   }
 
   private writeOut(chunk: any, encoding?: any, callback?: any): boolean {
@@ -567,33 +559,33 @@ export class CliRenderer extends EventEmitter {
   }
 
   private setupTerminal(): void {
-    this.writeOut(ANSI.saveCursorState)
+    this.writeOut(ANSI.saveCursorState);
     if (this.stdin.setRawMode) {
-      this.stdin.setRawMode(true)
+      this.stdin.setRawMode(true);
     }
-    this.stdin.resume()
-    this.stdin.setEncoding("utf8")
+    this.stdin.resume();
+    this.stdin.setEncoding("utf8");
 
     if (this._useMouse) {
-      this.enableMouse()
+      this.enableMouse();
     }
 
     this.stdin.on("data", (data: Buffer) => {
-      const str = data.toString()
+      const str = data.toString();
 
       // eslint-disable-next-line no-control-regex
       if (this.waitingForPixelResolution && /\x1b\[4;\d+;\d+t/.test(str)) {
         // eslint-disable-next-line no-control-regex
-        const match = str.match(/\x1b\[4;(\d+);(\d+)t/)
+        const match = str.match(/\x1b\[4;(\d+);(\d+)t/);
         if (match) {
           const resolution: PixelResolution = {
             width: parseInt(match[2]),
             height: parseInt(match[1]),
           }
 
-          this._resolution = resolution
-          this.waitingForPixelResolution = false
-          return
+          this._resolution = resolution;
+          this.waitingForPixelResolution = false;
+          return;
         }
       }
 
@@ -601,26 +593,26 @@ export class CliRenderer extends EventEmitter {
         process.nextTick(() => {
           process.exit();
         })
-        return
+        return;
       }
 
       if (this._useMouse && this.handleMouseData(data)) {
-        return
+        return;
       }
 
-      this.emit("key", data)
+      this.emit("key", data);
     })
 
     if (this._useAlternateScreen) {
-      this.writeOut(ANSI.switchToAlternateScreen)
+      this.writeOut(ANSI.switchToAlternateScreen);
     } else {
-      this.writeOut(ANSI.makeRoomForRenderer(this.height - 1))
+      this.writeOut(ANSI.makeRoomForRenderer(this.height - 1));
     }
-    this.setCursorPosition(0, 0, false)
+    this.setCursorPosition(0, 0, false);
   }
 
   private handleMouseData(data: Buffer): boolean {
-    const mouseEvent = this.mouseParser.parseMouseEvent(data)
+    const mouseEvent = this.mouseParser.parseMouseEvent(data);
 
     if (mouseEvent) {
       if (this._splitHeight > 0) {
@@ -886,15 +878,15 @@ export class CliRenderer extends EventEmitter {
   }
 
   public setCursorPosition(x: number, y: number, visible: boolean = true): void {
-    CliRenderer.setCursorPosition(x, y, visible)
+    Renderer.setCursorPosition(x, y, visible)
   }
 
   public setCursorStyle(style: CursorStyle, blinking: boolean = false, color?: RGBA): void {
-    CliRenderer.setCursorStyle(style, blinking, color)
+    Renderer.setCursorStyle(style, blinking, color)
   }
 
   public setCursorColor(color: RGBA): void {
-    CliRenderer.setCursorColor(color)
+    Renderer.setCursorColor(color)
   }
 
   public addPostProcessFn(processFn: (buffer: OptimizedBuffer, deltaTime: number) => void): void {

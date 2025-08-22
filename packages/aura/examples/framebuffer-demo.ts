@@ -3,7 +3,7 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import {
   RGBA,
-  CliRenderer,
+  Renderer,
   TextComponent,
   TextAttributes,
   GroupComponent,
@@ -32,7 +32,7 @@ let lastResizeTime = 0
 const resizeInterval = 0.1
 let parentContainer: GroupComponent | null = null
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   const backgroundColor = RGBA.fromInts(10, 10, 30)
   renderer.setBackgroundColor(backgroundColor)
@@ -488,7 +488,7 @@ export function run(renderer: CliRenderer): void {
   parentContainer.add(debugInstructionsText)
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   renderer.clearFrameCallbacks()
 
   if (parentContainer) {

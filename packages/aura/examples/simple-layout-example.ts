@@ -1,7 +1,7 @@
 import { getKeyHandler } from "../src/lib/key-handler"
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import {
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   type ParsedKey,
@@ -15,7 +15,7 @@ interface LayoutDemo {
   setup: () => void
 }
 
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let header: BoxComponent | null = null
 let headerText: TextComponent | null = null
 let contentArea: GroupComponent | null = null
@@ -209,7 +209,7 @@ function setupThreeColumnLayout(): void {
   rightSidebar.backgroundColor = "#7c3aed"
 }
 
-function createLayoutElements(rendererInstance: CliRenderer): void {
+function createLayoutElements(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
@@ -493,14 +493,14 @@ function applyCurrentDemo(): void {
   }
 }
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   createLayoutElements(rendererInstance)
   getKeyHandler().on("keypress", handleKeyPress)
   currentDemoIndex = 0
   applyCurrentDemo()
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (autoAdvanceTimeout) {
     clearTimeout(autoAdvanceTimeout)
     autoAdvanceTimeout = null
