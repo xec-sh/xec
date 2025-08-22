@@ -4,11 +4,10 @@ import path from "node:path"
 import { EventEmitter } from "events"
 import { Console } from "node:console"
 
+import { Renderer, } from "../renderer.js"
 import { OptimizedBuffer } from "../buffer.js"
-import { RGBA, parseColor } from "../../lib/colors.js"
 import { Capture, CapturedWritableStream } from "./output-capture.js"
-
-import type { ColorInput, CliRenderer } from "../.."
+import { RGBA, parseColor, type ColorInput } from "../../lib/colors.js"
 
 interface CallerInfo {
   functionName: string
@@ -232,7 +231,7 @@ interface DisplayLine {
 export class TerminalConsole extends EventEmitter {
   private isVisible: boolean = false
   private isFocused: boolean = false
-  private renderer: CliRenderer
+  private renderer: Renderer
   private stdinHandler: (...args: any[]) => void
   private options: Required<ConsoleOptions>
   private _debugModeEnabled: boolean = false
@@ -272,7 +271,7 @@ export class TerminalConsole extends EventEmitter {
     ConsolePosition.LEFT,
   ]
 
-  constructor(renderer: CliRenderer, options: ConsoleOptions = {}) {
+  constructor(renderer: Renderer, options: ConsoleOptions = {}) {
     super()
     this.renderer = renderer
     this.options = { ...DEFAULT_CONSOLE_OPTIONS, ...options }

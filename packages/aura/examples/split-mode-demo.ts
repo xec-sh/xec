@@ -5,10 +5,10 @@ import {
   t,
   fg,
   bold,
+  Renderer,
   BoxComponent,
   TextComponent,
   GroupComponent,
-  type CliRenderer,
   createCliRenderer,
 } from "../src/index"
 
@@ -21,7 +21,7 @@ let testOutputInterval = 100
 
 class SplitModeAnimations {
   private timeline: Timeline
-  private renderer: CliRenderer
+  private renderer: Renderer
   private container: GroupComponent
 
   private systemLoadingBars: BoxComponent[] = []
@@ -38,7 +38,7 @@ class SplitModeAnimations {
   ]
   private pulseValues = [1.0, 1.0, 1.0]
 
-  constructor(renderer: CliRenderer) {
+  constructor(renderer: Renderer) {
     this.renderer = renderer
     this.timeline = createTimeline({
       duration: 8000,
@@ -308,7 +308,7 @@ class SplitModeAnimations {
   }
 }
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   rendererInstance.setBackgroundColor("#001122")
   rendererInstance.experimental_splitHeight = 20
 
@@ -402,7 +402,7 @@ export function run(rendererInstance: CliRenderer): void {
   getKeyHandler().on("keypress", keyHandler)
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (keyHandler) {
     getKeyHandler().off("keypress", keyHandler)
     keyHandler = null

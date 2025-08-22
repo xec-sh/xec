@@ -1,12 +1,12 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { Timeline, createTimeline, type JSAnimation } from "../src/animation/timeline"
-import { CliRenderer, BoxComponent, TextComponent, GroupComponent, createCliRenderer } from "../src/index"
+import { Renderer, BoxComponent, TextComponent, GroupComponent, createCliRenderer } from "../src/index"
 
 class TimelineExample {
   private _mainTimeline: Timeline
   private _subTimeline1: Timeline
   private _subTimeline2: Timeline
-  private renderer: CliRenderer
+  private renderer: Renderer
   private boxObject: BoxComponent
   private alternatingObject: BoxComponent
   private parentContainer: GroupComponent
@@ -21,7 +21,7 @@ class TimelineExample {
   private statusLine8: TextComponent
   private statusLine9: TextComponent
 
-  constructor(renderer: CliRenderer) {
+  constructor(renderer: Renderer) {
     this.renderer = renderer
 
     this._mainTimeline = createTimeline({
@@ -608,7 +608,7 @@ class TimelineExample {
 
 let currentExample: TimelineExample | null = null
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#000028")
 
@@ -634,7 +634,7 @@ export function run(renderer: CliRenderer): void {
   })
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   if (currentExample) {
     currentExample.stop()
     currentExample.destroy()

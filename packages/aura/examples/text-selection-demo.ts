@@ -9,7 +9,7 @@ import {
   italic,
   yellow,
   magenta,
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   GroupComponent,
@@ -28,7 +28,7 @@ let selectionEndText: TextComponent | null = null
 let debugText: TextComponent | null = null
 let allTextRenderables: (TextComponent | TextComponent)[] = []
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.setBackgroundColor("#0d1117")
 
   mainContainer = new BoxComponent("mainContainer", {
@@ -308,7 +308,7 @@ ${green("✓")} Styled text support`,
   })
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   allTextRenderables = []
 
   mainContainer?.destroyRecursively()

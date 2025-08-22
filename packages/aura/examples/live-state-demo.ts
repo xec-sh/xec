@@ -9,7 +9,7 @@ import {
   bold,
   blue,
   green,
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   TextAttributes,
@@ -27,7 +27,7 @@ let rendererStateText: TextComponent | null = null
 let renderableStateText: TextComponent | null = null
 let liveButtons: LiveButton[] = []
 let demoRenderable: BoxComponent | null = null
-let currentRenderer: CliRenderer | null = null
+let currentRenderer: Renderer | null = null
 let frameCounter = 0
 let animationCounter = 0
 let frameCallback: ((deltaTime: number) => Promise<void>) | null = null
@@ -117,7 +117,7 @@ function updateStatusText(message: string): void {
   }
 }
 
-function updateRendererState(renderer: CliRenderer): void {
+function updateRendererState(renderer: Renderer): void {
   if (rendererStateText) {
     const running = renderer.isRunning
     const liveCount = renderer.liveRequestCount
@@ -144,7 +144,7 @@ function updateRenderableState(): void {
   }
 }
 
-function addDemoRenderable(renderer: CliRenderer): void {
+function addDemoRenderable(renderer: Renderer): void {
   if (demoRenderable) {
     updateStatusText("Demo renderable already exists!")
     return
@@ -167,7 +167,7 @@ function addDemoRenderable(renderer: CliRenderer): void {
   updateStatusText("Added demo renderable")
 }
 
-function removeDemoRenderable(renderer: CliRenderer): void {
+function removeDemoRenderable(renderer: Renderer): void {
   if (!demoRenderable) {
     updateStatusText("No demo renderable to remove!")
     return
@@ -178,7 +178,7 @@ function removeDemoRenderable(renderer: CliRenderer): void {
   updateStatusText("Removed demo renderable")
 }
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   currentRenderer = renderer
   const backgroundColor = RGBA.fromInts(25, 30, 45, 255)
   renderer.setBackgroundColor(backgroundColor)
@@ -467,7 +467,7 @@ export function run(renderer: CliRenderer): void {
   console.log("Live State Demo initialized! Test the automatic live state management system.")
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   if (frameCallback) {
     renderer.removeFrameCallback(frameCallback)
     frameCallback = null

@@ -12,12 +12,12 @@ import {
   getBorderFromSides,
 } from "../src/index"
 
-import type { CliRenderer, BorderCharacters, BorderSidesConfig } from "../src/index"
+import type { Renderer, BorderCharacters, BorderSidesConfig } from "../src/index"
 
 let globalTabController: TabControllerRenderable | null = null
 let globalKeyboardHandler: ((key: Buffer) => void) | null = null
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#000028")
 
@@ -965,7 +965,7 @@ export function run(renderer: CliRenderer): void {
   process.stdin.on("data", globalKeyboardHandler)
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   renderer.clearFrameCallbacks()
 
   if (globalKeyboardHandler) {

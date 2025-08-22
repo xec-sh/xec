@@ -3,7 +3,7 @@ import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { InputComponent, InputComponentEvents } from "../src/components/input"
 import { SelectComponent, type SelectOption, SelectComponentEvents } from "../src/components/select"
 import {
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   type ParsedKey,
@@ -11,7 +11,7 @@ import {
   createCliRenderer,
 } from "../src/index"
 
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let header: TextComponent | null = null
 let headerBox: BoxComponent | null = null
 let selectContainer: GroupComponent | null = null
@@ -48,7 +48,7 @@ const sizeOptions: SelectOption[] = [
   { name: "Extra Large", description: "Huge size (20px)", value: 20 },
 ]
 
-function createLayoutElements(rendererInstance: CliRenderer): void {
+function createLayoutElements(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
@@ -354,13 +354,13 @@ function handleKeyPress(key: ParsedKey): void {
   }
 }
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   createLayoutElements(rendererInstance)
   getKeyHandler().on("keypress", handleKeyPress)
   updateDisplay()
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   getKeyHandler().off("keypress", handleKeyPress)
 
   if (renderer) {

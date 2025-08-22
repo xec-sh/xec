@@ -11,22 +11,7 @@ const INV_255: f32 = 1.0 / 255.0;
 const DEFAULT_SPACE_CHAR: u32 = 32;
 const MAX_UNICODE_CODEPOINT: u32 = 0x10FFFF;
 const BLOCK_CHAR: u32 = 0x2588; // Full block █
-const QUADRANT_CHARS_COUNT: u32 = 16;
-
-// Pre-computed alpha blending table for performance (matching Zig algorithm)
-static ALPHA_LUT: once_cell::sync::Lazy<[f32; 256]> = once_cell::sync::Lazy::new(|| {
-    let mut table = [0.0; 256];
-    for i in 0..256 {
-        let alpha = i as f32 / 255.0;
-        table[i] = if alpha > 0.8 {
-            let normalized = (alpha - 0.8) * 5.0;
-            0.8 + normalized.powf(0.2) * 0.2
-        } else {
-            alpha.powf(0.9)
-        };
-    }
-    table
-});
+// Removed unused QUADRANT_CHARS_COUNT and ALPHA_LUT
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -84,15 +69,11 @@ pub fn rgba_to_vec4f(color: RGBA) -> Vec4f {
 
 #[inline(always)]
 pub fn rgba_equal(a: RGBA, b: RGBA, epsilon: f32) -> bool {
-    // Unrolled loop for better performance
-    unsafe {
-        let a_ptr = a.as_ptr();
-        let b_ptr = b.as_ptr();
-        (*a_ptr.offset(0) - *b_ptr.offset(0)).abs() < epsilon &&
-        (*a_ptr.offset(1) - *b_ptr.offset(1)).abs() < epsilon &&
-        (*a_ptr.offset(2) - *b_ptr.offset(2)).abs() < epsilon &&
-        (*a_ptr.offset(3) - *b_ptr.offset(3)).abs() < epsilon
-    }
+    // Safe version without unnecessary unsafe
+    (a[0] - b[0]).abs() < epsilon &&
+    (a[1] - b[1]).abs() < epsilon &&
+    (a[2] - b[2]).abs() < epsilon &&
+    (a[3] - b[3]).abs() < epsilon
 }
 
 #[derive(Debug, Clone)]
@@ -223,26 +204,13 @@ impl OptimizedBuffer {
     
     pub fn clear(&mut self, bg: RGBA, char: Option<u32>) -> Result<(), BufferError> {
         let fill_char = char.unwrap_or(DEFAULT_SPACE_CHAR);
-        let size = (self.width * self.height) as usize;
         
-        // Optimized clear using ptr operations
-        unsafe {
-            // Use ptr::write for potentially better optimization
-            let char_ptr = self.buffer.char.as_mut_ptr();
-            let fg_ptr = self.buffer.fg.as_mut_ptr();
-            let bg_ptr = self.buffer.bg.as_mut_ptr();
-            let attr_ptr = self.buffer.attributes.as_mut_ptr();
-            
-            let default_fg = [1.0, 1.0, 1.0, 1.0];
-            
-            // Fill in chunks for better performance
-            for i in 0..size {
-                ptr::write(char_ptr.add(i), fill_char);
-                ptr::write(fg_ptr.add(i), default_fg);
-                ptr::write(bg_ptr.add(i), bg);
-                ptr::write(attr_ptr.add(i), 0);
-            }
-        }
+        
+        // Optimized clear using slice fill
+        self.buffer.char.fill(fill_char);
+        self.buffer.fg.fill([1.0, 1.0, 1.0, 1.0]);
+        self.buffer.bg.fill(bg);
+        self.buffer.attributes.fill(0);
         
         Ok(())
     }

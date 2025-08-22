@@ -1,4 +1,4 @@
-import { CliRenderer } from "../index.js"
+import { Renderer } from "../index.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component.js"
 import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
@@ -75,20 +75,20 @@ export class InputComponent extends Component {
       const absoluteCursorX = this.x + contentX + cursorDisplayX + 1
       const absoluteCursorY = this.y + contentY + 1
 
-      CliRenderer.setCursorPosition(absoluteCursorX, absoluteCursorY, true)
-      CliRenderer.setCursorColor(this._cursorColor)
+      Renderer.setCursorPosition(absoluteCursorX, absoluteCursorY, true)
+      Renderer.setCursorColor(this._cursorColor)
     }
   }
 
   public focus(): void {
     super.focus()
-    CliRenderer.setCursorStyle("block", true, this._cursorColor)
+    Renderer.setCursorStyle("block", true, this._cursorColor)
     this.updateCursorPosition()
   }
 
   public blur(): void {
     super.blur()
-    CliRenderer.setCursorPosition(0, 0, false)
+    Renderer.setCursorPosition(0, 0, false)
 
     if (this._value !== this._lastCommittedValue) {
       this._lastCommittedValue = this._value
@@ -296,7 +296,7 @@ export class InputComponent extends Component {
 
   protected destroySelf(): void {
     if (this._focused) {
-      CliRenderer.setCursorPosition(0, 0, false)
+      Renderer.setCursorPosition(0, 0, false)
     }
     super.destroySelf()
   }

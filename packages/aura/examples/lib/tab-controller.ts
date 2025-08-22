@@ -4,7 +4,7 @@ import { parseColor, type ColorInput } from "../../src/lib/colors.js"
 import { TabsComponent, TabSelectComponentEvents } from "../../src/components/tabs.js"
 import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
 
-import type { TabsOption, CliRenderer } from "../../src/index.js"
+import type { Renderer, TabsOption } from "../../src/index.js"
 
 export interface TabObject {
   title: string
@@ -47,7 +47,7 @@ export class TabControllerRenderable extends Component {
 
   constructor(
     id: string,
-    private renderer: CliRenderer,
+    private renderer: Renderer,
     options: TabControllerOptions,
   ) {
     super(id, { ...options, buffered: options.backgroundColor ? true : false })

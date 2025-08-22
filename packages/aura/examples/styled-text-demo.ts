@@ -10,14 +10,14 @@ import {
   bold,
   green,
   bgYellow,
+  Renderer,
   underline,
-  CliRenderer,
   type ParsedKey,
   GroupComponent,
   createCliRenderer,
 } from "../src/index"
 
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let parentContainer: GroupComponent | null = null
 let counter = 0
 let frameCallback: ((deltaTime: number) => Promise<void>) | null = null
@@ -28,7 +28,7 @@ let keyboardHandler: ((key: ParsedKey) => void) | null = null
 let dashboardBox: BoxComponent | null = null
 let complexDisplay: TextComponent | null = null
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.start()
   renderer.setBackgroundColor("#001122")
@@ -241,7 +241,7 @@ Calculated: ${fg("#00FFFF")(Math.floor(Math.random() * 100))}`
   renderer.needsUpdate()
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (frameCallback) {
     rendererInstance.removeFrameCallback(frameCallback)
     frameCallback = null

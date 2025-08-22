@@ -5,7 +5,7 @@ import {
   RGBA,
   bold,
   underline,
-  CliRenderer,
+  Renderer,
   BoxComponent,
   TextComponent,
   TextAttributes,
@@ -82,7 +82,7 @@ class DraggableTransparentBox extends BoxComponent {
   }
 }
 
-export function run(renderer: CliRenderer): void {
+export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#0A0E14")
 
@@ -203,7 +203,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   draggableBoxes.push(alphaOverlay)
 }
 
-export function destroy(renderer: CliRenderer): void {
+export function destroy(renderer: Renderer): void {
   renderer.clearFrameCallbacks()
 
   for (const box of draggableBoxes) {

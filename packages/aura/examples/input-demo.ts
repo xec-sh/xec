@@ -8,7 +8,7 @@ import {
   GroupComponent,
   InputComponent,
   RenderableEvents,
-  type CliRenderer,
+  type Renderer,
   createCliRenderer,
   InputComponentEvents,
 } from "../src/index"
@@ -17,7 +17,7 @@ let nameInput: InputComponent | null = null
 let emailInput: InputComponent | null = null
 let passwordInput: InputComponent | null = null
 let commentInput: InputComponent | null = null
-let renderer: CliRenderer | null = null
+let renderer: Renderer | null = null
 let keyboardHandler: ((key: any) => void) | null = null
 let keyLegendDisplay: TextComponent | null = null
 let statusDisplay: TextComponent | null = null
@@ -139,7 +139,7 @@ function resetInputs(): void {
   }, 1000)
 }
 
-export function run(rendererInstance: CliRenderer): void {
+export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
@@ -335,7 +335,7 @@ export function run(rendererInstance: CliRenderer): void {
   nameInput.focus()
 }
 
-export function destroy(rendererInstance: CliRenderer): void {
+export function destroy(rendererInstance: Renderer): void {
   if (keyboardHandler) {
     getKeyHandler().off("keypress", keyboardHandler)
     keyboardHandler = null
