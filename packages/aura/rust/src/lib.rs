@@ -76,10 +76,10 @@ pub extern "C" fn setRenderOffset(renderer_ptr: *mut CliRenderer, offset: u32) {
 }
 
 #[no_mangle]
-pub extern "C" fn updateStats(renderer_ptr: *mut CliRenderer, time: f64, fps: u32, frame_callback_time: f64) {
+pub extern "C" fn updateStats(renderer_ptr: *mut CliRenderer, time: f64, fps: u32, frame_callback_time: f64, animation_request_time: f64) {
     unsafe {
         if let Some(renderer) = renderer_ptr.as_mut() {
-            renderer.update_stats(time, fps, frame_callback_time);
+            renderer.update_stats(time, fps, frame_callback_time, animation_request_time);
         }
     }
 }

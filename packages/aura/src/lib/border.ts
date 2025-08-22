@@ -123,7 +123,7 @@ export function getBorderSides(border: boolean | BorderSides[]): BorderSidesConf
       : { top: false, right: false, bottom: false, left: false }
 }
 
-// Convert BorderCharacters to Uint32Array for passing to Zig
+// Convert BorderCharacters to Uint32Array for passing to Rust
 export function borderCharsToArray(chars: BorderCharacters): Uint32Array {
   const array = new Uint32Array(11)
   array[0] = chars.topLeft.codePointAt(0)!

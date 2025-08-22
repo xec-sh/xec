@@ -8,7 +8,7 @@ import type { ComponentProps } from "../component"
 
 export interface ASCIIFontProps extends ComponentProps {
   text?: string
-  font?: "tiny" | "block" | "shade" | "slick"
+  font?: "tiny" | "block" | "shade" | "slick" | "retro" | "cyber" | "neon" | "matrix" | "braile" | "cyberSmall" | "diam" | "future"
   fg?: RGBA | RGBA[]
   bg?: RGBA
   selectionBg?: string | RGBA

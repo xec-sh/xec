@@ -22,7 +22,7 @@ export function run(renderer: Renderer): void {
     left: 1,
     top: 1,
     width: 95,
-    height: 30,
+    height: 80,
     backgroundColor: "#161b22",
     zIndex: 1,
     borderColor: "#50565d",
@@ -64,7 +64,7 @@ export function run(renderer: Renderer): void {
   allFontRenderables.push(blockFont)
 
   const shadeFont = new ASCIIFontComponent("shadeFont", {
-    text: "SHADE",
+    text: "SHADE FONT DEMO",
     font: "shade",
     fg: [RGBA.fromInts(255, 200, 100, 255), RGBA.fromInts(100, 150, 200, 255)],
     bg: RGBA.fromInts(0, 0, 40, 255),
@@ -76,7 +76,7 @@ export function run(renderer: Renderer): void {
   allFontRenderables.push(shadeFont)
 
   const slickFont = new ASCIIFontComponent("slickFont", {
-    text: "SLICK",
+    text: "SLICK FONT DEMO",
     font: "slick",
     fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
     bg: RGBA.fromInts(0, 0, 40, 255),
@@ -85,12 +85,108 @@ export function run(renderer: Renderer): void {
     zIndex: 20,
   })
   fontGroup.add(slickFont)
-  allFontRenderables.push(slickFont)
+  allFontRenderables.push(slickFont);
+
+  const retroFont = new ASCIIFontComponent("retroFont", {
+    text: "RETRO FONT DEMO",
+    font: "retro",
+    fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(retroFont)
+  allFontRenderables.push(retroFont)
+
+  const cyberFont = new ASCIIFontComponent("cyberFont", {
+    text: "CYBER FONT DEMO",
+    font: "cyber",
+    fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(cyberFont)
+  allFontRenderables.push(cyberFont)
+
+  const neonFont = new ASCIIFontComponent("neonFont", {
+    text: "NEON FONT DEMO",
+    font: "neon",
+    fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(neonFont)
+  allFontRenderables.push(neonFont)
+
+  const matrixFont = new ASCIIFontComponent("matrixFont", {
+    text: "MATRIX FONT DEMO",
+    font: "matrix",
+    fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(matrixFont)
+  allFontRenderables.push(matrixFont)
+
+  const braileFont = new ASCIIFontComponent("braileFont", {
+    text: "BRAILE FONT DEMO",
+    font: "braile",
+    fg: [RGBA.fromInts(200, 255, 200, 255), RGBA.fromInts(100, 200, 100, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(braileFont)
+  allFontRenderables.push(braileFont)
+
+  const cyberSmallFont = new ASCIIFontComponent("cyberSmallFont", {
+    text: "CYBER SMALL FONT",
+    font: "cyberSmall",
+    fg: [RGBA.fromInts(255, 200, 100, 255), RGBA.fromInts(255, 150, 50, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(cyberSmallFont)
+  allFontRenderables.push(cyberSmallFont)
+
+  const diamFont = new ASCIIFontComponent("diamFont", {
+    text: "DIAM FONT",
+    font: "diam",
+    fg: [RGBA.fromInts(200, 200, 255, 255), RGBA.fromInts(150, 150, 255, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(diamFont)
+  allFontRenderables.push(diamFont)
+
+  const futureFont = new ASCIIFontComponent("futureFont", {
+    text: "FUTURE FONT",
+    font: "future",
+    fg: [RGBA.fromInts(255, 200, 200, 255), RGBA.fromInts(255, 100, 100, 255)],
+    bg: RGBA.fromInts(0, 0, 40, 255),
+    selectionBg: "#4a5568",
+    selectionFg: "#ffffff",
+    zIndex: 20,
+  })
+  fontGroup.add(futureFont)
+  allFontRenderables.push(futureFont)
 
   const instructions = new TextComponent("ascii-font-instructions", {
     content: "Click and drag to select text across any ASCII font elements. Press 'C' to clear selection.",
     left: 2,
-    top: 26,
+    top: 56,
     zIndex: 2,
     fg: "#f0f6fc",
   })
@@ -99,7 +195,7 @@ export function run(renderer: Renderer): void {
   statusBox = new BoxComponent("statusBox", {
     position: "absolute",
     left: 1,
-    top: 32,
+    top: 62,
     width: 95,
     height: 10,
     backgroundColor: "#0d1117",
