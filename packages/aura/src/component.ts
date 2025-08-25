@@ -94,8 +94,6 @@ export interface ComponentProps extends Partial<LayoutProps> {
   onKeyDown?: (key: ParsedKey) => void
 }
 
-let componentNumber = 1
-
 function validateProps(id: string, props: ComponentProps): void {
   if (typeof props.width === "number") {
     if (props.width < 0) {
@@ -174,6 +172,7 @@ export function isSizeType(value: any): value is number | `${number}%` | undefin
 }
 
 export abstract class Component extends EventEmitter {
+  private static componentNumber = 1;
   static componentsByNumber: Map<number, Component> = new Map()
 
   public readonly id: string
@@ -220,7 +219,7 @@ export abstract class Component extends EventEmitter {
   constructor(id: string, options: ComponentProps) {
     super();
     this.id = id;
-    this.num = componentNumber++;
+    this.num = Component.componentNumber++;
     Component.componentsByNumber.set(this.num, this);
 
     validateProps(id, options);
@@ -980,20 +979,20 @@ export abstract class Component extends EventEmitter {
   }
 
   public render(buffer: OptimizedBuffer, deltaTime: number): void {
-    if (!this.visible) return
+    if (!this.visible) return;
 
-    this.beforeRender()
-    this.updateFromLayout()
+    this.beforeRender();
+    this.updateFromLayout();
 
-    const renderBuffer = this.buffered && this.frameBuffer ? this.frameBuffer : buffer
+    const renderBuffer = this.buffered && this.frameBuffer ? this.frameBuffer : buffer;
 
-    this.renderSelf(renderBuffer, deltaTime)
-    this.markClean()
-    this.ctx?.addToHitGrid(this.x, this.y, this.width, this.height, this.num)
-    this.ensureZIndexSorted()
+    this.renderSelf(renderBuffer, deltaTime);
+    this.markClean();
+    this.ctx?.addToHitGrid(this.x, this.y, this.width, this.height, this.num);
+    this.ensureZIndexSorted();
 
     for (const child of this.children) {
-      child.render(renderBuffer, deltaTime)
+      child.render(renderBuffer, deltaTime);
     }
 
     if (this.buffered && this.frameBuffer) {
@@ -1144,15 +1143,15 @@ export class RootComponent extends Component {
     this.yogaConfig.setPointScaleFactor(1)
 
     if (this.layoutNode) {
-      this.layoutNode.destroy()
+      this.layoutNode.destroy();
     }
 
-    this.layoutNode = createTrackedNode({}, this.yogaConfig)
-    this.layoutNode.setWidth(width)
-    this.layoutNode.setHeight(height)
-    this.layoutNode.yogaNode.setFlexDirection(FlexDirection.Column)
+    this.layoutNode = createTrackedNode({}, this.yogaConfig);
+    this.layoutNode.setWidth(width);
+    this.layoutNode.setHeight('auto');
+    this.layoutNode.yogaNode.setFlexDirection(FlexDirection.Column);
 
-    this.calculateLayout()
+    this.calculateLayout();
   }
 
   public requestLayout(): void {
@@ -1170,35 +1169,36 @@ export class RootComponent extends Component {
     }
   }
 
-  public calculateLayout(): void {
-    this.layoutNode.yogaNode.calculateLayout(this.width, this.height, Direction.LTR)
-    this.emit(LayoutEvents.LAYOUT_CHANGED)
+  public calculateLayout(): number {
+    this.layoutNode.yogaNode.calculateLayout(this.width, 'auto', Direction.LTR);
+    this.emit(LayoutEvents.LAYOUT_CHANGED);
+    return this.layoutNode.yogaNode.getComputedHeight();
   }
 
   public resize(width: number, height: number): void {
-    this.width = width
-    this.height = height
+    this.width = width;
+    this.height = height;
 
-    this.emit(LayoutEvents.RESIZED, { width, height })
+    this.emit(LayoutEvents.RESIZED, { width, height });
   }
 
   protected beforeRender(): void {
     if (this.layoutNode.yogaNode.isDirty()) {
-      this.calculateLayout()
+      this.calculateLayout();
     }
   }
 
   protected destroySelf(): void {
     if (this.layoutNode) {
-      this.layoutNode.destroy()
+      this.layoutNode.destroy();
     }
 
     try {
-      this.yogaConfig.free()
+      this.yogaConfig.free();
     } catch (error) {
       // Config might already be freed
     }
 
-    super.destroySelf()
+    super.destroySelf();
   }
 }

@@ -91,6 +91,7 @@
   "homepage": "https://xec.sh",
   "dependencies": {
     "@clack/prompts": "^0.11.0",
+    "@xec-sh/aura": "workspace:*",
     "@xec-sh/core": "workspace:*",
     "@xec-sh/kit": "workspace:*",
     "chalk": "^5.4.1",

@@ -14,7 +14,7 @@ import {
   underline,
   type ParsedKey,
   GroupComponent,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index"
 
 let renderer: Renderer | null = null
@@ -267,7 +267,7 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
     targetFps: 60,
   })

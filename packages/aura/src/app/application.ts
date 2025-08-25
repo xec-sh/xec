@@ -19,7 +19,7 @@ import {
   mountElement,
   unmountElement
 } from './reactive-bridge.js';
-import { Renderer, createCliRenderer, type CliRendererConfig } from '../renderer/renderer.js';
+import { Renderer, createRenderer, type RendererConfig } from '../renderer/renderer.js';
 
 import type {
   AnyAuraElement
@@ -33,7 +33,7 @@ export interface ApplicationOptions {
   children: AnyAuraElement | AnyAuraElement[] | (() => AnyAuraElement | AnyAuraElement[]);
 
   // Terminal renderer options
-  renderer?: CliRendererConfig;
+  renderer?: RendererConfig;
 
   // Global error handler
   onError?: (error: Error) => void;
@@ -319,7 +319,7 @@ export async function auraApp(
   options?: Partial<Omit<ApplicationOptions, 'children'>>
 ): Promise<AuraApplication> {
   const { renderer: rendererOptions, ...appOptions } = options ?? {};
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     ...rendererOptions,
     exitOnCtrlC: false,
   });

@@ -17,6 +17,21 @@ export const ANSI = {
   moveCursor: (row: number, col: number) => `\x1b[${row};${col}H`,
   moveCursorAndClear: (row: number, col: number) => `\x1b[${row};${col}H\x1b[J`,
   clearFromCursor: "\x1b[J",
+  
+  // Inline rendering helpers
+  cursorUp: (lines: number) => lines > 0 ? `\x1b[${lines}A` : '',
+  cursorDown: (lines: number) => lines > 0 ? `\x1b[${lines}B` : '',
+  cursorLeft: (cols: number) => cols > 0 ? `\x1b[${cols}D` : '',
+  cursorToColumn: (col: number) => `\x1b[${col}G`,
+  eraseLines: (count: number) => {
+    let clear = '';
+    for (let i = 0; i < count; i++) {
+      clear += (i > 0 ? '\x1b[1A' : '') + '\x1b[2K';
+    }
+    return clear;
+  },
+  eraseLineRight: "\x1b[K",
+  eraseScreenBelow: "\x1b[J",
 
   setRgbBackground: (r: number, g: number, b: number) => `\x1b[48;2;${r};${g};${b}m`,
   resetBackground: "\x1b[49m",
@@ -32,4 +47,8 @@ export const ANSI = {
 
   makeRoomForRenderer: (height: number) => "\n".repeat(height) + `\x1b[${height}A`,
   clearRendererSpace: (height: number) => `\x1b[${height}A\x1b[1G\x1b[J`,
+  
+  // For inline rendering - save initial position
+  saveInlinePosition: () => "\x1b[s",
+  restoreInlinePosition: () => "\x1b[u",
 }

@@ -1,6 +1,6 @@
 {
-  "name": "@xec-sh/aura-next",
-  "description": "Aura Next is a TypeScript library for building terminal user interfaces (TUIs)",
+  "name": "@xec-sh/aura",
+  "description": "Aura is a TypeScript library for building terminal user interfaces (TUIs)",
   "types": "src/index.ts",
   "module": "src/index.ts",
   "main": "dist/index.js",
@@ -14,20 +14,19 @@
     "publish": "node scripts/publish.mjs",
     "test": "bun test",
     "prettier:write": "prettier --write .",
-    "typecheck": "tsc --noEmit",
-    "build:dev": "cd zig && zig build -Doptimize=Debug",
-    "build:prod": "cd zig && zig build -Doptimize=ReleaseFast"
+    "typecheck": "tsc --noEmit"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/xec-sh/xec",
-    "directory": "packages/aura-next"
+    "directory": "packages/aura"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "commander": "14.0.0",
     "prettier": "3.6.2",
+    "tui-tester": "^0.3.0",
     "typescript": "5.9.2"
   },
   "peerDependencies": {

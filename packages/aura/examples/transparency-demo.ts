@@ -12,7 +12,7 @@ import {
   GroupComponent,
   OptimizedBuffer,
   type MouseEvent,
-  createCliRenderer
+  createRenderer
 } from "../src/index"
 
 
@@ -216,7 +216,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
   })
 

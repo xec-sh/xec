@@ -2,7 +2,7 @@
 
 import { setupCommonDemoKeys } from "./lib/standalone-keys.js"
 import { ASCIIFontComponent } from "../src/components/ascii-font.js"
-import { RGBA, Renderer, BoxComponent, TextComponent, GroupComponent, createCliRenderer } from "../src/index.js"
+import { RGBA, Renderer, BoxComponent, TextComponent, GroupComponent, createRenderer } from "../src/index.js"
 
 let mainContainer: BoxComponent | null = null
 let fontGroup: GroupComponent | null = null
@@ -316,7 +316,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     targetFps: 30,
     enableMouseMovement: true,
     exitOnCtrlC: true,

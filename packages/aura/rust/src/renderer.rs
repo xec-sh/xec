@@ -6,6 +6,7 @@ use std::thread;
 use std::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
 use once_cell::sync::Lazy;
+use crossterm::cursor;
 
 const CLEAR_CHAR: u32 = 0x0a00;
 const MAX_STAT_SAMPLES: usize = 30;
@@ -15,6 +16,7 @@ const DEFAULT_CURSOR_Y: u32 = 1;
 const COLOR_EPSILON_DEFAULT: f32 = 0.00001;
 const RUN_BUFFER_SIZE: usize = 2048;  // Increased for better batching
 const OUTPUT_BUFFER_SIZE: usize = 1024 * 1024; // 1MB is usually sufficient
+const DEFAULT_SPACE_CHAR: u32 = 32;
 
 #[derive(Debug)]
 pub enum RendererError {
@@ -74,7 +76,7 @@ static GLOBAL_CURSOR: Lazy<RwLock<GlobalCursor>> = Lazy::new(|| {
     RwLock::new(GlobalCursor {
         x: DEFAULT_CURSOR_X,
         y: DEFAULT_CURSOR_Y,
-        visible: true,
+        visible: false,
         style: CursorStyle::Block,
         blinking: false,
         color: [1.0, 1.0, 1.0, 1.0],
@@ -119,6 +121,15 @@ struct RenderRequest {
     output_data: Vec<u8>,
 }
 
+// State for tracking inline rendering position and attributes
+struct InlineState {
+    start_row: u32,
+    start_col: u32,
+    saved_fg: Option<RGBA>,
+    saved_bg: Option<RGBA>,
+    saved_attrs: u8,
+}
+
 pub struct CliRenderer {
     width: u32,
     height: u32,
@@ -127,6 +138,10 @@ pub struct CliRenderer {
     background_color: RGBA,
     render_offset: u32,
     has_rendered_once: bool,
+    use_alternate_screen: bool,
+    lines_rendered: u32,  // Track actual rendered lines for inline mode
+    previous_lines_rendered: u32,  // Track previous frame's line count for clearing
+    inline_state: InlineState,  // State for inline rendering
     
     render_stats: RenderStats,
     stat_samples: StatSamples,
@@ -193,7 +208,7 @@ fn codepoint_display_width(cp: u32) -> u8 {
 }
 
 impl CliRenderer {
-    pub fn create(width: u32, height: u32) -> Result<Box<CliRenderer>, RendererError> {
+    pub fn create(width: u32, height: u32, use_alternate_screen: bool) -> Result<Box<CliRenderer>, RendererError> {
         if width == 0 || height == 0 {
             return Err(RendererError::InvalidDimensions);
         }
@@ -212,6 +227,10 @@ impl CliRenderer {
         let next_hit_grid = vec![0u32; hit_grid_size];
         
         let stdout_writer = BufWriter::with_capacity(4096, io::stdout());
+
+        // First render in inline mode - query and save cursor position
+        let position_result = cursor::position();
+        let (col, row) = position_result.unwrap_or((0, 0));
         
         Ok(Box::new(CliRenderer {
             width,
@@ -220,9 +239,17 @@ impl CliRenderer {
             next_render_buffer: Box::into_raw(next_buffer),
             background_color: [0.0, 0.0, 0.0, 1.0],
             render_offset: 0,
-            
+            use_alternate_screen,
             has_rendered_once: false,
-            
+            lines_rendered: 1,
+            previous_lines_rendered: 1,
+            inline_state: InlineState {
+                start_row: row as u32,
+                start_col: col as u32,
+                saved_fg: None,
+                saved_bg: None,
+                saved_attrs: 0,
+            },
             render_stats: RenderStats {
                 last_frame_time: 0.0,
                 average_frame_time: 0.0,
@@ -282,8 +309,8 @@ impl CliRenderer {
         }))
     }
     
-    pub fn destroy(&mut self, use_alternate_screen: bool, split_height: u32) {
-        self.perform_shutdown_sequence(use_alternate_screen, split_height);
+    pub fn destroy(&mut self, use_alternate_screen: bool) {
+        self.perform_shutdown_sequence(use_alternate_screen);
         
         // Stop render thread if running
         if let Some(handle) = self.render_thread.take() {
@@ -294,7 +321,7 @@ impl CliRenderer {
         self.stdout_writer.flush().ok();
     }
     
-    fn perform_shutdown_sequence(&mut self, use_alternate_screen: bool, split_height: u32) {
+    fn perform_shutdown_sequence(&mut self, use_alternate_screen: bool) {
         // Disable mouse tracking first
         self.disable_mouse();
         
@@ -302,33 +329,30 @@ impl CliRenderer {
             // Switch back to main screen
             self.stdout_writer.write_all(ANSI::SWITCH_TO_MAIN_SCREEN.as_bytes()).ok();
             self.stdout_writer.flush().ok();
-        } else if split_height == 0 {
-            // Clear full terminal height when not in split mode
-            let mut clear_output = String::new();
-            ANSI::clear_renderer_space_output(&mut clear_output, self.height).ok();
-            self.stdout_writer.write_all(clear_output.as_bytes()).ok();
-            
-            // Move cursor to top
-            let mut move_output = String::new();
-            ANSI::move_to_output(&mut move_output, 1, 1).ok();
-            self.stdout_writer.write_all(move_output.as_bytes()).ok();
+            self.stdout_writer.write_all(ANSI::RESET.as_bytes()).ok();
+
+            // Reset terminal state
+            self.stdout_writer.write_all(ANSI::RESET_CURSOR_COLOR.as_bytes()).ok();
+            self.stdout_writer.write_all(ANSI::RESTORE_CURSOR_STATE.as_bytes()).ok();
+            self.stdout_writer.write_all(ANSI::DEFAULT_CURSOR_STYLE.as_bytes()).ok();
         } else {
-            // When split_height > 0, let TypeScript handle the clearing
-            // This matches the original Zig implementation comment:
-            // "Currently still handled in typescript"
+        //     // Inline mode - move to position after rendered content
+        //     // Move to position after rendered content
+        //     use std::fmt::Write;
+        //     let mut temp = String::new();
+        //     write!(&mut temp, "\x1b[{};1H", self.inline_state.start_row + self.lines_rendered).ok();
+        //     self.stdout_writer.write_all(temp.as_bytes()).ok();
+        
+            // Move to beginning of line and add newline for clean exit
+            self.stdout_writer.write_all(b"\n").ok();
+            self.stdout_writer.write_all(ANSI::RESET_CURSOR_COLOR.as_bytes()).ok();
+            self.stdout_writer.write_all(ANSI::DEFAULT_CURSOR_STYLE.as_bytes()).ok();
         }
-        
-        // Reset terminal state
-        self.stdout_writer.write_all(ANSI::RESET.as_bytes()).ok();
-        self.stdout_writer.write_all(ANSI::RESET_CURSOR_COLOR.as_bytes()).ok();
-        self.stdout_writer.write_all(ANSI::RESTORE_CURSOR_STATE.as_bytes()).ok();
-        self.stdout_writer.write_all(ANSI::DEFAULT_CURSOR_STYLE.as_bytes()).ok();
-        
+
         // Show cursor
         self.stdout_writer.write_all(ANSI::SHOW_CURSOR.as_bytes()).ok();
         
         // Workaround for Ghostty not showing the cursor after shutdown
-        // (matching the original Zig implementation)
         self.stdout_writer.flush().ok();
         std::thread::sleep(std::time::Duration::from_millis(10));
         self.stdout_writer.write_all(ANSI::SHOW_CURSOR.as_bytes()).ok();
@@ -506,6 +530,11 @@ impl CliRenderer {
         self.render_offset = offset;
     }
     
+    pub fn set_lines_rendered(&mut self, lines: u32) {
+        self.previous_lines_rendered = self.lines_rendered;
+        self.lines_rendered = lines;
+    }
+    
     pub fn render(&mut self, force: bool) {
         let now = Instant::now();
         let delta_time = now.duration_since(self.last_render_time).as_secs_f64() * 1000.0;
@@ -516,7 +545,6 @@ impl CliRenderer {
         // Force render on first frame
         let should_force = force || !self.has_rendered_once;
         self.prepare_render_frame(should_force);
-        self.has_rendered_once = true;
         
         if self.use_thread {
             // Wait for previous render to complete
@@ -591,6 +619,9 @@ impl CliRenderer {
             Self::add_stat_sample(&mut self.stat_samples.stdout_write_time, swt);
         }
         Self::add_stat_sample(&mut self.stat_samples.cells_updated, self.render_stats.cells_updated);
+        
+        // Mark that we've rendered at least once (after everything is done)
+        self.has_rendered_once = true;
     }
     
     pub fn get_next_buffer(&mut self) -> &mut OptimizedBuffer {
@@ -616,6 +647,14 @@ impl CliRenderer {
         // Hide cursor at start
         output_buffer.extend_from_slice(ANSI::HIDE_CURSOR.as_bytes());
         
+        // In inline mode, we need to force render after clearing the screen
+        let mut force_render = force;
+        
+        // In inline mode, handle cursor positioning differently
+        if !self.use_alternate_screen {
+            force_render = true;
+        }
+        
         let mut current_fg: Option<RGBA> = None;
         let mut current_bg: Option<RGBA> = None;
         let mut current_attributes: i16 = -1;
@@ -623,12 +662,42 @@ impl CliRenderer {
         let mut run_buffer = Vec::with_capacity(RUN_BUFFER_SIZE);
         let color_epsilon = COLOR_EPSILON_DEFAULT;
         
-        for y in 0..self.height {
+        // In inline mode, only render the lines we need
+        let render_height = if !self.use_alternate_screen {
+            self.lines_rendered
+        } else {
+            self.height
+        };
+        
+        // Skip rendering empty lines on first inline render
+        let skip_empty_lines = !self.use_alternate_screen && !self.has_rendered_once;
+        
+        for y in 0..render_height {
             let mut run_start: Option<u32> = None;
             let mut run_start_visual_col: Option<u32> = None;
             let mut run_length: u32 = 0;
             run_buffer.clear();
             let mut current_visual_col: u32 = 0;
+            
+            // Check if this line is empty (only spaces) when skip_empty_lines is true
+            let mut line_is_empty = skip_empty_lines;
+            if skip_empty_lines {
+                for x in 0..self.width {
+                    if let Some(cell) = unsafe { (*self.next_render_buffer).get(x, y) } {
+                        if cell.char != DEFAULT_SPACE_CHAR || 
+                           !buffer::rgba_equal(cell.fg, [1.0, 1.0, 1.0, 1.0], color_epsilon) ||
+                           !buffer::rgba_equal(cell.bg, [0.0, 0.0, 0.0, 1.0], color_epsilon) {
+                            line_is_empty = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Skip rendering this line if it's empty on first render
+            if line_is_empty {
+                continue;
+            }
             
             for x in 0..self.width {
                 let current_cell = unsafe { (*self.current_render_buffer).get(x, y) };
@@ -642,7 +711,7 @@ impl CliRenderer {
                 let next = next_cell.unwrap();
                 
                 // Check if we need to update this cell
-                if !force {
+                if !force_render {
                     let char_equal = current.char == next.char;
                     let attr_equal = current.attributes == next.attributes;
                     
@@ -652,7 +721,16 @@ impl CliRenderer {
                         // Cell hasn't changed, flush any pending run and skip
                         if run_length > 0 {
                             let start_col = run_start_visual_col.unwrap_or(0) + 1;
-                            Self::write_move_to(output_buffer, start_col, y + 1 + self.render_offset);
+                            Self::write_move_to_inline(
+                                output_buffer, 
+                                start_col, 
+                                y + 1 + self.render_offset, 
+                                self.use_alternate_screen,
+                                &self.inline_state,
+                                current_fg,
+                                current_bg,
+                                current_attributes as u8
+                            );
                             output_buffer.extend_from_slice(&run_buffer);
                             output_buffer.extend_from_slice(ANSI::RESET.as_bytes());
                             
@@ -677,7 +755,16 @@ impl CliRenderer {
                     // Flush previous run if any
                     if run_length > 0 {
                         let start_col = run_start_visual_col.unwrap_or(0) + 1;
-                        Self::write_move_to(output_buffer, start_col, y + 1 + self.render_offset);
+                        Self::write_move_to_inline(
+                            output_buffer, 
+                            start_col, 
+                            y + 1 + self.render_offset, 
+                            self.use_alternate_screen,
+                            &self.inline_state,
+                            current_fg,
+                            current_bg,
+                            current_attributes as u8
+                        );
                         output_buffer.extend_from_slice(&run_buffer);
                         output_buffer.extend_from_slice(ANSI::RESET.as_bytes());
                         run_buffer.clear();
@@ -693,7 +780,16 @@ impl CliRenderer {
                     current_attributes = next.attributes as i16;
                     
                     // Move to position
-                    Self::write_move_to(output_buffer, current_visual_col + 1, y + 1 + self.render_offset);
+                    Self::write_move_to_inline(
+                        output_buffer, 
+                        current_visual_col + 1, 
+                        y + 1 + self.render_offset, 
+                        self.use_alternate_screen,
+                        &self.inline_state,
+                        current_fg,
+                        current_bg,
+                        current_attributes as u8
+                    );
                     
                     // Set colors
                     Self::write_fg_color(output_buffer, 
@@ -747,14 +843,47 @@ impl CliRenderer {
             // Flush remaining run at end of line
             if run_length > 0 {
                 let start_col = run_start_visual_col.unwrap_or(0) + 1;
-                Self::write_move_to(output_buffer, start_col, y + 1 + self.render_offset);
+                Self::write_move_to_inline(
+                    output_buffer, 
+                    start_col, 
+                    y + 1 + self.render_offset, 
+                    self.use_alternate_screen,
+                    &self.inline_state,
+                    current_fg,
+                    current_bg,
+                    current_attributes as u8
+                );
                 output_buffer.extend_from_slice(&run_buffer);
                 output_buffer.extend_from_slice(ANSI::RESET.as_bytes());
             }
+            
+            // In inline mode, clear to end of line to remove any leftover content
+            if !self.use_alternate_screen && y < self.lines_rendered {
+                output_buffer.extend_from_slice("\x1b[K".as_bytes()); // Clear to end of line
+            }
         }
+        
+        // Update inline state with current colors and attributes
+        self.inline_state.saved_fg = current_fg;
+        self.inline_state.saved_bg = current_bg;
+        self.inline_state.saved_attrs = current_attributes as u8;
         
         // Reset attributes
         output_buffer.extend_from_slice(ANSI::RESET.as_bytes());
+        
+        // In inline mode, clear any leftover lines if content shrunk
+        if !self.use_alternate_screen && self.has_rendered_once {
+            if self.previous_lines_rendered > self.lines_rendered {
+                // Clear the extra lines that are no longer needed
+                // Move to the line after the last rendered line
+                use std::fmt::Write;
+                let mut temp = String::new();
+                write!(&mut temp, "\x1b[{};1H", self.inline_state.start_row + self.lines_rendered + 1).ok();
+                output_buffer.extend_from_slice(temp.as_bytes());
+                // Clear from cursor to end of screen
+                output_buffer.extend_from_slice("\x1b[J".as_bytes());
+            }
+        }
         
         // Handle cursor (thread-safe read)
         let cursor = GLOBAL_CURSOR.read().unwrap().clone();
@@ -776,7 +905,26 @@ impl CliRenderer {
                 rgba_component_to_u8(cursor.color[2]));
             
             output_buffer.extend_from_slice(cursor_style_code.as_bytes());
-            Self::write_move_to(output_buffer, cursor.x, cursor.y + self.render_offset);
+            
+            // Position cursor properly
+            if self.use_alternate_screen {
+                Self::write_move_to(output_buffer, cursor.x, cursor.y + self.render_offset);
+            } else {
+                // In inline mode, position cursor relative to the rendered area
+                if cursor.y < self.lines_rendered {
+                    Self::write_move_to_inline(
+                        output_buffer, 
+                        cursor.x, 
+                        cursor.y + 1, 
+                        false,
+                        &self.inline_state,
+                        None,  // cursor doesn't have specific color context
+                        None,
+                        0
+                    );
+                }
+            }
+            
             output_buffer.extend_from_slice(ANSI::SHOW_CURSOR.as_bytes());
         } else {
             output_buffer.extend_from_slice(ANSI::HIDE_CURSOR.as_bytes());
@@ -807,11 +955,64 @@ impl CliRenderer {
         buffer.extend_from_slice(temp.as_bytes());
     }
     
+    fn write_move_to_inline(
+        buffer: &mut Vec<u8>, 
+        x: u32, 
+        y: u32, 
+        use_alternate_screen: bool,
+        inline_state: &InlineState,
+        current_fg: Option<RGBA>,
+        current_bg: Option<RGBA>,
+        current_attrs: u8
+    ) {
+        if !use_alternate_screen {
+            use std::fmt::Write;
+            let mut temp = String::new();
+            
+            // Calculate absolute position from saved start position
+            let abs_row = inline_state.start_row + y;
+            let abs_col = if x > 0 { x } else { inline_state.start_col };
+            
+            // Use absolute positioning
+            write!(&mut temp, "\x1b[{};{}H", abs_row, abs_col).ok();
+            buffer.extend_from_slice(temp.as_bytes());
+            
+            // Restore colors and attributes if they were changed
+            // This ensures text keeps its styling after cursor movement
+            if let Some(fg) = current_fg {
+                if inline_state.saved_fg != Some(fg) {
+                    let [r, g, b, _] = rgba_to_ints(fg);
+                    Self::write_fg_color(buffer, r, g, b);
+                }
+            }
+            
+            if let Some(bg) = current_bg {
+                if inline_state.saved_bg != Some(bg) {
+                    let [r, g, b, _] = rgba_to_ints(bg);
+                    Self::write_bg_color(buffer, r, g, b);
+                }
+            }
+            
+            if current_attrs != inline_state.saved_attrs && current_attrs != 0 {
+                Self::write_attributes(buffer, current_attrs);
+            }
+        } else {
+            // Use absolute positioning for alternate screen mode
+            Self::write_move_to(buffer, x, y);
+        }
+    }
+    
     fn write_fg_color(buffer: &mut Vec<u8>, r: u8, g: u8, b: u8) {
         use std::fmt::Write;
         let mut temp = String::new();
         write!(&mut temp, "\x1b[38;2;{};{};{}m", r, g, b).ok();
         buffer.extend_from_slice(temp.as_bytes());
+    }
+    
+    fn write_attributes(buffer: &mut Vec<u8>, attributes: u8) {
+        let mut attr_buf = Vec::new();
+        TextAttributes::apply_attributes_output_writer(&mut attr_buf, attributes).ok();
+        buffer.extend_from_slice(&attr_buf);
     }
     
     fn write_bg_color(buffer: &mut Vec<u8>, r: u8, g: u8, b: u8) {

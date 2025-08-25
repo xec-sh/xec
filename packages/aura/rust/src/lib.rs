@@ -21,13 +21,13 @@ fn f32_ptr_to_rgba(ptr: *const f32) -> RGBA {
 // ====== Renderer exports ======
 
 #[no_mangle]
-pub extern "C" fn createRenderer(width: u32, height: u32) -> *mut CliRenderer {
+pub extern "C" fn createRenderer(width: u32, height: u32, use_alternate_screen: bool) -> *mut CliRenderer {
     if width == 0 || height == 0 {
         eprintln!("Invalid renderer dimensions: {}x{}", width, height);
         return ptr::null_mut();
     }
     
-    match CliRenderer::create(width, height) {
+    match CliRenderer::create(width, height, use_alternate_screen) {
         Ok(renderer) => Box::into_raw(renderer),
         Err(err) => {
             eprintln!("Failed to create renderer: {:?}", err);
@@ -46,10 +46,10 @@ pub extern "C" fn setUseThread(renderer_ptr: *mut CliRenderer, use_thread: bool)
 }
 
 #[no_mangle]
-pub extern "C" fn destroyRenderer(renderer_ptr: *mut CliRenderer, use_alternate_screen: bool, split_height: u32) {
+pub extern "C" fn destroyRenderer(renderer_ptr: *mut CliRenderer, use_alternate_screen: bool/*, split_height: u32*/) {
     unsafe {
         if let Some(renderer) = renderer_ptr.as_mut() {
-            renderer.destroy(use_alternate_screen, split_height);
+            renderer.destroy(use_alternate_screen/*, split_height*/);
         }
         if !renderer_ptr.is_null() {
             let _ = Box::from_raw(renderer_ptr);
@@ -71,6 +71,15 @@ pub extern "C" fn setRenderOffset(renderer_ptr: *mut CliRenderer, offset: u32) {
     unsafe {
         if let Some(renderer) = renderer_ptr.as_mut() {
             renderer.set_render_offset(offset);
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn setLinesRendered(renderer_ptr: *mut CliRenderer, lines: u32) {
+    unsafe {
+        if let Some(renderer) = renderer_ptr.as_mut() {
+            renderer.set_lines_rendered(lines);
         }
     }
 }

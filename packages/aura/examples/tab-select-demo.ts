@@ -6,11 +6,11 @@ import {
   fg,
   bold,
   TabsComponent,
+  type Renderer,
   GroupComponent,
+  createRenderer,
   type TabsOption,
   RenderableEvents,
-  type Renderer,
-  createCliRenderer,
   TabSelectComponentEvents,
 } from "../src/index"
 
@@ -84,13 +84,13 @@ export function run(rendererInstance: Renderer): void {
     zIndex: 10,
     visible: true,
   })
-  renderer.root.add(parentContainer)
+
 
   tabSelect = new TabsComponent("main-tabs", {
-    position: "absolute",
-    left: 5,
-    top: 2,
-    width: 70,
+    // position: "absolute",
+    // left: 5,
+    // top: 2,
+    width: 80,
     options: tabOptions,
     zIndex: 100,
     tabWidth: 12,
@@ -108,14 +108,15 @@ export function run(rendererInstance: Renderer): void {
   })
 
   renderer.root.add(tabSelect)
+  renderer.root.add(parentContainer)
 
   keyLegendDisplay = new TextComponent("key-legend", {
     content: t``,
     width: 40,
     height: 10,
-    position: "absolute",
-    left: 5,
-    top: 8,
+    // position: "absolute",
+    // left: 5,
+    // top: 8,
     zIndex: 50,
     fg: "#AAAAAA",
   })
@@ -126,9 +127,9 @@ export function run(rendererInstance: Renderer): void {
     content: t``,
     width: 80,
     height: 6,
-    position: "absolute",
-    left: 5,
-    top: 19,
+    // position: "absolute",
+    // left: 5,
+    // top: 19,
     zIndex: 50,
   })
   parentContainer.add(statusDisplay)
@@ -175,6 +176,8 @@ export function run(rendererInstance: Renderer): void {
 
   getKeyHandler().on("keypress", keyboardHandler)
   tabSelect.focus()
+
+  console.log("renderer", renderer.root.calculateLayout());
 }
 
 export function destroy(rendererInstance: Renderer): void {
@@ -200,7 +203,9 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
+    useAlternateScreen: false,
+
     exitOnCtrlC: true,
   })
 

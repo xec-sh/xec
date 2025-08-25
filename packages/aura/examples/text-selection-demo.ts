@@ -13,7 +13,7 @@ import {
   BoxComponent,
   TextComponent,
   GroupComponent,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index.js"
 
 let mainContainer: BoxComponent | null = null
@@ -329,7 +329,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     targetFps: 30,
     enableMouseMovement: true,
     exitOnCtrlC: true,

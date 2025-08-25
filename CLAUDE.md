@@ -104,6 +104,15 @@ src/
 ### 1. ⚠️ Task Focus
 **CRITICAL**: Only implement what is explicitly requested. No additional features, files, or "nice-to-haves" unless specified.
 
+### 1.1. 🚫 No Duplicate Files
+**CRITICAL**: When improving or fixing existing files, ALWAYS update the original files directly. NEVER create duplicate files with suffixes like `-enhanced`, `-fixed`, `-v2`, etc. This prevents code fragmentation and maintains consistency.
+
+**Examples**:
+- ✅ Update `text-input.ts` directly 
+- ❌ Create `text-input-enhanced.ts`
+- ✅ Modify `autocomplete.ts` in place
+- ❌ Create `autocomplete-fixed.ts`
+
 ### 2. 🔒 Type Safety First
 ```typescript
 // ✅ Good
@@ -187,6 +196,55 @@ throw new Error('Command exited with code 1');
 - Predictable method signatures
 - Uniform error handling
 - Same patterns across adapters
+
+## 🖥️ TUI Application Testing
+
+### tui-tester Module
+For comprehensive testing of Terminal User Interface applications, use the `tui-tester` module which provides automated testing capabilities similar to Playwright for web applications:
+
+```typescript
+import { createTester, type Snapshot } from "tui-tester";
+
+// Example: Testing a TUI application
+const tester = createTester('npx tsx ./examples/my-app.ts', {
+  cwd: '/path/to/project',
+  cols: 80,
+  rows: 24,
+  shell: '/bin/zsh',
+});
+
+// Start the application
+await tester.start();
+
+// Send input
+await tester.sendText('hello');
+await tester.sendKey('Enter');
+
+// Take screenshots for comparison
+const snapshot = await tester.takeSnapshot('test-state');
+const output = snapshot.capture.raw;
+
+// Stop the application
+await tester.stop();
+```
+
+### TUI Testing Best Practices
+1. **Visual Testing**: Compare terminal output snapshots between implementations
+2. **Input Simulation**: Test keyboard input, mouse events, and special key combinations
+3. **State Verification**: Verify that UI state changes correctly in response to events
+4. **Cross-Implementation Testing**: Compare behavior between original (Go/Rust) and TypeScript implementations
+5. **Terminal Compatibility**: Test with different terminal sizes and capabilities
+
+### Example: Comparing Implementations
+See `packages/terex/examples/tui-tester.ts` for a complete example of comparing Bubble Tea (Go) vs Terex (TypeScript) implementations.
+
+### Real TUI Testing Requirements
+**IMPORTANT**: For reliable TUI application testing, especially when comparing implementations:
+- Use `tui-tester` module for automated terminal interaction
+- Test in real terminal environments, not mocked ones
+- Compare actual terminal output byte-for-byte when possible
+- Account for timing differences between implementations
+- Test edge cases like window resizing, alt-screen toggling, and signal handling
 
 ## 🧪 Testing Strategy
 

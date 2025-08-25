@@ -1,6 +1,6 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { Timeline, createTimeline, type JSAnimation } from "../src/animation/timeline"
-import { Renderer, BoxComponent, TextComponent, GroupComponent, createCliRenderer } from "../src/index"
+import { Renderer, BoxComponent, TextComponent, GroupComponent, createRenderer } from "../src/index"
 
 class TimelineExample {
   private _mainTimeline: Timeline
@@ -645,7 +645,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
     targetFps: 60,
   })

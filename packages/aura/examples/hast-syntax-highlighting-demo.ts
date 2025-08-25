@@ -8,7 +8,7 @@ import {
   TextComponent,
   type ParsedKey,
   GroupComponent,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index.js"
 
 const exampleHAST: HASTElement = (await import("./assets/hast-example.json", { with: { type: "json" } })) as HASTElement
@@ -120,7 +120,7 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
     targetFps: 60,
   })

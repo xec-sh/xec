@@ -20,7 +20,7 @@ export class Renderer {
   private frameBuffer = '';
   private lastRenderTime = 0;
   private minRenderInterval = 16; // ~60fps
-  
+
   // Context isolation support
   private contextId?: string;
   private renderRegion?: Region;
@@ -53,14 +53,14 @@ export class Renderer {
       const prevFrame = this.getPreviousFrame();
       if (output !== prevFrame) {
         this.clear();
-        
+
         // Apply region constraints if set
         if (this.renderRegion) {
           this.renderToRegion(output);
         } else {
           this.stream.write(output);
         }
-        
+
         this.setPreviousFrame(output);
       }
     } finally {
@@ -85,43 +85,43 @@ export class Renderer {
       }
     }
   }
-  
+
   private renderToRegion(content: string): void {
     if (!this.renderRegion) return;
-    
+
     const { x, y, width, height } = this.renderRegion;
-    
+
     // Save cursor position
     this.stream.write(cursor.save);
-    
+
     // Split content into lines and apply region constraints
     const lines = content.split('\n');
     const truncatedLines = lines.slice(0, height);
-    
+
     truncatedLines.forEach((line, i) => {
       this.stream.cursorTo(x, y + i);
       const truncatedLine = line.slice(0, width);
       this.stream.write(truncatedLine);
     });
-    
+
     // Restore cursor position
     this.stream.write(cursor.restore);
   }
-  
+
   private clearRegion(): void {
     if (!this.renderRegion) return;
-    
+
     const { x, y, width, height } = this.renderRegion;
-    
+
     // Save cursor position
     this.stream.write(cursor.save);
-    
+
     // Clear the region
     for (let i = 0; i < height; i++) {
       this.stream.cursorTo(x, y + i);
       this.stream.write(' '.repeat(width));
     }
-    
+
     // Restore cursor position
     this.stream.write(cursor.restore);
   }
@@ -174,37 +174,37 @@ export class Renderer {
   setTheme(theme: Theme): void {
     this.theme = theme;
   }
-  
+
   // Region management for multi-prompt scenarios
   setRenderRegion(region: Region): void {
     this.renderRegion = region;
   }
-  
+
   clearRenderRegion(): void {
     this.renderRegion = undefined;
   }
-  
+
   // Context management
   switchContext(contextId: string): void {
     // Save current frame to store
     if (this.contextId) {
       this.frameStore.set(this.contextId, this.previousFrame);
     }
-    
+
     // Switch context
     this.contextId = contextId;
-    
+
     // Restore frame from store
     this.previousFrame = this.frameStore.get(contextId) || '';
   }
-  
+
   clearContext(contextId?: string): void {
     const id = contextId || this.contextId;
     if (id) {
       this.frameStore.delete(id);
     }
   }
-  
+
   // Get isolated previous frame
   private getPreviousFrame(): string {
     if (this.contextId) {
@@ -212,7 +212,7 @@ export class Renderer {
     }
     return this.previousFrame;
   }
-  
+
   // Set isolated previous frame
   private setPreviousFrame(frame: string): void {
     if (this.contextId) {

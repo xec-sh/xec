@@ -20,21 +20,21 @@ const suppressMessages = [
 ];
 
 // Intercept console methods
-console.log = function(...args) {
+console.log = function (...args) {
   const message = args.join(' ');
   if (!suppressMessages.some(msg => message.includes(msg))) {
     originalConsoleLog.apply(console, args);
   }
 };
 
-console.warn = function(...args) {
+console.warn = function (...args) {
   const message = args.join(' ');
   if (!suppressMessages.some(msg => message.includes(msg))) {
     originalConsoleWarn.apply(console, args);
   }
 };
 
-console.error = function(...args) {
+console.error = function (...args) {
   const message = args.join(' ');
   if (!suppressMessages.some(msg => message.includes(msg))) {
     originalConsoleError.apply(console, args);
@@ -42,7 +42,7 @@ console.error = function(...args) {
 };
 
 // Intercept direct stdout/stderr writes
-process.stdout.write = function(chunk, encoding, callback) {
+process.stdout.write = function (chunk, encoding, callback) {
   const message = chunk.toString();
   if (!suppressMessages.some(msg => message.includes(msg))) {
     return originalStdoutWrite.apply(process.stdout, arguments);
@@ -50,7 +50,7 @@ process.stdout.write = function(chunk, encoding, callback) {
   return true;
 };
 
-process.stderr.write = function(chunk, encoding, callback) {
+process.stderr.write = function (chunk, encoding, callback) {
   const message = chunk.toString();
   if (!suppressMessages.some(msg => message.includes(msg))) {
     return originalStderrWrite.apply(process.stderr, arguments);

@@ -1,6 +1,6 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { renderFontToFrameBuffer } from "../src/lib/ascii.font"
-import { RGBA, Renderer, TextComponent, GroupComponent, createCliRenderer, FrameBufferComponent } from "../src/index"
+import { RGBA, Renderer, TextComponent, GroupComponent, createRenderer, FrameBufferComponent } from "../src/index"
 
 let scrollY = 0
 const contentHeight = 56
@@ -230,7 +230,7 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
     targetFps: 30,
   })

@@ -7,7 +7,6 @@ import * as selectExample from "./select-demo"
 import * as consoleExample from "./console-demo"
 import * as timelineExample from "./timeline-example"
 import * as tabSelectExample from "./tab-select-demo"
-import * as splitModeExample from "./split-mode-demo"
 import * as liveStateExample from "./live-state-demo"
 import { getKeyHandler } from "../src/lib/key-handler"
 import * as transparencyDemo from "./transparency-demo"
@@ -30,7 +29,7 @@ import {
   TextComponent,
   type ParsedKey,
   SelectComponent,
-  createCliRenderer,
+  createRenderer,
   type SelectOption,
   FrameBufferComponent,
   SelectComponentEvents,
@@ -157,13 +156,7 @@ const examples: Example[] = [
     description: "Interactive InputElement demo with validation and multiple fields",
     run: inputExample.run,
     destroy: inputExample.destroy,
-  },
-  {
-    name: "Split Mode Demo (Experimental)",
-    description: "Renderer confined to bottom area with normal terminal output above",
-    run: splitModeExample.run,
-    destroy: splitModeExample.destroy,
-  },
+  }
 ]
 
 class ExampleSelector {
@@ -401,7 +394,8 @@ class ExampleSelector {
   }
 }
 
-const renderer = await createCliRenderer({
+const renderer = await createRenderer({
+  useAlternateScreen: true,
   exitOnCtrlC: false,
   targetFps: 1000,
 })
