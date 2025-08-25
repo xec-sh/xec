@@ -62,6 +62,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Box",
       titleAlignment: "center",
+      border: true,
     })
     this.parentContainer.add(this.boxObject)
 
@@ -77,6 +78,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Color",
       titleAlignment: "center",
+      border: true,
     })
     this.parentContainer.add(colorObject)
 
@@ -92,6 +94,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Physics",
       titleAlignment: "center",
+      border: true,
     })
     this.parentContainer.add(physicsObject)
 
@@ -107,6 +110,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Alternate",
       titleAlignment: "center",
+      border: true,
     })
     this.parentContainer.add(this.alternatingObject)
 
@@ -122,6 +126,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Main Timeline (20s)",
       titleAlignment: "left",
+      border: true,
     })
     this.parentContainer.add(mainTimelineBox)
 
@@ -137,6 +142,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Sub Timeline 1 (8s)",
       titleAlignment: "left",
+      border: true,
     })
     this.parentContainer.add(subTimeline1Box)
 
@@ -152,6 +158,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Sub Timeline 2 (6s)",
       titleAlignment: "left",
+      border: true,
     })
     this.parentContainer.add(subTimeline2Box)
 
@@ -167,6 +174,7 @@ class TimelineExample {
       borderColor: "#FFFFFF",
       title: "Animation Values",
       titleAlignment: "center",
+      border: true,
     })
     this.parentContainer.add(statusBox)
 
@@ -286,7 +294,6 @@ class TimelineExample {
         height: 1,
         backgroundColor: "#FFE66D",
         zIndex: 2,
-        border: false,
       })
       this.parentContainer.add(newMainProgressBox)
     }
@@ -303,7 +310,6 @@ class TimelineExample {
         height: 1,
         backgroundColor: "#FF6B6B",
         zIndex: 2,
-        border: false,
       })
       this.parentContainer.add(newSub1ProgressBox)
     }
@@ -320,7 +326,6 @@ class TimelineExample {
         height: 1,
         backgroundColor: "#4ECDC4",
         zIndex: 2,
-        border: false,
       })
       this.parentContainer.add(newSub2ProgressBox)
     }

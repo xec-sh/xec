@@ -1,7 +1,7 @@
 import { EventEmitter } from "events"
 
+import { singleton } from "./singleton.js"
 import { parseKeypress } from "./parse.keypress.js"
-import { singleton } from "../renderer/console/singleton.js"
 
 export class KeyHandler extends EventEmitter {
   constructor() {

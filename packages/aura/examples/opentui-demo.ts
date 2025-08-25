@@ -227,6 +227,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "single",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(box1)
 
@@ -251,6 +252,7 @@ export function run(renderer: Renderer): void {
         zIndex: 1,
         borderStyle: "double",
         borderColor: "#FFFF00",
+        border: true,
       })
       tabGroup.add(box2)
 
@@ -368,6 +370,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "single",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(singleBox)
       const singleLabel = new TextComponent("single-label", {
@@ -391,6 +394,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "double",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(doubleBox)
       const doubleLabel = new TextComponent("double-label", {
@@ -414,6 +418,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "rounded",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(roundedBox)
       const roundedLabel = new TextComponent("rounded-label", {
@@ -472,6 +477,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "single",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(partialAnimated)
       const partialAnimatedLabel = new TextComponent("partial-animated-label", {
@@ -558,6 +564,7 @@ export function run(renderer: Renderer): void {
         borderStyle: "single",
         borderColor: "#FFFFFF",
         customBorderChars: asciiBorders,
+        border: true,
       })
       tabGroup.add(asciiBox)
       const asciiLabel = new TextComponent("ascii-label", {
@@ -581,8 +588,9 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "single",
         borderColor: "#FFFFFF",
-        customBorderChars: blockBorders,
+        border: true,
       })
+      blockBox.customBorderChars = blockBorders
       tabGroup.add(blockBox)
       const blockLabel = new TextComponent("block-label", {
         content: "Block Border",
@@ -606,6 +614,7 @@ export function run(renderer: Renderer): void {
         borderStyle: "single",
         borderColor: "#FFFFFF",
         customBorderChars: starBorders,
+        border: true,
       })
       tabGroup.add(starBox)
       const starLabel = new TextComponent("star-label", {
@@ -687,6 +696,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "rounded",
         borderColor: "#FF00FF",
+        border: true,
       })
       tabGroup.add(animatedBox)
 
@@ -700,6 +710,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "double",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(colorBox)
 
@@ -780,6 +791,7 @@ export function run(renderer: Renderer): void {
         borderColor: "#FFFFFF",
         title: "Left Aligned",
         titleAlignment: "left",
+        border: true,
       })
       tabGroup.add(titledLeft)
 
@@ -795,6 +807,7 @@ export function run(renderer: Renderer): void {
         borderColor: "#FFFFFF",
         title: "Centered Title",
         titleAlignment: "center",
+        border: true,
       })
       tabGroup.add(titledCenter)
 
@@ -810,6 +823,7 @@ export function run(renderer: Renderer): void {
         borderColor: "#FFFFFF",
         title: "Right Aligned",
         titleAlignment: "right",
+        border: true,
       })
       tabGroup.add(titledRight)
     },
@@ -847,6 +861,7 @@ export function run(renderer: Renderer): void {
         zIndex: 0,
         borderStyle: "double",
         borderColor: "#FFFFFF",
+        border: true,
       })
       tabGroup.add(interactiveBorder)
 

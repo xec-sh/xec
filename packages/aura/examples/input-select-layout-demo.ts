@@ -61,6 +61,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     borderColor: "#2563eb",
     flexGrow: 0,
     flexShrink: 0,
+    border: true,
   })
 
   header = new TextComponent("header", {
@@ -84,6 +85,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     backgroundColor: "#1e293b",
     borderStyle: "single",
     borderColor: "#475569",
+    border: true,
   })
 
   selectContainer = new GroupComponent("select-container", {
@@ -108,8 +110,9 @@ function createLayoutElements(rendererInstance: Renderer): void {
     title: "Color Selection",
     titleAlignment: "center",
     flexGrow: 1,
-    // flexShrink: 1,
+    flexShrink: 1,
     backgroundColor: "transparent",
+    border: true,
   })
 
   leftSelect = new SelectComponent("color-select", {
@@ -148,6 +151,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexGrow: 1,
     flexShrink: 1,
     backgroundColor: "transparent",
+    border: true,
   })
 
   rightSelect = new SelectComponent("size-select", {
@@ -182,6 +186,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     backgroundColor: "#0f172a",
     borderStyle: "single",
     borderColor: "#334155",
+    border: true,
   })
 
   inputContainer = new GroupComponent("input-container", {
@@ -215,6 +220,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexShrink: 0,
     marginTop: 1,
     backgroundColor: "transparent",
+    border: true,
   })
 
   textInput = new InputComponent("text-input", {
@@ -244,6 +250,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     borderColor: "#1d4ed8",
     flexGrow: 0,
     flexShrink: 0,
+    border: true,
   })
 
   footer = new TextComponent("footer", {

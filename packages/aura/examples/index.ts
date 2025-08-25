@@ -28,8 +28,8 @@ import {
   BoxComponent,
   TextComponent,
   type ParsedKey,
-  SelectComponent,
   createRenderer,
+  SelectComponent,
   type SelectOption,
   FrameBufferComponent,
   SelectComponentEvents,
@@ -248,6 +248,7 @@ class ExampleSelector {
       titleAlignment: "center",
       backgroundColor: "transparent",
       shouldFill: false,
+      border: true,
     })
 
     this.selectElement = new SelectComponent("example-selector", {

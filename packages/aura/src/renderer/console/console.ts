@@ -5,8 +5,8 @@ import { EventEmitter } from "events"
 import { Console } from "node:console"
 
 import { Renderer, } from "../renderer.js"
-import { singleton } from "./singleton.js";
 import { OptimizedBuffer } from "../buffer.js"
+import { singleton } from "../../lib/singleton.js";
 import { Capture, CapturedWritableStream } from "./output-capture.js"
 import { RGBA, parseColor, type ColorInput } from "../../lib/colors.js"
 
@@ -48,7 +48,7 @@ enum LogLevel {
   DEBUG = "DEBUG",
 }
 
-export const { capture } = singleton('ConsoleCapture', () => {
+export const { capture } = singleton("ConsoleCapture", () => {
   const capture = new Capture()
   const mockStdout = new CapturedWritableStream("stdout", capture)
   const mockStderr = new CapturedWritableStream("stderr", capture)

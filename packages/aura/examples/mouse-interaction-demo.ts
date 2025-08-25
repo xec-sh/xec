@@ -10,9 +10,9 @@ import {
   TextComponent,
   TextAttributes,
   createTimeline,
+  createRenderer,
   type MouseEvent,
   OptimizedBuffer,
-  createRenderer,
   FrameBufferComponent,
 } from "../src/index"
 
@@ -61,6 +61,7 @@ class DraggableBox extends BoxComponent {
       borderStyle: "rounded",
       title: label,
       titleAlignment: "center",
+      border: true,
     })
     this.baseWidth = width
     this.baseHeight = height

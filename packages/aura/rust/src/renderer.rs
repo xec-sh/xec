@@ -338,10 +338,10 @@ impl CliRenderer {
         } else {
         //     // Inline mode - move to position after rendered content
         //     // Move to position after rendered content
-        //     use std::fmt::Write;
-        //     let mut temp = String::new();
-        //     write!(&mut temp, "\x1b[{};1H", self.inline_state.start_row + self.lines_rendered).ok();
-        //     self.stdout_writer.write_all(temp.as_bytes()).ok();
+            use std::fmt::Write;
+            let mut temp = String::new();
+            write!(&mut temp, "\x1b[{};1H", self.inline_state.start_row + self.lines_rendered).ok();
+            self.stdout_writer.write_all(temp.as_bytes()).ok();
         
             // Move to beginning of line and add newline for clean exit
             self.stdout_writer.write_all(b"\n").ok();

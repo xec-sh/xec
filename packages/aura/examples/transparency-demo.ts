@@ -4,15 +4,15 @@ import {
   fg,
   RGBA,
   bold,
-  underline,
   Renderer,
+  underline,
   BoxComponent,
   TextComponent,
   TextAttributes,
   GroupComponent,
+  createRenderer,
   OptimizedBuffer,
-  type MouseEvent,
-  createRenderer
+  type MouseEvent
 } from "../src/index"
 
 
@@ -31,11 +31,11 @@ class DraggableTransparentBox extends BoxComponent {
       height,
       zIndex,
       backgroundColor: bg,
-      border: false,
       titleAlignment: "center",
       position: "absolute",
       left: x,
       top: y,
+      border: true,
     })
     this.alphaPercentage = Math.round(bg.a * 100)
   }
