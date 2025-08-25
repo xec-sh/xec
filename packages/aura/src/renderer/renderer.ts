@@ -7,6 +7,7 @@ import { ANSI } from "./ansi.js"
 import { OptimizedBuffer } from "./buffer.js"
 import { initializeNative } from "./native.js"
 import { Selection } from "../lib/selection.js"
+import { singleton } from "../lib/singleton.js";
 import { type RenderLib, resolveRenderLib } from "./native.js"
 import { Component, RootContext, RootComponent } from "../component"
 import { RGBA, parseColor, type ColorInput, } from "../lib/colors.js"
@@ -85,11 +86,13 @@ export enum MouseButton {
   WHEEL_DOWN = 5,
 }
 
-;['SIGINT', 'SIGTERM', 'SIGQUIT', 'SIGABRT'].forEach((signal) => {
-  process.on(signal, () => {
-    process.exit()
+singleton('ProcessExitSignals', () => {
+  ["SIGINT", "SIGTERM", "SIGQUIT", "SIGABRT"].forEach((signal) => {
+    process.on(signal, () => {
+      process.exit()
+    })
   })
-})
+});
 
 enum RendererControlState {
   IDLE = "idle",
@@ -98,8 +101,6 @@ enum RendererControlState {
   EXPLICIT_PAUSED = "explicit_paused",
   EXPLICIT_STOPPED = "explicit_stopped",
 }
-
-let animationFrameId = 0;
 
 export async function createRenderer(config: RendererConfig = {}): Promise<Renderer> {
   await initializeNative();
@@ -111,7 +112,7 @@ export async function createRenderer(config: RendererConfig = {}): Promise<Rende
   // In normal mode, we'll adjust height based on actual content
   const useAlternateScreen = config.useAlternateScreen === true // Default to true for backwards compatibility
   // In inline mode, start with minimal height to avoid clearing the entire screen
-  const renderHeight = useAlternateScreen ? height : 1;
+  const renderHeight = height;//useAlternateScreen ? height : 1;
 
   const nativeLib = resolveRenderLib()
   const rendererPtr = nativeLib.createRenderer(width, renderHeight, useAlternateScreen)
@@ -137,6 +138,7 @@ export enum CliRenderEvents {
 }
 
 export class Renderer extends EventEmitter {
+  private static animationFrameId = 0;
   private lib: RenderLib
   public rendererPtr: Pointer
   private stdin: NodeJS.ReadStream
@@ -178,7 +180,6 @@ export class Renderer extends EventEmitter {
 
   // Inline rendering state
   private linesRendered: number = 1;
-  // private firstRender: boolean = true
 
   private liveRequestCounter: number = 0;
   private controlState: RendererControlState = RendererControlState.IDLE;
@@ -233,18 +234,10 @@ export class Renderer extends EventEmitter {
   private selectionState: SelectionState | null = null
   private selectionContainers: Component[] = []
 
-  // private _splitHeight: number = 0
-  // private renderOffset: number = 0
-
   private _terminalWidth: number = 0
   private _terminalHeight: number = 0
 
   private realStdoutWrite: (chunk: any, encoding?: any, callback?: any) => boolean
-  // private captureCallback: () => void = () => {
-  //   // if (this._splitHeight > 0) {
-  //   //   this.needsUpdate()
-  //   // }
-  // }
 
   private _useConsole: boolean = true
   private mouseParser: MouseParser = new MouseParser()
@@ -270,14 +263,6 @@ export class Renderer extends EventEmitter {
     this.width = width
     this.height = height
     this._useThread = config.useThread === undefined ? false : config.useThread
-    // this._splitHeight = config.experimental_splitHeight || 0;
-
-    // if (this._splitHeight > 0) {
-    //   capture.on("write", this.captureCallback)
-    //   this.renderOffset = height - this._splitHeight
-    //   this.height = this._splitHeight
-    //   lib.setRenderOffset(rendererPtr, this.renderOffset)
-    // }
 
     this.rendererPtr = rendererPtr
     this.exitOnCtrlC = config.exitOnCtrlC === undefined ? true : config.exitOnCtrlC
@@ -357,7 +342,7 @@ export class Renderer extends EventEmitter {
     this.useConsole = config.useConsole ?? true
 
     global.requestAnimationFrame = (callback: FrameRequestCallback) => {
-      const id = animationFrameId++
+      const id = Renderer.animationFrameId++
       this.animationRequest.set(id, callback)
       return id
     }
@@ -449,66 +434,10 @@ export class Renderer extends EventEmitter {
     return this.controlState;
   }
 
-  // public get experimental_splitHeight(): number {
-  //   return this._splitHeight
-  // }
-
-  // public set experimental_splitHeight(splitHeight: number) {
-  //   if (splitHeight < 0) splitHeight = 0
-
-  //   const prevSplitHeight = this._splitHeight
-
-  //   if (splitHeight > 0) {
-  //     this._splitHeight = splitHeight
-  //     this.renderOffset = this._terminalHeight - this._splitHeight
-  //     this.height = this._splitHeight
-
-  //     if (prevSplitHeight === 0) {
-  //       this.useConsole = false
-  //       capture.on("write", this.captureCallback)
-  //       const freedLines = this._terminalHeight - this._splitHeight
-  //       const scrollDown = ANSI.scrollDown(freedLines)
-  //       this.writeOut(scrollDown)
-  //     } else if (prevSplitHeight > this._splitHeight) {
-  //       const freedLines = prevSplitHeight - this._splitHeight
-  //       const scrollDown = ANSI.scrollDown(freedLines)
-  //       this.writeOut(scrollDown)
-  //     } else if (prevSplitHeight < this._splitHeight) {
-  //       const additionalLines = this._splitHeight - prevSplitHeight
-  //       const scrollUp = ANSI.scrollUp(additionalLines)
-  //       this.writeOut(scrollUp)
-  //     }
-  //   } else {
-  //     if (prevSplitHeight > 0) {
-  //       this.flushStdoutCache(this._terminalHeight, true)
-
-  //       capture.off("write", this.captureCallback)
-  //       this.useConsole = true
-  //     }
-
-  //     this._splitHeight = 0
-  //     this.renderOffset = 0
-  //     this.height = this._terminalHeight
-  //   }
-
-  //   this.width = this._terminalWidth
-  //   this.lib.setRenderOffset(this.rendererPtr, this.renderOffset)
-  //   this.lib.resizeRenderer(this.rendererPtr, this.width, this.height)
-  //   this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr)
-
-  //   this._console.resize(this.width, this.height)
-  //   this.root.resize(this.width, this.height)
-  //   this.emit("resize", this.width, this.height)
-  //   this.needsUpdate()
-  // }
-
   private interceptStdoutWrite = (chunk: any, encoding?: any, callback?: any): boolean => {
     const text = chunk.toString()
 
     capture.write("stdout", text)
-    // if (this._splitHeight > 0) {
-    //   this.needsUpdate()
-    // }
 
     if (typeof callback === "function") {
       process.nextTick(callback)
@@ -518,33 +447,8 @@ export class Renderer extends EventEmitter {
   }
 
   private disableStdoutInterception(): void {
-    // this.flushStdoutCache(this._splitHeight)
     this.stdout.write = this.realStdoutWrite
   }
-
-  // // TODO: Move this to native
-  // private flushStdoutCache(space: number, force: boolean = false): boolean {
-  //   if (capture.size === 0 && !force) return false
-
-  //   const output = capture.claimOutput()
-
-  //   const rendererStartLine = this._terminalHeight - this._splitHeight
-  //   const flush = ANSI.moveCursorAndClear(rendererStartLine, 1)
-
-  //   const outputLine = this._terminalHeight - this._splitHeight
-  //   const move = ANSI.moveCursor(outputLine, 1)
-
-  //   const backgroundColor = this.backgroundColor.toInts()
-  //   const newlines = " ".repeat(this.width) + "\n".repeat(space)
-  //   const clear =
-  //     ANSI.setRgbBackground(backgroundColor[0], backgroundColor[1], backgroundColor[2]) +
-  //     newlines +
-  //     ANSI.resetBackground
-
-  //   this.writeOut(flush + move + output + clear)
-
-  //   return true
-  // }
 
   private enableMouse(): void {
     this.lib.enableMouse(this.rendererPtr, this.enableMouseMovement)
@@ -563,7 +467,6 @@ export class Renderer extends EventEmitter {
   }
 
   private setupTerminal(): void {
-    // this.writeOut(ANSI.saveCursorState);
     if (this.stdin.setRawMode) {
       this.stdin.setRawMode(true);
     }
@@ -611,7 +514,6 @@ export class Renderer extends EventEmitter {
       this.writeOut(ANSI.switchToAlternateScreen);
       this.setCursorPosition(0, 0, false);
     } else {
-      // this.firstRender = true;
       this.linesRendered = 1;
     }
   }
@@ -620,13 +522,6 @@ export class Renderer extends EventEmitter {
     const mouseEvent = this.mouseParser.parseMouseEvent(data);
 
     if (mouseEvent) {
-      // if (this._splitHeight > 0) {
-      //   if (mouseEvent.y < this.renderOffset) {
-      //     return false
-      //   }
-      //   mouseEvent.y -= this.renderOffset
-      // }
-
       if (mouseEvent.type === "scroll") {
         const maybeRenderableId = this.lib.checkHit(this.rendererPtr, mouseEvent.x, mouseEvent.y)
         const maybeRenderable = Component.componentsByNumber.get(maybeRenderableId)
@@ -765,11 +660,7 @@ export class Renderer extends EventEmitter {
   }
 
   private handleResize(width: number, height: number): void {
-    if (this.isDestroyed) return
-    // if (this._splitHeight > 0) {
-    //   this.processResize(width, height)
-    //   return
-    // }
+    if (this.isDestroyed) return;
 
     if (this.resizeTimeoutId !== null) {
       clearTimeout(this.resizeTimeoutId)
@@ -800,12 +691,6 @@ export class Renderer extends EventEmitter {
 
     this.width = width
     this.height = height
-
-    // In normal mode, clear the rendered area before resize
-    // if (!this._useAlternateScreen && this.linesRendered > 0) {
-    //   this.writeOut(ANSI.eraseLines(this.linesRendered));
-    //   this.linesRendered = 1;
-    // }
 
     this.lib.resizeRenderer(this.rendererPtr, this.width, this.height)
     this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr)
@@ -975,12 +860,12 @@ export class Renderer extends EventEmitter {
   }
 
   public destroy(): void {
+    if (this.isDestroyed) return;
+    this.isDestroyed = true;
+
     if (this.stdin.setRawMode) {
       this.stdin.setRawMode(false);
     }
-
-    if (this.isDestroyed) return
-    this.isDestroyed = true
 
     this.waitingForPixelResolution = false
     this.capturedRenderable = undefined
@@ -1028,7 +913,7 @@ export class Renderer extends EventEmitter {
     this.renderStats.fps = this.currentFps
     const overallStart = performance.now()
 
-    const frameRequests = this.animationRequest.values()
+    const frameRequests = Array.from(this.animationRequest.values())
     this.animationRequest.clear()
     const animationRequestStart = performance.now()
     frameRequests.forEach((callback) => callback(deltaTime))
@@ -1095,9 +980,9 @@ export class Renderer extends EventEmitter {
       // Update native renderer height for inline mode
       if (renderHeight !== this.linesRendered) {
         // Update the native renderer's buffer size
-        this.lib.resizeRenderer(this.rendererPtr, this.width, renderHeight)
-        this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr)
-        this.currentRenderBuffer = this.lib.getCurrentBuffer(this.rendererPtr)
+        // this.lib.resizeRenderer(this.rendererPtr, this.width, renderHeight)
+        // this.nextRenderBuffer = this.lib.getNextBuffer(this.rendererPtr)
+        // this.currentRenderBuffer = this.lib.getCurrentBuffer(this.rendererPtr)
         // Set lines_rendered in the Rust renderer
         this.lib.setLinesRendered(this.rendererPtr, renderHeight);
         this.linesRendered = renderHeight;

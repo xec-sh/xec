@@ -29,6 +29,8 @@ let footer: BoxComponent | null = null
 let footerText: TextComponent | null = null
 let moveableElement: BoxComponent | null = null
 let moveableText: TextComponent | null = null
+let absolutePositionedBox: BoxComponent | null = null
+let absolutePositionedText: TextComponent | null = null
 let currentDemoIndex = 0
 let autoAdvanceTimeout: Timer | null = null
 let autoplayEnabled = true
@@ -220,6 +222,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     backgroundColor: "#3b82f6",
     borderStyle: "single",
     alignItems: "center",
+    border: true,
   })
 
   headerText = new TextComponent("header-text", {
@@ -252,6 +255,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    border: true,
   })
 
   sidebarText = new TextComponent("sidebar-text", {
@@ -274,6 +278,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    border: true,
   })
 
   mainContentText = new TextComponent("main-content-text", {
@@ -296,6 +301,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    border: true,
   })
 
   rightSidebarText = new TextComponent("right-sidebar-text", {
@@ -318,6 +324,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    border: true,
   })
 
   footerText = new TextComponent("footer-text", {
@@ -342,6 +349,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    border: true,
   })
 
   moveableText = new TextComponent("moveable-text", {
@@ -352,6 +360,31 @@ function createLayoutElements(rendererInstance: Renderer): void {
   })
 
   moveableElement.add(moveableText)
+
+  absolutePositionedBox = new BoxComponent("absolute-positioned-box", {
+    zIndex: 150,
+    width: 20,
+    height: 3,
+    backgroundColor: "#22c55e",
+    borderStyle: "single",
+    borderColor: "#16a34a",
+    position: "absolute",
+    bottom: 1,
+    right: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    border: true,
+  })
+
+  absolutePositionedText = new TextComponent("absolute-positioned-text", {
+    content: "BOTTOM RIGHT",
+    fg: "#ffffff",
+    bg: "transparent",
+    zIndex: 151,
+  })
+
+  absolutePositionedBox.add(absolutePositionedText)
 
   // Add all elements to contentArea in the correct order: left, center, right
   contentArea.add(sidebar)
@@ -365,6 +398,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
   renderer.root.add(contentArea)
   renderer.root.add(footer)
   renderer.root.add(moveableElement)
+  renderer.root.add(absolutePositionedBox)
 
   centerMoveableElement()
   updateFooterText()
@@ -516,6 +550,7 @@ export function destroy(rendererInstance: Renderer): void {
   if (contentArea) rendererInstance.root.remove(contentArea.id)
   if (footer) rendererInstance.root.remove(footer.id)
   if (moveableElement) rendererInstance.root.remove(moveableElement.id)
+  if (absolutePositionedBox) rendererInstance.root.remove(absolutePositionedBox.id)
 
   header = null
   headerText = null
@@ -530,6 +565,8 @@ export function destroy(rendererInstance: Renderer): void {
   footerText = null
   moveableElement = null
   moveableText = null
+  absolutePositionedBox = null
+  absolutePositionedText = null
   renderer = null
   currentDemoIndex = 0
   moveableElementVisible = true

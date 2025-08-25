@@ -4,12 +4,12 @@ import { Component, type ComponentProps } from "../component.js"
 import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 import {
   getBorderSides,
-  type BorderStyle,
   type BorderSides,
+  type BorderStyle,
   borderCharsToArray,
   type BorderCharacters,
   type BorderSidesConfig,
-} from "../lib/index.js"
+} from "../lib"
 
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 
@@ -31,27 +31,49 @@ export class BoxComponent extends Component {
   protected _borderStyle: BorderStyle
   protected _borderColor: RGBA
   protected _focusedBorderColor: RGBA
-  protected customBorderChars?: Uint32Array
+  private _customBorderCharsObj: BorderCharacters | undefined
+  protected _customBorderChars?: Uint32Array
   protected borderSides: BorderSidesConfig
   public shouldFill: boolean
   protected _title?: string
   protected _titleAlignment: "left" | "center" | "right"
 
+  protected _defaultOptions = {
+    backgroundColor: "transparent",
+    borderStyle: "single",
+    border: false,
+    borderColor: "#FFFFFF",
+    shouldFill: true,
+    titleAlignment: "left",
+    focusedBorderColor: "#00AAFF",
+  } satisfies Partial<BoxProps>
+
   constructor(id: string, options: BoxProps) {
     super(id, options)
 
-    this._backgroundColor = parseColor(options.backgroundColor || "transparent")
-    this._border = options.border ?? true
-    this._borderStyle = options.borderStyle || "single"
-    this._borderColor = parseColor(options.borderColor || "#FFFFFF")
-    this._focusedBorderColor = parseColor(options.focusedBorderColor || "#00AAFF")
-    this.customBorderChars = options.customBorderChars ? borderCharsToArray(options.customBorderChars) : undefined
+    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
+    this._border = options.border ?? this._defaultOptions.border
+    this._borderStyle = options.borderStyle || this._defaultOptions.borderStyle
+    this._borderColor = parseColor(options.borderColor || this._defaultOptions.borderColor)
+    this._focusedBorderColor = parseColor(options.focusedBorderColor || this._defaultOptions.focusedBorderColor)
+    this._customBorderCharsObj = options.customBorderChars
+    this._customBorderChars = this._customBorderCharsObj ? borderCharsToArray(this._customBorderCharsObj) : undefined
     this.borderSides = getBorderSides(this._border)
-    this.shouldFill = options.shouldFill ?? true
+    this.shouldFill = options.shouldFill ?? this._defaultOptions.shouldFill
     this._title = options.title
-    this._titleAlignment = options.titleAlignment || "left"
+    this._titleAlignment = options.titleAlignment || this._defaultOptions.titleAlignment
 
     this.applyYogaBorders()
+  }
+
+  public get customBorderChars(): BorderCharacters | undefined {
+    return this._customBorderCharsObj
+  }
+
+  public set customBorderChars(value: BorderCharacters | undefined) {
+    this._customBorderCharsObj = value
+    this._customBorderChars = value ? borderCharsToArray(value) : undefined
+    this.needsUpdate()
   }
 
   public get backgroundColor(): RGBA {
@@ -59,12 +81,10 @@ export class BoxComponent extends Component {
   }
 
   public set backgroundColor(value: RGBA | string | undefined) {
-    if (value) {
-      const newColor = parseColor(value)
-      if (this._backgroundColor !== newColor) {
-        this._backgroundColor = newColor
-        this.needsUpdate()
-      }
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor)
+    if (this._backgroundColor !== newColor) {
+      this._backgroundColor = newColor
+      this.needsUpdate()
     }
   }
 
@@ -86,9 +106,10 @@ export class BoxComponent extends Component {
   }
 
   public set borderStyle(value: BorderStyle) {
-    if (this._borderStyle !== value) {
-      this._borderStyle = value
-      this.customBorderChars = undefined
+    const _value = value ?? this._defaultOptions.borderStyle
+    if (this._borderStyle !== _value) {
+      this._borderStyle = _value
+      this._customBorderChars = undefined
       this.needsUpdate()
     }
   }
@@ -98,7 +119,7 @@ export class BoxComponent extends Component {
   }
 
   public set borderColor(value: RGBA | string) {
-    const newColor = parseColor(value)
+    const newColor = parseColor(value ?? this._defaultOptions.borderColor)
     if (this._borderColor !== newColor) {
       this._borderColor = newColor
       this.needsUpdate()
@@ -110,7 +131,7 @@ export class BoxComponent extends Component {
   }
 
   public set focusedBorderColor(value: RGBA | string) {
-    const newColor = parseColor(value)
+    const newColor = parseColor(value ?? this._defaultOptions.focusedBorderColor)
     if (this._focusedBorderColor !== newColor) {
       this._focusedBorderColor = newColor
       if (this._focused) {
@@ -150,7 +171,7 @@ export class BoxComponent extends Component {
       width: this.width,
       height: this.height,
       borderStyle: this._borderStyle,
-      customBorderChars: this.customBorderChars,
+      customBorderChars: this._customBorderChars,
       border: this._border,
       borderColor: currentBorderColor,
       backgroundColor: this._backgroundColor,
@@ -166,6 +187,6 @@ export class BoxComponent extends Component {
     node.setBorder(Edge.Right, this.borderSides.right ? 1 : 0)
     node.setBorder(Edge.Top, this.borderSides.top ? 1 : 0)
     node.setBorder(Edge.Bottom, this.borderSides.bottom ? 1 : 0)
-    this.requestLayout()
+    this.needsUpdate()
   }
 }

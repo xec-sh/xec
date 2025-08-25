@@ -6,9 +6,9 @@ const singletonCacheSymbol = Symbol.for('@aura/core/singleton')
  */
 export function singleton<T>(key: string, factory: () => T): T {
   // @ts-expect-error this symbol is only used in this file and is not part of the public API
-  const bag = globalThis[singletonCacheSymbol] ??= {}
+  const bag = (globalThis[singletonCacheSymbol] ??= {});
   if (!(key in bag)) {
-    bag[key] = factory()
+    bag[key] = factory();
   }
-  return bag[key] as T
+  return bag[key] as T;
 }

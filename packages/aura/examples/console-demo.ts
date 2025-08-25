@@ -7,9 +7,9 @@ import {
   BoxComponent,
   TextComponent,
   TextAttributes,
+  createRenderer,
   type MouseEvent,
   OptimizedBuffer,
-  createRenderer,
 } from "../src/index"
 
 let titleText: TextComponent | null = null
@@ -57,6 +57,7 @@ class ConsoleButton extends BoxComponent {
       borderStyle: "rounded",
       title: label,
       titleAlignment: "center",
+      border: true,
     })
 
     this.logType = logType

@@ -28,6 +28,7 @@ export function run(renderer: Renderer): void {
     borderColor: "#50565d",
     title: "ASCII Font Selection Demo",
     titleAlignment: "center",
+    border: true,
   })
   renderer.root.add(mainContainer)
 
@@ -202,6 +203,7 @@ export function run(renderer: Renderer): void {
     borderColor: "#50565d",
     title: "Selection Status",
     titleAlignment: "left",
+    border: true,
   })
   renderer.root.add(statusBox)
 

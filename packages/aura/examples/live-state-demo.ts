@@ -13,9 +13,9 @@ import {
   BoxComponent,
   TextComponent,
   TextAttributes,
+  createRenderer,
   type MouseEvent,
   OptimizedBuffer,
-  createRenderer,
 } from "../src/index.js"
 
 import type { BoxProps } from "../src/components/box.js"
@@ -41,7 +41,7 @@ class LiveButton extends BoxComponent {
   private label: string
 
   constructor(id: string, options: BoxProps & { label: string }) {
-    super(id, { zIndex: 100, ...options })
+    super(id, { zIndex: 100, border: true, ...options })
 
     this.label = options.label
     const base = this.backgroundColor
@@ -161,6 +161,7 @@ function addDemoRenderable(renderer: Renderer): void {
     borderStyle: "double",
     title: "Demo Renderable",
     titleAlignment: "center",
+    border: true,
   })
 
   renderer.root.add(demoRenderable)
