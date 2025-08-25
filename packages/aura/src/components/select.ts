@@ -1,10 +1,9 @@
-
-import { OptimizedBuffer } from "../renderer/buffer"
+import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component"
 import { type RGBA, parseColor, type ColorInput } from "../lib/colors.js"
-import { fonts, measureText, renderFontToFrameBuffer } from "../lib/ascii.font"
+import { fonts, measureText, renderFontToFrameBuffer } from "../lib/ascii.font.js"
 
-import type { ParsedKey } from "../lib/parse.keypress"
+import type { ParsedKey } from "../lib/parse.keypress.js"
 
 export interface SelectOption {
   name: string
@@ -126,8 +125,7 @@ export class SelectComponent extends Component {
       if (itemY + this.linesPerItem - 1 >= contentY + contentHeight) break
 
       if (isSelected) {
-        const contentHeight = this.linesPerItem - this._itemSpacing
-        this.frameBuffer.fillRect(contentX, itemY, contentWidth, contentHeight, this._selectedBackgroundColor)
+        this.frameBuffer.fillRect(contentX, itemY, contentWidth, this.linesPerItem - this._itemSpacing, this._selectedBackgroundColor)
       }
 
       const nameContent = `${isSelected ? "▶ " : "  "}${option.name}`
@@ -286,6 +284,7 @@ export class SelectComponent extends Component {
       case "enter":
         this.selectCurrent()
         return true
+      default:
     }
 
     return false

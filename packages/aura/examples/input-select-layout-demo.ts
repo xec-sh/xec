@@ -8,7 +8,7 @@ import {
   TextComponent,
   type ParsedKey,
   GroupComponent,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index"
 
 let renderer: Renderer | null = null
@@ -101,14 +101,14 @@ function createLayoutElements(rendererInstance: Renderer): void {
     zIndex: 0,
     width: "auto",
     height: "auto",
-    minHeight: 8,
+    // minHeight: 8,
     borderStyle: "single",
     borderColor: "#475569",
     focusedBorderColor: "#3b82f6",
     title: "Color Selection",
     titleAlignment: "center",
     flexGrow: 1,
-    flexShrink: 1,
+    // flexShrink: 1,
     backgroundColor: "transparent",
   })
 
@@ -262,6 +262,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
   inputContainer.add(inputLabel)
   inputContainer.add(textInputBox)
 
+  renderer.root.height = renderer.height;
   renderer.root.add(headerBox)
   renderer.root.add(selectContainerBox)
   renderer.root.add(inputContainerBox)
@@ -401,7 +402,7 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
     targetFps: 30,
   })

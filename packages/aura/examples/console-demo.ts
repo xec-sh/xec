@@ -9,7 +9,7 @@ import {
   TextAttributes,
   type MouseEvent,
   OptimizedBuffer,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index"
 
 let titleText: TextComponent | null = null
@@ -298,7 +298,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
   })
   run(renderer)

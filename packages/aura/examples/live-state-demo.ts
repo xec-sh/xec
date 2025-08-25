@@ -15,7 +15,7 @@ import {
   TextAttributes,
   type MouseEvent,
   OptimizedBuffer,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index.js"
 
 import type { BoxProps } from "../src/components/box.js"
@@ -519,7 +519,8 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
+    useAlternateScreen: true,
     exitOnCtrlC: true,
   })
   run(renderer)

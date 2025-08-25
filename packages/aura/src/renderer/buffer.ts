@@ -4,8 +4,6 @@ import { type BorderStyle, type BorderSides, BorderCharArrays } from "../lib/bor
 
 import type { TextBuffer } from "./text-buffer.js"
 
-let fbIdCounter = 0
-
 // Pack drawing options into a single u32
 // bits 0-3: borderSides, bit 4: shouldFill, bits 5-6: titleAlignment
 function packDrawOptions(
@@ -40,6 +38,7 @@ function packDrawOptions(
 }
 
 export class OptimizedBuffer {
+  private static fbIdCounter = 0
   public id: string
   public lib: RenderLib
   private bufferPtr: Pointer
@@ -70,7 +69,7 @@ export class OptimizedBuffer {
     height: number,
     options: { respectAlpha?: boolean },
   ) {
-    this.id = `fb_${fbIdCounter++}`
+    this.id = `fb_${OptimizedBuffer.fbIdCounter++}`
     this.lib = lib
     this.respectAlpha = options.respectAlpha || false
     this.width = width

@@ -7,7 +7,7 @@ import {
   TextComponent,
   TextAttributes,
   GroupComponent,
-  createCliRenderer,
+  createRenderer,
   FrameBufferComponent,
 } from "../src/index"
 
@@ -522,7 +522,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
   })
   run(renderer)

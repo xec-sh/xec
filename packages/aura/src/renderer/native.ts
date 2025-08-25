@@ -397,11 +397,11 @@ function getOpenTUILib() {
   return dlopen(`./rust/target/release/libopentui.dylib`, {
     // Renderer management
     createRenderer: {
-      args: ["u32", "u32"],
+      args: ["u32", "u32", "bool"],
       returns: "ptr",
     },
     destroyRenderer: {
-      args: ["ptr", "bool", "u32"],
+      args: ["ptr", "bool"],
       returns: "void",
     },
     setUseThread: {
@@ -506,6 +506,11 @@ function getOpenTUILib() {
 
     resizeRenderer: {
       args: ["ptr", "u32", "u32"],
+      returns: "void",
+    },
+
+    setLinesRendered: {
+      args: ["ptr", "u32"],
       returns: "void",
     },
 
@@ -678,8 +683,8 @@ function getOpenTUILib() {
 }
 
 export interface RenderLib {
-  createRenderer: (width: number, height: number) => Pointer | null
-  destroyRenderer: (renderer: Pointer, useAlternateScreen: boolean, splitHeight: number) => void
+  createRenderer: (width: number, height: number, useAlternateScreen: boolean) => Pointer | null
+  destroyRenderer: (renderer: Pointer, useAlternateScreen: boolean/*, splitHeight: number*/) => void
   setUseThread: (renderer: Pointer, useThread: boolean) => void
   setBackgroundColor: (renderer: Pointer, color: RGBA) => void
   setRenderOffset: (renderer: Pointer, offset: number) => void
@@ -769,6 +774,7 @@ export interface RenderLib {
     attributes: Uint8Array
   }
   resizeRenderer: (renderer: Pointer, width: number, height: number) => void
+  setLinesRendered: (renderer: Pointer, lines: number) => void
   setCursorPosition: (x: number, y: number, visible: boolean) => void
   setCursorStyle: (style: CursorStyle, blinking: boolean) => void
   setCursorColor: (color: RGBA) => void
@@ -857,12 +863,12 @@ class FFIRenderLib implements RenderLib {
     this.opentui = getOpenTUILib()
   }
 
-  public createRenderer(width: number, height: number) {
-    return this.opentui.symbols.createRenderer(width, height)
+  public createRenderer(width: number, height: number, useAlternateScreen: boolean = true) {
+    return this.opentui.symbols.createRenderer(width, height, useAlternateScreen)
   }
 
-  public destroyRenderer(renderer: Pointer, useAlternateScreen: boolean, splitHeight: number) {
-    this.opentui.symbols.destroyRenderer(renderer, useAlternateScreen, splitHeight)
+  public destroyRenderer(renderer: Pointer, useAlternateScreen: boolean/*, splitHeight: number*/) {
+    this.opentui.symbols.destroyRenderer(renderer, useAlternateScreen/*, splitHeight*/)
   }
 
   public setUseThread(renderer: Pointer, useThread: boolean) {
@@ -1150,6 +1156,10 @@ class FFIRenderLib implements RenderLib {
 
   public resizeRenderer(renderer: Pointer, width: number, height: number) {
     this.opentui.symbols.resizeRenderer(renderer, width, height)
+  }
+
+  public setLinesRendered(renderer: Pointer, lines: number) {
+    this.opentui.symbols.setLinesRendered(renderer, lines)
   }
 
   public setCursorPosition(x: number, y: number, visible: boolean) {

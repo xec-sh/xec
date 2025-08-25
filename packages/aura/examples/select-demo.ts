@@ -9,7 +9,7 @@ import {
   SelectComponent,
   RenderableEvents,
   type Renderer,
-  createCliRenderer,
+  createRenderer,
   type SelectOption,
   SelectComponentEvents,
 } from "../src/index"
@@ -225,7 +225,7 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
   })
 

@@ -6,7 +6,7 @@ import {
   TextComponent,
   type ParsedKey,
   GroupComponent,
-  createCliRenderer,
+  createRenderer,
 } from "../src/index"
 
 interface LayoutDemo {
@@ -538,7 +538,7 @@ export function destroy(rendererInstance: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
     targetFps: 30,
   })

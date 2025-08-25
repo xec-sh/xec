@@ -1,5 +1,5 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
-import { BoxComponent, TextComponent, TextAttributes, GroupComponent, createCliRenderer } from "../src/index"
+import { BoxComponent, TextComponent, TextAttributes, GroupComponent, createRenderer } from "../src/index"
 
 import type { Renderer } from "../src/index"
 
@@ -325,7 +325,7 @@ export function destroy(renderer: Renderer): void {
 }
 
 if (import.meta.main) {
-  const renderer = await createCliRenderer({
+  const renderer = await createRenderer({
     exitOnCtrlC: true,
   })
 
