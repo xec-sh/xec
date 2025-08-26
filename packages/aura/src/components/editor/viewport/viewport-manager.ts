@@ -3,6 +3,7 @@
  */
 
 import { signal, computed } from 'vibrancy';
+
 import type { DocumentManager } from '../document/document-manager.js';
 
 export interface ViewportState {
@@ -25,19 +26,19 @@ export interface ViewportOptions {
 
 export class ViewportManager {
   private document: DocumentManager;
-  
+
   // Reactive state
   private scrollTop = signal(0);
   private scrollLeft = signal(0);
   private width = signal(80);
   private height = signal(24);
-  
+
   // Options
   private overscan: number;
   private scrollBeyondLastLine: boolean;
   private smoothScrolling: boolean;
   private scrollSpeed: number;
-  
+
   // Computed values
   private visibleRange = computed(() => {
     const top = this.scrollTop();
@@ -45,7 +46,7 @@ export class ViewportManager {
     const w = this.width();
     const h = this.height();
     const overscan = this.overscan;
-    
+
     return {
       startLine: Math.max(0, top - overscan),
       endLine: Math.min(this.document.getLineCount() - 1, top + h + overscan),
@@ -53,7 +54,7 @@ export class ViewportManager {
       endColumn: left + w
     };
   });
-  
+
   constructor(document: DocumentManager, options: ViewportOptions = {}) {
     this.document = document;
     this.overscan = options.overscan ?? 3;
@@ -61,7 +62,7 @@ export class ViewportManager {
     this.smoothScrolling = options.smoothScrolling ?? false;
     this.scrollSpeed = options.scrollSpeed ?? 3;
   }
-  
+
   /**
    * Get current viewport state
    */
@@ -78,7 +79,7 @@ export class ViewportManager {
       visibleEndColumn: range.endColumn
     };
   }
-  
+
   /**
    * Set viewport dimensions
    */
@@ -87,53 +88,62 @@ export class ViewportManager {
     this.height.set(height);
     this.constrainScroll();
   }
-  
+
   /**
    * Scroll to line
    */
   scrollToLine(line: number, position: 'top' | 'center' | 'bottom' = 'top'): void {
     let targetTop = line;
-    
+
     switch (position) {
       case 'center':
-        targetTop = line - Math.floor(this.height() / 2);
+        targetTop = Math.max(0, line - Math.floor(this.height() / 2));
         break;
       case 'bottom':
-        targetTop = line - this.height() + 1;
+        targetTop = Math.max(0, line - this.height() + 1);
+        break;
+      default:
+        targetTop = Math.max(0, line);
         break;
     }
-    
+
     this.setScrollTop(targetTop);
   }
-  
+
   /**
    * Scroll to column
    */
   scrollToColumn(column: number): void {
     this.setScrollLeft(column);
   }
-  
+
   /**
-   * Ensure position is visible
+   * Ensure position is visible - simplified like select.ts
    */
   ensureVisible(line: number, column: number): void {
-    const state = this.getState();
+    // Vertical scrolling - center if outside viewport
+    const currentTop = this.scrollTop();
+    const currentHeight = this.height();
     
-    // Vertical scrolling
-    if (line < state.scrollTop) {
-      this.scrollToLine(line, 'top');
-    } else if (line >= state.scrollTop + state.height) {
-      this.scrollToLine(line, 'bottom');
+    if (line < currentTop || line >= currentTop + currentHeight) {
+      // Center the line in viewport when scrolling
+      const halfHeight = Math.floor(currentHeight / 2);
+      const targetTop = Math.max(0, line - halfHeight);
+      this.setScrollTop(targetTop);
     }
+
+    // Horizontal scrolling - ensure column is visible
+    const currentLeft = this.scrollLeft();
+    const currentWidth = this.width();
     
-    // Horizontal scrolling
-    if (column < state.scrollLeft) {
-      this.scrollToColumn(column);
-    } else if (column >= state.scrollLeft + state.width) {
-      this.scrollToColumn(column - state.width + 1);
+    if (column < currentLeft) {
+      this.setScrollLeft(Math.max(0, column - 1));
+    } else if (column >= currentLeft + currentWidth - 2) {
+      const targetLeft = Math.max(0, column - currentWidth + 3);
+      this.setScrollLeft(targetLeft);
     }
   }
-  
+
   /**
    * Scroll by delta
    */
@@ -141,35 +151,39 @@ export class ViewportManager {
     this.setScrollTop(this.scrollTop() + deltaLines);
     this.setScrollLeft(this.scrollLeft() + deltaColumns);
   }
-  
+
   /**
    * Scroll page up
    */
   pageUp(): void {
-    this.scrollBy(-Math.max(1, this.height() - 2));
+    const pageSize = Math.max(1, this.height() - 2);
+    const newTop = Math.max(0, this.scrollTop() - pageSize);
+    this.setScrollTop(newTop);
   }
-  
+
   /**
    * Scroll page down
    */
   pageDown(): void {
-    this.scrollBy(Math.max(1, this.height() - 2));
+    const pageSize = Math.max(1, this.height() - 2);
+    const newTop = this.scrollTop() + pageSize;
+    this.setScrollTop(newTop);
   }
-  
+
   /**
    * Get visible lines
    */
   getVisibleLines(): number[] {
     const range = this.visibleRange();
     const lines: number[] = [];
-    
+
     for (let i = range.startLine; i <= range.endLine; i++) {
       lines.push(i);
     }
-    
+
     return lines;
   }
-  
+
   /**
    * Check if line is visible
    */
@@ -177,27 +191,41 @@ export class ViewportManager {
     const range = this.visibleRange();
     return line >= range.startLine && line <= range.endLine;
   }
-  
+
+  // Cache for max line length to avoid recalculation
+  private cachedMaxLineLength = 0;
+  private maxLineLengthDirty = true;
+
   /**
-   * Get max scroll values
+   * Get max scroll values - optimized
    */
   getMaxScroll(): { top: number; left: number } {
     const totalLines = this.document.getLineCount();
     const maxTop = this.scrollBeyondLastLine
       ? totalLines - 1
       : Math.max(0, totalLines - this.height());
-    
-    // Find longest line for horizontal scroll
-    let maxLineLength = 0;
-    for (let i = 0; i < totalLines; i++) {
-      maxLineLength = Math.max(maxLineLength, this.document.getLineLength(i));
+
+    // Only recalculate max line length when needed
+    if (this.maxLineLengthDirty) {
+      this.cachedMaxLineLength = 0;
+      const checkLines = Math.min(totalLines, 1000); // Check first 1000 lines for performance
+      for (let i = 0; i < checkLines; i++) {
+        this.cachedMaxLineLength = Math.max(this.cachedMaxLineLength, this.document.getLineLength(i));
+      }
+      this.maxLineLengthDirty = false;
     }
-    
-    const maxLeft = Math.max(0, maxLineLength - this.width());
-    
+
+    const maxLeft = Math.max(0, this.cachedMaxLineLength - this.width());
     return { top: maxTop, left: maxLeft };
   }
-  
+
+  /**
+   * Mark max line length cache as dirty
+   */
+  invalidateMaxLineLength(): void {
+    this.maxLineLengthDirty = true;
+  }
+
   /**
    * Set scroll position with constraints
    */
@@ -205,12 +233,12 @@ export class ViewportManager {
     const max = this.getMaxScroll().top;
     this.scrollTop.set(Math.max(0, Math.min(value, max)));
   }
-  
+
   private setScrollLeft(value: number): void {
     const max = this.getMaxScroll().left;
     this.scrollLeft.set(Math.max(0, Math.min(value, max)));
   }
-  
+
   /**
    * Constrain scroll to valid range
    */
@@ -219,7 +247,7 @@ export class ViewportManager {
     this.scrollTop.set(Math.max(0, Math.min(this.scrollTop(), max.top)));
     this.scrollLeft.set(Math.max(0, Math.min(this.scrollLeft(), max.left)));
   }
-  
+
   /**
    * Handle mouse wheel events
    */

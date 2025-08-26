@@ -810,6 +810,17 @@ impl CliRenderer {
                     }
                 }
                 
+                // Check if this is a wide character continuation marker
+                const WIDE_CHAR_CONTINUATION: u32 = 0xFFFF;
+                if next.char == WIDE_CHAR_CONTINUATION {
+                    // Skip continuation cells - they're handled by the terminal
+                    // Just update the current buffer
+                    unsafe { (*self.current_render_buffer).set_cell(x, y, next.char, next.fg, next.bg, next.attributes).ok(); }
+                    cells_updated += 1;
+                    // Don't advance visual column - continuation is part of previous char
+                    continue;
+                }
+                
                 // Add character to run buffer
                 let mut out_char = next.char;
                 let w = codepoint_display_width(out_char);
@@ -831,13 +842,7 @@ impl CliRenderer {
                 cells_updated += 1;
                 current_visual_col += if w == 0 { 1 } else { w as u32 };
                 
-                // Handle double-width character edge case
-                let prev_width = codepoint_display_width(current.char);
-                if prev_width == 2 && (w == 0 || w == 1) {
-                    // Append extra space after double-width char
-                    run_buffer.push(b' ');
-                    current_visual_col += 1;
-                }
+                // Removed the extra space handling - terminal handles wide chars naturally
             }
             
             // Flush remaining run at end of line

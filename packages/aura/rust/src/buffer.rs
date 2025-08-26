@@ -2,6 +2,7 @@ use crate::ansi;
 use crate::text_buffer::TextBuffer;
 use std::cmp::{max, min};
 use std::ptr;
+use unicode_width::{UnicodeWidthStr, UnicodeWidthChar};
 
 pub type RGBA = ansi::RGBA;
 pub type Vec3f = [f32; 3];
@@ -11,6 +12,7 @@ const INV_255: f32 = 1.0 / 255.0;
 const DEFAULT_SPACE_CHAR: u32 = 32;
 const MAX_UNICODE_CODEPOINT: u32 = 0x10FFFF;
 const BLOCK_CHAR: u32 = 0x2588; // Full block █
+const WIDE_CHAR_CONTINUATION: u32 = 0xFFFF; // Marker for wide char continuation
 // Removed unused QUADRANT_CHARS_COUNT and ALPHA_LUT
 
 #[repr(C)]
@@ -338,6 +340,9 @@ impl OptimizedBuffer {
                 }
                 
                 let char_code = ch as u32;
+                let char_width = ch.width().unwrap_or(1) as u32;
+                
+                // For wide characters, we need to place the character and then skip cells
                 self.set_cell_with_alpha_blending(
                     curr_x, 
                     curr_y, 
@@ -347,7 +352,22 @@ impl OptimizedBuffer {
                     attributes
                 )?;
                 
-                curr_x += 1;
+                // For wide characters, mark the next cell(s) as continuation
+                for i in 1..char_width {
+                    if curr_x + i < self.width {
+                        // Mark as continuation cell - will be skipped during rendering
+                        self.set_cell_with_alpha_blending(
+                            curr_x + i,
+                            curr_y,
+                            WIDE_CHAR_CONTINUATION,  // Special marker
+                            fg,
+                            bg.unwrap_or([0.0, 0.0, 0.0, 0.0]),
+                            attributes
+                        )?;
+                    }
+                }
+                
+                curr_x += char_width;
             }
         } else {
             // Fast path without alpha blending
@@ -391,8 +411,10 @@ impl OptimizedBuffer {
                     }
                     
                     let char_code = ch as u32;
-                    let index = (curr_y * self.width + curr_x) as usize;
+                    let char_width = ch.width().unwrap_or(1) as u32;
                     
+                    // Place the main character
+                    let index = (curr_y * self.width + curr_x) as usize;
                     unsafe {
                         *self.buffer.char.get_unchecked_mut(index) = char_code;
                         *self.buffer.fg.get_unchecked_mut(index) = fg;
@@ -402,7 +424,22 @@ impl OptimizedBuffer {
                         *self.buffer.attributes.get_unchecked_mut(index) = attributes;
                     }
                     
-                    curr_x += 1;
+                    // For wide characters, mark continuation cells
+                    for i in 1..char_width {
+                        if curr_x + i < self.width {
+                            let next_index = (curr_y * self.width + curr_x + i) as usize;
+                            unsafe {
+                                *self.buffer.char.get_unchecked_mut(next_index) = WIDE_CHAR_CONTINUATION;
+                                *self.buffer.fg.get_unchecked_mut(next_index) = fg;
+                                if let Some(bg_color) = bg {
+                                    *self.buffer.bg.get_unchecked_mut(next_index) = bg_color;
+                                }
+                                *self.buffer.attributes.get_unchecked_mut(next_index) = attributes;
+                            }
+                        }
+                    }
+                    
+                    curr_x += char_width;
                 }
             }
         }
@@ -605,7 +642,8 @@ impl OptimizedBuffer {
         
         if let Some(title_text) = title {
             if !title_text.is_empty() && border_sides.top && is_at_actual_top {
-                let title_length = title_text.chars().count() as i32;
+                // Calculate visual width of the title (accounting for wide Unicode chars)
+                let title_length = title_text.width() as i32;
                 let min_title_space = 4;
                 
                 should_draw_title = width as i32 >= title_length + min_title_space;
@@ -812,12 +850,19 @@ impl OptimizedBuffer {
                 continue;
             }
             
+            // Get the visual width of the character for proper positioning
+            let char_width = if let Some(ch) = char::from_u32(char_code) {
+                ch.width().unwrap_or(1) as i32
+            } else {
+                1
+            };
+            
             if current_x < 0 || current_y < 0 {
-                current_x += 1;
+                current_x += char_width;
                 continue;
             }
             if current_x >= self.width as i32 || current_y >= self.height as i32 {
-                current_x += 1;
+                current_x += char_width;
                 continue;
             }
             
@@ -827,7 +872,13 @@ impl OptimizedBuffer {
                    current_x >= clip.x + clip.width as i32 ||
                    current_y >= clip.y + clip.height as i32 
                 {
-                    current_x += 1;
+                    // Get the character width even when skipping
+                    let skip_width = if let Some(ch) = char::from_u32(char_code) {
+                        ch.width().unwrap_or(1) as i32
+                    } else {
+                        1
+                    };
+                    current_x += skip_width;
                     continue;
                 }
             }
@@ -881,6 +932,13 @@ impl OptimizedBuffer {
                 bg = temp;
             }
             
+            // Get the visual width of the character
+            let char_width = if let Some(ch) = char::from_u32(char_code) {
+                ch.width().unwrap_or(1)
+            } else {
+                1
+            };
+            
             self.set_cell_with_alpha_blending(
                 current_x as u32,
                 current_y as u32,
@@ -890,7 +948,21 @@ impl OptimizedBuffer {
                 attributes,
             )?;
             
-            current_x += 1;
+            // For wide characters, fill additional cells
+            for j in 1..char_width {
+                if current_x + (j as i32) < self.width as i32 {
+                    self.set_cell_with_alpha_blending(
+                        (current_x + j as i32) as u32,
+                        current_y as u32,
+                        WIDE_CHAR_CONTINUATION,  // Mark as continuation cell
+                        fg,
+                        bg,
+                        attributes,
+                    )?;
+                }
+            }
+            
+            current_x += char_width as i32;
         }
         
         Ok(())

@@ -9,8 +9,8 @@ import { initializeNative } from "./native.js"
 import { Selection } from "../lib/selection.js"
 import { singleton } from "../lib/singleton.js";
 import { type RenderLib, resolveRenderLib } from "./native.js"
-import { Component, RootContext, RootComponent } from "../component"
 import { RGBA, parseColor, type ColorInput, } from "../lib/colors.js"
+import { Component, RootContext, RootComponent } from "../component.js"
 import { capture, TerminalConsole, type ConsoleOptions } from "./console/console.js"
 import { MouseParser, type ScrollInfo, type RawMouseEvent, type MouseEventType } from "../lib/parse.mouse.js"
 import {

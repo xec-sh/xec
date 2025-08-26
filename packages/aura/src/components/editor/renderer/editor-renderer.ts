@@ -3,13 +3,14 @@
  */
 
 import { RGBA } from '../../../lib/colors.js';
-import type { OptimizedBuffer } from '../../../renderer/buffer.js';
-import type { DocumentManager } from '../document/document-manager.js';
+
+import type { Range, Position } from '../types.js';
 import type { CursorManager } from '../cursor/cursor-manager.js';
-import type { ViewportManager } from '../viewport/viewport-manager.js';
+import type { OptimizedBuffer } from '../../../renderer/buffer.js';
 import type { GutterRenderer } from '../gutter/gutter-renderer.js';
 import type { SearchMatch } from '../search/find-replace-widget.js';
-import type { Position, Range } from '../types.js';
+import type { DocumentManager } from '../document/document-manager.js';
+import type { ViewportManager } from '../viewport/viewport-manager.js';
 
 export interface RenderOptions {
   showWhitespace?: boolean;
@@ -29,8 +30,8 @@ export class EditorRenderer {
   private document: DocumentManager;
   private cursorManager: CursorManager;
   private viewport: ViewportManager;
-  private gutter: GutterRenderer;
-  
+  private gutter: GutterRenderer | null;
+
   // Render options
   private showWhitespace: boolean;
   private showIndentGuides: boolean;
@@ -39,7 +40,7 @@ export class EditorRenderer {
   private cursorBlinking: boolean;
   private wordWrap: boolean;
   private wordWrapColumn: number;
-  
+
   // Colors
   private backgroundColor: RGBA;
   private foregroundColor: RGBA;
@@ -49,27 +50,27 @@ export class EditorRenderer {
   private currentSearchMatchColor: RGBA;
   private indentGuideColor: RGBA;
   private whitespaceColor: RGBA;
-  
+
   // Search matches to highlight
   private searchMatches: SearchMatch[] = [];
   private currentSearchMatch: SearchMatch | null = null;
-  
+
   // Cursor blink state
   private cursorVisible = true;
   private lastBlinkTime = 0;
-  
+
   constructor(
     document: DocumentManager,
     cursorManager: CursorManager,
     viewport: ViewportManager,
-    gutter: GutterRenderer,
+    gutter: GutterRenderer | null,
     options: RenderOptions = {}
   ) {
     this.document = document;
     this.cursorManager = cursorManager;
     this.viewport = viewport;
     this.gutter = gutter;
-    
+
     // Apply options
     this.showWhitespace = options.showWhitespace ?? false;
     this.showIndentGuides = options.showIndentGuides ?? false;
@@ -78,7 +79,7 @@ export class EditorRenderer {
     this.cursorBlinking = options.cursorBlinking ?? true;
     this.wordWrap = options.wordWrap ?? false;
     this.wordWrapColumn = options.wordWrapColumn ?? 80;
-    
+
     // Set colors
     this.backgroundColor = RGBA.fromValues(0.1, 0.1, 0.15, 1);
     this.foregroundColor = RGBA.fromValues(1, 1, 1, 1);
@@ -89,7 +90,7 @@ export class EditorRenderer {
     this.indentGuideColor = RGBA.fromValues(0.3, 0.3, 0.3, 0.3);
     this.whitespaceColor = RGBA.fromValues(0.3, 0.3, 0.3, 0.5);
   }
-  
+
   /**
    * Main render method
    */
@@ -103,30 +104,33 @@ export class EditorRenderer {
   ): void {
     // Update cursor blink
     this.updateCursorBlink(deltaTime);
-    
+
     // Clear editor area
     buffer.fillRect(x, y, width, height, this.backgroundColor);
-    
+
     // Get cursor and selection
     const cursor = this.cursorManager.getCursor();
     const selection = this.cursorManager.getSelection();
-    
+
     // Ensure cursor is visible
     this.viewport.ensureVisible(cursor.position.line, cursor.position.column);
-    
-    // Render gutter
-    const gutterWidth = this.gutter.render(
-      buffer,
-      x,
-      y,
-      height,
-      cursor.position.line
-    );
-    
+
+    // Render gutter if available
+    let gutterWidth = 0;
+    if (this.gutter) {
+      gutterWidth = this.gutter.render(
+        buffer,
+        x,
+        y,
+        height,
+        cursor.position.line
+      );
+    }
+
     // Calculate content area
     const contentX = x + gutterWidth;
     const contentWidth = width - gutterWidth;
-    
+
     // Render content
     this.renderContent(
       buffer,
@@ -137,11 +141,11 @@ export class EditorRenderer {
       cursor,
       selection
     );
-    
+
     // Render scrollbars (if needed)
     this.renderScrollbars(buffer, x, y, width, height);
   }
-  
+
   /**
    * Render editor content
    */
@@ -156,16 +160,20 @@ export class EditorRenderer {
   ): void {
     const visibleLines = this.viewport.getVisibleLines();
     const viewportState = this.viewport.getState();
-    
+
     for (let i = 0; i < visibleLines.length && i < height; i++) {
       const lineNumber = visibleLines[i];
-      const screenY = y + i;
+      // Fixed: Calculate screen position correctly relative to viewport
+      const screenY = y + (lineNumber - viewportState.scrollTop);
       
+      // Skip lines that are outside the visible area
+      if (screenY < y || screenY >= y + height) continue;
+
       // Highlight current line
       if (this.highlightCurrentLine && lineNumber === cursor.position.line) {
         buffer.fillRect(x, screenY, width, 1, this.currentLineColor);
       }
-      
+
       // Render line content
       this.renderLine(
         buffer,
@@ -178,13 +186,13 @@ export class EditorRenderer {
         selection
       );
     }
-    
+
     // Render cursor
     if (this.cursorVisible) {
       this.renderCursor(buffer, x, y, cursor, viewportState);
     }
   }
-  
+
   /**
    * Render a single line
    */
@@ -199,15 +207,15 @@ export class EditorRenderer {
     selection: Range | null
   ): void {
     const lineText = this.document.getLine(lineNumber);
-    const displayText = this.wordWrap ? 
-      this.wrapLine(lineText, width) : 
+    const displayText = this.wordWrap ?
+      this.wrapLine(lineText, width) :
       lineText.substring(scrollLeft, scrollLeft + width);
-    
+
     // Render indent guides
     if (this.showIndentGuides) {
       this.renderIndentGuides(buffer, x, y, displayText);
     }
-    
+
     // Render text with selection
     if (selection && this.isLineInSelection(lineNumber, selection)) {
       this.renderLineWithSelection(
@@ -230,16 +238,16 @@ export class EditorRenderer {
         0
       );
     }
-    
+
     // Render search matches
     this.renderSearchMatches(buffer, x, y, lineNumber, scrollLeft, width);
-    
+
     // Render whitespace if enabled
     if (this.showWhitespace) {
       this.renderWhitespace(buffer, x, y, displayText);
     }
   }
-  
+
   /**
    * Render line with selection
    */
@@ -253,11 +261,11 @@ export class EditorRenderer {
     selection: Range
   ): void {
     const selectionOnLine = this.getLineSelectionRange(lineNumber, selection);
-    
+
     // Adjust for horizontal scroll
     const startCol = Math.max(0, selectionOnLine.start - scrollLeft);
     const endCol = Math.min(text.length, selectionOnLine.end - scrollLeft);
-    
+
     // Draw text before selection
     if (startCol > 0) {
       buffer.drawText(
@@ -269,7 +277,7 @@ export class EditorRenderer {
         0
       );
     }
-    
+
     // Draw selected text
     if (endCol > startCol) {
       buffer.drawText(
@@ -281,7 +289,7 @@ export class EditorRenderer {
         0
       );
     }
-    
+
     // Draw text after selection
     if (endCol < text.length) {
       buffer.drawText(
@@ -294,7 +302,7 @@ export class EditorRenderer {
       );
     }
   }
-  
+
   /**
    * Render cursor
    */
@@ -308,7 +316,7 @@ export class EditorRenderer {
     // Calculate cursor screen position
     const cursorScreenY = contentY + (cursor.position.line - viewportState.scrollTop);
     const cursorScreenX = contentX + (cursor.position.column - viewportState.scrollLeft);
-    
+
     // Check if cursor is visible
     if (cursorScreenY < contentY || cursorScreenY >= contentY + viewportState.height) {
       return;
@@ -316,7 +324,7 @@ export class EditorRenderer {
     if (cursorScreenX < contentX || cursorScreenX >= contentX + viewportState.width) {
       return;
     }
-    
+
     // Render based on cursor style
     switch (this.cursorStyle) {
       case 'block':
@@ -329,7 +337,7 @@ export class EditorRenderer {
           0
         );
         break;
-        
+
       case 'line':
         buffer.setCell(
           cursorScreenX,
@@ -340,7 +348,7 @@ export class EditorRenderer {
           0
         );
         break;
-        
+
       case 'underline':
         buffer.setCell(
           cursorScreenX,
@@ -353,7 +361,7 @@ export class EditorRenderer {
         break;
     }
   }
-  
+
   /**
    * Render search matches
    */
@@ -367,17 +375,17 @@ export class EditorRenderer {
   ): void {
     for (const match of this.searchMatches) {
       if (match.lineNumber !== lineNumber) continue;
-      
+
       const startCol = Math.max(0, match.range.start.column - scrollLeft);
       const endCol = Math.min(width, match.range.end.column - scrollLeft);
-      
+
       if (endCol <= startCol) continue;
-      
+
       const isCurrentMatch = match === this.currentSearchMatch;
-      const highlightColor = isCurrentMatch ? 
-        this.currentSearchMatchColor : 
+      const highlightColor = isCurrentMatch ?
+        this.currentSearchMatchColor :
         this.searchMatchColor;
-      
+
       // Highlight the match
       for (let col = startCol; col < endCol; col++) {
         const cellX = x + col;
@@ -395,7 +403,7 @@ export class EditorRenderer {
       }
     }
   }
-  
+
   /**
    * Render indent guides
    */
@@ -405,7 +413,7 @@ export class EditorRenderer {
     y: number,
     text: string
   ): void {
-    let indentLevel = 0;
+    const indentLevel = 0;
     for (let i = 0; i < text.length; i++) {
       if (text[i] === ' ') {
         if ((i + 1) % 2 === 0) { // Assuming 2-space indents
@@ -423,7 +431,7 @@ export class EditorRenderer {
       }
     }
   }
-  
+
   /**
    * Render whitespace characters
    */
@@ -436,13 +444,13 @@ export class EditorRenderer {
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
       let wsChar: string | null = null;
-      
+
       if (char === ' ') {
         wsChar = '·';
       } else if (char === '\t') {
         wsChar = '→';
       }
-      
+
       if (wsChar) {
         buffer.setCell(
           x + i,
@@ -455,7 +463,7 @@ export class EditorRenderer {
       }
     }
   }
-  
+
   /**
    * Render scrollbars
    */
@@ -468,7 +476,7 @@ export class EditorRenderer {
   ): void {
     const maxScroll = this.viewport.getMaxScroll();
     const viewportState = this.viewport.getState();
-    
+
     // Vertical scrollbar
     if (maxScroll.top > 0) {
       const scrollbarX = x + width - 1;
@@ -479,7 +487,7 @@ export class EditorRenderer {
       const thumbPosition = Math.floor(
         (viewportState.scrollTop / maxScroll.top) * (scrollbarHeight - thumbHeight)
       );
-      
+
       // Draw scrollbar track
       for (let i = 0; i < scrollbarHeight; i++) {
         const isThumb = i >= thumbPosition && i < thumbPosition + thumbHeight;
@@ -493,7 +501,7 @@ export class EditorRenderer {
         );
       }
     }
-    
+
     // Horizontal scrollbar (if needed)
     if (maxScroll.left > 0) {
       const scrollbarY = y + height - 1;
@@ -504,7 +512,7 @@ export class EditorRenderer {
       const thumbPosition = Math.floor(
         (viewportState.scrollLeft / maxScroll.left) * (scrollbarWidth - thumbWidth)
       );
-      
+
       // Draw scrollbar track
       for (let i = 0; i < scrollbarWidth; i++) {
         const isThumb = i >= thumbPosition && i < thumbPosition + thumbWidth;
@@ -519,7 +527,7 @@ export class EditorRenderer {
       }
     }
   }
-  
+
   /**
    * Update cursor blink state
    */
@@ -528,21 +536,21 @@ export class EditorRenderer {
       this.cursorVisible = true;
       return;
     }
-    
+
     this.lastBlinkTime += deltaTime;
     if (this.lastBlinkTime >= 530) { // Blink every 530ms
       this.cursorVisible = !this.cursorVisible;
       this.lastBlinkTime = 0;
     }
   }
-  
+
   /**
    * Check if line is in selection
    */
   private isLineInSelection(lineNumber: number, selection: Range): boolean {
     return lineNumber >= selection.start.line && lineNumber <= selection.end.line;
   }
-  
+
   /**
    * Get selection range for a line
    */
@@ -551,21 +559,21 @@ export class EditorRenderer {
     selection: Range
   ): { start: number; end: number } {
     const lineLength = this.document.getLineLength(lineNumber);
-    
+
     let start = 0;
     let end = lineLength;
-    
+
     if (lineNumber === selection.start.line) {
       start = selection.start.column;
     }
-    
+
     if (lineNumber === selection.end.line) {
       end = selection.end.column;
     }
-    
+
     return { start, end };
   }
-  
+
   /**
    * Wrap line for word wrap
    */
@@ -573,12 +581,12 @@ export class EditorRenderer {
     if (text.length <= maxWidth) {
       return text;
     }
-    
+
     // Simple wrap at column boundary
     // TODO: Implement smart word wrapping
     return text.substring(0, maxWidth);
   }
-  
+
   /**
    * Set search matches to highlight
    */
@@ -586,7 +594,7 @@ export class EditorRenderer {
     this.searchMatches = matches;
     this.currentSearchMatch = current;
   }
-  
+
   /**
    * Update render options
    */

@@ -29,8 +29,8 @@ build-target:
 # Clean build artifacts
 clean:
 	cargo clean
-	rm -rf ../lib/*/libopentui.*
-	rm -rf ../lib/*/opentui.*
+	rm -rf ../lib/*/libaura.*
+	rm -rf ../lib/*/aura.*
 
 # Run tests
 test:
@@ -71,18 +71,18 @@ install-targets:
 node-build: build-release
 	@echo "Copying library for Node.js..."
 	@mkdir -p ../native
-	@if [ -f target/release/libopentui.dylib ]; then \
-		cp target/release/libopentui.dylib ../native/; \
-	elif [ -f target/release/libopentui.so ]; then \
-		cp target/release/libopentui.so ../native/; \
-	elif [ -f target/release/opentui.dll ]; then \
-		cp target/release/opentui.dll ../native/; \
+	@if [ -f target/release/libaura.dylib ]; then \
+		cp target/release/libaura.dylib ../native/; \
+	elif [ -f target/release/libaura.so ]; then \
+		cp target/release/libaura.so ../native/; \
+	elif [ -f target/release/aura.dll ]; then \
+		cp target/release/aura.dll ../native/; \
 	fi
 	@echo "Library copied to ../native/"
 
 # Help target
 help:
-	@echo "OpenTUI Rust Build System"
+	@echo "AURA Rust Build System"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  make build           - Build in release mode (default)"

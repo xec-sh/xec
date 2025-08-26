@@ -84,6 +84,11 @@ export class DocumentManager {
    * Insert text at position
    */
   insertText(position: Position, text: string): DocumentChange {
+    // Extend document if position is beyond current lines
+    while (position.line >= this.lines.length) {
+      this.lines.push('');
+    }
+    
     const { line, column } = this.normalizePosition(position);
     const currentLine = this.getLine(line);
     

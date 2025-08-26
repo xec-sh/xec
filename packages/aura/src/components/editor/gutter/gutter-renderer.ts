@@ -3,6 +3,7 @@
  */
 
 import { RGBA } from '../../../lib/colors.js';
+
 import type { OptimizedBuffer } from '../../../renderer/buffer.js';
 import type { ViewportManager } from '../viewport/viewport-manager.js';
 import type { DocumentManager } from '../document/document-manager.js';
@@ -31,14 +32,14 @@ export interface GutterMarker {
 export class GutterRenderer {
   private document: DocumentManager;
   private viewport: ViewportManager;
-  
+
   // Options
   private showLineNumbers: boolean;
   private relativeLineNumbers: boolean;
   private showFoldIndicators: boolean;
   private showGitStatus: boolean;
   private width: number;
-  
+
   // Colors
   private backgroundColor: RGBA;
   private lineNumberColor: RGBA;
@@ -46,16 +47,16 @@ export class GutterRenderer {
   private modifiedLineColor: RGBA;
   private addedLineColor: RGBA;
   private deletedLineColor: RGBA;
-  
+
   // Markers
   private markers: Map<number, GutterMarker[]> = new Map();
-  
+
   // Folded regions
   private foldedRegions: Set<number> = new Set();
-  
+
   // Git status (line -> 'added' | 'modified' | 'deleted')
   private gitStatus: Map<number, 'added' | 'modified' | 'deleted'> = new Map();
-  
+
   constructor(
     document: DocumentManager,
     viewport: ViewportManager,
@@ -63,14 +64,14 @@ export class GutterRenderer {
   ) {
     this.document = document;
     this.viewport = viewport;
-    
+
     // Apply options
     this.showLineNumbers = options.showLineNumbers ?? true;
     this.relativeLineNumbers = options.relativeLineNumbers ?? false;
     this.showFoldIndicators = options.showFoldIndicators ?? false;
     this.showGitStatus = options.showGitStatus ?? false;
     this.width = options.width ?? 6;
-    
+
     // Set colors
     this.backgroundColor = options.backgroundColor ?? RGBA.fromValues(0.15, 0.15, 0.2, 1);
     this.lineNumberColor = options.lineNumberColor ?? RGBA.fromValues(0.5, 0.5, 0.5, 1);
@@ -79,7 +80,7 @@ export class GutterRenderer {
     this.addedLineColor = options.addedLineColor ?? RGBA.fromValues(0, 1, 0, 1);
     this.deletedLineColor = options.deletedLineColor ?? RGBA.fromValues(1, 0, 0, 1);
   }
-  
+
   /**
    * Calculate gutter width based on content
    */
@@ -87,23 +88,23 @@ export class GutterRenderer {
     if (!this.showLineNumbers) {
       return this.showFoldIndicators ? 2 : 0;
     }
-    
+
     const lineCount = this.document.getLineCount();
     const digits = Math.max(3, lineCount.toString().length);
-    
+
     let width = digits + 1; // +1 for padding
-    
+
     if (this.showFoldIndicators) {
       width += 2;
     }
-    
+
     if (this.showGitStatus) {
       width += 1;
     }
-    
+
     return Math.max(this.width, width);
   }
-  
+
   /**
    * Render the gutter
    */
@@ -116,18 +117,22 @@ export class GutterRenderer {
   ): number {
     const width = this.calculateWidth();
     if (width === 0) return 0;
-    
+
     // Fill gutter background
     buffer.fillRect(x, y, width, height, this.backgroundColor);
-    
+
     // Get visible lines
     const visibleLines = this.viewport.getVisibleLines();
     const viewportState = this.viewport.getState();
-    
+
     for (let i = 0; i < visibleLines.length && i < height; i++) {
       const lineNumber = visibleLines[i];
-      const screenY = y + i;
+      // Fixed: Calculate screen position correctly relative to viewport
+      const screenY = y + (lineNumber - viewportState.scrollTop);
       
+      // Skip lines that are outside the visible area
+      if (screenY < y || screenY >= y + height) continue;
+
       this.renderGutterLine(
         buffer,
         x,
@@ -137,7 +142,7 @@ export class GutterRenderer {
         lineNumber === currentLine
       );
     }
-    
+
     // Draw separator
     const separatorX = x + width - 1;
     const separatorColor = RGBA.fromValues(0.3, 0.3, 0.3, 1);
@@ -151,10 +156,10 @@ export class GutterRenderer {
         0
       );
     }
-    
+
     return width;
   }
-  
+
   /**
    * Render a single gutter line
    */
@@ -167,22 +172,22 @@ export class GutterRenderer {
     isCurrentLine: boolean
   ): void {
     let currentX = x;
-    
+
     // Git status indicator
     if (this.showGitStatus) {
       const status = this.gitStatus.get(lineNumber);
       if (status) {
         const color = status === 'added' ? this.addedLineColor :
-                     status === 'modified' ? this.modifiedLineColor :
-                     this.deletedLineColor;
+          status === 'modified' ? this.modifiedLineColor :
+            this.deletedLineColor;
         const char = status === 'added' ? '+' :
-                    status === 'modified' ? '~' :
-                    '-';
+          status === 'modified' ? '~' :
+            '-';
         buffer.setCell(currentX, y, char, color, this.backgroundColor, 0);
       }
       currentX++;
     }
-    
+
     // Fold indicator
     if (this.showFoldIndicators) {
       if (this.canFoldLine(lineNumber)) {
@@ -192,13 +197,13 @@ export class GutterRenderer {
       }
       currentX += 2;
     }
-    
+
     // Line numbers
     if (this.showLineNumbers) {
       const displayNumber = this.getDisplayLineNumber(lineNumber, isCurrentLine);
       const numberStr = displayNumber.toString().padStart(width - currentX - 1, ' ');
       const numberColor = isCurrentLine ? this.currentLineNumberColor : this.lineNumberColor;
-      
+
       buffer.drawText(
         numberStr,
         currentX,
@@ -209,7 +214,7 @@ export class GutterRenderer {
       );
       currentX += numberStr.length;
     }
-    
+
     // Markers (breakpoints, bookmarks, etc.)
     const markers = this.markers.get(lineNumber);
     if (markers && markers.length > 0) {
@@ -226,7 +231,7 @@ export class GutterRenderer {
       );
     }
   }
-  
+
   /**
    * Get display line number (handles relative numbering)
    */
@@ -234,25 +239,25 @@ export class GutterRenderer {
     if (!this.relativeLineNumbers || isCurrentLine) {
       return lineNumber + 1; // 1-based numbering
     }
-    
+
     // For relative line numbers, show distance from current line
     // This requires knowing the current cursor line
     // For now, just return absolute number
     return lineNumber + 1;
   }
-  
+
   /**
    * Check if line can be folded
    */
   private canFoldLine(lineNumber: number): boolean {
     // Simple heuristic: lines that end with { or start a function/class
     const line = this.document.getLine(lineNumber);
-    return line.includes('{') || 
-           line.includes('function') || 
-           line.includes('class') ||
-           line.includes('interface');
+    return line.includes('{') ||
+      line.includes('function') ||
+      line.includes('class') ||
+      line.includes('interface');
   }
-  
+
   /**
    * Add a marker to the gutter
    */
@@ -261,7 +266,7 @@ export class GutterRenderer {
     markers.push(marker);
     this.markers.set(marker.line, markers);
   }
-  
+
   /**
    * Remove markers from a line
    */
@@ -280,7 +285,7 @@ export class GutterRenderer {
       }
     }
   }
-  
+
   /**
    * Toggle fold at line
    */
@@ -291,7 +296,7 @@ export class GutterRenderer {
       this.foldedRegions.add(line);
     }
   }
-  
+
   /**
    * Set git status for a line
    */
@@ -302,21 +307,21 @@ export class GutterRenderer {
       this.gitStatus.delete(line);
     }
   }
-  
+
   /**
    * Clear all git status
    */
   clearGitStatus(): void {
     this.gitStatus.clear();
   }
-  
+
   /**
    * Get gutter width
    */
   getWidth(): number {
     return this.calculateWidth();
   }
-  
+
   /**
    * Update options
    */

@@ -3,26 +3,26 @@
  * Implements core editing, visual features, and advanced editing capabilities
  */
 
-import { signal, effect, computed } from 'vibrancy';
+import { signal, effect } from 'vibrancy';
 
 import { RGBA } from '../../lib/colors.js';
 import { UndoManager } from './utils/undo-manager.js';
 import { TextBuffer } from '../../renderer/text-buffer.js';
 import { OptimizedBuffer } from '../../renderer/buffer.js';
 import { CursorManager } from './cursor/cursor-manager.js';
-import { MultiCursorManager } from './cursor/multi-cursor-manager.js';
 import { DefaultKeyBindings } from './utils/keybindings.js';
-import { DocumentManager } from './document/document-manager.js';
-import { Component, type ComponentProps } from '../../component.js';
-import { FindReplaceWidget, type SearchMatch, type SearchOptions } from './search/find-replace-widget.js';
-import { BlockSelectionManager, type BlockSelection } from './selection/block-selection.js';
-import { SmartIndentationManager } from './utils/smart-indentation.js';
 import { BracketMatcher } from './utils/bracket-matcher.js';
 import { CodeFoldingManager } from './utils/code-folding.js';
-import { AutoClosingPairsManager } from './utils/auto-closing-pairs.js';
-import { GutterRenderer } from './gutter/gutter-renderer.js';
 import { EditorRenderer } from './renderer/editor-renderer.js';
+import { DocumentManager } from './document/document-manager.js';
 import { ViewportManager } from './viewport/viewport-manager.js';
+import { Component, type ComponentProps } from '../../component.js';
+import { MultiCursorManager } from './cursor/multi-cursor-manager.js';
+import { SmartIndentationManager } from './utils/smart-indentation.js';
+import { BlockSelectionManager } from './selection/block-selection.js';
+import { AutoClosingPairsManager } from './utils/auto-closing-pairs.js';
+import { GutterRenderer, type GutterOptions } from './gutter/gutter-renderer.js';
+import { type SearchMatch, FindReplaceWidget } from './search/find-replace-widget.js';
 
 import type { ParsedKey } from '../../lib/parse.keypress.js';
 import type {
@@ -31,22 +31,23 @@ import type {
   EditorAPI,
   KeyBinding,
   CursorState,
-  EditorOptions,
-  EditorCommand
+  EditorCommand,
+  BaseEditorProps
 } from './types.js';
 
-export interface EditorComponentOptions extends ComponentProps, EditorOptions {
+export interface EditorProps extends ComponentProps, BaseEditorProps {
   onContentChange?: (content: string) => void;
   onCursorChange?: (cursor: CursorState) => void;
   onSelectionChange?: (selection: Range | null) => void;
   onSearch?: (query: string, matches: SearchMatch[]) => void;
-  
+
   // Phase 2 options
   wordWrap?: boolean;
   showGutter?: boolean;
+  gutterOptions?: GutterOptions; // Options for gutter configuration
   showMinimap?: boolean;
   showFindWidget?: boolean;
-  
+
   // Phase 3 options
   enableMultiCursor?: boolean;
   enableBlockSelection?: boolean;
@@ -63,12 +64,12 @@ export class EditorComponent extends Component implements EditorAPI {
   private multiCursorManager: MultiCursorManager | null = null;
   private undoManager: UndoManager;
   private viewportManager: ViewportManager;
-  
+
   // Phase 2 components
   private findReplaceWidget: FindReplaceWidget | null = null;
   private gutterRenderer: GutterRenderer | null = null;
   private editorRenderer: EditorRenderer;
-  
+
   // Phase 3 features
   private blockSelection: BlockSelectionManager | null = null;
   private smartIndentation: SmartIndentationManager | null = null;
@@ -93,11 +94,15 @@ export class EditorComponent extends Component implements EditorAPI {
   private tabSize: number;
   private insertSpaces: boolean;
   private readOnly: boolean;
-  private lineNumbers: boolean;
   private wordWrap: boolean;
   private showGutter: boolean;
+  private gutterOptions: GutterOptions;
   private showMinimap: boolean;
   
+  // Track last scroll position
+  private lastScrollTop = 0;
+  private lastScrollLeft = 0;
+
   // Phase 3 configuration
   private enableMultiCursor: boolean;
   private enableBlockSelection: boolean;
@@ -119,7 +124,7 @@ export class EditorComponent extends Component implements EditorAPI {
   private onSelectionChange?: (selection: Range | null) => void;
   private onSearch?: (query: string, matches: SearchMatch[]) => void;
 
-  constructor(id: string, options: EditorComponentOptions = {}) {
+  constructor(id: string, options: EditorProps = {}) {
     super(id, options);
     this.focusable = true;
 
@@ -127,17 +132,26 @@ export class EditorComponent extends Component implements EditorAPI {
     this.tabSize = options.tabSize ?? 4;
     this.insertSpaces = options.insertSpaces ?? true;
     this.readOnly = options.readOnly ?? false;
-    this.lineNumbers = options.lineNumbers ?? true;
     this.wordWrap = options.wordWrap ?? false;
     this.showGutter = options.showGutter ?? true;
     this.showMinimap = options.showMinimap ?? false;
-    
+    this.enableCodeFolding = options.enableCodeFolding ?? true;
+
+    // Initialize gutter options with defaults
+    this.gutterOptions = {
+      showLineNumbers: options.lineNumbers ?? true, // Use lineNumbers from BaseEditorProps
+      relativeLineNumbers: false,
+      showFoldIndicators: this.enableCodeFolding,
+      showGitStatus: false,
+      ...options.gutterOptions // Allow override with explicit gutterOptions
+    };
+
     // Phase 3 configuration
     this.enableMultiCursor = options.enableMultiCursor ?? true;
     this.enableBlockSelection = options.enableBlockSelection ?? true;
     this.enableSmartIndent = options.enableSmartIndent ?? true;
     this.enableBracketMatching = options.enableBracketMatching ?? true;
-    this.enableCodeFolding = options.enableCodeFolding ?? true;
+
     this.enableAutoClosingPairs = options.enableAutoClosingPairs ?? true;
 
     // Initialize managers
@@ -148,21 +162,25 @@ export class EditorComponent extends Component implements EditorAPI {
       scrollBeyondLastLine: true
     });
     this.viewportManager.setDimensions(this.width, this.height);
-    
+
     // Initialize Phase 2 components
     if (this.showGutter) {
-      this.gutterRenderer = new GutterRenderer(this.document, this.viewportManager);
+      this.gutterRenderer = new GutterRenderer(
+        this.document,
+        this.viewportManager,
+        this.gutterOptions
+      );
     }
-    
-    // Initialize renderers
+
+    // Initialize renderer (pass null if gutter is disabled)
     this.editorRenderer = new EditorRenderer(
       this.document,
       this.cursorManager,
       this.viewportManager,
-      this.gutterRenderer!,
+      this.gutterRenderer || null,
       {}
     );
-    
+
     // Initialize Phase 3 features
     if (this.enableMultiCursor) {
       this.multiCursorManager = new MultiCursorManager(this.document);
@@ -220,7 +238,7 @@ export class EditorComponent extends Component implements EditorAPI {
         this.content.set(newContent);
         this.isDirtySignal.set(true);
         this.onContentChange?.(newContent);
-        
+
         // Update code folding if enabled
         if (this.codeFolding) {
           this.foldedLines.set(new Set(this.codeFolding.getFoldedLines()));
@@ -236,17 +254,28 @@ export class EditorComponent extends Component implements EditorAPI {
 
       const selection = this.cursorManager.getSelection();
       this.onSelectionChange?.(selection);
-      
+
       // Update bracket matching if enabled
       if (this.enableBracketMatching && this.bracketMatcher) {
         this.bracketMatcher.updateMatches(cursor.position);
       }
     });
-    
-    // Update viewport when cursor moves
+
+    // Update viewport when cursor moves - no debouncing for instant response
     effect(() => {
       const cursor = this.cursorState();
-      this.viewportManager.ensureLineVisible(cursor.position.line);
+      
+      // Only scroll if cursor actually changed position
+      // This prevents unnecessary scroll updates
+      this.viewportManager.ensureVisible(cursor.position.line, cursor.position.column);
+      
+      // Only trigger update if viewport actually scrolled
+      const state = this.viewportManager.getState();
+      if (state.scrollTop !== this.lastScrollTop || state.scrollLeft !== this.lastScrollLeft) {
+        this.lastScrollTop = state.scrollTop;
+        this.lastScrollLeft = state.scrollLeft;
+        this.needsUpdate();
+      }
     });
   }
 
@@ -267,6 +296,10 @@ export class EditorComponent extends Component implements EditorAPI {
 
     this.registerCommand('cursorWordLeft', () => this.cursorManager.moveToPreviousWord());
     this.registerCommand('cursorWordRight', () => this.cursorManager.moveToNextWord());
+    
+    // Page navigation
+    this.registerCommand('pageUp', () => this.handlePageUp());
+    this.registerCommand('pageDown', () => this.handlePageDown());
 
     // Selection commands
     this.registerCommand('selectUp', () => this.cursorManager.moveUp(1, true));
@@ -291,7 +324,7 @@ export class EditorComponent extends Component implements EditorAPI {
     this.registerCommand('undo', () => this.undo());
     this.registerCommand('redo', () => this.redo());
   }
-  
+
   /**
    * Register Phase 2 commands
    */
@@ -302,14 +335,14 @@ export class EditorComponent extends Component implements EditorAPI {
     this.registerCommand('findPrevious', () => this.findPrevious());
     this.registerCommand('replace', () => this.showReplaceWidget());
     this.registerCommand('closeFindWidget', () => this.closeFindWidget());
-    
+
     // Viewport commands
     this.registerCommand('scrollUp', () => this.viewportManager.scrollUp());
     this.registerCommand('scrollDown', () => this.viewportManager.scrollDown());
-    this.registerCommand('scrollPageUp', () => this.viewportManager.scrollPageUp());
-    this.registerCommand('scrollPageDown', () => this.viewportManager.scrollPageDown());
+    this.registerCommand('scrollPageUp', () => this.handlePageUp());
+    this.registerCommand('scrollPageDown', () => this.handlePageDown());
   }
-  
+
   /**
    * Register Phase 3 commands
    */
@@ -321,7 +354,7 @@ export class EditorComponent extends Component implements EditorAPI {
       this.registerCommand('addCursorToNextMatch', () => this.addCursorToNextMatch());
       this.registerCommand('clearSecondaryCursors', () => this.clearSecondaryCursors());
     }
-    
+
     // Block selection commands
     if (this.enableBlockSelection) {
       this.registerCommand('startBlockSelection', () => this.startBlockSelection());
@@ -330,14 +363,14 @@ export class EditorComponent extends Component implements EditorAPI {
       this.registerCommand('expandBlockSelectionLeft', () => this.expandBlockSelection('left'));
       this.registerCommand('expandBlockSelectionRight', () => this.expandBlockSelection('right'));
     }
-    
+
     // Code folding commands
     if (this.enableCodeFolding) {
       this.registerCommand('toggleFold', () => this.toggleFold());
       this.registerCommand('foldAll', () => this.foldAll());
       this.registerCommand('unfoldAll', () => this.unfoldAll());
     }
-    
+
     // Bracket matching commands
     if (this.enableBracketMatching) {
       this.registerCommand('jumpToBracket', () => this.jumpToBracket());
@@ -354,13 +387,17 @@ export class EditorComponent extends Component implements EditorAPI {
       this.registerKeyBinding(binding);
     }
     
+    // Add page navigation keybindings
+    this.registerKeyBinding({ key: 'PageUp', action: 'pageUp' });
+    this.registerKeyBinding({ key: 'PageDown', action: 'pageDown' });
+
     // Add Phase 2 keybindings
     this.registerKeyBinding({ key: 'f', ctrl: true, action: 'find' });
     this.registerKeyBinding({ key: 'h', ctrl: true, action: 'replace' });
     this.registerKeyBinding({ key: 'F3', action: 'findNext' });
     this.registerKeyBinding({ key: 'F3', shift: true, action: 'findPrevious' });
     this.registerKeyBinding({ key: 'Escape', action: 'closeFindWidget' });
-    
+
     // Add Phase 3 keybindings
     if (this.enableMultiCursor) {
       this.registerKeyBinding({ key: 'd', ctrl: true, action: 'addCursorToNextMatch' });
@@ -368,20 +405,20 @@ export class EditorComponent extends Component implements EditorAPI {
       this.registerKeyBinding({ key: 'ArrowDown', ctrl: true, alt: true, action: 'addCursorBelow' });
       this.registerKeyBinding({ key: 'Escape', action: 'clearSecondaryCursors' });
     }
-    
+
     if (this.enableBlockSelection) {
       this.registerKeyBinding({ key: 'ArrowUp', shift: true, alt: true, action: 'expandBlockSelectionUp' });
       this.registerKeyBinding({ key: 'ArrowDown', shift: true, alt: true, action: 'expandBlockSelectionDown' });
       this.registerKeyBinding({ key: 'ArrowLeft', shift: true, alt: true, action: 'expandBlockSelectionLeft' });
       this.registerKeyBinding({ key: 'ArrowRight', shift: true, alt: true, action: 'expandBlockSelectionRight' });
     }
-    
+
     if (this.enableCodeFolding) {
       this.registerKeyBinding({ key: '[', ctrl: true, shift: true, action: 'toggleFold' });
       this.registerKeyBinding({ key: 'k', ctrl: true, meta: true, action: 'foldAll' });
       this.registerKeyBinding({ key: 'j', ctrl: true, meta: true, action: 'unfoldAll' });
     }
-    
+
     if (this.enableBracketMatching) {
       this.registerKeyBinding({ key: 'p', ctrl: true, action: 'jumpToBracket' });
       this.registerKeyBinding({ key: 'p', ctrl: true, shift: true, action: 'selectToBracket' });
@@ -430,7 +467,7 @@ export class EditorComponent extends Component implements EditorAPI {
     this.cursorManager.setCursor({ line: 0, column: 0 });
     this.undoManager.clear();
     this.isDirtySignal.set(false);
-    
+
     // Reset multi-cursor if enabled
     if (this.multiCursorManager) {
       this.multiCursorManager.clearSecondaryCursors();
@@ -457,13 +494,20 @@ export class EditorComponent extends Component implements EditorAPI {
   }
 
   moveCursor(direction: 'up' | 'down' | 'left' | 'right', amount = 1): void {
-    for (let i = 0; i < amount; i++) {
-      switch (direction) {
-        case 'up': this.cursorManager.moveUp(); break;
-        case 'down': this.cursorManager.moveDown(); break;
-        case 'left': this.cursorManager.moveLeft(); break;
-        case 'right': this.cursorManager.moveRight(); break;
-      }
+    // Move cursor in bulk for better performance
+    switch (direction) {
+      case 'up': 
+        this.cursorManager.moveUp(amount);
+        break;
+      case 'down': 
+        this.cursorManager.moveDown(amount);
+        break;
+      case 'left': 
+        this.cursorManager.moveLeft(amount);
+        break;
+      case 'right': 
+        this.cursorManager.moveRight(amount);
+        break;
     }
   }
 
@@ -524,15 +568,15 @@ export class EditorComponent extends Component implements EditorAPI {
       cursorAfter
     });
   }
-  
+
   private insertNewLine(): void {
     if (this.readOnly) return;
-    
+
     // Use smart indentation if enabled
     if (this.enableSmartIndent && this.smartIndentation) {
       const cursor = this.cursorManager.getCursor();
       const indentLevel = this.smartIndentation.getIndentLevel(cursor.position.line);
-      const indent = this.insertSpaces 
+      const indent = this.insertSpaces
         ? ' '.repeat(indentLevel * this.tabSize)
         : '\t'.repeat(indentLevel);
       this.insertText('\n' + indent);
@@ -666,9 +710,9 @@ export class EditorComponent extends Component implements EditorAPI {
   selectAll(): void {
     this.cursorManager.selectAll();
   }
-  
+
   // === Phase 2 Methods ===
-  
+
   showFindWidget(): void {
     if (!this.findReplaceWidget) {
       this.findReplaceWidget = new FindReplaceWidget(
@@ -695,12 +739,12 @@ export class EditorComponent extends Component implements EditorAPI {
     this.isSearchActive.set(true);
     this.needsUpdate();
   }
-  
+
   showReplaceWidget(): void {
     this.showFindWidget();
     // The widget handles both find and replace
   }
-  
+
   closeFindWidget(): void {
     if (this.findReplaceWidget) {
       this.remove(this.findReplaceWidget.id);
@@ -710,21 +754,21 @@ export class EditorComponent extends Component implements EditorAPI {
     this.searchMatches.set([]);
     this.needsUpdate();
   }
-  
+
   findNext(): void {
     if (this.findReplaceWidget) {
       this.findReplaceWidget.findNext();
     }
   }
-  
+
   findPrevious(): void {
     if (this.findReplaceWidget) {
       this.findReplaceWidget.findPrevious();
     }
   }
-  
+
   // === Phase 3 Methods ===
-  
+
   addCursorAbove(): void {
     if (!this.multiCursorManager) return;
     const currentPos = this.cursorManager.getCursor().position;
@@ -736,7 +780,7 @@ export class EditorComponent extends Component implements EditorAPI {
       this.needsUpdate();
     }
   }
-  
+
   addCursorBelow(): void {
     if (!this.multiCursorManager) return;
     const currentPos = this.cursorManager.getCursor().position;
@@ -748,7 +792,7 @@ export class EditorComponent extends Component implements EditorAPI {
       this.needsUpdate();
     }
   }
-  
+
   addCursorToNextMatch(): void {
     if (!this.multiCursorManager) return;
     const selection = this.cursorManager.getSelection();
@@ -762,20 +806,20 @@ export class EditorComponent extends Component implements EditorAPI {
       }
     }
   }
-  
+
   clearSecondaryCursors(): void {
     if (!this.multiCursorManager) return;
     this.multiCursorManager.clearSecondaryCursors();
     this.needsUpdate();
   }
-  
+
   startBlockSelection(): void {
     if (!this.blockSelection) return;
     const cursor = this.cursorManager.getCursor();
     this.blockSelection.start(cursor.position);
     this.needsUpdate();
   }
-  
+
   expandBlockSelection(direction: 'up' | 'down' | 'left' | 'right'): void {
     if (!this.blockSelection) return;
     this.blockSelection.move(direction);
@@ -790,7 +834,7 @@ export class EditorComponent extends Component implements EditorAPI {
     }
     this.needsUpdate();
   }
-  
+
   toggleFold(): void {
     if (!this.codeFolding) return;
     const cursor = this.cursorManager.getCursor();
@@ -801,21 +845,21 @@ export class EditorComponent extends Component implements EditorAPI {
       this.needsUpdate();
     }
   }
-  
+
   foldAll(): void {
     if (!this.codeFolding) return;
     this.codeFolding.foldAll();
     this.foldedLines.set(new Set(this.codeFolding.getFoldedLines()));
     this.needsUpdate();
   }
-  
+
   unfoldAll(): void {
     if (!this.codeFolding) return;
     this.codeFolding.unfoldAll();
     this.foldedLines.set(new Set(this.codeFolding.getFoldedLines()));
     this.needsUpdate();
   }
-  
+
   jumpToBracket(): void {
     if (!this.bracketMatcher) return;
     const cursor = this.cursorManager.getCursor();
@@ -825,7 +869,7 @@ export class EditorComponent extends Component implements EditorAPI {
       this.needsUpdate();
     }
   }
-  
+
   selectToBracket(): void {
     if (!this.bracketMatcher) return;
     const cursor = this.cursorManager.getCursor();
@@ -933,6 +977,33 @@ export class EditorComponent extends Component implements EditorAPI {
   protected onMount(): void {
     // Set up keyboard event handling
     this.setupKeyboardHandling();
+
+    // Initialize viewport scroll position - center cursor on mount
+    const cursor = this.cursorManager.getCursor();
+    this.viewportManager.scrollToLine(cursor.position.line, 'center');
+    this.viewportManager.scrollToColumn(cursor.position.column);
+  }
+
+  protected override onResize(width: number, height: number): void {
+    super.onResize(width, height);
+
+    // Update viewport dimensions with correct size
+    // Account for gutter width if present
+    const gutterWidth = this.gutterRenderer?.calculateWidth() ?? 0;
+    const contentWidth = Math.max(1, width - gutterWidth);
+    const contentHeight = Math.max(1, height);
+
+    this.viewportManager.setDimensions(contentWidth, contentHeight);
+    
+    // Invalidate max line length cache when resizing
+    this.viewportManager.invalidateMaxLineLength();
+
+    // Only ensure visibility, don't force scroll
+    const cursor = this.cursorManager.getCursor();
+    this.viewportManager.ensureVisible(cursor.position.line, cursor.position.column);
+
+    // Update without forcing dirty state
+    this.needsUpdate();
   }
 
   private setupKeyboardHandling(): void {
@@ -948,39 +1019,22 @@ export class EditorComponent extends Component implements EditorAPI {
     // Clear the component area
     buffer.fillRect(this.x, this.y, this.width, this.height, RGBA.fromValues(0.1, 0.1, 0.2, 1));
 
-    // Update viewport
-    this.viewportManager.setDimensions(this.width, this.height);
+    // Don't update viewport dimensions here - only in onResize
     const visibleRange = this.viewportManager.getVisibleRange();
-    
-    // Calculate gutter width
-    let gutterWidth = 0;
-    if (this.showGutter && this.gutterRenderer) {
-      // Render gutter and get its width
-      gutterWidth = this.gutterRenderer.render(
-        buffer,
-        this.x,
-        this.y,
-        this.height,
-        this.cursorManager.getCursor().position.line
-      );
-    }
 
-    // Render visible lines
-    const cursor = this.cursorManager.getCursor();
-    const selection = this.cursorManager.getSelection();
-    const searchHighlights = this.searchMatches();
-    const bracketPairs = this.bracketMatcher?.getMatchingPairs() || [];
-    
-    // Use the editor renderer for main content
+    // Note: Gutter is rendered inside editorRenderer, not here
+    // This prevents duplicate line numbers
+
+    // Use the editor renderer for main content (including gutter)
     this.editorRenderer.render(
       buffer,
-      this.x + gutterWidth,
+      this.x,
       this.y,
-      this.width - gutterWidth,
+      this.width,
       this.height,
       deltaTime
     );
-    
+
     // Render find widget if active
     if (this.findReplaceWidget && this.isSearchActive()) {
       this.findReplaceWidget.x = this.x;
@@ -1017,7 +1071,7 @@ export class EditorComponent extends Component implements EditorAPI {
         return true;
       }
     }
-    
+
     // Extract key name - prefer 'name' over 'sequence' 
     let keyStr = key.name;
 
@@ -1111,12 +1165,106 @@ export class EditorComponent extends Component implements EditorAPI {
    */
   selectNextOccurrence(): void {
     if (!this.multiCursorManager) return;
-    
+
     const cursor = this.cursorManager.getCursor();
     const selection = this.cursorManager.getSelection();
-    
+
     if (selection) {
       this.multiCursorManager.addNextOccurrence();
+      this.needsUpdate();
+    }
+  }
+
+  /**
+   * Update gutter options dynamically
+   */
+  updateGutterOptions(options: Partial<GutterOptions>): void {
+    this.gutterOptions = { ...this.gutterOptions, ...options };
+    if (this.gutterRenderer) {
+      this.gutterRenderer.updateOptions(this.gutterOptions);
+      this.needsUpdate();
+    }
+  }
+
+  /**
+   * Toggle line numbers display
+   */
+  toggleLineNumbers(): void {
+    this.updateGutterOptions({
+      showLineNumbers: !this.gutterOptions.showLineNumbers
+    });
+  }
+
+  /**
+   * Toggle relative line numbers
+   */
+  toggleRelativeLineNumbers(): void {
+    this.updateGutterOptions({
+      relativeLineNumbers: !this.gutterOptions.relativeLineNumbers
+    });
+  }
+
+  /**
+   * Handle Page Up - move cursor and scroll
+   */
+  private handlePageUp(): void {
+    const pageSize = Math.max(1, this.viewportManager.getState().height - 2);
+    
+    // Move cursor up by page size
+    const cursor = this.cursorManager.getCursor();
+    const newLine = Math.max(0, cursor.position.line - pageSize);
+    this.cursorManager.setCursor({ line: newLine, column: cursor.position.column });
+    
+    // Scroll viewport
+    this.viewportManager.scrollPageUp();
+  }
+
+  /**
+   * Handle Page Down - move cursor and scroll
+   */
+  private handlePageDown(): void {
+    const pageSize = Math.max(1, this.viewportManager.getState().height - 2);
+    
+    // Move cursor down by page size
+    const cursor = this.cursorManager.getCursor();
+    const maxLine = this.document.getLineCount() - 1;
+    const newLine = Math.min(maxLine, cursor.position.line + pageSize);
+    this.cursorManager.setCursor({ line: newLine, column: cursor.position.column });
+    
+    // Scroll viewport
+    this.viewportManager.scrollPageDown();
+  }
+
+  /**
+   * Get current gutter width
+   */
+  getGutterWidth(): number {
+    return this.gutterRenderer?.getWidth() ?? 0;
+  }
+
+  /**
+   * Set gutter marker (breakpoint, bookmark, etc)
+   */
+  setGutterMarker(line: number, type: 'breakpoint' | 'bookmark' | 'error' | 'warning' | 'info', color?: RGBA): void {
+    if (this.gutterRenderer) {
+      this.gutterRenderer.addMarker({ line, type, color });
+      this.needsUpdate();
+    }
+  }
+
+  /**
+   * Clear gutter markers
+   */
+  clearGutterMarkers(line?: number, type?: string): void {
+    if (this.gutterRenderer) {
+      if (line !== undefined) {
+        this.gutterRenderer.removeMarkers(line, type);
+      } else {
+        // Clear all markers
+        for (let i = 0; i < this.document.getLineCount(); i++) {
+          this.gutterRenderer.removeMarkers(i);
+        }
+      }
       this.needsUpdate();
     }
   }

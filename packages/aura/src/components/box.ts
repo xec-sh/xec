@@ -9,7 +9,7 @@ import {
   borderCharsToArray,
   type BorderCharacters,
   type BorderSidesConfig,
-} from "../lib"
+} from "../lib/index.js"
 
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 

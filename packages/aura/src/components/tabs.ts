@@ -4,15 +4,15 @@ import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
 import type { ParsedKey } from "../lib/parse.keypress.js"
 
-export interface TabSelectOption {
+export interface TabsOption {
   name: string
   description: string
   value?: any
 }
 
-export interface TabSelectRenderableOptions extends Omit<ComponentProps, "height"> {
+export interface TabsProps extends Omit<ComponentProps, "height"> {
   height?: number
-  options?: TabSelectOption[]
+  options?: TabsOption[]
   tabWidth?: number
   backgroundColor?: ColorInput
   textColor?: ColorInput
@@ -49,7 +49,7 @@ function calculateDynamicHeight(showUnderline: boolean, showDescription: boolean
 export class TabsComponent extends Component {
   protected focusable: boolean = true
 
-  private _options: TabSelectOption[] = []
+  private _options: TabsOption[] = []
   private selectedIndex: number = 0
   private scrollOffset: number = 0
   private _tabWidth: number
@@ -67,7 +67,7 @@ export class TabsComponent extends Component {
   private _showUnderline: boolean
   private _wrapSelection: boolean
 
-  constructor(id: string, options: TabSelectRenderableOptions) {
+  constructor(id: string, options: TabsProps) {
     const calculatedHeight = calculateDynamicHeight(options.showUnderline ?? true, options.showDescription ?? true)
 
     super(id, { ...options, height: calculatedHeight, buffered: true })
@@ -183,14 +183,14 @@ export class TabsComponent extends Component {
     }
   }
 
-  public setOptions(options: TabSelectOption[]): void {
+  public setOptions(options: TabsOption[]): void {
     this._options = options
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, options.length - 1))
     this.updateScrollOffset()
     this.needsUpdate()
   }
 
-  public getSelectedOption(): TabSelectOption | null {
+  public getSelectedOption(): TabsOption | null {
     return this._options[this.selectedIndex] || null
   }
 
@@ -298,11 +298,11 @@ export class TabsComponent extends Component {
     return false
   }
 
-  public get options(): TabSelectOption[] {
+  public get options(): TabsOption[] {
     return this._options
   }
 
-  public set options(options: TabSelectOption[]) {
+  public set options(options: TabsOption[]) {
     this._options = options
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, options.length - 1))
     this.updateScrollOffset()

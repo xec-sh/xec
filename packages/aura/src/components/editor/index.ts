@@ -4,7 +4,7 @@
 
 // Core components
 export { EditorComponent } from './editor-component.js';
-export type { EditorComponentOptions } from './editor-component.js';
+export type { EditorProps as EditorComponentOptions } from './editor-component.js';
 
 // Document and cursor management
 export { DocumentManager } from './document/document-manager.js';
@@ -34,7 +34,7 @@ export type {
   CursorState,
   DocumentChange,
   UndoableAction,
-  EditorOptions,
+  BaseEditorProps as EditorOptions,
   EditorState,
   KeyBinding,
   EditorCommand,

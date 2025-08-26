@@ -15,9 +15,9 @@ import {
   type JustifyString,
   type PositionTypeString,
   type FlexDirectionString,
-} from "./lib/yoga.options"
+} from "./lib/yoga.options.js"
 
-import type { ParsedKey } from "./lib/parse.keypress"
+import type { ParsedKey } from "./lib/parse.keypress.js"
 import type { RenderContext, SelectionState } from "./types.js"
 
 export enum LayoutEvents {

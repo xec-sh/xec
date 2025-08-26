@@ -1,10 +1,10 @@
 import { SelectionState } from "../types.js"
 import { RGBA, parseColor } from "../lib/colors.js"
-import { FrameBufferComponent } from "./frame-buffer"
-import { ASCIIFontSelectionHelper } from "../lib/selection"
-import { type fonts, measureText, getCharacterPositions, renderFontToFrameBuffer } from "../lib/ascii.font"
+import { FrameBufferComponent } from "./frame-buffer.js"
+import { ASCIIFontSelectionHelper } from "../lib/selection.js"
+import { type fonts, measureText, getCharacterPositions, renderFontToFrameBuffer } from "../lib/ascii.font.js"
 
-import type { ComponentProps } from "../component"
+import type { ComponentProps } from "../component.js"
 
 export interface ASCIIFontProps extends ComponentProps {
   text?: string
