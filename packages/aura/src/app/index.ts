@@ -11,3 +11,4 @@ export * from './lifecycle.js';
 export * from './application.js';
 export * from './control-flow.js';
 export * from './reactive-bridge.js';
+export * from './screen-dimensions.js';

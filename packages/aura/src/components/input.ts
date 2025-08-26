@@ -1,9 +1,9 @@
-import { Renderer } from "../renderer/renderer"
-import { OptimizedBuffer } from "../renderer/buffer"
-import { Component, type ComponentProps } from "../component"
-import { RGBA, parseColor, type ColorInput } from "../lib/colors"
+import { Renderer } from "../renderer/renderer.js"
+import { OptimizedBuffer } from "../renderer/buffer.js"
+import { Component, type ComponentProps } from "../component.js"
+import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
-import type { ParsedKey } from "../lib/parse.keypress"
+import type { ParsedKey } from "../lib/parse.keypress.js"
 
 export interface InputProps extends ComponentProps {
   backgroundColor?: ColorInput

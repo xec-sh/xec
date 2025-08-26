@@ -10,7 +10,7 @@ import {
   GroupComponent,
   createRenderer,
   RenderableEvents,
-  type TabSelectOption,
+  type TabsOption,
   TabSelectComponentEvents,
 } from "../src/index.js"
 
@@ -20,9 +20,9 @@ let keyboardHandler: ((key: any) => void) | null = null
 let parentContainer: GroupComponent | null = null
 let keyLegendDisplay: TextComponent | null = null
 let statusDisplay: TextComponent | null = null
-let lastSelectedItem: TabSelectOption | null = null
+let lastSelectedItem: TabsOption | null = null
 
-const tabOptions: TabSelectOption[] = [
+const tabOptions: TabsOption[] = [
   { name: "Home", description: "Welcome to the home page", value: "home" },
   { name: "Profile", description: "Manage your user profile", value: "profile" },
   { name: "Settings", description: "Configure application settings", value: "settings" },
@@ -139,11 +139,11 @@ export function run(rendererInstance: Renderer): void {
   })
   parentContainer.add(statusDisplay)
 
-  tabSelect.on(TabSelectComponentEvents.SELECTION_CHANGED, (index: number, option: TabSelectOption) => {
+  tabSelect.on(TabSelectComponentEvents.SELECTION_CHANGED, (index: number, option: TabsOption) => {
     updateDisplays()
   })
 
-  tabSelect.on(TabSelectComponentEvents.ITEM_SELECTED, (index: number, option: TabSelectOption) => {
+  tabSelect.on(TabSelectComponentEvents.ITEM_SELECTED, (index: number, option: TabsOption) => {
     lastSelectedItem = option
     updateDisplays()
   })

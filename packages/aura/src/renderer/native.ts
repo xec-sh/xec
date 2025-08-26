@@ -17,6 +17,9 @@ function isBun() {
 }
 
 export async function initializeNative() {
+  // Load the native module first
+  await loadNativeModule();
+
   if (isBun()) {
     const { dlopen: bunDlopen, toArrayBuffer: bunToArrayBuffer, } = await import("bun:ffi");
     dlopen = bunDlopen;
@@ -393,293 +396,316 @@ export async function initializeNative() {
   }
 }
 
+// Lazy load native module to avoid top-level await issues
+let targetLibPath: string | undefined;
+let auraLibInstance: any | undefined;
+
+async function loadNativeModule(): Promise<string | undefined> {
+  if (!targetLibPath) {
+    const packageName = `@xec-sh/aura-native-${process.platform}-${process.arch}`;
+    try {
+      const module = await import(packageName);
+      targetLibPath = module.default || module;
+    } catch (error) {
+      throw new Error(`Failed to load native module ${packageName}: ${error}`);
+    }
+  }
+  return targetLibPath;
+}
+
 function getOpenTUILib() {
-  return dlopen(`./rust/target/release/libopentui.dylib`, {
-    // Renderer management
-    createRenderer: {
-      args: ["u32", "u32", "bool"],
-      returns: "ptr",
-    },
-    destroyRenderer: {
-      args: ["ptr", "bool"],
-      returns: "void",
-    },
-    setUseThread: {
-      args: ["ptr", "bool"],
-      returns: "void",
-    },
-    setBackgroundColor: {
-      args: ["ptr", "ptr"],
-      returns: "void",
-    },
-    setRenderOffset: {
-      args: ["ptr", "u32"],
-      returns: "void",
-    },
-    updateStats: {
-      args: ["ptr", "f64", "u32", "f64", "f64"],
-      returns: "void",
-    },
-    updateMemoryStats: {
-      args: ["ptr", "u32", "u32", "u32"],
-      returns: "void",
-    },
-    render: {
-      args: ["ptr", "bool"],
-      returns: "void",
-    },
-    getNextBuffer: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    getCurrentBuffer: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
+  if (!auraLibInstance) {
+    if (!targetLibPath) {
+      throw new Error("Native module not loaded. Call initializeNative() first.");
+    }
+    auraLibInstance = dlopen(targetLibPath, {
+      // Renderer management
+      createRenderer: {
+        args: ["u32", "u32", "bool"],
+        returns: "ptr",
+      },
+      destroyRenderer: {
+        args: ["ptr", "bool"],
+        returns: "void",
+      },
+      setUseThread: {
+        args: ["ptr", "bool"],
+        returns: "void",
+      },
+      setBackgroundColor: {
+        args: ["ptr", "ptr"],
+        returns: "void",
+      },
+      setRenderOffset: {
+        args: ["ptr", "u32"],
+        returns: "void",
+      },
+      updateStats: {
+        args: ["ptr", "f64", "u32", "f64", "f64"],
+        returns: "void",
+      },
+      updateMemoryStats: {
+        args: ["ptr", "u32", "u32", "u32"],
+        returns: "void",
+      },
+      render: {
+        args: ["ptr", "bool"],
+        returns: "void",
+      },
+      getNextBuffer: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      getCurrentBuffer: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
 
-    createOptimizedBuffer: {
-      args: ["u32", "u32", "bool"],
-      returns: "ptr",
-    },
-    destroyOptimizedBuffer: {
-      args: ["ptr"],
-      returns: "void",
-    },
+      createOptimizedBuffer: {
+        args: ["u32", "u32", "bool"],
+        returns: "ptr",
+      },
+      destroyOptimizedBuffer: {
+        args: ["ptr"],
+        returns: "void",
+      },
 
-    drawFrameBuffer: {
-      args: ["ptr", "i32", "i32", "ptr", "u32", "u32", "u32", "u32"],
-      returns: "void",
-    },
-    getBufferWidth: {
-      args: ["ptr"],
-      returns: "u32",
-    },
-    getBufferHeight: {
-      args: ["ptr"],
-      returns: "u32",
-    },
-    bufferClear: {
-      args: ["ptr", "ptr"],
-      returns: "void",
-    },
-    bufferGetCharPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    bufferGetFgPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    bufferGetBgPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    bufferGetAttributesPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    bufferGetRespectAlpha: {
-      args: ["ptr"],
-      returns: "bool",
-    },
-    bufferSetRespectAlpha: {
-      args: ["ptr", "bool"],
-      returns: "void",
-    },
+      drawFrameBuffer: {
+        args: ["ptr", "i32", "i32", "ptr", "u32", "u32", "u32", "u32"],
+        returns: "void",
+      },
+      getBufferWidth: {
+        args: ["ptr"],
+        returns: "u32",
+      },
+      getBufferHeight: {
+        args: ["ptr"],
+        returns: "u32",
+      },
+      bufferClear: {
+        args: ["ptr", "ptr"],
+        returns: "void",
+      },
+      bufferGetCharPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      bufferGetFgPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      bufferGetBgPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      bufferGetAttributesPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      bufferGetRespectAlpha: {
+        args: ["ptr"],
+        returns: "bool",
+      },
+      bufferSetRespectAlpha: {
+        args: ["ptr", "bool"],
+        returns: "void",
+      },
 
-    bufferDrawText: {
-      args: ["ptr", "ptr", "usize", "u32", "u32", "ptr", "ptr", "u8"],
-      returns: "void",
-    },
-    bufferSetCellWithAlphaBlending: {
-      args: ["ptr", "u32", "u32", "u32", "ptr", "ptr", "u8"],
-      returns: "void",
-    },
-    bufferFillRect: {
-      args: ["ptr", "u32", "u32", "u32", "u32", "ptr"],
-      returns: "void",
-    },
-    bufferResize: {
-      args: ["ptr", "u32", "u32"],
-      returns: "void",
-    },
+      bufferDrawText: {
+        args: ["ptr", "ptr", "usize", "u32", "u32", "ptr", "ptr", "u8"],
+        returns: "void",
+      },
+      bufferSetCellWithAlphaBlending: {
+        args: ["ptr", "u32", "u32", "u32", "ptr", "ptr", "u8"],
+        returns: "void",
+      },
+      bufferFillRect: {
+        args: ["ptr", "u32", "u32", "u32", "u32", "ptr"],
+        returns: "void",
+      },
+      bufferResize: {
+        args: ["ptr", "u32", "u32"],
+        returns: "void",
+      },
 
-    resizeRenderer: {
-      args: ["ptr", "u32", "u32"],
-      returns: "void",
-    },
+      resizeRenderer: {
+        args: ["ptr", "u32", "u32"],
+        returns: "void",
+      },
 
-    setLinesRendered: {
-      args: ["ptr", "u32"],
-      returns: "void",
-    },
+      setLinesRendered: {
+        args: ["ptr", "u32"],
+        returns: "void",
+      },
 
-    // Global cursor functions
-    setCursorPosition: {
-      args: ["i32", "i32", "bool"],
-      returns: "void",
-    },
-    setCursorStyle: {
-      args: ["ptr", "usize", "bool"],  // Fixed: should be usize not u32
-      returns: "void",
-    },
-    setCursorColor: {
-      args: ["ptr"],
-      returns: "void",
-    },
+      // Global cursor functions
+      setCursorPosition: {
+        args: ["i32", "i32", "bool"],
+        returns: "void",
+      },
+      setCursorStyle: {
+        args: ["ptr", "usize", "bool"],  // Fixed: should be usize not u32
+        returns: "void",
+      },
+      setCursorColor: {
+        args: ["ptr"],
+        returns: "void",
+      },
 
-    // Debug overlay
-    setDebugOverlay: {
-      args: ["ptr", "bool", "u8"],
-      returns: "void",
-    },
+      // Debug overlay
+      setDebugOverlay: {
+        args: ["ptr", "bool", "u8"],
+        returns: "void",
+      },
 
-    // Terminal control
-    clearTerminal: {
-      args: ["ptr"],
-      returns: "void",
-    },
+      // Terminal control
+      clearTerminal: {
+        args: ["ptr"],
+        returns: "void",
+      },
 
-    bufferDrawSuperSampleBuffer: {
-      args: ["ptr", "u32", "u32", "ptr", "usize", "u8", "u32"],
-      returns: "void",
-    },
-    bufferDrawPackedBuffer: {
-      args: ["ptr", "ptr", "usize", "u32", "u32", "u32", "u32"],
-      returns: "void",
-    },
-    bufferDrawBox: {
-      args: ["ptr", "i32", "i32", "u32", "u32", "ptr", "u32", "ptr", "ptr", "ptr", "usize"],
-      returns: "void",
-    },
+      bufferDrawSuperSampleBuffer: {
+        args: ["ptr", "u32", "u32", "ptr", "usize", "u8", "u32"],
+        returns: "void",
+      },
+      bufferDrawPackedBuffer: {
+        args: ["ptr", "ptr", "usize", "u32", "u32", "u32", "u32"],
+        returns: "void",
+      },
+      bufferDrawBox: {
+        args: ["ptr", "i32", "i32", "u32", "u32", "ptr", "u32", "ptr", "ptr", "ptr", "usize"],
+        returns: "void",
+      },
 
-    addToHitGrid: {
-      args: ["ptr", "i32", "i32", "u32", "u32", "u32"],
-      returns: "void",
-    },
-    checkHit: {
-      args: ["ptr", "u32", "u32"],
-      returns: "u32",
-    },
-    dumpHitGrid: {
-      args: ["ptr"],
-      returns: "void",
-    },
-    dumpBuffers: {
-      args: ["ptr", "i64"],
-      returns: "void",
-    },
-    dumpStdoutBuffer: {
-      args: ["ptr", "i64"],
-      returns: "void",
-    },
-    enableMouse: {
-      args: ["ptr", "bool"],
-      returns: "void",
-    },
-    disableMouse: {
-      args: ["ptr"],
-      returns: "void",
-    },
+      addToHitGrid: {
+        args: ["ptr", "i32", "i32", "u32", "u32", "u32"],
+        returns: "void",
+      },
+      checkHit: {
+        args: ["ptr", "u32", "u32"],
+        returns: "u32",
+      },
+      dumpHitGrid: {
+        args: ["ptr"],
+        returns: "void",
+      },
+      dumpBuffers: {
+        args: ["ptr", "i64"],
+        returns: "void",
+      },
+      dumpStdoutBuffer: {
+        args: ["ptr", "i64"],
+        returns: "void",
+      },
+      enableMouse: {
+        args: ["ptr", "bool"],
+        returns: "void",
+      },
+      disableMouse: {
+        args: ["ptr"],
+        returns: "void",
+      },
 
-    // TextBuffer functions
-    createTextBuffer: {
-      args: ["u32"],
-      returns: "ptr",
-    },
-    destroyTextBuffer: {
-      args: ["ptr"],
-      returns: "void",
-    },
-    textBufferGetCharPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    textBufferGetFgPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    textBufferGetBgPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    textBufferGetAttributesPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    textBufferGetLength: {
-      args: ["ptr"],
-      returns: "u32",
-    },
-    textBufferSetCell: {
-      args: ["ptr", "u32", "u32", "ptr", "ptr", "u16"],
-      returns: "void",
-    },
-    textBufferConcat: {
-      args: ["ptr", "ptr"],
-      returns: "ptr",
-    },
-    textBufferResize: {
-      args: ["ptr", "u32"],
-      returns: "void",
-    },
-    textBufferReset: {
-      args: ["ptr"],
-      returns: "void",
-    },
-    textBufferSetSelection: {
-      args: ["ptr", "u32", "u32", "ptr", "ptr"],
-      returns: "void",
-    },
-    textBufferResetSelection: {
-      args: ["ptr"],
-      returns: "void",
-    },
-    textBufferSetDefaultFg: {
-      args: ["ptr", "ptr"],
-      returns: "void",
-    },
-    textBufferSetDefaultBg: {
-      args: ["ptr", "ptr"],
-      returns: "void",
-    },
-    textBufferSetDefaultAttributes: {
-      args: ["ptr", "ptr"],
-      returns: "void",
-    },
-    textBufferResetDefaults: {
-      args: ["ptr"],
-      returns: "void",
-    },
-    textBufferWriteChunk: {
-      args: ["ptr", "ptr", "u32", "ptr", "ptr", "ptr"],
-      returns: "u32",
-    },
-    textBufferGetCapacity: {
-      args: ["ptr"],
-      returns: "u32",
-    },
-    textBufferFinalizeLineInfo: {
-      args: ["ptr"],
-      returns: "void",
-    },
-    textBufferGetLineStartsPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    textBufferGetLineWidthsPtr: {
-      args: ["ptr"],
-      returns: "ptr",
-    },
-    textBufferGetLineCount: {
-      args: ["ptr"],
-      returns: "u32",
-    },
-    bufferDrawTextBuffer: {
-      args: ["ptr", "ptr", "i32", "i32", "i32", "i32", "u32", "u32", "bool"],
-      returns: "void",
-    },
-  })
+      // TextBuffer functions
+      createTextBuffer: {
+        args: ["u32"],
+        returns: "ptr",
+      },
+      destroyTextBuffer: {
+        args: ["ptr"],
+        returns: "void",
+      },
+      textBufferGetCharPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      textBufferGetFgPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      textBufferGetBgPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      textBufferGetAttributesPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      textBufferGetLength: {
+        args: ["ptr"],
+        returns: "u32",
+      },
+      textBufferSetCell: {
+        args: ["ptr", "u32", "u32", "ptr", "ptr", "u16"],
+        returns: "void",
+      },
+      textBufferConcat: {
+        args: ["ptr", "ptr"],
+        returns: "ptr",
+      },
+      textBufferResize: {
+        args: ["ptr", "u32"],
+        returns: "void",
+      },
+      textBufferReset: {
+        args: ["ptr"],
+        returns: "void",
+      },
+      textBufferSetSelection: {
+        args: ["ptr", "u32", "u32", "ptr", "ptr"],
+        returns: "void",
+      },
+      textBufferResetSelection: {
+        args: ["ptr"],
+        returns: "void",
+      },
+      textBufferSetDefaultFg: {
+        args: ["ptr", "ptr"],
+        returns: "void",
+      },
+      textBufferSetDefaultBg: {
+        args: ["ptr", "ptr"],
+        returns: "void",
+      },
+      textBufferSetDefaultAttributes: {
+        args: ["ptr", "ptr"],
+        returns: "void",
+      },
+      textBufferResetDefaults: {
+        args: ["ptr"],
+        returns: "void",
+      },
+      textBufferWriteChunk: {
+        args: ["ptr", "ptr", "u32", "ptr", "ptr", "ptr"],
+        returns: "u32",
+      },
+      textBufferGetCapacity: {
+        args: ["ptr"],
+        returns: "u32",
+      },
+      textBufferFinalizeLineInfo: {
+        args: ["ptr"],
+        returns: "void",
+      },
+      textBufferGetLineStartsPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      textBufferGetLineWidthsPtr: {
+        args: ["ptr"],
+        returns: "ptr",
+      },
+      textBufferGetLineCount: {
+        args: ["ptr"],
+        returns: "u32",
+      },
+      bufferDrawTextBuffer: {
+        args: ["ptr", "ptr", "i32", "i32", "i32", "i32", "u32", "u32", "bool"],
+        returns: "void",
+      },
+    });
+  }
+  return auraLibInstance;
 }
 
 export interface RenderLib {

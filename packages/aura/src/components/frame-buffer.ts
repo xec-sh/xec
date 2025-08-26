@@ -1,5 +1,5 @@
-import { OptimizedBuffer } from "../renderer/buffer"
-import { Component, type ComponentProps } from "../component"
+import { OptimizedBuffer } from "../renderer/buffer.js"
+import { Component, type ComponentProps } from "../component.js"
 
 export interface FrameBufferProps extends ComponentProps {
   width: number

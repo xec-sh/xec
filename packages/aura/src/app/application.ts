@@ -20,6 +20,7 @@ import {
   unmountElement
 } from './reactive-bridge.js';
 import { Renderer, createRenderer, type RendererConfig } from '../renderer/renderer.js';
+import { cleanupScreenDimensions, initializeScreenDimensions } from './screen-dimensions.js';
 
 import type {
   AnyAuraElement
@@ -54,7 +55,7 @@ export interface ApplicationOptions {
  * Improved Application class for Aura Next
  * Uses the renderer's root component directly, providing a cleaner architecture
  */
-class AuraApplication {
+export class AuraApplication {
   public renderer: Renderer;
   private disposables: Disposable[] = [];
   private cleanupRoot: (() => void) | null = null;
@@ -80,6 +81,9 @@ class AuraApplication {
     this.isRunning = true;
 
     try {
+      // Initialize screen dimension signals
+      initializeScreenDimensions(this.renderer);
+
       // No need to start the renderer, becasuse we use renderer.needsUpdate() to trigger renders
       // this.renderer.start();
 
@@ -218,6 +222,9 @@ class AuraApplication {
     // Dispose all disposables
     this.disposables.forEach(d => d.dispose());
     this.disposables = [];
+
+    // Clean up screen dimensions
+    cleanupScreenDimensions();
 
     // Clean up renderer
     // this.renderer.stop();

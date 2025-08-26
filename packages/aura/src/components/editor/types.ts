@@ -33,7 +33,7 @@ export interface UndoableAction {
   cursorAfter: CursorState;
 }
 
-export interface EditorOptions {
+export interface BaseEditorProps {
   content?: string;
   language?: string;
   tabSize?: number;
@@ -70,23 +70,23 @@ export interface EditorAPI {
   setValue(value: string): void;
   getLine(lineNumber: number): string;
   getLineCount(): number;
-  
+
   // Cursor operations
   getCursor(): CursorState;
   setCursor(cursor: CursorState): void;
   moveCursor(direction: 'up' | 'down' | 'left' | 'right', amount?: number): void;
-  
+
   // Edit operations
   insertText(text: string): void;
   deleteText(range?: Range): void;
   replaceText(range: Range, text: string): void;
-  
+
   // Undo/Redo
   undo(): void;
   redo(): void;
   canUndo(): boolean;
   canRedo(): boolean;
-  
+
   // Selection
   getSelection(): Range | null;
   setSelection(range: Range): void;

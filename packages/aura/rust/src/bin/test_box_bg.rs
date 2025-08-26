@@ -1,4 +1,4 @@
-use opentui::buffer::{OptimizedBuffer, BorderSides, InitOptions};
+use aura::buffer::{OptimizedBuffer, BorderSides, InitOptions};
 
 fn main() {
     println!("Testing box border background color fix\n");

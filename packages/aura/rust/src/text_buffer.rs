@@ -1,5 +1,6 @@
 use crate::buffer::{RGBA, TextSelection};
 use std::ptr;
+use unicode_width::UnicodeWidthChar;
 
 pub const USE_DEFAULT_FG: u16 = 0x8000;
 pub const USE_DEFAULT_BG: u16 = 0x4000;
@@ -321,7 +322,11 @@ impl TextBuffer {
                 self.line_starts.push(self.cursor + 1);
                 self.current_line_width = 0;
             } else {
-                self.current_line_width += 1;
+                // Use UnicodeWidthChar to get the correct display width
+                let char_width = char::from_u32(codepoint as u32)
+                    .and_then(|c| c.width())
+                    .unwrap_or(1);
+                self.current_line_width += char_width as u32;
             }
             
             self.cursor += 1;

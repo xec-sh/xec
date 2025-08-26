@@ -1,0 +1,120 @@
+name: Build Aura Native Packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/aura/rust/**'
+      - 'packages/aura/scripts/build.ts'
+      - '.github/workflows/build-aura-native.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/aura/rust/**'
+      - 'packages/aura/scripts/build.ts'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish packages to npm'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-matrix:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            rust_target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            platform: linux
+            arch: arm64
+            rust_target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+            rust_target: x86_64-apple-darwin
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            rust_target: aarch64-apple-darwin
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            rust_target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            platform: win32
+            arch: arm64
+            rust_target: aarch64-pc-windows-msvc
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+        working-directory: packages/aura
+      
+      - name: Build native package
+        run: |
+          bun scripts/build.ts --native --platform=${{ matrix.platform }}
+        working-directory: packages/aura
+        env:
+          RUST_TARGET: ${{ matrix.rust_target }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aura-native-${{ matrix.platform }}-${{ matrix.arch }}
+          path: packages/aura/node_modules/@xec-sh/aura-native-${{ matrix.platform }}-${{ matrix.arch }}/
+      
+      - name: Test native package
+        run: |
+          bun test native/${{ matrix.platform }}-${{ matrix.arch }}.test.ts
+        working-directory: packages/aura
+        continue-on-error: true
+
+  publish:
+    needs: build-matrix
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: packages/aura/node_modules/
+      
+      - name: Setup npm authentication
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+      
+      - name: Publish packages
+        run: |
+          bun scripts/publish.ts
+        working-directory: packages/aura
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

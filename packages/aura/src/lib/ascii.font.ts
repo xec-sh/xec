@@ -1,17 +1,17 @@
 import { RGBA } from "./colors.js"
-import tiny from "./fonts/tiny.json"
-import neon from "./fonts/neon.json"
-import diam from "./fonts/diam.json"
-import block from "./fonts/block.json"
-import shade from "./fonts/shade.json"
-import slick from "./fonts/slick.json"
-import retro from "./fonts/retro.json"
-import cyber from "./fonts/cyber.json"
-import matrix from "./fonts/matrix.json"
-import braile from "./fonts/braile.json"
-import future from "./fonts/future.json"
-import cyberSmall from "./fonts/cyber-small.json"
 import { OptimizedBuffer } from "../renderer/buffer.js"
+import tiny from "./fonts/tiny.json" with { type: "json" }
+import neon from "./fonts/neon.json" with { type: "json" }
+import diam from "./fonts/diam.json" with { type: "json" }
+import block from "./fonts/block.json" with { type: "json" }
+import shade from "./fonts/shade.json" with { type: "json" }
+import slick from "./fonts/slick.json" with { type: "json" }
+import retro from "./fonts/retro.json" with { type: "json" }
+import cyber from "./fonts/cyber.json" with { type: "json" }
+import matrix from "./fonts/matrix.json" with { type: "json" }
+import braile from "./fonts/braile.json" with { type: "json" }
+import future from "./fonts/future.json" with { type: "json" }
+import cyberSmall from "./fonts/cyber-small.json" with { type: "json" }
 
 /*
  * Renders ASCII fonts to a buffer.

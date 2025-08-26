@@ -90,7 +90,12 @@ async function main() {
         fg: '#666666',
         attributes: TextAttributes.ITALIC | TextAttributes.BLINK
       })
-    ]
+    ],
+    {
+      renderer: {
+        useAlternateScreen: true,
+      }
+    }
   );
 
   // The app will handle the event loop and cleanup automatically

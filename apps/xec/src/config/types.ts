@@ -1,5 +1,5 @@
 /**
- * Configuration system type definitions for Xec v2.0
+ * Configuration system type definitions for Xec
  */
 
 /**
@@ -8,34 +8,34 @@
 export interface Configuration {
   /** Configuration format version */
   version: string;
-  
+
   /** Project name */
   name?: string;
-  
+
   /** Project description */
   description?: string;
-  
+
   /** Global variables for reuse */
   vars?: Record<string, any>;
-  
+
   /** Execution targets (hosts, containers, pods) */
   targets?: TargetsConfig;
-  
+
   /** Environment profiles */
   profiles?: Record<string, ProfileConfig>;
-  
+
   /** Executable tasks */
   tasks?: Record<string, TaskConfig>;
-  
+
   /** Scripts configuration */
   scripts?: ScriptConfig;
-  
+
   /** Built-in command defaults */
   commands?: Record<string, CommandConfig>;
-  
+
   /** Secrets configuration */
   secrets?: SecretsConfig;
-  
+
   /** Extensions configuration */
   extensions?: ExtensionConfig[];
 }
@@ -158,26 +158,26 @@ export type TargetConfig = HostConfig | ContainerConfig | PodConfig | LocalConfi
 export interface TargetsConfig {
   /** Global defaults for all target types */
   defaults?: TargetDefaults;
-  
+
   /** Local machine (optional, defaults exist) */
   local?: LocalConfig;
-  
+
   /** SSH hosts */
   hosts?: Record<string, Omit<HostConfig, 'type'>>;
-  
+
   /** Docker containers */
   containers?: Record<string, Omit<ContainerConfig, 'type'>>;
-  
+
   /** Kubernetes pods */
   pods?: Record<string, Omit<PodConfig, 'type'>>;
-  
+
   /** Kubernetes configuration */
   kubernetes?: {
     $context?: string;
     $namespace?: string;
     [key: string]: any;
   };
-  
+
   /** Docker compose integration */
   $compose?: {
     file?: string;
@@ -197,13 +197,13 @@ export interface TargetDefaults {
   throwOnNonZeroExit?: boolean;
   cwd?: string;
   env?: Record<string, string>;
-  
+
   /** SSH-specific defaults */
   ssh?: SSHDefaults;
-  
+
   /** Docker-specific defaults */
   docker?: DockerDefaults;
-  
+
   /** Kubernetes-specific defaults */
   kubernetes?: KubernetesDefaults;
 }
@@ -261,13 +261,13 @@ export interface KubernetesDefaults {
 export interface ProfileConfig {
   /** Profile-specific variables */
   vars?: Record<string, any>;
-  
+
   /** Profile-specific targets */
   targets?: Partial<TargetsConfig>;
-  
+
   /** Profile-specific environment */
   env?: Record<string, string>;
-  
+
   /** Extends another profile */
   extends?: string;
 }
@@ -386,10 +386,10 @@ export interface TaskDefinition {
 export interface ScriptConfig {
   /** Default environment for all scripts */
   env?: Record<string, string>;
-  
+
   /** Auto-load these modules in scripts */
   globals?: string[];
-  
+
   /** Sandbox configuration */
   sandbox?: {
     enabled?: boolean;
@@ -403,9 +403,9 @@ export interface ScriptConfig {
 /**
  * Script restrictions
  */
-export type ScriptRestriction = 
+export type ScriptRestriction =
   | 'no_network'
-  | 'no_filesystem' 
+  | 'no_filesystem'
   | 'no_child_process';
 
 /**
@@ -414,25 +414,25 @@ export type ScriptRestriction =
 export interface CommandConfig {
   /** Default timeout */
   defaultTimeout?: string | number;
-  
+
   /** Default parallel execution */
   parallel?: boolean;
-  
+
   /** Enable compression for transfers */
   compress?: boolean;
-  
+
   /** Enable progress display */
   progress?: boolean;
-  
+
   /** Dynamic port allocation */
   dynamic?: boolean;
-  
+
   /** Watch interval */
   interval?: number;
-  
+
   /** Clear screen before each run */
   clear?: boolean;
-  
+
   /** Additional command-specific options */
   [key: string]: any;
 }
@@ -443,7 +443,7 @@ export interface CommandConfig {
 export interface SecretsConfig {
   /** Provider type */
   provider: 'local' | 'vault' | '1password' | 'aws-secrets' | 'env' | 'dotenv';
-  
+
   /** Provider-specific configuration */
   config?: {
     address?: string;
@@ -462,10 +462,10 @@ export interface SecretsConfig {
 export interface ExtensionConfig {
   /** Extension source (npm package, git repo, local path) */
   source: string;
-  
+
   /** Tasks to import from extension */
   tasks?: string[];
-  
+
   /** Extension-specific configuration */
   config?: Record<string, any>;
 }
@@ -494,10 +494,10 @@ export interface DockerHealthCheckConfig {
 /**
  * Variable interpolation types
  */
-export type VariableValue = 
-  | string 
-  | number 
-  | boolean 
+export type VariableValue =
+  | string
+  | number
+  | boolean
   | null
   | VariableValue[]
   | { [key: string]: VariableValue };
@@ -585,22 +585,22 @@ export interface ValidationError {
 export interface ConfigManagerOptions {
   /** Project root directory */
   projectRoot?: string;
-  
+
   /** Global config directory */
   globalConfigDir?: string;
-  
+
   /** Active profile */
   profile?: string;
-  
+
   /** Environment variable prefix */
   envPrefix?: string;
-  
+
   /** Enable caching */
   cache?: boolean;
-  
+
   /** Strict mode (fail on warnings) */
   strict?: boolean;
-  
+
   /** Secret provider configuration */
   secretProvider?: {
     type: 'local' | 'vault' | 'aws-secrets' | '1password' | 'env' | 'dotenv';

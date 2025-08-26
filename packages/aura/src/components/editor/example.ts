@@ -5,15 +5,11 @@
 
 import { signal } from 'vibrancy';
 
-import { BoxComponent } from '../box.js';
 import { TextComponent } from '../text.js';
-import { RGBA } from '../../lib/colors.js';
 import { GroupComponent } from '../group.js';
 import { EditorComponent } from './editor-component.js';
-import { FindReplaceWidget } from './search/find-replace-widget.js';
 import { ParsedKey, parseKeypress } from '../../lib/parse.keypress.js';
 import { type Renderer, createRenderer } from '../../renderer/renderer.js';
-// import { setupCommonDemoKeys } from '../../../examples/lib/standalone-keys.js'; // Removed to avoid conflict
 
 let renderer: Renderer | null = null;
 let editor: EditorComponent | null = null;
@@ -79,38 +75,38 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance;
 
   // Set background color like in the layout example
-  renderer.setBackgroundColor('#001122');
+  // renderer.setBackgroundColor('#001122');
 
-  // Create header with proper flexbox layout
-  const header = new BoxComponent('header', {
-    width: 'auto',
-    height: 3,
-    zIndex: 10,
-    border: true,
-    borderStyle: 'single',
-    title: 'Aura Editor - Phase 1-3 Complete Demo',
-    borderColor: RGBA.fromValues(0.5, 0.5, 1, 1),
-    backgroundColor: RGBA.fromValues(0.15, 0.15, 0.2, 1),
-    flexGrow: 0,
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center'
-  });
+  // // Create header with proper flexbox layout
+  // const header = new BoxComponent('header', {
+  //   width: 'auto',
+  //   height: 3,
+  //   zIndex: 10,
+  //   border: true,
+  //   borderStyle: 'single',
+  //   title: 'Aura Editor - Phase 1-3 Complete Demo',
+  //   borderColor: RGBA.fromValues(0.5, 0.5, 1, 1),
+  //   backgroundColor: RGBA.fromValues(0.15, 0.15, 0.2, 1),
+  //   flexGrow: 0,
+  //   flexShrink: 0,
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'center'
+  // });
 
-  const headerText = new TextComponent('header-text', {
-    content: 'Ctrl+Q quit | Ctrl+F find | Alt+Click multi-cursor | Alt+Shift+Arrow block select',
-    fg: RGBA.fromValues(0.7, 0.7, 0.7, 1),
-    bg: 'transparent'
-  });
+  // const headerText = new TextComponent('header-text', {
+  //   content: 'Ctrl+Q quit | Ctrl+F find | Alt+Click multi-cursor | Alt+Shift+Arrow block select',
+  //   fg: RGBA.fromValues(0.7, 0.7, 0.7, 1),
+  //   bg: 'transparent'
+  // });
 
-  header.add(headerText);
+  // header.add(headerText);
 
 
   // Create main content area with proper flex layout
   const contentArea = new GroupComponent('content-area', {
     width: 'auto',
-    height: 'auto',
+    height: 16,
     flexGrow: 1,
     flexShrink: 1,
     flexDirection: 'column',
@@ -166,54 +162,54 @@ export function run(rendererInstance: Renderer): void {
   // Add editor to content area
   contentArea.add(editor);
 
-  // Create status bar with proper layout
-  const statusBar = new BoxComponent('status-bar', {
-    width: 'auto',
-    height: 3,
-    zIndex: 10,
-    backgroundColor: RGBA.fromValues(0.2, 0.2, 0.25, 1),
-    flexGrow: 0,
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderStyle: 'single',
-    borderColor: RGBA.fromValues(0.3, 0.3, 0.35, 1)
-  });
+  // // Create status bar with proper layout
+  // const statusBar = new BoxComponent('status-bar', {
+  //   width: 'auto',
+  //   height: 3,
+  //   zIndex: 10,
+  //   backgroundColor: RGBA.fromValues(0.2, 0.2, 0.25, 1),
+  //   flexGrow: 0,
+  //   flexShrink: 0,
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'space-between',
+  //   borderStyle: 'single',
+  //   borderColor: RGBA.fromValues(0.3, 0.3, 0.35, 1)
+  // });
 
-  // Left side of status bar
-  const statusLeft = new GroupComponent('status-left', {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 1
-  });
+  // // Left side of status bar
+  // const statusLeft = new GroupComponent('status-left', {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   paddingLeft: 1
+  // });
 
-  statusText = new TextComponent('status-text', {
-    content: 'Ready',
-    fg: RGBA.fromValues(0.8, 0.8, 0.8, 1),
-    bg: 'transparent'
-  });
+  // statusText = new TextComponent('status-text', {
+  //   content: 'Ready',
+  //   fg: RGBA.fromValues(0.8, 0.8, 0.8, 1),
+  //   bg: 'transparent'
+  // });
 
-  statusLeft.add(statusText);
+  // statusLeft.add(statusText);
 
-  // Right side of status bar
-  const statusRight = new GroupComponent('status-right', {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: 1
-  });
+  // // Right side of status bar
+  // const statusRight = new GroupComponent('status-right', {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   paddingRight: 1
+  // });
 
-  cursorPosText = new TextComponent('cursor-pos-text', {
-    content: 'Line 1, Col 1',
-    fg: RGBA.fromValues(0.7, 0.7, 0.8, 1),
-    bg: 'transparent'
-  });
+  // cursorPosText = new TextComponent('cursor-pos-text', {
+  //   content: 'Line 1, Col 1',
+  //   fg: RGBA.fromValues(0.7, 0.7, 0.8, 1),
+  //   bg: 'transparent'
+  // });
 
-  statusRight.add(cursorPosText);
+  // statusRight.add(cursorPosText);
 
-  // Add both sides to status bar
-  statusBar.add(statusLeft);
-  statusBar.add(statusRight);
+  // // Add both sides to status bar
+  // statusBar.add(statusLeft);
+  // statusBar.add(statusRight);
 
   // Helper function to update status
   function updateStatus(message: string) {
@@ -257,9 +253,9 @@ export function run(rendererInstance: Renderer): void {
   }
 
   // Build component tree with proper order
-  renderer.root.add(header);
+  // renderer.root.add(header);
   renderer.root.add(contentArea);
-  renderer.root.add(statusBar);
+  // renderer.root.add(statusBar);
 
   // Create key handler function
   function handleKeyPress(key: ParsedKey) {
@@ -377,6 +373,7 @@ if (import.meta.main) {
     const renderer = await createRenderer({
       exitOnCtrlC: false, // We handle Ctrl+C ourselves
       targetFps: 30,
+      useAlternateScreen: true,
       useConsole: true,
     });
 
