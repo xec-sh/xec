@@ -32,11 +32,6 @@ export enum RenderableEvents {
   BLURRED = "blurred",
 }
 
-export interface RootContext {
-  requestLive(): void
-  dropLive(): void
-}
-
 export interface Position {
   top?: number | "auto" | `${number}%`
   right?: number | "auto" | `${number}%`
@@ -74,6 +69,7 @@ export interface LayoutProps {
 }
 
 export interface ComponentProps extends Partial<LayoutProps> {
+  id?: string;
   width?: number | "auto" | `${number}%`
   height?: number | "auto" | `${number}%`
   zIndex?: number
@@ -177,7 +173,7 @@ export abstract class Component extends EventEmitter {
 
   public readonly id: string
   public readonly num: number
-  protected ctx: RenderContext | null = null
+  protected _ctx: RenderContext;
   private _x: number = 0
   private _y: number = 0
   protected _width: number | "auto" | `${number}%`
@@ -210,13 +206,14 @@ export abstract class Component extends EventEmitter {
   private needsZIndexSort: boolean = false
   public parent: Component | null = null
 
-  constructor(id: string, options: ComponentProps) {
+  constructor(ctx: RenderContext, options: ComponentProps) {
     super();
-    this.id = id;
     this.num = Component.componentNumber++;
+    this.id = options.id ?? `component-${this.num}`
+    this._ctx = ctx
     Component.componentsByNumber.set(this.num, this);
 
-    validateProps(id, options);
+    validateProps(this.id, options);
 
     this._width = options.width ?? "auto"
     this._height = options.height ?? "auto";
@@ -243,6 +240,10 @@ export abstract class Component extends EventEmitter {
     if (this.buffered) {
       this.createFrameBuffer();
     }
+  }
+
+  public get ctx(): RenderContext {
+    return this._ctx
   }
 
   public get visible(): boolean {
@@ -359,7 +360,7 @@ export abstract class Component extends EventEmitter {
 
   public needsUpdate() {
     this._dirty = true
-    this.ctx?.needsUpdate()
+    this._ctx.needsUpdate()
   }
 
   public get x(): number {
@@ -848,9 +849,6 @@ export abstract class Component extends EventEmitter {
       obj.parent.remove(obj.id)
     }
     obj.parent = this
-    if (this.ctx) {
-      obj.propagateContext(this.ctx)
-    }
   }
 
   public add(obj: Component, index?: number): number {
@@ -901,13 +899,6 @@ export abstract class Component extends EventEmitter {
     return this.add(obj, anchorIndex)
   }
 
-  public propagateContext(ctx: RenderContext | null): void {
-    this.ctx = ctx
-    for (const child of this.children) {
-      child.propagateContext(ctx)
-    }
-  }
-
   public getRenderable(id: string): Component | undefined {
     return this.componentMap.get(id)
   }
@@ -927,8 +918,8 @@ export abstract class Component extends EventEmitter {
         this.layoutNode.removeChild(childLayoutNode)
         this.needsUpdate()
 
+        obj.onRemove()
         obj.parent = null
-        obj.propagateContext(null)
       }
       this.componentMap.delete(id)
 
@@ -938,6 +929,11 @@ export abstract class Component extends EventEmitter {
       }
       this.emit("child:removed", id)
     }
+  }
+
+  protected onRemove(): void {
+    // Default implementation: do nothing
+    // Override this method to provide custom removal logic
   }
 
   public getChildren(): Component[] {
@@ -954,7 +950,7 @@ export abstract class Component extends EventEmitter {
 
     this.renderSelf(renderBuffer, deltaTime);
     this.markClean();
-    this.ctx?.addToHitGrid(this.x, this.y, this.width, this.height, this.num);
+    this._ctx.addToHitGrid(this.x, this.y, this.width, this.height, this.num);
     this.ensureZIndexSorted();
 
     for (const child of this.children) {
@@ -1097,12 +1093,9 @@ export abstract class Component extends EventEmitter {
 
 export class RootComponent extends Component {
   private yogaConfig: Config;
-  private rootContext: RootContext;
 
-  constructor(width: number, height: number, ctx: RenderContext, rootContext: RootContext) {
-    super("__root__", { zIndex: 0, visible: true, width, height, enableLayout: true })
-    this.ctx = ctx;
-    this.rootContext = rootContext;
+  constructor(ctx: RenderContext) {
+    super(ctx, { id: "__root__", zIndex: 0, visible: true, width: ctx.width, height: ctx.height, enableLayout: true })
 
     this.yogaConfig = Yoga.Config.create()
     this.yogaConfig.setUseWebDefaults(false)
@@ -1113,8 +1106,8 @@ export class RootComponent extends Component {
     }
 
     this.layoutNode = createTrackedNode({}, this.yogaConfig);
-    this.layoutNode.setWidth(width);
-    this.layoutNode.setHeight('auto');
+    this.layoutNode.setWidth(ctx.width)
+    this.layoutNode.setHeight(ctx.height)
     this.layoutNode.yogaNode.setFlexDirection(FlexDirection.Column);
 
     this.calculateLayout();
@@ -1125,9 +1118,9 @@ export class RootComponent extends Component {
     this._liveCount += delta
 
     if (oldCount === 0 && this._liveCount > 0) {
-      this.rootContext.requestLive()
+      this._ctx.requestLive()
     } else if (oldCount > 0 && this._liveCount === 0) {
-      this.rootContext.dropLive()
+      this._ctx.dropLive()
     }
   }
 

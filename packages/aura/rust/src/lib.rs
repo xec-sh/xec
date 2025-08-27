@@ -213,22 +213,32 @@ pub extern "C" fn drawFrameBuffer(
 }
 
 #[no_mangle]
-pub extern "C" fn setCursorPosition(x: i32, y: i32, visible: bool) {
-    renderer::set_cursor_position_global(x, y, visible);
-}
-
-#[no_mangle]
-pub extern "C" fn setCursorStyle(style_ptr: *const u8, style_len: usize, blinking: bool) {
+pub extern "C" fn setCursorPosition(renderer_ptr: *mut CliRenderer, x: i32, y: i32, visible: bool) {
     unsafe {
-        let style_slice = slice::from_raw_parts(style_ptr, style_len);
-        let style = std::str::from_utf8_unchecked(style_slice);
-        renderer::set_cursor_style_global(style, blinking);
+        if let Some(renderer) = renderer_ptr.as_mut() {
+            renderer.set_cursor_position(x, y, visible);
+        }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn setCursorColor(color: *const f32) {
-    renderer::set_cursor_color_global(f32_ptr_to_rgba(color));
+pub extern "C" fn setCursorStyle(renderer_ptr: *mut CliRenderer, style_ptr: *const u8, style_len: usize, blinking: bool) {
+    unsafe {
+        if let Some(renderer) = renderer_ptr.as_mut() {
+            let style_slice = slice::from_raw_parts(style_ptr, style_len);
+            let style_str = std::str::from_utf8_unchecked(style_slice);
+            renderer.set_cursor_style(style_str, blinking);
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn setCursorColor(renderer_ptr: *mut CliRenderer, color: *const f32) {
+    unsafe {
+        if let Some(renderer) = renderer_ptr.as_mut() {
+            renderer.set_cursor_color(f32_ptr_to_rgba(color));
+        }
+    }
 }
 
 #[no_mangle]

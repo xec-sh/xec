@@ -3,8 +3,8 @@ import { FrameBufferComponent } from "./frame-buffer.js"
 import { ASCIIFontSelectionHelper } from "../lib/selection.js"
 import { type fonts, measureText, getCharacterPositions, renderFontToFrameBuffer } from "../lib/ascii.font.js"
 
-import type { SelectionState } from "../types.js"
 import type { ComponentProps } from "../component.js"
+import type { RenderContext, SelectionState } from "../types.js"
 
 export interface ASCIIFontProps extends ComponentProps {
   text?: string
@@ -27,12 +27,12 @@ export class ASCIIFontComponent extends FrameBufferComponent {
 
   private selectionHelper: ASCIIFontSelectionHelper
 
-  constructor(id: string, options: ASCIIFontProps) {
+  constructor(ctx: RenderContext, options: ASCIIFontProps) {
     const font = options.font || "tiny"
     const text = options.text || ""
     const measurements = measureText({ text, font })
 
-    super(id, {
+    super(ctx, {
       ...options,
       width: measurements.width || 1,
       height: measurements.height || 1,

@@ -1,3 +1,5 @@
+import { RGBA } from "./lib"
+
 export const TextAttributes = {
   NONE: 0,
   BOLD: 1 << 0, // 1
@@ -20,10 +22,16 @@ export enum DebugOverlayCorner {
 }
 
 export interface RenderContext {
-  addToHitGrid: (x: number, y: number, width: number, height: number, id: number) => void
-  width: () => number
-  height: () => number
-  needsUpdate: () => void
+  addToHitGrid: (x: number, y: number, width: number, height: number, id: number) => void;
+  width: number;
+  height: number;
+  needsUpdate: () => void;
+  setCursorPosition: (x: number, y: number, visible: boolean) => void;
+  setCursorStyle: (style: CursorStyle, blinking: boolean) => void;
+  setCursorColor: (color: RGBA) => void;
+  // capabilities: any | null;
+  requestLive: () => void;
+  dropLive: () => void;
 }
 
 export interface SelectionState {

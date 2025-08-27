@@ -150,11 +150,9 @@ export class AuraApplication {
     // Mount each child directly to the renderer's root
     batch(() => {
       children.forEach(child => {
-        const component = mountElement(child);
-        if (component) {
-          // Add directly to renderer's root
-          this.renderer.root.add(component);
-        }
+        // Pass renderer.root as parent to provide context
+        const component = mountElement(child, this.renderer.root);
+        // Component is automatically added to parent in mountElement
       });
     });
   }
@@ -187,7 +185,7 @@ export class AuraApplication {
       // Update the options
       this.options.children = children;
 
-      // Remount children
+      // Remount children (mountChildren already handles parent correctly)
       this.mountChildren();
 
       // Trigger update hook

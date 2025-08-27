@@ -23,6 +23,7 @@ import { ASCIIFontComponent } from '../components/ascii-font.js';
 import { FrameBufferComponent } from '../components/frame-buffer.js';
 
 import type { Component } from '../component.js';
+import type { RenderContext } from '../types.js';
 import type {
   AuraElement,
   ComponentType,
@@ -50,7 +51,8 @@ export function getValue<T>(value: T | Signal<T>): T {
  * Create a component instance from an Aura element
  */
 export function createComponentInstance<T extends ComponentType>(
-  element: AuraElement<T>
+  element: AuraElement<T>,
+  ctx: RenderContext
 ): ComponentInstance<T> {
   let instance: any;
 
@@ -59,33 +61,33 @@ export function createComponentInstance<T extends ComponentType>(
   const id = element.key
     ? String(element.key)
     : (props.id || generateComponentId(element.type));
-  const unwrappedProps = unwrapReactiveProps(props);
+  const unwrappedProps = { ...unwrapReactiveProps(props), id };
 
-  // Create the appropriate component instance with ID
+  // Create the appropriate component instance with context and props
   switch (element.type) {
     case 'box':
-      instance = new BoxComponent(id, unwrappedProps);
+      instance = new BoxComponent(ctx, unwrappedProps);
       break;
     case 'text':
-      instance = new TextComponent(id, unwrappedProps);
+      instance = new TextComponent(ctx, unwrappedProps);
       break;
     case 'input':
-      instance = new InputComponent(id, unwrappedProps);
+      instance = new InputComponent(ctx, unwrappedProps);
       break;
     case 'select':
-      instance = new SelectComponent(id, unwrappedProps);
+      instance = new SelectComponent(ctx, unwrappedProps);
       break;
     case 'tabs':
-      instance = new TabsComponent(id, unwrappedProps);
+      instance = new TabsComponent(ctx, unwrappedProps);
       break;
     case 'group':
-      instance = new GroupComponent(id, unwrappedProps);
+      instance = new GroupComponent(ctx, unwrappedProps);
       break;
     case 'frame-buffer':
-      instance = new FrameBufferComponent(id, unwrappedProps);
+      instance = new FrameBufferComponent(ctx, unwrappedProps);
       break;
     case 'ascii-font':
-      instance = new ASCIIFontComponent(id, unwrappedProps);
+      instance = new ASCIIFontComponent(ctx, unwrappedProps);
       break;
     default:
       throw new Error(`Unknown component type: ${element.type}`);
@@ -161,8 +163,14 @@ export function mountElement<T extends ComponentType>(
   element: AuraElement<T>,
   parent?: Component
 ): ComponentInstance<T> {
-  // Create component instance
-  const instance = createComponentInstance(element);
+  // Get context from parent or throw error if no parent
+  if (!parent) {
+    throw new Error('Cannot mount element without parent component');
+  }
+  const ctx = parent.ctx;
+  
+  // Create component instance with context
+  const instance = createComponentInstance(element, ctx);
 
   // Create reactive root for this component
   const cleanup = createRoot((dispose) => {
@@ -182,17 +190,17 @@ export function mountElement<T extends ComponentType>(
       onCleanup(element.onCleanup);
     }
 
+    // Add to parent first (required for children to get context)
+    if (parent) {
+      parent.add(instance);
+    }
+    
     // Mount children recursively
     if (element.children) {
       for (const child of element.children) {
         // Pass instance as parent - child will be added inside mountElement
         mountElement(child, instance);
       }
-    }
-
-    // Add to parent if provided
-    if (parent) {
-      parent.add(instance);
     }
 
     // Return cleanup function
@@ -253,6 +261,7 @@ export function updateElement<T extends ComponentType>(
     const existingChildren = instance.getChildren();
     for (const child of existingChildren) {
       instance.remove(child.id);
+      unmountElement(child);
     }
 
     // Mount new children

@@ -8,9 +8,9 @@ import { OptimizedBuffer } from "./buffer.js"
 import { initializeNative } from "./native.js"
 import { Selection } from "../lib/selection.js"
 import { singleton } from "../lib/singleton.js";
+import { Component, RootComponent } from "../component.js"
 import { type RenderLib, resolveRenderLib } from "./native.js"
 import { RGBA, parseColor, type ColorInput, } from "../lib/colors.js"
-import { Component, RootContext, RootComponent } from "../component.js"
 import { capture, TerminalConsole, type ConsoleOptions } from "./console/console.js"
 import { MouseParser, type ScrollInfo, type RawMouseEvent, type MouseEventType } from "../lib/parse.mouse.js"
 import {
@@ -137,7 +137,7 @@ export enum CliRenderEvents {
   DEBUG_OVERLAY_TOGGLE = "debugOverlay:toggle",
 }
 
-export class Renderer extends EventEmitter {
+export class Renderer extends EventEmitter implements RenderContext {
   private static animationFrameId = 0;
   private lib: RenderLib
   public rendererPtr: Pointer
@@ -209,19 +209,6 @@ export class Renderer extends EventEmitter {
   private resizeTimeoutId: ReturnType<typeof setTimeout> | null = null
   private resizeDebounceDelay: number = 100
 
-  private renderContext: RenderContext = {
-    addToHitGrid: (x, y, width, height, id) => {
-      if (id !== this.capturedRenderable?.num) {
-        this.lib.addToHitGrid(this.rendererPtr, x, y, width, height, id)
-      }
-    },
-    width: () => this.width,
-    height: () => this.height,
-    needsUpdate: () => {
-      this.needsUpdate()
-    },
-  }
-
   private enableMouseMovement: boolean = false
   private _useMouse: boolean = true
   private _useAlternateScreen: boolean = false;
@@ -279,16 +266,7 @@ export class Renderer extends EventEmitter {
     this.currentRenderBuffer = this.lib.getCurrentBuffer(this.rendererPtr)
     this.postProcessFns = config.postProcessFns || []
 
-    const rootContext: RootContext = {
-      requestLive: () => {
-        this.requestLive()
-      },
-      dropLive: () => {
-        this.dropLive()
-      },
-    }
-
-    this.root = new RootComponent(this.width, this.height, this.renderContext, rootContext);
+    this.root = new RootComponent(this);
 
     this.setupTerminal()
     this.takeMemorySnapshot()
@@ -357,6 +335,12 @@ export class Renderer extends EventEmitter {
     global.window.requestAnimationFrame = requestAnimationFrame
 
     this.queryPixelResolution()
+  }
+
+  public addToHitGrid(x: number, y: number, width: number, height: number, id: number) {
+    if (id !== this.capturedRenderable?.num) {
+      this.lib.addToHitGrid(this.rendererPtr, x, y, width, height, id)
+    }
   }
 
   private writeOut(chunk: any, encoding?: any, callback?: any): boolean {
@@ -599,6 +583,9 @@ export class Renderer extends EventEmitter {
         this.lastOverRenderable = this.capturedRenderable
         this.lastOverRenderableNum = this.capturedRenderable.num
         this.capturedRenderable = undefined
+        // Dropping the renderable needs to push another frame when the renderer is not live
+        // to update the hit grid, otherwise capturedRenderable won't be in the hit grid and will not receive mouse events
+        this.needsUpdate()
       }
 
       if (maybeRenderable) {
@@ -739,34 +726,19 @@ export class Renderer extends EventEmitter {
     this.lib.dumpStdoutBuffer(this.rendererPtr, timestamp)
   }
 
-  public static setCursorPosition(x: number, y: number, visible: boolean = true): void {
-    const lib = resolveRenderLib()
-    lib.setCursorPosition(x, y, visible)
-  }
-
-  public static setCursorStyle(style: CursorStyle, blinking: boolean = false, color?: RGBA): void {
-    const lib = resolveRenderLib()
-    lib.setCursorStyle(style, blinking)
-    if (color) {
-      lib.setCursorColor(color)
-    }
-  }
-
-  public static setCursorColor(color: RGBA): void {
-    const lib = resolveRenderLib()
-    lib.setCursorColor(color)
-  }
-
   public setCursorPosition(x: number, y: number, visible: boolean = true): void {
-    Renderer.setCursorPosition(x, y, visible)
+    this.lib.setCursorPosition(this.rendererPtr, x, y, visible);
   }
 
   public setCursorStyle(style: CursorStyle, blinking: boolean = false, color?: RGBA): void {
-    Renderer.setCursorStyle(style, blinking, color)
+    this.lib.setCursorStyle(this.rendererPtr, style, blinking);
+    if (color) {
+      this.lib.setCursorColor(this.rendererPtr, color);
+    }
   }
 
   public setCursorColor(color: RGBA): void {
-    Renderer.setCursorColor(color)
+    this.lib.setCursorColor(this.rendererPtr, color);
   }
 
   public addPostProcessFn(processFn: (buffer: OptimizedBuffer, deltaTime: number) => void): void {

@@ -538,17 +538,17 @@ function getOpenTUILib() {
         returns: "void",
       },
 
-      // Global cursor functions
+      // Cursor functions (now renderer-scoped)
       setCursorPosition: {
-        args: ["i32", "i32", "bool"],
+        args: ["ptr", "i32", "i32", "bool"],
         returns: "void",
       },
       setCursorStyle: {
-        args: ["ptr", "usize", "bool"],  // Fixed: should be usize not u32
+        args: ["ptr", "ptr", "usize", "bool"],  // Fixed: should be usize not u32
         returns: "void",
       },
       setCursorColor: {
-        args: ["ptr"],
+        args: ["ptr", "ptr"],
         returns: "void",
       },
 
@@ -801,9 +801,9 @@ export interface RenderLib {
   }
   resizeRenderer: (renderer: Pointer, width: number, height: number) => void
   setLinesRendered: (renderer: Pointer, lines: number) => void
-  setCursorPosition: (x: number, y: number, visible: boolean) => void
-  setCursorStyle: (style: CursorStyle, blinking: boolean) => void
-  setCursorColor: (color: RGBA) => void
+  setCursorPosition: (renderer: Pointer, x: number, y: number, visible: boolean) => void
+  setCursorStyle: (renderer: Pointer, style: CursorStyle, blinking: boolean) => void
+  setCursorColor: (renderer: Pointer, color: RGBA) => void
   setDebugOverlay: (renderer: Pointer, enabled: boolean, corner: DebugOverlayCorner) => void
   clearTerminal: (renderer: Pointer) => void
   addToHitGrid: (renderer: Pointer, x: number, y: number, width: number, height: number, id: number) => void
@@ -1188,17 +1188,17 @@ class FFIRenderLib implements RenderLib {
     this.opentui.symbols.setLinesRendered(renderer, lines)
   }
 
-  public setCursorPosition(x: number, y: number, visible: boolean) {
-    this.opentui.symbols.setCursorPosition(x, y, visible)
+  public setCursorPosition(renderer: Pointer, x: number, y: number, visible: boolean) {
+    this.opentui.symbols.setCursorPosition(renderer, x, y, visible)
   }
 
-  public setCursorStyle(style: CursorStyle, blinking: boolean) {
+  public setCursorStyle(renderer: Pointer, style: CursorStyle, blinking: boolean) {
     const stylePtr = this.encoder.encode(style)
-    this.opentui.symbols.setCursorStyle(stylePtr, stylePtr.length, blinking)  // Fixed: use stylePtr.length
+    this.opentui.symbols.setCursorStyle(renderer, stylePtr, stylePtr.length, blinking)  // Fixed: use stylePtr.length
   }
 
-  public setCursorColor(color: RGBA) {
-    this.opentui.symbols.setCursorColor(color.buffer)
+  public setCursorColor(renderer: Pointer, color: RGBA) {
+    this.opentui.symbols.setCursorColor(renderer, color.buffer)
   }
 
   public render(renderer: Pointer, force: boolean) {

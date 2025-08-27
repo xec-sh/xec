@@ -2,6 +2,7 @@ import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component.js"
 import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
+import type { RenderContext } from "../types.js"
 import type { ParsedKey } from "../lib/parse.keypress.js"
 
 export interface TabsOption {
@@ -67,10 +68,10 @@ export class TabsComponent extends Component {
   private _showUnderline: boolean
   private _wrapSelection: boolean
 
-  constructor(id: string, options: TabsProps) {
+  constructor(ctx: RenderContext, options: TabsProps) {
     const calculatedHeight = calculateDynamicHeight(options.showUnderline ?? true, options.showDescription ?? true)
 
-    super(id, { ...options, height: calculatedHeight, buffered: true })
+    super(ctx, { ...options, height: calculatedHeight, buffered: true })
 
     this._backgroundColor = parseColor(options.backgroundColor || "transparent")
     this._textColor = parseColor(options.textColor || "#FFFFFF")

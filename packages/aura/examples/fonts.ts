@@ -39,13 +39,13 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#000028")
 
-  parentContainer = new GroupComponent("fonts-container", {
+  parentContainer = new GroupComponent(renderer.root.ctx, { id: "fonts-container",
     zIndex: 15,
     visible: true,
   })
   renderer.root.add(parentContainer)
 
-  buffer = new FrameBufferComponent("ascii-demo", {
+  buffer = new FrameBufferComponent(renderer.root.ctx, { id: "ascii-demo",
     width: renderer.terminalWidth,
     height: contentHeight,
     position: "absolute",
@@ -192,7 +192,7 @@ export function run(rendererInstance: Renderer): void {
     font: "slick",
   })
 
-  const scrollInstructions = new TextComponent("scroll-instructions", {
+  const scrollInstructions = new TextComponent(renderer.root.ctx, { id: "scroll-instructions",
     content: "USE J/K OR ARROW KEYS TO SCROLL",
     position: "absolute",
     left: renderer.terminalWidth - 32,

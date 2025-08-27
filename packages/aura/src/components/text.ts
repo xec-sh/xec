@@ -6,8 +6,8 @@ import { TextSelectionHelper } from "../lib/selection.js"
 import { Component, type ComponentProps } from "../component.js"
 import { StyledText, stringToStyledText } from "../lib/styled-text.js"
 
-import type { SelectionState } from "../types"
 import type { OptimizedBuffer } from "../renderer/buffer.js"
+import type { RenderContext, SelectionState } from "../types.js"
 
 export interface TextProps extends ComponentProps {
   content?: StyledText | string
@@ -33,8 +33,8 @@ export class TextComponent extends Component {
   private _plainText: string = ""
   private _lineInfo: { lineStarts: number[]; lineWidths: number[] } = { lineStarts: [], lineWidths: [] }
 
-  constructor(id: string, options: TextProps) {
-    super(id, options)
+  constructor(ctx: RenderContext, options: TextProps) {
+    super(ctx, options)
 
     this.selectionHelper = new TextSelectionHelper(
       () => this.x,

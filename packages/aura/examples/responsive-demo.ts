@@ -34,15 +34,15 @@ async function main() {
     return [
       // Main container that adapts to screen size
       aura('box', {
-        width: () => width(),
-        height: () => height(),
+        width: width,
+        height: height,
         borderStyle: 'rounded',
         border: true,
         borderColor: '#00ff00',
         children: [
           // Header showing current dimensions
           aura('text', {
-            content: () => `Terminal Size: ${width()}x${height()} | ${isSmallScreen() ? 'Small' : 'Normal'} Screen`,
+            content: computed(() => `Terminal Size: ${width()}x${height()} | ${isSmallScreen() ? 'Small' : 'Normal'} Screen`),
             position: 'absolute',
             left: 2,
             top: 1,
@@ -55,8 +55,8 @@ async function main() {
             position: 'absolute',
             left: 2,
             top: 3,
-            width: () => isSmallScreen() ? width() - 4 : halfWidth() - 2,
-            height: () => height() - 6,
+            width: computed(() => isSmallScreen() ? width() - 4 : halfWidth() - 2),
+            height: computed(() => height() - 6),
             border: true,
             borderStyle: 'single',
             borderColor: '#ffff00',
@@ -69,7 +69,7 @@ async function main() {
                 fg: 'yellow'
               }),
               aura('text', {
-                content: () => `Width: ${isSmallScreen() ? width() - 4 : halfWidth() - 2}`,
+                content: computed(() => `Width: ${isSmallScreen() ? width() - 4 : halfWidth() - 2}`),
                 position: 'absolute',
                 left: 1,
                 top: 2,
@@ -79,12 +79,12 @@ async function main() {
           }),
           
           // Right panel - only visible on larger screens
-          !isSmallScreen() && aura('box', {
+          ...(!isSmallScreen() ? [aura('box', {
             position: 'absolute',
-            left: () => halfWidth() + 1,
+            left: computed(() => halfWidth() + 1),
             top: 3,
-            width: () => halfWidth() - 3,
-            height: () => height() - 6,
+            width: computed(() => halfWidth() - 3),
+            height: computed(() => height() - 6),
             border: true,
             borderStyle: 'single',
             borderColor: '#00ffff',
@@ -97,21 +97,21 @@ async function main() {
                 fg: 'cyan'
               }),
               aura('text', {
-                content: () => `Width: ${halfWidth() - 3}`,
+                content: computed(() => `Width: ${halfWidth() - 3}`),
                 position: 'absolute',
                 left: 1,
                 top: 2,
                 fg: '#888888'
               })
             ]
-          }),
+          })] : []),
           
           // Status bar at bottom
           aura('text', {
             content: 'Press Ctrl+C to exit | Try resizing your terminal!',
             position: 'absolute',
             left: 2,
-            top: () => height() - 2,
+            top: computed(() => height() - 2),
             fg: '#666666',
             attributes: TextAttributes.ITALIC
           })

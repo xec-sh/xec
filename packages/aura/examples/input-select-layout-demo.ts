@@ -52,7 +52,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
-  headerBox = new BoxComponent("header-box", {
+  headerBox = new BoxComponent(renderer.root.ctx, { id: "header-box",
     zIndex: 0,
     width: "auto",
     height: 3,
@@ -64,7 +64,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  header = new TextComponent("header", {
+  header = new TextComponent(renderer.root.ctx, { id: "header",
     content: "INPUT & SELECT LAYOUT DEMO",
     fg: "#ffffff",
     bg: "transparent",
@@ -75,7 +75,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   headerBox.add(header)
 
-  selectContainerBox = new BoxComponent("select-container-box", {
+  selectContainerBox = new BoxComponent(renderer.root.ctx, { id: "select-container-box",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -88,7 +88,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  selectContainer = new GroupComponent("select-container", {
+  selectContainer = new GroupComponent(renderer.root.ctx, { id: "select-container",
     zIndex: 1,
     width: "auto",
     height: "auto",
@@ -99,7 +99,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   selectContainerBox.add(selectContainer)
 
-  leftSelectBox = new BoxComponent("color-select-box", {
+  leftSelectBox = new BoxComponent(renderer.root.ctx, { id: "color-select-box",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -115,7 +115,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  leftSelect = new SelectComponent("color-select", {
+  leftSelect = new SelectComponent(renderer.root.ctx, { id: "color-select",
     zIndex: 1,
     width: "auto",
     height: "auto",
@@ -138,7 +138,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   leftSelectBox.add(leftSelect)
 
-  rightSelectBox = new BoxComponent("size-select-box", {
+  rightSelectBox = new BoxComponent(renderer.root.ctx, { id: "size-select-box",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -154,7 +154,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  rightSelect = new SelectComponent("size-select", {
+  rightSelect = new SelectComponent(renderer.root.ctx, { id: "size-select",
     zIndex: 1,
     width: "auto",
     height: "auto",
@@ -177,7 +177,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   rightSelectBox.add(rightSelect)
 
-  inputContainerBox = new BoxComponent("input-container-box", {
+  inputContainerBox = new BoxComponent(renderer.root.ctx, { id: "input-container-box",
     zIndex: 0,
     width: "auto",
     height: 7,
@@ -189,7 +189,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  inputContainer = new GroupComponent("input-container", {
+  inputContainer = new GroupComponent(renderer.root.ctx, { id: "input-container",
     zIndex: 1,
     width: "auto",
     height: "auto",
@@ -200,7 +200,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   inputContainerBox.add(inputContainer)
 
-  inputLabel = new TextComponent("input-label", {
+  inputLabel = new TextComponent(renderer.root.ctx, { id: "input-label",
     content: "Enter your text:",
     fg: "#f1f5f9",
     bg: "#0f172a",
@@ -209,7 +209,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexShrink: 0,
   })
 
-  textInputBox = new BoxComponent("text-input-box", {
+  textInputBox = new BoxComponent(renderer.root.ctx, { id: "text-input-box",
     zIndex: 0,
     width: "auto",
     height: 3,
@@ -223,7 +223,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  textInput = new InputComponent("text-input", {
+  textInput = new InputComponent(renderer.root.ctx, { id: "text-input",
     zIndex: 1,
     width: "auto",
     height: 1,
@@ -241,7 +241,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   textInputBox.add(textInput)
 
-  footerBox = new BoxComponent("footer-box", {
+  footerBox = new BoxComponent(renderer.root.ctx, { id: "footer-box",
     zIndex: 0,
     width: "auto",
     height: 3,
@@ -253,7 +253,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  footer = new TextComponent("footer", {
+  footer = new TextComponent(renderer.root.ctx, { id: "footer",
     content: "TAB: focus next | SHIFT+TAB: focus prev | ARROWS/JK: navigate | ESC: quit",
     fg: "#dbeafe",
     bg: "transparent",

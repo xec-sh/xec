@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex, Condvar, RwLock};
 use std::thread;
 use std::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
-use once_cell::sync::Lazy;
 use crossterm::cursor;
 
 const CLEAR_CHAR: u32 = 0x0a00;
@@ -71,17 +70,6 @@ struct GlobalCursor {
     color: RGBA,
 }
 
-// Thread-safe global cursor using RwLock
-static GLOBAL_CURSOR: Lazy<RwLock<GlobalCursor>> = Lazy::new(|| {
-    RwLock::new(GlobalCursor {
-        x: DEFAULT_CURSOR_X,
-        y: DEFAULT_CURSOR_Y,
-        visible: false,
-        style: CursorStyle::Block,
-        blinking: false,
-        color: [1.0, 1.0, 1.0, 1.0],
-    })
-});
 
 struct RenderStats {
     last_frame_time: f64,
@@ -151,6 +139,9 @@ pub struct CliRenderer {
     stdout_writer: BufWriter<io::Stdout>,
     
     debug_overlay: DebugOverlay,
+    
+    // Cursor state (renderer-scoped)
+    cursor: GlobalCursor,
     
     // Threading
     use_thread: bool,
@@ -285,6 +276,16 @@ impl CliRenderer {
             debug_overlay: DebugOverlay {
                 enabled: false,
                 corner: DebugOverlayCorner::BottomRight,
+            },
+
+            // Cursor state - renderer-scoped
+            cursor: GlobalCursor {
+                x: DEFAULT_CURSOR_X,
+                y: DEFAULT_CURSOR_Y,
+                visible: false,
+                style: CursorStyle::Block,
+                blinking: false,
+                color: [1.0, 1.0, 1.0, 1.0],
             },
             
             use_thread: false,
@@ -512,12 +513,9 @@ impl CliRenderer {
             self.hit_grid_height = height;
         }
         
-        // Update cursor position if needed (thread-safe)
-        {
-            let mut cursor = GLOBAL_CURSOR.write().unwrap();
-            cursor.x = cursor.x.min(width);
-            cursor.y = cursor.y.min(height);
-        }
+        // Update cursor position if needed
+        self.cursor.x = self.cursor.x.min(width);
+        self.cursor.y = self.cursor.y.min(height);
         
         Ok(())
     }
@@ -890,11 +888,10 @@ impl CliRenderer {
             }
         }
         
-        // Handle cursor (thread-safe read)
-        let cursor = GLOBAL_CURSOR.read().unwrap().clone();
-        if cursor.visible {
+        // Handle cursor
+        if self.cursor.visible {
             // Set cursor style
-            let cursor_style_code = match (cursor.style, cursor.blinking) {
+            let cursor_style_code = match (self.cursor.style, self.cursor.blinking) {
                 (CursorStyle::Block, true) => ANSI::CURSOR_BLOCK_BLINK,
                 (CursorStyle::Block, false) => ANSI::CURSOR_BLOCK,
                 (CursorStyle::Line, true) => ANSI::CURSOR_LINE_BLINK,
@@ -905,22 +902,22 @@ impl CliRenderer {
             
             // Set cursor color
             Self::write_cursor_color(output_buffer,
-                rgba_component_to_u8(cursor.color[0]),
-                rgba_component_to_u8(cursor.color[1]),
-                rgba_component_to_u8(cursor.color[2]));
+                rgba_component_to_u8(self.cursor.color[0]),
+                rgba_component_to_u8(self.cursor.color[1]),
+                rgba_component_to_u8(self.cursor.color[2]));
             
             output_buffer.extend_from_slice(cursor_style_code.as_bytes());
             
             // Position cursor properly
             if self.use_alternate_screen {
-                Self::write_move_to(output_buffer, cursor.x, cursor.y + self.render_offset);
+                Self::write_move_to(output_buffer, self.cursor.x, self.cursor.y + self.render_offset);
             } else {
                 // In inline mode, position cursor relative to the rendered area
-                if cursor.y < self.lines_rendered {
+                if self.cursor.y < self.lines_rendered {
                     Self::write_move_to_inline(
                         output_buffer, 
-                        cursor.x, 
-                        cursor.y + 1, 
+                        self.cursor.x, 
+                        self.cursor.y + 1, 
                         false,
                         &self.inline_state,
                         None,  // cursor doesn't have specific color context
@@ -934,7 +931,6 @@ impl CliRenderer {
         } else {
             output_buffer.extend_from_slice(ANSI::HIDE_CURSOR.as_bytes());
         }
-        drop(cursor);
         
         let render_time = render_start.elapsed().as_secs_f64() * 1000.0;
         self.render_stats.cells_updated = cells_updated;
@@ -1042,6 +1038,54 @@ impl CliRenderer {
     
     pub fn clear_terminal(&mut self) {
         self.stdout_writer.write_all(ANSI::CLEAR_AND_HOME.as_bytes()).ok();
+        self.stdout_writer.flush().ok();
+    }
+    
+    // Renderer-scoped cursor functions
+    pub fn set_cursor_position(&mut self, x: i32, y: i32, visible: bool) {
+        self.cursor.x = x.max(1) as u32;
+        self.cursor.y = y.max(1) as u32;
+        self.cursor.visible = visible;
+        
+        // Write cursor position to terminal
+        if visible {
+            let cmd = format!("\x1b[{};{}H", self.cursor.y, self.cursor.x);
+            self.stdout_writer.write_all(cmd.as_bytes()).ok();
+            self.stdout_writer.write_all(b"\x1b[?25h").ok(); // Show cursor
+        } else {
+            self.stdout_writer.write_all(b"\x1b[?25l").ok(); // Hide cursor
+        }
+        self.stdout_writer.flush().ok();
+    }
+    
+    pub fn set_cursor_style(&mut self, style_str: &str, blinking: bool) {
+        self.cursor.style = match style_str.to_lowercase().as_str() {
+            "block" => CursorStyle::Block,
+            "line" | "bar" => CursorStyle::Line,
+            "underline" => CursorStyle::Underline,
+            _ => CursorStyle::Block,
+        };
+        self.cursor.blinking = blinking;
+        
+        // Apply cursor style using ANSI escape codes
+        let style_code = match self.cursor.style {
+            CursorStyle::Block => if blinking { 1 } else { 2 },
+            CursorStyle::Underline => if blinking { 3 } else { 4 },
+            CursorStyle::Line => if blinking { 5 } else { 6 },
+        };
+        
+        let cmd = format!("\x1b[{} q", style_code);
+        self.stdout_writer.write_all(cmd.as_bytes()).ok();
+        self.stdout_writer.flush().ok();
+    }
+    
+    pub fn set_cursor_color(&mut self, color: RGBA) {
+        self.cursor.color = color;
+        
+        // Set cursor color using OSC 12 (if supported)
+        let [r, g, b, _] = rgba_to_ints(color);
+        let cmd = format!("\x1b]12;rgb:{:02x}/{:02x}/{:02x}\x1b\\", r, g, b);
+        self.stdout_writer.write_all(cmd.as_bytes()).ok();
         self.stdout_writer.flush().ok();
     }
     
@@ -1359,29 +1403,3 @@ impl Drop for CliRenderer {
     }
 }
 
-// Global cursor functions (thread-safe)
-pub fn set_cursor_position_global(x: i32, y: i32, visible: bool) {
-    let mut cursor = GLOBAL_CURSOR.write().unwrap();
-    cursor.x = x.max(1) as u32;
-    cursor.y = y.max(1) as u32;
-    cursor.visible = visible;
-}
-
-pub fn set_cursor_style_global(style: &str, blinking: bool) {
-    if style.is_empty() {
-        return;
-    }
-    
-    let mut cursor = GLOBAL_CURSOR.write().unwrap();
-    cursor.style = match style {
-        "line" => CursorStyle::Line,
-        "underline" => CursorStyle::Underline,
-        "block" | _ => CursorStyle::Block,
-    };
-    cursor.blinking = blinking;
-}
-
-pub fn set_cursor_color_global(color: RGBA) {
-    let mut cursor = GLOBAL_CURSOR.write().unwrap();
-    cursor.color = color;
-}

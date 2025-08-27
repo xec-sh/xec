@@ -12,7 +12,8 @@ import {
   GroupComponent,
   createRenderer,
   OptimizedBuffer,
-  type MouseEvent
+  type MouseEvent,
+  type RenderContext
 } from "../src/index"
 
 
@@ -25,8 +26,9 @@ class DraggableTransparentBox extends BoxComponent {
   private dragOffsetY = 0
   private alphaPercentage: number
 
-  constructor(id: string, x: number, y: number, width: number, height: number, bg: RGBA, zIndex: number) {
-    super(id, {
+  constructor(ctx: RenderContext, id: string, x: number, y: number, width: number, height: number, bg: RGBA, zIndex: number) {
+    super(ctx, {
+      id,
       width,
       height,
       zIndex,
@@ -72,8 +74,8 @@ class DraggableTransparentBox extends BoxComponent {
           this.x = event.x - this.dragOffsetX
           this.y = event.y - this.dragOffsetY
 
-          this.x = Math.max(0, Math.min(this.x, (this.ctx?.width() || 80) - this.width))
-          this.y = Math.max(4, Math.min(this.y, (this.ctx?.height() || 24) - this.height))
+          this.x = Math.max(0, Math.min(this.x, (this.ctx.width || 80) - this.width))
+          this.y = Math.max(4, Math.min(this.y, (this.ctx.height || 24) - this.height))
 
           event.preventDefault()
         }
@@ -86,7 +88,7 @@ export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#0A0E14")
 
-  const parentContainer = new GroupComponent("parent-container", {
+  const parentContainer = new GroupComponent(renderer.root.ctx, { id: "parent-container",
     zIndex: 10,
     visible: true,
   })
@@ -95,7 +97,7 @@ export function run(renderer: Renderer): void {
   const headerText = t`${bold(underline(fg("#00D4AA")("Interactive Alpha Transparency & Blending Demo - Drag the boxes!")))}
 ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch how transparency layers blend")}`
 
-  const headerDisplay = new TextComponent("header-text", {
+  const headerDisplay = new TextComponent(renderer.root.ctx, { id: "header-text",
     content: headerText,
     width: 85,
     height: 3,
@@ -107,7 +109,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   })
   parentContainer.add(headerDisplay)
 
-  const textUnderAlpha = new TextComponent("text-under-alpha", {
+  const textUnderAlpha = new TextComponent(renderer.root.ctx, { id: "text-under-alpha",
     content: "This text should not be selectable",
     position: "absolute",
     left: 10,
@@ -119,7 +121,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   })
   parentContainer.add(textUnderAlpha)
 
-  const moreTextUnder = new TextComponent("more-text-under", {
+  const moreTextUnder = new TextComponent(renderer.root.ctx, { id: "more-text-under",
     content: "Selectable text to show character preservation",
     position: "absolute",
     left: 15,
@@ -131,6 +133,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   parentContainer.add(moreTextUnder)
 
   const alphaBox50 = new DraggableTransparentBox(
+    renderer.root.ctx,
     "alpha-box-50",
     15,
     5,
@@ -143,6 +146,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   draggableBoxes.push(alphaBox50)
 
   const alphaBox75 = new DraggableTransparentBox(
+    renderer.root.ctx,
     "alpha-box-75",
     30,
     7,
@@ -155,6 +159,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   draggableBoxes.push(alphaBox75)
 
   const alphaBox25 = new DraggableTransparentBox(
+    renderer.root.ctx,
     "alpha-box-25",
     45,
     9,
@@ -167,6 +172,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   draggableBoxes.push(alphaBox25)
 
   const alphaGreen = new DraggableTransparentBox(
+    renderer.root.ctx,
     "alpha-green",
     20,
     11,
@@ -179,6 +185,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   draggableBoxes.push(alphaGreen)
 
   const alphaYellow = new DraggableTransparentBox(
+    renderer.root.ctx,
     "alpha-yellow",
     25,
     13,
@@ -191,6 +198,7 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   draggableBoxes.push(alphaYellow)
 
   const alphaOverlay = new DraggableTransparentBox(
+    renderer.root.ctx,
     "alpha-overlay",
     10,
     17,
