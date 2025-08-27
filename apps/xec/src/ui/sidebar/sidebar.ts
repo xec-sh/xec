@@ -7,7 +7,7 @@ import { UI_TITLE_COLOR, UI_BORDER_COLOR, UI_TITLE_ACTIVE_COLOR, UI_BORDER_ACTIV
 function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
   return aura('select', {
     width: 'auto',
-    height: 20,
+    height: 'auto',
     // zIndex: 120,
     wrapSelection: true,
     showDescription: true,
