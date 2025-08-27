@@ -1,6 +1,8 @@
 import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component.js"
 
+import type { RenderContext } from "../types.js"
+
 export interface FrameBufferProps extends ComponentProps {
   width: number
   height: number
@@ -11,8 +13,8 @@ export class FrameBufferComponent extends Component {
   public frameBuffer: OptimizedBuffer
   protected respectAlpha: boolean
 
-  constructor(id: string, options: FrameBufferProps) {
-    super(id, options)
+  constructor(ctx: RenderContext, options: FrameBufferProps) {
+    super(ctx, options)
     this.respectAlpha = options.respectAlpha || false
     this.frameBuffer = OptimizedBuffer.create(options.width, options.height, {
       respectAlpha: this.respectAlpha,

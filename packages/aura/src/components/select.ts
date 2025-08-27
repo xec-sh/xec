@@ -5,6 +5,7 @@ import { Component, type ComponentProps } from "../component.js"
 import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 import { fonts, measureText, renderFontToFrameBuffer } from "../lib/ascii.font.js"
 
+import type { RenderContext } from "../types.js"
 import type { ParsedKey } from "../lib/parse.keypress.js"
 
 export interface SelectOption {
@@ -80,8 +81,8 @@ export class SelectComponent extends Component {
     indicator: "▶ ",
   } satisfies Partial<SelectProps>
 
-  constructor(id: string, options: SelectProps) {
-    super(id, { ...options, buffered: true })
+  constructor(ctx: RenderContext, options: SelectProps) {
+    super(ctx, { ...options, buffered: true })
 
     this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
     this._textColor = parseColor(options.textColor || this._defaultOptions.textColor)

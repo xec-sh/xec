@@ -15,6 +15,7 @@ import {
   TextAttributes,
   createRenderer,
   type MouseEvent,
+  type RenderContext,
   OptimizedBuffer,
 } from "../src/index.js"
 
@@ -40,8 +41,8 @@ class LiveButton extends BoxComponent {
   private pressBg: RGBA
   private label: string
 
-  constructor(id: string, options: BoxProps & { label: string }) {
-    super(id, { zIndex: 100, border: true, ...options })
+  constructor(ctx: RenderContext, id: string, options: BoxProps & { label: string }) {
+    super(ctx, { id, zIndex: 100, border: true, ...options })
 
     this.label = options.label
     const base = this.backgroundColor
@@ -150,7 +151,7 @@ function addDemoRenderable(renderer: Renderer): void {
     return
   }
 
-  demoRenderable = new BoxComponent("demo-renderable", {
+  demoRenderable = new BoxComponent(renderer.root.ctx, { id: "demo-renderable",
     position: "absolute",
     left: 60,
     top: 15,
@@ -184,7 +185,7 @@ export function run(renderer: Renderer): void {
   const backgroundColor = RGBA.fromInts(25, 30, 45, 255)
   renderer.setBackgroundColor(backgroundColor)
 
-  titleText = new TextComponent("live_demo_title", {
+  titleText = new TextComponent(renderer.root.ctx, { id: "live_demo_title",
     content: "Live State Management Demo",
     position: "absolute",
     left: 2,
@@ -195,7 +196,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(titleText)
 
-  instructionsText = new TextComponent("live_demo_instructions", {
+  instructionsText = new TextComponent(renderer.root.ctx, { id: "live_demo_instructions",
     content: "Test the live state management system • Escape: return to menu",
     position: "absolute",
     left: 2,
@@ -205,7 +206,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(instructionsText)
 
-  statusText = new TextComponent("live_demo_status", {
+  statusText = new TextComponent(renderer.root.ctx, { id: "live_demo_status",
     content: "Ready - Click buttons to test live state management",
     position: "absolute",
     left: 2,
@@ -216,7 +217,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(statusText)
 
-  rendererStateText = new TextComponent("renderer_state", {
+  rendererStateText = new TextComponent(renderer.root.ctx, { id: "renderer_state",
     content: "",
     position: "absolute",
     left: 2,
@@ -226,7 +227,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(rendererStateText)
 
-  renderableStateText = new TextComponent("renderable_state", {
+  renderableStateText = new TextComponent(renderer.root.ctx, { id: "renderable_state",
     content: "",
     position: "absolute",
     left: 2,
@@ -249,7 +250,7 @@ export function run(renderer: Renderer): void {
 
   // Renderer control buttons
   liveButtons = [
-    new LiveButton("request-live-btn", {
+    new LiveButton(renderer.root.ctx, "request-live-btn", {
       position: "absolute",
       left: 2,
       top: startY,
@@ -265,7 +266,7 @@ export function run(renderer: Renderer): void {
         updateRenderableState()
       },
     }),
-    new LiveButton("drop-live-btn", {
+    new LiveButton(renderer.root.ctx, "drop-live-btn", {
       position: "absolute",
       left: 2 + spacing,
       top: startY,
@@ -283,7 +284,7 @@ export function run(renderer: Renderer): void {
     }),
 
     // Renderable management buttons
-    new LiveButton("add-renderable-btn", {
+    new LiveButton(renderer.root.ctx, "add-renderable-btn", {
       position: "absolute",
       left: 2,
       top: startY + 5,
@@ -298,7 +299,7 @@ export function run(renderer: Renderer): void {
         updateRenderableState()
       },
     }),
-    new LiveButton("remove-renderable-btn", {
+    new LiveButton(renderer.root.ctx, "remove-renderable-btn", {
       position: "absolute",
       left: 2 + spacing,
       top: startY + 5,
@@ -315,7 +316,7 @@ export function run(renderer: Renderer): void {
     }),
 
     // Live state buttons
-    new LiveButton("set-live-true-btn", {
+    new LiveButton(renderer.root.ctx, "set-live-true-btn", {
       position: "absolute",
       left: 2,
       top: startY + 10,
@@ -336,7 +337,7 @@ export function run(renderer: Renderer): void {
         updateRenderableState()
       },
     }),
-    new LiveButton("set-live-false-btn", {
+    new LiveButton(renderer.root.ctx, "set-live-false-btn", {
       position: "absolute",
       left: 2 + spacing,
       top: startY + 10,
@@ -359,7 +360,7 @@ export function run(renderer: Renderer): void {
     }),
 
     // Visibility state buttons
-    new LiveButton("set-visible-true-btn", {
+    new LiveButton(renderer.root.ctx, "set-visible-true-btn", {
       position: "absolute",
       left: 2,
       top: startY + 15,
@@ -380,7 +381,7 @@ export function run(renderer: Renderer): void {
         updateRenderableState()
       },
     }),
-    new LiveButton("set-visible-false-btn", {
+    new LiveButton(renderer.root.ctx, "set-visible-false-btn", {
       position: "absolute",
       left: 2 + spacing,
       top: startY + 15,
@@ -408,7 +409,7 @@ export function run(renderer: Renderer): void {
   }
 
   // Add section labels
-  const rendererLabel = new TextComponent("renderer_label", {
+  const rendererLabel = new TextComponent(renderer.root.ctx, { id: "renderer_label",
     content: "Renderer Control:",
     position: "absolute",
     left: 2,
@@ -419,7 +420,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(rendererLabel)
 
-  const renderableLabel = new TextComponent("renderable_label", {
+  const renderableLabel = new TextComponent(renderer.root.ctx, { id: "renderable_label",
     content: "Renderable Management:",
     position: "absolute",
     left: 2,
@@ -430,7 +431,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(renderableLabel)
 
-  const liveLabel = new TextComponent("live_label", {
+  const liveLabel = new TextComponent(renderer.root.ctx, { id: "live_label",
     content: "Live State Control:",
     position: "absolute",
     left: 2,
@@ -441,7 +442,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(liveLabel)
 
-  const visibilityLabel = new TextComponent("visibility_label", {
+  const visibilityLabel = new TextComponent(renderer.root.ctx, { id: "visibility_label",
     content: "Visibility Control:",
     position: "absolute",
     left: 2,

@@ -1,8 +1,8 @@
-import { Renderer } from "../renderer/renderer.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component.js"
 import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
+import type { RenderContext } from "../types.js"
 import type { ParsedKey } from "../lib/parse.keypress.js"
 
 export interface InputProps extends ComponentProps {
@@ -51,8 +51,8 @@ export class InputComponent extends Component {
     value: "",
   } satisfies Partial<InputProps>
 
-  constructor(id: string, options: InputProps) {
-    super(id, { ...options, buffered: true })
+  constructor(ctx: RenderContext, options: InputProps) {
+    super(ctx, { ...options, buffered: true })
 
     this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
     this._textColor = parseColor(options.textColor || this._defaultOptions.textColor)
@@ -92,20 +92,21 @@ export class InputComponent extends Component {
       const absoluteCursorX = this.x + contentX + cursorDisplayX + 1
       const absoluteCursorY = this.y + contentY + 1
 
-      Renderer.setCursorPosition(absoluteCursorX, absoluteCursorY, true)
-      Renderer.setCursorColor(this._cursorColor)
+      this._ctx.setCursorPosition(absoluteCursorX, absoluteCursorY, true)
+      this._ctx.setCursorColor(this._cursorColor)
     }
   }
 
   public focus(): void {
     super.focus()
-    Renderer.setCursorStyle("block", true, this._cursorColor)
+    this._ctx.setCursorStyle("block", true)
+    this._ctx.setCursorColor(this._cursorColor)
     this.updateCursorPosition()
   }
 
   public blur(): void {
     super.blur()
-    Renderer.setCursorPosition(0, 0, false)
+    this._ctx.setCursorPosition(0, 0, false)
 
     if (this._value !== this._lastCommittedValue) {
       this._lastCommittedValue = this._value
@@ -339,10 +340,9 @@ export class InputComponent extends Component {
     this.updateCursorPosition()
   }
 
-  protected destroySelf(): void {
+  protected onRemove(): void {
     if (this._focused) {
-      Renderer.setCursorPosition(0, 0, false)
+      this._ctx.setCursorPosition(0, 0, false)
     }
-    super.destroySelf()
   }
 }

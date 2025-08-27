@@ -9,6 +9,7 @@ import {
   TextAttributes,
   createRenderer,
   type MouseEvent,
+  type RenderContext,
   OptimizedBuffer,
 } from "../src/index"
 
@@ -34,6 +35,7 @@ class ConsoleButton extends BoxComponent {
   private lastClickTime = 0
 
   constructor(
+    ctx: RenderContext,
     id: string,
     x: number,
     y: number,
@@ -45,7 +47,8 @@ class ConsoleButton extends BoxComponent {
   ) {
     const borderColor = RGBA.fromValues(color.r * 1.3, color.g * 1.3, color.b * 1.3, 1.0)
 
-    super(id, {
+    super(ctx, {
+      id,
       position: "absolute",
       left: x,
       top: y,
@@ -183,7 +186,7 @@ export function run(renderer: Renderer): void {
   const backgroundColor = RGBA.fromInts(18, 22, 35, 255)
   renderer.setBackgroundColor(backgroundColor)
 
-  titleText = new TextComponent("console_demo_title", {
+  titleText = new TextComponent(renderer.root.ctx, { id: "console_demo_title",
     content: "Console Logging Demo",
     position: "absolute",
     left: 2,
@@ -194,7 +197,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(titleText)
 
-  instructionsText = new TextComponent("console_demo_instructions", {
+  instructionsText = new TextComponent(renderer.root.ctx, { id: "console_demo_instructions",
     content:
       "Click buttons to trigger different console log levels • Press ` to toggle console • Escape: return to menu",
     position: "absolute",
@@ -205,7 +208,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(instructionsText)
 
-  statusText = new TextComponent("console_demo_status", {
+  statusText = new TextComponent(renderer.root.ctx, { id: "console_demo_status",
     content: "Click any button to start logging...",
     position: "absolute",
     left: 2,
@@ -228,18 +231,18 @@ export function run(renderer: Renderer): void {
   const spacing = 18
 
   consoleButtons = [
-    new ConsoleButton("log-btn", 2, startY, buttonWidth, buttonHeight, logColor, "LOG", "log"),
-    new ConsoleButton("info-btn", 2 + spacing, startY, buttonWidth, buttonHeight, infoColor, "INFO", "info"),
-    new ConsoleButton("warn-btn", 2 + spacing * 2, startY, buttonWidth, buttonHeight, warnColor, "WARN", "warn"),
-    new ConsoleButton("error-btn", 2 + spacing * 3, startY, buttonWidth, buttonHeight, errorColor, "ERROR", "error"),
-    new ConsoleButton("debug-btn", 2 + spacing * 4, startY, buttonWidth, buttonHeight, debugColor, "DEBUG", "debug"),
+    new ConsoleButton(renderer.root.ctx, "log-btn", 2, startY, buttonWidth, buttonHeight, logColor, "LOG", "log"),
+    new ConsoleButton(renderer.root.ctx, "info-btn", 2 + spacing, startY, buttonWidth, buttonHeight, infoColor, "INFO", "info"),
+    new ConsoleButton(renderer.root.ctx, "warn-btn", 2 + spacing * 2, startY, buttonWidth, buttonHeight, warnColor, "WARN", "warn"),
+    new ConsoleButton(renderer.root.ctx, "error-btn", 2 + spacing * 3, startY, buttonWidth, buttonHeight, errorColor, "ERROR", "error"),
+    new ConsoleButton(renderer.root.ctx, "debug-btn", 2 + spacing * 4, startY, buttonWidth, buttonHeight, debugColor, "DEBUG", "debug"),
   ]
 
   for (const button of consoleButtons) {
     renderer.root.add(button)
   }
 
-  const decorText1 = new TextComponent("decor1", {
+  const decorText1 = new TextComponent(renderer.root.ctx, { id: "decor1",
     content: "✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦",
     position: "absolute",
     left: 2,
@@ -249,7 +252,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(decorText1)
 
-  const decorText2 = new TextComponent("decor2", {
+  const decorText2 = new TextComponent(renderer.root.ctx, { id: "decor2",
     content: "Console will appear at the bottom. Use Ctrl+P/Ctrl+O to change position, +/- to resize.",
     position: "absolute",
     left: 2,

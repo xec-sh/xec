@@ -11,6 +11,7 @@ import {
   type BorderSidesConfig,
 } from "../lib/index.js"
 
+import type { RenderContext } from "../types.js"
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 
 export interface BoxProps extends ComponentProps {
@@ -49,8 +50,8 @@ export class BoxComponent extends Component {
     focusedBorderColor: "#00AAFF",
   } satisfies Partial<BoxProps>
 
-  constructor(id: string, options: BoxProps) {
-    super(id, options)
+  constructor(ctx: RenderContext, options: BoxProps) {
+    super(ctx, options)
 
     this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
     this._border = options.border ?? this._defaultOptions.border

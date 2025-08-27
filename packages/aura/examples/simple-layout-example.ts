@@ -215,7 +215,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
-  header = new BoxComponent("header", {
+  header = new BoxComponent(renderer.root.ctx, { id: "header",
     zIndex: 0,
     width: "auto",
     height: 3,
@@ -225,7 +225,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  headerText = new TextComponent("header-text", {
+  headerText = new TextComponent(renderer.root.ctx, { id: "header-text",
     content: "LAYOUT DEMO",
     fg: "#ffffff",
     // bg: "transparent",
@@ -235,7 +235,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   header.add(headerText)
 
-  contentArea = new GroupComponent("content-area", {
+  contentArea = new GroupComponent(renderer.root.ctx, { id: "content-area",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -244,7 +244,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     flexShrink: 1,
   })
 
-  sidebar = new BoxComponent("sidebar", {
+  sidebar = new BoxComponent(renderer.root.ctx, { id: "sidebar",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -258,7 +258,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  sidebarText = new TextComponent("sidebar-text", {
+  sidebarText = new TextComponent(renderer.root.ctx, { id: "sidebar-text",
     content: "SIDEBAR",
     fg: "#ffffff",
     bg: "transparent",
@@ -267,7 +267,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   sidebar.add(sidebarText)
 
-  mainContent = new BoxComponent("main-content", {
+  mainContent = new BoxComponent(renderer.root.ctx, { id: "main-content",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -281,7 +281,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  mainContentText = new TextComponent("main-content-text", {
+  mainContentText = new TextComponent(renderer.root.ctx, { id: "main-content-text",
     content: "MAIN CONTENT",
     fg: "#1e293b",
     bg: "transparent",
@@ -290,7 +290,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   mainContent.add(mainContentText)
 
-  rightSidebar = new BoxComponent("right-sidebar", {
+  rightSidebar = new BoxComponent(renderer.root.ctx, { id: "right-sidebar",
     zIndex: 0,
     width: "auto",
     height: "auto",
@@ -304,7 +304,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  rightSidebarText = new TextComponent("right-sidebar-text", {
+  rightSidebarText = new TextComponent(renderer.root.ctx, { id: "right-sidebar-text",
     content: "RIGHT",
     fg: "#ffffff",
     bg: "transparent",
@@ -313,7 +313,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   rightSidebar.add(rightSidebarText)
 
-  footer = new BoxComponent("footer", {
+  footer = new BoxComponent(renderer.root.ctx, { id: "footer",
     zIndex: 0,
     width: "auto",
     height: 3,
@@ -327,7 +327,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  footerText = new TextComponent("footer-text", {
+  footerText = new TextComponent(renderer.root.ctx, { id: "footer-text",
     content: "",
     fg: "#ffffff",
     bg: "transparent",
@@ -336,7 +336,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   footer.add(footerText)
 
-  moveableElement = new BoxComponent("moveable", {
+  moveableElement = new BoxComponent(renderer.root.ctx, { id: "moveable",
     zIndex: 100,
     width: 8,
     height: 3,
@@ -352,7 +352,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  moveableText = new TextComponent("moveable-text", {
+  moveableText = new TextComponent(renderer.root.ctx, { id: "moveable-text",
     content: "MOVE",
     fg: "#ffffff",
     bg: "transparent",
@@ -361,7 +361,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
 
   moveableElement.add(moveableText)
 
-  absolutePositionedBox = new BoxComponent("absolute-positioned-box", {
+  absolutePositionedBox = new BoxComponent(renderer.root.ctx, { id: "absolute-positioned-box",
     zIndex: 150,
     width: 20,
     height: 3,
@@ -377,7 +377,7 @@ function createLayoutElements(rendererInstance: Renderer): void {
     border: true,
   })
 
-  absolutePositionedText = new TextComponent("absolute-positioned-text", {
+  absolutePositionedText = new TextComponent(renderer.root.ctx, { id: "absolute-positioned-text",
     content: "BOTTOM RIGHT",
     fg: "#ffffff",
     bg: "transparent",

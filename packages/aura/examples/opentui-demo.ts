@@ -21,7 +21,7 @@ export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#000028")
 
-  const tabController = new TabControllerRenderable("main-tab-controller", renderer, {
+  const tabController = new TabControllerRenderable(renderer.root.ctx, "main-tab-controller", renderer, {
     position: "absolute",
     left: 0,
     top: 0,
@@ -41,7 +41,7 @@ export function run(renderer: Renderer): void {
   tabController.addTab({
     title: "Text & Attributes",
     init: (tabGroup) => {
-      const textTitle = new TextComponent("text-title", {
+      const textTitle = new TextComponent(renderer.root.ctx, { id: "text-title",
         content: "Text Styling & Color Gradients",
         position: "absolute",
         left: 10,
@@ -53,7 +53,7 @@ export function run(renderer: Renderer): void {
       tabGroup.add(textTitle)
 
       // Text attributes
-      const attrBold = new TextComponent("attr-bold", {
+      const attrBold = new TextComponent(renderer.root.ctx, { id: "attr-bold",
         content: "Bold Text",
         position: "absolute",
         left: 10,
@@ -64,7 +64,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(attrBold)
 
-      const attrItalic = new TextComponent("attr-italic", {
+      const attrItalic = new TextComponent(renderer.root.ctx, { id: "attr-italic",
         content: "Italic Text",
         position: "absolute",
         left: 10,
@@ -75,7 +75,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(attrItalic)
 
-      const attrUnderline = new TextComponent("attr-underline", {
+      const attrUnderline = new TextComponent(renderer.root.ctx, { id: "attr-underline",
         content: "Underlined Text",
         position: "absolute",
         left: 10,
@@ -86,7 +86,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(attrUnderline)
 
-      const attrDim = new TextComponent("attr-dim", {
+      const attrDim = new TextComponent(renderer.root.ctx, { id: "attr-dim",
         content: "Dim Text",
         position: "absolute",
         left: 10,
@@ -97,7 +97,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(attrDim)
 
-      const attrCombined = new TextComponent("attr-combined", {
+      const attrCombined = new TextComponent(renderer.root.ctx, { id: "attr-combined",
         content: "Bold + Italic + Underline",
         position: "absolute",
         left: 10,
@@ -109,7 +109,7 @@ export function run(renderer: Renderer): void {
       tabGroup.add(attrCombined)
 
       // Color gradient
-      const gradientTitle = new TextComponent("gradient-title", {
+      const gradientTitle = new TextComponent(renderer.root.ctx, { id: "gradient-title",
         content: "Rainbow Gradient:",
         position: "absolute",
         left: 10,
@@ -124,7 +124,7 @@ export function run(renderer: Renderer): void {
         const color = hsvToRgb(hue, 1, 1)
         const hexColor = rgbToHex(color)
 
-        const gradientPixel = new TextComponent(`gradient-${i}`, {
+        const gradientPixel = new TextComponent(tabGroup.ctx, { id: `gradient-${i}`,
           content: "█",
           position: "absolute",
           left: 10 + i,
@@ -166,7 +166,7 @@ export function run(renderer: Renderer): void {
               existingPixel.setPosition({ left: x, top: y })
               existingPixel.fg = color
             } else {
-              const wheelPixel = new TextComponent(pixelId, {
+              const wheelPixel = new TextComponent(tabGroup.ctx, { id: pixelId,
                 content: "█",
                 position: "absolute",
                 left: x,
@@ -206,7 +206,7 @@ export function run(renderer: Renderer): void {
   tabController.addTab({
     title: "Basics",
     init: (tabGroup) => {
-      const title = new TextComponent("opentui-title", {
+      const title = new TextComponent(renderer.root.ctx, { id: "opentui-title",
         content: "Basic CLI Renderer Demo",
         position: "absolute",
         left: 10,
@@ -217,7 +217,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(title)
 
-      const box1 = new BoxComponent("box1", {
+      const box1 = new BoxComponent(renderer.root.ctx, { id: "box1",
         position: "absolute",
         left: 10,
         top: 8,
@@ -231,7 +231,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(box1)
 
-      const box1Title = new TextComponent("box1-title", {
+      const box1Title = new TextComponent(renderer.root.ctx, { id: "box1-title",
         content: "Simple Box",
         position: "absolute",
         left: 12,
@@ -242,7 +242,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(box1Title)
 
-      const box2 = new BoxComponent("box2", {
+      const box2 = new BoxComponent(renderer.root.ctx, { id: "box2",
         position: "absolute",
         left: 35,
         top: 10,
@@ -256,7 +256,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(box2)
 
-      const box2Title = new TextComponent("box2-title", {
+      const box2Title = new TextComponent(renderer.root.ctx, { id: "box2-title",
         content: "Double Border Box",
         position: "absolute",
         left: 37,
@@ -267,7 +267,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(box2Title)
 
-      const description = new TextComponent("description", {
+      const description = new TextComponent(renderer.root.ctx, { id: "description",
         content: "This tab demonstrates basic box and text rendering with different border styles.",
         position: "absolute",
         left: 10,
@@ -277,7 +277,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(description)
 
-      const cursorInfo = new TextComponent("cursor-info", {
+      const cursorInfo = new TextComponent(renderer.root.ctx, { id: "cursor-info",
         content: "Cursor: (0,0) - Style: block",
         position: "absolute",
         left: 10,
@@ -348,7 +348,7 @@ export function run(renderer: Renderer): void {
   tabController.addTab({
     title: "Borders",
     init: (tabGroup) => {
-      const borderTitle = new TextComponent("border-title", {
+      const borderTitle = new TextComponent(renderer.root.ctx, { id: "border-title",
         content: "Border Styles & Partial Borders",
         position: "absolute",
         left: 10,
@@ -360,7 +360,7 @@ export function run(renderer: Renderer): void {
       tabGroup.add(borderTitle)
 
       // Different border styles
-      const singleBox = new BoxComponent("single-box", {
+      const singleBox = new BoxComponent(renderer.root.ctx, { id: "single-box",
         position: "absolute",
         left: 10,
         top: 8,
@@ -373,7 +373,7 @@ export function run(renderer: Renderer): void {
         border: true,
       })
       tabGroup.add(singleBox)
-      const singleLabel = new TextComponent("single-label", {
+      const singleLabel = new TextComponent(renderer.root.ctx, { id: "single-label",
         content: "Single",
         position: "absolute",
         left: 12,
@@ -384,7 +384,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(singleLabel)
 
-      const doubleBox = new BoxComponent("double-box", {
+      const doubleBox = new BoxComponent(renderer.root.ctx, { id: "double-box",
         position: "absolute",
         left: 30,
         top: 8,
@@ -397,7 +397,7 @@ export function run(renderer: Renderer): void {
         border: true,
       })
       tabGroup.add(doubleBox)
-      const doubleLabel = new TextComponent("double-label", {
+      const doubleLabel = new TextComponent(renderer.root.ctx, { id: "double-label",
         content: "Double",
         position: "absolute",
         left: 32,
@@ -408,7 +408,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(doubleLabel)
 
-      const roundedBox = new BoxComponent("rounded-box", {
+      const roundedBox = new BoxComponent(renderer.root.ctx, { id: "rounded-box",
         position: "absolute",
         left: 50,
         top: 8,
@@ -421,7 +421,7 @@ export function run(renderer: Renderer): void {
         border: true,
       })
       tabGroup.add(roundedBox)
-      const roundedLabel = new TextComponent("rounded-label", {
+      const roundedLabel = new TextComponent(renderer.root.ctx, { id: "rounded-label",
         content: "Rounded",
         position: "absolute",
         left: 52,
@@ -433,7 +433,7 @@ export function run(renderer: Renderer): void {
       tabGroup.add(roundedLabel)
 
       // Partial borders
-      const partialTitle = new TextComponent("partial-title", {
+      const partialTitle = new TextComponent(renderer.root.ctx, { id: "partial-title",
         content: "Partial Borders:",
         position: "absolute",
         left: 10,
@@ -444,7 +444,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(partialTitle)
 
-      const partialLeft = new BoxComponent("partial-left", {
+      const partialLeft = new BoxComponent(renderer.root.ctx, { id: "partial-left",
         position: "absolute",
         left: 10,
         top: 17,
@@ -457,7 +457,7 @@ export function run(renderer: Renderer): void {
         border: ["left"],
       })
       tabGroup.add(partialLeft)
-      const partialLeftLabel = new TextComponent("partial-left-label", {
+      const partialLeftLabel = new TextComponent(renderer.root.ctx, { id: "partial-left-label",
         content: "Left Only",
         position: "absolute",
         left: 12,
@@ -467,7 +467,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(partialLeftLabel)
 
-      const partialAnimated = new BoxComponent("partial-animated", {
+      const partialAnimated = new BoxComponent(renderer.root.ctx, { id: "partial-animated",
         position: "absolute",
         left: 30,
         top: 17,
@@ -480,7 +480,7 @@ export function run(renderer: Renderer): void {
         border: true,
       })
       tabGroup.add(partialAnimated)
-      const partialAnimatedLabel = new TextComponent("partial-animated-label", {
+      const partialAnimatedLabel = new TextComponent(renderer.root.ctx, { id: "partial-animated-label",
         content: "Animated Borders",
         position: "absolute",
         left: 32,
@@ -490,7 +490,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(partialAnimatedLabel)
 
-      const partialPhase = new TextComponent("partial-phase", {
+      const partialPhase = new TextComponent(renderer.root.ctx, { id: "partial-phase",
         content: "Phase: 1/8",
         position: "absolute",
         left: 30,
@@ -500,7 +500,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(partialPhase)
 
-      const customBorderTitle = new TextComponent("custom-border-title", {
+      const customBorderTitle = new TextComponent(renderer.root.ctx, { id: "custom-border-title",
         content: "Custom Border Characters:",
         position: "absolute",
         left: 10,
@@ -553,7 +553,7 @@ export function run(renderer: Renderer): void {
         cross: "*",
       }
 
-      const asciiBox = new BoxComponent("ascii-box", {
+      const asciiBox = new BoxComponent(renderer.root.ctx, { id: "ascii-box",
         position: "absolute",
         left: 10,
         top: 27,
@@ -567,7 +567,7 @@ export function run(renderer: Renderer): void {
         border: true,
       })
       tabGroup.add(asciiBox)
-      const asciiLabel = new TextComponent("ascii-label", {
+      const asciiLabel = new TextComponent(renderer.root.ctx, { id: "ascii-label",
         content: "ASCII Border",
         position: "absolute",
         left: 12,
@@ -578,7 +578,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(asciiLabel)
 
-      const blockBox = new BoxComponent("block-box", {
+      const blockBox = new BoxComponent(renderer.root.ctx, { id: "block-box",
         position: "absolute",
         left: 30,
         top: 27,
@@ -592,7 +592,7 @@ export function run(renderer: Renderer): void {
       })
       blockBox.customBorderChars = blockBorders
       tabGroup.add(blockBox)
-      const blockLabel = new TextComponent("block-label", {
+      const blockLabel = new TextComponent(renderer.root.ctx, { id: "block-label",
         content: "Block Border",
         position: "absolute",
         left: 32,
@@ -603,7 +603,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(blockLabel)
 
-      const starBox = new BoxComponent("star-box", {
+      const starBox = new BoxComponent(renderer.root.ctx, { id: "star-box",
         position: "absolute",
         left: 50,
         top: 27,
@@ -617,7 +617,7 @@ export function run(renderer: Renderer): void {
         border: true,
       })
       tabGroup.add(starBox)
-      const starLabel = new TextComponent("star-label", {
+      const starLabel = new TextComponent(renderer.root.ctx, { id: "star-label",
         content: "Star Border",
         position: "absolute",
         left: 52,
@@ -664,7 +664,7 @@ export function run(renderer: Renderer): void {
   tabController.addTab({
     title: "Animation",
     init: (tabGroup) => {
-      const animTitle = new TextComponent("anim-title", {
+      const animTitle = new TextComponent(renderer.root.ctx, { id: "anim-title",
         content: "Animation Demonstrations",
         position: "absolute",
         left: 10,
@@ -675,7 +675,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(animTitle)
 
-      const movingText = new TextComponent("moving-text", {
+      const movingText = new TextComponent(renderer.root.ctx, { id: "moving-text",
         content: "Moving Text",
         position: "absolute",
         left: animPosition,
@@ -686,7 +686,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(movingText)
 
-      const animatedBox = new BoxComponent("animated-box", {
+      const animatedBox = new BoxComponent(renderer.root.ctx, { id: "animated-box",
         position: "absolute",
         left: animPosition,
         top: 10,
@@ -700,7 +700,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(animatedBox)
 
-      const colorBox = new BoxComponent("color-box", {
+      const colorBox = new BoxComponent(renderer.root.ctx, { id: "color-box",
         position: "absolute",
         left: 50,
         top: 12,
@@ -714,7 +714,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(colorBox)
 
-      const colorBoxTitle = new TextComponent("color-box-title", {
+      const colorBoxTitle = new TextComponent(renderer.root.ctx, { id: "color-box-title",
         content: "Animated Color",
         position: "absolute",
         left: 52,
@@ -767,7 +767,7 @@ export function run(renderer: Renderer): void {
   tabController.addTab({
     title: "Titles",
     init: (tabGroup) => {
-      const layoutTitle = new TextComponent("layout-title", {
+      const layoutTitle = new TextComponent(renderer.root.ctx, { id: "layout-title",
         content: "Box Titles",
         position: "absolute",
         left: 10,
@@ -779,7 +779,7 @@ export function run(renderer: Renderer): void {
       tabGroup.add(layoutTitle)
 
       // Boxes with titles and different alignments
-      const titledLeft = new BoxComponent("titled-left", {
+      const titledLeft = new BoxComponent(renderer.root.ctx, { id: "titled-left",
         position: "absolute",
         left: 10,
         top: 8,
@@ -795,7 +795,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(titledLeft)
 
-      const titledCenter = new BoxComponent("titled-center", {
+      const titledCenter = new BoxComponent(renderer.root.ctx, { id: "titled-center",
         position: "absolute",
         left: 35,
         top: 8,
@@ -811,7 +811,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(titledCenter)
 
-      const titledRight = new BoxComponent("titled-right", {
+      const titledRight = new BoxComponent(renderer.root.ctx, { id: "titled-right",
         position: "absolute",
         left: 60,
         top: 8,
@@ -840,7 +840,7 @@ export function run(renderer: Renderer): void {
   tabController.addTab({
     title: "Interactive",
     init: (tabGroup) => {
-      const interactiveTitle = new TextComponent("interactive-title", {
+      const interactiveTitle = new TextComponent(renderer.root.ctx, { id: "interactive-title",
         content: "Interactive Controls",
         position: "absolute",
         left: 10,
@@ -851,7 +851,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(interactiveTitle)
 
-      const interactiveBorder = new BoxComponent("interactive-border", {
+      const interactiveBorder = new BoxComponent(renderer.root.ctx, { id: "interactive-border",
         position: "absolute",
         left: 15,
         top: 8,
@@ -865,7 +865,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(interactiveBorder)
 
-      const interactiveLabel = new TextComponent("interactive-label", {
+      const interactiveLabel = new TextComponent(renderer.root.ctx, { id: "interactive-label",
         content: "Press keys to toggle borders",
         position: "absolute",
         left: 22,
@@ -876,7 +876,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(interactiveLabel)
 
-      const interactiveInstructions = new TextComponent("interactive-instructions", {
+      const interactiveInstructions = new TextComponent(renderer.root.ctx, { id: "interactive-instructions",
         content: "Keyboard Controls:",
         position: "absolute",
         left: 10,
@@ -887,7 +887,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(interactiveInstructions)
 
-      const keyT = new TextComponent("key-t", {
+      const keyT = new TextComponent(renderer.root.ctx, { id: "key-t",
         content: "T - Toggle top border",
         position: "absolute",
         left: 10,
@@ -897,7 +897,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(keyT)
 
-      const keyR = new TextComponent("key-r", {
+      const keyR = new TextComponent(renderer.root.ctx, { id: "key-r",
         content: "R - Toggle right border",
         position: "absolute",
         left: 10,
@@ -907,7 +907,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(keyR)
 
-      const keyB = new TextComponent("key-b", {
+      const keyB = new TextComponent(renderer.root.ctx, { id: "key-b",
         content: "B - Toggle bottom border",
         position: "absolute",
         left: 10,
@@ -917,7 +917,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(keyB)
 
-      const keyL = new TextComponent("key-l", {
+      const keyL = new TextComponent(renderer.root.ctx, { id: "key-l",
         content: "L - Toggle left border",
         position: "absolute",
         left: 10,
@@ -927,7 +927,7 @@ export function run(renderer: Renderer): void {
       })
       tabGroup.add(keyL)
 
-      const borderState = new TextComponent("border-state", {
+      const borderState = new TextComponent(renderer.root.ctx, { id: "border-state",
         content: "Active borders: All",
         position: "absolute",
         left: 10,

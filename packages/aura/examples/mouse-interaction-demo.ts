@@ -12,6 +12,7 @@ import {
   createTimeline,
   createRenderer,
   type MouseEvent,
+  type RenderContext,
   OptimizedBuffer,
   FrameBufferComponent,
 } from "../src/index"
@@ -46,10 +47,11 @@ class DraggableBox extends BoxComponent {
   private originalBorderColor: RGBA
   private dragBorderColor: RGBA
 
-  constructor(id: string, x: number, y: number, width: number, height: number, color: RGBA, label: string) {
+  constructor(ctx: RenderContext, id: string, x: number, y: number, width: number, height: number, color: RGBA, label: string) {
     const bgColor = RGBA.fromValues(color.r, color.g, color.b, 0.8)
     const borderColor = RGBA.fromValues(color.r * 1.2, color.g * 1.2, color.b * 1.2, 1.0)
-    super(id, {
+    super(ctx, {
+      id,
       position: "absolute",
       left: x,
       top: y,
@@ -151,8 +153,8 @@ class DraggableBox extends BoxComponent {
           const newX = event.x - this.dragOffsetX
           const newY = event.y - this.dragOffsetY
 
-          const boundedX = Math.max(0, Math.min(newX, (this.ctx?.width() || 80) - this.width))
-          const boundedY = Math.max(4, Math.min(newY, (this.ctx?.height() || 24) - this.height))
+          const boundedX = Math.max(0, Math.min(newX, (this.ctx.width || 80) - this.width))
+          const boundedY = Math.max(4, Math.min(newY, (this.ctx.height || 24) - this.height))
 
           this.centerX = boundedX + this.width / 2
           this.centerY = boundedY + this.height / 2
@@ -214,8 +216,9 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
   private readonly BACKGROUND_COLOR = RGBA.fromInts(15, 15, 35, 255)
   private readonly CURSOR_COLOR = RGBA.fromInts(255, 255, 255, 255)
 
-  constructor(id: string, renderer: Renderer) {
-    super(id, {
+  constructor(ctx: RenderContext, id: string, renderer: Renderer) {
+    super(ctx, {
+      id,
       width: renderer.terminalWidth,
       height: renderer.terminalHeight,
       zIndex: 0,
@@ -314,7 +317,7 @@ export function run(renderer: Renderer): void {
     engine.update(deltaTime)
   })
 
-  titleText = new TextComponent("mouse_demo_title", {
+  titleText = new TextComponent(renderer.root.ctx, { id: "mouse_demo_title",
     content: "Mouse Interaction Demo with Draggable Objects",
     width: "100%",
     position: "absolute",
@@ -326,7 +329,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(titleText)
 
-  instructionsText = new TextComponent("mouse_demo_instructions", {
+  instructionsText = new TextComponent(renderer.root.ctx, { id: "mouse_demo_instructions",
     content: t`Drag boxes around • Move mouse: turquoise trails
 Hold + move: orange drag trails • Click cells: toggle pink
 Scroll on boxes: shows direction • Escape: menu`,
@@ -340,14 +343,14 @@ Scroll on boxes: shows direction • Escape: menu`,
   })
   renderer.root.add(instructionsText)
 
-  demoContainer = new MouseInteractionFrameBuffer("mouse-demo-buffer", renderer)
+  demoContainer = new MouseInteractionFrameBuffer(renderer.root.ctx, "mouse-demo-buffer", renderer)
   renderer.root.add(demoContainer)
 
   draggableBoxes = [
-    new DraggableBox("drag-box-1", 10, 8, 20, 10, RGBA.fromInts(200, 100, 150), "Box 1"),
-    new DraggableBox("drag-box-2", 30, 12, 18, 10, RGBA.fromInts(100, 200, 150), "Box 2"),
-    new DraggableBox("drag-box-3", 50, 15, 20, 11, RGBA.fromInts(150, 150, 200), "Box 3"),
-    new DraggableBox("drag-box-4", 15, 20, 18, 11, RGBA.fromInts(200, 200, 100), "Box 4"),
+    new DraggableBox(renderer.root.ctx, "drag-box-1", 10, 8, 20, 10, RGBA.fromInts(200, 100, 150), "Box 1"),
+    new DraggableBox(renderer.root.ctx, "drag-box-2", 30, 12, 18, 10, RGBA.fromInts(100, 200, 150), "Box 2"),
+    new DraggableBox(renderer.root.ctx, "drag-box-3", 50, 15, 20, 11, RGBA.fromInts(150, 150, 200), "Box 3"),
+    new DraggableBox(renderer.root.ctx, "drag-box-4", 15, 20, 18, 11, RGBA.fromInts(200, 200, 100), "Box 4"),
   ]
 
   for (const box of draggableBoxes) {

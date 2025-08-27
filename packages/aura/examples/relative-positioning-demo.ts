@@ -17,7 +17,7 @@ export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#001122")
 
-  const rootContainer = new GroupComponent("root-container", {
+  const rootContainer = new GroupComponent(renderer.root.ctx, { id: "root-container",
     position: "relative",
     left: 0,
     top: 0,
@@ -26,7 +26,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(rootContainer)
 
-  const title = new TextComponent("main-title", {
+  const title = new TextComponent(renderer.root.ctx, { id: "main-title",
     content: "Relative Positioning Demo - Child positions are relative to parent",
     position: "absolute",
     left: 5,
@@ -37,7 +37,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(title)
 
-  const parentContainerA = new GroupComponent("parent-container-a", {
+  const parentContainerA = new GroupComponent(renderer.root.ctx, { id: "parent-container-a",
     position: "absolute",
     left: 10,
     top: 5,
@@ -46,7 +46,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(parentContainerA)
 
-  const parentBoxA = new BoxComponent("parent-box-a", {
+  const parentBoxA = new BoxComponent(renderer.root.ctx, { id: "parent-box-a",
     left: 0,
     top: 0,
     width: 40,
@@ -64,7 +64,7 @@ export function run(renderer: Renderer): void {
   })
   parentContainerA.add(parentBoxA)
 
-  const childA1 = new BoxComponent("child-a1", {
+  const childA1 = new BoxComponent(renderer.root.ctx, { id: "child-a1",
     width: "auto",
     height: "auto",
     backgroundColor: "#440066",
@@ -80,7 +80,7 @@ export function run(renderer: Renderer): void {
   })
   parentBoxA.add(childA1)
 
-  const childA2 = new BoxComponent("child-a2", {
+  const childA2 = new BoxComponent(renderer.root.ctx, { id: "child-a2",
     width: "auto",
     height: "auto",
     backgroundColor: "#660044",
@@ -96,7 +96,7 @@ export function run(renderer: Renderer): void {
   })
   parentBoxA.add(childA2)
 
-  const childA3 = new BoxComponent("child-a3", {
+  const childA3 = new BoxComponent(renderer.root.ctx, { id: "child-a3",
     width: "auto",
     height: "auto",
     backgroundColor: "#440044",
@@ -112,7 +112,7 @@ export function run(renderer: Renderer): void {
   })
   parentBoxA.add(childA3)
 
-  const parentContainerB = new GroupComponent("parent-container-b", {
+  const parentContainerB = new GroupComponent(renderer.root.ctx, { id: "parent-container-b",
     position: "absolute",
     left: 50,
     top: 8,
@@ -121,7 +121,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(parentContainerB)
 
-  const parentBoxB = new BoxComponent("parent-box-b", {
+  const parentBoxB = new BoxComponent(renderer.root.ctx, { id: "parent-box-b",
     left: 0,
     top: 0,
     width: 40,
@@ -139,7 +139,7 @@ export function run(renderer: Renderer): void {
   })
   parentContainerB.add(parentBoxB)
 
-  const parentLabelB = new TextComponent("parent-label-b", {
+  const parentLabelB = new TextComponent(renderer.root.ctx, { id: "parent-label-b",
     content: "Parent B Position: (50, 8)",
     fg: "#44FF44",
     attributes: TextAttributes.BOLD,
@@ -147,21 +147,21 @@ export function run(renderer: Renderer): void {
   })
   parentBoxB.add(parentLabelB)
 
-  const childB1 = new TextComponent("child-b1", {
+  const childB1 = new TextComponent(renderer.root.ctx, { id: "child-b1",
     content: "Child at (1,3) - relative to parent",
     fg: "#88FF88",
     zIndex: 2,
   })
   parentBoxB.add(childB1)
 
-  const childB2 = new TextComponent("child-b2", {
+  const childB2 = new TextComponent(renderer.root.ctx, { id: "child-b2",
     content: "Child at (1,5) - relative to parent",
     fg: "#88FF88",
     zIndex: 2,
   })
   parentBoxB.add(childB2)
 
-  const staticContainer = new GroupComponent("static-container", {
+  const staticContainer = new GroupComponent(renderer.root.ctx, { id: "static-container",
     position: "absolute",
     left: 5,
     top: 20,
@@ -170,7 +170,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(staticContainer)
 
-  const staticBox = new BoxComponent("static-box", {
+  const staticBox = new BoxComponent(renderer.root.ctx, { id: "static-box",
     left: 0,
     top: 0,
     width: 40,
@@ -187,21 +187,21 @@ export function run(renderer: Renderer): void {
   })
   staticContainer.add(staticBox)
 
-  const staticChild1 = new TextComponent("static-child1", {
+  const staticChild1 = new TextComponent(renderer.root.ctx, { id: "static-child1",
     content: "Static child at (2,2) - never moves",
     fg: "#FFFF88",
     zIndex: 2,
   })
   staticBox.add(staticChild1)
 
-  const staticChild2 = new TextComponent("static-child2", {
+  const staticChild2 = new TextComponent(renderer.root.ctx, { id: "static-child2",
     content: "Static child at (2,4) - never moves",
     fg: "#FFFF88",
     zIndex: 2,
   })
   staticBox.add(staticChild2)
 
-  const explanation1 = new TextComponent("explanation1", {
+  const explanation1 = new TextComponent(renderer.root.ctx, { id: "explanation1",
     content: "Key Concept: Parent A uses flex layout - children are arranged in a row",
     position: "absolute",
     left: 5,
@@ -212,7 +212,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(explanation1)
 
-  const explanation2 = new TextComponent("explanation2", {
+  const explanation2 = new TextComponent(renderer.root.ctx, { id: "explanation2",
     content: "When parent moves, children move with it while maintaining flex layout",
     position: "absolute",
     left: 5,
@@ -222,7 +222,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(explanation2)
 
-  const explanation3 = new TextComponent("explanation3", {
+  const explanation3 = new TextComponent(renderer.root.ctx, { id: "explanation3",
     content: "Flex children automatically fit parent width and grow/shrink as needed",
     position: "absolute",
     left: 5,
@@ -232,7 +232,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(explanation3)
 
-  const controls = new TextComponent("controls", {
+  const controls = new TextComponent(renderer.root.ctx, { id: "controls",
     content: "Controls: +/- to change animation speed",
     position: "absolute",
     left: 5,
@@ -243,7 +243,7 @@ export function run(renderer: Renderer): void {
   })
   rootContainer.add(controls)
 
-  const speedDisplay = new TextComponent("speed-display", {
+  const speedDisplay = new TextComponent(renderer.root.ctx, { id: "speed-display",
     content: `Animation Speed: ${animationSpeed}ms (min: 500, max: 8000)`,
     position: "absolute",
     left: 5,

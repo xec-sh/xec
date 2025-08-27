@@ -4,7 +4,7 @@ import { parseColor, type ColorInput } from "../../src/lib/colors.js"
 import { TabsComponent, TabsComponentEvents } from "../../src/components/tabs.js"
 import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
 
-import type { Renderer, TabsOption } from "../../src/index.js"
+import type { Renderer, TabsOption, RenderContext } from "../../src/index.js"
 
 export interface TabObject {
   title: string
@@ -46,15 +46,16 @@ export class TabControllerRenderable extends Component {
   private frameCallback: ((deltaMs: number) => Promise<void>) | null = null
 
   constructor(
+    ctx: RenderContext,
     id: string,
     private renderer: Renderer,
     options: TabControllerOptions,
   ) {
-    super(id, { ...options, buffered: options.backgroundColor ? true : false })
+    super(ctx, { id, ...options, buffered: options.backgroundColor ? true : false })
 
     this.tabBarHeight = options.tabBarHeight || 4
 
-    this.tabSelectElement = new TabsComponent(`${id}-tabs`, {
+    this.tabSelectElement = new TabsComponent(ctx, { id: `${id}-tabs`,
       width: "100%",
       height: this.tabBarHeight,
       options: [],
@@ -82,7 +83,7 @@ export class TabControllerRenderable extends Component {
   }
 
   public addTab(tabObject: TabObject): Tab {
-    const tabGroup = new GroupComponent(`${this.id}-tab-${this.tabs.length}`, {
+    const tabGroup = new GroupComponent(this.ctx, { id: `${this.id}-tab-${this.tabs.length}`,
       position: "absolute",
       left: 0,
       top: this.tabBarHeight,

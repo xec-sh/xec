@@ -143,14 +143,14 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
-  const parentContainer = new GroupComponent("parent-container", {
+  const parentContainer = new GroupComponent(renderer.root.ctx, { id: "parent-container",
     zIndex: 10,
     visible: true,
   })
   renderer.root.add(parentContainer)
 
   // Create input elements
-  nameInput = new InputComponent("name-input", {
+  nameInput = new InputComponent(renderer.root.ctx, { id: "name-input",
     position: "absolute",
     left: 5,
     top: 2,
@@ -166,7 +166,7 @@ export function run(rendererInstance: Renderer): void {
     maxLength: 50,
   })
 
-  emailInput = new InputComponent("email-input", {
+  emailInput = new InputComponent(renderer.root.ctx, { id: "email-input",
     position: "absolute",
     left: 5,
     top: 6,
@@ -182,7 +182,7 @@ export function run(rendererInstance: Renderer): void {
     maxLength: 100,
   })
 
-  passwordInput = new InputComponent("password-input", {
+  passwordInput = new InputComponent(renderer.root.ctx, { id: "password-input",
     position: "absolute",
     left: 5,
     top: 10,
@@ -198,7 +198,7 @@ export function run(rendererInstance: Renderer): void {
     maxLength: 50,
   })
 
-  commentInput = new InputComponent("comment-input", {
+  commentInput = new InputComponent(renderer.root.ctx, { id: "comment-input",
     position: "absolute",
     left: 5,
     top: 14,
@@ -221,7 +221,7 @@ export function run(rendererInstance: Renderer): void {
   renderer.root.add(passwordInput)
   renderer.root.add(commentInput)
 
-  keyLegendDisplay = new TextComponent("key-legend", {
+  keyLegendDisplay = new TextComponent(renderer.root.ctx, { id: "key-legend",
     content: t``,
     width: 50,
     height: 12,
@@ -233,7 +233,7 @@ export function run(rendererInstance: Renderer): void {
   })
   parentContainer.add(keyLegendDisplay)
 
-  statusDisplay = new TextComponent("status-display", {
+  statusDisplay = new TextComponent(renderer.root.ctx, { id: "status-display",
     content: t``,
     width: 80,
     height: 18,
