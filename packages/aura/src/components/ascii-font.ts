@@ -1,9 +1,9 @@
-import { SelectionState } from "../types.js"
 import { RGBA, parseColor } from "../lib/colors.js"
 import { FrameBufferComponent } from "./frame-buffer.js"
 import { ASCIIFontSelectionHelper } from "../lib/selection.js"
 import { type fonts, measureText, getCharacterPositions, renderFontToFrameBuffer } from "../lib/ascii.font.js"
 
+import type { SelectionState } from "../types.js"
 import type { ComponentProps } from "../component.js"
 
 export interface ASCIIFontProps extends ComponentProps {
@@ -17,7 +17,7 @@ export interface ASCIIFontProps extends ComponentProps {
 }
 
 export class ASCIIFontComponent extends FrameBufferComponent {
-  public selectable: boolean = true
+  public selectable: boolean = false
   private _text: string
   private _font: keyof typeof fonts
   private _fg: RGBA[]
@@ -45,7 +45,7 @@ export class ASCIIFontComponent extends FrameBufferComponent {
     this._bg = options.bg || RGBA.fromValues(0, 0, 0, 0)
     this._selectionBg = options.selectionBg ? parseColor(options.selectionBg) : undefined
     this._selectionFg = options.selectionFg ? parseColor(options.selectionFg) : undefined
-    this.selectable = options.selectable ?? true
+    this.selectable = options.selectable ?? false
 
     this.selectionHelper = new ASCIIFontSelectionHelper(
       () => this.x,

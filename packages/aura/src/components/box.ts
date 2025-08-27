@@ -26,6 +26,7 @@ export interface BoxProps extends ComponentProps {
 }
 
 export class BoxComponent extends Component {
+  protected focusable: boolean = true;
   protected _backgroundColor: RGBA
   protected _border: boolean | BorderSides[]
   protected _borderStyle: BorderStyle
