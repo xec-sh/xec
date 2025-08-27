@@ -45,6 +45,7 @@ export class SelectComponent extends Component {
   private selectedIndex: number = 0
   private scrollOffset: number = 0
   private maxVisibleItems: number
+  private _isAutoHeight: boolean = false
 
   private _backgroundColor: RGBA
   private _textColor: RGBA
@@ -82,7 +83,55 @@ export class SelectComponent extends Component {
   } satisfies Partial<SelectProps>
 
   constructor(ctx: RenderContext, options: SelectProps) {
-    super(ctx, { ...options, buffered: true })
+    // Calculate lines per item early to configure proper auto sizing
+    const showDescription = options.showDescription ?? true
+    const font = options.font
+    const itemSpacing = options.itemSpacing || 0
+    const fontHeight = font ? measureText({ text: "A", font }).height : 1
+    const linesPerItem = (showDescription
+      ? font
+        ? fontHeight + 1
+        : 2
+      : font
+        ? fontHeight
+        : 1) + itemSpacing
+
+    // Configure auto height settings before calling super
+    const configuredOptions = { ...options, buffered: true }
+
+    // Track if height is auto for later use
+    const _isAutoHeight = options.height === 'auto' || options.height === undefined
+
+    // If height is auto, configure yoga-layout properties for proper sizing
+    if (_isAutoHeight) {
+      const optionCount = options.options?.length || 0
+      if (optionCount > 0) {
+        // Set minHeight to show at least one item
+        configuredOptions.minHeight = linesPerItem
+
+        // Calculate ideal height based on content
+        const idealHeight = optionCount * linesPerItem
+
+        // If we have a reasonable number of items, set that as the preferred height
+        // Otherwise, let flex properties handle it
+        if (optionCount <= 20) {
+          // For small lists, try to show all items
+          configuredOptions.minHeight = idealHeight
+        }
+
+        // Enable flex properties for proper auto sizing
+        if (configuredOptions.flexGrow === undefined) {
+          configuredOptions.flexGrow = 1
+        }
+        if (configuredOptions.flexShrink === undefined) {
+          configuredOptions.flexShrink = 1
+        }
+      }
+    }
+
+    super(ctx, configuredOptions)
+
+    this._isAutoHeight = _isAutoHeight;
 
     this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
     this._textColor = parseColor(options.textColor || this._defaultOptions.textColor)
@@ -94,21 +143,20 @@ export class SelectComponent extends Component {
 
     this._showScrollIndicator = options.showScrollIndicator ?? this._defaultOptions.showScrollIndicator
     this._wrapSelection = options.wrapSelection ?? this._defaultOptions.wrapSelection
-    this._showDescription = options.showDescription ?? this._defaultOptions.showDescription
-    this._font = options.font
-    this._itemSpacing = options.itemSpacing || this._defaultOptions.itemSpacing
+    this._showDescription = showDescription
+    this._font = font
+    this._itemSpacing = itemSpacing
 
-    this.fontHeight = this._font ? measureText({ text: "A", font: this._font }).height : 1
-    this.linesPerItem = this._showDescription
-      ? this._font
-        ? this.fontHeight + 1
-        : 2
-      : this._font
-        ? this.fontHeight
-        : 1
-    this.linesPerItem += this._itemSpacing
+    this.fontHeight = fontHeight
+    this.linesPerItem = linesPerItem
 
-    this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
+    // For auto height, defer maxVisibleItems calculation until we have actual dimensions
+    if (this._isAutoHeight && this.height === 0) {
+      // Use option count as initial max visible items for auto height
+      this.maxVisibleItems = Math.max(1, this._options.length || 1)
+    } else {
+      this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
+    }
 
     this._selectedBackgroundColor = parseColor(
       options.selectedBackgroundColor || this._defaultOptions.selectedBackgroundColor,
@@ -215,6 +263,27 @@ export class SelectComponent extends Component {
   public set options(options: SelectOption[]) {
     this._options = options
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, options.length - 1))
+
+    // If height is auto, update minHeight based on new option count
+    if (this._isAutoHeight) {
+      const optionCount = options.length
+      if (optionCount > 0) {
+        const idealHeight = optionCount * this.linesPerItem
+
+        // Update minHeight for proper auto sizing
+        if (optionCount <= 20) {
+          this.layoutNode.yogaNode.setMinHeight(idealHeight)
+        } else {
+          this.layoutNode.yogaNode.setMinHeight(this.linesPerItem)
+        }
+
+        // If we have no actual height yet, update maxVisibleItems
+        if (this.height === 0) {
+          this.maxVisibleItems = Math.max(1, optionCount)
+        }
+      }
+    }
+
     this.updateScrollOffset()
     this.needsUpdate()
   }
