@@ -29,7 +29,7 @@ export function createProgram(): Command {
     .option('--no-color', 'Disable colored output')
     .option('-e, --eval <code>', 'Evaluate code')
     .option('--repl', 'Start interactive REPL')
-    .option('--manager', 'Launch the UI manager')
+    .option('--ui', 'Launch the UI')
     .hook('preAction', (thisCommand) => {
       const opts = thisCommand.opts();
       if (opts['cwd']) {
@@ -99,7 +99,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     const firstArg = args[0];
 
     // Check for special flags first
-    if (args.includes('--manager')) {
+    if (args.includes('--ui')) {
       const { runManager } = await import('./ui/manager.js');
       await runManager();
       return;

@@ -28,6 +28,7 @@ export * from "./renderer/console/console.js"
 // Re-export commonly used reactive primitives from vibrancy
 export {
   batch,
+  store,
   signal,
   effect,
   untrack,

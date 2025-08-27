@@ -27,7 +27,7 @@ export interface TabsProps extends Omit<ComponentProps, "height"> {
   wrapSelection?: boolean
 }
 
-export enum TabSelectComponentEvents {
+export enum TabsComponentEvents {
   SELECTION_CHANGED = "selectionChanged",
   ITEM_SELECTED = "itemSelected",
 }
@@ -209,7 +209,7 @@ export class TabsComponent extends Component {
 
     this.updateScrollOffset()
     this.needsUpdate()
-    this.emit(TabSelectComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
+    this.emit(TabsComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
   }
 
   public moveRight(): void {
@@ -223,13 +223,13 @@ export class TabsComponent extends Component {
 
     this.updateScrollOffset()
     this.needsUpdate()
-    this.emit(TabSelectComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
+    this.emit(TabsComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
   }
 
   public selectCurrent(): void {
     const selected = this.getSelectedOption()
     if (selected) {
-      this.emit(TabSelectComponentEvents.ITEM_SELECTED, this.selectedIndex, selected)
+      this.emit(TabsComponentEvents.ITEM_SELECTED, this.selectedIndex, selected)
     }
   }
 
@@ -238,7 +238,7 @@ export class TabsComponent extends Component {
       this.selectedIndex = index
       this.updateScrollOffset()
       this.needsUpdate()
-      this.emit(TabSelectComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
+      this.emit(TabsComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
     }
   }
 

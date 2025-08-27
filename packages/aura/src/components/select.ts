@@ -1,3 +1,5 @@
+
+import { stringWidth } from "../utils.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
 import { Component, type ComponentProps } from "../component.js"
 import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
@@ -27,6 +29,7 @@ export interface SelectProps extends ComponentProps {
   font?: keyof typeof fonts
   itemSpacing?: number
   fastScrollStep?: number
+  indicator?: string
 }
 
 export enum SelectComponentEvents {
@@ -58,6 +61,7 @@ export class SelectComponent extends Component {
   private linesPerItem: number
   private fontHeight: number
   private _fastScrollStep: number
+  private _indicator: string
 
   protected _defaultOptions = {
     backgroundColor: "transparent",
@@ -73,6 +77,7 @@ export class SelectComponent extends Component {
     showDescription: true,
     itemSpacing: 0,
     fastScrollStep: 5,
+    indicator: "▶ ",
   } satisfies Partial<SelectProps>
 
   constructor(id: string, options: SelectProps) {
@@ -113,6 +118,7 @@ export class SelectComponent extends Component {
       options.selectedDescriptionColor || this._defaultOptions.selectedDescriptionColor,
     )
     this._fastScrollStep = options.fastScrollStep || this._defaultOptions.fastScrollStep
+    this._indicator = options.indicator || this._defaultOptions.indicator
 
     this.needsUpdate() // Initial render needed
   }
@@ -147,20 +153,19 @@ export class SelectComponent extends Component {
       if (itemY + this.linesPerItem - 1 >= contentY + contentHeight) break
 
       if (isSelected) {
-        const contentHeight = this.linesPerItem - this._itemSpacing
-        this.frameBuffer.fillRect(contentX, itemY, contentWidth, contentHeight, this._selectedBackgroundColor)
+        this.frameBuffer.fillRect(contentX, itemY, contentWidth, this.linesPerItem - this._itemSpacing, this._selectedBackgroundColor)
       }
 
-      const nameContent = `${isSelected ? "▶ " : "  "}${option.name}`
+      const indicatorWidth = stringWidth(this._indicator);
+      const indicator = isSelected ? this._indicator : " ".repeat(indicatorWidth);
+
+      const nameContent = `${indicator}${option.name}`
       const baseTextColor = this._focused ? this._focusedTextColor : this._textColor
       const nameColor = isSelected ? this._selectedTextColor : baseTextColor
-      let descX = contentX + 3
+      let descX = contentX + 1 + indicatorWidth;
 
       if (this._font) {
-        const indicator = isSelected ? "▶ " : "  "
         this.frameBuffer.drawText(indicator, contentX + 1, itemY, nameColor)
-
-        const indicatorWidth = 2
         renderFontToFrameBuffer(this.frameBuffer, {
           text: option.name,
           x: contentX + 1 + indicatorWidth,
@@ -306,7 +311,8 @@ export class SelectComponent extends Component {
       case "return":
       case "enter":
         this.selectCurrent()
-        return true
+        return true;
+      default:
     }
 
     return false
@@ -448,5 +454,16 @@ export class SelectComponent extends Component {
 
   public set fastScrollStep(step: number) {
     this._fastScrollStep = step
+  }
+
+  public get indicator(): string {
+    return this._indicator
+  }
+
+  public set indicator(value: string) {
+    if (this._indicator !== value) {
+      this._indicator = value
+      this.needsUpdate()
+    }
   }
 }

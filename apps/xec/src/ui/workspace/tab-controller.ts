@@ -1,10 +1,5 @@
-import { OptimizedBuffer } from "../../src/renderer/buffer.js"
-import { GroupComponent } from "../../src/components/index.js"
-import { parseColor, type ColorInput } from "../../src/lib/colors.js"
-import { TabsComponent, TabsComponentEvents } from "../../src/components/tabs.js"
-import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
-
-import type { Renderer, TabsOption } from "../../src/index.js"
+import { TabsComponent, GroupComponent, OptimizedBuffer, TabsComponentEvents } from "@xec-sh/aura"
+import { Renderer, Component, TabsOption, parseColor, type ColorInput, RenderableEvents, type ComponentProps } from "@xec-sh/aura"
 
 export interface TabObject {
   title: string
@@ -38,7 +33,7 @@ export enum TabControllerEvents {
   TAB_CHANGED = "tabChanged",
 }
 
-export class TabControllerRenderable extends Component {
+export class TabControllerComponent extends Component {
   public tabs: Tab[] = []
   private currentTabIndex = 0
   private tabSelectElement: TabsComponent
@@ -134,7 +129,7 @@ export class TabControllerRenderable extends Component {
   }
 
   public getCurrentTab(): Tab {
-    return this.tabs[this.currentTabIndex]
+    return this.tabs[this.currentTabIndex]!;
   }
 
   public getCurrentTabGroup(): Component {
@@ -189,21 +184,21 @@ export class TabControllerRenderable extends Component {
     return this.tabSelectElement
   }
 
-  public focus(): void {
+  public override focus(): void {
     this.tabSelectElement.focus()
     this.emit(RenderableEvents.FOCUSED)
   }
 
-  public blur(): void {
+  public override blur(): void {
     this.tabSelectElement.blur()
     this.emit(RenderableEvents.BLURRED)
   }
 
-  public get focused(): boolean {
+  public override get focused(): boolean {
     return this.tabSelectElement.focused
   }
 
-  public onResize(width: number, height: number): void {
+  public override onResize(width: number, height: number): void {
     if (this.width === width && this.height === height) return
 
     this.width = width
@@ -219,12 +214,12 @@ export class TabControllerRenderable extends Component {
     }
   }
 
-  protected renderSelf(buffer: OptimizedBuffer, deltaTime: number): void {
+  protected override renderSelf(buffer: OptimizedBuffer, deltaTime: number): void {
     // TabController doesn't render content directly, it manages tab selection and tab content
     // The tab select element and tab content groups handle their own rendering
   }
 
-  protected destroySelf(): void {
+  protected override destroySelf(): void {
     this.blur()
 
     if (this.frameCallback) {

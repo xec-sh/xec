@@ -130,24 +130,13 @@ export class TextComponent extends Component {
     this._lineInfo.lineStarts = lineInfo.lineStarts
     this._lineInfo.lineWidths = lineInfo.lineWidths
 
-    const numLines = this._lineInfo.lineStarts.length
-    if (this._positionType === "absolute" && this._height === "auto") {
-      this._heightValue = numLines
-      this.layoutNode.yogaNode.markDirty()
-    }
-
-    const maxLineWidth = Math.max(...this._lineInfo.lineWidths)
-    if (this._positionType === "absolute" && this._width === "auto") {
-      this._widthValue = maxLineWidth
-      this.layoutNode.yogaNode.markDirty()
-    }
-
     const changed = this.selectionHelper.reevaluateSelection(this.width, this.height)
     if (changed) {
       this.syncSelectionToTextBuffer()
     }
 
-    this.needsUpdate()
+    this.layoutNode.yogaNode.markDirty();
+    this.needsUpdate();
   }
 
   private setupMeasureFunc(): void {

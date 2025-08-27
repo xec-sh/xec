@@ -11,7 +11,7 @@ import {
   createRenderer,
   RenderableEvents,
   type TabsOption,
-  TabSelectComponentEvents,
+  TabsComponentEvents,
 } from "../src/index.js"
 
 let tabSelect: TabsComponent | null = null
@@ -139,11 +139,11 @@ export function run(rendererInstance: Renderer): void {
   })
   parentContainer.add(statusDisplay)
 
-  tabSelect.on(TabSelectComponentEvents.SELECTION_CHANGED, (index: number, option: TabsOption) => {
+  tabSelect.on(TabsComponentEvents.SELECTION_CHANGED, (index: number, option: TabsOption) => {
     updateDisplays()
   })
 
-  tabSelect.on(TabSelectComponentEvents.ITEM_SELECTED, (index: number, option: TabsOption) => {
+  tabSelect.on(TabsComponentEvents.ITEM_SELECTED, (index: number, option: TabsOption) => {
     lastSelectedItem = option
     updateDisplays()
   })
