@@ -1089,6 +1089,13 @@ impl CliRenderer {
         self.stdout_writer.flush().ok();
     }
     
+    pub fn set_terminal_title(&mut self, title: &str) {
+        // Set terminal title using OSC 0
+        let cmd = format!("{}{}{}", ANSI::SET_TERMINAL_TITLE_PREFIX, title, ANSI::SET_TERMINAL_TITLE_SUFFIX);
+        self.stdout_writer.write_all(cmd.as_bytes()).ok();
+        self.stdout_writer.flush().ok();
+    }
+    
     pub fn add_to_hit_grid(&mut self, x: i32, y: i32, width: u32, height: u32, id: u32) {
         let start_x = (x.max(0) as u32).min(self.hit_grid_width);
         let start_y = (y.max(0) as u32).min(self.hit_grid_height);

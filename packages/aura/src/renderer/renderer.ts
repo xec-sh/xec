@@ -741,6 +741,10 @@ export class Renderer extends EventEmitter implements RenderContext {
     this.lib.setCursorColor(this.rendererPtr, color);
   }
 
+  public setTerminalTitle(title: string): void {
+    this.lib.setTerminalTitle(this.rendererPtr, title);
+  }
+
   public addPostProcessFn(processFn: (buffer: OptimizedBuffer, deltaTime: number) => void): void {
     this.postProcessFns.push(processFn)
   }

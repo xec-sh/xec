@@ -68,6 +68,15 @@ impl ANSI {
     pub const ENABLE_SGR_MOUSE_MODE: &'static str = "\x1b[?1006h";
     pub const DISABLE_SGR_MOUSE_MODE: &'static str = "\x1b[?1006l";
     
+    // Terminal title escape sequences
+    pub const SET_TERMINAL_TITLE_PREFIX: &'static str = "\x1b]0;";
+    pub const SET_TERMINAL_TITLE_SUFFIX: &'static str = "\x07";
+    
+    pub fn set_terminal_title_output<W: Write>(writer: &mut W, title: &str) -> Result<(), AnsiError> {
+        write!(writer, "{}{}{}", Self::SET_TERMINAL_TITLE_PREFIX, title, Self::SET_TERMINAL_TITLE_SUFFIX)?;
+        Ok(())
+    }
+    
     pub fn move_to_output<W: Write>(writer: &mut W, x: u32, y: u32) -> Result<(), AnsiError> {
         write!(writer, "\x1b[{};{}H", y, x)?;
         Ok(())

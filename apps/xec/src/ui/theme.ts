@@ -76,7 +76,7 @@ export const darkTheme: AuraTheme = auraCreateTheme({
   colors: {
     // Base colors
     background: 'transparent',                    // Terminal background
-    foreground: colors.blueGrey[600],             // Default text
+    foreground: colors.blueGrey[400],             // Default text
     primary: colors.green[500],                  // Primary actions
     secondary: colors.purple[600],               // Secondary elements
     accent: colors.purple[300],                  // Highlights
@@ -121,7 +121,6 @@ export const darkTheme: AuraTheme = auraCreateTheme({
   components: {
     box: {
       background: 'transparent',
-      foreground: 'foreground',
       border: 'border',
       states: {
         focused: {
@@ -129,23 +128,21 @@ export const darkTheme: AuraTheme = auraCreateTheme({
         },
         disabled: {
           border: 'disabled',
-          foreground: 'disabled',
+          background: 'transparent',
         },
       },
     },
 
     select: {
       background: 'transparent',
-      text: 'secondary',
-      border: 'border',
+      text: 'foreground',
       states: {
         focused: {
-          foreground: 'accent',
-          border: 'focus',
+          foreground: 'foreground',
         },
         selected: {
           foreground: 'primary',
-          background: 'transparent',
+          background: colors.blueGrey[900],
         },
         disabled: {
           foreground: 'disabled',
@@ -153,16 +150,12 @@ export const darkTheme: AuraTheme = auraCreateTheme({
       },
       elements: {
         description: {
-          text: 'description',
-          selectedText: 'accent',
+          text: 'muted',
+          focusedText: 'muted',
+          selectedText: 'muted',
         },
         indicator: {
-          text: 'primary',
-          symbol: '�',
-        },
-        scrollbar: {
-          track: 'muted',
-          thumb: 'accent',
+          symbol: '▶ ',
         },
       },
     },
@@ -172,15 +165,12 @@ export const darkTheme: AuraTheme = auraCreateTheme({
       foreground: 'foreground',
       placeholder: 'placeholder',
       cursor: 'cursor',
-      border: 'border',
       states: {
         focused: {
-          border: 'focus',
           background: colors.blueGrey[900] + '20',  // Slight tint when focused
         },
         disabled: {
           foreground: 'disabled',
-          border: 'disabled',
         },
       },
     },
@@ -188,10 +178,9 @@ export const darkTheme: AuraTheme = auraCreateTheme({
     tabs: {
       background: 'transparent',
       foreground: 'foreground',
-      border: 'border',
       states: {
         active: {
-          background: colors.purple[600] + '30',     // Highlighted tab
+          background: colors.purple[600] + '30',
           foreground: 'accent',
         },
         hover: {
@@ -204,8 +193,11 @@ export const darkTheme: AuraTheme = auraCreateTheme({
       },
       elements: {
         scrollIndicator: {
-          left: 'accent',
-          right: 'accent',
+          left: 'accent',         // Color for left scroll arrow
+          right: 'accent',        // Color for right scroll arrow
+        },
+        description: {
+          selectedText: 'accent',  // Color for selected tab's description
         },
       },
     },

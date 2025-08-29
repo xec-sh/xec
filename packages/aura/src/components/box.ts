@@ -1,7 +1,7 @@
 import { Edge } from "yoga-layout"
 
 import { RGBA, Color, parseColor } from "../lib/colors.js"
-import { useTheme, resolveColor } from "../theme/context.js"
+import { useTheme } from "../theme/context.js"
 import { Component, type ComponentProps } from "../component.js"
 import {
   getBorderSides,
@@ -65,7 +65,7 @@ export class BoxComponent extends Component {
     // Create theme resolver function
     const themeResolver = (token: string): RGBA | null => {
       try {
-        return resolveColor(token, theme)
+        return theme.resolveColor(token)
       } catch {
         return null
       }
@@ -79,7 +79,7 @@ export class BoxComponent extends Component {
       if (!value) value = defaultValue
       try {
         // Try as theme token first
-        return resolveColor(value, theme)
+        return theme.resolveColor(value)
       } catch {
         // Fall back to parsing as direct color
         return parseColor(value, themeResolver)
@@ -90,30 +90,30 @@ export class BoxComponent extends Component {
     this._backgroundColor = options.backgroundColor
       ? resolveColorValue(options.backgroundColor, this._defaultOptions.backgroundColor)
       : componentTheme?.background
-      ? resolveColor(componentTheme.background, theme)
+      ? theme.resolveColor(componentTheme.background)
       : parseColor(this._defaultOptions.backgroundColor, themeResolver)
 
     // Resolve border color
     this._borderColor = options.borderColor
       ? resolveColorValue(options.borderColor, this._defaultOptions.borderColor)
       : componentTheme?.border
-      ? resolveColor(componentTheme.border, theme)
+      ? theme.resolveColor(componentTheme.border)
       : parseColor(this._defaultOptions.borderColor, themeResolver)
 
     // Resolve focused border color
     this._focusedBorderColor = options.focusedBorderColor
       ? resolveColorValue(options.focusedBorderColor, this._defaultOptions.focusedBorderColor)
       : componentTheme?.states?.focused?.border
-      ? resolveColor(componentTheme.states.focused.border, theme)
+      ? theme.resolveColor(componentTheme.states.focused.border)
       : parseColor(this._defaultOptions.focusedBorderColor, themeResolver)
 
     // Resolve disabled state colors from component theme
     this._disabledBackgroundColor = componentTheme?.states?.disabled?.background
-      ? resolveColor(componentTheme.states.disabled.background, theme)
+      ? theme.resolveColor(componentTheme.states.disabled.background)
       : undefined
 
     this._disabledBorderColor = componentTheme?.states?.disabled?.border
-      ? resolveColor(componentTheme.states.disabled.border, theme)
+      ? theme.resolveColor(componentTheme.states.disabled.border)
       : undefined
 
     // Apply border style
@@ -148,7 +148,7 @@ export class BoxComponent extends Component {
     const theme = useTheme()
     const themeResolver = (token: string): RGBA | null => {
       try {
-        return resolveColor(token, theme)
+        return theme.resolveColor(token)
       } catch {
         return null
       }
@@ -194,7 +194,7 @@ export class BoxComponent extends Component {
     const theme = useTheme()
     const themeResolver = (token: string): RGBA | null => {
       try {
-        return resolveColor(token, theme)
+        return theme.resolveColor(token)
       } catch {
         return null
       }
@@ -214,7 +214,7 @@ export class BoxComponent extends Component {
     const theme = useTheme()
     const themeResolver = (token: string): RGBA | null => {
       try {
-        return resolveColor(token, theme)
+        return theme.resolveColor(token)
       } catch {
         return null
       }

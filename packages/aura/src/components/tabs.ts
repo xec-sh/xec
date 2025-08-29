@@ -69,6 +69,8 @@ export class TabsComponent extends Component {
   private _disabledBackgroundColor?: RGBA
   private _disabledTextColor?: RGBA
   private _showScrollArrows: boolean
+  private _scrollIndicatorLeftColor?: RGBA
+  private _scrollIndicatorRightColor?: RGBA
   private _showDescription: boolean
   private _showUnderline: boolean
   private _wrapSelection: boolean
@@ -140,7 +142,12 @@ export class TabsComponent extends Component {
     )
 
     // Description color
-    this._selectedDescriptionColor = parseColor(options.selectedDescriptionColor || "#CCCCCC")
+    this._selectedDescriptionColor = resolveColorValue(
+      options.selectedDescriptionColor,
+      tabsTheme?.elements?.description?.selectedText
+        ? themeContext.resolveColor(tabsTheme.elements.description.selectedText).toHex()
+        : "#CCCCCC"
+    )
 
     // Resolve disabled state colors
     this._disabledBackgroundColor = tabsTheme?.states?.disabled?.background
@@ -150,6 +157,15 @@ export class TabsComponent extends Component {
     this._disabledTextColor = tabsTheme?.states?.disabled?.foreground
       ? themeContext.resolveColor(tabsTheme.states.disabled.foreground)
       : undefined
+
+    // Resolve scroll indicator colors from theme
+    this._scrollIndicatorLeftColor = tabsTheme?.elements?.scrollIndicator?.left
+      ? themeContext.resolveColor(tabsTheme.elements.scrollIndicator.left)
+      : parseColor("#AAAAAA")  // Default fallback
+    
+    this._scrollIndicatorRightColor = tabsTheme?.elements?.scrollIndicator?.right
+      ? themeContext.resolveColor(tabsTheme.elements.scrollIndicator.right)
+      : parseColor("#AAAAAA")  // Default fallback
 
 
     this._options = options.options || []
@@ -258,12 +274,12 @@ export class TabsComponent extends Component {
     const hasMoreLeft = this.scrollOffset > 0
     const hasMoreRight = this.scrollOffset + this.maxVisibleTabs < this._options.length
 
-    if (hasMoreLeft) {
-      this.frameBuffer.drawText("‹", contentX, contentY, parseColor("#AAAAAA"))
+    if (hasMoreLeft && this._scrollIndicatorLeftColor) {
+      this.frameBuffer.drawText("‹", contentX, contentY, this._scrollIndicatorLeftColor)
     }
 
-    if (hasMoreRight) {
-      this.frameBuffer.drawText("›", contentX + contentWidth - 1, contentY, parseColor("#AAAAAA"))
+    if (hasMoreRight && this._scrollIndicatorRightColor) {
+      this.frameBuffer.drawText("›", contentX + contentWidth - 1, contentY, this._scrollIndicatorRightColor)
     }
   }
 

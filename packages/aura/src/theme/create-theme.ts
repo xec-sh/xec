@@ -80,8 +80,14 @@ export function normalizeColor(color: ThemeColor, themeColors?: ThemeColors): RG
       return RGBA.fromValues(0, 0, 0, 0);
     }
 
-    // Check if it's a hex color
+    // Check if it's a hex color with # prefix
     if (color.startsWith('#')) {
+      return RGBA.fromHex(color);
+    }
+
+    // Check if it's a hex color without # prefix (6 or 8 characters)
+    // This handles cases like "45546440" (RRGGBBAA format without #)
+    if (/^[0-9A-Fa-f]{6}$/.test(color) || /^[0-9A-Fa-f]{8}$/.test(color)) {
       return RGBA.fromHex(color);
     }
 
