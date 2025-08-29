@@ -1,8 +1,8 @@
-import { Edge } from "yoga-layout"
+import { Edge, Gutter } from "yoga-layout"
 
-import { RGBA, Color, parseColor } from "../lib/colors.js"
 import { useTheme } from "../theme/context.js"
-import { Component, type ComponentProps } from "../component.js"
+import { RGBA, Color, parseColor } from "../lib/colors.js"
+import { Component, isValidPercentage, type ComponentProps } from "../component.js"
 import {
   getBorderSides,
   type BorderSides,
@@ -27,6 +27,19 @@ export interface BoxProps extends ComponentProps {
   title?: string;
   titleAlignment?: "left" | "center" | "right";
   focusedBorderColor?: Color;
+  gap?: number | `${number}%`;
+  rowGap?: number | `${number}%`;
+  columnGap?: number | `${number}%`;
+}
+
+function isGapType(value: any): value is number | undefined {
+  if (value === undefined) {
+    return true
+  }
+  if (typeof value === "number" && !Number.isNaN(value)) {
+    return true
+  }
+  return isValidPercentage(value)
 }
 
 export class BoxComponent extends Component {
@@ -73,7 +86,7 @@ export class BoxComponent extends Component {
 
     // Get component theme from global theme
     const componentTheme = theme.components?.box
-    
+
     // Helper function to resolve color (tries theme token first, then direct color)
     const resolveColorValue = (value: Color | string | undefined, defaultValue: string): RGBA => {
       if (!value) value = defaultValue
@@ -90,22 +103,22 @@ export class BoxComponent extends Component {
     this._backgroundColor = options.backgroundColor
       ? resolveColorValue(options.backgroundColor, this._defaultOptions.backgroundColor)
       : componentTheme?.background
-      ? theme.resolveColor(componentTheme.background)
-      : parseColor(this._defaultOptions.backgroundColor, themeResolver)
+        ? theme.resolveColor(componentTheme.background)
+        : parseColor(this._defaultOptions.backgroundColor, themeResolver)
 
     // Resolve border color
     this._borderColor = options.borderColor
       ? resolveColorValue(options.borderColor, this._defaultOptions.borderColor)
       : componentTheme?.border
-      ? theme.resolveColor(componentTheme.border)
-      : parseColor(this._defaultOptions.borderColor, themeResolver)
+        ? theme.resolveColor(componentTheme.border)
+        : parseColor(this._defaultOptions.borderColor, themeResolver)
 
     // Resolve focused border color
     this._focusedBorderColor = options.focusedBorderColor
       ? resolveColorValue(options.focusedBorderColor, this._defaultOptions.focusedBorderColor)
       : componentTheme?.states?.focused?.border
-      ? theme.resolveColor(componentTheme.states.focused.border)
-      : parseColor(this._defaultOptions.focusedBorderColor, themeResolver)
+        ? theme.resolveColor(componentTheme.states.focused.border)
+        : parseColor(this._defaultOptions.focusedBorderColor, themeResolver)
 
     // Resolve disabled state colors from component theme
     this._disabledBackgroundColor = componentTheme?.states?.disabled?.background
@@ -128,6 +141,12 @@ export class BoxComponent extends Component {
     this._titleAlignment = options.titleAlignment || this._defaultOptions.titleAlignment
 
     this.applyYogaBorders()
+
+    const hasInitialGapProps =
+      options.gap !== undefined || options.rowGap !== undefined || options.columnGap !== undefined
+    if (hasInitialGapProps) {
+      this.applyYogaGap(options)
+    }
   }
 
   public get customBorderChars(): BorderCharacters | undefined {
@@ -286,5 +305,42 @@ export class BoxComponent extends Component {
     node.setBorder(Edge.Top, this.borderSides.top ? 1 : 0)
     node.setBorder(Edge.Bottom, this.borderSides.bottom ? 1 : 0)
     this.needsUpdate()
+  }
+
+  private applyYogaGap(props: BoxProps): void {
+    const node = this.layoutNode.yogaNode
+
+    if (isGapType(props.gap)) {
+      node.setGap(Gutter.All, props.gap)
+    }
+
+    if (isGapType(props.rowGap)) {
+      node.setGap(Gutter.Row, props.rowGap)
+    }
+
+    if (isGapType(props.columnGap)) {
+      node.setGap(Gutter.Column, props.columnGap)
+    }
+  }
+
+  public set gap(gap: number | `${number}%` | undefined) {
+    if (isGapType(gap)) {
+      this.layoutNode.yogaNode.setGap(Gutter.All, gap)
+      this.needsUpdate()
+    }
+  }
+
+  public set rowGap(rowGap: number | `${number}%` | undefined) {
+    if (isGapType(rowGap)) {
+      this.layoutNode.yogaNode.setGap(Gutter.Row, rowGap)
+      this.needsUpdate()
+    }
+  }
+
+  public set columnGap(columnGap: number | `${number}%` | undefined) {
+    if (isGapType(columnGap)) {
+      this.layoutNode.yogaNode.setGap(Gutter.Column, columnGap)
+      this.needsUpdate()
+    }
   }
 }
