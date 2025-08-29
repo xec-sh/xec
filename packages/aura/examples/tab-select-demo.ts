@@ -9,8 +9,8 @@ import {
   TabsComponent,
   GroupComponent,
   createRenderer,
-  RenderableEvents,
   type TabsOption,
+  RenderableEvents,
   TabsComponentEvents,
 } from "../src/index.js"
 

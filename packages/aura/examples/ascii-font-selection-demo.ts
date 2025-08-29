@@ -17,7 +17,8 @@ let allFontRenderables: ASCIIFontComponent[] = []
 export function run(renderer: Renderer): void {
   renderer.setBackgroundColor("#0d1117")
 
-  mainContainer = new BoxComponent(renderer.root.ctx, { id: "mainContainer",
+  mainContainer = new BoxComponent(renderer.root.ctx, {
+    id: "mainContainer",
     position: "absolute",
     left: 1,
     top: 1,
@@ -32,7 +33,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(mainContainer)
 
-  fontGroup = new GroupComponent(renderer.root.ctx, { id: "fontGroup",
+  fontGroup = new GroupComponent(renderer.root.ctx, {
+    id: "fontGroup",
     position: "absolute",
     left: 2,
     top: 2,
@@ -40,7 +42,8 @@ export function run(renderer: Renderer): void {
   })
   mainContainer.add(fontGroup)
 
-  const tinyFont = new ASCIIFontComponent(renderer.root.ctx, { id: "tinyFont",
+  const tinyFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "tinyFont",
     text: "TINY FONT DEMO",
     font: "tiny",
     fg: RGBA.fromInts(255, 255, 0, 255),
@@ -52,7 +55,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(tinyFont)
   allFontRenderables.push(tinyFont)
 
-  const blockFont = new ASCIIFontComponent(renderer.root.ctx, { id: "blockFont",
+  const blockFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "blockFont",
     text: "opentui",
     font: "block",
     fg: [RGBA.fromInts(255, 100, 100, 255), RGBA.fromInts(100, 255, 100, 255)],
@@ -64,7 +68,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(blockFont)
   allFontRenderables.push(blockFont)
 
-  const shadeFont = new ASCIIFontComponent(renderer.root.ctx, { id: "shadeFont",
+  const shadeFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "shadeFont",
     text: "SHADE FONT DEMO",
     font: "shade",
     fg: [RGBA.fromInts(255, 200, 100, 255), RGBA.fromInts(100, 150, 200, 255)],
@@ -76,7 +81,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(shadeFont)
   allFontRenderables.push(shadeFont)
 
-  const slickFont = new ASCIIFontComponent(renderer.root.ctx, { id: "slickFont",
+  const slickFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "slickFont",
     text: "SLICK FONT DEMO",
     font: "slick",
     fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
@@ -88,7 +94,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(slickFont)
   allFontRenderables.push(slickFont);
 
-  const retroFont = new ASCIIFontComponent(renderer.root.ctx, { id: "retroFont",
+  const retroFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "retroFont",
     text: "RETRO FONT DEMO",
     font: "retro",
     fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
@@ -100,7 +107,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(retroFont)
   allFontRenderables.push(retroFont)
 
-  const cyberFont = new ASCIIFontComponent(renderer.root.ctx, { id: "cyberFont",
+  const cyberFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "cyberFont",
     text: "CYBER FONT DEMO",
     font: "cyber",
     fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
@@ -112,7 +120,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(cyberFont)
   allFontRenderables.push(cyberFont)
 
-  const neonFont = new ASCIIFontComponent(renderer.root.ctx, { id: "neonFont",
+  const neonFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "neonFont",
     text: "NEON FONT DEMO",
     font: "neon",
     fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
@@ -124,7 +133,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(neonFont)
   allFontRenderables.push(neonFont)
 
-  const matrixFont = new ASCIIFontComponent(renderer.root.ctx, { id: "matrixFont",
+  const matrixFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "matrixFont",
     text: "MATRIX FONT DEMO",
     font: "matrix",
     fg: [RGBA.fromInts(100, 255, 100, 255), RGBA.fromInts(255, 100, 255, 255)],
@@ -136,7 +146,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(matrixFont)
   allFontRenderables.push(matrixFont)
 
-  const braileFont = new ASCIIFontComponent(renderer.root.ctx, { id: "braileFont",
+  const braileFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "braileFont",
     text: "BRAILE FONT DEMO",
     font: "braile",
     fg: [RGBA.fromInts(200, 255, 200, 255), RGBA.fromInts(100, 200, 100, 255)],
@@ -148,7 +159,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(braileFont)
   allFontRenderables.push(braileFont)
 
-  const cyberSmallFont = new ASCIIFontComponent(renderer.root.ctx, { id: "cyberSmallFont",
+  const cyberSmallFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "cyberSmallFont",
     text: "CYBER SMALL FONT",
     font: "cyberSmall",
     fg: [RGBA.fromInts(255, 200, 100, 255), RGBA.fromInts(255, 150, 50, 255)],
@@ -160,7 +172,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(cyberSmallFont)
   allFontRenderables.push(cyberSmallFont)
 
-  const diamFont = new ASCIIFontComponent(renderer.root.ctx, { id: "diamFont",
+  const diamFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "diamFont",
     text: "DIAM FONT",
     font: "diam",
     fg: [RGBA.fromInts(200, 200, 255, 255), RGBA.fromInts(150, 150, 255, 255)],
@@ -172,7 +185,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(diamFont)
   allFontRenderables.push(diamFont)
 
-  const futureFont = new ASCIIFontComponent(renderer.root.ctx, { id: "futureFont",
+  const futureFont = new ASCIIFontComponent(renderer.root.ctx, {
+    id: "futureFont",
     text: "FUTURE FONT",
     font: "future",
     fg: [RGBA.fromInts(255, 200, 200, 255), RGBA.fromInts(255, 100, 100, 255)],
@@ -184,7 +198,8 @@ export function run(renderer: Renderer): void {
   fontGroup.add(futureFont)
   allFontRenderables.push(futureFont)
 
-  const instructions = new TextComponent(renderer.root.ctx, { id: "ascii-font-instructions",
+  const instructions = new TextComponent(renderer.root.ctx, {
+    id: "ascii-font-instructions",
     content: "Click and drag to select text across any ASCII font elements. Press 'C' to clear selection.",
     left: 2,
     top: 56,
@@ -193,7 +208,8 @@ export function run(renderer: Renderer): void {
   })
   mainContainer.add(instructions)
 
-  statusBox = new BoxComponent(renderer.root.ctx, { id: "statusBox",
+  statusBox = new BoxComponent(renderer.root.ctx, {
+    id: "statusBox",
     position: "absolute",
     left: 1,
     top: 62,
@@ -207,13 +223,15 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(statusBox)
 
-  statusText = new TextComponent(renderer.root.ctx, { id: "statusText",
+  statusText = new TextComponent(renderer.root.ctx, {
+    id: "statusText",
     content: "No selection - try selecting across different ASCII fonts",
     fg: "#f0f6fc",
   })
   statusBox.add(statusText)
 
-  selectionStartText = new TextComponent(renderer.root.ctx, { id: "selectionStartText",
+  selectionStartText = new TextComponent(renderer.root.ctx, {
+    id: "selectionStartText",
     content: "",
     left: 3,
     zIndex: 2,
@@ -221,7 +239,8 @@ export function run(renderer: Renderer): void {
   })
   statusBox.add(selectionStartText)
 
-  selectionMiddleText = new TextComponent(renderer.root.ctx, { id: "selectionMiddleText",
+  selectionMiddleText = new TextComponent(renderer.root.ctx, {
+    id: "selectionMiddleText",
     content: "",
     left: 3,
     zIndex: 2,
@@ -229,7 +248,8 @@ export function run(renderer: Renderer): void {
   })
   statusBox.add(selectionMiddleText)
 
-  selectionEndText = new TextComponent(renderer.root.ctx, { id: "selectionEndText",
+  selectionEndText = new TextComponent(renderer.root.ctx, {
+    id: "selectionEndText",
     content: "",
     left: 3,
     zIndex: 2,
@@ -237,7 +257,8 @@ export function run(renderer: Renderer): void {
   })
   statusBox.add(selectionEndText)
 
-  debugText = new TextComponent(renderer.root.ctx, { id: "debugText",
+  debugText = new TextComponent(renderer.root.ctx, {
+    id: "debugText",
     content: "",
     left: 3,
     zIndex: 2,

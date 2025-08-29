@@ -25,6 +25,12 @@ export class RGBA {
     return [Math.round(this.r * 255), Math.round(this.g * 255), Math.round(this.b * 255), Math.round(this.a * 255)]
   }
 
+  toHex(): string {
+    const [r, g, b] = this.toInts()
+    const toHexComponent = (value: number) => value.toString(16).padStart(2, '0')
+    return `${toHexComponent(r)}${toHexComponent(g)}${toHexComponent(b)}`
+  }
+
   get r(): number {
     return this.buffer[0]
   }
@@ -64,9 +70,145 @@ export class RGBA {
   toString() {
     return `rgba(${this.r.toFixed(2)}, ${this.g.toFixed(2)}, ${this.b.toFixed(2)}, ${this.a.toFixed(2)})`
   }
+
+  // Fluent methods for color manipulation
+
+  withAlpha(alpha: number): RGBA {
+    return RGBA.fromValues(this.r, this.g, this.b, Math.max(0, Math.min(1, alpha)))
+  }
+
+  withOpacity(opacity: number): RGBA {
+    return this.withAlpha(opacity)
+  }
+
+  darker(amount: number = 0.2): RGBA {
+    const factor = 1 - Math.max(0, Math.min(1, amount))
+    return RGBA.fromValues(
+      this.r * factor,
+      this.g * factor,
+      this.b * factor,
+      this.a
+    )
+  }
+
+  lighter(amount: number = 0.2): RGBA {
+    const factor = Math.max(0, Math.min(1, amount))
+    return RGBA.fromValues(
+      this.r + (1 - this.r) * factor,
+      this.g + (1 - this.g) * factor,
+      this.b + (1 - this.b) * factor,
+      this.a
+    )
+  }
+
+  saturate(amount: number = 0.2): RGBA {
+    const hsl = this.toHSL()
+    hsl.s = Math.min(1, hsl.s + amount)
+    return RGBA.fromHSL(hsl.h, hsl.s, hsl.l, this.a)
+  }
+
+  desaturate(amount: number = 0.2): RGBA {
+    const hsl = this.toHSL()
+    hsl.s = Math.max(0, hsl.s - amount)
+    return RGBA.fromHSL(hsl.h, hsl.s, hsl.l, this.a)
+  }
+
+  rotate(degrees: number): RGBA {
+    const hsl = this.toHSL()
+    hsl.h = (hsl.h + degrees) % 360
+    if (hsl.h < 0) hsl.h += 360
+    return RGBA.fromHSL(hsl.h, hsl.s, hsl.l, this.a)
+  }
+
+  mix(other: RGBA, amount: number = 0.5): RGBA {
+    const factor = Math.max(0, Math.min(1, amount))
+    return RGBA.fromValues(
+      this.r * (1 - factor) + other.r * factor,
+      this.g * (1 - factor) + other.g * factor,
+      this.b * (1 - factor) + other.b * factor,
+      this.a * (1 - factor) + other.a * factor
+    )
+  }
+
+  invert(): RGBA {
+    return RGBA.fromValues(1 - this.r, 1 - this.g, 1 - this.b, this.a)
+  }
+
+  grayscale(): RGBA {
+    const gray = 0.299 * this.r + 0.587 * this.g + 0.114 * this.b
+    return RGBA.fromValues(gray, gray, gray, this.a)
+  }
+
+  clone(): RGBA {
+    return RGBA.fromValues(this.r, this.g, this.b, this.a)
+  }
+
+  equals(other: RGBA): boolean {
+    return (
+      Math.abs(this.r - other.r) < 0.001 &&
+      Math.abs(this.g - other.g) < 0.001 &&
+      Math.abs(this.b - other.b) < 0.001 &&
+      Math.abs(this.a - other.a) < 0.001
+    )
+  }
+
+  private toHSL(): { h: number; s: number; l: number } {
+    const max = Math.max(this.r, this.g, this.b)
+    const min = Math.min(this.r, this.g, this.b)
+    let h = 0
+    let s = 0
+    const l = (max + min) / 2
+
+    if (max !== min) {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+
+      switch (max) {
+        case this.r:
+          h = ((this.g - this.b) / d + (this.g < this.b ? 6 : 0)) / 6
+          break
+        case this.g:
+          h = ((this.b - this.r) / d + 2) / 6
+          break
+        case this.b:
+          h = ((this.r - this.g) / d + 4) / 6
+          break
+        default:
+      }
+    }
+
+    return { h: h * 360, s, l }
+  }
+
+  private static fromHSL(h: number, s: number, l: number, a: number = 1): RGBA {
+    h = h / 360
+
+    if (s === 0) {
+      return RGBA.fromValues(l, l, l, a)
+    }
+
+    const hue2rgb = (p: number, q: number, t: number): number => {
+      if (t < 0) t += 1
+      if (t > 1) t -= 1
+      if (t < 1 / 6) return p + (q - p) * 6 * t
+      if (t < 1 / 2) return q
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+      return p
+    }
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+
+    const r = hue2rgb(p, q, h + 1 / 3)
+    const g = hue2rgb(p, q, h)
+    const b = hue2rgb(p, q, h - 1 / 3)
+
+    return RGBA.fromValues(r, g, b, a)
+  }
 }
 
-export type ColorInput = string | RGBA
+export type Color = string | RGBA
+
 
 export function hexToRgb(hex: string): RGBA {
   hex = hex.replace(/^#/, "")
@@ -179,7 +321,7 @@ const CSS_COLOR_NAMES: Record<string, string> = {
   brightwhite: "#FFFFFF",
 }
 
-export function parseColor(color: ColorInput): RGBA {
+export function parseColor(color: Color, resolveThemeColor?: (token: string) => RGBA | null): RGBA {
   if (typeof color === "string") {
     const lowerColor = color.toLowerCase()
 
@@ -189,6 +331,14 @@ export function parseColor(color: ColorInput): RGBA {
 
     if (CSS_COLOR_NAMES[lowerColor]) {
       return hexToRgb(CSS_COLOR_NAMES[lowerColor])
+    }
+
+    // Try to resolve as theme token if resolver provided
+    if (resolveThemeColor && !color.startsWith('#')) {
+      const resolved = resolveThemeColor(color)
+      if (resolved) {
+        return resolved
+      }
     }
 
     return hexToRgb(color)

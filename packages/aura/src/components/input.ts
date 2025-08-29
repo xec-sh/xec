@@ -1,18 +1,20 @@
 import { OptimizedBuffer } from "../renderer/buffer.js"
+import { useTheme } from "../theme/context.js"
+import { RGBA, parseColor, type Color } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
-import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
-import type { RenderContext } from "../types.js"
-import type { ParsedKey } from "../lib/parse.keypress.js"
+// InputTheme import removed - using global theme only
+import type { ParsedKey, RenderContext } from "../types.js"
 
 export interface InputProps extends ComponentProps {
-  backgroundColor?: ColorInput
-  textColor?: ColorInput
-  focusedBackgroundColor?: ColorInput
-  focusedTextColor?: ColorInput
+  // Color properties - can be theme tokens or direct colors
+  backgroundColor?: Color
+  textColor?: Color
+  focusedBackgroundColor?: Color
+  focusedTextColor?: Color
   placeholder?: string
-  placeholderColor?: ColorInput
-  cursorColor?: ColorInput
+  placeholderColor?: Color
+  cursorColor?: Color
   maxLength?: number
   value?: string
 }
@@ -36,6 +38,9 @@ export class InputComponent extends Component {
   private _focusedTextColor: RGBA
   private _placeholderColor: RGBA
   private _cursorColor: RGBA
+  private _disabledBackgroundColor?: RGBA
+  private _disabledTextColor?: RGBA
+  // Theme prop removed - using global theme
   private _maxLength: number
   private _lastCommittedValue: string = ""
 
@@ -54,22 +59,78 @@ export class InputComponent extends Component {
   constructor(ctx: RenderContext, options: InputProps) {
     super(ctx, { ...options, buffered: true })
 
-    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
-    this._textColor = parseColor(options.textColor || this._defaultOptions.textColor)
-    this._focusedBackgroundColor = parseColor(
-      options.focusedBackgroundColor || options.backgroundColor || this._defaultOptions.focusedBackgroundColor,
+    // Get theme and resolve colors
+    const theme = useTheme()
+
+    // Remove theme prop - use global theme instead
+
+    // Resolve colors from props or theme defaults
+    const inputTheme = theme.components?.input
+
+    // Helper function to resolve color
+    const resolveColorValue = (value: Color | undefined, fallback?: string): RGBA => {
+      if (value) {
+        try {
+          return theme.resolveColor(value)
+        } catch {
+          return parseColor(value)
+        }
+      }
+      return parseColor(fallback || this._defaultOptions.backgroundColor)
+    }
+
+    // Resolve colors from props with theme fallbacks
+    this._backgroundColor = resolveColorValue(
+      options.backgroundColor,
+      inputTheme?.background ? theme.resolveColor(inputTheme.background).toHex() : this._defaultOptions.backgroundColor
     )
-    this._focusedTextColor = parseColor(
-      options.focusedTextColor || options.textColor || this._defaultOptions.focusedTextColor,
+    
+    this._textColor = resolveColorValue(
+      options.textColor,
+      inputTheme?.foreground ? theme.resolveColor(inputTheme.foreground).toHex() : this._defaultOptions.textColor
     )
+
+    // Resolve focused state colors
+    this._focusedBackgroundColor = resolveColorValue(
+      options.focusedBackgroundColor || options.backgroundColor,
+      inputTheme?.states?.focused?.background 
+        ? theme.resolveColor(inputTheme.states.focused.background).toHex()
+        : this._defaultOptions.focusedBackgroundColor
+    )
+
+    this._focusedTextColor = resolveColorValue(
+      options.focusedTextColor || options.textColor,
+      inputTheme?.states?.focused?.foreground
+        ? theme.resolveColor(inputTheme.states.focused.foreground).toHex()
+        : this._defaultOptions.focusedTextColor
+    )
+
+    // Resolve placeholder and cursor colors
+    this._placeholderColor = resolveColorValue(
+      options.placeholderColor,
+      inputTheme?.placeholder ? theme.resolveColor(inputTheme.placeholder).toHex() : this._defaultOptions.placeholderColor
+    )
+
+    this._cursorColor = resolveColorValue(
+      options.cursorColor,
+      inputTheme?.cursor ? theme.resolveColor(inputTheme.cursor).toHex() : this._defaultOptions.cursorColor
+    )
+
+    // Resolve disabled state colors
+    this._disabledBackgroundColor = inputTheme?.states?.disabled?.background
+      ? theme.resolveColor(inputTheme.states.disabled.background)
+      : undefined
+
+    this._disabledTextColor = inputTheme?.states?.disabled?.foreground
+      ? theme.resolveColor(inputTheme.states.disabled.foreground)
+      : undefined
+
+
     this._placeholder = options.placeholder || this._defaultOptions.placeholder
     this._value = options.value || this._defaultOptions.value
     this._lastCommittedValue = this._value
     this._cursorPosition = this._value.length
     this._maxLength = options.maxLength || this._defaultOptions.maxLength
-
-    this._placeholderColor = parseColor(options.placeholderColor || this._defaultOptions.placeholderColor)
-    this._cursorColor = parseColor(options.cursorColor || this._defaultOptions.cursorColor)
   }
 
   private updateCursorPosition(): void {
@@ -125,7 +186,14 @@ export class InputComponent extends Component {
   private refreshFrameBuffer(): void {
     if (!this.frameBuffer) return
 
-    const bgColor = this._focused ? this._focusedBackgroundColor : this._backgroundColor
+    // Apply state-based colors
+    let bgColor = this._backgroundColor
+    if (this._disabled) {
+      bgColor = this._disabledBackgroundColor || this._backgroundColor
+    } else if (this._focused) {
+      bgColor = this._focusedBackgroundColor
+    }
+
     this.frameBuffer.clear(bgColor)
 
     const contentX = 0
@@ -135,7 +203,12 @@ export class InputComponent extends Component {
 
     const displayText = this._value || this._placeholder
     const isPlaceholder = !this._value && this._placeholder
-    const baseTextColor = this._focused ? this._focusedTextColor : this._textColor
+    let baseTextColor = this._textColor
+    if (this._disabled) {
+      baseTextColor = this._disabledTextColor || this._textColor
+    } else if (this._focused) {
+      baseTextColor = this._focusedTextColor
+    }
     const textColor = isPlaceholder ? this._placeholderColor : baseTextColor
 
     const maxVisibleChars = contentWidth - 1
@@ -221,6 +294,9 @@ export class InputComponent extends Component {
   }
 
   public handleKeyPress(key: ParsedKey | string): boolean {
+    // Don't handle keyboard input when disabled
+    if (this._disabled) return false
+
     const keyName = typeof key === "string" ? key : key.name
     const keySequence = typeof key === "string" ? key : key.sequence
 
@@ -282,7 +358,7 @@ export class InputComponent extends Component {
     }
   }
 
-  public set backgroundColor(value: ColorInput) {
+  public set backgroundColor(value: Color) {
     const newColor = parseColor(value ?? this._defaultOptions.backgroundColor)
     if (this._backgroundColor !== newColor) {
       this._backgroundColor = newColor
@@ -290,7 +366,7 @@ export class InputComponent extends Component {
     }
   }
 
-  public set textColor(value: ColorInput) {
+  public set textColor(value: Color) {
     const newColor = parseColor(value ?? this._defaultOptions.textColor)
     if (this._textColor !== newColor) {
       this._textColor = newColor
@@ -298,7 +374,7 @@ export class InputComponent extends Component {
     }
   }
 
-  public set focusedBackgroundColor(value: ColorInput) {
+  public set focusedBackgroundColor(value: Color) {
     const newColor = parseColor(value ?? this._defaultOptions.focusedBackgroundColor)
     if (this._focusedBackgroundColor !== newColor) {
       this._focusedBackgroundColor = newColor
@@ -306,7 +382,7 @@ export class InputComponent extends Component {
     }
   }
 
-  public set focusedTextColor(value: ColorInput) {
+  public set focusedTextColor(value: Color) {
     const newColor = parseColor(value ?? this._defaultOptions.focusedTextColor)
     if (this._focusedTextColor !== newColor) {
       this._focusedTextColor = newColor
@@ -314,7 +390,7 @@ export class InputComponent extends Component {
     }
   }
 
-  public set placeholderColor(value: ColorInput) {
+  public set placeholderColor(value: Color) {
     const newColor = parseColor(value ?? this._defaultOptions.placeholderColor)
     if (this._placeholderColor !== newColor) {
       this._placeholderColor = newColor
@@ -322,7 +398,7 @@ export class InputComponent extends Component {
     }
   }
 
-  public set cursorColor(value: ColorInput) {
+  public set cursorColor(value: Color) {
     const newColor = parseColor(value ?? this._defaultOptions.cursorColor)
     if (this._cursorColor !== newColor) {
       this._cursorColor = newColor

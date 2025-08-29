@@ -188,7 +188,8 @@ class ExampleSelector {
     const { width: titleWidth, height: titleHeight } = measureText({ text: titleText, font: titleFont })
     const centerX = Math.floor(width / 2) - Math.floor(titleWidth / 2)
 
-    this.title = new FrameBufferComponent(renderer.root.ctx, { id: "title",
+    this.title = new FrameBufferComponent(renderer.root.ctx, {
+      id: "title",
       width: titleWidth,
       height: titleHeight,
       position: "absolute",
@@ -214,7 +215,8 @@ class ExampleSelector {
 
     this.createTitle(width, height)
 
-    this.instructions = new TextComponent(renderer.root.ctx, { id: "instructions",
+    this.instructions = new TextComponent(renderer.root.ctx, {
+      id: "instructions",
       position: "absolute",
       left: 2,
       top: 4,
@@ -235,7 +237,8 @@ class ExampleSelector {
       value: example,
     }))
 
-    this.selectBox = new BoxComponent(renderer.root.ctx, { id: "example-selector-box",
+    this.selectBox = new BoxComponent(renderer.root.ctx, {
+      id: "example-selector-box",
       position: "absolute",
       left: 1,
       top: 6,
@@ -251,7 +254,8 @@ class ExampleSelector {
       border: true,
     })
 
-    this.selectElement = new SelectComponent(renderer.root.ctx, { id: "example-selector",
+    this.selectElement = new SelectComponent(renderer.root.ctx, {
+      id: "example-selector",
       width: width - 4,
       height: height - 10,
       options: selectOptions,
@@ -327,7 +331,8 @@ class ExampleSelector {
       selected.run(this.renderer)
     } else {
       if (!this.notImplementedText) {
-        this.notImplementedText = new TextComponent(renderer.root.ctx, { id: "not-implemented",
+        this.notImplementedText = new TextComponent(renderer.root.ctx, {
+          id: "not-implemented",
           position: "absolute",
           left: 10,
           top: 10,

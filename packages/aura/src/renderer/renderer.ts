@@ -10,7 +10,7 @@ import { Selection } from "../lib/selection.js"
 import { singleton } from "../lib/singleton.js";
 import { Component, RootComponent } from "../component.js"
 import { type RenderLib, resolveRenderLib } from "./native.js"
-import { RGBA, parseColor, type ColorInput, } from "../lib/colors.js"
+import { RGBA, parseColor, type Color, } from "../lib/colors.js"
 import { capture, TerminalConsole, type ConsoleOptions } from "./console/console.js"
 import { MouseParser, type ScrollInfo, type RawMouseEvent, type MouseEventType } from "../lib/parse.mouse.js"
 import {
@@ -688,7 +688,7 @@ export class Renderer extends EventEmitter implements RenderContext {
     this.needsUpdate()
   }
 
-  public setBackgroundColor(color: ColorInput): void {
+  public setBackgroundColor(color: Color): void {
     const parsedColor = parseColor(color)
     this.lib.setBackgroundColor(this.rendererPtr, parsedColor as RGBA)
     this.backgroundColor = parsedColor as RGBA

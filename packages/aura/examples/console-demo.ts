@@ -9,8 +9,8 @@ import {
   TextAttributes,
   createRenderer,
   type MouseEvent,
-  type RenderContext,
   OptimizedBuffer,
+  type RenderContext,
 } from "../src/index"
 
 let titleText: TextComponent | null = null
@@ -186,7 +186,8 @@ export function run(renderer: Renderer): void {
   const backgroundColor = RGBA.fromInts(18, 22, 35, 255)
   renderer.setBackgroundColor(backgroundColor)
 
-  titleText = new TextComponent(renderer.root.ctx, { id: "console_demo_title",
+  titleText = new TextComponent(renderer.root.ctx, {
+    id: "console_demo_title",
     content: "Console Logging Demo",
     position: "absolute",
     left: 2,
@@ -197,7 +198,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(titleText)
 
-  instructionsText = new TextComponent(renderer.root.ctx, { id: "console_demo_instructions",
+  instructionsText = new TextComponent(renderer.root.ctx, {
+    id: "console_demo_instructions",
     content:
       "Click buttons to trigger different console log levels • Press ` to toggle console • Escape: return to menu",
     position: "absolute",
@@ -208,7 +210,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(instructionsText)
 
-  statusText = new TextComponent(renderer.root.ctx, { id: "console_demo_status",
+  statusText = new TextComponent(renderer.root.ctx, {
+    id: "console_demo_status",
     content: "Click any button to start logging...",
     position: "absolute",
     left: 2,
@@ -242,7 +245,8 @@ export function run(renderer: Renderer): void {
     renderer.root.add(button)
   }
 
-  const decorText1 = new TextComponent(renderer.root.ctx, { id: "decor1",
+  const decorText1 = new TextComponent(renderer.root.ctx, {
+    id: "decor1",
     content: "✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦ ✧ ✦",
     position: "absolute",
     left: 2,
@@ -252,7 +256,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(decorText1)
 
-  const decorText2 = new TextComponent(renderer.root.ctx, { id: "decor2",
+  const decorText2 = new TextComponent(renderer.root.ctx, {
+    id: "decor2",
     content: "Console will appear at the bottom. Use Ctrl+P/Ctrl+O to change position, +/- to resize.",
     position: "absolute",
     left: 2,

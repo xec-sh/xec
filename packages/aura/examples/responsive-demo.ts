@@ -7,11 +7,11 @@
 
 import { 
   aura, 
+  effect, 
   auraApp, 
-  screenWidth, 
-  screenHeight,
   computed,
-  effect,
+  screenWidth,
+  screenHeight,
   TextAttributes 
 } from "../src/index.js";
 
@@ -34,8 +34,8 @@ async function main() {
     return [
       // Main container that adapts to screen size
       aura('box', {
-        width: width,
-        height: height,
+        width,
+        height,
         borderStyle: 'rounded',
         border: true,
         borderColor: '#00ff00',

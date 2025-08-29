@@ -5,11 +5,11 @@ import {
   t,
   fg,
   bold,
+  type Renderer,
   GroupComponent,
   InputComponent,
-  RenderableEvents,
-  type Renderer,
   createRenderer,
+  RenderableEvents,
   InputComponentEvents,
 } from "../src/index"
 

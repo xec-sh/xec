@@ -7,8 +7,8 @@ import { Console } from "node:console"
 import { Renderer, } from "../renderer.js"
 import { OptimizedBuffer } from "../buffer.js"
 import { singleton } from "../../lib/singleton.js";
+import { RGBA, parseColor, type Color } from "../../lib/colors.js"
 import { Capture, CapturedWritableStream } from "./output-capture.js"
-import { RGBA, parseColor, type ColorInput } from "../../lib/colors.js"
 
 interface CallerInfo {
   functionName: string
@@ -194,17 +194,17 @@ export interface ConsoleOptions {
   position?: ConsolePosition
   sizePercent?: number
   zIndex?: number
-  colorInfo?: ColorInput
-  colorWarn?: ColorInput
-  colorError?: ColorInput
-  colorDebug?: ColorInput
-  colorDefault?: ColorInput
-  backgroundColor?: ColorInput
+  colorInfo?: Color
+  colorWarn?: Color
+  colorError?: Color
+  colorDebug?: Color
+  colorDefault?: Color
+  backgroundColor?: Color
   startInDebugMode?: boolean
   title?: string
-  titleBarColor?: ColorInput
-  titleBarTextColor?: ColorInput
-  cursorColor?: ColorInput
+  titleBarColor?: Color
+  titleBarTextColor?: Color
+  cursorColor?: Color
   maxStoredLogs?: number
   maxDisplayLines?: number
 }

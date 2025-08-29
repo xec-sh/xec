@@ -1,7 +1,6 @@
-import { aura, effect, signal, computed, TextAttributes, WritableSignal, SelectComponent, type BoxComponent } from "@xec-sh/aura";
+import { aura, effect, signal, computed, ParsedKey, WritableSignal, SelectComponent, type BoxComponent, DescriptionTruncate } from "@xec-sh/aura";
 
 import { appStore } from "../store.js";
-import { UI_TITLE_COLOR, UI_BORDER_COLOR, UI_TITLE_ACTIVE_COLOR, UI_BORDER_ACTIVE_COLOR } from "../consts.js";
 
 
 function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
@@ -11,7 +10,18 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
     // zIndex: 120,
     wrapSelection: true,
     showDescription: true,
+    descriptionTruncate: DescriptionTruncate.START,
+    // textColor: 'secondary',          // Use legacy props for now
+    // focusedTextColor: 'accent',
+    // selectedTextColor: 'primary',
+    // descriptionColor: RGBA.fromHex("#546e7a").withAlpha(0.5),
+    // selectedDescriptionColor: RGBA.fromHex("#546e7a"),
+    // focusedBackgroundColor: 'transparent',
+    // selectedBackgroundColor: RGBA.fromHex("#546e7a").withAlpha(0.4),
+    // selectedDescriptionColor: UI_TITLE_ACTIVE_COLOR,
+    // descriptionColor: UI_TITLE_COLOR,
     ref: selectRef,
+    // indicator: '▶ ',
     options: [
       {
         name: 'xec',
@@ -22,6 +32,11 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
         name: 'vibrancy',
         description: '/Users/taaliman/projects/luxquant/vibrancy',
         value: 'vibrancy',
+      },
+      {
+        name: 'tui-tester',
+        description: '/Users/taaliman/projects/tui-tester',
+        value: 'tui-tester',
       },
     ]
   });
@@ -35,12 +50,6 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
 }
 
 export function SidebarComponent() {
-  // const keyHandler = (event: ParsedKey) => {
-  //   if (event.key === 'q') {
-  //     console.log('q');
-  //   }
-  // }
-
   const boxMainRef = signal<BoxComponent | null>(null);
   const boxTitleRef = signal<BoxComponent | null>(null);
   const selectRef = signal<SelectComponent | null>(null);
@@ -61,33 +70,38 @@ export function SidebarComponent() {
     }
   });
 
-
-
   return aura("box", {
     minWidth: 20,
     flexDirection: 'column',
     height: "100%",
     border: ['right'],
     borderStyle: "single",
-    borderColor: UI_BORDER_COLOR,
-    focusedBorderColor: UI_BORDER_ACTIVE_COLOR,
+    borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
     ref: boxMainRef,
+    onKeyDown(key: ParsedKey) {
+      const inst = boxMainRef();
+      if (inst) {
+        if (key.shift && key.name === 'right') {
+          inst.width = inst.width + 1;
+        } else if (key.shift && key.name === 'left') {
+          inst.width = inst.width - 1;
+        }
+      }
+    },
     children: [
       aura('box', {
-        width: 'auto', // ширина будет зависеть от содержимого
-        height: 1,
+        width: 'auto',
+        height: 2,
         alignItems: 'center',
-        // border: ['bottom'],
-        // borderStyle: "single",
-        // borderColor: UI_BORDER_COLOR,
-        // focusedBorderColor: UI_BORDER_ACTIVE_COLOR,
+        border: ['bottom'],
+        borderStyle: "single",
+        borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
         ref: boxTitleRef, // Pass the ref signal
         children: [
           aura('text', {
             content: '❯ XEC',
-            fg: computed(() => appStore.focused === 'sidebar' ? UI_TITLE_ACTIVE_COLOR : UI_TITLE_COLOR),
+            // fg: 'accent',  // Use theme's accent color (purple.300)
             selectable: false,
-            attributes: TextAttributes.BOLD | TextAttributes.DIM
           }),
         ]
       }),
