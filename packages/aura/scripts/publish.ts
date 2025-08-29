@@ -4,11 +4,11 @@
  * Publishes the main library and all platform-specific native packages to npm
  */
 
-import { spawnSync, type SpawnSyncReturns } from "node:child_process"
+import process from "process"
+import { fileURLToPath } from "url"
 import { existsSync, readFileSync } from "fs"
 import { join, resolve, dirname } from "path"
-import { fileURLToPath } from "url"
-import process from "process"
+import { spawnSync, type SpawnSyncReturns } from "node:child_process"
 
 interface PackageJson {
   name: string

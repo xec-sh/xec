@@ -1,9 +1,9 @@
 import { createTextAttributes } from "../utils.js"
-import { parseColor, type ColorInput } from "./colors.js"
+import { parseColor, type Color } from "./colors.js"
 
 import type { TextChunk } from "../renderer/text-buffer.js"
 
-export type Color = ColorInput
+
 const textEncoder = new TextEncoder()
 
 export interface StyleAttrs {
@@ -108,10 +108,10 @@ export class StyledText {
 }
 
 export function stringToStyledText(content: string): StyledText {
-  const textEncoder = new TextEncoder()
+  const enc = new TextEncoder()
   const chunk = {
     __isChunk: true as const,
-    text: textEncoder.encode(content),
+    text: enc.encode(content),
     plainText: content,
   }
   return new StyledText([chunk])

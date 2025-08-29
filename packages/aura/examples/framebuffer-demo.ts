@@ -37,13 +37,15 @@ export function run(renderer: Renderer): void {
   const backgroundColor = RGBA.fromInts(10, 10, 30)
   renderer.setBackgroundColor(backgroundColor)
 
-  parentContainer = new GroupComponent(renderer.root.ctx, { id: "framebuffer-container",
+  parentContainer = new GroupComponent(renderer.root.ctx, {
+    id: "framebuffer-container",
     zIndex: 10,
     visible: true,
   })
   renderer.root.add(parentContainer)
 
-  const titleText = new TextComponent(renderer.root.ctx, { id: "framebuffer_title",
+  const titleText = new TextComponent(renderer.root.ctx, {
+    id: "framebuffer_title",
     content: "FrameBuffer Demo",
     position: "absolute",
     left: 2,
@@ -54,7 +56,8 @@ export function run(renderer: Renderer): void {
   })
   parentContainer.add(titleText)
 
-  const subtitleText = new TextComponent(renderer.root.ctx, { id: "framebuffer_subtitle",
+  const subtitleText = new TextComponent(renderer.root.ctx, {
+    id: "framebuffer_subtitle",
     content: "Showcasing framebuffers with transparency and partial drawing",
     position: "absolute",
     left: 2,
@@ -64,7 +67,8 @@ export function run(renderer: Renderer): void {
   })
   parentContainer.add(subtitleText)
 
-  const instructionsText = new TextComponent(renderer.root.ctx, { id: "framebuffer_instructions",
+  const instructionsText = new TextComponent(renderer.root.ctx, {
+    id: "framebuffer_instructions",
     content: "Press Escape to return to menu",
     position: "absolute",
     left: 2,
@@ -74,7 +78,8 @@ export function run(renderer: Renderer): void {
   })
   parentContainer.add(instructionsText)
 
-  const patternBufferRenderable = new FrameBufferComponent(renderer.root.ctx, { id: "pattern",
+  const patternBufferRenderable = new FrameBufferComponent(renderer.root.ctx, {
+    id: "pattern",
     width: renderer.terminalWidth,
     height: renderer.terminalHeight,
     position: "absolute",
@@ -92,7 +97,8 @@ export function run(renderer: Renderer): void {
     }
   }
 
-  const boxObj = new FrameBufferComponent(renderer.root.ctx, { id: "moving-box",
+  const boxObj = new FrameBufferComponent(renderer.root.ctx, {
+    id: "moving-box",
     width: 20,
     height: 10,
     position: "absolute",
@@ -122,7 +128,8 @@ export function run(renderer: Renderer): void {
 
   boxBuffer.drawText("Moving Box", 5, 2, RGBA.fromInts(255, 255, 255), RGBA.fromInts(100, 40, 120), TextAttributes.BOLD)
 
-  const overlayBufferRenderable = new FrameBufferComponent(renderer.root.ctx, { id: "overlay",
+  const overlayBufferRenderable = new FrameBufferComponent(renderer.root.ctx, {
+    id: "overlay",
     width: 40,
     height: 15,
     position: "absolute",
@@ -166,7 +173,8 @@ export function run(renderer: Renderer): void {
   )
   overlayBuffer.drawText("show through!", 5, 7, RGBA.fromInts(255, 255, 255), RGBA.fromInts(0, 120, 180, 200))
 
-  const ballObj = new FrameBufferComponent(renderer.root.ctx, { id: "ball",
+  const ballObj = new FrameBufferComponent(renderer.root.ctx, {
+    id: "ball",
     width: 3,
     height: 3,
     position: "absolute",
@@ -187,7 +195,8 @@ export function run(renderer: Renderer): void {
   ballBuffer.drawText(" ", 1, 2, RGBA.fromInts(255, 255, 255), RGBA.fromInts(200, 50, 50))
   ballBuffer.drawText(" ", 2, 2, RGBA.fromInts(255, 255, 255), RGBA.fromInts(200, 50, 50))
 
-  const resizableObj = new FrameBufferComponent(renderer.root.ctx, { id: "resizable-box",
+  const resizableObj = new FrameBufferComponent(renderer.root.ctx, {
+    id: "resizable-box",
     width: 10,
     height: 5,
     position: "absolute",
@@ -236,7 +245,8 @@ export function run(renderer: Renderer): void {
   drawResizableContent()
 
   // Create a large source framebuffer for partial drawing demonstration
-  const sourceObj = new FrameBufferComponent(renderer.root.ctx, { id: "large-source",
+  const sourceObj = new FrameBufferComponent(renderer.root.ctx, {
+    id: "large-source",
     width: 40,
     height: 20,
     position: "absolute",
@@ -259,7 +269,8 @@ export function run(renderer: Renderer): void {
   }
 
   // Create smaller framebuffers to demonstrate partial drawing
-  const cropBuffer1Renderable = new FrameBufferComponent(renderer.root.ctx, { id: "crop-demo-1",
+  const cropBuffer1Renderable = new FrameBufferComponent(renderer.root.ctx, {
+    id: "crop-demo-1",
     width: 12,
     height: 8,
     position: "absolute",
@@ -270,7 +281,8 @@ export function run(renderer: Renderer): void {
   renderer.root.add(cropBuffer1Renderable)
   const { frameBuffer: cropBuffer1 } = cropBuffer1Renderable
 
-  const cropBuffer2Renderable = new FrameBufferComponent(renderer.root.ctx, { id: "crop-demo-2",
+  const cropBuffer2Renderable = new FrameBufferComponent(renderer.root.ctx, {
+    id: "crop-demo-2",
     width: 15,
     height: 6,
     position: "absolute",
@@ -281,7 +293,8 @@ export function run(renderer: Renderer): void {
   renderer.root.add(cropBuffer2Renderable)
   const { frameBuffer: cropBuffer2 } = cropBuffer2Renderable
 
-  const cropBuffer3Renderable = new FrameBufferComponent(renderer.root.ctx, { id: "crop-demo-3",
+  const cropBuffer3Renderable = new FrameBufferComponent(renderer.root.ctx, {
+    id: "crop-demo-3",
     width: 10,
     height: 10,
     position: "absolute",
@@ -293,7 +306,8 @@ export function run(renderer: Renderer): void {
   const { frameBuffer: cropBuffer3 } = cropBuffer3Renderable
 
   // Label for the crop demo
-  const cropDemoLabel = new TextComponent(renderer.root.ctx, { id: "crop_demo_label",
+  const cropDemoLabel = new TextComponent(renderer.root.ctx, {
+    id: "crop_demo_label",
     content: "Partial FrameBuffer Drawing Demo:",
     position: "absolute",
     left: 5,
@@ -477,7 +491,8 @@ export function run(renderer: Renderer): void {
     }
   })
 
-  const debugInstructionsText = new TextComponent(renderer.root.ctx, { id: "framebuffer_debug_instructions",
+  const debugInstructionsText = new TextComponent(renderer.root.ctx, {
+    id: "framebuffer_debug_instructions",
     content: "Press 1-4 to change corner | Escape: Back to menu",
     position: "absolute",
     left: 2,

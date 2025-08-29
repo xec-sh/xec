@@ -1,7 +1,8 @@
 import { Edge } from "yoga-layout"
 
+import { RGBA, Color, parseColor } from "../lib/colors.js"
+import { useTheme, resolveColor } from "../theme/context.js"
 import { Component, type ComponentProps } from "../component.js"
-import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 import {
   getBorderSides,
   type BorderSides,
@@ -12,18 +13,20 @@ import {
 } from "../lib/index.js"
 
 import type { RenderContext } from "../types.js"
+// BoxTheme import removed - using global theme only
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 
 export interface BoxProps extends ComponentProps {
-  backgroundColor?: string | RGBA
-  borderStyle?: BorderStyle
-  border?: boolean | BorderSides[]
-  borderColor?: string | RGBA
-  customBorderChars?: BorderCharacters
-  shouldFill?: boolean
-  title?: string
-  titleAlignment?: "left" | "center" | "right"
-  focusedBorderColor?: ColorInput
+  // Color properties - can be theme tokens or direct colors
+  backgroundColor?: string | RGBA;
+  borderStyle?: BorderStyle;
+  border?: boolean | BorderSides[];
+  borderColor?: string | RGBA;
+  customBorderChars?: BorderCharacters;
+  shouldFill?: boolean;
+  title?: string;
+  titleAlignment?: "left" | "center" | "right";
+  focusedBorderColor?: Color;
 }
 
 export class BoxComponent extends Component {
@@ -33,12 +36,15 @@ export class BoxComponent extends Component {
   protected _borderStyle: BorderStyle
   protected _borderColor: RGBA
   protected _focusedBorderColor: RGBA
+  protected _disabledBackgroundColor?: RGBA
+  protected _disabledBorderColor?: RGBA
   private _customBorderCharsObj: BorderCharacters | undefined
   protected _customBorderChars?: Uint32Array
   protected borderSides: BorderSidesConfig
   public shouldFill: boolean
   protected _title?: string
   protected _titleAlignment: "left" | "center" | "right"
+  // Theme prop removed - using global theme
 
   protected _defaultOptions = {
     backgroundColor: "transparent",
@@ -53,11 +59,67 @@ export class BoxComponent extends Component {
   constructor(ctx: RenderContext, options: BoxProps) {
     super(ctx, options)
 
-    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
-    this._border = options.border ?? this._defaultOptions.border
+    // Get theme and resolve colors
+    const theme = useTheme()
+
+    // Create theme resolver function
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return resolveColor(token, theme)
+      } catch {
+        return null
+      }
+    }
+
+    // Get component theme from global theme
+    const componentTheme = theme.components?.box
+    
+    // Helper function to resolve color (tries theme token first, then direct color)
+    const resolveColorValue = (value: Color | string | undefined, defaultValue: string): RGBA => {
+      if (!value) value = defaultValue
+      try {
+        // Try as theme token first
+        return resolveColor(value, theme)
+      } catch {
+        // Fall back to parsing as direct color
+        return parseColor(value, themeResolver)
+      }
+    }
+
+    // Resolve background color
+    this._backgroundColor = options.backgroundColor
+      ? resolveColorValue(options.backgroundColor, this._defaultOptions.backgroundColor)
+      : componentTheme?.background
+      ? resolveColor(componentTheme.background, theme)
+      : parseColor(this._defaultOptions.backgroundColor, themeResolver)
+
+    // Resolve border color
+    this._borderColor = options.borderColor
+      ? resolveColorValue(options.borderColor, this._defaultOptions.borderColor)
+      : componentTheme?.border
+      ? resolveColor(componentTheme.border, theme)
+      : parseColor(this._defaultOptions.borderColor, themeResolver)
+
+    // Resolve focused border color
+    this._focusedBorderColor = options.focusedBorderColor
+      ? resolveColorValue(options.focusedBorderColor, this._defaultOptions.focusedBorderColor)
+      : componentTheme?.states?.focused?.border
+      ? resolveColor(componentTheme.states.focused.border, theme)
+      : parseColor(this._defaultOptions.focusedBorderColor, themeResolver)
+
+    // Resolve disabled state colors from component theme
+    this._disabledBackgroundColor = componentTheme?.states?.disabled?.background
+      ? resolveColor(componentTheme.states.disabled.background, theme)
+      : undefined
+
+    this._disabledBorderColor = componentTheme?.states?.disabled?.border
+      ? resolveColor(componentTheme.states.disabled.border, theme)
+      : undefined
+
+    // Apply border style
     this._borderStyle = options.borderStyle || this._defaultOptions.borderStyle
-    this._borderColor = parseColor(options.borderColor || this._defaultOptions.borderColor)
-    this._focusedBorderColor = parseColor(options.focusedBorderColor || this._defaultOptions.focusedBorderColor)
+
+    this._border = options.border ?? this._defaultOptions.border
     this._customBorderCharsObj = options.customBorderChars
     this._customBorderChars = this._customBorderCharsObj ? borderCharsToArray(this._customBorderCharsObj) : undefined
     this.borderSides = getBorderSides(this._border)
@@ -83,7 +145,15 @@ export class BoxComponent extends Component {
   }
 
   public set backgroundColor(value: RGBA | string | undefined) {
-    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor)
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return resolveColor(token, theme)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor, themeResolver)
     if (this._backgroundColor !== newColor) {
       this._backgroundColor = newColor
       this.needsUpdate()
@@ -121,7 +191,15 @@ export class BoxComponent extends Component {
   }
 
   public set borderColor(value: RGBA | string) {
-    const newColor = parseColor(value ?? this._defaultOptions.borderColor)
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return resolveColor(token, theme)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.borderColor, themeResolver)
     if (this._borderColor !== newColor) {
       this._borderColor = newColor
       this.needsUpdate()
@@ -133,7 +211,15 @@ export class BoxComponent extends Component {
   }
 
   public set focusedBorderColor(value: RGBA | string) {
-    const newColor = parseColor(value ?? this._defaultOptions.focusedBorderColor)
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return resolveColor(token, theme)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.focusedBorderColor, themeResolver)
     if (this._focusedBorderColor !== newColor) {
       this._focusedBorderColor = newColor
       if (this._focused) {
@@ -165,7 +251,17 @@ export class BoxComponent extends Component {
   }
 
   protected renderSelf(buffer: OptimizedBuffer): void {
-    const currentBorderColor = this._focused ? this._focusedBorderColor : this._borderColor
+    // Determine current state and colors
+    let currentBackgroundColor = this._backgroundColor
+    let currentBorderColor = this._borderColor
+
+    // Apply state-based colors
+    if (this._disabled) {
+      currentBackgroundColor = this._disabledBackgroundColor || this._backgroundColor
+      currentBorderColor = this._disabledBorderColor || this._borderColor
+    } else if (this._focused) {
+      currentBorderColor = this._focusedBorderColor
+    }
 
     buffer.drawBox({
       x: this.x,
@@ -176,7 +272,7 @@ export class BoxComponent extends Component {
       customBorderChars: this._customBorderChars,
       border: this._border,
       borderColor: currentBorderColor,
-      backgroundColor: this._backgroundColor,
+      backgroundColor: currentBackgroundColor,
       shouldFill: this.shouldFill,
       title: this._title,
       titleAlignment: this._titleAlignment,

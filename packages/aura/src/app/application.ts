@@ -15,6 +15,7 @@ import {
 
 import { Component } from '../component.js';
 import { getKeyHandler } from '../lib/key-handler.js';
+import { setGlobalTheme, initializeTheme } from '../theme/context.js';
 import {
   mountElement,
   unmountElement
@@ -22,10 +23,11 @@ import {
 import { Renderer, createRenderer, type RendererConfig } from '../renderer/renderer.js';
 import { cleanupScreenDimensions, initializeScreenDimensions } from './screen-dimensions.js';
 
+import type { ParsedKey } from '../types.js';
 import type {
   AnyAuraElement
 } from './types.js';
-import type { ParsedKey } from '../lib/parse.keypress.js';
+import type { AuraTheme, PartialTheme } from '../theme/types.js';
 
 
 
@@ -35,6 +37,9 @@ export interface ApplicationOptions {
 
   // Terminal renderer options
   renderer?: RendererConfig;
+
+  // Theme configuration
+  theme?: AuraTheme | PartialTheme;
 
   // Global error handler
   onError?: (error: Error) => void;
@@ -81,6 +86,13 @@ export class AuraApplication {
     this.isRunning = true;
 
     try {
+      // Initialize theme if provided and not already initialized
+      // When using auraApp(), theme is initialized before renderer creation
+      // When using Application directly, initialize it here
+      if (this.options.theme) {
+        initializeTheme(this.options.theme);
+      }
+      
       // Initialize screen dimension signals
       initializeScreenDimensions(this.renderer);
 
@@ -313,6 +325,25 @@ export class AuraApplication {
       height: this.renderer.height
     };
   }
+
+  /**
+   * Update the application theme
+   * @param theme - New theme configuration
+   */
+  setTheme(theme: AuraTheme | PartialTheme): void {
+    setGlobalTheme(theme);
+    this.options.theme = theme;
+    // Request re-render to apply new theme
+    this.render();
+  }
+
+  /**
+   * Get the current theme
+   * @returns Current theme configuration
+   */
+  getTheme(): AuraTheme | PartialTheme | undefined {
+    return this.options.theme;
+  }
 }
 
 /**
@@ -323,12 +354,18 @@ export async function auraApp(
   children: AnyAuraElement | AnyAuraElement[] | (() => AnyAuraElement | AnyAuraElement[]),
   options?: Partial<Omit<ApplicationOptions, 'children'>>
 ): Promise<AuraApplication> {
-  const { renderer: rendererOptions, ...appOptions } = options ?? {};
+  const { renderer: rendererOptions, theme, ...appOptions } = options ?? {};
+  
+  // Initialize theme BEFORE creating renderer and components
+  if (theme) {
+    initializeTheme(theme);
+  }
+  
   const renderer = await createRenderer({
     ...rendererOptions,
     exitOnCtrlC: false,
   });
-  const app = new AuraApplication({ children, ...appOptions }, renderer);
+  const app = new AuraApplication({ children, theme, ...appOptions }, renderer);
   await app.start();
   return app;
 }

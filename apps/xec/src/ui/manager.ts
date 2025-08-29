@@ -1,9 +1,9 @@
 import { aura, RGBA, auraApp, ParsedKey, screenDimensions } from "@xec-sh/aura";
 
 import { appStore } from "./store.js";
-import { UI_TITLE_ACTIVE_COLOR } from "./consts.js";
 import { SidebarComponent } from "./sidebar/index.js";
 import { WorkspaceComponent } from "./workspace/workspace.js";
+import darkTheme, { UI_PRIMARY_COLOR, UI_TITLE_ACTIVE_COLOR } from "./theme.js";
 
 function MainSection() {
   if (appStore.workspace) {
@@ -20,13 +20,13 @@ function MainSection() {
       aura('ascii-font', {
         font: "future",
         text: "WELCOME TO",
-        fg: RGBA.fromHex(UI_TITLE_ACTIVE_COLOR),
+        fg: RGBA.fromHex(UI_TITLE_ACTIVE_COLOR),  // ASCII font needs RGBA
         zIndex: 20,
       }),
       aura('ascii-font', {
         font: "matrix",
         text: "XEC",
-        fg: [RGBA.fromHex('#4caf50'), RGBA.fromHex(UI_TITLE_ACTIVE_COLOR)],
+        fg: [RGBA.fromHex(UI_PRIMARY_COLOR), RGBA.fromHex(UI_TITLE_ACTIVE_COLOR)],  // ASCII font needs RGBA array
         zIndex: 20,
       }),
     ],
@@ -52,6 +52,7 @@ export async function runManager() {
       })
     ];
   }, {
+    theme: darkTheme,  // Apply the theme
     onKeyPress(key: ParsedKey) {
       if (key.shift && key.name === 's') {
         appStore.sidebarVisible = !appStore.sidebarVisible;

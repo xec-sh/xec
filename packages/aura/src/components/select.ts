@@ -1,12 +1,14 @@
 
 import { stringWidth } from "../utils.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
+import { useTheme } from "../theme/context.js"
+import { applyStateColors, getComponentState } from "../theme/utils.js"
+import { RGBA, parseColor, type Color } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
-import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 import { fonts, measureText, renderFontToFrameBuffer } from "../lib/ascii.font.js"
 
-import type { RenderContext } from "../types.js"
-import type { ParsedKey } from "../lib/parse.keypress.js"
+// SelectTheme import removed - using global theme only
+import type { ParsedKey, RenderContext } from "../types.js"
 
 export interface SelectOption {
   name: string
@@ -14,16 +16,26 @@ export interface SelectOption {
   value?: any
 }
 
+export enum DescriptionTruncate {
+  END = "end",        // Show start, add ellipsis at end: "Long text..."
+  START = "start",    // Show end, add ellipsis at start: "...ext value"
+  MIDDLE = "middle",  // Show start and end, add ellipsis in middle: "Long...value"
+  NONE = "none"       // No truncation (default)
+}
+
 export interface SelectProps extends ComponentProps {
-  backgroundColor?: ColorInput
-  textColor?: ColorInput
-  focusedBackgroundColor?: ColorInput
-  focusedTextColor?: ColorInput
+  // Color properties - can be theme tokens or direct colors
+  backgroundColor?: Color
+  textColor?: Color
+  focusedBackgroundColor?: Color
+  focusedTextColor?: Color
   options?: SelectOption[]
-  selectedBackgroundColor?: ColorInput
-  selectedTextColor?: ColorInput
-  descriptionColor?: ColorInput
-  selectedDescriptionColor?: ColorInput
+  selectedBackgroundColor?: Color
+  selectedTextColor?: Color
+  descriptionColor?: Color
+  selectedDescriptionColor?: Color
+  
+  // Behavior properties
   showScrollIndicator?: boolean
   wrapSelection?: boolean
   showDescription?: boolean
@@ -31,6 +43,7 @@ export interface SelectProps extends ComponentProps {
   itemSpacing?: number
   fastScrollStep?: number
   indicator?: string
+  descriptionTruncate?: DescriptionTruncate
 }
 
 export enum SelectComponentEvents {
@@ -42,28 +55,31 @@ export class SelectComponent extends Component {
   protected focusable: boolean = true
 
   private _options: SelectOption[] = []
-  private selectedIndex: number = 0
-  private scrollOffset: number = 0
-  private maxVisibleItems: number
-  private _isAutoHeight: boolean = false
+  private selectedIndex: number = 0;
+  private scrollOffset: number = 0;
+  private maxVisibleItems: number;
+  private _isAutoHeight: boolean = false;
 
-  private _backgroundColor: RGBA
-  private _textColor: RGBA
-  private _focusedBackgroundColor: RGBA
-  private _focusedTextColor: RGBA
-  private _selectedBackgroundColor: RGBA
-  private _selectedTextColor: RGBA
-  private _descriptionColor: RGBA
-  private _selectedDescriptionColor: RGBA
-  private _showScrollIndicator: boolean
-  private _wrapSelection: boolean
-  private _showDescription: boolean
-  private _font?: keyof typeof fonts
-  private _itemSpacing: number
-  private linesPerItem: number
-  private fontHeight: number
-  private _fastScrollStep: number
-  private _indicator: string
+  private _backgroundColor: RGBA;
+  private _textColor: RGBA;
+  private _focusedBackgroundColor: RGBA;
+  private _focusedTextColor: RGBA;
+  private _selectedBackgroundColor: RGBA;
+  private _selectedTextColor: RGBA;
+  private _descriptionColor: RGBA;
+  private _selectedDescriptionColor: RGBA;
+  private _disabledBackgroundColor?: RGBA;
+  private _disabledTextColor?: RGBA;
+  private _showScrollIndicator: boolean;
+  private _wrapSelection: boolean;
+  private _showDescription: boolean;
+  private _font?: keyof typeof fonts;
+  private _itemSpacing: number;
+  private linesPerItem: number;
+  private fontHeight: number;
+  private _fastScrollStep: number;
+  private _indicator?: string;
+  private _descriptionTruncate: DescriptionTruncate;
 
   protected _defaultOptions = {
     backgroundColor: "transparent",
@@ -79,7 +95,7 @@ export class SelectComponent extends Component {
     showDescription: true,
     itemSpacing: 0,
     fastScrollStep: 5,
-    indicator: "▶ ",
+    descriptionTruncate: DescriptionTruncate.NONE,
   } satisfies Partial<SelectProps>
 
   constructor(ctx: RenderContext, options: SelectProps) {
@@ -133,12 +149,92 @@ export class SelectComponent extends Component {
 
     this._isAutoHeight = _isAutoHeight;
 
-    this._backgroundColor = parseColor(options.backgroundColor || this._defaultOptions.backgroundColor)
-    this._textColor = parseColor(options.textColor || this._defaultOptions.textColor)
-    this._focusedBackgroundColor = parseColor(
-      options.focusedBackgroundColor || this._defaultOptions.focusedBackgroundColor,
+    // Get theme and resolve colors
+    const theme = useTheme()
+    
+    // Use global theme instead of theme prop
+    
+    // Resolve colors from props with theme fallbacks
+    const selectTheme = theme.components?.select
+
+    // Helper function to resolve color
+    const resolveColorValue = (value: Color | undefined, fallback?: string): RGBA => {
+      if (value) {
+        try {
+          return theme.resolveColor(value)
+        } catch {
+          return parseColor(value)
+        }
+      }
+      return parseColor(fallback || this._defaultOptions.backgroundColor)
+    }
+
+    // Resolve colors from props with theme fallbacks
+    this._backgroundColor = resolveColorValue(
+      options.backgroundColor,
+      selectTheme?.background ? theme.resolveColor(selectTheme.background).toHex() : this._defaultOptions.backgroundColor
     )
-    this._focusedTextColor = parseColor(options.focusedTextColor || this._defaultOptions.focusedTextColor)
+    
+    this._textColor = resolveColorValue(
+      options.textColor,
+      selectTheme?.text ? theme.resolveColor(selectTheme.text).toHex() : this._defaultOptions.textColor
+    )
+
+    // Resolve focused state colors
+    this._focusedBackgroundColor = resolveColorValue(
+      options.focusedBackgroundColor,
+      selectTheme?.states?.focused?.background 
+        ? theme.resolveColor(selectTheme.states.focused.background).toHex()
+        : this._defaultOptions.focusedBackgroundColor
+    )
+
+    this._focusedTextColor = resolveColorValue(
+      options.focusedTextColor,
+      selectTheme?.states?.focused?.foreground
+        ? theme.resolveColor(selectTheme.states.focused.foreground).toHex()
+        : this._defaultOptions.focusedTextColor
+    )
+
+    // Resolve selected state colors
+    this._selectedBackgroundColor = resolveColorValue(
+      options.selectedBackgroundColor,
+      selectTheme?.states?.selected?.background
+        ? theme.resolveColor(selectTheme.states.selected.background).toHex()
+        : this._defaultOptions.selectedBackgroundColor
+    )
+
+    this._selectedTextColor = resolveColorValue(
+      options.selectedTextColor,
+      selectTheme?.states?.selected?.foreground
+        ? theme.resolveColor(selectTheme.states.selected.foreground).toHex()
+        : this._defaultOptions.selectedTextColor
+    )
+
+    // Resolve description colors
+    this._descriptionColor = resolveColorValue(
+      options.descriptionColor,
+      selectTheme?.elements?.description?.text
+        ? theme.resolveColor(selectTheme.elements.description.text).toHex()
+        : this._defaultOptions.descriptionColor
+    )
+
+    this._selectedDescriptionColor = resolveColorValue(
+      options.selectedDescriptionColor,
+      selectTheme?.elements?.description?.selectedText
+        ? theme.resolveColor(selectTheme.elements.description.selectedText).toHex()
+        : this._defaultOptions.selectedDescriptionColor
+    )
+
+    // Resolve disabled state colors
+    this._disabledBackgroundColor = selectTheme?.states?.disabled?.background
+      ? theme.resolveColor(selectTheme.states.disabled.background)
+      : undefined
+
+    this._disabledTextColor = selectTheme?.states?.disabled?.foreground
+      ? theme.resolveColor(selectTheme.states.disabled.foreground)
+      : undefined
+
+    
     this._options = options.options || []
 
     this._showScrollIndicator = options.showScrollIndicator ?? this._defaultOptions.showScrollIndicator
@@ -158,16 +254,9 @@ export class SelectComponent extends Component {
       this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
     }
 
-    this._selectedBackgroundColor = parseColor(
-      options.selectedBackgroundColor || this._defaultOptions.selectedBackgroundColor,
-    )
-    this._selectedTextColor = parseColor(options.selectedTextColor || this._defaultOptions.selectedTextColor)
-    this._descriptionColor = parseColor(options.descriptionColor || this._defaultOptions.descriptionColor)
-    this._selectedDescriptionColor = parseColor(
-      options.selectedDescriptionColor || this._defaultOptions.selectedDescriptionColor,
-    )
     this._fastScrollStep = options.fastScrollStep || this._defaultOptions.fastScrollStep
-    this._indicator = options.indicator || this._defaultOptions.indicator
+    this._indicator = options.indicator;
+    this._descriptionTruncate = options.descriptionTruncate || this._defaultOptions.descriptionTruncate
 
     this.needsUpdate() // Initial render needed
   }
@@ -180,10 +269,87 @@ export class SelectComponent extends Component {
     }
   }
 
+  private truncateText(text: string, maxWidth: number, truncate: DescriptionTruncate): string {
+    if (truncate === DescriptionTruncate.NONE || maxWidth <= 0) {
+      return text
+    }
+
+    const textWidth = stringWidth(text)
+    if (textWidth <= maxWidth) {
+      return text
+    }
+
+    const ellipsis = "…" // Unicode ellipsis character
+    const ellipsisWidth = 1
+
+    if (maxWidth <= ellipsisWidth) {
+      return ellipsis
+    }
+
+    const availableWidth = maxWidth - ellipsisWidth
+
+    // Helper to slice text to approximate width
+    const sliceToWidth = (str: string, targetWidth: number, fromEnd: boolean = false): string => {
+      let result = ""
+      let currentWidth = 0
+      const chars = Array.from(str)
+
+      if (fromEnd) {
+        for (let i = chars.length - 1; i >= 0; i--) {
+          const charWidth = stringWidth(chars[i])
+          if (currentWidth + charWidth > targetWidth) break
+          result = chars[i] + result
+          currentWidth += charWidth
+        }
+      } else {
+        for (const char of chars) {
+          const charWidth = stringWidth(char)
+          if (currentWidth + charWidth > targetWidth) break
+          result += char
+          currentWidth += charWidth
+        }
+      }
+
+      return result
+    }
+
+    switch (truncate) {
+      case DescriptionTruncate.END: {
+        // Show start, add ellipsis at end
+        const start = sliceToWidth(text, availableWidth)
+        return start + ellipsis
+      }
+
+      case DescriptionTruncate.START: {
+        // Show end, add ellipsis at start
+        const end = sliceToWidth(text, availableWidth, true)
+        return ellipsis + end
+      }
+
+      case DescriptionTruncate.MIDDLE: {
+        // Show start and end, add ellipsis in middle
+        const halfWidth = Math.floor(availableWidth / 2)
+        const start = sliceToWidth(text, halfWidth)
+        const end = sliceToWidth(text, availableWidth - stringWidth(start), true)
+        return start + ellipsis + end
+      }
+
+      default:
+        return text
+    }
+  }
+
   private refreshFrameBuffer(): void {
     if (!this.frameBuffer || this._options.length === 0) return
 
-    const bgColor = this._focused ? this._focusedBackgroundColor : this._backgroundColor
+    // Apply state-based colors
+    let bgColor = this._backgroundColor
+    if (this._disabled) {
+      bgColor = this._disabledBackgroundColor || this._backgroundColor
+    } else if (this._focused) {
+      bgColor = this._focusedBackgroundColor
+    }
+    
     this.frameBuffer.clear(bgColor)
 
     const contentX = 0
@@ -205,12 +371,17 @@ export class SelectComponent extends Component {
         this.frameBuffer.fillRect(contentX, itemY, contentWidth, this.linesPerItem - this._itemSpacing, this._selectedBackgroundColor)
       }
 
-      const indicatorWidth = stringWidth(this._indicator);
-      const indicator = isSelected ? this._indicator : " ".repeat(indicatorWidth);
+      const indicatorWidth = this._indicator ? stringWidth(this._indicator) : 0;
+      const indicator = isSelected ? (this._indicator ?? "") : " ".repeat(indicatorWidth);
 
       const nameContent = `${indicator}${option.name}`
-      const baseTextColor = this._focused ? this._focusedTextColor : this._textColor
-      const nameColor = isSelected ? this._selectedTextColor : baseTextColor
+      let baseTextColor = this._textColor
+      if (this._disabled) {
+        baseTextColor = this._disabledTextColor || this._textColor
+      } else if (this._focused) {
+        baseTextColor = this._focusedTextColor
+      }
+      const nameColor = isSelected && !this._disabled ? this._selectedTextColor : baseTextColor
       let descX = contentX + 1 + indicatorWidth;
 
       if (this._font) {
@@ -231,7 +402,12 @@ export class SelectComponent extends Component {
       if (this._showDescription && itemY + this.fontHeight < contentY + contentHeight) {
         const descColor = isSelected ? this._selectedDescriptionColor : this._descriptionColor
         const descBg = this._focused ? this._focusedBackgroundColor : this._backgroundColor
-        this.frameBuffer.drawText(option.description, descX, itemY + this.fontHeight, descColor)
+
+        // Calculate available width for description
+        const availableWidth = contentWidth - descX - 1
+        const truncatedDescription = this.truncateText(option.description, availableWidth, this._descriptionTruncate)
+
+        this.frameBuffer.drawText(truncatedDescription, descX, itemY + this.fontHeight, descColor)
       }
     }
 
@@ -366,6 +542,9 @@ export class SelectComponent extends Component {
   }
 
   public handleKeyPress(key: ParsedKey | string): boolean {
+    // Don't handle keyboard input when disabled
+    if (this._disabled) return false
+    
     const keyName = typeof key === "string" ? key : key.name
     const isShift = typeof key !== "string" && key.shift
 
@@ -427,64 +606,128 @@ export class SelectComponent extends Component {
     this._wrapSelection = wrap
   }
 
-  public set backgroundColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor)
+  public set backgroundColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.backgroundColor, themeResolver)
     if (this._backgroundColor !== newColor) {
       this._backgroundColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set textColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.textColor)
+  public set textColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.textColor, themeResolver)
     if (this._textColor !== newColor) {
       this._textColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set focusedBackgroundColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.focusedBackgroundColor)
+  public set focusedBackgroundColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.focusedBackgroundColor, themeResolver)
     if (this._focusedBackgroundColor !== newColor) {
       this._focusedBackgroundColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set focusedTextColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.focusedTextColor)
+  public set focusedTextColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.focusedTextColor, themeResolver)
     if (this._focusedTextColor !== newColor) {
       this._focusedTextColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set selectedBackgroundColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.selectedBackgroundColor)
+  public set selectedBackgroundColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.selectedBackgroundColor, themeResolver)
     if (this._selectedBackgroundColor !== newColor) {
       this._selectedBackgroundColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set selectedTextColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.selectedTextColor)
+  public set selectedTextColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.selectedTextColor, themeResolver)
     if (this._selectedTextColor !== newColor) {
       this._selectedTextColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set descriptionColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.descriptionColor)
+  public set descriptionColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.descriptionColor, themeResolver)
     if (this._descriptionColor !== newColor) {
       this._descriptionColor = newColor
       this.needsUpdate()
     }
   }
 
-  public set selectedDescriptionColor(value: ColorInput) {
-    const newColor = parseColor(value ?? this._defaultOptions.selectedDescriptionColor)
+  public set selectedDescriptionColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.selectedDescriptionColor, themeResolver)
     if (this._selectedDescriptionColor !== newColor) {
       this._selectedDescriptionColor = newColor
       this.needsUpdate()
@@ -526,13 +769,24 @@ export class SelectComponent extends Component {
     this._fastScrollStep = step
   }
 
-  public get indicator(): string {
+  public get indicator(): string | undefined {
     return this._indicator
   }
 
   public set indicator(value: string) {
     if (this._indicator !== value) {
       this._indicator = value
+      this.needsUpdate()
+    }
+  }
+
+  public get descriptionTruncate(): DescriptionTruncate {
+    return this._descriptionTruncate
+  }
+
+  public set descriptionTruncate(value: DescriptionTruncate) {
+    if (this._descriptionTruncate !== value) {
+      this._descriptionTruncate = value
       this.needsUpdate()
     }
   }

@@ -40,3 +40,15 @@ export interface SelectionState {
   isActive: boolean
   isSelecting: boolean
 }
+
+export type ParsedKey = {
+  name: string;
+  ctrl: boolean;
+  meta: boolean;
+  shift: boolean;
+  option: boolean;
+  sequence: string;
+  number: boolean;
+  raw: string;
+  code?: string;
+}

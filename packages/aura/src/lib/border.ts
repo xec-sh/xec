@@ -1,4 +1,4 @@
-import type { ColorInput } from "./colors.js"
+import type { Color } from "./colors.js"
 
 export interface BorderCharacters {
   topLeft: string
@@ -75,7 +75,7 @@ export const BorderChars: Record<BorderStyle, BorderCharacters> = {
 export interface BorderConfig {
   borderStyle: BorderStyle
   border: boolean | BorderSides[]
-  borderColor?: ColorInput
+  borderColor?: Color
   customBorderChars?: BorderCharacters
 }
 
@@ -86,9 +86,9 @@ export interface BoxDrawOptions {
   height: number
   borderStyle: BorderStyle
   border: boolean | BorderSides[]
-  borderColor: ColorInput
+  borderColor: Color
   customBorderChars?: BorderCharacters
-  backgroundColor: ColorInput
+  backgroundColor: Color
   shouldFill?: boolean
   title?: string
   titleAlignment?: "left" | "center" | "right"

@@ -1,6 +1,6 @@
 import { getKeyHandler } from "../../src/lib/key-handler.js"
 
-import type { ParsedKey, Renderer } from "../../src/index.js"
+import type { Renderer, ParsedKey } from "../../src/index.js"
 
 export function setupCommonDemoKeys(renderer: Renderer) {
   getKeyHandler().on("keypress", (key: ParsedKey) => {

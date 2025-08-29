@@ -17,8 +17,7 @@ import {
   type FlexDirectionString,
 } from "./lib/yoga.options.js"
 
-import type { ParsedKey } from "./lib/parse.keypress.js"
-import type { RenderContext, SelectionState } from "./types.js"
+import type { ParsedKey, RenderContext, SelectionState } from "./types.js"
 
 export enum LayoutEvents {
   LAYOUT_CHANGED = "layout-changed",
@@ -76,6 +75,7 @@ export interface ComponentProps extends Partial<LayoutProps> {
   visible?: boolean
   buffered?: boolean;
   live?: boolean
+  disabled?: boolean
 
   onMouseDown?: (event: MouseEvent) => void
   onMouseUp?: (event: MouseEvent) => void
@@ -189,6 +189,7 @@ export abstract class Component extends EventEmitter {
 
   protected focusable: boolean = false
   protected _focused: boolean = false
+  protected _disabled: boolean = false
   protected keyHandler: KeyHandler = getKeyHandler()
   protected keypressHandler: ((key: ParsedKey) => void) | null = null;
   private _live: boolean = false
@@ -227,6 +228,7 @@ export abstract class Component extends EventEmitter {
 
     this._zIndex = options.zIndex ?? 0;
     this._visible = options.visible !== false;
+    this._disabled = options.disabled ?? false;
     this.buffered = options.buffered ?? false;
     this._live = options.live ?? false
     this._liveCount = this._live && this._visible ? 1 : 0
@@ -290,7 +292,7 @@ export abstract class Component extends EventEmitter {
   }
 
   public focus(): void {
-    if (this._focused || !this.focusable) return
+    if (this._focused || !this.focusable || this._disabled) return
 
     this._focused = true
     this.needsUpdate()
@@ -322,6 +324,23 @@ export abstract class Component extends EventEmitter {
 
   public get focused(): boolean {
     return this._focused
+  }
+
+  public get disabled(): boolean {
+    return this._disabled
+  }
+
+  public set disabled(value: boolean) {
+    if (this._disabled === value) return
+    
+    this._disabled = value
+    
+    // If becoming disabled while focused, blur
+    if (value && this._focused) {
+      this.blur()
+    }
+    
+    this.needsUpdate()
   }
 
   public get live(): boolean {
@@ -1073,6 +1092,7 @@ export abstract class Component extends EventEmitter {
     if (handler) this._keyListeners["down"] = handler
     else delete this._keyListeners["down"]
   }
+
   public get onKeyDown(): ((key: ParsedKey) => void) | undefined {
     return this._keyListeners["down"]
   }

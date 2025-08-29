@@ -1,7 +1,5 @@
 import { aura, TextAttributes } from "@xec-sh/aura";
 
-import { UI_BORDER_COLOR, UI_BORDER_ACTIVE_COLOR } from "../consts.js";
-
 export function MainComponent() {
 
   return aura('group', {
@@ -18,16 +16,16 @@ export function MainComponent() {
         flexShrink: 1,
         flexDirection: 'column',
         border: true,
-        borderColor: UI_BORDER_ACTIVE_COLOR,
+        borderColor: 'focus',
         children: [
           aura('text', {
             content: 'Hello, Aura Next!',
-            fg: 'green',
+            fg: 'primary',
             attributes: TextAttributes.BOLD
           }),
           aura('text', {
             content: 'Hello, Aura Next! ha ha ha ha na!',
-            fg: 'green',
+            fg: 'primary',
             attributes: TextAttributes.BOLD
           })
         ]
@@ -45,7 +43,7 @@ export function MainComponent() {
             flexShrink: 1,
             flexDirection: 'column',
             border: true,
-            borderColor: UI_BORDER_COLOR,
+            borderColor: 'border',
           }),
           aura('box', {
             width: 'auto',
@@ -55,7 +53,7 @@ export function MainComponent() {
             flexShrink: 1,
             flexDirection: 'column',
             border: true,
-            borderColor: UI_BORDER_COLOR,
+            borderColor: 'border',
           }),
           aura('box', {
             width: 'auto',
@@ -65,7 +63,7 @@ export function MainComponent() {
             flexShrink: 1,
             flexDirection: 'column',
             border: true,
-            borderColor: UI_BORDER_COLOR,
+            borderColor: 'border',
           })
         ]
       }),

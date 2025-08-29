@@ -5,11 +5,11 @@ import {
   t,
   fg,
   bold,
+  type Renderer,
   GroupComponent,
+  createRenderer,
   SelectComponent,
   RenderableEvents,
-  type Renderer,
-  createRenderer,
   type SelectOption,
   SelectComponentEvents,
 } from "../src/index"

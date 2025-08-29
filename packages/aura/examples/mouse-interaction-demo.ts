@@ -12,8 +12,8 @@ import {
   createTimeline,
   createRenderer,
   type MouseEvent,
-  type RenderContext,
   OptimizedBuffer,
+  type RenderContext,
   FrameBufferComponent,
 } from "../src/index"
 
@@ -299,6 +299,9 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
           this.activatedCells.add(cellKey)
         }
         break
+
+      default:
+        break
     }
   }
 
@@ -317,7 +320,8 @@ export function run(renderer: Renderer): void {
     engine.update(deltaTime)
   })
 
-  titleText = new TextComponent(renderer.root.ctx, { id: "mouse_demo_title",
+  titleText = new TextComponent(renderer.root.ctx, {
+    id: "mouse_demo_title",
     content: "Mouse Interaction Demo with Draggable Objects",
     width: "100%",
     position: "absolute",
@@ -329,7 +333,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(titleText)
 
-  instructionsText = new TextComponent(renderer.root.ctx, { id: "mouse_demo_instructions",
+  instructionsText = new TextComponent(renderer.root.ctx, {
+    id: "mouse_demo_instructions",
     content: t`Drag boxes around • Move mouse: turquoise trails
 Hold + move: orange drag trails • Click cells: toggle pink
 Scroll on boxes: shows direction • Escape: menu`,

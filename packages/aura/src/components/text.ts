@@ -1,20 +1,23 @@
 import { MeasureMode } from "yoga-layout"
 
-import { RGBA, parseColor } from "../lib/colors.js"
+import { useTheme } from "../theme/context.js"
 import { TextBuffer } from "../renderer/text-buffer.js"
 import { TextSelectionHelper } from "../lib/selection.js"
+import { RGBA, Color, parseColor } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
 import { StyledText, stringToStyledText } from "../lib/styled-text.js"
 
+// TextTheme import removed - using global theme only
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 import type { RenderContext, SelectionState } from "../types.js"
 
 export interface TextProps extends ComponentProps {
+  // Color properties - can be theme tokens or direct colors
   content?: StyledText | string
-  fg?: string | RGBA
-  bg?: string | RGBA
-  selectionBg?: string | RGBA
-  selectionFg?: string | RGBA
+  fg?: Color
+  bg?: Color
+  selectionBg?: Color
+  selectionFg?: Color
   selectable?: boolean
   attributes?: number
 }
@@ -45,11 +48,55 @@ export class TextComponent extends Component {
 
     const content = options.content ?? ""
     this._text = typeof content === "string" ? stringToStyledText(content) : content
-    this._defaultFg = options.fg ? parseColor(options.fg) : RGBA.fromValues(1, 1, 1, 1)
-    this._defaultBg = options.bg ? parseColor(options.bg) : RGBA.fromValues(0, 0, 0, 0)
+
+    // Get theme and resolve colors
+    const themeContext = useTheme()
+    const componentTheme = themeContext.components?.text
+    
+    // Helper function to resolve color (tries theme token first, then direct color)
+    const resolveColorValue = (value: Color | undefined): RGBA | undefined => {
+      if (!value) return undefined
+      try {
+        // Try as theme token first
+        return themeContext.resolveColor(value)
+      } catch {
+        // Fall back to parsing as direct color
+        return parseColor(value)
+      }
+    }
+    
+    // Resolve foreground color
+    if (options.fg) {
+      this._defaultFg = resolveColorValue(options.fg)!
+    } else if (componentTheme?.foreground) {
+      this._defaultFg = themeContext.resolveColor(componentTheme.foreground)
+    } else {
+      this._defaultFg = themeContext.resolveColor('foreground')
+    }
+
+    // Resolve background color
+    if (options.bg) {
+      this._defaultBg = resolveColorValue(options.bg)!
+    } else if (componentTheme?.background) {
+      this._defaultBg = themeContext.resolveColor(componentTheme.background)
+    } else {
+      this._defaultBg = RGBA.fromValues(0, 0, 0, 0) // Transparent by default
+    }
+
+    // Resolve selection colors
+    this._selectionBg = options.selectionBg
+      ? resolveColorValue(options.selectionBg)
+      : componentTheme?.selection?.background
+      ? themeContext.resolveColor(componentTheme.selection.background)
+      : undefined
+    
+    this._selectionFg = options.selectionFg
+      ? resolveColorValue(options.selectionFg)
+      : componentTheme?.selection?.foreground
+      ? themeContext.resolveColor(componentTheme.selection.foreground)
+      : undefined
+
     this._defaultAttributes = options.attributes ?? 0
-    this._selectionBg = options.selectionBg ? parseColor(options.selectionBg) : undefined
-    this._selectionFg = options.selectionFg ? parseColor(options.selectionFg) : undefined
     this.selectable = options.selectable ?? true
 
     this.textBuffer = TextBuffer.create(64)
@@ -77,7 +124,15 @@ export class TextComponent extends Component {
 
   set fg(value: RGBA | string | undefined) {
     if (value) {
-      this._defaultFg = parseColor(value)
+      // Check if it's a theme color token
+      const themeContext = useTheme()
+      try {
+        // Try to resolve as theme color first
+        this._defaultFg = themeContext.resolveColor(value)
+      } catch {
+        // Fall back to parsing as direct color
+        this._defaultFg = parseColor(value)
+      }
       this.textBuffer.setDefaultFg(this._defaultFg)
       this.needsUpdate()
     }
@@ -89,7 +144,15 @@ export class TextComponent extends Component {
 
   set bg(value: RGBA | string | undefined) {
     if (value) {
-      this._defaultBg = parseColor(value)
+      // Check if it's a theme color token
+      const themeContext = useTheme()
+      try {
+        // Try to resolve as theme color first
+        this._defaultBg = themeContext.resolveColor(value)
+      } catch {
+        // Fall back to parsing as direct color
+        this._defaultBg = parseColor(value)
+      }
       this.textBuffer.setDefaultBg(this._defaultBg)
       this.needsUpdate()
     }

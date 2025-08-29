@@ -1,9 +1,10 @@
+import { useTheme } from "../theme/context.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
+import { RGBA, parseColor, type Color } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
-import { RGBA, parseColor, type ColorInput } from "../lib/colors.js"
 
-import type { RenderContext } from "../types.js"
-import type { ParsedKey } from "../lib/parse.keypress.js"
+// TabsTheme import removed - using global theme only
+import type { ParsedKey, RenderContext } from "../types.js"
 
 export interface TabsOption {
   name: string
@@ -13,15 +14,17 @@ export interface TabsOption {
 
 export interface TabsProps extends Omit<ComponentProps, "height"> {
   height?: number
+
+  // Color properties - can be theme tokens or direct colors
   options?: TabsOption[]
   tabWidth?: number
-  backgroundColor?: ColorInput
-  textColor?: ColorInput
-  focusedBackgroundColor?: ColorInput
-  focusedTextColor?: ColorInput
-  selectedBackgroundColor?: ColorInput
-  selectedTextColor?: ColorInput
-  selectedDescriptionColor?: ColorInput
+  backgroundColor?: Color
+  textColor?: Color
+  focusedBackgroundColor?: Color
+  focusedTextColor?: Color
+  selectedBackgroundColor?: Color
+  selectedTextColor?: Color
+  selectedDescriptionColor?: Color
   showScrollArrows?: boolean
   showDescription?: boolean
   showUnderline?: boolean
@@ -63,6 +66,8 @@ export class TabsComponent extends Component {
   private _selectedBackgroundColor: RGBA
   private _selectedTextColor: RGBA
   private _selectedDescriptionColor: RGBA
+  private _disabledBackgroundColor?: RGBA
+  private _disabledTextColor?: RGBA
   private _showScrollArrows: boolean
   private _showDescription: boolean
   private _showUnderline: boolean
@@ -73,10 +78,80 @@ export class TabsComponent extends Component {
 
     super(ctx, { ...options, height: calculatedHeight, buffered: true })
 
-    this._backgroundColor = parseColor(options.backgroundColor || "transparent")
-    this._textColor = parseColor(options.textColor || "#FFFFFF")
-    this._focusedBackgroundColor = parseColor(options.focusedBackgroundColor || options.backgroundColor || "#1a1a1a")
-    this._focusedTextColor = parseColor(options.focusedTextColor || options.textColor || "#FFFFFF")
+    // Get theme and resolve colors
+    const themeContext = useTheme()
+
+    // Use global theme instead of theme prop
+
+    // Resolve colors from props with theme fallbacks
+    const tabsTheme = themeContext.components?.tabs
+
+    // Helper function to resolve color
+    const resolveColorValue = (value: Color | undefined, fallback?: string): RGBA => {
+      if (value) {
+        try {
+          return themeContext.resolveColor(value)
+        } catch {
+          return parseColor(value)
+        }
+      }
+      return parseColor(fallback || "transparent")
+    }
+
+    // Resolve colors from props with theme fallbacks
+    this._backgroundColor = resolveColorValue(
+      options.backgroundColor,
+      tabsTheme?.background ? themeContext.resolveColor(tabsTheme.background).toHex() : "transparent"
+    )
+
+    this._textColor = resolveColorValue(
+      options.textColor,
+      tabsTheme?.foreground ? themeContext.resolveColor(tabsTheme.foreground).toHex() : "#FFFFFF"
+    )
+
+    // Resolve focused/hover state colors
+    this._focusedBackgroundColor = resolveColorValue(
+      options.focusedBackgroundColor || options.backgroundColor,
+      tabsTheme?.states?.hover?.background
+        ? themeContext.resolveColor(tabsTheme.states.hover.background).toHex()
+        : "#1a1a1a"
+    )
+
+    this._focusedTextColor = resolveColorValue(
+      options.focusedTextColor || options.textColor,
+      tabsTheme?.states?.hover?.foreground
+        ? themeContext.resolveColor(tabsTheme.states.hover.foreground).toHex()
+        : "#FFFFFF"
+    )
+
+    // Resolve active/selected state colors
+    this._selectedBackgroundColor = resolveColorValue(
+      options.selectedBackgroundColor,
+      tabsTheme?.states?.active?.background
+        ? themeContext.resolveColor(tabsTheme.states.active.background).toHex()
+        : "#334455"
+    )
+
+    this._selectedTextColor = resolveColorValue(
+      options.selectedTextColor,
+      tabsTheme?.states?.active?.foreground
+        ? themeContext.resolveColor(tabsTheme.states.active.foreground).toHex()
+        : "#FFFF00"
+    )
+
+    // Description color
+    this._selectedDescriptionColor = parseColor(options.selectedDescriptionColor || "#CCCCCC")
+
+    // Resolve disabled state colors
+    this._disabledBackgroundColor = tabsTheme?.states?.disabled?.background
+      ? themeContext.resolveColor(tabsTheme.states.disabled.background)
+      : undefined
+
+    this._disabledTextColor = tabsTheme?.states?.disabled?.foreground
+      ? themeContext.resolveColor(tabsTheme.states.disabled.foreground)
+      : undefined
+
+
     this._options = options.options || []
     this._tabWidth = options.tabWidth || 20
     this._showDescription = options.showDescription ?? true
@@ -85,10 +160,6 @@ export class TabsComponent extends Component {
     this._wrapSelection = options.wrapSelection ?? false
 
     this.maxVisibleTabs = Math.max(1, Math.floor(this.width / this._tabWidth))
-
-    this._selectedBackgroundColor = parseColor(options.selectedBackgroundColor || "#334455")
-    this._selectedTextColor = parseColor(options.selectedTextColor || "#FFFF00")
-    this._selectedDescriptionColor = parseColor(options.selectedDescriptionColor || "#CCCCCC")
   }
 
   private calculateDynamicHeight(): number {
@@ -106,8 +177,14 @@ export class TabsComponent extends Component {
   private refreshFrameBuffer(): void {
     if (!this.frameBuffer || this._options.length === 0) return
 
-    // Use focused colors if focused
-    const bgColor = this._focused ? this._focusedBackgroundColor : this._backgroundColor
+    // Apply state-based colors
+    let bgColor = this._backgroundColor
+    if (this._disabled) {
+      bgColor = this._disabledBackgroundColor || this._backgroundColor
+    } else if (this._focused) {
+      bgColor = this._focusedBackgroundColor
+    }
+
     this.frameBuffer.clear(bgColor)
 
     const contentX = 0
@@ -132,8 +209,13 @@ export class TabsComponent extends Component {
         this.frameBuffer.fillRect(tabX, contentY, actualTabWidth, 1, this._selectedBackgroundColor)
       }
 
-      const baseTextColor = this._focused ? this._focusedTextColor : this._textColor
-      const nameColor = isSelected ? this._selectedTextColor : baseTextColor
+      let baseTextColor = this._textColor
+      if (this._disabled) {
+        baseTextColor = this._disabledTextColor || this._textColor
+      } else if (this._focused) {
+        baseTextColor = this._focusedTextColor
+      }
+      const nameColor = isSelected && !this._disabled ? this._selectedTextColor : baseTextColor
       const nameContent = this.truncateText(option.name, actualTabWidth - 2)
       this.frameBuffer.drawText(nameContent, tabX + 1, contentY, nameColor)
 
@@ -159,7 +241,8 @@ export class TabsComponent extends Component {
     }
   }
 
-  private truncateText(text: string, maxWidth: number): string {
+  private truncateText(text: string | undefined, maxWidth: number): string {
+    if (!text) return ""
     if (text.length <= maxWidth) return text
     return text.substring(0, Math.max(0, maxWidth - 1)) + "…"
   }
@@ -277,6 +360,9 @@ export class TabsComponent extends Component {
   }
 
   public handleKeyPress(key: ParsedKey | string): boolean {
+    // Don't handle keyboard input when disabled
+    if (this._disabled) return false
+
     const keyName = typeof key === "string" ? key : key.name
 
     switch (keyName) {
@@ -310,37 +396,37 @@ export class TabsComponent extends Component {
     this.needsUpdate()
   }
 
-  public set backgroundColor(color: ColorInput) {
+  public set backgroundColor(color: Color) {
     this._backgroundColor = parseColor(color)
     this.needsUpdate()
   }
 
-  public set textColor(color: ColorInput) {
+  public set textColor(color: Color) {
     this._textColor = parseColor(color)
     this.needsUpdate()
   }
 
-  public set focusedBackgroundColor(color: ColorInput) {
+  public set focusedBackgroundColor(color: Color) {
     this._focusedBackgroundColor = parseColor(color)
     this.needsUpdate()
   }
 
-  public set focusedTextColor(color: ColorInput) {
+  public set focusedTextColor(color: Color) {
     this._focusedTextColor = parseColor(color)
     this.needsUpdate()
   }
 
-  public set selectedBackgroundColor(color: ColorInput) {
+  public set selectedBackgroundColor(color: Color) {
     this._selectedBackgroundColor = parseColor(color)
     this.needsUpdate()
   }
 
-  public set selectedTextColor(color: ColorInput) {
+  public set selectedTextColor(color: Color) {
     this._selectedTextColor = parseColor(color)
     this.needsUpdate()
   }
 
-  public set selectedDescriptionColor(color: ColorInput) {
+  public set selectedDescriptionColor(color: Color) {
     this._selectedDescriptionColor = parseColor(color)
     this.needsUpdate()
   }

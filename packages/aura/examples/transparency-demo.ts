@@ -21,10 +21,13 @@ let nextZIndex = 101
 let draggableBoxes: DraggableTransparentBox[] = []
 
 class DraggableTransparentBox extends BoxComponent {
+  // protected focusable: boolean = false;
   private isDragging = false
   private dragOffsetX = 0
   private dragOffsetY = 0
   private alphaPercentage: number
+  private centerX: number
+  private centerY: number
 
   constructor(ctx: RenderContext, id: string, x: number, y: number, width: number, height: number, bg: RGBA, zIndex: number) {
     super(ctx, {
@@ -40,16 +43,22 @@ class DraggableTransparentBox extends BoxComponent {
       border: true,
     })
     this.alphaPercentage = Math.round(bg.a * 100)
+    this.centerX = x + width / 2
+    this.centerY = y + height / 2
   }
 
   protected renderSelf(buffer: OptimizedBuffer): void {
+    // Recalculate position from center
+    this.x = Math.round(this.centerX - this.width / 2)
+    this.y = Math.round(this.centerY - this.height / 2)
+
     super.renderSelf(buffer)
 
     const alphaText = `${this.alphaPercentage}%`
-    const centerX = this.x + Math.floor(this.width / 2 - alphaText.length / 2)
-    const centerY = this.y + Math.floor(this.height / 2)
+    const textCenterX = this.x + Math.floor(this.width / 2 - alphaText.length / 2)
+    const textCenterY = this.y + Math.floor(this.height / 2)
 
-    buffer.drawText(alphaText, centerX, centerY, RGBA.fromInts(255, 255, 255, 220))
+    buffer.drawText(alphaText, textCenterX, textCenterY, RGBA.fromInts(255, 255, 255, 220))
   }
 
   protected onMouseEvent(event: MouseEvent): void {
@@ -71,14 +80,20 @@ class DraggableTransparentBox extends BoxComponent {
 
       case "drag":
         if (this.isDragging) {
-          this.x = event.x - this.dragOffsetX
-          this.y = event.y - this.dragOffsetY
+          const newX = event.x - this.dragOffsetX
+          const newY = event.y - this.dragOffsetY
 
-          this.x = Math.max(0, Math.min(this.x, (this.ctx.width || 80) - this.width))
-          this.y = Math.max(4, Math.min(this.y, (this.ctx.height || 24) - this.height))
+          const boundedX = Math.max(0, Math.min(newX, (this.ctx.width || 80) - this.width))
+          const boundedY = Math.max(4, Math.min(newY, (this.ctx.height || 24) - this.height))
+
+          this.centerX = boundedX + this.width / 2
+          this.centerY = boundedY + this.height / 2
 
           event.preventDefault()
         }
+        break
+
+      default:
         break
     }
   }
@@ -88,7 +103,8 @@ export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#0A0E14")
 
-  const parentContainer = new GroupComponent(renderer.root.ctx, { id: "parent-container",
+  const parentContainer = new GroupComponent(renderer.root.ctx, {
+    id: "parent-container",
     zIndex: 10,
     visible: true,
   })
@@ -97,7 +113,8 @@ export function run(renderer: Renderer): void {
   const headerText = t`${bold(underline(fg("#00D4AA")("Interactive Alpha Transparency & Blending Demo - Drag the boxes!")))}
 ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch how transparency layers blend")}`
 
-  const headerDisplay = new TextComponent(renderer.root.ctx, { id: "header-text",
+  const headerDisplay = new TextComponent(renderer.root.ctx, {
+    id: "header-text",
     content: headerText,
     width: 85,
     height: 3,
@@ -109,7 +126,8 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   })
   parentContainer.add(headerDisplay)
 
-  const textUnderAlpha = new TextComponent(renderer.root.ctx, { id: "text-under-alpha",
+  const textUnderAlpha = new TextComponent(renderer.root.ctx, {
+    id: "text-under-alpha",
     content: "This text should not be selectable",
     position: "absolute",
     left: 10,
@@ -121,7 +139,8 @@ ${fg("#A8A8B2")("Click and drag any transparent box to move it around • Watch 
   })
   parentContainer.add(textUnderAlpha)
 
-  const moreTextUnder = new TextComponent(renderer.root.ctx, { id: "more-text-under",
+  const moreTextUnder = new TextComponent(renderer.root.ctx, {
+    id: "more-text-under",
     content: "Selectable text to show character preservation",
     position: "absolute",
     left: 15,

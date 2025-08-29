@@ -1,6 +1,6 @@
 import { OptimizedBuffer } from "../../src/renderer/buffer.js"
 import { GroupComponent } from "../../src/components/index.js"
-import { parseColor, type ColorInput } from "../../src/lib/colors.js"
+import { parseColor, type Color } from "../../src/lib/colors.js"
 import { TabsComponent, TabsComponentEvents } from "../../src/components/tabs.js"
 import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
 
@@ -22,13 +22,13 @@ interface Tab {
 }
 
 export interface TabControllerOptions extends ComponentProps {
-  backgroundColor?: ColorInput
-  textColor?: ColorInput
+  backgroundColor?: Color
+  textColor?: Color
   tabBarHeight?: number
-  tabBarBackgroundColor?: ColorInput
-  selectedBackgroundColor?: ColorInput
-  selectedTextColor?: ColorInput
-  selectedDescriptionColor?: ColorInput
+  tabBarBackgroundColor?: Color
+  selectedBackgroundColor?: Color
+  selectedTextColor?: Color
+  selectedDescriptionColor?: Color
   showDescription?: boolean
   showUnderline?: boolean
   showScrollArrows?: boolean
@@ -55,7 +55,8 @@ export class TabControllerRenderable extends Component {
 
     this.tabBarHeight = options.tabBarHeight || 4
 
-    this.tabSelectElement = new TabsComponent(ctx, { id: `${id}-tabs`,
+    this.tabSelectElement = new TabsComponent(ctx, {
+      id: `${id}-tabs`,
       width: "100%",
       height: this.tabBarHeight,
       options: [],
@@ -83,7 +84,8 @@ export class TabControllerRenderable extends Component {
   }
 
   public addTab(tabObject: TabObject): Tab {
-    const tabGroup = new GroupComponent(this.ctx, { id: `${this.id}-tab-${this.tabs.length}`,
+    const tabGroup = new GroupComponent(this.ctx, {
+      id: `${this.id}-tab-${this.tabs.length}`,
       position: "absolute",
       left: 0,
       top: this.tabBarHeight,

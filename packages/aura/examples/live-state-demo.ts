@@ -15,8 +15,8 @@ import {
   TextAttributes,
   createRenderer,
   type MouseEvent,
-  type RenderContext,
   OptimizedBuffer,
+  type RenderContext,
 } from "../src/index.js"
 
 import type { BoxProps } from "../src/components/box.js"
@@ -151,7 +151,8 @@ function addDemoRenderable(renderer: Renderer): void {
     return
   }
 
-  demoRenderable = new BoxComponent(renderer.root.ctx, { id: "demo-renderable",
+  demoRenderable = new BoxComponent(renderer.root.ctx, {
+    id: "demo-renderable",
     position: "absolute",
     left: 60,
     top: 15,
@@ -185,7 +186,8 @@ export function run(renderer: Renderer): void {
   const backgroundColor = RGBA.fromInts(25, 30, 45, 255)
   renderer.setBackgroundColor(backgroundColor)
 
-  titleText = new TextComponent(renderer.root.ctx, { id: "live_demo_title",
+  titleText = new TextComponent(renderer.root.ctx, {
+    id: "live_demo_title",
     content: "Live State Management Demo",
     position: "absolute",
     left: 2,
@@ -196,7 +198,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(titleText)
 
-  instructionsText = new TextComponent(renderer.root.ctx, { id: "live_demo_instructions",
+  instructionsText = new TextComponent(renderer.root.ctx, {
+    id: "live_demo_instructions",
     content: "Test the live state management system • Escape: return to menu",
     position: "absolute",
     left: 2,
@@ -206,7 +209,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(instructionsText)
 
-  statusText = new TextComponent(renderer.root.ctx, { id: "live_demo_status",
+  statusText = new TextComponent(renderer.root.ctx, {
+    id: "live_demo_status",
     content: "Ready - Click buttons to test live state management",
     position: "absolute",
     left: 2,
@@ -217,7 +221,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(statusText)
 
-  rendererStateText = new TextComponent(renderer.root.ctx, { id: "renderer_state",
+  rendererStateText = new TextComponent(renderer.root.ctx, {
+    id: "renderer_state",
     content: "",
     position: "absolute",
     left: 2,
@@ -227,7 +232,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(rendererStateText)
 
-  renderableStateText = new TextComponent(renderer.root.ctx, { id: "renderable_state",
+  renderableStateText = new TextComponent(renderer.root.ctx, {
+    id: "renderable_state",
     content: "",
     position: "absolute",
     left: 2,
@@ -409,7 +415,8 @@ export function run(renderer: Renderer): void {
   }
 
   // Add section labels
-  const rendererLabel = new TextComponent(renderer.root.ctx, { id: "renderer_label",
+  const rendererLabel = new TextComponent(renderer.root.ctx, {
+    id: "renderer_label",
     content: "Renderer Control:",
     position: "absolute",
     left: 2,
@@ -420,7 +427,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(rendererLabel)
 
-  const renderableLabel = new TextComponent(renderer.root.ctx, { id: "renderable_label",
+  const renderableLabel = new TextComponent(renderer.root.ctx, {
+    id: "renderable_label",
     content: "Renderable Management:",
     position: "absolute",
     left: 2,
@@ -431,7 +439,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(renderableLabel)
 
-  const liveLabel = new TextComponent(renderer.root.ctx, { id: "live_label",
+  const liveLabel = new TextComponent(renderer.root.ctx, {
+    id: "live_label",
     content: "Live State Control:",
     position: "absolute",
     left: 2,
@@ -442,7 +451,8 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(liveLabel)
 
-  const visibilityLabel = new TextComponent(renderer.root.ctx, { id: "visibility_label",
+  const visibilityLabel = new TextComponent(renderer.root.ctx, {
+    id: "visibility_label",
     content: "Visibility Control:",
     position: "absolute",
     left: 2,
