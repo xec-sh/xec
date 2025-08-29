@@ -134,8 +134,6 @@ export const parseKeypress = (s: Buffer | string = ""): ParsedKey => {
     raw: s,
   }
 
-  key.sequence = key.sequence || s || key.name
-
   if (s === "\r") {
     // carriage return
     key.name = "return"
@@ -145,11 +143,12 @@ export const parseKeypress = (s: Buffer | string = ""): ParsedKey => {
   } else if (s === "\t") {
     // tab
     key.name = "tab"
-  } else if (s === "\b" || s === "\x1b\b" || s === "\x7f" || s === "\x1b\x7f") {
+  } else if (s === "\b" || s === "\x1b\b" || s === "\x7f") {
     // backspace or ctrl+h
     // On OSX, \x7f is also backspace
     key.name = "backspace"
-    key.meta = s.charAt(0) === "\x1b"
+    key.meta = s === "\x1b\b"  // Only set meta for \x1b\b
+    // Note: \x1b\x7f is handled separately as Option+Backspace
   } else if (s === "\x1b" || s === "\x1b\x1b") {
     // escape key
     key.name = "escape"
@@ -175,11 +174,72 @@ export const parseKeypress = (s: Buffer | string = ""): ParsedKey => {
   } else if (s.length === 1) {
     // Special characters (like $, ^, etc.) - preserve the character
     key.name = s
-  } else if ((parts = metaKeyCodeRe.exec(s))) {
-    // meta+character key
+  } else if (s === "\x1b\x1b[3~") {
+    // Option+Delete on macOS (double escape) - handle before metaKeyCodeRe
+    key.name = "delete"
+    key.option = true
+    key.code = "[3~"
+  } else if (s === "\x1b\x7f") {
+    // Option+Backspace on macOS - handle before metaKeyCodeRe
+    key.name = "backspace"
+    key.option = true
+  } else if (s === "\x1b[1;9D") {
+    // Cmd+Left on macOS - handle before fnKeyRe
+    key.name = "left"
     key.meta = true
-    key.shift = /^[A-Z]$/.test(parts[1]!)
-    key.name = parts[1]
+  } else if (s === "\x1b[1;9C") {
+    // Cmd+Right on macOS - handle before fnKeyRe
+    key.name = "right"
+    key.meta = true
+  } else if (s === "\x1b[1;3D") {
+    // Option+Left on macOS - handle before fnKeyRe
+    key.name = "left"
+    key.option = true
+  } else if (s === "\x1b[1;3C") {
+    // Option+Right on macOS - handle before fnKeyRe
+    key.name = "right"
+    key.option = true
+  } else if (s === "\x1b[H" || s === "\x1b[1~") {
+    // Home key (Cmd+Left on some terminals)
+    key.name = "home"
+  } else if (s === "\x1b[F" || s === "\x1b[4~") {
+    // End key (Cmd+Right on some terminals)
+    key.name = "end"
+  } else if ((parts = metaKeyCodeRe.exec(s))) {
+    // meta+character key or Option key on macOS
+    const char = parts[1]!
+    
+    // Check for macOS Option+Arrow sequences
+    if (char === 'b') {
+      // Option+Left
+      key.name = 'left'
+      key.option = true
+    } else if (char === 'f') {
+      // Option+Right
+      key.name = 'right'
+      key.option = true
+    } else if (char === 'p') {
+      // Option+Up
+      key.name = 'up'
+      key.option = true
+    } else if (char === 'n') {
+      // Option+Down
+      key.name = 'down'
+      key.option = true
+    } else if (char === '\x7f' || char === '\x08') {
+      // Option+Backspace
+      key.name = 'backspace'
+      key.option = true
+    } else if (char === 'd') {
+      // Option+d (delete word forward)
+      key.name = 'delete'
+      key.option = true
+    } else {
+      // Regular meta+character
+      key.meta = true
+      key.shift = /^[A-Z]$/.test(char)
+      key.name = char
+    }
   } else if ((parts = fnKeyRe.exec(s))) {
     const segs = [...s]
 
@@ -195,10 +255,15 @@ export const parseKeypress = (s: Buffer | string = ""): ParsedKey => {
     const modifier = ((parts[3] || parts[5] || 1) as number) - 1
 
     // Parse the key modifier
-    key.ctrl = !!(modifier & 4)
-    key.meta = !!(modifier & 10)
+    // ANSI modifier flags:
+    // 1 = Shift
+    // 2 = Alt/Option
+    // 4 = Ctrl
+    // 8 = Meta/Cmd (on macOS)
     key.shift = !!(modifier & 1)
-    key.option = !!(modifier & 2) // Add option/alt modifier detection
+    key.option = !!(modifier & 2) // Alt/Option
+    key.ctrl = !!(modifier & 4)
+    key.meta = !!(modifier & 8) // Meta/Cmd on macOS
     key.code = code
 
     key.name = keyName[code]!

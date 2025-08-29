@@ -103,7 +103,7 @@ function validateProps(id: string, props: ComponentProps): void {
   }
 }
 
-function isValidPercentage(value: any): value is `${number}%` {
+export function isValidPercentage(value: any): value is `${number}%` {
   if (typeof value === "string" && value.endsWith("%")) {
     const numPart = value.slice(0, -1)
     const num = parseFloat(numPart)
@@ -332,14 +332,14 @@ export abstract class Component extends EventEmitter {
 
   public set disabled(value: boolean) {
     if (this._disabled === value) return
-    
+
     this._disabled = value
-    
+
     // If becoming disabled while focused, blur
     if (value && this._focused) {
       this.blur()
     }
-    
+
     this.needsUpdate()
   }
 

@@ -1,7 +1,8 @@
-import { OptimizedBuffer } from "../renderer/buffer.js"
 import { useTheme } from "../theme/context.js"
+import { OptimizedBuffer } from "../renderer/buffer.js"
 import { RGBA, parseColor, type Color } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
+import { nextWordEndCrossLines, previousWordStartCrossLines } from "../lib/word-jumps.js"
 
 // InputTheme import removed - using global theme only
 import type { ParsedKey, RenderContext } from "../types.js"
@@ -84,7 +85,7 @@ export class InputComponent extends Component {
       options.backgroundColor,
       inputTheme?.background ? theme.resolveColor(inputTheme.background).toHex() : this._defaultOptions.backgroundColor
     )
-    
+
     this._textColor = resolveColorValue(
       options.textColor,
       inputTheme?.foreground ? theme.resolveColor(inputTheme.foreground).toHex() : this._defaultOptions.textColor
@@ -93,7 +94,7 @@ export class InputComponent extends Component {
     // Resolve focused state colors
     this._focusedBackgroundColor = resolveColorValue(
       options.focusedBackgroundColor || options.backgroundColor,
-      inputTheme?.states?.focused?.background 
+      inputTheme?.states?.focused?.background
         ? theme.resolveColor(inputTheme.states.focused.background).toHex()
         : this._defaultOptions.focusedBackgroundColor
     )
@@ -297,8 +298,75 @@ export class InputComponent extends Component {
     // Don't handle keyboard input when disabled
     if (this._disabled) return false
 
-    const keyName = typeof key === "string" ? key : key.name
-    const keySequence = typeof key === "string" ? key : key.sequence
+    const isParsedKey = typeof key !== "string"
+    const keyName = isParsedKey ? key.name : key
+
+    // Check for modifier keys (only available for ParsedKey)
+    const hasCtrl = isParsedKey ? (key.ctrl || false) : false
+    const hasMeta = isParsedKey ? (key.meta || false) : false
+    const hasOption = isParsedKey ? (key.option || false) : false
+    const hasShift = isParsedKey ? (key.shift || false) : false
+
+    // Cmd/Ctrl + Left/Right for start/end of line (VSCode style)
+    if ((hasCtrl || hasMeta) && !hasOption) {
+      switch (keyName) {
+        case "left":
+        case "home":  // Some terminals send home for Cmd+Left
+          this.cursorPosition = 0
+          return true
+        case "right":
+        case "end":   // Some terminals send end for Cmd+Right
+          this.cursorPosition = this._value.length
+          return true
+        default:
+          break
+      }
+    }
+
+    // Option/Alt + Left/Right for word jumps (VSCode style)
+    if (hasOption && !hasCtrl && !hasMeta) {
+      switch (keyName) {
+        case "left": {
+          // Jump to start of previous word
+          const prevWordStart = previousWordStartCrossLines(this._value, this._cursorPosition)
+          this.cursorPosition = prevWordStart
+          return true
+        }
+        case "right": {
+          // Jump to end of next word
+          const nextWordEnd = nextWordEndCrossLines(this._value, this._cursorPosition)
+          this.cursorPosition = nextWordEnd
+          return true
+        }
+        default:
+          break
+      }
+    }
+
+    // Option/Alt + Backspace to delete word backward
+    if (hasOption && keyName === "backspace") {
+      const prevWordStart = previousWordStartCrossLines(this._value, this._cursorPosition)
+      const beforeWord = this._value.substring(0, prevWordStart)
+      const afterCursor = this._value.substring(this._cursorPosition)
+      this._value = beforeWord + afterCursor
+      this._cursorPosition = prevWordStart
+      this.needsUpdate()
+      this.updateCursorPosition()
+      this.emit(InputComponentEvents.INPUT, this._value)
+      return true
+    }
+
+    // Option/Alt + Delete to delete word forward
+    if (hasOption && keyName === "delete") {
+      const nextWordEnd = nextWordEndCrossLines(this._value, this._cursorPosition)
+      const beforeCursor = this._value.substring(0, this._cursorPosition)
+      const afterWord = this._value.substring(nextWordEnd)
+      this._value = beforeCursor + afterWord
+      this.needsUpdate()
+      this.updateCursorPosition()
+      this.emit(InputComponentEvents.INPUT, this._value)
+      return true
+    }
 
     switch (keyName) {
       case "left":
@@ -334,17 +402,27 @@ export class InputComponent extends Component {
         this.emit(InputComponentEvents.ENTER, this._value)
         return true
 
-      default:
+      default: {
+        // Only insert text if no modifier keys are pressed (except shift which is OK for uppercase)
+        // For ParsedKey, use the sequence which contains the actual character
+        // For string input, use the string itself
+        const charToInsert = isParsedKey ? key.sequence : key
+
         if (
-          keySequence &&
-          keySequence.length === 1 &&
-          keySequence.charCodeAt(0) >= 32 &&
-          keySequence.charCodeAt(0) <= 126
+          charToInsert &&
+          charToInsert.length === 1 &&
+          charToInsert.charCodeAt(0) >= 32 &&
+          charToInsert.charCodeAt(0) <= 126 &&
+          !hasCtrl &&
+          !hasMeta &&
+          !hasOption
         ) {
-          this.insertText(keySequence)
+          // The character is already in the correct case from key.sequence
+          this.insertText(charToInsert)
           return true
         }
         break
+      }
     }
 
     return false
