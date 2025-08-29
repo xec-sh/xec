@@ -213,20 +213,35 @@ export type Color = string | RGBA
 export function hexToRgb(hex: string): RGBA {
   hex = hex.replace(/^#/, "")
 
+  // Handle 3-character hex (RGB)
   if (hex.length === 3) {
     hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2]
   }
-
-  if (!/^[0-9A-Fa-f]{6}$/.test(hex)) {
-    console.warn(`Invalid hex color: ${hex}, defaulting to magenta`)
-    return RGBA.fromValues(1, 0, 1, 1)
+  
+  // Handle 4-character hex (RGBA shorthand)
+  if (hex.length === 4) {
+    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3]
   }
 
-  const r = parseInt(hex.substring(0, 2), 16) / 255
-  const g = parseInt(hex.substring(2, 4), 16) / 255
-  const b = parseInt(hex.substring(4, 6), 16) / 255
+  // Handle 6-character hex (RRGGBB)
+  if (hex.length === 6 && /^[0-9A-Fa-f]{6}$/.test(hex)) {
+    const r = parseInt(hex.substring(0, 2), 16) / 255
+    const g = parseInt(hex.substring(2, 4), 16) / 255
+    const b = parseInt(hex.substring(4, 6), 16) / 255
+    return RGBA.fromValues(r, g, b, 1)
+  }
 
-  return RGBA.fromValues(r, g, b, 1)
+  // Handle 8-character hex (RRGGBBAA)
+  if (hex.length === 8 && /^[0-9A-Fa-f]{8}$/.test(hex)) {
+    const r = parseInt(hex.substring(0, 2), 16) / 255
+    const g = parseInt(hex.substring(2, 4), 16) / 255
+    const b = parseInt(hex.substring(4, 6), 16) / 255
+    const a = parseInt(hex.substring(6, 8), 16) / 255
+    return RGBA.fromValues(r, g, b, a)
+  }
+
+  console.warn(`Invalid hex color: ${hex}, defaulting to magenta`)
+  return RGBA.fromValues(1, 0, 1, 1)
 }
 
 export function rgbToHex(rgb: RGBA): string {

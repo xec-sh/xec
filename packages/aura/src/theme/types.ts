@@ -83,6 +83,7 @@ export interface ComponentThemeOverrides {
   input?: Partial<InputTheme>;
   tabs?: Partial<TabsTheme>;
   text?: Partial<TextTheme>;
+  table?: Partial<TableTheme>;
 }
 
 /**
@@ -98,12 +99,17 @@ export interface ThemeStateColors {
  * Box component theme
  */
 export interface BoxTheme {
-  background: ThemeColor;
-  foreground: ThemeColor;
-  border?: ThemeColor;
+  background: ThemeColor;       // Maps to backgroundColor
+  border?: ThemeColor;          // Maps to borderColor
   states?: {
-    focused?: ThemeStateColors;
-    disabled?: ThemeStateColors;
+    focused?: {
+      border?: ThemeColor;       // Maps to focusedBorderColor
+      background?: ThemeColor;   // Optional focused background
+    };
+    disabled?: {
+      background?: ThemeColor;   // Maps to disabledBackgroundColor
+      border?: ThemeColor;       // Maps to disabledBorderColor
+    };
   };
 }
 
@@ -113,8 +119,8 @@ export interface BoxTheme {
 export interface SelectTheme {
   // Base styling
   background: ThemeColor;
-  text: ThemeColor;
-  border?: ThemeColor;
+  text: ThemeColor;  // Maps to textColor in component
+  // border is not used in select component
   
   // State variants
   states?: {
@@ -126,17 +132,15 @@ export interface SelectTheme {
   // Sub-element styling
   elements?: {
     description?: {
-      text: ThemeColor;
-      selectedText?: ThemeColor;
+      text: ThemeColor;              // Default description color
+      focusedText?: ThemeColor;      // Description color when item is focused (focusedDescriptionColor)
+      selectedText?: ThemeColor;     // Description color when item is selected
     };
     indicator?: {
-      text: ThemeColor;
-      symbol?: string;
+      symbol?: string;               // Indicator character (e.g. '▶')
+      // text color is not used - indicator inherits item color
     };
-    scrollbar?: {
-      track?: ThemeColor;
-      thumb?: ThemeColor;
-    };
+    // scrollbar is not implemented in select component
   };
 }
 
@@ -148,7 +152,7 @@ export interface InputTheme {
   foreground: ThemeColor;
   placeholder?: ThemeColor;
   cursor?: ThemeColor;
-  border?: ThemeColor;
+  // border is not used in input component (no border rendering)
   states?: {
     focused?: ThemeStateColors;
     disabled?: ThemeStateColors;
@@ -161,16 +165,19 @@ export interface InputTheme {
 export interface TabsTheme {
   background: ThemeColor;
   foreground: ThemeColor;
-  border?: ThemeColor;
+  // border is not used in tabs component
   states?: {
-    active?: ThemeStateColors;
-    hover?: ThemeStateColors;
+    active?: ThemeStateColors;     // Selected tab
+    hover?: ThemeStateColors;      // Focused tab
     disabled?: ThemeStateColors;
   };
   elements?: {
     scrollIndicator?: {
-      left?: ThemeColor;
-      right?: ThemeColor;
+      left?: ThemeColor;   // Color for left scroll arrow
+      right?: ThemeColor;  // Color for right scroll arrow
+    };
+    description?: {
+      selectedText?: ThemeColor;  // Description color for selected tab
     };
   };
 }
@@ -184,6 +191,50 @@ export interface TextTheme {
   selection?: {
     background?: ThemeColor;
     foreground?: ThemeColor;
+  };
+}
+
+/**
+ * Table component theme
+ */
+export interface TableTheme {
+  // Base colors
+  background?: ThemeColor;
+  border?: ThemeColor;
+  text?: ThemeColor;
+  
+  // Header
+  header?: {
+    background?: ThemeColor;
+    text?: ThemeColor;
+    border?: ThemeColor;
+  };
+  
+  // States
+  states?: {
+    selected?: {
+      background?: ThemeColor;
+      text?: ThemeColor;
+    };
+    hover?: {
+      background?: ThemeColor;
+      text?: ThemeColor;
+    };
+    disabled?: {
+      background?: ThemeColor;
+      text?: ThemeColor;
+    };
+  };
+  
+  // Alternating rows
+  alternateRow?: {
+    background?: ThemeColor;
+  };
+  
+  // Borders
+  borders?: {
+    style?: ThemeBorderStyle;
+    dividers?: boolean;
   };
 }
 

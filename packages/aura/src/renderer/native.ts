@@ -551,6 +551,10 @@ function getOpenTUILib() {
         args: ["ptr", "ptr"],
         returns: "void",
       },
+      setTerminalTitle: {
+        args: ["ptr", "ptr", "usize"],
+        returns: "void",
+      },
 
       // Debug overlay
       setDebugOverlay: {
@@ -804,6 +808,7 @@ export interface RenderLib {
   setCursorPosition: (renderer: Pointer, x: number, y: number, visible: boolean) => void
   setCursorStyle: (renderer: Pointer, style: CursorStyle, blinking: boolean) => void
   setCursorColor: (renderer: Pointer, color: RGBA) => void
+  setTerminalTitle: (renderer: Pointer, title: string) => void
   setDebugOverlay: (renderer: Pointer, enabled: boolean, corner: DebugOverlayCorner) => void
   clearTerminal: (renderer: Pointer) => void
   addToHitGrid: (renderer: Pointer, x: number, y: number, width: number, height: number, id: number) => void
@@ -1199,6 +1204,11 @@ class FFIRenderLib implements RenderLib {
 
   public setCursorColor(renderer: Pointer, color: RGBA) {
     this.opentui.symbols.setCursorColor(renderer, color.buffer)
+  }
+
+  public setTerminalTitle(renderer: Pointer, title: string) {
+    const titlePtr = this.encoder.encode(title)
+    this.opentui.symbols.setTerminalTitle(renderer, titlePtr, titlePtr.length)
   }
 
   public render(renderer: Pointer, force: boolean) {

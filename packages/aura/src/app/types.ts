@@ -31,6 +31,10 @@ import type {
   SelectProps,
   SelectComponent
 } from '../components/select.js';
+import type {
+  TableProps,
+  TableComponent
+} from '../components/table.js';
 import type { Component, ComponentProps as BaseComponentProps } from '../component.js';
 import type {
   ASCIIFontProps,
@@ -47,6 +51,7 @@ export type ComponentType =
   | 'text'
   | 'input'
   | 'select'
+  | 'table'
   | 'tabs'
   | 'group'
   | 'frame-buffer'
@@ -58,6 +63,7 @@ export type ComponentPropsMap = {
   'text': ReactiveProps<TextProps>;
   'input': ReactiveProps<InputProps>;
   'select': ReactiveProps<SelectProps>;
+  'table': ReactiveProps<TableProps>;
   'tabs': ReactiveProps<TabsProps>;
   'group': ReactiveProps<BaseComponentProps>;
   'frame-buffer': ReactiveProps<FrameBufferProps>;
@@ -70,6 +76,7 @@ export type ComponentInstanceMap = {
   'text': TextComponent;
   'input': InputComponent;
   'select': SelectComponent;
+  'table': TableComponent;
   'tabs': TabsComponent;
   'group': GroupComponent;
   'frame-buffer': FrameBufferComponent;

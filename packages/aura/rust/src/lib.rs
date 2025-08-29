@@ -242,6 +242,17 @@ pub extern "C" fn setCursorColor(renderer_ptr: *mut CliRenderer, color: *const f
 }
 
 #[no_mangle]
+pub extern "C" fn setTerminalTitle(renderer_ptr: *mut CliRenderer, title_ptr: *const u8, title_len: usize) {
+    unsafe {
+        if let Some(renderer) = renderer_ptr.as_mut() {
+            let title_slice = slice::from_raw_parts(title_ptr, title_len);
+            let title_str = std::str::from_utf8_unchecked(title_slice);
+            renderer.set_terminal_title(title_str);
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn setDebugOverlay(renderer_ptr: *mut CliRenderer, enabled: bool, corner: u8) {
     unsafe {
         if let Some(renderer) = renderer_ptr.as_mut() {

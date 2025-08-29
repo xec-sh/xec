@@ -52,6 +52,7 @@ export type {
   AuraTheme,
   TabsTheme,
   TextTheme,
+  TableTheme,
   ThemeColor,
   ColorToken,
   InputTheme,

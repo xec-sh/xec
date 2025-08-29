@@ -1,8 +1,7 @@
 
 import { stringWidth } from "../utils.js"
-import { OptimizedBuffer } from "../renderer/buffer.js"
 import { useTheme } from "../theme/context.js"
-import { applyStateColors, getComponentState } from "../theme/utils.js"
+import { OptimizedBuffer } from "../renderer/buffer.js"
 import { RGBA, parseColor, type Color } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
 import { fonts, measureText, renderFontToFrameBuffer } from "../lib/ascii.font.js"
@@ -24,26 +23,30 @@ export enum DescriptionTruncate {
 }
 
 export interface SelectProps extends ComponentProps {
-  // Color properties - can be theme tokens or direct colors
-  backgroundColor?: Color
-  textColor?: Color
-  focusedBackgroundColor?: Color
-  focusedTextColor?: Color
   options?: SelectOption[]
-  selectedBackgroundColor?: Color
+
+  // Color properties - can be theme tokens or direct colors
+  textColor?: Color
+  focusedTextColor?: Color
   selectedTextColor?: Color
+  backgroundColor?: Color
+  focusedBackgroundColor?: Color
+  selectedBackgroundColor?: Color
   descriptionColor?: Color
+  focusedDescriptionColor?: Color
   selectedDescriptionColor?: Color
-  
+  showDescription?: boolean
+  descriptionTruncate?: DescriptionTruncate
+
   // Behavior properties
   showScrollIndicator?: boolean
   wrapSelection?: boolean
-  showDescription?: boolean
+
   font?: keyof typeof fonts
   itemSpacing?: number
   fastScrollStep?: number
   indicator?: string
-  descriptionTruncate?: DescriptionTruncate
+
 }
 
 export enum SelectComponentEvents {
@@ -67,6 +70,7 @@ export class SelectComponent extends Component {
   private _selectedBackgroundColor: RGBA;
   private _selectedTextColor: RGBA;
   private _descriptionColor: RGBA;
+  private _focusedDescriptionColor: RGBA;
   private _selectedDescriptionColor: RGBA;
   private _disabledBackgroundColor?: RGBA;
   private _disabledTextColor?: RGBA;
@@ -84,11 +88,12 @@ export class SelectComponent extends Component {
   protected _defaultOptions = {
     backgroundColor: "transparent",
     textColor: "#FFFFFF",
-    focusedBackgroundColor: "#1a1a1a",
+    focusedBackgroundColor: "transparent",
     focusedTextColor: "#FFFFFF",
     selectedBackgroundColor: "#334455",
     selectedTextColor: "#FFFF00",
     descriptionColor: "#888888",
+    focusedDescriptionColor: "#BBBBBB",
     selectedDescriptionColor: "#CCCCCC",
     showScrollIndicator: false,
     wrapSelection: false,
@@ -122,18 +127,11 @@ export class SelectComponent extends Component {
     if (_isAutoHeight) {
       const optionCount = options.options?.length || 0
       if (optionCount > 0) {
-        // Set minHeight to show at least one item
-        configuredOptions.minHeight = linesPerItem
+        // Set minHeight to show at least one item (or the configured minHeight)
+        configuredOptions.minHeight = options.minHeight || linesPerItem
 
-        // Calculate ideal height based on content
-        const idealHeight = optionCount * linesPerItem
-
-        // If we have a reasonable number of items, set that as the preferred height
-        // Otherwise, let flex properties handle it
-        if (optionCount <= 20) {
-          // For small lists, try to show all items
-          configuredOptions.minHeight = idealHeight
-        }
+        // DON'T set minHeight to full content height - this causes overflow!
+        // Instead, let flex properties handle the sizing within available space
 
         // Enable flex properties for proper auto sizing
         if (configuredOptions.flexGrow === undefined) {
@@ -142,6 +140,8 @@ export class SelectComponent extends Component {
         if (configuredOptions.flexShrink === undefined) {
           configuredOptions.flexShrink = 1
         }
+
+        // Note: Scrolling is handled internally by the component using scrollOffset and maxVisibleItems
       }
     }
 
@@ -151,9 +151,9 @@ export class SelectComponent extends Component {
 
     // Get theme and resolve colors
     const theme = useTheme()
-    
+
     // Use global theme instead of theme prop
-    
+
     // Resolve colors from props with theme fallbacks
     const selectTheme = theme.components?.select
 
@@ -174,7 +174,7 @@ export class SelectComponent extends Component {
       options.backgroundColor,
       selectTheme?.background ? theme.resolveColor(selectTheme.background).toHex() : this._defaultOptions.backgroundColor
     )
-    
+
     this._textColor = resolveColorValue(
       options.textColor,
       selectTheme?.text ? theme.resolveColor(selectTheme.text).toHex() : this._defaultOptions.textColor
@@ -183,7 +183,7 @@ export class SelectComponent extends Component {
     // Resolve focused state colors
     this._focusedBackgroundColor = resolveColorValue(
       options.focusedBackgroundColor,
-      selectTheme?.states?.focused?.background 
+      selectTheme?.states?.focused?.background
         ? theme.resolveColor(selectTheme.states.focused.background).toHex()
         : this._defaultOptions.focusedBackgroundColor
     )
@@ -218,6 +218,13 @@ export class SelectComponent extends Component {
         : this._defaultOptions.descriptionColor
     )
 
+    this._focusedDescriptionColor = resolveColorValue(
+      options.focusedDescriptionColor,
+      selectTheme?.elements?.description?.focusedText
+        ? theme.resolveColor(selectTheme.elements.description.focusedText).toHex()
+        : this._defaultOptions.focusedDescriptionColor
+    )
+
     this._selectedDescriptionColor = resolveColorValue(
       options.selectedDescriptionColor,
       selectTheme?.elements?.description?.selectedText
@@ -234,7 +241,7 @@ export class SelectComponent extends Component {
       ? theme.resolveColor(selectTheme.states.disabled.foreground)
       : undefined
 
-    
+
     this._options = options.options || []
 
     this._showScrollIndicator = options.showScrollIndicator ?? this._defaultOptions.showScrollIndicator
@@ -248,8 +255,9 @@ export class SelectComponent extends Component {
 
     // For auto height, defer maxVisibleItems calculation until we have actual dimensions
     if (this._isAutoHeight && this.height === 0) {
-      // Use option count as initial max visible items for auto height
-      this.maxVisibleItems = Math.max(1, this._options.length || 1)
+      // Use a reasonable default for initial max visible items, not the full option count
+      // This prevents the component from trying to show all items at once
+      this.maxVisibleItems = Math.max(1, Math.min(10, this._options.length || 1))
     } else {
       this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
     }
@@ -349,7 +357,7 @@ export class SelectComponent extends Component {
     } else if (this._focused) {
       bgColor = this._focusedBackgroundColor
     }
-    
+
     this.frameBuffer.clear(bgColor)
 
     const contentX = 0
@@ -400,8 +408,12 @@ export class SelectComponent extends Component {
       }
 
       if (this._showDescription && itemY + this.fontHeight < contentY + contentHeight) {
-        const descColor = isSelected ? this._selectedDescriptionColor : this._descriptionColor
-        const descBg = this._focused ? this._focusedBackgroundColor : this._backgroundColor
+        let descColor = this._descriptionColor
+        if (isSelected) {
+          descColor = this._selectedDescriptionColor
+        } else if (this._focused) {
+          descColor = this._focusedDescriptionColor
+        }
 
         // Calculate available width for description
         const availableWidth = contentWidth - descX - 1
@@ -411,7 +423,7 @@ export class SelectComponent extends Component {
       }
     }
 
-    if (this._showScrollIndicator && this._options.length > this.maxVisibleItems) {
+    if (this._showScrollIndicator && this._focused && this._options.length > this.maxVisibleItems) {
       this.renderScrollIndicatorToFrameBuffer(contentX, contentY, contentWidth, contentHeight)
     }
   }
@@ -440,22 +452,20 @@ export class SelectComponent extends Component {
     this._options = options
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, options.length - 1))
 
-    // If height is auto, update minHeight based on new option count
+    // If height is auto, ensure proper min height but don't force full content height
     if (this._isAutoHeight) {
       const optionCount = options.length
       if (optionCount > 0) {
-        const idealHeight = optionCount * this.linesPerItem
+        // Always keep minHeight to at least show one item
+        // Don't set it to full content height to avoid overflow
+        this.layoutNode.yogaNode.setMinHeight(this.linesPerItem)
 
-        // Update minHeight for proper auto sizing
-        if (optionCount <= 20) {
-          this.layoutNode.yogaNode.setMinHeight(idealHeight)
+        // Recalculate maxVisibleItems based on actual height
+        if (this.height > 0) {
+          this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
         } else {
-          this.layoutNode.yogaNode.setMinHeight(this.linesPerItem)
-        }
-
-        // If we have no actual height yet, update maxVisibleItems
-        if (this.height === 0) {
-          this.maxVisibleItems = Math.max(1, optionCount)
+          // If no height yet, use a reasonable default
+          this.maxVisibleItems = Math.max(1, Math.min(10, optionCount))
         }
       }
     }
@@ -544,7 +554,7 @@ export class SelectComponent extends Component {
   public handleKeyPress(key: ParsedKey | string): boolean {
     // Don't handle keyboard input when disabled
     if (this._disabled) return false
-    
+
     const keyName = typeof key === "string" ? key : key.name
     const isShift = typeof key !== "string" && key.shift
 
@@ -714,6 +724,22 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.descriptionColor, themeResolver)
     if (this._descriptionColor !== newColor) {
       this._descriptionColor = newColor
+      this.needsUpdate()
+    }
+  }
+
+  public set focusedDescriptionColor(value: Color) {
+    const theme = useTheme()
+    const themeResolver = (token: string): RGBA | null => {
+      try {
+        return theme.resolveColor(token)
+      } catch {
+        return null
+      }
+    }
+    const newColor = parseColor(value ?? this._defaultOptions.focusedDescriptionColor, themeResolver)
+    if (this._focusedDescriptionColor !== newColor) {
+      this._focusedDescriptionColor = newColor
       this.needsUpdate()
     }
   }
