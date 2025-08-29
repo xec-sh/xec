@@ -52,7 +52,7 @@ export class TextComponent extends Component {
     // Get theme and resolve colors
     const themeContext = useTheme()
     const componentTheme = themeContext.components?.text
-    
+
     // Helper function to resolve color (tries theme token first, then direct color)
     const resolveColorValue = (value: Color | undefined): RGBA | undefined => {
       if (!value) return undefined
@@ -64,7 +64,7 @@ export class TextComponent extends Component {
         return parseColor(value)
       }
     }
-    
+
     // Resolve foreground color
     if (options.fg) {
       this._defaultFg = resolveColorValue(options.fg)!
@@ -87,14 +87,14 @@ export class TextComponent extends Component {
     this._selectionBg = options.selectionBg
       ? resolveColorValue(options.selectionBg)
       : componentTheme?.selection?.background
-      ? themeContext.resolveColor(componentTheme.selection.background)
-      : undefined
-    
+        ? themeContext.resolveColor(componentTheme.selection.background)
+        : undefined
+
     this._selectionFg = options.selectionFg
       ? resolveColorValue(options.selectionFg)
       : componentTheme?.selection?.foreground
-      ? themeContext.resolveColor(componentTheme.selection.foreground)
-      : undefined
+        ? themeContext.resolveColor(componentTheme.selection.foreground)
+        : undefined
 
     this._defaultAttributes = options.attributes ?? 0
     this.selectable = options.selectable ?? true

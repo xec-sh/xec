@@ -76,7 +76,7 @@ export const darkTheme: AuraTheme = auraCreateTheme({
   colors: {
     // Base colors
     background: 'transparent',                    // Terminal background
-    foreground: colors.blueGrey[50],             // Default text
+    foreground: colors.blueGrey[600],             // Default text
     primary: colors.green[500],                  // Primary actions
     secondary: colors.purple[600],               // Secondary elements
     accent: colors.purple[300],                  // Highlights
