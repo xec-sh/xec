@@ -1,5 +1,5 @@
 /**
- * Task parser for Xec configuration v2.0
+ * Task parser for Xec configuration
  * Parses and validates task definitions from configuration
  */
 
@@ -294,34 +294,34 @@ export class TaskParser {
    */
   validateParams(task: TaskDefinition, providedParams: Record<string, any>): string[] {
     const errors: string[] = [];
-    
+
     if (!task.params) {
       return errors;
     }
-    
+
     for (const param of task.params) {
       // Check required parameters
       if (param.required && !(param.name in providedParams)) {
         errors.push(`Required parameter '${param.name}' is missing`);
       }
-      
+
       // Validate provided parameters
       if (param.name in providedParams) {
         const value = providedParams[param.name];
-        
+
         // Type validation
         if (param.type === 'number' && typeof value !== 'number' && typeof value !== 'string') {
           errors.push(`Parameter '${param.name}' must be a number`);
         }
-        
+
         if (param.type === 'boolean' && typeof value !== 'boolean' && typeof value !== 'string') {
           errors.push(`Parameter '${param.name}' must be a boolean`);
         }
-        
+
         if (param.type === 'array' && !Array.isArray(value) && typeof value !== 'string') {
           errors.push(`Parameter '${param.name}' must be an array`);
         }
-        
+
         if (param.type === 'enum' && param.values) {
           const strValue = String(value);
           if (!param.values.includes(strValue)) {
@@ -330,7 +330,7 @@ export class TaskParser {
         }
       }
     }
-    
+
     return errors;
   }
 
@@ -340,27 +340,27 @@ export class TaskParser {
    */
   parseParams(task: TaskDefinition, providedParams: Record<string, any>): Record<string, any> {
     const parsed: Record<string, any> = {};
-    
+
     if (!task.params) {
       return providedParams;
     }
-    
+
     // First, apply defaults for missing parameters
     for (const param of task.params) {
       if (!(param.name in providedParams) && param.default !== undefined) {
         parsed[param.name] = param.default;
       }
     }
-    
+
     // Then, parse provided parameters
     for (const [name, value] of Object.entries(providedParams)) {
       const param = task.params.find(p => p.name === name);
-      
+
       if (!param || !param.type) {
         parsed[name] = value;
         continue;
       }
-      
+
       // Coerce types
       switch (param.type) {
         case 'number':
@@ -370,7 +370,7 @@ export class TaskParser {
             parsed[name] = value;
           }
           break;
-          
+
         case 'boolean':
           if (typeof value === 'string') {
             parsed[name] = value === 'true' || value === '1' || value === 'yes';
@@ -378,7 +378,7 @@ export class TaskParser {
             parsed[name] = !!value;
           }
           break;
-          
+
         case 'array':
           if (typeof value === 'string') {
             parsed[name] = value.split(',').map(v => v.trim());
@@ -388,12 +388,12 @@ export class TaskParser {
             parsed[name] = [value];
           }
           break;
-          
+
         default:
           parsed[name] = value;
       }
     }
-    
+
     return parsed;
   }
 }

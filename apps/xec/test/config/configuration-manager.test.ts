@@ -7,9 +7,9 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { ConfigurationManager } from '../../src/config/configuration-manager';
+import { ConfigurationManager } from '../../src/config/configuration-manager.js';
 
-import type { Configuration } from '../../src/config/types';
+import type { Configuration } from '../../src/config/types.js';
 
 describe('ConfigurationManager', () => {
   let tempDir: string;
@@ -330,9 +330,9 @@ profiles:
     it('should validate configuration on load', async () => {
       await fs.writeFile(
         path.join(tempDir, '.xec', 'config.yaml'),
-        `version: "1.0"
+        `version: "0.9"
 vars:
-  vars: invalid`  // Reserved name
+  env: invalid`  // Reserved name
       );
 
       // In strict mode, should throw

@@ -16,7 +16,7 @@ import {
   ConfigValidator,
   ConfigurationManager,
   VariableInterpolator
-} from '../../src/config/index';
+} from '../../src/config/index.js';
 
 describe('Configuration System Edge Cases', () => {
   let tempDir: string;

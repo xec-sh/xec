@@ -1,5 +1,5 @@
 /**
- * Task manager for Xec configuration v2.0
+ * Task manager for Xec configuration
  * Main API for task management and execution
  */
 
@@ -22,13 +22,13 @@ import type {
 export interface TaskManagerOptions {
   /** Configuration manager instance */
   configManager: ConfigurationManager;
-  
+
   /** Enable debug output */
   debug?: boolean;
-  
+
   /** Dry run mode */
   dryRun?: boolean;
-  
+
   /** Default timeout for tasks */
   defaultTimeout?: number;
 }
@@ -56,14 +56,14 @@ export class TaskManager extends EventEmitter {
 
   constructor(private options: TaskManagerOptions) {
     super();
-    
+
     this.configManager = options.configManager;
     this.parser = new TaskParser();
     this.interpolator = new VariableInterpolator();
-    
+
     // TargetResolver will be initialized in load() after config is loaded
     this.targetResolver = null as any;
-    
+
     this.executor = new TaskExecutor({
       interpolator: this.interpolator,
       targetResolver: this.targetResolver,
@@ -85,10 +85,10 @@ export class TaskManager extends EventEmitter {
    */
   async load(): Promise<void> {
     this.config = await this.configManager.load();
-    
+
     // Initialize target resolver now that we have config
     this.targetResolver = new TargetResolver(this.config);
-    
+
     // Update executor with real target resolver
     this.executor = new TaskExecutor({
       interpolator: this.interpolator,
@@ -97,20 +97,20 @@ export class TaskManager extends EventEmitter {
       debug: (this.executor as any).options.debug || this.options.debug,
       dryRun: (this.executor as any).options.dryRun
     });
-    
+
     // Re-attach event listeners
     this.executor.on('task:start', event => this.emit('task:start', event));
     this.executor.on('task:complete', event => this.emit('task:complete', event));
     this.executor.on('task:error', event => this.emit('task:error', event));
     this.executor.on('step:retry', event => this.emit('step:retry', event));
     this.executor.on('event', event => this.emit('event', event));
-    
+
     if (!this.config.tasks) {
       return;
     }
 
     const parsed = this.parser.parseTasks(this.config.tasks);
-    
+
     for (const [name, task] of Object.entries(parsed)) {
       this.parsedTasks.set(name, task);
     }
@@ -121,9 +121,9 @@ export class TaskManager extends EventEmitter {
    */
   async list(): Promise<TaskInfo[]> {
     await this.ensureLoaded();
-    
+
     const tasks: TaskInfo[] = [];
-    
+
     for (const [name, task] of this.parsedTasks) {
       // Skip private tasks
       if (task.private && !this.options.debug) {
@@ -171,7 +171,7 @@ export class TaskManager extends EventEmitter {
     options?: TaskExecutionOptions
   ): Promise<TaskResult> {
     await this.ensureLoaded();
-    
+
     const task = this.parsedTasks.get(taskName);
     if (!task) {
       throw new Error(`Task '${taskName}' not found`);
@@ -213,14 +213,14 @@ export class TaskManager extends EventEmitter {
    */
   async create(taskName: string, config: TaskConfig): Promise<void> {
     const task = this.parser.parseTask(taskName, config);
-    
+
     if (!task) {
       const errors = this.parser.getErrors();
       throw new Error(`Invalid task configuration: ${errors[0]?.message}`);
     }
 
     this.parsedTasks.set(taskName, task);
-    
+
     // Update configuration
     if (!this.config) {
       await this.load();
@@ -228,7 +228,7 @@ export class TaskManager extends EventEmitter {
     const currentConfig = this.config!;
     currentConfig.tasks = currentConfig.tasks || {};
     currentConfig.tasks[taskName] = config;
-    
+
     await this.configManager.save();
   }
 
@@ -252,7 +252,7 @@ export class TaskManager extends EventEmitter {
     }
 
     this.parsedTasks.delete(taskName);
-    
+
     // Update configuration
     if (!this.config) {
       await this.load();
@@ -261,7 +261,7 @@ export class TaskManager extends EventEmitter {
     if (currentConfig.tasks) {
       delete currentConfig.tasks[taskName];
     }
-    
+
     await this.configManager.save();
   }
 
@@ -270,21 +270,21 @@ export class TaskManager extends EventEmitter {
    */
   async explain(taskName: string, params?: Record<string, any>): Promise<string[]> {
     await this.ensureLoaded();
-    
+
     const task = this.parsedTasks.get(taskName);
     if (!task) {
       throw new Error(`Task '${taskName}' not found`);
     }
 
     const explanation: string[] = [];
-    
+
     // Task description
     if (task.description) {
       explanation.push(`Task: ${task.description}`);
     } else {
       explanation.push(`Task: ${taskName}`);
     }
-    
+
     // Parameters
     if (task.params && task.params.length > 0) {
       explanation.push('');
@@ -302,7 +302,7 @@ export class TaskManager extends EventEmitter {
     // Execution plan
     explanation.push('');
     explanation.push('Execution plan:');
-    
+
     if (task.command) {
       const interpolated = this.interpolator.interpolate(task.command, {
         params: params || {},
@@ -312,13 +312,13 @@ export class TaskManager extends EventEmitter {
     } else if (task.steps) {
       const parallel = task.parallel ? ' (in parallel)' : '';
       explanation.push(`  Execute ${task.steps.length} steps${parallel}:`);
-      
+
       for (let i = 0; i < task.steps.length; i++) {
         const step = task.steps[i];
         if (!step) continue;
-        
+
         const prefix = `    ${i + 1}. `;
-        
+
         if (step.command) {
           const interpolated = this.interpolator.interpolate(step.command, {
             params: params || {},
@@ -330,11 +330,11 @@ export class TaskManager extends EventEmitter {
         } else if (step.script) {
           explanation.push(`${prefix}${step.name || 'Script'}: Execute ${step.script}`);
         }
-        
+
         if (step.when) {
           explanation.push(`       When: ${step.when}`);
         }
-        
+
         if (step.target || step.targets) {
           const targets = step.targets || [step.target!];
           explanation.push(`       On: ${targets.join(', ')}`);
@@ -373,13 +373,13 @@ export class TaskManager extends EventEmitter {
     provided: Record<string, any>
   ): Record<string, any> {
     const result = { ...provided };
-    
+
     for (const param of params) {
       if (!(param.name in result) && param.default !== undefined) {
         result[param.name] = param.default;
       }
     }
-    
+
     return result;
   }
 
