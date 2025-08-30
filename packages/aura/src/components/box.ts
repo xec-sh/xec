@@ -1,4 +1,4 @@
-import { Edge, Gutter } from "yoga-layout"
+import { Edge, Gutter, FlexDirection } from "yoga-layout"
 
 import { useTheme } from "../theme/context.js"
 import { RGBA, Color, parseColor } from "../lib/colors.js"
@@ -10,6 +10,7 @@ import {
   borderCharsToArray,
   type BorderCharacters,
   type BorderSidesConfig,
+  BorderChars,
 } from "../lib/index.js"
 
 import type { RenderContext } from "../types.js"
@@ -30,6 +31,7 @@ export interface BoxProps extends ComponentProps {
   gap?: number | `${number}%`;
   rowGap?: number | `${number}%`;
   columnGap?: number | `${number}%`;
+  filledGaps?: boolean;
 }
 
 function isGapType(value: any): value is number | undefined {
@@ -57,6 +59,7 @@ export class BoxComponent extends Component {
   public shouldFill: boolean
   protected _title?: string
   protected _titleAlignment: "left" | "center" | "right"
+  protected _filledGaps: boolean
   // Theme prop removed - using global theme
 
   protected _defaultOptions = {
@@ -67,6 +70,7 @@ export class BoxComponent extends Component {
     shouldFill: true,
     titleAlignment: "left",
     focusedBorderColor: "#00AAFF",
+    filledGaps: false,
   } satisfies Partial<BoxProps>
 
   constructor(ctx: RenderContext, options: BoxProps) {
@@ -139,6 +143,7 @@ export class BoxComponent extends Component {
     this.shouldFill = options.shouldFill ?? this._defaultOptions.shouldFill
     this._title = options.title
     this._titleAlignment = options.titleAlignment || this._defaultOptions.titleAlignment
+    this._filledGaps = options.filledGaps ?? this._defaultOptions.filledGaps
 
     this.applyYogaBorders()
 
@@ -269,6 +274,17 @@ export class BoxComponent extends Component {
     }
   }
 
+  public get filledGaps(): boolean {
+    return this._filledGaps
+  }
+
+  public set filledGaps(value: boolean) {
+    if (this._filledGaps !== value) {
+      this._filledGaps = value
+      this.needsUpdate()
+    }
+  }
+
   protected renderSelf(buffer: OptimizedBuffer): void {
     // Determine current state and colors
     let currentBackgroundColor = this._backgroundColor
@@ -296,6 +312,78 @@ export class BoxComponent extends Component {
       title: this._title,
       titleAlignment: this._titleAlignment,
     })
+
+    // Draw dividers between children if filledGaps is enabled
+    if (this._filledGaps) {
+      this.renderGapDividers(buffer, currentBorderColor)
+    }
+  }
+
+  private renderGapDividers(buffer: OptimizedBuffer, color: RGBA): void {
+    const children = this.getChildren()
+    if (children.length <= 1) return
+
+    const flexDirection = this.layoutNode.yogaNode.getFlexDirection()
+    const borderChars = this._customBorderCharsObj || BorderChars[this._borderStyle]
+    
+    // Adjust positions based on borders
+    const borderOffset = this._border ? 1 : 0
+    
+    if (flexDirection === FlexDirection.Column || flexDirection === FlexDirection.ColumnReverse) {
+      // Draw horizontal dividers between vertically stacked children
+      for (let i = 0; i < children.length - 1; i++) {
+        const child = children[i]
+        const nextChild = children[i + 1]
+        
+        // Calculate divider Y position (between current child bottom and next child top)
+        const dividerY = this.y + child.y + child.height
+        const dividerX = this.x + borderOffset
+        const dividerWidth = this.width - (borderOffset * 2)
+        
+        // Only draw if there's actually a gap
+        if (nextChild.y > child.y + child.height) {
+          // Draw horizontal line
+          for (let x = 0; x < dividerWidth; x++) {
+            buffer.drawText(borderChars.horizontal, dividerX + x, dividerY, color)
+          }
+          
+          // Draw junction characters at the edges if box has borders
+          if (this.borderSides.left) {
+            buffer.drawText(borderChars.leftT, this.x, dividerY, color)
+          }
+          if (this.borderSides.right) {
+            buffer.drawText(borderChars.rightT, this.x + this.width - 1, dividerY, color)
+          }
+        }
+      }
+    } else if (flexDirection === FlexDirection.Row || flexDirection === FlexDirection.RowReverse) {
+      // Draw vertical dividers between horizontally arranged children
+      for (let i = 0; i < children.length - 1; i++) {
+        const child = children[i]
+        const nextChild = children[i + 1]
+        
+        // Calculate divider X position (between current child right and next child left)
+        const dividerX = this.x + child.x + child.width
+        const dividerY = this.y + borderOffset
+        const dividerHeight = this.height - (borderOffset * 2)
+        
+        // Only draw if there's actually a gap
+        if (nextChild.x > child.x + child.width) {
+          // Draw vertical line
+          for (let y = 0; y < dividerHeight; y++) {
+            buffer.drawText(borderChars.vertical, dividerX, dividerY + y, color)
+          }
+          
+          // Draw junction characters at the edges if box has borders
+          if (this.borderSides.top) {
+            buffer.drawText(borderChars.topT, dividerX, this.y, color)
+          }
+          if (this.borderSides.bottom) {
+            buffer.drawText(borderChars.bottomT, dividerX, this.y + this.height - 1, color)
+          }
+        }
+      }
+    }
   }
 
   private applyYogaBorders(): void {

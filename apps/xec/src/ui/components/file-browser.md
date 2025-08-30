@@ -1,8 +1,8 @@
 ┌─────────────────────────────────┐
-│  /some/dir                     │ <--- can be edited (text or input component)
+│  /some/dir                     │ <--- current path (text or input for direct edit)
 ├─────────────────────────────────┤
-│ 🔍 (/) search files...          │ <--- input componnet for filtering file in current dir
-│ ▶  dir1                        │ <--- select component
+│ 🔍 (/) search files...          │ <--- input componnet for filtering file in current dir (should be hidden by default and visible by pressing `/` when component is focued)
+│ ▶  dir1                        │ <--- select component with list of dirs and files on current path
 │    dir2                        │
 │    dir3                        │
 │    .gitignore                  │

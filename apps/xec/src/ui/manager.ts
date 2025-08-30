@@ -3,6 +3,7 @@ import { aura, RGBA, auraApp, ParsedKey, screenDimensions } from "@xec-sh/aura";
 import { appStore } from "./store.js";
 import { SidebarComponent } from "./sidebar/index.js";
 import { WorkspaceComponent } from "./workspace/workspace.js";
+import FileBrowserComponent from "./components/file-browser.js";
 import darkTheme, { UI_PRIMARY_COLOR, UI_TITLE_ACTIVE_COLOR } from "./theme.js";
 
 function MainSection() {
@@ -47,7 +48,8 @@ export async function runManager() {
         flexDirection: 'row',
         children: [
           SidebarComponent(),
-          MainSection(),
+          FileBrowserComponent(),
+          // MainSection(),
         ],
       })
     ];
