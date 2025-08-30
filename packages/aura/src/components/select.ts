@@ -373,7 +373,8 @@ export class SelectComponent extends Component {
       const isSelected = actualIndex === this.selectedIndex
       const itemY = contentY + i * this.linesPerItem
 
-      if (itemY + this.linesPerItem - 1 >= contentY + contentHeight) break
+      // Check if the item would exceed the available height
+      if (itemY + this.linesPerItem > contentY + contentHeight) break
 
       if (isSelected) {
         this.frameBuffer.fillRect(contentX, itemY, contentWidth, this.linesPerItem - this._itemSpacing, this._selectedBackgroundColor)

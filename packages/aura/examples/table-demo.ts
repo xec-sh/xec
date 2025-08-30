@@ -62,7 +62,7 @@ function updateDisplays() {
   const alternateColors = tableElement["_alternateRowColors"] ? "on" : "off"
   const selectable = tableElement["_selectable"] ? "on" : "off"
   const multiSelect = tableElement["_multiSelect"] ? "on" : "off"
-  const sortable = tableElement["_sortable"] ? "on" : "off"
+  const sortable = tableElement.sortable ? "on" : "off"
 
   const keyLegendText = t`${bold(fg("#FFFFFF")("Key Controls:"))}
 ↑/↓ or j/k: Navigate rows
@@ -256,8 +256,8 @@ export function run(rendererInstance: Renderer): void {
       lastActionColor = "#FFCC00"
       updateDisplays()
     } else if (key.name === "s") {
-      const newState = !tableElement?.["_sortable"]
-      tableElement!["_sortable"] = newState
+      const newState = !tableElement?.sortable
+      tableElement!.sortable = newState
       lastActionText = `Sorting ${newState ? "enabled" : "disabled"}`
       lastActionColor = "#FFCC00"
       updateDisplays()

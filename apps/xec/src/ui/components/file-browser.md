@@ -13,7 +13,6 @@
 │    manager.ts                  │
 │    config.json                 │
 │    resources.json              │
+├─────────────────────────────────┤
+│                3 dir(s)/8 files │ <--- directory/selection stats
 └─────────────────────────────────┘
-
-
-Нужно создать реактивный компонент файлового браузера в `apps/xec/src/ui/components/file-browser.ts` с одним столбцом (скетч в файле `apps/xec/src/ui/components/file-browser.md`). Пример кода можешь посмотреть в `apps/xec/src/ui/sidebar/sidebar.ts` и возможности в `packages/aura/src/app` и в `packages/aura/src/components`. 
