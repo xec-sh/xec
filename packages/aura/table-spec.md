@@ -177,8 +177,8 @@ Displays hierarchical data with indentation.
 │ Name             │ Type   │ Size  │
 ├──────────────────┼────────┼───────┤
 │ ▼ src/           │ folder │ -     │
-│   ├─ index.ts   │ file   │ 2.3KB │
-│   └─ utils.ts   │ file   │ 1.5KB │
+│   ├─ index.ts    │ file   │ 2.3KB │
+│   └─ utils.ts    │ file   │ 1.5KB │
 │ ▶ docs/          │ folder │ -     │
 │ package.json     │ file   │ 0.8KB │
 └──────────────────┴────────┴───────┘
