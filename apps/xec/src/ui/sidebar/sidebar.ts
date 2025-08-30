@@ -1,4 +1,4 @@
-import { aura, effect, signal, computed, ParsedKey, WritableSignal, SelectComponent, type BoxComponent, DescriptionTruncate } from "@xec-sh/aura";
+import { aura, effect, signal, computed, ParsedKey, WritableSignal, SelectComponent, screenDimensions, type BoxComponent, DescriptionTruncate } from "@xec-sh/aura";
 
 import { appStore } from "../store.js";
 
@@ -112,8 +112,12 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
 }
 
 export function SidebarComponent() {
+  const { width: screenWidth } = screenDimensions();
+  const minWidth = signal(20);
+  const maxWidth = computed(() => screenWidth() / 2);
+
   const boxMainRef = signal<BoxComponent | null>(null);
-  const boxTitleRef = signal<BoxComponent | null>(null);
+  // const boxTitleRef = signal<BoxComponent | null>(null);
   const selectRef = signal<SelectComponent | null>(null);
 
   effect(() => {
@@ -123,49 +127,64 @@ export function SidebarComponent() {
     }
     if (appStore.focused === 'sidebar') {
       boxMain?.focus();
-      boxTitleRef()?.focus();
+      // boxTitleRef()?.focus();
       selectRef()?.focus();
     } else {
       boxMain?.blur();
-      boxTitleRef()?.blur();
+      // boxTitleRef()?.blur();
       selectRef()?.blur();
     }
   });
 
   return aura("box", {
     id: 'sidebar',
-    minWidth: 20,
+    minWidth,
+    maxWidth,
     flexDirection: 'column',
+    gap: 1,
+    filledGaps: true,
     height: "100%",
     flexShrink: 0,
-    border: ['right'],
-    borderStyle: "single",
+    border: true,
     borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
     ref: boxMainRef,
     onKeyDown(key: ParsedKey) {
       const inst = boxMainRef();
       if (inst) {
-        if (key.shift && key.name === 'right') {
-          inst.width = inst.width + 1;
-        } else if (key.shift && key.name === 'left') {
-          inst.width = inst.width - 1;
+        console.log(key);
+        if (key.shift) {
+          if (key.option) {
+            if (key.name === 'right') {
+              inst.width = maxWidth();
+            } else if (key.name === 'left') {
+              inst.width = minWidth();
+            }
+          } else {
+            if (key.name === 'right') {
+              inst.width = inst.width + 1;
+            } else if (key.name === 'left') {
+              inst.width = inst.width - 1;
+            }
+          }
         }
       }
     },
     children: [
-      aura('box', {
-        height: 2,
+      aura('text', {
         alignItems: 'center',
-        border: ['bottom'],
-        ref: boxTitleRef, // Pass the ref signal
-        children: [
-          aura('text', {
-            content: '❯ XEC',
-            fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'secondary'),
-            selectable: false,
-          }),
-        ]
+        content: '❯ XEC',
+        fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'secondary'),
+        selectable: false,
       }),
+      // aura('box', {
+      //   height: 2,
+      //   alignItems: 'center',
+      //   border: ['bottom'],
+      //   ref: boxTitleRef, // Pass the ref signal
+      //   children: [
+
+      //   ]
+      // }),
       ProjectBrowser(selectRef),
       // ProjectBrowser(),
     ]
