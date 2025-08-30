@@ -8,22 +8,22 @@ import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { TargetResolver } from '../../src/config/target-resolver';
+import { TargetResolver } from '../../src/config/target-resolver.js';
 
-import type { Configuration } from '../../src/config/types';
+import type { Configuration } from '../../src/config/types.js';
 
 describe('TargetResolver', () => {
   let resolver: TargetResolver;
   let config: Configuration;
-  
+
   let testDir: string;
-  
+
   beforeEach(async () => {
     // Create test directory
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-target-resolver-test-'));
     await fs.mkdir(path.join(testDir, '.xec'), { recursive: true });
     await fs.mkdir(path.join(testDir, 'test-containers'), { recursive: true });
-    
+
     config = {
       version: '2.0',
       targets: {
@@ -68,21 +68,21 @@ describe('TargetResolver', () => {
         }
       }
     };
-    
+
     resolver = new TargetResolver(config);
   });
-  
+
   afterEach(async () => {
     // Clean up test directory
     if (testDir) {
-      await fs.rm(testDir, { recursive: true, force: true }).catch(() => {});
+      await fs.rm(testDir, { recursive: true, force: true }).catch(() => { });
     }
   });
-  
+
   describe('resolve()', () => {
     it('should resolve local target', async () => {
       const target = await resolver.resolve('local');
-      
+
       expect(target).toEqual({
         id: 'local',
         type: 'local',
@@ -92,10 +92,10 @@ describe('TargetResolver', () => {
         source: 'configured'
       });
     });
-    
+
     it('should resolve configured SSH hosts', async () => {
       const target = await resolver.resolve('hosts.web-1');
-      
+
       expect(target).toEqual({
         id: 'hosts.web-1',
         type: 'ssh',
@@ -109,10 +109,10 @@ describe('TargetResolver', () => {
         source: 'configured'
       });
     });
-    
+
     it('should resolve configured containers', async () => {
       const target = await resolver.resolve('containers.app');
-      
+
       expect(target).toEqual({
         id: 'containers.app',
         type: 'docker',
@@ -125,10 +125,10 @@ describe('TargetResolver', () => {
         source: 'configured'
       });
     });
-    
+
     it('should resolve configured pods', async () => {
       const target = await resolver.resolve('pods.api');
-      
+
       expect(target).toEqual({
         id: 'pods.api',
         type: 'k8s',
@@ -141,60 +141,60 @@ describe('TargetResolver', () => {
         source: 'configured'
       });
     });
-    
+
     it('should cache resolved targets', async () => {
       const target1 = await resolver.resolve('hosts.web-1');
       const target2 = await resolver.resolve('hosts.web-1');
-      
+
       // Should be the same object reference
       expect(target1).toBe(target2);
     });
-    
+
     it('should clear cache after timeout', async () => {
       // Create resolver with short timeout
       resolver = new TargetResolver(config, { cacheTimeout: 100 });
-      
+
       const target1 = await resolver.resolve('hosts.web-1');
-      
+
       // Wait for cache to expire
       await new Promise(resolve => setTimeout(resolve, 150));
-      
+
       const target2 = await resolver.resolve('hosts.web-1');
-      
+
       // Should be different objects (cache was cleared)
       expect(target1).not.toBe(target2);
       expect(target1).toEqual(target2); // But same content
     });
-    
+
     it('should throw for non-existent targets', async () => {
       // Disable auto-detection for this test
       resolver = new TargetResolver(config, { autoDetect: false });
-      
+
       await expect(resolver.resolve('hosts.nonexistent')).rejects.toThrow(
         "Target 'nonexistent' not found in hosts"
       );
     });
-    
+
     it('should handle missing targets config', async () => {
       const emptyConfig: Configuration = { version: '2.0' };
       resolver = new TargetResolver(emptyConfig, { autoDetect: false });
-      
+
       // Local should still work
       const local = await resolver.resolve('local');
       expect(local.type).toBe('local');
-      
+
       // Other targets should fail
       await expect(resolver.resolve('hosts.anything')).rejects.toThrow(
         "Target 'anything' not found in hosts"
       );
     });
-    
+
     describe('auto-detection', () => {
       it('should auto-detect Docker containers', async () => {
         // Create a test file that simulates docker ps output
         const dockerPsFile = path.join(testDir, 'docker-ps.txt');
         await fs.writeFile(dockerPsFile, 'mycontainer\nredis-cache\nnginx\n');
-        
+
         // Create a custom resolver that reads from file instead of docker
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
@@ -207,10 +207,10 @@ describe('TargetResolver', () => {
             }
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('mycontainer');
-        
+
         expect(target).toEqual({
           id: 'mycontainer',
           type: 'docker',
@@ -222,17 +222,17 @@ describe('TargetResolver', () => {
           source: 'detected'
         });
       });
-      
+
       it('should auto-detect Kubernetes pods', async () => {
         // Create test files to simulate kubectl responses
         const kubectlPodsFile = path.join(testDir, 'kubectl-pods.txt');
         await fs.writeFile(kubectlPodsFile, 'mypod\ntest-pod\napp-pod\n');
-        
+
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
             return false; // Not a docker container
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             try {
               const content = await fs.readFile(kubectlPodsFile, 'utf-8');
@@ -243,10 +243,10 @@ describe('TargetResolver', () => {
             }
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('mypod');
-        
+
         expect(target).toEqual({
           id: 'mypod',
           type: 'k8s',
@@ -259,22 +259,22 @@ describe('TargetResolver', () => {
           source: 'detected'
         });
       });
-      
+
       it('should use Kubernetes context and namespace from config', async () => {
         config.targets!.kubernetes = {
           $namespace: 'production',
           $context: 'prod-cluster'
         };
-        
+
         // Create test file for K8s pods in production namespace
         const k8sPodsFile = path.join(testDir, 'k8s-pods-prod.txt');
         await fs.writeFile(k8sPodsFile, 'mypod\nprod-app\nprod-db\n');
-        
+
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             try {
               const content = await fs.readFile(k8sPodsFile, 'utf-8');
@@ -285,32 +285,32 @@ describe('TargetResolver', () => {
             }
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('mypod');
-        
+
         expect(target.config).toMatchObject({
           type: 'k8s',
           pod: 'mypod',
           namespace: 'production'
         });
       });
-      
+
       it('should default to SSH for hostnames', async () => {
         // Create a resolver that doesn't find containers or pods
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('example.com');
-        
+
         expect(target).toEqual({
           id: 'example.com',
           type: 'ssh',
@@ -322,21 +322,21 @@ describe('TargetResolver', () => {
           source: 'detected'
         });
       });
-      
+
       it('should parse user@host format', async () => {
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('user@example.com');
-        
+
         expect(target).toEqual({
           id: 'user@example.com',
           type: 'ssh',
@@ -349,66 +349,66 @@ describe('TargetResolver', () => {
           source: 'detected'
         });
       });
-      
+
       it('should handle SSH targets without @ or .', async () => {
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
-        
+
         // This should not be detected as SSH
         await expect(testResolver.resolve('simplestring')).rejects.toThrow(
           "Target 'simplestring' not found"
         );
       });
-      
+
     });
   });
-  
+
   describe('find()', () => {
     it('should find targets by exact name', async () => {
       const targets = await resolver.find('hosts.web-1');
-      
+
       expect(targets).toHaveLength(1);
       expect(targets[0].id).toBe('hosts.web-1');
     });
-    
+
     it('should find targets by wildcard pattern', async () => {
       const targets = await resolver.find('hosts.web-*');
-      
+
       expect(targets).toHaveLength(2);
       expect(targets.map(t => t.id)).toContain('hosts.web-1');
       expect(targets.map(t => t.id)).toContain('hosts.web-2');
     });
-    
+
     it('should find targets with ? wildcard', async () => {
       const targets = await resolver.find('hosts.web-?');
-      
+
       expect(targets).toHaveLength(2);
       expect(targets.map(t => t.id)).toContain('hosts.web-1');
       expect(targets.map(t => t.id)).toContain('hosts.web-2');
     });
-    
+
     it('should expand brace patterns', async () => {
       const targets = await resolver.find('hosts.web-{1,2}');
-      
+
       expect(targets).toHaveLength(2);
       expect(targets.map(t => t.id)).toContain('hosts.web-1');
       expect(targets.map(t => t.id)).toContain('hosts.web-2');
     });
-    
+
     it('should search across types with auto mode', async () => {
       // Create test file for container names
       const dockerPsFile = path.join(testDir, 'docker-ps-search.txt');
       await fs.writeFile(dockerPsFile, 'app-1\napp-2\n');
-      
+
       class TestableTargetResolver extends TargetResolver {
         async isDockerContainer(name: string): Promise<boolean> {
           try {
@@ -420,33 +420,33 @@ describe('TargetResolver', () => {
           }
         }
       }
-      
+
       const testResolver = new TestableTargetResolver(config);
       const targets = await testResolver.find('app*');
-      
+
       // Should find configured container 'app'
       expect(targets.length).toBeGreaterThanOrEqual(1);
       expect(targets.some(t => t.id === 'containers.app')).toBe(true);
     });
-    
+
     it('should remove duplicates', async () => {
       const targets = await resolver.find('hosts.web-1');
-      
+
       // Even if found multiple times, should only appear once
       const ids = targets.map(t => t.id);
       const uniqueIds = [...new Set(ids)];
-      
+
       expect(ids).toEqual(uniqueIds);
     });
   });
-  
+
   describe('list()', () => {
     it('should list all configured targets', async () => {
       const targets = await resolver.list();
-      
+
       // Should include local + all configured targets
       expect(targets).toHaveLength(8); // 1 local + 3 hosts + 2 containers + 2 pods
-      
+
       expect(targets.some(t => t.id === 'local')).toBe(true);
       expect(targets.some(t => t.id === 'hosts.web-1')).toBe(true);
       expect(targets.some(t => t.id === 'hosts.web-2')).toBe(true);
@@ -456,19 +456,19 @@ describe('TargetResolver', () => {
       expect(targets.some(t => t.id === 'pods.api')).toBe(true);
       expect(targets.some(t => t.id === 'pods.worker')).toBe(true);
     });
-    
+
     it('should handle empty targets config', async () => {
       const emptyConfig: Configuration = { version: '2.0' };
       const emptyResolver = new TargetResolver(emptyConfig);
-      
+
       const targets = await emptyResolver.list();
-      
+
       // Should only have local
       expect(targets).toHaveLength(1);
       expect(targets[0].id).toBe('local');
     });
   });
-  
+
   describe('create()', () => {
     it('should create dynamic SSH target', async () => {
       const target = await resolver.create({
@@ -476,7 +476,7 @@ describe('TargetResolver', () => {
         host: 'dynamic.example.com',
         user: 'admin'
       });
-      
+
       expect(target).toEqual({
         id: 'dynamic-ssh-dynamic.example.com',
         type: 'ssh',
@@ -487,18 +487,18 @@ describe('TargetResolver', () => {
         },
         source: 'created'
       });
-      
+
       // Should be cached
       const resolved = await resolver.resolve('dynamic-ssh-dynamic.example.com');
       expect(resolved).toBe(target);
     });
-    
+
     it('should create dynamic Docker target', async () => {
       const target = await resolver.create({
         type: 'docker',
         image: 'alpine:latest'
       });
-      
+
       expect(target).toEqual({
         id: 'dynamic-docker-ephemeral',
         type: 'docker',
@@ -509,14 +509,14 @@ describe('TargetResolver', () => {
         source: 'created'
       });
     });
-    
+
     it('should create dynamic Kubernetes target', async () => {
       const target = await resolver.create({
         type: 'k8s',
         pod: 'mypod',
         namespace: 'custom'
       });
-      
+
       expect(target).toEqual({
         id: 'dynamic-k8s-mypod',
         type: 'k8s',
@@ -528,13 +528,13 @@ describe('TargetResolver', () => {
         source: 'created'
       });
     });
-    
+
     it('should create local target', async () => {
       const target = await resolver.create({
         type: 'local',
         env: { CUSTOM_VAR: 'value' }
       });
-      
+
       expect(target).toEqual({
         id: 'local',
         type: 'local',
@@ -546,28 +546,28 @@ describe('TargetResolver', () => {
       });
     });
   });
-  
+
   describe('Docker Compose integration', () => {
     it('should find compose services', async () => {
       config.targets!.$compose = {
         file: 'docker-compose.yml',
         project: 'myproject'
       };
-      
+
       // Create test file for compose services
       const composeServicesFile = path.join(testDir, 'compose-services.json');
-      await fs.writeFile(composeServicesFile, 
+      await fs.writeFile(composeServicesFile,
         '{"Service":"web","Name":"myproject_web_1"}\n' +
         '{"Service":"db","Name":"myproject_db_1"}\n'
       );
-      
+
       class TestableTargetResolver extends TargetResolver {
         async findComposeServices(pattern: string): Promise<any[]> {
           try {
             const content = await fs.readFile(composeServicesFile, 'utf-8');
             const services = content.trim().split('\n').map(line => JSON.parse(line));
             const targets = [];
-            
+
             for (const service of services) {
               if (matchPattern(pattern, service.Service)) {
                 targets.push({
@@ -588,22 +588,22 @@ describe('TargetResolver', () => {
           }
         }
       }
-      
+
       const { matchPattern } = await import('../../src/config/utils');
       const testResolver = new TestableTargetResolver(config);
       const targets = await testResolver.find('containers.*');
-      
+
       // Should include configured containers
       expect(targets.some(t => t.id === 'containers.app')).toBe(true);
       expect(targets.some(t => t.id === 'containers.redis')).toBe(true);
     });
-    
+
     it('should handle docker compose failures gracefully', async () => {
       config.targets!.$compose = {
         file: 'docker-compose.yml',
         project: 'failing'
       };
-      
+
       // Don't create compose services file to simulate failure
       class TestableTargetResolver extends TargetResolver {
         async findComposeServices(pattern: string): Promise<any[]> {
@@ -611,10 +611,10 @@ describe('TargetResolver', () => {
           return [];
         }
       }
-      
+
       const testResolver = new TestableTargetResolver(config);
       const targets = await testResolver.find('containers.*');
-      
+
       // Should still find configured containers
       expect(targets.some(t => t.id === 'containers.app')).toBe(true);
       expect(targets.some(t => t.id === 'containers.redis')).toBe(true);
@@ -622,13 +622,13 @@ describe('TargetResolver', () => {
       expect(targets.length).toBe(2);
     });
   });
-  
+
   describe('clearCache()', () => {
     it('should clear target cache', async () => {
       // Create test file with initial container
       const dockerPsFile = path.join(testDir, 'docker-ps-cache.txt');
       await fs.writeFile(dockerPsFile, 'mycontainer\n');
-      
+
       class TestableTargetResolver extends TargetResolver {
         async isDockerContainer(name: string): Promise<boolean> {
           try {
@@ -639,40 +639,40 @@ describe('TargetResolver', () => {
             return false;
           }
         }
-        
+
         async isKubernetesPod(name: string): Promise<boolean> {
           return false; // Not a Kubernetes pod
         }
       }
-      
+
       const testResolver = new TestableTargetResolver(config);
-      
+
       // Resolve and cache a target
       const target1 = await testResolver.resolve('mycontainer');
       expect(target1.source).toBe('detected');
-      
+
       // Clear cache
       testResolver.clearCache();
-      
+
       // Change file content to simulate container being removed
       await fs.writeFile(dockerPsFile, 'different-container\n');
-      
+
       // Try to resolve the same target - should not find it anymore
       await expect(testResolver.resolve('mycontainer')).rejects.toThrow(
         "Target 'mycontainer' not found"
       );
     });
   });
-  
+
   describe('pattern matching', () => {
     it('should find local target by pattern', async () => {
       const targets = await resolver.find('local');
-      
+
       expect(targets).toHaveLength(1);
       expect(targets[0].id).toBe('local');
       expect(targets[0].type).toBe('local');
     });
-    
+
     it('should handle complex patterns', async () => {
       // Add more hosts for testing
       config.targets!.hosts = {
@@ -681,16 +681,16 @@ describe('TargetResolver', () => {
         'api-prod-2': { host: 'api2.prod.example.com' },
         'api-dev-1': { host: 'api1.dev.example.com' }
       };
-      
+
       resolver = new TargetResolver(config);
-      
+
       // Test various patterns
       let targets = await resolver.find('hosts.api-prod-*');
       expect(targets).toHaveLength(2);
-      
+
       targets = await resolver.find('hosts.*-1');
       expect(targets).toHaveLength(3); // web-1, api-prod-1, api-dev-1
-      
+
       targets = await resolver.find('hosts.api-*-1');
       expect(targets).toHaveLength(2); // api-prod-1, api-dev-1
     });
@@ -794,7 +794,7 @@ describe('TargetResolver', () => {
     describe('common defaults', () => {
       it('should apply common defaults to SSH host without overrides', async () => {
         const target = await resolver.resolve('hosts.test-host');
-        
+
         expect(target.config).toMatchObject({
           type: 'ssh',
           host: 'test.example.com',
@@ -829,7 +829,7 @@ describe('TargetResolver', () => {
 
       it('should override defaults with target-specific values', async () => {
         const target = await resolver.resolve('hosts.custom-host');
-        
+
         expect(target.config).toMatchObject({
           type: 'ssh',
           host: 'custom.example.com',
@@ -858,7 +858,7 @@ describe('TargetResolver', () => {
 
       it('should apply common defaults to Docker container', async () => {
         const target = await resolver.resolve('containers.test-container');
-        
+
         expect(target.config).toMatchObject({
           type: 'docker',
           image: 'test:latest',
@@ -883,7 +883,7 @@ describe('TargetResolver', () => {
 
       it('should apply common defaults to Kubernetes pod', async () => {
         const target = await resolver.resolve('pods.test-pod');
-        
+
         expect(target.config).toMatchObject({
           type: 'k8s',
           selector: 'app=test',
@@ -908,7 +908,7 @@ describe('TargetResolver', () => {
 
       it('should apply common defaults to local target', async () => {
         const target = await resolver.resolve('local');
-        
+
         expect(target.config).toMatchObject({
           type: 'local',
           // Target override
@@ -928,7 +928,7 @@ describe('TargetResolver', () => {
     describe('type-specific defaults', () => {
       it('should not apply SSH defaults to Docker containers', async () => {
         const target = await resolver.resolve('containers.test-container');
-        
+
         expect(target.config).not.toHaveProperty('port');
         expect(target.config).not.toHaveProperty('keepAlive');
         expect(target.config).not.toHaveProperty('connectionPool');
@@ -936,7 +936,7 @@ describe('TargetResolver', () => {
 
       it('should not apply Docker defaults to SSH hosts', async () => {
         const target = await resolver.resolve('hosts.test-host');
-        
+
         expect(target.config).not.toHaveProperty('autoRemove');
         expect(target.config).not.toHaveProperty('runMode');
       });
@@ -944,10 +944,10 @@ describe('TargetResolver', () => {
       it('should not apply Kubernetes defaults to other target types', async () => {
         const sshTarget = await resolver.resolve('hosts.test-host');
         const dockerTarget = await resolver.resolve('containers.test-container');
-        
+
         expect(sshTarget.config).not.toHaveProperty('namespace');
         expect(sshTarget.config).not.toHaveProperty('execFlags');
-        
+
         expect(dockerTarget.config).not.toHaveProperty('namespace');
         expect(dockerTarget.config).not.toHaveProperty('execFlags');
       });
@@ -962,10 +962,10 @@ describe('TargetResolver', () => {
             // idleTimeout and enabled should come from defaults
           }
         };
-        
+
         resolver = new TargetResolver(config);
         const target = await resolver.resolve('hosts.nested-host');
-        
+
         expect(target.config.connectionPool).toEqual({
           enabled: true, // from defaults
           maxConnections: 10, // overridden
@@ -978,10 +978,10 @@ describe('TargetResolver', () => {
           selector: 'app=array',
           execFlags: ['--quiet']
         };
-        
+
         resolver = new TargetResolver(config);
         const target = await resolver.resolve('pods.array-pod');
-        
+
         // Arrays should be concatenated
         expect(target.config.execFlags).toEqual(['--verbose', '--quiet']);
       });
@@ -994,10 +994,10 @@ describe('TargetResolver', () => {
             // enabled and method should come from defaults
           }
         };
-        
+
         resolver = new TargetResolver(config);
         const target = await resolver.resolve('hosts.sudo-host');
-        
+
         expect(target.config.sudo).toEqual({
           enabled: true, // from defaults
           method: 'askpass', // from defaults
@@ -1011,7 +1011,7 @@ describe('TargetResolver', () => {
         // Create test file for docker containers
         const dockerPsFile = path.join(testDir, 'docker-ps-defaults.txt');
         await fs.writeFile(dockerPsFile, 'detected-container\n');
-        
+
         class TestableTargetResolver extends TargetResolver {
           async isDockerContainer(name: string): Promise<boolean> {
             try {
@@ -1023,10 +1023,10 @@ describe('TargetResolver', () => {
             }
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('detected-container');
-        
+
         expect(target.config).toMatchObject({
           type: 'docker',
           container: 'detected-container',
@@ -1055,15 +1055,15 @@ describe('TargetResolver', () => {
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('user@detected.example.com');
-        
+
         expect(target.config).toMatchObject({
           type: 'ssh',
           host: 'detected.example.com',
@@ -1103,10 +1103,10 @@ describe('TargetResolver', () => {
             }
           }
         };
-        
+
         resolver = new TargetResolver(config);
         const target = await resolver.resolve('hosts.no-defaults');
-        
+
         expect(target.config).toEqual({
           type: 'ssh',
           host: 'nodefaults.example.com',
@@ -1119,10 +1119,10 @@ describe('TargetResolver', () => {
       it('should apply profile-specific defaults override', async () => {
         // Simulate profile override
         config.targets!.defaults!.ssh!.port = 4444; // Profile override
-        
+
         resolver = new TargetResolver(config);
         const target = await resolver.resolve('hosts.test-host');
-        
+
         expect(target.config.port).toBe(4444);
       });
     });
@@ -1130,16 +1130,16 @@ describe('TargetResolver', () => {
     describe('list() with defaults', () => {
       it('should apply defaults to all listed targets', async () => {
         const targets = await resolver.list();
-        
+
         // Check that all targets have defaults applied
         const sshTarget = targets.find(t => t.id === 'hosts.test-host');
         expect(sshTarget?.config.timeout).toBe(30000);
         expect(sshTarget?.config.port).toBe(2222);
-        
+
         const dockerTarget = targets.find(t => t.id === 'containers.test-container');
         expect(dockerTarget?.config.timeout).toBe(30000);
         expect(dockerTarget?.config.tty).toBe(true);
-        
+
         const k8sTarget = targets.find(t => t.id === 'pods.test-pod');
         expect(k8sTarget?.config.timeout).toBe(30000);
         expect(k8sTarget?.config.namespace).toBe('production');
@@ -1149,7 +1149,7 @@ describe('TargetResolver', () => {
     describe('find() with defaults', () => {
       it('should apply defaults to all found targets', async () => {
         const targets = await resolver.find('hosts.*');
-        
+
         expect(targets).toHaveLength(2);
         targets.forEach(target => {
           expect(target.config.shell).toBe('/bin/bash');
@@ -1163,7 +1163,7 @@ describe('TargetResolver', () => {
       it('should handle undefined defaults gracefully', async () => {
         config.targets!.defaults = undefined;
         resolver = new TargetResolver(config);
-        
+
         const target = await resolver.resolve('hosts.test-host');
         expect(target.config).toEqual({
           type: 'ssh',
@@ -1174,7 +1174,7 @@ describe('TargetResolver', () => {
       it('should handle empty defaults object', async () => {
         config.targets!.defaults = {};
         resolver = new TargetResolver(config);
-        
+
         const target = await resolver.resolve('hosts.test-host');
         expect(target.config).toEqual({
           type: 'ssh',
@@ -1185,7 +1185,7 @@ describe('TargetResolver', () => {
       it('should handle boolean shell value correctly', async () => {
         config.targets!.defaults!.shell = false;
         resolver = new TargetResolver(config);
-        
+
         const target = await resolver.resolve('hosts.test-host');
         expect(target.config.shell).toBe(false);
       });
@@ -1196,10 +1196,10 @@ describe('TargetResolver', () => {
           port: undefined as any,
           user: null as any
         };
-        
+
         resolver = new TargetResolver(config);
         const target = await resolver.resolve('hosts.null-host');
-        
+
         // undefined values get defaults
         expect(target.config.port).toBe(2222); // from defaults
         // null values are preserved
@@ -1207,7 +1207,7 @@ describe('TargetResolver', () => {
       });
     });
   });
-  
+
   describe('additional coverage tests', () => {
     describe('duplicate filtering', () => {
       it('should filter out duplicate targets in find()', async () => {
@@ -1217,7 +1217,7 @@ describe('TargetResolver', () => {
           'test-1': { host: 'test1.com' },
           'test-2': { host: 'test2.com' }
         };
-        
+
         // Create a mock that returns duplicates at a lower level
         class TestableTargetResolver extends TargetResolver {
           async findHosts(pattern: string): Promise<any[]> {
@@ -1229,23 +1229,23 @@ describe('TargetResolver', () => {
             return targets;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const targets = await testResolver.find('hosts.test');
-        
+
         // Should have filtered out the duplicate
         expect(targets).toHaveLength(1);
         expect(targets[0].id).toBe('hosts.test');
       });
     });
-    
+
     describe('SSH config parsing', () => {
       it('should parse SSH config file', async () => {
         // Create a mock SSH config file
         const sshDir = path.join(testDir, '.ssh');
         await fs.mkdir(sshDir, { recursive: true });
         const sshConfigPath = path.join(sshDir, 'config');
-        
+
         await fs.writeFile(sshConfigPath, `
 Host myserver
   HostName 192.168.1.100
@@ -1309,19 +1309,19 @@ Host *
             }
             return undefined;
           }
-          
+
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const target = await testResolver.resolve('myserver');
-        
+
         expect(target).toEqual({
           id: 'myserver',
           type: 'ssh',
@@ -1336,36 +1336,36 @@ Host *
           source: 'detected'
         });
       });
-      
+
       it('should handle missing SSH config gracefully', async () => {
         // Create a custom resolver that returns undefined for SSH config
         class TestableTargetResolver extends TargetResolver {
           async getSSHHost(name: string): Promise<any> {
             return undefined;
           }
-          
+
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
-        
+
         await expect(testResolver.resolve('unknownhost')).rejects.toThrow(
           "Target 'unknownhost' not found"
         );
       });
-      
+
       it('should cover line 468 in getSSHHost', async () => {
         // Test the SSH config parsing with a host that exists
         const sshConfigPath = path.join(testDir, '.ssh', 'config');
         await fs.mkdir(path.dirname(sshConfigPath), { recursive: true });
         await fs.writeFile(sshConfigPath, 'Host myhost\n  HostName example.com\n');
-        
+
         class TestableTargetResolver extends TargetResolver {
           async getSSHHost(name: string): Promise<any> {
             try {
@@ -1413,42 +1413,42 @@ Host *
             }
             return undefined;
           }
-          
+
           async isDockerContainer(name: string): Promise<boolean> {
             return false;
           }
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             return false;
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const result = await testResolver.resolve('myhost');
-        
+
         expect(result.config.host).toBe('example.com');
       });
     });
-    
+
     describe('Docker Compose services detection', () => {
       it('should handle Docker Compose command failure gracefully', async () => {
         config.targets!.$compose = {
           file: 'docker-compose.yml',
           project: 'myproject'
         };
-        
+
         // Since we can't easily override the real $, let's test a scenario without compose
         delete config.targets!.$compose;
-        
+
         resolver = new TargetResolver(config);
         const targets = await resolver.find('containers.*');
-        
+
         // Should still return configured containers
         expect(targets.some(t => t.id === 'containers.app')).toBe(true);
         expect(targets.some(t => t.id === 'containers.redis')).toBe(true);
       });
     });
-    
+
     describe('resolveConfigured edge cases', () => {
       it('should return undefined for unknown target type', async () => {
         // Access private method through test class
@@ -1457,39 +1457,39 @@ Host *
             return (this as any).resolveConfigured(ref);
           }
         }
-        
+
         const testResolver = new TestableTargetResolver(config);
         const result = await testResolver.testResolveConfigured({
           type: 'unknown',
           name: 'test'
         });
-        
+
         expect(result).toBeUndefined();
       });
     });
-    
+
     describe('Docker and Kubernetes detection', () => {
       it('should detect running Docker containers', async () => {
         // Create a testable resolver that simulates Docker command behavior
         class TestableDockerResolver extends TargetResolver {
           private mockContainers = ['test-container-1', 'test-container-2'];
-          
+
           async isDockerContainer(name: string): Promise<boolean> {
             // Instead of calling real docker, use our mock list
             return this.mockContainers.includes(name);
           }
         }
-        
+
         const testResolver = new TestableDockerResolver(config);
-        
+
         // Test detection with mock containers
         const isContainer = await (testResolver as any).isDockerContainer('test-container-1');
         expect(isContainer).toBe(true);
-        
+
         const isNotContainer = await (testResolver as any).isDockerContainer('nonexistent-container');
         expect(isNotContainer).toBe(false);
       });
-      
+
       it('should handle Docker command failure', async () => {
         // Test that Docker command failures are handled gracefully
         // Create a custom resolver that overrides the detection method
@@ -1499,12 +1499,12 @@ Host *
             return false;
           }
         }
-        
+
         const testResolver = new TestDockerResolver(config);
         const isContainer = await (testResolver as any).isDockerContainer('test-container');
         expect(isContainer).toBe(false);
       });
-      
+
       it('should detect Kubernetes pods', async () => {
         // Create a test resolver that simulates successful kubectl command
         class MockKubernetesResolver extends TargetResolver {
@@ -1513,15 +1513,15 @@ Host *
             return name === 'mypod';
           }
         }
-        
+
         const testResolver = new MockKubernetesResolver(config);
         const isPod = await (testResolver as any).isKubernetesPod('mypod');
         expect(isPod).toBe(true);
-        
+
         const isNotPod = await (testResolver as any).isKubernetesPod('nonexistent');
         expect(isNotPod).toBe(false);
       });
-      
+
       it('should handle kubectl command failure', async () => {
         // Test that kubectl command failures are handled gracefully
         // Create a custom resolver that overrides the detection method
@@ -1531,22 +1531,22 @@ Host *
             return false;
           }
         }
-        
+
         const testResolver = new TestKubernetesResolver(config);
         const isPod = await (testResolver as any).isKubernetesPod('test-pod');
         expect(isPod).toBe(false);
       });
-      
+
       it('should use Kubernetes context from config', async () => {
         config.targets!.kubernetes = {
           $namespace: 'custom-ns',
           $context: 'prod-cluster'
         };
-        
+
         // Create a test resolver that captures the arguments passed to kubectl
         class ArgumentCapturingResolver extends TargetResolver {
           public lastKubectlArgs: string[] = [];
-          
+
           async isKubernetesPod(name: string): Promise<boolean> {
             const namespace = this.config.targets?.kubernetes?.$namespace || 'default';
             const context = this.config.targets?.kubernetes?.$context;
@@ -1555,45 +1555,45 @@ Host *
             if (context) {
               args.push('--context', context);
             }
-            
+
             // Store the args for verification
             this.lastKubectlArgs = args;
-            
+
             // Return true to simulate successful detection
             return true;
           }
         }
-        
+
         const testResolver = new ArgumentCapturingResolver(config);
         await (testResolver as any).isKubernetesPod('mypod');
-        
+
         expect(testResolver.lastKubectlArgs).toContain('--context');
         expect(testResolver.lastKubectlArgs).toContain('prod-cluster');
         expect(testResolver.lastKubectlArgs).toContain('-n');
         expect(testResolver.lastKubectlArgs).toContain('custom-ns');
       });
     });
-    
+
     describe('Docker Compose integration implementation', () => {
       it('should handle empty compose services list', async () => {
         config.targets!.$compose = {
           file: 'docker-compose.yml',
           project: 'testproject'
         };
-        
+
         // Test the logic when compose returns empty results
         const originalShell = $.shell;
-        
+
         // Create a test that validates the compose service structure without calling real docker
         class TestResolver extends TargetResolver {
           async findComposeServices(pattern: string): Promise<any[]> {
             // Simulate successful parsing
             const services = [
-              {Service: 'web', Name: 'testproject_web_1'},
-              {Service: 'db', Name: 'testproject_db_1'},
-              {Service: 'cache', Name: 'testproject_cache_1'}
+              { Service: 'web', Name: 'testproject_web_1' },
+              { Service: 'db', Name: 'testproject_db_1' },
+              { Service: 'cache', Name: 'testproject_cache_1' }
             ];
-            
+
             const targets = [];
             for (const service of services) {
               if ((await import('../../src/config/utils.js')).matchPattern(pattern, service.Service)) {
@@ -1612,27 +1612,27 @@ Host *
             return targets;
           }
         }
-        
+
         const testResolver = new TestResolver(config);
         const targets = await testResolver.find('containers.*');
-        
+
         // Should include compose services
         expect(targets.some(t => t.id === 'containers.web')).toBe(true);
         expect(targets.some(t => t.id === 'containers.db')).toBe(true);
         expect(targets.some(t => t.id === 'containers.cache')).toBe(true);
       });
-      
+
       it('should build correct Docker Compose arguments', async () => {
         // Test that the compose configuration is used correctly
         config.targets!.$compose = {
           file: 'custom-compose.yml',
           project: 'myapp'
         };
-        
+
         // Verify the configuration is set correctly
         expect(config.targets!.$compose!.file).toBe('custom-compose.yml');
         expect(config.targets!.$compose!.project).toBe('myapp');
-        
+
         // Test compose argument building logic
         const compose = config.targets!.$compose;
         const args = ['compose'];
@@ -1643,26 +1643,26 @@ Host *
           args.push('-p', compose.project);
         }
         args.push('ps', '--format', 'json');
-        
+
         expect(args).toContain('-f');
         expect(args).toContain('custom-compose.yml');
         expect(args).toContain('-p');
         expect(args).toContain('myapp');
       });
-      
+
       it('should handle malformed Docker Compose JSON', async () => {
         // Test JSON parsing error handling
         const malformedJson = 'invalid json';
         const validJson = '{"Service":"valid","Name":"container"}';
-        
+
         // Test that JSON.parse throws on invalid JSON
         expect(() => JSON.parse(malformedJson)).toThrow();
         expect(() => JSON.parse(validJson)).not.toThrow();
-        
+
         // Test the error handling logic
         const lines = [malformedJson, validJson, 'another invalid'];
         const parsedServices = [];
-        
+
         for (const line of lines) {
           try {
             const service = JSON.parse(line);
@@ -1671,7 +1671,7 @@ Host *
             // Skip invalid JSON
           }
         }
-        
+
         // Should only have one valid parsed service
         expect(parsedServices).toHaveLength(1);
         expect(parsedServices[0].Service).toBe('valid');

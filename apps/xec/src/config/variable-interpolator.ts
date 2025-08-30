@@ -391,13 +391,13 @@ export class VariableInterpolator {
       const trimmedCommand = command.trim();
       // Use $.raw to avoid escaping the command string, with shell enabled
       const result = await $.raw`${trimmedCommand}`.shell(true).nothrow();
-      
+
       // Check if command failed
       if (!result.ok) {
         console.warn(`Command substitution failed for '${command}': ${result.stderr || `Exit code ${result.exitCode}`}`);
         return '';
       }
-      
+
       return result.stdout.trim();
     } catch (error: any) {
       console.warn(`Command substitution failed for '${command}': ${error.message}`);

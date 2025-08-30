@@ -18,7 +18,7 @@ describe('TaskParser', () => {
   describe('parseTask', () => {
     it('should parse simple string command', () => {
       const result = parser.parseTask('test', 'npm test');
-      
+
       expect(result).toEqual({
         command: 'npm test',
         description: 'Execute: npm test',
@@ -73,7 +73,7 @@ describe('TaskParser', () => {
 
       const result = parser.parseTask('invalid', config);
       expect(result).toBeNull();
-      
+
       const errors = parser.getErrors();
       expect(errors).toHaveLength(1);
       expect(errors[0].message).toContain('must have either command, steps, or script');
@@ -87,7 +87,7 @@ describe('TaskParser', () => {
 
       const result = parser.parseTask('invalid', config);
       expect(result).toBeNull();
-      
+
       const errors = parser.getErrors();
       expect(errors).toHaveLength(1);
       expect(errors[0].message).toContain('cannot have both command and steps');
@@ -247,7 +247,7 @@ describe('TaskParser', () => {
       };
 
       const result = parser.parseTasks(tasks);
-      
+
       expect(Object.keys(result)).toHaveLength(3);
       expect(result.test.command).toBe('npm test');
       expect(result.build.description).toBe('Build project');
@@ -284,7 +284,7 @@ describe('TaskParser', () => {
         };
 
         const result = parser.parseTask('test', config);
-        
+
         if (expected) {
           expect(result).not.toBeNull();
         } else {

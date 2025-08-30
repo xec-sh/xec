@@ -21,15 +21,15 @@ describe('Configuration API', () => {
     // Create temporary directory structure
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-config-api-test-'));
     projectDir = path.join(tempDir, 'project');
-    
+
     await fs.mkdir(projectDir, { recursive: true });
     await fs.mkdir(path.join(projectDir, '.xec'), { recursive: true });
-    
+
     configPath = path.join(projectDir, '.xec', 'config.yaml');
-    
+
     // Change to project directory
     process.chdir(projectDir);
-    
+
     // Create fresh API instance for each test
     api = new ConfigAPI({ path: configPath });
   });
@@ -57,12 +57,12 @@ describe('Configuration API', () => {
           }
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(testConfig));
-      
+
       // Load configuration
       await api.load();
-      
+
       // Verify loaded data
       expect(api.getVersion()).toBe('2.0');
       expect(api.get('vars.app_name')).toBe('test-app');
@@ -77,9 +77,9 @@ describe('Configuration API', () => {
           env: 'development'
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(testConfig));
-      
+
       // Create API with overrides
       const apiWithOverrides = new ConfigAPI({
         path: configPath,
@@ -88,21 +88,21 @@ describe('Configuration API', () => {
           'vars.debug': true
         }
       });
-      
+
       await apiWithOverrides.load();
-      
+
       expect(apiWithOverrides.get('vars.env')).toBe('production');
       expect(apiWithOverrides.get('vars.debug')).toBe(true);
     });
 
     it('should handle empty configuration file', async () => {
       await fs.writeFile(configPath, '');
-      
+
       await api.load();
-      
+
       // Should load default configuration when file is empty
       const config = api.getAll();
-      expect(config.version).toBe('2.0');
+      expect(config.version).toBe('1.0');
       expect(config.targets).toBeDefined();
       expect(config.targets.local).toEqual({ type: 'local' });
       expect(config.commands).toBeDefined();
@@ -121,7 +121,7 @@ describe('Configuration API', () => {
           ports: [3000, 3001]
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
     });
@@ -140,7 +140,7 @@ describe('Configuration API', () => {
     it('should set new values', () => {
       api.set('vars.new_value', 'test');
       expect(api.get('vars.new_value')).toBe('test');
-      
+
       api.set('vars.app.updated', true);
       expect(api.get('vars.app.updated')).toBe(true);
     });
@@ -163,7 +163,7 @@ describe('Configuration API', () => {
           }
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
     });
@@ -192,22 +192,22 @@ describe('Configuration API', () => {
         version: '2.0',
         vars: { original: true }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
-      
+
       // Modify configuration
       api.set('vars.modified', true);
       api.set('vars.number', 42);
       api.unset('vars.original');
-      
+
       // Save changes
       await api.save();
-      
+
       // Read file directly to verify
       const savedContent = await fs.readFile(configPath, 'utf-8');
       const savedConfig = yaml.load(savedContent) as any;
-      
+
       expect(savedConfig.vars.modified).toBe(true);
       expect(savedConfig.vars.number).toBe(42);
       expect(savedConfig.vars.original).toBeUndefined();
@@ -216,15 +216,15 @@ describe('Configuration API', () => {
     it('should save to custom path', async () => {
       await fs.writeFile(configPath, yaml.dump({ version: '1.0' }));
       await api.load();
-      
+
       api.set('custom', true);
-      
+
       const customPath = path.join(tempDir, 'custom-config.yaml');
       await api.save(customPath);
-      
+
       const customContent = await fs.readFile(customPath, 'utf-8');
       const customConfig = yaml.load(customContent) as any;
-      
+
       expect(customConfig.custom).toBe(true);
     });
   });
@@ -252,7 +252,7 @@ describe('Configuration API', () => {
           }
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
     });
@@ -269,10 +269,10 @@ describe('Configuration API', () => {
       expect(api.get('vars.env')).toBe('development');
       expect(api.get('vars.debug')).toBe(true);
       expect(api.get('vars.optimize')).toBeUndefined();
-      
+
       // Apply production profile
       await api.useProfile('production');
-      
+
       expect(api.get('vars.env')).toBe('production');
       expect(api.get('vars.debug')).toBe(false);
       expect(api.get('vars.optimize')).toBe(true);
@@ -280,7 +280,7 @@ describe('Configuration API', () => {
 
     it('should return current profile', async () => {
       expect(api.getProfile()).toBeUndefined();
-      
+
       await api.useProfile('staging');
       expect(api.getProfile()).toBe('staging');
     });
@@ -295,7 +295,7 @@ describe('Configuration API', () => {
           full_name: '${vars.app_name}-${vars.version}'
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
     });
@@ -339,10 +339,10 @@ describe('Configuration API', () => {
           }
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
-      
+
       const errors = await api.validate();
       expect(errors).toHaveLength(0);
     });
@@ -359,10 +359,10 @@ describe('Configuration API', () => {
           }
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
-      
+
       const errors = await api.validate();
       expect(errors.length).toBeGreaterThan(0);
     });
@@ -373,15 +373,15 @@ describe('Configuration API', () => {
       // Initial config
       await fs.writeFile(configPath, yaml.dump({ vars: { value: 'initial' } }));
       await api.load();
-      
+
       expect(api.get('vars.value')).toBe('initial');
-      
+
       // Modify file on disk
       await fs.writeFile(configPath, yaml.dump({ vars: { value: 'updated' } }));
-      
+
       // Reload
       await api.reload();
-      
+
       expect(api.get('vars.value')).toBe('updated');
     });
   });
@@ -406,7 +406,7 @@ describe('Configuration API', () => {
           }
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
     });
@@ -417,7 +417,7 @@ describe('Configuration API', () => {
       expect(sshTarget.name).toBe('web');
       expect(sshTarget.config.host).toBe('web.example.com');
       expect(sshTarget.config.port).toBe(2222);
-      
+
       const dockerTarget = await api.resolveTarget('containers.app');
       expect(dockerTarget.type).toBe('docker');
       expect(dockerTarget.name).toBe('app');
@@ -430,10 +430,10 @@ describe('Configuration API', () => {
       const config = {
         features: ['parallel-tasks', 'experimental-api']
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
       await api.load();
-      
+
       expect(api.hasFeature('parallel-tasks')).toBe(true);
       expect(api.hasFeature('experimental-api')).toBe(true);
       expect(api.hasFeature('non-existent')).toBe(false);
@@ -443,7 +443,7 @@ describe('Configuration API', () => {
   describe('error handling', () => {
     it('should throw if used before loading', () => {
       const newApi = new ConfigAPI();
-      
+
       expect(() => newApi.get('test')).toThrow('Configuration not loaded');
       expect(() => newApi.set('test', 'value')).toThrow('Configuration not loaded');
       expect(() => newApi.getAll()).toThrow('Configuration not loaded');

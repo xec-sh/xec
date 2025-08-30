@@ -8,12 +8,12 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { TaskExecutor } from '../../src/config/task-executor';
-import { TargetResolver } from '../../src/config/target-resolver';
-import { VariableInterpolator } from '../../src/config/variable-interpolator';
-import { ConfigurationManager } from '../../src/config/configuration-manager';
+import { TaskExecutor } from '../../src/config/task-executor.js';
+import { TargetResolver } from '../../src/config/target-resolver.js';
+import { VariableInterpolator } from '../../src/config/variable-interpolator.js';
+import { ConfigurationManager } from '../../src/config/configuration-manager.js';
 
-import type { TaskDefinition } from '../../src/config/types';
+import type { TaskDefinition } from '../../src/config/types.js';
 
 describe('TaskExecutor', () => {
   let executor: TaskExecutor;
@@ -25,11 +25,11 @@ describe('TaskExecutor', () => {
   beforeEach(async () => {
     // Create a temporary directory for test files
     testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-test-'));
-    
+
     configManager = new ConfigurationManager();
     interpolator = new VariableInterpolator();
     targetResolver = new TargetResolver(configManager);
-    
+
     executor = new TaskExecutor({
       interpolator,
       targetResolver,
@@ -56,7 +56,7 @@ describe('TaskExecutor', () => {
       expect(result.success).toBe(true);
       expect(result.task).toBe('hello');
       expect(result.duration).toBeGreaterThanOrEqual(0);
-      
+
       // Verify the file was created
       const content = await fs.readFile(outputFile, 'utf-8');
       expect(content.trim()).toBe('Hello World');
@@ -105,7 +105,7 @@ describe('TaskExecutor', () => {
       expect(result.success).toBe(true);
       expect(result.steps).toHaveLength(3);
       expect(result.steps?.every(s => s.success)).toBe(true);
-      
+
       // Verify the order
       const content = await fs.readFile(outputFile, 'utf-8');
       const lines = content.trim().split('\n');
@@ -126,7 +126,7 @@ describe('TaskExecutor', () => {
 
       expect(result.success).toBe(true);
       expect(result.steps).toHaveLength(3);
-      
+
       // Verify all files were created
       for (let i = 1; i <= 3; i++) {
         const content = await fs.readFile(path.join(testDir, `p${i}.txt`), 'utf-8');
@@ -137,7 +137,7 @@ describe('TaskExecutor', () => {
     it('should respect maxConcurrent limit', async () => {
       const startTimes: number[] = [];
       const endTimes: number[] = [];
-      
+
       const task: TaskDefinition = {
         parallel: true,
         maxConcurrent: 2,
@@ -150,9 +150,9 @@ describe('TaskExecutor', () => {
       };
 
       const result = await executor.execute('concurrent', task);
-      
+
       expect(result.success).toBe(true);
-      
+
       // Read timestamps from files
       for (let i = 1; i <= 4; i++) {
         const content = await fs.readFile(path.join(testDir, `c${i}.txt`), 'utf-8');
@@ -160,16 +160,16 @@ describe('TaskExecutor', () => {
         startTimes.push(times[0]);
         endTimes.push(times[1]);
       }
-      
+
       // Sort start times to check concurrency
       startTimes.sort((a, b) => a - b);
-      
+
       // The third task should start after the first has ended
       const overlapCount = startTimes.filter((start, idx) => {
         if (idx < 2) return false;
         return start < Math.min(...endTimes.slice(0, 2));
       }).length;
-      
+
       expect(overlapCount).toBe(0);
     });
 
@@ -187,10 +187,10 @@ describe('TaskExecutor', () => {
 
       expect(result.success).toBe(false);
       expect(result.steps).toHaveLength(2); // Should stop after failure
-      
+
       // First file should exist
       await expect(fs.access(path.join(testDir, 'ff1.txt'))).resolves.toBeUndefined();
-      
+
       // Third file should not exist
       await expect(fs.access(path.join(testDir, 'ff3.txt'))).rejects.toThrow();
     });
@@ -201,7 +201,7 @@ describe('TaskExecutor', () => {
       const outputFile = path.join(testDir, 'conditional.txt');
       const task: TaskDefinition = {
         steps: [
-          { 
+          {
             name: 'Conditional step',
             command: `echo "Should not run" > ${outputFile}`,
             when: 'false',
@@ -214,7 +214,7 @@ describe('TaskExecutor', () => {
       expect(result.success).toBe(true);
       expect(result.steps?.[0].success).toBe(true);
       expect(result.steps?.[0].output).toBeUndefined();
-      
+
       // File should not exist
       await expect(fs.access(outputFile)).rejects.toThrow();
     });
@@ -224,13 +224,13 @@ describe('TaskExecutor', () => {
     it('should retry on failure', async () => {
       const attemptFile = path.join(testDir, 'attempts.txt');
       const successFile = path.join(testDir, 'success.txt');
-      
+
       // Track retry events
       const retryEvents: any[] = [];
       executor.on('step:retry', event => {
         retryEvents.push(event);
       });
-      
+
       // Create a script that fails on first attempt
       const scriptPath = path.join(testDir, 'retry-script.js');
       await fs.writeFile(scriptPath, `
@@ -277,16 +277,16 @@ describe('TaskExecutor', () => {
       // Check attempts count first
       const attempts = await fs.readFile(attemptFile, 'utf-8');
       expect(attempts).toBe('2'); // Initial + 1 retry
-      
+
       // Check if success file was created
       const successExists = await fs.access(successFile).then(() => true).catch(() => false);
       expect(successExists).toBe(true);
-      
+
       if (successExists) {
         const success = await fs.readFile(successFile, 'utf-8');
         expect(success).toBe('Success after retry');
       }
-      
+
       // Then check overall success
       expect(result.success).toBe(true);
       expect(result.steps?.[0].success).toBe(true);
@@ -296,7 +296,7 @@ describe('TaskExecutor', () => {
       const task: TaskDefinition = {
         steps: [
           { name: 'Step 1', command: `echo "1" > ${path.join(testDir, 'cont1.txt')}` },
-          { 
+          {
             name: 'Step 2',
             command: 'false',  // This will fail
             onFailure: 'continue',
@@ -309,7 +309,7 @@ describe('TaskExecutor', () => {
 
       expect(result.steps).toHaveLength(3);
       expect(result.steps?.[1].success).toBe(false); // Failed but continued due to 'continue' handler
-      
+
       // Both files should exist
       await expect(fs.access(path.join(testDir, 'cont1.txt'))).resolves.toBeUndefined();
       await expect(fs.access(path.join(testDir, 'cont3.txt'))).resolves.toBeUndefined();
@@ -332,7 +332,7 @@ describe('TaskExecutor', () => {
       const result = await dryRunExecutor.execute('dangerous', task);
 
       expect(result.success).toBe(true);
-      
+
       // File should not exist
       await expect(fs.access(outputFile)).rejects.toThrow();
     });
@@ -341,7 +341,7 @@ describe('TaskExecutor', () => {
   describe('event emission', () => {
     it('should emit task lifecycle events', async () => {
       const events: any[] = [];
-      
+
       executor.on('task:start', event => events.push({ type: 'start', ...event }));
       executor.on('task:complete', event => events.push({ type: 'complete', ...event }));
 
@@ -404,7 +404,7 @@ describe('TaskExecutor', () => {
       };
 
       const result = await executor.execute('timeout-test', task);
-      
+
       expect(result.success).toBe(true);
       await expect(fs.access(path.join(testDir, 'timeout-test.txt'))).resolves.toBeUndefined();
     });
@@ -416,7 +416,7 @@ describe('TaskExecutor', () => {
       };
 
       const result = await executor.execute('timeout-num', task);
-      
+
       expect(result.success).toBe(true);
       await expect(fs.access(path.join(testDir, 'timeout-num.txt'))).resolves.toBeUndefined();
     });
@@ -470,7 +470,7 @@ describe('TaskExecutor', () => {
     it('should use task workdir', async () => {
       const subDir = path.join(testDir, 'subdir');
       await fs.mkdir(subDir);
-      
+
       const task: TaskDefinition = {
         command: 'pwd > workdir.txt',
         workdir: subDir,
@@ -489,7 +489,7 @@ describe('TaskExecutor', () => {
       const subDir2 = path.join(testDir, 'subdir2');
       await fs.mkdir(subDir1);
       await fs.mkdir(subDir2);
-      
+
       const task: TaskDefinition = {
         command: 'pwd > cwd-override.txt',
         workdir: subDir1,
@@ -565,12 +565,12 @@ describe('TaskExecutor', () => {
 
       expect(result.success).toBe(true);
       expect(result.steps).toHaveLength(3);
-      
+
       // Check that all files were created
       const content1 = await fs.readFile(path.join(testDir, 'target1.txt'), 'utf-8');
       const content2 = await fs.readFile(path.join(testDir, 'target2.txt'), 'utf-8');
       const content3 = await fs.readFile(path.join(testDir, 'target3.txt'), 'utf-8');
-      
+
       expect(content1.trim()).toBe('target1');
       expect(content2.trim()).toBe('target2');
       expect(content3.trim()).toBe('target3');
@@ -583,7 +583,7 @@ describe('TaskExecutor', () => {
       executor.on('step:retry', event => retryEvents.push(event));
 
       const attemptFile = path.join(testDir, 'retry-attempts.txt');
-      
+
       // Create a script that fails on first attempt
       const scriptPath = path.join(testDir, 'retry-event-script.js');
       await fs.writeFile(scriptPath, `
