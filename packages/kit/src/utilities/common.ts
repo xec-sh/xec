@@ -2,9 +2,9 @@ import type { Readable, Writable } from 'node:stream';
 
 import color from 'picocolors';
 
-import isUnicodeSupported from './core/utils/is-unicode-supported.js';
+import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
 
-import type { State } from './core/index.js';
+import type { State } from '../core/index.js';
 
 export const unicode = isUnicodeSupported();
 export const isCI = (): boolean => process.env['CI'] === 'true';

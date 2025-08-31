@@ -3,7 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
-import { kit } from '@xec-sh/kit';
+import { log } from '@xec-sh/kit';
 import { transform } from 'esbuild';
 import { pathToFileURL } from 'url';
 
@@ -739,7 +739,7 @@ export class ModuleLoader {
     }
 
     if (this.options.verbose) {
-      kit.log.success('Module cache cleared');
+      log.success('Module cache cleared');
     }
   }
 

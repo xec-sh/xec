@@ -1,7 +1,7 @@
 import color from 'picocolors';
 
-import { PasswordPrompt } from './core/index.js';
-import { S_BAR, symbol, S_BAR_END, S_PASSWORD_MASK, type CommonOptions } from './common.js';
+import { PasswordPrompt } from '../core/index.js';
+import { S_BAR, symbol, S_BAR_END, S_PASSWORD_MASK, type CommonOptions } from '../utilities/common.js';
 
 export interface PasswordOptions extends CommonOptions {
 	message: string;

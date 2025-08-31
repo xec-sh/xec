@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:stream';
-import { getColumns } from '@clack/core';
+import { getColumns } from '../src/core/utils/index.js';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import * as prompts from '../src/index.js';
 import { MockWritable } from './test-utils.js';

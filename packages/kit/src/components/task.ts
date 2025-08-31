@@ -1,6 +1,6 @@
 import { spinner } from './spinner.js';
 
-import type { CommonOptions } from './common.js';
+import type { CommonOptions } from '../utilities/common.js';
 
 export type Task = {
 	/**

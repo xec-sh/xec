@@ -1,7 +1,7 @@
 import color from 'picocolors';
 
-import { SelectKeyPrompt } from './core/index.js';
-import { S_BAR, symbol, S_BAR_END } from './common.js';
+import { SelectKeyPrompt } from '../core/index.js';
+import { S_BAR, symbol, S_BAR_END } from '../utilities/common.js';
 
 import type { Option, SelectOptions } from './select.js';
 

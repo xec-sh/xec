@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { join, dirname } from 'path';
-import * as clack from '@clack/prompts';
+import { intro, outro, cancel, select, text, confirm, isCancel, log, password } from '@xec-sh/kit';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 import { BaseCommand } from '../utils/command-base.js';
@@ -340,10 +340,10 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async interactiveMode(): Promise<void> {
-    clack.intro('🔧 Xec Configuration Manager');
+    intro('🔧 Xec Configuration Manager');
 
     while (true) {
-      const action = await clack.select({
+      const action = await select({
         message: 'What would you like to do?',
         options: [
           { value: 'view', label: '📖 View configuration' },
@@ -358,13 +358,13 @@ export class ConfigCommand extends BaseCommand {
         ],
       });
 
-      if (clack.isCancel(action)) {
-        clack.cancel('Configuration management cancelled');
+      if (isCancel(action)) {
+        cancel('Configuration management cancelled');
         break;
       }
 
       if (action === 'exit') {
-        clack.outro('✨ Configuration management completed');
+        outro('✨ Configuration management completed');
         break;
       }
 
@@ -389,11 +389,11 @@ export class ConfigCommand extends BaseCommand {
           await this.manageCustomParameters();
           break;
         case 'doctor':
-          const showDefaults = await clack.confirm({
+          const showDefaults = await confirm({
             message: 'Show all possible configuration options with default values?',
             initialValue: false
           });
-          if (!clack.isCancel(showDefaults)) {
+          if (!isCancel(showDefaults)) {
             await this.runDoctor({ defaults: showDefaults });
           }
           break;
@@ -470,7 +470,7 @@ export class ConfigCommand extends BaseCommand {
       if (value && typeof value === 'object' && k in value) {
         value = value[k];
       } else {
-        clack.log.error(`Configuration key '${key}' not found`);
+        log.error(`Configuration key '${key}' not found`);
         return;
       }
     }
@@ -492,7 +492,7 @@ export class ConfigCommand extends BaseCommand {
       try {
         parsedValue = JSON.parse(value);
       } catch (error) {
-        clack.log.error(`Invalid JSON value: ${error}`);
+        log.error(`Invalid JSON value: ${error}`);
         return;
       }
     } else {
@@ -519,7 +519,7 @@ export class ConfigCommand extends BaseCommand {
     target[lastKey] = parsedValue;
 
     await this.saveConfig(config);
-    clack.log.success(`Configuration value '${key}' set successfully`);
+    log.success(`Configuration value '${key}' set successfully`);
   }
 
   private async unsetConfigValue(key: string): Promise<void> {
@@ -534,7 +534,7 @@ export class ConfigCommand extends BaseCommand {
       if (target && typeof target === 'object' && k in target) {
         target = target[k];
       } else {
-        clack.log.error(`Configuration key '${key}' not found`);
+        log.error(`Configuration key '${key}' not found`);
         return;
       }
     }
@@ -542,9 +542,9 @@ export class ConfigCommand extends BaseCommand {
     if (target && typeof target === 'object' && lastKey in target) {
       delete target[lastKey];
       await this.saveConfig(config);
-      clack.log.success(`Configuration value '${key}' removed successfully`);
+      log.success(`Configuration value '${key}' removed successfully`);
     } else {
-      clack.log.error(`Configuration key '${key}' not found`);
+      log.error(`Configuration key '${key}' not found`);
     }
   }
 
@@ -559,7 +559,7 @@ export class ConfigCommand extends BaseCommand {
         if (displayConfig && typeof displayConfig === 'object' && k in displayConfig) {
           displayConfig = displayConfig[k];
         } else {
-          clack.log.error(`Configuration path '${options.path}' not found`);
+          log.error(`Configuration path '${options.path}' not found`);
           return;
         }
       }
@@ -574,7 +574,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async manageTargets(): Promise<void> {
-    const action = await clack.select({
+    const action = await select({
       message: 'Target management',
       options: [
         { value: 'list', label: 'List all targets' },
@@ -585,7 +585,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     });
 
-    if (clack.isCancel(action)) return;
+    if (isCancel(action)) return;
 
     // eslint-disable-next-line default-case
     switch (action) {
@@ -644,7 +644,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async addTarget(): Promise<void> {
-    const targetType = await clack.select({
+    const targetType = await select({
       message: 'Select target type',
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
@@ -653,9 +653,9 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (clack.isCancel(targetType)) return;
+    if (isCancel(targetType)) return;
 
-    const name = await clack.text({
+    const name = await text({
       message: 'Target name',
       placeholder: 'my-target',
       validate: (value) => {
@@ -665,7 +665,7 @@ export class ConfigCommand extends BaseCommand {
       },
     }) as string;
 
-    if (clack.isCancel(name)) return;
+    if (isCancel(name)) return;
 
     let targetConfig: any = { type: targetType };
 
@@ -709,35 +709,35 @@ export class ConfigCommand extends BaseCommand {
 
     // Save config
     await this.saveConfig(config);
-    clack.log.success(`Target '${name}' added successfully`);
+    log.success(`Target '${name}' added successfully`);
   }
 
   private async promptSSHConfig(): Promise<any> {
-    const host = await clack.text({
+    const host = await text({
       message: 'SSH host',
       placeholder: 'example.com',
       validate: (value) => value ? undefined : 'Host is required',
     }) as string;
 
-    if (clack.isCancel(host)) return null;
+    if (isCancel(host)) return null;
 
-    const port = await clack.text({
+    const port = await text({
       message: 'SSH port',
       placeholder: '22',
       defaultValue: '22',
     }) as string;
 
-    if (clack.isCancel(port)) return null;
+    if (isCancel(port)) return null;
 
-    const username = await clack.text({
+    const username = await text({
       message: 'SSH username',
       placeholder: 'user',
       validate: (value) => value ? undefined : 'Username is required',
     }) as string;
 
-    if (clack.isCancel(username)) return null;
+    if (isCancel(username)) return null;
 
-    const authMethod = await clack.select({
+    const authMethod = await select({
       message: 'Authentication method',
       options: [
         { value: 'key', label: '🔑 SSH Key' },
@@ -745,7 +745,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (clack.isCancel(authMethod)) return null;
+    if (isCancel(authMethod)) return null;
 
     const config: any = {
       type: 'ssh',
@@ -755,25 +755,25 @@ export class ConfigCommand extends BaseCommand {
     };
 
     if (authMethod === 'key') {
-      const privateKey = await clack.text({
+      const privateKey = await text({
         message: 'Path to SSH private key',
         placeholder: '~/.ssh/id_rsa',
         defaultValue: '~/.ssh/id_rsa',
       }) as string;
 
-      if (clack.isCancel(privateKey)) return null;
+      if (isCancel(privateKey)) return null;
       config.privateKey = privateKey;
 
-      const passphrase = await clack.password({
+      const passphrase = await password({
         message: 'SSH key passphrase (optional)',
       }) as string;
 
-      if (passphrase && !clack.isCancel(passphrase)) {
-        clack.log.warn('⚠️  Passphrase will be stored in plain text. Consider using the secrets command instead.');
+      if (passphrase && !isCancel(passphrase)) {
+        log.warn('⚠️  Passphrase will be stored in plain text. Consider using the secrets command instead.');
         config.passphrase = passphrase;
       }
     } else {
-      clack.log.error('❌ Password authentication is not supported in config. Use the secrets command to manage passwords securely.');
+      log.error('❌ Password authentication is not supported in config. Use the secrets command to manage passwords securely.');
       return null;
     }
 
@@ -781,37 +781,37 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async promptDockerConfig(): Promise<any> {
-    const useContainer = await clack.confirm({
+    const useContainer = await confirm({
       message: 'Use existing container?',
     });
 
     const config: any = { type: 'docker' };
 
     if (useContainer) {
-      const container = await clack.text({
+      const container = await text({
         message: 'Container name or ID',
         placeholder: 'my-container',
         validate: (value) => value ? undefined : 'Container is required',
       }) as string;
 
-      if (clack.isCancel(container)) return null;
+      if (isCancel(container)) return null;
       config.container = container;
     } else {
-      const image = await clack.text({
+      const image = await text({
         message: 'Docker image',
         placeholder: 'ubuntu:latest',
         validate: (value) => value ? undefined : 'Image is required',
       }) as string;
 
-      if (clack.isCancel(image)) return null;
+      if (isCancel(image)) return null;
       config.image = image;
 
-      const workdir = await clack.text({
+      const workdir = await text({
         message: 'Working directory (optional)',
         placeholder: '/app',
       }) as string;
 
-      if (workdir && !clack.isCancel(workdir)) {
+      if (workdir && !isCancel(workdir)) {
         config.workdir = workdir;
       }
     }
@@ -820,23 +820,23 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async promptK8sConfig(): Promise<any> {
-    const pod = await clack.text({
+    const pod = await text({
       message: 'Pod name',
       placeholder: 'my-pod',
       validate: (value) => value ? undefined : 'Pod name is required',
     }) as string;
 
-    if (clack.isCancel(pod)) return null;
+    if (isCancel(pod)) return null;
 
-    const namespace = await clack.text({
+    const namespace = await text({
       message: 'Namespace',
       placeholder: 'default',
       defaultValue: 'default',
     }) as string;
 
-    if (clack.isCancel(namespace)) return null;
+    if (isCancel(namespace)) return null;
 
-    const container = await clack.text({
+    const container = await text({
       message: 'Container name (for multi-container pods)',
       placeholder: 'main',
     }) as string;
@@ -847,16 +847,16 @@ export class ConfigCommand extends BaseCommand {
       namespace,
     };
 
-    if (container && !clack.isCancel(container)) {
+    if (container && !isCancel(container)) {
       config.container = container;
     }
 
-    const context = await clack.text({
+    const context = await text({
       message: 'Kubernetes context (optional)',
       placeholder: 'default',
     }) as string;
 
-    if (context && !clack.isCancel(context)) {
+    if (context && !isCancel(context)) {
       config.context = context;
     }
 
@@ -885,21 +885,21 @@ export class ConfigCommand extends BaseCommand {
     }
 
     if (allTargets.length === 0) {
-      clack.log.warn('No targets configured');
+      log.warn('No targets configured');
       return;
     }
 
-    const target = await clack.select({
+    const target = await select({
       message: 'Select target to edit',
       options: allTargets.map(t => ({ value: t, label: t })),
     }) as string;
 
-    if (clack.isCancel(target)) return;
+    if (isCancel(target)) return;
 
     const [type, name] = target.split('.');
 
     if (!name) {
-      clack.log.error('Invalid target format');
+      log.error('Invalid target format');
       return;
     }
 
@@ -918,14 +918,14 @@ export class ConfigCommand extends BaseCommand {
         break;
     }
 
-    clack.log.info('Current configuration:');
+    log.info('Current configuration:');
     console.log(yaml.dump(currentConfig, { indent: 2 }));
 
-    const edit = await clack.confirm({
+    const edit = await confirm({
       message: 'Edit this target?',
     });
 
-    if (!edit || clack.isCancel(edit)) return;
+    if (!edit || isCancel(edit)) return;
 
     // Re-prompt for new configuration
     let newConfig: any;
@@ -961,7 +961,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     await this.saveConfig(config);
-    clack.log.success(`Target '${target}' updated successfully`);
+    log.success(`Target '${target}' updated successfully`);
   }
 
   private async deleteTarget(): Promise<void> {
@@ -986,27 +986,27 @@ export class ConfigCommand extends BaseCommand {
     }
 
     if (allTargets.length === 0) {
-      clack.log.warn('No targets configured');
+      log.warn('No targets configured');
       return;
     }
 
-    const target = await clack.select({
+    const target = await select({
       message: 'Select target to delete',
       options: allTargets.map(t => ({ value: t, label: t })),
     }) as string;
 
-    if (clack.isCancel(target)) return;
+    if (isCancel(target)) return;
 
-    const confirm = await clack.confirm({
+    const confirmResult = await confirm({
       message: `Are you sure you want to delete '${target}'?`,
     });
 
-    if (!confirm || clack.isCancel(confirm)) return;
+    if (!confirmResult || isCancel(confirmResult)) return;
 
     const [type, name] = target.split('.');
 
     if (!name) {
-      clack.log.error('Invalid target format');
+      log.error('Invalid target format');
       return;
     }
 
@@ -1024,15 +1024,15 @@ export class ConfigCommand extends BaseCommand {
     }
 
     await this.saveConfig(config);
-    clack.log.success(`Target '${target}' deleted successfully`);
+    log.success(`Target '${target}' deleted successfully`);
   }
 
   private async testTarget(): Promise<void> {
-    clack.log.info('Target testing will be implemented with the test command');
+    log.info('Target testing will be implemented with the test command');
   }
 
   private async manageVars(): Promise<void> {
-    const action = await clack.select({
+    const action = await select({
       message: 'Variable management',
       options: [
         { value: 'list', label: 'List all variables' },
@@ -1043,7 +1043,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     });
 
-    if (clack.isCancel(action)) return;
+    if (isCancel(action)) return;
 
     // eslint-disable-next-line default-case
     switch (action) {
@@ -1070,7 +1070,7 @@ export class ConfigCommand extends BaseCommand {
     const vars = config.vars || {};
 
     if (Object.keys(vars).length === 0) {
-      clack.log.info('No variables configured');
+      log.info('No variables configured');
       return;
     }
 
@@ -1086,7 +1086,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async setVar(): Promise<void> {
-    const name = await clack.text({
+    const name = await text({
       message: 'Variable name',
       placeholder: 'MY_VAR',
       validate: (value) => {
@@ -1096,34 +1096,34 @@ export class ConfigCommand extends BaseCommand {
       },
     }) as string;
 
-    if (clack.isCancel(name)) return;
+    if (isCancel(name)) return;
 
-    const isSecret = await clack.confirm({
+    const isSecret = await confirm({
       message: 'Is this a secret value?',
     });
 
-    if (clack.isCancel(isSecret)) return;
+    if (isCancel(isSecret)) return;
 
     if (isSecret) {
-      clack.log.error('❌ Secrets cannot be managed through the config command. Use the secrets command instead.');
-      clack.log.info('Run: xec secrets set ' + name);
+      log.error('❌ Secrets cannot be managed through the config command. Use the secrets command instead.');
+      log.info('Run: xec secrets set ' + name);
       return;
     }
 
-    const value = await clack.text({
+    const value = await text({
       message: 'Variable value',
       placeholder: 'value',
       validate: (value) => value ? undefined : 'Value is required',
     }) as string;
 
-    if (clack.isCancel(value)) return;
+    if (isCancel(value)) return;
 
     const config = await this.configManager.load();
     if (!config.vars) config.vars = {};
     config.vars[name] = value;
 
     await this.saveConfig(config);
-    clack.log.success(`Variable '${name}' set successfully`);
+    log.success(`Variable '${name}' set successfully`);
   }
 
   private async deleteVar(): Promise<void> {
@@ -1131,39 +1131,39 @@ export class ConfigCommand extends BaseCommand {
     const vars = config.vars || {};
 
     if (Object.keys(vars).length === 0) {
-      clack.log.info('No variables configured');
+      log.info('No variables configured');
       return;
     }
 
-    const name = await clack.select({
+    const name = await select({
       message: 'Select variable to delete',
       options: Object.keys(vars).map(v => ({ value: v, label: v })),
     }) as string;
 
-    if (clack.isCancel(name)) return;
+    if (isCancel(name)) return;
 
-    const confirm = await clack.confirm({
+    const confirmResult = await confirm({
       message: `Delete variable '${name}'?`,
     });
 
-    if (!confirm || clack.isCancel(confirm)) return;
+    if (!confirmResult || isCancel(confirmResult)) return;
 
     delete config.vars![name];
     await this.saveConfig(config);
-    clack.log.success(`Variable '${name}' deleted successfully`);
+    log.success(`Variable '${name}' deleted successfully`);
   }
 
   private async importVars(): Promise<void> {
-    const envFile = await clack.text({
+    const envFile = await text({
       message: 'Path to .env file',
       placeholder: '.env',
       defaultValue: '.env',
     }) as string;
 
-    if (clack.isCancel(envFile)) return;
+    if (isCancel(envFile)) return;
 
     if (!existsSync(envFile)) {
-      clack.log.error(`File not found: ${envFile}`);
+      log.error(`File not found: ${envFile}`);
       return;
     }
 
@@ -1183,7 +1183,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     if (Object.keys(vars).length === 0) {
-      clack.log.warn('No variables found in .env file');
+      log.warn('No variables found in .env file');
       return;
     }
 
@@ -1195,7 +1195,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     await this.saveConfig(config);
-    clack.log.success(`Imported ${Object.keys(vars).length} variables from ${envFile}`);
+    log.success(`Imported ${Object.keys(vars).length} variables from ${envFile}`);
   }
 
   private async exportVars(): Promise<void> {
@@ -1203,17 +1203,17 @@ export class ConfigCommand extends BaseCommand {
     const vars = config.vars || {};
 
     if (Object.keys(vars).length === 0) {
-      clack.log.info('No variables to export');
+      log.info('No variables to export');
       return;
     }
 
-    const envFile = await clack.text({
+    const envFile = await text({
       message: 'Output .env file',
       placeholder: '.env',
       defaultValue: '.env',
     }) as string;
 
-    if (clack.isCancel(envFile)) return;
+    if (isCancel(envFile)) return;
 
     const lines: string[] = ['# Exported from Xec configuration'];
     for (const [key, value] of Object.entries(vars)) {
@@ -1225,11 +1225,11 @@ export class ConfigCommand extends BaseCommand {
     }
 
     writeFileSync(envFile, lines.join('\n'));
-    clack.log.success(`Exported ${Object.keys(vars).length} variables to ${envFile}`);
+    log.success(`Exported ${Object.keys(vars).length} variables to ${envFile}`);
   }
 
   private async manageTasks(): Promise<void> {
-    const action = await clack.select({
+    const action = await select({
       message: 'Task management',
       options: [
         { value: 'list', label: 'List all tasks' },
@@ -1241,7 +1241,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     });
 
-    if (clack.isCancel(action)) return;
+    if (isCancel(action)) return;
 
     // eslint-disable-next-line default-case
     switch (action) {
@@ -1271,7 +1271,7 @@ export class ConfigCommand extends BaseCommand {
     const tasks = config.tasks || {};
 
     if (Object.keys(tasks).length === 0) {
-      clack.log.info('No tasks configured');
+      log.info('No tasks configured');
       return;
     }
 
@@ -1286,23 +1286,23 @@ export class ConfigCommand extends BaseCommand {
     const tasks = config.tasks || {};
 
     if (Object.keys(tasks).length === 0) {
-      clack.log.info('No tasks configured');
+      log.info('No tasks configured');
       return;
     }
 
-    const name = await clack.select({
+    const name = await select({
       message: 'Select task to view',
       options: Object.keys(tasks).map(t => ({ value: t, label: t })),
     }) as string;
 
-    if (clack.isCancel(name)) return;
+    if (isCancel(name)) return;
 
     console.log('\nTask configuration:');
     console.log(yaml.dump(tasks[name], { indent: 2 }));
   }
 
   private async createTask(): Promise<void> {
-    const name = await clack.text({
+    const name = await text({
       message: 'Task name',
       placeholder: 'my-task',
       validate: (value) => {
@@ -1312,16 +1312,16 @@ export class ConfigCommand extends BaseCommand {
       },
     }) as string;
 
-    if (clack.isCancel(name)) return;
+    if (isCancel(name)) return;
 
-    const description = await clack.text({
+    const description = await text({
       message: 'Task description',
       placeholder: 'Describe what this task does',
     }) as string;
 
-    if (clack.isCancel(description)) return;
+    if (isCancel(description)) return;
 
-    const taskType = await clack.select({
+    const taskType = await select({
       message: 'Task type',
       options: [
         { value: 'command', label: 'Shell command' },
@@ -1330,7 +1330,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (clack.isCancel(taskType)) return;
+    if (isCancel(taskType)) return;
 
     const config = await this.configManager.load();
     if (!config.tasks) config.tasks = {};
@@ -1343,30 +1343,30 @@ export class ConfigCommand extends BaseCommand {
     switch (taskType) {
       case 'command':
         {
-          const command = await clack.text({
+          const command = await text({
             message: 'Command to run',
             placeholder: 'echo "Hello, World!"',
             validate: (value) => value ? undefined : 'Command is required',
           }) as string;
-          if (clack.isCancel(command)) return;
+          if (isCancel(command)) return;
           task.steps = [{ command }];
           break;
         }
 
       case 'script':
         {
-          const script = await clack.text({
+          const script = await text({
             message: 'Script file path',
             placeholder: './scripts/my-script.sh',
             validate: (value) => value ? undefined : 'Script path is required',
           }) as string;
-          if (clack.isCancel(script)) return;
+          if (isCancel(script)) return;
           task.steps = [{ script }];
           break;
         }
 
       case 'composite':
-        clack.log.info('Multi-step tasks can be edited manually in the config file');
+        log.info('Multi-step tasks can be edited manually in the config file');
         task.steps = [
           { name: 'Step 1', command: 'echo "Step 1"' },
           { name: 'Step 2', command: 'echo "Step 2"' },
@@ -1376,14 +1376,14 @@ export class ConfigCommand extends BaseCommand {
 
     config.tasks[name] = task;
     await this.saveConfig(config);
-    clack.log.success(`Task '${name}' created successfully`);
+    log.success(`Task '${name}' created successfully`);
   }
 
   private async editTask(): Promise<void> {
-    clack.log.info('Task editing can be done manually in the config file');
+    log.info('Task editing can be done manually in the config file');
     const config = await this.configManager.load();
     const configPath = this.getConfigPath();
-    clack.log.info(`Edit tasks in: ${configPath}`);
+    log.info(`Edit tasks in: ${configPath}`);
   }
 
   private async deleteTask(): Promise<void> {
@@ -1391,26 +1391,26 @@ export class ConfigCommand extends BaseCommand {
     const tasks = config.tasks || {};
 
     if (Object.keys(tasks).length === 0) {
-      clack.log.info('No tasks configured');
+      log.info('No tasks configured');
       return;
     }
 
-    const name = await clack.select({
+    const name = await select({
       message: 'Select task to delete',
       options: Object.keys(tasks).map(t => ({ value: t, label: t })),
     }) as string;
 
-    if (clack.isCancel(name)) return;
+    if (isCancel(name)) return;
 
-    const confirm = await clack.confirm({
+    const confirmResult = await confirm({
       message: `Delete task '${name}'?`,
     });
 
-    if (!confirm || clack.isCancel(confirm)) return;
+    if (!confirmResult || isCancel(confirmResult)) return;
 
     delete config.tasks![name];
     await this.saveConfig(config);
-    clack.log.success(`Task '${name}' deleted successfully`);
+    log.success(`Task '${name}' deleted successfully`);
   }
 
   private async validateTasks(): Promise<void> {
@@ -1418,11 +1418,11 @@ export class ConfigCommand extends BaseCommand {
     const tasks = config.tasks || {};
 
     if (Object.keys(tasks).length === 0) {
-      clack.log.info('No tasks to validate');
+      log.info('No tasks to validate');
       return;
     }
 
-    clack.log.info('Validating tasks...');
+    log.info('Validating tasks...');
 
     let hasErrors = false;
     for (const [name, task] of Object.entries(tasks)) {
@@ -1430,7 +1430,7 @@ export class ConfigCommand extends BaseCommand {
 
       // Check for required fields
       if (!taskConfig.steps || !Array.isArray(taskConfig.steps)) {
-        clack.log.error(`Task '${name}': Missing or invalid 'steps' field`);
+        log.error(`Task '${name}': Missing or invalid 'steps' field`);
         hasErrors = true;
         continue;
       }
@@ -1439,19 +1439,19 @@ export class ConfigCommand extends BaseCommand {
       for (let i = 0; i < taskConfig.steps.length; i++) {
         const step = taskConfig.steps[i];
         if (!step.command && !step.script && !step.task) {
-          clack.log.error(`Task '${name}', step ${i + 1}: Must have either 'command', 'script', or 'task'`);
+          log.error(`Task '${name}', step ${i + 1}: Must have either 'command', 'script', or 'task'`);
           hasErrors = true;
         }
       }
     }
 
     if (!hasErrors) {
-      clack.log.success('All tasks are valid');
+      log.success('All tasks are valid');
     }
   }
 
   private async manageDefaults(): Promise<void> {
-    const action = await clack.select({
+    const action = await select({
       message: 'Defaults management',
       options: [
         { value: 'view', label: 'View current defaults' },
@@ -1463,7 +1463,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     });
 
-    if (clack.isCancel(action)) return;
+    if (isCancel(action)) return;
 
     // eslint-disable-next-line default-case
     switch (action) {
@@ -1489,7 +1489,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async manageCustomParameters(): Promise<void> {
-    const action = await clack.select({
+    const action = await select({
       message: 'Custom parameter management',
       options: [
         { value: 'list', label: '📋 List custom parameters' },
@@ -1501,7 +1501,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     });
 
-    if (clack.isCancel(action) || action === 'back') return;
+    if (isCancel(action) || action === 'back') return;
 
     // eslint-disable-next-line default-case
     switch (action) {
@@ -1541,7 +1541,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     if (Object.keys(customParams).length === 0) {
-      clack.log.info('No custom parameters configured');
+      log.info('No custom parameters configured');
       return;
     }
 
@@ -1550,7 +1550,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async setCustomParameter(): Promise<void> {
-    const key = await clack.text({
+    const key = await text({
       message: 'Parameter key (use dot notation for nested values)',
       placeholder: 'myapp.config.port',
       validate: (value) => {
@@ -1563,9 +1563,9 @@ export class ConfigCommand extends BaseCommand {
       },
     }) as string;
 
-    if (clack.isCancel(key)) return;
+    if (isCancel(key)) return;
 
-    const valueType = await clack.select({
+    const valueType = await select({
       message: 'Value type',
       options: [
         { value: 'string', label: 'String' },
@@ -1575,7 +1575,7 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (clack.isCancel(valueType)) return;
+    if (isCancel(valueType)) return;
 
     let parsedValue: any;
 
@@ -1583,18 +1583,18 @@ export class ConfigCommand extends BaseCommand {
     switch (valueType) {
       case 'string':
         {
-          const stringValue = await clack.text({
+          const stringValue = await text({
             message: 'Value',
             placeholder: 'my-value',
           }) as string;
-          if (clack.isCancel(stringValue)) return;
+          if (isCancel(stringValue)) return;
           parsedValue = stringValue;
           break;
         }
 
       case 'number':
         {
-          const numberValue = await clack.text({
+          const numberValue = await text({
             message: 'Value',
             placeholder: '8080',
             validate: (value) => {
@@ -1602,27 +1602,28 @@ export class ConfigCommand extends BaseCommand {
               return;
             },
           }) as string;
-          if (clack.isCancel(numberValue)) return;
+          if (isCancel(numberValue)) return;
           parsedValue = Number(numberValue);
           break;
         }
 
       case 'boolean':
         {
-          const boolValue = await clack.confirm({
+          const boolValue = await confirm({
             message: 'Value',
           });
-          if (clack.isCancel(boolValue)) return;
+          if (isCancel(boolValue)) return;
           parsedValue = boolValue;
           break;
         }
 
       case 'json':
         {
-          const jsonValue = await clack.text({
+          const jsonValue = await text({
             message: 'JSON value',
             placeholder: '{"key": "value"}',
             validate: (value) => {
+              if (!value) return 'Value is required';
               try {
                 JSON.parse(value);
                 return;
@@ -1631,7 +1632,7 @@ export class ConfigCommand extends BaseCommand {
               }
             },
           }) as string;
-          if (clack.isCancel(jsonValue)) return;
+          if (isCancel(jsonValue)) return;
           parsedValue = JSON.parse(jsonValue);
           break;
         }
@@ -1656,7 +1657,7 @@ export class ConfigCommand extends BaseCommand {
     target[lastKey] = parsedValue;
 
     await this.saveConfig(config);
-    clack.log.success(`Custom parameter '${key}' set successfully`);
+    log.success(`Custom parameter '${key}' set successfully`);
   }
 
   private async getCustomParameter(): Promise<void> {
@@ -1678,16 +1679,16 @@ export class ConfigCommand extends BaseCommand {
     collectKeys(config);
 
     if (customKeys.length === 0) {
-      clack.log.info('No custom parameters configured');
+      log.info('No custom parameters configured');
       return;
     }
 
-    const key = await clack.select({
+    const key = await select({
       message: 'Select parameter to view',
       options: customKeys.map(k => ({ value: k, label: k })),
     });
 
-    if (clack.isCancel(key) || !key) return;
+    if (isCancel(key) || !key) return;
 
     await this.getConfigValue(key as string);
   }
@@ -1711,22 +1712,22 @@ export class ConfigCommand extends BaseCommand {
     collectKeys(config);
 
     if (customKeys.length === 0) {
-      clack.log.info('No custom parameters to delete');
+      log.info('No custom parameters to delete');
       return;
     }
 
-    const key = await clack.select({
+    const key = await select({
       message: 'Select parameter to delete',
       options: customKeys.map(k => ({ value: k, label: k })),
     });
 
-    if (clack.isCancel(key) || !key) return;
+    if (isCancel(key) || !key) return;
 
-    const confirm = await clack.confirm({
+    const confirmResult = await confirm({
       message: `Delete parameter '${key}'?`,
     });
 
-    if (!confirm || clack.isCancel(confirm)) return;
+    if (!confirmResult || isCancel(confirmResult)) return;
 
     await this.unsetConfigValue(key as string);
   }
@@ -1742,11 +1743,11 @@ export class ConfigCommand extends BaseCommand {
     }
 
     if (Object.keys(customParams).length === 0) {
-      clack.log.info('No custom parameters to export');
+      log.info('No custom parameters to export');
       return;
     }
 
-    const format = await clack.select({
+    const format = await select({
       message: 'Export format',
       options: [
         { value: 'yaml', label: 'YAML' },
@@ -1754,22 +1755,22 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (clack.isCancel(format)) return;
+    if (isCancel(format)) return;
 
-    const filename = await clack.text({
+    const filename = await text({
       message: 'Output filename',
       placeholder: format === 'json' ? 'custom-params.json' : 'custom-params.yaml',
       defaultValue: format === 'json' ? 'custom-params.json' : 'custom-params.yaml',
     }) as string;
 
-    if (clack.isCancel(filename)) return;
+    if (isCancel(filename)) return;
 
     const content = format === 'json'
       ? JSON.stringify(customParams, null, 2)
       : yaml.dump(customParams, { indent: 2, sortKeys: false });
 
     writeFileSync(filename, content);
-    clack.log.success(`Custom parameters exported to ${filename}`);
+    log.success(`Custom parameters exported to ${filename}`);
   }
 
   private async viewDefaults(): Promise<void> {
@@ -1777,7 +1778,7 @@ export class ConfigCommand extends BaseCommand {
     const defaults = config.targets?.defaults || {};
 
     if (Object.keys(defaults).length === 0) {
-      clack.log.info('No custom defaults configured (using system defaults)');
+      log.info('No custom defaults configured (using system defaults)');
       return;
     }
 
@@ -1791,39 +1792,39 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets.defaults) config.targets.defaults = {};
     if (!config.targets.defaults.ssh) config.targets.defaults.ssh = {};
 
-    const port = await clack.text({
+    const port = await text({
       message: 'Default SSH port',
       placeholder: '22',
       defaultValue: '22',
     }) as string;
 
-    if (!clack.isCancel(port)) {
+    if (!isCancel(port)) {
       config.targets.defaults.ssh.port = parseInt(port);
     }
 
     // Note: SSH username and private key are configured per target, not as defaults
     // Only connection-related settings are part of SSH defaults
 
-    const keepAlive = await clack.confirm({
+    const keepAlive = await confirm({
       message: 'Enable SSH keep alive?',
     });
 
-    if (!clack.isCancel(keepAlive)) {
+    if (!isCancel(keepAlive)) {
       config.targets.defaults.ssh.keepAlive = keepAlive;
     }
 
-    const keepAliveInterval = await clack.text({
+    const keepAliveInterval = await text({
       message: 'Keep alive interval (ms)',
       placeholder: '30000',
       defaultValue: '30000',
     }) as string;
 
-    if (!clack.isCancel(keepAliveInterval)) {
+    if (!isCancel(keepAliveInterval)) {
       config.targets.defaults.ssh.keepAliveInterval = parseInt(keepAliveInterval);
     }
 
     await this.saveConfig(config);
-    clack.log.success('SSH defaults updated');
+    log.success('SSH defaults updated');
   }
 
   private async setDockerDefaults(): Promise<void> {
@@ -1832,26 +1833,26 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets.defaults) config.targets.defaults = {};
     if (!config.targets.defaults.docker) config.targets.defaults.docker = {};
 
-    const workdir = await clack.text({
+    const workdir = await text({
       message: 'Default working directory',
       placeholder: '/app',
     }) as string;
 
-    if (workdir && !clack.isCancel(workdir)) {
+    if (workdir && !isCancel(workdir)) {
       config.targets.defaults.docker.workdir = workdir;
     }
 
-    const user = await clack.text({
+    const user = await text({
       message: 'Default user',
       placeholder: 'root',
     }) as string;
 
-    if (user && !clack.isCancel(user)) {
+    if (user && !isCancel(user)) {
       config.targets.defaults.docker.user = user;
     }
 
     await this.saveConfig(config);
-    clack.log.success('Docker defaults updated');
+    log.success('Docker defaults updated');
   }
 
   private async setK8sDefaults(): Promise<void> {
@@ -1860,34 +1861,34 @@ export class ConfigCommand extends BaseCommand {
     if (!config.targets.defaults) config.targets.defaults = {};
     if (!config.targets.defaults.kubernetes) config.targets.defaults.kubernetes = {};
 
-    const namespace = await clack.text({
+    const namespace = await text({
       message: 'Default namespace',
       placeholder: 'default',
       defaultValue: 'default',
     }) as string;
 
-    if (!clack.isCancel(namespace)) {
+    if (!isCancel(namespace)) {
       config.targets.defaults.kubernetes.namespace = namespace;
     }
 
-    const context = await clack.text({
+    const context = await text({
       message: 'Default context',
       placeholder: 'Current context',
     }) as string;
 
-    if (context && !clack.isCancel(context)) {
+    if (context && !isCancel(context)) {
       // Note: context is not part of KubernetesDefaults
     }
 
     await this.saveConfig(config);
-    clack.log.success('Kubernetes defaults updated');
+    log.success('Kubernetes defaults updated');
   }
 
   private async setCommandDefaults(): Promise<void> {
     const config = await this.configManager.load();
     if (!config.commands) config.commands = {};
 
-    const command = await clack.select({
+    const command = await select({
       message: 'Select command to configure defaults for',
       options: [
         { value: 'exec', label: 'exec' },
@@ -1897,31 +1898,31 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (clack.isCancel(command)) return;
+    if (isCancel(command)) return;
 
     if (!config.commands[command]) config.commands[command] = {};
 
-    clack.log.info(`Setting defaults for '${command}' command`);
+    log.info(`Setting defaults for '${command}' command`);
 
     // Command-specific defaults
     // eslint-disable-next-line default-case
     switch (command) {
       case 'logs':
         {
-          const tail = await clack.text({
+          const tail = await text({
             message: 'Default number of lines to tail',
             placeholder: '50',
             defaultValue: '50',
           }) as string;
-          if (!clack.isCancel(tail)) {
+          if (!isCancel(tail)) {
             if (!config.commands['logs']) config.commands['logs'] = {};
             config.commands['logs']['tail'] = tail;
           }
 
-          const timestamps = await clack.confirm({
+          const timestamps = await confirm({
             message: 'Show timestamps by default?',
           });
-          if (!clack.isCancel(timestamps)) {
+          if (!isCancel(timestamps)) {
             if (!config.commands['logs']) config.commands['logs'] = {};
             config.commands['logs']['timestamps'] = timestamps;
           }
@@ -1930,12 +1931,12 @@ export class ConfigCommand extends BaseCommand {
 
       case 'exec':
         {
-          const shell = await clack.text({
+          const shell = await text({
             message: 'Default shell',
             placeholder: '/bin/sh',
             defaultValue: '/bin/sh',
           }) as string;
-          if (!clack.isCancel(shell)) {
+          if (!isCancel(shell)) {
             if (!config.commands['exec']) config.commands['exec'] = {};
             config.commands['exec']['shell'] = shell;
           }
@@ -1945,10 +1946,10 @@ export class ConfigCommand extends BaseCommand {
       case 'cp':
       case 'sync':
         {
-          const recursive = await clack.confirm({
+          const recursive = await confirm({
             message: 'Recursive by default?',
           });
-          if (!clack.isCancel(recursive)) {
+          if (!isCancel(recursive)) {
             if (!config.commands[command]) config.commands[command] = {};
             config.commands[command]['recursive'] = recursive;
           }
@@ -1957,15 +1958,15 @@ export class ConfigCommand extends BaseCommand {
     }
 
     await this.saveConfig(config);
-    clack.log.success(`Defaults for '${command}' command updated`);
+    log.success(`Defaults for '${command}' command updated`);
   }
 
   private async resetDefaults(): Promise<void> {
-    const confirm = await clack.confirm({
+    const confirmResult = await confirm({
       message: 'Reset all defaults to system values?',
     });
 
-    if (!confirm || clack.isCancel(confirm)) return;
+    if (!confirmResult || isCancel(confirmResult)) return;
 
     const config = await this.configManager.load();
     if (config.targets?.defaults) {
@@ -1976,11 +1977,11 @@ export class ConfigCommand extends BaseCommand {
     }
 
     await this.saveConfig(config);
-    clack.log.success('Defaults reset to system values');
+    log.success('Defaults reset to system values');
   }
 
   private async runDoctor(options?: { defaults?: boolean }): Promise<void> {
-    clack.log.info('🏥 Running configuration doctor...');
+    log.info('🏥 Running configuration doctor...');
 
     let config = await this.configManager.load();
     const recommendations: string[] = [];
@@ -1989,20 +1990,20 @@ export class ConfigCommand extends BaseCommand {
     // Check for basic configuration
     if (!config.name) {
       recommendations.push('Set project name');
-      config.name = await clack.text({
+      config.name = await text({
         message: 'Project name',
         placeholder: defaultConfig.name || 'my-project',
       }) as string;
-      if (clack.isCancel(config.name)) return;
+      if (isCancel(config.name)) return;
     }
 
     if (!config.description) {
       recommendations.push('Add project description');
-      config.description = await clack.text({
+      config.description = await text({
         message: 'Project description',
         placeholder: defaultConfig.description || 'Describe your project',
       }) as string;
-      if (clack.isCancel(config.description)) delete config.description;
+      if (isCancel(config.description)) delete config.description;
     }
 
     // Ensure all default sections exist
@@ -2061,7 +2062,7 @@ export class ConfigCommand extends BaseCommand {
 
     if (options?.defaults) {
       // Write all default values to the configuration file
-      clack.log.info('📋 Adding all default values to configuration...');
+      log.info('📋 Adding all default values to configuration...');
       config = mergeWithDefaults(config, defaultConfig);
     }
 
@@ -2073,12 +2074,12 @@ export class ConfigCommand extends BaseCommand {
 
     // Report results
     if (recommendations.length > 0) {
-      clack.log.success('Doctor made the following improvements:');
+      log.success('Doctor made the following improvements:');
       for (const rec of recommendations) {
         console.log(`  ✅ ${rec}`);
       }
     } else {
-      clack.log.success('Configuration is healthy! No changes needed.');
+      log.success('Configuration is healthy! No changes needed.');
     }
 
     // Validate configuration
@@ -2086,7 +2087,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async validateConfig(): Promise<void> {
-    clack.log.info('Validating configuration...');
+    log.info('Validating configuration...');
 
     try {
       const config = await this.configManager.load();
@@ -2158,24 +2159,24 @@ export class ConfigCommand extends BaseCommand {
 
       // Report results
       if (errors.length > 0) {
-        clack.log.error('Configuration has errors:');
+        log.error('Configuration has errors:');
         for (const error of errors) {
           console.log(`  ❌ ${error}`);
         }
       }
 
       if (warnings.length > 0) {
-        clack.log.warn('Configuration warnings:');
+        log.warn('Configuration warnings:');
         for (const warning of warnings) {
           console.log(`  ⚠️  ${warning}`);
         }
       }
 
       if (errors.length === 0 && warnings.length === 0) {
-        clack.log.success('✅ Configuration is valid');
+        log.success('✅ Configuration is valid');
       }
     } catch (error) {
-      clack.log.error(`Failed to validate configuration: ${error}`);
+      log.error(`Failed to validate configuration: ${error}`);
     }
   }
 

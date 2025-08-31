@@ -3,7 +3,7 @@ import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
-import { default as AutocompletePrompt } from '../../src/prompts/autocomplete.js';
+import { default as AutocompletePrompt } from '../../../src/core/prompts/autocomplete.js';
 
 describe('AutocompletePrompt', () => {
 	let input: MockReadable;

@@ -1,7 +1,7 @@
 import color from 'picocolors';
 
-import { TextPrompt } from './core/index.js';
-import { S_BAR, symbol, S_BAR_END, type CommonOptions } from './common.js';
+import { TextPrompt } from '../core/index.js';
+import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export interface TextOptions extends CommonOptions {
 	message: string;

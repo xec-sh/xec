@@ -1,6 +1,6 @@
 import color from 'picocolors';
 
-import { note } from '../src/note.js';
+import { note } from '../src/components/note.js';
 
 console.log(color.yellow('\nExample 6: Special characters and emojis'));
 note('✨ Unicode support: ★ ✓ ✗ → ← ↑ ↓ 📝 🎉', 'Unicode & Emojis');
@@ -11,22 +11,22 @@ console.log(color.yellow('\nExample 10: Different note styles'));
 
 // Success note
 note('Operation completed successfully!', '✅ Success', {
-  format: (line) => color.green(line)
+  format: (line: string) => color.green(line)
 });
 
 
 // Warning note
 note('Please review the configuration before proceeding', '⚠️ Warning', {
-  format: (line) => color.yellow(line)
+  format: (line: string) => color.yellow(line)
 });
 
 
 // Error note
 note('An error occurred during processing', '❌ Error', {
-  format: (line) => color.red(line)
+  format: (line: string) => color.red(line)
 });
 
 // Info note
 note('Additional information about the process', 'ℹ️ Info', {
-  format: (line) => color.blue(line)
+  format: (line: string) => color.blue(line)
 });

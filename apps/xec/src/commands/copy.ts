@@ -816,6 +816,7 @@ export class CopyCommand extends ConfigAwareCommand {
             {
               initialValue: '4',
               validate: (value) => {
+                if (!value) return 'Value is required';
                 const num = parseInt(value);
                 if (isNaN(num) || num < 1) {
                   return 'Please enter a valid number (1 or more)';

@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
-import { kit } from '@xec-sh/kit';
+import { spinner as kitSpinner, log, confirm as kitConfirm, text as kitText, select as kitSelect, multiselect as kitMultiselect } from '@xec-sh/kit';
 import { Command } from 'commander';
 
 import { handleError } from './error-handler.js';
@@ -45,7 +45,7 @@ export interface ConfigAwareOptions {
 
 export abstract class BaseCommand {
   protected formatter: OutputFormatter;
-  protected spinner: any;
+  protected currentSpinner: any;
   protected options: CommandOptions = {
     verbose: false,
     quiet: false,
@@ -397,18 +397,19 @@ export abstract class BaseCommand {
    */
   protected startSpinner(message: string): void {
     if (!this.options.quiet) {
-      this.spinner = kit.spinner(message);
+      this.currentSpinner = kitSpinner();
+      this.currentSpinner.start(message);
     }
   }
 
   protected stopSpinner(message?: string, code?: number): void {
-    if (this.spinner) {
+    if (this.currentSpinner) {
       if (code === 0 || code === undefined) {
-        this.spinner.success(message || 'Done');
+        this.currentSpinner.success(message || 'Done');
       } else {
-        this.spinner.error(message || 'Failed');
+        this.currentSpinner.error(message || 'Failed');
       }
-      this.spinner = null;
+      this.currentSpinner = null;
     }
   }
 
@@ -417,16 +418,16 @@ export abstract class BaseCommand {
 
     switch (level) {
       case 'success':
-        kit.log.success(message);
+        log.success(message);
         break;
       case 'warn':
-        kit.log.warning(message);
+        log.warning(message);
         break;
       case 'error':
-        kit.log.error(message);
+        log.error(message);
         break;
       default:
-        kit.log.info(message);
+        log.info(message);
     }
   }
 
@@ -451,8 +452,7 @@ export abstract class BaseCommand {
   protected async confirm(message: string, initial = false): Promise<boolean> {
     if (this.options.quiet) return Promise.resolve(initial);
     
-    const promptLib = kit;
-    const result = await promptLib.confirm({ message, defaultValue: initial });
+    const result = await kitConfirm({ message, initialValue: initial });
     
     if (typeof result === 'symbol') {
       // User cancelled, return initial value
@@ -464,8 +464,7 @@ export abstract class BaseCommand {
   protected async prompt(message: string, initial?: string): Promise<string> {
     if (this.options.quiet) return Promise.resolve(initial || '');
     
-    const promptLib = kit;
-    const result = await promptLib.text({ message, defaultValue: initial });
+    const result = await kitText({ message, initialValue: initial });
     
     if (typeof result === 'symbol') {
       // User cancelled, return initial value or empty string
@@ -477,8 +476,7 @@ export abstract class BaseCommand {
   protected async select(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string> {
     if (this.options.quiet) return Promise.resolve(options[0]?.value || '');
     
-    const promptLib = kit;
-    const result = await promptLib.select({ message, options });
+    const result = await kitSelect({ message, options });
     
     if (typeof result === 'symbol') {
       // User cancelled, return first option or empty string
@@ -490,8 +488,7 @@ export abstract class BaseCommand {
   protected async multiselect(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string[]> {
     if (this.options.quiet) return Promise.resolve([]);
     
-    const promptLib = kit;
-    const result = await promptLib.multiselect({ message, options });
+    const result = await kitMultiselect({ message, options });
     
     if (typeof result === 'symbol') {
       // User cancelled, return empty array
@@ -502,13 +499,13 @@ export abstract class BaseCommand {
 
   protected intro(message: string): void {
     if (!this.options.quiet) {
-      kit.log.header(message);
+      console.log(chalk.bold(message));
     }
   }
 
   protected outro(message: string): void {
     if (!this.options.quiet) {
-      kit.log.footer(message);
+      console.log(chalk.dim(message));
     }
   }
 

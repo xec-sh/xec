@@ -1,7 +1,7 @@
 import color from 'picocolors';
 
-import { limitOptions } from './limit-options.js';
-import { AutocompletePrompt } from './core/index.js';
+import { limitOptions } from '../utilities/limit-options.js';
+import { AutocompletePrompt } from '../core/index.js';
 import {
 	S_BAR,
 	symbol,
@@ -11,7 +11,7 @@ import {
 	type CommonOptions,
 	S_CHECKBOX_INACTIVE,
 	S_CHECKBOX_SELECTED,
-} from './common.js';
+} from '../utilities/common.js';
 
 import type { Option } from './select.js';
 

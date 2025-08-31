@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { kit } from '@xec-sh/kit';
+import { log } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
@@ -225,7 +225,7 @@ export class CliCommandManager {
     const dynamicCommands = this.getDynamicCommands();
 
     if (process.env['XEC_DEBUG'] && dynamicCommands.length > 0) {
-      const logger = kit.log;
+      const logger = log;
       logger.info(`Loading ${dynamicCommands.length} dynamic commands`);
     }
 
@@ -407,7 +407,7 @@ export class CliCommandManager {
     const failed = dynamic.filter(cmd => !cmd.loaded && cmd.error);
 
     if (process.env['XEC_DEBUG'] && dynamic.length > 0) {
-      const logger = kit.log;
+      const logger = log;
       logger.info(`Dynamic commands: ${loaded.length} loaded, ${failed.length} failed`);
 
       if (failed.length > 0) {
@@ -532,7 +532,7 @@ export default function command(program) {
     .description('${description}')
     .option('-v, --verbose', 'Enable verbose output')
     .action(async (args, options) => {
-      const log = kit.log;
+      const logger = log;
       
       log.info('Running ${name} command');
       

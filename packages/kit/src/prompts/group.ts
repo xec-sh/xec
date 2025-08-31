@@ -1,4 +1,4 @@
-import { isCancel } from './core/index.js';
+import { isCancel } from '../core/index.js';
 
 type Prettify<T> = {
 	[P in keyof T]: T[P];

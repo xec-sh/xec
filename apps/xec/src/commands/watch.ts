@@ -849,6 +849,7 @@ export class WatchCommand extends ConfigAwareCommand {
           {
             initialValue: '300',
             validate: (value) => {
+              if (!value) return 'Value is required';
               const num = parseInt(value, 10);
               if (isNaN(num) || num < 0) {
                 return 'Must be a positive number';
@@ -873,6 +874,7 @@ export class WatchCommand extends ConfigAwareCommand {
             {
               initialValue: '1000',
               validate: (value) => {
+                if (!value) return 'Value is required';
                 const num = parseInt(value, 10);
                 if (isNaN(num) || num < 100) {
                   return 'Must be at least 100ms';

@@ -8,7 +8,7 @@ import * as path from 'path';
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import { Command } from 'commander';
-import * as clack from '@clack/prompts';
+import * as kit from '@xec-sh/kit';
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import secretsCommand from '../../src/commands/secrets.js';
@@ -21,7 +21,7 @@ describe('Secrets Command (Real Implementation)', () => {
   let exitCode: number | undefined;
   let consoleLogSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
-  let clackLogErrorSpy: jest.SpyInstance;
+  let kitLogErrorSpy: jest.SpyInstance;
 
   beforeEach(async () => {
     // Create test directory
@@ -61,7 +61,7 @@ describe('Secrets Command (Real Implementation)', () => {
     // Spy on console methods
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    clackLogErrorSpy = jest.spyOn(clack.log, 'error').mockImplementation(() => {});
+    kitLogErrorSpy = jest.spyOn(kit.log, 'error').mockImplementation(() => {});
   });
 
   afterEach(async () => {
@@ -71,7 +71,7 @@ describe('Secrets Command (Real Implementation)', () => {
     // Restore console methods
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
-    clackLogErrorSpy.mockRestore();
+    kitLogErrorSpy.mockRestore();
     
     // Clean up
     if (existsSync(testDir)) {
@@ -481,7 +481,7 @@ SECRET_ENV3="envvalue3"`;
       }
       
       expect(exitCode).toBe(1);
-      expect(clackLogErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Secret value cannot be empty'));
+      expect(kitLogErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Secret value cannot be empty'));
     });
 
     it('should handle whitespace in secret values', async () => {

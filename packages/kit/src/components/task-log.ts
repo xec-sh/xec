@@ -3,15 +3,15 @@ import type { Writable } from 'node:stream';
 import color from 'picocolors';
 import { erase } from 'sisteransi';
 
-import { log } from './log.js';
-import { getColumns } from './core/index.js';
+import { log } from '../utilities/log.js';
+import { getColumns } from '../core/index.js';
 import {
 	S_BAR,
 	S_STEP_SUBMIT,
 	isCI as isCIFn,
 	isTTY as isTTYFn,
 	type CommonOptions,
-} from './common.js';
+} from '../utilities/common.js';
 
 export interface TaskLogOptions extends CommonOptions {
 	title: string;

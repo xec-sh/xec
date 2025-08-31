@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { kit } from '@xec-sh/kit';
+import { log, multiselect, isCancel, confirm, select } from '@xec-sh/kit';
 
 import { getFeatures } from '../config/features.js';
 import { TaskManager } from '../config/task-manager.js';
@@ -57,23 +57,23 @@ export class TasksCommand {
     const config = this.configManager.getConfig();
     
     if (!config.tasks || Object.keys(config.tasks).length === 0) {
-      kit.log.warning('No tasks configured in xec.yaml');
+      log.warning('No tasks configured in xec.yaml');
       return;
     }
     
-    kit.log.header('📋 Available Tasks');
+    console.log(chalk.bold('📋 Available Tasks'));
     
     for (const [name, task] of Object.entries(config.tasks)) {
       // Handle both string and TaskDefinition types
       if (typeof task === 'string') {
-        kit.log.info(`  ${chalk.cyan(name)} - ${chalk.gray(task)}`);
+        log.info(`  ${chalk.cyan(name)} - ${chalk.gray(task)}`);
       } else {
         const desc = task.description ? chalk.dim(` - ${task.description}`) : '';
         
-        kit.log.info(`  ${chalk.cyan(name)}${desc}`);
+        log.info(`  ${chalk.cyan(name)}${desc}`);
         
         if (options.verbose && task.command) {
-          kit.log.info(chalk.gray(`    Command: ${task.command}`));
+          log.info(chalk.gray(`    Command: ${task.command}`));
         }
       }
     }
@@ -86,14 +86,14 @@ export class TasksCommand {
     const config = this.configManager.getConfig();
     
     if (!config.tasks) {
-      kit.log.error('No tasks configured');
+      log.error('No tasks configured');
       return;
     }
     
     // Validate task names
     const invalidTasks = taskNames.filter(name => !config.tasks![name]);
     if (invalidTasks.length > 0) {
-      kit.log.error(`Unknown tasks: ${invalidTasks.join(', ')}`);
+      log.error(`Unknown tasks: ${invalidTasks.join(', ')}`);
       return;
     }
     
@@ -168,43 +168,24 @@ export class TasksCommand {
       visualization: options.visualization || 'tree',
       parallel: options.parallel || false,
       onTaskStart: (task) => {
-        kit.log.info(chalk.blue(`▶ Starting: ${task.title}`));
+        log.info(chalk.blue(`▶ Starting: ${task.title}`));
       },
       onTaskComplete: (task, result) => {
         if (result.success !== false) {
-          kit.log.success(chalk.green(`✓ ${task.title}`));
+          log.success(chalk.green(`✓ ${task.title}`));
         } else {
-          kit.log.error(chalk.red(`✗ ${task.title}: ${result.error || 'Failed'}`));
+          log.error(chalk.red(`✗ ${task.title}: ${result.error || 'Failed'}`));
         }
       },
       onProgress: (completed, total) => {
         if (total > 1) {
-          kit.log.info(chalk.gray(`Progress: ${completed}/${total} tasks completed`));
+          log.info(chalk.gray(`Progress: ${completed}/${total} tasks completed`));
         }
       }
     };
     
-    const runner = await kit.taskRunner(runnerOptions);
-    
-    try {
-      const results: any = await runner.run();
-      
-      // Show summary
-      const failed = (Array.from(results.entries()) as any[]).filter((entry: [any, any]) => entry[1].success === false);
-      
-      if (failed.length === 0) {
-        kit.log.success(chalk.green.bold(`\n✓ All ${tasks.length} tasks completed successfully!`));
-      } else {
-        kit.log.error(chalk.red.bold(`\n✗ ${failed.length} of ${tasks.length} tasks failed`));
-        
-        for (const [taskId, result] of failed as [any, any][]) {
-          kit.log.error(`  - ${taskId}: ${result.error || 'Unknown error'}`);
-        }
-      }
-    } catch (error) {
-      kit.log.error(chalk.red(`Task execution failed: ${error}`));
-      throw error;
-    }
+    // Fallback: use simple task runner since kit.taskRunner is not available
+    await this.runTasksSimple(tasks, options);
   }
   
   /**
@@ -214,24 +195,24 @@ export class TasksCommand {
     tasks: TaskRunnerTask[],
     options: TasksCommandOptions
   ): Promise<void> {
-    kit.log.header('🚀 Running Tasks');
+    console.log(chalk.bold('🚀 Running Tasks'));
     
     for (const task of tasks) {
-      kit.log.info(`Running: ${task.title}`);
+      log.info(`Running: ${task.title}`);
       
       try {
         const result = await task.run({});
         
         if (result.success !== false) {
-          kit.log.success(`✓ ${task.title}`);
+          log.success(`✓ ${task.title}`);
         } else {
-          kit.log.error(`✗ ${task.title}: ${result.error || 'Failed'}`);
+          log.error(`✗ ${task.title}: ${result.error || 'Failed'}`);
           if (!options.parallel) {
             throw new Error(`Task ${task.id} failed`);
           }
         }
       } catch (error) {
-        kit.log.error(`✗ ${task.title}: ${error}`);
+        log.error(`✗ ${task.title}: ${error}`);
         if (!options.parallel) {
           throw error;
         }
@@ -246,7 +227,7 @@ export class TasksCommand {
     const config = this.configManager.getConfig();
     
     if (!config.tasks || Object.keys(config.tasks).length === 0) {
-      kit.log.warning('No tasks configured. Add tasks to your xec.yaml file.');
+      log.warning('No tasks configured. Add tasks to your xec.yaml file.');
       return;
     }
     
@@ -268,7 +249,7 @@ export class TasksCommand {
     }
     
     // Show task selection
-    const selectedTasks = await kit.multiselect({
+    const selectedTasks = await multiselect({
       message: 'Select tasks to run:',
       options: tasks.map(t => ({
         value: t,
@@ -277,33 +258,32 @@ export class TasksCommand {
           ? chalk.gray(`deps: ${t.dependencies.join(', ')}`)
           : undefined
       })),
-      showSelectAll: true,
     });
     
-    if (kit.isCancel(selectedTasks) || selectedTasks.length === 0) {
-      kit.log.info('No tasks selected');
+    if (isCancel(selectedTasks) || selectedTasks.length === 0) {
+      log.info('No tasks selected');
       return;
     }
     
     // Ask for execution options
-    const parallel = await kit.confirm({
+    const parallel = await confirm({
       message: 'Run tasks in parallel where possible?',
-      default: false,
+      initialValue: false,
     });
     
-    if (kit.isCancel(parallel)) return;
+    if (isCancel(parallel)) return;
     
-    const visualization = await kit.select({
+    const visualization = await select({
       message: 'Choose visualization style:',
       options: [
         { value: 'tree', label: '🌳 Tree - Show dependency tree' },
         { value: 'graph', label: '📊 Graph - Show dependency graph' },
         { value: 'list', label: '📋 List - Simple list view' },
       ],
-      default: 'tree',
+      initialValue: 'tree',
     });
     
-    if (kit.isCancel(visualization)) return;
+    if (isCancel(visualization)) return;
     
     // Run selected tasks
     await this.runWithKitTaskRunner(selectedTasks, {

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import jsYaml from 'js-yaml';
-import { kit } from '@xec-sh/kit';
+import { log } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
 import { CommandOptions } from './command-base.js';
@@ -221,7 +221,7 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
   
   // Split by lines and apply CLI coloring
   const lines = formatted.split('\n');
-  const logger = kit.log;
+  const logger = log;
   
   lines.forEach(line => {
     if (!line) return; // Skip empty lines
@@ -257,7 +257,7 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
  */
 function displayTextError(errorInfo: any, options: CommandOptions): void {
   // Error header
-  const logger = kit.log;
+  const logger = log;
   logger.error(chalk.bold(errorInfo.message));
 
   // Error details

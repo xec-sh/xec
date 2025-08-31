@@ -43,7 +43,7 @@ describe('CliCommandManager', () => {
         if (module === 'chalk') {
           return Promise.resolve({ default: {} });
         }
-        if (module === '@clack/prompts') {
+        if (module === '@xec-sh/kit') {
           return Promise.resolve({
             log: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), success: jest.fn() },
             spinner: jest.fn(() => ({ start: jest.fn(), stop: jest.fn() }))
