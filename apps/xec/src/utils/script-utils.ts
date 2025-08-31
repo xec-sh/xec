@@ -5,8 +5,8 @@ import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
-import { log as kitLog, spinner as kitSpinner, text as kitText, confirm as kitConfirm, select as kitSelect, multiselect as kitMultiselect, password as kitPassword } from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
+import { log as kitLog, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, password as kitPassword, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 // Re-export USH $ with enhanced features
 export const $ = xecDollar;

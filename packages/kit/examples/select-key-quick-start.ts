@@ -7,7 +7,8 @@
  */
 
 import color from 'picocolors';
-import { selectKey, isCancel, cancel, intro, outro } from '../src/index.js';
+
+import { intro, outro, cancel, isCancel, selectKey } from '../src/index.js';
 
 async function main() {
   intro(color.bgCyan(color.black(' Quick Select Demo ')));

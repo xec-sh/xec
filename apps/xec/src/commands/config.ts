@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { join, dirname } from 'path';
-import { intro, outro, cancel, select, text, confirm, isCancel, log, password } from '@xec-sh/kit';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { log, text, intro, outro, cancel, select, confirm, isCancel, password } from '@xec-sh/kit';
 
 import { BaseCommand } from '../utils/command-base.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';

@@ -10,10 +10,9 @@
  * - Hidden file filtering
  */
 
-import { homedir } from 'node:os';
-import { existsSync, statSync, lstatSync, accessSync, constants, readdirSync } from 'node:fs';
-import { dirname, extname, basename, join, relative, resolve } from 'node:path';
 import color from 'picocolors';
+import { join, dirname, extname, resolve, basename, relative } from 'node:path';
+import { statSync, lstatSync, constants, existsSync, accessSync, readdirSync } from 'node:fs';
 
 import * as p from '../src/index.js';
 

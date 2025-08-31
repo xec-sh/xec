@@ -10,17 +10,18 @@
  * - Async data fetching within prompts
  */
 
+import picocolors from 'picocolors';
+
 import {
-  group,
   text,
+  note,
+  group,
   select,
-  multiselect,
   confirm,
   spinner,
-  note,
-  isCancel
+  isCancel,
+  multiselect
 } from '../src/index.js';
-import picocolors from 'picocolors';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 

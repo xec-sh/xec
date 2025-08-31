@@ -11,9 +11,10 @@
  * - Multi-step selections
  */
 
-import { select, isCancel, cancel, intro, outro, note, spinner, confirm } from '../src/index.js';
 import color from 'picocolors';
 import { setTimeout } from 'node:timers/promises';
+
+import { note, intro, outro, select, cancel, spinner, confirm, isCancel } from '../src/index.js';
 
 // Simulate API types
 interface ApiUser {

@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
-import { log, isCancel, select } from '@xec-sh/kit';
+import { log, select, isCancel } from '@xec-sh/kit';
 
 // Fallback: registerGlobalShortcut not available in packages/kit
 const registerGlobalShortcut = (shortcut: string, callback: () => void) => {

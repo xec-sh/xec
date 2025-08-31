@@ -1,7 +1,7 @@
 
-import { stringWidth, createTextAttributes } from "../utils.js"
 import { useTheme } from "../theme/context.js"
 import { OptimizedBuffer } from "../renderer/buffer.js"
+import { stringWidth, createTextAttributes } from "../utils.js"
 import { RGBA, parseColor, type Color } from "../lib/colors.js"
 import { Component, type ComponentProps } from "../component.js"
 import {

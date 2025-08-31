@@ -28,13 +28,13 @@ import type {
   InputComponent
 } from '../components/input.js';
 import type {
-  SelectProps,
-  SelectComponent
-} from '../components/select.js';
-import type {
   TableProps,
   TableComponent
 } from '../components/table.js';
+import type {
+  SelectProps,
+  SelectComponent
+} from '../components/select.js';
 import type { Component, ComponentProps as BaseComponentProps } from '../component.js';
 import type {
   ASCIIFontProps,

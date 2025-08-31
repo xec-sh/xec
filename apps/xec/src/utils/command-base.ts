@@ -1,8 +1,8 @@
 import chalk from 'chalk';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
-import { spinner as kitSpinner, log, confirm as kitConfirm, text as kitText, select as kitSelect, multiselect as kitMultiselect } from '@xec-sh/kit';
 import { Command } from 'commander';
+import { log, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 import { handleError } from './error-handler.js';
 import { OutputFormatter } from './output-formatter.js';

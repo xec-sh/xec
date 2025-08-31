@@ -2,8 +2,8 @@ import path from 'path';
 import chalk from 'chalk';
 import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
+import { log } from '@xec-sh/kit';
 import { Command } from 'commander';
-import { intro, outro, cancel, select, text, confirm, isCancel, log, password, spinner } from '@xec-sh/kit';
 
 import { TaskManager } from '../config/task-manager.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';

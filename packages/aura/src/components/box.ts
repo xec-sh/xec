@@ -4,13 +4,13 @@ import { useTheme } from "../theme/context.js"
 import { RGBA, Color, parseColor } from "../lib/colors.js"
 import { Component, isValidPercentage, type ComponentProps } from "../component.js"
 import {
+  BorderChars,
   getBorderSides,
   type BorderSides,
   type BorderStyle,
   borderCharsToArray,
   type BorderCharacters,
   type BorderSidesConfig,
-  BorderChars,
 } from "../lib/index.js"
 
 import type { RenderContext } from "../types.js"

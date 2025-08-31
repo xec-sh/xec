@@ -6,11 +6,11 @@ import { glob } from 'glob';
 import { table } from 'table';
 import { promisify } from 'util';
 import { $ } from '@xec-sh/core';
-import { select, confirm, isCancel } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { exec } from 'child_process';
 import { createRequire } from 'module';
+import { select, confirm } from '@xec-sh/kit';
 
 import { formatBytes } from '../utils/formatters.js';
 import { TaskManager } from '../config/task-manager.js';

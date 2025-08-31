@@ -14,8 +14,9 @@
  * - Different styling states
  */
 
-import { select, isCancel, cancel, intro, outro, note } from '../src/index.js';
 import color from 'picocolors';
+
+import { note, intro, outro, select, cancel, isCancel } from '../src/index.js';
 
 // Custom type for complex value demonstration
 interface User {

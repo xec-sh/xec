@@ -9,15 +9,16 @@
  * - Cancel handling
  */
 
+import picocolors from 'picocolors';
+
 import {
-  group,
   text,
+  note,
+  group,
   select,
   confirm,
-  note,
   isCancel
 } from '../src/index.js';
-import picocolors from 'picocolors';
 
 async function main() {
   console.clear();

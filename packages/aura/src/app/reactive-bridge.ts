@@ -18,8 +18,8 @@ import { TextComponent } from '../components/text.js';
 import { TabsComponent } from '../components/tabs.js';
 import { InputComponent } from '../components/input.js';
 import { GroupComponent } from '../components/group.js';
-import { SelectComponent } from '../components/select.js';
 import { TableComponent } from '../components/table.js';
+import { SelectComponent } from '../components/select.js';
 import { ASCIIFontComponent } from '../components/ascii-font.js';
 import { FrameBufferComponent } from '../components/frame-buffer.js';
 

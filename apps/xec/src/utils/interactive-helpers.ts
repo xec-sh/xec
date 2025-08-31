@@ -1,15 +1,14 @@
 import chalk from 'chalk';
 import { 
+  log, 
+  text, 
   intro, 
   outro, 
-  cancel, 
   select, 
-  multiselect, 
-  text, 
   confirm, 
   spinner, 
-  log, 
-  isCancel 
+  isCancel, 
+  multiselect 
 } from '@xec-sh/kit';
 
 import { ConfigurationManager } from '../config/configuration-manager.js';

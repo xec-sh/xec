@@ -3,7 +3,7 @@
  * Interactive demo for testing key handler with real keyboard input
  */
 
-import { getKeyHandler, formatKeyCombination, destroyKeyHandler } from '../src/lib/key-handler.js'
+import { getKeyHandler, destroyKeyHandler, formatKeyCombination } from '../src/lib/key-handler.js'
 
 console.log('🎹 Key Handler Interactive Demo')
 console.log('=' .repeat(60))

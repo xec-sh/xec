@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { log, multiselect, isCancel, confirm, select } from '@xec-sh/kit';
+import { log, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
 
 import { getFeatures } from '../config/features.js';
 import { TaskManager } from '../config/task-manager.js';
