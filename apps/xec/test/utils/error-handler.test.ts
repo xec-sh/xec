@@ -1,4 +1,4 @@
-import * as clack from '@clack/prompts';
+import * as kit from '@xec-sh/kit';
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ValidationError } from '../../src/utils/validation.js';
@@ -29,7 +29,7 @@ const mockProcessExit = jest.spyOn(process, 'exit').mockImplementation((code?: n
   throw new Error(`Process exited with code: ${code}`);
 }) as any;
 
-const mockClackError = jest.spyOn(clack.log, 'error').mockImplementation();
+const mockKitError = jest.spyOn(kit.log, 'error').mockImplementation();
 
 describe('error-handler', () => {
   const defaultOptions: CommandOptions = {
@@ -129,7 +129,7 @@ describe('error-handler', () => {
       const error = new XecError('Test error', 'TEST_CODE');
       
       expect(() => handleError(error, defaultOptions)).toThrow('Process exited with code: 1');
-      expect(mockClackError).toHaveBeenCalled();
+      expect(mockKitError).toHaveBeenCalled();
     });
     
     it('should handle ValidationError with exit code 2', () => {
@@ -151,7 +151,7 @@ describe('error-handler', () => {
       const options = { ...defaultOptions, quiet: true };
       
       expect(() => handleError(error, options)).toThrow('Process exited with code: 1');
-      expect(mockClackError).not.toHaveBeenCalled();
+      expect(mockKitError).not.toHaveBeenCalled();
     });
     
     it('should show critical errors even in quiet mode', () => {
@@ -159,7 +159,7 @@ describe('error-handler', () => {
       const options = { ...defaultOptions, quiet: true };
       
       expect(() => handleError(error, options)).toThrow('Process exited with code: 2');
-      expect(mockClackError).toHaveBeenCalled();
+      expect(mockKitError).toHaveBeenCalled();
     });
     
     it('should output JSON format', () => {
@@ -248,7 +248,7 @@ describe('error-handler', () => {
       const wrapped = withErrorHandling(asyncFn, defaultOptions);
       
       await expect(wrapped()).rejects.toThrow('Process exited with code: 1');
-      expect(mockClackError).toHaveBeenCalled();
+      expect(mockKitError).toHaveBeenCalled();
     });
     
     it('should pass through successful results', async () => {
@@ -257,7 +257,7 @@ describe('error-handler', () => {
       
       const result = await wrapped();
       expect(result).toBe('success');
-      expect(mockClackError).not.toHaveBeenCalled();
+      expect(mockKitError).not.toHaveBeenCalled();
     });
     
     it('should pass arguments to wrapped function', async () => {

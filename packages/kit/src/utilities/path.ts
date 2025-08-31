@@ -1,7 +1,7 @@
 import { join, dirname } from 'node:path';
 import { lstatSync, existsSync, readdirSync } from 'node:fs';
 
-import { autocomplete } from './autocomplete.js';
+import { autocomplete } from '../prompts/autocomplete.js';
 
 import type { CommonOptions } from './common.js';
 
@@ -20,7 +20,7 @@ export const path = (opts: PathOptions) => {
 		...opts,
 		initialUserInput: opts.initialValue ?? opts.root ?? process.cwd(),
 		maxItems: 5,
-		validate(value) {
+		validate(value: any) {
 			if (Array.isArray(value)) {
 				// Shouldn't ever happen since we don't enable `multiple: true`
 				return undefined;

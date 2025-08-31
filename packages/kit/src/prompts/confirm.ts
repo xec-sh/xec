@@ -1,6 +1,6 @@
 import color from 'picocolors';
 
-import { ConfirmPrompt } from './core/index.js';
+import { ConfirmPrompt } from '../core/index.js';
 import {
 	S_BAR,
 	symbol,
@@ -8,7 +8,7 @@ import {
 	S_RADIO_ACTIVE,
 	S_RADIO_INACTIVE,
 	type CommonOptions,
-} from './common.js';
+} from '../utilities/common.js';
 
 export interface ConfirmOptions extends CommonOptions {
 	message: string;

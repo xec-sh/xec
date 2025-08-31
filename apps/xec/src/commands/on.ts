@@ -697,6 +697,7 @@ export class OnCommand extends ConfigAwareCommand {
               const customCount = await InteractiveHelpers.inputText('Enter max concurrent executions:', {
                 placeholder: '10',
                 validate: (value) => {
+                  if (!value) return 'Number is required';
                   const num = parseInt(value, 10);
                   if (isNaN(num) || num <= 0) {
                     return 'Please enter a positive number';

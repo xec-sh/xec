@@ -6,7 +6,7 @@
  */
 
 import picocolors from 'picocolors';
-import { box } from '../src/box.js';
+import { box } from '../src/components/box.js';
 
 async function main() {
   console.log(picocolors.bold('\n📦 Box Component Demo\n'));
@@ -121,17 +121,17 @@ Line 4: This is the fourth line`;
   
   box('Green border box', 'Success', {
     rounded: true,
-    formatBorder: (text) => picocolors.green(text)
+    formatBorder: (text: string) => picocolors.green(text)
   });
   
   box('Red border box', 'Error', {
     rounded: true,
-    formatBorder: (text) => picocolors.red(text)
+    formatBorder: (text: string) => picocolors.red(text)
   });
   
   box('Blue gradient border', 'Info', {
     rounded: true,
-    formatBorder: (text) => picocolors.blue(text)
+    formatBorder: (text: string) => picocolors.blue(text)
   });
   console.log();
 
@@ -161,7 +161,7 @@ Features:
     titleAlign: 'center',
     contentPadding: 3,
     titlePadding: 2,
-    formatBorder: (text) => picocolors.magenta(text)
+    formatBorder: (text: string) => picocolors.magenta(text)
   });
   console.log();
 
@@ -211,19 +211,19 @@ Features:
   
   box('Operation completed successfully!', '✅ Success', {
     rounded: true,
-    formatBorder: (text) => picocolors.green(text),
+    formatBorder: (text: string) => picocolors.green(text),
     width: 'auto'
   });
   
   box('Warning: Check your configuration', '⚠️  Warning', {
     rounded: true,
-    formatBorder: (text) => picocolors.yellow(text),
+    formatBorder: (text: string) => picocolors.yellow(text),
     width: 'auto'
   });
   
   box('Error: Failed to connect', '❌ Error', {
     rounded: true,
-    formatBorder: (text) => picocolors.red(text),
+    formatBorder: (text: string) => picocolors.red(text),
     width: 'auto'
   });
   console.log();
@@ -258,7 +258,7 @@ Charlie     25     SF
   
   box('🌈 Rainbow content with cycling border colors!', '🎨 Colors', {
     rounded: true,
-    formatBorder: (text) => {
+    formatBorder: (text: string) => {
       const color = colors[colorIndex % colors.length];
       colorIndex++;
       return color(text);

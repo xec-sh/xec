@@ -1,7 +1,7 @@
 import color from 'picocolors';
 import { cursor } from 'sisteransi';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { default as PasswordPrompt } from '../../src/prompts/password.js';
+import { default as PasswordPrompt } from '../../../src/core/prompts/password.js';
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
 

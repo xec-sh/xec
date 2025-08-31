@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
-import * as clack from '@clack/prompts';
+import { intro, outro, cancel, select, text, confirm, isCancel, log, password, spinner } from '@xec-sh/kit';
 
 import { SecretManager } from '../secrets/index.js';
 import { ConfigAwareCommand } from '../utils/command-base.js';
@@ -143,7 +143,7 @@ export class SecretsCommand extends ConfigAwareCommand {
 
     try {
       while (true) {
-        const action = await clack.select({
+        const action = await select({
           message: 'What would you like to do?',
           options: [
             { value: 'set', label: '🔒 Set a secret' },
@@ -157,19 +157,19 @@ export class SecretsCommand extends ConfigAwareCommand {
           ],
         });
 
-        if (clack.isCancel(action) || action === 'exit') {
+        if (isCancel(action) || action === 'exit') {
           break;
         }
 
         await this.handleInteractiveAction(action);
 
         // Ask if user wants to continue
-        const continueAction = await clack.confirm({
+        const continueAction = await confirm({
           message: 'Would you like to perform another action?',
           initialValue: true,
         });
 
-        if (clack.isCancel(continueAction) || !continueAction) {
+        if (isCancel(continueAction) || !continueAction) {
           break;
         }
       }
@@ -215,7 +215,7 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Interactive set secret
    */
   private async interactiveSetSecret(): Promise<void> {
-    const key = await clack.text({
+    const key = await text({
       message: 'Enter secret key:',
       validate: (input) => {
         if (!input || input.length === 0) {
@@ -228,7 +228,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       }
     });
 
-    if (clack.isCancel(key)) return;
+    if (isCancel(key)) return;
 
     await this.setSecret(key, {});
   }
@@ -245,12 +245,12 @@ export class SecretsCommand extends ConfigAwareCommand {
       return;
     }
 
-    const key = await clack.select({
+    const key = await select({
       message: 'Select secret to retrieve:',
       options: keys.sort().map(k => ({ value: k, label: k })),
     });
 
-    if (clack.isCancel(key)) return;
+    if (isCancel(key)) return;
 
     await this.getSecret(key);
   }
@@ -267,12 +267,12 @@ export class SecretsCommand extends ConfigAwareCommand {
       return;
     }
 
-    const key = await clack.select({
+    const key = await select({
       message: 'Select secret to delete:',
       options: keys.sort().map(k => ({ value: k, label: k })),
     });
 
-    if (clack.isCancel(key)) return;
+    if (isCancel(key)) return;
 
     await this.deleteSecret(key, { force: false });
   }
@@ -281,7 +281,7 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Interactive generate secret
    */
   private async interactiveGenerateSecret(): Promise<void> {
-    const key = await clack.text({
+    const key = await text({
       message: 'Enter secret key:',
       validate: (input) => {
         if (!input || input.length === 0) {
@@ -294,12 +294,13 @@ export class SecretsCommand extends ConfigAwareCommand {
       }
     });
 
-    if (clack.isCancel(key)) return;
+    if (isCancel(key)) return;
 
-    const lengthInput = await clack.text({
+    const lengthInput = await text({
       message: 'Enter secret length:',
       initialValue: '32',
       validate: (input) => {
+        if (!input) return 'Length is required';
         const length = parseInt(input, 10);
         if (isNaN(length) || length < 1 || length > 256) {
           return 'Length must be a number between 1 and 256';
@@ -308,7 +309,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       }
     });
 
-    if (clack.isCancel(lengthInput)) return;
+    if (isCancel(lengthInput)) return;
 
     await this.generateSecret(key, { length: lengthInput, force: false });
   }
@@ -317,7 +318,7 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Interactive export secrets
    */
   private async interactiveExportSecrets(): Promise<void> {
-    const format = await clack.select({
+    const format = await select({
       message: 'Select export format:',
       options: [
         { value: 'json', label: 'JSON format' },
@@ -325,7 +326,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       ],
     });
 
-    if (clack.isCancel(format)) return;
+    if (isCancel(format)) return;
 
     await this.exportSecrets({ format, force: false });
   }
@@ -334,7 +335,7 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Interactive import secrets
    */
   private async interactiveImportSecrets(): Promise<void> {
-    const source = await clack.select({
+    const source = await select({
       message: 'Import from:',
       options: [
         { value: 'file', label: 'File' },
@@ -342,9 +343,9 @@ export class SecretsCommand extends ConfigAwareCommand {
       ],
     });
 
-    if (clack.isCancel(source)) return;
+    if (isCancel(source)) return;
 
-    const format = await clack.select({
+    const format = await select({
       message: 'Select input format:',
       options: [
         { value: 'json', label: 'JSON format' },
@@ -352,12 +353,12 @@ export class SecretsCommand extends ConfigAwareCommand {
       ],
     });
 
-    if (clack.isCancel(format)) return;
+    if (isCancel(format)) return;
 
     let file: string | undefined;
 
     if (source === 'file') {
-      const filePath = await clack.text({
+      const filePath = await text({
         message: 'Enter file path:',
         validate: (input) => {
           if (!input || input.length === 0) {
@@ -367,7 +368,7 @@ export class SecretsCommand extends ConfigAwareCommand {
         }
       });
 
-      if (clack.isCancel(filePath)) return;
+      if (isCancel(filePath)) return;
       file = filePath;
     }
 
@@ -382,9 +383,9 @@ export class SecretsCommand extends ConfigAwareCommand {
       await fn();
     } catch (error) {
       if (error instanceof Error) {
-        clack.log.error(error.message);
+        log.error(error.message);
       } else {
-        clack.log.error('An unknown error occurred');
+        log.error('An unknown error occurred');
       }
       process.exit(1);
     }
@@ -403,7 +404,7 @@ export class SecretsCommand extends ConfigAwareCommand {
 
     if (value === undefined) {
       // Prompt for value if not provided
-      const input = await clack.password({
+      const input = await password({
         message: `Enter value for secret '${key}':`,
         validate: (input) => {
           if (!input || input.length === 0) {
@@ -413,23 +414,23 @@ export class SecretsCommand extends ConfigAwareCommand {
         }
       });
 
-      if (clack.isCancel(input)) {
-        clack.cancel('Operation cancelled');
+      if (isCancel(input)) {
+        cancel('Operation cancelled');
         process.exit(1);
       }
 
       value = input;
     }
 
-    const spinner = clack.spinner();
-    spinner.start(`Setting secret '${key}'`);
+    const s = spinner();
+    s.start(`Setting secret '${key}'`);
 
     try {
       await manager.set(key, value);
-      spinner.stop(`Secret '${key}' set successfully`);
-      clack.outro(chalk.green('✓') + ' Secret stored securely');
+      s.stop(`Secret '${key}' set successfully`);
+      outro(chalk.green('✓') + ' Secret stored securely');
     } catch (error) {
-      spinner.stop('Failed to set secret');
+      s.stop('Failed to set secret');
       throw error;
     }
   }
@@ -437,22 +438,22 @@ export class SecretsCommand extends ConfigAwareCommand {
   private async getSecret(key: string): Promise<void> {
     const manager = await this.getSecretManager();
 
-    const spinner = clack.spinner();
-    spinner.start(`Retrieving secret '${key}'`);
+    const s = spinner();
+    s.start(`Retrieving secret '${key}'`);
 
     try {
       const value = await manager.get(key);
-      spinner.stop();
+      s.stop();
 
       if (value === null) {
-        clack.log.error(`Secret '${key}' not found`);
+        log.error(`Secret '${key}' not found`);
         process.exit(1);
       }
 
       // Output the value directly for scripting
       console.log(value);
     } catch (error) {
-      spinner.stop('Failed to get secret');
+      s.stop('Failed to get secret');
       throw error;
     }
   }
@@ -460,25 +461,25 @@ export class SecretsCommand extends ConfigAwareCommand {
   private async listSecrets(): Promise<void> {
     const manager = await this.getSecretManager();
 
-    const spinner = clack.spinner();
-    spinner.start('Loading secrets');
+    const s = spinner();
+    s.start('Loading secrets');
 
     try {
       const keys = await manager.list();
-      spinner.stop();
+      s.stop();
 
       if (keys.length === 0) {
-        clack.log.info('No secrets found');
+        log.info('No secrets found');
         return;
       }
 
-      clack.log.message(chalk.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
+      log.message(chalk.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
 
       for (const key of keys.sort()) {
         console.log(`  ${chalk.cyan('•')} ${key}`);
       }
     } catch (error) {
-      spinner.stop('Failed to list secrets');
+      s.stop('Failed to list secrets');
       throw error;
     }
   }
@@ -487,25 +488,25 @@ export class SecretsCommand extends ConfigAwareCommand {
     const manager = await this.getSecretManager();
 
     if (!options.force) {
-      const confirm = await clack.confirm({
+      const confirmResult = await confirm({
         message: `Are you sure you want to delete secret '${key}'?`
       });
 
-      if (clack.isCancel(confirm) || !confirm) {
-        clack.cancel('Operation cancelled');
+      if (isCancel(confirmResult) || !confirmResult) {
+        cancel('Operation cancelled');
         process.exit(1);
       }
     }
 
-    const spinner = clack.spinner();
-    spinner.start(`Deleting secret '${key}'`);
+    const s = spinner();
+    s.start(`Deleting secret '${key}'`);
 
     try {
       await manager.delete(key);
-      spinner.stop(`Secret '${key}' deleted`);
-      clack.outro(chalk.green('✓') + ' Secret removed');
+      s.stop(`Secret '${key}' deleted`);
+      outro(chalk.green('✓') + ' Secret removed');
     } catch (error) {
-      spinner.stop('Failed to delete secret');
+      s.stop('Failed to delete secret');
       throw error;
     }
   }
@@ -515,37 +516,37 @@ export class SecretsCommand extends ConfigAwareCommand {
     const length = parseInt(options.length, 10);
 
     if (isNaN(length) || length < 1 || length > 256) {
-      clack.log.error('Invalid length. Must be between 1 and 256.');
+      log.error('Invalid length. Must be between 1 and 256.');
       process.exit(1);
     }
 
     // Check if secret already exists
     if (await manager.has(key) && !options.force) {
-      const confirm = await clack.confirm({
+      const confirmResult = await confirm({
         message: `Secret '${key}' already exists. Overwrite?`
       });
 
-      if (clack.isCancel(confirm) || !confirm) {
-        clack.cancel('Operation cancelled');
+      if (isCancel(confirmResult) || !confirmResult) {
+        cancel('Operation cancelled');
         process.exit(1);
       }
     }
 
-    const spinner = clack.spinner();
-    spinner.start(`Generating ${length}-character secret`);
+    const s = spinner();
+    s.start(`Generating ${length}-character secret`);
 
     try {
       const { generateSecret } = await import('../secrets/crypto.js');
       const value = generateSecret(length);
 
       await manager.set(key, value);
-      spinner.stop(`Secret '${key}' generated and stored`);
+      s.stop(`Secret '${key}' generated and stored`);
 
       // Show the generated value
-      clack.log.message(`Generated value: ${chalk.gray(value)}`);
-      clack.outro(chalk.green('✓') + ' Secret stored securely');
+      log.message(`Generated value: ${chalk.gray(value)}`);
+      outro(chalk.green('✓') + ' Secret stored securely');
     } catch (error) {
-      spinner.stop('Failed to generate secret');
+      s.stop('Failed to generate secret');
       throw error;
     }
   }
@@ -554,18 +555,18 @@ export class SecretsCommand extends ConfigAwareCommand {
     const manager = await this.getSecretManager();
 
     if (!options.force) {
-      const confirm = await clack.confirm({
+      const confirmResult = await confirm({
         message: chalk.yellow('WARNING: This will output all secrets in plain text. Continue?')
       });
 
-      if (clack.isCancel(confirm) || !confirm) {
-        clack.cancel('Export cancelled');
+      if (isCancel(confirmResult) || !confirmResult) {
+        cancel('Export cancelled');
         process.exit(1);
       }
     }
 
-    const spinner = clack.spinner();
-    spinner.start('Exporting secrets');
+    const s = spinner();
+    s.start('Exporting secrets');
 
     try {
       const keys = await manager.list();
@@ -578,7 +579,7 @@ export class SecretsCommand extends ConfigAwareCommand {
         }
       }
 
-      spinner.stop();
+      s.stop();
 
       if (options.format === 'env') {
         // Export as environment variables
@@ -591,7 +592,7 @@ export class SecretsCommand extends ConfigAwareCommand {
         console.log(JSON.stringify(secrets, null, 2));
       }
     } catch (error) {
-      spinner.stop('Failed to export secrets');
+      s.stop('Failed to export secrets');
       throw error;
     }
   }
@@ -614,8 +615,8 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
     }
 
-    const spinner = clack.spinner();
-    spinner.start('Importing secrets');
+    const s = spinner();
+    s.start('Importing secrets');
 
     try {
       let secrets: Record<string, string> = {};
@@ -644,10 +645,10 @@ export class SecretsCommand extends ConfigAwareCommand {
         imported++;
       }
 
-      spinner.stop(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
-      clack.outro(chalk.green('✓') + ' Secrets imported successfully');
+      s.stop(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
+      outro(chalk.green('✓') + ' Secrets imported successfully');
     } catch (error) {
-      spinner.stop('Failed to import secrets');
+      s.stop('Failed to import secrets');
       throw error;
     }
   }

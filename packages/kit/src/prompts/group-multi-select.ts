@@ -1,6 +1,6 @@
 import color from 'picocolors';
 
-import { GroupMultiSelectPrompt } from './core/index.js';
+import { GroupMultiSelectPrompt } from '../core/index.js';
 import {
 	S_BAR,
 	symbol,
@@ -9,7 +9,7 @@ import {
 	type CommonOptions,
 	S_CHECKBOX_INACTIVE,
 	S_CHECKBOX_SELECTED,
-} from './common.js';
+} from '../utilities/common.js';
 
 import type { Option } from './select.js';
 

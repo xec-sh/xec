@@ -1,5 +1,16 @@
 import chalk from 'chalk';
-import * as clack from '@clack/prompts';
+import { 
+  intro, 
+  outro, 
+  cancel, 
+  select, 
+  multiselect, 
+  text, 
+  confirm, 
+  spinner, 
+  log, 
+  isCancel 
+} from '@xec-sh/kit';
 
 import { ConfigurationManager } from '../config/configuration-manager.js';
 
@@ -32,7 +43,7 @@ export class InteractiveHelpers {
     // Handle Ctrl+C
     process.on('SIGINT', () => {
       this.cancelled = true;
-      clack.outro(chalk.gray('Cancelled'));
+      outro(chalk.gray('Cancelled'));
       process.exit(0);
     });
 
@@ -40,7 +51,7 @@ export class InteractiveHelpers {
   }
 
   static isCancelled(value: any): boolean {
-    return clack.isCancel(value) || this.cancelled;
+    return isCancel(value) || this.cancelled;
   }
 
   static async selectTarget(options: TargetSelectorOptions): Promise<ResolvedTarget | ResolvedTarget[] | null> {
@@ -105,12 +116,12 @@ export class InteractiveHelpers {
     }
 
     if (targetOptions.length === 0) {
-      clack.log.warning('No targets configured. Use "xec new profile" to create a configuration.');
+      log.warning('No targets configured. Use "xec new profile" to create a configuration.');
       return null;
     }
 
     if (options.allowMultiple) {
-      const selected = await clack.multiselect({
+      const selected = await multiselect({
         message: options.message,
         options: targetOptions,
         required: true,
@@ -127,7 +138,7 @@ export class InteractiveHelpers {
 
       return selected as ResolvedTarget[];
     } else {
-      const selected = await clack.select({
+      const selected = await select({
         message: options.message,
         options: targetOptions,
       });
@@ -144,7 +155,7 @@ export class InteractiveHelpers {
   }
 
   static async enterCustomTarget(): Promise<ResolvedTarget | null> {
-    const targetType = await clack.select({
+    const targetType = await select({
       message: 'Select target type:',
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
@@ -159,7 +170,7 @@ export class InteractiveHelpers {
 
     switch (targetType as 'ssh' | 'docker' | 'k8s') {
       case 'ssh': {
-        const hostInput = await clack.text({
+        const hostInput = await text({
           message: 'Enter SSH host:',
           placeholder: 'user@hostname or hostname',
           validate: (value) => {
@@ -191,7 +202,7 @@ export class InteractiveHelpers {
       }
 
       case 'docker': {
-        const container = await clack.text({
+        const container = await text({
           message: 'Enter container name or ID:',
           placeholder: 'myapp',
           validate: (value) => {
@@ -219,7 +230,7 @@ export class InteractiveHelpers {
       }
 
       case 'k8s': {
-        const namespace = await clack.text({
+        const namespace = await text({
           message: 'Enter namespace:',
           placeholder: 'default',
           initialValue: 'default',
@@ -227,7 +238,7 @@ export class InteractiveHelpers {
 
         if (this.isCancelled(namespace)) return null;
 
-        const pod = await clack.text({
+        const pod = await text({
           message: 'Enter pod name:',
           placeholder: 'myapp-pod',
           validate: (value) => {
@@ -274,7 +285,7 @@ export class InteractiveHelpers {
   }
 
   static async confirmAction(message: string, defaultValue = false): Promise<boolean> {
-    const result = await clack.confirm({
+    const result = await confirm({
       message,
       initialValue: defaultValue,
     });
@@ -289,7 +300,7 @@ export class InteractiveHelpers {
     allowCustom = false
   ): Promise<T | null> {
     if (items.length === 0) {
-      clack.log.warning('No items available');
+      log.warning('No items available');
       return null;
     }
 
@@ -305,7 +316,7 @@ export class InteractiveHelpers {
       });
     }
 
-    const selected = await clack.select({
+    const selected = await select({
       message,
       options: options as any,
     });
@@ -320,10 +331,10 @@ export class InteractiveHelpers {
     options: {
       placeholder?: string;
       initialValue?: string;
-      validate?: (value: string) => string | undefined;
+      validate?: (value: string | undefined) => string | undefined;
     } = {}
   ): Promise<string | null> {
-    const result = await clack.text({
+    const result = await text({
       message,
       placeholder: options.placeholder,
       initialValue: options.initialValue,
@@ -342,7 +353,7 @@ export class InteractiveHelpers {
     required = true
   ): Promise<T[] | null> {
     if (items.length === 0) {
-      clack.log.warning('No items available');
+      log.warning('No items available');
       return null;
     }
 
@@ -351,7 +362,7 @@ export class InteractiveHelpers {
       label: getLabelFn(item),
     }));
 
-    const selected = await clack.multiselect({
+    const selected = await multiselect({
       message,
       options: options as any,
       required,
@@ -364,36 +375,36 @@ export class InteractiveHelpers {
 
   static startInteractiveMode(title: string): void {
     this.setupCancelHandlers();
-    clack.intro(chalk.bgBlue(` ${title} `));
+    intro(chalk.bgBlue(` ${title} `));
   }
 
   static endInteractiveMode(message?: string): void {
     if (message) {
-      clack.outro(chalk.green(message));
+      outro(chalk.green(message));
     } else {
-      clack.outro(chalk.green('✓ Done!'));
+      outro(chalk.green('✓ Done!'));
     }
   }
 
   static showError(message: string): void {
-    clack.log.error(chalk.red(message));
+    log.error(chalk.red(message));
   }
 
   static showSuccess(message: string): void {
-    clack.log.success(chalk.green(message));
+    log.success(chalk.green(message));
   }
 
   static showInfo(message: string): void {
-    clack.log.info(chalk.blue(message));
+    log.info(chalk.blue(message));
   }
 
   static showWarning(message: string): void {
-    clack.log.warning(chalk.yellow(message));
+    log.warning(chalk.yellow(message));
   }
 
   static createSpinner(message: string): any {
-    const spinner = clack.spinner();
-    spinner.start(message);
-    return spinner;
+    const s = spinner();
+    s.start(message);
+    return s;
   }
 }

@@ -2,7 +2,7 @@ import path from 'path';
 import chalk from 'chalk';
 import { glob } from 'glob';
 import fs from 'fs/promises';
-import { kit } from '@xec-sh/kit';
+import { log, multiselect, select, text, confirm, isCancel } from '@xec-sh/kit';
 
 export interface FileSelectOptions {
   title?: string;
@@ -24,30 +24,15 @@ export class FileHelpers {
    */
   static async selectFiles(options: FileSelectOptions = {}): Promise<string[] | null> {
     try {
-      const selected = await kit.filePicker({
-        message: options.title || 'Select files',
-        multiple: options.multiple,
-        filters: options.filters || [
-          { name: 'All Files', extensions: ['*'] },
-          { name: 'Scripts', extensions: ['js', 'ts', 'sh', 'py'] },
-          { name: 'Config', extensions: ['json', 'yaml', 'yml', 'toml'] },
-          { name: 'Documents', extensions: ['md', 'txt', 'doc', 'pdf'] },
-        ],
-        showHidden: options.showHidden,
-        preview: options.preview !== false, // Default to true
-        actions: [
-          { key: 'e', label: 'Edit', action: this.editFile },
-          { key: 'r', label: 'Rename', action: this.renameFile },
-          { key: 'd', label: 'Delete', action: this.deleteFile },
-          { key: 'n', label: 'New', action: this.createFile },
-        ],
-        breadcrumbs: true, // Show path navigation
+      // Fallback: filePicker not available in packages/kit
+      const filePath = await text({
+        message: options.title || 'Enter file path',
       });
 
       // Ensure we always return an array
-      return Array.isArray(selected) ? selected : selected ? [selected] : null;
+      return filePath && typeof filePath === 'string' ? [filePath] : null;
     } catch (error) {
-      if (kit.isCancel(error)) {
+      if (isCancel(error)) {
         return null;
       }
       throw error;
@@ -67,7 +52,7 @@ export class FileHelpers {
     });
 
     if (files.length === 0) {
-      kit.log.warning('No files found in directory');
+      log.warning('No files found in directory');
       return null;
     }
 
@@ -94,13 +79,13 @@ export class FileHelpers {
     }
 
     if (options.multiple) {
-      const selected = await kit.multiselect({
+      const selected = await multiselect({
         message: options.title || 'Select files',
         options: fileOptions,
         required: false,
       });
 
-      if (kit.isCancel(selected)) {
+      if (isCancel(selected)) {
         return null;
       }
 
@@ -116,12 +101,12 @@ export class FileHelpers {
       // Filter out navigation options
       return selections.filter(s => s !== '..' && s !== '__create_new__');
     } else {
-      const selected = await kit.select({
+      const selected = await select({
         message: options.title || 'Select file',
         options: fileOptions,
       });
 
-      if (kit.isCancel(selected)) {
+      if (isCancel(selected)) {
         return null;
       }
 
@@ -214,7 +199,7 @@ export class FileHelpers {
    * Prompt to create a new file
    */
   private static async promptCreateFile(dirPath: string): Promise<string | null> {
-    const fileName = await kit.text({
+    const fileName = await text({
       message: 'Enter file name:',
       placeholder: 'example.txt',
       validate: (value) => {
@@ -228,7 +213,7 @@ export class FileHelpers {
       },
     });
 
-    if (kit.isCancel(fileName)) {
+    if (isCancel(fileName)) {
       return null;
     }
 
@@ -237,12 +222,12 @@ export class FileHelpers {
     // Check if file already exists
     try {
       await fs.access(filePath);
-      const overwrite = await kit.confirm({
+      const overwrite = await confirm({
         message: `File '${fileName}' already exists. Overwrite?`,
-        defaultValue: false,
+        initialValue: false,
       });
 
-      if (kit.isCancel(overwrite) || !overwrite) {
+      if (isCancel(overwrite) || !overwrite) {
         return null;
       }
     } catch {
@@ -251,7 +236,7 @@ export class FileHelpers {
 
     // Create the file
     await fs.writeFile(filePath, '', 'utf-8');
-    kit.log.success(`Created file: ${filePath}`);
+    log.success(`Created file: ${filePath}`);
 
     return filePath;
   }
@@ -285,7 +270,7 @@ export class FileHelpers {
     const dir = path.dirname(filePath);
     const oldName = path.basename(filePath);
 
-    const newName = await kit.text({
+    const newName = await text({
       message: 'Enter new name:',
       placeholder: oldName,
       defaultValue: oldName,
@@ -300,7 +285,7 @@ export class FileHelpers {
       },
     });
 
-    if (kit.isCancel(newName)) {
+    if (isCancel(newName)) {
       return;
     }
 
@@ -309,12 +294,12 @@ export class FileHelpers {
     // Check if target exists
     try {
       await fs.access(newPath);
-      const overwrite = await kit.confirm({
+      const overwrite = await confirm({
         message: `File '${newName}' already exists. Overwrite?`,
-        defaultValue: false,
+        initialValue: false,
       });
 
-      if (kit.isCancel(overwrite) || !overwrite) {
+      if (isCancel(overwrite) || !overwrite) {
         return;
       }
     } catch {
@@ -322,19 +307,19 @@ export class FileHelpers {
     }
 
     await fs.rename(filePath, newPath);
-    kit.log.success(`Renamed to: ${newPath}`);
+    log.success(`Renamed to: ${newPath}`);
   }
 
   /**
    * Delete a file with confirmation
    */
   private static async deleteFile(filePath: string): Promise<void> {
-    const confirm = await kit.confirm({
+    const confirmResult = await confirm({
       message: `Delete '${path.basename(filePath)}'?`,
       initialValue: false,
     });
 
-    if (kit.isCancel(confirm) || !confirm) {
+    if (isCancel(confirmResult) || !confirmResult) {
       return;
     }
 
@@ -346,7 +331,7 @@ export class FileHelpers {
       await fs.unlink(filePath);
     }
 
-    kit.log.success(`Deleted: ${filePath}`);
+    log.success(`Deleted: ${filePath}`);
   }
 
   /**
@@ -356,12 +341,12 @@ export class FileHelpers {
     const filePath = await FileHelpers.promptCreateFile(dirPath);
     if (filePath) {
       // Optionally open in editor
-      const edit = await kit.confirm({
+      const edit = await confirm({
         message: 'Open in editor?',
-        defaultValue: true,
+        initialValue: true,
       });
 
-      if (!kit.isCancel(edit) && edit) {
+      if (!isCancel(edit) && edit) {
         await FileHelpers.editFile(filePath);
       }
     }
@@ -375,17 +360,12 @@ export class FileHelpers {
     startPath?: string;
     allowCreate?: boolean;
   } = {}): Promise<string | null> {
-    // Use kit's file picker in directory mode
-    const selected = await kit.filePicker({
-      message: options.title || 'Select directory',
-      multiple: false,
-      filters: [{ name: 'Directories', extensions: [''] }],
-      showHidden: false,
-      preview: false,
-      breadcrumbs: true,
+    // Fallback: filePicker not available in packages/kit
+    const dirPath = await text({
+      message: options.title || 'Enter directory path',
     });
 
-    return selected?.[0] || null;
+    return dirPath && typeof dirPath === 'string' ? dirPath : null;
   }
 
   /**
@@ -430,12 +410,12 @@ export class FileHelpers {
       });
     }
 
-    const selected = await kit.select({
+    const selected = await select({
       message: options.title || 'Select directory',
       options: dirOptions,
     });
 
-    if (kit.isCancel(selected)) {
+    if (isCancel(selected)) {
       return null;
     }
 
@@ -457,7 +437,7 @@ export class FileHelpers {
 
     // Handle create new
     if (selection === '__create_new__') {
-      const dirName = await kit.text({
+      const dirName = await text({
         message: 'Enter directory name:',
         placeholder: 'new-directory',
         validate: (value) => {
@@ -471,13 +451,13 @@ export class FileHelpers {
         },
       });
 
-      if (kit.isCancel(dirName)) {
+      if (isCancel(dirName)) {
         return null;
       }
 
       const newDir = path.join(startPath, dirName as string);
       await fs.mkdir(newDir, { recursive: true });
-      kit.log.success(`Created directory: ${newDir}`);
+      log.success(`Created directory: ${newDir}`);
       return newDir;
     }
 

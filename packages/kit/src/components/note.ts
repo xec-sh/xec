@@ -3,8 +3,8 @@ import type { Writable } from 'node:stream';
 import color from 'picocolors';
 import process from 'node:process';
 
-import { wrapAnsi } from './core/utils/wrap-ansi.js';
-import stringWidth from './core/utils/string-width.js';
+import { wrapAnsi } from '../core/utils/wrap-ansi.js';
+import stringWidth from '../core/utils/string-width.js';
 import {
 	S_BAR,
 	S_BAR_H,
@@ -13,7 +13,7 @@ import {
 	type CommonOptions,
 	S_CORNER_TOP_RIGHT,
 	S_CORNER_BOTTOM_RIGHT,
-} from './common.js';
+} from '../utilities/common.js';
 
 export interface NoteOptions extends CommonOptions {
 	format?: (line: string) => string;
@@ -23,11 +23,11 @@ const defaultNoteFormatter = (line: string): string => color.dim(line);
 
 const wrapWithFormat = (message: string, width: number, format: NoteOptions['format']): string => {
 	const wrapMsg = wrapAnsi(message, width).split('\n');
-	const maxWidthNormal = wrapMsg.reduce((sum, ln) => Math.max(stringWidth(ln), sum), 0);
+	const maxWidthNormal = wrapMsg.reduce((sum: number, ln: string) => Math.max(stringWidth(ln), sum), 0);
 	const formatFn = format ?? ((line: string) => line);
 	const maxWidthFormat = wrapMsg
 		.map(formatFn)
-		.reduce((sum, ln) => Math.max(stringWidth(ln), sum), 0);
+		.reduce((sum: number, ln: string) => Math.max(stringWidth(ln), sum), 0);
 	const wrapWidth = width - (maxWidthFormat - maxWidthNormal);
 	return wrapAnsi(message, wrapWidth);
 };

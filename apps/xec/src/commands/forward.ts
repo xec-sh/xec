@@ -474,6 +474,7 @@ export class ForwardCommand extends ConfigAwareCommand {
       const remotePort = await InteractiveHelpers.inputText('Enter remote port:', {
         placeholder: '3306, 5432, 6379, 8080, etc.',
         validate: (value) => {
+          if (!value) return 'Port is required';
           const port = parseInt(value);
           if (isNaN(port) || port < 1 || port > 65535) {
             return 'Please enter a valid port number (1-65535)';
@@ -506,6 +507,7 @@ export class ForwardCommand extends ConfigAwareCommand {
           const customPort = await InteractiveHelpers.inputText('Enter local port:', {
             placeholder: '8080',
             validate: (value) => {
+              if (!value) return 'Port is required';
               const port = parseInt(value);
               if (isNaN(port) || port < 1 || port > 65535) {
                 return 'Please enter a valid port number (1-65535)';

@@ -1,7 +1,7 @@
 import color from 'picocolors';
 
-import { SelectPrompt } from './core/index.js';
-import { limitOptions } from './limit-options.js';
+import { SelectPrompt } from '../core/index.js';
+import { limitOptions } from '../utilities/limit-options.js';
 import {
 	S_BAR,
 	symbol,
@@ -9,7 +9,7 @@ import {
 	S_RADIO_ACTIVE,
 	S_RADIO_INACTIVE,
 	type CommonOptions,
-} from './common.js';
+} from '../utilities/common.js';
 
 type Primitive = Readonly<string | boolean | number>;
 

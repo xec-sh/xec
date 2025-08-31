@@ -1,8 +1,8 @@
 import type { Writable } from 'node:stream';
 
-import { getColumns } from './core/index.js';
-import { wrapAnsi } from './core/utils/wrap-ansi.js';
-import stringWidth from './core/utils/string-width.js';
+import { getColumns } from '../core/index.js';
+import { wrapAnsi } from '../core/utils/wrap-ansi.js';
+import stringWidth from '../core/utils/string-width.js';
 import {
 	S_BAR,
 	S_BAR_H,
@@ -15,7 +15,7 @@ import {
 	S_CORNER_TOP_RIGHT,
 	S_CORNER_BOTTOM_LEFT,
 	S_CORNER_BOTTOM_RIGHT,
-} from './common.js';
+} from '../utilities/common.js';
 
 export type BoxAlignment = 'left' | 'center' | 'right';
 

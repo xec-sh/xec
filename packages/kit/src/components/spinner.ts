@@ -1,8 +1,8 @@
 import color from 'picocolors';
 import { erase, cursor } from 'sisteransi';
 
-import { wrapAnsi } from './core/utils/wrap-ansi.js';
-import { block, settings, getColumns } from './core/index.js';
+import { wrapAnsi } from '../core/utils/wrap-ansi.js';
+import { block, settings, getColumns } from '../core/index.js';
 import {
 	S_BAR,
 	unicode,
@@ -11,7 +11,7 @@ import {
 	S_STEP_SUBMIT,
 	isCI as isCIFn,
 	type CommonOptions,
-} from './common.js';
+} from '../utilities/common.js';
 
 // Spinner frame sets for different animation styles
 export const SPINNER_FRAMES = {

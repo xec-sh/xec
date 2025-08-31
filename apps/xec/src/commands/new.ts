@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
-import * as clack from '@clack/prompts';
+import { intro, outro, cancel, select, text, confirm, isCancel, log, password, spinner, multiselect } from '@xec-sh/kit';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
@@ -148,32 +148,32 @@ log.info(chalk.bold('🚀 {description}'));
 log.step(\`Environment: \${options.env}\`);
 log.step(\`Dry run: \${options.dryRun}\`);
 
-const spinner = clack.spinner();
+const s = spinner();
 
 try {
   // Step 1: Validation
-  spinner.start('Validating environment...');
+  s.start('Validating environment...');
   await validateEnvironment(options.env);
-  spinner.stop('Environment validated');
+  s.stop('Environment validated');
 
   // Step 2: Main operation
   if (!options.dryRun) {
-    spinner.start('Executing main operation...');
+    s.start('Executing main operation...');
     await executeMainOperation(options);
-    spinner.stop('Operation completed');
+    s.stop('Operation completed');
   } else {
     log.info('Dry run mode - skipping execution');
   }
 
   // Step 3: Cleanup
-  spinner.start('Cleaning up...');
+  s.start('Cleaning up...');
   await cleanup();
-  spinner.stop('Cleanup completed');
+  s.stop('Cleanup completed');
 
   log.success(chalk.green('✅ Script completed successfully!'));
   
 } catch (error) {
-  spinner.stop(chalk.red('Operation failed'));
+  s.stop(chalk.red('Operation failed'));
   log.error(error.message);
   process.exit(1);
 }
@@ -280,17 +280,17 @@ const configs: Record<typeof environment, Config> = {
 };
 
 const envConfig = configs[environment];
-const spinner = clack.spinner();
+const s = spinner();
 
 try {
   // Step 1: Validation
-  spinner.start('Validating environment...');
+  s.start('Validating environment...');
   await validateEnvironment(environment);
-  spinner.stop('Environment validated');
+  s.stop('Environment validated');
 
   // Step 2: Connect to services
   if (environment === 'production') {
-    spinner.start('Connecting to production services...');
+    s.start('Connecting to production services...');
     
     const targets = await xec.config.getTargets();
     const prodHost = targets.hosts?.production;
@@ -302,12 +302,12 @@ try {
       log.step('Server uptime: ' + uptimeResult.stdout.trim());
     }
     
-    spinner.stop('Connected to production');
+    s.stop('Connected to production');
   }
 
   // Step 3: Main operation with retry logic
   if (!isDryRun) {
-    spinner.start('Executing main operation...');
+    s.start('Executing main operation...');
     
     await retry(
       async () => {
@@ -322,20 +322,20 @@ try {
       }
     );
     
-    spinner.stop('Operation completed');
+    s.stop('Operation completed');
   } else {
     log.info('Dry run mode - skipping execution');
   }
 
   // Step 4: Cleanup
-  spinner.start('Cleaning up...');
+  s.start('Cleaning up...');
   await cleanup();
-  spinner.stop('Cleanup completed');
+  s.stop('Cleanup completed');
 
   log.success(chalk.green('✅ Script completed successfully!'));
   
 } catch (error) {
-  spinner.stop(chalk.red('Operation failed'));
+  s.stop(chalk.red('Operation failed'));
   log.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
@@ -404,7 +404,7 @@ export function command(program) {
     .description('{description}')
     .option('-v, --verbose', 'Enable verbose output')
     .action(async (args, options) => {
-      const { log } = await import('@clack/prompts');
+      // log is already imported from @xec-sh/kit
       
       // Your command logic here
       log.info('Running {name} command...');
@@ -438,7 +438,7 @@ export function command(program: Command): void {
     .option('-v, --verbose', 'Enable verbose output')
     .option('-f, --format <type>', 'Output format', 'json')
     .action(async (args: string[], options: { verbose: boolean; format: string }) => {
-      const { log } = await import('@clack/prompts');
+      // log is already imported from @xec-sh/kit
       
       // Your command logic here
       log.info('Running {name} command...');
@@ -490,7 +490,7 @@ export function command(program) {
     .description('List all items')
     .option('-f, --filter <pattern>', 'Filter results')
     .action(async (options) => {
-      const { log, spinner } = await import('@clack/prompts');
+      // log and spinner are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
       
       const s = spinner();
@@ -525,7 +525,7 @@ export function command(program) {
     .option('-t, --type <type>', 'Item type', 'default')
     .option('-d, --description <desc>', 'Item description')
     .action(async (name, options) => {
-      const { log, confirm } = await import('@clack/prompts');
+      // log and confirm are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
       
       log.info(\`Creating item: \${name}\`);
@@ -561,7 +561,7 @@ export function command(program) {
     .description('Delete an item')
     .option('-f, --force', 'Skip confirmation')
     .action(async (name, options) => {
-      const { log, confirm } = await import('@clack/prompts');
+      // log and confirm are already imported from @xec-sh/kit
       
       if (!options.force) {
         const shouldDelete = await confirm({
@@ -664,7 +664,7 @@ export function command(program: Command): void {
     .option('-s, --status <status>', 'Filter by status')
     .option('--json', 'Output as JSON')
     .action(async (options: ListOptions) => {
-      const { log, spinner } = await import('@clack/prompts');
+      // log and spinner are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
       
       const s = spinner();
@@ -719,7 +719,7 @@ export function command(program: Command): void {
     .requiredOption('-t, --type <type>', 'Item type (service|task|resource)')
     .option('-d, --description <desc>', 'Item description')
     .action(async (name: string, options: CreateOptions) => {
-      const { log, confirm } = await import('@clack/prompts');
+      // log and confirm are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
       const chalk = await import('chalk');
       
@@ -774,7 +774,7 @@ export function command(program: Command): void {
     .description('Delete an item')
     .option('-f, --force', 'Skip confirmation')
     .action(async (name: string, options: { force?: boolean }) => {
-      const { log, confirm } = await import('@clack/prompts');
+      // log and confirm are already imported from @xec-sh/kit
       const chalk = await import('chalk');
       
       // Check if item exists
@@ -1179,7 +1179,7 @@ docs:
 };
 
 async function getArtifactType(): Promise<ArtifactType> {
-  const type = await clack.select({
+  const type = await select({
     message: 'What would you like to create?',
     options: [
       { value: 'project', label: '📁 Project - Initialize a new Xec project' },
@@ -1246,13 +1246,13 @@ async function createProject(name: string, options: NewOptions) {
         throw new Error(`Directory ${name} is not empty. Use --force to overwrite.`);
       }
 
-      const shouldContinue = await clack.confirm({
+      const shouldContinue = await confirm({
         message: `Directory ${name} is not empty. Continue?`,
         initialValue: false
       });
 
       if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
-        clack.log.info('Project creation cancelled');
+        log.info('Project creation cancelled');
         return;
       }
     }
@@ -1266,7 +1266,7 @@ async function createProject(name: string, options: NewOptions) {
     if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
       projectDescription = 'An Xec automation project';
     } else {
-      const result = await clack.text({
+      const result = await text({
         message: 'Project description:',
         defaultValue: 'An Xec automation project'
       });
@@ -1279,8 +1279,8 @@ async function createProject(name: string, options: NewOptions) {
     }
   }
 
-  const spinner = clack.spinner();
-  spinner.start('Creating project structure...');
+  const s = spinner();
+  s.start('Creating project structure...');
 
   // Get absolute path to globals.d.ts
   const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
@@ -1550,7 +1550,7 @@ Edit \`.xec/config.yaml\` to:
     await fs.writeFile(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   }
 
-  spinner.stop('Project structure created');
+  s.stop('Project structure created');
 
   // Initialize git if not skipped
   if (!options.skipGit && !fs.existsSync(path.join(targetDir, '.git'))) {
@@ -1558,7 +1558,7 @@ Edit \`.xec/config.yaml\` to:
     let shouldInitGit = false;
 
     if (!(process.env['CI'] || process.env['XEC_NO_INTERACTIVE'])) {
-      const result = await clack.confirm({
+      const result = await confirm({
         message: 'Initialize git repository?',
         initialValue: true
       });
@@ -1571,28 +1571,28 @@ Edit \`.xec/config.yaml\` to:
     }
 
     if (shouldInitGit) {
-      spinner.start('Initializing git repository...');
+      s.start('Initializing git repository...');
       const { $ } = await import('@xec-sh/core');
       await $`cd ${targetDir} && git init`;
       await $`cd ${targetDir} && git add .`;
       await $`cd ${targetDir} && git commit -m "Initial Xec project setup"`.nothrow();
-      spinner.stop('Git repository initialized');
+      s.stop('Git repository initialized');
     }
   }
 
 
-  clack.outro(chalk.green('✅ Xec project initialized successfully!'));
+  outro(chalk.green('✅ Xec project initialized successfully!'));
 
   // Show next steps
-  clack.log.info('\nNext steps:');
-  clack.log.info(`  ${chalk.cyan('cd')} ${name}`);
+  log.info('\nNext steps:');
+  log.info(`  ${chalk.cyan('cd')} ${name}`);
   if (!options.minimal) {
-    clack.log.info(`  ${chalk.cyan('xec')} scripts/example.ts`);
-    clack.log.info(`  ${chalk.cyan('xec')} hello World`);
-    clack.log.info(`  ${chalk.cyan('xec')} tasks:run hello`);
+    log.info(`  ${chalk.cyan('xec')} scripts/example.ts`);
+    log.info(`  ${chalk.cyan('xec')} hello World`);
+    log.info(`  ${chalk.cyan('xec')} tasks:run hello`);
   }
-  clack.log.info(`  ${chalk.cyan('xec')} new script my-script`);
-  clack.log.info(`  ${chalk.cyan('xec')} new task deploy`);
+  log.info(`  ${chalk.cyan('xec')} new script my-script`);
+  log.info(`  ${chalk.cyan('xec')} new task deploy`);
 }
 
 async function createScript(name: string, options: NewOptions) {
@@ -1601,7 +1601,7 @@ async function createScript(name: string, options: NewOptions) {
 
   const xecDir = path.join(process.cwd(), '.xec');
   if (!fs.existsSync(xecDir)) {
-    clack.log.error('Not in an Xec project directory. Run "xec new project" first.');
+    log.error('Not in an Xec project directory. Run "xec new project" first.');
     process.exit(1);
   }
 
@@ -1618,13 +1618,13 @@ async function createScript(name: string, options: NewOptions) {
       throw new Error(`Script ${fileName} already exists. Use --force to overwrite.`);
     }
 
-    const shouldOverwrite = await clack.confirm({
+    const shouldOverwrite = await confirm({
       message: `Script ${fileName} already exists. Overwrite?`,
       initialValue: false
     });
 
     if (InteractiveHelpers.isCancelled(shouldOverwrite) || !shouldOverwrite) {
-      clack.log.info('Script creation cancelled');
+      log.info('Script creation cancelled');
       return;
     }
   }
@@ -1637,7 +1637,7 @@ async function createScript(name: string, options: NewOptions) {
     if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
       scriptDescription = `Custom script ${name}`;
     } else {
-      const result = await clack.text({
+      const result = await text({
         message: 'Script description:',
         defaultValue: `Custom script ${name}`
       });
@@ -1669,12 +1669,12 @@ async function createScript(name: string, options: NewOptions) {
   await fs.writeFile(filePath, content);
   await fs.chmod(filePath, '755');
 
-  clack.outro(chalk.green(`✅ Created script: ${fileName}`));
+  outro(chalk.green(`✅ Created script: ${fileName}`));
 
   // Show usage
-  clack.log.info('\nUsage:');
-  clack.log.info(`  ${chalk.cyan('xec')} scripts/${fileName}`);
-  clack.log.info(`  ${chalk.cyan('xec')} scripts/${fileName} --env=production`);
+  log.info('\nUsage:');
+  log.info(`  ${chalk.cyan('xec')} scripts/${fileName}`);
+  log.info(`  ${chalk.cyan('xec')} scripts/${fileName} --env=production`);
 }
 
 async function createCommand(name: string, options: NewOptions) {
@@ -1683,7 +1683,7 @@ async function createCommand(name: string, options: NewOptions) {
 
   const xecDir = path.join(process.cwd(), '.xec');
   if (!fs.existsSync(xecDir)) {
-    clack.log.error('Not in an Xec project directory. Run "xec new project" first.');
+    log.error('Not in an Xec project directory. Run "xec new project" first.');
     process.exit(1);
   }
 
@@ -1700,13 +1700,13 @@ async function createCommand(name: string, options: NewOptions) {
       throw new Error(`Command ${fileName} already exists. Use --force to overwrite.`);
     }
 
-    const shouldOverwrite = await clack.confirm({
+    const shouldOverwrite = await confirm({
       message: `Command ${fileName} already exists. Overwrite?`,
       initialValue: false
     });
 
     if (InteractiveHelpers.isCancelled(shouldOverwrite) || !shouldOverwrite) {
-      clack.log.info('Command creation cancelled');
+      log.info('Command creation cancelled');
       return;
     }
   }
@@ -1719,7 +1719,7 @@ async function createCommand(name: string, options: NewOptions) {
     if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
       commandDescription = `Custom command ${name}`;
     } else {
-      const result = await clack.text({
+      const result = await text({
         message: 'Command description:',
         defaultValue: `Custom command ${name}`
       });
@@ -1749,14 +1749,14 @@ async function createCommand(name: string, options: NewOptions) {
   await fs.ensureDir(path.dirname(filePath));
   await fs.writeFile(filePath, content);
 
-  clack.outro(chalk.green(`✅ Created command: ${fileName}`));
+  outro(chalk.green(`✅ Created command: ${fileName}`));
 
   // Show usage
-  clack.log.info('\nUsage:');
-  clack.log.info(`  ${chalk.cyan('xec')} ${name} --help`);
+  log.info('\nUsage:');
+  log.info(`  ${chalk.cyan('xec')} ${name} --help`);
   if (options.advanced) {
-    clack.log.info(`  ${chalk.cyan('xec')} ${name} list`);
-    clack.log.info(`  ${chalk.cyan('xec')} ${name} create myitem`);
+    log.info(`  ${chalk.cyan('xec')} ${name} list`);
+    log.info(`  ${chalk.cyan('xec')} ${name} create myitem`);
   }
 }
 
@@ -1768,7 +1768,7 @@ async function createTask(name: string, options: NewOptions) {
   const config = await configManager.load();
 
   if (!config) {
-    clack.log.error('No configuration found. Run "xec new project" first.');
+    log.error('No configuration found. Run "xec new project" first.');
     process.exit(1);
   }
 
@@ -1780,7 +1780,7 @@ async function createTask(name: string, options: NewOptions) {
     if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
       taskDescription = `Task ${name}`;
     } else {
-      const result = await clack.text({
+      const result = await text({
         message: 'Task description:',
         defaultValue: `Task ${name}`
       });
@@ -1802,7 +1802,7 @@ async function createTask(name: string, options: NewOptions) {
     // Default to simple in non-interactive mode
     complexity = 'simple';
   } else {
-    const result = await clack.select({
+    const result = await select({
       message: 'Task complexity:',
       options: [
         { value: 'simple', label: 'Simple - Single command' },
@@ -1836,13 +1836,13 @@ async function createTask(name: string, options: NewOptions) {
   // Save configuration
   await configManager.save();
 
-  clack.outro(chalk.green(`✅ Created task: ${name}`));
+  outro(chalk.green(`✅ Created task: ${name}`));
 
   // Show usage
-  clack.log.info('\nUsage:');
-  clack.log.info(`  ${chalk.cyan('xec')} tasks:run ${name}`);
+  log.info('\nUsage:');
+  log.info(`  ${chalk.cyan('xec')} tasks:run ${name}`);
   if (complexity !== 'simple') {
-    clack.log.info(`  ${chalk.cyan('xec')} tasks:run ${name} --help`);
+    log.info(`  ${chalk.cyan('xec')} tasks:run ${name} --help`);
   }
 }
 
@@ -1854,7 +1854,7 @@ async function createProfile(name: string, options: NewOptions) {
   const config = await configManager.load();
 
   if (!config) {
-    clack.log.error('No configuration found. Run "xec new project" first.');
+    log.error('No configuration found. Run "xec new project" first.');
     process.exit(1);
   }
 
@@ -1866,7 +1866,7 @@ async function createProfile(name: string, options: NewOptions) {
     if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
       profileDescription = `${name} environment profile`;
     } else {
-      const result = await clack.text({
+      const result = await text({
         message: 'Profile description:',
         defaultValue: `${name} environment profile`
       });
@@ -1899,12 +1899,12 @@ async function createProfile(name: string, options: NewOptions) {
   // Save configuration
   await configManager.save();
 
-  clack.outro(chalk.green(`✅ Created profile: ${name}`));
+  outro(chalk.green(`✅ Created profile: ${name}`));
 
   // Show usage
-  clack.log.info('\nUsage:');
-  clack.log.info(`  ${chalk.cyan('xec')} --profile ${name} <command>`);
-  clack.log.info(`  ${chalk.cyan('XEC_PROFILE=')}${name} xec <command>`);
+  log.info('\nUsage:');
+  log.info(`  ${chalk.cyan('xec')} --profile ${name} <command>`);
+  log.info(`  ${chalk.cyan('XEC_PROFILE=')}${name} xec <command>`);
 }
 
 async function createExtension(name: string, options: NewOptions) {
@@ -1920,13 +1920,13 @@ async function createExtension(name: string, options: NewOptions) {
       throw new Error(`Directory ${name} already exists. Use --force to overwrite.`);
     }
 
-    const shouldContinue = await clack.confirm({
+    const shouldContinue = await confirm({
       message: `Directory ${name} already exists. Continue?`,
       initialValue: false
     });
 
     if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
-      clack.log.info('Extension creation cancelled');
+      log.info('Extension creation cancelled');
       return;
     }
   }
@@ -1939,7 +1939,7 @@ async function createExtension(name: string, options: NewOptions) {
     if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
       extensionDescription = `Xec extension ${name}`;
     } else {
-      const result = await clack.text({
+      const result = await text({
         message: 'Extension description:',
         defaultValue: `Xec extension ${name}`
       });
@@ -1952,8 +1952,8 @@ async function createExtension(name: string, options: NewOptions) {
     }
   }
 
-  const spinner = clack.spinner();
-  spinner.start('Creating extension structure...');
+  const s = spinner();
+  s.start('Creating extension structure...');
 
   // Select template
   const templateKey = options.advanced ? 'advanced' : 'basic';
@@ -2079,18 +2079,18 @@ See \`extension.yaml\` for configuration options.
     }, null, 2)
   );
 
-  spinner.stop('Extension structure created');
+  s.stop('Extension structure created');
 
-  clack.outro(chalk.green(`✅ Created extension: ${name}`));
+  outro(chalk.green(`✅ Created extension: ${name}`));
 
   // Show next steps
-  clack.log.info('\nNext steps:');
-  clack.log.info(`  ${chalk.cyan('cd')} ${name}`);
-  clack.log.info(`  ${chalk.cyan('edit')} extension.yaml`);
-  clack.log.info('\nTo use in a project:');
-  clack.log.info(`  Add to .xec/config.yaml:`);
-  clack.log.info(`  ${chalk.gray('extensions:')}`);
-  clack.log.info(`  ${chalk.gray('  - source:')} ${targetDir}`);
+  log.info('\nNext steps:');
+  log.info(`  ${chalk.cyan('cd')} ${name}`);
+  log.info(`  ${chalk.cyan('edit')} extension.yaml`);
+  log.info('\nTo use in a project:');
+  log.info(`  Add to .xec/config.yaml:`);
+  log.info(`  ${chalk.gray('extensions:')}`);
+  log.info(`  ${chalk.gray('  - source:')} ${targetDir}`);
 }
 
 export class NewCommand extends BaseCommand {
@@ -2179,7 +2179,7 @@ export class NewCommand extends BaseCommand {
       // Set up cancel handlers for interactive mode
       InteractiveHelpers.setupCancelHandlers();
 
-      clack.intro(chalk.bold('🎨 Create new Xec artifact'));
+      intro(chalk.bold('🎨 Create new Xec artifact'));
 
       // Determine artifact type
       let artifactType: ArtifactType;
@@ -2198,10 +2198,10 @@ export class NewCommand extends BaseCommand {
       let artifactName = name || args[1];
       if (!artifactName) {
         const defaultName = artifactType === 'project' ? 'my-xec-project' : `my-${artifactType}`;
-        artifactName = await clack.text({
+        artifactName = await text({
           message: `${artifactType.charAt(0).toUpperCase() + artifactType.slice(1)} name:`,
           defaultValue: defaultName,
-          validate: (value) => validateName(value, artifactType)
+          validate: (value) => validateName(value || '', artifactType)
         }) as string;
 
         if (InteractiveHelpers.isCancelled(artifactName)) {
@@ -2211,7 +2211,7 @@ export class NewCommand extends BaseCommand {
         // Validate provided name
         const error = validateName(artifactName, artifactType);
         if (error) {
-          clack.log.error(error);
+          log.error(error);
           throw new Error(error);
         }
       }
@@ -2244,7 +2244,7 @@ export class NewCommand extends BaseCommand {
         // User cancelled, exit gracefully
         return;
       }
-      clack.log.error(error instanceof Error ? error.message : 'Creation failed');
+      log.error(error instanceof Error ? error.message : 'Creation failed');
       throw error;
     }
   }

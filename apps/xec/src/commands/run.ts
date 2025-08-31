@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
-import * as clack from '@clack/prompts';
+import { intro, outro, cancel, select, text, confirm, isCancel, log, password, spinner } from '@xec-sh/kit';
 
 import { TaskManager } from '../config/task-manager.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
@@ -135,11 +135,11 @@ export class RunCommand extends BaseCommand {
         await this.runTask(fileOrTask, options);
       }
     } else {
-      clack.log.error('No script file or task specified');
-      clack.log.info('Usage: xec run <file> [args...]');
-      clack.log.info('       xec run <task> [options]');
-      clack.log.info('       xec run -e <code>');
-      clack.log.info('       xec run --repl');
+      log.error('No script file or task specified');
+      log.info('Usage: xec run <file> [args...]');
+      log.info('       xec run <task> [options]');
+      log.info('       xec run -e <code>');
+      log.info('       xec run --repl');
       throw new Error('No script file or task specified');
     }
   }
@@ -175,12 +175,12 @@ export class RunCommand extends BaseCommand {
     if (!result.success && result.error) {
       // If runtime not available, provide helpful message
       if (result.error.message.includes('runtime requested but not available')) {
-        clack.log.error(result.error.message);
+        log.error(result.error.message);
 
         const runtime = options.runtime || 'auto';
         if (runtime !== 'auto') {
-          clack.log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
-          clack.log.info(`  ${chalk.cyan(`${runtime} xec run ${scriptPath}`)}`);
+          log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
+          log.info(`  ${chalk.cyan(`${runtime} xec run ${scriptPath}`)}`);
         }
       } else {
         throw result.error;
@@ -271,8 +271,8 @@ export class RunCommand extends BaseCommand {
         return await this.runScript(taskName, [], options);
       } catch {
         // Not a file either
-        clack.log.error(`Task '${taskName}' not found`);
-        clack.log.info(chalk.dim('\nRun "xec tasks" to see available tasks'));
+        log.error(`Task '${taskName}' not found`);
+        log.info(chalk.dim('\nRun "xec tasks" to see available tasks'));
         throw new Error(`Task '${taskName}' not found`);
       }
     }
@@ -285,8 +285,8 @@ export class RunCommand extends BaseCommand {
         const value = valueParts.join('=');
 
         if (!key || !value) {
-          clack.log.error(`Invalid parameter format: ${param}`);
-          clack.log.info(chalk.dim('Use --param key=value'));
+          log.error(`Invalid parameter format: ${param}`);
+          log.info(chalk.dim('Use --param key=value'));
           throw new Error(`Invalid parameter format: ${param}`);
         }
 
@@ -309,11 +309,11 @@ export class RunCommand extends BaseCommand {
 
     // Display task info
     if (!this.options.quiet) {
-      clack.log.info(`Running task: ${chalk.cyan(taskName)}`);
+      log.info(`Running task: ${chalk.cyan(taskName)}`);
       if (Object.keys(params).length > 0) {
-        clack.log.info(chalk.dim('Parameters:'));
+        log.info(chalk.dim('Parameters:'));
         for (const [key, value] of Object.entries(params)) {
-          clack.log.info(chalk.dim(`  ${key}: ${JSON.stringify(value)}`));
+          log.info(chalk.dim(`  ${key}: ${JSON.stringify(value)}`));
         }
       }
     }
@@ -322,15 +322,15 @@ export class RunCommand extends BaseCommand {
     const result = await taskManager.run(taskName, params);
 
     if (!result.success) {
-      clack.log.error(`Task '${taskName}' failed`);
+      log.error(`Task '${taskName}' failed`);
       if (result.error) {
-        clack.log.error(result.error.message);
+        log.error(result.error.message);
       }
       throw new Error(`Task '${taskName}' failed`);
     }
 
     if (!this.options.quiet) {
-      clack.log.success(`Task '${taskName}' completed successfully`);
+      log.success(`Task '${taskName}' completed successfully`);
     }
 
   }

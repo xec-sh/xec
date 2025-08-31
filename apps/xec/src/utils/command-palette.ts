@@ -1,8 +1,12 @@
 import path from 'path';
 import fs from 'fs/promises';
-import { kit } from '@xec-sh/kit';
+import { log, isCancel, select } from '@xec-sh/kit';
 
-const registerGlobalShortcut = kit.registerGlobalShortcut;
+// Fallback: registerGlobalShortcut not available in packages/kit
+const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
+  // No-op fallback
+  console.log(`Global shortcut ${shortcut} would be registered`);
+};
 import { execSync } from 'child_process';
 
 import { TaskManager } from '../config/task-manager.js';
@@ -55,36 +59,28 @@ export class CommandPalette {
     // Build command list
     const commands = await this.buildCommandList();
 
-    // Show command palette
-    const selected = await kit.commandPalette({
-      commands: commands.map(cmd => ({
-        id: cmd.id,
-        title: cmd.title,
-        icon: cmd.icon,
-        shortcut: cmd.shortcut,
-        action: cmd.action,
-      })),
-      placeholder: 'Search commands...',
-      recent: this.recentCommands,
-      fuzzySearch: true,
-      showShortcuts: true,
-      groups: [
-        { id: 'commands', title: 'Commands' },
-        { id: 'tasks', title: 'Tasks' },
-        { id: 'files', title: 'Recent Files' },
-        { id: 'targets', title: 'Targets' },
-        { id: 'system', title: 'System' },
-      ],
+    // Show command palette using select
+    const selected = await select({
+      message: 'Search commands...',
+      options: commands.map(cmd => ({
+        value: cmd.id,
+        label: cmd.title,
+        hint: cmd.shortcut
+      }))
     });
 
-    if (selected && !kit.isCancel(selected)) {
+    if (selected && !isCancel(selected)) {
       // Track command usage
-      this.trackCommand(selected.id);
+      this.trackCommand(selected);
 
-      try {
-        await selected.action();
-      } catch (error) {
-        kit.log.error(`Command failed: ${error}`);
+      // Find the command by ID and execute it
+      const command = commands.find(cmd => cmd.id === selected);
+      if (command) {
+        try {
+          await command.action();
+        } catch (error) {
+          log.error(`Command failed: ${error}`);
+        }
       }
     }
   }
@@ -252,10 +248,10 @@ export class CommandPalette {
         icon: '🔄',
         group: 'system',
         action: async () => {
-          kit.log.info('Reloading configuration...');
+          log.info('Reloading configuration...');
           const config = new ConfigurationManager();
           await config.load();
-          kit.log.success('Configuration reloaded');
+          log.success('Configuration reloaded');
         },
       },
       {
@@ -291,23 +287,21 @@ export class CommandPalette {
     // Find all executable files
     const files = await this.findExecutableFiles();
 
-    const selected = await kit.commandPalette({
-      commands: files.map(file => ({
-        id: file,
-        title: path.basename(file),
-        icon: this.getFileIcon(file),
-        action: async () => {
-          this.trackFile(file);
-          execSync(`xec run ${file}`, { stdio: 'inherit' });
-        },
-      })),
-      placeholder: 'Search files...',
-      recent: this.recentFiles,
-      fuzzySearch: true,
+    // Show file selection using select
+    const fileOptions = files.map(file => ({
+      value: file,
+      label: path.basename(file),
+      hint: this.getFileIcon(file)
+    }));
+
+    const selected = await select({
+      message: 'Search files...',
+      options: fileOptions
     });
 
-    if (selected && !kit.isCancel(selected)) {
-      await selected.action();
+    if (selected && !isCancel(selected)) {
+      this.trackFile(selected);
+      execSync(`xec run ${selected}`, { stdio: 'inherit' });
     }
   }
 
@@ -319,24 +313,22 @@ export class CommandPalette {
     const recentTasks = this.getRecentTasks(tasks);
 
     if (recentTasks.length === 0) {
-      kit.log.info('No recent tasks');
+      log.info('No recent tasks');
       return;
     }
 
-    const selected = await kit.commandPalette({
-      commands: recentTasks.map(task => ({
-        id: task.name,
-        title: task.name,
-        icon: '⚡',
-        action: async () => {
-          execSync(`xec run ${task.name}`, { stdio: 'inherit' });
-        },
-      })),
-      placeholder: 'Select recent task...',
+    // Show task selection using select
+    const selected = await select({
+      message: 'Select recent task...',
+      options: recentTasks.map(task => ({
+        value: task.name,
+        label: task.name,
+        hint: '⚡'
+      }))
     });
 
-    if (selected && !kit.isCancel(selected)) {
-      await selected.action();
+    if (selected && !isCancel(selected)) {
+      execSync(`xec run ${selected}`, { stdio: 'inherit' });
     }
   }
 

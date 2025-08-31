@@ -6,7 +6,7 @@ import { glob } from 'glob';
 import { table } from 'table';
 import { promisify } from 'util';
 import { $ } from '@xec-sh/core';
-import { kit } from '@xec-sh/kit';
+import { select, confirm, isCancel } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { exec } from 'child_process';
@@ -222,7 +222,7 @@ class ProjectInspector {
     console.log(chalk.bold('\n🔍 Xec Project Inspector\n'));
 
     while (true) {
-      const choice = await kit.select({
+      const choice = await select({
         message: 'What would you like to inspect?',
         options: [
           { value: 'tasks', label: '📋 Tasks - Executable tasks and workflows' },
@@ -799,7 +799,7 @@ class ProjectInspector {
     }));
 
     try {
-      const selected = await kit.select({
+      const selected = await select({
         message: `Select ${type} to inspect:`,
         options: choices,
       });
@@ -807,7 +807,7 @@ class ProjectInspector {
       this.displayDetailedResult(selected as InspectionResult);
 
       if (this.options.explain && (selected as InspectionResult).type === 'task') {
-        const explain = await kit.confirm({
+        const explain = await confirm({
           message: 'Show execution plan?',
         });
 

@@ -5,7 +5,7 @@ import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
-import { kit } from '@xec-sh/kit';
+import { log as kitLog, spinner as kitSpinner, text as kitText, confirm as kitConfirm, select as kitSelect, multiselect as kitMultiselect, password as kitPassword } from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
 
 // Re-export USH $ with enhanced features
@@ -45,36 +45,40 @@ export const echo = Object.assign(
   },
   {
     info: (message: string) => {
-      kit.log.info(message);
+      kitLog.info(message);
     },
     success: (message: string) => {
-      kit.log.success(message);
+      kitLog.success(message);
     },
     warning: (message: string) => {
-      kit.log.warning(message);
+      kitLog.warning(message);
     },
     error: (message: string) => {
-      kit.log.error(message);
+      kitLog.error(message);
     },
     debug: (message: string) => console.log(chalk.gray(`[DEBUG] ${message}`)),
     step: (message: string) => {
-      kit.log.step(message);
+      kitLog.step(message);
     },
   }
 );
 
 // Spinner utility
 export function spinner(options?: string | { text?: string; color?: string }) {
+  const s = kitSpinner();
   const message = typeof options === 'string' ? options : options?.text;
-  return kit.spinner(message || '');
+  if (message) {
+    s.start(message);
+  }
+  return s;
 }
 
 // Question/prompt utilities
-export const question = kit.text;
-export const confirm = kit.confirm;
-export const select = kit.select;
-export const multiselect = kit.multiselect;
-export const password = kit.password;
+export const question = kitText;
+export const confirm = kitConfirm;
+export const select = kitSelect;
+export const multiselect = kitMultiselect;
+export const password = kitPassword;
 
 // File system utilities
 export { os, path };
@@ -238,19 +242,19 @@ export async function within<T>(
 // Logging utilities
 export const log = {
   info: (message: string) => {
-    kit.log.info(message);
+    kitLog.info(message);
   },
   success: (message: string) => {
-    kit.log.success(message);
+    kitLog.success(message);
   },
   warning: (message: string) => {
-    kit.log.warning(message);
+    kitLog.warning(message);
   },
   error: (message: string) => {
-    kit.log.error(message);
+    kitLog.error(message);
   },
   step: (message: string) => {
-    kit.log.step(message);
+    kitLog.step(message);
   },
 };
 

@@ -595,9 +595,9 @@ describe('Copy Command', () => {
 
       // Capture clack log output
       const consoleOutput: string[] = [];
-      const clack = await import('@clack/prompts');
-      const originalInfo = clack.log.info;
-      clack.log.info = (message: string) => {
+      const kit = await import('@xec-sh/kit');
+      const originalInfo = kit.log.info;
+      kit.log.info = (message: string) => {
         consoleOutput.push(message);
       };
 
@@ -617,7 +617,7 @@ describe('Copy Command', () => {
         expect(output).toContain(sourceFile);
         expect(output).toContain(destFile);
       } finally {
-        clack.log.info = originalInfo;
+        kit.log.info = originalInfo;
       }
     });
   });

@@ -667,9 +667,9 @@ describe('Watch Command', () => {
 
       // Capture clack log output
       const logOutput: string[] = [];
-      const clack = await import('@clack/prompts');
-      const originalInfo = clack.log.info;
-      clack.log.info = (message: string) => {
+      const kit = await import('@xec-sh/kit');
+      const originalInfo = kit.log.info;
+      kit.log.info = (message: string) => {
         logOutput.push(message);
       };
 
@@ -691,7 +691,7 @@ describe('Watch Command', () => {
         // Verify no sessions were created
         expect(command['sessions'].size).toBe(0);
       } finally {
-        clack.log.info = originalInfo;
+        kit.log.info = originalInfo;
       }
     });
   });
@@ -843,9 +843,9 @@ describe('Watch Command', () => {
 
       // Capture error output
       const logOutput: string[] = [];
-      const clack = await import('@clack/prompts');
-      const originalError = clack.log.error;
-      clack.log.error = (message: string) => {
+      const kit = await import('@xec-sh/kit');
+      const originalError = kit.log.error;
+      kit.log.error = (message: string) => {
         logOutput.push(message);
       };
 
@@ -877,7 +877,7 @@ describe('Watch Command', () => {
         // Session should still be active
         expect(command['sessions'].size).toBe(1);
       } finally {
-        clack.log.error = originalError;
+        kit.log.error = originalError;
         command['running'] = false;
       }
     });
@@ -895,9 +895,9 @@ describe('Watch Command', () => {
 
       // Capture error output
       const logOutput: string[] = [];
-      const clack = await import('@clack/prompts');
-      const originalError = clack.log.error;
-      clack.log.error = (message: string) => {
+      const kit = await import('@xec-sh/kit');
+      const originalError = kit.log.error;
+      kit.log.error = (message: string) => {
         logOutput.push(message);
       };
 
@@ -916,7 +916,7 @@ describe('Watch Command', () => {
         // Should have logged the error
         expect(logOutput.some(log => log.includes('Watch error'))).toBe(true);
       } finally {
-        clack.log.error = originalError;
+        kit.log.error = originalError;
       }
     });
   });
@@ -1044,9 +1044,9 @@ describe('Watch Command', () => {
 
       // Capture error output
       const logOutput: string[] = [];
-      const clack = await import('@clack/prompts');
-      const originalError = clack.log.error;
-      clack.log.error = (message: string) => {
+      const kit = await import('@xec-sh/kit');
+      const originalError = kit.log.error;
+      kit.log.error = (message: string) => {
         logOutput.push(message);
       };
 
@@ -1075,7 +1075,7 @@ describe('Watch Command', () => {
         const errorLog = logOutput.join('\n');
         expect(errorLog).toContain('Execution failed');
       } finally {
-        clack.log.error = originalError;
+        kit.log.error = originalError;
         command['running'] = false;
       }
     });

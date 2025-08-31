@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import * as path from 'path';
 import * as repl from 'repl';
 import { $ } from '@xec-sh/core';
-import { kit } from '@xec-sh/kit';
+import { log } from '@xec-sh/kit';
 import * as fs from 'fs/promises';
 import { pathToFileURL } from 'url';
 
@@ -192,7 +192,7 @@ export class ScriptLoader {
     const runAndLog = async () => {
       try {
         if (!this.options.quiet) {
-          kit.log.info(chalk.dim(`Running ${scriptPath}...`));
+          log.info(chalk.dim(`Running ${scriptPath}...`));
         }
         const result = await this.executeScriptInternal(scriptPath, options);
         if (!result.success && result.error) {
@@ -210,7 +210,7 @@ export class ScriptLoader {
     const watcher = watch(scriptPath, { ignoreInitial: true });
     watcher.on('change', async () => {
       console.clear();
-      kit.log.info(chalk.dim('File changed, rerunning...'));
+      log.info(chalk.dim('File changed, rerunning...'));
       await runAndLog();
     });
 
@@ -238,7 +238,7 @@ export class ScriptLoader {
 
       // Display runtime info
       if (!this.options.quiet && !options.quiet) {
-        kit.log.info(`Evaluating code...`);
+        log.info(`Evaluating code...`);
       }
 
       // Transform TypeScript if needed
@@ -323,8 +323,8 @@ export class ScriptLoader {
       ? `Xec Interactive Shell (${options.target.name})`
       : 'Xec Interactive Shell';
 
-    kit.log.info(chalk.bold(title));
-    kit.log.info(chalk.dim('Type .help for commands'));
+    log.info(chalk.bold(title));
+    log.info(chalk.dim('Type .help for commands'));
 
     // Create REPL prompt
     const prompt = options.target
@@ -451,7 +451,7 @@ export class ScriptLoader {
       }
 
       if (this.options.verbose) {
-        kit.log.info(`Loaded dynamic command: ${commandName}`);
+        log.info(`Loaded dynamic command: ${commandName}`);
       }
 
       return { success: true };
@@ -464,7 +464,7 @@ export class ScriptLoader {
           console.error('Stack trace:', error.stack);
         }
       } else {
-        kit.log.error(`Failed to load command '${commandName}': ${errorMessage}`);
+        log.error(`Failed to load command '${commandName}': ${errorMessage}`);
       }
 
       return {
