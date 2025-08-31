@@ -1,9 +1,10 @@
 import { cursor } from 'sisteransi';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { default as Prompt } from '../../../src/core/prompts/prompt.js';
-import { isCancel } from '../../../src/core/utils/index.js';
+import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
+import { isCancel } from '../../../src/core/utils/index.js';
+import { default as Prompt } from '../../../src/core/prompts/prompt.js';
 
 describe('Prompt', () => {
 	let input: MockReadable;

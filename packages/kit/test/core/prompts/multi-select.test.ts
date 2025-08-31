@@ -1,8 +1,9 @@
 import { cursor } from 'sisteransi';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { default as MultiSelectPrompt } from '../../../src/core/prompts/multi-select.js';
+import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
+import { default as MultiSelectPrompt } from '../../../src/core/prompts/multi-select.js';
 
 describe('MultiSelectPrompt', () => {
 	let input: MockReadable;

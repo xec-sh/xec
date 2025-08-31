@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import chalk from 'chalk';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
-import { intro, outro, cancel, select, text, confirm, isCancel, log, password, spinner, multiselect } from '@xec-sh/kit';
+import { log, text, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';

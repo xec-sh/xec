@@ -2,7 +2,7 @@ import path from 'path';
 import chalk from 'chalk';
 import { glob } from 'glob';
 import fs from 'fs/promises';
-import { log, multiselect, select, text, confirm, isCancel } from '@xec-sh/kit';
+import { log, text, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
 
 export interface FileSelectOptions {
   title?: string;

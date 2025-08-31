@@ -1,9 +1,10 @@
 import color from 'picocolors';
 import { cursor } from 'sisteransi';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { default as TextPrompt } from '../../../src/core/prompts/text.js';
+import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { MockReadable } from '../mock-readable.js';
 import { MockWritable } from '../mock-writable.js';
+import { default as TextPrompt } from '../../../src/core/prompts/text.js';
 
 describe('TextPrompt', () => {
 	let input: MockReadable;

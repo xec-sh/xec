@@ -12,10 +12,11 @@
  */
 
 import { signal, computed } from "vibrancy";
-import { aura, auraApp } from "../src/app/index.js";
-import { createTheme, themes } from "../src/theme/index.js";
+
 import { RGBA } from "../src/lib/colors.js";
 import { TextAttributes } from "../src/types.js";
+import { aura, auraApp } from "../src/app/index.js";
+import { themes, createTheme } from "../src/theme/index.js";
 
 // Create a custom Tokyo Night theme
 const tokyoNightTheme = createTheme({

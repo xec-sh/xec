@@ -5,8 +5,9 @@
  * Simple demonstration of file/directory selection
  */
 
-import { basename } from 'node:path';
 import color from 'picocolors';
+import { basename } from 'node:path';
+
 import * as p from '../../src/index.js';
 
 async function demo() {

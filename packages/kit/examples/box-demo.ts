@@ -6,6 +6,7 @@
  */
 
 import picocolors from 'picocolors';
+
 import { box } from '../src/components/box.js';
 
 async function main() {

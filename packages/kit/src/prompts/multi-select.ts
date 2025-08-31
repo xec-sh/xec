@@ -1,7 +1,7 @@
 import color from 'picocolors';
 
-import { limitOptions } from '../utilities/limit-options.js';
 import { MultiSelectPrompt } from '../core/index.js';
+import { limitOptions } from '../utilities/limit-options.js';
 import {
 	S_BAR,
 	symbol,

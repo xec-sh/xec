@@ -1,6 +1,8 @@
 import { Buffer } from "node:buffer"
 import { EventEmitter } from "events"
+
 import { singleton } from "./singleton.js"
+
 import type { ParsedKey } from "../types.js"
 
 // ANSI escape sequence modifier flags (xterm-style)

@@ -5,7 +5,7 @@
  */
 
 import { auraApp } from "../src/app/application.js"
-import { Group, Box, Text } from "../src/components/index.js"
+import { Box, Text, Group } from "../src/components/index.js"
 
 async function main() {
   const app = await auraApp({

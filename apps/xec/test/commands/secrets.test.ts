@@ -7,8 +7,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
-import { Command } from 'commander';
 import * as kit from '@xec-sh/kit';
+import { Command } from 'commander';
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import secretsCommand from '../../src/commands/secrets.js';

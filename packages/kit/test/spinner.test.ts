@@ -1,8 +1,9 @@
 import { EventEmitter } from 'node:stream';
-import { getColumns } from '../src/core/utils/index.js';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach } from 'vitest';
+
 import * as prompts from '../src/index.js';
 import { MockWritable } from './test-utils.js';
+import { getColumns } from '../src/core/utils/index.js';
 
 describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 	let originalCI: string | undefined;

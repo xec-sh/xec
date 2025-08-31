@@ -1,4 +1,5 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
+import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach } from 'vitest';
+
 import * as prompts from '../src/index.js';
 import { MockReadable, MockWritable } from './test-utils.js';
 

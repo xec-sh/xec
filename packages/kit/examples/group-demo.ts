@@ -11,19 +11,19 @@
  * - Various prompt types in a group
  */
 
-import {
-  group,
-  text,
-  select,
-  multiselect,
-  confirm,
-  password,
-  note,
-  spinner,
-  isCancel,
-  cancel
-} from '../src/index.js';
 import picocolors from 'picocolors';
+
+import {
+  text,
+  note,
+  group,
+  select,
+  confirm,
+  spinner,
+  password,
+  isCancel,
+  multiselect
+} from '../src/index.js';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 

@@ -11,10 +11,10 @@
  * - Error handling
  */
 
-import { homedir } from 'node:os';
-import { existsSync, statSync } from 'node:fs';
-import { dirname, extname, basename } from 'node:path';
 import color from 'picocolors';
+import { homedir } from 'node:os';
+import { statSync, existsSync } from 'node:fs';
+import { dirname, extname, basename } from 'node:path';
 
 import * as p from '../src/index.js';
 

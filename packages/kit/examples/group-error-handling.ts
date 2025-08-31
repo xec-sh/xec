@@ -9,17 +9,17 @@
  * - Graceful degradation
  */
 
+import picocolors from 'picocolors';
+
 import {
-  group,
   text,
-  select,
-  confirm,
-  password,
-  spinner,
   note,
+  group,
+  confirm,
+  spinner,
+  password,
   isCancel
 } from '../src/index.js';
-import picocolors from 'picocolors';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
