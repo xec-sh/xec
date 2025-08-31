@@ -1,195 +1,268 @@
-# @xec-sh/kit
+# `@clack/prompts`
 
-Modern, type-safe CLI interaction library.
+Effortlessly build beautiful command-line apps 🪄 [Try the demo](https://stackblitz.com/edit/clack-prompts?file=index.js)
 
-## Features
+![clack-prompt](https://github.com/bombshell-dev/clack/blob/main/.github/assets/clack-demo.gif)
 
-- 🚀 **Simple API** - One-liners for common use cases
-- 🎯 **Type Safe** - Full TypeScript support with inference
-- 🎨 **Beautiful** - Stunning terminal UI out of the box
-- 🔌 **Standalone** - Zero dependencies on xec, works anywhere
-- ⚡ **Fast** - Optimized rendering with minimal redraws
-- ♿ **Accessible** - Screen reader support and keyboard navigation
-- 🧪 **Testable** - Built with testing in mind
+---
 
-## Installation
+`@clack/prompts` is an opinionated, pre-styled wrapper around [`@clack/core`](https://www.npmjs.com/package/@clack/core).
 
-```bash
-npm install @xec-sh/kit
-# or
-yarn add @xec-sh/kit
-# or
-pnpm add @xec-sh/kit
+- 🤏 80% smaller than other options
+- 💎 Beautiful, minimal UI
+- ✅ Simple API
+- 🧱 Comes with `text`, `confirm`, `select`, `multiselect`, and `spinner` components
+
+## Basics
+
+### Setup
+
+The `intro` and `outro` functions will print a message to begin or end a prompt session, respectively.
+
+```js
+import { intro, outro } from '@clack/prompts';
+
+intro(`create-my-app`);
+// Do stuff
+outro(`You're all set!`);
 ```
 
-## Quick Start
+### Cancellation
 
-```typescript
-import kit from '@xec-sh/kit';
+The `isCancel` function is a guard that detects when a user cancels a question with `CTRL + C`. You should handle this situation for each prompt, optionally providing a nice cancellation message with the `cancel` utility.
 
-// Ask for text input
-const name = await kit.text('What is your name?');
+```js
+import { isCancel, cancel, text } from '@clack/prompts';
 
-// Ask a yes/no question  
-const proceed = await kit.confirm('Continue?');
+const value = await text({
+  message: 'What is the meaning of life?',
+});
 
-// Choose from a list
-const color = await kit.select('Favorite color?', ['red', 'blue', 'green']);
-
-// Multiple selection
-const toppings = await kit.multiselect('Pizza toppings?', [
-  'cheese', 'pepperoni', 'mushrooms', 'olives'
-]);
-
-// Password input
-const password = await kit.password('Enter password:');
-
-// Display messages
-kit.log.info('This is an info message');
-kit.log.success('✓ Task completed');
-kit.log.error('✗ Something went wrong');
-kit.log.warning('⚠ Be careful');
+if (isCancel(value)) {
+  cancel('Operation cancelled.');
+  process.exit(0);
+}
 ```
 
-## API Reference
+## Components
 
-### Text Input
+### Text
 
-```typescript
-const name = await kit.text('What is your name?', {
-  placeholder: 'John Doe',
-  defaultValue: 'Anonymous',
-  validate: (value) => {
-    if (value.length < 2) return 'Name must be at least 2 characters';
+The text component accepts a single line of text.
+
+```js
+import { text } from '@clack/prompts';
+
+const meaning = await text({
+  message: 'What is the meaning of life?',
+  placeholder: 'Not sure',
+  initialValue: '42',
+  validate(value) {
+    if (value.length === 0) return `Value is required!`;
   },
-  transform: (value) => value.trim()
 });
 ```
 
 ### Confirm
 
-```typescript
-const confirmed = await kit.confirm('Are you sure?', {
-  default: false,
-  format: {
-    yes: 'Absolutely!',
-    no: 'Not really'
-  }
+The confirm component accepts a yes or no answer. The result is a boolean value of `true` or `false`.
+
+```js
+import { confirm } from '@clack/prompts';
+
+const shouldContinue = await confirm({
+  message: 'Do you want to continue?',
 });
 ```
 
 ### Select
 
-```typescript
-const choice = await kit.select('Choose an option:', [
-  { value: 'opt1', label: 'Option 1', hint: 'This is the first option' },
-  { value: 'opt2', label: 'Option 2', hint: 'This is the second option' },
-  { value: 'opt3', label: 'Option 3', disabled: true }
-], {
-  filter: true,  // Enable filtering
-  loop: true,    // Loop at boundaries
-  limit: 10      // Show max 10 options
+The select component allows a user to choose one value from a list of options. The result is the `value` prop of a given option.
+
+```js
+import { select } from '@clack/prompts';
+
+const projectType = await select({
+  message: 'Pick a project type.',
+  options: [
+    { value: 'ts', label: 'TypeScript' },
+    { value: 'js', label: 'JavaScript' },
+    { value: 'coffee', label: 'CoffeeScript', hint: 'oh no' },
+  ],
 });
 ```
 
 ### Multi-Select
 
-```typescript
-const selected = await kit.multiselect('Select multiple:', [
-  { value: 'a', label: 'Option A', selected: true },
-  { value: 'b', label: 'Option B' },
-  { value: 'c', label: 'Option C' }
-], {
-  required: true,
-  min: 1,
-  max: 2
+The `multiselect` component allows a user to choose many values from a list of options. The result is an array with all selected `value` props.
+
+```js
+import { multiselect } from '@clack/prompts';
+
+const additionalTools = await multiselect({
+  message: 'Select additional tools.',
+  options: [
+    { value: 'eslint', label: 'ESLint', hint: 'recommended' },
+    { value: 'prettier', label: 'Prettier' },
+    { value: 'gh-action', label: 'GitHub Action' },
+  ],
+  required: false,
 });
 ```
 
-### Password
+It is also possible to select multiple items arranged into hierarchy by using `groupMultiselect`:
 
-```typescript
-const password = await kit.password('Enter password:', {
-  mask: '•',
-  showStrength: true,
-  validate: (value) => {
-    if (value.length < 8) return 'Password must be at least 8 characters';
+```js
+import { groupMultiselect } from '@clack/prompts';
+
+const basket = await groupMultiselect({
+  message: 'Select your favorite fruits and vegetables:',
+  options: {
+    fruits: [
+      { value: 'apple', label: 'apple' },
+      { value: 'banana', label: 'banana' },
+      { value: 'cherry', label: 'cherry' },
+    ],
+    vegetables: [
+      { value: 'carrot', label: 'carrot' },
+      { value: 'spinach', label: 'spinach' },
+      { value: 'potato', label: 'potato' },
+    ]
   }
 });
 ```
 
-### Logging
+### Spinner
 
-```typescript
-kit.log.info('Information message');
-kit.log.success('Success message');
-kit.log.warning('Warning message');
-kit.log.error('Error message');
-kit.log.step('Step message');
-kit.log.message('Plain message');
-kit.log.break(); // Empty line
+The spinner component surfaces a pending action, such as a long-running download or dependency installation.
+
+```js
+import { spinner } from '@clack/prompts';
+
+const s = spinner();
+s.start('Installing via npm');
+// Do installation here
+s.stop('Installed via npm');
 ```
 
-## Keyboard Shortcuts
+### Progress
 
-All prompts support these standard shortcuts:
+The progress component extends the spinner component to add a progress bar to visualize the progression of an action.
 
-- `Ctrl+C` - Cancel/Exit
-- `Enter` - Submit
-- `←/→` or `Tab` - Navigate horizontally
-- `↑/↓` - Navigate vertically
-- `Space` - Toggle selection (multi-select)
-- `a` - Select all (multi-select)
-- `Home/End` - Jump to start/end
-- `Page Up/Down` - Navigate by page
+```js
+import { progress } from '@clack/prompts';
 
-## Error Handling
+const p = progress({ max: 10 });
+p.start('Downloading archive');
+// Do download here
+p.advance(3, 'Downloading (30%)');
+// ...
+p.advance(8, 'Downloading (80%)');
+// ...
+p.stop('Archive downloaded');
+```
 
-All prompts throw an error with message "Cancelled" when the user cancels:
+## Utilities
 
-```typescript
-try {
-  const name = await kit.text('Name?');
-} catch (error) {
-  if (error.message === 'Cancelled') {
-    console.log('User cancelled');
-  } else {
-    console.error('Unexpected error:', error);
+### Grouping
+
+Grouping prompts together is a great way to keep your code organized. This accepts a JSON object with a name that can be used to reference the group later. The second argument is an optional but has a `onCancel` callback that will be called if the user cancels one of the prompts in the group.
+
+```js
+import * as p from '@clack/prompts';
+
+const group = await p.group(
+  {
+    name: () => p.text({ message: 'What is your name?' }),
+    age: () => p.text({ message: 'What is your age?' }),
+    color: ({ results }) =>
+      p.multiselect({
+        message: `What is your favorite color ${results.name}?`,
+        options: [
+          { value: 'red', label: 'Red' },
+          { value: 'green', label: 'Green' },
+          { value: 'blue', label: 'Blue' },
+        ],
+      }),
+  },
+  {
+    // On Cancel callback that wraps the group
+    // So if the user cancels one of the prompts in the group this function will be called
+    onCancel: ({ results }) => {
+      p.cancel('Operation cancelled.');
+      process.exit(0);
+    },
   }
+);
+
+console.log(group.name, group.age, group.color);
+```
+
+### Tasks
+
+Execute multiple tasks in spinners.
+
+```js
+await p.tasks([
+  {
+    title: 'Installing via npm',
+    task: async (message) => {
+      // Do installation here
+      return 'Installed via npm';
+    },
+  },
+]);
+```
+
+### Logs
+
+```js
+import { log } from '@clack/prompts';
+
+log.info('Info!');
+log.success('Success!');
+log.step('Step!');
+log.warn('Warn!');
+log.error('Error!');
+log.message('Hello, World', { symbol: color.cyan('~') });
+```
+
+
+### Stream
+
+When interacting with dynamic LLMs or other streaming message providers, use the `stream` APIs to log messages from an iterable, even an async one.
+
+```js
+import { stream } from '@clack/prompts';
+
+stream.info((function *() { yield 'Info!'; })());
+stream.success((function *() { yield 'Success!'; })());
+stream.step((function *() { yield 'Step!'; })());
+stream.warn((function *() { yield 'Warn!'; })());
+stream.error((function *() { yield 'Error!'; })());
+stream.message((function *() { yield 'Hello'; yield ", World" })(), { symbol: color.cyan('~') });
+```
+
+![clack-log-prompts](https://github.com/bombshell-dev/clack/blob/main/.github/assets/clack-logs.png)
+
+### Task Log
+
+When executing a sub-process or a similar sub-task, `taskLog` can be used to render the output continuously and clear it at the end if it was successful.
+
+```js
+import { taskLog } from '@clack/prompts';
+
+const log = taskLog({
+	title: 'Running npm install'
+});
+
+for await (const line of npmInstall()) {
+	log.message(line);
+}
+
+if (success) {
+	log.success('Done!');
+} else {
+	log.error('Failed!');
 }
 ```
-
-## Running Examples
-
-The examples directory contains various demonstrations of the kit features. To run an example:
-
-```bash
-# Make sure you're in the kit package directory
-cd packages/kit
-
-# Build the package first
-yarn build
-
-# Run an example using tsx
-yarn tsx examples/reactive/reactive-form.ts
-
-# Or if you have tsx installed globally
-tsx examples/reactive/reactive-form.ts
-```
-
-**Important Note about TTY**: The interactive examples require a TTY-enabled terminal. If you're running through:
-- An IDE terminal that doesn't provide full TTY support
-- An SSH session without TTY allocation
-- A CI/CD environment
-- Scripts that pipe output
-
-The examples may exit immediately without accepting input. In such cases, run the examples in a real terminal application (Terminal.app on macOS, Windows Terminal, etc.).
-
-To check if your environment supports TTY, run:
-```bash
-node -e "console.log('TTY support:', process.stdin.isTTY && process.stdout.isTTY)"
-```
-
-## License
-
-MIT

@@ -3,14 +3,13 @@
  */
 
 import * as path from 'path';
-import { homedir } from 'os';
 import jsYaml from 'js-yaml';
 import * as fs from 'fs/promises';
 
-import { deepMerge } from './utils.js';
 import { SecretManager } from '../secrets/index.js';
 import { TargetResolver } from './target-resolver.js';
 import { ConfigValidator } from './config-validator.js';
+import { deepMerge, getGlobalConfigDir } from './utils.js';
 import { VariableInterpolator } from './variable-interpolator.js';
 
 import type {
@@ -66,7 +65,7 @@ export class ConfigurationManager {
 
   constructor(private options: ConfigManagerOptions = {}) {
     this.options.projectRoot = this.options.projectRoot || process.cwd();
-    this.options.globalConfigDir = this.options.globalConfigDir || path.join(homedir(), '.xec');
+    this.options.globalConfigDir = this.options.globalConfigDir || getGlobalConfigDir();
     this.options.envPrefix = this.options.envPrefix || 'XEC_';
 
     // Initialize secret manager based on configuration
