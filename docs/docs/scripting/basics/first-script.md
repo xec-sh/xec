@@ -225,6 +225,42 @@ xec run script.js --watch
 
 Your script will re-run whenever you save changes, making development iteration faster.
 
+## Spinner Styles
+
+Xec provides several built-in spinner styles with automatic fallback for different terminal environments:
+
+```javascript
+import * as clack from '@clack/prompts';
+
+// Available spinner styles
+const styles = [
+  'braille', // Default: smooth Braille pattern (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏)
+  'circle',  // Traditional circle (◐◓◑◒)
+  'dots',    // Pulsing dots (⠄⠆⠇⠋⠙⠸⠰⠠⠰⠸⠙⠋⠇⠆)
+  'line',    // Minimal line (-\\|/)
+  'arrow',   // Arrow rotation (←↖↑↗→↘↓↙)
+  'binary',  // Binary style (01)
+  'moon'     // Moon phases (🌑🌒🌓🌔🌕🌖🌗🌘)
+];
+
+// Use different styles
+const spinner1 = clack.spinner({ style: 'braille' });
+const spinner2 = clack.spinner({ style: 'arrow' });
+const spinner3 = clack.spinner({ style: 'moon' });
+
+// Custom frames
+const customSpinner = clack.spinner({
+  frames: ['🌟', '⭐', '✨', '💫'],
+  delay: 150
+});
+```
+
+Each style automatically degrades gracefully in non-Unicode terminals:
+
+- **Unicode terminals**: Full animated frames with optimal timing
+- **ASCII terminals**: Simplified fallback frames with adjusted delays
+- **CI environments**: Optimized for log readability
+
 ## Next Steps
 
 - Learn about the [execution context](./execution-context.md) and working with targets
@@ -256,18 +292,19 @@ async function main() {
     ]
   });
   
-  // Build the project
-  const buildSpinner = clack.spinner();
+  // Build the project with different spinner styles
+  const buildSpinner = clack.spinner({ style: 'braille' });
   buildSpinner.start('Building project...');
-  
+
   try {
     await $`npm run build`;
     buildSpinner.stop('Build complete');
-    
-    // Run tests
-    buildSpinner.start('Running tests...');
+
+    // Run tests with arrow style
+    const testSpinner = clack.spinner({ style: 'arrow' });
+    testSpinner.start('Running tests...');
     await $`npm test`;
-    buildSpinner.stop('Tests passed');
+    testSpinner.stop('Tests passed');
     
     // Deploy based on target
     if (target === 'production') {

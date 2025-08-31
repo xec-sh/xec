@@ -1,9 +1,92 @@
-import { aura, effect, signal, computed, ParsedKey, WritableSignal, SelectComponent, screenDimensions, type BoxComponent, DescriptionTruncate } from "@xec-sh/aura";
+import {
+  aura,
+  effect,
+  signal,
+  computed,
+  onCleanup,
+  ParsedKey,
+  WritableSignal,
+  TextAttributes,
+  SelectComponent,
+  screenDimensions,
+  type BoxComponent,
+  DescriptionTruncate
+} from "@xec-sh/aura";
 
 import { appStore } from "../store.js";
+import { type Workspace, getWorkspaceManager } from "../config/index.js";
 
+// Signal to hold workspaces
+const workspacesSignal = signal<Workspace[]>([]);
+const loadingSignal = signal(true);
+const errorSignal = signal<string | null>(null);
+
+// Load workspaces asynchronously
+async function loadWorkspaces() {
+  try {
+    loadingSignal.set(true);
+    errorSignal.set(null);
+
+    const workspaceManager = getWorkspaceManager();
+    await workspaceManager.initialize();
+
+    const workspaces = await workspaceManager.getAll();
+    workspacesSignal.set(workspaces);
+
+    // Set active workspace if available
+    const activeWorkspace = await workspaceManager.getActive();
+    if (activeWorkspace) {
+      appStore.currentWorkspace = activeWorkspace.id;
+    }
+  } catch (error: any) {
+    errorSignal.set(error.message || 'Failed to load workspaces');
+    console.error('Failed to load workspaces:', error);
+  } finally {
+    loadingSignal.set(false);
+  }
+}
+
+// Initialize workspaces on startup
+loadWorkspaces();
 
 function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
+  // Convert workspaces to select options
+  const options = computed(() => {
+    const workspaces = workspacesSignal();
+    const loading = loadingSignal();
+    const error = errorSignal();
+
+    if (loading) {
+      return [{
+        name: 'Loading...',
+        description: 'Please wait while workspaces are loaded',
+        value: '__loading__',
+      }];
+    }
+
+    if (error) {
+      return [{
+        name: 'Error',
+        description: error,
+        value: '__error__',
+      }];
+    }
+
+    if (workspaces.length === 0) {
+      return [{
+        name: 'No workspaces',
+        description: 'Press "n" to add a new workspace',
+        value: '__empty__',
+      }];
+    }
+
+    return workspaces.map(workspace => ({
+      name: workspace.name,
+      description: workspace.path,
+      value: workspace.id,
+    }));
+  });
+
   return aura('select', {
     showScrollIndicator: true,
     minHeight: 2,
@@ -11,103 +94,82 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
     showDescription: true,
     descriptionTruncate: DescriptionTruncate.START,
     ref: selectRef,
-    onKeyDown(key: ParsedKey) {
-      if (key.name === 'n') {
+    options: options(),
+    onKeyDown: async (key: ParsedKey) => {
+      const workspaceManager = getWorkspaceManager();
 
+      // Add new workspace
+      if (key.name === 'n' && !key.ctrl) {
+        try {
+          // For now, add current directory as workspace
+          // In production, you might want to show a file picker dialog
+          const currentPath = process.cwd();
+          const workspace = await workspaceManager.add(currentPath);
+
+          // Reload workspaces
+          const workspaces = await workspaceManager.getAll();
+          workspacesSignal.set(workspaces);
+
+          // Select the newly added workspace
+          const select = selectRef();
+          if (select) {
+            const index = workspaces.findIndex(w => w.id === workspace.id);
+            if (index !== -1) {
+              select.setSelectedIndex(index);
+            }
+          }
+        } catch (error: any) {
+          errorSignal.set(error.message);
+          setTimeout(() => errorSignal.set(null), 3000);
+        }
       }
-    },
-    options: [
-      {
-        name: 'xec',
-        description: '/Users/taaliman/projects/xec-sh/xec',
-        value: 'xec',
-      },
-      {
-        name: 'vibrancy',
-        description: '/Users/taaliman/projects/luxquant/vibrancy',
-        value: 'vibrancy',
-      },
-      {
-        name: 'tui-tester',
-        description: '/Users/taaliman/projects/tui-tester',
-        value: 'tui-tester',
-      },
-      {
-        name: 'xec1',
-        description: '/Users/taaliman/projects/xec-sh/xec',
-        value: 'xec1',
-      },
-      {
-        name: 'vibrancy1',
-        description: '/Users/taaliman/projects/luxquant/vibrancy',
-        value: 'vibrancy1',
-      },
-      {
-        name: 'tui-tester1',
-        description: '/Users/taaliman/projects/tui-tester',
-        value: 'tui-tester1',
-      },
-      {
-        name: 'xec2',
-        description: '/Users/taaliman/projects/xec-sh/xec',
-        value: 'xec2',
-      },
-      {
-        name: 'vibrancy2',
-        description: '/Users/taaliman/projects/luxquant/vibrancy',
-        value: 'vibrancy2',
-      },
-      {
-        name: 'tui-tester2',
-        description: '/Users/taaliman/projects/tui-tester',
-        value: 'tui-tester2',
-      },
-      {
-        name: 'xec3',
-        description: '/Users/taaliman/projects/xec-sh/xec',
-        value: 'xec3',
-      },
-      {
-        name: 'vibrancy3',
-        description: '/Users/taaliman/projects/luxquant/vibrancy',
-        value: 'vibrancy3',
-      },
-      {
-        name: 'tui-tester3',
-        description: '/Users/taaliman/projects/tui-tester',
-        value: 'tui-tester3',
-      },
-      {
-        name: 'xec4',
-        description: '/Users/taaliman/projects/xec-sh/xec',
-        value: 'xec4',
-      },
-      {
-        name: 'vibrancy4',
-        description: '/Users/taaliman/projects/luxquant/vibrancy',
-        value: 'vibrancy4',
-      },
-      {
-        name: 'tui-tester4',
-        description: '/Users/taaliman/projects/tui-tester',
-        value: 'tui-tester4',
-      },
-      {
-        name: 'xec5',
-        description: '/Users/taaliman/projects/xec-sh/xec',
-        value: 'xec5',
-      },
-      {
-        name: 'vibrancy5',
-        description: '/Users/taaliman/projects/luxquant/vibrancy',
-        value: 'vibrancy5',
-      },
-      {
-        name: 'tui-tester5',
-        description: '/Users/taaliman/projects/tui-tester',
-        value: 'tui-tester5',
-      },
-    ]
+
+      // Remove selected workspace
+      if (key.name === 'd' && !key.ctrl) {
+        const select = selectRef();
+        const selectedOption = select?.getSelectedOption();
+        if (select && selectedOption?.value && !selectedOption.value.startsWith('__')) {
+          try {
+            const workspaceId = selectedOption.value as string;
+            await workspaceManager.remove(workspaceId);
+
+            // Reload workspaces
+            const workspaces = await workspaceManager.getAll();
+            workspacesSignal.set(workspaces);
+
+            // Adjust selection
+            if (select.getSelectedIndex() >= workspaces.length && workspaces.length > 0) {
+              select.setSelectedIndex(workspaces.length - 1);
+            }
+          } catch (error: any) {
+            errorSignal.set(error.message);
+            setTimeout(() => errorSignal.set(null), 3000);
+          }
+        }
+      }
+
+      // Refresh workspaces
+      if (key.name === 'r' && !key.ctrl) {
+        await loadWorkspaces();
+      }
+
+      // Discover workspaces in home directory
+      if (key.name === 'f' && !key.ctrl) {
+        try {
+          loadingSignal.set(true);
+          const discovered = await workspaceManager.discoverAndAdd();
+          if (discovered.length > 0) {
+            const workspaces = await workspaceManager.getAll();
+            workspacesSignal.set(workspaces);
+          }
+        } catch (error: any) {
+          errorSignal.set(error.message);
+          setTimeout(() => errorSignal.set(null), 3000);
+        } finally {
+          loadingSignal.set(false);
+        }
+      }
+    }
   });
 }
 
@@ -117,7 +179,6 @@ export function SidebarComponent() {
   const maxWidth = computed(() => screenWidth() / 2);
 
   const boxMainRef = signal<BoxComponent | null>(null);
-  // const boxTitleRef = signal<BoxComponent | null>(null);
   const selectRef = signal<SelectComponent | null>(null);
 
   effect(() => {
@@ -127,12 +188,46 @@ export function SidebarComponent() {
     }
     if (appStore.focused === 'sidebar') {
       boxMain?.focus();
-      // boxTitleRef()?.focus();
       selectRef()?.focus();
     } else {
       boxMain?.blur();
-      // boxTitleRef()?.blur();
       selectRef()?.blur();
+    }
+  });
+
+  // Update selection when active workspace changes
+  effect(() => {
+    const workspaceId = appStore.currentWorkspace;
+    const select = selectRef();
+    const workspaces = workspacesSignal();
+
+    if (select && workspaceId && workspaces.length > 0) {
+      const index = workspaces.findIndex(w => w.id === workspaceId);
+      if (index !== -1 && select.getSelectedIndex() !== index) {
+        select.setSelectedIndex(index);
+      }
+    }
+  });
+
+  // Listen to selection changes
+  effect(() => {
+    const select = selectRef();
+    if (select) {
+      // Handle item selection
+      const handleSelection = async (index: number, option: any) => {
+        if (option?.value && typeof option.value === 'string' && !option.value.startsWith('__')) {
+          const workspaceManager = getWorkspaceManager();
+          await workspaceManager.setActive(option.value);
+          appStore.currentWorkspace = option.value;
+        }
+      };
+      
+      select.on('itemSelected', handleSelection);
+      
+      // Cleanup listener
+      onCleanup(() => {
+        select.off('itemSelected', handleSelection);
+      });
     }
   });
 
@@ -148,45 +243,73 @@ export function SidebarComponent() {
     border: true,
     borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
     ref: boxMainRef,
-    onKeyDown(key: ParsedKey) {
-      const inst = boxMainRef();
-      if (inst) {
-        console.log(key);
-        if (key.shift) {
-          if (key.option) {
-            if (key.name === 'right') {
-              inst.width = maxWidth();
-            } else if (key.name === 'left') {
-              inst.width = minWidth();
-            }
-          } else {
-            if (key.name === 'right') {
-              inst.width = inst.width + 1;
-            } else if (key.name === 'left') {
-              inst.width = inst.width - 1;
-            }
-          }
-        }
-      }
-    },
     children: [
-      aura('text', {
-        alignItems: 'center',
-        content: '❯ XEC',
-        fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'secondary'),
-        selectable: false,
+      aura("box", {
+        id: 'sidebar-title',
+        height: 1,
+        paddingLeft: 1,
+        children: [
+          aura("text", {
+            content: computed(() => appStore.focused === 'sidebar' ? '⦿ ' : '○ '),
+            fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'muted'),
+            attributes: TextAttributes.BOLD,
+          }),
+          aura("text", {
+            content: 'Workspaces',
+            fg: computed(() => appStore.focused === 'sidebar' ? 'secondary' : 'muted'),
+            attributes: TextAttributes.BOLD,
+          }),
+        ],
       }),
-      // aura('box', {
-      //   height: 2,
-      //   alignItems: 'center',
-      //   border: ['bottom'],
-      //   ref: boxTitleRef, // Pass the ref signal
-      //   children: [
-
-      //   ]
-      // }),
       ProjectBrowser(selectRef),
-      // ProjectBrowser(),
-    ]
-  })
+      aura("box", {
+        id: 'sidebar-help',
+        height: 'auto',
+        paddingLeft: 1,
+        paddingRight: 1,
+        gap: 0,
+        flexDirection: 'column',
+        children: [
+          aura("text", {
+            content: '─────────────',
+            fg: 'muted',
+            attributes: TextAttributes.DIM,
+          }),
+          aura("text", {
+            content: 'Keys:',
+            fg: 'muted',
+            attributes: TextAttributes.BOLD,
+          }),
+          aura("text", {
+            content: 'n - Add workspace',
+            fg: 'muted',
+            attributes: TextAttributes.DIM,
+          }),
+          aura("text", {
+            content: 'd - Remove workspace',
+            fg: 'muted',
+            attributes: TextAttributes.DIM,
+          }),
+          aura("text", {
+            content: 'r - Refresh list',
+            fg: 'muted',
+            attributes: TextAttributes.DIM,
+          }),
+          aura("text", {
+            content: 'f - Find workspaces',
+            fg: 'muted',
+            attributes: TextAttributes.DIM,
+          }),
+          aura("text", {
+            content: computed(() => {
+              const error = errorSignal();
+              return error ? `⚠ ${error}` : '';
+            }),
+            fg: 'error',
+            attributes: TextAttributes.BOLD,
+          }),
+        ],
+      }),
+    ],
+  });
 }

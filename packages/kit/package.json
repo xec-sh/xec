@@ -1,84 +1,89 @@
 {
   "name": "@xec-sh/kit",
-  "version": "0.0.0",
-  "description": "Modern, type-safe CLI interaction library",
-  "keywords": [
-    "cli",
-    "prompts",
-    "terminal",
-    "interactive",
-    "ui",
-    "typescript"
-  ],
-  "homepage": "https://github.com/xec-sh/xec/tree/main/packages/kit",
-  "bugs": {
-    "url": "https://github.com/xec-sh/xec/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/xec-sh/xec.git",
-    "directory": "packages/kit"
-  },
-  "license": "MIT",
-  "author": "xec-sh",
+  "version": "0.0.8",
+  "description": "TypeScript library for building beautiful command-line interfaces",
   "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xec-sh/xec",
+    "directory": "packages/kit"
+  },
+  "bugs": {
+    "url": "https://github.com/xec-sh/xec/issues"
+  },
+  "homepage": "https://github.com/xec-sh/xec/tree/main/packages/kit#readme",
   "files": [
     "dist",
-    "README.md",
-    "LICENSE"
+    "src",
+    "CHANGELOG.md"
+  ],
+  "author": {
+    "name": "Xec Contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ask",
+    "cli",
+    "command-line",
+    "command",
+    "input",
+    "interact",
+    "interface",
+    "menu",
+    "prompt",
+    "prompts",
+    "stdin",
+    "ui",
+    "terminal",
+    "tui",
+    "xec"
   ],
   "scripts": {
-    "build": "tsup",
-    "build:production": "NODE_ENV=production tsup",
-    "build:analyze": "ANALYZE_BUNDLE=true NODE_ENV=production tsup",
-    "analyze": "tsx scripts/analyze-bundle.ts",
-    "test:tree-shaking": "tsx scripts/test-tree-shaking.ts",
-    "test:startup": "tsx scripts/measure-startup.ts",
-    "test:memory": "tsx scripts/profile-memory.ts",
-    "audit:security": "tsx scripts/security-audit.ts",
-    "test:compatibility": "tsx scripts/test-compatibility.ts",
-    "release:check": "tsx scripts/prepare-release.ts",
-    "build:watch": "tsup --watch",
-    "dev": "vitest",
-    "lint": "eslint src test --ext .ts,.tsx",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "build": "bun scripts/build.ts",
+    "build:watch": "bun scripts/build.ts --watch",
     "typecheck": "tsc --noEmit",
-    "example": "tsx",
-    "prepublishOnly": "yarn build:production && yarn test && yarn typecheck"
+    "test": "FORCE_COLOR=1 vitest run",
+    "test:watch": "FORCE_COLOR=1 vitest watch",
+    "prettier:write": "prettier --write .",
+    "prettier:check": "prettier --check ."
   },
   "dependencies": {
-    "picocolors": "^1.1.1",
-    "sisteransi": "^1.0.5",
-    "vibrancy": "file:../../experiments/vibrancy"
+    "picocolors": "1.1.1",
+    "sisteransi": "^1.0.5"
   },
   "devDependencies": {
-    "@types/node": "^24.2.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "esbuild": "^0.25.8",
-    "eslint": "^9.32.0",
-    "systeminformation": "^5.27.7",
-    "tsup": "^8.5.0",
-    "tsx": "^4.20.3",
+    "@types/bun": "latest",
+    "@types/node": "^24.0.13",
+    "memfs": "^4.17.2",
+    "prettier": "^3.6.2",
+    "tui-tester": "^0.3.0",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vitest-ansi-serializer": "^0.1.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.2"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0",
+    "bun": ">=1.2.0"
   },
-  "publishConfig": {
-    "access": "public"
+  "prettier": {
+    "semi": true,
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "printWidth": 100
   }
 }
