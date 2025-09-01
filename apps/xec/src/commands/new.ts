@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { log, text, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
@@ -87,7 +87,7 @@ const name = await question({
 });
 
 // Use chalk for colored output
-log.info(chalk.blue(\`Hello, \${name}!\`));
+log.info(prism.blue(\`Hello, \${name}!\`));
 
 // Example: Fetch data from API
 interface GitHubRepo {
@@ -100,8 +100,8 @@ try {
   const response = await fetch('https://api.github.com/repos/xec-sh/xec');
   const repo: GitHubRepo = await response.json();
   
-  log.step(\`Repo: \${chalk.cyan(repo.name)}\`);
-  log.step(\`Stars: \${chalk.yellow('⭐')} \${repo.stargazers_count}\`);
+  log.step(\`Repo: \${prism.cyan(repo.name)}\`);
+  log.step(\`Stars: \${prism.yellow('⭐')} \${repo.stargazers_count}\`);
 } catch (error) {
   log.error(\`Failed to fetch repo info: \${error}\`);
 }
@@ -141,10 +141,10 @@ const profile = config.profiles?.[options.env];
 
 if (profile) {
   xec.config.applyProfile(options.env);
-  log.info(chalk.dim(\`Applied profile: \${options.env}\`));
+  log.info(prism.dim(\`Applied profile: \${options.env}\`));
 }
 
-log.info(chalk.bold('🚀 {description}'));
+log.info(prism.bold('🚀 {description}'));
 log.step(\`Environment: \${options.env}\`);
 log.step(\`Dry run: \${options.dryRun}\`);
 
@@ -170,10 +170,10 @@ try {
   await cleanup();
   s.stop('Cleanup completed');
 
-  log.success(chalk.green('✅ Script completed successfully!'));
+  log.success(prism.green('✅ Script completed successfully!'));
   
 } catch (error) {
-  s.stop(chalk.red('Operation failed'));
+  s.stop(prism.red('Operation failed'));
   log.error(error.message);
   process.exit(1);
 }
@@ -247,12 +247,12 @@ const profile = config.profiles?.[environment];
 
 if (profile) {
   xec.config.applyProfile(environment);
-  log.info(chalk.dim(\`Applied profile: \${environment}\`));
+  log.info(prism.dim(\`Applied profile: \${environment}\`));
 }
 
-log.info(chalk.bold('🚀 {description}'));
-log.step(\`Environment: \${chalk.cyan(environment)}\`);
-log.step(\`Dry run: \${isDryRun ? chalk.yellow('yes') : chalk.green('no')}\`);
+log.info(prism.bold('🚀 {description}'));
+log.step(\`Environment: \${prism.cyan(environment)}\`);
+log.step(\`Dry run: \${isDryRun ? prism.yellow('yes') : prism.green('no')}\`);
 
 // Type-safe configuration
 interface Config {
@@ -332,10 +332,10 @@ try {
   await cleanup();
   s.stop('Cleanup completed');
 
-  log.success(chalk.green('✅ Script completed successfully!'));
+  log.success(prism.green('✅ Script completed successfully!'));
   
 } catch (error) {
-  s.stop(chalk.red('Operation failed'));
+  s.stop(prism.red('Operation failed'));
   log.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
@@ -684,25 +684,25 @@ export function command(program: Command): void {
         } else {
           const chalk = await import('chalk');
           
-          console.log(chalk.default.bold('\\nItems:'));
-          console.log(chalk.default.gray('─'.repeat(60)));
+          console.log(prism.default.bold('\\nItems:'));
+          console.log(prism.default.gray('─'.repeat(60)));
           
           items.forEach(item => {
             const statusColor = item.status === 'active' ? 'green' : 
                               item.status === 'inactive' ? 'red' : 'yellow';
             
-            const statusText = statusColor === 'green' ? chalk.default.green(item.status) :
-                              statusColor === 'red' ? chalk.default.red(item.status) :
-                              chalk.default.yellow(item.status);
+            const statusText = statusColor === 'green' ? prism.default.green(item.status) :
+                              statusColor === 'red' ? prism.default.red(item.status) :
+                              prism.default.yellow(item.status);
             
             console.log(
-              chalk.default.bold(item.name) + ' ' +
-              '(' + chalk.default.blue(item.type) + ') - ' +
+              prism.default.bold(item.name) + ' ' +
+              '(' + prism.default.blue(item.type) + ') - ' +
               statusText
             );
           });
           
-          console.log(chalk.default.gray('─'.repeat(60)));
+          console.log(prism.default.gray('─'.repeat(60)));
         }
         
       } catch (error) {
@@ -732,9 +732,9 @@ export function command(program: Command): void {
       }
       
       // Display creation summary
-      log.info(chalk.default.bold('Creating new item:'));
-      log.step(\`Name: \${chalk.default.cyan(name)}\`);
-      log.step(\`Type: \${chalk.default.blue(options.type)}\`);
+      log.info(prism.default.bold('Creating new item:'));
+      log.step(\`Name: \${prism.default.cyan(name)}\`);
+      log.step(\`Type: \${prism.default.blue(options.type)}\`);
       
       if (options.desc) {
         log.step(\`Description: \${options.desc}\`);
@@ -785,14 +785,14 @@ export function command(program: Command): void {
       }
       
       // Show item details
-      log.info(chalk.default.bold('Item to delete:'));
+      log.info(prism.default.bold('Item to delete:'));
       log.step(\`Name: \${item.name}\`);
       log.step(\`Type: \${item.type}\`);
       log.step(\`Status: \${item.status}\`);
       
       if (!options.force) {
         const shouldDelete = await confirm({
-          message: chalk.default.red(\`Are you sure you want to delete '\${name}'?\`),
+          message: prism.default.red(\`Are you sure you want to delete '\${name}'?\`),
           initialValue: false
         });
         
@@ -1581,18 +1581,18 @@ Edit \`.xec/config.yaml\` to:
   }
 
 
-  outro(chalk.green('✅ Xec project initialized successfully!'));
+  outro(prism.green('✅ Xec project initialized successfully!'));
 
   // Show next steps
   log.info('\nNext steps:');
-  log.info(`  ${chalk.cyan('cd')} ${name}`);
+  log.info(`  ${prism.cyan('cd')} ${name}`);
   if (!options.minimal) {
-    log.info(`  ${chalk.cyan('xec')} scripts/example.ts`);
-    log.info(`  ${chalk.cyan('xec')} hello World`);
-    log.info(`  ${chalk.cyan('xec')} tasks:run hello`);
+    log.info(`  ${prism.cyan('xec')} scripts/example.ts`);
+    log.info(`  ${prism.cyan('xec')} hello World`);
+    log.info(`  ${prism.cyan('xec')} tasks:run hello`);
   }
-  log.info(`  ${chalk.cyan('xec')} new script my-script`);
-  log.info(`  ${chalk.cyan('xec')} new task deploy`);
+  log.info(`  ${prism.cyan('xec')} new script my-script`);
+  log.info(`  ${prism.cyan('xec')} new task deploy`);
 }
 
 async function createScript(name: string, options: NewOptions) {
@@ -1669,12 +1669,12 @@ async function createScript(name: string, options: NewOptions) {
   await fs.writeFile(filePath, content);
   await fs.chmod(filePath, '755');
 
-  outro(chalk.green(`✅ Created script: ${fileName}`));
+  outro(prism.green(`✅ Created script: ${fileName}`));
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${chalk.cyan('xec')} scripts/${fileName}`);
-  log.info(`  ${chalk.cyan('xec')} scripts/${fileName} --env=production`);
+  log.info(`  ${prism.cyan('xec')} scripts/${fileName}`);
+  log.info(`  ${prism.cyan('xec')} scripts/${fileName} --env=production`);
 }
 
 async function createCommand(name: string, options: NewOptions) {
@@ -1749,14 +1749,14 @@ async function createCommand(name: string, options: NewOptions) {
   await fs.ensureDir(path.dirname(filePath));
   await fs.writeFile(filePath, content);
 
-  outro(chalk.green(`✅ Created command: ${fileName}`));
+  outro(prism.green(`✅ Created command: ${fileName}`));
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${chalk.cyan('xec')} ${name} --help`);
+  log.info(`  ${prism.cyan('xec')} ${name} --help`);
   if (options.advanced) {
-    log.info(`  ${chalk.cyan('xec')} ${name} list`);
-    log.info(`  ${chalk.cyan('xec')} ${name} create myitem`);
+    log.info(`  ${prism.cyan('xec')} ${name} list`);
+    log.info(`  ${prism.cyan('xec')} ${name} create myitem`);
   }
 }
 
@@ -1836,13 +1836,13 @@ async function createTask(name: string, options: NewOptions) {
   // Save configuration
   await configManager.save();
 
-  outro(chalk.green(`✅ Created task: ${name}`));
+  outro(prism.green(`✅ Created task: ${name}`));
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${chalk.cyan('xec')} tasks:run ${name}`);
+  log.info(`  ${prism.cyan('xec')} tasks:run ${name}`);
   if (complexity !== 'simple') {
-    log.info(`  ${chalk.cyan('xec')} tasks:run ${name} --help`);
+    log.info(`  ${prism.cyan('xec')} tasks:run ${name} --help`);
   }
 }
 
@@ -1899,12 +1899,12 @@ async function createProfile(name: string, options: NewOptions) {
   // Save configuration
   await configManager.save();
 
-  outro(chalk.green(`✅ Created profile: ${name}`));
+  outro(prism.green(`✅ Created profile: ${name}`));
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${chalk.cyan('xec')} --profile ${name} <command>`);
-  log.info(`  ${chalk.cyan('XEC_PROFILE=')}${name} xec <command>`);
+  log.info(`  ${prism.cyan('xec')} --profile ${name} <command>`);
+  log.info(`  ${prism.cyan('XEC_PROFILE=')}${name} xec <command>`);
 }
 
 async function createExtension(name: string, options: NewOptions) {
@@ -2081,16 +2081,16 @@ See \`extension.yaml\` for configuration options.
 
   s.stop('Extension structure created');
 
-  outro(chalk.green(`✅ Created extension: ${name}`));
+  outro(prism.green(`✅ Created extension: ${name}`));
 
   // Show next steps
   log.info('\nNext steps:');
-  log.info(`  ${chalk.cyan('cd')} ${name}`);
-  log.info(`  ${chalk.cyan('edit')} extension.yaml`);
+  log.info(`  ${prism.cyan('cd')} ${name}`);
+  log.info(`  ${prism.cyan('edit')} extension.yaml`);
   log.info('\nTo use in a project:');
   log.info(`  Add to .xec/config.yaml:`);
-  log.info(`  ${chalk.gray('extensions:')}`);
-  log.info(`  ${chalk.gray('  - source:')} ${targetDir}`);
+  log.info(`  ${prism.gray('extensions:')}`);
+  log.info(`  ${prism.gray('  - source:')} ${targetDir}`);
 }
 
 export class NewCommand extends BaseCommand {
@@ -2179,7 +2179,7 @@ export class NewCommand extends BaseCommand {
       // Set up cancel handlers for interactive mode
       InteractiveHelpers.setupCancelHandlers();
 
-      intro(chalk.bold('🎨 Create new Xec artifact'));
+      intro(prism.bold('🎨 Create new Xec artifact'));
 
       // Determine artifact type
       let artifactType: ArtifactType;

@@ -3,7 +3,7 @@
  * Uses @xec-sh/kit's task runner for dependency visualization and execution
  */
 
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { log, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
 
 import { getFeatures } from '../config/features.js';
@@ -61,19 +61,19 @@ export class TasksCommand {
       return;
     }
     
-    console.log(chalk.bold('📋 Available Tasks'));
+    console.log(prism.bold('📋 Available Tasks'));
     
     for (const [name, task] of Object.entries(config.tasks)) {
       // Handle both string and TaskDefinition types
       if (typeof task === 'string') {
-        log.info(`  ${chalk.cyan(name)} - ${chalk.gray(task)}`);
+        log.info(`  ${prism.cyan(name)} - ${prism.gray(task)}`);
       } else {
-        const desc = task.description ? chalk.dim(` - ${task.description}`) : '';
+        const desc = task.description ? prism.dim(` - ${task.description}`) : '';
         
-        log.info(`  ${chalk.cyan(name)}${desc}`);
+        log.info(`  ${prism.cyan(name)}${desc}`);
         
         if (options.verbose && task.command) {
-          log.info(chalk.gray(`    Command: ${task.command}`));
+          log.info(prism.gray(`    Command: ${task.command}`));
         }
       }
     }
@@ -168,18 +168,18 @@ export class TasksCommand {
       visualization: options.visualization || 'tree',
       parallel: options.parallel || false,
       onTaskStart: (task) => {
-        log.info(chalk.blue(`▶ Starting: ${task.title}`));
+        log.info(prism.blue(`▶ Starting: ${task.title}`));
       },
       onTaskComplete: (task, result) => {
         if (result.success !== false) {
-          log.success(chalk.green(`✓ ${task.title}`));
+          log.success(prism.green(`✓ ${task.title}`));
         } else {
-          log.error(chalk.red(`✗ ${task.title}: ${result.error || 'Failed'}`));
+          log.error(prism.red(`✗ ${task.title}: ${result.error || 'Failed'}`));
         }
       },
       onProgress: (completed, total) => {
         if (total > 1) {
-          log.info(chalk.gray(`Progress: ${completed}/${total} tasks completed`));
+          log.info(prism.gray(`Progress: ${completed}/${total} tasks completed`));
         }
       }
     };
@@ -195,7 +195,7 @@ export class TasksCommand {
     tasks: TaskRunnerTask[],
     options: TasksCommandOptions
   ): Promise<void> {
-    console.log(chalk.bold('🚀 Running Tasks'));
+    console.log(prism.bold('🚀 Running Tasks'));
     
     for (const task of tasks) {
       log.info(`Running: ${task.title}`);
@@ -255,7 +255,7 @@ export class TasksCommand {
         value: t,
         label: t.title,
         hint: t.dependencies && t.dependencies.length > 0 
-          ? chalk.gray(`deps: ${t.dependencies.join(', ')}`)
+          ? prism.gray(`deps: ${t.dependencies.join(', ')}`)
           : undefined
       })),
     });

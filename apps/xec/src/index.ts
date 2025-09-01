@@ -61,7 +61,7 @@ export {
   sleep,
   retry,
   quote,
-  chalk,
+  prism,
   select,
   within,
   setEnv,

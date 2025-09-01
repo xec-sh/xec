@@ -1,5 +1,5 @@
 import path from 'path';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { glob } from 'glob';
 import fs from 'fs/promises';
 import { log, text, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
@@ -60,21 +60,21 @@ export class FileHelpers {
     const fileOptions = files.map(file => ({
       value: file.path,
       label: `${file.type === 'directory' ? '📁' : '📄'} ${file.name}`,
-      hint: file.type === 'directory' ? chalk.blue('dir') : chalk.gray(file.ext),
+      hint: file.type === 'directory' ? prism.blue('dir') : prism.gray(file.ext),
     }));
 
     // Add navigation options
     fileOptions.unshift({
       value: '..',
       label: '⬆️  Parent Directory',
-      hint: chalk.gray('Navigate up'),
+      hint: prism.gray('Navigate up'),
     });
 
     if (options.allowCreate) {
       fileOptions.push({
         value: '__create_new__',
         label: '➕ Create New File',
-        hint: chalk.green('Create'),
+        hint: prism.green('Create'),
       });
     }
 
@@ -392,12 +392,12 @@ export class FileHelpers {
       {
         value: startPath,
         label: '📍 Select Current Directory',
-        hint: chalk.blue(startPath),
+        hint: prism.blue(startPath),
       },
       {
         value: '..',
         label: '⬆️  Parent Directory',
-        hint: chalk.gray('Navigate up'),
+        hint: prism.gray('Navigate up'),
       },
       ...dirs,
     ];
@@ -406,7 +406,7 @@ export class FileHelpers {
       dirOptions.push({
         value: '__create_new__',
         label: '➕ Create New Directory',
-        hint: chalk.green('Create'),
+        hint: prism.green('Create'),
       });
     }
 

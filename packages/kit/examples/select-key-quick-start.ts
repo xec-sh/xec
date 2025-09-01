@@ -1,14 +1,13 @@
 #!/usr/bin/env tsx
 /**
  * SelectKey Component Quick Start
- * 
+ *
  * Simple example showing the key feature of select-key:
  * Instant selection with a single key press!
  */
 
-import color from 'picocolors';
+import { intro , outro, cancel, isCancel, selectKey, prism as color } from '../src/index.js';
 
-import { intro, outro, cancel, isCancel, selectKey } from '../src/index.js';
 
 async function main() {
   intro(color.bgCyan(color.black(' Quick Select Demo ')));

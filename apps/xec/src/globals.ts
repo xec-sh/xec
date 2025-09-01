@@ -79,7 +79,8 @@ declare global {
   const sleep: typeof import('./utils/script-utils.js').sleep;
   const retry: typeof import('./utils/script-utils.js').retry;
   const quote: typeof import('./utils/script-utils.js').quote;
-  const chalk: typeof import('./utils/script-utils.js').chalk;
+  const prism: typeof import('./utils/script-utils.js').prism;
+  // Alias for backward compatibility
   const select: typeof import('./utils/script-utils.js').select;
   const within: typeof import('./utils/script-utils.js').within;
   const setEnv: typeof import('./utils/script-utils.js').setEnv;

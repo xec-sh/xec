@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { 
   log, 
   text, 
@@ -42,7 +42,7 @@ export class InteractiveHelpers {
     // Handle Ctrl+C
     process.on('SIGINT', () => {
       this.cancelled = true;
-      outro(chalk.gray('Cancelled'));
+      outro(prism.gray('Cancelled'));
       process.exit(0);
     });
 
@@ -104,13 +104,13 @@ export class InteractiveHelpers {
 
     const targetOptions = targets.map(target => ({
       value: target,
-      label: `${this.getTargetIcon(target.type)} ${target.id} ${chalk.gray(`(${target.type})`)}`,
+      label: `${this.getTargetIcon(target.type)} ${target.id} ${prism.gray(`(${target.type})`)}`,
     }));
 
     if (options.allowCustom) {
       targetOptions.push({
         value: { custom: true } as any,
-        label: chalk.cyan('→ Enter custom target...'),
+        label: prism.cyan('→ Enter custom target...'),
       });
     }
 
@@ -311,7 +311,7 @@ export class InteractiveHelpers {
     if (allowCustom) {
       options.push({
         value: { custom: true },
-        label: chalk.cyan('→ Enter custom value...'),
+        label: prism.cyan('→ Enter custom value...'),
       });
     }
 
@@ -374,31 +374,31 @@ export class InteractiveHelpers {
 
   static startInteractiveMode(title: string): void {
     this.setupCancelHandlers();
-    intro(chalk.bgBlue(` ${title} `));
+    intro(prism.bgBlue(` ${title} `));
   }
 
   static endInteractiveMode(message?: string): void {
     if (message) {
-      outro(chalk.green(message));
+      outro(prism.green(message));
     } else {
-      outro(chalk.green('✓ Done!'));
+      outro(prism.green('✓ Done!'));
     }
   }
 
   static showError(message: string): void {
-    log.error(chalk.red(message));
+    log.error(prism.red(message));
   }
 
   static showSuccess(message: string): void {
-    log.success(chalk.green(message));
+    log.success(prism.green(message));
   }
 
   static showInfo(message: string): void {
-    log.info(chalk.blue(message));
+    log.info(prism.blue(message));
   }
 
   static showWarning(message: string): void {
-    log.warning(chalk.yellow(message));
+    log.warning(prism.yellow(message));
   }
 
   static createSpinner(message: string): any {

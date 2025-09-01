@@ -1,14 +1,14 @@
 import { Writable } from 'node:stream';
 
 export class MockWritable extends Writable {
-	public buffer: string[] = [];
+  public buffer: string[] = [];
 
-	override _write(
-		chunk: any,
-		_encoding: BufferEncoding,
-		callback: (error?: Error | null | undefined) => void
-	): void {
-		this.buffer.push(chunk.toString());
-		callback();
-	}
+  override _write(
+    chunk: any,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null | undefined) => void
+  ): void {
+    this.buffer.push(chunk.toString());
+    callback();
+  }
 }

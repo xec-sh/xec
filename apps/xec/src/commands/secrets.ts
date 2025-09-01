@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { log, text, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
@@ -153,7 +153,7 @@ export class SecretsCommand extends ConfigAwareCommand {
             { value: 'generate', label: '🎲 Generate a random secret' },
             { value: 'export', label: '📤 Export secrets (dangerous!)' },
             { value: 'import', label: '📥 Import secrets' },
-            { value: 'exit', label: chalk.gray('Exit') },
+            { value: 'exit', label: prism.gray('Exit') },
           ],
         });
 
@@ -428,7 +428,7 @@ export class SecretsCommand extends ConfigAwareCommand {
     try {
       await manager.set(key, value);
       s.stop(`Secret '${key}' set successfully`);
-      outro(chalk.green('✓') + ' Secret stored securely');
+      outro(prism.green('✓') + ' Secret stored securely');
     } catch (error) {
       s.stop('Failed to set secret');
       throw error;
@@ -473,10 +473,10 @@ export class SecretsCommand extends ConfigAwareCommand {
         return;
       }
 
-      log.message(chalk.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
+      log.message(prism.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
 
       for (const key of keys.sort()) {
-        console.log(`  ${chalk.cyan('•')} ${key}`);
+        console.log(`  ${prism.cyan('•')} ${key}`);
       }
     } catch (error) {
       s.stop('Failed to list secrets');
@@ -504,7 +504,7 @@ export class SecretsCommand extends ConfigAwareCommand {
     try {
       await manager.delete(key);
       s.stop(`Secret '${key}' deleted`);
-      outro(chalk.green('✓') + ' Secret removed');
+      outro(prism.green('✓') + ' Secret removed');
     } catch (error) {
       s.stop('Failed to delete secret');
       throw error;
@@ -543,8 +543,8 @@ export class SecretsCommand extends ConfigAwareCommand {
       s.stop(`Secret '${key}' generated and stored`);
 
       // Show the generated value
-      log.message(`Generated value: ${chalk.gray(value)}`);
-      outro(chalk.green('✓') + ' Secret stored securely');
+      log.message(`Generated value: ${prism.gray(value)}`);
+      outro(prism.green('✓') + ' Secret stored securely');
     } catch (error) {
       s.stop('Failed to generate secret');
       throw error;
@@ -556,7 +556,7 @@ export class SecretsCommand extends ConfigAwareCommand {
 
     if (!options.force) {
       const confirmResult = await confirm({
-        message: chalk.yellow('WARNING: This will output all secrets in plain text. Continue?')
+        message: prism.yellow('WARNING: This will output all secrets in plain text. Continue?')
       });
 
       if (isCancel(confirmResult) || !confirmResult) {
@@ -646,7 +646,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       }
 
       s.stop(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
-      outro(chalk.green('✓') + ' Secrets imported successfully');
+      outro(prism.green('✓') + ' Secrets imported successfully');
     } catch (error) {
       s.stop('Failed to import secrets');
       throw error;

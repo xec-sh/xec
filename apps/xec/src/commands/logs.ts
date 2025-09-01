@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import * as readline from 'readline';
@@ -336,7 +336,7 @@ export class LogsCommand extends ConfigAwareCommand {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} Failed to view logs: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} Failed to view logs: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -365,7 +365,7 @@ export class LogsCommand extends ConfigAwareCommand {
         } catch (error) {
           // Log error but don't stop other streams
           const errorMessage = error instanceof Error ? error.message : String(error);
-          this.log(`${chalk.red('✗')} ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
+          this.log(`${prism.red('✗')} ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
         }
       });
 
@@ -397,7 +397,7 @@ export class LogsCommand extends ConfigAwareCommand {
       // Display results
       for (const { target, logs, error } of results) {
         if (error) {
-          this.log(`${chalk.red('✗')} ${this.formatTargetDisplay(target)}: ${error}`, 'error');
+          this.log(`${prism.red('✗')} ${this.formatTargetDisplay(target)}: ${error}`, 'error');
         } else if (logs) {
           this.displayLogs(logs, target, { ...options, prefix: true });
         }
@@ -586,7 +586,7 @@ export class LogsCommand extends ConfigAwareCommand {
       logProcess.child.stderr.on('data', (data: Buffer) => {
         try {
           if (options.verbose) {
-            console.error(chalk.yellow(data.toString().trim()));
+            console.error(prism.yellow(data.toString().trim()));
           }
         } catch (error) {
           // Ignore stderr display errors
@@ -638,7 +638,7 @@ export class LogsCommand extends ConfigAwareCommand {
     }
 
     if (!options.quiet && !options.follow) {
-      this.log(chalk.gray(`\nDisplayed ${lines.length} log lines`), 'info');
+      this.log(prism.gray(`\nDisplayed ${lines.length} log lines`), 'info');
     }
   }
 
@@ -649,13 +649,13 @@ export class LogsCommand extends ConfigAwareCommand {
 
     // Add prefix if requested
     if (options.prefix) {
-      const prefix = chalk.cyan(`[${this.formatTargetDisplay(target)}]`);
+      const prefix = prism.cyan(`[${this.formatTargetDisplay(target)}]`);
       output = `${prefix} ${output}`;
     }
 
     // Add timestamp if requested and not already present
     if (options.timestamps && !this.hasTimestamp(line)) {
-      const timestamp = chalk.gray(new Date().toISOString());
+      const timestamp = prism.gray(new Date().toISOString());
       output = `${timestamp} ${output}`;
     }
 
@@ -692,11 +692,11 @@ export class LogsCommand extends ConfigAwareCommand {
   private colorizeLogLine(line: string): string {
     // Highlight common log levels
     return line
-      .replace(/\b(ERROR|ERR|FAIL|FAILURE|FATAL)\b/gi, chalk.red('$1'))
-      .replace(/\b(WARN|WARNING)\b/gi, chalk.yellow('$1'))
-      .replace(/\b(INFO|INFORMATION)\b/gi, chalk.blue('$1'))
-      .replace(/\b(DEBUG|TRACE)\b/gi, chalk.gray('$1'))
-      .replace(/\b(SUCCESS|OK|DONE)\b/gi, chalk.green('$1'));
+      .replace(/\b(ERROR|ERR|FAIL|FAILURE|FATAL)\b/gi, prism.red('$1'))
+      .replace(/\b(WARN|WARNING)\b/gi, prism.yellow('$1'))
+      .replace(/\b(INFO|INFORMATION)\b/gi, prism.blue('$1'))
+      .replace(/\b(DEBUG|TRACE)\b/gi, prism.gray('$1'))
+      .replace(/\b(SUCCESS|OK|DONE)\b/gi, prism.green('$1'));
   }
 
   private hasTimestamp(line: string): boolean {
@@ -787,13 +787,13 @@ export class LogsCommand extends ConfigAwareCommand {
         );
 
         if (result.success) {
-          this.log(`${chalk.green('✓')} Task completed on ${targetDisplay}`, 'success');
+          this.log(`${prism.green('✓')} Task completed on ${targetDisplay}`, 'success');
         } else {
           throw new Error(result.error?.message || 'Task failed');
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        this.log(`${chalk.red('✗')} Task failed on ${targetDisplay}: ${errorMessage}`, 'error');
+        this.log(`${prism.red('✗')} Task failed on ${targetDisplay}: ${errorMessage}`, 'error');
         throw error;
       }
     }

@@ -104,23 +104,23 @@ export interface ScriptGlobals {
   $target: ExecutionEngine;
   $targetInfo?: TargetInfo;
   $: ExecutionEngine;
-  
+
   // Script metadata
   __filename: string;
   __dirname: string;
   __script: ScriptInfo;
-  
+
   // Configuration access
   config: any; // ConfigAPI instance
   vars: Record<string, any>;
   params: Record<string, any>;
-  
+
   // Task management
   tasks: any; // TaskAPI instance
   targets: any; // TargetAPI instance
-  
+
   // Utilities
-  chalk: any;
+  prism: any;
   glob: (pattern: string) => Promise<string[]>;
   minimatch: (path: string, pattern: string) => boolean;
 }

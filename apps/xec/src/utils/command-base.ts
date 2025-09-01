@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
@@ -97,7 +97,7 @@ export abstract class BaseCommand {
     // Add examples to help
     if (this.config.examples) {
       const exampleText = this.config.examples
-        .map(ex => `  ${chalk.cyan(ex.command)}\n    ${ex.description}`)
+        .map(ex => `  ${prism.cyan(ex.command)}\n    ${ex.description}`)
         .join('\n\n');
       command.addHelpText('after', `\nExamples:\n\n${exampleText}`);
     }
@@ -315,8 +315,8 @@ export abstract class BaseCommand {
    * Format target display name
    */
   protected formatTargetDisplay(target: ResolvedTarget): string {
-    const name = chalk.cyan(target.name || target.id);
-    const type = chalk.gray(`[${target.type}]`);
+    const name = prism.cyan(target.name || target.id);
+    const type = prism.gray(`[${target.type}]`);
 
     let details = '';
 
@@ -326,7 +326,7 @@ export abstract class BaseCommand {
         {
           const sshConfig = target.config as any;
           const username = sshConfig.user || sshConfig.username || 'unknown';
-          details = ` ${chalk.gray(`${username}@${sshConfig.host}`)}`;
+          details = ` ${prism.gray(`${username}@${sshConfig.host}`)}`;
           break;
         }
 
@@ -334,7 +334,7 @@ export abstract class BaseCommand {
         {
           const dockerConfig = target.config as any;
           if (dockerConfig.image) {
-            details = ` ${chalk.gray(`(${dockerConfig.image})`)}`;
+            details = ` ${prism.gray(`(${dockerConfig.image})`)}`;
           }
           break;
         }
@@ -343,10 +343,10 @@ export abstract class BaseCommand {
         {
           const k8sConfig = target.config as any;
           if (k8sConfig.namespace && k8sConfig.namespace !== 'default') {
-            details = ` ${chalk.gray(`(ns: ${k8sConfig.namespace})`)}`;
+            details = ` ${prism.gray(`(ns: ${k8sConfig.namespace})`)}`;
           }
           if (k8sConfig.container) {
-            details += ` ${chalk.gray(`[${k8sConfig.container}]`)}`;
+            details += ` ${prism.gray(`[${k8sConfig.container}]`)}`;
           }
           break;
         }
@@ -499,13 +499,13 @@ export abstract class BaseCommand {
 
   protected intro(message: string): void {
     if (!this.options.quiet) {
-      console.log(chalk.bold(message));
+      console.log(prism.bold(message));
     }
   }
 
   protected outro(message: string): void {
     if (!this.options.quiet) {
-      console.log(chalk.dim(message));
+      console.log(prism.dim(message));
     }
   }
 

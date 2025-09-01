@@ -1,18 +1,18 @@
 #!/usr/bin/env tsx
 /**
  * Note Component Demo
- * 
+ *
  * Comprehensive demonstration of all note component features
  * including formatting, wrapping, titles, and custom styles
  */
 
-import color from 'picocolors';
 import { Writable } from 'node:stream';
 
+import { prism as color } from '../src/index.js';
 import { note } from '../src/components/note.js';
 
 // Pause between examples for better visibility
-const pause = (ms: number = 1000) => new Promise(resolve => setTimeout(resolve, ms));
+const pause = (ms: number = 1000) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
   console.log(color.bold(color.cyan('\n📝 Note Component Examples\n')));
@@ -34,7 +34,8 @@ async function main() {
 
   // Example 4: Long message with automatic wrapping
   console.log(color.yellow('\nExample 4: Long message with wrapping'));
-  const longMessage = 'This is a very long message that will automatically wrap to fit within the terminal width. The note component handles text wrapping intelligently, preserving word boundaries and ensuring readability. It also respects terminal width constraints and adjusts accordingly.';
+  const longMessage =
+    'This is a very long message that will automatically wrap to fit within the terminal width. The note component handles text wrapping intelligently, preserving word boundaries and ensuring readability. It also respects terminal width constraints and adjusts accordingly.';
   note(longMessage, 'Long Content');
   await pause();
 
@@ -55,21 +56,21 @@ Fourth line to demonstrate spacing`;
   // Example 7: Custom formatting function (bold text)
   console.log(color.yellow('\nExample 7: Custom formatting - Bold'));
   note('This message will be displayed in bold text', 'Bold Format', {
-    format: (line: string) => color.bold(line)
+    format: (line: string) => color.bold(line),
   });
   await pause();
 
   // Example 8: Custom formatting function (colored text)
   console.log(color.yellow('\nExample 8: Custom formatting - Colored'));
   note('This message has custom cyan coloring', 'Colored Note', {
-    format: (line: string) => color.cyan(line)
+    format: (line: string) => color.cyan(line),
   });
   await pause();
 
   // Example 9: Multiple custom formats combined
   console.log(color.yellow('\nExample 9: Combined formatting'));
   note('Bold, italic, and magenta combined!', 'Styled Note', {
-    format: (line: string) => color.bold(color.italic(color.magenta(line)))
+    format: (line: string) => color.bold(color.italic(color.magenta(line))),
   });
   await pause();
 
@@ -78,25 +79,25 @@ Fourth line to demonstrate spacing`;
 
   // Success note
   note('Operation completed successfully!', '✅ Success', {
-    format: (line: string) => color.green(line)
+    format: (line: string) => color.green(line),
   });
   await pause(500);
 
   // Warning note
   note('Please review the configuration before proceeding', '⚠️  Warning', {
-    format: (line: string) => color.yellow(line)
+    format: (line: string) => color.yellow(line),
   });
   await pause(500);
 
   // Error note
   note('An error occurred during processing', '❌ Error', {
-    format: (line: string) => color.red(line)
+    format: (line: string) => color.red(line),
   });
   await pause(500);
 
   // Info note
   note('Additional information about the process', 'ℹ️  Info', {
-    format: (line: string) => color.blue(line)
+    format: (line: string) => color.blue(line),
   });
   await pause();
 
@@ -106,7 +107,7 @@ Fourth line to demonstrate spacing`;
 const data = await result.json();
 console.log(data);`;
   note(codeSnippet, 'Code Example', {
-    format: (line: string) => color.green(line)
+    format: (line: string) => color.green(line),
   });
   await pause();
 
@@ -150,7 +151,7 @@ ${'='.repeat(20)}`;
       if (line.startsWith('-')) return color.cyan(line);
       if (line.includes('Header') || line.includes('Footer')) return color.bold(line);
       return color.dim(line);
-    }
+    },
   });
   await pause();
 
@@ -165,30 +166,30 @@ ${'='.repeat(20)}`;
         if (line) process.stdout.write(`[CUSTOM] ${line}\n`);
       });
       callback();
-    }
+    },
   });
 
   // Set columns property for the custom stream
   (customStream as any).columns = 60;
 
   note('This note uses a custom output stream', 'Custom Output', {
-    output: customStream
+    output: customStream,
   });
   await pause();
 
   // Example 17: Nested notes effect
   console.log(color.yellow('\nExample 17: Multiple notes in sequence'));
   note('Step 1: Initialize the process', 'Process Start', {
-    format: (line: string) => color.dim(line)
+    format: (line: string) => color.dim(line),
   });
   note('Step 2: Validate configuration', 'Validation', {
-    format: (line: string) => color.yellow(line)
+    format: (line: string) => color.yellow(line),
   });
   note('Step 3: Execute main operation', 'Execution', {
-    format: (line: string) => color.cyan(line)
+    format: (line: string) => color.cyan(line),
   });
   note('Step 4: Process completed!', 'Complete', {
-    format: (line: string) => color.green(line)
+    format: (line: string) => color.green(line),
   });
   await pause();
 
@@ -214,7 +215,7 @@ Network Latency: 5ms`;
       if (line.includes('CPU')) return color.magenta(line);
       if (line.includes('Network')) return color.cyan(line);
       return line;
-    }
+    },
   });
   await pause();
 
@@ -225,7 +226,7 @@ Network Latency: 5ms`;
     │  ▽  │
     ╰─────╯`;
   note(asciiArt, 'ASCII Robot', {
-    format: (line: string) => color.cyan(line)
+    format: (line: string) => color.cyan(line),
   });
 
   console.log(color.bold(color.green('\n✨ All note examples completed!\n')));

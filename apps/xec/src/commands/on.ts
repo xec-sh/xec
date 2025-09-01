@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import path from 'path';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 
 import { parseTimeout } from '../utils/time.js';
@@ -263,7 +263,7 @@ export class OnCommand extends ConfigAwareCommand {
   ): Promise<void> {
     if (options.dryRun) {
       for (const target of targets) {
-        this.log(`[DRY RUN] Would execute on ${this.formatTargetDisplay(target)}: ${chalk.yellow(command)}`, 'info');
+        this.log(`[DRY RUN] Would execute on ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}`, 'info');
       }
       return;
     }
@@ -319,14 +319,14 @@ export class OnCommand extends ConfigAwareCommand {
 
       if (!options.quiet) {
         this.stopSpinner();
-        this.log(`${chalk.green('✓')} ${targetDisplay}`, 'success');
+        this.log(`${prism.green('✓')} ${targetDisplay}`, 'success');
 
         if (result.stdout) {
           console.log(result.stdout.trim());
         }
 
         if (result.stderr && options.verbose) {
-          console.error(chalk.yellow(result.stderr.trim()));
+          console.error(prism.yellow(result.stderr.trim()));
         }
       }
     } catch (error) {
@@ -335,7 +335,7 @@ export class OnCommand extends ConfigAwareCommand {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} ${targetDisplay}: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} ${targetDisplay}: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -399,14 +399,14 @@ export class OnCommand extends ConfigAwareCommand {
     const failed = results.filter(r => !r.success);
 
     if (successful.length > 0) {
-      this.log(`${chalk.green('✓')} Succeeded on ${successful.length} hosts:`, 'success');
+      this.log(`${prism.green('✓')} Succeeded on ${successful.length} hosts:`, 'success');
       for (const result of successful) {
         this.log(`  - ${this.formatTargetDisplay(result.target)}`, 'info');
       }
     }
 
     if (failed.length > 0) {
-      this.log(`${chalk.red('✗')} Failed on ${failed.length} hosts:`, 'error');
+      this.log(`${prism.red('✗')} Failed on ${failed.length} hosts:`, 'error');
       for (const result of failed) {
         const errorMessage = result.error instanceof Error ? result.error.message : String(result.error);
         this.log(`  - ${this.formatTargetDisplay(result.target)}: ${errorMessage}`, 'error');
@@ -437,7 +437,7 @@ export class OnCommand extends ConfigAwareCommand {
 
       if (result.success) {
         if (!options.quiet) {
-          this.log(`${chalk.green('✓')} Task completed on ${targetDisplay}`, 'success');
+          this.log(`${prism.green('✓')} Task completed on ${targetDisplay}`, 'success');
         }
       } else {
         throw new Error(result.error?.message || 'Task failed');
@@ -457,7 +457,7 @@ export class OnCommand extends ConfigAwareCommand {
       if (errors.length > 0) {
         for (const { target, error } of errors as any[]) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          this.log(`${chalk.red('✗')} Task failed on ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
+          this.log(`${prism.red('✗')} Task failed on ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
         }
         throw new Error(`Task failed on ${errors.length} hosts`);
       }
@@ -505,7 +505,7 @@ export class OnCommand extends ConfigAwareCommand {
 
       if (result.success) {
         if (!options.quiet) {
-          this.log(`${chalk.green('✓')} Script completed on ${targetDisplay}`, 'success');
+          this.log(`${prism.green('✓')} Script completed on ${targetDisplay}`, 'success');
         }
       } else {
         throw result.error || new Error('Script execution failed');
@@ -525,7 +525,7 @@ export class OnCommand extends ConfigAwareCommand {
       if (errors.length > 0) {
         for (const { target, error } of errors as any[]) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          this.log(`${chalk.red('✗')} Script failed on ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
+          this.log(`${prism.red('✗')} Script failed on ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
         }
         throw new Error(`Script failed on ${errors.length} hosts`);
       }

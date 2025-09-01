@@ -1,12 +1,11 @@
 import type { Command } from 'commander';
 
-import chalk from 'chalk';
 import * as path from 'path';
 import * as repl from 'repl';
 import { $ } from '@xec-sh/core';
-import { log } from '@xec-sh/kit';
 import * as fs from 'fs/promises';
 import { pathToFileURL } from 'url';
+import { log, prism } from '@xec-sh/kit';
 
 import { getModuleLoader, initializeGlobalModuleContext } from './module-loader.js';
 
@@ -192,7 +191,7 @@ export class ScriptLoader {
     const runAndLog = async () => {
       try {
         if (!this.options.quiet) {
-          log.info(chalk.dim(`Running ${scriptPath}...`));
+          log.info(prism.dim(`Running ${scriptPath}...`));
         }
         const result = await this.executeScriptInternal(scriptPath, options);
         if (!result.success && result.error) {
@@ -210,7 +209,7 @@ export class ScriptLoader {
     const watcher = watch(scriptPath, { ignoreInitial: true });
     watcher.on('change', async () => {
       console.clear();
-      log.info(chalk.dim('File changed, rerunning...'));
+      log.info(prism.dim('File changed, rerunning...'));
       await runAndLog();
     });
 
@@ -323,13 +322,13 @@ export class ScriptLoader {
       ? `Xec Interactive Shell (${options.target.name})`
       : 'Xec Interactive Shell';
 
-    log.info(chalk.bold(title));
-    log.info(chalk.dim('Type .help for commands'));
+    log.info(prism.bold(title));
+    log.info(prism.dim('Type .help for commands'));
 
     // Create REPL prompt
     const prompt = options.target
-      ? chalk.cyan(`xec:${options.target.name}> `)
-      : chalk.cyan('xec> ');
+      ? prism.cyan(`xec:${options.target.name}> `)
+      : prism.cyan('xec> ');
 
     // Start REPL server
     const replServer = repl.start({
@@ -346,7 +345,7 @@ export class ScriptLoader {
     const replContext: any = {
       $,
       ...scriptUtils.default,
-      chalk,
+      prism,
       console,
       process,
       use: (spec: string) => (globalThis as any).use?.(spec),
@@ -368,21 +367,21 @@ export class ScriptLoader {
 
     // Show helpful message
     if (options.target && options.targetEngine) {
-      console.log(chalk.gray('Available globals:'));
-      console.log(chalk.gray('  $target     - Execute commands on the target'));
-      console.log(chalk.gray('  $targetInfo - Information about the current target'));
-      console.log(chalk.gray('  $           - Execute commands locally'));
-      console.log(chalk.gray('  chalk       - Terminal colors'));
-      console.log(chalk.gray('  use()       - Import NPM packages or CDN modules'));
-      console.log(chalk.gray('  import()    - Import modules'));
-      console.log(chalk.gray(''));
-      console.log(chalk.gray('Example: await $target`ls -la`'));
-      console.log(chalk.gray('Example: const lodash = await use("lodash")'));
+      console.log(prism.gray('Available globals:'));
+      console.log(prism.gray('  $target     - Execute commands on the target'));
+      console.log(prism.gray('  $targetInfo - Information about the current target'));
+      console.log(prism.gray('  $           - Execute commands locally'));
+      console.log(prism.gray('  prism       - Terminal colors'));
+      console.log(prism.gray('  use()       - Import NPM packages or CDN modules'));
+      console.log(prism.gray('  import()    - Import modules'));
+      console.log(prism.gray(''));
+      console.log(prism.gray('Example: await $target`ls -la`'));
+      console.log(prism.gray('Example: const lodash = await use("lodash")'));
     } else {
-      console.log(chalk.gray('Type .runtime to see runtime information'));
-      console.log(chalk.gray('Type .load <file> to load and run a script'));
+      console.log(prism.gray('Type .runtime to see runtime information'));
+      console.log(prism.gray('Type .load <file> to load and run a script'));
     }
-    console.log(chalk.gray(''));
+    console.log(prism.gray(''));
   }
 
   /**
@@ -561,13 +560,13 @@ export class ScriptLoader {
     replServer.defineCommand('runtime', {
       help: 'Show current runtime information',
       action() {
-        console.log(`Runtime: ${chalk.cyan('Node.js')} ${chalk.dim(process.version)}`);
+        console.log(`Runtime: ${prism.cyan('Node.js')} ${prism.dim(process.version)}`);
         console.log(`Features:`);
-        console.log(`  TypeScript: ${chalk.green('✓')}`);
-        console.log(`  ESM: ${chalk.green('✓')}`);
-        console.log(`  Workers: ${chalk.green('✓')}`);
+        console.log(`  TypeScript: ${prism.green('✓')}`);
+        console.log(`  ESM: ${prism.green('✓')}`);
+        console.log(`  Workers: ${prism.green('✓')}`);
         if (options.target) {
-          console.log(`Target: ${chalk.cyan(options.target.type)} (${options.target.name})`);
+          console.log(`Target: ${prism.cyan(options.target.type)} (${options.target.name})`);
         }
         this.displayPrompt();
       }

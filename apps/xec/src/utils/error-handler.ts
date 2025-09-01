@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import jsYaml from 'js-yaml';
 import { log } from '@xec-sh/kit';
 
@@ -87,17 +87,17 @@ export function handleError(error: any, options: CommandOptions): void {
   
   // Log detailed error info in debug mode
   if (process.env['XEC_DEBUG'] === '1' || process.env['XEC_DEBUG'] === 'true') {
-    console.error(chalk.red('\n=== DEBUG ERROR INFO ==='));
-    console.error(chalk.gray('Error type:'), error.constructor.name);
-    console.error(chalk.gray('Error code:'), error.code || 'none');
-    console.error(chalk.gray('Error message:'), error.message);
-    if (error.path) console.error(chalk.gray('Path:'), error.path);
-    if (error.syscall) console.error(chalk.gray('Syscall:'), error.syscall);
+    console.error(prism.red('\n=== DEBUG ERROR INFO ==='));
+    console.error(prism.gray('Error type:'), error.constructor.name);
+    console.error(prism.gray('Error code:'), error.code || 'none');
+    console.error(prism.gray('Error message:'), error.message);
+    if (error.path) console.error(prism.gray('Path:'), error.path);
+    if (error.syscall) console.error(prism.gray('Syscall:'), error.syscall);
     if (error.stack) {
-      console.error(chalk.gray('\nStack trace:'));
-      console.error(chalk.gray(error.stack));
+      console.error(prism.gray('\nStack trace:'));
+      console.error(prism.gray(error.stack));
     }
-    console.error(chalk.red('======================\n'));
+    console.error(prism.red('======================\n'));
   }
   
   // Display error based on format
@@ -227,13 +227,13 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
     if (!line) return; // Skip empty lines
     
     if (line.startsWith('Error:')) {
-      logger.error(chalk.bold(line));
+      logger.error(prism.bold(line));
     } else if (line.includes('Context:') || line.includes('Suggestions:')) {
-      console.error(chalk.yellow(line));
+      console.error(prism.yellow(line));
     } else if (line.includes('Try:') || line.includes('See:')) {
-      console.error(chalk.cyan(line));
+      console.error(prism.cyan(line));
     } else if (line.includes('Code:')) {
-      console.error(chalk.gray(line));
+      console.error(prism.gray(line));
     } else {
       console.error(line);
     }
@@ -242,13 +242,13 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
   // Add CLI-specific hints
   if (!options.verbose) {
     console.error('');
-    console.error(chalk.dim('Run with --verbose for more details'));
+    console.error(prism.dim('Run with --verbose for more details'));
   }
   
   // Show help command for context
   if (error.context?.command) {
     const baseCommand = error.context.command.split(' ')[0];
-    console.error(chalk.dim(`Run 'xec ${baseCommand} --help' for usage information`));
+    console.error(prism.dim(`Run 'xec ${baseCommand} --help' for usage information`));
   }
 }
 
@@ -258,49 +258,49 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
 function displayTextError(errorInfo: any, options: CommandOptions): void {
   // Error header
   const logger = log;
-  logger.error(chalk.bold(errorInfo.message));
+  logger.error(prism.bold(errorInfo.message));
 
   // Error details
   if (errorInfo.field) {
-    console.error(chalk.gray(`Field: ${errorInfo.field}`));
+    console.error(prism.gray(`Field: ${errorInfo.field}`));
   }
 
   if (errorInfo.code) {
-    console.error(chalk.gray(`Code: ${errorInfo.code}`));
+    console.error(prism.gray(`Code: ${errorInfo.code}`));
   }
 
   // Suggestion
   if (errorInfo.suggestion) {
     console.error();
-    console.error(chalk.yellow('💡 Suggestion:'));
-    console.error(chalk.yellow(`   ${errorInfo.suggestion}`));
+    console.error(prism.yellow('💡 Suggestion:'));
+    console.error(prism.yellow(`   ${errorInfo.suggestion}`));
   }
 
   // Documentation link
   if (errorInfo.documentation) {
     console.error();
-    console.error(chalk.blue('📚 Documentation:'));
-    console.error(chalk.blue(`   ${errorInfo.documentation}`));
+    console.error(prism.blue('📚 Documentation:'));
+    console.error(prism.blue(`   ${errorInfo.documentation}`));
   }
 
   // Stack trace in verbose mode
   if (options.verbose && errorInfo.stack) {
     console.error();
-    console.error(chalk.gray('Stack trace:'));
-    console.error(chalk.gray(errorInfo.stack));
+    console.error(prism.gray('Stack trace:'));
+    console.error(prism.gray(errorInfo.stack));
   }
 
   // Debug information
   if (options.verbose) {
     console.error();
-    console.error(chalk.gray('Debug information:'));
-    console.error(chalk.gray(`  Time: ${errorInfo.timestamp}`));
-    console.error(chalk.gray(`  Type: ${errorInfo.type}`));
+    console.error(prism.gray('Debug information:'));
+    console.error(prism.gray(`  Time: ${errorInfo.timestamp}`));
+    console.error(prism.gray(`  Type: ${errorInfo.type}`));
     if (errorInfo.path) {
-      console.error(chalk.gray(`  Path: ${errorInfo.path}`));
+      console.error(prism.gray(`  Path: ${errorInfo.path}`));
     }
     if (errorInfo.syscall) {
-      console.error(chalk.gray(`  Syscall: ${errorInfo.syscall}`));
+      console.error(prism.gray(`  Syscall: ${errorInfo.syscall}`));
     }
   }
 }

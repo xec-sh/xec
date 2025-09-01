@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * Simple Group Component Example
- * 
+ *
  * Quick demonstration of group component basics:
  * - Sequential prompts
  * - Accessing previous results
@@ -9,16 +9,8 @@
  * - Cancel handling
  */
 
-import picocolors from 'picocolors';
-
-import {
-  text,
-  note,
-  group,
-  select,
-  confirm,
-  isCancel
-} from '../src/index.js';
+import picocolors from '../src/prism/index.js';
+import { text, note, group, select, confirm, isCancel } from '../src/index.js';
 
 async function main() {
   console.clear();
@@ -30,26 +22,29 @@ async function main() {
   const results = await group(
     {
       // Step 1: Get user's name
-      name: () => text({
-        message: 'What is your name?',
-        placeholder: 'John Doe',
-        validate: (value) => {
-          if (!value || value.trim().length < 2) {
-            return 'Name must be at least 2 characters';
-          }
-        }
-      }),
+      name: () =>
+        text({
+          message: 'What is your name?',
+          placeholder: 'John Doe',
+          validate: (value) => {
+            if (!value || value.trim().length < 2) {
+              return 'Name must be at least 2 characters';
+            }
+            return undefined;
+          },
+        }),
 
       // Step 2: Get user's role
-      role: () => select({
-        message: 'What is your role?',
-        options: [
-          { value: 'developer', label: 'Developer' },
-          { value: 'designer', label: 'Designer' },
-          { value: 'manager', label: 'Manager' },
-          { value: 'other', label: 'Other' }
-        ]
-      }),
+      role: () =>
+        select({
+          message: 'What is your role?',
+          options: [
+            { value: 'developer', label: 'Developer' },
+            { value: 'designer', label: 'Designer' },
+            { value: 'manager', label: 'Manager' },
+            { value: 'other', label: 'Other' },
+          ],
+        }),
 
       // Step 3: Conditional - Ask for specific skills based on role
       skills: ({ results }) => {
@@ -57,14 +52,14 @@ async function main() {
         if (!results.role) return;
 
         let skillOptions: { value: string; label: string }[] = [];
-        
+
         switch (results.role) {
           case 'developer':
             skillOptions = [
               { value: 'javascript', label: 'JavaScript' },
               { value: 'python', label: 'Python' },
               { value: 'java', label: 'Java' },
-              { value: 'go', label: 'Go' }
+              { value: 'go', label: 'Go' },
             ];
             break;
           case 'designer':
@@ -72,7 +67,7 @@ async function main() {
               { value: 'figma', label: 'Figma' },
               { value: 'sketch', label: 'Sketch' },
               { value: 'photoshop', label: 'Photoshop' },
-              { value: 'illustrator', label: 'Illustrator' }
+              { value: 'illustrator', label: 'Illustrator' },
             ];
             break;
           case 'manager':
@@ -80,39 +75,40 @@ async function main() {
               { value: 'agile', label: 'Agile/Scrum' },
               { value: 'leadership', label: 'Leadership' },
               { value: 'communication', label: 'Communication' },
-              { value: 'planning', label: 'Strategic Planning' }
+              { value: 'planning', label: 'Strategic Planning' },
             ];
             break;
           default:
             // For 'other', ask for custom input
             return text({
               message: 'Describe your main skill',
-              placeholder: 'e.g., Marketing, Sales, etc.'
+              placeholder: 'e.g., Marketing, Sales, etc.',
             });
         }
 
         return select({
           message: 'What is your primary skill?',
-          options: skillOptions
+          options: skillOptions,
         });
       },
 
       // Step 4: Experience level
-      experience: () => select({
-        message: 'Years of experience?',
-        options: [
-          { value: '0-1', label: '0-1 years' },
-          { value: '2-5', label: '2-5 years' },
-          { value: '5-10', label: '5-10 years' },
-          { value: '10+', label: '10+ years' }
-        ]
-      }),
+      experience: () =>
+        select({
+          message: 'Years of experience?',
+          options: [
+            { value: '0-1', label: '0-1 years' },
+            { value: '2-5', label: '2-5 years' },
+            { value: '5-10', label: '5-10 years' },
+            { value: '10+', label: '10+ years' },
+          ],
+        }),
 
       // Step 5: Personalized message based on all previous answers
       subscribe: ({ results }) => {
         // Create a personalized message
         let message = `Hi ${results.name}!\n\n`;
-        
+
         if (results.role === 'developer' && results.skills) {
           message += `As a ${results.skills} developer`;
         } else if (results.role === 'designer' && results.skills) {
@@ -122,7 +118,7 @@ async function main() {
         } else {
           message += `As a professional`;
         }
-        
+
         if (results.experience === '10+') {
           message += ' with extensive experience,';
         } else if (results.experience === '5-10') {
@@ -130,14 +126,14 @@ async function main() {
         } else {
           message += ',';
         }
-        
+
         message += ' would you like to receive our newsletter?';
-        
+
         return confirm({
           message,
-          initial: true
+          initialValue: true,
         });
-      }
+      },
     },
     {
       // Handle cancellation gracefully
@@ -153,7 +149,7 @@ async function main() {
           });
         }
         process.exit(0);
-      }
+      },
     }
   );
 
@@ -161,7 +157,7 @@ async function main() {
   console.log();
   console.log(picocolors.green('✓ Onboarding complete!'));
   console.log();
-  
+
   // Create a summary
   const summary = `
 👤 Profile Summary
@@ -172,7 +168,7 @@ async function main() {
   Experience: ${results.experience} years
   Newsletter: ${results.subscribe ? 'Subscribed ✓' : 'Not subscribed'}
   `;
-  
+
   note(summary, 'User Profile');
 
   console.log();

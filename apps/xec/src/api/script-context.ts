@@ -5,10 +5,10 @@
  * global APIs, and utility functions.
  */
 
-import chalk from 'chalk';
 import { glob } from 'glob';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
+import { prism } from '@xec-sh/kit';
 import { minimatch } from 'minimatch';
 
 import { tasks } from './task-api.js';
@@ -31,26 +31,26 @@ export class ScriptContext {
     target?: Target
   ): Promise<ScriptGlobals> {
     // Create $target engine
-    const $target = target 
+    const $target = target
       ? await createTargetEngine(target)
       : $;
 
     // Create target info
     const $targetInfo: TargetInfo | undefined = target
       ? {
-          type: target.type,
-          name: target.name,
-          host: target.type === 'ssh' ? (target.config as any).host : undefined,
-          container: target.type === 'docker' ? (target.config as any).container : undefined,
-          pod: target.type === 'k8s' ? (target.config as any).pod : undefined,
-          namespace: target.type === 'k8s' ? (target.config as any).namespace : undefined,
-          config: target.config
-        }
+        type: target.type,
+        name: target.name,
+        host: target.type === 'ssh' ? (target.config as any).host : undefined,
+        container: target.type === 'docker' ? (target.config as any).container : undefined,
+        pod: target.type === 'k8s' ? (target.config as any).pod : undefined,
+        namespace: target.type === 'k8s' ? (target.config as any).namespace : undefined,
+        config: target.config
+      }
       : undefined;
 
     // Load configuration
     await config.reload(); // Use reload to ensure we pick up the current directory
-    
+
     // Get resolved variables
     const vars = config.get('vars') || {};
     const params = this.parseParams(args);
@@ -68,23 +68,23 @@ export class ScriptContext {
       $target: $target as any,
       $targetInfo,
       $: $ as any,
-      
+
       // Script metadata
       __filename: path.resolve(scriptPath),
       __dirname: path.dirname(path.resolve(scriptPath)),
       __script: scriptInfo,
-      
+
       // Configuration access
       config,
       vars,
       params,
-      
+
       // Task management
       tasks,
       targets,
-      
+
       // Utilities
-      chalk,
+      prism,
       glob: (pattern: string) => glob(pattern),
       minimatch: (filePath: string, pattern: string) => minimatch(filePath, pattern)
     };
@@ -97,7 +97,7 @@ export class ScriptContext {
   static inject(context: ScriptGlobals): void {
     // Inject into global scope
     const globalAny = global as any;
-    
+
     for (const [key, value] of Object.entries(context)) {
       globalAny[key] = value;
     }
@@ -109,7 +109,7 @@ export class ScriptContext {
    */
   static cleanup(context: ScriptGlobals): void {
     const globalAny = global as any;
-    
+
     for (const key of Object.keys(context)) {
       delete globalAny[key];
     }
@@ -121,11 +121,11 @@ export class ScriptContext {
    */
   private static parseParams(args: string[]): Record<string, any> {
     const params: Record<string, any> = {};
-    
+
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (!arg) continue;
-      
+
       // Handle --key=value
       if (arg.startsWith('--') && arg.includes('=')) {
         const [key, value] = arg.slice(2).split('=', 2);
@@ -161,7 +161,7 @@ export class ScriptContext {
         params[key] = true;
       }
     }
-    
+
     return params;
   }
 
@@ -173,7 +173,7 @@ export class ScriptContext {
     // Boolean
     if (value === 'true') return true;
     if (value === 'false') return false;
-    
+
     // Number
     if (/^-?\d+$/.test(value)) {
       return parseInt(value, 10);
@@ -181,7 +181,7 @@ export class ScriptContext {
     if (/^-?\d+\.\d+$/.test(value)) {
       return parseFloat(value);
     }
-    
+
     // JSON
     if (value.startsWith('{') || value.startsWith('[')) {
       try {
@@ -190,7 +190,7 @@ export class ScriptContext {
         // Not valid JSON, return as string
       }
     }
-    
+
     return value;
   }
 
@@ -200,7 +200,7 @@ export class ScriptContext {
    */
   static async createREPL(target?: Target): Promise<any> {
     const context = await this.create('repl', [], target);
-    
+
     // Add additional REPL utilities
     const replContext = {
       ...context,
@@ -213,7 +213,7 @@ Available globals:
   config     - Configuration API
   tasks      - Task API
   targets    - Target API
-  chalk      - Terminal colors
+  prism      - Terminal colors (chalk is aliased for backward compatibility)
   glob       - File globbing
   minimatch  - Pattern matching
 
@@ -223,12 +223,12 @@ Examples:
   const hosts = await targets.list('ssh')
         `);
       },
-      
+
       clear: () => {
         process.stdout.write('\x1B[2J\x1B[0f');
       }
     };
-    
+
     return replContext;
   }
 }
@@ -246,14 +246,14 @@ export async function executeScript(
 ): Promise<void> {
   // Create context
   const context = await ScriptContext.create(scriptPath, args, target);
-  
+
   try {
     // Inject context
     ScriptContext.inject(context);
-    
+
     // Import and execute script
     const scriptModule = await import(path.resolve(scriptPath));
-    
+
     // Execute default export or main function
     if (typeof scriptModule.default === 'function') {
       await scriptModule.default(...args);

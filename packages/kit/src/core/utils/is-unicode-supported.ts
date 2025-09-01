@@ -8,14 +8,16 @@ export default function isUnicodeSupported() {
     return TERM !== 'linux'; // Linux console (kernel)
   }
 
-  return Boolean(env['WT_SESSION']) // Windows Terminal
-    || Boolean(env['TERMINUS_SUBLIME']) // Terminus (<0.2.27)
-    || env['ConEmuTask'] === '{cmd::Cmder}' // ConEmu and cmder
-    || TERM_PROGRAM === 'Terminus-Sublime'
-    || TERM_PROGRAM === 'vscode'
-    || TERM === 'xterm-256color'
-    || TERM === 'alacritty'
-    || TERM === 'rxvt-unicode'
-    || TERM === 'rxvt-unicode-256color'
-    || env['TERMINAL_EMULATOR'] === 'JetBrains-JediTerm';
+  return (
+    Boolean(env['WT_SESSION']) || // Windows Terminal
+    Boolean(env['TERMINUS_SUBLIME']) || // Terminus (<0.2.27)
+    env['ConEmuTask'] === '{cmd::Cmder}' || // ConEmu and cmder
+    TERM_PROGRAM === 'Terminus-Sublime' ||
+    TERM_PROGRAM === 'vscode' ||
+    TERM === 'xterm-256color' ||
+    TERM === 'alacritty' ||
+    TERM === 'rxvt-unicode' ||
+    TERM === 'rxvt-unicode-256color' ||
+    env['TERMINAL_EMULATOR'] === 'JetBrains-JediTerm'
+  );
 }

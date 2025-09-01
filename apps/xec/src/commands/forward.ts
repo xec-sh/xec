@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import * as net from 'net';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
@@ -235,7 +235,7 @@ export class ForwardCommand extends ConfigAwareCommand {
       if (!options.quiet) {
         this.stopSpinner();
         this.log(
-          `${chalk.green('✓')} Forwarding ${chalk.cyan(`${options.bind}:${localPort}`)} -> ${chalk.cyan(`${targetDisplay}:${mapping.remote}`)}`,
+          `${prism.green('✓')} Forwarding ${prism.cyan(`${options.bind}:${localPort}`)} -> ${prism.cyan(`${targetDisplay}:${mapping.remote}`)}`,
           'success'
         );
       }
@@ -244,7 +244,7 @@ export class ForwardCommand extends ConfigAwareCommand {
         this.stopSpinner();
       }
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} Failed to forward port: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} Failed to forward port: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -557,9 +557,9 @@ export class ForwardCommand extends ConfigAwareCommand {
 
       // Show summary
       InteractiveHelpers.showInfo('\nPort Forward Summary:');
-      console.log(`  Target: ${chalk.cyan(targetSpec)} (${target.type})`);
-      console.log(`  Port mapping: ${chalk.cyan(`${forwardOptions.bind || '127.0.0.1'}:${localPort === '0' ? 'auto' : localPort} → ${remotePort}`)}`);
-      if (forwardOptions.background) console.log(`  Mode: ${chalk.gray('background')}`);
+      console.log(`  Target: ${prism.cyan(targetSpec)} (${target.type})`);
+      console.log(`  Port mapping: ${prism.cyan(`${forwardOptions.bind || '127.0.0.1'}:${localPort === '0' ? 'auto' : localPort} → ${remotePort}`)}`);
+      if (forwardOptions.background) console.log(`  Mode: ${prism.gray('background')}`);
 
       const confirm = await InteractiveHelpers.confirmAction(
         '\nProceed with port forwarding?',

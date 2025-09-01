@@ -6,93 +6,93 @@ import { MockWritable } from '../mock-writable.js';
 import { default as ConfirmPrompt } from '../../../src/core/prompts/confirm.js';
 
 describe('ConfirmPrompt', () => {
-	let input: MockReadable;
-	let output: MockWritable;
+  let input: MockReadable;
+  let output: MockWritable;
 
-	beforeEach(() => {
-		input = new MockReadable();
-		output = new MockWritable();
-	});
+  beforeEach(() => {
+    input = new MockReadable();
+    output = new MockWritable();
+  });
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-	test('renders render() result', () => {
-		const instance = new ConfirmPrompt({
-			input,
-			output,
-			render: () => 'foo',
-			active: 'yes',
-			inactive: 'no',
-		});
-		instance.prompt();
-		expect(output.buffer).to.deep.equal([cursor.hide, 'foo']);
-	});
+  test('renders render() result', () => {
+    const instance = new ConfirmPrompt({
+      input,
+      output,
+      render: () => 'foo',
+      active: 'yes',
+      inactive: 'no',
+    });
+    instance.prompt();
+    expect(output.buffer).to.deep.equal([cursor.hide, 'foo']);
+  });
 
-	test('sets value and submits on confirm (y)', () => {
-		const instance = new ConfirmPrompt({
-			input,
-			output,
-			render: () => 'foo',
-			active: 'yes',
-			inactive: 'no',
-			initialValue: true,
-		});
+  test('sets value and submits on confirm (y)', () => {
+    const instance = new ConfirmPrompt({
+      input,
+      output,
+      render: () => 'foo',
+      active: 'yes',
+      inactive: 'no',
+      initialValue: true,
+    });
 
-		instance.prompt();
-		input.emit('keypress', 'y', { name: 'y' });
+    instance.prompt();
+    input.emit('keypress', 'y', { name: 'y' });
 
-		expect(instance.value).to.equal(true);
-		expect(instance.state).to.equal('submit');
-	});
+    expect(instance.value).to.equal(true);
+    expect(instance.state).to.equal('submit');
+  });
 
-	test('sets value and submits on confirm (n)', () => {
-		const instance = new ConfirmPrompt({
-			input,
-			output,
-			render: () => 'foo',
-			active: 'yes',
-			inactive: 'no',
-			initialValue: true,
-		});
+  test('sets value and submits on confirm (n)', () => {
+    const instance = new ConfirmPrompt({
+      input,
+      output,
+      render: () => 'foo',
+      active: 'yes',
+      inactive: 'no',
+      initialValue: true,
+    });
 
-		instance.prompt();
-		input.emit('keypress', 'n', { name: 'n' });
+    instance.prompt();
+    input.emit('keypress', 'n', { name: 'n' });
 
-		expect(instance.value).to.equal(false);
-		expect(instance.state).to.equal('submit');
-	});
+    expect(instance.value).to.equal(false);
+    expect(instance.state).to.equal('submit');
+  });
 
-	describe('cursor', () => {
-		test('cursor is 1 when inactive', () => {
-			const instance = new ConfirmPrompt({
-				input,
-				output,
-				render: () => 'foo',
-				active: 'yes',
-				inactive: 'no',
-				initialValue: false,
-			});
+  describe('cursor', () => {
+    test('cursor is 1 when inactive', () => {
+      const instance = new ConfirmPrompt({
+        input,
+        output,
+        render: () => 'foo',
+        active: 'yes',
+        inactive: 'no',
+        initialValue: false,
+      });
 
-			instance.prompt();
-			input.emit('keypress', '', { name: 'return' });
-			expect(instance.cursor).to.equal(1);
-		});
+      instance.prompt();
+      input.emit('keypress', '', { name: 'return' });
+      expect(instance.cursor).to.equal(1);
+    });
 
-		test('cursor is 0 when active', () => {
-			const instance = new ConfirmPrompt({
-				input,
-				output,
-				render: () => 'foo',
-				active: 'yes',
-				inactive: 'no',
-				initialValue: true,
-			});
+    test('cursor is 0 when active', () => {
+      const instance = new ConfirmPrompt({
+        input,
+        output,
+        render: () => 'foo',
+        active: 'yes',
+        inactive: 'no',
+        initialValue: true,
+      });
 
-			instance.prompt();
-			input.emit('keypress', '', { name: 'return' });
-			expect(instance.cursor).to.equal(0);
-		});
-	});
+      instance.prompt();
+      input.emit('keypress', '', { name: 'return' });
+      expect(instance.cursor).to.equal(0);
+    });
+  });
 });

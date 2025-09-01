@@ -1,6 +1,6 @@
 import os from 'os';
 import path from 'path';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import { table } from 'table';
@@ -131,9 +131,9 @@ export class InspectCommand extends BaseCommand {
         await inspector.inspect(type as InspectType, name);
       }
     } catch (error: any) {
-      console.error(chalk.red('Error:'), error.message);
+      console.error(prism.red('Error:'), error.message);
       if (options?.verbose) {
-        console.error(chalk.gray(error.stack));
+        console.error(prism.gray(error.stack));
       }
       throw error;
     }
@@ -219,7 +219,7 @@ class ProjectInspector {
   }
 
   async runInteractive(): Promise<void> {
-    console.log(chalk.bold('\n🔍 Xec Project Inspector\n'));
+    console.log(prism.bold('\n🔍 Xec Project Inspector\n'));
 
     while (true) {
       const choice = await select({
@@ -789,7 +789,7 @@ class ProjectInspector {
     const results = await this.getInspectionResults(type);
 
     if (results.length === 0) {
-      console.log(chalk.yellow('\nNo items found.\n'));
+      console.log(prism.yellow('\nNo items found.\n'));
       return;
     }
 
@@ -839,7 +839,7 @@ class ProjectInspector {
 
   private displayResults(results: InspectionResult[], type: string): void {
     if (results.length === 0) {
-      console.log(chalk.yellow('No items found.'));
+      console.log(prism.yellow('No items found.'));
       return;
     }
 
@@ -909,7 +909,7 @@ class ProjectInspector {
     console.log(table(data, config));
 
     if (this.options.verbose) {
-      console.log(chalk.dim(`\nTotal: ${results.length} ${type === 'all' ? 'items' : type}`));
+      console.log(prism.dim(`\nTotal: ${results.length} ${type === 'all' ? 'items' : type}`));
     }
   }
 
@@ -917,12 +917,12 @@ class ProjectInspector {
     const grouped = this.groupByType(results);
 
     for (const [type, items] of Object.entries(grouped)) {
-      console.log(chalk.bold.cyan(`\n${type}:`));
+      console.log(prism.bold.cyan(`\n${type}:`));
       for (const item of items) {
         console.log(`  ├─ ${this.formatTreeItem(item)}`);
         if (this.options.verbose && item.metadata) {
           for (const [key, value] of Object.entries(item.metadata)) {
-            console.log(`  │  └─ ${chalk.dim(key)}: ${chalk.gray(this.formatValue(value))}`);
+            console.log(`  │  └─ ${prism.dim(key)}: ${prism.gray(this.formatValue(value))}`);
           }
         }
       }
@@ -930,7 +930,7 @@ class ProjectInspector {
   }
 
   private displayDetailedResult(result: InspectionResult): void {
-    console.log(chalk.bold(`\n${result.type.toUpperCase()}: ${result.name}\n`));
+    console.log(prism.bold(`\n${result.type.toUpperCase()}: ${result.name}\n`));
 
     // Special formatting for system information
     if (result.type === 'system') {
@@ -947,7 +947,7 @@ class ProjectInspector {
     // Display main data
     if (typeof result.data === 'object') {
       for (const [key, value] of Object.entries(result.data)) {
-        console.log(`${chalk.cyan(key)}: ${this.formatValue(value)}`);
+        console.log(`${prism.cyan(key)}: ${this.formatValue(value)}`);
       }
     } else {
       console.log(this.formatValue(result.data));
@@ -955,9 +955,9 @@ class ProjectInspector {
 
     // Display metadata
     if (result.metadata && Object.keys(result.metadata).length > 0) {
-      console.log(chalk.bold('\nMetadata:'));
+      console.log(prism.bold('\nMetadata:'));
       for (const [key, value] of Object.entries(result.metadata)) {
-        console.log(`${chalk.cyan(key)}: ${this.formatValue(value)}`);
+        console.log(`${prism.cyan(key)}: ${this.formatValue(value)}`);
       }
     }
 
@@ -969,49 +969,49 @@ class ProjectInspector {
 
     switch (result.name) {
       case 'runtime':
-        console.log(chalk.bold('Xec:'));
-        console.log(`  ${chalk.cyan('Path:')} ${data.xec.path}`);
-        console.log(`  ${chalk.cyan('CLI:')} ${data.xec.cli}`);
-        console.log(`  ${chalk.cyan('Core:')} ${data.xec.core}`);
-        console.log(`  ${chalk.cyan('Name:')} ${data.xec.name}`);
-        console.log(`  ${chalk.cyan('Description:')} ${data.xec.description}`);
+        console.log(prism.bold('Xec:'));
+        console.log(`  ${prism.cyan('Path:')} ${data.xec.path}`);
+        console.log(`  ${prism.cyan('CLI:')} ${data.xec.cli}`);
+        console.log(`  ${prism.cyan('Core:')} ${data.xec.core}`);
+        console.log(`  ${prism.cyan('Name:')} ${data.xec.name}`);
+        console.log(`  ${prism.cyan('Description:')} ${data.xec.description}`);
 
-        console.log(chalk.bold('\nNode.js:'));
-        console.log(`  ${chalk.cyan('Path:')} ${data.node.path}`);
-        console.log(`  ${chalk.cyan('Version:')} ${data.node.version}`);
-        console.log(`  ${chalk.cyan('V8:')} ${data.node.v8}`);
-        console.log(`  ${chalk.cyan('OpenSSL:')} ${data.node.openssl}`);
-        console.log(`  ${chalk.cyan('Modules:')} ${data.node.modules}`);
+        console.log(prism.bold('\nNode.js:'));
+        console.log(`  ${prism.cyan('Path:')} ${data.node.path}`);
+        console.log(`  ${prism.cyan('Version:')} ${data.node.version}`);
+        console.log(`  ${prism.cyan('V8:')} ${data.node.v8}`);
+        console.log(`  ${prism.cyan('OpenSSL:')} ${data.node.openssl}`);
+        console.log(`  ${prism.cyan('Modules:')} ${data.node.modules}`);
         break;
 
       case 'os':
-        console.log(`${chalk.cyan('Platform:')} ${data.platform}`);
-        console.log(`${chalk.cyan('Type:')} ${data.type}`);
-        console.log(`${chalk.cyan('Release:')} ${data.release}`);
-        console.log(`${chalk.cyan('Architecture:')} ${data.arch}`);
-        console.log(`${chalk.cyan('Hostname:')} ${data.hostname}`);
-        console.log(`${chalk.cyan('Uptime:')} ${this.formatUptime(data.uptime)}`);
-        console.log(`${chalk.cyan('Load Average:')} ${data.loadavg.map((n: number) => n.toFixed(2)).join(', ')}`);
+        console.log(`${prism.cyan('Platform:')} ${data.platform}`);
+        console.log(`${prism.cyan('Type:')} ${data.type}`);
+        console.log(`${prism.cyan('Release:')} ${data.release}`);
+        console.log(`${prism.cyan('Architecture:')} ${data.arch}`);
+        console.log(`${prism.cyan('Hostname:')} ${data.hostname}`);
+        console.log(`${prism.cyan('Uptime:')} ${this.formatUptime(data.uptime)}`);
+        console.log(`${prism.cyan('Load Average:')} ${data.loadavg.map((n: number) => n.toFixed(2)).join(', ')}`);
 
         if (data.productName) {
-          console.log(chalk.bold('\nmacOS:'));
-          console.log(`  ${chalk.cyan('Product:')} ${data.productName}`);
-          console.log(`  ${chalk.cyan('Version:')} ${data.productVersion}`);
-          console.log(`  ${chalk.cyan('Build:')} ${data.buildVersion}`);
+          console.log(prism.bold('\nmacOS:'));
+          console.log(`  ${prism.cyan('Product:')} ${data.productName}`);
+          console.log(`  ${prism.cyan('Version:')} ${data.productVersion}`);
+          console.log(`  ${prism.cyan('Build:')} ${data.buildVersion}`);
         } else if (data.distro) {
-          console.log(chalk.bold('\nLinux:'));
-          console.log(`  ${chalk.cyan('Distribution:')} ${data.distro}`);
-          console.log(`  ${chalk.cyan('Version:')} ${data.distroVersion || 'N/A'}`);
+          console.log(prism.bold('\nLinux:'));
+          console.log(`  ${prism.cyan('Distribution:')} ${data.distro}`);
+          console.log(`  ${prism.cyan('Version:')} ${data.distroVersion || 'N/A'}`);
         } else if (data.caption) {
-          console.log(chalk.bold('\nWindows:'));
-          console.log(`  ${chalk.cyan('Caption:')} ${data.caption}`);
-          console.log(`  ${chalk.cyan('Version:')} ${data.winVersion}`);
+          console.log(prism.bold('\nWindows:'));
+          console.log(`  ${prism.cyan('Caption:')} ${data.caption}`);
+          console.log(`  ${prism.cyan('Version:')} ${data.winVersion}`);
         }
         break;
 
       case 'hardware':
         {
-          console.log(chalk.bold('CPUs:'));
+          console.log(prism.bold('CPUs:'));
           const cpusByModel = data.cpus.reduce((acc: any, cpu: any) => {
             if (!acc[cpu.model]) acc[cpu.model] = 0;
             acc[cpu.model]++;
@@ -1019,43 +1019,43 @@ class ProjectInspector {
           }, {});
 
           for (const [model, count] of Object.entries(cpusByModel)) {
-            console.log(`  ${chalk.cyan(count + 'x')} ${model}`);
+            console.log(`  ${prism.cyan(count + 'x')} ${model}`);
           }
 
-          console.log(chalk.bold('\nMemory:'));
-          console.log(`  ${chalk.cyan('Total:')} ${this.formatFileSize(data.memory.total)}`);
-          console.log(`  ${chalk.cyan('Available:')} ${this.formatFileSize(data.memory.available)} (${data.memory.availablePercent}%)`);
-          console.log(`  ${chalk.cyan('Used:')} ${this.formatFileSize(data.memory.used)} (${data.memory.usagePercent}%)`);
+          console.log(prism.bold('\nMemory:'));
+          console.log(`  ${prism.cyan('Total:')} ${this.formatFileSize(data.memory.total)}`);
+          console.log(`  ${prism.cyan('Available:')} ${this.formatFileSize(data.memory.available)} (${data.memory.availablePercent}%)`);
+          console.log(`  ${prism.cyan('Used:')} ${this.formatFileSize(data.memory.used)} (${data.memory.usagePercent}%)`);
           if (data.memory.wired) {
-            console.log(`  ${chalk.cyan('Wired:')} ${this.formatFileSize(data.memory.wired)}`);
-            console.log(`  ${chalk.cyan('Active:')} ${this.formatFileSize(data.memory.active)}`);
-            console.log(`  ${chalk.cyan('Inactive:')} ${this.formatFileSize(data.memory.inactive)}`);
-            console.log(`  ${chalk.cyan('Compressed:')} ${this.formatFileSize(data.memory.compressed)}`);
+            console.log(`  ${prism.cyan('Wired:')} ${this.formatFileSize(data.memory.wired)}`);
+            console.log(`  ${prism.cyan('Active:')} ${this.formatFileSize(data.memory.active)}`);
+            console.log(`  ${prism.cyan('Inactive:')} ${this.formatFileSize(data.memory.inactive)}`);
+            console.log(`  ${prism.cyan('Compressed:')} ${this.formatFileSize(data.memory.compressed)}`);
           }
-          console.log(`  ${chalk.cyan('Endianness:')} ${data.endianness}`);
+          console.log(`  ${prism.cyan('Endianness:')} ${data.endianness}`);
           break;
         }
 
       case 'environment':
-        console.log(chalk.bold('User:'));
-        console.log(`  ${chalk.cyan('Username:')} ${data.user.username}`);
-        console.log(`  ${chalk.cyan('UID:')} ${data.user.uid}`);
-        console.log(`  ${chalk.cyan('GID:')} ${data.user.gid}`);
-        console.log(`  ${chalk.cyan('Home:')} ${data.user.homedir}`);
-        console.log(`  ${chalk.cyan('Shell:')} ${data.user.shell}`);
+        console.log(prism.bold('User:'));
+        console.log(`  ${prism.cyan('Username:')} ${data.user.username}`);
+        console.log(`  ${prism.cyan('UID:')} ${data.user.uid}`);
+        console.log(`  ${prism.cyan('GID:')} ${data.user.gid}`);
+        console.log(`  ${prism.cyan('Home:')} ${data.user.homedir}`);
+        console.log(`  ${prism.cyan('Shell:')} ${data.user.shell}`);
 
-        console.log(chalk.bold('\nPaths:'));
-        console.log(`  ${chalk.cyan('Home:')} ${data.home}`);
-        console.log(`  ${chalk.cyan('Temp:')} ${data.tmpdir}`);
-        console.log(`  ${chalk.cyan('Shell:')} ${data.shell}`);
+        console.log(prism.bold('\nPaths:'));
+        console.log(`  ${prism.cyan('Home:')} ${data.home}`);
+        console.log(`  ${prism.cyan('Temp:')} ${data.tmpdir}`);
+        console.log(`  ${prism.cyan('Shell:')} ${data.shell}`);
 
-        console.log(chalk.bold('\nEnvironment:'));
-        console.log(`  ${chalk.cyan('NODE_ENV:')} ${data.nodeEnv}`);
-        if (data.xecEnv.XEC_HOME) console.log(`  ${chalk.cyan('XEC_HOME:')} ${data.xecEnv.XEC_HOME}`);
-        if (data.xecEnv.XEC_DEBUG) console.log(`  ${chalk.cyan('XEC_DEBUG:')} ${data.xecEnv.XEC_DEBUG}`);
-        if (data.xecEnv.XEC_PROFILE) console.log(`  ${chalk.cyan('XEC_PROFILE:')} ${data.xecEnv.XEC_PROFILE}`);
+        console.log(prism.bold('\nEnvironment:'));
+        console.log(`  ${prism.cyan('NODE_ENV:')} ${data.nodeEnv}`);
+        if (data.xecEnv.XEC_HOME) console.log(`  ${prism.cyan('XEC_HOME:')} ${data.xecEnv.XEC_HOME}`);
+        if (data.xecEnv.XEC_DEBUG) console.log(`  ${prism.cyan('XEC_DEBUG:')} ${data.xecEnv.XEC_DEBUG}`);
+        if (data.xecEnv.XEC_PROFILE) console.log(`  ${prism.cyan('XEC_PROFILE:')} ${data.xecEnv.XEC_PROFILE}`);
 
-        console.log(chalk.bold('\nPATH (first 10):'));
+        console.log(prism.bold('\nPATH (first 10):'));
         data.path.forEach((p: string, i: number) => {
           console.log(`  ${i + 1}. ${p}`);
         });
@@ -1064,11 +1064,11 @@ class ProjectInspector {
       case 'network':
         for (const [name, interfaces] of Object.entries(data.interfaces)) {
           if ((interfaces as any[]).length > 0) {
-            console.log(chalk.bold(`${name}:`));
+            console.log(prism.bold(`${name}:`));
             (interfaces as any[]).forEach(iface => {
-              console.log(`  ${chalk.cyan(iface.family)}: ${iface.address}`);
+              console.log(`  ${prism.cyan(iface.family)}: ${iface.address}`);
               if (iface.mac !== '00:00:00:00:00:00') {
-                console.log(`  ${chalk.cyan('MAC')}: ${iface.mac}`);
+                console.log(`  ${prism.cyan('MAC')}: ${iface.mac}`);
               }
             });
             console.log();
@@ -1079,39 +1079,39 @@ class ProjectInspector {
       case 'tools':
         for (const [tool, installed] of Object.entries(data.installed)) {
           if (installed) {
-            console.log(`  ${chalk.green('✓')} ${chalk.cyan(tool)}: ${data.versions[tool]}`);
+            console.log(`  ${prism.green('✓')} ${prism.cyan(tool)}: ${data.versions[tool]}`);
           } else {
-            console.log(`  ${chalk.red('✗')} ${chalk.dim(tool)}`);
+            console.log(`  ${prism.red('✗')} ${prism.dim(tool)}`);
           }
         }
         break;
 
       case 'project':
-        console.log(`${chalk.cyan('Working Directory:')} ${data.workingDirectory}`);
-        console.log(`${chalk.cyan('Project Root:')} ${data.projectRoot}`);
+        console.log(`${prism.cyan('Working Directory:')} ${data.workingDirectory}`);
+        console.log(`${prism.cyan('Project Root:')} ${data.projectRoot}`);
 
         if (data.package) {
-          console.log(chalk.bold('\nPackage:'));
-          console.log(`  ${chalk.cyan('Name:')} ${data.package.name}`);
-          console.log(`  ${chalk.cyan('Version:')} ${data.package.version}`);
+          console.log(prism.bold('\nPackage:'));
+          console.log(`  ${prism.cyan('Name:')} ${data.package.name}`);
+          console.log(`  ${prism.cyan('Version:')} ${data.package.version}`);
           if (data.package.description) {
-            console.log(`  ${chalk.cyan('Description:')} ${data.package.description}`);
+            console.log(`  ${prism.cyan('Description:')} ${data.package.description}`);
           }
           if (data.package.scripts.length > 0) {
-            console.log(`  ${chalk.cyan('Scripts:')} ${data.package.scripts.join(', ')}`);
+            console.log(`  ${prism.cyan('Scripts:')} ${data.package.scripts.join(', ')}`);
           }
         }
 
-        console.log(chalk.bold('\nConfiguration Files:'));
+        console.log(prism.bold('\nConfiguration Files:'));
         for (const [file, exists] of Object.entries(data.configFiles)) {
-          console.log(`  ${exists ? chalk.green('✓') : chalk.red('✗')} ${file}`);
+          console.log(`  ${exists ? prism.green('✓') : prism.red('✗')} ${file}`);
         }
         break;
 
       default:
         // Fallback to default display
         for (const [key, value] of Object.entries(data)) {
-          console.log(`${chalk.cyan(key)}: ${this.formatValue(value)}`);
+          console.log(`${prism.cyan(key)}: ${this.formatValue(value)}`);
         }
     }
 
@@ -1123,22 +1123,22 @@ class ProjectInspector {
 
     switch (result.name) {
       case 'stats':
-        console.log(chalk.bold('Module Cache Statistics:'));
-        console.log(`  ${chalk.cyan('Memory Entries:')} ${data.memoryEntries}`);
-        console.log(`  ${chalk.cyan('File Entries:')} ${data.fileEntries}`);
-        console.log(`  ${chalk.cyan('Total Size:')} ${data.formattedSize}`);
+        console.log(prism.bold('Module Cache Statistics:'));
+        console.log(`  ${prism.cyan('Memory Entries:')} ${data.memoryEntries}`);
+        console.log(`  ${prism.cyan('File Entries:')} ${data.fileEntries}`);
+        console.log(`  ${prism.cyan('Total Size:')} ${data.formattedSize}`);
         console.log();
-        console.log(`  ${chalk.dim('Cache Directory:')} ${result.metadata?.['cacheDir']}`);
+        console.log(`  ${prism.dim('Cache Directory:')} ${result.metadata?.['cacheDir']}`);
         break;
 
       case 'clear':
-        console.log(chalk.green('✔ ') + data.message);
-        console.log(`  ${chalk.dim('Timestamp:')} ${result.metadata?.['timestamp']}`);
+        console.log(prism.green('✔ ') + data.message);
+        console.log(`  ${prism.dim('Timestamp:')} ${result.metadata?.['timestamp']}`);
         break;
 
       default:
         for (const [key, value] of Object.entries(data)) {
-          console.log(`${chalk.cyan(key)}: ${this.formatValue(value)}`);
+          console.log(`${prism.cyan(key)}: ${this.formatValue(value)}`);
         }
     }
   }
@@ -1159,18 +1159,18 @@ class ProjectInspector {
   private async showTaskExplanation(taskName: string): Promise<void> {
     const explanation = await this.taskManager.explain(taskName, {});
 
-    console.log(chalk.bold('\nTask Execution Plan:\n'));
+    console.log(prism.bold('\nTask Execution Plan:\n'));
 
     for (const line of explanation) {
       if (line === '') {
         console.log();
       } else if (line.startsWith('Task:') || line.startsWith('Parameters:') ||
         line.startsWith('Execution plan:') || line.startsWith('Target')) {
-        console.log(chalk.bold.cyan(line));
+        console.log(prism.bold.cyan(line));
       } else if (line.match(/^\s*\d+\./)) {
-        console.log(chalk.green(line));
+        console.log(prism.green(line));
       } else if (line.match(/^\s{2,}/)) {
-        console.log(chalk.gray(line));
+        console.log(prism.gray(line));
       } else {
         console.log(line);
       }
@@ -1178,24 +1178,24 @@ class ProjectInspector {
   }
 
   private async runValidation(): Promise<void> {
-    console.log(chalk.bold('\n🔍 Running Configuration Validation...\n'));
+    console.log(prism.bold('\n🔍 Running Configuration Validation...\n'));
 
     // Validate configuration syntax
-    console.log(chalk.cyan('Configuration Syntax:'));
+    console.log(prism.cyan('Configuration Syntax:'));
     const configValid = await this.validateConfiguration();
-    console.log(configValid ? chalk.green('  ✓ Valid') : chalk.red('  ✗ Invalid'));
+    console.log(configValid ? prism.green('  ✓ Valid') : prism.red('  ✗ Invalid'));
 
     // Validate targets
-    console.log(chalk.cyan('\nTarget Connectivity:'));
+    console.log(prism.cyan('\nTarget Connectivity:'));
     const targets = await this.inspectTargets();
     for (const target of targets) {
       const validation = await this.validateTarget(target.name);
-      const status = validation.valid ? chalk.green('✓') : chalk.red('✗');
+      const status = validation.valid ? prism.green('✓') : prism.red('✗');
       console.log(`  ${status} ${target.name} - ${validation.message}`);
     }
 
     // Validate variables
-    console.log(chalk.cyan('\nVariable Resolution:'));
+    console.log(prism.cyan('\nVariable Resolution:'));
     const vars = await this.inspectVariables();
     let varErrors = 0;
     for (const variable of vars) {
@@ -1204,27 +1204,27 @@ class ProjectInspector {
           await this.variableInterpolator.interpolateAsync(String(variable.data), {});
         } catch (error) {
           varErrors++;
-          console.log(`  ${chalk.red('✗')} ${variable.name} - ${error instanceof Error ? error.message : String(error)}`);
+          console.log(`  ${prism.red('✗')} ${variable.name} - ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     }
     if (varErrors === 0) {
-      console.log(chalk.green('  ✓ All variables resolve correctly'));
+      console.log(prism.green('  ✓ All variables resolve correctly'));
     }
 
     // Validate tasks
-    console.log(chalk.cyan('\nTask Definitions:'));
+    console.log(prism.cyan('\nTask Definitions:'));
     const tasks = await this.inspectTasks();
     let taskErrors = 0;
     for (const task of tasks) {
       const validation = await this.validateTask(task.name);
       if (!validation.valid) {
         taskErrors++;
-        console.log(`  ${chalk.red('✗')} ${task.name} - ${validation.message}`);
+        console.log(`  ${prism.red('✗')} ${task.name} - ${validation.message}`);
       }
     }
     if (taskErrors === 0) {
-      console.log(chalk.green('  ✓ All tasks are valid'));
+      console.log(prism.green('  ✓ All tasks are valid'));
     }
 
     console.log();
@@ -1342,7 +1342,7 @@ class ProjectInspector {
     if (tableType === 'all') {
       return [
         result.type,
-        chalk.cyan(result.name),
+        prism.cyan(result.name),
         this.formatValue(result.data, 50),
       ];
     }
@@ -1350,38 +1350,38 @@ class ProjectInspector {
     switch (result.type) {
       case 'task':
         return [
-          chalk.cyan(result.name),
+          prism.cyan(result.name),
           result.data?.hasSteps ? 'Pipeline' : result.data?.hasScript ? 'Script' : 'Command',
-          result.data?.description || chalk.dim('No description'),
-          result.data?.params?.length > 0 ? result.data.params.map((p: any) => p.name).join(', ') : chalk.dim('None'),
+          result.data?.description || prism.dim('No description'),
+          result.data?.params?.length > 0 ? result.data.params.map((p: any) => p.name).join(', ') : prism.dim('None'),
         ];
 
       case 'target':
         return [
-          chalk.cyan(result.name),
+          prism.cyan(result.name),
           result.data?.type || 'unknown',
           this.formatTargetDetails(result.data),
         ];
 
       case 'variable':
         return [
-          chalk.cyan(result.name),
+          prism.cyan(result.name),
           this.formatValue(result.data, 50),
           result.metadata?.['type'] || 'unknown',
         ];
 
       case 'script':
         return [
-          chalk.cyan(result.name),
-          chalk.dim(result.data?.relativePath || ''),
+          prism.cyan(result.name),
+          prism.dim(result.data?.relativePath || ''),
           this.formatFileSize(result.metadata?.['size'] || 0),
         ];
 
       case 'command':
         return [
-          chalk.cyan(result.name),
+          prism.cyan(result.name),
           result.data?.type || 'unknown',
-          result.data?.description || chalk.dim('No description'),
+          result.data?.description || prism.dim('No description'),
         ];
 
       case 'system':
@@ -1393,7 +1393,7 @@ class ProjectInspector {
       default:
         return [
           result.type,
-          chalk.cyan(result.name),
+          prism.cyan(result.name),
           this.formatValue(result.data, 50),
         ];
     }
@@ -1405,21 +1405,21 @@ class ProjectInspector {
     switch (result.name) {
       case 'stats':
         return [
-          chalk.cyan('Statistics'),
+          prism.cyan('Statistics'),
           'Module Cache',
           `${data.fileEntries} files (${data.formattedSize})`,
         ];
 
       case 'clear':
         return [
-          chalk.cyan('Operation'),
+          prism.cyan('Operation'),
           'Clear Cache',
           data.message,
         ];
 
       default:
         return [
-          chalk.cyan('Cache'),
+          prism.cyan('Cache'),
           result.name,
           this.formatValue(data, 50),
         ];
@@ -1433,7 +1433,7 @@ class ProjectInspector {
     switch (result.name) {
       case 'version':
         return [
-          chalk.cyan('Version'),
+          prism.cyan('Version'),
           'Xec CLI',
           `${data.xec.cli} (core: ${data.xec.core})`,
         ];
@@ -1442,7 +1442,7 @@ class ProjectInspector {
         {
           const osDesc = data.productName || data.distro || data.caption || data.type;
           return [
-            chalk.cyan('OS'),
+            prism.cyan('OS'),
             osDesc,
             `${data.arch} - ${data.release}`,
           ];
@@ -1450,14 +1450,14 @@ class ProjectInspector {
 
       case 'hardware':
         return [
-          chalk.cyan('Hardware'),
+          prism.cyan('Hardware'),
           `${data.cpuCount} CPUs`,
           `${this.formatFileSize(data.memory.total)} RAM (${this.formatFileSize(data.memory.available)} available)`,
         ];
 
       case 'environment':
         return [
-          chalk.cyan('Environment'),
+          prism.cyan('Environment'),
           data.user.username,
           `Shell: ${path.basename(data.shell)}`,
         ];
@@ -1466,7 +1466,7 @@ class ProjectInspector {
         {
           const ifaceCount = Object.keys(data.interfaces).length;
           return [
-            chalk.cyan('Network'),
+            prism.cyan('Network'),
             `${ifaceCount} interfaces`,
             Object.keys(data.interfaces).join(', '),
           ];
@@ -1476,7 +1476,7 @@ class ProjectInspector {
         {
           const installedCount = Object.values(data.installed).filter(v => v).length;
           return [
-            chalk.cyan('Dev Tools'),
+            prism.cyan('Dev Tools'),
             `${installedCount} installed`,
             Object.entries(data.installed)
               .filter(([, installed]) => installed)
@@ -1489,7 +1489,7 @@ class ProjectInspector {
         {
           const configCount = Object.values(data.configFiles).filter(v => v).length;
           return [
-            chalk.cyan('Project'),
+            prism.cyan('Project'),
             data.package?.name || path.basename(data.workingDirectory),
             `${configCount} config files`,
           ];
@@ -1497,7 +1497,7 @@ class ProjectInspector {
 
       default:
         return [
-          chalk.cyan(category),
+          prism.cyan(category),
           result.name,
           this.formatValue(data, 50),
         ];
@@ -1506,19 +1506,19 @@ class ProjectInspector {
 
   private formatItemLabel(result: InspectionResult): string {
     const icon = this.getTypeIcon(result.type);
-    const name = chalk.cyan(result.name);
+    const name = prism.cyan(result.name);
 
     let details = '';
     // eslint-disable-next-line default-case
     switch (result.type) {
       case 'task':
-        details = result.data.description ? chalk.dim(` - ${result.data.description}`) : '';
+        details = result.data.description ? prism.dim(` - ${result.data.description}`) : '';
         break;
       case 'target':
-        details = chalk.dim(` (${result.data.type})`);
+        details = prism.dim(` (${result.data.type})`);
         break;
       case 'variable':
-        details = chalk.dim(` = ${this.formatValue(result.data, 30)}`);
+        details = prism.dim(` = ${this.formatValue(result.data, 30)}`);
         break;
     }
 
@@ -1526,12 +1526,12 @@ class ProjectInspector {
   }
 
   private formatTreeItem(result: InspectionResult): string {
-    return `${chalk.cyan(result.name)} ${chalk.dim(`(${result.type})`)}`;
+    return `${prism.cyan(result.name)} ${prism.dim(`(${result.type})`)}`;
   }
 
   private formatTargetDetails(target: any): string {
     if (!target || !target.config) {
-      return chalk.dim('No details');
+      return prism.dim('No details');
     }
 
     const parts: string[] = [];
@@ -1542,12 +1542,12 @@ class ProjectInspector {
     if (config.pod) parts.push(`pod: ${config.pod}`);
     if (config.namespace) parts.push(`ns: ${config.namespace}`);
 
-    return parts.join(', ') || chalk.dim('No details');
+    return parts.join(', ') || prism.dim('No details');
   }
 
   private formatValue(value: any, maxLength?: number): string {
-    if (value === null) return chalk.dim('null');
-    if (value === undefined) return chalk.dim('undefined');
+    if (value === null) return prism.dim('null');
+    if (value === undefined) return prism.dim('undefined');
 
     let str: string;
     if (typeof value === 'string') {

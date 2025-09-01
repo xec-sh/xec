@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
  * SelectKey Component Comprehensive Example
- * 
+ *
  * Demonstrates all features of the select-key prompt:
  * - Quick selection using single key press
  * - Options with custom labels and hints
@@ -11,15 +11,16 @@
  * - Multiple use cases
  */
 
-import color from 'picocolors';
+import { note , intro, outro, cancel, isCancel, selectKey, prism as color } from '../src/index.js';
 
-import { note, intro, outro, cancel, isCancel, selectKey } from '../src/index.js';
 
 async function main() {
   intro(color.bgCyan(color.black(' SelectKey Component Demo ')));
 
   // Example 1: Basic Usage - File Operations
-  note('Example 1: File Operations Menu\nPress the first letter of your choice for quick selection!');
+  note(
+    'Example 1: File Operations Menu\nPress the first letter of your choice for quick selection!'
+  );
 
   const fileOperation = await selectKey({
     message: 'What would you like to do with the file?',

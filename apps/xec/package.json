@@ -93,7 +93,6 @@
     "@xec-sh/aura": "workspace:*",
     "@xec-sh/core": "workspace:*",
     "@xec-sh/kit": "workspace:*",
-    "chalk": "^5.4.1",
     "chokidar": "^4.0.3",
     "commander": "^14.0.0",
     "csv-parse": "^6.1.0",

@@ -1,60 +1,87 @@
-
 /* MAIN */
 
 export type TruncationOptions = {
-  limit?: number,
-  ellipsis?: string,
-  ellipsisWidth?: number
+  limit?: number;
+  ellipsis?: string;
+  ellipsisWidth?: number;
 };
 
 export type WidthOptions = {
   /* SPECIAL */
-  controlWidth?: number,
-  tabWidth?: number,
+  controlWidth?: number;
+  tabWidth?: number;
   /* OTHERS */
-  emojiWidth?: number,
-  regularWidth?: number,
-  wideWidth?: number
+  emojiWidth?: number;
+  regularWidth?: number;
+  wideWidth?: number;
 };
 
 export type Result = {
-  width: number,
-  index: number,
-  truncated: boolean,
-  ellipsed: boolean
+  width: number;
+  index: number;
+  truncated: boolean;
+  ellipsed: boolean;
 };
-
 
 /* MAIN */
 
-const isFullWidth = (x: number): boolean => x === 0x3000 || x >= 0xFF01 && x <= 0xFF60 || x >= 0xFFE0 && x <= 0xFFE6;
+const isFullWidth = (x: number): boolean =>
+  x === 0x3000 || (x >= 0xff01 && x <= 0xff60) || (x >= 0xffe0 && x <= 0xffe6);
 
-const isWideNotCJKTNotEmoji = (x: number): boolean => x === 0x231B || x === 0x2329 || x >= 0x2FF0 && x <= 0x2FFF || x >= 0x3001 && x <= 0x303E || x >= 0x3099 && x <= 0x30FF || x >= 0x3105 && x <= 0x312F || x >= 0x3131 && x <= 0x318E || x >= 0x3190 && x <= 0x31E3 || x >= 0x31EF && x <= 0x321E || x >= 0x3220 && x <= 0x3247 || x >= 0x3250 && x <= 0x4DBF || x >= 0xFE10 && x <= 0xFE19 || x >= 0xFE30 && x <= 0xFE52 || x >= 0xFE54 && x <= 0xFE66 || x >= 0xFE68 && x <= 0xFE6B || x >= 0x1F200 && x <= 0x1F202 || x >= 0x1F210 && x <= 0x1F23B || x >= 0x1F240 && x <= 0x1F248 || x >= 0x20000 && x <= 0x2FFFD || x >= 0x30000 && x <= 0x3FFFD;
+const isWideNotCJKTNotEmoji = (x: number): boolean =>
+  x === 0x231b ||
+  x === 0x2329 ||
+  (x >= 0x2ff0 && x <= 0x2fff) ||
+  (x >= 0x3001 && x <= 0x303e) ||
+  (x >= 0x3099 && x <= 0x30ff) ||
+  (x >= 0x3105 && x <= 0x312f) ||
+  (x >= 0x3131 && x <= 0x318e) ||
+  (x >= 0x3190 && x <= 0x31e3) ||
+  (x >= 0x31ef && x <= 0x321e) ||
+  (x >= 0x3220 && x <= 0x3247) ||
+  (x >= 0x3250 && x <= 0x4dbf) ||
+  (x >= 0xfe10 && x <= 0xfe19) ||
+  (x >= 0xfe30 && x <= 0xfe52) ||
+  (x >= 0xfe54 && x <= 0xfe66) ||
+  (x >= 0xfe68 && x <= 0xfe6b) ||
+  (x >= 0x1f200 && x <= 0x1f202) ||
+  (x >= 0x1f210 && x <= 0x1f23b) ||
+  (x >= 0x1f240 && x <= 0x1f248) ||
+  (x >= 0x20000 && x <= 0x2fffd) ||
+  (x >= 0x30000 && x <= 0x3fffd);
 
 /* EXPORT */
 
 export { isFullWidth, isWideNotCJKTNotEmoji };
 
-// eslint-disable-next-line no-control-regex
-const ANSI_RE = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|\u001b\]8;[^;]*;.*?(?:\u0007|\u001b\u005c)/y;
+ 
+const ANSI_RE =
+  /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|\u001b\]8;[^;]*;.*?(?:\u0007|\u001b\u005c)/y;
 // eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\x00-\x08\x0A-\x1F\x7F-\x9F]{1,1000}/y;
-const CJKT_WIDE_RE = /(?:(?![\uFF61-\uFF9F\uFF00-\uFFEF])[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Tangut}]){1,1000}/yu;
+const CJKT_WIDE_RE =
+  /(?:(?![\uFF61-\uFF9F\uFF00-\uFFEF])[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Tangut}]){1,1000}/uy;
 const TAB_RE = /\t{1,1000}/y;
-const EMOJI_RE = /[\u{1F1E6}-\u{1F1FF}]{2}|\u{1F3F4}[\u{E0061}-\u{E007A}]{2}[\u{E0030}-\u{E0039}\u{E0061}-\u{E007A}]{1,3}\u{E007F}|(?:\p{Emoji}\uFE0F\u20E3?|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation})(?:\u200D(?:\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}|\p{Emoji}\uFE0F\u20E3?))*/yu;
+const EMOJI_RE =
+  /[\u{1F1E6}-\u{1F1FF}]{2}|\u{1F3F4}[\u{E0061}-\u{E007A}]{2}[\u{E0030}-\u{E0039}\u{E0061}-\u{E007A}]{1,3}\u{E007F}|(?:\p{Emoji}\uFE0F\u20E3?|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation})(?:\u200D(?:\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}|\p{Emoji}\uFE0F\u20E3?))*/uy;
 const LATIN_RE = /(?:[\x20-\x7E\xA0-\xFF](?!\uFE0F)){1,1000}/y;
 const MODIFIER_RE = /\p{M}+/gu;
 const NO_TRUNCATION: TruncationOptions = { limit: Infinity, ellipsis: '' };
 
 /* MAIN */
 
-const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOptions = {}, widthOptions: WidthOptions = {}): Result => {
-
+const getStringTruncatedWidth = (
+  input: string,
+  truncationOptions: TruncationOptions = {},
+  widthOptions: WidthOptions = {}
+): Result => {
   /* CONSTANTS */
 
   const LIMIT = truncationOptions.limit ?? Infinity;
   const ELLIPSIS = truncationOptions.ellipsis ?? '';
-  const ELLIPSIS_WIDTH = truncationOptions?.ellipsisWidth ?? (ELLIPSIS ? getStringTruncatedWidth(ELLIPSIS, NO_TRUNCATION, widthOptions).width : 0);
+  const ELLIPSIS_WIDTH =
+    truncationOptions?.ellipsisWidth ??
+    (ELLIPSIS ? getStringTruncatedWidth(ELLIPSIS, NO_TRUNCATION, widthOptions).width : 0);
 
   const ANSI_WIDTH = 0;
   const CONTROL_WIDTH = widthOptions.controlWidth ?? 0;
@@ -71,7 +98,7 @@ const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOpt
     [CONTROL_RE, CONTROL_WIDTH],
     [TAB_RE, TAB_WIDTH],
     [EMOJI_RE, EMOJI_WIDTH],
-    [CJKT_WIDE_RE, WIDE_WIDTH]
+    [CJKT_WIDE_RE, WIDE_WIDTH],
   ];
 
   /* STATE */
@@ -90,19 +117,15 @@ const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOpt
 
   /* PARSE LOOP */
 
-  outer:
-  while (true) {
-
+  outer: while (true) {
     /* UNMATCHED */
 
-    if ((unmatchedEnd > unmatchedStart) || (index >= length && index > indexPrev)) {
-
+    if (unmatchedEnd > unmatchedStart || (index >= length && index > indexPrev)) {
       const unmatched = input.slice(unmatchedStart, unmatchedEnd) || input.slice(indexPrev, index);
 
       lengthExtra = 0;
 
       for (const char of unmatched.replaceAll(MODIFIER_RE, '')) {
-
         const codePoint = char.codePointAt(0) || 0;
 
         if (isFullWidth(codePoint)) {
@@ -113,22 +136,23 @@ const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOpt
           widthExtra = REGULAR_WIDTH;
         }
 
-        if ((width + widthExtra) > truncationLimit) {
-          truncationIndex = Math.min(truncationIndex, Math.max(unmatchedStart, indexPrev) + lengthExtra);
+        if (width + widthExtra > truncationLimit) {
+          truncationIndex = Math.min(
+            truncationIndex,
+            Math.max(unmatchedStart, indexPrev) + lengthExtra
+          );
         }
 
-        if ((width + widthExtra) > LIMIT) {
+        if (width + widthExtra > LIMIT) {
           truncationEnabled = true;
           break outer;
         }
 
         lengthExtra += char.length;
         width += widthExtra;
-
       }
 
       unmatchedStart = unmatchedEnd = 0;
-
     }
 
     /* EXITING */
@@ -140,24 +164,25 @@ const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOpt
     /* PARSE BLOCKS */
 
     for (let i = 0, l = PARSE_BLOCKS.length; i < l; i++) {
-
       const block = PARSE_BLOCKS[i];
       if (!block) continue;
-      
+
       const [BLOCK_RE, BLOCK_WIDTH] = block;
 
       BLOCK_RE.lastIndex = index;
 
       if (BLOCK_RE.test(input)) {
-
         lengthExtra = BLOCK_RE === EMOJI_RE ? 1 : BLOCK_RE.lastIndex - index;
         widthExtra = lengthExtra * BLOCK_WIDTH;
 
-        if ((width + widthExtra) > truncationLimit) {
-          truncationIndex = Math.min(truncationIndex, index + Math.floor((truncationLimit - width) / BLOCK_WIDTH));
+        if (width + widthExtra > truncationLimit) {
+          truncationIndex = Math.min(
+            truncationIndex,
+            index + Math.floor((truncationLimit - width) / BLOCK_WIDTH)
+          );
         }
 
-        if ((width + widthExtra) > LIMIT) {
+        if (width + widthExtra > LIMIT) {
           truncationEnabled = true;
           break outer;
         }
@@ -168,15 +193,12 @@ const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOpt
         index = indexPrev = BLOCK_RE.lastIndex;
 
         continue outer;
-
       }
-
     }
 
     /* UNMATCHED INDEX */
 
     index += 1;
-
   }
 
   /* RETURN */
@@ -185,10 +207,8 @@ const getStringTruncatedWidth = (input: string, truncationOptions: TruncationOpt
     width: truncationEnabled ? truncationLimit : width,
     index: truncationEnabled ? truncationIndex : length,
     truncated: truncationEnabled,
-    ellipsed: truncationEnabled && LIMIT >= ELLIPSIS_WIDTH
+    ellipsed: truncationEnabled && LIMIT >= ELLIPSIS_WIDTH,
   };
-
 };
-
 
 export default getStringTruncatedWidth;

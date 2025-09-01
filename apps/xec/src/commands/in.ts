@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import path from 'path';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 
@@ -178,7 +178,7 @@ export class InCommand extends ConfigAwareCommand {
   ): Promise<void> {
     if (options.dryRun) {
       for (const target of targets) {
-        this.log(`[DRY RUN] Would execute in ${this.formatTargetDisplay(target)}: ${chalk.yellow(command)}`, 'info');
+        this.log(`[DRY RUN] Would execute in ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}`, 'info');
       }
       return;
     }
@@ -241,14 +241,14 @@ export class InCommand extends ConfigAwareCommand {
 
       if (!options.quiet) {
         this.stopSpinner();
-        this.log(`${chalk.green('✓')} ${targetDisplay}`, 'success');
+        this.log(`${prism.green('✓')} ${targetDisplay}`, 'success');
 
         if (result.stdout) {
           console.log(result.stdout.trim());
         }
 
         if (result.stderr && options.verbose) {
-          console.error(chalk.yellow(result.stderr.trim()));
+          console.error(prism.yellow(result.stderr.trim()));
         }
       }
     } catch (error) {
@@ -257,7 +257,7 @@ export class InCommand extends ConfigAwareCommand {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} ${targetDisplay}: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} ${targetDisplay}: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -285,14 +285,14 @@ export class InCommand extends ConfigAwareCommand {
     const failed = results.filter(r => !r.success);
 
     if (successful.length > 0) {
-      this.log(`${chalk.green('✓')} Succeeded on ${successful.length} targets:`, 'success');
+      this.log(`${prism.green('✓')} Succeeded on ${successful.length} targets:`, 'success');
       for (const result of successful) {
         this.log(`  - ${this.formatTargetDisplay(result.target)}`, 'info');
       }
     }
 
     if (failed.length > 0) {
-      this.log(`${chalk.red('✗')} Failed on ${failed.length} targets:`, 'error');
+      this.log(`${prism.red('✗')} Failed on ${failed.length} targets:`, 'error');
       for (const result of failed) {
         const errorMessage = result.error instanceof Error ? result.error.message : String(result.error);
         this.log(`  - ${this.formatTargetDisplay(result.target)}: ${errorMessage}`, 'error');
@@ -320,13 +320,13 @@ export class InCommand extends ConfigAwareCommand {
         });
 
         if (result.success) {
-          this.log(`${chalk.green('✓')} Task completed on ${targetDisplay}`, 'success');
+          this.log(`${prism.green('✓')} Task completed on ${targetDisplay}`, 'success');
         } else {
           throw new Error(result.error?.message || 'Task failed');
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        this.log(`${chalk.red('✗')} Task failed on ${targetDisplay}: ${errorMessage}`, 'error');
+        this.log(`${prism.red('✗')} Task failed on ${targetDisplay}: ${errorMessage}`, 'error');
         throw error;
       }
     }
@@ -366,13 +366,13 @@ export class InCommand extends ConfigAwareCommand {
         const result = await scriptLoader.executeScript(scriptPath, execOptions);
 
         if (result.success) {
-          this.log(`${chalk.green('✓')} Script completed on ${targetDisplay}`, 'success');
+          this.log(`${prism.green('✓')} Script completed on ${targetDisplay}`, 'success');
         } else {
           throw result.error || new Error('Script execution failed');
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        this.log(`${chalk.red('✗')} Script failed on ${targetDisplay}: ${errorMessage}`, 'error');
+        this.log(`${prism.red('✗')} Script failed on ${targetDisplay}: ${errorMessage}`, 'error');
         throw error;
       }
     }
@@ -465,7 +465,7 @@ export class InCommand extends ConfigAwareCommand {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} Failed to start interactive session: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} Failed to start interactive session: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -648,30 +648,30 @@ export class InCommand extends ConfigAwareCommand {
 
       // Show summary
       InteractiveHelpers.showInfo('\nExecution Summary:');
-      console.log(`  Target(s): ${chalk.cyan(targetPattern)}`);
+      console.log(`  Target(s): ${prism.cyan(targetPattern)}`);
       if (commandParts.length > 0) {
-        console.log(`  Command: ${chalk.cyan(commandParts.join(' '))}`);
+        console.log(`  Command: ${prism.cyan(commandParts.join(' '))}`);
       }
       if (inOptions.task) {
-        console.log(`  Task: ${chalk.cyan(inOptions.task)}`);
+        console.log(`  Task: ${prism.cyan(inOptions.task)}`);
       }
       if (inOptions.repl) {
-        console.log(`  Mode: ${chalk.gray('REPL session')}`);
+        console.log(`  Mode: ${prism.gray('REPL session')}`);
       }
       if (inOptions.interactive && execType.value === 'shell') {
-        console.log(`  Mode: ${chalk.gray('Interactive shell')}`);
+        console.log(`  Mode: ${prism.gray('Interactive shell')}`);
       }
       if (inOptions.parallel) {
-        console.log(`  Execution: ${chalk.gray('parallel')}`);
+        console.log(`  Execution: ${prism.gray('parallel')}`);
       }
       if (inOptions.env) {
-        console.log(`  Environment: ${chalk.gray(inOptions.env.join(', '))}`);
+        console.log(`  Environment: ${prism.gray(inOptions.env.join(', '))}`);
       }
       if (inOptions.cwd) {
-        console.log(`  Working directory: ${chalk.gray(inOptions.cwd)}`);
+        console.log(`  Working directory: ${prism.gray(inOptions.cwd)}`);
       }
       if (inOptions.timeout) {
-        console.log(`  Timeout: ${chalk.gray(inOptions.timeout)}`);
+        console.log(`  Timeout: ${prism.gray(inOptions.timeout)}`);
       }
 
       const confirm = await InteractiveHelpers.confirmAction(
