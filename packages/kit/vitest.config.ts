@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
-		snapshotSerializers: ['vitest-ansi-serializer'],
+		// Temporarily disable the serializer until the package is properly installed
+		// snapshotSerializers: ['vitest-ansi-serializer'],
 	},
 });

@@ -37,6 +37,9 @@ export default class SelectPrompt<T extends { value: any }> extends Prompt<T['va
 				case 'right':
 					this.cursor = this.cursor === this.options.length - 1 ? 0 : this.cursor + 1;
 					break;
+				default:
+					// No action needed for other keys
+					break;
 			}
 			this.changeValue();
 		});

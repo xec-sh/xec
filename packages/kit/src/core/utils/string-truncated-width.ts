@@ -35,7 +35,9 @@ const isWideNotCJKTNotEmoji = (x: number): boolean => x === 0x231B || x === 0x23
 
 export { isFullWidth, isWideNotCJKTNotEmoji };
 
+// eslint-disable-next-line no-control-regex
 const ANSI_RE = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|\u001b\]8;[^;]*;.*?(?:\u0007|\u001b\u005c)/y;
+// eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\x00-\x08\x0A-\x1F\x7F-\x9F]{1,1000}/y;
 const CJKT_WIDE_RE = /(?:(?![\uFF61-\uFF9F\uFF00-\uFFEF])[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Tangut}]){1,1000}/yu;
 const TAB_RE = /\t{1,1000}/y;

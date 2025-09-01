@@ -1,4 +1,4 @@
-const Docker = require('dockerode');
+import Docker from 'dockerode';
 
 export const docker = new Docker();
 
@@ -38,12 +38,24 @@ export async function waitForContainer(containerName: string, timeout = 5000): P
 
 export async function getContainerLogs(containerName: string): Promise<{ stdout: string; stderr: string }> {
   const container = docker.getContainer(containerName);
-  const stream = await container.logs({
+  const logStream = await container.logs({
     stdout: true,
     stderr: true,
     follow: false
   });
   
+  // Check if it's a Buffer or Stream
+  if (Buffer.isBuffer(logStream)) {
+    // If it's a buffer, parse it directly
+    const logs = logStream.toString('utf-8');
+    return {
+      stdout: logs,
+      stderr: ''
+    };
+  }
+  
+  // It's a stream, handle it as before
+  const stream = logStream as NodeJS.ReadableStream;
   const stdout: string[] = [];
   const stderr: string[] = [];
   
