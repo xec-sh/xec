@@ -1,27 +1,33 @@
-// Prompts
+export * from './prism/index.js';
+// Export all prompts
 export * from './prompts/text.js';
-export * from './prompts/group.js';
-export * from './utilities/log.js';
-// Components
-export * from './components/box.js';
-export * from './prompts/select.js';
-export * from './utilities/path.js';
 
+export * from './prompts/group.js';
+// Export all utilities
+export * from './utilities/log.js';
+export * from './prompts/select.js';
+// Export all components
+export * from './components/box.js';
+export * from './utilities/path.js';
+export * from './prompts/confirm.js';
 export * from './components/note.js';
 export * from './components/task.js';
-export * from './prompts/confirm.js';
 export * from './prompts/password.js';
-// Utilities
+
 export * from './utilities/common.js';
 export * from './utilities/stream.js';
-export * from './components/spinner.js';
 export * from './prompts/select-key.js';
+export * from './components/spinner.js';
 export * from './utilities/messages.js';
-
 export * from './components/task-log.js';
+
 export * from './prompts/multi-select.js';
 export * from './prompts/autocomplete.js';
 export * from './components/progress-bar.js';
 export * from './utilities/limit-options.js';
 export * from './prompts/group-multi-select.js';
+// Export prism color system
+export { default as prism } from './prism/index.js';
+
+// Export core functionality
 export { isCancel, settings, updateSettings, type ClackSettings } from './core/index.js';

@@ -4,9 +4,14 @@ import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// Core dependencies - using xec module loader
-const clack = await use('npm:@clack/prompts');
-const chalk = (await use('npm:chalk')).default;
+// Core dependencies - using built-in kit from xec context
+// Kit exports are available globally in xec scripts
+import type { SpinnerResult } from '@xec-sh/kit';
+const kit = await import('@xec-sh/kit');
+
+// Note: prism is available globally in xec scripts (from script context)
+// If not available, fallback to kit.prism
+const prism = (globalThis as any).prism || kit.prism;
 
 // Dynamic imports with efficient loading
 const semver = await use('npm:semver@7');
@@ -45,14 +50,14 @@ interface RollbackState {
 
 // Helper to handle user cancellation
 function handleCancel(): never {
-  clack.outro(chalk.yellow('✋ Release cancelled by user'));
+  kit.outro(prism.yellow('✋ Release cancelled by user'));
   process.exit(0);
 }
 
 // Wrap clack prompts to handle cancellation
 async function promptWithCancel<T>(fn: () => Promise<T | symbol>): Promise<T> {
   const result = await fn();
-  if (clack.isCancel(result)) {
+  if (kit.isCancel(result)) {
     handleCancel();
   }
   return result as T;
@@ -162,7 +167,7 @@ async function generateChangelog(fromVersion: string, toVersion: string): Promis
 
 // Safe rollback function - optimized with parallel operations
 async function performRollback(state: RollbackState, config: ReleaseConfig): Promise<void> {
-  const s = clack.spinner();
+  const s = kit.spinner();
   s.start('Performing safe rollback...');
 
   try {
@@ -220,7 +225,7 @@ export function command(program: Command): void {
     .option('--prerelease <tag>', 'Create a prerelease version (alpha, beta, rc)')
     .option('--config <path>', 'Path to release configuration file')
     .action(async (version: string | undefined, options: any) => {
-      const s = clack.spinner();
+      const s = kit.spinner();
       const rollbackState: RollbackState = {
         originalPackageJsons: new Map(),
         createdFiles: [],
@@ -230,8 +235,8 @@ export function command(program: Command): void {
       };
       let usedChangesFile = false;
 
-      clack.intro(chalk.bgMagenta.black(' 🚀 Xec Release Manager '));
-      clack.log.info(chalk.dim('Press ESC at any prompt to cancel safely'));
+      kit.intro(prism.bgMagenta(prism.black(' 🚀 Xec Release Manager ')));
+      kit.log.info(prism.dim('Press ESC at any prompt to cancel safely'));
 
       let config: ReleaseConfig = {
         version: '',
@@ -254,15 +259,15 @@ export function command(program: Command): void {
           try {
             const configContent = readFileSync(options.config, 'utf8');
             fileConfig = JSON.parse(configContent);
-            clack.log.info(`Loaded configuration from ${options.config}`);
+            kit.log.info(`Loaded configuration from ${options.config}`);
           } catch (error) {
-            clack.log.warn(`Failed to load config file: ${options.config}`);
+            kit.log.warn(`Failed to load config file: ${options.config}`);
           }
         } else if (existsSync('.xec-release.json')) {
           try {
             const configContent = readFileSync('.xec-release.json', 'utf8');
             fileConfig = JSON.parse(configContent);
-            clack.log.info('Loaded configuration from .xec-release.json');
+            kit.log.info('Loaded configuration from .xec-release.json');
           } catch { }
         }
 
@@ -275,7 +280,7 @@ export function command(program: Command): void {
         // Check if we're in the root directory
         if (!existsSync('turbo.json')) {
           s.stop('❌ Not in project root');
-          clack.outro(chalk.red('Please run this command from the project root'));
+          kit.outro(prism.red('Please run this command from the project root'));
           process.exit(1);
         }
 
@@ -297,7 +302,7 @@ export function command(program: Command): void {
 
         if (gitStatus?.stdout.trim() && !options.dryRun) {
           s.stop('❌ Working directory not clean');
-          const proceed = await promptWithCancel(() => clack.confirm({
+          const proceed = await promptWithCancel(() => kit.confirm({
             message: 'Working directory has uncommitted changes. Continue anyway?',
             initialValue: false
           }));
@@ -308,7 +313,7 @@ export function command(program: Command): void {
 
         if (currentBranch !== 'main' && !options.dryRun) {
           s.stop(`⚠️  Not on main branch (current: ${currentBranch})`);
-          const proceed = await promptWithCancel(() => clack.confirm({
+          const proceed = await promptWithCancel(() => kit.confirm({
             message: 'You are not on the main branch. Continue anyway?',
             initialValue: false
           }));
@@ -320,7 +325,7 @@ export function command(program: Command): void {
         s.stop('✅ Repository state checked');
 
         // Step 2: Collect all release parameters
-        clack.log.info(chalk.bold('\n📋 Release Configuration'));
+        kit.log.info(prism.bold('\n📋 Release Configuration'));
 
         const currentPkg = readPackageJson('packages/core');
         const currentVersion = currentPkg.version;
@@ -328,7 +333,7 @@ export function command(program: Command): void {
         // Determine version
         let newVersion = version;
         if (!newVersion) {
-          const versionType = await promptWithCancel(() => clack.select({
+          const versionType = await promptWithCancel(() => kit.select({
             message: `Select version type (current: ${currentVersion})`,
             options: [
               { value: 'patch', label: `Patch (${semver.inc(currentVersion, 'patch')})` },
@@ -343,7 +348,7 @@ export function command(program: Command): void {
           if (versionType === 'keep') {
             newVersion = currentVersion;
           } else if (versionType === 'custom') {
-            newVersion = await promptWithCancel(() => clack.text({
+            newVersion = await promptWithCancel(() => kit.text({
               message: 'Enter custom version:',
               validate: (value) => {
                 if (!semver.valid(value)) {
@@ -355,7 +360,7 @@ export function command(program: Command): void {
               }
             }));
           } else if (versionType === 'prerelease') {
-            const prereleaseType = options.prerelease || await promptWithCancel(() => clack.select({
+            const prereleaseType = options.prerelease || await promptWithCancel(() => kit.select({
               message: 'Select prerelease type:',
               options: [
                 { value: 'alpha', label: 'Alpha' },
@@ -371,7 +376,7 @@ export function command(program: Command): void {
 
         // Validate version
         if (!semver.valid(newVersion)) {
-          clack.outro(chalk.red(`Invalid version: ${newVersion}`));
+          kit.outro(prism.red(`Invalid version: ${newVersion}`));
           process.exit(1);
         }
 
@@ -393,41 +398,41 @@ export function command(program: Command): void {
         rollbackState.tagName = `v${config.version}`;
 
         // Show release plan
-        clack.log.info(chalk.bold('\n📋 Release Plan:\n'));
-        clack.log.info(`  Version: ${chalk.green(currentVersion)} → ${chalk.green(newVersion)}`);
-        clack.log.info(`  Packages to release:`);
+        kit.log.info(prism.bold('\n📋 Release Plan:\n'));
+        kit.log.info(`  Version: ${prism.green(currentVersion)} → ${prism.green(newVersion)}`);
+        kit.log.info(`  Packages to release:`);
         for (const pkg of PACKAGES) {
-          clack.log.info(`    - ${pkg.name}`);
+          kit.log.info(`    - ${pkg.name}`);
         }
 
         if (!config.skipGit) {
-          clack.log.info(`  Git operations:`);
-          clack.log.info(`    - Update package versions`);
-          clack.log.info(`    - Create commit: "chore: release v${config.version}"`);
-          clack.log.info(`    - Create tag: v${config.version}`);
-          clack.log.info(`    - Push to origin`);
+          kit.log.info(`  Git operations:`);
+          kit.log.info(`    - Update package versions`);
+          kit.log.info(`    - Create commit: "chore: release v${config.version}"`);
+          kit.log.info(`    - Create tag: v${config.version}`);
+          kit.log.info(`    - Push to origin`);
         }
 
         if (!config.skipGithub) {
-          clack.log.info(`  GitHub:`);
-          clack.log.info(`    - Create release for v${config.version}`);
+          kit.log.info(`  GitHub:`);
+          kit.log.info(`    - Create release for v${config.version}`);
         }
 
         if (!config.skipNpm) {
-          clack.log.info(`  NPM:`);
-          clack.log.info(`    - Publish all packages`);
+          kit.log.info(`  NPM:`);
+          kit.log.info(`    - Publish all packages`);
         }
 
         if (!config.skipJsr) {
-          clack.log.info(`  JSR.io:`);
-          clack.log.info(`    - Publish @xec-sh/core and @xec-sh/cli`);
+          kit.log.info(`  JSR.io:`);
+          kit.log.info(`    - Publish @xec-sh/core and @xec-sh/cli`);
         }
 
         if (config.dryRun) {
-          clack.log.info(chalk.yellow('\n  🔸 DRY RUN MODE - No changes will be made'));
+          kit.log.info(prism.yellow('\n  🔸 DRY RUN MODE - No changes will be made'));
         }
 
-        const proceed = await promptWithCancel(() => clack.confirm({
+        const proceed = await promptWithCancel(() => kit.confirm({
           message: 'Proceed with release?',
           initialValue: true
         }));
@@ -443,7 +448,7 @@ export function command(program: Command): void {
 
           if (hookResult.exitCode !== 0) {
             s.stop('⚠️  Pre-release hook failed');
-            const continueAnyway = await promptWithCancel(() => clack.confirm({
+            const continueAnyway = await promptWithCancel(() => kit.confirm({
               message: 'Pre-release hook failed. Continue anyway?',
               initialValue: false
             }));
@@ -456,7 +461,7 @@ export function command(program: Command): void {
         }
 
         // Now apply all changes after collecting parameters
-        clack.log.info(chalk.bold('\n🚀 Starting Release Process\n'));
+        kit.log.info(prism.bold('\n🚀 Starting Release Process\n'));
 
         // Step 3: Update versions
         s.start('Updating package versions...');
@@ -514,11 +519,11 @@ export function command(program: Command): void {
           if (changesContent) {
             changelogContent = changesContent;
             usedChangesFile = true;
-            clack.log.info('Using content from CHANGES.md for changelog');
+            kit.log.info('Using content from CHANGES.md for changelog');
           } else {
             // Fallback to git commits
             changelogContent = await generateChangelog(config.previousVersion, config.version);
-            clack.log.info('Generated changelog from git commits');
+            kit.log.info('Generated changelog from git commits');
           }
 
           // Update CHANGELOG.md
@@ -527,7 +532,7 @@ export function command(program: Command): void {
             s.stop('✅ CHANGELOG.md updated');
           } catch (error) {
             s.stop('⚠️  Failed to update CHANGELOG.md');
-            clack.log.warn('Could not update CHANGELOG.md: ' + error);
+            kit.log.warn('Could not update CHANGELOG.md: ' + error);
           }
         } else {
           s.stop('✅ CHANGELOG.md update skipped (dry run)');
@@ -573,7 +578,7 @@ export function command(program: Command): void {
             await $`git commit -m "chore: release v${config.version}"`;
             rollbackState.gitCommitCreated = true;
           } else {
-            clack.log.info('No changes to commit');
+            kit.log.info('No changes to commit');
           }
 
           // Check if tag already exists
@@ -581,7 +586,7 @@ export function command(program: Command): void {
 
           if (tagExists) {
             s.stop(`⚠️  Tag v${config.version} already exists`);
-            const overwriteTag = await promptWithCancel(() => clack.confirm({
+            const overwriteTag = await promptWithCancel(() => kit.confirm({
               message: `Tag v${config.version} already exists. Delete and recreate it?`,
               initialValue: false
             }));
@@ -596,7 +601,7 @@ export function command(program: Command): void {
               rollbackState.gitTagCreated = true;
             } else {
               // Skip tag creation but continue with release
-              clack.log.info(`Using existing tag v${config.version}`);
+              kit.log.info(`Using existing tag v${config.version}`);
             }
           } else {
             // Create new tag
@@ -616,7 +621,7 @@ export function command(program: Command): void {
           if (npmWhoami.exitCode !== 0 && !config.npmToken) {
             s.stop('⚠️  Not authenticated to NPM');
 
-            const authMethod = await promptWithCancel(() => clack.select({
+            const authMethod = await promptWithCancel(() => kit.select({
               message: 'How would you like to authenticate to NPM?',
               options: [
                 { value: 'browser', label: 'Open browser to login' },
@@ -630,7 +635,7 @@ export function command(program: Command): void {
               await $`npm login`;
               s.stop('✅ NPM authentication complete');
             } else if (authMethod === 'token') {
-              config.npmToken = await promptWithCancel(() => clack.password({
+              config.npmToken = await promptWithCancel(() => kit.password({
                 message: 'Enter NPM authentication token:'
               }));
             } else {
@@ -742,7 +747,7 @@ export function command(program: Command): void {
             } else {
               // Publish without token - use sequential for auth prompts
               for (const pkg of config.packages) {
-                clack.log.step(`Publishing ${pkg.name}...`);
+                kit.log.step(`Publishing ${pkg.name}...`);
                 await $`yarn workspace ${pkg.name} npm publish --access public`;
               }
             }
@@ -765,7 +770,7 @@ export function command(program: Command): void {
 
           if (!denoExists) {
             s.stop('⚠️  Deno not installed');
-            const installDeno = await promptWithCancel(() => clack.confirm({
+            const installDeno = await promptWithCancel(() => kit.confirm({
               message: 'Deno is required for JSR publishing. Install it now?',
               initialValue: true
             }));
@@ -839,14 +844,14 @@ export function command(program: Command): void {
           const ghCheck = await $`which gh`.nothrow();
           if (ghCheck.exitCode !== 0) {
             s.stop('⚠️  GitHub CLI not installed');
-            clack.log.warn('Install gh CLI to create GitHub releases: https://cli.github.com');
+            kit.log.warn('Install gh CLI to create GitHub releases: https://cli.github.com');
           } else {
             // Check GitHub authentication
             const ghAuth = await $`gh auth status`.nothrow();
             if (ghAuth.exitCode !== 0 && !config.githubToken) {
               s.stop('⚠️  Not authenticated to GitHub');
 
-              const authMethod = await promptWithCancel(() => clack.select({
+              const authMethod = await promptWithCancel(() => kit.select({
                 message: 'How would you like to authenticate to GitHub?',
                 options: [
                   { value: 'browser', label: 'Open browser to login' },
@@ -860,7 +865,7 @@ export function command(program: Command): void {
                 await $`gh auth login`;
                 s.stop('✅ GitHub authentication complete');
               } else if (authMethod === 'token') {
-                config.githubToken = await promptWithCancel(() => clack.password({
+                config.githubToken = await promptWithCancel(() => kit.password({
                   message: 'Enter GitHub personal access token:'
                 }));
               } else {
@@ -919,14 +924,14 @@ Created with ❤️ by Xec Release Manager
               const releaseExists = await $`gh release view v${config.version}`.nothrow().then(r => r.exitCode === 0);
 
               if (releaseExists) {
-                clack.log.warn(`GitHub release v${config.version} already exists`);
-                const updateRelease = await promptWithCancel(() => clack.confirm({
+                kit.log.warn(`GitHub release v${config.version} already exists`);
+                const updateRelease = await promptWithCancel(() => kit.confirm({
                   message: `Release v${config.version} already exists. Update it?`,
                   initialValue: true
                 }));
 
                 if (!updateRelease) {
-                  clack.log.info('Skipping GitHub release update');
+                  kit.log.info('Skipping GitHub release update');
                 } else {
                   // Delete and recreate release
                   await $`gh release delete v${config.version} --yes`.nothrow();
@@ -939,7 +944,7 @@ Created with ❤️ by Xec Release Manager
                       await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
                     }
                   } catch (error) {
-                    clack.log.error('Failed to create GitHub release');
+                    kit.log.error('Failed to create GitHub release');
                     throw error;
                   }
                 }
@@ -952,7 +957,7 @@ Created with ❤️ by Xec Release Manager
                     await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
                   }
                 } catch (error) {
-                  clack.log.error('Failed to create GitHub release');
+                  kit.log.error('Failed to create GitHub release');
                   throw error;
                 }
               }
@@ -979,14 +984,14 @@ Created with ❤️ by Xec Release Manager
         if (usedChangesFile && !config.dryRun) {
           try {
             writeFileSync('CHANGES.md', '');
-            clack.log.info('Cleared CHANGES.md after successful release');
+            kit.log.info('Cleared CHANGES.md after successful release');
           } catch (error) {
-            clack.log.warn('Could not clear CHANGES.md: ' + error);
+            kit.log.warn('Could not clear CHANGES.md: ' + error);
           }
         }
 
         // Success!
-        clack.outro(chalk.green(`
+        kit.outro(prism.green(`
 ✨ Release v${config.version} completed successfully!
 
 📦 Published packages:
@@ -1005,21 +1010,21 @@ ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
 
       } catch (error: any) {
         s.stop('❌ Release failed');
-        clack.log.error(error.message);
+        kit.log.error(error.message);
 
         // Attempt rollback
         if (!options.dryRun) {
-          const rollback = await clack.confirm({
+          const rollback = await kit.confirm({
             message: 'Would you like to rollback changes?',
             initialValue: true
           });
 
-          if (clack.isCancel(rollback) || rollback) {
+          if (kit.isCancel(rollback) || rollback) {
             await performRollback(rollbackState, config);
           }
         }
 
-        clack.outro(chalk.red('Release failed'));
+        kit.outro(prism.red('Release failed'));
         process.exit(1);
       }
     });

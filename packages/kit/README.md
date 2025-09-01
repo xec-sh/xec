@@ -127,8 +127,8 @@ const basket = await groupMultiselect({
       { value: 'carrot', label: 'carrot' },
       { value: 'spinach', label: 'spinach' },
       { value: 'potato', label: 'potato' },
-    ]
-  }
+    ],
+  },
 });
 ```
 
@@ -227,7 +227,6 @@ log.error('Error!');
 log.message('Hello, World', { symbol: color.cyan('~') });
 ```
 
-
 ### Stream
 
 When interacting with dynamic LLMs or other streaming message providers, use the `stream` APIs to log messages from an iterable, even an async one.
@@ -235,12 +234,38 @@ When interacting with dynamic LLMs or other streaming message providers, use the
 ```js
 import { stream } from '@clack/prompts';
 
-stream.info((function *() { yield 'Info!'; })());
-stream.success((function *() { yield 'Success!'; })());
-stream.step((function *() { yield 'Step!'; })());
-stream.warn((function *() { yield 'Warn!'; })());
-stream.error((function *() { yield 'Error!'; })());
-stream.message((function *() { yield 'Hello'; yield ", World" })(), { symbol: color.cyan('~') });
+stream.info(
+  (function* () {
+    yield 'Info!';
+  })()
+);
+stream.success(
+  (function* () {
+    yield 'Success!';
+  })()
+);
+stream.step(
+  (function* () {
+    yield 'Step!';
+  })()
+);
+stream.warn(
+  (function* () {
+    yield 'Warn!';
+  })()
+);
+stream.error(
+  (function* () {
+    yield 'Error!';
+  })()
+);
+stream.message(
+  (function* () {
+    yield 'Hello';
+    yield ', World';
+  })(),
+  { symbol: color.cyan('~') }
+);
 ```
 
 ![clack-log-prompts](https://github.com/bombshell-dev/clack/blob/main/.github/assets/clack-logs.png)
@@ -253,16 +278,16 @@ When executing a sub-process or a similar sub-task, `taskLog` can be used to ren
 import { taskLog } from '@clack/prompts';
 
 const log = taskLog({
-	title: 'Running npm install'
+  title: 'Running npm install',
 });
 
 for await (const line of npmInstall()) {
-	log.message(line);
+  log.message(line);
 }
 
 if (success) {
-	log.success('Done!');
+  log.success('Done!');
 } else {
-	log.error('Failed!');
+  log.error('Failed!');
 }
 ```

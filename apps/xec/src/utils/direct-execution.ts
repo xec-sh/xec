@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import { $ } from '@xec-sh/core';
 import { log } from '@xec-sh/kit';
 
@@ -129,7 +129,7 @@ async function executeOnTarget(
     throw new Error('No command specified for target');
   }
 
-  const targetDisplay = chalk.cyan(target.name);
+  const targetDisplay = prism.cyan(target.name);
 
   if (!options.quiet) {
     log.info(`Executing on ${targetDisplay} (${target.type})...`);
@@ -194,7 +194,7 @@ async function executeOnTarget(
   }
 
   if (result.stderr && options.verbose) {
-    console.error(chalk.yellow(result.stderr.trim()));
+    console.error(prism.yellow(result.stderr.trim()));
   }
 }
 
@@ -229,7 +229,7 @@ async function executeLocally(
   }
 
   if (result.stderr && options.verbose) {
-    console.error(chalk.yellow(result.stderr.trim()));
+    console.error(prism.yellow(result.stderr.trim()));
   }
 }
 

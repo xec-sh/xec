@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import jsYaml from 'js-yaml';
 import { table } from 'table';
 
@@ -51,7 +51,7 @@ export class OutputFormatter {
    */
   header(title: string): void {
     if (this.quiet) return;
-    const formatted = this.colors ? chalk.bold.underline(title) : title;
+    const formatted = this.colors ? prism.bold.underline(title) : title;
     console.log();
     console.log(formatted);
     console.log();
@@ -62,19 +62,19 @@ export class OutputFormatter {
    */
   success(message: string): void {
     if (this.quiet) return;
-    const formatted = this.colors ? chalk.green(`✓ ${message}`) : `✓ ${message}`;
+    const formatted = this.colors ? prism.green(`✓ ${message}`) : `✓ ${message}`;
     console.log(formatted);
   }
 
   error(message: string | Error): void {
     const text = message instanceof Error ? message.message : message;
-    const formatted = this.colors ? chalk.red(`✗ ${text}`) : `✗ ${text}`;
+    const formatted = this.colors ? prism.red(`✗ ${text}`) : `✗ ${text}`;
     console.error(formatted);
   }
 
   warn(message: string): void {
     if (this.quiet) return;
-    const formatted = this.colors ? chalk.yellow(`⚠ ${message}`) : `⚠ ${message}`;
+    const formatted = this.colors ? prism.yellow(`⚠ ${message}`) : `⚠ ${message}`;
     console.warn(formatted);
   }
 
@@ -85,7 +85,7 @@ export class OutputFormatter {
 
   debug(message: string): void {
     if (!this.verbose || this.quiet) return;
-    const formatted = this.colors ? chalk.gray(`[DEBUG] ${message}`) : `[DEBUG] ${message}`;
+    const formatted = this.colors ? prism.gray(`[DEBUG] ${message}`) : `[DEBUG] ${message}`;
     console.log(formatted);
   }
 
@@ -96,7 +96,7 @@ export class OutputFormatter {
     if (this.quiet) return;
 
     if (title && this.format === 'text') {
-      console.log(chalk.bold(title));
+      console.log(prism.bold(title));
       console.log();
     }
 
@@ -157,7 +157,7 @@ export class OutputFormatter {
     if (this.quiet) return;
 
     if (title && this.format === 'text') {
-      console.log(chalk.bold(title));
+      console.log(prism.bold(title));
       console.log();
     }
 
@@ -184,7 +184,7 @@ export class OutputFormatter {
     if (this.quiet) return;
 
     if (title && this.format === 'text') {
-      console.log(chalk.bold(title));
+      console.log(prism.bold(title));
       console.log();
     }
 
@@ -199,7 +199,7 @@ export class OutputFormatter {
         items.forEach(item => console.log(item));
         break;
       default:
-        items.forEach(item => console.log(`  ${chalk.cyan('•')} ${item}`));
+        items.forEach(item => console.log(`  ${prism.cyan('•')} ${item}`));
     }
   }
 
@@ -210,17 +210,17 @@ export class OutputFormatter {
     if (this.quiet) return;
 
     const symbols = {
-      success: chalk.green('✓'),
-      warning: chalk.yellow('⚠'),
-      error: chalk.red('✗'),
-      info: chalk.blue('ℹ'),
+      success: prism.green('✓'),
+      warning: prism.yellow('⚠'),
+      error: prism.red('✗'),
+      info: prism.blue('ℹ'),
     };
 
     const colors = {
-      success: chalk.green,
-      warning: chalk.yellow,
-      error: chalk.red,
-      info: chalk.blue,
+      success: prism.green,
+      warning: prism.yellow,
+      error: prism.red,
+      info: prism.blue,
     };
 
     if (this.format === 'text') {
@@ -255,7 +255,7 @@ export class OutputFormatter {
     if (this.quiet) return;
 
     if (title && this.format === 'text') {
-      console.log(chalk.bold(title));
+      console.log(prism.bold(title));
       console.log();
     }
 
@@ -263,11 +263,11 @@ export class OutputFormatter {
       const beforeLines = before.split('\n');
       const afterLines = after.split('\n');
 
-      console.log(chalk.red('- Before:'));
-      beforeLines.forEach(line => console.log(chalk.red(`  ${line}`)));
+      console.log(prism.red('- Before:'));
+      beforeLines.forEach(line => console.log(prism.red(`  ${line}`)));
 
-      console.log(chalk.green('+ After:'));
-      afterLines.forEach(line => console.log(chalk.green(`  ${line}`)));
+      console.log(prism.green('+ After:'));
+      afterLines.forEach(line => console.log(prism.green(`  ${line}`)));
     } else {
       const data = { before, after };
       this.output(data);
@@ -361,11 +361,11 @@ export class OutputFormatter {
 
   private outputKeyValue(data: Record<string, any>): void {
     Object.entries(data).forEach(([key, value]) => {
-      const formattedKey = chalk.bold(key);
+      const formattedKey = prism.bold(key);
       if (typeof value === 'object' && value !== null) {
         console.log(`${formattedKey}:`);
         if (Array.isArray(value)) {
-          value.forEach(item => console.log(`  ${chalk.cyan('•')} ${item}`));
+          value.forEach(item => console.log(`  ${prism.cyan('•')} ${item}`));
         } else {
           Object.entries(value).forEach(([subKey, subValue]) => {
             console.log(`  ${subKey}: ${subValue}`);
@@ -379,7 +379,7 @@ export class OutputFormatter {
 
   private outputTable(data: TableData): void {
     const tableData = [
-      data.columns.map(col => chalk.bold(col.header)),
+      data.columns.map(col => prism.bold(col.header)),
       ...data.rows
     ];
 
@@ -449,7 +449,7 @@ class CLISpinner implements Spinner {
     this.interval = setInterval(() => {
       const frame = this.frames[this.currentFrame];
       const text = this.config.colors
-        ? chalk.cyan(`${frame} ${this.message}`)
+        ? prism.cyan(`${frame} ${this.message}`)
         : `${frame} ${this.message}`;
 
       process.stdout.write(`\r${text}`);
@@ -473,7 +473,7 @@ class CLISpinner implements Spinner {
     if (!this.config.quiet) {
       const text = message || this.message;
       const formatted = this.config.colors
-        ? chalk.green(`✓ ${text}`)
+        ? prism.green(`✓ ${text}`)
         : `✓ ${text}`;
       console.log(formatted);
     }
@@ -484,7 +484,7 @@ class CLISpinner implements Spinner {
     if (!this.config.quiet) {
       const text = message || this.message;
       const formatted = this.config.colors
-        ? chalk.red(`✗ ${text}`)
+        ? prism.red(`✗ ${text}`)
         : `✗ ${text}`;
       console.log(formatted);
     }

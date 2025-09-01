@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import * as os from 'os';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
@@ -350,7 +350,7 @@ export class CopyCommand extends ConfigAwareCommand {
 
       if (!options.quiet) {
         this.stopSpinner();
-        this.log(`${chalk.green('✓')} Copied ${sourceDisplay} to ${destDisplay}`, 'success');
+        this.log(`${prism.green('✓')} Copied ${sourceDisplay} to ${destDisplay}`, 'success');
       }
     } catch (error) {
       if (!options.quiet) {
@@ -358,7 +358,7 @@ export class CopyCommand extends ConfigAwareCommand {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} Failed to copy: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} Failed to copy: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -400,11 +400,11 @@ export class CopyCommand extends ConfigAwareCommand {
     const failed = results.filter(r => !r.success);
 
     if (successful.length > 0) {
-      this.log(`${chalk.green('✓')} Successfully copied ${successful.length} files`, 'success');
+      this.log(`${prism.green('✓')} Successfully copied ${successful.length} files`, 'success');
     }
 
     if (failed.length > 0) {
-      this.log(`${chalk.red('✗')} Failed to copy ${failed.length} files:`, 'error');
+      this.log(`${prism.red('✗')} Failed to copy ${failed.length} files:`, 'error');
       for (const result of failed) {
         const errorMessage = result.error instanceof Error ? result.error.message : String(result.error);
         this.log(`  - ${this.formatCopyPath(result.operation.source, result.operation.sourcePath)}: ${errorMessage}`, 'error');
@@ -842,12 +842,12 @@ export class CopyCommand extends ConfigAwareCommand {
 
       // Show summary
       InteractiveHelpers.showInfo('\nCopy Summary:');
-      console.log(`  Source: ${chalk.cyan(sourceSpec)}`);
-      console.log(`  Destination: ${chalk.cyan(destinationSpec)}`);
-      if (copyOptions.recursive) console.log(`  Options: ${chalk.gray('recursive')}`);
-      if (copyOptions.preserve) console.log(`  Options: ${chalk.gray('preserve attributes')}`);
-      if (copyOptions.force) console.log(`  Options: ${chalk.gray('force overwrite')}`);
-      if (copyOptions.parallel) console.log(`  Options: ${chalk.gray(`parallel (max ${copyOptions.maxConcurrent || '4'})`)}`);
+      console.log(`  Source: ${prism.cyan(sourceSpec)}`);
+      console.log(`  Destination: ${prism.cyan(destinationSpec)}`);
+      if (copyOptions.recursive) console.log(`  Options: ${prism.gray('recursive')}`);
+      if (copyOptions.preserve) console.log(`  Options: ${prism.gray('preserve attributes')}`);
+      if (copyOptions.force) console.log(`  Options: ${prism.gray('force overwrite')}`);
+      if (copyOptions.parallel) console.log(`  Options: ${prism.gray(`parallel (max ${copyOptions.maxConcurrent || '4'})`)}`);
 
       const confirm = await InteractiveHelpers.confirmAction(
         '\nProceed with copy?',

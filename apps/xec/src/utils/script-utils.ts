@@ -1,12 +1,11 @@
 import os from 'os';
 import path from 'path';
-import chalk from 'chalk';
 import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
 import { $ as xecDollar } from '@xec-sh/core';
-import { log as kitLog, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, password as kitPassword, multiselect as kitMultiselect } from '@xec-sh/kit';
+import { prism, log as kitLog, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, password as kitPassword, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 // Re-export USH $ with enhanced features
 export const $ = xecDollar;
@@ -56,7 +55,7 @@ export const echo = Object.assign(
     error: (message: string) => {
       kitLog.error(message);
     },
-    debug: (message: string) => console.log(chalk.gray(`[DEBUG] ${message}`)),
+    debug: (message: string) => console.log(prism.gray(`[DEBUG] ${message}`)),
     step: (message: string) => {
       kitLog.step(message);
     },
@@ -259,7 +258,7 @@ export const log = {
 };
 
 // Color utilities
-export { chalk };
+export { prism };
 
 // Export all utilities as default
 const scriptUtils: any = {
@@ -297,7 +296,7 @@ const scriptUtils: any = {
   ps,
   within,
   log,
-  chalk,
+  prism
 };
 
 export default scriptUtils;

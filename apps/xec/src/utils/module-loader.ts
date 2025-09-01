@@ -100,7 +100,7 @@ export class ModuleLoader {
         path: scriptUtils.path,
         os: scriptUtils.os,
         fetch: scriptUtils.fetch,
-        chalk: scriptUtils.chalk,
+        prism: scriptUtils.prism,
         which: scriptUtils.which,
         sleep: scriptUtils.sleep,
         retry: scriptUtils.retry,

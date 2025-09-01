@@ -4,17 +4,17 @@ import { getColumns } from '../core/index.js';
 import { wrapAnsi } from '../core/utils/wrap-ansi.js';
 import stringWidth from '../core/utils/string-width.js';
 import {
-	S_BAR,
-	S_BAR_H,
-	S_BAR_END,
-	S_BAR_START,
-	S_BAR_END_RIGHT,
-	S_BAR_START_RIGHT,
-	S_CORNER_TOP_LEFT,
-	type CommonOptions,
-	S_CORNER_TOP_RIGHT,
-	S_CORNER_BOTTOM_LEFT,
-	S_CORNER_BOTTOM_RIGHT,
+  S_BAR,
+  S_BAR_H,
+  S_BAR_END,
+  S_BAR_START,
+  S_BAR_END_RIGHT,
+  S_BAR_START_RIGHT,
+  S_CORNER_TOP_LEFT,
+  type CommonOptions,
+  S_CORNER_TOP_RIGHT,
+  S_CORNER_BOTTOM_LEFT,
+  S_CORNER_BOTTOM_RIGHT,
 } from '../utilities/common.js';
 
 export type BoxAlignment = 'left' | 'center' | 'right';
@@ -22,122 +22,122 @@ export type BoxAlignment = 'left' | 'center' | 'right';
 type BoxSymbols = [topLeft: string, topRight: string, bottomLeft: string, bottomRight: string];
 
 const roundedSymbols: BoxSymbols = [
-	S_CORNER_TOP_LEFT,
-	S_CORNER_TOP_RIGHT,
-	S_CORNER_BOTTOM_LEFT,
-	S_CORNER_BOTTOM_RIGHT,
+  S_CORNER_TOP_LEFT,
+  S_CORNER_TOP_RIGHT,
+  S_CORNER_BOTTOM_LEFT,
+  S_CORNER_BOTTOM_RIGHT,
 ];
 const squareSymbols: BoxSymbols = [S_BAR_START, S_BAR_START_RIGHT, S_BAR_END, S_BAR_END_RIGHT];
 
 export interface BoxOptions extends CommonOptions {
-	contentAlign?: BoxAlignment;
-	titleAlign?: BoxAlignment;
-	width?: number | 'auto';
-	titlePadding?: number;
-	contentPadding?: number;
-	rounded?: boolean;
-	includePrefix?: boolean;
-	formatBorder?: (text: string) => string;
+  contentAlign?: BoxAlignment;
+  titleAlign?: BoxAlignment;
+  width?: number | 'auto';
+  titlePadding?: number;
+  contentPadding?: number;
+  rounded?: boolean;
+  includePrefix?: boolean;
+  formatBorder?: (text: string) => string;
 }
 
 function getPaddingForLine(
-	lineLength: number,
-	innerWidth: number,
-	padding: number,
-	contentAlign: BoxAlignment | undefined
+  lineLength: number,
+  innerWidth: number,
+  padding: number,
+  contentAlign: BoxAlignment | undefined
 ): [number, number] {
-	let leftPadding = padding;
-	let rightPadding = padding;
-	if (contentAlign === 'center') {
-		leftPadding = Math.floor((innerWidth - lineLength) / 2);
-	} else if (contentAlign === 'right') {
-		leftPadding = innerWidth - lineLength - padding;
-	}
+  let leftPadding = padding;
+  let rightPadding = padding;
+  if (contentAlign === 'center') {
+    leftPadding = Math.floor((innerWidth - lineLength) / 2);
+  } else if (contentAlign === 'right') {
+    leftPadding = innerWidth - lineLength - padding;
+  }
 
-	rightPadding = innerWidth - leftPadding - lineLength;
+  rightPadding = innerWidth - leftPadding - lineLength;
 
-	return [leftPadding, rightPadding];
+  return [leftPadding, rightPadding];
 }
 
 const defaultFormatBorder = (text: string) => text;
 
 export const box = (message = '', title = '', opts?: BoxOptions) => {
-	const output: Writable = opts?.output ?? process.stdout;
-	const columns = getColumns(output);
-	const borderWidth = 1;
-	const borderTotalWidth = borderWidth * 2;
-	const titlePadding = opts?.titlePadding ?? 1;
-	const contentPadding = opts?.contentPadding ?? 2;
-	const width = opts?.width === undefined || opts.width === 'auto' ? 1 : Math.min(1, opts.width);
-	const linePrefix = opts?.includePrefix ? `${S_BAR} ` : '';
-	const formatBorder = opts?.formatBorder ?? defaultFormatBorder;
-	const symbols = (opts?.rounded ? roundedSymbols : squareSymbols).map(formatBorder);
-	const hSymbol = formatBorder(S_BAR_H);
-	const vSymbol = formatBorder(S_BAR);
-	const maxBoxWidth = columns - stringWidth(linePrefix);
-	let boxWidth = Math.floor(columns * width) - stringWidth(linePrefix);
-	if (opts?.width === 'auto') {
-		const lines = message.split('\n');
-		let longestLine = stringWidth(title) + titlePadding * 2;
-		for (const line of lines) {
-			const lineWithPadding = stringWidth(line) + contentPadding * 2;
-			if (lineWithPadding > longestLine) {
-				longestLine = lineWithPadding;
-			}
-		}
-		const longestLineWidth = longestLine + borderTotalWidth;
-		if (longestLineWidth < boxWidth) {
-			boxWidth = longestLineWidth;
-		}
-	}
-	if (boxWidth % 2 !== 0) {
-		if (boxWidth < maxBoxWidth) {
-			boxWidth++;
-		} else {
-			boxWidth--;
-		}
-	}
-	const innerWidth = boxWidth - borderTotalWidth;
-	const maxTitleLength = innerWidth - titlePadding * 2;
-	// For truncation, we need to handle by visual width not character count
-	let truncatedTitle = title;
-	if (stringWidth(title) > maxTitleLength) {
-		// Simple truncation - could be improved with proper Unicode truncation
-		let width = 0;
-		let truncateAt = 0;
-		for (const char of title) {
-			width += stringWidth(char);
-			if (width > maxTitleLength - 3) {
-				break;
-			}
-			truncateAt++;
-		}
-		truncatedTitle = title.slice(0, truncateAt) + '...';
-	}
-	const [titlePaddingLeft, titlePaddingRight] = getPaddingForLine(
-		stringWidth(truncatedTitle),
-		innerWidth,
-		titlePadding,
-		opts?.titleAlign
-	);
-	const wrappedMessage = wrapAnsi(message, innerWidth - contentPadding * 2, {
-		hard: true,
-		trim: false,
-	});
-	output.write(
-		`${linePrefix}${symbols[0]}${hSymbol.repeat(titlePaddingLeft)}${truncatedTitle}${hSymbol.repeat(titlePaddingRight)}${symbols[1]}\n`
-	);
-	const wrappedLines = wrappedMessage.split('\n');
-	for (const line of wrappedLines) {
-		const [leftLinePadding, rightLinePadding] = getPaddingForLine(
-			stringWidth(line),
-			innerWidth,
-			contentPadding,
-			opts?.contentAlign
-		);
-		output.write(
-			`${linePrefix}${vSymbol}${' '.repeat(leftLinePadding)}${line}${' '.repeat(rightLinePadding)}${vSymbol}\n`
-		);
-	}
-	output.write(`${linePrefix}${symbols[2]}${hSymbol.repeat(innerWidth)}${symbols[3]}\n`);
+  const output: Writable = opts?.output ?? process.stdout;
+  const columns = getColumns(output);
+  const borderWidth = 1;
+  const borderTotalWidth = borderWidth * 2;
+  const titlePadding = opts?.titlePadding ?? 1;
+  const contentPadding = opts?.contentPadding ?? 2;
+  const width = opts?.width === undefined || opts.width === 'auto' ? 1 : Math.min(1, opts.width);
+  const linePrefix = opts?.includePrefix ? `${S_BAR} ` : '';
+  const formatBorder = opts?.formatBorder ?? defaultFormatBorder;
+  const symbols = (opts?.rounded ? roundedSymbols : squareSymbols).map(formatBorder);
+  const hSymbol = formatBorder(S_BAR_H);
+  const vSymbol = formatBorder(S_BAR);
+  const maxBoxWidth = columns - stringWidth(linePrefix);
+  let boxWidth = Math.floor(columns * width) - stringWidth(linePrefix);
+  if (opts?.width === 'auto') {
+    const lines = message.split('\n');
+    let longestLine = stringWidth(title) + titlePadding * 2;
+    for (const line of lines) {
+      const lineWithPadding = stringWidth(line) + contentPadding * 2;
+      if (lineWithPadding > longestLine) {
+        longestLine = lineWithPadding;
+      }
+    }
+    const longestLineWidth = longestLine + borderTotalWidth;
+    if (longestLineWidth < boxWidth) {
+      boxWidth = longestLineWidth;
+    }
+  }
+  if (boxWidth % 2 !== 0) {
+    if (boxWidth < maxBoxWidth) {
+      boxWidth++;
+    } else {
+      boxWidth--;
+    }
+  }
+  const innerWidth = boxWidth - borderTotalWidth;
+  const maxTitleLength = innerWidth - titlePadding * 2;
+  // For truncation, we need to handle by visual width not character count
+  let truncatedTitle = title;
+  if (stringWidth(title) > maxTitleLength) {
+    // Simple truncation - could be improved with proper Unicode truncation
+    let width = 0;
+    let truncateAt = 0;
+    for (const char of title) {
+      width += stringWidth(char);
+      if (width > maxTitleLength - 3) {
+        break;
+      }
+      truncateAt++;
+    }
+    truncatedTitle = title.slice(0, truncateAt) + '...';
+  }
+  const [titlePaddingLeft, titlePaddingRight] = getPaddingForLine(
+    stringWidth(truncatedTitle),
+    innerWidth,
+    titlePadding,
+    opts?.titleAlign
+  );
+  const wrappedMessage = wrapAnsi(message, innerWidth - contentPadding * 2, {
+    hard: true,
+    trim: false,
+  });
+  output.write(
+    `${linePrefix}${symbols[0]}${hSymbol.repeat(titlePaddingLeft)}${truncatedTitle}${hSymbol.repeat(titlePaddingRight)}${symbols[1]}\n`
+  );
+  const wrappedLines = wrappedMessage.split('\n');
+  for (const line of wrappedLines) {
+    const [leftLinePadding, rightLinePadding] = getPaddingForLine(
+      stringWidth(line),
+      innerWidth,
+      contentPadding,
+      opts?.contentAlign
+    );
+    output.write(
+      `${linePrefix}${vSymbol}${' '.repeat(leftLinePadding)}${line}${' '.repeat(rightLinePadding)}${vSymbol}\n`
+    );
+  }
+  output.write(`${linePrefix}${symbols[2]}${hSymbol.repeat(innerWidth)}${symbols[3]}\n`);
 };

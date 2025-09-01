@@ -1,5 +1,5 @@
 import path from 'path';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
 import { log } from '@xec-sh/kit';
@@ -180,7 +180,7 @@ export class RunCommand extends BaseCommand {
         const runtime = options.runtime || 'auto';
         if (runtime !== 'auto') {
           log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
-          log.info(`  ${chalk.cyan(`${runtime} xec run ${scriptPath}`)}`);
+          log.info(`  ${prism.cyan(`${runtime} xec run ${scriptPath}`)}`);
         }
       } else {
         throw result.error;
@@ -272,7 +272,7 @@ export class RunCommand extends BaseCommand {
       } catch {
         // Not a file either
         log.error(`Task '${taskName}' not found`);
-        log.info(chalk.dim('\nRun "xec tasks" to see available tasks'));
+        log.info(prism.dim('\nRun "xec tasks" to see available tasks'));
         throw new Error(`Task '${taskName}' not found`);
       }
     }
@@ -286,7 +286,7 @@ export class RunCommand extends BaseCommand {
 
         if (!key || !value) {
           log.error(`Invalid parameter format: ${param}`);
-          log.info(chalk.dim('Use --param key=value'));
+          log.info(prism.dim('Use --param key=value'));
           throw new Error(`Invalid parameter format: ${param}`);
         }
 
@@ -309,11 +309,11 @@ export class RunCommand extends BaseCommand {
 
     // Display task info
     if (!this.options.quiet) {
-      log.info(`Running task: ${chalk.cyan(taskName)}`);
+      log.info(`Running task: ${prism.cyan(taskName)}`);
       if (Object.keys(params).length > 0) {
-        log.info(chalk.dim('Parameters:'));
+        log.info(prism.dim('Parameters:'));
         for (const [key, value] of Object.entries(params)) {
-          log.info(chalk.dim(`  ${key}: ${JSON.stringify(value)}`));
+          log.info(prism.dim(`  ${key}: ${JSON.stringify(value)}`));
         }
       }
     }

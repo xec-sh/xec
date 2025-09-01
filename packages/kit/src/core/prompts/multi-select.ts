@@ -1,75 +1,75 @@
 import Prompt, { type PromptOptions } from './prompt.js';
 
 interface MultiSelectOptions<T extends { value: any }>
-	extends PromptOptions<T['value'][], MultiSelectPrompt<T>> {
-	options: T[];
-	initialValues?: T['value'][];
-	required?: boolean;
-	cursorAt?: T['value'];
+  extends PromptOptions<T['value'][], MultiSelectPrompt<T>> {
+  options: T[];
+  initialValues?: T['value'][];
+  required?: boolean;
+  cursorAt?: T['value'];
 }
 export default class MultiSelectPrompt<T extends { value: any }> extends Prompt<T['value'][]> {
-	options: T[];
-	cursor = 0;
+  options: T[];
+  cursor = 0;
 
-	private get _value(): T['value'] {
-		const option = this.options[this.cursor];
-		if (!option) throw new Error('No option at cursor position');
-		return option.value;
-	}
+  private get _value(): T['value'] {
+    const option = this.options[this.cursor];
+    if (!option) throw new Error('No option at cursor position');
+    return option.value;
+  }
 
-	private toggleAll() {
-		const allSelected = this.value !== undefined && this.value.length === this.options.length;
-		this.value = allSelected ? [] : this.options.map((v) => v.value);
-	}
+  private toggleAll() {
+    const allSelected = this.value !== undefined && this.value.length === this.options.length;
+    this.value = allSelected ? [] : this.options.map((v) => v.value);
+  }
 
-	private toggleInvert() {
-		const currentValue = this.value || [];
-		const notSelected = this.options.filter((v) => !currentValue.includes(v.value));
-		this.value = notSelected.map((v) => v.value);
-	}
+  private toggleInvert() {
+    const currentValue = this.value || [];
+    const notSelected = this.options.filter((v) => !currentValue.includes(v.value));
+    this.value = notSelected.map((v) => v.value);
+  }
 
-	private toggleValue() {
-		if (this.value === undefined) {
-			this.value = [];
-		}
-		const selected = this.value.includes(this._value);
-		this.value = selected
-			? this.value.filter((value) => value !== this._value)
-			: [...this.value, this._value];
-	}
+  private toggleValue() {
+    if (this.value === undefined) {
+      this.value = [];
+    }
+    const selected = this.value.includes(this._value);
+    this.value = selected
+      ? this.value.filter((value) => value !== this._value)
+      : [...this.value, this._value];
+  }
 
-	constructor(opts: MultiSelectOptions<T>) {
-		super(opts, false);
+  constructor(opts: MultiSelectOptions<T>) {
+    super(opts, false);
 
-		this.options = opts.options;
-		this.value = [...(opts.initialValues ?? [])];
-		this.cursor = Math.max(
-			this.options.findIndex(({ value }) => value === opts.cursorAt),
-			0
-		);
-		this.on('key', (char) => {
-			if (char === 'a') {
-				this.toggleAll();
-			}
-			if (char === 'i') {
-				this.toggleInvert();
-			}
-		});
+    this.options = opts.options;
+    this.value = [...(opts.initialValues ?? [])];
+    this.cursor = Math.max(
+      this.options.findIndex(({ value }) => value === opts.cursorAt),
+      0
+    );
+    this.on('key', (char) => {
+      if (char === 'a') {
+        this.toggleAll();
+      }
+      if (char === 'i') {
+        this.toggleInvert();
+      }
+    });
 
-		this.on('cursor', (key) => {
-			switch (key) {
-				case 'left':
-				case 'up':
-					this.cursor = this.cursor === 0 ? this.options.length - 1 : this.cursor - 1;
-					break;
-				case 'down':
-				case 'right':
-					this.cursor = this.cursor === this.options.length - 1 ? 0 : this.cursor + 1;
-					break;
-				case 'space':
-					this.toggleValue();
-					break;
-			}
-		});
-	}
+    this.on('cursor', (key) => {
+      switch (key) {
+        case 'left':
+        case 'up':
+          this.cursor = this.cursor === 0 ? this.options.length - 1 : this.cursor - 1;
+          break;
+        case 'down':
+        case 'right':
+          this.cursor = this.cursor === this.options.length - 1 ? 0 : this.cursor + 1;
+          break;
+        case 'space':
+          this.toggleValue();
+          break;
+      }
+    });
+  }
 }

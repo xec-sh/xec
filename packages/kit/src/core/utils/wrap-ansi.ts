@@ -29,13 +29,11 @@ const getClosingCode = (openingCode: number): number | undefined => {
   return undefined;
 };
 
-const wrapAnsiCode = (code: number): string =>
-  `${ESC}${ANSI_CSI}${code}${ANSI_SGR_TERMINATOR}`;
+const wrapAnsiCode = (code: number): string => `${ESC}${ANSI_CSI}${code}${ANSI_SGR_TERMINATOR}`;
 const wrapAnsiHyperlink = (url: string): string =>
   `${ESC}${ANSI_ESCAPE_LINK}${url}${ANSI_ESCAPE_BELL}`;
 
-const wordLengths = (words: string[]): number[] =>
-  words.map((character) => stringWidth(character));
+const wordLengths = (words: string[]): number[] => words.map((character) => stringWidth(character));
 
 const wrapWord = (rows: string[], word: string, columns: number) => {
   const characters = word[Symbol.iterator]();
@@ -62,10 +60,7 @@ const wrapWord = (rows: string[], word: string, columns: number) => {
     if (character === ESC || character === CSI) {
       isInsideEscape = true;
 
-      isInsideLinkEscape = word.startsWith(
-        ANSI_ESCAPE_LINK,
-        rawCharacterIndex + 1
-      );
+      isInsideLinkEscape = word.startsWith(ANSI_ESCAPE_LINK, rawCharacterIndex + 1);
     }
 
     if (isInsideEscape) {
@@ -92,12 +87,7 @@ const wrapWord = (rows: string[], word: string, columns: number) => {
   }
 
   lastRow = rows.at(-1);
-  if (
-    !visible &&
-    lastRow !== undefined &&
-    lastRow.length > 0 &&
-    rows.length > 1
-  ) {
+  if (!visible && lastRow !== undefined && lastRow.length > 0 && rows.length > 1) {
     const popped = rows.pop();
     if (popped !== undefined && rows[rows.length - 1] !== undefined) {
       rows[rows.length - 1] += popped;
@@ -131,11 +121,7 @@ export interface Options {
   hard?: boolean;
 }
 
-const exec = (
-  string: string,
-  columns: number,
-  options: Options = {}
-): string => {
+const exec = (string: string, columns: number, options: Options = {}): string => {
   if (options.trim !== false && string.trim() === '') {
     return '';
   }
@@ -156,10 +142,7 @@ const exec = (
     let rowLength = stringWidth(rows.at(-1) ?? '');
 
     if (index !== 0) {
-      if (
-        rowLength >= columns &&
-        (options.wordWrap === false || options.trim === false)
-      ) {
+      if (rowLength >= columns && (options.wordWrap === false || options.trim === false)) {
         rows.push('');
         rowLength = 0;
       }
@@ -171,11 +154,10 @@ const exec = (
     }
 
     const wordLength = lengths[index] ?? 0;
-    
+
     if (options.hard && wordLength > columns) {
       const remainingColumns = columns - rowLength;
-      const breaksStartingThisLine =
-        1 + Math.floor((wordLength - remainingColumns - 1) / columns);
+      const breaksStartingThisLine = 1 + Math.floor((wordLength - remainingColumns - 1) / columns);
       const breaksStartingNextLine = Math.floor((wordLength - 1) / columns);
       if (breaksStartingNextLine < breaksStartingThisLine) {
         rows.push('');
@@ -185,11 +167,7 @@ const exec = (
       continue;
     }
 
-    if (
-      rowLength + wordLength > columns &&
-      rowLength > 0 &&
-      wordLength > 0
-    ) {
+    if (rowLength + wordLength > columns && rowLength > 0 && wordLength > 0) {
       if (options.wordWrap === false && rowLength < columns) {
         wrapWord(rows, word, columns);
         continue;

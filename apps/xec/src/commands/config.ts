@@ -1,4 +1,4 @@
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { join, dirname } from 'path';
@@ -451,7 +451,7 @@ export class ConfigCommand extends BaseCommand {
           result += `${indentStr}${valueStr}\n`;
         } else {
           // Dim default values
-          result += chalk.dim(`${indentStr}${valueStr}`) + '\n';
+          result += prism.dim(`${indentStr}${valueStr}`) + '\n';
         }
       }
     }
@@ -2214,7 +2214,7 @@ export class ConfigCommand extends BaseCommand {
       ...Object.keys(config.targets?.pods || {})
     ];
     if (!allTargets.includes(name)) {
-      console.error(chalk.red(`Target '${name}' not found`));
+      console.error(prism.red(`Target '${name}' not found`));
       process.exit(1);
     }
     await this.editTarget();
@@ -2228,7 +2228,7 @@ export class ConfigCommand extends BaseCommand {
       ...Object.keys(config.targets?.pods || {})
     ];
     if (!allTargets.includes(name)) {
-      console.error(chalk.red(`Target '${name}' not found`));
+      console.error(prism.red(`Target '${name}' not found`));
       process.exit(1);
     }
     await this.deleteTarget();
@@ -2242,7 +2242,7 @@ export class ConfigCommand extends BaseCommand {
       ...Object.keys(config.targets?.pods || {})
     ];
     if (!allTargets.includes(name)) {
-      console.error(chalk.red(`Target '${name}' not found`));
+      console.error(prism.red(`Target '${name}' not found`));
       process.exit(1);
     }
     await this.testTarget();

@@ -28,7 +28,6 @@ interface PackageJson {
   peerDependencies?: Record<string, string>;
 }
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
@@ -80,13 +79,20 @@ const tscArgs = [
   '--declaration',
   '--declarationMap',
   '--emitDeclarationOnly',
-  '--outDir', './dist',
-  '--module', 'esnext',
-  '--target', 'esnext',
-  '--moduleResolution', 'node',
-  '--esModuleInterop', 'true',
-  '--skipLibCheck', 'true',
-  '--strict', 'true'
+  '--outDir',
+  './dist',
+  '--module',
+  'esnext',
+  '--target',
+  'esnext',
+  '--moduleResolution',
+  'node',
+  '--esModuleInterop',
+  'true',
+  '--skipLibCheck',
+  'true',
+  '--strict',
+  'true',
 ];
 
 const tscResult = spawnSync('npx', tscArgs, {

@@ -1,12 +1,11 @@
 #!/usr/bin/env tsx
 /**
  * Box Component Demo
- * 
+ *
  * Comprehensive demonstration of all box capabilities
  */
 
-import picocolors from 'picocolors';
-
+import picocolors from '../src/prism/index.js';
 import { box } from '../src/components/box.js';
 
 async function main() {
@@ -20,7 +19,7 @@ async function main() {
   // 2. Box with rounded corners
   console.log(picocolors.cyan('2. Rounded Corners:'));
   box('This box has rounded corners for a softer appearance.', 'Rounded Box', {
-    rounded: true
+    rounded: true,
   });
   console.log();
 
@@ -28,7 +27,7 @@ async function main() {
   console.log(picocolors.cyan('3. Custom Width (50% of terminal):'));
   box('This box takes up 50% of the terminal width.', 'Half Width', {
     width: 0.5,
-    rounded: true
+    rounded: true,
   });
   console.log();
 
@@ -36,61 +35,61 @@ async function main() {
   console.log(picocolors.cyan('4. Auto Width (fits content):'));
   box('Short content.', 'Auto Width', {
     width: 'auto',
-    rounded: true
+    rounded: true,
   });
   console.log();
 
   // 5. Content alignment variations
   console.log(picocolors.cyan('5. Content Alignment:'));
-  
+
   box('Left aligned content (default)', 'Left Align', {
     contentAlign: 'left',
-    rounded: true
+    rounded: true,
   });
-  
+
   box('Center aligned content', 'Center Align', {
     contentAlign: 'center',
-    rounded: true
+    rounded: true,
   });
-  
+
   box('Right aligned content', 'Right Align', {
     contentAlign: 'right',
-    rounded: true
+    rounded: true,
   });
   console.log();
 
   // 6. Title alignment variations
   console.log(picocolors.cyan('6. Title Alignment:'));
-  
+
   box('Title aligned to the left', 'Left', {
     titleAlign: 'left',
-    rounded: true
+    rounded: true,
   });
-  
+
   box('Title aligned to the center', 'Center', {
     titleAlign: 'center',
-    rounded: true
+    rounded: true,
   });
-  
+
   box('Title aligned to the right', 'Right', {
     titleAlign: 'right',
-    rounded: true
+    rounded: true,
   });
   console.log();
 
   // 7. Custom padding
   console.log(picocolors.cyan('7. Custom Padding:'));
-  
+
   box('Minimal padding (1 space)', 'Tight Padding', {
     contentPadding: 1,
     titlePadding: 0,
-    rounded: true
+    rounded: true,
   });
-  
+
   box('Extra padding (4 spaces)', 'Spacious Padding', {
     contentPadding: 4,
     titlePadding: 2,
-    rounded: true
+    rounded: true,
   });
   console.log();
 
@@ -100,39 +99,40 @@ async function main() {
 Line 2: This is the second line
 Line 3: This is the third line
 Line 4: This is the fourth line`;
-  
+
   box(multilineContent, 'Multi-line Box', {
     rounded: true,
-    contentAlign: 'left'
+    contentAlign: 'left',
   });
   console.log();
 
   // 9. Long content with wrapping
   console.log(picocolors.cyan('9. Text Wrapping:'));
-  const longContent = 'This is a very long line of text that will automatically wrap to fit within the box boundaries. The wrapping is handled intelligently to maintain readability.';
-  
+  const longContent =
+    'This is a very long line of text that will automatically wrap to fit within the box boundaries. The wrapping is handled intelligently to maintain readability.';
+
   box(longContent, 'Text Wrapping Demo', {
     width: 0.6,
-    rounded: true
+    rounded: true,
   });
   console.log();
 
   // 10. Custom border formatting
   console.log(picocolors.cyan('10. Styled Borders:'));
-  
+
   box('Green border box', 'Success', {
     rounded: true,
-    formatBorder: (text: string) => picocolors.green(text)
+    formatBorder: (text: string) => picocolors.green(text),
   });
-  
+
   box('Red border box', 'Error', {
     rounded: true,
-    formatBorder: (text: string) => picocolors.red(text)
+    formatBorder: (text: string) => picocolors.red(text),
   });
-  
+
   box('Blue gradient border', 'Info', {
     rounded: true,
-    formatBorder: (text: string) => picocolors.blue(text)
+    formatBorder: (text: string) => picocolors.blue(text),
   });
   console.log();
 
@@ -140,7 +140,7 @@ Line 4: This is the fourth line`;
   console.log(picocolors.cyan('11. Box with Prefix:'));
   box('This box includes a prefix on each line', 'Prefixed Box', {
     includePrefix: true,
-    rounded: true
+    rounded: true,
   });
   console.log();
 
@@ -162,21 +162,21 @@ Features:
     titleAlign: 'center',
     contentPadding: 3,
     titlePadding: 2,
-    formatBorder: (text: string) => picocolors.magenta(text)
+    formatBorder: (text: string) => picocolors.magenta(text),
   });
   console.log();
 
   // 13. Empty content box
   console.log(picocolors.cyan('13. Empty Content:'));
   box('', 'Empty Box', {
-    rounded: true
+    rounded: true,
   });
   console.log();
 
   // 14. No title box
   console.log(picocolors.cyan('14. No Title:'));
   box('Box without a title', '', {
-    rounded: true
+    rounded: true,
   });
   console.log();
 
@@ -188,44 +188,44 @@ Features:
     |、˜〵          
    じしˍ,)ノ
   `;
-  
+
   box(asciiArt, '🐈 Cat', {
     rounded: true,
     contentAlign: 'center',
-    width: 'auto'
+    width: 'auto',
   });
   console.log();
 
   // 16. Nested appearance (using prefix)
   console.log(picocolors.cyan('16. Nested Appearance:'));
   box('Level 1 content', 'Outer Box', {
-    rounded: true
+    rounded: true,
   });
   box('  Level 2 content (indented)', '  Inner Box', {
     rounded: true,
-    includePrefix: true
+    includePrefix: true,
   });
   console.log();
 
   // 17. Status boxes
   console.log(picocolors.cyan('17. Status Boxes:'));
-  
+
   box('Operation completed successfully!', '✅ Success', {
     rounded: true,
     formatBorder: (text: string) => picocolors.green(text),
-    width: 'auto'
+    width: 'auto',
   });
-  
+
   box('Warning: Check your configuration', '⚠️  Warning', {
     rounded: true,
     formatBorder: (text: string) => picocolors.yellow(text),
-    width: 'auto'
+    width: 'auto',
   });
-  
+
   box('Error: Failed to connect', '❌ Error', {
     rounded: true,
     formatBorder: (text: string) => picocolors.red(text),
-    width: 'auto'
+    width: 'auto',
   });
   console.log();
 
@@ -238,10 +238,10 @@ Alice       28     NYC
 Bob         32     LA
 Charlie     25     SF
   `.trim();
-  
+
   box(tableContent, 'User Data', {
     rounded: false,
-    contentAlign: 'left'
+    contentAlign: 'left',
   });
   console.log();
 
@@ -254,16 +254,16 @@ Charlie     25     SF
     picocolors.green,
     picocolors.cyan,
     picocolors.blue,
-    picocolors.magenta
+    picocolors.magenta,
   ];
-  
+
   box('🌈 Rainbow content with cycling border colors!', '🎨 Colors', {
     rounded: true,
     formatBorder: (text: string) => {
       const color = colors[colorIndex % colors.length];
       colorIndex++;
-      return color(text);
-    }
+      return color ? color(text) : text;
+    },
   });
   console.log();
 
@@ -273,7 +273,7 @@ Charlie     25     SF
     width: 1,
     rounded: true,
     contentAlign: 'center',
-    titleAlign: 'center'
+    titleAlign: 'center',
   });
 
   console.log(picocolors.bold(picocolors.green('\n✨ Demo Complete!\n')));

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import * as fs from 'fs';
-import chalk from 'chalk';
+import { prism } from '@xec-sh/kit';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
@@ -249,7 +249,7 @@ export class WatchCommand extends ConfigAwareCommand {
       this.sessions.set(sessionId, session);
 
       if (!options.quiet) {
-        this.log(`${chalk.green('✓')} Watching ${targetDisplay} for changes`, 'success');
+        this.log(`${prism.green('✓')} Watching ${targetDisplay} for changes`, 'success');
         this.log(`  Paths: ${paths.join(', ')}`, 'info');
         if (options.pattern) {
           this.log(`  Patterns: ${options.pattern.join(', ')}`, 'info');
@@ -257,7 +257,7 @@ export class WatchCommand extends ConfigAwareCommand {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} Failed to start watching: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} Failed to start watching: ${errorMessage}`, 'error');
       throw error;
     }
   }
@@ -523,7 +523,7 @@ export class WatchCommand extends ConfigAwareCommand {
           this.stopSpinner();
 
           if (result.exitCode === 0) {
-            this.log(`${chalk.green('✓')} Command executed successfully`, 'success');
+            this.log(`${prism.green('✓')} Command executed successfully`, 'success');
 
             if (result.stdout && options.verbose) {
               console.log(result.stdout.trim());
@@ -558,7 +558,7 @@ export class WatchCommand extends ConfigAwareCommand {
           this.stopSpinner();
 
           if (result.success) {
-            this.log(`${chalk.green('✓')} Script executed successfully`, 'success');
+            this.log(`${prism.green('✓')} Script executed successfully`, 'success');
           } else {
             throw new Error(result.error?.message || 'Script execution failed');
           }
@@ -576,7 +576,7 @@ export class WatchCommand extends ConfigAwareCommand {
           this.stopSpinner();
 
           if (result.success) {
-            this.log(`${chalk.green('✓')} Task '${options.task}' completed`, 'success');
+            this.log(`${prism.green('✓')} Task '${options.task}' completed`, 'success');
           } else {
             throw new Error(result.error?.message || 'Task failed');
           }
@@ -588,7 +588,7 @@ export class WatchCommand extends ConfigAwareCommand {
       }
 
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${chalk.red('✗')} Execution failed: ${errorMessage}`, 'error');
+      this.log(`${prism.red('✗')} Execution failed: ${errorMessage}`, 'error');
 
       // Don't throw - continue watching
     }
@@ -972,8 +972,8 @@ export class WatchCommand extends ConfigAwareCommand {
       }
 
       // Keep process alive
-      console.log('\n' + chalk.green('✓') + ` Watching ${InteractiveHelpers.getTargetIcon(target.type)} ${target.id} for changes...`);
-      console.log(chalk.gray('Press Ctrl+C to stop watching'));
+      console.log('\n' + prism.green('✓') + ` Watching ${InteractiveHelpers.getTargetIcon(target.type)} ${target.id} for changes...`);
+      console.log(prism.gray('Press Ctrl+C to stop watching'));
 
       await new Promise(() => { }); // Wait indefinitely
 

@@ -5,7 +5,9 @@ This directory contains comprehensive examples demonstrating the `path` componen
 ## Examples
 
 ### 1. Basic Path Selection (`basic/path.ts`)
+
 Simple example showing:
+
 - Basic file selection
 - Directory selection
 - File validation (JSON files only)
@@ -13,10 +15,12 @@ Simple example showing:
 Run: `npx tsx examples/basic/path.ts`
 
 ### 2. Comprehensive Path Features (`path-comprehensive.ts`)
+
 Complete demonstration of all path component features:
+
 - Basic file/directory selection
 - Custom root directory
-- Directory-only mode  
+- Directory-only mode
 - Initial value setting
 - File type validation (TypeScript/JavaScript files)
 - File size validation (< 1MB)
@@ -26,7 +30,9 @@ Complete demonstration of all path component features:
 Run: `npx tsx examples/path-comprehensive.ts`
 
 ### 3. Advanced Path Patterns (`path-advanced.ts`)
+
 Advanced usage patterns and real-world scenarios:
+
 - **Source & Destination Selection**: Copy/move operations with permission checks
 - **Project Setup Wizard**: Multi-step path selection for project structure
 - **Backup File Selection**: Filter files by modification date and size
@@ -38,6 +44,7 @@ Run: `npx tsx examples/path-advanced.ts`
 ## Features Demonstrated
 
 ### Core Features
+
 - ✅ File selection with autocomplete
 - ✅ Directory-only selection mode
 - ✅ Custom root directory
@@ -46,6 +53,7 @@ Run: `npx tsx examples/path-advanced.ts`
 - ✅ Navigation with arrow keys
 
 ### Validation Options
+
 - ✅ File existence checking
 - ✅ File type validation (by extension)
 - ✅ File size validation
@@ -54,6 +62,7 @@ Run: `npx tsx examples/path-advanced.ts`
 - ✅ Custom validation functions
 
 ### Advanced Features
+
 - ✅ Symbolic link detection
 - ✅ Hidden file handling
 - ✅ Relative path resolution
@@ -71,15 +80,15 @@ import { path } from '@xec-sh/kit';
 const selectedFile = await path({
   message: 'Select a file',
   initialValue: process.cwd(),
-  directory: false,  // Set to true for directory-only mode
-  root: '/custom/root',  // Optional custom root directory
+  directory: false, // Set to true for directory-only mode
+  root: '/custom/root', // Optional custom root directory
   validate: (value) => {
     // Custom validation logic
     if (!value?.endsWith('.json')) {
       return 'Please select a JSON file';
     }
     return undefined;
-  }
+  },
 });
 ```
 

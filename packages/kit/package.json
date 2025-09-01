@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/kit",
-  "version": "0.0.8",
+  "version": "0.1.0",
   "description": "TypeScript library for building beautiful command-line interfaces",
   "type": "module",
   "main": "./dist/index.js",
@@ -59,7 +59,6 @@
     "prettier:check": "prettier --check ."
   },
   "dependencies": {
-    "picocolors": "1.1.1",
     "sisteransi": "^1.0.5"
   },
   "devDependencies": {

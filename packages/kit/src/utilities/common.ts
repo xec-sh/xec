@@ -1,14 +1,14 @@
 import type { Readable, Writable } from 'node:stream';
 
-import color from 'picocolors';
-
+import prism from '../prism/index.js';
 import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
 
 import type { State } from '../core/index.js';
 
 export const unicode = isUnicodeSupported();
 export const isCI = (): boolean => process.env['CI'] === 'true';
-export const isTTY = (output: Writable): boolean => (output as Writable & { isTTY?: boolean }).isTTY === true;
+export const isTTY = (output: Writable): boolean =>
+  (output as Writable & { isTTY?: boolean }).isTTY === true;
 export const unicodeOr = (c: string, fallback: string) => (unicode ? c : fallback);
 export const S_STEP_ACTIVE = unicodeOr('◆', '*');
 export const S_STEP_CANCEL = unicodeOr('■', 'x');
@@ -41,23 +41,23 @@ export const S_WARN = unicodeOr('▲', '!');
 export const S_ERROR = unicodeOr('■', 'x');
 
 export const symbol = (state: State) => {
-	switch (state) {
-		case 'initial':
-		case 'active':
-			return color.cyan(S_STEP_ACTIVE);
-		case 'cancel':
-			return color.red(S_STEP_CANCEL);
-		case 'error':
-			return color.yellow(S_STEP_ERROR);
-		case 'submit':
-			return color.green(S_STEP_SUBMIT);
-		default:
-			return color.gray(S_STEP_ACTIVE);
-	}
+  switch (state) {
+    case 'initial':
+    case 'active':
+      return prism.cyan(S_STEP_ACTIVE);
+    case 'cancel':
+      return prism.red(S_STEP_CANCEL);
+    case 'error':
+      return prism.yellow(S_STEP_ERROR);
+    case 'submit':
+      return prism.green(S_STEP_SUBMIT);
+    default:
+      return prism.gray(S_STEP_ACTIVE);
+  }
 };
 
 export interface CommonOptions {
-	input?: Readable;
-	output?: Writable;
-	signal?: AbortSignal;
+  input?: Readable;
+  output?: Writable;
+  signal?: AbortSignal;
 }
