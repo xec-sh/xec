@@ -73,9 +73,8 @@ import('../dist/main.js')
       console.error('Error: Xec CLI is not built. Please run "yarn build" first.');
     } else {
       console.error('Failed to start Xec CLI:', err.message || err);
-      if (process.env.XEC_DEBUG) {
-        console.error(err.stack);
-      }
+      // Always show stack trace for debugging
+      console.error('Stack trace:', err.stack);
     }
     process.exit(1);
   });

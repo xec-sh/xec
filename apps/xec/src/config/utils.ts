@@ -2,6 +2,7 @@
  * Configuration utilities
  */
 
+import path from "path";
 import { homedir } from "os";
 
 /**

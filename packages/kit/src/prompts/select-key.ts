@@ -36,7 +36,7 @@ export const selectKey = <Value extends string>(opts: SelectOptions<Value>) => {
 
 			switch (this.state) {
 				case 'submit': {
-					const selectedOption = this.options.find((opt) => opt.value === this.value) ?? opts.options[0];
+					const selectedOption = this.options.find((option) => option.value === this.value) ?? opts.options[0];
 					if (!selectedOption) return title;
 					return `${title}${color.gray(S_BAR)}  ${opt(
 						selectedOption,

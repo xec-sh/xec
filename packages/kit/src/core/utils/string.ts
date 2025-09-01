@@ -1,5 +1,5 @@
-export function diffLines(a: string, b: string) {
-	if (a === b) return;
+export function diffLines(a: string, b: string): number[] {
+	if (a === b) return [];
 
 	const aLines = a.split('\n');
 	const bLines = b.split('\n');
