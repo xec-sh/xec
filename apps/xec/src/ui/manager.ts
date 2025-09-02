@@ -33,6 +33,7 @@ function MainSection() {
 export async function runManager() {
   // Create a simple app with text components
   const app = await auraApp(() => {
+    // Get initial screen dimensions
     const { width, height } = screenDimensions();
 
     return HStack({
@@ -44,24 +45,26 @@ export async function runManager() {
       SidebarComponent(),
       // FileBrowserComponent(),
       MainSection(),
-    );
-  }, {
-    theme: darkTheme,  // Apply the theme
-    onKeyPress(key: ParsedKey) {
-      if (key.shift && key.name === 's') {
-        appStore.sidebarVisible = !appStore.sidebarVisible;
-      } else if (key.name === 'w') {
-        appStore.focused = 'workspace';
-      } else if (key.name === 's') {
-        appStore.focused = 'sidebar';
-      } else if (key.name === '`') {
-        app.renderer.console.toggle();
+    )
+  },
+    {
+      theme: darkTheme,  // Apply the theme
+      onKeyPress(key: ParsedKey) {
+        if (key.shift && key.name === 's') {
+          appStore.sidebarVisible = !appStore.sidebarVisible;
+        } else if (key.name === 'w') {
+          appStore.focused = 'workspace';
+        } else if (key.name === 's') {
+          appStore.focused = 'sidebar';
+        } else if (key.name === '`') {
+          app.renderer.console.toggle();
+        }
+      },
+      renderer: {
+        useAlternateScreen: true,
       }
-    },
-    renderer: {
-      useAlternateScreen: true,
     }
-  });
+  );
 
   return app;
 }

@@ -4,6 +4,7 @@ import {
   effect,
   signal,
   Select,
+  VStack,
   computed,
   onCleanup,
   ParsedKey,
@@ -233,11 +234,10 @@ export function SidebarComponent() {
     }
   });
 
-  return Box({
+  return VStack({
     id: 'sidebar',
     minWidth,
     maxWidth,
-    flexDirection: 'column',
     gap: 1,
     filledGaps: true,
     height: "100%",
@@ -245,6 +245,27 @@ export function SidebarComponent() {
     border: true,
     borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
     ref: boxMainRef,
+    onKeyDown(key: ParsedKey) {
+      const inst = boxMainRef();
+      if (inst) {
+        console.log(key);
+        if (key.shift) {
+          if (key.option) {
+            if (key.name === 'right') {
+              inst.width = maxWidth();
+            } else if (key.name === 'left') {
+              inst.width = minWidth();
+            }
+          } else {
+            if (key.name === 'right') {
+              inst.width = inst.width + 1;
+            } else if (key.name === 'left') {
+              inst.width = inst.width - 1;
+            }
+          }
+        }
+      }
+    },
   },
     Box({
       id: 'sidebar-title',
