@@ -1,11 +1,11 @@
-import { RGBA } from "../lib"
+import { RGBA } from "../lib/colors.js"
 import { TextComponent } from "./text.js"
 import { BoxComponent, type BoxProps } from "./box.js"
 import { Component, type ComponentProps } from "../component.js"
 
 import type { Timeout, ParsedKey, RenderContext } from "../types.js"
 
-export interface ScrollBarOptions extends ComponentProps<ScrollBarComponent> {
+export interface ScrollBarProps extends ComponentProps<ScrollBarComponent> {
   orientation: "vertical" | "horizontal"
   showArrows?: boolean
   trackOptions?: BoxProps
@@ -85,7 +85,7 @@ export class ScrollBarComponent extends Component {
 
   constructor(
     ctx: RenderContext,
-    { trackOptions, thumbOptions, arrowOptions, orientation, showArrows = false, ...options }: ScrollBarOptions,
+    { trackOptions, thumbOptions, arrowOptions, orientation, showArrows = false, ...options }: ScrollBarProps,
   ) {
     super(ctx, {
       flexDirection: orientation === "vertical" ? "column" : "row",

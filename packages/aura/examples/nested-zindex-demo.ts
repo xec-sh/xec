@@ -1,5 +1,5 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
-import { BoxComponent, TextComponent, TextAttributes, GroupComponent, createRenderer } from "../src/index"
+import { BoxComponent, TextComponent, TextAttributes, createRenderer } from "../src/index"
 
 import type { Renderer } from "../src/index"
 
@@ -11,13 +11,15 @@ export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#001122")
 
-  const parentContainer = new GroupComponent(renderer.root.ctx, { id: "parent-container",
+  const parentContainer = new BoxComponent(renderer.root.ctx, {
+    id: "parent-container",
     zIndex: 10,
     visible: true,
   })
   renderer.root.add(parentContainer)
 
-  const title = new TextComponent(renderer.root.ctx, { id: "main-title",
+  const title = new TextComponent(renderer.root.ctx, {
+    id: "main-title",
     content: "Nested Render Objects & Z-Index Demo",
     position: "absolute",
     left: 10,
@@ -29,7 +31,8 @@ export function run(renderer: Renderer): void {
   parentContainer.add(title)
 
   // Parent group with high z-index
-  const parentGroupA = new GroupComponent(renderer.root.ctx, { id: "parent-group-a",
+  const parentGroupA = new BoxComponent(renderer.root.ctx, {
+    id: "parent-group-a",
     position: "absolute",
     zIndex: 100,
     visible: true,
@@ -37,7 +40,8 @@ export function run(renderer: Renderer): void {
   parentContainer.add(parentGroupA)
 
   // Parent group with medium z-index
-  const parentGroupB = new GroupComponent(renderer.root.ctx, { id: "parent-group-b",
+  const parentGroupB = new BoxComponent(renderer.root.ctx, {
+    id: "parent-group-b",
     position: "absolute",
     zIndex: 50,
     visible: true,
@@ -45,7 +49,8 @@ export function run(renderer: Renderer): void {
   parentContainer.add(parentGroupB)
 
   // Parent group with low z-index
-  const parentGroupC = new GroupComponent(renderer.root.ctx, { id: "parent-group-c",
+  const parentGroupC = new BoxComponent(renderer.root.ctx, {
+    id: "parent-group-c",
     position: "absolute",
     zIndex: 20,
     visible: true,
@@ -53,7 +58,8 @@ export function run(renderer: Renderer): void {
   parentContainer.add(parentGroupC)
 
   // Group A - High Z-Index Parent (z=100)
-  const boxA1 = new BoxComponent(renderer.root.ctx, { id: "box-a1",
+  const boxA1 = new BoxComponent(renderer.root.ctx, {
+    id: "box-a1",
     position: "absolute",
     left: 15,
     top: 8,
@@ -69,7 +75,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupA.add(boxA1)
 
-  const textA1 = new TextComponent(renderer.root.ctx, { id: "text-a1",
+  const textA1 = new TextComponent(renderer.root.ctx, {
+    id: "text-a1",
     content: "Child A1 (z=10)",
     position: "absolute",
     left: 17,
@@ -80,7 +87,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupA.add(textA1)
 
-  const boxA2 = new BoxComponent(renderer.root.ctx, { id: "box-a2",
+  const boxA2 = new BoxComponent(renderer.root.ctx, {
+    id: "box-a2",
     position: "absolute",
     left: 20,
     top: 11,
@@ -94,7 +102,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupA.add(boxA2)
 
-  const textA2 = new TextComponent(renderer.root.ctx, { id: "text-a2",
+  const textA2 = new TextComponent(renderer.root.ctx, {
+    id: "text-a2",
     content: "Child A2 (z=5)",
     position: "absolute",
     left: 22,
@@ -105,7 +114,8 @@ export function run(renderer: Renderer): void {
   parentGroupA.add(textA2)
 
   // Group B - Medium Z-Index Parent (z=50)
-  const boxB1 = new BoxComponent(renderer.root.ctx, { id: "box-b1",
+  const boxB1 = new BoxComponent(renderer.root.ctx, {
+    id: "box-b1",
     position: "absolute",
     left: 30,
     top: 12,
@@ -121,7 +131,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupB.add(boxB1)
 
-  const textB1 = new TextComponent(renderer.root.ctx, { id: "text-b1",
+  const textB1 = new TextComponent(renderer.root.ctx, {
+    id: "text-b1",
     content: "Child B1 (z=20)",
     position: "absolute",
     left: 32,
@@ -132,7 +143,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupB.add(textB1)
 
-  const boxB2 = new BoxComponent(renderer.root.ctx, { id: "box-b2",
+  const boxB2 = new BoxComponent(renderer.root.ctx, {
+    id: "box-b2",
     position: "absolute",
     left: 35,
     top: 15,
@@ -146,7 +158,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupB.add(boxB2)
 
-  const textB2 = new TextComponent(renderer.root.ctx, { id: "text-b2",
+  const textB2 = new TextComponent(renderer.root.ctx, {
+    id: "text-b2",
     content: "Child B2 (z=15)",
     position: "absolute",
     left: 37,
@@ -157,7 +170,8 @@ export function run(renderer: Renderer): void {
   parentGroupB.add(textB2)
 
   // Group C - Low Z-Index Parent (z=20)
-  const boxC1 = new BoxComponent(renderer.root.ctx, { id: "box-c1",
+  const boxC1 = new BoxComponent(renderer.root.ctx, {
+    id: "box-c1",
     position: "absolute",
     left: 45,
     top: 16,
@@ -173,7 +187,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupC.add(boxC1)
 
-  const textC1 = new TextComponent(renderer.root.ctx, { id: "text-c1",
+  const textC1 = new TextComponent(renderer.root.ctx, {
+    id: "text-c1",
     content: "Child C1 (z=30)",
     position: "absolute",
     left: 47,
@@ -184,7 +199,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupC.add(textC1)
 
-  const boxC2 = new BoxComponent(renderer.root.ctx, { id: "box-c2",
+  const boxC2 = new BoxComponent(renderer.root.ctx, {
+    id: "box-c2",
     position: "absolute",
     left: 50,
     top: 19,
@@ -198,7 +214,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupC.add(boxC2)
 
-  const textC2 = new TextComponent(renderer.root.ctx, { id: "text-c2",
+  const textC2 = new TextComponent(renderer.root.ctx, {
+    id: "text-c2",
     content: "Child C2 (z=25)",
     position: "absolute",
     left: 52,
@@ -208,7 +225,8 @@ export function run(renderer: Renderer): void {
   })
   parentGroupC.add(textC2)
 
-  const explanation1 = new TextComponent(renderer.root.ctx, { id: "explanation1",
+  const explanation1 = new TextComponent(renderer.root.ctx, {
+    id: "explanation1",
     content: "Key Concept: Parent z-index determines group layering, child z-index determines order within group",
     position: "absolute",
     left: 10,
@@ -218,7 +236,8 @@ export function run(renderer: Renderer): void {
   })
   parentContainer.add(explanation1)
 
-  const explanation2 = new TextComponent(renderer.root.ctx, { id: "explanation2",
+  const explanation2 = new TextComponent(renderer.root.ctx, {
+    id: "explanation2",
     content: "Even if Child C1 has z=30, it renders behind Parent A & B because Parent C has z=20",
     position: "absolute",
     left: 10,
@@ -228,7 +247,8 @@ export function run(renderer: Renderer): void {
   })
   parentContainer.add(explanation2)
 
-  const phaseIndicator = new TextComponent(renderer.root.ctx, { id: "phase-indicator",
+  const phaseIndicator = new TextComponent(renderer.root.ctx, {
+    id: "phase-indicator",
     content: "Animation Phase: 1/4",
     position: "absolute",
     left: 10,
@@ -239,7 +259,8 @@ export function run(renderer: Renderer): void {
   })
   parentContainer.add(phaseIndicator)
 
-  const zIndexDisplay = new TextComponent(renderer.root.ctx, { id: "zindex-display",
+  const zIndexDisplay = new TextComponent(renderer.root.ctx, {
+    id: "zindex-display",
     content: "Current Z-Indices - A:100, B:50, C:20",
     position: "absolute",
     left: 10,
@@ -295,6 +316,7 @@ export function run(renderer: Renderer): void {
           boxB1.title = "Parent B (z=60)"
           boxC1.title = "Parent C (z=60)"
           break
+        default:
       }
 
       const phases = ["Original Hierarchy", "C Group on Top", "B Group on Top", "Equal Parents (Child z-index matters)"]

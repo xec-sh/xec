@@ -1,10 +1,8 @@
 import { OptimizedBuffer } from "../../src/renderer/buffer.js"
-import { GroupComponent } from "../../src/components/index.js"
 import { parseColor, type Color } from "../../src/lib/colors.js"
 import { TabsComponent, TabsComponentEvents } from "../../src/components/tabs.js"
 import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
-
-import type { Renderer, TabsOption, RenderContext } from "../../src/index.js"
+import { BoxComponent, type Renderer, type TabsOption, type RenderContext } from "../../src/index.js"
 
 export interface TabObject {
   title: string
@@ -84,7 +82,7 @@ export class TabControllerRenderable extends Component {
   }
 
   public addTab(tabObject: TabObject): Tab {
-    const tabGroup = new GroupComponent(this.ctx, {
+    const tabGroup = new BoxComponent(this.ctx, {
       id: `${this.id}-tab-${this.tabs.length}`,
       position: "absolute",
       left: 0,

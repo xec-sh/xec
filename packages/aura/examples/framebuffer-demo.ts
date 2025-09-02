@@ -4,9 +4,9 @@ import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import {
   RGBA,
   Renderer,
+  BoxComponent,
   TextComponent,
   TextAttributes,
-  GroupComponent,
   createRenderer,
   FrameBufferComponent,
 } from "../src/index"
@@ -30,14 +30,14 @@ let growingWidth = true
 let growingHeight = true
 let lastResizeTime = 0
 const resizeInterval = 0.1
-let parentContainer: GroupComponent | null = null
+let parentContainer: BoxComponent | null = null
 
 export function run(renderer: Renderer): void {
   renderer.start()
   const backgroundColor = RGBA.fromInts(10, 10, 30)
   renderer.setBackgroundColor(backgroundColor)
 
-  parentContainer = new GroupComponent(renderer.root.ctx, {
+  parentContainer = new BoxComponent(renderer.root.ctx, {
     id: "framebuffer-container",
     zIndex: 10,
     visible: true,

@@ -14,6 +14,10 @@ import type { RenderContext, SelectionState } from "../types.js"
 export interface TextProps extends ComponentProps {
   // Color properties - can be theme tokens or direct colors
   content?: StyledText | string
+  // Aliases for content for compatibility
+  text?: StyledText | string
+  value?: StyledText | string
+  color?: Color  // Alias for fg for compatibility
   fg?: Color
   bg?: Color
   selectionBg?: Color
@@ -56,7 +60,8 @@ export class TextComponent extends Component {
       () => this._lineInfo,
     )
 
-    const content = options.content ?? this._defaultOptions.content
+    // Support multiple aliases for content
+    const content = options.content ?? options.text ?? options.value ?? this._defaultOptions.content
     this._text = typeof content === "string" ? stringToStyledText(content) : content
 
     // Get theme and resolve colors
@@ -75,9 +80,10 @@ export class TextComponent extends Component {
       }
     }
 
-    // Resolve foreground color
-    if (options.fg) {
-      this._defaultFg = resolveColorValue(options.fg)!
+    // Resolve foreground color (support both fg and color)
+    const fgColor = options.fg ?? options.color;
+    if (fgColor) {
+      this._defaultFg = resolveColorValue(fgColor)!
     } else if (componentTheme?.foreground) {
       this._defaultFg = themeContext.resolveColor(componentTheme.foreground)
     } else {

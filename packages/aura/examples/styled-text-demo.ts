@@ -13,12 +13,11 @@ import {
   Renderer,
   underline,
   type ParsedKey,
-  GroupComponent,
   createRenderer,
 } from "../src/index"
 
 let renderer: Renderer | null = null
-let parentContainer: GroupComponent | null = null
+let parentContainer: BoxComponent | null = null
 let counter = 0
 let frameCallback: ((deltaTime: number) => Promise<void>) | null = null
 let updateFrequency = 1 // Updates per frame (1 = every frame, 2 = every 2 frames, etc.)
@@ -33,7 +32,7 @@ export function run(rendererInstance: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#001122")
 
-  parentContainer = new GroupComponent(renderer.root.ctx, {
+  parentContainer = new BoxComponent(renderer.root.ctx, {
     id: "styled-text-container",
     zIndex: 15,
     visible: true,

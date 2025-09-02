@@ -5,9 +5,9 @@ import {
   t,
   fg,
   bold,
+  BoxComponent,
   type Renderer,
   TabsComponent,
-  GroupComponent,
   createRenderer,
   type TabsOption,
   RenderableEvents,
@@ -17,7 +17,7 @@ import {
 let tabSelect: TabsComponent | null = null
 let renderer: Renderer | null = null
 let keyboardHandler: ((key: any) => void) | null = null
-let parentContainer: GroupComponent | null = null
+let parentContainer: BoxComponent | null = null
 let keyLegendDisplay: TextComponent | null = null
 let statusDisplay: TextComponent | null = null
 let lastSelectedItem: TabsOption | null = null
@@ -86,13 +86,15 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
-  parentContainer = new GroupComponent(renderer.root.ctx, { id: "tab-select-container",
+  parentContainer = new BoxComponent(renderer.root.ctx, {
+    id: "tab-select-container",
     zIndex: 10,
     visible: true,
   })
   renderer.root.add(parentContainer)
 
-  tabSelect = new TabsComponent(renderer.root.ctx, { id: "main-tabs",
+  tabSelect = new TabsComponent(renderer.root.ctx, {
+    id: "main-tabs",
     position: "absolute",
     left: 5,
     top: 2,
@@ -115,7 +117,8 @@ export function run(rendererInstance: Renderer): void {
 
   renderer.root.add(tabSelect)
 
-  keyLegendDisplay = new TextComponent(renderer.root.ctx, { id: "key-legend",
+  keyLegendDisplay = new TextComponent(renderer.root.ctx, {
+    id: "key-legend",
     content: t``,
     width: 40,
     height: 10,
@@ -128,7 +131,8 @@ export function run(rendererInstance: Renderer): void {
   parentContainer.add(keyLegendDisplay)
 
   // Create status display
-  statusDisplay = new TextComponent(renderer.root.ctx, { id: "status-display",
+  statusDisplay = new TextComponent(renderer.root.ctx, {
+    id: "status-display",
     content: t``,
     width: 80,
     height: 6,

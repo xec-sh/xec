@@ -1,7 +1,9 @@
 import {
-  aura,
+  Box,
+  Text,
   effect,
   signal,
+  Select,
   computed,
   onCleanup,
   ParsedKey,
@@ -87,7 +89,7 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
     }));
   });
 
-  return aura('select', {
+  return Select({
     showScrollIndicator: true,
     minHeight: 2,
     wrapSelection: true,
@@ -221,9 +223,9 @@ export function SidebarComponent() {
           appStore.currentWorkspace = option.value;
         }
       };
-      
+
       select.on('itemSelected', handleSelection);
-      
+
       // Cleanup listener
       onCleanup(() => {
         select.off('itemSelected', handleSelection);
@@ -231,7 +233,7 @@ export function SidebarComponent() {
     }
   });
 
-  return aura("box", {
+  return Box({
     id: 'sidebar',
     minWidth,
     maxWidth,
@@ -243,73 +245,70 @@ export function SidebarComponent() {
     border: true,
     borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
     ref: boxMainRef,
-    children: [
-      aura("box", {
-        id: 'sidebar-title',
-        height: 1,
-        paddingLeft: 1,
-        children: [
-          aura("text", {
-            content: computed(() => appStore.focused === 'sidebar' ? '⦿ ' : '○ '),
-            fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'muted'),
-            attributes: TextAttributes.BOLD,
-          }),
-          aura("text", {
-            content: 'Workspaces',
-            fg: computed(() => appStore.focused === 'sidebar' ? 'secondary' : 'muted'),
-            attributes: TextAttributes.BOLD,
-          }),
-        ],
+  },
+    Box({
+      id: 'sidebar-title',
+      height: 1,
+      paddingLeft: 1,
+    },
+      Text({
+        content: computed(() => appStore.focused === 'sidebar' ? '⦿ ' : '○ '),
+        fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'muted'),
+        attributes: TextAttributes.BOLD,
       }),
-      ProjectBrowser(selectRef),
-      aura("box", {
-        id: 'sidebar-help',
-        height: 'auto',
-        paddingLeft: 1,
-        paddingRight: 1,
-        gap: 0,
-        flexDirection: 'column',
-        children: [
-          aura("text", {
-            content: '─────────────',
-            fg: 'muted',
-            attributes: TextAttributes.DIM,
-          }),
-          aura("text", {
-            content: 'Keys:',
-            fg: 'muted',
-            attributes: TextAttributes.BOLD,
-          }),
-          aura("text", {
-            content: 'n - Add workspace',
-            fg: 'muted',
-            attributes: TextAttributes.DIM,
-          }),
-          aura("text", {
-            content: 'd - Remove workspace',
-            fg: 'muted',
-            attributes: TextAttributes.DIM,
-          }),
-          aura("text", {
-            content: 'r - Refresh list',
-            fg: 'muted',
-            attributes: TextAttributes.DIM,
-          }),
-          aura("text", {
-            content: 'f - Find workspaces',
-            fg: 'muted',
-            attributes: TextAttributes.DIM,
-          }),
-          aura("text", {
-            content: computed(() => {
-              const error = errorSignal();
-              return error ? `⚠ ${error}` : '';
-            }),
-            fg: 'error',
-            attributes: TextAttributes.BOLD,
-          }),
-        ],
+      Text({
+        content: 'Workspaces',
+        fg: computed(() => appStore.focused === 'sidebar' ? 'secondary' : 'muted'),
+        attributes: TextAttributes.BOLD,
       }),
-    ],
-  });
+    ),
+    ProjectBrowser(selectRef),
+    Box({
+      id: 'sidebar-help',
+      height: 'auto',
+      paddingLeft: 1,
+      paddingRight: 1,
+      gap: 0,
+      flexDirection: 'column',
+    },
+      Text({
+        content: '─────────────',
+        fg: 'muted',
+        attributes: TextAttributes.DIM,
+      }),
+      Text({
+        content: 'Keys:',
+        fg: 'muted',
+        attributes: TextAttributes.BOLD,
+      }),
+      Text({
+        content: 'n - Add workspace',
+        fg: 'muted',
+        attributes: TextAttributes.DIM,
+      }),
+      Text({
+        content: 'd - Remove workspace',
+        fg: 'muted',
+        attributes: TextAttributes.DIM,
+      }),
+      Text({
+        content: 'r - Refresh list',
+        fg: 'muted',
+        attributes: TextAttributes.DIM,
+      }),
+      Text({
+        content: 'f - Find workspaces',
+        fg: 'muted',
+        attributes: TextAttributes.DIM,
+      }),
+      Text({
+        content: computed(() => {
+          const error = errorSignal();
+          return error ? `⚠ ${error}` : '';
+        }),
+        fg: 'error',
+        attributes: TextAttributes.BOLD,
+      }),
+    ),
+  );
 }

@@ -1,6 +1,6 @@
 /**
- * Aura Next - Reactive Bridge
- * Connects NeoFlux reactive system with Aura components
+ * Aura Next - Reactive Bridge (Refactored)
+ * Connects reactive system with Aura components using component registry
  */
 
 import {
@@ -9,25 +9,18 @@ import {
   isSignal,
   onCleanup,
   createRoot,
-  type Signal,
-  type Disposable
+  type Signal
 } from 'vibrancy';
 
-import { BoxComponent } from '../components/box.js';
-import { TextComponent } from '../components/text.js';
-import { TabsComponent } from '../components/tabs.js';
-import { InputComponent } from '../components/input.js';
-import { GroupComponent } from '../components/group.js';
-import { TableComponent } from '../components/table.js';
-import { SelectComponent } from '../components/select.js';
-import { ASCIIFontComponent } from '../components/ascii-font.js';
-import { FrameBufferComponent } from '../components/frame-buffer.js';
+import { getGlobalRegistry } from './component-registry.js';
 
 import type { Component } from '../component.js';
 import type { RenderContext } from '../types.js';
 import type {
   AuraElement,
   ComponentType,
+  AnyAuraElement,
+  ComponentProps,
   ComponentInstance
 } from './types.js';
 
@@ -45,7 +38,7 @@ function generateComponentId(type: string): string {
  * Get the current value from a signal or return the value itself
  */
 export function getValue<T>(value: T | Signal<T>): T {
-  return isSignal(value) ? value() : value;
+  return isSignal(value) ? (value as any)() : value;
 }
 
 /**
@@ -55,47 +48,21 @@ export function createComponentInstance<T extends ComponentType>(
   element: AuraElement<T>,
   ctx: RenderContext
 ): ComponentInstance<T> {
-  let instance: any;
+  const registry = getGlobalRegistry();
 
-  // Use key as ID if provided, otherwise use props.id or generate one
-  const props = element.props as any;
+  // Extract ID from various sources
   const id = element.key
     ? String(element.key)
-    : (props.id || generateComponentId(element.type));
-  const unwrappedProps = { ...unwrapReactiveProps(props), id };
+    : ((element.props as any).id || generateComponentId(element.type));
 
-  // Create the appropriate component instance with context and props
-  switch (element.type) {
-    case 'box':
-      instance = new BoxComponent(ctx, unwrappedProps);
-      break;
-    case 'text':
-      instance = new TextComponent(ctx, unwrappedProps);
-      break;
-    case 'input':
-      instance = new InputComponent(ctx, unwrappedProps);
-      break;
-    case 'select':
-      instance = new SelectComponent(ctx, unwrappedProps);
-      break;
-    case 'table':
-      instance = new TableComponent(ctx, unwrappedProps);
-      break;
-    case 'tabs':
-      instance = new TabsComponent(ctx, unwrappedProps);
-      break;
-    case 'group':
-      instance = new GroupComponent(ctx, unwrappedProps);
-      break;
-    case 'frame-buffer':
-      instance = new FrameBufferComponent(ctx, unwrappedProps);
-      break;
-    case 'ascii-font':
-      instance = new ASCIIFontComponent(ctx, unwrappedProps);
-      break;
-    default:
-      throw new Error(`Unknown component type: ${element.type}`);
-  }
+  // Unwrap reactive props to get current values
+  const unwrappedProps = {
+    ...unwrapReactiveProps(element.props),
+    id
+  };
+
+  // Create component instance using registry
+  const instance = registry.create(element.type, unwrappedProps as ComponentProps<T>, ctx);
 
   // Store instance reference
   element.instance = instance;
@@ -111,12 +78,14 @@ export function createComponentInstance<T extends ComponentType>(
 /**
  * Unwrap reactive props to get current values
  */
-function unwrapReactiveProps<T extends Record<string, any>>(props: T): any {
-  const unwrapped: any = {};
+function unwrapReactiveProps<T extends Record<string, unknown>>(props: T): T {
+  const unwrapped = {} as T;
 
   for (const key in props) {
-    const value = props[key];
-    unwrapped[key] = getValue(value);
+    if (Object.prototype.hasOwnProperty.call(props, key)) {
+      const value = props[key];
+      (unwrapped as any)[key] = getValue(value);
+    }
   }
 
   return unwrapped;
@@ -129,31 +98,36 @@ function unwrapReactiveProps<T extends Record<string, any>>(props: T): any {
 export function bindReactiveProps<T extends ComponentType>(
   element: AuraElement<T>,
   instance: ComponentInstance<T>
-): Disposable[] {
-  const disposables: Disposable[] = [];
-  const props = element.props as any;
+): (() => void)[] {
+  const disposables: (() => void)[] = [];
+  const props = element.props;
 
   // Create effects for each reactive prop
   for (const key in props) {
-    const value = props[key];
+    if (Object.prototype.hasOwnProperty.call(props, key)) {
+      const value = props[key];
 
-    if (isSignal(value)) {
-      // Create an effect that updates the component property
-      const dispose = effect(() => {
-        const newValue = value();
+      if (isSignal(value)) {
+        // Create an effect that updates the component property
+        const dispose = effect(() => {
+          const newValue = value();
 
-        // Use batch to group multiple updates
-        batch(() => {
-          (instance as any)[key] = newValue;
+          // Use batch to group multiple updates
+          batch(() => {
+            // Type-safe property assignment
+            if (key in instance) {
+              (instance as any)[key] = newValue;
+            }
 
-          // Trigger re-render if needed
-          if ('requestRender' in instance && typeof instance.requestRender === 'function') {
-            instance.requestRender();
-          }
+            // Trigger re-render if the component supports it
+            if ('requestRender' in instance && typeof instance.requestRender === 'function') {
+              instance.requestRender();
+            }
+          });
         });
-      });
 
-      disposables.push(dispose);
+        disposables.push(dispose as unknown as (() => void));
+      }
     }
   }
 
@@ -161,25 +135,35 @@ export function bindReactiveProps<T extends ComponentType>(
 }
 
 /**
+ * Mount lifecycle data for tracking cleanup
+ */
+interface MountData {
+  instance: Component;
+  cleanup: () => void;
+  children: MountData[];
+}
+
+/**
  * Mount an Aura element tree to create component instances
  */
-export function mountElement<T extends ComponentType>(
-  element: AuraElement<T>,
-  parent?: Component
-): ComponentInstance<T> {
-  // Get context from parent or throw error if no parent
-  if (!parent) {
-    throw new Error('Cannot mount element without parent component');
-  }
-  const ctx = parent.ctx;
+export function mountElement(
+  element: AnyAuraElement,
+  parent: Component,
+  ctx?: RenderContext
+): MountData {
+  // Use provided context or get from parent
+  const renderContext = ctx || parent.ctx;
 
-  // Create component instance with context
-  const instance = createComponentInstance(element, ctx);
+  // Create component instance
+  const instance = createComponentInstance(element as AuraElement<ComponentType>, renderContext);
+
+  // Store child mount data for cleanup
+  const childMountData: MountData[] = [];
 
   // Create reactive root for this component
   const cleanup = createRoot((dispose) => {
     // Bind reactive props
-    const propDisposables = bindReactiveProps(element, instance);
+    const propDisposables = bindReactiveProps(element as AuraElement<ComponentType>, instance);
 
     // Run mount hook if provided
     if (element.onMount) {
@@ -194,89 +178,121 @@ export function mountElement<T extends ComponentType>(
       onCleanup(element.onCleanup);
     }
 
-    // Add to parent first (required for children to get context)
-    if (parent) {
-      parent.add(instance);
-    }
-
-    // Mount children recursively
+    // Mount children if present
     if (element.children) {
       for (const child of element.children) {
-        // Pass instance as parent - child will be added inside mountElement
-        mountElement(child, instance);
+        const childMount = mountElement(child, instance);
+        childMountData.push(childMount);
+
+        // Add child to parent component
+        if ('add' in instance && typeof instance.add === 'function') {
+          instance.add(childMount.instance);
+        }
       }
+    }
+
+    // Add to parent after children are mounted
+    if (parent && 'add' in parent && typeof parent.add === 'function') {
+      parent.add(instance);
     }
 
     // Return cleanup function
     return () => {
-      // Dispose all prop effects
-      propDisposables.forEach(d => d.dispose());
-
-      // Remove from parent
-      if (parent && instance.parent === parent) {
-        parent.remove(instance.id);
+      // Clean up children first
+      for (const child of childMountData) {
+        child.cleanup();
       }
 
-      // Dispose the reactive root
+      // Clean up prop effects
+      for (const disposable of propDisposables) {
+        disposable();
+      }
+
+      // Call dispose
       dispose();
     };
   });
 
-  // Store cleanup function on instance for later disposal
-  (instance as any).__cleanup = cleanup;
-
-  return instance;
+  return {
+    instance,
+    cleanup,
+    children: childMountData
+  };
 }
 
 /**
- * Unmount a component and clean up its reactive subscriptions
+ * Unmount an element and clean up resources
  */
-export function unmountElement(instance: Component): void {
-  // Call the stored cleanup function if it exists
-  const cleanup = (instance as any).__cleanup;
-  if (cleanup && typeof cleanup === 'function') {
-    cleanup();
-  }
-
-  // Recursively unmount children
-  const children = instance.getChildren();
-  for (const child of children) {
+export function unmountElement(mountData: MountData): void {
+  // Clean up children first
+  for (const child of mountData.children) {
     unmountElement(child);
   }
+
+  // Remove from parent if possible
+  const instance = mountData.instance;
+  if (instance.parent && 'remove' in instance.parent && typeof instance.parent.remove === 'function') {
+    instance.parent.remove(instance.id);
+  }
+
+  // Run cleanup
+  mountData.cleanup();
+
+  // Dispose component if it has a dispose method
+  if ('dispose' in instance && typeof instance.dispose === 'function') {
+    instance.dispose();
+  }
 }
 
 /**
- * Update an existing component tree with a new element tree
- * This is used for efficient re-rendering
+ * Update an existing element with new props/children
+ * This is a more efficient alternative to unmounting and remounting
  */
 export function updateElement<T extends ComponentType>(
   element: AuraElement<T>,
-  instance: ComponentInstance<T>
+  mountData: MountData
 ): void {
+  const instance = mountData.instance as ComponentInstance<T>;
+
   // Update props
-  const props = unwrapReactiveProps(element.props as any);
-  for (const key in props) {
-    (instance as any)[key] = props[key];
-  }
+  batch(() => {
+    const unwrappedProps = unwrapReactiveProps(element.props);
 
-  // Update children (simplified - full reconciliation would be more complex)
-  if (element.children) {
-    // Clear existing children
-    const existingChildren = instance.getChildren();
-    for (const child of existingChildren) {
-      instance.remove(child.id);
-      unmountElement(child);
+    for (const key in unwrappedProps) {
+      if (Object.prototype.hasOwnProperty.call(unwrappedProps, key) && key in instance) {
+        (instance as any)[key] = unwrappedProps[key];
+      }
     }
 
-    // Mount new children
-    for (const child of element.children) {
-      // Pass instance as parent - child will be added inside mountElement
-      mountElement(child, instance);
+    // Trigger re-render
+    if ('requestRender' in instance && typeof instance.requestRender === 'function') {
+      instance.requestRender();
     }
-  }
+  });
 
   // Run update hook if provided
   if (element.onUpdate) {
     element.onUpdate();
   }
+
+  // TODO: Implement proper child reconciliation
+  // For now, we're not updating children - this would require
+  // a more sophisticated diffing algorithm
+}
+
+/**
+ * Create a reactive component tree
+ * This is the main entry point for mounting reactive components
+ */
+export function createReactiveTree(
+  element: AnyAuraElement,
+  parent: Component,
+  ctx?: RenderContext
+): () => void {
+  const mountData = mountElement(element, parent, ctx);
+
+  // Return cleanup function
+  return () => {
+    unmountElement(mountData);
+  };
 }

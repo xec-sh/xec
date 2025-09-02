@@ -7,7 +7,6 @@ import {
   BoxComponent,
   TextComponent,
   type ParsedKey,
-  GroupComponent,
   createRenderer,
 } from "../src/index.js"
 
@@ -15,21 +14,23 @@ const exampleHAST: HASTElement = (await import("./assets/hast-example.json", { w
 
 let renderer: Renderer | null = null
 let keyboardHandler: ((key: ParsedKey) => void) | null = null
-let parentContainer: GroupComponent | null = null
+let parentContainer: BoxComponent | null = null
 
 export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.start()
   renderer.setBackgroundColor("#0D1117")
 
-  parentContainer = new GroupComponent(renderer.root.ctx, { id: "parent-container",
+  parentContainer = new BoxComponent(renderer.root.ctx, {
+    id: "parent-container",
     zIndex: 10,
     visible: true,
     padding: 1,
   })
   renderer.root.add(parentContainer)
 
-  const titleBox = new BoxComponent(renderer.root.ctx, { id: "title-box",
+  const titleBox = new BoxComponent(renderer.root.ctx, {
+    id: "title-box",
     height: 3,
     borderStyle: "double",
     borderColor: "#4ECDC4",
@@ -40,13 +41,15 @@ export function run(rendererInstance: Renderer): void {
   })
   parentContainer.add(titleBox)
 
-  const instructionsText = new TextComponent(renderer.root.ctx, { id: "instructions",
+  const instructionsText = new TextComponent(renderer.root.ctx, {
+    id: "instructions",
     content: "ESC to return | R to re-transform | Demonstrating HAST tree conversion to syntax-highlighted text",
     fg: "#888888",
   })
   titleBox.add(instructionsText)
 
-  const codeBox = new BoxComponent(renderer.root.ctx, { id: "code-box",
+  const codeBox = new BoxComponent(renderer.root.ctx, {
+    id: "code-box",
     borderStyle: "single",
     borderColor: "#6BCF7F",
     backgroundColor: "#0D1117",
@@ -75,7 +78,8 @@ export function run(rendererInstance: Renderer): void {
   const transformEnd = performance.now()
   const transformTime = (transformEnd - transformStart).toFixed(2)
 
-  const codeDisplay = new TextComponent(renderer.root.ctx, { id: "code-display",
+  const codeDisplay = new TextComponent(renderer.root.ctx, {
+    id: "code-display",
     content: styledText,
     bg: "#0D1117",
     selectable: true,
@@ -84,7 +88,8 @@ export function run(rendererInstance: Renderer): void {
   })
   codeBox.add(codeDisplay)
 
-  const timingText = new TextComponent(renderer.root.ctx, { id: "timing-display",
+  const timingText = new TextComponent(renderer.root.ctx, {
+    id: "timing-display",
     content: `HAST transformation time: ${transformTime}ms (Cache: ${syntaxStyle.getCacheSize()} entries) (Press 'R' to re-transform)`,
     fg: "#A8E6CF",
   })

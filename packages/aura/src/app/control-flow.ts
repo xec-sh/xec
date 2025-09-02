@@ -1,5 +1,5 @@
 /**
- * Aura Next - Control Flow
+ * Aura - Control Flow
  * Utilities for conditional rendering and iteration
  */
 
@@ -17,6 +17,7 @@ import type {
 
 /**
  * Conditionally render elements based on a signal value
+ * This version properly handles reactive updates
  * 
  * @example
  * ```typescript
@@ -29,20 +30,23 @@ export function show<T>(
   when: Signal<T | undefined | null | false> | T | undefined | null | false,
   children: ((value: T) => AuraElement | AuraElement[]) | AuraElement | AuraElement[],
   fallback?: () => AuraElement | AuraElement[]
-): AuraElement[] {
-  const condition = getValue(when);
-
-  if (condition) {
-    const result = typeof children === 'function'
-      ? children(condition as T)
-      : children;
-    return Array.isArray(result) ? result : [result];
-  } else if (fallback) {
-    const result = fallback();
-    return Array.isArray(result) ? result : [result];
-  }
-
-  return [];
+): Signal<AuraElement[]> {
+  // Create a computed signal that returns the appropriate elements
+  return computed(() => {
+    const condition = getValue(when);
+    
+    if (condition) {
+      const result = typeof children === 'function'
+        ? children(condition as T)
+        : children;
+      return Array.isArray(result) ? result : [result];
+    } else if (fallback) {
+      const result = fallback();
+      return Array.isArray(result) ? result : [result];
+    }
+    
+    return [];
+  });
 }
 
 /**
@@ -64,21 +68,24 @@ export function forEach<T>(
   each: Signal<T[]> | T[],
   children: (item: T, index: Signal<number>) => AuraElement,
   fallback?: () => AuraElement | AuraElement[]
-): AuraElement[] {
-  const items = getValue(each);
-
-  if (!items || items.length === 0) {
-    if (fallback) {
-      const result = fallback();
-      return Array.isArray(result) ? result : [result];
+): Signal<AuraElement[]> {
+  // Create a computed signal for reactive list rendering
+  return computed(() => {
+    const items = getValue(each);
+    
+    if (!items || items.length === 0) {
+      if (fallback) {
+        const result = fallback();
+        return Array.isArray(result) ? result : [result];
+      }
+      return [];
     }
-    return [];
-  }
-
-  return items.map((item, idx) => {
-    // Create a signal for the index
-    const indexSignal = computed(() => idx);
-    return children(item, indexSignal);
+    
+    return items.map((item, idx) => {
+      // Create a signal for the index
+      const indexSignal = computed(() => idx);
+      return children(item, indexSignal);
+    });
   });
 }
 
@@ -98,18 +105,21 @@ export function forEach<T>(
 export function switchCase<T extends string | number>(
   value: Signal<T> | T,
   cases: Record<T | 'default', () => AuraElement | AuraElement[]>
-): AuraElement[] {
-  const current = getValue(value);
-
-  if (current in cases) {
-    const result = cases[current]();
-    return Array.isArray(result) ? result : [result];
-  } else if ('default' in cases) {
-    const result = cases.default();
-    return Array.isArray(result) ? result : [result];
-  }
-
-  return [];
+): Signal<AuraElement[]> {
+  // Create a computed signal for reactive switching
+  return computed(() => {
+    const current = getValue(value);
+    
+    if (current in cases) {
+      const result = cases[current]();
+      return Array.isArray(result) ? result : [result];
+    } else if ('default' in cases) {
+      const result = cases.default();
+      return Array.isArray(result) ? result : [result];
+    }
+    
+    return [];
+  });
 }
 
 /**

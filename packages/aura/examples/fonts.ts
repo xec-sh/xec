@@ -1,12 +1,12 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
 import { renderFontToFrameBuffer } from "../src/lib/ascii.font"
-import { RGBA, Renderer, TextComponent, GroupComponent, createRenderer, FrameBufferComponent } from "../src/index"
+import { RGBA, Renderer, BoxComponent, TextComponent, createRenderer, FrameBufferComponent } from "../src/index"
 
 let scrollY = 0
 const contentHeight = 56
 let buffer: FrameBufferComponent | null = null
 let renderer: Renderer | null = null
-let parentContainer: GroupComponent | null = null
+let parentContainer: BoxComponent | null = null
 
 function updateScrollPosition(): void {
   if (!buffer || !renderer) return
@@ -32,6 +32,7 @@ function handleKeyPress(key: string): void {
       scrollY += scrollAmount
       updateScrollPosition()
       break
+    default:
   }
 }
 
@@ -39,7 +40,7 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#000028")
 
-  parentContainer = new GroupComponent(renderer.root.ctx, {
+  parentContainer = new BoxComponent(renderer.root.ctx, {
     id: "fonts-container",
     zIndex: 15,
     visible: true,

@@ -9,7 +9,6 @@ import {
   BoxComponent,
   TextComponent,
   TextAttributes,
-  GroupComponent,
   createRenderer,
   OptimizedBuffer,
   type MouseEvent,
@@ -103,7 +102,7 @@ export function run(renderer: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#0A0E14")
 
-  const parentContainer = new GroupComponent(renderer.root.ctx, {
+  const parentContainer = new BoxComponent(renderer.root.ctx, {
     id: "parent-container",
     zIndex: 10,
     visible: true,

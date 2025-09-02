@@ -66,6 +66,7 @@ export class AuraApplication {
   private cleanupRoot: (() => void) | null = null;
   private options: ApplicationOptions;
   private isRunning: boolean = false;
+  private mountedComponents: Map<string, ReturnType<typeof mountElement>> = new Map();
 
   constructor(options: ApplicationOptions, renderer: Renderer) {
     this.options = {
@@ -163,7 +164,9 @@ export class AuraApplication {
     batch(() => {
       children.forEach(child => {
         // Pass renderer.root as parent to provide context
-        const component = mountElement(child, this.renderer.root);
+        const mountData = mountElement(child, this.renderer.root);
+        // Store mount data for cleanup
+        this.mountedComponents.set(mountData.instance.id, mountData);
         // Component is automatically added to parent in mountElement
       });
     });
@@ -174,13 +177,16 @@ export class AuraApplication {
    */
   private clearMountedComponents(): void {
     batch(() => {
-      this.renderer.root.getChildren().forEach(component => {
+      // Unmount all tracked components
+      for (const [id, mountData] of this.mountedComponents) {
         // Remove from renderer's root
-        if (component.parent === this.renderer.root) {
-          this.renderer.root.remove(component.id);
+        if (mountData.instance.parent === this.renderer.root) {
+          this.renderer.root.remove(id);
         }
-        unmountElement(component);
-      });
+        unmountElement(mountData);
+      }
+      // Clear the map
+      this.mountedComponents.clear();
     });
   }
 

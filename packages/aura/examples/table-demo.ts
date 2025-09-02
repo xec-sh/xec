@@ -6,9 +6,9 @@ import {
   fg,
   bold,
   TruncateMode,
+  BoxComponent,
   type Renderer,
   type TableRow,
-  GroupComponent,
   createRenderer,
   TableComponent,
   type TableColumn,
@@ -114,7 +114,7 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
-  const parentContainer = new GroupComponent(renderer.root.ctx, {
+  const parentContainer = new BoxComponent(renderer.root.ctx, {
     id: "parent-container",
     zIndex: 10,
     visible: true,
