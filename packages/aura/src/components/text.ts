@@ -36,6 +36,16 @@ export class TextComponent extends Component {
   private _plainText: string = ""
   private _lineInfo: { lineStarts: number[]; lineWidths: number[] } = { lineStarts: [], lineWidths: [] }
 
+  protected _defaultOptions = {
+    content: "",
+    fg: "foreground",
+    bg: RGBA.fromValues(0, 0, 0, 0),
+    selectionBg: undefined,
+    selectionFg: undefined,
+    selectable: true,
+    attributes: 0,
+  } satisfies Partial<TextProps>
+
   constructor(ctx: RenderContext, options: TextProps) {
     super(ctx, options)
 
@@ -46,7 +56,7 @@ export class TextComponent extends Component {
       () => this._lineInfo,
     )
 
-    const content = options.content ?? ""
+    const content = options.content ?? this._defaultOptions.content
     this._text = typeof content === "string" ? stringToStyledText(content) : content
 
     // Get theme and resolve colors
@@ -71,7 +81,7 @@ export class TextComponent extends Component {
     } else if (componentTheme?.foreground) {
       this._defaultFg = themeContext.resolveColor(componentTheme.foreground)
     } else {
-      this._defaultFg = themeContext.resolveColor('foreground')
+      this._defaultFg = themeContext.resolveColor(this._defaultOptions.fg)
     }
 
     // Resolve background color
@@ -80,7 +90,7 @@ export class TextComponent extends Component {
     } else if (componentTheme?.background) {
       this._defaultBg = themeContext.resolveColor(componentTheme.background)
     } else {
-      this._defaultBg = RGBA.fromValues(0, 0, 0, 0) // Transparent by default
+      this._defaultBg = this._defaultOptions.bg
     }
 
     // Resolve selection colors
@@ -88,16 +98,16 @@ export class TextComponent extends Component {
       ? resolveColorValue(options.selectionBg)
       : componentTheme?.selection?.background
         ? themeContext.resolveColor(componentTheme.selection.background)
-        : undefined
+        : this._defaultOptions.selectionBg
 
     this._selectionFg = options.selectionFg
       ? resolveColorValue(options.selectionFg)
       : componentTheme?.selection?.foreground
         ? themeContext.resolveColor(componentTheme.selection.foreground)
-        : undefined
+        : this._defaultOptions.selectionFg
 
-    this._defaultAttributes = options.attributes ?? 0
-    this.selectable = options.selectable ?? true
+    this._defaultAttributes = options.attributes ?? this._defaultOptions.attributes
+    this.selectable = options.selectable ?? this._defaultOptions.selectable
 
     this.textBuffer = TextBuffer.create(64)
 
@@ -134,7 +144,7 @@ export class TextComponent extends Component {
         this._defaultFg = parseColor(value)
       }
       this.textBuffer.setDefaultFg(this._defaultFg)
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -154,7 +164,7 @@ export class TextComponent extends Component {
         this._defaultBg = parseColor(value)
       }
       this.textBuffer.setDefaultBg(this._defaultBg)
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -163,16 +173,18 @@ export class TextComponent extends Component {
   }
 
   set attributes(value: number) {
-    this._defaultAttributes = value
-    this.textBuffer.setDefaultAttributes(this._defaultAttributes)
-    this.needsUpdate()
+    if (value !== this._defaultAttributes) {
+      this._defaultAttributes = value
+      this.textBuffer.setDefaultAttributes(this._defaultAttributes)
+      this.requestRender()
+    }
   }
 
   protected onResize(width: number, height: number): void {
     const changed = this.selectionHelper.reevaluateSelection(width, height)
     if (changed) {
       this.syncSelectionToTextBuffer()
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -199,7 +211,7 @@ export class TextComponent extends Component {
     }
 
     this.layoutNode.yogaNode.markDirty();
-    this.needsUpdate();
+    this.requestRender();
   }
 
   private setupMeasureFunc(): void {
@@ -244,7 +256,7 @@ export class TextComponent extends Component {
     const changed = this.selectionHelper.onSelectionChanged(selection, this.width, this.height)
     if (changed) {
       this.syncSelectionToTextBuffer()
-      this.needsUpdate()
+      this.requestRender()
     }
     return this.selectionHelper.hasSelection()
   }

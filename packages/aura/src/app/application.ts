@@ -92,11 +92,11 @@ export class AuraApplication {
       if (this.options.theme) {
         initializeTheme(this.options.theme);
       }
-      
+
       // Initialize screen dimension signals
       initializeScreenDimensions(this.renderer);
 
-      // No need to start the renderer, becasuse we use renderer.needsUpdate() to trigger renders
+      // No need to start the renderer, becasuse we use renderer.requestRender() to trigger renders
       // this.renderer.start();
 
       // Create reactive root for the entire application
@@ -252,7 +252,7 @@ export class AuraApplication {
     batch(() => {
       try {
         // Just trigger renderer update - components are already in the root
-        this.renderer.needsUpdate();
+        this.renderer.requestRender();
       } catch (error) {
         this.handleError(error as Error);
       }
@@ -355,12 +355,12 @@ export async function auraApp(
   options?: Partial<Omit<ApplicationOptions, 'children'>>
 ): Promise<AuraApplication> {
   const { renderer: rendererOptions, theme, ...appOptions } = options ?? {};
-  
+
   // Initialize theme BEFORE creating renderer and components
   if (theme) {
     initializeTheme(theme);
   }
-  
+
   const renderer = await createRenderer({
     ...rendererOptions,
     exitOnCtrlC: false,

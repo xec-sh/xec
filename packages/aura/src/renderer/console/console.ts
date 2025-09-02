@@ -256,9 +256,9 @@ export class TerminalConsole extends EventEmitter {
   private _allLogEntries: [Date, LogLevel, any[], CallerInfo | null][] = []
   private _needsFrameBufferUpdate: boolean = false
 
-  private markNeedsUpdate(): void {
+  private markRequiresRerender(): void {
     this._needsFrameBufferUpdate = true
-    this.renderer.needsUpdate()
+    this.renderer.requestRender()
   }
 
   private _rgbaInfo: RGBA
@@ -340,7 +340,7 @@ export class TerminalConsole extends EventEmitter {
     if (this.isScrolledToBottom) {
       this._scrollToBottom()
     }
-    this.markNeedsUpdate()
+    this.markRequiresRerender()
   }
 
   private _updateConsoleDimensions(): void {
@@ -462,7 +462,7 @@ export class TerminalConsole extends EventEmitter {
     }
 
     if (needsRedraw) {
-      this.markNeedsUpdate()
+      this.markRequiresRerender()
     }
   }
 
@@ -525,7 +525,7 @@ export class TerminalConsole extends EventEmitter {
       this.currentLineIndex = Math.max(0, Math.min(this.currentLineIndex, visibleLineCount - 1))
 
       if (this.isVisible) {
-        this.markNeedsUpdate()
+        this.markRequiresRerender()
       }
     }
   }
@@ -534,7 +534,7 @@ export class TerminalConsole extends EventEmitter {
     terminalConsoleCache.clearConsole()
     this._allLogEntries = []
     this._displayLines = []
-    this.markNeedsUpdate()
+    this.markRequiresRerender()
   }
 
   public toggle(): void {
@@ -548,19 +548,19 @@ export class TerminalConsole extends EventEmitter {
       this.show()
     }
     if (!this.renderer.isRunning) {
-      this.renderer.needsUpdate()
+      this.renderer.requestRender()
     }
   }
 
   public focus(): void {
     this.attachStdin()
     this._scrollToBottom(true)
-    this.markNeedsUpdate()
+    this.markRequiresRerender()
   }
 
   public blur(): void {
     this.detachStdin()
-    this.markNeedsUpdate()
+    this.markRequiresRerender()
   }
 
   public show(): void {
@@ -581,7 +581,7 @@ export class TerminalConsole extends EventEmitter {
       this._scrollToBottom(true)
 
       this.focus()
-      this.markNeedsUpdate()
+      this.markRequiresRerender()
     }
   }
 
@@ -672,7 +672,7 @@ export class TerminalConsole extends EventEmitter {
     this._debugModeEnabled = enabled
     terminalConsoleCache.setCollectCallerInfo(enabled)
     if (this.isVisible) {
-      this.markNeedsUpdate()
+      this.markRequiresRerender()
     }
   }
 

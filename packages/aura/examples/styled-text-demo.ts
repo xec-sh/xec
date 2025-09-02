@@ -33,7 +33,8 @@ export function run(rendererInstance: Renderer): void {
   renderer.start()
   renderer.setBackgroundColor("#001122")
 
-  parentContainer = new GroupComponent(renderer.root.ctx, { id: "styled-text-container",
+  parentContainer = new GroupComponent(renderer.root.ctx, {
+    id: "styled-text-container",
     zIndex: 15,
     visible: true,
   })
@@ -48,7 +49,8 @@ With a ${bold(blue("window"))},
 And a ${blue("corvette")}
 And everything is blue`
 
-  const houseDisplay = new TextComponent(renderer.root.ctx, { id: "house-text",
+  const houseDisplay = new TextComponent(renderer.root.ctx, {
+    id: "house-text",
     content: houseText,
     width: 30,
     height: 6,
@@ -65,7 +67,8 @@ ${bold(green("SUCCESS:"))} Data loaded
 ${bold(fg("#FFA500")("WARNING:"))} Low memory
 ${bgYellow(fg("black")(" NOTICE "))} System update available`
 
-  const statusDisplay = new TextComponent(renderer.root.ctx, { id: "status-text",
+  const statusDisplay = new TextComponent(renderer.root.ctx, {
+    id: "status-text",
     content: statusText,
     width: 50,
     height: 6,
@@ -77,7 +80,8 @@ ${bgYellow(fg("black")(" NOTICE "))} System update available`
   parentContainer.add(statusDisplay)
 
   // Example 3 - Original dynamic text (updates every second)
-  dashboardBox = new BoxComponent(renderer.root.ctx, { id: "dashboard-box",
+  dashboardBox = new BoxComponent(renderer.root.ctx, {
+    id: "dashboard-box",
     width: 72,
     height: 21,
     position: "absolute",
@@ -111,7 +115,8 @@ ${fg("#2ECC71")("Status:")} ${bold(fg("#E74C3C")("●"))} ${green("ALL SYSTEMS G
 
 ${bold(fg("#F1C40F")("Controls:"))} ${fg("#BDC3C7")("↑/↓ = Speed, ESC = Exit")}`
 
-  complexDisplay = new TextComponent(renderer.root.ctx, { id: "complex-template",
+  complexDisplay = new TextComponent(renderer.root.ctx, {
+    id: "complex-template",
     content: initialText,
     left: 1,
     top: 1,
@@ -133,7 +138,8 @@ ${underline("Dynamic:")} ${bold(fg("#FF6B6B")(Math.sin(counter * 0.1) > 0 ? "UP"
       if (dynamicDisplay) {
         dynamicDisplay.content = dynamicText
       } else if (renderer) {
-        const newDynamicDisplay = new TextComponent(renderer.root.ctx, { id: "dynamic-text",
+        const newDynamicDisplay = new TextComponent(renderer.root.ctx, {
+          id: "dynamic-text",
           content: dynamicText,
           width: 40,
           height: 4,
@@ -209,7 +215,8 @@ ${underline("Features demonstrated:")}
 • Dynamic updates with ${green("controllable frequency")}
 • Complex templates with ${red("many variables")}`
 
-  const instructionsDisplay = new TextComponent(renderer.root.ctx, { id: "instructions",
+  const instructionsDisplay = new TextComponent(renderer.root.ctx, {
+    id: "instructions",
     content: instructionsText,
     width: 60,
     height: 12,
@@ -228,7 +235,8 @@ Boolean: ${red(true)}
 Float: ${blue((3.14159).toFixed(2))}
 Calculated: ${fg("#00FFFF")(Math.floor(Math.random() * 100))}`
 
-  const typesDisplay = new TextComponent(renderer.root.ctx, { id: "types-text",
+  const typesDisplay = new TextComponent(renderer.root.ctx, {
+    id: "types-text",
     content: typesText,
     width: 30,
     height: 6,
@@ -239,7 +247,7 @@ Calculated: ${fg("#00FFFF")(Math.floor(Math.random() * 100))}`
   })
   parentContainer.add(typesDisplay)
 
-  renderer.needsUpdate()
+  renderer.requestRender()
 }
 
 export function destroy(rendererInstance: Renderer): void {

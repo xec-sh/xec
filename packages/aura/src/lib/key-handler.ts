@@ -86,11 +86,11 @@ function parseAnsiSequence(sequence: string): ParsedKey | null {
 
   const [fullMatch, params = '', suffix] = match
   const hasDoubleEscape = sequence.startsWith('\x1b\x1b')
-  
+
   // Parse parameters
   let code = ''
   let modifierValue = 1
-  
+
   if (params) {
     const parts = params.split(';')
     if (parts.length === 2) {
@@ -121,7 +121,7 @@ function parseAnsiSequence(sequence: string): ParsedKey | null {
     // Other combinations
     lookupCode = '[' + code + suffix
   }
-  
+
   const key: ParsedKey = {
     name: SPECIAL_KEYS[lookupCode] || suffix.toLowerCase(),
     ctrl: false,
@@ -233,9 +233,9 @@ function parseSimpleKey(char: string): ParsedKey {
  */
 function parseMetaKey(sequence: string): ParsedKey | null {
   if (!sequence.startsWith('\x1b') || sequence.length < 2) return null
-  
+
   const remaining = sequence.slice(1)
-  
+
   // Special meta combinations
   const specialMeta: Record<string, { name: string; option?: boolean }> = {
     '\x7f': { name: 'backspace', option: true },  // Option+Backspace
@@ -332,7 +332,7 @@ export function parseKeypress(input: Buffer | string = ''): ParsedKey {
   }
 
   // Try parsing in order of specificity
-  
+
   // 1. Try macOS-specific sequences first
   const macOSKey = parseMacOSSequence(sequence)
   if (macOSKey) return macOSKey
@@ -367,10 +367,14 @@ export function parseKeypress(input: Buffer | string = ''): ParsedKey {
   return parseSimpleKey(sequence)
 }
 
+type KeyHandlerEventMap = {
+  keypress: [ParsedKey]
+}
+
 /**
  * KeyHandler class for managing keyboard input
  */
-export class KeyHandler extends EventEmitter {
+export class KeyHandler extends EventEmitter<KeyHandlerEventMap> {
   private isRaw = false
   private destroyed = false
 
@@ -381,7 +385,7 @@ export class KeyHandler extends EventEmitter {
       process.stdin.setRawMode(true)
       this.isRaw = true
     }
-    
+
     process.stdin.resume()
     process.stdin.setEncoding('utf8')
 
@@ -392,10 +396,10 @@ export class KeyHandler extends EventEmitter {
     if (this.destroyed) return
 
     const str = chunk.toString()
-    
+
     // Filter out mouse events
     if (this.isMouseEvent(str)) return
-    
+
     const parsedKey = parseKeypress(chunk)
     this.emit('keypress', parsedKey)
   }
@@ -403,22 +407,22 @@ export class KeyHandler extends EventEmitter {
   private isMouseEvent(str: string): boolean {
     // SGR mouse mode: \x1b[<...M or \x1b[<...m
     if (/\x1b\[<\d+;\d+;\d+[Mm]/.test(str)) return true
-    
+
     // Basic mouse mode: \x1b[M followed by 3 bytes
     if (str.startsWith('\x1b[M') && str.length >= 6) return true
-    
+
     // X10 mouse mode
     if (/\x1b\[M[\x20-\x7f]{3}/.test(str)) return true
-    
+
     return false
   }
 
   public destroy(): void {
     if (this.destroyed) return
-    
+
     this.destroyed = true
     process.stdin.removeAllListeners('data')
-    
+
     if (this.isRaw && process.stdin.setRawMode) {
       try {
         process.stdin.setRawMode(false)
@@ -426,7 +430,7 @@ export class KeyHandler extends EventEmitter {
         // Ignore errors when stdin is already closed
       }
     }
-    
+
     this.removeAllListeners()
   }
 }
@@ -456,14 +460,14 @@ export function destroyKeyHandler(): void {
  */
 export function formatKeyCombination(key: ParsedKey): string {
   const parts: string[] = []
-  
+
   if (key.ctrl) parts.push('Ctrl')
   if (key.meta) parts.push('Cmd')
   if (key.option) parts.push('Option')
   if (key.shift) parts.push('Shift')
-  
+
   parts.push(key.name || key.sequence)
-  
+
   return parts.join('+')
 }
 
@@ -473,12 +477,12 @@ export function formatKeyCombination(key: ParsedKey): string {
 export function isKeyCombination(key: ParsedKey, combo: string): boolean {
   const parts = combo.toLowerCase().split('+')
   const keyName = parts[parts.length - 1]
-  
+
   const hasCtrl = parts.includes('ctrl') || parts.includes('control')
   const hasMeta = parts.includes('cmd') || parts.includes('command') || parts.includes('meta')
   const hasOption = parts.includes('option') || parts.includes('alt')
   const hasShift = parts.includes('shift')
-  
+
   return (
     key.name === keyName &&
     key.ctrl === hasCtrl &&

@@ -281,6 +281,7 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
           timestamp: Date.now(),
           isDrag: false,
         })
+        this.requestRender()
         break
 
       case "drag":
@@ -290,6 +291,7 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
           timestamp: Date.now(),
           isDrag: true,
         })
+        this.requestRender()
         break
 
       case "down":
@@ -298,6 +300,7 @@ class MouseInteractionFrameBuffer extends FrameBufferComponent {
         } else {
           this.activatedCells.add(cellKey)
         }
+        this.requestRender()
         break
 
       default:
@@ -316,9 +319,7 @@ export function run(renderer: Renderer): void {
   const backgroundColor = RGBA.fromInts(15, 15, 35, 255)
   renderer.setBackgroundColor(backgroundColor)
 
-  renderer.setFrameCallback(async (deltaTime: number) => {
-    engine.update(deltaTime)
-  })
+  engine.attach(renderer)
 
   titleText = new TextComponent(renderer.root.ctx, {
     id: "mouse_demo_title",

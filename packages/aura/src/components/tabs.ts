@@ -162,7 +162,7 @@ export class TabsComponent extends Component {
     this._scrollIndicatorLeftColor = tabsTheme?.elements?.scrollIndicator?.left
       ? themeContext.resolveColor(tabsTheme.elements.scrollIndicator.left)
       : parseColor("#AAAAAA")  // Default fallback
-    
+
     this._scrollIndicatorRightColor = tabsTheme?.elements?.scrollIndicator?.right
       ? themeContext.resolveColor(tabsTheme.elements.scrollIndicator.right)
       : parseColor("#AAAAAA")  // Default fallback
@@ -287,7 +287,7 @@ export class TabsComponent extends Component {
     this._options = options
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, options.length - 1))
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public getSelectedOption(): TabsOption | null {
@@ -308,7 +308,7 @@ export class TabsComponent extends Component {
     }
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
     this.emit(TabsComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
   }
 
@@ -322,7 +322,7 @@ export class TabsComponent extends Component {
     }
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
     this.emit(TabsComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
   }
 
@@ -337,7 +337,7 @@ export class TabsComponent extends Component {
     if (index >= 0 && index < this._options.length) {
       this.selectedIndex = index
       this.updateScrollOffset()
-      this.needsUpdate()
+      this.requestRender()
       this.emit(TabsComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
     }
   }
@@ -351,14 +351,14 @@ export class TabsComponent extends Component {
 
     if (newScrollOffset !== this.scrollOffset) {
       this.scrollOffset = newScrollOffset
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
   protected onResize(width: number, height: number): void {
     this.maxVisibleTabs = Math.max(1, Math.floor(width / this._tabWidth))
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public setTabWidth(tabWidth: number): void {
@@ -368,7 +368,7 @@ export class TabsComponent extends Component {
     this.maxVisibleTabs = Math.max(1, Math.floor(this.width / this._tabWidth))
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public getTabWidth(): number {
@@ -409,42 +409,42 @@ export class TabsComponent extends Component {
     this._options = options
     this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, options.length - 1))
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set backgroundColor(color: Color) {
     this._backgroundColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set textColor(color: Color) {
     this._textColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set focusedBackgroundColor(color: Color) {
     this._focusedBackgroundColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set focusedTextColor(color: Color) {
     this._focusedTextColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set selectedBackgroundColor(color: Color) {
     this._selectedBackgroundColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set selectedTextColor(color: Color) {
     this._selectedTextColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set selectedDescriptionColor(color: Color) {
     this._selectedDescriptionColor = parseColor(color)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public get showDescription(): boolean {
@@ -456,7 +456,7 @@ export class TabsComponent extends Component {
       this._showDescription = show
       const newHeight = this.calculateDynamicHeight()
       this.height = newHeight
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -469,7 +469,7 @@ export class TabsComponent extends Component {
       this._showUnderline = show
       const newHeight = this.calculateDynamicHeight()
       this.height = newHeight
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -480,7 +480,7 @@ export class TabsComponent extends Component {
   public set showScrollArrows(show: boolean) {
     if (this._showScrollArrows !== show) {
       this._showScrollArrows = show
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -503,6 +503,6 @@ export class TabsComponent extends Component {
     this.maxVisibleTabs = Math.max(1, Math.floor(this.width / this._tabWidth))
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 }
