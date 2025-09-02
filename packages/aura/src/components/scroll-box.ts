@@ -1,16 +1,16 @@
 import { MouseEvent } from "../renderer/renderer.js"
 import { BoxComponent, type BoxProps } from "./box.js"
 import { RenderContext, type ParsedKey } from "../types.js"
-import { type ScrollUnit, ScrollBarComponent, type ScrollBarOptions } from "./scroll-bar.js"
+import { type ScrollUnit, ScrollBarComponent, type ScrollBarProps } from "./scroll-bar.js"
 
-export interface ScrollBoxOptions extends BoxProps<ScrollBarComponent> {
+export interface ScrollBoxProps extends BoxProps<ScrollBarComponent> {
   rootOptions?: BoxProps
   wrapperOptions?: BoxProps
   viewportOptions?: BoxProps
   contentOptions?: BoxProps
-  scrollbarOptions?: Omit<ScrollBarOptions, "orientation">
-  verticalScrollbarOptions?: Omit<ScrollBarOptions, "orientation">
-  horizontalScrollbarOptions?: Omit<ScrollBarOptions, "orientation">
+  scrollbarOptions?: Omit<ScrollBarProps, "orientation">
+  verticalScrollbarOptions?: Omit<ScrollBarProps, "orientation">
+  horizontalScrollbarOptions?: Omit<ScrollBarProps, "orientation">
 }
 
 export class ScrollBoxComponent extends BoxComponent {
@@ -57,7 +57,7 @@ export class ScrollBoxComponent extends BoxComponent {
       verticalScrollbarOptions,
       horizontalScrollbarOptions,
       ...options
-    }: ScrollBoxOptions,
+    }: ScrollBoxProps,
   ) {
     // Root
     super(ctx, {

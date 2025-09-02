@@ -1,9 +1,13 @@
 import path from 'path';
 import fs from 'fs/promises';
 import {
-  aura,
+  Box,
+  Text,
+  Input,
+  Table,
   signal,
   effect,
+  VStack,
   computed,
   ParsedKey,
   BoxComponent,
@@ -221,9 +225,8 @@ export function FileBrowserComponent(initialPath?: string) {
     }
   };
 
-  return aura('box', {
+  return VStack({
     id: 'file-browser',
-    flexDirection: 'column',
     flexGrow: 1,
     flexShrink: 1,
     height: '100%',
@@ -284,132 +287,127 @@ export function FileBrowserComponent(initialPath?: string) {
         return;
       }
     },
-    children: [
-      // Path display/edit row
-      aura('box', {
-        height: 1,
-        children: [
-          // Path text (shown when not editing)
-          aura('text', {
-            content: computed(() => ` ${currentPath()}`),
-            fg: 'primary',
-            visible: computed(() => !editingPath()),
-            ref: pathTextRef,
-          }),
-          // Path input (shown when editing)
-          aura('input', {
-            value: currentPath,
-            placeholder: 'enter path...',
-            visible: computed(() => editingPath()),
-            ref: pathInputRef,
-            onMount: () => {
-              const input = pathInputRef();
-              if (input) {
-                // Listen to input events
-                input.on(InputComponentEvents.ENTER, (value: string) => {
-                  currentPath.set(value);
-                  editingPath.set(false);
-                });
-              }
-              // No cleanup needed
-              return undefined;
-            },
-            onKeyDown: (key: ParsedKey) => {
-              if (key.name === 'escape') {
-                editingPath.set(false);
-                pathInputRef()?.blur();
-              }
-            }
-          })
-        ]
+  },
+    // Path display/edit row
+    Box({
+      height: 1,
+    },
+      // Path text (shown when not editing)
+      Text({
+        content: computed(() => ` ${currentPath()}`),
+        fg: 'primary',
+        visible: computed(() => !editingPath()),
+        ref: pathTextRef,
       }),
-
-      // Separator
-      // aura('box', {
-      //   height: 1,
-      //   border: ['top'],
-      //   borderStyle: 'single',
-      // }),
-
-      // Filter input row (conditionally visible)
-      showFilterInput() ?
-        aura('box', {
-          height: 1,
-          padding: 1,
-          children: [
-            aura('text', {
-              content: '🔍 ',
-              fg: 'muted'
-            }),
-            aura('input', {
-              value: filter,
-              placeholder: 'Filter files...',
-              ref: filterInputRef,
-              onMount: () => {
-                const input = filterInputRef();
-                if (input) {
-                  // Listen to input changes
-                  input.on(InputComponentEvents.INPUT, (value: string) => {
-                    filter.set(value);
-                  });
-
-                  input.on(InputComponentEvents.ENTER, () => {
-                    showFilterInput.set(false);
-                    tableRef()?.focus();
-                  });
-                }
-              },
-              onKeyDown: (key: ParsedKey) => {
-                if (key.name === 'escape') {
-                  showFilterInput.set(false);
-                  filter.set('');
-                  tableRef()?.focus();
-                }
-              }
-            })
-          ]
-        }) :
-        aura('box', { height: 0 }), // Empty spacer when hidden
-
-      // File table
-      aura('table', {
-        columns,
-        rows: tableRows,
-        showHeader: true,
-        showBorder: false,
-        scrollable: true,
-        selectable: true,
-        multiSelect: true,
-        alternateRowColors: true,
-        ref: tableRef,
-        flexGrow: 1,
-        onRowSelect: (row: TableRow) => {
-          if (row) {
-            const newSelected = new Set(selectedFiles());
-            if (newSelected.has(row['name'])) {
-              newSelected.delete(row['name']);
-            } else {
-              newSelected.add(row['name']);
-            }
-            selectedFiles.set(newSelected);
+      // Path input (shown when editing)
+      Input({
+        value: currentPath,
+        placeholder: 'enter path...',
+        visible: computed(() => editingPath()),
+        ref: pathInputRef,
+        onMount: () => {
+          const input = pathInputRef();
+          if (input) {
+            // Listen to input events
+            input.on(InputComponentEvents.ENTER, (value: string) => {
+              currentPath.set(value);
+              editingPath.set(false);
+            });
+          }
+          // No cleanup needed
+          return undefined;
+        },
+        onKeyDown: (key: ParsedKey) => {
+          if (key.name === 'escape') {
+            editingPath.set(false);
+            pathInputRef()?.blur();
           }
         }
-      }),
-
-      // Status bar
-      aura('box', {
-
-        alignItems: 'center',
-        children: [
-          aura('text', {
-            content: statusText,
-            fg: 'description',
-            selectable: false
-          })
-        ]
       })
-    ]
-  });
+    ),
+
+    // Separator
+    // aura('box', {
+    //   height: 1,
+    //   border: ['top'],
+    //   borderStyle: 'single',
+    // }),
+
+    // Filter input row (conditionally visible)
+    showFilterInput() ?
+      Box({
+        height: 1,
+        padding: 1,
+      },
+        Text({
+          content: '🔍 ',
+          fg: 'muted'
+        }),
+        Input({
+          value: filter,
+          placeholder: 'Filter files...',
+          ref: filterInputRef,
+          onMount: () => {
+            const input = filterInputRef();
+            if (input) {
+              // Listen to input changes
+              input.on(InputComponentEvents.INPUT, (value: string) => {
+                filter.set(value);
+              });
+
+              input.on(InputComponentEvents.ENTER, () => {
+                showFilterInput.set(false);
+                tableRef()?.focus();
+              });
+            }
+          },
+          onKeyDown: (key: ParsedKey) => {
+            if (key.name === 'escape') {
+              showFilterInput.set(false);
+              filter.set('');
+              tableRef()?.focus();
+            }
+          }
+        })
+      ) :
+      Box({ height: 0 }), // Empty spacer when hidden
+
+    // File table
+    Table({
+      columns,
+      rows: tableRows,
+      showHeader: true,
+      showBorder: false,
+      scrollable: true,
+      selectable: true,
+      multiSelect: true,
+      alternateRowColors: true,
+      ref: tableRef,
+      flexGrow: 1,
+      onRowSelect: (row: TableRow) => {
+        if (row) {
+          const newSelected = new Set(selectedFiles());
+          if (newSelected.has(row['name'])) {
+            newSelected.delete(row['name']);
+          } else {
+            newSelected.add(row['name']);
+          }
+          selectedFiles.set(newSelected);
+        }
+      }
+    }),
+
+    // Status bar
+    Box({
+      alignItems: 'center',
+    },
+      Text({
+        content: statusText,
+        fg: 'description',
+        selectable: false
+      })
+    )
+  );
 }
 
 export default FileBrowserComponent;

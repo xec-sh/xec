@@ -14,7 +14,6 @@ import {
   type TextProps
 } from '../components/text.js';
 
-import type { GroupComponent } from '../components/group.js';
 import type {
   BoxProps,
   BoxComponent
@@ -35,11 +34,18 @@ import type {
   SelectProps,
   SelectComponent
 } from '../components/select.js';
-import type { Component, ComponentProps as BaseComponentProps } from '../component.js';
 import type {
   ASCIIFontProps,
   ASCIIFontComponent
 } from '../components/ascii-font.js';
+import type {
+  ScrollBarProps,
+  ScrollBarComponent
+} from '../components/scroll-bar.js';
+import type {
+  ScrollBoxProps,
+  ScrollBoxComponent
+} from '../components/scroll-box.js';
 import type {
   FrameBufferProps,
   FrameBufferComponent
@@ -53,9 +59,10 @@ export type ComponentType =
   | 'select'
   | 'table'
   | 'tabs'
-  | 'group'
   | 'frame-buffer'
-  | 'ascii-font';
+  | 'ascii-font'
+  | 'scroll-bar'
+  | 'scroll-box';
 
 // Props type mapping for each component
 export type ComponentPropsMap = {
@@ -65,9 +72,10 @@ export type ComponentPropsMap = {
   'select': ReactiveProps<SelectProps>;
   'table': ReactiveProps<TableProps>;
   'tabs': ReactiveProps<TabsProps>;
-  'group': ReactiveProps<BaseComponentProps>;
   'frame-buffer': ReactiveProps<FrameBufferProps>;
   'ascii-font': ReactiveProps<ASCIIFontProps>;
+  'scroll-bar': ReactiveProps<ScrollBarProps>;
+  'scroll-box': ReactiveProps<ScrollBoxProps>;
 };
 
 // Component instance mapping
@@ -78,9 +86,10 @@ export type ComponentInstanceMap = {
   'select': SelectComponent;
   'table': TableComponent;
   'tabs': TabsComponent;
-  'group': GroupComponent;
   'frame-buffer': FrameBufferComponent;
   'ascii-font': ASCIIFontComponent;
+  'scroll-bar': ScrollBarComponent;
+  'scroll-box': ScrollBoxComponent;
 };
 
 // Make props reactive - any prop can be a signal
@@ -118,49 +127,106 @@ export interface AuraElement<T extends ComponentType = ComponentType> {
 }
 
 /**
- * Improved Application Options
- * Allows multiple components to be added to the root
+ * Type-safe union of all possible AuraElement types
+ * This provides full type safety while allowing any component type
  */
-// Type alias for any AuraElement regardless of specific component type
-// Uses a more flexible definition to avoid ref type conflicts
-export type AnyAuraElement = {
-  type: ComponentType;
-  props: any;
-  instance?: Component;
-  children?: AnyAuraElement[];
-  key?: string | number;
-  ref?: WritableSignal<any>;
-  onMount?: () => void | (() => void);
-  onCleanup?: () => void;
-  onUpdate?: () => void;
-};
+export type AnyAuraElement =
+  | AuraElement<'box'>
+  | AuraElement<'text'>
+  | AuraElement<'input'>
+  | AuraElement<'select'>
+  | AuraElement<'table'>
+  | AuraElement<'tabs'>
+  | AuraElement<'frame-buffer'>
+  | AuraElement<'ascii-font'>
+  | AuraElement<'scroll-bar'>
+  | AuraElement<'scroll-box'>;
 
 // Control flow helpers
 export interface ShowOptions<T> {
   when: Signal<T | undefined | null | false>;
-  fallback?: () => AuraElement;
-  children: (value: T) => AuraElement | AuraElement[];
+  fallback?: () => AnyAuraElement;
+  children: (value: T) => AnyAuraElement | AnyAuraElement[];
 }
 
 export interface ForEachOptions<T> {
   each: Signal<T[]> | T[];
-  children: (item: T, index: Signal<number>) => AuraElement;
-  fallback?: () => AuraElement;
+  children: (item: T, index: Signal<number>) => AnyAuraElement;
+  fallback?: () => AnyAuraElement;
 }
 
 export interface SwitchOptions<T> {
   value: Signal<T> | T;
-  cases: Record<string | number, () => AuraElement>;
-  default?: () => AuraElement;
+  cases: Record<string | number, () => AnyAuraElement>;
+  default?: () => AnyAuraElement;
 }
 
 // Context type for dependency injection
 export interface Context<T> {
   id: symbol;
   defaultValue: T;
-  Provider: (props: { value: T; children: AuraElement[] }) => AuraElement;
+  Provider: (props: { value: T; children: AnyAuraElement[] }) => AnyAuraElement;
 }
 
 // Hook types
 export type EffectCleanup = void | (() => void);
 export type EffectCallback = () => EffectCleanup;
+
+// Type guards for runtime type checking
+export function isAuraElement(value: unknown): value is AnyAuraElement {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'type' in value &&
+    'props' in value &&
+    typeof (value as AnyAuraElement).type === 'string'
+  );
+}
+
+// Utility types for extracting props
+export type ExtractProps<T> = T extends AuraElement<infer U> ? ComponentProps<U> : never;
+export type ExtractInstance<T> = T extends AuraElement<infer U> ? ComponentInstance<U> : never;
+
+// Component registry for extensibility
+export interface ComponentRegistry {
+  register<T extends ComponentType>(
+    type: T,
+    factory: (ctx: any, props: ComponentProps<T>) => ComponentInstance<T>
+  ): void;
+
+  create<T extends ComponentType>(
+    type: T,
+    props: ComponentProps<T>,
+    ctx: any
+  ): ComponentInstance<T>;
+
+  has(type: string): boolean;
+
+  getTypes(): ComponentType[];
+  clear(): void;
+  clone(): ComponentRegistry;
+}
+
+// Render context for passing down renderer and other services
+export interface RenderContext {
+  renderer: any; // Will be properly typed when renderer is refactored
+  registry?: ComponentRegistry;
+  parentContext?: Map<symbol, unknown>;
+}
+
+// Props validation
+export type PropsValidator<T> = (props: T) => string | undefined;
+
+// Component metadata for better debugging and tooling
+export interface ComponentMetadata {
+  displayName?: string;
+  description?: string;
+  version?: string;
+  deprecated?: boolean | string;
+}
+
+// Enhanced AuraElement with metadata
+export interface EnhancedAuraElement<T extends ComponentType = ComponentType> extends AuraElement<T> {
+  metadata?: ComponentMetadata;
+  validate?: PropsValidator<ComponentProps<T>>;
+}

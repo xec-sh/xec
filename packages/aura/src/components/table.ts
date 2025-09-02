@@ -108,6 +108,7 @@ export interface TableProps extends ComponentProps {
   // Data
   columns: TableColumn[];
   rows: TableRow[];
+  footerRows?: TableRow[]; // Optional footer rows
 
   // Layout
   showHeader?: boolean;           // Show column headers (default: true)

@@ -2,10 +2,10 @@
 
 import { setupCommonDemoKeys } from "./lib/standalone-keys.js"
 import { ASCIIFontComponent } from "../src/components/ascii-font.js"
-import { RGBA, Renderer, BoxComponent, TextComponent, GroupComponent, createRenderer } from "../src/index.js"
+import { RGBA, Renderer, BoxComponent, TextComponent, createRenderer } from "../src/index"
 
 let mainContainer: BoxComponent | null = null
-let fontGroup: GroupComponent | null = null
+let fontGroup: BoxComponent | null = null
 let statusBox: BoxComponent | null = null
 let statusText: TextComponent | null = null
 let selectionStartText: TextComponent | null = null
@@ -33,7 +33,7 @@ export function run(renderer: Renderer): void {
   })
   renderer.root.add(mainContainer)
 
-  fontGroup = new GroupComponent(renderer.root.ctx, {
+  fontGroup = new BoxComponent(renderer.root.ctx, {
     id: "fontGroup",
     position: "absolute",
     left: 2,

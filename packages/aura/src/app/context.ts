@@ -11,10 +11,16 @@ import {
 
 import { aura } from './aura.js';
 
-import type { Context, AuraElement } from './types.js';
+import type { Context, AnyAuraElement } from './types.js';
 
-// Global context storage
-const contextStorage = new Map<symbol, WritableSignal<any>>();
+// Context storage with proper typing
+interface ContextEntry<T = unknown> {
+  signal: WritableSignal<T>;
+  subscribers: Set<() => void>;
+}
+
+// Global context storage with cleanup tracking
+const contextStorage = new Map<symbol, ContextEntry>();
 
 /**
  * Create a context for dependency injection
@@ -34,19 +40,28 @@ export function createContext<T>(defaultValue: T): Context<T> {
 
   // Create a signal for the context value
   const valueSignal = signal<T>(defaultValue);
-  contextStorage.set(id, valueSignal);
+  const entry: ContextEntry<T> = {
+    signal: valueSignal,
+    subscribers: new Set()
+  };
+  contextStorage.set(id, entry as ContextEntry<unknown>);
 
   return {
     id,
     defaultValue,
-    Provider: (props: { value: T; children: AuraElement[] }) => {
+    Provider: (props: { value: T; children: AnyAuraElement[] }) => {
       // Update context value
-      valueSignal.set(props.value);
+      entry.signal.set(props.value);
 
-      // Return children wrapped in a group
-      return aura('group', {
-        children: props.children
-      }) as AuraElement;
+      // Return children wrapped in a minimal box container
+      // Box acts as a fragment/group that just passes through children
+      return aura('box', {
+        padding: 0,
+        margin: 0,
+        border: false,
+        width: '100%',
+        height: '100%'
+      }, ...props.children);
     }
   };
 }
@@ -60,16 +75,19 @@ export function createContext<T>(defaultValue: T): Context<T> {
  * ```
  */
 export function useContext<T>(context: Context<T>): Signal<T> {
-  const valueSignal = contextStorage.get(context.id);
+  let entry = contextStorage.get(context.id) as ContextEntry<T> | undefined;
 
-  if (!valueSignal) {
+  if (!entry) {
     // If context not found, create with default value
     const newSignal = signal(context.defaultValue);
-    contextStorage.set(context.id, newSignal);
-    return newSignal;
+    entry = {
+      signal: newSignal,
+      subscribers: new Set()
+    };
+    contextStorage.set(context.id, entry as ContextEntry<unknown>);
   }
 
-  return valueSignal;
+  return entry.signal;
 }
 
 /**
@@ -85,8 +103,8 @@ export function useContext<T>(context: Context<T>): Signal<T> {
 export function provideContext<T>(
   context: Context<T>,
   value: T,
-  children: () => AuraElement[]
-): AuraElement {
+  children: () => AnyAuraElement[]
+): AnyAuraElement {
   return context.Provider({ value, children: children() });
 }
 
@@ -95,6 +113,10 @@ export function provideContext<T>(
  * Useful for testing or resetting application state
  */
 export function clearContexts(): void {
+  // Clean up all subscribers before clearing
+  for (const entry of contextStorage.values()) {
+    entry.subscribers.clear();
+  }
   contextStorage.clear();
 }
 
@@ -102,20 +124,24 @@ export function clearContexts(): void {
  * Get the current value of a context without subscribing to changes
  */
 export function getContextValue<T>(context: Context<T>): T {
-  const valueSignal = contextStorage.get(context.id);
-  return valueSignal ? valueSignal() : context.defaultValue;
+  const entry = contextStorage.get(context.id) as ContextEntry<T> | undefined;
+  return entry ? entry.signal() : context.defaultValue;
 }
 
 /**
  * Set a context value imperatively
  */
 export function setContextValue<T>(context: Context<T>, value: T): void {
-  let valueSignal = contextStorage.get(context.id);
+  let entry = contextStorage.get(context.id) as ContextEntry<T> | undefined;
 
-  if (!valueSignal) {
-    valueSignal = signal(value);
-    contextStorage.set(context.id, valueSignal);
+  if (!entry) {
+    const valueSignal = signal(value);
+    entry = {
+      signal: valueSignal,
+      subscribers: new Set()
+    };
+    contextStorage.set(context.id, entry as ContextEntry<unknown>);
   } else {
-    valueSignal.set(value);
+    entry.signal.set(value);
   }
 }

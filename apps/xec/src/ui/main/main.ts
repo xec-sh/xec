@@ -2,7 +2,7 @@ import { aura, TextAttributes } from "@xec-sh/aura";
 
 export function MainComponent() {
 
-  return aura('group', {
+  return aura('box', {
     width: '100%',
     height: '100%',
     flexGrow: 1,
@@ -30,7 +30,7 @@ export function MainComponent() {
           })
         ]
       }),
-      aura('group', {
+      aura('box', {
         width: '100%',
         height: 12,
         flexDirection: 'row',

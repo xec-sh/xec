@@ -1,6 +1,6 @@
 import { setupCommonDemoKeys } from "./lib/standalone-keys"
+import { Renderer, BoxComponent, TextComponent, createRenderer } from "../src/index"
 import { Timeline, createTimeline, type JSAnimation } from "../src/animation/timeline"
-import { Renderer, BoxComponent, TextComponent, GroupComponent, createRenderer } from "../src/index"
 
 class TimelineExample {
   private _mainTimeline: Timeline
@@ -9,7 +9,7 @@ class TimelineExample {
   private renderer: Renderer
   private boxObject: BoxComponent
   private alternatingObject: BoxComponent
-  private parentContainer: GroupComponent
+  private parentContainer: BoxComponent
 
   private statusLine1: TextComponent
   private statusLine2: TextComponent
@@ -44,13 +44,15 @@ class TimelineExample {
     this._mainTimeline.sync(this._subTimeline1, 0)
     this._mainTimeline.sync(this._subTimeline2, 3000)
 
-    this.parentContainer = new GroupComponent(renderer.root.ctx, { id: "timeline-container",
+    this.parentContainer = new BoxComponent(renderer.root.ctx, {
+      id: "timeline-container",
       zIndex: 10,
       visible: true,
     })
     this.renderer.root.add(this.parentContainer)
 
-    this.boxObject = new BoxComponent(renderer.root.ctx, { id: "box-object",
+    this.boxObject = new BoxComponent(renderer.root.ctx, {
+      id: "box-object",
       position: "absolute",
       left: 10,
       top: 8,
@@ -66,7 +68,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.boxObject)
 
-    const colorObject = new BoxComponent(renderer.root.ctx, { id: "color-object",
+    const colorObject = new BoxComponent(renderer.root.ctx, {
+      id: "color-object",
       position: "absolute",
       left: 25,
       top: 8,
@@ -82,7 +85,8 @@ class TimelineExample {
     })
     this.parentContainer.add(colorObject)
 
-    const physicsObject = new BoxComponent(renderer.root.ctx, { id: "physics-object",
+    const physicsObject = new BoxComponent(renderer.root.ctx, {
+      id: "physics-object",
       position: "absolute",
       left: 45,
       top: 8,
@@ -98,7 +102,8 @@ class TimelineExample {
     })
     this.parentContainer.add(physicsObject)
 
-    this.alternatingObject = new BoxComponent(renderer.root.ctx, { id: "alternating-object",
+    this.alternatingObject = new BoxComponent(renderer.root.ctx, {
+      id: "alternating-object",
       position: "absolute",
       left: 1,
       top: 1,
@@ -114,7 +119,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.alternatingObject)
 
-    const mainTimelineBox = new BoxComponent(renderer.root.ctx, { id: "main-timeline",
+    const mainTimelineBox = new BoxComponent(renderer.root.ctx, {
+      id: "main-timeline",
       position: "absolute",
       left: 2,
       top: 15,
@@ -130,7 +136,8 @@ class TimelineExample {
     })
     this.parentContainer.add(mainTimelineBox)
 
-    const subTimeline1Box = new BoxComponent(renderer.root.ctx, { id: "sub-timeline-1",
+    const subTimeline1Box = new BoxComponent(renderer.root.ctx, {
+      id: "sub-timeline-1",
       position: "absolute",
       left: 2,
       top: 19,
@@ -146,7 +153,8 @@ class TimelineExample {
     })
     this.parentContainer.add(subTimeline1Box)
 
-    const subTimeline2Box = new BoxComponent(renderer.root.ctx, { id: "sub-timeline-2",
+    const subTimeline2Box = new BoxComponent(renderer.root.ctx, {
+      id: "sub-timeline-2",
       position: "absolute",
       left: 35,
       top: 19,
@@ -162,7 +170,8 @@ class TimelineExample {
     })
     this.parentContainer.add(subTimeline2Box)
 
-    const statusBox = new BoxComponent(renderer.root.ctx, { id: "status",
+    const statusBox = new BoxComponent(renderer.root.ctx, {
+      id: "status",
       position: "absolute",
       left: 2,
       top: 24,
@@ -178,7 +187,8 @@ class TimelineExample {
     })
     this.parentContainer.add(statusBox)
 
-    this.statusLine1 = new TextComponent(renderer.root.ctx, { id: "status-line1",
+    this.statusLine1 = new TextComponent(renderer.root.ctx, {
+      id: "status-line1",
       content: "Timeline: Initializing...",
       position: "absolute",
       left: 4,
@@ -188,7 +198,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine1)
 
-    this.statusLine2 = new TextComponent(renderer.root.ctx, { id: "status-line2",
+    this.statusLine2 = new TextComponent(renderer.root.ctx, {
+      id: "status-line2",
       content: "Box Position: x=0.0, y=0.0",
       position: "absolute",
       left: 4,
@@ -198,7 +209,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine2)
 
-    this.statusLine3 = new TextComponent(renderer.root.ctx, { id: "status-line3",
+    this.statusLine3 = new TextComponent(renderer.root.ctx, {
+      id: "status-line3",
       content: "Box Scale/Rot: scale=1.0, rot=0.0",
       position: "absolute",
       left: 4,
@@ -208,7 +220,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine3)
 
-    this.statusLine4 = new TextComponent(renderer.root.ctx, { id: "status-line4",
+    this.statusLine4 = new TextComponent(renderer.root.ctx, {
+      id: "status-line4",
       content: "Color: rgb(255, 0, 0)",
       position: "absolute",
       left: 4,
@@ -218,7 +231,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine4)
 
-    this.statusLine5 = new TextComponent(renderer.root.ctx, { id: "status-line5",
+    this.statusLine5 = new TextComponent(renderer.root.ctx, {
+      id: "status-line5",
       content: "Color Opacity: 1.0",
       position: "absolute",
       left: 4,
@@ -228,7 +242,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine5)
 
-    this.statusLine6 = new TextComponent(renderer.root.ctx, { id: "status-line6",
+    this.statusLine6 = new TextComponent(renderer.root.ctx, {
+      id: "status-line6",
       content: "Physics: v=0.0, a=0.0, m=1.0",
       position: "absolute",
       left: 4,
@@ -238,7 +253,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine6)
 
-    this.statusLine7 = new TextComponent(renderer.root.ctx, { id: "status-line7",
+    this.statusLine7 = new TextComponent(renderer.root.ctx, {
+      id: "status-line7",
       content: "Progress: Main=0% Sub1=0% Sub2=0%",
       position: "absolute",
       left: 4,
@@ -248,7 +264,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine7)
 
-    this.statusLine8 = new TextComponent(renderer.root.ctx, { id: "status-line8",
+    this.statusLine8 = new TextComponent(renderer.root.ctx, {
+      id: "status-line8",
       content: "Example Value: 0.000 (0.0 → 0.5)",
       position: "absolute",
       left: 4,
@@ -258,7 +275,8 @@ class TimelineExample {
     })
     this.parentContainer.add(this.statusLine8)
 
-    this.statusLine9 = new TextComponent(renderer.root.ctx, { id: "status-line9",
+    this.statusLine9 = new TextComponent(renderer.root.ctx, {
+      id: "status-line9",
       content: "Alternating: x=65 (left/right loop=5)",
       position: "absolute",
       left: 4,
@@ -286,7 +304,8 @@ class TimelineExample {
     if (mainProgressBox) {
       mainProgressBox.width = Math.max(1, Math.floor(mainProgress))
     } else {
-      const newMainProgressBox = new BoxComponent(this.renderer.root.ctx, { id: "main-progress",
+      const newMainProgressBox = new BoxComponent(this.renderer.root.ctx, {
+        id: "main-progress",
         position: "absolute",
         left: 3,
         top: 16,
@@ -302,7 +321,8 @@ class TimelineExample {
     if (sub1ProgressBox) {
       sub1ProgressBox.width = Math.max(1, Math.floor(sub1Progress))
     } else {
-      const newSub1ProgressBox = new BoxComponent(this.renderer.root.ctx, { id: "sub1-progress",
+      const newSub1ProgressBox = new BoxComponent(this.renderer.root.ctx, {
+        id: "sub1-progress",
         position: "absolute",
         left: 3,
         top: 20,
@@ -318,7 +338,8 @@ class TimelineExample {
     if (sub2ProgressBox) {
       sub2ProgressBox.width = Math.max(1, Math.floor(sub2Progress))
     } else {
-      const newSub2ProgressBox = new BoxComponent(this.renderer.root.ctx, { id: "sub2-progress",
+      const newSub2ProgressBox = new BoxComponent(this.renderer.root.ctx, {
+        id: "sub2-progress",
         position: "absolute",
         left: 36,
         top: 20,

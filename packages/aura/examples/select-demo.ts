@@ -5,8 +5,8 @@ import {
   t,
   fg,
   bold,
+  BoxComponent,
   type Renderer,
-  GroupComponent,
   createRenderer,
   SelectComponent,
   RenderableEvents,
@@ -90,13 +90,15 @@ export function run(rendererInstance: Renderer): void {
   renderer = rendererInstance
   renderer.setBackgroundColor("#001122")
 
-  const parentContainer = new GroupComponent(renderer.root.ctx, { id: "parent-container",
+  const parentContainer = new BoxComponent(renderer.root.ctx, {
+    id: "parent-container",
     zIndex: 10,
     visible: true,
   })
   renderer.root.add(parentContainer)
 
-  selectElement = new SelectComponent(renderer.root.ctx, { id: "demo-select",
+  selectElement = new SelectComponent(renderer.root.ctx, {
+    id: "demo-select",
     position: "absolute",
     left: 5,
     top: 2,
@@ -120,7 +122,8 @@ export function run(rendererInstance: Renderer): void {
 
   renderer.root.add(selectElement)
 
-  keyLegendDisplay = new TextComponent(renderer.root.ctx, { id: "key-legend",
+  keyLegendDisplay = new TextComponent(renderer.root.ctx, {
+    id: "key-legend",
     content: t``,
     width: 40,
     height: 9,
@@ -132,7 +135,8 @@ export function run(rendererInstance: Renderer): void {
   })
   parentContainer.add(keyLegendDisplay)
 
-  statusDisplay = new TextComponent(renderer.root.ctx, { id: "status-display",
+  statusDisplay = new TextComponent(renderer.root.ctx, {
+    id: "status-display",
     content: t``,
     width: 80,
     height: 8,

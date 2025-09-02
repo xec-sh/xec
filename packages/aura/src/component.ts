@@ -1041,6 +1041,30 @@ export abstract class Component extends EventEmitter {
     return [...this.children]
   }
 
+  /**
+   * Find a descendant component by ID
+   * @param id - The ID to search for
+   * @returns The component if found, undefined otherwise
+   */
+  public findDescendantById(id: string): Component | undefined {
+    // Check direct children first
+    for (const child of this.children) {
+      if (child.id === id) {
+        return child;
+      }
+    }
+
+    // Recursively check descendants
+    for (const child of this.children) {
+      const found = child.findDescendantById(id);
+      if (found) {
+        return found;
+      }
+    }
+
+    return undefined;
+  }
+
   public render(buffer: OptimizedBuffer, deltaTime: number): void {
     if (!this.visible) return;
 
