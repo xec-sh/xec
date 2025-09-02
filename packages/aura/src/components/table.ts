@@ -1005,11 +1005,11 @@ export class TableComponent extends Component {
             dataEndY++; // Account for header separator
           }
         }
-        
+
         // Add visible rows
         const visibleRows = this.getVisibleRows();
         dataEndY += visibleRows.length - 1;
-        
+
         // Account for row dividers between data rows
         if (this._rowDivider && visibleRows.length > 1) {
           dataEndY += visibleRows.length - 1;
@@ -1171,11 +1171,11 @@ export class TableComponent extends Component {
             dataEndY++; // Account for header separator
           }
         }
-        
+
         // Add visible rows
         const visibleRows = this.getVisibleRows();
         dataEndY += visibleRows.length - 1;
-        
+
         // Account for row dividers between data rows
         if (this._rowDivider && visibleRows.length > 1) {
           dataEndY += visibleRows.length - 1;
@@ -1251,7 +1251,7 @@ export class TableComponent extends Component {
         // Horizontal scroll left if table is wider than viewport
         if (this._totalWidth > this.width) {
           this._horizontalScrollOffset = Math.max(0, this._horizontalScrollOffset - 1);
-          this.needsUpdate();
+          this.requestRender();
         }
         break;
 
@@ -1261,7 +1261,7 @@ export class TableComponent extends Component {
         if (this._totalWidth > this.width) {
           const maxHorizontalScroll = Math.max(0, this._totalWidth - this.width);
           this._horizontalScrollOffset = Math.min(maxHorizontalScroll, this._horizontalScrollOffset + 1);
-          this.needsUpdate();
+          this.requestRender();
         }
         break;
 
@@ -1276,13 +1276,13 @@ export class TableComponent extends Component {
       case 'home':
         this._focusedIndex = 0;
         this.ensureVisible(this._focusedIndex);
-        this.needsUpdate();
+        this.requestRender();
         break;
 
       case 'end':
         this._focusedIndex = this._rows.length - 1;
         this.ensureVisible(this._focusedIndex);
-        this.needsUpdate();
+        this.requestRender();
         break;
 
       case 'space':
@@ -1318,7 +1318,7 @@ export class TableComponent extends Component {
     if (newIndex !== this._focusedIndex) {
       this._focusedIndex = newIndex;
       this.ensureVisible(this._focusedIndex);
-      this.needsUpdate();
+      this.requestRender();
     }
   }
 
@@ -1355,7 +1355,7 @@ export class TableComponent extends Component {
       this._selectedIndices.add(index);
     }
 
-    this.needsUpdate();
+    this.requestRender();
 
     if (this._onRowSelect) {
       this._onRowSelect(row, index);
@@ -1380,7 +1380,7 @@ export class TableComponent extends Component {
     }
 
     this._selectedIndices.add(index);
-    this.needsUpdate();
+    this.requestRender();
 
     if (this._onRowSelect) {
       this._onRowSelect(row, index);
@@ -1420,7 +1420,7 @@ export class TableComponent extends Component {
       }
     }
 
-    this.needsUpdate();
+    this.requestRender();
   }
 
   // Sort by column
@@ -1466,7 +1466,7 @@ export class TableComponent extends Component {
       return this._sortDirection === 'asc' ? comparison : -comparison;
     });
 
-    this.needsUpdate();
+    this.requestRender();
 
     if (this._onSort) {
       this._onSort(column, this._sortDirection);
@@ -1483,7 +1483,7 @@ export class TableComponent extends Component {
     // Reinitialize
     this.initializeDataMode();
 
-    this.needsUpdate();
+    this.requestRender();
   }
 
   // Public getters and setters
@@ -1494,7 +1494,7 @@ export class TableComponent extends Component {
   public set columns(value: TableColumn[]) {
     this._columns = value;
     this.calculateColumnWidths();
-    this.needsUpdate();
+    this.requestRender();
   }
 
   // Batch update method (performance optimization from spec)
@@ -1560,7 +1560,7 @@ export class TableComponent extends Component {
     // Reinitialize components
     this.initializeDataMode();
 
-    this.needsUpdate();
+    this.requestRender();
   }
 
   public get sortable(): boolean {
@@ -1576,7 +1576,7 @@ export class TableComponent extends Component {
       this._sortDirection = 'asc';
     }
 
-    this.needsUpdate();
+    this.requestRender();
   }
 
   // Efficient diff-based row updates (as mentioned in spec)
@@ -1619,7 +1619,7 @@ export class TableComponent extends Component {
 
       this.initializeDataMode();
 
-      this.needsUpdate();
+      this.requestRender();
     }
   }
 
@@ -1641,7 +1641,7 @@ export class TableComponent extends Component {
 
   public clearSelection(): void {
     this._selectedIndices.clear();
-    this.needsUpdate();
+    this.requestRender();
   }
 
   // Override resize to recalculate layout

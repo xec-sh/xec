@@ -17,7 +17,7 @@ import type { RenderContext } from "../types.js"
 // BoxTheme import removed - using global theme only
 import type { OptimizedBuffer } from "../renderer/buffer.js"
 
-export interface BoxProps extends ComponentProps {
+export interface BoxProps<TComponent extends Component = BoxComponent> extends ComponentProps<TComponent> {
   // Color properties - can be theme tokens or direct colors
   backgroundColor?: string | RGBA;
   borderStyle?: BorderStyle;
@@ -60,7 +60,6 @@ export class BoxComponent extends Component {
   protected _title?: string
   protected _titleAlignment: "left" | "center" | "right"
   protected _filledGaps: boolean
-  // Theme prop removed - using global theme
 
   protected _defaultOptions = {
     backgroundColor: "transparent",
@@ -161,7 +160,7 @@ export class BoxComponent extends Component {
   public set customBorderChars(value: BorderCharacters | undefined) {
     this._customBorderCharsObj = value
     this._customBorderChars = value ? borderCharsToArray(value) : undefined
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public get backgroundColor(): RGBA {
@@ -180,7 +179,7 @@ export class BoxComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.backgroundColor, themeResolver)
     if (this._backgroundColor !== newColor) {
       this._backgroundColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -193,7 +192,7 @@ export class BoxComponent extends Component {
       this._border = value
       this.borderSides = getBorderSides(value)
       this.applyYogaBorders()
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -206,7 +205,7 @@ export class BoxComponent extends Component {
     if (this._borderStyle !== _value) {
       this._borderStyle = _value
       this._customBorderChars = undefined
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -226,7 +225,7 @@ export class BoxComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.borderColor, themeResolver)
     if (this._borderColor !== newColor) {
       this._borderColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -247,7 +246,7 @@ export class BoxComponent extends Component {
     if (this._focusedBorderColor !== newColor) {
       this._focusedBorderColor = newColor
       if (this._focused) {
-        this.needsUpdate()
+        this.requestRender()
       }
     }
   }
@@ -259,7 +258,7 @@ export class BoxComponent extends Component {
   public set title(value: string | undefined) {
     if (this._title !== value) {
       this._title = value
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -270,7 +269,7 @@ export class BoxComponent extends Component {
   public set titleAlignment(value: "left" | "center" | "right") {
     if (this._titleAlignment !== value) {
       this._titleAlignment = value
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -281,7 +280,7 @@ export class BoxComponent extends Component {
   public set filledGaps(value: boolean) {
     if (this._filledGaps !== value) {
       this._filledGaps = value
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -325,28 +324,28 @@ export class BoxComponent extends Component {
 
     const flexDirection = this.layoutNode.yogaNode.getFlexDirection()
     const borderChars = this._customBorderCharsObj || BorderChars[this._borderStyle]
-    
+
     // Adjust positions based on borders
     const borderOffset = this._border ? 1 : 0
-    
+
     if (flexDirection === FlexDirection.Column || flexDirection === FlexDirection.ColumnReverse) {
       // Draw horizontal dividers between vertically stacked children
       for (let i = 0; i < children.length - 1; i++) {
         const child = children[i]
         const nextChild = children[i + 1]
-        
+
         // Calculate divider Y position (between current child bottom and next child top)
         const dividerY = this.y + child.y + child.height
         const dividerX = this.x + borderOffset
         const dividerWidth = this.width - (borderOffset * 2)
-        
+
         // Only draw if there's actually a gap
         if (nextChild.y > child.y + child.height) {
           // Draw horizontal line
           for (let x = 0; x < dividerWidth; x++) {
             buffer.drawText(borderChars.horizontal, dividerX + x, dividerY, color)
           }
-          
+
           // Draw junction characters at the edges if box has borders
           if (this.borderSides.left) {
             buffer.drawText(borderChars.leftT, this.x, dividerY, color)
@@ -361,19 +360,19 @@ export class BoxComponent extends Component {
       for (let i = 0; i < children.length - 1; i++) {
         const child = children[i]
         const nextChild = children[i + 1]
-        
+
         // Calculate divider X position (between current child right and next child left)
         const dividerX = this.x + child.x + child.width
         const dividerY = this.y + borderOffset
         const dividerHeight = this.height - (borderOffset * 2)
-        
+
         // Only draw if there's actually a gap
         if (nextChild.x > child.x + child.width) {
           // Draw vertical line
           for (let y = 0; y < dividerHeight; y++) {
             buffer.drawText(borderChars.vertical, dividerX, dividerY + y, color)
           }
-          
+
           // Draw junction characters at the edges if box has borders
           if (this.borderSides.top) {
             buffer.drawText(borderChars.topT, dividerX, this.y, color)
@@ -392,7 +391,7 @@ export class BoxComponent extends Component {
     node.setBorder(Edge.Right, this.borderSides.right ? 1 : 0)
     node.setBorder(Edge.Top, this.borderSides.top ? 1 : 0)
     node.setBorder(Edge.Bottom, this.borderSides.bottom ? 1 : 0)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   private applyYogaGap(props: BoxProps): void {
@@ -414,21 +413,21 @@ export class BoxComponent extends Component {
   public set gap(gap: number | `${number}%` | undefined) {
     if (isGapType(gap)) {
       this.layoutNode.yogaNode.setGap(Gutter.All, gap)
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
   public set rowGap(rowGap: number | `${number}%` | undefined) {
     if (isGapType(rowGap)) {
       this.layoutNode.yogaNode.setGap(Gutter.Row, rowGap)
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
   public set columnGap(columnGap: number | `${number}%` | undefined) {
     if (isGapType(columnGap)) {
       this.layoutNode.yogaNode.setGap(Gutter.Column, columnGap)
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 }

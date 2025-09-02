@@ -5,6 +5,7 @@ import * as inputExample from "./input-demo"
 import * as opentuiDemo from "./opentui-demo"
 import * as selectExample from "./select-demo"
 import * as consoleExample from "./console-demo"
+import * as scrollExample from "./scroll-example"
 import * as timelineExample from "./timeline-example"
 import * as tabSelectExample from "./tab-select-demo"
 import * as liveStateExample from "./live-state-demo"
@@ -156,7 +157,13 @@ const examples: Example[] = [
     description: "Interactive InputElement demo with validation and multiple fields",
     run: inputExample.run,
     destroy: inputExample.destroy,
-  }
+  },
+  {
+    name: "ScrollBox Demo",
+    description: "Scrollable container with customization",
+    run: scrollExample.run,
+    destroy: scrollExample.destroy,
+  },
 ]
 
 class ExampleSelector {
@@ -175,7 +182,7 @@ class ExampleSelector {
     this.createStaticElements()
     this.createSelectElement()
     this.setupKeyboardHandling()
-    this.renderer.needsUpdate()
+    this.renderer.requestRender()
 
     this.renderer.on("resize", (width: number, height: number) => {
       this.handleResize(width, height)
@@ -297,7 +304,7 @@ class ExampleSelector {
       this.selectElement.height = height - 10
     }
 
-    this.renderer.needsUpdate()
+    this.renderer.requestRender()
   }
 
   private setupKeyboardHandling(): void {
@@ -342,7 +349,7 @@ class ExampleSelector {
         })
         this.renderer.root.add(this.notImplementedText)
       }
-      this.renderer.needsUpdate()
+      this.renderer.requestRender()
     }
   }
 
@@ -387,7 +394,7 @@ class ExampleSelector {
     this.renderer.pause()
     this.showMenuElements()
     this.renderer.setBackgroundColor("#001122")
-    this.renderer.needsUpdate()
+    this.renderer.requestRender()
   }
 
   private cleanup(): void {

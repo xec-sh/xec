@@ -266,7 +266,7 @@ export class SelectComponent extends Component {
     this._indicator = options.indicator;
     this._descriptionTruncate = options.descriptionTruncate || this._defaultOptions.descriptionTruncate
 
-    this.needsUpdate() // Initial render needed
+    this.requestRender() // Initial render needed
   }
 
   protected renderSelf(buffer: OptimizedBuffer, deltaTime: number): void {
@@ -472,7 +472,7 @@ export class SelectComponent extends Component {
     }
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public getSelectedOption(): SelectOption | null {
@@ -495,7 +495,7 @@ export class SelectComponent extends Component {
     }
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
     this.emit(SelectComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
   }
 
@@ -511,7 +511,7 @@ export class SelectComponent extends Component {
     }
 
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
     this.emit(SelectComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
   }
 
@@ -526,7 +526,7 @@ export class SelectComponent extends Component {
     if (index >= 0 && index < this._options.length) {
       this.selectedIndex = index
       this.updateScrollOffset()
-      this.needsUpdate()
+      this.requestRender()
       this.emit(SelectComponentEvents.SELECTION_CHANGED, this.selectedIndex, this.getSelectedOption())
     }
   }
@@ -542,14 +542,14 @@ export class SelectComponent extends Component {
 
     if (newScrollOffset !== this.scrollOffset) {
       this.scrollOffset = newScrollOffset
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
   protected onResize(width: number, height: number): void {
     this.maxVisibleItems = Math.max(1, Math.floor(height / this.linesPerItem))
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public handleKeyPress(key: ParsedKey | string): boolean {
@@ -584,7 +584,7 @@ export class SelectComponent extends Component {
 
   public set showScrollIndicator(show: boolean) {
     this._showScrollIndicator = show
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public get showDescription(): boolean {
@@ -605,7 +605,7 @@ export class SelectComponent extends Component {
 
       this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
       this.updateScrollOffset()
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -629,7 +629,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.backgroundColor, themeResolver)
     if (this._backgroundColor !== newColor) {
       this._backgroundColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -645,7 +645,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.textColor, themeResolver)
     if (this._textColor !== newColor) {
       this._textColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -661,7 +661,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.focusedBackgroundColor, themeResolver)
     if (this._focusedBackgroundColor !== newColor) {
       this._focusedBackgroundColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -677,7 +677,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.focusedTextColor, themeResolver)
     if (this._focusedTextColor !== newColor) {
       this._focusedTextColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -693,7 +693,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.selectedBackgroundColor, themeResolver)
     if (this._selectedBackgroundColor !== newColor) {
       this._selectedBackgroundColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -709,7 +709,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.selectedTextColor, themeResolver)
     if (this._selectedTextColor !== newColor) {
       this._selectedTextColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -725,7 +725,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.descriptionColor, themeResolver)
     if (this._descriptionColor !== newColor) {
       this._descriptionColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -741,7 +741,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.focusedDescriptionColor, themeResolver)
     if (this._focusedDescriptionColor !== newColor) {
       this._focusedDescriptionColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -757,7 +757,7 @@ export class SelectComponent extends Component {
     const newColor = parseColor(value ?? this._defaultOptions.selectedDescriptionColor, themeResolver)
     if (this._selectedDescriptionColor !== newColor) {
       this._selectedDescriptionColor = newColor
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -774,7 +774,7 @@ export class SelectComponent extends Component {
     this.linesPerItem += this._itemSpacing
     this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set itemSpacing(spacing: number) {
@@ -789,7 +789,7 @@ export class SelectComponent extends Component {
     this.linesPerItem += this._itemSpacing
     this.maxVisibleItems = Math.max(1, Math.floor(this.height / this.linesPerItem))
     this.updateScrollOffset()
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public set fastScrollStep(step: number) {
@@ -803,7 +803,7 @@ export class SelectComponent extends Component {
   public set indicator(value: string) {
     if (this._indicator !== value) {
       this._indicator = value
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 
@@ -814,7 +814,7 @@ export class SelectComponent extends Component {
   public set descriptionTruncate(value: DescriptionTruncate) {
     if (this._descriptionTruncate !== value) {
       this._descriptionTruncate = value
-      this.needsUpdate()
+      this.requestRender()
     }
   }
 }

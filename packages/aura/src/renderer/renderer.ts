@@ -347,8 +347,8 @@ export class Renderer extends EventEmitter implements RenderContext {
     return this.realStdoutWrite.call(this.stdout, chunk, encoding, callback)
   }
 
-  public needsUpdate() {
-    if (!this.updateScheduled && !this._isRunning) {
+  public requestRender() {
+    if (!this.rendering && !this.updateScheduled && !this._isRunning) {
       this.updateScheduled = true
       process.nextTick(() => {
         this.loop()
@@ -585,7 +585,7 @@ export class Renderer extends EventEmitter implements RenderContext {
         this.capturedRenderable = undefined
         // Dropping the renderable needs to push another frame when the renderer is not live
         // to update the hit grid, otherwise capturedRenderable won't be in the hit grid and will not receive mouse events
-        this.needsUpdate()
+        this.requestRender()
       }
 
       if (maybeRenderable) {
@@ -685,7 +685,7 @@ export class Renderer extends EventEmitter implements RenderContext {
     this._console.resize(this.width, this.height)
     this.root.resize(this.width, this.height)
     this.emit("resize", this.width, this.height)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public setBackgroundColor(color: Color): void {
@@ -693,21 +693,21 @@ export class Renderer extends EventEmitter implements RenderContext {
     this.lib.setBackgroundColor(this.rendererPtr, parsedColor as RGBA)
     this.backgroundColor = parsedColor as RGBA
     this.nextRenderBuffer.clear(parsedColor as RGBA)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public toggleDebugOverlay(): void {
     this.debugOverlay.enabled = !this.debugOverlay.enabled
     this.lib.setDebugOverlay(this.rendererPtr, this.debugOverlay.enabled, this.debugOverlay.corner)
     this.emit(CliRenderEvents.DEBUG_OVERLAY_TOGGLE, this.debugOverlay.enabled)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public configureDebugOverlay(options: { enabled?: boolean; corner?: DebugOverlayCorner }): void {
     this.debugOverlay.enabled = options.enabled ?? this.debugOverlay.enabled
     this.debugOverlay.corner = options.corner ?? this.debugOverlay.corner
     this.lib.setDebugOverlay(this.rendererPtr, this.debugOverlay.enabled, this.debugOverlay.corner)
-    this.needsUpdate()
+    this.requestRender()
   }
 
   public clearTerminal(): void {
@@ -790,6 +790,10 @@ export class Renderer extends EventEmitter implements RenderContext {
   public start(): void {
     this.controlState = RendererControlState.EXPLICIT_STARTED
     this.internalStart()
+  }
+
+  public auto(): void {
+    this.controlState = this._isRunning ? RendererControlState.AUTO_STARTED : RendererControlState.IDLE
   }
 
   private internalStart(): void {
@@ -962,7 +966,7 @@ export class Renderer extends EventEmitter implements RenderContext {
         // Set lines_rendered in the Rust renderer
         this.lib.setLinesRendered(this.rendererPtr, renderHeight);
         this.linesRendered = renderHeight;
-        nextTick(() => this.needsUpdate());
+        nextTick(() => this.requestRender());
       }
     }
     this.renderingNative = true;

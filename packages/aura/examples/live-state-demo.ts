@@ -84,25 +84,25 @@ class LiveButton extends BoxComponent {
     switch (event.type) {
       case "down":
         this.isPressed = true
-        this.needsUpdate()
+        this.requestRender()
         event.preventDefault()
         break
 
       case "up":
         this.isPressed = false
-        this.needsUpdate()
+        this.requestRender()
         event.preventDefault()
         break
 
       case "over":
         this.isHovered = true
-        this.needsUpdate()
+        this.requestRender()
         break
 
       case "out":
         this.isHovered = false
         this.isPressed = false
-        this.needsUpdate()
+        this.requestRender()
         break
 
       default:

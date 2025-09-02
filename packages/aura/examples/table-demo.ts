@@ -237,21 +237,21 @@ export function run(rendererInstance: Renderer): void {
     } else if (key.name === "b") {
       const newState = !tableElement?.["_showBorder"]
       tableElement!["_showBorder"] = newState
-      tableElement!.needsUpdate()
+      tableElement!.requestRender()
       lastActionText = `Borders ${newState ? "enabled" : "disabled"}`
       lastActionColor = "#FFCC00"
       updateDisplays()
     } else if (key.name === "h") {
       const newState = !tableElement?.["_showHeader"]
       tableElement!["_showHeader"] = newState
-      tableElement!.needsUpdate()
+      tableElement!.requestRender()
       lastActionText = `Header ${newState ? "enabled" : "disabled"}`
       lastActionColor = "#FFCC00"
       updateDisplays()
     } else if (key.name === "a") {
       const newState = !tableElement?.["_alternateRowColors"]
       tableElement!["_alternateRowColors"] = newState
-      tableElement!.needsUpdate()
+      tableElement!.requestRender()
       lastActionText = `Alternate row colors ${newState ? "enabled" : "disabled"}`
       lastActionColor = "#FFCC00"
       updateDisplays()
@@ -295,7 +295,7 @@ export function run(rendererInstance: Renderer): void {
       // Toggle row dividers
       const newState = !tableElement?.["_rowDivider"]
       tableElement!["_rowDivider"] = newState
-      tableElement!.needsUpdate()
+      tableElement!.requestRender()
       lastActionText = `Row dividers ${newState ? "enabled" : "disabled"}`
       lastActionColor = "#FFCC00"
       updateDisplays()

@@ -147,8 +147,8 @@ export function bindReactiveProps<T extends ComponentType>(
           (instance as any)[key] = newValue;
 
           // Trigger re-render if needed
-          if ('needsUpdate' in instance && typeof instance.needsUpdate === 'function') {
-            instance.needsUpdate();
+          if ('requestRender' in instance && typeof instance.requestRender === 'function') {
+            instance.requestRender();
           }
         });
       });
@@ -172,7 +172,7 @@ export function mountElement<T extends ComponentType>(
     throw new Error('Cannot mount element without parent component');
   }
   const ctx = parent.ctx;
-  
+
   // Create component instance with context
   const instance = createComponentInstance(element, ctx);
 
@@ -198,7 +198,7 @@ export function mountElement<T extends ComponentType>(
     if (parent) {
       parent.add(instance);
     }
-    
+
     // Mount children recursively
     if (element.children) {
       for (const child of element.children) {
