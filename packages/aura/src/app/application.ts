@@ -100,11 +100,12 @@ export class AuraApplication {
       // No need to start the renderer, becasuse we use renderer.requestRender() to trigger renders
       // this.renderer.start();
 
+      // Mount children BEFORE creating reactive root to avoid re-execution
+      // This prevents children from being mounted multiple times if they contain reactive dependencies
+      this.mountChildren();
+
       // Create reactive root for the entire application
       this.cleanupRoot = createRoot(() => {
-        // Mount all children directly to the renderer's root
-        this.mountChildren();
-
         // Set up global keyboard handler
         if (this.options.onKeyPress || this.options.exitOnCtrlC) {
           getKeyHandler().on("keypress", this.handleKeyPress);

@@ -181,13 +181,11 @@ export function mountElement(
     // Mount children if present
     if (element.children) {
       for (const child of element.children) {
+        // Mount child with current instance as parent
+        // The child will be automatically added to parent inside the recursive mountElement call
         const childMount = mountElement(child, instance);
         childMountData.push(childMount);
-
-        // Add child to parent component
-        if ('add' in instance && typeof instance.add === 'function') {
-          instance.add(childMount.instance);
-        }
+        // No need to add child here - it's already added in the recursive call
       }
     }
 
