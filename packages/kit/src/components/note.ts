@@ -3,8 +3,9 @@ import type { Writable } from 'node:stream';
 import process from 'node:process';
 
 import prism from '../prism/index.js';
-import { wrapAnsi } from '../core/utils/wrap-ansi.js';
+import { getColumns } from '../core/index.js';
 import stringWidth from '../core/utils/string-width.js';
+import { wrapAnsi, WrapAnsiOptions } from '../core/utils/wrap-ansi.js';
 import {
   S_BAR,
   S_BAR_H,
@@ -15,14 +16,19 @@ import {
   S_CORNER_BOTTOM_RIGHT,
 } from '../utilities/common.js';
 
+type FormatFn = (line: string) => string;
 export interface NoteOptions extends CommonOptions {
-  format?: (line: string) => string;
+  format?: FormatFn;
 }
 
 const defaultNoteFormatter = (line: string): string => prism.dim(line);
 
-const wrapWithFormat = (message: string, width: number, format: NoteOptions['format']): string => {
-  const wrapMsg = wrapAnsi(message, width).split('\n');
+const wrapWithFormat = (message: string, width: number, format: FormatFn): string => {
+  const opts: WrapAnsiOptions = {
+    hard: true,
+    trim: false,
+  };
+  const wrapMsg = wrapAnsi(message, width, opts).split('\n');
   const maxWidthNormal = wrapMsg.reduce(
     (sum: number, ln: string) => Math.max(stringWidth(ln), sum),
     0
@@ -32,14 +38,13 @@ const wrapWithFormat = (message: string, width: number, format: NoteOptions['for
     .map(formatFn)
     .reduce((sum: number, ln: string) => Math.max(stringWidth(ln), sum), 0);
   const wrapWidth = width - (maxWidthFormat - maxWidthNormal);
-  return wrapAnsi(message, wrapWidth);
+  return wrapAnsi(message, wrapWidth, opts);
 };
 
 export const note = (message = '', title = '', opts?: NoteOptions) => {
   const output: Writable = opts?.output ?? process.stdout;
   const format = opts?.format ?? defaultNoteFormatter;
-  const columns = (output as any).columns ?? 80; // Default to 80 if columns not available
-  const wrapMsg = wrapWithFormat(message, columns - 6, format);
+  const wrapMsg = wrapWithFormat(message, getColumns(output) - 6, format);
   const lines = ['', ...wrapMsg.split('\n').map(format), ''];
   const titleLen = stringWidth(title);
   const len =

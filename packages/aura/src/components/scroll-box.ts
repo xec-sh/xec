@@ -1,9 +1,43 @@
-import { MouseEvent } from "../renderer/renderer.js"
 import { BoxComponent, type BoxProps } from "./box.js"
 import { RenderContext, type ParsedKey } from "../types.js"
 import { type ScrollUnit, ScrollBarComponent, type ScrollBarProps } from "./scroll-bar.js"
 
-export interface ScrollBoxProps extends BoxProps<ScrollBarComponent> {
+// import type { VNode } from "./composition/vnode.js"
+import type { MouseEvent } from "../renderer/renderer.js"
+import type { Component, ComponentProps } from "../component.js"
+
+class ContentComponent extends BoxComponent {
+  private viewport: BoxComponent
+
+  constructor(ctx: RenderContext, viewport: BoxComponent, options: ComponentProps<BoxComponent>) {
+    super(ctx, options)
+    this.viewport = viewport
+  }
+
+  protected shouldRenderChild(child: Component): boolean {
+    const viewportLeft = this.viewport.x
+    const viewportTop = this.viewport.y
+    const viewportRight = this.viewport.x + this.viewport.width
+    const viewportBottom = this.viewport.y + this.viewport.height
+
+    const childLeft = child.x
+    const childTop = child.y
+    const childRight = child.x + child.width
+    const childBottom = child.y + child.height
+
+    // Check if child intersects with viewport (with some padding for safety)
+    const padding = 10
+    const intersects =
+      childLeft < viewportRight + padding &&
+      childRight > viewportLeft - padding &&
+      childTop < viewportBottom + padding &&
+      childBottom > viewportTop - padding
+
+    return intersects
+  }
+}
+
+export interface ScrollBoxProps extends BoxProps<ScrollBoxComponent> {
   rootOptions?: BoxProps
   wrapperOptions?: BoxProps
   viewportOptions?: BoxProps
@@ -16,7 +50,7 @@ export interface ScrollBoxProps extends BoxProps<ScrollBarComponent> {
 export class ScrollBoxComponent extends BoxComponent {
   public readonly wrapper: BoxComponent
   public readonly viewport: BoxComponent
-  public readonly content: BoxComponent
+  public readonly content: ContentComponent
   public readonly horizontalScrollBar: ScrollBarComponent
   public readonly verticalScrollBar: ScrollBarComponent
 
@@ -78,7 +112,7 @@ export class ScrollBoxComponent extends BoxComponent {
       maxWidth: "100%",
       ...wrapperOptions,
     })
-    this.add(this.wrapper)
+    super.add(this.wrapper)
 
     this.viewport = new BoxComponent(ctx, {
       flexDirection: "column",
@@ -97,7 +131,7 @@ export class ScrollBoxComponent extends BoxComponent {
     })
     this.wrapper.add(this.viewport)
 
-    this.content = new BoxComponent(ctx, {
+    this.content = new ContentComponent(ctx, this.viewport, {
       minWidth: "100%",
       minHeight: "100%",
       alignSelf: "flex-start",
@@ -111,16 +145,24 @@ export class ScrollBoxComponent extends BoxComponent {
     this.verticalScrollBar = new ScrollBarComponent(ctx, {
       ...scrollbarOptions,
       ...verticalScrollbarOptions,
+      arrowOptions: {
+        ...scrollbarOptions?.arrowOptions,
+        ...verticalScrollbarOptions?.arrowOptions,
+      },
       orientation: "vertical",
       onChange: (position) => {
         this.content.translateY = -position
       },
     })
-    this.add(this.verticalScrollBar)
+    super.add(this.verticalScrollBar)
 
     this.horizontalScrollBar = new ScrollBarComponent(ctx, {
       ...scrollbarOptions,
       ...horizontalScrollbarOptions,
+      arrowOptions: {
+        ...scrollbarOptions?.arrowOptions,
+        ...horizontalScrollbarOptions?.arrowOptions,
+      },
       orientation: "horizontal",
       onChange: (position) => {
         this.content.translateX = -position
@@ -149,6 +191,14 @@ export class ScrollBoxComponent extends BoxComponent {
     }
   }
 
+  public add(obj: Component/* | VNode<any, any[]>*/, index?: number): number {
+    return this.content.add(obj, index)
+  }
+
+  public remove(id: string): void {
+    this.content.remove(id)
+  }
+
   protected onMouseEvent(event: MouseEvent): void {
     if (event.type === "scroll") {
       let dir = event.scroll?.direction
@@ -173,5 +223,42 @@ export class ScrollBoxComponent extends BoxComponent {
     this.verticalScrollBar.viewportSize = this.viewport.height
     this.horizontalScrollBar.scrollSize = this.content.width
     this.horizontalScrollBar.viewportSize = this.viewport.width
+  }
+
+  // Setters for reactive properties
+  public set rootOptions(options: ScrollBoxProps["rootOptions"]) {
+    Object.assign(this, options)
+    this.requestRender()
+  }
+
+  public set wrapperOptions(options: ScrollBoxProps["wrapperOptions"]) {
+    Object.assign(this.wrapper, options)
+    this.requestRender()
+  }
+
+  public set viewportOptions(options: ScrollBoxProps["viewportOptions"]) {
+    Object.assign(this.viewport, options)
+    this.requestRender()
+  }
+
+  public set contentOptions(options: ScrollBoxProps["contentOptions"]) {
+    Object.assign(this.content, options)
+    this.requestRender()
+  }
+
+  public set scrollbarOptions(options: ScrollBoxProps["scrollbarOptions"]) {
+    Object.assign(this.verticalScrollBar, options)
+    Object.assign(this.horizontalScrollBar, options)
+    this.requestRender()
+  }
+
+  public set verticalScrollbarOptions(options: ScrollBoxProps["verticalScrollbarOptions"]) {
+    Object.assign(this.verticalScrollBar, options)
+    this.requestRender()
+  }
+
+  public set horizontalScrollbarOptions(options: ScrollBoxProps["horizontalScrollbarOptions"]) {
+    Object.assign(this.horizontalScrollBar, options)
+    this.requestRender()
   }
 }

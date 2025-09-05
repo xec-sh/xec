@@ -529,6 +529,8 @@ export class Renderer extends EventEmitter implements RenderContext {
           maybeRenderable.shouldStartSelection(mouseEvent.x, mouseEvent.y)
         ) {
           this.startSelection(maybeRenderable, mouseEvent.x, mouseEvent.y)
+          const event = new MouseEvent(maybeRenderable, mouseEvent)
+          maybeRenderable.processMouseEvent(event)
           return true
         }
       }
