@@ -115,13 +115,13 @@ const stringVisibleTrimSpacesRight = (string: string): string => {
   return words.slice(0, last).join(' ') + words.slice(last).join('');
 };
 
-export interface Options {
+export interface WrapAnsiOptions {
   trim?: boolean;
   wordWrap?: boolean;
   hard?: boolean;
 }
 
-const exec = (string: string, columns: number, options: Options = {}): string => {
+const exec = (string: string, columns: number, options: WrapAnsiOptions = {}): string => {
   if (options.trim !== false && string.trim() === '') {
     return '';
   }
@@ -245,7 +245,7 @@ const exec = (string: string, columns: number, options: Options = {}): string =>
   return returnValue;
 };
 
-export function wrapAnsi(string: string, columns: number, options?: Options) {
+export function wrapAnsi(string: string, columns: number, options?: WrapAnsiOptions) {
   return String(string)
     .normalize()
     .replaceAll('\r\n', '\n')

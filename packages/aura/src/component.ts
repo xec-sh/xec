@@ -1088,12 +1088,18 @@ export abstract class Component extends EventEmitter {
     this.ensureZIndexSorted();
 
     for (const child of this.children) {
-      child.render(renderBuffer, deltaTime);
+      if (this.shouldRenderChild(child)) {
+        child.render(renderBuffer, deltaTime);
+      }
     }
 
     if (this.buffered && this.frameBuffer) {
       buffer.drawFrameBuffer(this.x, this.y, this.frameBuffer)
     }
+  }
+
+  protected shouldRenderChild(child: Component): boolean {
+    return true;
   }
 
   protected beforeRender(): void {
