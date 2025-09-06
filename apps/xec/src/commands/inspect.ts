@@ -1,6 +1,5 @@
 import os from 'os';
 import path from 'path';
-import { prism } from '@xec-sh/kit';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import { table } from 'table';
@@ -10,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { exec } from 'child_process';
 import { createRequire } from 'module';
-import { select, confirm } from '@xec-sh/kit';
+import { prism, select, confirm } from '@xec-sh/kit';
 
 import { formatBytes } from '../utils/formatters.js';
 import { TaskManager } from '../config/task-manager.js';

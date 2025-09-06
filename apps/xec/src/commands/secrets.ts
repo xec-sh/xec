@@ -1,6 +1,5 @@
-import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import { log, text, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
+import { log, text, prism, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { SecretManager } from '../secrets/index.js';
 import { ConfigAwareCommand } from '../utils/command-base.js';

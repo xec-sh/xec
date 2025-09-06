@@ -408,4 +408,230 @@ profiles:
       expect(manager.get('vars.list')).toEqual(['a', 'b', 'c', 'd']);
     });
   });
+
+  describe('monorepo support', () => {
+    it('should find .xec config in monorepo root when working in subdirectory', async () => {
+      // Create monorepo structure
+      const monorepoRoot = tempDir;
+      const workspaceDir = path.join(monorepoRoot, 'packages', 'my-package');
+      await fs.mkdir(workspaceDir, { recursive: true });
+
+      // Create .git directory to mark repo root
+      await fs.mkdir(path.join(monorepoRoot, '.git'), { recursive: true });
+
+      // Create config in monorepo root
+      await fs.writeFile(
+        path.join(monorepoRoot, '.xec', 'config.yaml'),
+        `version: "1.0"
+name: monorepo-project
+vars:
+  environment: monorepo`
+      );
+
+      // Initialize manager from workspace directory
+      const workspaceManager = new ConfigurationManager({
+        projectRoot: workspaceDir,
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      const config = await workspaceManager.load();
+
+      expect(config.name).toBe('monorepo-project');
+      expect(config.vars?.environment).toBe('monorepo');
+    });
+
+    it('should prioritize .xec directory over .git when searching for root', async () => {
+      // Create nested structure
+      const gitRoot = tempDir;
+      const xecRoot = path.join(gitRoot, 'subproject');
+      const workDir = path.join(xecRoot, 'src', 'components');
+      
+      await fs.mkdir(workDir, { recursive: true });
+      await fs.mkdir(path.join(gitRoot, '.git'), { recursive: true });
+      await fs.mkdir(path.join(xecRoot, '.xec'), { recursive: true });
+
+      // Create config in xec root (not git root)
+      await fs.writeFile(
+        path.join(xecRoot, '.xec', 'config.yaml'),
+        `version: "1.0"
+name: subproject
+vars:
+  location: xec-root`
+      );
+
+      // Create different config in git root (should be ignored)
+      await fs.mkdir(path.join(gitRoot, '.xec'), { recursive: true });
+      await fs.writeFile(
+        path.join(gitRoot, '.xec', 'config.yaml'),
+        `version: "1.0"
+name: git-root-project
+vars:
+  location: git-root`
+      );
+
+      // Initialize manager from deep workspace directory
+      const manager = new ConfigurationManager({
+        projectRoot: workDir,
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      const config = await manager.load();
+
+      // Should use the closer .xec directory, not the git root one
+      expect(config.name).toBe('subproject');
+      expect(config.vars?.location).toBe('xec-root');
+    });
+
+    it('should detect monorepo by package.json with workspaces', async () => {
+      const monorepoRoot = tempDir;
+      const workspaceDir = path.join(monorepoRoot, 'apps', 'web');
+      await fs.mkdir(workspaceDir, { recursive: true });
+
+      // Create package.json with workspaces (monorepo indicator)
+      await fs.writeFile(
+        path.join(monorepoRoot, 'package.json'),
+        JSON.stringify({
+          name: 'my-monorepo',
+          workspaces: ['apps/*', 'packages/*']
+        })
+      );
+
+      // Create config in monorepo root
+      await fs.writeFile(
+        path.join(monorepoRoot, '.xec', 'config.yaml'),
+        `version: "1.0"
+name: monorepo-with-workspaces
+vars:
+  type: npm-workspaces`
+      );
+
+      // Initialize manager from workspace directory
+      const manager = new ConfigurationManager({
+        projectRoot: workspaceDir,
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      const config = await manager.load();
+
+      expect(config.name).toBe('monorepo-with-workspaces');
+      expect(config.vars?.type).toBe('npm-workspaces');
+    });
+
+    it('should fall back to current directory if no monorepo root found', async () => {
+      const isolatedDir = path.join(tempDir, 'isolated');
+      await fs.mkdir(isolatedDir, { recursive: true });
+
+      // Create config in isolated directory (no git or monorepo markers)
+      await fs.mkdir(path.join(isolatedDir, '.xec'), { recursive: true });
+      await fs.writeFile(
+        path.join(isolatedDir, '.xec', 'config.yaml'),
+        `version: "1.0"
+name: isolated-project
+vars:
+  standalone: true`
+      );
+
+      // Initialize manager from isolated directory
+      const manager = new ConfigurationManager({
+        projectRoot: isolatedDir,
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      const config = await manager.load();
+
+      expect(config.name).toBe('isolated-project');
+      expect(config.vars?.standalone).toBe(true);
+    });
+
+    it('should load profiles from monorepo root', async () => {
+      const monorepoRoot = tempDir;
+      const workspaceDir = path.join(monorepoRoot, 'services', 'api');
+      await fs.mkdir(workspaceDir, { recursive: true });
+      await fs.mkdir(path.join(monorepoRoot, '.git'), { recursive: true });
+      await fs.mkdir(path.join(monorepoRoot, '.xec', 'profiles'), { recursive: true });
+
+      // Create base config
+      await fs.writeFile(
+        path.join(monorepoRoot, '.xec', 'config.yaml'),
+        `version: "1.0"
+name: monorepo
+vars:
+  env: base`
+      );
+
+      // Create profile in monorepo root
+      await fs.writeFile(
+        path.join(monorepoRoot, '.xec', 'profiles', 'production.yaml'),
+        `vars:
+  env: production
+  apiUrl: https://api.example.com`
+      );
+
+      // Initialize manager with profile from workspace directory
+      const manager = new ConfigurationManager({
+        projectRoot: workspaceDir,
+        profile: 'production',
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      const config = await manager.load();
+
+      expect(config.vars?.env).toBe('production');
+      expect(config.vars?.apiUrl).toBe('https://api.example.com');
+    });
+
+    it('should provide getProjectRoot() method for debugging', async () => {
+      const monorepoRoot = tempDir;
+      const workspaceDir = path.join(monorepoRoot, 'packages', 'lib');
+      await fs.mkdir(workspaceDir, { recursive: true });
+      await fs.mkdir(path.join(monorepoRoot, '.git'), { recursive: true });
+      await fs.mkdir(path.join(monorepoRoot, '.xec'), { recursive: true });
+
+      const manager = new ConfigurationManager({
+        projectRoot: workspaceDir,
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      const projectRoot = await manager.getProjectRoot();
+      
+      expect(projectRoot).toBe(monorepoRoot);
+    });
+
+    it('should save config to monorepo root when called from subdirectory', async () => {
+      const monorepoRoot = tempDir;
+      const workspaceDir = path.join(monorepoRoot, 'apps', 'backend');
+      await fs.mkdir(workspaceDir, { recursive: true });
+      await fs.mkdir(path.join(monorepoRoot, '.git'), { recursive: true });
+      
+      // Initialize manager from workspace
+      const manager = new ConfigurationManager({
+        projectRoot: workspaceDir,
+        globalConfigDir: path.join(tempDir, 'global'),
+        cache: false
+      });
+
+      // Load default config
+      await manager.load();
+      
+      // Modify config
+      manager.set('name', 'saved-to-root');
+      
+      // Save without specifying path
+      await manager.save();
+
+      // Check that config was saved to monorepo root
+      const savedContent = await fs.readFile(
+        path.join(monorepoRoot, '.xec', 'config.yaml'),
+        'utf-8'
+      );
+
+      expect(savedContent).toContain('name: saved-to-root');
+    });
+  });
 });

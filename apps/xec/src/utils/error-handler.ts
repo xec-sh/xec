@@ -1,6 +1,5 @@
-import { prism } from '@xec-sh/kit';
 import jsYaml from 'js-yaml';
-import { log } from '@xec-sh/kit';
+import { log, prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
 import { CommandOptions } from './command-base.js';
@@ -84,7 +83,7 @@ export function handleError(error: any, options: CommandOptions): void {
 
   // Enhance error with core system if not already enhanced
   const enhancedError = enhanceErrorWithContext(error, options);
-  
+
   // Log detailed error info in debug mode
   if (process.env['XEC_DEBUG'] === '1' || process.env['XEC_DEBUG'] === 'true') {
     console.error(prism.red('\n=== DEBUG ERROR INFO ==='));
@@ -99,7 +98,7 @@ export function handleError(error: any, options: CommandOptions): void {
     }
     console.error(prism.red('======================\n'));
   }
-  
+
   // Display error based on format
   if (options.output === 'json') {
     console.error(JSON.stringify(formatEnhancedErrorAsJSON(enhancedError), null, 2));
@@ -118,9 +117,9 @@ export function handleError(error: any, options: CommandOptions): void {
  */
 function isCriticalError(error: any): boolean {
   return error instanceof ValidationError ||
-         error instanceof ConfigurationError ||
-         error.code === 'MODULE_NOT_FOUND' ||
-         error.code === 'PERMISSION_DENIED';
+    error instanceof ConfigurationError ||
+    error.code === 'MODULE_NOT_FOUND' ||
+    error.code === 'PERMISSION_DENIED';
 }
 
 /**
@@ -218,14 +217,14 @@ function formatEnhancedErrorAsJSON(error: EnhancedExecutionError): any {
 function displayEnhancedError(error: EnhancedExecutionError, options: CommandOptions): void {
   // Use the formatted output from enhanced error
   const formatted = error.format ? error.format(options.verbose) : error.message;
-  
+
   // Split by lines and apply CLI coloring
   const lines = formatted.split('\n');
   const logger = log;
-  
+
   lines.forEach(line => {
     if (!line) return; // Skip empty lines
-    
+
     if (line.startsWith('Error:')) {
       logger.error(prism.bold(line));
     } else if (line.includes('Context:') || line.includes('Suggestions:')) {
@@ -238,13 +237,13 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
       console.error(line);
     }
   });
-  
+
   // Add CLI-specific hints
   if (!options.verbose) {
     console.error('');
     console.error(prism.dim('Run with --verbose for more details'));
   }
-  
+
   // Show help command for context
   if (error.context?.command) {
     const baseCommand = error.context.command.split(' ')[0];
@@ -317,13 +316,13 @@ function getExitCode(error: any): number {
   if (error instanceof NetworkError) return 7;
   if (error instanceof FileSystemError) return 8;
   if (error instanceof TimeoutError) return 9;
-  
+
   // System errors
   if (error.code === 'ENOENT') return 10;
   if (error.code === 'EACCES') return 11;
   if (error.code === 'ENOTDIR') return 12;
   if (error.code === 'EISDIR') return 13;
-  
+
   return 1; // Generic error
 }
 
@@ -352,7 +351,7 @@ function getValidationSuggestion(error: ValidationError): string {
   if (error.field === 'tagPattern') {
     return 'Use alphanumeric characters, dots, hyphens, and underscores only';
   }
-  
+
   return 'Check the documentation for valid input formats';
 }
 
@@ -428,49 +427,49 @@ export const errorMessages = {
     path,
     'Check that the file path is correct and the file exists'
   ),
-  
+
   directoryNotFound: (path: string) => new FileSystemError(
     `Directory not found: ${path}`,
     path,
     'Check that the directory path is correct and the directory exists'
   ),
-  
+
   moduleNotFound: (name: string) => new ModuleError(
     `Module not found: ${name}`,
     name,
     'Check that the module is installed and the name is correct'
   ),
-  
+
   taskNotFound: (name: string) => new TaskError(
     `Task not found: ${name}`,
     name,
     'Check that the task exists and is loaded from the correct module'
   ),
-  
+
   recipeNotFound: (name: string) => new RecipeError(
     `Recipe not found: ${name}`,
     name,
     'Check that the recipe file exists and is in the correct location'
   ),
-  
+
   configurationInvalid: (field: string, reason: string) => new ConfigurationError(
     `Invalid configuration for ${field}: ${reason}`,
     field,
     'Check the configuration file format and required fields'
   ),
-  
+
   networkTimeout: (url: string) => new NetworkError(
     `Network timeout: ${url}`,
     url,
     'Check network connectivity and try again with a longer timeout'
   ),
-  
+
   permissionDenied: (path: string) => new FileSystemError(
     `Permission denied: ${path}`,
     path,
     'Check file permissions or run with appropriate privileges'
   ),
-  
+
   operationFailed: (operation: string, reason: string) => new XecError(
     `Operation failed: ${operation} - ${reason}`,
     'OPERATION_FAILED',

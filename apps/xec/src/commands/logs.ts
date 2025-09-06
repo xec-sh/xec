@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { prism } from '@xec-sh/kit';
 import { $ } from '@xec-sh/core';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import * as readline from 'readline';
 

@@ -4,6 +4,7 @@
 
 import * as path from 'path';
 import jsYaml from 'js-yaml';
+import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 
 import { SecretManager } from '../secrets/index.js';
@@ -65,7 +66,7 @@ export class ConfigurationManager {
 
   constructor(private options: ConfigManagerOptions = {}) {
     this.options.projectRoot = this.options.projectRoot || process.cwd();
-    this.options.globalConfigDir = this.options.globalConfigDir || getGlobalConfigDir();
+    this.options.globalHomeDir = this.options.globalHomeDir || getGlobalConfigDir();
     this.options.envPrefix = this.options.envPrefix || 'XEC_';
 
     // Initialize secret manager based on configuration
@@ -139,23 +140,23 @@ export class ConfigurationManager {
   /**
    * Get a configuration value by path
    */
-  get<T = any>(path: string): T | undefined {
+  get<T = any>(p: string): T | undefined {
     if (!this.merged) {
       throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
 
-    return this.getByPath(this.merged, path) as T;
+    return this.getByPath(this.merged, p) as T;
   }
 
   /**
    * Set a configuration value by path
    */
-  set(path: string, value: any): void {
+  set(p: string, value: any): void {
     if (!this.merged) {
       throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
 
-    this.setByPath(this.merged, path, value);
+    this.setByPath(this.merged, p, value);
   }
 
   /**
@@ -184,17 +185,9 @@ export class ConfigurationManager {
    * Interpolate variables in a string
    */
   interpolate(value: string, context?: Partial<VariableContext>): string {
-    // Convert process.env to Record<string, string>
-    const env: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        env[key] = value;
-      }
-    }
-
     const fullContext: VariableContext = {
       vars: this.merged?.vars || {},
-      env,
+      env: this.getEnvironmentVariables(),
       profile: this.getCurrentProfile(),
       ...context
     };
@@ -210,6 +203,24 @@ export class ConfigurationManager {
       throw new Error('Configuration not loaded. Call jsYaml.load() first.');
     }
     return this.merged;
+  }
+
+  /**
+   * Get the discovered project root path
+   * Useful for debugging and understanding where configuration is loaded from
+   */
+  async getProjectRoot(): Promise<string> {
+    const projectRoot = await this.findProjectRoot(this.options.projectRoot!);
+    return projectRoot || this.options.projectRoot!;
+  }
+
+  /**
+   * Get the path where configuration will be saved
+   * @returns The full path to the configuration file
+   */
+  async getConfigPath(): Promise<string> {
+    const saveRoot = await this.findProjectRoot(this.options.projectRoot!);
+    return path.join(saveRoot || this.options.projectRoot!, '.xec', 'config.yaml');
   }
 
   /**
@@ -240,7 +251,13 @@ export class ConfigurationManager {
       throw new Error('No configuration to save');
     }
 
-    const targetPath = filePath || path.join(this.options.projectRoot!, '.xec', 'config.yaml');
+    // If no path specified, save to project root .xec directory
+    let targetPath = filePath;
+    if (!targetPath) {
+      const saveRoot = await this.findProjectRoot(this.options.projectRoot!);
+      targetPath = path.join(saveRoot || this.options.projectRoot!, '.xec', 'config.yaml');
+    }
+
     const dir = path.dirname(targetPath);
 
     // Ensure directory exists
@@ -255,6 +272,11 @@ export class ConfigurationManager {
 
     // Write file
     await fs.writeFile(targetPath, yamlContent, 'utf-8');
+    
+    // Log where config was saved for debugging
+    if (process.env['XEC_DEBUG']) {
+      console.log(`[ConfigManager] Configuration saved to: ${targetPath}`);
+    }
   }
 
   /**
@@ -268,6 +290,136 @@ export class ConfigurationManager {
 
   // Private methods
 
+
+  /**
+   * Find the monorepo or project root by looking for common root indicators
+   * Priority:
+   * 1. Directory with existing .xec/config.yaml
+   * 2. Monorepo root (package.json with workspaces)
+   * 3. Git repository root
+   * 4. null if nothing found
+   * @param startDir - Directory to start searching from
+   * @returns The root directory path or null if not found
+   */
+  private async findProjectRoot(startDir: string): Promise<string | null> {
+    let currentDir = path.resolve(startDir);
+    let monorepoRoot: string | null = null;
+    let gitRoot: string | null = null;
+    let firstConfigDir: string | null = null;
+    
+    // Traverse up to find all relevant roots
+    while (currentDir !== path.dirname(currentDir)) {
+      // Check for .xec directory with actual config file
+      if (!firstConfigDir && this.hasXecConfig(currentDir)) {
+        firstConfigDir = currentDir;
+      }
+
+      // Check for monorepo indicators (package.json with workspaces)
+      if (!monorepoRoot) {
+        const packageJsonPath = path.join(currentDir, 'package.json');
+        if (existsSync(packageJsonPath)) {
+          try {
+            const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+            if (packageJson.workspaces) {
+              monorepoRoot = currentDir;
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+
+      // Check for .git directory (repository root)
+      if (!gitRoot && existsSync(path.join(currentDir, '.git'))) {
+        gitRoot = currentDir;
+      }
+
+      currentDir = path.dirname(currentDir);
+    }
+
+    // Return in priority order
+    if (firstConfigDir) {
+      return firstConfigDir;
+    }
+    if (monorepoRoot) {
+      return monorepoRoot;
+    }
+    if (gitRoot) {
+      return gitRoot;
+    }
+    
+    return null;
+  }
+
+  /**
+   * Check if a directory has an xec configuration file
+   */
+  private hasXecConfig(dir: string): boolean {
+    return existsSync(path.join(dir, '.xec', 'config.yaml')) ||
+           existsSync(path.join(dir, '.xec', 'config.yml'));
+  }
+
+  /**
+   * Build configuration search paths in priority order
+   */
+  private buildConfigSearchPaths(searchRoot: string): string[] {
+    const locations = [
+      // Prioritize .xec directory in project/monorepo root
+      path.join(searchRoot, '.xec', 'config.yaml'),
+      path.join(searchRoot, '.xec', 'config.yml'),
+      // Also check current directory if different from searchRoot
+      ...(searchRoot !== this.options.projectRoot ? [
+        path.join(this.options.projectRoot!, '.xec', 'config.yaml'),
+        path.join(this.options.projectRoot!, '.xec', 'config.yml'),
+      ] : []),
+      // Legacy locations
+      path.join(searchRoot, 'xec.yaml'),
+      path.join(searchRoot, 'xec.yml'),
+      path.join(this.options.projectRoot!, 'xec.yaml'),
+      path.join(this.options.projectRoot!, 'xec.yml')
+    ];
+
+    // Remove duplicates while preserving order
+    return [...new Set(locations)];
+  }
+
+  /**
+   * Build profile search paths
+   */
+  private buildProfileSearchPaths(searchRoot: string, profileName: string): string[] {
+    const paths = [
+      path.join(searchRoot, '.xec', 'profiles', `${profileName}.yaml`),
+    ];
+    
+    // Also check current directory if different from searchRoot
+    if (searchRoot !== this.options.projectRoot) {
+      paths.push(path.join(this.options.projectRoot!, '.xec', 'profiles', `${profileName}.yaml`));
+    }
+    
+    return paths;
+  }
+
+  /**
+   * Try to load a configuration file
+   * @returns The configuration or undefined if not found/invalid
+   */
+  private async tryLoadConfigFile(filePath: string): Promise<Configuration | undefined> {
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      return jsYaml.load(content) as Configuration;
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        if (this.options.strict && error.name === 'YAMLException') {
+          throw error;
+        }
+        console.warn(`Failed to load config from ${filePath}: ${error.message}`);
+      } else if (process.env['XEC_DEBUG']) {
+        console.log(`[ConfigManager] File not found: ${filePath}`);
+      }
+      return undefined;
+    }
+  }
+
   private async loadBuiltinDefaults(): Promise<void> {
     this.sources.push({
       type: 'builtin',
@@ -278,40 +430,46 @@ export class ConfigurationManager {
   }
 
   private async loadGlobalConfig(): Promise<void> {
-    const globalPath = path.join(this.options.globalConfigDir!, 'config.yaml');
-
-    try {
-      const content = await fs.readFile(globalPath, 'utf-8');
-      const config = jsYaml.load(content) as Configuration;
-
+    const globalPath = path.join(this.options.globalHomeDir!, 'config.yaml');
+    const config = await this.tryLoadConfigFile(globalPath);
+    
+    if (config) {
       this.sources.push({
         type: 'global',
         path: globalPath,
         priority: 10,
         config
       });
-    } catch (error: any) {
-      // Global config is optional
-      if (error.code !== 'ENOENT') {
-        console.warn(`Failed to load global config: ${error.message}`);
-      }
     }
   }
 
   private async loadProjectConfig(): Promise<void> {
-    // Try multiple locations
-    const locations = [
-      path.join(this.options.projectRoot!, '.xec', 'config.yaml'),
-      path.join(this.options.projectRoot!, '.xec', 'config.yml'),
-      path.join(this.options.projectRoot!, 'xec.yaml'),
-      path.join(this.options.projectRoot!, 'xec.yml')
-    ];
+    // First, try to find the project root (monorepo or regular project)
+    const projectRoot = await this.findProjectRoot(this.options.projectRoot!);
 
-    for (const location of locations) {
-      try {
-        const content = await fs.readFile(location, 'utf-8');
-        const config = jsYaml.load(content) as Configuration;
+    // If no project root found, fall back to current directory
+    const searchRoot = projectRoot || this.options.projectRoot!;
 
+    // Debug logging
+    if (process.env['XEC_DEBUG']) {
+      console.log(`[ConfigManager] Current directory: ${this.options.projectRoot}`);
+      console.log(`[ConfigManager] Found project root: ${projectRoot || 'not found'}`);
+      console.log(`[ConfigManager] Search root: ${searchRoot}`);
+    }
+
+    // Build configuration search paths
+    const uniqueLocations = this.buildConfigSearchPaths(searchRoot);
+
+    if (process.env['XEC_DEBUG']) {
+      console.log(`[ConfigManager] Will check these locations for config:`);
+      uniqueLocations.forEach((loc, i) => {
+        console.log(`  ${i + 1}. ${loc} (exists: ${existsSync(loc)})`);
+      });
+    }
+
+    for (const location of uniqueLocations) {
+      const config = await this.tryLoadConfigFile(location);
+      if (config) {
         this.sources.push({
           type: 'project',
           path: location,
@@ -319,16 +477,13 @@ export class ConfigurationManager {
           config
         });
 
+        // Log where config was found (useful for debugging in monorepos)
+        if (process.env['XEC_DEBUG']) {
+          console.log(`[ConfigManager] Successfully loaded project config from: ${location}`);
+        }
+
         // Use first found
         break;
-      } catch (error: any) {
-        // Continue to next location
-        if (error.code !== 'ENOENT') {
-          if (this.options.strict && error.name === 'YAMLException') {
-            throw error;
-          }
-          console.warn(`Failed to load project config from ${location}: ${error.message}`);
-        }
       }
     }
   }
@@ -341,30 +496,26 @@ export class ConfigurationManager {
     for (const [key, value] of Object.entries(process.env)) {
       if (key.startsWith(prefix) && key !== `${prefix}PROFILE`) {
         // Convert XEC_VARS_APP_NAME to vars.app_name
-        const path = key
+        const p = key
           .substring(prefix.length)
           .toLowerCase()
           .replace(/_/g, '.');
 
-        this.setByPath(envConfig, path, value);
+        this.setByPath(envConfig, p, value);
       }
     }
 
     // Also check for XEC_CONFIG pointing to a file
     const configPath = process.env[`${prefix}CONFIG`];
     if (configPath) {
-      try {
-        const content = await fs.readFile(configPath, 'utf-8');
-        const config = jsYaml.load(content) as Configuration;
-
+      const config = await this.tryLoadConfigFile(configPath);
+      if (config) {
         this.sources.push({
           type: 'env',
           path: configPath,
           priority: 30,
           config
         });
-      } catch (error: any) {
-        console.warn(`Failed to load config from ${prefix}CONFIG: ${error.message}`);
       }
     }
 
@@ -433,20 +584,22 @@ export class ConfigurationManager {
       }
 
       if (!profileConfig) {
-        // Try loading from separate file
-        const profilePath = path.join(
-          this.options.projectRoot!,
-          '.xec',
-          'profiles',
-          `${currentName}.yaml`
-        );
+        // Try loading from separate file, checking project root first
+        const projectRoot = await this.findProjectRoot(this.options.projectRoot!);
+        const searchRoot = projectRoot || this.options.projectRoot!;
 
-        try {
-          const content = await fs.readFile(profilePath, 'utf-8');
-          profileConfig = jsYaml.load(content) as ProfileConfig;
-        } catch (error: any) {
-          if (error.code !== 'ENOENT') {
-            console.warn(`Failed to load profile ${currentName}: ${error.message}`);
+        // Build profile search paths
+        const profilePaths = this.buildProfileSearchPaths(searchRoot, currentName);
+
+        for (const profilePath of profilePaths) {
+          try {
+            const content = await fs.readFile(profilePath, 'utf-8');
+            profileConfig = jsYaml.load(content) as ProfileConfig;
+            break;  // Use first found
+          } catch (error: any) {
+            if (error.code !== 'ENOENT') {
+              console.warn(`Failed to load profile ${currentName} from ${profilePath}: ${error.message}`);
+            }
           }
         }
       }
@@ -507,17 +660,9 @@ export class ConfigurationManager {
   }
 
   private async resolveVariables(config: Configuration): Promise<Configuration> {
-    // Convert process.env to Record<string, string>
-    const env: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        env[key] = value;
-      }
-    }
-
     const context: VariableContext = {
       vars: config.vars || {},
-      env,
+      env: this.getEnvironmentVariables(),
       profile: this.getCurrentProfile()
     };
 
@@ -537,8 +682,8 @@ export class ConfigurationManager {
     return resolved;
   }
 
-  private getByPath(obj: any, path: string): any {
-    const parts = path.split('.');
+  private getByPath(obj: any, p: string): any {
+    const parts = p.split('.');
     let current = obj;
 
     for (const part of parts) {
@@ -551,8 +696,8 @@ export class ConfigurationManager {
     return current;
   }
 
-  private setByPath(obj: any, path: string, value: any): void {
-    const parts = path.split('.');
+  private setByPath(obj: any, p: string, value: any): void {
+    const parts = p.split('.');
     const lastPart = parts.pop()!;
     let current = obj;
 
@@ -580,6 +725,19 @@ export class ConfigurationManager {
     this.secretManager = new SecretManager(config);
     await this.secretManager.initialize();
     this.interpolator = new VariableInterpolator(this.secretManager);
+  }
+
+  /**
+   * Convert process.env to Record<string, string>
+   */
+  private getEnvironmentVariables(): Record<string, string> {
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) {
+        env[key] = value;
+      }
+    }
+    return env;
   }
 }
 

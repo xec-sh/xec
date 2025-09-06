@@ -376,5 +376,5 @@ export function getDefaultShell(): string {
 }
 
 export function getGlobalConfigDir(): string {
-  return process.env['XEC_CONFIG_DIR'] || path.join(homedir(), '.xec');
+  return process.env['XEC_HOME_DIR'] || path.join(homedir(), '.xec');
 }

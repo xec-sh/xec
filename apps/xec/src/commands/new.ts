@@ -1,9 +1,8 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { prism } from '@xec-sh/kit';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
-import { log, text, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
+import { log, text, prism, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';

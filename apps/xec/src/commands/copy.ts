@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import * as os from 'os';
-import { prism } from '@xec-sh/kit';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 
 import { validateOptions } from '../utils/validation.js';

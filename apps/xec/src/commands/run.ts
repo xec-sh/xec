@@ -1,9 +1,8 @@
 import path from 'path';
-import { prism } from '@xec-sh/kit';
 import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
-import { log } from '@xec-sh/kit';
 import { Command } from 'commander';
+import { log, prism } from '@xec-sh/kit';
 
 import { TaskManager } from '../config/task-manager.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';

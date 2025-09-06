@@ -529,7 +529,6 @@ export class TargetResolver {
   }
 
   private generateTargetId(config: TargetConfig): string {
-    // eslint-disable-next-line default-case
     switch (config.type) {
       case 'ssh':
         return `dynamic-ssh-${(config as HostConfig).host}`;
@@ -538,6 +537,7 @@ export class TargetResolver {
       case 'k8s':
         return `dynamic-k8s-${(config as PodConfig).pod || 'unknown'}`;
       case 'local':
+      default:
         return 'local';
     }
   }

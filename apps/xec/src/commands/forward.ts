@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { prism } from '@xec-sh/kit';
 import * as net from 'net';
 import { $ } from '@xec-sh/core';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 
 import { validateOptions } from '../utils/validation.js';

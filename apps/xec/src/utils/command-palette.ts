@@ -5,7 +5,7 @@ import { log, select, isCancel } from '@xec-sh/kit';
 // Fallback: registerGlobalShortcut not available in packages/kit
 const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
   // No-op fallback
-  console.log(`Global shortcut ${shortcut} would be registered`);
+  // console.log(`Global shortcut ${shortcut} would be registered`);
 };
 import { execSync } from 'child_process';
 

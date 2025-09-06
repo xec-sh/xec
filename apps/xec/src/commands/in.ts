@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import path from 'path';
-import { prism } from '@xec-sh/kit';
 import { $ } from '@xec-sh/core';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 
 import { parseTimeout } from '../utils/time.js';

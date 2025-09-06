@@ -1,9 +1,7 @@
-import { prism } from '@xec-sh/kit';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
-import { join, dirname } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { log, text, intro, outro, cancel, select, confirm, isCancel, password } from '@xec-sh/kit';
+import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { BaseCommand } from '../utils/command-base.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
@@ -28,23 +26,23 @@ export class ConfigCommand extends BaseCommand {
    * Create command with subcommands
    */
   override create(): Command {
-    const command = new Command(this.config.name)
+    const cmd = new Command(this.config.name)
       .description(this.config.description);
 
     // Add aliases
     if (this.config.aliases) {
-      this.config.aliases.forEach(alias => command.alias(alias));
+      this.config.aliases.forEach(alias => cmd.alias(alias));
     }
 
     // Set up action for when no subcommand is provided
-    command.action(async () => {
+    cmd.action(async () => {
       await this.execute([]);
     });
 
     // Set up subcommands
-    this.setupSubcommands(command);
+    this.setupSubcommands(cmd);
 
-    return command;
+    return cmd;
   }
 
   override async execute(args: string[]): Promise<void> {
@@ -65,9 +63,9 @@ export class ConfigCommand extends BaseCommand {
     }
   }
 
-  private setupSubcommands(command: Command): void {
+  private setupSubcommands(cmd: Command): void {
     // Get command - get configuration value by key
-    command
+    cmd
       .command('get <key>')
       .description('Get configuration value by key (use dot notation for nested values)')
       .action(async (key) => {
@@ -76,7 +74,7 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // Set command - set configuration value
-    command
+    cmd
       .command('set <key> <value>')
       .description('Set configuration value (use dot notation for nested values)')
       .option('--json', 'Parse value as JSON')
@@ -86,7 +84,7 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // Unset command - remove configuration value
-    command
+    cmd
       .command('unset <key>')
       .description('Remove configuration value')
       .action(async (key) => {
@@ -95,7 +93,7 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // List command - list all configuration
-    command
+    cmd
       .command('list')
       .description('List all configuration values')
       .option('--json', 'Output as JSON')
@@ -106,7 +104,7 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // View command (alias for list)
-    command
+    cmd
       .command('view')
       .description('View current configuration (alias for list)')
       .option('--defaults', 'Show default values in dimmer color')
@@ -116,7 +114,7 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // Doctor command
-    command
+    cmd
       .command('doctor')
       .description('Check and fix configuration issues')
       .option('--defaults', 'Show all possible configuration options with default values')
@@ -126,7 +124,7 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // Validate command
-    command
+    cmd
       .command('validate')
       .description('Validate configuration')
       .action(async () => {
@@ -135,16 +133,16 @@ export class ConfigCommand extends BaseCommand {
       });
 
     // Set up target subcommands
-    this.setupTargetCommands(command);
+    this.setupTargetCommands(cmd);
 
     // Set up variable subcommands
-    this.setupVarCommands(command);
+    this.setupVarCommands(cmd);
 
     // Set up task subcommands
-    this.setupTaskCommands(command);
+    this.setupTaskCommands(cmd);
 
     // Set up defaults subcommands
-    this.setupDefaultsCommands(command);
+    this.setupDefaultsCommands(cmd);
   }
 
   private setupTargetCommands(parent: Command): void {
@@ -182,14 +180,6 @@ export class ConfigCommand extends BaseCommand {
       .action(async (name) => {
         await this.ensureInitialized();
         await this.deleteTargetWithName(name);
-      });
-
-    targets
-      .command('test <name>')
-      .description('Test target connection')
-      .action(async (name) => {
-        await this.ensureInitialized();
-        await this.testTargetWithName(name);
       });
   }
 
@@ -388,7 +378,7 @@ export class ConfigCommand extends BaseCommand {
         case 'custom':
           await this.manageCustomParameters();
           break;
-        case 'doctor':
+        case 'doctor': {
           const showDefaults = await confirm({
             message: 'Show all possible configuration options with default values?',
             initialValue: false
@@ -397,6 +387,7 @@ export class ConfigCommand extends BaseCommand {
             await this.runDoctor({ defaults: showDefaults });
           }
           break;
+        }
         case 'validate':
           await this.validateConfig();
           break;
@@ -415,11 +406,23 @@ export class ConfigCommand extends BaseCommand {
 
       // Custom YAML formatter to dim default values
       const formattedYaml = this.formatYamlWithDefaults(sorted, config, '');
-      console.log(formattedYaml);
+      box(formattedYaml, '📖 Configuration (with defaults)', {
+        width: 'auto',
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.dim(text_)
+      });
     } else {
       // Sort config keys according to defined order
       const sorted = sortConfigKeys(config);
-      console.log(yaml.dump(sorted, { indent: 2 }));
+      box(yaml.dump(sorted, { indent: 2 }), '📖 Current Configuration', {
+        width: 'auto',
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.green(text_)
+      });
     }
   }
 
@@ -476,11 +479,13 @@ export class ConfigCommand extends BaseCommand {
     }
 
     // Format output based on value type
-    if (typeof value === 'object') {
-      console.log(yaml.dump(value, { indent: 2 }));
-    } else {
-      console.log(value);
-    }
+    const content = typeof value === 'object'
+      ? yaml.dump(value, { indent: 2 })
+      : String(value);
+
+    note(content, `Value for '${key}'`, {
+      format: (line) => prism.cyan(line)
+    });
   }
 
   private async setConfigValue(key: string, value: string, options: { json?: boolean }): Promise<void> {
@@ -566,44 +571,53 @@ export class ConfigCommand extends BaseCommand {
     }
 
     // Format output
-    if (options.json) {
-      console.log(JSON.stringify(displayConfig, null, 2));
-    } else {
-      console.log(yaml.dump(displayConfig, { indent: 2, sortKeys: false }));
-    }
+    const content = options.json
+      ? JSON.stringify(displayConfig, null, 2)
+      : yaml.dump(displayConfig, { indent: 2, sortKeys: false });
+
+    const title = options.path
+      ? `📋 Configuration at '${options.path}'`
+      : '📋 All Configuration';
+
+    box(content, title, {
+      contentAlign: 'left',
+      contentPadding: 1,
+      rounded: true,
+      formatBorder: (text_) => prism.blue(text_)
+    });
   }
 
   private async manageTargets(): Promise<void> {
-    const action = await select({
-      message: 'Target management',
-      options: [
-        { value: 'list', label: 'List all targets' },
-        { value: 'add', label: 'Add new target' },
-        { value: 'edit', label: 'Edit existing target' },
-        { value: 'delete', label: 'Delete target' },
-        { value: 'test', label: 'Test target connection' },
-      ],
-    });
+    while (true) {
+      const action = await select({
+        message: 'Target management',
+        options: [
+          { value: 'list', label: 'List all targets' },
+          { value: 'add', label: 'Add new target' },
+          { value: 'edit', label: 'Edit existing target' },
+          { value: 'delete', label: 'Delete target' },
+          { value: 'back', label: '← Back to main menu' },
+        ],
+      });
 
-    if (isCancel(action)) return;
+      if (isCancel(action)) return;
+      if (action === 'back') return;
 
-    // eslint-disable-next-line default-case
-    switch (action) {
-      case 'list':
-        await this.listTargets();
-        break;
-      case 'add':
-        await this.addTarget();
-        break;
-      case 'edit':
-        await this.editTarget();
-        break;
-      case 'delete':
-        await this.deleteTarget();
-        break;
-      case 'test':
-        await this.testTarget();
-        break;
+      // eslint-disable-next-line default-case
+      switch (action) {
+        case 'list':
+          await this.listTargets();
+          break;
+        case 'add':
+          await this.addTarget();
+          break;
+        case 'edit':
+          await this.editTarget();
+          break;
+        case 'delete':
+          await this.deleteTarget();
+          break;
+      }
     }
   }
 
@@ -611,35 +625,50 @@ export class ConfigCommand extends BaseCommand {
     const config = await this.configManager.load();
     const targets = config.targets || {};
 
-    console.log('\n🎯 Configured Targets:\n');
+    let content = '';
 
     // Local target
     if (targets.local) {
-      console.log('  📍 local (type: local)');
+      content += prism.bold('Local Target:\n');
+      content += `  📍 local (type: local)\n`;
     }
 
     // SSH hosts
-    if (targets.hosts) {
-      console.log('\n  SSH Hosts:');
+    if (targets.hosts && Object.keys(targets.hosts).length > 0) {
+      content += '\n' + prism.bold('SSH Hosts:\n');
       for (const [name, host] of Object.entries(targets.hosts)) {
-        console.log(`    🖥️  ${name} (${(host as any).host}:${(host as any).port || 22})`);
+        content += prism.cyan(`  🖥️  ${name}`) + prism.dim(` (${(host as any).host}:${(host as any).port || 22})`) + '\n';
       }
     }
 
     // Docker containers
-    if (targets.containers) {
-      console.log('\n  Docker Containers:');
+    if (targets.containers && Object.keys(targets.containers).length > 0) {
+      content += '\n' + prism.bold('Docker Containers:\n');
       for (const [name, container] of Object.entries(targets.containers)) {
-        console.log(`    🐳 ${name} (${(container as any).container || (container as any).image})`);
+        content += prism.blue(`  🐳 ${name}`) + prism.dim(` (${(container as any).container || (container as any).image})`) + '\n';
       }
     }
 
     // Kubernetes pods
-    if (targets.pods) {
-      console.log('\n  Kubernetes Pods:');
+    if (targets.pods && Object.keys(targets.pods).length > 0) {
+      content += '\n' + prism.bold('Kubernetes Pods:\n');
       for (const [name, pod] of Object.entries(targets.pods)) {
-        console.log(`    ☸️  ${name} (${(pod as any).namespace || 'default'}/${(pod as any).pod})`);
+        content += prism.yellow(`  ☸️  ${name}`) + prism.dim(` (${(pod as any).namespace || 'default'}/${(pod as any).pod})`) + '\n';
       }
+    }
+
+    if (!content.trim()) {
+      note('No targets configured yet. Use "xec config" to add targets.', '🎯 Targets', {
+        format: (line) => prism.dim(line)
+      });
+    } else {
+      box(content.trim(), '🎯 Configured Targets', {
+        width: 'auto',
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.magenta(text_)
+      });
     }
   }
 
@@ -661,7 +690,7 @@ export class ConfigCommand extends BaseCommand {
       validate: (value) => {
         if (!value) return 'Name is required';
         if (!/^[a-z0-9-]+$/.test(value)) return 'Name must contain only lowercase letters, numbers, and hyphens';
-        return;
+        return undefined;
       },
     }) as string;
 
@@ -712,10 +741,11 @@ export class ConfigCommand extends BaseCommand {
     log.success(`Target '${name}' added successfully`);
   }
 
-  private async promptSSHConfig(): Promise<any> {
+  private async promptSSHConfig(currentConfig?: any): Promise<any> {
     const host = await text({
       message: 'SSH host',
       placeholder: 'example.com',
+      initialValue: currentConfig?.host || '',
       validate: (value) => value ? undefined : 'Host is required',
     }) as string;
 
@@ -724,6 +754,7 @@ export class ConfigCommand extends BaseCommand {
     const port = await text({
       message: 'SSH port',
       placeholder: '22',
+      initialValue: currentConfig?.port?.toString() || '',
       defaultValue: '22',
     }) as string;
 
@@ -732,10 +763,15 @@ export class ConfigCommand extends BaseCommand {
     const username = await text({
       message: 'SSH username',
       placeholder: 'user',
+      initialValue: currentConfig?.username || '',
       validate: (value) => value ? undefined : 'Username is required',
     }) as string;
 
     if (isCancel(username)) return null;
+
+    // Determine default auth method based on current config
+    const defaultAuthMethod = currentConfig?.privateKey ? 'key' :
+      currentConfig?.password ? 'password' : 'key';
 
     const authMethod = await select({
       message: 'Authentication method',
@@ -743,6 +779,7 @@ export class ConfigCommand extends BaseCommand {
         { value: 'key', label: '🔑 SSH Key' },
         { value: 'password', label: '🔒 Password (not recommended)' },
       ],
+      initialValue: defaultAuthMethod,
     }) as string;
 
     if (isCancel(authMethod)) return null;
@@ -758,6 +795,7 @@ export class ConfigCommand extends BaseCommand {
       const privateKey = await text({
         message: 'Path to SSH private key',
         placeholder: '~/.ssh/id_rsa',
+        initialValue: currentConfig?.privateKey || '',
         defaultValue: '~/.ssh/id_rsa',
       }) as string;
 
@@ -780,9 +818,10 @@ export class ConfigCommand extends BaseCommand {
     return config;
   }
 
-  private async promptDockerConfig(): Promise<any> {
+  private async promptDockerConfig(currentConfig?: any): Promise<any> {
     const useContainer = await confirm({
       message: 'Use existing container?',
+      initialValue: !!currentConfig?.container,
     });
 
     const config: any = { type: 'docker' };
@@ -791,6 +830,7 @@ export class ConfigCommand extends BaseCommand {
       const container = await text({
         message: 'Container name or ID',
         placeholder: 'my-container',
+        initialValue: currentConfig?.container || '',
         validate: (value) => value ? undefined : 'Container is required',
       }) as string;
 
@@ -800,6 +840,7 @@ export class ConfigCommand extends BaseCommand {
       const image = await text({
         message: 'Docker image',
         placeholder: 'ubuntu:latest',
+        initialValue: currentConfig?.image || '',
         validate: (value) => value ? undefined : 'Image is required',
       }) as string;
 
@@ -809,6 +850,7 @@ export class ConfigCommand extends BaseCommand {
       const workdir = await text({
         message: 'Working directory (optional)',
         placeholder: '/app',
+        initialValue: currentConfig?.workdir || '',
       }) as string;
 
       if (workdir && !isCancel(workdir)) {
@@ -819,10 +861,11 @@ export class ConfigCommand extends BaseCommand {
     return config;
   }
 
-  private async promptK8sConfig(): Promise<any> {
+  private async promptK8sConfig(currentConfig?: any): Promise<any> {
     const pod = await text({
       message: 'Pod name',
       placeholder: 'my-pod',
+      initialValue: currentConfig?.pod || '',
       validate: (value) => value ? undefined : 'Pod name is required',
     }) as string;
 
@@ -831,6 +874,7 @@ export class ConfigCommand extends BaseCommand {
     const namespace = await text({
       message: 'Namespace',
       placeholder: 'default',
+      initialValue: currentConfig?.namespace || '',
       defaultValue: 'default',
     }) as string;
 
@@ -839,6 +883,7 @@ export class ConfigCommand extends BaseCommand {
     const container = await text({
       message: 'Container name (for multi-container pods)',
       placeholder: 'main',
+      initialValue: currentConfig?.container || '',
     }) as string;
 
     const config: any = {
@@ -918,8 +963,9 @@ export class ConfigCommand extends BaseCommand {
         break;
     }
 
-    log.info('Current configuration:');
-    console.log(yaml.dump(currentConfig, { indent: 2 }));
+    note(yaml.dump(currentConfig, { indent: 2 }), 'Current configuration', {
+      format: (line) => prism.cyan(line)
+    });
 
     const edit = await confirm({
       message: 'Edit this target?',
@@ -927,18 +973,18 @@ export class ConfigCommand extends BaseCommand {
 
     if (!edit || isCancel(edit)) return;
 
-    // Re-prompt for new configuration
+    // Re-prompt for new configuration with current values as defaults
     let newConfig: any;
     // eslint-disable-next-line default-case
     switch (type) {
       case 'hosts':
-        newConfig = await this.promptSSHConfig();
+        newConfig = await this.promptSSHConfig(currentConfig);
         break;
       case 'containers':
-        newConfig = await this.promptDockerConfig();
+        newConfig = await this.promptDockerConfig(currentConfig);
         break;
       case 'pods':
-        newConfig = await this.promptK8sConfig();
+        newConfig = await this.promptK8sConfig(currentConfig);
         break;
     }
 
@@ -1021,47 +1067,48 @@ export class ConfigCommand extends BaseCommand {
       case 'pods':
         delete config.targets!.pods![name];
         break;
+      default:
     }
 
     await this.saveConfig(config);
     log.success(`Target '${target}' deleted successfully`);
   }
 
-  private async testTarget(): Promise<void> {
-    log.info('Target testing will be implemented with the test command');
-  }
-
   private async manageVars(): Promise<void> {
-    const action = await select({
-      message: 'Variable management',
-      options: [
-        { value: 'list', label: 'List all variables' },
-        { value: 'set', label: 'Set variable' },
-        { value: 'delete', label: 'Delete variable' },
-        { value: 'import', label: 'Import from .env file' },
-        { value: 'export', label: 'Export to .env file' },
-      ],
-    });
+    while (true) {
+      const action = await select({
+        message: 'Variable management',
+        options: [
+          { value: 'list', label: 'List all variables' },
+          { value: 'set', label: 'Set variable' },
+          { value: 'delete', label: 'Delete variable' },
+          { value: 'import', label: 'Import from .env file' },
+          { value: 'export', label: 'Export to .env file' },
+          { value: 'back', label: '← Back to main menu' },
+        ],
+      });
 
-    if (isCancel(action)) return;
+      if (isCancel(action)) return;
+      if (action === 'back') return;
 
-    // eslint-disable-next-line default-case
-    switch (action) {
-      case 'list':
-        await this.listVars();
-        break;
-      case 'set':
-        await this.setVar();
-        break;
-      case 'delete':
-        await this.deleteVar();
-        break;
-      case 'import':
-        await this.importVars();
-        break;
-      case 'export':
-        await this.exportVars();
-        break;
+      // eslint-disable-next-line default-case
+      switch (action) {
+        case 'list':
+          await this.listVars();
+          break;
+        case 'set':
+          await this.setVar();
+          break;
+        case 'delete':
+          await this.deleteVar();
+          break;
+        case 'import':
+          await this.importVars();
+          break;
+        case 'export':
+          await this.exportVars();
+          break;
+      }
     }
   }
 
@@ -1070,19 +1117,28 @@ export class ConfigCommand extends BaseCommand {
     const vars = config.vars || {};
 
     if (Object.keys(vars).length === 0) {
-      log.info('No variables configured');
+      note('No variables configured. Use "xec config vars set" to add variables.', '📝 Variables', {
+        format: (line) => prism.dim(line)
+      });
       return;
     }
 
-    console.log('\n📝 Variables:\n');
+    let content = '';
     for (const [key, value] of Object.entries(vars)) {
       // Check if it's a secret reference
       if (typeof value === 'string' && value.startsWith('$secret:')) {
-        console.log(`  ${key}: 🔒 [secret]`);
+        content += prism.green(key) + ': ' + prism.red('🔒 [secret]') + '\n';
       } else {
-        console.log(`  ${key}: ${value}`);
+        content += prism.green(key) + ': ' + prism.cyan(String(value)) + '\n';
       }
     }
+
+    box(content.trim(), '📝 Variables', {
+      contentAlign: 'left',
+      contentPadding: 1,
+      rounded: true,
+      formatBorder: (text_) => prism.blue(text_)
+    });
   }
 
   private async setVar(): Promise<void> {
@@ -1092,7 +1148,7 @@ export class ConfigCommand extends BaseCommand {
       validate: (value) => {
         if (!value) return 'Name is required';
         if (!/^[A-Z][A-Z0-9_]*$/.test(value)) return 'Variable names should be UPPER_SNAKE_CASE';
-        return;
+        return undefined;
       },
     }) as string;
 
@@ -1113,7 +1169,7 @@ export class ConfigCommand extends BaseCommand {
     const value = await text({
       message: 'Variable value',
       placeholder: 'value',
-      validate: (value) => value ? undefined : 'Value is required',
+      validate: (v) => v ? undefined : 'Value is required',
     }) as string;
 
     if (isCancel(value)) return;
@@ -1229,56 +1285,71 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async manageTasks(): Promise<void> {
-    const action = await select({
-      message: 'Task management',
-      options: [
-        { value: 'list', label: 'List all tasks' },
-        { value: 'view', label: 'View task details' },
-        { value: 'create', label: 'Create new task' },
-        { value: 'edit', label: 'Edit task' },
-        { value: 'delete', label: 'Delete task' },
-        { value: 'validate', label: 'Validate tasks' },
-      ],
-    });
+    while (true) {
+      const action = await select({
+        message: 'Task management',
+        options: [
+          { value: 'list', label: 'List all tasks' },
+          { value: 'view', label: 'View task details' },
+          { value: 'create', label: 'Create new task' },
+          { value: 'edit', label: 'Edit task' },
+          { value: 'delete', label: 'Delete task' },
+          { value: 'validate', label: 'Validate tasks' },
+          { value: 'back', label: '← Back to main menu' },
+        ],
+      });
 
-    if (isCancel(action)) return;
+      if (isCancel(action)) return;
+      if (action === 'back') return;
 
-    // eslint-disable-next-line default-case
-    switch (action) {
-      case 'list':
-        await this.listTasks();
-        break;
-      case 'view':
-        await this.viewTask();
-        break;
-      case 'create':
-        await this.createTask();
-        break;
-      case 'edit':
-        await this.editTask();
-        break;
-      case 'delete':
-        await this.deleteTask();
-        break;
-      case 'validate':
-        await this.validateTasks();
-        break;
+      // eslint-disable-next-line default-case
+      switch (action) {
+        case 'list':
+          await this.listTasks();
+          break;
+        case 'view':
+          await this.viewTask();
+          break;
+        case 'create':
+          await this.createTask();
+          break;
+        case 'edit':
+          await this.editTask();
+          break;
+        case 'delete':
+          await this.deleteTask();
+          break;
+        case 'validate':
+          await this.validateTasks();
+          break;
+      }
     }
   }
 
   private async listTasks(): Promise<void> {
     const config = await this.configManager.load();
-    const tasks = config.tasks || {};
+    const taskList = config.tasks || {};
 
-    if (Object.keys(tasks).length === 0) {
-      log.info('No tasks configured');
+    if (Object.keys(taskList).length === 0) {
+      note('No tasks configured. Use "xec config tasks create" to add tasks.', '⚡ Tasks', {
+        format: (line) => prism.dim(line)
+      });
       return;
     }
 
-    console.log('\n⚡ Tasks:\n');
-    for (const [name, task] of Object.entries(tasks)) {
-      console.log(`  ${name}: ${(task as any).description || 'No description'}`);
+    let content = '';
+    for (const [name, task] of Object.entries(taskList)) {
+      const description = (task as any).description || 'No description';
+      content += prism.bold(prism.yellow('⚡ ' + name)) + '\n';
+      content += prism.dim('   ' + description) + '\n';
     }
+
+    box(content.trim(), '⚡ Tasks', {
+      contentAlign: 'left',
+      contentPadding: 1,
+      rounded: true,
+      formatBorder: (text_) => prism.yellow(text_)
+    });
   }
 
   private async viewTask(): Promise<void> {
@@ -1297,8 +1368,13 @@ export class ConfigCommand extends BaseCommand {
 
     if (isCancel(name)) return;
 
-    console.log('\nTask configuration:');
-    console.log(yaml.dump(tasks[name], { indent: 2 }));
+    const taskConfig = yaml.dump(tasks[name], { indent: 2 });
+    box(taskConfig, `⚡ Task: ${name}`, {
+      contentAlign: 'left',
+      contentPadding: 1,
+      rounded: true,
+      formatBorder: (text_) => prism.yellow(text_)
+    });
   }
 
   private async createTask(): Promise<void> {
@@ -1308,7 +1384,7 @@ export class ConfigCommand extends BaseCommand {
       validate: (value) => {
         if (!value) return 'Name is required';
         if (!/^[a-z][a-z0-9-]*$/.test(value)) return 'Task names should be lowercase with hyphens';
-        return;
+        return undefined;
       },
     }) as string;
 
@@ -1343,13 +1419,13 @@ export class ConfigCommand extends BaseCommand {
     switch (taskType) {
       case 'command':
         {
-          const command = await text({
+          const cmd = await text({
             message: 'Command to run',
             placeholder: 'echo "Hello, World!"',
             validate: (value) => value ? undefined : 'Command is required',
           }) as string;
-          if (isCancel(command)) return;
-          task.steps = [{ command }];
+          if (isCancel(cmd)) return;
+          task.steps = [{ command: cmd }];
           break;
         }
 
@@ -1381,8 +1457,7 @@ export class ConfigCommand extends BaseCommand {
 
   private async editTask(): Promise<void> {
     log.info('Task editing can be done manually in the config file');
-    const config = await this.configManager.load();
-    const configPath = this.getConfigPath();
+    const configPath = await this.configManager.getConfigPath();
     log.info(`Edit tasks in: ${configPath}`);
   }
 
@@ -1451,75 +1526,82 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async manageDefaults(): Promise<void> {
-    const action = await select({
-      message: 'Defaults management',
-      options: [
-        { value: 'view', label: 'View current defaults' },
-        { value: 'ssh', label: 'Set SSH defaults' },
-        { value: 'docker', label: 'Set Docker defaults' },
-        { value: 'k8s', label: 'Set Kubernetes defaults' },
-        { value: 'commands', label: 'Set command defaults' },
-        { value: 'reset', label: 'Reset to system defaults' },
-      ],
-    });
+    while (true) {
+      const action = await select({
+        message: 'Defaults management',
+        options: [
+          { value: 'view', label: 'View current defaults' },
+          { value: 'ssh', label: 'Set SSH defaults' },
+          { value: 'docker', label: 'Set Docker defaults' },
+          { value: 'k8s', label: 'Set Kubernetes defaults' },
+          { value: 'commands', label: 'Set command defaults' },
+          { value: 'reset', label: 'Reset to system defaults' },
+          { value: 'back', label: '← Back to main menu' },
+        ],
+      });
 
-    if (isCancel(action)) return;
+      if (isCancel(action)) return;
+      if (action === 'back') return;
 
-    // eslint-disable-next-line default-case
-    switch (action) {
-      case 'view':
-        await this.viewDefaults();
-        break;
-      case 'ssh':
-        await this.setSSHDefaults();
-        break;
-      case 'docker':
-        await this.setDockerDefaults();
-        break;
-      case 'k8s':
-        await this.setK8sDefaults();
-        break;
-      case 'commands':
-        await this.setCommandDefaults();
-        break;
-      case 'reset':
-        await this.resetDefaults();
-        break;
+      // eslint-disable-next-line default-case
+      switch (action) {
+        case 'view':
+          await this.viewDefaults();
+          break;
+        case 'ssh':
+          await this.setSSHDefaults();
+          break;
+        case 'docker':
+          await this.setDockerDefaults();
+          break;
+        case 'k8s':
+          await this.setK8sDefaults();
+          break;
+        case 'commands':
+          await this.setCommandDefaults();
+          break;
+        case 'reset':
+          await this.resetDefaults();
+          break;
+      }
     }
   }
 
   private async manageCustomParameters(): Promise<void> {
-    const action = await select({
-      message: 'Custom parameter management',
-      options: [
-        { value: 'list', label: '📋 List custom parameters' },
-        { value: 'set', label: '➕ Set custom parameter' },
-        { value: 'get', label: '🔍 Get custom parameter' },
-        { value: 'delete', label: '❌ Delete custom parameter' },
-        { value: 'export', label: '📤 Export custom parameters' },
-        { value: 'back', label: '⬅️  Back' },
-      ],
-    });
+    while (true) {
+      const action = await select({
+        message: 'Custom parameter management',
+        options: [
+          { value: 'list', label: '📋 List custom parameters' },
+          { value: 'set', label: '➕ Set custom parameter' },
+          { value: 'get', label: '🔍 Get custom parameter' },
+          { value: 'delete', label: '❌ Delete custom parameter' },
+          { value: 'export', label: '📤 Export custom parameters' },
+          { value: 'back', label: '← Back to main menu' },
+        ],
+      });
 
-    if (isCancel(action) || action === 'back') return;
+      if (isCancel(action)) return;
+      if (action === 'back') return;
 
-    // eslint-disable-next-line default-case
-    switch (action) {
-      case 'list':
-        await this.listCustomParameters();
-        break;
-      case 'set':
-        await this.setCustomParameter();
-        break;
-      case 'get':
-        await this.getCustomParameter();
-        break;
-      case 'delete':
-        await this.deleteCustomParameter();
-        break;
-      case 'export':
-        await this.exportCustomParameters();
-        break;
+      // eslint-disable-next-line default-case
+      switch (action) {
+        case 'list':
+          await this.listCustomParameters();
+          break;
+        case 'set':
+          await this.setCustomParameter();
+          break;
+        case 'get':
+          await this.getCustomParameter();
+          break;
+        case 'delete':
+          await this.deleteCustomParameter();
+          break;
+        case 'export':
+          await this.exportCustomParameters();
+          break;
+      }
     }
   }
 
@@ -1541,12 +1623,19 @@ export class ConfigCommand extends BaseCommand {
     }
 
     if (Object.keys(customParams).length === 0) {
-      log.info('No custom parameters configured');
+      note('No custom parameters configured. You can add custom parameters using "xec config"', '🔧 Custom Parameters', {
+        format: (line) => prism.dim(line)
+      });
       return;
     }
 
-    console.log('\n🔧 Custom Parameters:\n');
-    console.log(yaml.dump(customParams, { indent: 2, sortKeys: true }));
+    const content = yaml.dump(customParams, { indent: 2, sortKeys: true });
+    box(content, '🔧 Custom Parameters', {
+      contentAlign: 'left',
+      contentPadding: 1,
+      rounded: true,
+      formatBorder: (text_) => prism.magenta(text_)
+    });
   }
 
   private async setCustomParameter(): Promise<void> {
@@ -1559,7 +1648,7 @@ export class ConfigCommand extends BaseCommand {
         if (topLevelKey && this.MANAGED_KEYS.includes(topLevelKey)) {
           return `Cannot set '${topLevelKey}' - this is a managed parameter. Use the appropriate manager instead.`;
         }
-        return;
+        return undefined;
       },
     }) as string;
 
@@ -1599,7 +1688,7 @@ export class ConfigCommand extends BaseCommand {
             placeholder: '8080',
             validate: (value) => {
               if (!value || isNaN(Number(value))) return 'Must be a valid number';
-              return;
+              return undefined;
             },
           }) as string;
           if (isCancel(numberValue)) return;
@@ -1626,7 +1715,7 @@ export class ConfigCommand extends BaseCommand {
               if (!value) return 'Value is required';
               try {
                 JSON.parse(value);
-                return;
+                return undefined;
               } catch (error) {
                 return 'Invalid JSON';
               }
@@ -1778,12 +1867,21 @@ export class ConfigCommand extends BaseCommand {
     const defaults = config.targets?.defaults || {};
 
     if (Object.keys(defaults).length === 0) {
-      log.info('No custom defaults configured (using system defaults)');
+      note('No custom defaults configured. The system defaults are being used.', '⚙️ Defaults', {
+        format: (line) => prism.dim(line)
+      });
       return;
     }
 
-    console.log('\n⚙️  Current Defaults:\n');
-    console.log(yaml.dump(defaults, { indent: 2 }));
+    const content = yaml.dump(defaults, { indent: 2 });
+    box(content, '⚙️ Current Defaults', {
+      width: 'auto',
+      titleAlign: 'left',
+      contentAlign: 'left',
+      contentPadding: 1,
+      rounded: true,
+      formatBorder: (text_) => prism.cyan(text_)
+    });
   }
 
   private async setSSHDefaults(): Promise<void> {
@@ -1888,7 +1986,7 @@ export class ConfigCommand extends BaseCommand {
     const config = await this.configManager.load();
     if (!config.commands) config.commands = {};
 
-    const command = await select({
+    const cmd = await select({
       message: 'Select command to configure defaults for',
       options: [
         { value: 'exec', label: 'exec' },
@@ -1898,15 +1996,15 @@ export class ConfigCommand extends BaseCommand {
       ],
     }) as string;
 
-    if (isCancel(command)) return;
+    if (isCancel(cmd)) return;
 
-    if (!config.commands[command]) config.commands[command] = {};
+    if (!config.commands[cmd]) config.commands[cmd] = {};
 
-    log.info(`Setting defaults for '${command}' command`);
+    log.info(`Setting defaults for '${cmd}' command`);
 
     // Command-specific defaults
     // eslint-disable-next-line default-case
-    switch (command) {
+    switch (cmd) {
       case 'logs':
         {
           const tail = await text({
@@ -1950,15 +2048,15 @@ export class ConfigCommand extends BaseCommand {
             message: 'Recursive by default?',
           });
           if (!isCancel(recursive)) {
-            if (!config.commands[command]) config.commands[command] = {};
-            config.commands[command]['recursive'] = recursive;
+            if (!config.commands[cmd]) config.commands[cmd] = {};
+            config.commands[cmd]['recursive'] = recursive;
           }
           break;
         }
     }
 
     await this.saveConfig(config);
-    log.success(`Defaults for '${command}' command updated`);
+    log.success(`Defaults for '${cmd}' command updated`);
   }
 
   private async resetDefaults(): Promise<void> {
@@ -1981,7 +2079,8 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async runDoctor(options?: { defaults?: boolean }): Promise<void> {
-    log.info('🏥 Running configuration doctor...');
+    const s = spinner();
+    s.start('🏥 Running configuration doctor...');
 
     let config = await this.configManager.load();
     const recommendations: string[] = [];
@@ -2072,14 +2171,23 @@ export class ConfigCommand extends BaseCommand {
     // Save updated configuration
     await this.saveConfig(config);
 
+    // Stop spinner
+    s.stop('Configuration check complete');
+
     // Report results
     if (recommendations.length > 0) {
-      log.success('Doctor made the following improvements:');
-      for (const rec of recommendations) {
-        console.log(`  ✅ ${rec}`);
-      }
+      const content = recommendations.map(rec => `✅ ${rec}`).join('\n');
+      box(content, '🏥 Doctor Improvements', {
+        width: 'auto',
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.green(text_)
+      });
     } else {
-      log.success('Configuration is healthy! No changes needed.');
+      note('Configuration is healthy! No changes needed.', '🏥 Doctor', {
+        format: (line) => prism.green(line)
+      });
     }
 
     // Validate configuration
@@ -2087,7 +2195,8 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async validateConfig(): Promise<void> {
-    log.info('Validating configuration...');
+    const s = spinner();
+    s.start('Validating configuration...');
 
     try {
       const config = await this.configManager.load();
@@ -2157,52 +2266,56 @@ export class ConfigCommand extends BaseCommand {
         }
       }
 
+      // Stop spinner
+      s.stop('Validation complete');
+
       // Report results
       if (errors.length > 0) {
-        log.error('Configuration has errors:');
-        for (const error of errors) {
-          console.log(`  ❌ ${error}`);
-        }
+        const content = errors.map(error => `❌ ${error}`).join('\n');
+        box(content, '⚠️ Configuration Errors', {
+          contentAlign: 'left',
+          contentPadding: 1,
+          rounded: true,
+          formatBorder: (text_) => prism.red(text_)
+        });
       }
 
       if (warnings.length > 0) {
-        log.warn('Configuration warnings:');
-        for (const warning of warnings) {
-          console.log(`  ⚠️  ${warning}`);
-        }
+        const content = warnings.map(warning => `⚠️  ${warning}`).join('\n');
+        box(content, '⚠️ Configuration Warnings', {
+          contentAlign: 'left',
+          contentPadding: 1,
+          rounded: true,
+          formatBorder: (text_) => prism.yellow(text_)
+        });
       }
 
       if (errors.length === 0 && warnings.length === 0) {
-        log.success('✅ Configuration is valid');
+        note('Configuration is valid!', '✅ Validation', {
+          format: (line) => prism.green(line)
+        });
       }
     } catch (error) {
+      s.stop('Validation failed');
       log.error(`Failed to validate configuration: ${error}`);
     }
   }
 
 
-  private getConfigPath(): string {
-    return join(process.cwd(), '.xec', 'config.yaml');
-  }
-
   private async saveConfig(config: any): Promise<void> {
-    const configPath = this.getConfigPath();
-    const configDir = dirname(configPath);
+    // Use ConfigurationManager's save method which properly finds the root
+    // First, we need to update the configuration in the manager
+    // We do this by setting the merged config directly
+    (this.configManager as any).merged = config;
 
-    // Ensure directory exists
-    if (!existsSync(configDir)) {
-      const { mkdirSync } = await import('fs');
-      mkdirSync(configDir, { recursive: true });
+    // Now save using the ConfigurationManager which will find the proper location
+    await this.configManager.save();
+
+    // Log where config was saved
+    const configPath = await this.configManager.getConfigPath();
+    if (process.env['XEC_DEBUG']) {
+      log.info(`Configuration saved to: ${configPath}`);
     }
-
-    // Save as YAML
-    const yamlContent = yaml.dump(config, {
-      indent: 2,
-      sortKeys: false,
-      lineWidth: -1,
-    });
-
-    writeFileSync(configPath, yamlContent);
   }
   // Wrapper methods for CLI commands with parameters
   private async editTargetWithName(name: string): Promise<void> {
@@ -2232,20 +2345,6 @@ export class ConfigCommand extends BaseCommand {
       process.exit(1);
     }
     await this.deleteTarget();
-  }
-
-  private async testTargetWithName(name: string): Promise<void> {
-    const config = await this.configManager.load();
-    const allTargets = [
-      ...Object.keys(config.targets?.hosts || {}),
-      ...Object.keys(config.targets?.containers || {}),
-      ...Object.keys(config.targets?.pods || {})
-    ];
-    if (!allTargets.includes(name)) {
-      console.error(prism.red(`Target '${name}' not found`));
-      process.exit(1);
-    }
-    await this.testTarget();
   }
 
   private async setVarWithKeyValue(key: string, value?: string): Promise<void> {

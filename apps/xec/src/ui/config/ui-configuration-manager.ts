@@ -3,10 +3,11 @@
  */
 
 import * as path from 'path';
-import { homedir } from 'os';
 import jsYaml from 'js-yaml';
 import * as fs from 'fs/promises';
 import { EventEmitter } from 'events';
+
+import { getGlobalConfigDir } from '../../config/utils.js';
 
 import type {
   Workspace,
@@ -68,7 +69,7 @@ export class UIConfigurationManager extends EventEmitter {
     super();
 
     // Set default options
-    this.options.globalConfigDir = this.options.globalConfigDir || path.join(homedir(), '.xec');
+    this.options.globalConfigDir = getGlobalConfigDir();
     this.options.configFileName = this.options.configFileName || 'ui.yaml';
     this.options.autoSave = this.options.autoSave ?? true;
     this.options.validate = this.options.validate ?? true;
