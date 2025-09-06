@@ -6,7 +6,6 @@ export interface DefaultConfig {
   version?: string;
   name?: string;
   description?: string;
-  defaults?: any;
   targets?: {
     local?: any;
     hosts?: Record<string, any>;
@@ -74,7 +73,6 @@ export function getDefaultConfig(): DefaultConfig {
     version: '1.0.0',
     name: 'my-project',
     description: 'A Xec managed project',
-    defaults: {},
     targets: {
       local: {
         type: 'local'
@@ -158,21 +156,21 @@ export function sortConfigKeys(config: any): any {
   }
 
   const sorted: any = {};
-  
+
   // First add keys in the defined order
   for (const key of ROOT_KEY_ORDER) {
     if (key in config) {
       sorted[key] = config[key];
     }
   }
-  
+
   // Then add any remaining custom keys
   for (const key in config) {
     if (!ROOT_KEY_ORDER.includes(key)) {
       sorted[key] = config[key];
     }
   }
-  
+
   return sorted;
 }
 
@@ -181,7 +179,7 @@ export function sortConfigKeys(config: any): any {
  */
 export function mergeWithDefaults(config: any, defaults: any = getDefaultConfig()): any {
   const result: any = {};
-  
+
   // Start with defaults
   for (const key in defaults) {
     if (defaults[key] !== undefined) {
@@ -192,14 +190,14 @@ export function mergeWithDefaults(config: any, defaults: any = getDefaultConfig(
       }
     }
   }
-  
+
   // Add any keys from config that aren't in defaults
   for (const key in config) {
     if (!(key in result)) {
       result[key] = config[key];
     }
   }
-  
+
   return result;
 }
 
@@ -209,7 +207,7 @@ export function mergeWithDefaults(config: any, defaults: any = getDefaultConfig(
 export function isDefaultValue(path: string, value: any, defaults: any = getDefaultConfig()): boolean {
   const keys = path.split('.');
   let defaultValue: any = defaults;
-  
+
   for (const key of keys) {
     if (defaultValue && typeof defaultValue === 'object' && key in defaultValue) {
       defaultValue = defaultValue[key];
@@ -217,6 +215,6 @@ export function isDefaultValue(path: string, value: any, defaults: any = getDefa
       return false;
     }
   }
-  
+
   return JSON.stringify(value) === JSON.stringify(defaultValue);
 }

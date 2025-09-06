@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import * as fs from 'fs';
-import { prism } from '@xec-sh/kit';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
+import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import * as chokidar from 'chokidar';
 

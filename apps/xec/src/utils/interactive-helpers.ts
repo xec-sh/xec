@@ -1,14 +1,14 @@
-import { prism } from '@xec-sh/kit';
-import { 
-  log, 
-  text, 
-  intro, 
-  outro, 
-  select, 
-  confirm, 
-  spinner, 
-  isCancel, 
-  multiselect 
+import {
+  log,
+  text,
+  prism,
+  intro,
+  outro,
+  select,
+  confirm,
+  spinner,
+  isCancel,
+  multiselect
 } from '@xec-sh/kit';
 
 import { ConfigurationManager } from '../config/configuration-manager.js';

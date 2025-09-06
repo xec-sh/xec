@@ -587,7 +587,7 @@ export interface ConfigManagerOptions {
   projectRoot?: string;
 
   /** Global config directory */
-  globalConfigDir?: string;
+  globalHomeDir?: string;
 
   /** Active profile */
   profile?: string;

@@ -1,6 +1,6 @@
-import { prism } from '@xec-sh/kit';
 import jsYaml from 'js-yaml';
 import { table } from 'table';
+import { prism } from '@xec-sh/kit';
 
 export type OutputFormat = 'text' | 'json' | 'yaml' | 'csv';
 

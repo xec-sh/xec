@@ -1,8 +1,7 @@
-import { prism } from '@xec-sh/kit';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
-import { log, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
+import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 import { handleError } from './error-handler.js';
 import { OutputFormatter } from './output-formatter.js';
@@ -451,9 +450,9 @@ export abstract class BaseCommand {
 
   protected async confirm(message: string, initial = false): Promise<boolean> {
     if (this.options.quiet) return Promise.resolve(initial);
-    
+
     const result = await kitConfirm({ message, initialValue: initial });
-    
+
     if (typeof result === 'symbol') {
       // User cancelled, return initial value
       return initial;
@@ -463,9 +462,9 @@ export abstract class BaseCommand {
 
   protected async prompt(message: string, initial?: string): Promise<string> {
     if (this.options.quiet) return Promise.resolve(initial || '');
-    
+
     const result = await kitText({ message, initialValue: initial });
-    
+
     if (typeof result === 'symbol') {
       // User cancelled, return initial value or empty string
       return initial || '';
@@ -475,9 +474,9 @@ export abstract class BaseCommand {
 
   protected async select(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string> {
     if (this.options.quiet) return Promise.resolve(options[0]?.value || '');
-    
+
     const result = await kitSelect({ message, options });
-    
+
     if (typeof result === 'symbol') {
       // User cancelled, return first option or empty string
       return options[0]?.value || '';
@@ -487,9 +486,9 @@ export abstract class BaseCommand {
 
   protected async multiselect(message: string, options: Array<{ value: string; label: string; hint?: string }>): Promise<string[]> {
     if (this.options.quiet) return Promise.resolve([]);
-    
+
     const result = await kitMultiselect({ message, options });
-    
+
     if (typeof result === 'symbol') {
       // User cancelled, return empty array
       return [];

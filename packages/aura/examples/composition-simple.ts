@@ -4,12 +4,12 @@
  * Shows how to use the enhanced aura() function with composition helpers
  */
 
-import { auraApp, aura, Box, Text, VStack, HStack, Center } from '../src/index.js';
+import { Box, aura, Text, VStack, HStack, Center, auraApp } from '../src/index.js';
 
 async function main() {
-  const app = await auraApp(() => {
+  const app = await auraApp(() => 
     // Using the enhanced aura() function with children as rest parameters
-    return aura('box', { 
+     aura('box', { 
       padding: 2,
       flexDirection: 'column',
       gap: 1 
@@ -63,8 +63,8 @@ async function main() {
         marginTop: 2,
         align: 'center'
       })
-    );
-  }, {
+    )
+  , {
     onKeyPress(key) {
       if (key.name === 'q') {
         process.exit(0);

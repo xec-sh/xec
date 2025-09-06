@@ -1,6 +1,5 @@
-import { prism } from '@xec-sh/kit';
 import { $ } from '@xec-sh/core';
-import { log } from '@xec-sh/kit';
+import { log, prism } from '@xec-sh/kit';
 
 import { parseTimeout } from './time.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';

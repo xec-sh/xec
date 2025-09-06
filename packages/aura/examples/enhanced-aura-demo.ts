@@ -5,17 +5,16 @@
  */
 
 import { 
-  auraApp, 
   Box, 
   Text, 
+  Table, 
   VStack, 
-  HStack, 
+  HStack,
   Center,
-  ScrollBox,
-  Table,
   signal,
+  auraApp,
   computed,
-  For
+  ScrollBox
 } from '../src/index.js';
 
 // Create reactive state
@@ -34,8 +33,7 @@ const total = computed(() =>
 const countMessage = computed(() => `Count: ${count()}`);
 
 async function main() {
-  const app = await auraApp(() => {
-    return VStack({ padding: 1, gap: 1 },
+  const app = await auraApp(() => VStack({ padding: 1, gap: 1 },
       // Header
       Center({ 
         backgroundColor: 'primary',
@@ -105,8 +103,7 @@ async function main() {
           bold: true
         })
       )
-    );
-  }, {
+    ), {
     onKeyPress(key) {
       if (key.name === 'up') {
         count.set(count() + 1);

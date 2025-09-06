@@ -243,13 +243,13 @@ export class OnCommand extends ConfigAwareCommand {
       }
       await this.startRepl(targets[0]!, mergedOptions);
     } else if (commandParts.length > 0) {
-      const command = commandParts.join(' ');
+      const cmd = commandParts.join(' ');
 
       // Check if it's a script file
-      if (command.endsWith('.ts') || command.endsWith('.js')) {
-        await this.executeScript(targets, command, mergedOptions);
+      if (cmd.endsWith('.ts') || cmd.endsWith('.js')) {
+        await this.executeScript(targets, cmd, mergedOptions);
       } else {
-        await this.executeCommand(targets, command, mergedOptions);
+        await this.executeCommand(targets, cmd, mergedOptions);
       }
     } else {
       throw new Error('No command, task, or REPL mode specified');
@@ -258,28 +258,28 @@ export class OnCommand extends ConfigAwareCommand {
 
   private async executeCommand(
     targets: ResolvedTarget[],
-    command: string,
+    cmd: string,
     options: OnOptions
   ): Promise<void> {
     if (options.dryRun) {
       for (const target of targets) {
-        this.log(`[DRY RUN] Would execute on ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}`, 'info');
+        this.log(`[DRY RUN] Would execute on ${this.formatTargetDisplay(target)}: ${prism.yellow(cmd)}`, 'info');
       }
       return;
     }
 
     if (options.parallel && targets.length > 1) {
-      await this.executeParallel(targets, command, options);
+      await this.executeParallel(targets, cmd, options);
     } else {
       for (const target of targets) {
-        await this.executeSingle(target, command, options);
+        await this.executeSingle(target, cmd, options);
       }
     }
   }
 
   private async executeSingle(
     target: ResolvedTarget,
-    command: string,
+    cmd: string,
     options: OnOptions
   ): Promise<void> {
     const targetDisplay = this.formatTargetDisplay(target);
@@ -315,7 +315,7 @@ export class OnCommand extends ConfigAwareCommand {
       }
 
       // Execute command
-      const result = await execEngine.raw`${command}`;
+      const result = await execEngine.raw`${cmd}`;
 
       if (!options.quiet) {
         this.stopSpinner();
@@ -342,7 +342,7 @@ export class OnCommand extends ConfigAwareCommand {
 
   private async executeParallel(
     targets: ResolvedTarget[],
-    command: string,
+    cmd: string,
     options: OnOptions
   ): Promise<void> {
     const maxConcurrent = parseInt(String(options.maxConcurrent || '10'), 10);
@@ -360,7 +360,7 @@ export class OnCommand extends ConfigAwareCommand {
       activeCount++;
 
       try {
-        await this.executeSingle(target, command, { ...options, quiet: true });
+        await this.executeSingle(target, cmd, { ...options, quiet: true });
         results.push({ target, success: true });
       } catch (error) {
         results.push({ target, success: false, error });
@@ -615,7 +615,7 @@ export class OnCommand extends ConfigAwareCommand {
       // eslint-disable-next-line default-case
       switch (executionType?.value) {
         case 'command': {
-          const command = await InteractiveHelpers.inputText('Enter command to execute:', {
+          const cmd = await InteractiveHelpers.inputText('Enter command to execute:', {
             placeholder: 'uptime',
             validate: (value) => {
               if (!value || value.trim().length === 0) {
@@ -624,8 +624,8 @@ export class OnCommand extends ConfigAwareCommand {
               return undefined;
             },
           });
-          if (!command) return null;
-          commandParts = [command];
+          if (!cmd) return null;
+          commandParts = [cmd];
           break;
         }
 

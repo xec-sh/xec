@@ -1,8 +1,7 @@
 import path from 'path';
-import { prism } from '@xec-sh/kit';
 import { glob } from 'glob';
 import fs from 'fs/promises';
-import { log, text, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
+import { log, text, prism, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
 
 export interface FileSelectOptions {
   title?: string;
