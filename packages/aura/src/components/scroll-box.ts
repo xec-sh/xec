@@ -199,6 +199,10 @@ export class ScrollBoxComponent extends BoxComponent {
     this.content.remove(id)
   }
 
+  getChildren(): Component[] {
+    return this.content.getChildren()
+  }
+
   protected onMouseEvent(event: MouseEvent): void {
     if (event.type === "scroll") {
       let dir = event.scroll?.direction
