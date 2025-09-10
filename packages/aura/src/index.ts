@@ -4,8 +4,8 @@ export * from "./utils.js"
 export * from "./app/aura.js"
 export * from "./lib/index.js"
 export * from "./component.js"
-
 export * from "./app/hooks.js"
+
 export * from "./app/context.js"
 export * from "./lib/selection.js"
 export * from "./app/lifecycle.js"
@@ -14,17 +14,21 @@ export * from "./lib/styled-text.js"
 export * from "./app/application.js"
 export * from "./renderer/native.js"
 export * from "./components/index.js"
-
 export * from "./app/control-flow.js"
+
 export * from "./renderer/renderer.js"
+export * from "./app/smart-children.js"
 export * from "./animation/timeline.js"
 export * from "./app/reactive-bridge.js"
 export * from "./renderer/text-buffer.js"
-export * from "./app/screen-dimensions.js"
 
+export * from "./app/screen-dimensions.js"
 export * from "./renderer/console/console.js"
 
+export * from "./app/hierarchical-focus-manager.js"
+
 // Re-export commonly used reactive primitives from vibrancy
+// NOTE: onCleanup is NOT re-exported here to avoid conflict with app/lifecycle.js
 export {
   batch,
   store,
@@ -32,7 +36,6 @@ export {
   effect,
   untrack,
   computed,
-  onCleanup,
   createRoot,
   type Signal,
   type Disposable,

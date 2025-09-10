@@ -64,19 +64,23 @@ export class UIConfigurationManager extends EventEmitter {
   private config: UIConfiguration;
   private configPath: string;
   private autoSaveTimer?: NodeJS.Timeout;
+  private options: UIConfigManagerOptions;
 
-  constructor(private options: UIConfigManagerOptions) {
+  constructor(options?: Partial<UIConfigManagerOptions>) {
     super();
 
-    // Set default options
-    this.options.globalConfigDir = getGlobalConfigDir();
-    this.options.configFileName = this.options.configFileName || 'ui.yaml';
-    this.options.autoSave = this.options.autoSave ?? true;
-    this.options.validate = this.options.validate ?? true;
-    this.options.createIfMissing = this.options.createIfMissing ?? true;
+    // Initialize options with defaults
+    this.options = {
+      globalConfigDir: getGlobalConfigDir(),
+      configFileName: 'ui.yaml',
+      autoSave: true,
+      validate: true,
+      createIfMissing: true,
+      ...options
+    };
 
     // Set config file path
-    this.configPath = path.join(this.options.globalConfigDir, this.options.configFileName);
+    this.configPath = path.join(this.options.globalConfigDir, this.options.configFileName!);
 
     // Initialize with defaults
     this.config = { ...DEFAULT_UI_CONFIG } as UIConfiguration;
@@ -174,15 +178,28 @@ export class UIConfigurationManager extends EventEmitter {
   /**
    * Get all workspaces
    */
-  getWorkspaces(): Workspace[] {
-    return this.config.workspaces || [];
+  async getWorkspaces(): Promise<Workspace[]> {
+    const workspaces = this.config.workspaces || [];
+    
+    // Enrich each workspace with data from its xec config
+    const enrichedWorkspaces = await Promise.all(
+      workspaces.map(workspace => this.enrichWorkspaceFromXecConfig(workspace))
+    );
+    
+    return enrichedWorkspaces;
   }
 
   /**
    * Get workspace by ID
    */
-  getWorkspace(id: string): Workspace | undefined {
-    return this.config.workspaces?.find(w => w.id === id);
+  async getWorkspace(id: string): Promise<Workspace | undefined> {
+    const workspace = this.config.workspaces?.find(w => w.id === id);
+    if (!workspace) {
+      return undefined;
+    }
+    
+    // Enrich with data from xec config
+    return this.enrichWorkspaceFromXecConfig(workspace);
   }
 
   /**
@@ -192,12 +209,15 @@ export class UIConfigurationManager extends EventEmitter {
     // Generate unique ID
     const id = this.generateWorkspaceId(workspace.name);
 
-    // Create full workspace object
-    const newWorkspace: Workspace = {
+    // Create workspace object for storage (without description)
+    const workspaceToStore: Workspace = {
       ...workspace,
       id,
       createdAt: new Date().toISOString()
     };
+    
+    // Remove description - it will be loaded from xec config
+    delete workspaceToStore.description;
 
     // Validate workspace path exists
     try {
@@ -227,26 +247,29 @@ export class UIConfigurationManager extends EventEmitter {
       throw new Error(`Workspace already exists: ${existing.name}`);
     }
 
-    this.config.workspaces.push(newWorkspace);
+    this.config.workspaces.push(workspaceToStore);
+
+    // Get enriched workspace for return value
+    const enrichedWorkspace = await this.enrichWorkspaceFromXecConfig(workspaceToStore);
 
     // Emit event
     this.emitChange({
       type: 'workspace-added',
-      data: newWorkspace,
+      data: enrichedWorkspace,
       timestamp: new Date()
     });
 
     // Auto-save
     this.scheduleAutoSave();
 
-    return newWorkspace;
+    return enrichedWorkspace;
   }
 
   /**
    * Update an existing workspace
    */
-  updateWorkspace(id: string, updates: Partial<Workspace>): Workspace {
-    const workspace = this.getWorkspace(id);
+  async updateWorkspace(id: string, updates: Partial<Workspace>): Promise<Workspace> {
+    const workspace = this.config.workspaces?.find(w => w.id === id);
     if (!workspace) {
       throw new Error(`Workspace not found: ${id}`);
     }
@@ -254,16 +277,22 @@ export class UIConfigurationManager extends EventEmitter {
     // Store previous value
     const previous = { ...workspace };
 
-    // Apply updates
-    Object.assign(workspace, updates);
+    // Filter out description from updates - it should come from xec config
+    const { description, ...updatesToApply } = updates;
+
+    // Apply updates (except description)
+    Object.assign(workspace, updatesToApply);
 
     // Update last accessed
     workspace.lastAccessed = new Date().toISOString();
 
+    // Get enriched workspace for return and event
+    const enrichedWorkspace = await this.enrichWorkspaceFromXecConfig(workspace);
+
     // Emit event
     this.emitChange({
       type: 'workspace-updated',
-      data: workspace,
+      data: enrichedWorkspace,
       previous,
       timestamp: new Date()
     });
@@ -271,7 +300,7 @@ export class UIConfigurationManager extends EventEmitter {
     // Auto-save
     this.scheduleAutoSave();
 
-    return workspace;
+    return enrichedWorkspace;
   }
 
   /**
@@ -312,8 +341,8 @@ export class UIConfigurationManager extends EventEmitter {
   /**
    * Set active workspace
    */
-  setActiveWorkspace(id: string): void {
-    const workspace = this.getWorkspace(id);
+  async setActiveWorkspace(id: string): Promise<void> {
+    const workspace = this.config.workspaces?.find(w => w.id === id);
     if (!workspace) {
       throw new Error(`Workspace not found: ${id}`);
     }
@@ -333,7 +362,7 @@ export class UIConfigurationManager extends EventEmitter {
   /**
    * Get active workspace
    */
-  getActiveWorkspace(): Workspace | undefined {
+  async getActiveWorkspace(): Promise<Workspace | undefined> {
     if (!this.config.activeWorkspace) {
       return undefined;
     }
@@ -577,6 +606,44 @@ export class UIConfigurationManager extends EventEmitter {
     }
 
     return id;
+  }
+
+  /**
+   * Load xec configuration from workspace
+   * @param workspacePath - Path to the workspace
+   * @returns Xec configuration or null if not found
+   */
+  private async loadXecConfig(workspacePath: string): Promise<any | null> {
+    try {
+      const configPath = path.join(workspacePath, '.xec', 'config.yaml');
+      const content = await fs.readFile(configPath, 'utf8');
+      const config = jsYaml.load(content);
+      return config;
+    } catch (error: any) {
+      // Config not found or invalid - that's ok, just return null
+      return null;
+    }
+  }
+
+  /**
+   * Enrich workspace with data from xec config
+   * @param workspace - Workspace to enrich
+   * @returns Enriched workspace
+   */
+  private async enrichWorkspaceFromXecConfig(workspace: Workspace): Promise<Workspace> {
+    const xecConfig = await this.loadXecConfig(workspace.path);
+    
+    if (xecConfig) {
+      // Add description from xec config if available
+      if (xecConfig.description) {
+        return {
+          ...workspace,
+          description: xecConfig.description
+        };
+      }
+    }
+    
+    return workspace;
   }
 
   /**

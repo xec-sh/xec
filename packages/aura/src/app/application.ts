@@ -1,8 +1,5 @@
 /**
- * Aura Next - Improved Application Architecture
- * 
- * This implementation properly uses the renderer's root component
- * instead of creating a separate root, providing a more intuitive API
+ * Aura Application Architecture
  */
 
 import {
@@ -20,8 +17,16 @@ import {
   mountElement,
   unmountElement
 } from './reactive-bridge.js';
+import { registerCleanup, lifecycleManager } from './lifecycle-manager.js';
 import { Renderer, createRenderer, type RendererConfig } from '../renderer/renderer.js';
 import { cleanupScreenDimensions, initializeScreenDimensions } from './screen-dimensions.js';
+import {
+  runMountHooks,
+  runCleanupHooks,
+  runInComponentContext,
+  type ComponentContext,
+  createComponentContext
+} from './lifecycle.js';
 
 import type { ParsedKey } from '../types.js';
 import type {
@@ -97,44 +102,67 @@ export class AuraApplication {
       // Initialize screen dimension signals
       initializeScreenDimensions(this.renderer);
 
-      // No need to start the renderer, becasuse we use renderer.requestRender() to trigger renders
-      // this.renderer.start();
+      // NOTE: renderer.start() is intentionally not called here
+      // The renderer operates in request-based mode where renders are triggered
+      // by requestRender() calls from components
 
       // Mount children BEFORE creating reactive root to avoid re-execution
       // This prevents children from being mounted multiple times if they contain reactive dependencies
       this.mountChildren();
 
+      // Register application cleanup with lifecycle manager
+      // Use lower priority to ensure it runs after component cleanups
+      registerCleanup(async () => {
+        await this.cleanup();
+      }, { name: 'AuraApplication', priority: 90 });
+
+      // Create a root component context for the app
+      const appContext = createComponentContext('app-root');
+
       // Create reactive root for the entire application
       this.cleanupRoot = createRoot(() => {
-        // Set up global keyboard handler
-        if (this.options.onKeyPress || this.options.exitOnCtrlC) {
-          getKeyHandler().on("keypress", this.handleKeyPress);
-          onCleanup(() => {
-            getKeyHandler().off("keypress", this.handleKeyPress);
+        // Run in app context so lifecycle hooks work properly
+        runInComponentContext(appContext, () => {
+          // Set up global keyboard handler
+          if (this.options.onKeyPress || this.options.exitOnCtrlC) {
+            getKeyHandler().on("keypress", this.handleKeyPress);
+            onCleanup(() => {
+              getKeyHandler().off("keypress", this.handleKeyPress);
+            });
+          }
+
+          // Run mount hook
+          if (this.options.onMount) {
+            this.options.onMount();
+          }
+
+          // Set up rendering effect
+          const renderDispose = effect(() => {
+            this.render();
           });
-        }
 
-        // Run mount hook
-        if (this.options.onMount) {
-          this.options.onMount();
-        }
+          this.disposables.push(renderDispose);
 
-        // Set up rendering effect
-        const renderDispose = effect(() => {
-          this.render();
-        });
+          // Register cleanup with both reactive system and lifecycle manager
+          onCleanup(() => {
+            if (this.options.onCleanup) {
+              this.options.onCleanup();
+            }
+          });
 
-        this.disposables.push(renderDispose);
-
-        // Register cleanup
-        onCleanup(() => {
+          // Also register with global lifecycle manager for graceful shutdown
           if (this.options.onCleanup) {
-            this.options.onCleanup();
+            registerCleanup(this.options.onCleanup, { name: 'ApplicationOptions.onCleanup', priority: 65 });
           }
         });
 
+        // Run mount hooks for the app context
+        runMountHooks(appContext);
+
         return () => {
-          // Cleanup will be handled in stop()
+          // Run cleanup hooks for app context
+          runCleanupHooks(appContext);
+          // Additional cleanup will be handled in stop()
         };
       });
 
@@ -167,7 +195,9 @@ export class AuraApplication {
         // Pass renderer.root as parent to provide context
         const mountData = mountElement(child, this.renderer.root);
         // Store mount data for cleanup
-        this.mountedComponents.set(mountData.instance.id, mountData);
+        // For functional components, instance is null, so use context id
+        const id = mountData.instance ? mountData.instance.id : mountData.context.id;
+        this.mountedComponents.set(id, mountData);
         // Component is automatically added to parent in mountElement
       });
     });
@@ -181,7 +211,8 @@ export class AuraApplication {
       // Unmount all tracked components
       for (const [id, mountData] of this.mountedComponents) {
         // Remove from renderer's root
-        if (mountData.instance.parent === this.renderer.root) {
+        // Only if it has an instance (functional components don't)
+        if (mountData.instance && mountData.instance.parent === this.renderer.root) {
           this.renderer.root.remove(id);
         }
         unmountElement(mountData);
@@ -218,21 +249,27 @@ export class AuraApplication {
   }
 
   /**
-   * Stop the application
+   * Internal cleanup method
    */
-  async stop(): Promise<void> {
+  private async cleanup(): Promise<void> {
     if (!this.isRunning) {
       return;
     }
 
     this.isRunning = false;
 
-    // Clear mounted components
+    // Clear mounted components first
     this.clearMountedComponents();
 
-    // Clean up reactive root
+    // Clean up reactive root (this will trigger onCleanup handlers)
     if (this.cleanupRoot) {
+      // Execute the cleanup function returned by createRoot
       this.cleanupRoot();
+
+      // IMPORTANT: Give the reactive system time to propagate cleanup
+      // This ensures all onCleanup handlers are executed
+      await new Promise(resolve => setImmediate(resolve));
+
       this.cleanupRoot = null;
     }
 
@@ -244,8 +281,16 @@ export class AuraApplication {
     cleanupScreenDimensions();
 
     // Clean up renderer
-    // this.renderer.stop();
+    // Note: renderer.stop() is not called as renderer.start() was never called
     this.renderer.destroy();
+  }
+
+  /**
+   * Stop the application (triggers graceful shutdown)
+   */
+  async stop(): Promise<void> {
+    // Use lifecycle manager for graceful shutdown
+    await lifecycleManager.shutdown(0);
   }
 
   /**
@@ -272,9 +317,8 @@ export class AuraApplication {
   private handleKeyPress = (key: ParsedKey): void => {
     // Check for exit keys
     if (this.options.exitOnCtrlC && key.raw === '\u0003') { // Ctrl+C
-      this.stop().then(() => {
-        process.exit();
-      });
+      // Trigger graceful shutdown
+      lifecycleManager.shutdown(130); // Standard exit code for SIGINT
       return;
     }
 
@@ -370,9 +414,56 @@ export async function auraApp(
 
   const renderer = await createRenderer({
     ...rendererOptions,
+    useAlternateScreen: true,
     exitOnCtrlC: false,
   });
-  const app = new AuraApplication({ children, theme, ...appOptions }, renderer);
+
+  // Create a context for the app function if children is a function
+  // This allows onCleanup to work within the app function
+  let finalChildren = children;
+  let appFunctionCleanup: (() => void) | null = null;
+  let appFunctionContext: ComponentContext | null = null;
+
+  if (typeof children === 'function') {
+    // Create component context for the app function
+    appFunctionContext = createComponentContext('app-function');
+
+    // We need to run the app function in a way that preserves its reactive context
+    // The key is to NOT dispose the reactive root immediately
+    let appResult: AnyAuraElement | AnyAuraElement[] | null = null;
+
+    // Create the reactive root and keep it alive
+    appFunctionCleanup = createRoot(() => {
+      // Run the app function in component context
+      runInComponentContext(appFunctionContext!, () => {
+        appResult = children();
+
+        // Run mount hooks for the app context
+        runMountHooks(appFunctionContext!);
+      });
+
+      // Return a cleanup function that will be called when the root is disposed
+      return () => {
+        // Run cleanup hooks for the app context
+        if (appFunctionContext) {
+          runCleanupHooks(appFunctionContext);
+        }
+      };
+    });
+
+    // Use the result from the app function
+    finalChildren = appResult!;
+
+    // Register cleanup for the app function's reactive root with high priority
+    // This ensures it runs before application cleanup
+    registerCleanup(() => {
+      if (appFunctionCleanup) {
+        appFunctionCleanup();
+      }
+    }, { name: 'app-function-cleanup', priority: 40 });
+  }
+
+  const app = new AuraApplication({ children: finalChildren, theme, ...appOptions }, renderer);
   await app.start();
   return app;
 }

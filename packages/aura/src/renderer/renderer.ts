@@ -86,13 +86,14 @@ export enum MouseButton {
   WHEEL_DOWN = 5,
 }
 
-singleton('ProcessExitSignals', () => {
-  ["SIGINT", "SIGTERM", "SIGQUIT", "SIGABRT"].forEach((signal) => {
-    process.on(signal, () => {
-      process.exit()
-    })
-  })
-});
+// Disabled: Now handled by LifecycleManager for graceful shutdown
+// singleton('ProcessExitSignals', () => {
+//   ["SIGINT", "SIGTERM", "SIGQUIT", "SIGABRT"].forEach((signal) => {
+//     process.on(signal, () => {
+//       process.exit()
+//     })
+//   })
+// });
 
 enum RendererControlState {
   IDLE = "idle",
@@ -229,6 +230,7 @@ export class Renderer extends EventEmitter implements RenderContext {
   private _useConsole: boolean = true
   private mouseParser: MouseParser = new MouseParser()
   private sigwinchHandler: (() => void) | null = null
+  private stdinDataHandler: ((data: Buffer) => void) | null = null
 
   constructor(
     lib: RenderLib,
@@ -461,7 +463,8 @@ export class Renderer extends EventEmitter implements RenderContext {
       this.enableMouse();
     }
 
-    this.stdin.on("data", (data: Buffer) => {
+    // Store the handler so we can remove it later
+    this.stdinDataHandler = (data: Buffer) => {
       const str = data.toString();
 
       // eslint-disable-next-line no-control-regex
@@ -492,7 +495,10 @@ export class Renderer extends EventEmitter implements RenderContext {
       }
 
       this.emit("key", data);
-    })
+    };
+
+    // Attach the handler to stdin
+    this.stdin.on("data", this.stdinDataHandler);
 
     if (this._useAlternateScreen) {
       this.writeOut(ANSI.switchToAlternateScreen);
@@ -838,12 +844,23 @@ export class Renderer extends EventEmitter implements RenderContext {
         clearTimeout(this.renderTimeout)
         this.renderTimeout = null
       }
+
+      // Clear all animation frame requests
+      this.animationRequest.clear();
+
+      // Remove stdin data handler
+      if (this.stdinDataHandler) {
+        this.stdin.removeListener("data", this.stdinDataHandler);
+        this.stdinDataHandler = null;
+      }
     }
   }
 
   public destroy(): void {
     if (this.isDestroyed) return;
     this.isDestroyed = true;
+
+    // this.internalStop();
 
     if (this.stdin.setRawMode) {
       this.stdin.setRawMode(false);

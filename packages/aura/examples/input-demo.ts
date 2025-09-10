@@ -9,7 +9,7 @@ import {
   type Renderer,
   InputComponent,
   createRenderer,
-  RenderableEvents,
+  ComponentEvents,
   InputComponentEvents,
 } from "../src/index"
 
@@ -289,11 +289,11 @@ export function run(rendererInstance: Renderer): void {
       }, 1500)
     })
 
-    input.on(RenderableEvents.FOCUSED, () => {
+    input.on(ComponentEvents.FOCUSED, () => {
       updateDisplays()
     })
 
-    input.on(RenderableEvents.BLURRED, () => {
+    input.on(ComponentEvents.BLURRED, () => {
       updateDisplays()
     })
   })

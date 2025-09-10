@@ -30,9 +30,10 @@ export enum LayoutEvents {
   RESIZED = "resized",
 }
 
-export enum RenderableEvents {
+export enum ComponentEvents {
   FOCUSED = "focused",
   BLURRED = "blurred",
+  DESTROYED = "destroyed",
 }
 
 export interface Position {
@@ -323,7 +324,7 @@ export abstract class Component extends EventEmitter {
   }
 
   public focus(): void {
-    if (this._focused || !this.focusable || this._disabled) return
+    if (this._focused || !this.canReceiveFocus) return
 
     this._focused = true
     this.requestRender()
@@ -336,11 +337,11 @@ export abstract class Component extends EventEmitter {
     }
 
     this.keyHandler.on("keypress", this.keypressHandler)
-    this.emit(RenderableEvents.FOCUSED)
+    this.emit(ComponentEvents.FOCUSED)
   }
 
   public blur(): void {
-    if (!this._focused || !this.focusable) return
+    if (!this._focused) return
 
     this._focused = false
     this.requestRender()
@@ -350,21 +351,56 @@ export abstract class Component extends EventEmitter {
       this.keypressHandler = null
     }
 
-    this.emit(RenderableEvents.BLURRED)
+    this.emit(ComponentEvents.BLURRED)
   }
 
   public get focused(): boolean {
-    return this._focused
+    return this._focused;
+  }
+
+  /**
+   * Check if this component can currently receive focus.
+   * Components can override this getter for dynamic focus behavior.
+   * @returns true if the component can be focused
+   */
+  public get canReceiveFocus(): boolean {
+    return this.focusable && !this._disabled && this._visible;
+  }
+
+  /**
+   * Get whether this component is inherently focusable.
+   * @returns true if the component is focusable
+   */
+  public get isFocusable(): boolean {
+    return this.focusable;
+  }
+
+  /**
+   * Set whether this component is inherently focusable.
+   * If the component is focused when set to false, it will be blurred.
+   * @param value - true to make the component focusable
+   */
+  public set isFocusable(value: boolean) {
+    if (this.focusable === value) return;
+
+    this.focusable = value;
+
+    // If becoming non-focusable while focused, blur
+    if (!value && this._focused) {
+      this.blur();
+    }
+
+    this.requestRender();
   }
 
   public get disabled(): boolean {
-    return this._disabled
+    return this._disabled;
   }
 
   public set disabled(value: boolean) {
-    if (this._disabled === value) return
+    if (this._disabled === value) return;
 
-    this._disabled = value
+    this._disabled = value;
 
     // If becoming disabled while focused, blur
     if (value && this._focused) {
@@ -1135,7 +1171,8 @@ export abstract class Component extends EventEmitter {
     this.blur()
     this.removeAllListeners()
 
-    this.destroySelf()
+    this.destroySelf();
+    this.emit(ComponentEvents.DESTROYED);
   }
 
   public destroyRecursively(): void {
@@ -1247,6 +1284,7 @@ export abstract class Component extends EventEmitter {
 }
 
 export class RootComponent extends Component {
+  protected focusable: boolean = false;
   private yogaConfig: Config;
 
   constructor(ctx: RenderContext) {

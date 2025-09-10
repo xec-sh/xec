@@ -19,7 +19,7 @@ export interface Workspace {
   description?: string;
 
   /** Workspace type/category */
-  type?: 'project' | 'library' | 'template' | 'other';
+  type?: 'project' | 'library' | 'template' | 'global' | 'other';
 
   /** Tags for categorization */
   tags?: string[];

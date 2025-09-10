@@ -6,14 +6,15 @@ import {
   Select,
   VStack,
   computed,
-  onCleanup,
   ParsedKey,
-  WritableSignal,
+  FocusLevel,
+  BoxComponent,
   TextAttributes,
   SelectComponent,
   screenDimensions,
-  type BoxComponent,
-  DescriptionTruncate
+  DescriptionTruncate,
+  SelectComponentEvents,
+  hierarchicalFocusManager
 } from "@xec-sh/aura";
 
 import { appStore } from "../store.js";
@@ -39,7 +40,7 @@ async function loadWorkspaces() {
     // Set active workspace if available
     const activeWorkspace = await workspaceManager.getActive();
     if (activeWorkspace) {
-      appStore.currentWorkspace = activeWorkspace.id;
+      appStore.currentWorkspace.set(activeWorkspace.id);
     }
   } catch (error: any) {
     errorSignal.set(error.message || 'Failed to load workspaces');
@@ -52,10 +53,12 @@ async function loadWorkspaces() {
 // Initialize workspaces on startup
 loadWorkspaces();
 
-function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
+function ProjectBrowser() {
+  const selectRef = signal<SelectComponent | null>(null);
+
   // Convert workspaces to select options
   const options = computed(() => {
-    const workspaces = workspacesSignal();
+    const workspaces = workspacesSignal.peek();
     const loading = loadingSignal();
     const error = errorSignal();
 
@@ -64,6 +67,7 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
         name: 'Loading...',
         description: 'Please wait while workspaces are loaded',
         value: '__loading__',
+        disabled: true,
       }];
     }
 
@@ -72,6 +76,7 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
         name: 'Error',
         description: error,
         value: '__error__',
+        disabled: true,
       }];
     }
 
@@ -80,6 +85,7 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
         name: 'No workspaces',
         description: 'Press "n" to add a new workspace',
         value: '__empty__',
+        disabled: true,
       }];
     }
 
@@ -91,21 +97,48 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
   });
 
   return Select({
+    id: 'sidebar-select',
     showScrollIndicator: true,
     minHeight: 2,
     wrapSelection: true,
     showDescription: true,
     descriptionTruncate: DescriptionTruncate.START,
     ref: selectRef,
-    options: options(),
+    onMount: () => {
+      const comp = selectRef();
+      if (comp) {
+        appStore.sidebarSelectComponent.set(comp);
+
+        // Register the select component with focus manager
+        hierarchicalFocusManager.register(comp, {
+          scopeId: "sidebar-scope",
+          level: FocusLevel.COMPONENT,
+          order: 1,
+          maintainParentFocus: true, // Now cascade blur works properly
+        });
+
+        // Listen to selection changes
+        comp.on(SelectComponentEvents.ITEM_SELECTED, async (index: number, option: any) => {
+          if (option?.value && typeof option.value === 'string' && !option.value.startsWith('__')) {
+            const workspaceManager = getWorkspaceManager();
+            await workspaceManager.setActive(option.value);
+            console.log('Setting currentWorkspace to:', option.value);
+            appStore.currentWorkspace.set(option.value);
+            console.log('After set, currentWorkspace is:', appStore.currentWorkspace());
+            console.log('Selected workspace:', option);
+          }
+        });
+      }
+    },
+    options,
     onKeyDown: async (key: ParsedKey) => {
       const workspaceManager = getWorkspaceManager();
+      const selectComp = appStore.sidebarSelectComponent();
 
       // Add new workspace
       if (key.name === 'n' && !key.ctrl) {
         try {
           // For now, add current directory as workspace
-          // In production, you might want to show a file picker dialog
           const currentPath = process.cwd();
           const workspace = await workspaceManager.add(currentPath);
 
@@ -114,11 +147,10 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
           workspacesSignal.set(workspaces);
 
           // Select the newly added workspace
-          const select = selectRef();
-          if (select) {
+          if (selectComp) {
             const index = workspaces.findIndex(w => w.id === workspace.id);
             if (index !== -1) {
-              select.setSelectedIndex(index);
+              selectComp.setSelectedIndex(index);
             }
           }
         } catch (error: any) {
@@ -129,9 +161,8 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
 
       // Remove selected workspace
       if (key.name === 'd' && !key.ctrl) {
-        const select = selectRef();
-        const selectedOption = select?.getSelectedOption();
-        if (select && selectedOption?.value && !selectedOption.value.startsWith('__')) {
+        const selectedOption = selectComp?.getSelectedOption();
+        if (selectComp && selectedOption?.value && !selectedOption.value.startsWith('__')) {
           try {
             const workspaceId = selectedOption.value as string;
             await workspaceManager.remove(workspaceId);
@@ -141,8 +172,8 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
             workspacesSignal.set(workspaces);
 
             // Adjust selection
-            if (select.getSelectedIndex() >= workspaces.length && workspaces.length > 0) {
-              select.setSelectedIndex(workspaces.length - 1);
+            if (selectComp.getSelectedIndex() >= workspaces.length && workspaces.length > 0) {
+              selectComp.setSelectedIndex(workspaces.length - 1);
             }
           } catch (error: any) {
             errorSignal.set(error.message);
@@ -177,31 +208,36 @@ function ProjectBrowser(selectRef: WritableSignal<SelectComponent | null>) {
 }
 
 export function SidebarComponent() {
-  const { width: screenWidth } = screenDimensions();
+  const sidebarRef = signal<BoxComponent | null>(null);
+
+  // Register the sidebar scope
+  hierarchicalFocusManager.registerScope({
+    id: "sidebar-scope",
+    level: FocusLevel.CONTAINER,
+    circular: true,
+    allowSimultaneousFocus: true, // Don't allow simultaneous focus with children
+  });
+
+  // Use a default width initially, screenDimensions will update it reactively
   const minWidth = signal(20);
-  const maxWidth = computed(() => screenWidth() / 2);
 
-  const boxMainRef = signal<BoxComponent | null>(null);
-  const selectRef = signal<SelectComponent | null>(null);
-
-  effect(() => {
-    const boxMain = boxMainRef();
-    if (boxMain) {
-      boxMain.visible = appStore.sidebarVisible;
-    }
-    if (appStore.focused === 'sidebar') {
-      boxMain?.focus();
-      selectRef()?.focus();
-    } else {
-      boxMain?.blur();
-      selectRef()?.blur();
+  // Wrap screenDimensions in a computed to handle initialization
+  const screenWidth = computed(() => {
+    try {
+      const { width } = screenDimensions();
+      return width();
+    } catch {
+      // Return a default width if screen dimensions aren't initialized yet
+      return 80; // Default terminal width
     }
   });
 
+  const maxWidth = computed(() => screenWidth() / 2);
+
   // Update selection when active workspace changes
   effect(() => {
-    const workspaceId = appStore.currentWorkspace;
-    const select = selectRef();
+    const workspaceId = appStore.currentWorkspace();
+    const select = appStore.sidebarSelectComponent();
     const workspaces = workspacesSignal();
 
     if (select && workspaceId && workspaces.length > 0) {
@@ -212,30 +248,8 @@ export function SidebarComponent() {
     }
   });
 
-  // Listen to selection changes
-  effect(() => {
-    const select = selectRef();
-    if (select) {
-      // Handle item selection
-      const handleSelection = async (index: number, option: any) => {
-        if (option?.value && typeof option.value === 'string' && !option.value.startsWith('__')) {
-          const workspaceManager = getWorkspaceManager();
-          await workspaceManager.setActive(option.value);
-          appStore.currentWorkspace = option.value;
-        }
-      };
-
-      select.on('itemSelected', handleSelection);
-
-      // Cleanup listener
-      onCleanup(() => {
-        select.off('itemSelected', handleSelection);
-      });
-    }
-  });
-
-  return VStack({
-    id: 'sidebar',
+  const sidebarBox = VStack({
+    id: 'sidebar-box',
     minWidth,
     maxWidth,
     gap: 1,
@@ -243,12 +257,23 @@ export function SidebarComponent() {
     height: "100%",
     flexShrink: 0,
     border: true,
-    borderColor: computed(() => appStore.focused === 'sidebar' ? 'focus' : 'border'),
-    ref: boxMainRef,
+    ref: sidebarRef,
+    onMount: () => {
+      const comp = sidebarRef();
+      if (comp) {
+        appStore.sidebarComponent.set(comp);
+
+        // Register the sidebar box with focus manager
+        hierarchicalFocusManager.register(comp, {
+          scopeId: "sidebar-scope",
+          level: FocusLevel.CONTAINER,
+          order: 0
+        });
+      }
+    },
     onKeyDown(key: ParsedKey) {
-      const inst = boxMainRef();
+      const inst = appStore.sidebarComponent();
       if (inst) {
-        console.log(key);
         if (key.shift) {
           if (key.option) {
             if (key.name === 'right') {
@@ -270,58 +295,25 @@ export function SidebarComponent() {
     Box({
       id: 'sidebar-title',
       height: 1,
-      paddingLeft: 1,
+      alignItems: 'center',
     },
       Text({
-        content: computed(() => appStore.focused === 'sidebar' ? '⦿ ' : '○ '),
-        fg: computed(() => appStore.focused === 'sidebar' ? 'accent' : 'muted'),
-        attributes: TextAttributes.BOLD,
-      }),
-      Text({
-        content: 'Workspaces',
-        fg: computed(() => appStore.focused === 'sidebar' ? 'secondary' : 'muted'),
+        content: computed(() => {
+          const hasFocus = hierarchicalFocusManager.isFocused('sidebar-scope');
+          return hasFocus ? '▶ XEC' : '> XEC';
+        }),
+        fg: computed(() => hierarchicalFocusManager.isFocused('sidebar-scope') ? 'accent' : 'muted'),
         attributes: TextAttributes.BOLD,
       }),
     ),
-    ProjectBrowser(selectRef),
-    Box({
-      id: 'sidebar-help',
-      height: 'auto',
-      paddingLeft: 1,
-      paddingRight: 1,
-      gap: 0,
-      flexDirection: 'column',
-    },
-      Text({
-        content: '─────────────',
-        fg: 'muted',
-        attributes: TextAttributes.DIM,
-      }),
-      Text({
-        content: 'Keys:',
-        fg: 'muted',
-        attributes: TextAttributes.BOLD,
-      }),
-      Text({
-        content: 'n - Add workspace',
-        fg: 'muted',
-        attributes: TextAttributes.DIM,
-      }),
-      Text({
-        content: 'd - Remove workspace',
-        fg: 'muted',
-        attributes: TextAttributes.DIM,
-      }),
-      Text({
-        content: 'r - Refresh list',
-        fg: 'muted',
-        attributes: TextAttributes.DIM,
-      }),
-      Text({
-        content: 'f - Find workspaces',
-        fg: 'muted',
-        attributes: TextAttributes.DIM,
-      }),
+    ProjectBrowser(),
+    Box({ id: 'sidebar-help', height: 'auto', paddingLeft: 1, paddingRight: 1, flexDirection: 'column' },
+      Text({ content: 'Keys:', fg: 'muted', attributes: TextAttributes.BOLD, }),
+      Text({ content: 'n - Add workspace', fg: 'muted', attributes: TextAttributes.DIM, }),
+      Text({ content: 'd - Remove workspace', fg: 'muted', attributes: TextAttributes.DIM, }),
+      Text({ content: 'r - Refresh list', fg: 'muted', attributes: TextAttributes.DIM, }),
+      Text({ content: 'f - Find workspaces', fg: 'muted', attributes: TextAttributes.DIM }),
+      Text({ content: 's/m - Focus sidebar/main', fg: 'muted', attributes: TextAttributes.DIM }),
       Text({
         content: computed(() => {
           const error = errorSignal();
@@ -332,4 +324,6 @@ export function SidebarComponent() {
       }),
     ),
   );
+
+  return sidebarBox;
 }

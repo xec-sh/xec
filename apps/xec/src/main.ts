@@ -102,6 +102,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     if (args.includes('--ui')) {
       const { runManager } = await import('./ui/manager.js');
       await runManager();
+      // The app will keep the process alive and handle its own exit
       return;
     }
 

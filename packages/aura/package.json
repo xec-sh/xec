@@ -47,7 +47,7 @@
     "printWidth": 120
   },
   "dependencies": {
-    "vibrancy": "^0.2.1",
+    "vibrancy": "^0.3.0",
     "yoga-layout": "3.2.1"
   },
   "optionalDependencies": {

@@ -3,6 +3,7 @@
  */
 
 import * as path from 'path';
+import { homedir } from 'os';
 import * as fs from 'fs/promises';
 
 import { UIConfigurationManager } from './ui-configuration-manager.js';
@@ -109,7 +110,7 @@ export class WorkspaceManager {
 
     // Start initialization
     this.initPromise = this.performInitialization();
-    
+
     try {
       await this.initPromise;
       this.initialized = true;
@@ -125,15 +126,23 @@ export class WorkspaceManager {
     // Load configuration
     await this.configManager.load();
 
+    // Ensure global workspace exists
+    await this.ensureGlobalWorkspace();
+
     // Auto-discover if enabled
     if (this.options.autoDiscover) {
-      await this.discoverAndAdd();
+      // Use internal version that doesn't call ensureInitialized
+      await this.discoverAndAddInternal();
     }
 
     // Validate paths if enabled
     if (this.options.validatePaths) {
-      await this.validateWorkspaces();
+      // Use internal version that doesn't call ensureInitialized
+      await this.validateWorkspacesInternal();
     }
+
+    // Set global workspace as active if no other workspace is active
+    await this.ensureActiveWorkspace();
   }
 
   /**
@@ -158,12 +167,14 @@ export class WorkspaceManager {
   /**
    * Get all workspaces synchronously (only if already initialized)
    * @throws Error if not initialized
+   * @deprecated Use async getAll() instead - sync version cannot enrich with xec config
    */
   getAllSync(): Workspace[] {
     if (!this.initialized) {
       throw new Error('WorkspaceManager not initialized. Call initialize() or use async getAll() instead.');
     }
-    return this.configManager.getWorkspaces();
+    // This will not include description from xec config
+    return this.configManager.getConfig().workspaces || [];
   }
 
   /**
@@ -177,12 +188,14 @@ export class WorkspaceManager {
   /**
    * Get workspace by ID synchronously (only if already initialized)
    * @throws Error if not initialized
+   * @deprecated Use async get() instead - sync version cannot enrich with xec config
    */
   getSync(id: string): Workspace | undefined {
     if (!this.initialized) {
       throw new Error('WorkspaceManager not initialized. Call initialize() or use async get() instead.');
     }
-    return this.configManager.getWorkspace(id);
+    // This will not include description from xec config
+    return this.configManager.getConfig().workspaces?.find(w => w.id === id);
   }
 
   /**
@@ -270,7 +283,7 @@ export class WorkspaceManager {
    */
   async setActive(id: string): Promise<void> {
     await this.ensureInitialized();
-    this.configManager.setActiveWorkspace(id);
+    await this.configManager.setActiveWorkspace(id);
   }
 
   /**
@@ -351,6 +364,13 @@ export class WorkspaceManager {
    */
   async discoverAndAdd(): Promise<Workspace[]> {
     await this.ensureInitialized();
+    return this.discoverAndAddInternal();
+  }
+
+  /**
+   * Internal version for use during initialization
+   */
+  private async discoverAndAddInternal(): Promise<Workspace[]> {
     const discovered = await this.configManager.discoverWorkspaces(this.options.scanPaths);
     const added: Workspace[] = [];
 
@@ -371,7 +391,16 @@ export class WorkspaceManager {
    * Validate all workspace paths
    */
   async validateWorkspaces(): Promise<void> {
-    const workspaces = await this.getAll();
+    await this.ensureInitialized();
+    await this.validateWorkspacesInternal();
+  }
+
+  /**
+   * Internal version for use during initialization
+   */
+  private async validateWorkspacesInternal(): Promise<void> {
+    // Get workspaces directly from config (don't load xec configs for validation)
+    const workspaces = this.configManager.getConfig().workspaces || [];
     const invalidIds: string[] = [];
 
     for (const workspace of workspaces) {
@@ -385,7 +414,8 @@ export class WorkspaceManager {
     // Auto-cleanup if enabled
     if (this.options.autoCleanup && invalidIds.length > 0) {
       for (const id of invalidIds) {
-        await this.remove(id);
+        // Use config manager directly during initialization
+        this.configManager.removeWorkspace(id);
       }
       console.log(`Removed ${invalidIds.length} invalid workspace(s)`);
     } else if (invalidIds.length > 0) {
@@ -507,19 +537,118 @@ export class WorkspaceManager {
   }
 
   /**
+   * Ensure the global (home directory) workspace exists
+   */
+  private async ensureGlobalWorkspace(): Promise<void> {
+    const homeDir = homedir();
+
+    // Check if global workspace already exists by path or metadata
+    const workspaces = this.configManager.getConfig().workspaces || [];
+    const existingGlobal = workspaces.find(w =>
+      path.resolve(w.path) === path.resolve(homeDir) ||
+      w.metadata?.['isGlobal'] === true
+    );
+
+    if (!existingGlobal) {
+      // Create the global config directory if it doesn't exist
+      try {
+        await fs.access(homeDir);
+      } catch {
+        await fs.mkdir(homeDir, { recursive: true });
+      }
+
+      // Add home workspace to configuration
+      // Note: addWorkspace will generate an ID based on the name
+      await this.configManager.addWorkspace({
+        name: 'Global Workspace',
+        path: homeDir,
+        description: 'Home xec configuration and scripts',
+        type: 'global',
+        tags: ['global', 'system', 'home'],
+        metadata: {
+          isGlobal: true
+        }
+      });
+
+      console.log('Global workspace created at:', homeDir);
+    } else {
+      // Update the path if it has changed (e.g., XEC_HOME_DIR was set)
+      if (path.resolve(existingGlobal.path) !== path.resolve(homeDir)) {
+        await this.configManager.updateWorkspace(existingGlobal.id, {
+          path: homeDir
+        });
+        console.log('Global workspace path updated to:', homeDir);
+      }
+    }
+  }
+
+  /**
+   * Ensure there is an active workspace (set global as default if none)
+   */
+  private async ensureActiveWorkspace(): Promise<void> {
+    const config = this.configManager.getConfig();
+    const activeWorkspaceId = config.activeWorkspace;
+
+    // Check if active workspace exists
+    if (activeWorkspaceId) {
+      const activeWorkspace = config.workspaces?.find(w => w.id === activeWorkspaceId);
+      if (activeWorkspace) {
+        // Active workspace exists and is valid
+        return;
+      }
+    }
+
+    // No active workspace or it's invalid, set global as active
+    const homeDir = homedir();
+    const globalWorkspace = config.workspaces?.find(w =>
+      path.resolve(w.path) === path.resolve(homeDir) ||
+      w.metadata?.['isGlobal'] === true
+    );
+
+    if (globalWorkspace) {
+      await this.configManager.setActiveWorkspace(globalWorkspace.id);
+      console.log('Global workspace set as active');
+    }
+  }
+
+  /**
+   * Get the global workspace
+   */
+  async getGlobalWorkspace(): Promise<Workspace | undefined> {
+    await this.ensureInitialized();
+    const homeDir = homedir();
+    const workspaces = await this.getAll();
+    return workspaces.find(w =>
+      path.resolve(w.path) === path.resolve(homeDir) ||
+      w.metadata?.['isGlobal'] === true
+    );
+  }
+
+  /**
    * Get workspace name from path or config
    */
   private async getWorkspaceName(workspacePath: string): Promise<string> {
     // Try to read from xec config
     try {
-      const configPath = path.join(workspacePath, '.xec', 'config.yaml');
+      const configPath = path.join(workspacePath, '.xec', 'config.json');
       const content = await fs.readFile(configPath, 'utf8');
       const config = JSON.parse(content);
       if (config.name) {
         return config.name;
       }
     } catch {
-      // Fallback to directory name
+      // Try YAML config as fallback
+      try {
+        const configPath = path.join(workspacePath, '.xec', 'config.yaml');
+        const content = await fs.readFile(configPath, 'utf8');
+        // Basic YAML parsing for name field
+        const nameMatch = content?.match(/^name:\s*(.+)$/m);
+        if (nameMatch && nameMatch[1]) {
+          return nameMatch[1].trim().replace(/^["']|["']$/g, '');
+        }
+      } catch {
+        // Фолбэк к имени директории
+      }
     }
 
     return path.basename(workspacePath);

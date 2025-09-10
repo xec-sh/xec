@@ -120,6 +120,9 @@ export class ComponentRegistry implements IComponentRegistry {
 
     // ScrollBox component
     this.register('scroll-box', (ctx, props: any) => new ScrollBoxComponent(ctx, props));
+
+    // Note: Functional components are now handled directly in the reactive bridge
+    // without creating a wrapper component, for better performance
   }
 
   /**

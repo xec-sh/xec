@@ -1,5 +1,5 @@
 /**
- * Aura Next - Hooks
+ * Aura Hooks
  * Reusable logic patterns for Aura components
  */
 

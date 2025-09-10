@@ -9,7 +9,7 @@ import {
   type Renderer,
   createRenderer,
   SelectComponent,
-  RenderableEvents,
+  ComponentEvents,
   type SelectOption,
   SelectComponentEvents,
 } from "../src/index"
@@ -163,11 +163,11 @@ export function run(rendererInstance: Renderer): void {
     }, 1000)
   })
 
-  selectElement.on(RenderableEvents.FOCUSED, () => {
+  selectElement.on(ComponentEvents.FOCUSED, () => {
     updateDisplays()
   })
 
-  selectElement.on(RenderableEvents.BLURRED, () => {
+  selectElement.on(ComponentEvents.BLURRED, () => {
     updateDisplays()
   })
 

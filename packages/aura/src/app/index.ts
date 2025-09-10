@@ -31,11 +31,17 @@ export * from './control-flow.js';
 // Reactive system bridge
 export * from './reactive-bridge.js';
 
+// Global lifecycle manager for graceful shutdown
+export * from './lifecycle-manager.js';
+
 // Screen dimensions reactive utilities
 export * from './screen-dimensions.js';
 
 // Component registry for extensibility (class implementation)
 export * from './component-registry.js';
+
+// Hierarchical focus management system
+export * from './hierarchical-focus-manager.js';
 
 // Type definitions and guards (excluding ComponentRegistry interface to avoid conflict)
 export {
