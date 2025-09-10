@@ -5,11 +5,15 @@
 
 import type { WritableSignal } from 'vibrancy';
 
+import {
+  type SmartChild,
+  normalizeChildren
+} from './smart-children.js';
+
 import type {
   AuraElement,
   ComponentType,
   ComponentProps,
-  AnyAuraElement,
   ComponentInstance
 } from './types.js';
 
@@ -22,7 +26,7 @@ interface SpecialProps<T extends ComponentType> {
   onMount?: () => void | (() => void);
   onCleanup?: () => void;
   onUpdate?: () => void;
-  children?: AnyAuraElement | AnyAuraElement[];
+  children?: SmartChild | SmartChild[];
 }
 
 /**
@@ -44,13 +48,14 @@ export type AuraProps<T extends ComponentType> = ComponentProps<T> & SpecialProp
 export function aura<T extends ComponentType>(
   type: T,
   props?: AuraProps<T>,
-  ...children: AnyAuraElement[]
+  ...children: SmartChild[]
 ): AuraElement<T> {
   if (!props) {
+    const processedChildren = normalizeChildren(undefined, ...children);
     return {
       type,
       props: {} as ComponentProps<T>,
-      children: children.length > 0 ? children : undefined
+      children: processedChildren.length > 0 ? processedChildren : undefined
     };
   }
 
@@ -65,22 +70,13 @@ export function aura<T extends ComponentType>(
     ...componentProps
   } = props;
 
-  // Merge children from props and arguments
-  const allChildren: AnyAuraElement[] = [];
-
-  if (propsChildren) {
-    const childArray = Array.isArray(propsChildren) ? propsChildren : [propsChildren];
-    allChildren.push(...childArray);
-  }
-
-  if (children.length > 0) {
-    allChildren.push(...children);
-  }
+  // Process and merge all children using smart handling
+  const processedChildren = normalizeChildren(propsChildren, ...children);
 
   return {
     type,
     props: componentProps as ComponentProps<T>,
-    children: allChildren.length > 0 ? allChildren : undefined,
+    children: processedChildren.length > 0 ? processedChildren : undefined,
     key,
     ref,
     onMount,
@@ -94,7 +90,7 @@ export function aura<T extends ComponentType>(
 /**
  * Create a Box layout component
  */
-export function Box(props?: AuraProps<'box'>, ...children: AnyAuraElement[]) {
+export function Box(props?: AuraProps<'box'>, ...children: SmartChild[]) {
   return aura('box', props, ...children);
 }
 
@@ -110,7 +106,7 @@ export function Text(props?: AuraProps<'text'>) {
  */
 export function VStack(
   props?: Omit<AuraProps<'box'>, 'flexDirection'>,
-  ...children: AnyAuraElement[]
+  ...children: SmartChild[]
 ) {
   const stackProps: AuraProps<'box'> = {
     ...props,
@@ -124,7 +120,7 @@ export function VStack(
  */
 export function HStack(
   props?: Omit<AuraProps<'box'>, 'flexDirection'>,
-  ...children: AnyAuraElement[]
+  ...children: SmartChild[]
 ) {
   const stackProps: AuraProps<'box'> = {
     ...props,
@@ -136,7 +132,7 @@ export function HStack(
 /**
  * Create a centered container
  */
-export function Center(props?: AuraProps<'box'>, ...children: AnyAuraElement[]) {
+export function Center(props?: AuraProps<'box'>, ...children: SmartChild[]) {
   const centerProps: AuraProps<'box'> = {
     ...props,
     alignItems: 'center',
@@ -197,6 +193,6 @@ export function ScrollBar(props?: AuraProps<'scroll-bar'>) {
 /**
  * Create a ScrollBox component
  */
-export function ScrollBox(props?: AuraProps<'scroll-box'>, ...children: AnyAuraElement[]) {
+export function ScrollBox(props?: AuraProps<'scroll-box'>, ...children: SmartChild[]) {
   return aura('scroll-box', props, ...children);
 }

@@ -50,9 +50,8 @@ export function FileBrowserComponent(initialPath?: string) {
   const tableRef = signal<TableComponent | null>(null);
 
   // Load files for current directory
-  const loadFiles = async () => {
+  const loadFiles = async (dirPath: string) => {
     try {
-      const dirPath = currentPath();
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
       const fileInfos: FileInfo[] = await Promise.all(
@@ -95,15 +94,8 @@ export function FileBrowserComponent(initialPath?: string) {
     }
   };
 
-  // Initial load
   effect(() => {
-    loadFiles();
-  });
-
-  // Reload when path changes
-  effect(() => {
-    const newPath = currentPath();
-    loadFiles();
+    loadFiles(currentPath());
   });
 
   // Filtered files based on filter input
@@ -335,14 +327,8 @@ export function FileBrowserComponent(initialPath?: string) {
 
     // Filter input row (conditionally visible)
     showFilterInput() ?
-      Box({
-        height: 1,
-        padding: 1,
-      },
-        Text({
-          content: '🔍 ',
-          fg: 'muted'
-        }),
+      Box({ height: 1, padding: 1, },
+        Text({ content: '🔍 ', fg: 'muted' }),
         Input({
           value: filter,
           placeholder: 'Filter files...',
@@ -398,16 +384,8 @@ export function FileBrowserComponent(initialPath?: string) {
     }),
 
     // Status bar
-    Box({
-      alignItems: 'center',
-    },
-      Text({
-        content: statusText,
-        fg: 'description',
-        selectable: false
-      })
+    Box({ alignItems: 'center', },
+      Text({ content: statusText, fg: 'description', selectable: false })
     )
   );
 }
-
-export default FileBrowserComponent;

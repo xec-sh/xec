@@ -62,7 +62,8 @@ export type ComponentType =
   | 'frame-buffer'
   | 'ascii-font'
   | 'scroll-bar'
-  | 'scroll-box';
+  | 'scroll-box'
+  | 'functional';
 
 // Props type mapping for each component
 export type ComponentPropsMap = {
@@ -76,6 +77,7 @@ export type ComponentPropsMap = {
   'ascii-font': ReactiveProps<ASCIIFontProps>;
   'scroll-bar': ReactiveProps<ScrollBarProps>;
   'scroll-box': ReactiveProps<ScrollBoxProps>;
+  'functional': { fn: () => AnyAuraElement | AnyAuraElement[] | null | undefined; id?: string; visible?: boolean; };
 };
 
 // Component instance mapping
@@ -90,6 +92,7 @@ export type ComponentInstanceMap = {
   'ascii-font': ASCIIFontComponent;
   'scroll-bar': ScrollBarComponent;
   'scroll-box': ScrollBoxComponent;
+  'functional': never; // Functional components don't have instances
 };
 
 // Make props reactive - any prop can be a signal
@@ -140,7 +143,8 @@ export type AnyAuraElement =
   | AuraElement<'frame-buffer'>
   | AuraElement<'ascii-font'>
   | AuraElement<'scroll-bar'>
-  | AuraElement<'scroll-box'>;
+  | AuraElement<'scroll-box'>
+  | AuraElement<'functional'>;
 
 // Control flow helpers
 export interface ShowOptions<T> {

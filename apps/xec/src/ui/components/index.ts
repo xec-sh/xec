@@ -1,1 +1,1 @@
-export { FileBrowserComponent, default as FileBrowser } from './file-browser.js';
+export { FileBrowserComponent } from './file-browser.js';

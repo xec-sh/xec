@@ -10,7 +10,7 @@ import {
   TabsComponent,
   createRenderer,
   type TabsOption,
-  RenderableEvents,
+  ComponentEvents,
   TabsComponentEvents,
 } from "../src/index.js"
 
@@ -152,11 +152,11 @@ export function run(rendererInstance: Renderer): void {
     updateDisplays()
   })
 
-  tabSelect.on(RenderableEvents.FOCUSED, () => {
+  tabSelect.on(ComponentEvents.FOCUSED, () => {
     updateDisplays()
   })
 
-  tabSelect.on(RenderableEvents.BLURRED, () => {
+  tabSelect.on(ComponentEvents.BLURRED, () => {
     updateDisplays()
   })
 

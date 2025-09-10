@@ -1,7 +1,7 @@
 import { OptimizedBuffer } from "../../src/renderer/buffer.js"
 import { parseColor, type Color } from "../../src/lib/colors.js"
 import { TabsComponent, TabsComponentEvents } from "../../src/components/tabs.js"
-import { Component, RenderableEvents, type ComponentProps } from "../../src/component.js"
+import { Component, ComponentEvents, type ComponentProps } from "../../src/component.js"
 import { BoxComponent, type Renderer, type TabsOption, type RenderContext } from "../../src/index.js"
 
 export interface TabObject {
@@ -192,12 +192,12 @@ export class TabControllerRenderable extends Component {
 
   public focus(): void {
     this.tabSelectElement.focus()
-    this.emit(RenderableEvents.FOCUSED)
+    this.emit(ComponentEvents.FOCUSED)
   }
 
   public blur(): void {
     this.tabSelectElement.blur()
-    this.emit(RenderableEvents.BLURRED)
+    this.emit(ComponentEvents.BLURRED)
   }
 
   public get focused(): boolean {

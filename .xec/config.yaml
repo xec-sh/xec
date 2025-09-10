@@ -1,4 +1,6 @@
 version: '1.0'
+name: Xec
+description: Modern, type-safe command execution system built with TypeScript
 targets:
   local:
     type: local
@@ -47,8 +49,6 @@ commands:
     delete: false
     exclude: []
     dryRun: false
-name: XEC
-description: My test project
 secrets:
   provider: env
 vars: {}
