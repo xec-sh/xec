@@ -29,14 +29,8 @@ const wrapWithFormat = (message: string, width: number, format: FormatFn): strin
     trim: false,
   };
   const wrapMsg = wrapAnsi(message, width, opts).split('\n');
-  const maxWidthNormal = wrapMsg.reduce(
-    (sum: number, ln: string) => Math.max(stringWidth(ln), sum),
-    0
-  );
-  const formatFn = format ?? ((line: string) => line);
-  const maxWidthFormat = wrapMsg
-    .map(formatFn)
-    .reduce((sum: number, ln: string) => Math.max(stringWidth(ln), sum), 0);
+  const maxWidthNormal = wrapMsg.reduce((sum, ln) => Math.max(stringWidth(ln), sum), 0);
+  const maxWidthFormat = wrapMsg.map(format).reduce((sum, ln) => Math.max(stringWidth(ln), sum), 0);
   const wrapWidth = width - (maxWidthFormat - maxWidthNormal);
   return wrapAnsi(message, wrapWidth, opts);
 };

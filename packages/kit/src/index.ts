@@ -26,8 +26,6 @@ export * from './prompts/autocomplete.js';
 export * from './components/progress-bar.js';
 export * from './utilities/limit-options.js';
 export * from './prompts/group-multi-select.js';
-// Export prism color system
-export { default as prism } from './prism/index.js';
 
 // Export core functionality
 export { isCancel, settings, updateSettings, type ClackSettings } from './core/index.js';

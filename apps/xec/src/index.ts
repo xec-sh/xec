@@ -53,6 +53,7 @@ export {
   csv,
   pwd,
   log,
+  kit,
   echo,
   exit,
   kill,
@@ -62,19 +63,14 @@ export {
   retry,
   quote,
   prism,
-  select,
   within,
   setEnv,
   tmpdir,
   spinner,
-  confirm,
   tmpfile,
   loadEnv,
-  question,
-  password,
   template,
   parseArgs,
-  multiselect,
 } from './utils/script-utils.js';
 
 // ========================================
