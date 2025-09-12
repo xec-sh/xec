@@ -17,6 +17,7 @@ const semver = await use('npm:semver@7');
 const PACKAGES = [
   { name: '@xec-sh/core', path: 'packages/core' },
   { name: '@xec-sh/cli', path: 'apps/xec' },
+  { name: '@xec-sh/kit', path: 'packages/kit' },
 ];
 
 // Release configuration

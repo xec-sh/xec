@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/kit",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "description": "TypeScript library for building beautiful command-line interfaces",
   "type": "module",
   "main": "./dist/index.js",
@@ -63,8 +63,8 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^24.0.13",
-    "memfs": "^4.17.2",
+    "@types/node": "24.3.1",
+    "memfs": "4.38.1",
     "prettier": "^3.6.2",
     "tui-tester": "^0.3.0",
     "typescript": "^5.9.2",

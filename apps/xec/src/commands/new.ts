@@ -1230,53 +1230,100 @@ function validateName(name: string, type: ArtifactType): string | undefined {
 }
 
 async function createProject(name: string, options: NewOptions) {
-  const targetDir = path.resolve(name);
-  const xecDir = path.join(targetDir, '.xec');
-
-  // Extract the description from desc option
-  const description = options.desc;
-
-  // Check if directory exists
-  if (fs.existsSync(targetDir) && !options.force) {
-    const files = await fs.readdir(targetDir);
-    if (files.length > 0) {
+  // Check if we're initializing in the current directory (when name is '.' or empty)
+  const isCurrentDir = !name || name === '.';
+  
+  // Check if current directory has a package.json
+  const currentPackageJsonPath = path.join(process.cwd(), 'package.json');
+  const hasPackageJson = fs.existsSync(currentPackageJsonPath);
+  
+  let targetDir: string;
+  let projectName: string;
+  let projectDescription: string;
+  
+  if (isCurrentDir || hasPackageJson) {
+    // Initialize in current directory
+    targetDir = process.cwd();
+    
+    // If package.json exists, read project info from it
+    if (hasPackageJson) {
+      const packageJson = await fs.readJson(currentPackageJsonPath);
+      projectName = packageJson.name || path.basename(targetDir);
+      projectDescription = options.desc || packageJson.description || 'An Xec automation project';
+      
+      log.info(prism.dim(`Found existing Node.js project: ${projectName}`));
+    } else {
+      projectName = path.basename(targetDir);
+      projectDescription = options.desc || 'An Xec automation project';
+    }
+    
+    // Check if .xec already exists
+    const xecDir = path.join(targetDir, '.xec');
+    if (fs.existsSync(xecDir) && !options.force) {
       // In non-interactive mode, fail
       if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
-        throw new Error(`Directory ${name} is not empty. Use --force to overwrite.`);
+        throw new Error('Xec is already initialized in this directory. Use --force to reinitialize.');
       }
 
       const shouldContinue = await confirm({
-        message: `Directory ${name} is not empty. Continue?`,
+        message: 'Xec is already initialized in this directory. Reinitialize?',
         initialValue: false
       });
 
       if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
-        log.info('Project creation cancelled');
+        log.info('Initialization cancelled');
         return;
       }
     }
-  }
+  } else {
+    // Create new directory for the project (old behavior)
+    targetDir = path.resolve(name);
+    projectName = path.basename(name);
+    
+    // Check if directory exists
+    if (fs.existsSync(targetDir) && !options.force) {
+      const files = await fs.readdir(targetDir);
+      if (files.length > 0) {
+        // In non-interactive mode, fail
+        if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+          throw new Error(`Directory ${name} is not empty. Use --force to overwrite.`);
+        }
 
-  // Get project description
-  let projectDescription = description;
+        const shouldContinue = await confirm({
+          message: `Directory ${name} is not empty. Continue?`,
+          initialValue: false
+        });
 
-  if (!projectDescription) {
-    // In non-interactive mode (CI), use default
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
-      projectDescription = 'An Xec automation project';
-    } else {
-      const result = await text({
-        message: 'Project description:',
-        defaultValue: 'An Xec automation project'
-      });
-
-      if (InteractiveHelpers.isCancelled(result)) {
-        throw new Error('cancelled');
+        if (InteractiveHelpers.isCancelled(shouldContinue) || !shouldContinue) {
+          log.info('Project creation cancelled');
+          return;
+        }
       }
+    }
+    
+    // Get project description
+    projectDescription = options.desc || '';
+    
+    if (!projectDescription) {
+      // In non-interactive mode (CI), use default
+      if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+        projectDescription = 'An Xec automation project';
+      } else {
+        const result = await text({
+          message: 'Project description:',
+          defaultValue: 'An Xec automation project'
+        });
 
-      projectDescription = result as string || 'An Xec automation project';
+        if (InteractiveHelpers.isCancelled(result)) {
+          throw new Error('cancelled');
+        }
+
+        projectDescription = result as string || 'An Xec automation project';
+      }
     }
   }
+  
+  const xecDir = path.join(targetDir, '.xec');
 
   const s = spinner();
   s.start('Creating project structure...');
@@ -1288,7 +1335,7 @@ async function createProject(name: string, options: NewOptions) {
   const defaultConfig = getDefaultConfig();
   const config = {
     ...defaultConfig,
-    name: path.basename(name),
+    name: projectName,
     description: projectDescription || 'An Xec automation project'
   };
 
@@ -1534,11 +1581,12 @@ Edit \`.xec/config.yaml\` to:
     await fs.ensureDir(path.join(xecDir, dir));
   }
 
-  // Create package.json for non-minimal projects
-  if (!options.minimal) {
+  // Create or update package.json for non-minimal projects
+  if (!options.minimal && !hasPackageJson) {
+    // Only create package.json if it doesn't exist
     const packageJsonPath = path.join(targetDir, 'package.json');
     const packageJson = {
-      name: path.basename(name),
+      name: projectName,
       description: projectDescription || '',
       type: 'module',
       devDependencies: {
@@ -1584,7 +1632,12 @@ Edit \`.xec/config.yaml\` to:
 
   // Show next steps
   log.info('\nNext steps:');
-  log.info(`  ${prism.cyan('cd')} ${name}`);
+  
+  // Only show cd command if we created a new directory
+  if (!isCurrentDir && !hasPackageJson) {
+    log.info(`  ${prism.cyan('cd')} ${name}`);
+  }
+  
   if (!options.minimal) {
     log.info(`  ${prism.cyan('xec')} scripts/example.ts`);
     log.info(`  ${prism.cyan('xec')} hello World`);
@@ -2096,9 +2149,9 @@ export class NewCommand extends BaseCommand {
   constructor() {
     super({
       name: 'new',
-      description: 'Create a new Xec artifact (project, script, command, task, profile, or extension)',
+      description: 'Initialize Xec in existing project or create new artifacts',
       arguments: '[type] [name]',
-      aliases: ['n'],
+      aliases: ['n', 'init'],
       options: [
         {
           flags: '-d, --desc <desc>',
@@ -2140,11 +2193,15 @@ export class NewCommand extends BaseCommand {
       examples: [
         {
           command: 'xec new',
-          description: 'Interactive mode to create any artifact'
+          description: 'Interactive mode - detects existing projects automatically'
+        },
+        {
+          command: 'xec new project',
+          description: 'Initialize Xec in current directory'
         },
         {
           command: 'xec new project my-app',
-          description: 'Create a new Xec project'
+          description: 'Create a new Xec project in my-app directory'
         },
         {
           command: 'xec new script deploy',
@@ -2178,25 +2235,74 @@ export class NewCommand extends BaseCommand {
       // Set up cancel handlers for interactive mode
       InteractiveHelpers.setupCancelHandlers();
 
-      intro(prism.bold('🎨 Create new Xec artifact'));
-
-      // Determine artifact type
+      // Check if we're in an existing Node.js project without arguments
+      const currentPackageJsonPath = path.join(process.cwd(), 'package.json');
+      const hasPackageJson = fs.existsSync(currentPackageJsonPath);
+      const xecDir = path.join(process.cwd(), '.xec');
+      const hasXecConfig = fs.existsSync(xecDir);
+      
       let artifactType: ArtifactType;
-      if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
-        artifactType = type as ArtifactType;
-      } else if (type && !name) {
-        // If only one argument provided and it's not a valid type, treat it as name for project
-        artifactType = 'project';
-        // @ts-ignore - reassigning parameter
-        args[1] = type;
+      let artifactName: string | undefined;
+      
+      // If no arguments and we have package.json but no .xec, suggest initialization
+      if (!type && hasPackageJson && !hasXecConfig) {
+        const packageJson = await fs.readJson(currentPackageJsonPath);
+        
+        intro(prism.bold('🎯 Initialize Xec in existing project'));
+        log.info(prism.dim(`Found Node.js project: ${packageJson.name}`));
+        
+        const shouldInit = await confirm({
+          message: 'Initialize Xec in this project?',
+          initialValue: true
+        });
+        
+        if (InteractiveHelpers.isCancelled(shouldInit) || !shouldInit) {
+          // Fall back to regular artifact selection
+          artifactType = await getArtifactType();
+        } else {
+          artifactType = 'project';
+          artifactName = '.'; // Current directory
+        }
       } else {
-        artifactType = await getArtifactType();
+        intro(prism.bold('🎨 Create new Xec artifact'));
+        
+        // Determine artifact type
+        if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
+          artifactType = type as ArtifactType;
+        } else if (type && !name) {
+          // If only one argument provided and it's not a valid type, treat it as name for project
+          artifactType = 'project';
+          // @ts-ignore - reassigning parameter
+          args[1] = type;
+        } else {
+          artifactType = await getArtifactType();
+        }
       }
 
-      // Get name if not provided
-      let artifactName = name || args[1];
+      // Get name if not provided (only if not already set)
       if (!artifactName) {
-        const defaultName = artifactType === 'project' ? 'my-xec-project' : `my-${artifactType}`;
+        artifactName = name || args[1];
+      }
+      
+      // Special handling for 'xec new project' without name - initialize in current directory
+      if (artifactType === 'project' && !artifactName) {
+        // Check if we're already in a project directory
+        if (hasPackageJson || fs.existsSync(process.cwd())) {
+          artifactName = '.'; // Use current directory
+        } else {
+          // Ask for project name if creating new directory
+          artifactName = await text({
+            message: 'Project name:',
+            defaultValue: 'my-xec-project',
+            validate: (value) => validateName(value || '', artifactType)
+          }) as string;
+
+          if (InteractiveHelpers.isCancelled(artifactName)) {
+            throw new Error('cancelled');
+          }
+        }
+      } else if (!artifactName) {
+        const defaultName = `my-${artifactType}`;
         artifactName = await text({
           message: `${artifactType.charAt(0).toUpperCase() + artifactType.slice(1)} name:`,
           defaultValue: defaultName,
@@ -2206,8 +2312,8 @@ export class NewCommand extends BaseCommand {
         if (InteractiveHelpers.isCancelled(artifactName)) {
           throw new Error('cancelled');
         }
-      } else {
-        // Validate provided name
+      } else if (artifactName !== '.') {
+        // Validate provided name (skip validation for current directory)
         const error = validateName(artifactName, artifactType);
         if (error) {
           log.error(error);
