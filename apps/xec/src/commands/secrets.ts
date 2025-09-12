@@ -25,28 +25,28 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Create command with subcommands
    */
   override create(): Command {
-    const command = new Command(this.config.name)
+    const cmd = new Command(this.config.name)
       .description(this.config.description);
 
     // Add aliases
     if (this.config.aliases) {
-      this.config.aliases.forEach(alias => command.alias(alias));
+      this.config.aliases.forEach(alias => cmd.alias(alias));
     }
 
     // Set up action for when no subcommand is provided
-    command.action(async () => {
+    cmd.action(async () => {
       await this.execute([]);
     });
 
     // Set up subcommands
-    this.setupSubcommands(command);
+    this.setupSubcommands(cmd);
 
-    return command;
+    return cmd;
   }
 
-  private setupSubcommands(command: Command): void {
+  private setupSubcommands(cmd: Command): void {
     // Set a secret
-    command
+    cmd
       .command('set <key>')
       .description('Set a secret value')
       .option('-v, --value <value>', 'Secret value (prompt if not provided)')
@@ -57,7 +57,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
 
     // Get a secret
-    command
+    cmd
       .command('get <key>')
       .description('Get a secret value')
       .action(async (key: string) => {
@@ -67,7 +67,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
 
     // List secrets
-    command
+    cmd
       .command('list')
       .alias('ls')
       .description('List all secret keys')
@@ -78,7 +78,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
 
     // Delete a secret
-    command
+    cmd
       .command('delete <key>')
       .alias('rm')
       .description('Delete a secret')
@@ -90,7 +90,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
 
     // Generate a secret
-    command
+    cmd
       .command('generate <key>')
       .description('Generate a random secret')
       .option('-l, --length <length>', 'Secret length', '32')
@@ -102,7 +102,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
 
     // Export secrets (dangerous!)
-    command
+    cmd
       .command('export')
       .description('Export all secrets (WARNING: outputs plain text)')
       .option('-f, --format <format>', 'Output format (json, env)', 'json')
@@ -114,7 +114,7 @@ export class SecretsCommand extends ConfigAwareCommand {
       });
 
     // Import secrets
-    command
+    cmd
       .command('import')
       .description('Import secrets from JSON or env format')
       .option('-f, --file <file>', 'Input file (or stdin if not provided)')
@@ -405,8 +405,8 @@ export class SecretsCommand extends ConfigAwareCommand {
       // Prompt for value if not provided
       const input = await password({
         message: `Enter value for secret '${key}':`,
-        validate: (input) => {
-          if (!input || input.length === 0) {
+        validate: (input_) => {
+          if (!input_ || input_.length === 0) {
             return 'Secret value cannot be empty';
           }
           return undefined;
@@ -465,10 +465,9 @@ export class SecretsCommand extends ConfigAwareCommand {
 
     try {
       const keys = await manager.list();
-      s.stop();
+      s.stop(keys.length === 0 ? 'No secrets found' : undefined);
 
       if (keys.length === 0) {
-        log.info('No secrets found');
         return;
       }
 
@@ -655,7 +654,7 @@ export class SecretsCommand extends ConfigAwareCommand {
 
 // Export command registration function
 export default function command(program: Command): void {
-  const command = new SecretsCommand();
-  const secretsCmd = command.create();
+  const cmd = new SecretsCommand();
+  const secretsCmd = cmd.create();
   program.addCommand(secretsCmd);
 }

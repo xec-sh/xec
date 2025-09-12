@@ -1,4 +1,5 @@
 import { EnvSecretProvider } from './providers/env.js';
+import { GitSecretProvider } from './providers/git.js';
 import { LocalSecretProvider } from './providers/local.js';
 import { SecretError, SecretProvider, SecretProviderConfig } from './types.js';
 
@@ -9,7 +10,7 @@ export class SecretManager {
   private provider: SecretProvider;
   private config: SecretProviderConfig;
   private initialized = false;
-  
+
   constructor(config?: SecretProviderConfig) {
     this.config = config || { type: 'local' };
     this.provider = this.createProvider();
@@ -23,7 +24,7 @@ export class SecretManager {
     await this.provider.initialize();
     this.initialized = true;
   }
-  
+
   /**
    * Ensure the provider is initialized
    */
@@ -114,13 +115,13 @@ export class SecretManager {
    */
   async getMany(keys: string[]): Promise<Record<string, string | null>> {
     const results: Record<string, string | null> = {};
-    
+
     await Promise.all(
       keys.map(async (key) => {
         results[key] = await this.get(key);
       })
     );
-    
+
     return results;
   }
 
@@ -156,7 +157,7 @@ export class SecretManager {
   getProviderType(): string {
     return this.config.type;
   }
-  
+
   /**
    * Update the secret provider
    */
@@ -174,10 +175,13 @@ export class SecretManager {
     switch (this.config.type) {
       case 'local':
         return new LocalSecretProvider(this.config.config);
-      
+
       case 'env':
         return new EnvSecretProvider(this.config.config);
-      
+
+      case 'git':
+        return new GitSecretProvider(this.config.config);
+
       case 'vault':
       case 'aws-secrets':
       case '1password':
@@ -185,7 +189,7 @@ export class SecretManager {
           `Provider '${this.config.type}' not yet implemented`,
           'PROVIDER_NOT_IMPLEMENTED'
         );
-      
+
       default:
         throw new SecretError(
           `Unknown secret provider type: ${this.config.type}`,
@@ -204,16 +208,16 @@ export class SecretManager {
         'INVALID_KEY'
       );
     }
-    
+
     // Key should be alphanumeric with underscores, dashes, and dots
-    if (!/^[a-zA-Z0-9_\-\.]+$/.test(key)) {
+    if (!/^[a-zA-Z0-9_\-.]+$/.test(key)) {
       throw new SecretError(
         'Secret key must contain only alphanumeric characters, underscores, dashes, and dots',
         'INVALID_KEY_FORMAT',
         key
       );
     }
-    
+
     // Key length limits
     if (key.length > 256) {
       throw new SecretError(
@@ -234,14 +238,14 @@ export class SecretManager {
         'INVALID_VALUE'
       );
     }
-    
+
     if (value.length === 0) {
       throw new SecretError(
         'Secret value cannot be empty',
         'EMPTY_VALUE'
       );
     }
-    
+
     // Value size limit (64KB for testing)
     if (value.length > 64 * 1024) {
       throw new SecretError(
