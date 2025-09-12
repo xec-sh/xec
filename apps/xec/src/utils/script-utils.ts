@@ -4,8 +4,8 @@ import which from 'which';
 import fs from 'fs-extra';
 import { glob } from 'glob';
 import fetch from 'node-fetch';
+import * as kit from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
-import { prism, log as kitLog, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, password as kitPassword, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 // Re-export USH $ with enhanced features
 export const $ = xecDollar;
@@ -44,27 +44,27 @@ export const echo = Object.assign(
   },
   {
     info: (message: string) => {
-      kitLog.info(message);
+      kit.log.info(message);
     },
     success: (message: string) => {
-      kitLog.success(message);
+      kit.log.success(message);
     },
     warning: (message: string) => {
-      kitLog.warning(message);
+      kit.log.warning(message);
     },
     error: (message: string) => {
-      kitLog.error(message);
+      kit.log.error(message);
     },
-    debug: (message: string) => console.log(prism.gray(`[DEBUG] ${message}`)),
+    debug: (message: string) => console.log(kit.prism.gray(`[DEBUG] ${message}`)),
     step: (message: string) => {
-      kitLog.step(message);
+      kit.log.step(message);
     },
   }
 );
 
 // Spinner utility
 export function spinner(options?: string | { text?: string; color?: string }) {
-  const s = kitSpinner();
+  const s = kit.spinner();
   const message = typeof options === 'string' ? options : options?.text;
   if (message) {
     s.start(message);
@@ -73,11 +73,11 @@ export function spinner(options?: string | { text?: string; color?: string }) {
 }
 
 // Question/prompt utilities
-export const question = kitText;
-export const confirm = kitConfirm;
-export const select = kitSelect;
-export const multiselect = kitMultiselect;
-export const password = kitPassword;
+// export const question = kitText;
+// export const confirm = kitConfirm;
+// export const select = kitSelect;
+// export const multiselect = kitMultiselect;
+// export const password = kitPassword;
 
 // File system utilities
 export { os, path };
@@ -241,24 +241,24 @@ export async function within<T>(
 // Logging utilities
 export const log = {
   info: (message: string) => {
-    kitLog.info(message);
+    kit.log.info(message);
   },
   success: (message: string) => {
-    kitLog.success(message);
+    kit.log.success(message);
   },
   warning: (message: string) => {
-    kitLog.warning(message);
+    kit.log.warning(message);
   },
   error: (message: string) => {
-    kitLog.error(message);
+    kit.log.error(message);
   },
   step: (message: string) => {
-    kitLog.step(message);
+    kit.log.step(message);
   },
 };
 
 // Color utilities
-export { prism };
+export const prism: typeof kit.prism = kit.prism;
 
 // Export all utilities as default
 const scriptUtils: any = {
@@ -267,11 +267,8 @@ const scriptUtils: any = {
   pwd,
   echo,
   spinner,
-  question,
-  confirm,
-  select,
-  multiselect,
-  password,
+  kit,
+  prism: kit.prism,
   fs,
   glob,
   path,
@@ -296,7 +293,9 @@ const scriptUtils: any = {
   ps,
   within,
   log,
-  prism
 };
+
+// Export kit as named export
+export { kit };
 
 export default scriptUtils;

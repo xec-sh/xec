@@ -79,24 +79,16 @@ declare global {
   const sleep: typeof import('./utils/script-utils.js').sleep;
   const retry: typeof import('./utils/script-utils.js').retry;
   const quote: typeof import('./utils/script-utils.js').quote;
+  const kit: typeof import('./utils/script-utils.js').kit;
   const prism: typeof import('./utils/script-utils.js').prism;
-  // Alias for backward compatibility
-  const select: typeof import('./utils/script-utils.js').select;
   const within: typeof import('./utils/script-utils.js').within;
   const setEnv: typeof import('./utils/script-utils.js').setEnv;
   const tmpdir: typeof import('./utils/script-utils.js').tmpdir;
   const spinner: typeof import('./utils/script-utils.js').spinner;
-  // Renamed to avoid conflict with global confirm
-  const xecConfirm: typeof import('./utils/script-utils.js').confirm;
   const tmpfile: typeof import('./utils/script-utils.js').tmpfile;
   const loadEnv: typeof import('./utils/script-utils.js').loadEnv;
-  const question: typeof import('./utils/script-utils.js').question;
-  const password: typeof import('./utils/script-utils.js').password;
   const template: typeof import('./utils/script-utils.js').template;
   const parseArgs: typeof import('./utils/script-utils.js').parseArgs;
-  const multiselect: typeof import('./utils/script-utils.js').multiselect;
-
-  // Additional utilities from script-utils
   const fs: typeof import('./utils/script-utils.js').fs;
   const os: typeof import('./utils/script-utils.js').os;
   const glob: typeof import('./utils/script-utils.js').glob;

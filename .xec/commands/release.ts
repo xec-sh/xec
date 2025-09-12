@@ -4,8 +4,6 @@ import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const kit = await import('@xec-sh/kit');
-
 // Note: prism is available globally in xec scripts (from script context)
 // If not available, fallback to kit.prism
 const prism = (globalThis as any).prism || kit.prism;

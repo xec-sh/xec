@@ -80,13 +80,13 @@ const files = await glob('**/*.ts');
 log.step(\`Found \${files.length} TypeScript files\`);
 
 // Interactive prompts with type inference
-const name = await question({
+const qName = await question({
   message: 'What is your name?',
   defaultValue: 'Developer'
 });
 
 // Use chalk for colored output
-log.info(prism.blue(\`Hello, \${name}!\`));
+log.info(prism.blue(\`Hello, \${qName}!\`));
 
 // Example: Fetch data from API
 interface GitHubRepo {
@@ -1232,31 +1232,31 @@ function validateName(name: string, type: ArtifactType): string | undefined {
 async function createProject(name: string, options: NewOptions) {
   // Check if we're initializing in the current directory (when name is '.' or empty)
   const isCurrentDir = !name || name === '.';
-  
+
   // Check if current directory has a package.json
   const currentPackageJsonPath = path.join(process.cwd(), 'package.json');
   const hasPackageJson = fs.existsSync(currentPackageJsonPath);
-  
+
   let targetDir: string;
   let projectName: string;
   let projectDescription: string;
-  
+
   if (isCurrentDir || hasPackageJson) {
     // Initialize in current directory
     targetDir = process.cwd();
-    
+
     // If package.json exists, read project info from it
     if (hasPackageJson) {
       const packageJson = await fs.readJson(currentPackageJsonPath);
       projectName = packageJson.name || path.basename(targetDir);
       projectDescription = options.desc || packageJson.description || 'An Xec automation project';
-      
+
       log.info(prism.dim(`Found existing Node.js project: ${projectName}`));
     } else {
       projectName = path.basename(targetDir);
       projectDescription = options.desc || 'An Xec automation project';
     }
-    
+
     // Check if .xec already exists
     const xecDir = path.join(targetDir, '.xec');
     if (fs.existsSync(xecDir) && !options.force) {
@@ -1279,7 +1279,7 @@ async function createProject(name: string, options: NewOptions) {
     // Create new directory for the project (old behavior)
     targetDir = path.resolve(name);
     projectName = path.basename(name);
-    
+
     // Check if directory exists
     if (fs.existsSync(targetDir) && !options.force) {
       const files = await fs.readdir(targetDir);
@@ -1300,10 +1300,10 @@ async function createProject(name: string, options: NewOptions) {
         }
       }
     }
-    
+
     // Get project description
     projectDescription = options.desc || '';
-    
+
     if (!projectDescription) {
       // In non-interactive mode (CI), use default
       if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
@@ -1322,7 +1322,7 @@ async function createProject(name: string, options: NewOptions) {
       }
     }
   }
-  
+
   const xecDir = path.join(targetDir, '.xec');
 
   const s = spinner();
@@ -1528,8 +1528,13 @@ log.info('Done!');
     await fs.writeFile(exampleScriptPath, exampleScript);
     await fs.chmod(exampleScriptPath, '755');
 
-    // Create README.md
-    const readmeContent = `# ${config.name}
+    // Create or update README.md
+    const readmePath = path.join(targetDir, 'README.md');
+    const readmeExists = await fs.exists(readmePath);
+
+    if (!readmeExists) {
+      // Create new README.md
+      const readmeContent = `# ${config.name}
 
 ${config.description}
 
@@ -1572,7 +1577,50 @@ Edit \`.xec/config.yaml\` to:
 - [Configuration Reference](https://xec.sh/docs/config)
 - [Task System](https://xec.sh/docs/tasks)
 `;
-    await fs.writeFile(path.join(targetDir, 'README.md'), readmeContent);
+      await fs.writeFile(readmePath, readmeContent);
+      log.info(prism.green('✅ Created README.md'));
+    } else {
+      // Append Xec section to existing README if it doesn't already have it
+      const existingReadme = await fs.readFile(readmePath, 'utf8');
+
+      // Check if Xec section already exists
+      if (!existingReadme.includes('## Xec Automation')) {
+        const xecSection = `\n\n## Xec Automation
+
+This project has been initialized with Xec for automation tasks.
+
+### Getting Started with Xec
+
+1. Install Xec CLI globally:
+   \`\`\`bash
+   npm install -g @xec-sh/cli
+   \`\`\`
+
+2. Explore the project automation:
+   \`\`\`bash
+   xec inspect
+   \`\`\`
+
+3. Run the example task:
+   \`\`\`bash
+   xec tasks:run hello
+   \`\`\`
+
+### Xec Project Structure
+
+- \`.xec/config.yaml\` - Xec configuration
+- \`.xec/scripts/\` - Automation scripts
+- \`.xec/commands/\` - Custom CLI commands
+
+For more information, see [Xec Documentation](https://xec.sh/docs).
+`;
+
+        await fs.writeFile(readmePath, existingReadme + xecSection);
+        log.info(prism.green('✅ Added Xec section to existing README.md'));
+      } else {
+        log.info(prism.dim('README.md already contains Xec information'));
+      }
+    }
   }
 
   // Create additional directories
@@ -1632,12 +1680,12 @@ Edit \`.xec/config.yaml\` to:
 
   // Show next steps
   log.info('\nNext steps:');
-  
+
   // Only show cd command if we created a new directory
   if (!isCurrentDir && !hasPackageJson) {
     log.info(`  ${prism.cyan('cd')} ${name}`);
   }
-  
+
   if (!options.minimal) {
     log.info(`  ${prism.cyan('xec')} scripts/example.ts`);
     log.info(`  ${prism.cyan('xec')} hello World`);
@@ -1877,7 +1925,6 @@ async function createTask(name: string, options: NewOptions) {
     .replace(/{description}/g, String(taskDescription || ''));
 
   // Parse the task YAML
-  const yaml = await import('js-yaml');
   const taskConfig = yaml.load(taskYaml) as any;
 
   // Add to configuration
@@ -1940,7 +1987,6 @@ async function createProfile(name: string, options: NewOptions) {
     .replace(/{description}/g, String(profileDescription || ''));
 
   // Parse the profile YAML
-  const yaml = await import('js-yaml');
   const profileConfig = yaml.load(profileYaml) as any;
 
   // Add to configuration
@@ -2075,10 +2121,14 @@ tasks:
 `
     );
 
-    // README
-    await fs.writeFile(
-      path.join(targetDir, 'README.md'),
-      `# ${name}
+    // README - only create if it doesn't exist
+    const readmePath = path.join(targetDir, 'README.md');
+    const readmeExists = await fs.exists(readmePath);
+
+    if (!readmeExists) {
+      await fs.writeFile(
+        readmePath,
+        `# ${name}
 
 ${extensionDescription}
 
@@ -2112,7 +2162,11 @@ See \`extension.yaml\` for configuration options.
 - \`${name}:run\` - Main task
 - \`${name}:clean\` - Cleanup resources
 `
-    );
+      );
+      log.info(prism.green('✅ Created README.md'));
+    } else {
+      log.info(prism.dim('README.md already exists, skipping'));
+    }
   }
 
   // Create package.json for npm distribution
@@ -2219,7 +2273,8 @@ export class NewCommand extends BaseCommand {
     });
   }
 
-  public async execute(args: any[]): Promise<void> {
+  public async execute(args_: any[]): Promise<void> {
+    const args = [...args_];
     const [type, name] = args.slice(0, -1);
     const commandObject = args[args.length - 1];
 
@@ -2240,22 +2295,22 @@ export class NewCommand extends BaseCommand {
       const hasPackageJson = fs.existsSync(currentPackageJsonPath);
       const xecDir = path.join(process.cwd(), '.xec');
       const hasXecConfig = fs.existsSync(xecDir);
-      
+
       let artifactType: ArtifactType;
       let artifactName: string | undefined;
-      
+
       // If no arguments and we have package.json but no .xec, suggest initialization
       if (!type && hasPackageJson && !hasXecConfig) {
         const packageJson = await fs.readJson(currentPackageJsonPath);
-        
+
         intro(prism.bold('🎯 Initialize Xec in existing project'));
         log.info(prism.dim(`Found Node.js project: ${packageJson.name}`));
-        
+
         const shouldInit = await confirm({
           message: 'Initialize Xec in this project?',
           initialValue: true
         });
-        
+
         if (InteractiveHelpers.isCancelled(shouldInit) || !shouldInit) {
           // Fall back to regular artifact selection
           artifactType = await getArtifactType();
@@ -2265,14 +2320,13 @@ export class NewCommand extends BaseCommand {
         }
       } else {
         intro(prism.bold('🎨 Create new Xec artifact'));
-        
+
         // Determine artifact type
         if (type && ['project', 'script', 'command', 'task', 'profile', 'extension'].includes(type)) {
           artifactType = type as ArtifactType;
         } else if (type && !name) {
           // If only one argument provided and it's not a valid type, treat it as name for project
           artifactType = 'project';
-          // @ts-ignore - reassigning parameter
           args[1] = type;
         } else {
           artifactType = await getArtifactType();
@@ -2283,7 +2337,7 @@ export class NewCommand extends BaseCommand {
       if (!artifactName) {
         artifactName = name || args[1];
       }
-      
+
       // Special handling for 'xec new project' without name - initialize in current directory
       if (artifactType === 'project' && !artifactName) {
         // Check if we're already in a project directory
@@ -2357,12 +2411,12 @@ export class NewCommand extends BaseCommand {
 
 // Export for backward compatibility
 export async function createArtifact(type?: string, name?: string, options?: NewOptions): Promise<void> {
-  const command = new NewCommand();
+  const cmd = new NewCommand();
   const args: any[] = [];
   if (type) args.push(type);
   if (name) args.push(name);
   args.push(options || {});
-  return command['execute'](args);
+  return cmd['execute'](args);
 }
 
 export default function command(program: Command): void {
