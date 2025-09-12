@@ -4,9 +4,6 @@ import type { Command } from 'commander';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// Core dependencies - using built-in kit from xec context
-// Kit exports are available globally in xec scripts
-import type { SpinnerResult } from '@xec-sh/kit';
 const kit = await import('@xec-sh/kit');
 
 // Note: prism is available globally in xec scripts (from script context)
@@ -54,7 +51,6 @@ function handleCancel(): never {
   process.exit(0);
 }
 
-// Wrap clack prompts to handle cancellation
 async function promptWithCancel<T>(fn: () => Promise<T | symbol>): Promise<T> {
   const result = await fn();
   if (kit.isCancel(result)) {
@@ -325,7 +321,7 @@ export function command(program: Command): void {
         s.stop('✅ Repository state checked');
 
         // Step 2: Collect all release parameters
-        kit.log.info(prism.bold('\n📋 Release Configuration'));
+        kit.log.info(prism.bold('📋 Release Configuration'));
 
         const currentPkg = readPackageJson('packages/core');
         const currentVersion = currentPkg.version;
@@ -376,7 +372,7 @@ export function command(program: Command): void {
 
         // Validate version
         if (!semver.valid(newVersion)) {
-          kit.outro(prism.red(`Invalid version: ${newVersion}`));
+          kit.note(prism.red(`Invalid version: ${newVersion}`));
           process.exit(1);
         }
 
@@ -398,39 +394,53 @@ export function command(program: Command): void {
         rollbackState.tagName = `v${config.version}`;
 
         // Show release plan
-        kit.log.info(prism.bold('\n📋 Release Plan:\n'));
-        kit.log.info(`  Version: ${prism.green(currentVersion)} → ${prism.green(newVersion)}`);
-        kit.log.info(`  Packages to release:`);
-        for (const pkg of PACKAGES) {
-          kit.log.info(`    - ${pkg.name}`);
-        }
+        const planContent = [
+          `Version: ${prism.green(currentVersion)} → ${prism.green(newVersion)}`,
+          '',
+          'Packages to release:',
+          ...PACKAGES.map(pkg => `  - ${pkg.name}`),
+          ''
+        ];
 
         if (!config.skipGit) {
-          kit.log.info(`  Git operations:`);
-          kit.log.info(`    - Update package versions`);
-          kit.log.info(`    - Create commit: "chore: release v${config.version}"`);
-          kit.log.info(`    - Create tag: v${config.version}`);
-          kit.log.info(`    - Push to origin`);
+          planContent.push(
+            'Git operations:',
+            '  - Update package versions',
+            `  - Create commit: "chore: release v${config.version}"`,
+            `  - Create tag: v${config.version}`,
+            '  - Push to origin',
+            ''
+          );
         }
 
         if (!config.skipGithub) {
-          kit.log.info(`  GitHub:`);
-          kit.log.info(`    - Create release for v${config.version}`);
+          planContent.push(
+            'GitHub:',
+            `  - Create release for v${config.version}`,
+            ''
+          );
         }
 
         if (!config.skipNpm) {
-          kit.log.info(`  NPM:`);
-          kit.log.info(`    - Publish all packages`);
+          planContent.push(
+            'NPM:',
+            '  - Publish all packages',
+            ''
+          );
         }
 
         if (!config.skipJsr) {
-          kit.log.info(`  JSR.io:`);
-          kit.log.info(`    - Publish @xec-sh/core and @xec-sh/cli`);
+          planContent.push(
+            'JSR.io:',
+            '  - Publish @xec-sh/core and @xec-sh/cli'
+          );
         }
 
         if (config.dryRun) {
-          kit.log.info(prism.yellow('\n  🔸 DRY RUN MODE - No changes will be made'));
+          planContent.push(prism.yellow('🔸 DRY RUN MODE - No changes will be made'));
         }
+
+        kit.box(planContent.join('\n'), '📋 Release Plan', { width: 'auto' });
 
         const proceed = await promptWithCancel(() => kit.confirm({
           message: 'Proceed with release?',
