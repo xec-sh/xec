@@ -12,7 +12,7 @@ const config: Config = {
   url: 'https://xec.sh',
   baseUrl: '/', // Use root path for custom domain
 
-  scripts: [{ src: 'https://ry.ht/script.js', defer: true, 'data-website-id': 'f53a4e1e-5727-410b-b9ce-8baf228f0128' }],
+  scripts: [{ src: 'https://analytics.ry.ht/script.js', defer: true, 'data-website-id': 'f53a4e1e-5727-410b-b9ce-8baf228f0128' }],
 
   // GitHub pages deployment config
   organizationName: 'xec-js',
