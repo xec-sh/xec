@@ -3,7 +3,7 @@ import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
-import type { Command } from '../../../src/core/command.js';
+import type { Command } from '../../../src/types/command.js';
 
 // Test with real SSH connections using Docker containers
 describeSSH('SSH Adapter Tunnel Tests', () => {
@@ -60,7 +60,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(tunnel.isOpen).toBe(true);
 
       // Test that we can connect through the tunnel to SSH
-      const { NodeSSH } = await import('../../../src/utils/ssh.js');
+      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const tunnelSSH = new NodeSSH();
       
       const connected = await tunnelSSH.connect({
@@ -115,7 +115,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(tunnel.isOpen).toBe(true);
 
       // Test connectivity through the dynamically allocated port
-      const { NodeSSH } = await import('../../../src/utils/ssh.js');
+      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const tunnelSSH = new NodeSSH();
       
       const connected = await tunnelSSH.connect({
@@ -165,7 +165,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       expect(tunnel.localPort).toBeGreaterThan(0);
 
       // Verify we can connect through the tunnel to SSH
-      const { NodeSSH } = await import('../../../src/utils/ssh.js');
+      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const tunnelSSH = new NodeSSH();
       
       // Try to connect through the tunnel
@@ -444,7 +444,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       // Verify we can connect through the tunnel
       // We'll use another SSH connection through the tunnel to verify it works
-      const { NodeSSH } = await import('../../../src/utils/ssh.js');
+      const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const ssh = new NodeSSH();
       
       const connected = await ssh.connect({

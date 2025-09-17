@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { SSHKeyValidator } from '../../../src/utils/ssh-key-validator.js';
+import { SSHKeyValidator } from '../../../src/adapters/ssh/ssh-key-validator.js';
 
 describe('SSHKeyValidator', () => {
   let tempDir: string;

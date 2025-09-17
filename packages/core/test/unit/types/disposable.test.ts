@@ -270,7 +270,7 @@ describe('Disposable', () => {
     });
 
     it('should work with SecurePasswordHandler as Disposable', async () => {
-      const { SecurePasswordHandler } = await import('../../../src/utils/secure-password.js');
+      const { SecurePasswordHandler } = await import('../../../src/adapters/ssh/secure-password.js');
       const handler = new SecurePasswordHandler();
       
       expect(isDisposable(handler)).toBe(true);

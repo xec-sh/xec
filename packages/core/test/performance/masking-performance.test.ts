@@ -2,7 +2,7 @@ import { it, expect, describe, beforeAll } from '@jest/globals';
 
 import { BaseAdapter } from '../../src/adapters/base-adapter';
 
-import type { Command } from '../../src/core/command';
+import type { Command } from '../../src/types/command';
 
 // Create a test adapter to access protected methods
 class TestAdapter extends BaseAdapter {

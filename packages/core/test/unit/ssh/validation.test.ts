@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { it, expect, describe } from '@jest/globals';
 
-import { Config, NodeSSH } from '../../../src/utils/ssh.js';
+import { Config, NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { PRIVATE_KEY_PATH, PRIVATE_KEY_PPK_PATH } from './helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

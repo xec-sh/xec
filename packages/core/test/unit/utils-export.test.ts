@@ -154,13 +154,13 @@ describe('Utility Exports', () => {
     });
     
     it('should use within function correctly', async () => {
-      const testConfig = { defaultTimeout: 5000 };
+      const testConfig = { timeout: 5000 };
       const result = await within(testConfig, async () => 42);
       expect(result).toBe(42);
     });
     
     it('should use withinSync function correctly', () => {
-      const testConfig = { defaultTimeout: 5000 };
+      const testConfig = { timeout: 5000 };
       const result = withinSync(testConfig, () => 42);
       expect(result).toBe(42);
     });

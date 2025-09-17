@@ -1,9 +1,10 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { BaseAdapter } from '../../../src/adapters/base-adapter.js';
+import { ExecutionResultImpl } from '../../../src/core/result.js';
 
-import type { Command } from '../../../src/core/command.js';
-import type { ExecutionResult } from '../../../src/core/result.js';
+import type { Command } from '../../../src/types/command.js';
+import type { ExecutionResult } from '../../../src/types/result.js';
 
 // Test implementation of BaseAdapter to test masking functionality
 class TestAdapter extends BaseAdapter {
@@ -14,23 +15,21 @@ class TestAdapter extends BaseAdapter {
   }
 
   async execute(command: Command): Promise<ExecutionResult> {
-    // Simple mock implementation - create a proper ExecutionResult
-    const result = {
-      command: command.command || '',
-      exitCode: 0,
-      stdout: 'test output',
-      stderr: '',
-      signal: undefined,
-      duration: 10,
-      startedAt: new Date(),
-      finishedAt: new Date(),
-      adapter: this.adapterName,
-      toString: () => 'test output',
-      toJSON: () => ({ stdout: 'test output', stderr: '', exitCode: 0 }),
-      throwIfFailed: () => { },
-      ok: true
-    };
-    return result;
+    // Use ExecutionResultImpl to create a proper ExecutionResult
+    const startedAt = new Date();
+    const finishedAt = new Date(startedAt.getTime() + 10);
+
+    return new ExecutionResultImpl(
+      'test output',
+      '',
+      0,
+      undefined,
+      command.command || '',
+      10,
+      startedAt,
+      finishedAt,
+      this.adapterName
+    );
   }
 
   async dispose(): Promise<void> {

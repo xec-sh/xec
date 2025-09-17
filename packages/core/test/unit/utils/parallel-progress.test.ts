@@ -2,8 +2,9 @@ import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import { parallel, ParallelEngine } from '../../../src/utils/parallel.js';
+import { ExecutionResultImpl } from '../../../src/core/result.js';
 
-import type { Command } from '../../../src/core/command.js';
+import type { Command } from '../../../src/types/command.js';
 import type { ExecutionResult } from '../../../src/core/result.js';
 import type { ParallelResult, ParallelOptions } from '../../../src/utils/parallel.js';
 
@@ -38,21 +39,20 @@ class MockExecutionEngine {
       throw new Error(`Command failed: ${command.command}`);
     }
 
-    return {
-      stdout: `Output: ${command.command}`,
-      stderr: '',
-      exitCode: 0,
-      signal: undefined,
-      command: command.command || '',
-      duration: this.delay,
-      startedAt: new Date(),
-      finishedAt: new Date(),
-      adapter: 'mock',
-      toString: () => `Output: ${command.command}`,
-      toJSON: () => ({ stdout: `Output: ${command.command}`, stderr: '', exitCode: 0 }),
-      throwIfFailed: () => { },
-      ok: true
-    };
+    const startedAt = new Date();
+    const finishedAt = new Date(startedAt.getTime() + this.delay);
+
+    return new ExecutionResultImpl(
+      `Output: ${command.command}`,
+      '',
+      0,
+      undefined,
+      command.command || '',
+      this.delay,
+      startedAt,
+      finishedAt,
+      'mock'
+    );
   }
 }
 
@@ -166,36 +166,38 @@ describe('Parallel Execution with Progress', () => {
         }
 
         return {
-          results: commands.map((cmd) => ({
-            stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
-            stderr: '',
-            exitCode: 0,
-            signal: undefined,
-            command: typeof cmd === 'string' ? cmd : cmd.command || '',
-            duration: 10,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'mock',
-            toString: () => `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
-            toJSON: () => ({ stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`, stderr: '', exitCode: 0 }),
-            throwIfFailed: () => { },
-            ok: true
-          })),
-          succeeded: commands.map((cmd) => ({
-            stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
-            stderr: '',
-            exitCode: 0,
-            signal: undefined,
-            command: typeof cmd === 'string' ? cmd : cmd.command || '',
-            duration: 10,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'mock',
-            toString: () => `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`,
-            toJSON: () => ({ stdout: `Output: ${typeof cmd === 'string' ? cmd : cmd.command}`, stderr: '', exitCode: 0 }),
-            throwIfFailed: () => { },
-            ok: true
-          })),
+          results: commands.map((cmd) => {
+            const cmdStr = typeof cmd === 'string' ? cmd : cmd.command || '';
+            const startedAt = new Date();
+            const finishedAt = new Date(startedAt.getTime() + 10);
+            return new ExecutionResultImpl(
+              `Output: ${cmdStr}`,
+              '',
+              0,
+              undefined,
+              cmdStr,
+              10,
+              startedAt,
+              finishedAt,
+              'mock'
+            );
+          }),
+          succeeded: commands.map((cmd) => {
+            const cmdStr = typeof cmd === 'string' ? cmd : cmd.command || '';
+            const startedAt = new Date();
+            const finishedAt = new Date(startedAt.getTime() + 10);
+            return new ExecutionResultImpl(
+              `Output: ${cmdStr}`,
+              '',
+              0,
+              undefined,
+              cmdStr,
+              10,
+              startedAt,
+              finishedAt,
+              'mock'
+            );
+          }),
           failed: [],
           duration: 100
         };
@@ -388,21 +390,19 @@ describe('Parallel Execution with Progress', () => {
           const delay = command.command === 'fast' ? 10 : 100;
           await new Promise(resolve => setTimeout(resolve, delay));
 
-          return {
-            stdout: `Output: ${command.command}`,
-            stderr: '',
-            exitCode: 0,
-            signal: undefined,
-            command: command.command || '',
-            duration: delay,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'mock',
-            toString: () => `Output: ${command.command}`,
-            toJSON: () => ({ stdout: `Output: ${command.command}`, stderr: '', exitCode: 0 }),
-            throwIfFailed: () => { },
-            ok: true
-          };
+          const startedAt = new Date();
+          const finishedAt = new Date(startedAt.getTime() + delay);
+          return new ExecutionResultImpl(
+            `Output: ${command.command}`,
+            '',
+            0,
+            undefined,
+            command.command || '',
+            delay,
+            startedAt,
+            finishedAt,
+            'mock'
+          );
         }
       };
 
@@ -421,21 +421,19 @@ describe('Parallel Execution with Progress', () => {
             throw new Error('Command failed');
           }
 
-          return {
-            stdout: 'passed',
-            stderr: '',
-            exitCode: 0,
-            signal: undefined,
-            command: command.command || '',
-            duration: 10,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'mock',
-            toString: () => 'passed',
-            toJSON: () => ({ stdout: 'passed', stderr: '', exitCode: 0 }),
-            throwIfFailed: () => { },
-            ok: true
-          };
+          const startedAt = new Date();
+          const finishedAt = new Date(startedAt.getTime() + 10);
+          return new ExecutionResultImpl(
+            'passed',
+            '',
+            0,
+            undefined,
+            command.command || '',
+            10,
+            startedAt,
+            finishedAt,
+            'mock'
+          );
         }
       };
 
@@ -478,18 +476,29 @@ describe('Parallel Execution with Progress', () => {
       const failEngine = new MockExecutionEngine(10, true);
       const progressData: Array<{ failed: number }> = [];
 
-      const result = await parallel(
-        ['cmd1', 'fail1', 'cmd2', 'fail2', 'cmd3'],
-        failEngine as any,
-        {
-          maxConcurrency: 2,
-          stopOnError: false,
-          onProgress: (completed, total, succeeded, failed) => {
-            progressData.push({ failed });
-          }
-        }
-      );
+      // The test expects errors to be caught by parallel, not thrown
+      let error: Error | undefined;
+      let result: any;
 
+      try {
+        result = await parallel(
+          ['cmd1', 'fail1', 'cmd2', 'fail2', 'cmd3'],
+          failEngine as any,
+          {
+            maxConcurrency: 2,
+            stopOnError: false,
+            onProgress: (completed, total, succeeded, failed) => {
+              progressData.push({ failed });
+            }
+          }
+        );
+      } catch (e) {
+        error = e as Error;
+      }
+
+      // With stopOnError: false, parallel should not throw
+      expect(error).toBeUndefined();
+      expect(result).toBeDefined();
       expect(result.failed.length).toBe(2);
       expect(result.succeeded.length).toBe(3);
       expect(progressData.length).toBeGreaterThan(0);
@@ -498,21 +507,19 @@ describe('Parallel Execution with Progress', () => {
     it('should handle non-throwing errors in commands', async () => {
       const customEngine = {
         async execute(command: Command): Promise<ExecutionResult> {
-          return {
-            stdout: '',
-            stderr: 'Error occurred',
-            exitCode: 1,
-            signal: undefined,
-            command: command.command || '',
-            duration: 10,
-            startedAt: new Date(),
-            finishedAt: new Date(),
-            adapter: 'mock',
-            toString: () => 'Error occurred',
-            toJSON: () => ({ stdout: '', stderr: 'Error occurred', exitCode: 1 }),
-            throwIfFailed: () => { throw new Error('Command failed'); },
-            ok: false
-          };
+          const startedAt = new Date();
+          const finishedAt = new Date(startedAt.getTime() + 10);
+          return new ExecutionResultImpl(
+            '',
+            'Error occurred',
+            1,
+            undefined,
+            command.command || '',
+            10,
+            startedAt,
+            finishedAt,
+            'mock'
+          );
         }
       };
 

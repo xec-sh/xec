@@ -1,26 +1,23 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ResultCache, globalCache } from '../../../src/utils/cache.js';
+import { ExecutionResultImpl } from '../../../src/core/result.js';
 
 import type { ExecutionResult } from '../../../src/core/result.js';
 
 // Mock execution result
 function createMockResult(stdout: string, exitCode = 0): ExecutionResult {
-  return {
+  return new ExecutionResultImpl(
     stdout,
-    stderr: '',
+    '',
     exitCode,
-    signal: undefined,
-    command: 'test command',
-    duration: 100,
-    startedAt: new Date(),
-    finishedAt: new Date(),
-    adapter: 'mock',
-    toString: () => stdout,
-    toJSON: () => ({ stdout, stderr: '', exitCode }),
-    throwIfFailed: () => { },
-    ok: true,
-  };
+    undefined,
+    'test command',
+    100,
+    new Date(),
+    new Date(),
+    'mock'
+  );
 }
 
 describe('ResultCache', () => {

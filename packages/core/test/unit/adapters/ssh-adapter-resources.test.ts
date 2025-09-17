@@ -1,10 +1,10 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { NodeSSH } from '../../../src/utils/ssh';
+import { NodeSSH } from '../../../src/adapters/ssh/ssh';
 import { SSHAdapter } from '../../../src/adapters/ssh/index';
 
 // Mock the SSH module
-jest.mock('../../../src/utils/ssh', () => ({
+jest.mock('../../../src/adapters/ssh/ssh', () => ({
   NodeSSH: jest.fn(() => ({
     connect: jest.fn(() => Promise.resolve()),
     dispose: jest.fn(() => Promise.resolve()),
@@ -64,15 +64,15 @@ describe('SSH Adapter Resource Management', () => {
       const connections = await Promise.all([
         adapter.execute({
           command: 'echo test1',
-          adapterOptions: { type: 'ssh', host: 'server1.example.com', username: 'user' }
+          adapterOptions: { type: 'ssh', host: 'server1.example.com', username: 'user', password: 'test' }
         }),
         adapter.execute({
           command: 'echo test2',
-          adapterOptions: { type: 'ssh', host: 'server2.example.com', username: 'user' }
+          adapterOptions: { type: 'ssh', host: 'server2.example.com', username: 'user', password: 'test' }
         }),
         adapter.execute({
           command: 'echo test3',
-          adapterOptions: { type: 'ssh', host: 'server3.example.com', username: 'user' }
+          adapterOptions: { type: 'ssh', host: 'server3.example.com', username: 'user', password: 'test' }
         })
       ]);
 
@@ -99,7 +99,7 @@ describe('SSH Adapter Resource Management', () => {
       // Create a connection
       await adapter.execute({
         command: 'echo test',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       const instance = mockSSHInstances[0];
@@ -133,7 +133,7 @@ describe('SSH Adapter Resource Management', () => {
       // Create a connection
       await adapter.execute({
         command: 'echo test',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       const firstInstance = mockSSHInstances[0];
@@ -144,7 +144,7 @@ describe('SSH Adapter Resource Management', () => {
       // Execute another command - should create new connection
       await adapter.execute({
         command: 'echo test2',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       // Should have created a new connection
@@ -161,7 +161,7 @@ describe('SSH Adapter Resource Management', () => {
       // Create a connection that will fail to dispose
       await adapter.execute({
         command: 'echo test',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       const instance = mockSSHInstances[0];
@@ -185,7 +185,7 @@ describe('SSH Adapter Resource Management', () => {
       // Create a connection
       await adapter.execute({
         command: 'echo test',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       const instance = mockSSHInstances[0];
@@ -253,7 +253,7 @@ describe('SSH Adapter Resource Management', () => {
       // Execute command to create connection
       await adapter.execute({
         command: 'echo test',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       const metrics = (adapter as any).getPoolMetrics();
@@ -267,7 +267,7 @@ describe('SSH Adapter Resource Management', () => {
       // Reuse connection
       await adapter.execute({
         command: 'echo test2',
-        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user' }
+        adapterOptions: { type: 'ssh', host: 'server.example.com', username: 'user', password: 'test' }
       });
 
       const metricsAfterReuse = (adapter as any).getPoolMetrics();

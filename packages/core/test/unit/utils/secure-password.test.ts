@@ -2,7 +2,7 @@ import { tmpdir } from 'node:os';
 import { access, unlink } from 'node:fs/promises';
 import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { SecurePasswordHandler } from '../../../src/utils/secure-password.js';
+import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password.js';
 
 describe('SecurePasswordHandler', () => {
   let handler: SecurePasswordHandler;

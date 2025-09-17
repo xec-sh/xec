@@ -1,7 +1,7 @@
 import { Writable } from 'node:stream';
 import { it, expect, describe } from '@jest/globals';
 
-import { Command, SSHAdapterOptions, DockerAdapterOptions } from '../../../src/core/command.js';
+import { Command, SSHAdapterOptions, DockerAdapterOptions } from '../../../src/types/command.js';
 import { createMockCommand, createMockSSHOptions, createMockDockerOptions } from '../../helpers/mock-factories.js';
 
 describe('Command', () => {

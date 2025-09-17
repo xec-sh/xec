@@ -1,6 +1,6 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { RuntimeDetector } from '../../../src/utils/runtime-detect.js';
+import { RuntimeDetector } from '../../../src/adapters/local/runtime-detect.js';
 
 describe('RuntimeDetector', () => {
   let originalBun: any;
