@@ -88,7 +88,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
     validate: opts.validate,
     render() {
       // Title and message display
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const headings = [`${prism.gray(S_BAR)}`, `${symbol(this.state)}  ${opts.message}`];
       const userInput = this.userInput;
       const valueAsString = String(this.value ?? '');
       const options = this.options;
@@ -102,12 +102,12 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           const selected = getSelectedOptions(this.selectedValues, options);
           const label =
             selected.length > 0 ? `  ${prism.dim(selected.map(getLabel).join(', '))}` : '';
-          return `${title}${prism.gray(S_BAR)}${label}`;
+          return `${headings.join('\n')}\n${prism.gray(S_BAR)}${label}`;
         }
 
         case 'cancel': {
           const userInputText = userInput ? `  ${prism.strikethrough(prism.dim(userInput))}` : '';
-          return `${title}${prism.gray(S_BAR)}${userInputText}`;
+          return `${headings.join('\n')}\n${prism.gray(S_BAR)}${userInputText}`;
         }
 
         default: {
@@ -124,38 +124,9 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           const matches =
             this.filteredOptions.length !== options.length
               ? prism.dim(
-                  ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
-                )
+                ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
+              )
               : '';
-
-          // Render options with selection
-          const displayOptions =
-            this.filteredOptions.length === 0
-              ? []
-              : limitOptions({
-                  cursor: this.cursor,
-                  options: this.filteredOptions,
-                  style: (option, active) => {
-                    const label = getLabel(option);
-                    const hint =
-                      option.hint && option.value === this.focusedValue
-                        ? prism.dim(` (${option.hint})`)
-                        : '';
-
-                    return active
-                      ? `${prism.green(S_RADIO_ACTIVE)} ${label}${hint}`
-                      : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}${hint}`;
-                  },
-                  maxItems: opts.maxItems,
-                  output: opts.output,
-                });
-
-          // Show instructions
-          const instructions = [
-            `${prism.dim('↑/↓')} to select`,
-            `${prism.dim('Enter:')} confirm`,
-            `${prism.dim('Type:')} to search`,
-          ];
 
           // No matches message
           const noResults =
@@ -166,15 +137,54 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           const validationError =
             this.state === 'error' ? [`${prism.yellow(S_BAR)}  ${prism.yellow(this.error)}`] : [];
 
-          // Return the formatted prompt
-          return [
-            `${title}${prism.cyan(S_BAR)}`,
+          headings.push(
+            `${prism.cyan(S_BAR)}`,
             `${prism.cyan(S_BAR)}  ${prism.dim('Search:')}${searchText}${matches}`,
             ...noResults,
-            ...validationError,
-            ...displayOptions.map((option) => `${prism.cyan(S_BAR)}  ${option}`),
+            ...validationError
+          );
+
+          // Show instructions
+          const instructions = [
+            `${prism.dim('↑/↓')} to select`,
+            `${prism.dim('Enter:')} confirm`,
+            `${prism.dim('Type:')} to search`,
+          ];
+
+          const footers = [
             `${prism.cyan(S_BAR)}  ${prism.dim(instructions.join(' • '))}`,
             `${prism.cyan(S_BAR_END)}`,
+          ];
+
+          // Render options with selection
+          const displayOptions =
+            this.filteredOptions.length === 0
+              ? []
+              : limitOptions({
+                cursor: this.cursor,
+                options: this.filteredOptions,
+                columnPadding: 3, // for `|  `
+                rowPadding: headings.length + footers.length,
+                style: (option, active) => {
+                  const label = getLabel(option);
+                  const hint =
+                    option.hint && option.value === this.focusedValue
+                      ? prism.dim(` (${option.hint})`)
+                      : '';
+
+                  return active
+                    ? `${prism.green(S_RADIO_ACTIVE)} ${label}${hint}`
+                    : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}${hint}`;
+                },
+                maxItems: opts.maxItems,
+                output: opts.output,
+              });
+
+          // Return the formatted prompt
+          return [
+            ...headings,
+            ...displayOptions.map((option) => `${prism.cyan(S_BAR)}  ${option}`),
+            ...footers,
           ].join('\n');
         }
       }
@@ -256,8 +266,8 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
       const matches =
         this.filteredOptions.length !== options.length
           ? prism.dim(
-              ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
-            )
+            ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
+          )
           : '';
 
       // Render prompt state
