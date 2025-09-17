@@ -1,6 +1,6 @@
 import { expect } from '@jest/globals';
 
-import { Command } from '../../src/core/command.js';
+import { Command } from '../../src/types/command.js';
 import { ExecutionResult } from '../../src/core/result.js';
 
 export function expectSuccessResult(result: ExecutionResult, expectedStdout?: string | RegExp) {

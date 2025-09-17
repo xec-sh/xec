@@ -1,6 +1,6 @@
 import { BaseAdapter } from '../../src/adapters/base-adapter.js';
 import { ExecutionResult } from '../../src/core/result.js';
-import { Command, SSHAdapterOptions, DockerAdapterOptions } from '../../src/core/command.js';
+import { Command, SSHAdapterOptions, DockerAdapterOptions } from '../../src/types/command.js';
 export declare function createMockCommand(overrides?: Partial<Command>): Command;
 export declare function createMockExecutionResult(overrides?: Partial<ExecutionResult>): ExecutionResult;
 export declare function createMockSSHOptions(overrides?: Partial<SSHAdapterOptions>): SSHAdapterOptions;

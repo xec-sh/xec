@@ -1,10 +1,7 @@
 import fsPath from 'path'
 import stream from 'stream'
 import fs from 'fs/promises'
-import scanDirectory from 'sb-scandir'
-import { isReadableStream } from 'is-stream'
 import { constants as fsConstants } from 'fs'
-import { PromiseQueue } from 'sb-promise-queue'
 import invariant, { AssertionError } from 'assert'
 import SSH2, {
   Stats,
@@ -24,6 +21,69 @@ import SSH2, {
 } from 'ssh2'
 
 import { escapeUnix } from '../../utils/shell-escape.js'
+
+// Helper functions to replace external dependencies
+function isReadableStream(obj: any): obj is stream.Readable {
+  return obj !== null &&
+    typeof obj === 'object' &&
+    typeof obj.pipe === 'function' &&
+    obj.readable !== false &&
+    typeof obj._read === 'function' &&
+    typeof obj._readableState === 'object';
+}
+
+class PromiseQueue {
+  private concurrency: number;
+  private running: number = 0;
+  private queue: Array<() => void> = [];
+
+  constructor({ concurrency = 1 }: { concurrency?: number }) {
+    this.concurrency = concurrency;
+  }
+
+  add<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const runTask = async () => {
+        this.running++;
+        try {
+          const result = await fn();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        } finally {
+          this.running--;
+          this.processQueue();
+        }
+      };
+
+      if (this.running < this.concurrency) {
+        runTask();
+      } else {
+        this.queue.push(runTask);
+      }
+    });
+  }
+
+  private processQueue() {
+    if (this.queue.length > 0 && this.running < this.concurrency) {
+      const task = this.queue.shift();
+      if (task) task();
+    }
+  }
+
+  async waitTillIdle(): Promise<void> {
+    return new Promise((resolve) => {
+      const check = () => {
+        if (this.running === 0 && this.queue.length === 0) {
+          resolve();
+        } else {
+          setImmediate(check);
+        }
+      };
+      check();
+    });
+  }
+}
 
 export type Config = ConnectConfig & {
   password?: string
@@ -629,7 +689,7 @@ export class NodeSSH {
 
     const sftp = givenSftp || (await this.requestSFTP())
 
-    const scanned = await scanDirectory(localDirectory, {
+    const scanned = await this.scanDirectory(localDirectory, {
       recursive,
       validate,
     })
@@ -715,41 +775,11 @@ export class NodeSSH {
 
     const sftp = givenSftp || (await this.requestSFTP())
 
-    const scanned = await scanDirectory(remoteDirectory, {
+    const scanned = await this.scanDirectoryRemote(remoteDirectory, {
       recursive,
       validate,
       concurrency,
-      fileSystem: {
-        basename(path) {
-          return fsPath.posix.basename(path)
-        },
-        join(pathA, pathB) {
-          return fsPath.posix.join(pathA, pathB)
-        },
-        readdir(path) {
-          return new Promise((resolve, reject) => {
-            sftp.readdir(path, (err, res) => {
-              if (err) {
-                reject(err)
-              } else {
-                resolve(res.map((item) => item.filename))
-              }
-            })
-          })
-        },
-        stat(path) {
-          return new Promise((resolve, reject) => {
-            sftp.stat(path, (err, res) => {
-              if (err) {
-                reject(err)
-              } else {
-
-                resolve(res as any)
-              }
-            })
-          })
-        },
-      },
+      fileSystem: sftp,
     })
     const files = scanned.files.map((item) => fsPath.relative(remoteDirectory, item))
     const directories = scanned.directories.map((item) => fsPath.relative(remoteDirectory, item))
@@ -1000,5 +1030,88 @@ export class NodeSSH {
         }
       });
     });
+  }
+
+  // Helper method to scan local directory
+  private async scanDirectory(
+    directory: string,
+    options: {
+      recursive?: boolean;
+      validate?: (item: string) => boolean;
+    } = {}
+  ): Promise<{ files: string[]; directories: string[] }> {
+    const files: string[] = [];
+    const directories: string[] = [];
+
+    async function scan(dir: string) {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = fsPath.join(dir, entry.name);
+
+        if (options.validate && !options.validate(fullPath)) {
+          continue;
+        }
+
+        if (entry.isDirectory()) {
+          directories.push(fullPath);
+          if (options.recursive) {
+            await scan(fullPath);
+          }
+        } else if (entry.isFile()) {
+          files.push(fullPath);
+        }
+      }
+    }
+
+    await scan(directory);
+    return { files, directories };
+  }
+
+  // Helper method to scan remote directory via SFTP
+  private async scanDirectoryRemote(
+    directory: string,
+    options: {
+      recursive?: boolean;
+      validate?: (item: string) => boolean;
+      concurrency?: number;
+      fileSystem?: any;
+    } = {}
+  ): Promise<{ files: string[]; directories: string[] }> {
+    const files: string[] = [];
+    const directories: string[] = [];
+    const sftp = options.fileSystem;
+
+    async function scan(dir: string) {
+      return new Promise<void>((resolve, reject) => {
+        sftp.readdir(dir, async (err: any, list: any[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          for (const item of list) {
+            const fullPath = fsPath.posix.join(dir, item.filename);
+
+            if (options.validate && !options.validate(fullPath)) {
+              continue;
+            }
+
+            const stats = item.attrs;
+            if (stats.isDirectory()) {
+              directories.push(fullPath);
+              if (options.recursive) {
+                await scan(fullPath);
+              }
+            } else if (stats.isFile()) {
+              files.push(fullPath);
+            }
+          }
+          resolve();
+        });
+      });
+    }
+
+    await scan(directory);
+    return { files, directories };
   }
 }

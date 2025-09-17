@@ -3,7 +3,7 @@ import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-
 
 import { $ } from '../../src/index.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
-import { SecurePasswordHandler } from '../../src/utils/secure-password.js';
+import { SecurePasswordHandler } from '../../src/adapters/ssh/secure-password.js';
 
 describeSSH('SSH Secure Password Integration Tests', () => {
 

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Command } from '../../src/core/command.js';
+import { Command } from '../../src/types/command.js';
 import { ExecutionResult } from '../../src/core/result.js';
 export declare function expectSuccessResult(result: ExecutionResult, expectedStdout?: string | RegExp): void;
 export declare function expectFailureResult(result: ExecutionResult, expectedExitCode?: number, expectedStderr?: string | RegExp): void;

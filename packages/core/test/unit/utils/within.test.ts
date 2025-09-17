@@ -5,34 +5,34 @@ import { within, withinSync, getLocalContext, asyncLocalStorage } from '../../..
 describe('within utilities', () => {
   describe('within', () => {
     test('should run async function with context', async () => {
-      const config = { defaultTimeout: 5000 };
+      const config = { timeout: 5000 };
       let capturedContext: any;
-      
+
       const result = await within(config, async () => {
         capturedContext = getLocalContext();
         return 'test-result';
       });
-      
+
       expect(result).toBe('test-result');
       expect(capturedContext).toEqual(config);
     });
-    
+
     test('should run sync function with context', async () => {
-      const config = { defaultCwd: '/test/path' };
+      const config = { cwd: '/test/path' };
       let capturedContext: any;
-      
+
       const result = await within(config, () => {
         capturedContext = getLocalContext();
         return 42;
       });
-      
+
       expect(result).toBe(42);
       expect(capturedContext).toEqual(config);
     });
-    
+
     test('should handle errors in async function', async () => {
-      const config = { throwOnNonZeroExit: true };
-      
+      const config = { nothrow: false };
+
       await expect(
         within(config, async () => {
           throw new Error('Test error');
@@ -43,21 +43,21 @@ describe('within utilities', () => {
   
   describe('withinSync', () => {
     test('should run sync function with context', () => {
-      const config = { encoding: 'utf16le' as BufferEncoding };
+      const config = { shell: '/bin/sh' };
       let capturedContext: any;
-      
+
       const result = withinSync(config, () => {
         capturedContext = getLocalContext();
         return 'sync-result';
       });
-      
+
       expect(result).toBe('sync-result');
       expect(capturedContext).toEqual(config);
     });
     
     test('should handle errors in sync function', () => {
-      const config = { maxBuffer: 1024 };
-      
+      const config = { stdin: 'ignore' };
+
       expect(() => {
         withinSync(config, () => {
           throw new Error('Sync error');
@@ -72,8 +72,8 @@ describe('within utilities', () => {
     });
     
     test('should return context when inside within', async () => {
-      const config = { defaultShell: '/bin/bash' };
-      
+      const config = { shell: '/bin/bash' };
+
       await within(config, async () => {
         const context = getLocalContext();
         expect(context).toEqual(config);
@@ -92,8 +92,8 @@ describe('within utilities', () => {
   
   describe('nested contexts', () => {
     test('should handle nested within calls', async () => {
-      const outerConfig = { defaultTimeout: 1000 };
-      const innerConfig = { defaultTimeout: 2000, maxBuffer: 2048 };
+      const outerConfig = { timeout: 1000 };
+      const innerConfig = { timeout: 2000, stdin: 'pipe' };
       
       await within(outerConfig, async () => {
         const outerContext = getLocalContext();

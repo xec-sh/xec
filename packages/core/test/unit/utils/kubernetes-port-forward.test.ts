@@ -7,10 +7,10 @@ describe('Kubernetes Port Forward Unit Tests', () => {
 
   beforeEach(async () => {
     // Dynamically import to ensure fresh module state
-    const module = await import('../../../src/adapters/kubernetes-adapter.js');
-    // Get the KubernetesPortForward class from the module
-    const adapterCode = module.KubernetesAdapter.toString();
-    
+    const module = await import('../../../src/adapters/kubernetes/index.js');
+    // Get the KubernetesAdapter class from the module
+    const adapterCode = module.KubernetesAdapter?.toString() || '';
+
     // Since KubernetesPortForward is defined inside the module, we need to extract it
     // For now, we'll test through the adapter's portForward method
   });

@@ -1,6 +1,6 @@
 import { BaseAdapter } from '../../src/adapters/base-adapter.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../src/core/result.js';
-import { Command , SSHAdapterOptions, DockerAdapterOptions } from '../../src/core/command.js';
+import { Command , SSHAdapterOptions, DockerAdapterOptions } from '../../src/types/command.js';
 
 export function createMockCommand(overrides: Partial<Command> = {}): Command {
   return {

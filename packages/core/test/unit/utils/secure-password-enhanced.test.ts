@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { SecurePasswordHandler } from '../../../src/utils/secure-password.js';
+import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password.js';
 
 describe('SecurePasswordHandler Enhanced Security', () => {
   let tempDir: string;

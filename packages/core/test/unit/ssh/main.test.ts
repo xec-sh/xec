@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import createServer from './ssh-server.js';
-import { NodeSSH } from '../../../src/utils/ssh.js';
+import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { wait, exists, PRIVATE_KEY_PATH } from './helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

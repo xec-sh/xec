@@ -292,7 +292,7 @@ export class ProcessPromiseBuilder {
           executionStarted = true;
           executionPromise = context.execute();
           // Track active process
-          const processes = (lazyPromise as any).engine?._activeProcesses || context.engine._activeProcesses;
+          const processes = context.engine._activeProcesses;
           if (processes) {
             processes.add(lazyPromise);
             executionPromise.finally(() => processes.delete(lazyPromise));
@@ -305,20 +305,23 @@ export class ProcessPromiseBuilder {
       },
       finally(onfinally?: any) {
         return lazyPromise.then(
-          (value) => {
+          (value: any) => {
             onfinally?.();
             return value;
           },
-          (reason) => {
+          (reason: any) => {
             onfinally?.();
             throw reason;
           }
         );
       }
-    } as ProcessPromise;
+    } as any;
 
-    // Mark as xec promise
-    Object.assign(lazyPromise, { __isXecPromise: true, engine: context.engine });
+    // Add properties for type compatibility and tracking
+    Object.assign(lazyPromise, {
+      __isXecPromise: true,
+      engine: context.engine
+    });
 
     // Attach methods in single pass
     this.attachProcessMethods(lazyPromise, context);

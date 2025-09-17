@@ -2,7 +2,7 @@ import { constants } from 'fs';
 import { access, readFile } from 'fs/promises';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { SecurePasswordHandler } from '../../../src/utils/secure-password.js';
+import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password.js';
 
 describe('SecurePasswordHandler - Comprehensive Coverage', () => {
   let handler: SecurePasswordHandler;

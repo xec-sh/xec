@@ -90,7 +90,7 @@ describe('Error classes', () => {
       const originalError = new Error('Container not found');
       const error = new DockerError('my-container', 'exec', originalError);
 
-      expect(error.message).toBe("Docker operation 'exec' failed for container my-container");
+      expect(error.message).toBe("Docker operation 'exec' failed for container my-container: Container not found");
       expect(error.code).toBe('DOCKER_ERROR');
       expect(error.container).toBe('my-container');
       expect(error.operation).toBe('exec');

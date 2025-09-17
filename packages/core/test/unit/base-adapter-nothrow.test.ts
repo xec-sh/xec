@@ -2,7 +2,7 @@ import { it, expect, describe } from '@jest/globals';
 
 import { BaseAdapter } from '../../src/adapters/base-adapter.js';
 
-import type { Command } from '../../src/core/command.js';
+import type { Command } from '../../src/types/command.js';
 
 // Create a concrete implementation for testing
 class TestAdapter extends BaseAdapter {
