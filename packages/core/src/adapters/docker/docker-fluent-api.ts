@@ -5,6 +5,9 @@
  * from the new modular structure in ./docker-fluent-api/
  */
 
+// Import for internal use
+import { RedisClusterFluentAPI } from './docker-fluent-api/services/redis.js';
+
 // Re-export types
 export * from './docker-fluent-api/types.js';
 
@@ -69,7 +72,6 @@ export class DockerRedisClusterAPI {
   private api: any;
 
   constructor(engine: any, options?: RedisClusterOptions) {
-    const { RedisClusterFluentAPI } = require('./docker-fluent-api/services/redis.js');
     this.api = new RedisClusterFluentAPI(engine, {
       cluster: {
         enabled: true,
