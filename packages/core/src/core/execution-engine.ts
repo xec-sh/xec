@@ -50,7 +50,6 @@ import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
 import { RemoteDockerAdapter } from '../adapters/remote-docker/index.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
-import { DockerContext, DockerContainerConfig } from '../adapters/docker/docker-api.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
 import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
@@ -669,12 +668,11 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return createSSHExecutionContext(this, options);
   }
 
-  // Overloaded signatures for backward compatibility and fluent API
-  docker(options: DockerContainerConfig): DockerContext;
-  docker(options: Omit<DockerAdapterOptions, 'type'>): ExecutionEngine;
+  // Overloaded signatures for fluent API and adapter configuration
   docker(options: DockerOptions): ExecutionEngine;
-  docker(): any; // Returns fluent API
-  docker(options?: DockerContainerConfig | Omit<DockerAdapterOptions, 'type'> | DockerOptions): ExecutionEngine | DockerContext | any {
+  docker(options: Omit<DockerAdapterOptions, 'type'>): ExecutionEngine;
+  docker(): DockerFluentAPI;
+  docker(options?: DockerOptions | Omit<DockerAdapterOptions, 'type'>): ExecutionEngine | DockerFluentAPI {
     // If no options provided, return fluent API
     if (!options) {
       if (!this._dockerFluentAPI) {

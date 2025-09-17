@@ -1,7 +1,8 @@
+import type { DockerOptions } from '../types/execution.js';
 import type { SSHExecutionContext } from '../adapters/ssh/ssh-api.js';
+import type { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
 import type { K8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
-import type { DockerContext, DockerContainerConfig } from '../adapters/docker/docker-api.js';
 import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from '../types/command.js';
 
 // Callable ExecutionEngine interface
@@ -15,8 +16,9 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   // Override methods that return CallableExecutionEngine instead of ExecutionEngine
   with(config: Partial<Command>): CallableExecutionEngine;
   ssh(options: Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext;
-  docker(options: DockerContainerConfig): DockerContext;
+  docker(options: DockerOptions): CallableExecutionEngine;
   docker(options: Omit<DockerAdapterOptions, 'type'>): CallableExecutionEngine;
+  docker(): DockerFluentAPI;
   k8s(options?: Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext;
   remoteDocker(options: Omit<RemoteDockerAdapterOptions, 'type'>): CallableExecutionEngine;
   local(): CallableExecutionEngine;

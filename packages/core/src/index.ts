@@ -37,12 +37,12 @@ export function createCallableEngine(engine: ExecutionEngine): CallableExecution
           return value.bind(engine); // Return the SSH context directly
         }
 
-        // Special handling for docker method which may return DockerContext
+        // Special handling for docker method which may return DockerFluentBuildAPI or ExecutionEngine
         if (prop === 'docker') {
           return (...args: any[]) => {
             const result = value.apply(engine, args);
-            // If it returns a DockerContext (has start method), return it directly
-            if (result && typeof result.start === 'function') {
+            // If it returns DockerFluentAPI (has ephemeral/persistent methods), return it directly
+            if (result && (typeof result.ephemeral === 'function' || typeof result.persistent === 'function')) {
               return result;
             }
             // Otherwise, it's an ExecutionEngine, wrap it
@@ -242,7 +242,12 @@ export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
-export { DockerFluentAPI, DockerFluentBuildAPI } from './adapters/docker/docker-fluent-api.js';
+export {
+  DockerFluentAPI,
+  DockerFluentBuildAPI,
+  DockerRedisClusterAPI,
+  type RedisClusterOptions
+} from './adapters/docker/docker-fluent-api.js';
 
 export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
 
@@ -269,7 +274,6 @@ export type { CallableExecutionEngine } from './types/engine.js';
 
 export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
 export type { Disposable, DisposableContainer } from './types/disposable.js';
-export type { DockerContext, DockerContainerConfig } from './adapters/docker/docker-api.js';
 export type {
   ErrorContext,
   ErrorSuggestion,

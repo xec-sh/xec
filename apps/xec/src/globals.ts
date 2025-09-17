@@ -1,50 +1,33 @@
 /**
  * Global type definitions for xec scripts
  * Import this file in your xec script to get TypeScript IntelliSense:
- * 
+ *
  * ```typescript
  * import '@xec-sh/cli/globals';
  * ```
- * 
+ *
  * This will make all types from @xec-sh/cli and @xec-sh/core available globally.
  */
 
-// Import ALL types from @xec-sh/core
+// Re-export specific commonly used types for convenience
 import type {
-  K8sPod,
   Command,
-  PipeTarget,
-  Disposable,
-  AdapterType,
-  EventFilter,
-  K8sLogStream,
-  RetryOptions,
-  ErrorContext,
   DockerOptions,
-  DockerContext,
-  ProgressEvent,
   ProcessPromise,
-  SSHSudoOptions,
-  K8sPortForward,
   ExecutionResult,
-  ProgressOptions,
-  ErrorSuggestion,
-  SSHAdapterConfig,
   SSHAdapterOptions,
-  CommandSuggestion,
-  SSHExecutionContext,
-  K8sExecutionContext,
-  DisposableContainer,
   DockerAdapterOptions,
-  EnhancedErrorDetails,
   ExecutionEngineConfig,
-  DockerContainerConfig,
   DockerEphemeralOptions,
   CallableExecutionEngine,
   DockerPersistentOptions,
   KubernetesAdapterOptions,
   RemoteDockerAdapterOptions,
 } from '@xec-sh/core';
+
+// Import ALL exports from @xec-sh/core as a namespace
+// This automatically includes all current and future types
+import * as CoreExports from '@xec-sh/core';
 
 // Import types from @xec-sh/cli config
 import type {
@@ -95,56 +78,30 @@ declare global {
   const path: typeof import('./utils/script-utils.js').path;
   const which: typeof import('./utils/script-utils.js').which;
 
-  // Make types available in global namespace
+  // Make ALL types from @xec-sh/core available in global namespace
+  // This automatically includes all current and future types
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Xec {
-    export type {
-      ProcessPromise,
-      ExecutionResult,
-      ExecutionEngineConfig,
-      CallableExecutionEngine,
-    };
+    // Re-export everything from @xec-sh/core
+    export import Core = CoreExports;
 
+    // Also re-export commonly used types directly for convenience
     export type {
       Command,
-      AdapterType,
       DockerOptions,
-      DockerContext,
-      SSHSudoOptions,
-      SSHAdapterConfig,
+      ProcessPromise,
+      ExecutionResult,
       SSHAdapterOptions,
-      SSHExecutionContext,
       DockerAdapterOptions,
-      DockerContainerConfig,
+      ExecutionEngineConfig,
       DockerEphemeralOptions,
+      CallableExecutionEngine,
       DockerPersistentOptions,
       KubernetesAdapterOptions,
       RemoteDockerAdapterOptions,
     };
 
-    export type {
-      K8sPod,
-      K8sLogStream,
-      K8sPortForward,
-      K8sExecutionContext,
-    };
-
-    export type {
-      PipeTarget,
-      Disposable,
-      EventFilter,
-      RetryOptions,
-      ProgressEvent,
-      ProgressOptions,
-      CommandSuggestion,
-      DisposableContainer,
-    };
-
-    export type {
-      ErrorContext,
-      ErrorSuggestion,
-      EnhancedErrorDetails,
-    };
-
+    // Export CLI configuration types
     export type {
       TargetType,
       TargetConfig,
