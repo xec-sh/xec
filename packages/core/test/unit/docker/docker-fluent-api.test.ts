@@ -1,19 +1,19 @@
-import { test, jest, expect, describe, beforeEach, afterEach } from '@jest/globals';
+import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import {
-  DockerFluentAPI,
-  DockerBuildFluentAPI,
-  DockerEphemeralFluentAPI,
-  DockerPersistentFluentAPI,
   RedisFluentAPI,
-  RedisClusterFluentAPI,
-  PostgreSQLFluentAPI,
   MySQLFluentAPI,
-  MongoDBFluentAPI,
   KafkaFluentAPI,
+  DockerFluentAPI,
+  MongoDBFluentAPI,
   RabbitMQFluentAPI,
-  DockerRedisClusterAPI
+  PostgreSQLFluentAPI,
+  DockerBuildFluentAPI,
+  RedisClusterFluentAPI,
+  DockerRedisClusterAPI,
+  DockerEphemeralFluentAPI,
+  DockerPersistentFluentAPI
 } from '../../../src/adapters/docker/docker-fluent-api.js';
 
 describe('Docker Fluent API', () => {

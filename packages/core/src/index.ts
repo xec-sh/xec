@@ -242,16 +242,16 @@ export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
+export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
+
+export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
+
 export {
   DockerFluentAPI,
   DockerFluentBuildAPI,
   DockerRedisClusterAPI,
   type RedisClusterOptions
 } from './adapters/docker/docker-fluent-api.js';
-
-export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
-
-export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
 export {
   DockerError,
   CommandError,

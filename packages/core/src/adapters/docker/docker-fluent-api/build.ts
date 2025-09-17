@@ -2,9 +2,10 @@
  * Docker Build Fluent API
  */
 
-import type { ExecutionEngine } from '../../../core/execution-engine.js';
-import type { DockerBuildConfig, FluentAPIBuilder } from './types.js';
 import { DockerEphemeralFluentAPI } from './base.js';
+
+import type { FluentAPIBuilder, DockerBuildConfig } from './types.js';
+import type { ExecutionEngine } from '../../../core/execution-engine.js';
 
 /**
  * Docker Build Fluent API

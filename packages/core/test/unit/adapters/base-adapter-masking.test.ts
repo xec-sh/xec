@@ -1,7 +1,7 @@
 import { it, expect, describe, beforeEach } from '@jest/globals';
 
-import { BaseAdapter } from '../../../src/adapters/base-adapter.js';
 import { ExecutionResultImpl } from '../../../src/core/result.js';
+import { BaseAdapter } from '../../../src/adapters/base-adapter.js';
 
 import type { Command } from '../../../src/types/command.js';
 import type { ExecutionResult } from '../../../src/types/result.js';

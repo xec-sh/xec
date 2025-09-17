@@ -1,7 +1,7 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
-import { ResultCache, globalCache } from '../../../src/utils/cache.js';
 import { ExecutionResultImpl } from '../../../src/core/result.js';
+import { ResultCache, globalCache } from '../../../src/utils/cache.js';
 
 import type { ExecutionResult } from '../../../src/core/result.js';
 

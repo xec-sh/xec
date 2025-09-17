@@ -2,15 +2,15 @@
  * Redis Docker Service Fluent API
  */
 
-import type { ExecutionEngine, ProcessPromise } from '../../../../core/execution-engine.js';
-import type { ExecutionResult } from '../../../../types/result.js';
 import { DockerEphemeralFluentAPI } from '../base.js';
+
+import type { ExecutionResult } from '../../../../types/result.js';
+import type { ProcessPromise, ExecutionEngine } from '../../../../core/execution-engine.js';
 import type {
-  RedisServiceConfig,
-  ServiceManager,
   ServiceStatus,
+  ServiceManager,
   ClusterNodeInfo,
-  ServiceLifecycleHooks
+  RedisServiceConfig
 } from '../types.js';
 
 /**
@@ -842,10 +842,10 @@ export class RedisClusterFluentAPI implements ServiceManager {
     await firstNode.cli(`--cluster del-node ${firstNode['redisConfig'].name}:6379 ${nodeId}`);
 
     // Find and remove the node from our list
-    const nodeIndex = this.nodes.findIndex(n => {
+    const nodeIndex = this.nodes.findIndex(n => 
       // You'd need to track node IDs properly for this
-      return false; // Placeholder
-    });
+       false // Placeholder
+    );
 
     if (nodeIndex >= 0) {
       const nodeToRemove = this.nodes[nodeIndex];

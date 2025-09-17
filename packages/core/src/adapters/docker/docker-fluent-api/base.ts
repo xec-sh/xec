@@ -2,18 +2,18 @@
  * Base Docker Fluent API Classes
  */
 
-import type { ExecutionEngine, ProcessPromise } from '../../../core/execution-engine.js';
 import type { ExecutionResult } from '../../../types/result.js';
+import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 import type {
+  LogOptions,
+  ServiceStatus,
+  ServiceManager,
+  FluentAPIBuilder,
+  ContainerRuntimeInfo,
   DockerContainerConfig,
   DockerEphemeralConfig,
-  DockerPersistentConfig,
-  ServiceManager,
-  ServiceStatus,
-  ContainerRuntimeInfo,
-  LogOptions,
-  FluentAPIBuilder,
-  ServiceLifecycleHooks
+  ServiceLifecycleHooks,
+  DockerPersistentConfig
 } from './types.js';
 
 /**

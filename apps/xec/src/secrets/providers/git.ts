@@ -1,10 +1,10 @@
-import * as path from 'path';
-import { existsSync } from 'fs';
-import * as crypto from 'crypto';
-import * as fs from 'fs/promises';
-import { execSync } from 'child_process';
-import * as zlib from 'zlib';
-import { promisify } from 'util';
+import path from 'node:path';
+import zlib from 'node:zlib';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { promisify } from 'node:util';
+import { execSync } from 'node:child_process';
 
 import { getCachedMachineId } from '../machine-id.js';
 import {
@@ -145,7 +145,7 @@ export class GitSecretProvider implements SecretProvider {
   private auditLogEnabled: boolean;
   private userPrivateKey?: crypto.KeyObject;
   private userPublicKey?: crypto.KeyObject;
-  
+
   // Phase 3: Performance optimization
   private secretsCache: Map<string, CacheEntry> = new Map();
   private cacheTTL: number = 60000; // 1 minute default
@@ -896,7 +896,7 @@ export class GitSecretProvider implements SecretProvider {
 
     try {
       const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
-      
+
       for (const [userId, info] of Object.entries(metadata)) {
         this.teamKeys.set(userId, info as TeamKeyInfo);
       }
@@ -1001,7 +1001,7 @@ export class GitSecretProvider implements SecretProvider {
     // 2. Remove key files
     const teamKeyPath = path.join(this.keyPath, 'team', `${email.replace('@', '_at_')}.pub`);
     const encKeyPath = path.join(this.keyPath, 'team', `${email.replace('@', '_at_')}.key.enc`);
-    
+
     if (existsSync(teamKeyPath)) {
       await fs.unlink(teamKeyPath);
     }
@@ -1045,11 +1045,11 @@ export class GitSecretProvider implements SecretProvider {
     // 2. Decrypt all secrets with old key
     const allSecrets: Record<string, Record<string, string>> = {};
     const environments = ['development', 'staging', 'production'];
-    
+
     for (const env of environments) {
       const currentEnv = this.environment;
       this.environment = env;
-      
+
       const data = await this.loadEncryptedSecrets();
       if (data) {
         allSecrets[env] = {};
@@ -1057,7 +1057,7 @@ export class GitSecretProvider implements SecretProvider {
           allSecrets[env][key] = this.decryptValue(secret, this.encryptionKey!);
         }
       }
-      
+
       this.environment = currentEnv;
     }
 
@@ -1072,22 +1072,22 @@ export class GitSecretProvider implements SecretProvider {
     for (const [env, secrets] of Object.entries(allSecrets)) {
       const currentEnv = this.environment;
       this.environment = env;
-      
+
       const data = await this.loadOrCreateSecrets();
-      
+
       for (const [key, value] of Object.entries(secrets)) {
         const encrypted = await this.encryptValue(value, newMasterKey);
         const gitUser = await this.getGitUser();
-        
+
         encrypted.metadata = {
           ...data.secrets[key]?.metadata,
           updatedAt: new Date(),
           updatedBy: gitUser
         };
-        
+
         data.secrets[key] = encrypted;
       }
-      
+
       await this.saveEncryptedSecrets(data);
       this.environment = currentEnv;
     }
@@ -1095,7 +1095,7 @@ export class GitSecretProvider implements SecretProvider {
     // 6. Update team members' encrypted keys
     for (const member of this.teamKeys.values()) {
       const publicKey = crypto.createPublicKey(member.publicKey);
-      
+
       const encryptedMasterKey = crypto.publicEncrypt(
         {
           key: publicKey,
@@ -1104,9 +1104,9 @@ export class GitSecretProvider implements SecretProvider {
         },
         newMasterKey
       );
-      
+
       member.encryptedMasterKey = encryptedMasterKey.toString('base64');
-      
+
       // Save updated encrypted key
       const encKeyPath = path.join(this.keyPath, 'team', `${member.userId.replace('@', '_at_')}.key.enc`);
       await fs.writeFile(encKeyPath, member.encryptedMasterKey, { mode: 0o644 });
@@ -1255,7 +1255,7 @@ export class GitSecretProvider implements SecretProvider {
         encoding: 'utf8'
       }).trim();
       auditEntry.gitCommit = gitCommit;
-    } catch {}
+    } catch { }
 
     // Save audit log
     await this.saveAuditLog(auditEntry);
@@ -1290,7 +1290,7 @@ export class GitSecretProvider implements SecretProvider {
     }
 
     const files = await fs.readdir(auditDir);
-    
+
     for (const file of files) {
       if (!file.endsWith('.log')) continue;
 
@@ -1312,7 +1312,7 @@ export class GitSecretProvider implements SecretProvider {
           if (action && log.action !== action) continue;
 
           logs.push(log);
-        } catch {}
+        } catch { }
       }
     }
 
@@ -1375,7 +1375,7 @@ export class GitSecretProvider implements SecretProvider {
 
       // Save to file if path provided
       if (outputPath) {
-        const backupData = backup.compressed 
+        const backupData = backup.compressed
           ? await gzipAsync(JSON.stringify(backup))
           : JSON.stringify(backup, null, 2);
 
@@ -1387,7 +1387,7 @@ export class GitSecretProvider implements SecretProvider {
       }
 
       // Log audit event
-      await this.logAudit('export', undefined, { 
+      await this.logAudit('export', undefined, {
         type: 'backup',
         environments: Object.keys(backup.environments),
         totalSecrets: Object.values(backup.environments)
@@ -1412,7 +1412,7 @@ export class GitSecretProvider implements SecretProvider {
     // Load backup from file if path provided
     if (typeof backup === 'string') {
       const fileContent = await fs.readFile(backup);
-      
+
       try {
         // Try to parse as JSON first
         backupData = JSON.parse(fileContent.toString('utf8'));
@@ -1498,7 +1498,7 @@ export class GitSecretProvider implements SecretProvider {
 
         // Encrypt value
         const encrypted = await this.encryptValue(value, masterKey);
-        
+
         encrypted.metadata = {
           updatedAt: new Date(),
           updatedBy: gitUser
@@ -1552,7 +1552,7 @@ export class GitSecretProvider implements SecretProvider {
     for (const key of keys) {
       const cacheKey = `${this.environment}:${key}`;
       const cached = this.secretsCache.get(cacheKey);
-      
+
       if (cached && Date.now() - cached.timestamp < cached.ttl) {
         results[key] = cached.value;
       } else {
@@ -1563,7 +1563,7 @@ export class GitSecretProvider implements SecretProvider {
     // Load uncached secrets
     if (uncachedKeys.length > 0) {
       const data = await this.loadEncryptedSecrets();
-      
+
       if (data) {
         const masterKey = await this.getMasterKey();
 
