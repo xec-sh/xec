@@ -2,6 +2,8 @@
  * Base Docker Fluent API Classes
  */
 
+import { getDockerCommand } from '../docker-utils.js';
+
 import type { ExecutionResult } from '../../../types/result.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 import type {
@@ -482,9 +484,14 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     if (this.config.healthcheck) {
       const hc = this.config.healthcheck;
       if (typeof hc.test === 'string') {
-        args.push('--health-cmd', hc.test);
+        // Wrap health-cmd in quotes if it contains spaces
+        const healthCmd = hc.test.includes(' ') ? `"${hc.test}"` : hc.test;
+        args.push('--health-cmd', healthCmd);
       } else {
-        args.push('--health-cmd', hc.test.join(' '));
+        // Join array and wrap in quotes if needed
+        const healthCmd = hc.test.join(' ');
+        const quotedCmd = healthCmd.includes(' ') ? `"${healthCmd}"` : healthCmd;
+        args.push('--health-cmd', quotedCmd);
       }
       if (hc.interval) args.push('--health-interval', hc.interval);
       if (hc.timeout) args.push('--health-timeout', hc.timeout);
@@ -572,13 +579,15 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
 
     // Pull image if requested
     if (this.config.pull) {
-      await this.engine.run`docker pull ${this.config.image}`;
+      const pullCmd = getDockerCommand('pull', this.config.image!);
+    await this.engine.raw`${pullCmd}`;
     }
 
     // Build and execute run command
     const args = this.buildRunArgs();
-    const cmdStr = `docker ${args.join(' ')}`;
-    await this.engine.run`${cmdStr}`;
+    const cmdStr = getDockerCommand(...args);
+    // Use raw to avoid double escaping since args are already properly formatted
+    await this.engine.raw`${cmdStr}`;
 
     await this.executeHook('afterStart');
     await this.executeHook('onReady');
@@ -595,7 +604,8 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
       throw new Error('Container name is required to stop');
     }
 
-    await this.engine.run`docker stop ${name}`.nothrow();
+    const stopCmd = getDockerCommand('stop', name);
+    await this.engine.raw`${stopCmd}`.nothrow();
     await this.executeHook('afterStop');
   }
 
@@ -616,7 +626,8 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
       throw new Error('Container name is required to remove');
     }
 
-    await this.engine.run`docker rm -f ${name}`.nothrow();
+    const rmCmd = getDockerCommand('rm', '-f', name);
+    await this.engine.raw`${rmCmd}`.nothrow();
   }
 
   /**
@@ -643,7 +654,8 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     try {
-      const result = await this.engine.run`docker inspect --format='{{.State.Health.Status}}' ${this.config.name}`.nothrow();
+      const inspectCmd = getDockerCommand('inspect', '--format={{.State.Health.Status}}', this.config.name);
+      const result = await this.engine.raw`${inspectCmd}`.nothrow();
       return result.stdout.trim() === 'healthy';
     } catch {
       return false;
@@ -680,15 +692,17 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
       }
 
       if (containerName) {
-        const fullCmd = `docker exec ${containerName} ${cmd}`;
-        return this.engine.run`${fullCmd}`.then(result => result);
+        // Use sh -c to ensure proper PATH environment
+        const escapedCmd = cmd.replace(/"/g, '\\"');
+        const fullCmd = getDockerCommand('exec', containerName, 'sh', '-c', `"${escapedCmd}"`);
+        return this.engine.raw`${fullCmd}`.then(result => result);
       } else {
         // Run ephemeral container
         const args = this.buildRunArgs();
         const execArgs = args.filter(arg => arg !== '-d');
         execArgs.push('--rm');
-        const fullCmd = `docker ${execArgs.join(' ')} ${cmd}`;
-        return this.engine.run`${fullCmd}`.then(result => result);
+        const fullCmd = getDockerCommand(...execArgs, cmd);
+        return this.engine.raw`${fullCmd}`.then(result => result);
       }
     }
 
@@ -700,17 +714,27 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
 
     // If we have a name, use exec, otherwise use run
     if (this.config.name) {
-      const dockerCmd = `docker exec ${this.config.name}`;
-      const fullCmd = [dockerCmd, ...strings.raw].join(' ');
-      return this.engine.run([fullCmd] as any, ...values) as ProcessPromise;
+      // Build docker exec command with container name and command parts
+      const cmd = strings.raw.join('').trim();
+      const dockerPath = getDockerCommand().split(' ')[0]; // Get just the docker path
+
+      // Wrap command in sh -c to ensure proper PATH and environment setup
+      // This fixes issues with commands like redis-cli not being found
+      const escapedCmd = cmd.replace(/"/g, '\\"');
+      const execCommand = `${dockerPath} exec ${this.config.name} sh -c "${escapedCmd}"`;
+
+      // Create a template strings array manually to avoid escaping issues
+      const templateArr = Object.assign([execCommand], { raw: [execCommand] }) as TemplateStringsArray;
+      return this.engine.raw(templateArr) as ProcessPromise;
     } else {
       // Run ephemeral container
       const args = this.buildRunArgs();
       // Remove -d flag for ephemeral execution
       const execArgs = args.filter(arg => arg !== '-d');
       execArgs.push('--rm'); // Always remove after execution
-      const cmdStr = `docker ${execArgs.join(' ')} ${strings.raw.join(' ')}`;
-      return this.engine.run([cmdStr] as any, ...values) as ProcessPromise;
+      const cmdParts = strings.raw.join('').trim().split(/\s+/);
+      const cmdStr = getDockerCommand(...execArgs, ...cmdParts);
+      return this.engine.raw`${cmdStr}` as ProcessPromise;
     }
   }
 
@@ -723,7 +747,8 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     try {
-      const result = await this.engine.run`docker inspect ${this.config.name}`.nothrow();
+      const inspectCmd = getDockerCommand('inspect', this.config.name);
+      const result = await this.engine.raw`${inspectCmd}`.nothrow();
       if (result.exitCode !== 0) {
         return null;
       }
@@ -756,7 +781,8 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     try {
-      const result = await this.engine.run`docker ps --format "{{.Names}}" | grep -w ${this.config.name}`.nothrow();
+      const psCmd = getDockerCommand('ps', '--format', '{{.Names}}');
+      const result = await this.engine.raw`${psCmd} | grep -w ${this.config.name}`.nothrow();
       return result.exitCode === 0;
     } catch {
       return false;
@@ -782,7 +808,9 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
 
     args.push(this.config.name);
 
-    const result = await this.engine.run`docker ${args.join(' ')}`;
+    // Use raw to avoid double escaping
+    const logsCmd = getDockerCommand(...args);
+    const result = await this.engine.raw`${logsCmd}`;
     return result.stdout;
   }
 
@@ -901,7 +929,8 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
       return;
     }
 
-    await this.engine.run`docker start ${this.config.container}`;
+    const startCmd = getDockerCommand('start', this.config.container!);
+    await this.engine.raw`${startCmd}`;
 
     await this.executeHook('afterStart');
     await this.executeHook('onReady');
@@ -912,7 +941,8 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   async stop(): Promise<void> {
     await this.executeHook('beforeStop');
-    await this.engine.run`docker stop ${this.config.container}`;
+    const stopCmd = getDockerCommand('stop', this.config.container!);
+    await this.engine.raw`${stopCmd}`;
     await this.executeHook('afterStop');
   }
 
@@ -920,15 +950,20 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    * Restart container
    */
   async restart(): Promise<void> {
-    await this.engine.run`docker restart ${this.config.container}`;
+    const restartCmd = getDockerCommand('restart', this.config.container!);
+    await this.engine.raw`${restartCmd}`;
   }
 
   /**
    * Remove container
    */
   async remove(): Promise<void> {
+    if (!this.config.container) {
+      throw new Error('Container name is required for removal');
+    }
     await this.stop();
-    await this.engine.run`docker rm ${this.config.container}`;
+    const rmCmd = getDockerCommand('rm', this.config.container);
+    await this.engine.raw`${rmCmd}`;
   }
 
   /**
@@ -958,15 +993,41 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
       if (!container) {
         throw new Error('[xec-core] Container name required for persistent API');
       }
-      const fullCmd = `docker exec ${container} ${cmd}`;
-      return this.engine.run`${fullCmd}`.then(result => result);
+      // Use sh -c to ensure proper PATH environment
+      const escapedCmd = cmd.replace(/"/g, '\\"');
+      const fullCmd = getDockerCommand('exec', container, 'sh', '-c', `"${escapedCmd}"`);
+      return this.engine.raw`${fullCmd}`.then(result => result);
     }
 
     // Handle template literals
     const strings = commandOrStrings as TemplateStringsArray;
-    const args = this.buildRunArgs();
-    const cmdStr = `docker ${args.join(' ')} ${strings.raw.join(' ')}`;
-    return this.engine.run([cmdStr] as any, ...values) as ProcessPromise;
+    const container = this.config.container;
+    if (!container) {
+      throw new Error('[xec-core] Container name required for persistent API');
+    }
+
+    // Build command and wrap in sh -c for proper PATH handling
+    const cmd = strings.raw.join('').trim();
+    const escapedCmd = cmd.replace(/"/g, '\\"');
+    const dockerPath = getDockerCommand().split(' ')[0];
+
+    // Build exec command with environment variables if needed
+    const envArgs: string[] = [];
+    if (this.config.env) {
+      for (const [key, value] of Object.entries(this.config.env)) {
+        envArgs.push('-e', `${key}=${value}`);
+      }
+    }
+    if (this.config.workdir) {
+      envArgs.push('-w', this.config.workdir);
+    }
+    if (this.config.user) {
+      envArgs.push('-u', this.config.user);
+    }
+
+    const execCommand = `${dockerPath} exec ${envArgs.join(' ')} ${container} sh -c "${escapedCmd}"`;
+    const templateArr = Object.assign([execCommand], { raw: [execCommand] }) as TemplateStringsArray;
+    return this.engine.raw(templateArr) as ProcessPromise;
   }
 
   /**
@@ -974,7 +1035,8 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   async info(): Promise<ContainerRuntimeInfo | null> {
     try {
-      const result = await this.engine.run`docker inspect ${this.config.container}`.nothrow();
+      const inspectCmd = getDockerCommand('inspect', this.config.container!);
+      const result = await this.engine.raw`${inspectCmd}`.nothrow();
       if (result.exitCode !== 0) {
         return null;
       }
@@ -1003,7 +1065,8 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   async isRunning(): Promise<boolean> {
     try {
-      const result = await this.engine.run`docker ps --format "{{.Names}}" | grep -w ${this.config.container}`.nothrow();
+      const psCmd = getDockerCommand('ps', '--format', '{{.Names}}');
+      const result = await this.engine.raw`${psCmd} | grep -w ${this.config.container}`.nothrow();
       return result.exitCode === 0;
     } catch {
       return false;
@@ -1025,7 +1088,9 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
 
     args.push(this.config.container!);
 
-    const result = await this.engine.run`docker ${args.join(' ')}`;
+    // Use raw to avoid double escaping
+    const logsCmd = getDockerCommand(...args);
+    const result = await this.engine.raw`${logsCmd}`;
     return result.stdout;
   }
 

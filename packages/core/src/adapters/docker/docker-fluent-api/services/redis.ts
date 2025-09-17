@@ -187,22 +187,24 @@ export class RedisFluentAPI extends DockerEphemeralFluentAPI {
    * Ping Redis
    */
   async ping(): Promise<ExecutionResult> {
-    const cmd = this.redisConfig.password
+    const pingCommand = this.redisConfig.password
       ? `redis-cli -a ${this.redisConfig.password} ping`
       : 'redis-cli ping';
 
-    return await this.exec`${cmd}`;
+    // Use the ServiceManager interface exec method which accepts string
+    return await this.exec(pingCommand);
   }
 
   /**
    * Execute Redis CLI command
    */
   async cli(command: string): Promise<ExecutionResult> {
-    const cliPrefix = this.redisConfig.password
-      ? `redis-cli -a ${this.redisConfig.password}`
-      : 'redis-cli';
+    const fullCommand = this.redisConfig.password
+      ? `redis-cli -a ${this.redisConfig.password} ${command}`
+      : `redis-cli ${command}`;
 
-    return await this.exec`${cliPrefix} ${command}`;
+    // Use the ServiceManager interface exec method which accepts string
+    return await this.exec(fullCommand);
   }
 
   /**
@@ -267,11 +269,13 @@ export class RedisFluentAPI extends DockerEphemeralFluentAPI {
    * Monitor Redis commands
    */
   async monitor(): Promise<ProcessPromise> {
-    const cliPrefix = this.redisConfig.password
-      ? `redis-cli -a ${this.redisConfig.password}`
-      : 'redis-cli';
+    const monitorCommand = this.redisConfig.password
+      ? `redis-cli -a ${this.redisConfig.password} monitor`
+      : 'redis-cli monitor';
 
-    return this.exec`${cliPrefix} monitor`;
+    // Create a template literal for ProcessPromise return
+    const templateArr = Object.assign([monitorCommand], { raw: [monitorCommand] }) as TemplateStringsArray;
+    return this.exec(templateArr);
   }
 
   /**
