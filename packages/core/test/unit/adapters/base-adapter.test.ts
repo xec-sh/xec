@@ -3,7 +3,6 @@ import { test, jest, expect, describe } from '@jest/globals';
 import { Command } from '../../../src/types/command.js';
 import { ExecutionResult } from '../../../src/types/result.js';
 import { BaseAdapter } from '../../../src/adapters/base-adapter.js';
-import { ExecutionResultImpl } from '../../../src/core/result.js';
 
 // Create a concrete implementation for testing
 class TestAdapter extends BaseAdapter {

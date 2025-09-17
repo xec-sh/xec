@@ -2,30 +2,26 @@
  * Docker Fluent API - Main Entry Point
  */
 
-import type { ExecutionEngine, ProcessPromise } from '../../../core/execution-engine.js';
-import type {
-  DockerOptions,
-  DockerEphemeralOptions,
-  DockerPersistentOptions
-} from '../../../types/execution.js';
-import type { ServicePresetConfig } from './types.js';
 import { ServiceName } from './types.js';
-
+import { DockerBuildFluentAPI } from './build.js';
 // Import for internal use
 import { DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
-import { DockerBuildFluentAPI } from './build.js';
 
-// Re-export for external use
-export { BaseDockerFluentAPI, DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
-export { DockerBuildFluentAPI } from './build.js';
-
-// Service implementations
-export { RedisFluentAPI, RedisClusterFluentAPI } from './services/redis.js';
-export { PostgreSQLFluentAPI, MySQLFluentAPI, MongoDBFluentAPI } from './services/databases.js';
-export { KafkaFluentAPI, RabbitMQFluentAPI } from './services/messaging.js';
+import type { ServicePresetConfig } from './types.js';
+import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 
 // Type exports
 export * from './types.js';
+export { SSHFluentAPI } from './services/ssh.js';
+
+export { DockerBuildFluentAPI } from './build.js';
+// Service implementations
+export { RedisFluentAPI, RedisClusterFluentAPI } from './services/redis.js';
+export { KafkaFluentAPI, RabbitMQFluentAPI } from './services/messaging.js';
+export { MySQLFluentAPI, MongoDBFluentAPI, PostgreSQLFluentAPI } from './services/databases.js';
+
+// Re-export for external use
+export { BaseDockerFluentAPI, DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
 
 /**
  * Main Docker Fluent API Class
@@ -92,6 +88,10 @@ export class DockerFluentAPI {
       case ServiceName.RabbitMQ:
         return new (require('./services/messaging.js').RabbitMQFluentAPI)(this.engine, config);
 
+      case 'ssh':
+      case ServiceName.SSH:
+        return new (require('./services/ssh.js').SSHFluentAPI)(this.engine, config);
+
       default:
         throw new Error(`Unknown service: ${name}`);
     }
@@ -144,6 +144,26 @@ export class DockerFluentAPI {
    */
   rabbitmq(config?: Partial<import('./types.js').RabbitMQServiceConfig>): import('./services/messaging.js').RabbitMQFluentAPI {
     return this.service('rabbitmq', config);
+  }
+
+  /**
+   * SSH service shortcut - create SSH-enabled containers easily
+   *
+   * @example
+   * // Quick start with defaults
+   * const ssh = docker.ssh();
+   * await ssh.start();
+   *
+   * // Custom configuration
+   * const ssh = docker.ssh({ distro: 'alpine', port: 2323 });
+   * await ssh.start();
+   *
+   * // Get connection info
+   * console.log(ssh.getConnectionString());
+   */
+  ssh(config?: Partial<import('./types.js').SSHServiceConfig>): import('./services/ssh.js').SSHFluentAPI {
+    const { SSHFluentAPI } = require('./services/ssh.js');
+    return new SSHFluentAPI(this.engine, config);
   }
 
   /**

@@ -2,8 +2,8 @@
  * Docker Fluent API Type Definitions
  */
 
-import type { ExecutionEngine, ProcessPromise } from '../../../core/execution-engine.js';
 import type { ExecutionResult } from '../../../types/result.js';
+import type { ExecutionEngine } from '../../../core/execution-engine.js';
 
 /**
  * Base Docker container configuration
@@ -248,6 +248,24 @@ export interface RabbitMQServiceConfig extends ServicePresetConfig {
 }
 
 /**
+ * SSH service configuration
+ */
+export interface SSHServiceConfig extends ServicePresetConfig {
+  distro?: 'ubuntu' | 'alpine' | 'debian' | 'fedora' | 'centos' | 'rocky' | 'alma' | string;
+  user?: string;
+  password?: string;
+  rootPassword?: string;
+  sudo?: {
+    enabled: boolean;
+    requirePassword?: boolean;
+  };
+  pubKeys?: string[];
+  packages?: string[];
+  setupCommands?: string[];
+  sshConfig?: Record<string, string>;
+}
+
+/**
  * Service lifecycle hooks
  */
 export interface ServiceLifecycleHooks {
@@ -444,6 +462,7 @@ export enum ServiceName {
   ElasticSearch = 'elasticsearch',
   Kafka = 'kafka',
   RabbitMQ = 'rabbitmq',
+  SSH = 'ssh',
   Nginx = 'nginx',
   Memcached = 'memcached',
   InfluxDB = 'influxdb',

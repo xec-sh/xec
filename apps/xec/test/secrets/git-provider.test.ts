@@ -1,10 +1,10 @@
 import * as os from 'os';
 import * as path from 'path';
 import { existsSync } from 'fs';
-import * as fs from 'fs/promises';
 import * as crypto from 'crypto';
+import * as fs from 'fs/promises';
 import { execSync } from 'child_process';
-import { it, expect, describe, afterEach, beforeEach, beforeAll, afterAll } from '@jest/globals';
+import { it, expect, describe, afterAll, beforeAll, beforeEach } from '@jest/globals';
 
 import { SecretError } from '../../src/secrets/types.js';
 import { GitSecretProvider } from '../../src/secrets/providers/git.js';

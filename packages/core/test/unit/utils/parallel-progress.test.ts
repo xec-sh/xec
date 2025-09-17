@@ -1,8 +1,8 @@
 import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
+import { ExecutionResultImpl } from '../../../src/core/result.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import { parallel, ParallelEngine } from '../../../src/utils/parallel.js';
-import { ExecutionResultImpl } from '../../../src/core/result.js';
 
 import type { Command } from '../../../src/types/command.js';
 import type { ExecutionResult } from '../../../src/core/result.js';
