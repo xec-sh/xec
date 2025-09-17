@@ -146,7 +146,7 @@ export class DockerContainer {
 
     // Build the full command - when shell is false, we need to pass the command and args separately
     const fullCommand = args && args.length > 0 ? `${command} ${args.join(' ')}` : command;
-    
+
     // Execute using template literal to match the exec() implementation
     const result = await (dockerEngine as any).run([fullCommand], ...[]);
     return result;
@@ -279,7 +279,7 @@ export class DockerContainer {
   async getIpAddress(network?: string): Promise<string | null> {
     const info = await this.inspect();
     const networks = info.NetworkSettings?.Networks;
-    
+
     if (!networks) {
       return null;
     }
@@ -327,56 +327,3 @@ export class DockerContainer {
   }
 }
 
-/**
- * Docker API context for creating and managing containers
- * @deprecated Use new simplified Docker API: $.docker({ image: 'alpine' }) or $.docker().ephemeral('alpine').run
- */
-export interface DockerContext {
-  /**
-   * Start a new container with the given configuration
-   */
-  start(): Promise<DockerContainer>;
-  
-  /**
-   * Execute a command in an existing container (for backwards compatibility)
-   */
-  (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-}
-
-/**
- * Create a Docker execution context
- */
-export function createDockerContext(
-  engine: ExecutionEngine,
-  config: DockerContainerConfig
-): DockerContext {
-  const adapter = engine.getAdapter('docker') as DockerAdapter;
-  if (!adapter) {
-    throw new Error('Docker adapter not available');
-  }
-
-  // For backwards compatibility - execute in existing container
-  const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
-    if (config.name) {
-      // Execute in existing container
-      const dockerEngine = engine.docker({
-        container: config.name,
-        user: config.user,
-        workdir: config.workdir
-      });
-      return (dockerEngine as any).run(strings, ...values);
-    } else {
-      throw new Error('Container name must be specified for direct execution');
-    }
-  };
-
-  // Create the context object
-  const context = Object.assign(exec, {
-    start: async (): Promise<DockerContainer> => {
-      const container = new DockerContainer(engine, adapter, config);
-      return container.start();
-    }
-  });
-
-  return context;
-}
