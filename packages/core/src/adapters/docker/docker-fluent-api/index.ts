@@ -3,9 +3,13 @@
  */
 
 import { ServiceName } from './types.js';
+import { SSHFluentAPI } from './services/ssh.js';
 import { DockerBuildFluentAPI } from './build.js';
+import { RedisFluentAPI, RedisClusterFluentAPI } from './services/redis.js';
+import { KafkaFluentAPI, RabbitMQFluentAPI } from './services/messaging.js';
 // Import for internal use
 import { DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
+import { MySQLFluentAPI, MongoDBFluentAPI, PostgreSQLFluentAPI } from './services/databases.js';
 
 import type { ServicePresetConfig } from './types.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
@@ -34,24 +38,21 @@ export class DockerFluentAPI {
    * Create ephemeral container
    */
   ephemeral(image: string): DockerEphemeralFluentAPI {
-    const { DockerEphemeralFluentAPI } = require('./base.js');
-    return new DockerEphemeralFluentAPI(this.engine, { image });
+    return new DockerEphemeralFluentAPI(this.engine, image);
   }
 
   /**
    * Use existing container
    */
   container(name: string): DockerPersistentFluentAPI {
-    const { DockerPersistentFluentAPI } = require('./base.js');
-    return new DockerPersistentFluentAPI(this.engine, { container: name });
+    return new DockerPersistentFluentAPI(this.engine, name);
   }
 
   /**
    * Build Docker image
    */
   build(context: string, tag?: string): DockerBuildFluentAPI {
-    const { DockerBuildFluentAPI } = require('./build.js');
-    return new DockerBuildFluentAPI(this.engine, { context, tag });
+    return new DockerBuildFluentAPI(this.engine, context, tag);
   }
 
   /**
@@ -61,36 +62,36 @@ export class DockerFluentAPI {
     switch (name) {
       case 'redis':
       case ServiceName.Redis:
-        return new (require('./services/redis.js').RedisFluentAPI)(this.engine, config);
+        return new RedisFluentAPI(this.engine, config);
 
       case 'redis-cluster':
-        return new (require('./services/redis.js').RedisClusterFluentAPI)(this.engine, config);
+        return new RedisClusterFluentAPI(this.engine, config);
 
       case 'postgresql':
       case 'postgres':
       case ServiceName.PostgreSQL:
-        return new (require('./services/databases.js').PostgreSQLFluentAPI)(this.engine, config);
+        return new PostgreSQLFluentAPI(this.engine, config);
 
       case 'mysql':
       case ServiceName.MySQL:
-        return new (require('./services/databases.js').MySQLFluentAPI)(this.engine, config);
+        return new MySQLFluentAPI(this.engine, config);
 
       case 'mongodb':
       case 'mongo':
       case ServiceName.MongoDB:
-        return new (require('./services/databases.js').MongoDBFluentAPI)(this.engine, config);
+        return new MongoDBFluentAPI(this.engine, config);
 
       case 'kafka':
       case ServiceName.Kafka:
-        return new (require('./services/messaging.js').KafkaFluentAPI)(this.engine, config);
+        return new KafkaFluentAPI(this.engine, config);
 
       case 'rabbitmq':
       case ServiceName.RabbitMQ:
-        return new (require('./services/messaging.js').RabbitMQFluentAPI)(this.engine, config);
+        return new RabbitMQFluentAPI(this.engine, config);
 
       case 'ssh':
       case ServiceName.SSH:
-        return new (require('./services/ssh.js').SSHFluentAPI)(this.engine, config);
+        return new SSHFluentAPI(this.engine, config);
 
       default:
         throw new Error(`Unknown service: ${name}`);
@@ -162,7 +163,6 @@ export class DockerFluentAPI {
    * console.log(ssh.getConnectionString());
    */
   ssh(config?: Partial<import('./types.js').SSHServiceConfig>): import('./services/ssh.js').SSHFluentAPI {
-    const { SSHFluentAPI } = require('./services/ssh.js');
     return new SSHFluentAPI(this.engine, config);
   }
 

@@ -2,6 +2,7 @@
 
 import { platform } from 'node:os';
 import { Readable } from 'node:stream';
+import { constants, accessSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
 import { Command } from '../../types/command.js';
@@ -395,8 +396,7 @@ export class LocalAdapter extends BaseAdapter {
     // Check if cwd exists if provided
     if (command.cwd) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        require('fs').accessSync(command.cwd, require('fs').constants.F_OK);
+        accessSync(command.cwd, constants.F_OK);
       } catch (err) {
         // This will be caught by spawn and result in an ENOENT error
         // Keep cwd as is - spawn will handle the error appropriately
@@ -422,8 +422,7 @@ export class LocalAdapter extends BaseAdapter {
 
         for (const shell of availableShells) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            require('fs').accessSync(shell, require('fs').constants.F_OK);
+            accessSync(shell, constants.F_OK);
             options.shell = shell;
             shellFound = true;
             break;
