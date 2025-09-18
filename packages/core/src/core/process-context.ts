@@ -15,7 +15,8 @@ export { ProcessPromise } from '../types/process.js';
  */
 export class ProcessContext {
   // Single object for all modifications - reduces memory allocations
-  protected state = {
+  // Made public for ProcessPromiseBuilder to access in arrow functions
+  public state = {
     modifications: {} as Partial<Command>,
     cacheOptions: null as CacheOptions | null,
     abortController: null as AbortController | null,
@@ -212,7 +213,9 @@ export class ProcessContext {
       {
         nothrow: modifications.nothrow ??
           commandParts.nothrow ??
-          (globalNothrow || undefined)
+          (globalNothrow || undefined),
+        // Mark this command as coming from ProcessPromise
+        __fromProcessPromise: true
       }
     ) as Command;
   }
@@ -298,7 +301,26 @@ export class ProcessPromiseBuilder {
             executionPromise.finally(() => processes.delete(lazyPromise));
           }
         }
-        return executionPromise!.then(onfulfilled, onrejected);
+        // Check if we're being awaited directly (not through .text(), .json(), etc)
+        // We can detect this by checking if onfulfilled is the internal handler from .text()/.json()
+        // or if it's a user-provided handler
+        const isDirectAwait = onfulfilled && !onfulfilled.__isTransformHandler;
+
+        if (isDirectAwait) {
+          // For direct await, check if we should throw
+          return executionPromise!.then(result => {
+            if (result.exitCode !== 0 && !context.state.modifications.nothrow) {
+              const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+              if (!globalNothrow) {
+                result.throwIfFailed();
+              }
+            }
+            return result;
+          }).then(onfulfilled, onrejected);
+        } else {
+          // For transform methods, don't throw automatically
+          return executionPromise!.then(onfulfilled, onrejected);
+        }
       },
       catch(onrejected?: any) {
         return lazyPromise.then(undefined, onrejected);
@@ -353,11 +375,67 @@ export class ProcessPromiseBuilder {
       pipe: (target: PipeTarget, ...args: any[]) => context.pipe(target, ...args),
       kill: (signal?: string) => context.kill(signal),
 
-      // Transformations
-      text: () => promise.then(r => r.stdout.trim()),
-      json: <T = any>() => promise.then(r => this.parseJson(r.stdout.trim()) as T),
-      lines: () => promise.then(r => this.parseLines(r.stdout)),
-      buffer: () => promise.then(r => Buffer.from(r.stdout))
+      // Transformations - these should throw if the command failed and throwOnNonZeroExit is true
+      text: () => {
+        const handler = (r: ExecutionResult) => {
+          // Check if we should throw based on exitCode and throwOnNonZeroExit
+          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
+            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+            if (!globalNothrow) {
+              r.throwIfFailed();
+            }
+          }
+          return r.stdout.trim();
+        };
+        // Mark this as a transform handler
+        (handler as any).__isTransformHandler = true;
+        return promise.then(handler);
+      },
+      json: <T = any>() => {
+        const handler = (r: ExecutionResult) => {
+          // Check if we should throw based on exitCode and throwOnNonZeroExit
+          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
+            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+            if (!globalNothrow) {
+              r.throwIfFailed();
+            }
+          }
+          return this.parseJson(r.stdout.trim()) as T;
+        };
+        // Mark this as a transform handler
+        (handler as any).__isTransformHandler = true;
+        return promise.then(handler);
+      },
+      lines: () => {
+        const handler = (r: ExecutionResult) => {
+          // Check if we should throw based on exitCode and throwOnNonZeroExit
+          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
+            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+            if (!globalNothrow) {
+              r.throwIfFailed();
+            }
+          }
+          return this.parseLines(r.stdout);
+        };
+        // Mark this as a transform handler
+        (handler as any).__isTransformHandler = true;
+        return promise.then(handler);
+      },
+      buffer: () => {
+        const handler = (r: ExecutionResult) => {
+          // Check if we should throw based on exitCode and throwOnNonZeroExit
+          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
+            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+            if (!globalNothrow) {
+              r.throwIfFailed();
+            }
+          }
+          return Buffer.from(r.stdout);
+        };
+        // Mark this as a transform handler
+        (handler as any).__isTransformHandler = true;
+        return promise.then(handler);
+      }
     });
 
     // Single property definition for lazy evaluation
