@@ -22,6 +22,7 @@ export class StreamHandler {
   private readonly maxBuffer: number;
   private readonly onData?: (chunk: string) => void;
   private readonly onError?: (error: Error) => void;
+  private disposed = false;
 
   constructor(options: StreamHandlerOptions = {}) {
     this.encoding = options.encoding || 'utf8';
@@ -37,7 +38,14 @@ export class StreamHandler {
     const transform = new Transform({
       transform(chunk: Buffer, encoding, callback) {
         try {
+          if (self.disposed) {
+            callback(new Error('StreamHandler has been disposed'));
+            return;
+          }
+
           if (self.totalLength + chunk.length > self.maxBuffer) {
+            // Clean up buffer to prevent memory leak
+            self.reset();
             callback(new Error(`Stream exceeded maximum buffer size of ${self.maxBuffer} bytes`));
             return;
           }
@@ -53,42 +61,79 @@ export class StreamHandler {
           this.push(chunk);
           callback();
         } catch (error) {
+          // Clean up on error
+          self.reset();
+          if (self.onError) {
+            self.onError(error as Error);
+          }
           callback(error as Error);
         }
       },
 
       flush(callback) {
         try {
-          const str = self.decoder.end();
-          if (self.onData && str) {
-            self.onData(str);
+          if (!self.disposed) {
+            const str = self.decoder.end();
+            if (self.onData && str) {
+              self.onData(str);
+            }
           }
           callback();
         } catch (error) {
           callback(error as Error);
+        } finally {
+          // Clean up after flush
+          self.reset();
         }
+      },
+
+      final(callback) {
+        // Ensure cleanup when transform ends
+        self.reset();
+        callback();
       },
 
       // Add autoDestroy to ensure the stream is destroyed when it ends
       autoDestroy: true
     });
 
+    // Clean up when transform is destroyed
+    transform.on('close', () => self.dispose());
+    transform.on('error', () => self.reset());
+
     return transform;
   }
 
   getContent(): string {
+    if (this.disposed) {
+      return '';
+    }
     const fullBuffer = Buffer.concat(this.buffer, this.totalLength);
     return fullBuffer.toString(this.encoding);
   }
 
   getBuffer(): Buffer {
+    if (this.disposed) {
+      return Buffer.alloc(0);
+    }
     return Buffer.concat(this.buffer, this.totalLength);
   }
 
   reset(): void {
-    this.buffer = [];
-    this.totalLength = 0;
-    this.decoder = new StringDecoder(this.encoding);
+    if (!this.disposed) {
+      // Clear buffer references to allow garbage collection
+      this.buffer.length = 0;
+      this.buffer = [];
+      this.totalLength = 0;
+      this.decoder = new StringDecoder(this.encoding);
+    }
+  }
+
+  dispose(): void {
+    if (!this.disposed) {
+      this.reset();
+      this.disposed = true;
+    }
   }
 }
 

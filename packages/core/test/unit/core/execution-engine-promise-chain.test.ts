@@ -6,27 +6,34 @@ import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 describe('ExecutionEngine - Promise Chain Handling', () => {
-  let mockAdapter: MockAdapter;
-  let $mock: typeof $;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    // Create engine with mock adapter
+  // Helper function to create isolated test setup
+  function createTestSetup() {
     const engine = new ExecutionEngine({
       defaultTimeout: 5000,
       throwOnNonZeroExit: true
     });
-
-    mockAdapter = new MockAdapter();
-    mockAdapter.clearMocks();
-    // Set a better default response for unmocked commands
+    const mockAdapter = new MockAdapter();
     mockAdapter.mockDefault({ stdout: '', stderr: '', exitCode: 0 });
     engine.registerAdapter('mock', mockAdapter);
-
-    // Create $ function with mock adapter
     const mockEngine = engine.with({ adapter: 'mock' as any });
-    $mock = mockEngine.tag.bind(mockEngine);
+    // Create a proper tagged template function
+    const $mock = (strings: TemplateStringsArray, ...values: any[]) => {
+      return mockEngine.tag(strings, ...values);
+    };
+    return { engine, mockAdapter, $mock };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Force garbage collection of any pending promises
+    if (global.gc) {
+      global.gc();
+    }
+    // Return a promise to ensure Jest waits
+    return new Promise(resolve => setTimeout(resolve, 0));
   });
 
   // This second beforeEach was redundant and causing issues by clearing mocks after setup
@@ -34,41 +41,55 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
 
   describe('.text() method', () => {
     it('should handle command failures without unhandled rejections', async () => {
-      mockAdapter.mockFailure(/sh -c "echo test"/, 'Command not found', 127);
+      const { mockAdapter, $mock } = createTestSetup();
+      mockAdapter.mockFailure(/sh -c "echo failing"/, 'Command not found', 127);
 
-      const promise = $mock`echo test`;
+      const promise = $mock`echo failing`;
 
       // This should not cause an unhandled rejection
-      await expect(promise.text()).rejects.toThrow(CommandError);
+      try {
+        await promise.text();
+        throw new Error('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+        expect((error as CommandError).exitCode).toBe(127);
+      }
     });
 
     it('should properly chain promises when command succeeds', async () => {
-      // Mock the shell-wrapped command
-      mockAdapter.mockSuccess(/sh -c "echo test"/, 'test output\n');
+      const { mockAdapter, $mock } = createTestSetup();
+      mockAdapter.mockSuccess(/sh -c "echo success-test"/, 'test output\n');
 
-      const promise = $mock`echo test`;
+      const promise = $mock`echo success-test`;
       const text = await promise.text();
 
       expect(text).toBe('test output');
     });
 
     it('should handle errors in promise chain without detaching', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockFailure(/sh -c "failing-command"/, 'Command failed', 1);
 
       const promise = $mock`failing-command`;
-      
+
       // Create the .text() promise but don't await immediately
       const textPromise = promise.text();
-      
+
       // Should reject with CommandError
-      await expect(textPromise).rejects.toThrow(CommandError);
-      await expect(textPromise).rejects.toThrow('Command failed');
+      try {
+        await textPromise;
+        throw new Error('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+        expect((error as Error).message).toContain('Command failed');
+      }
     });
 
     it('should handle .text() called multiple times', async () => {
-      mockAdapter.mockSuccess(/sh -c "echo multi"/, 'multi output\n');
+      const { mockAdapter, $mock } = createTestSetup();
+      mockAdapter.mockSuccess(/sh -c "echo multi-text"/, 'multi output\n');
 
-      const promise = $mock`echo multi`;
+      const promise = $mock`echo multi-text`;
       
       // Call .text() multiple times
       const text1Promise = promise.text();
@@ -83,25 +104,34 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
 
   describe('.json() method', () => {
     it('should handle command failures without unhandled rejections', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockFailure(/echo json/, 'Command not found', 127);
 
       const promise = $mock`echo json`;
-      
+
       // This should not cause an unhandled rejection
-      await expect(promise.json()).rejects.toThrow(CommandError);
+      try {
+        await promise.json();
+        throw new Error('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+        expect((error as CommandError).exitCode).toBe(127);
+      }
     });
 
     it('should properly parse JSON when command succeeds', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       // Use regex to match echo with JSON content
-      mockAdapter.mockSuccess(/echo.*key.*value/, '{"key": "value"}\n');
+      mockAdapter.mockSuccess(/sh -c "echo json-success"/, '{"key": "value"}\n');
       
-      const promise = $mock`echo '{"key": "value"}'`;
+      const promise = $mock`echo json-success`;
       const json = await promise.json();
       
       expect(json).toEqual({ key: 'value' });
     });
 
     it('should handle invalid JSON without unhandled rejections', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockSuccess(/sh -c "echo invalid"/, 'not json\n');
 
       const promise = $mock`echo invalid`;
@@ -111,23 +141,30 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
     });
 
     it('should handle errors in promise chain without detaching', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockFailure(/sh -c "failing-json"/, 'Command failed', 1);
 
       const promise = $mock`failing-json`;
-      
+
       // Create the .json() promise but don't await immediately
       const jsonPromise = promise.json();
-      
+
       // Should reject with CommandError
-      await expect(jsonPromise).rejects.toThrow(CommandError);
-      await expect(jsonPromise).rejects.toThrow('Command failed');
+      try {
+        await jsonPromise;
+        throw new Error('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+        expect((error as Error).message).toContain('Command failed');
+      }
     });
 
     it('should handle .json() called multiple times', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       // Use regex to match echo with JSON content
-      mockAdapter.mockSuccess(/sh -c "echo.*count.*42.*"/, '{"count": 42}\n');
+      mockAdapter.mockSuccess(/sh -c "echo json-multi"/, '{"count": 42}\n');
 
-      const promise = $mock`echo '{"count": 42}'`;
+      const promise = $mock`echo json-multi`;
       
       // Call .json() multiple times
       const json1Promise = promise.json();
@@ -140,6 +177,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
     });
 
     it('should handle JSON parse errors in chained promises', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockSuccess(/sh -c "echo bad"/, 'invalid { json\n');
 
       const promise = $mock`echo bad`;
@@ -156,32 +194,57 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
 
   describe('Promise chain isolation', () => {
     it('should not affect base promise when .text() fails', async () => {
-      mockAdapter.mockFailure(/sh -c "test"/, 'Failed', 1);
+      const { mockAdapter, $mock } = createTestSetup();
+      mockAdapter.mockFailure(/sh -c "test-text-fail"/, 'Failed', 1);
 
-      const promise = $mock`test`;
-      
+      const promise = $mock`test-text-fail`;
+
       // Create .text() promise that will reject
       const textPromise = promise.text();
-      
+
       // Base promise should also reject
-      await expect(promise).rejects.toThrow(CommandError);
-      await expect(textPromise).rejects.toThrow(CommandError);
+      try {
+        await promise;
+        throw new Error('Base promise should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+      }
+
+      try {
+        await textPromise;
+        throw new Error('Text promise should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+      }
     });
 
     it('should not affect base promise when .json() fails', async () => {
-      mockAdapter.mockFailure(/sh -c "test"/, 'Failed', 1);
+      const { mockAdapter, $mock } = createTestSetup();
+      mockAdapter.mockFailure(/sh -c "test-json-fail"/, 'Failed', 1);
 
-      const promise = $mock`test`;
-      
+      const promise = $mock`test-json-fail`;
+
       // Create .json() promise that will reject
       const jsonPromise = promise.json();
-      
+
       // Base promise should also reject
-      await expect(promise).rejects.toThrow(CommandError);
-      await expect(jsonPromise).rejects.toThrow(CommandError);
+      try {
+        await promise;
+        throw new Error('Base promise should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+      }
+
+      try {
+        await jsonPromise;
+        throw new Error('JSON promise should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(CommandError);
+      }
     });
 
     it('should handle mixed .text() and .json() calls', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockSuccess(/sh -c "echo data"/, '{"valid": "json"}\n');
 
       const promise = $mock`echo data`;
@@ -200,6 +263,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
 
   describe('Error handling with try/catch', () => {
     it('should catch errors from .text() in try/catch blocks', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockFailure(/sh -c "fail"/, 'Command failed', 127);
 
       let caught = false;
@@ -215,6 +279,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
     });
 
     it('should catch errors from .json() in try/catch blocks', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockFailure(/sh -c "fail"/, 'Command failed', 127);
 
       let caught = false;
@@ -230,6 +295,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
     });
 
     it('should catch JSON parse errors in try/catch blocks', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       mockAdapter.mockSuccess(/sh -c "echo bad"/, 'not json\n');
 
       let caught = false;
@@ -248,6 +314,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
 
   describe('Real-world scenarios', () => {
     it('should handle tool version check pattern safely', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       // Simulate tools that exist and don't exist
       mockAdapter.mockSuccess(/sh -c "git --version"/, 'git version 2.40.0\n');
       mockAdapter.mockFailure(/sh -c "go version"/, 'go: command not found', 127);
@@ -277,6 +344,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
     });
 
     it('should handle parallel tool checks without unhandled rejections', async () => {
+      const { mockAdapter, $mock } = createTestSetup();
       // Mix of success and failure
       mockAdapter.mockSuccess(/npm --version/, '10.2.4\n');
       mockAdapter.mockFailure(/cargo --version/, 'cargo: command not found', 127);
