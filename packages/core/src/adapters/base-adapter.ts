@@ -428,6 +428,58 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   }
 
   /**
+   * Execute command with retry logic
+   * @param command - Command to execute
+   * @param maxRetries - Maximum number of retries (default: 0)
+   * @param retryDelay - Delay between retries in milliseconds (default: 1000)
+   * @param shouldRetry - Function to determine if error should trigger retry (default: retry all errors)
+   * @returns Execution result
+   */
+  protected async executeWithRetry(
+    command: Command,
+    maxRetries = 0,
+    retryDelay = 1000,
+    shouldRetry?: (error: any) => boolean
+  ): Promise<ExecutionResult> {
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // If this is a retry, wait before attempting
+        if (attempt > 0) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+
+          // Emit retry event
+          this.emitAdapterEvent('command:retry', {
+            command: this.buildCommandString(command),
+            attempt,
+            maxRetries
+          });
+        }
+
+        // Execute the command
+        return await this.execute(command);
+      } catch (error) {
+        lastError = error;
+
+        // Check if we should retry
+        if (attempt < maxRetries) {
+          if (shouldRetry && !shouldRetry(error)) {
+            throw error; // Don't retry this error
+          }
+          // Continue to next retry
+        } else {
+          // No more retries left
+          throw error;
+        }
+      }
+    }
+
+    // This should never be reached, but TypeScript needs it
+    throw lastError;
+  }
+
+  /**
    * Dispose of any resources held by this adapter.
    * Subclasses should override this method to clean up their specific resources.
    */

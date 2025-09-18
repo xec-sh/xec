@@ -81,15 +81,11 @@ export class StreamHandler {
           callback();
         } catch (error) {
           callback(error as Error);
-        } finally {
-          // Clean up after flush
-          self.reset();
         }
       },
 
       final(callback) {
-        // Ensure cleanup when transform ends
-        self.reset();
+        // Don't reset here - we need the buffer content for getContent()
         callback();
       },
 
@@ -99,7 +95,8 @@ export class StreamHandler {
 
     // Clean up when transform is destroyed
     transform.on('close', () => self.dispose());
-    transform.on('error', () => self.reset());
+    // Don't reset on error - we might still want the partial data
+    // transform.on('error', () => self.reset());
 
     return transform;
   }
