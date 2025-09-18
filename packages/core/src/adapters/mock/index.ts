@@ -220,8 +220,40 @@ export class MockAdapter extends BaseAdapter {
       }
     }
 
+    // If no match found, try normalizing shell-wrapped commands
+    // Handle cases like: sh -c "'git --version'" -> sh -c "git --version"
+    const normalizedCommand = this.normalizeShellCommand(command);
+    if (normalizedCommand !== command) {
+      // Try exact match with normalized
+      const normalizedExact = this.responses.get(normalizedCommand);
+      if (normalizedExact) {
+        return normalizedExact;
+      }
+
+      // Try regex patterns with normalized
+      for (const { pattern, response } of this.regexResponses) {
+        if (pattern.test(normalizedCommand)) {
+          return response;
+        }
+      }
+    }
+
     // Return default response
     return this.defaultResponse;
+  }
+
+  private normalizeShellCommand(command: string): string {
+    // Normalize shell commands that have extra quotes
+    // sh -c "'command'" -> sh -c "command"
+    // sh -c '"command"' -> sh -c "command"
+    const shellMatch = command.match(/^(sh|bash|zsh|fish|cmd|powershell)\s+-c\s+["'](.*)["']$/);
+    if (shellMatch && shellMatch[2]) {
+      const innerCommand = shellMatch[2];
+      // Remove extra quotes if present
+      const cleanedInner = innerCommand.replace(/^['"]|['"]$/g, '');
+      return `${shellMatch[1]} -c "${cleanedInner}"`;
+    }
+    return command;
   }
 
   private async delay(ms: number): Promise<void> {
