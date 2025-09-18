@@ -277,7 +277,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "echo test"', 'test');
 
-      const runResult = await testEngine`echo test`;
+      const runResult = await testEngine.tag`echo test`;
       const tagResult = await testEngine.tag`echo test`;
 
       expect(mockAdapter.getCommandExecutionCount('sh -c "echo test"')).toBe(2);
@@ -336,7 +336,7 @@ describe('ExecutionEngine', () => {
       // Mock the sort command
       mockAdapter.mockSuccess('sh -c "sort"', 'Line 1\nLine 2\nLine 3');
 
-      const data = await testEngine`echo "Line 1\nLine 2\nLine 3"`;
+      const data = await testEngine.tag`echo "Line 1\nLine 2\nLine 3"`;
       const sorted = await testEngine.with({ stdin: data.stdout }).run`sort`;
       
       expect(sorted.stdout).toBe('Line 1\nLine 2\nLine 3');
@@ -351,7 +351,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "cat"', 'test input');
       
-      const result = await testEngine`cat`;
+      const result = await testEngine.tag`cat`;
       
       expect(result.stdout).toBe('test input');
       expect(mockAdapter.wasCommandExecuted('sh -c "cat"')).toBe(true);
@@ -364,7 +364,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockFailure('sh -c "exit 42"', 'Failed', 42);
       
-      const promise = testEngine`exit 42`;
+      const promise = testEngine.tag`exit 42`;
       const result = await promise.nothrow();
       
       expect(result.exitCode).toBe(42);
@@ -376,7 +376,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "echo test"', 'test');
       
-      const promise = testEngine`echo test`;
+      const promise = testEngine.tag`echo test`;
       const result = await promise.quiet();
       
       expect(result.stdout).toBe('test');
@@ -399,7 +399,7 @@ describe('ExecutionEngine', () => {
       });
       
       // Create the promise
-      const promise = testEngine`timeout-promise-test`;
+      const promise = testEngine.tag`timeout-promise-test`;
       
       // The timeout() method should exist and be callable
       expect(typeof promise.timeout).toBe('function');
@@ -422,7 +422,7 @@ describe('ExecutionEngine', () => {
       
       isolatedAdapter.mockSuccess('sh -c "echo $TEST_VAR"', 'test_value');
       
-      const promise = testEngine`echo $TEST_VAR`;
+      const promise = testEngine.tag`echo $TEST_VAR`;
       const result = await promise.env({ TEST_VAR: 'test_value' });
       
       expect(result.stdout).toBe('test_value');
@@ -436,7 +436,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "pwd"', '/tmp');
       
-      const promise = testEngine`pwd`;
+      const promise = testEngine.tag`pwd`;
       const result = await promise.cwd('/tmp');
       
       expect(result.stdout).toBe('/tmp');
@@ -447,7 +447,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('/bin/bash -c "echo $BASH_VERSION"', '5.0');
       
-      const promise = testEngine`echo $BASH_VERSION`;
+      const promise = testEngine.tag`echo $BASH_VERSION`;
       const result = await promise.shell('/bin/bash');
       
       expect(result.stdout).toBe('5.0');
@@ -458,7 +458,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "read input && echo $input"', 'user input');
       
-      const promise = testEngine`read input && echo $input`;
+      const promise = testEngine.tag`read input && echo $input`;
       const result = await promise.interactive();
       
       expect(result.stdout).toBe('user input');
@@ -470,7 +470,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "sleep 1"', '');
       
-      const promise = testEngine`sleep 1`;
+      const promise = testEngine.tag`sleep 1`;
       const resultPromise = promise.signal(controller.signal);
       
       // Don't actually abort in this test
@@ -552,7 +552,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "node"', '');
       
-      const commandPromise = testEngine`node`;
+      const commandPromise = testEngine.tag`node`;
       
       // ProcessPromise should not have an args() method
       expect(typeof (commandPromise as any).args).toBe('undefined');
@@ -631,7 +631,7 @@ describe('ExecutionEngine', () => {
       // Mock any command with default response
       newMockAdapter.mockDefault({ stdout: 'custom_value', stderr: '', exitCode: 0 });
       
-      const result = await testEngine`echo $CUSTOM_VAR`;
+      const result = await testEngine.tag`echo $CUSTOM_VAR`;
       expect(result.stdout).toBe('custom_value');
       
       // Clean up
@@ -835,7 +835,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "echo test"', 'test');
       
-      const promise = testEngine`echo test`;
+      const promise = testEngine.tag`echo test`;
       
       // Create a mock writable stream to capture output
       const chunks: string[] = [];
@@ -857,7 +857,7 @@ describe('ExecutionEngine', () => {
       
       mockAdapter.mockSuccess('sh -c "sleep 10"', '');
       
-      const promise = testEngine`sleep 10`;
+      const promise = testEngine.tag`sleep 10`;
       
       // kill() should exist
       expect(typeof promise.kill).toBe('function');
@@ -884,7 +884,7 @@ describe('ExecutionEngine - Isolated Tests', () => {
     // Mock the exact command that will be executed
     envMockAdapter.mockDefault({ stdout: 'test_value', stderr: '', exitCode: 0 });
     
-    const promise = testEngine`echo $TEST_VAR`;
+    const promise = testEngine.tag`echo $TEST_VAR`;
     const result = await promise.env({ TEST_VAR: 'test_value' });
     
     expect(result.stdout).toBe('test_value');
@@ -909,7 +909,7 @@ describe('ExecutionEngine - Isolated Tests', () => {
     // Mock any command with default response
     newMockAdapter.mockDefault({ stdout: 'custom_value', stderr: '', exitCode: 0 });
     
-    const result = await testEngine`echo $CUSTOM_VAR`;
+    const result = await testEngine.tag`echo $CUSTOM_VAR`;
     expect(result.stdout).toBe('custom_value');
   });
 });
