@@ -36,6 +36,12 @@ export interface CommandErrorEvent extends BaseUshEvent {
   duration: number;
 }
 
+export interface CommandRetryEvent extends BaseUshEvent {
+  command: string;
+  attempt: number;
+  maxRetries: number;
+}
+
 /**
  * File operation events
  */
@@ -261,6 +267,7 @@ export interface UshEventMap {
   'command:start': CommandStartEvent;
   'command:complete': CommandCompleteEvent;
   'command:error': CommandErrorEvent;
+  'command:retry': CommandRetryEvent;
   'file:read': FileReadEvent;
   'file:write': FileWriteEvent;
   'file:delete': FileDeleteEvent;

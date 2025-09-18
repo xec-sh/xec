@@ -932,14 +932,13 @@ describe('DockerAdapter Enhanced Tests', () => {
 
       // Override the executeDockerCommand method to simulate Docker not found
       const originalExecute = badAdapter['executeDockerCommand'];
-      (badAdapter as any)['executeDockerCommand'] = jest.fn().mockRejectedValue(
-        Object.assign(new Error('spawn docker ENOENT'), {
-          code: 'ENOENT',
-          errno: -2,
-          syscall: 'spawn docker',
-          path: 'docker'
-        })
-      );
+      const dockerError = new Error('spawn docker ENOENT') as any;
+      dockerError.code = 'ENOENT';
+      dockerError.errno = -2;
+      dockerError.syscall = 'spawn docker';
+      dockerError.path = 'docker';
+
+      (badAdapter as any)['executeDockerCommand'] = jest.fn(() => Promise.reject(dockerError));
 
       const available = await badAdapter.isAvailable();
       expect(available).toBe(false);

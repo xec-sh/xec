@@ -57,17 +57,47 @@ export class LocalAdapter extends BaseAdapter {
 
       const endTime = Date.now();
 
-      return await this.createResult(
-        result.stdout,
-        result.stderr,
-        result.exitCode ?? 0,
-        result.signal ?? undefined,
-        this.buildCommandString(mergedCommand),
-        startTime,
-        endTime,
-        { originalCommand: mergedCommand }
-      );
+      // Use createResultNoThrow if nothrow is set, otherwise use createResult which respects throwOnNonZeroExit
+      if (mergedCommand.nothrow) {
+        return await this.createResultNoThrow(
+          result.stdout,
+          result.stderr,
+          result.exitCode ?? 0,
+          result.signal ?? undefined,
+          this.buildCommandString(mergedCommand),
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
+      } else {
+        return await this.createResult(
+          result.stdout,
+          result.stderr,
+          result.exitCode ?? 0,
+          result.signal ?? undefined,
+          this.buildCommandString(mergedCommand),
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
+      }
     } catch (error) {
+      const endTime = Date.now();
+
+      // If nothrow is set, return error as result instead of throwing
+      if (mergedCommand.nothrow) {
+        return await this.createResultNoThrow(
+          '',
+          error instanceof Error ? error.message : String(error),
+          1,
+          undefined,
+          this.buildCommandString(mergedCommand),
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
+      }
+
       if (error instanceof CommandError || error instanceof AdapterError) {
         throw error;
       }
@@ -96,17 +126,47 @@ export class LocalAdapter extends BaseAdapter {
 
       const endTime = Date.now();
 
-      return this.createResultSync(
-        result.stdout,
-        result.stderr,
-        result.exitCode ?? 0,
-        result.signal ?? undefined,
-        this.buildCommandString(mergedCommand),
-        startTime,
-        endTime,
-        { originalCommand: mergedCommand }
-      );
+      // Use createResultNoThrowSync if nothrow is set
+      if (mergedCommand.nothrow) {
+        return this.createResultNoThrowSync(
+          result.stdout,
+          result.stderr,
+          result.exitCode ?? 0,
+          result.signal ?? undefined,
+          this.buildCommandString(mergedCommand),
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
+      } else {
+        return this.createResultSync(
+          result.stdout,
+          result.stderr,
+          result.exitCode ?? 0,
+          result.signal ?? undefined,
+          this.buildCommandString(mergedCommand),
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
+      }
     } catch (error) {
+      const endTime = Date.now();
+
+      // If nothrow is set, return error as result instead of throwing
+      if (mergedCommand.nothrow) {
+        return this.createResultNoThrowSync(
+          '',
+          error instanceof Error ? error.message : String(error),
+          1,
+          undefined,
+          this.buildCommandString(mergedCommand),
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
+      }
+
       if (error instanceof CommandError || error instanceof AdapterError) {
         throw error;
       }
@@ -215,6 +275,33 @@ export class LocalAdapter extends BaseAdapter {
 
     // Wait for process completion
     const processPromise = new Promise<ProcessResult>((resolve, reject) => {
+      let processExited = false;
+      let stdoutClosed = false;
+      let stderrClosed = false;
+      let exitCode: number | null = null;
+      let exitSignal: string | null = null;
+
+      const tryResolve = () => {
+        // Only resolve when the process has exited and all streams are closed
+        if (processExited && stdoutClosed && stderrClosed) {
+          // Report completion to progress reporter
+          if (progressReporter) {
+            if (exitCode === 0) {
+              progressReporter.complete('Command completed successfully');
+            } else {
+              progressReporter.error(new Error(`Command failed with exit code ${exitCode}`));
+            }
+          }
+
+          resolve({
+            stdout: stdoutHandler.getContent(),
+            stderr: stderrHandler.getContent(),
+            exitCode,
+            signal: exitSignal
+          });
+        }
+      };
+
       child.on('error', (err: any) => {
         // Enhance error message for common cases
         if (err.code === 'ENOENT') {
@@ -244,51 +331,40 @@ export class LocalAdapter extends BaseAdapter {
         reject(err);
       });
 
-      child.on('exit', (code, signal) => {
-        // First unpipe to break the connection
-        if (child.stdout && stdoutTransform) {
-          child.stdout.unpipe(stdoutTransform);
-        }
-        if (child.stderr && stderrTransform) {
-          child.stderr.unpipe(stderrTransform);
-        }
+      // Handle stdout close
+      if (child.stdout) {
+        child.stdout.on('close', () => {
+          stdoutClosed = true;
+          tryResolve();
+        });
+      } else {
+        stdoutClosed = true;
+      }
 
-        // Then cleanup transform streams
+      // Handle stderr close
+      if (child.stderr) {
+        child.stderr.on('close', () => {
+          stderrClosed = true;
+          tryResolve();
+        });
+      } else {
+        stderrClosed = true;
+      }
+
+      child.on('exit', (code, signal) => {
+        exitCode = code;
+        exitSignal = signal;
+        processExited = true;
+
+        // Cleanup transform streams
         if (stdoutTransform) {
           stdoutTransform.end();
-          stdoutTransform.destroy();
         }
         if (stderrTransform) {
           stderrTransform.end();
-          stderrTransform.destroy();
         }
 
-        // Finally close child process streams
-        if (child.stdout && !child.stdout.destroyed) {
-          child.stdout.destroy();
-        }
-        if (child.stderr && !child.stderr.destroyed) {
-          child.stderr.destroy();
-        }
-        if (child.stdin && !child.stdin.destroyed) {
-          child.stdin.destroy();
-        }
-
-        // Report completion to progress reporter
-        if (progressReporter) {
-          if (code === 0) {
-            progressReporter.complete('Command completed successfully');
-          } else {
-            progressReporter.error(new Error(`Command failed with exit code ${code}`));
-          }
-        }
-
-        resolve({
-          stdout: stdoutHandler.getContent(),
-          stderr: stderrHandler.getContent(),
-          exitCode: code,
-          signal
-        });
+        tryResolve();
       });
     });
 
