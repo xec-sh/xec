@@ -116,12 +116,31 @@ export class KubernetesAdapter extends BaseAdapter {
       // Handle timeout
       let timeoutHandle: NodeJS.Timeout | undefined;
       if (mergedCommand.timeout) {
-        timeoutHandle = setTimeout(() => {
+        timeoutHandle = setTimeout(async () => {
           proc.kill((mergedCommand.timeoutSignal as any) || 'SIGTERM');
-          reject(new TimeoutError(
-            `Command timed out after ${mergedCommand.timeout}ms`,
-            mergedCommand.timeout as number
-          ));
+          const timeoutMs = mergedCommand.timeout as number;
+          const timeoutError = new TimeoutError(
+            `kubectl exec timed out after ${timeoutMs}ms`,
+            timeoutMs
+          );
+
+          // If nothrow is set, resolve with a non-throwing result representation
+          if (mergedCommand.nothrow) {
+            const endTime = Date.now();
+            const result = await this.createResultNoThrow(
+              '',
+              timeoutError.message,
+              124,
+              'SIGTERM',
+              mergedCommand.command,
+              startTime,
+              endTime,
+              { originalCommand: mergedCommand }
+            );
+            resolve(result);
+          } else {
+            reject(timeoutError);
+          }
         }, mergedCommand.timeout);
       }
 

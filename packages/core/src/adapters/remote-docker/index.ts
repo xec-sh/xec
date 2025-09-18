@@ -116,9 +116,29 @@ export class RemoteDockerAdapter extends BaseAdapter {
         }
       );
     } catch (error) {
+      if (error instanceof TimeoutError) {
+        const endTime = Date.now();
+        if (mergedCommand.nothrow) {
+          return this.createResultNoThrow(
+            '',
+            error.message,
+            124,
+            'SIGTERM',
+            mergedCommand.command,
+            startTime,
+            endTime,
+            {
+              host: this.remoteDockerConfig.ssh.host,
+              container: remoteDockerOptions?.docker.container
+            }
+          );
+        }
+        throw error;
+      }
+
       if (error instanceof Error) {
         throw new DockerError(
-          remoteDockerOptions.docker.container,
+          remoteDockerOptions!.docker.container,
           'remote-exec',
           error
         );

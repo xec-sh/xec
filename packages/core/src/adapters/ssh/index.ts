@@ -205,21 +205,22 @@ export class SSHAdapter extends BaseAdapter {
           this.removeFromPool(this.getConnectionKey(sshOptions));
         }
         // Handle timeout with nothrow
-        if (!command.nothrow) {
-          throw error;
+        if (mergedCommand.nothrow) {
+          // Return error result for timeout without throwing
+          const endTime = Date.now();
+          return this.createResultNoThrow(
+            '',
+            error.message,
+            124, // Standard timeout exit code
+            'SIGTERM',
+            commandString,
+            startTime,
+            endTime,
+            { host: `${sshOptions.host}:${sshOptions.port || 22}`, originalCommand: mergedCommand }
+          );
         }
-        // Return error result for timeout
-        const endTime = Date.now();
-        return this.createResult(
-          '',
-          error.message,
-          124, // Standard timeout exit code
-          'SIGTERM',
-          commandString,
-          startTime,
-          endTime,
-          { host: `${sshOptions.host}:${sshOptions.port || 22}`, originalCommand: mergedCommand }
-        );
+        // Re-throw TimeoutError for consistent behavior
+        throw error;
       }
 
       if (error instanceof ConnectionError) {
