@@ -222,7 +222,16 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
     // Use originalCommand if available, otherwise fall back to command string
     const commandForThrowCheck = context?.originalCommand ?? command;
-    if (this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
+
+    // Don't throw immediately for promise chain compatibility
+    // The error will be thrown when .text(), .json(), etc are called
+    // or when the base promise is awaited directly
+    // Only throw if it's not being used through ProcessPromise
+    // We can detect this by checking if the command has a special marker
+    const isProcessPromise = commandForThrowCheck && typeof commandForThrowCheck === 'object' &&
+                            '__fromProcessPromise' in commandForThrowCheck;
+
+    if (!isProcessPromise && this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
       result.throwIfFailed();
     }
 
@@ -261,7 +270,16 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
     // Use originalCommand if available, otherwise fall back to command string
     const commandForThrowCheck = context?.originalCommand ?? command;
-    if (this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
+
+    // Don't throw immediately for promise chain compatibility
+    // The error will be thrown when .text(), .json(), etc are called
+    // or when the base promise is awaited directly
+    // Only throw if it's not being used through ProcessPromise
+    // We can detect this by checking if the command has a special marker
+    const isProcessPromise = commandForThrowCheck && typeof commandForThrowCheck === 'object' &&
+                            '__fromProcessPromise' in commandForThrowCheck;
+
+    if (!isProcessPromise && this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
       result.throwIfFailed();
     }
 

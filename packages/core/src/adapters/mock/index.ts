@@ -81,7 +81,7 @@ export class MockAdapter extends BaseAdapter {
       if (mockResponse === this.defaultResponse) {
         // Handle echo commands
         if (this.shouldHandleEcho(baseCommandString)) {
-          const echoOutput = this.handleEchoCommand(baseCommandString);
+          const echoOutput = this.handleEchoCommand(baseCommandString, mergedCommand.env);
           if (echoOutput !== null) {
             mockResponse = { stdout: echoOutput + '\n', stderr: '', exitCode: 0 };
           }
@@ -264,7 +264,7 @@ export class MockAdapter extends BaseAdapter {
     return command.startsWith('echo ') || !!command.match(/^sh -c ['"]echo /);
   }
 
-  private handleEchoCommand(command: string): string | null {
+  private handleEchoCommand(command: string, env?: Record<string, string>): string | null {
     // Handle various echo patterns
     let echoContent: string | null = null;
 
@@ -289,7 +289,7 @@ export class MockAdapter extends BaseAdapter {
         const parts = command.split('&&').map(p => p.trim());
         const outputs = parts
           .filter(p => p.startsWith('echo '))
-          .map(p => this.handleEchoCommand(p))
+          .map(p => this.handleEchoCommand(p, env))
           .filter(p => p !== null);
         return outputs.join('\n');
       }
@@ -305,6 +305,12 @@ export class MockAdapter extends BaseAdapter {
       echoContent = echoContent.replace(/^["'](.*)["']$/, '$1');
       // Handle escaped quotes
       echoContent = echoContent.replace(/\\"/g, '"');
+
+      // Expand environment variables if env is provided
+      if (env) {
+        echoContent = echoContent.replace(/\$(\w+)/g, (match, varName) => env[varName] !== undefined ? env[varName] : match);
+      }
+
       return echoContent;
     }
 

@@ -253,7 +253,16 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       };
     }
 
-    const mergedCommand = { ...this.currentConfig, ...contextCommand };
+    // Merge defaultEnv from config if not already in the command
+    const finalCommand = {
+      ...this.currentConfig,
+      ...contextCommand,
+      env: {
+        ...(this._config.defaultEnv || {}),
+        ...(contextCommand.env || {})
+      }
+    };
+    const mergedCommand = finalCommand;
     const adapter = await this.selectAdapter(mergedCommand);
 
     if (!adapter) {
