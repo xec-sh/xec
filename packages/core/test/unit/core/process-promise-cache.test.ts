@@ -77,7 +77,7 @@ describe('ProcessPromise Cache', () => {
     });
     
     it('should respect TTL', async () => {
-      jest.useFakeTimers();
+      jest.useFakeTimers({ advanceTimers: true });
       
       // Create a unique timestamp
       const timestamp = Date.now();

@@ -148,7 +148,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       const mockEngine = engine.with({ adapter: 'mock' as any });
 
       // Start a long-running process using template literal to get ProcessPromise
-      const longProcess = mockEngine.run`sleep 10`;
+      const longProcess = mockEngine`sleep 10`;
 
       // Give it a moment to start
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -355,9 +355,9 @@ describe('ExecutionEngine Disposable functionality', () => {
 
       // Start multiple processes
       const processes = [
-        mockEngine.run`echo "test1"`,
-        mockEngine.run`echo "test2"`,
-        mockEngine.run`echo "test3"`
+        mockEngine`echo "test1"`,
+        mockEngine`echo "test2"`,
+        mockEngine`echo "test3"`
       ];
 
       // Should have active processes
@@ -398,7 +398,7 @@ describe('ExecutionEngine Disposable functionality', () => {
 
       // Start multiple long-running processes
       const processes = Array.from({ length: 5 }, (_, i) =>
-        mockEngine.run`sleep ${i + 1}`
+        mockEngine`sleep ${i + 1}`
       );
 
       // Give them a moment to start
