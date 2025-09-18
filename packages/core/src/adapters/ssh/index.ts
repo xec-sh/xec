@@ -1,4 +1,5 @@
 
+import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
 import { escapeArg } from '../../utils/shell-escape.js';
@@ -72,6 +73,7 @@ export class SSHAdapter extends BaseAdapter {
   private metricsCollector: ConnectionPoolMetricsCollector = new ConnectionPoolMetricsCollector();
   private activeTunnels: Map<string, { close: () => Promise<void> }> = new Map();
   private lastUsedSSHOptions?: SSHAdapterOptions;
+  private connectionMutex = new KeyedMutex<string>();
 
   constructor(config: SSHAdapterConfig = {}) {
     super(config);
@@ -259,50 +261,109 @@ export class SSHAdapter extends BaseAdapter {
   private async getConnection(options: SSHAdapterOptions): Promise<PooledConnection> {
     const key = this.getConnectionKey(options);
 
-    if (this.sshConfig.connectionPool.enabled) {
-      const existing = this.connectionPool.get(key);
-      if (existing) {
-        const now = Date.now();
-        const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000; // Default 1 hour
-
-        // Check if connection exceeded maximum lifetime
-        if (maxLifetime > 0 && (now - existing.created) > maxLifetime) {
-          // Connection too old, remove and create new one
-          await this.closeConnection(key, existing, 'max_lifetime_exceeded');
-          // Continue to create new connection below
-        } else if (existing.ssh.isConnected()) {
-          // Connection is alive and not expired
-          existing.useCount++;
-          existing.lastUsed = now;
-          this.metricsCollector.onConnectionReused();
-
-          // Emit metrics event
-          this.emitAdapterEvent('ssh:pool-metrics', {
-            metrics: this.getPoolMetrics()
-          });
-
-          return existing;
+    // Use mutex to prevent race conditions when accessing the connection pool
+    return this.connectionMutex.withLock(key, async () => {
+      // Try to get existing connection from pool
+      if (this.sshConfig.connectionPool.enabled) {
+        const existingConnection = await this.getExistingConnection(key, options);
+        if (existingConnection) {
+          return existingConnection;
         }
+      }
 
-        // Connection is dead, try to reconnect if enabled
-        if (this.sshConfig.connectionPool.autoReconnect) {
-          try {
-            const reconnected = await this.reconnectConnection(existing);
-            if (reconnected) {
-              return reconnected;
-            }
-          } catch (error) {
-            // Remove failed connection
-            this.removeFromPool(key);
-          }
-        } else {
-          // Remove dead connection
-          this.removeFromPool(key);
+      // No valid existing connection, create a new one
+      return this.createNewConnection(options, key);
+    });
+  }
+
+  private async getExistingConnection(key: string, options: SSHAdapterOptions): Promise<PooledConnection | null> {
+    const existing = this.connectionPool.get(key);
+    if (!existing) {
+      return null;
+    }
+
+    const now = Date.now();
+    const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000; // Default 1 hour
+
+    // Check if connection exceeded maximum lifetime
+    if (maxLifetime > 0 && (now - existing.created) > maxLifetime) {
+      await this.closeConnection(key, existing, 'max_lifetime_exceeded');
+      return null;
+    }
+
+    // Check if connection is still alive
+    if (existing.ssh.isConnected()) {
+      existing.useCount++;
+      existing.lastUsed = now;
+      this.metricsCollector.onConnectionReused();
+      this.emitAdapterEvent('ssh:pool-metrics', {
+        metrics: this.getPoolMetrics()
+      });
+      return existing;
+    }
+
+    // Try to reconnect if enabled
+    if (this.sshConfig.connectionPool.autoReconnect) {
+      try {
+        const reconnected = await this.reconnectConnection(existing);
+        if (reconnected) {
+          return reconnected;
         }
+      } catch (error) {
+        // Reconnection failed
       }
     }
 
-    // Validate SSH options before connection
+    // Remove dead connection
+    this.removeFromPool(key);
+    return null;
+  }
+
+  private async createNewConnection(options: SSHAdapterOptions, key: string): Promise<PooledConnection> {
+    // Validate options
+    await this.validateConnectionOptions(options);
+
+    // Create SSH connection
+    const ssh = new NodeSSH();
+    const connectOptions: SSH2Config = {
+      ...this.sshConfig.defaultConnectOptions,
+      host: options.host,
+      username: options.username,
+      port: options.port ?? 22,
+      privateKey: options.privateKey as any,
+      passphrase: options.passphrase,
+      password: options.password
+    };
+
+    try {
+      await ssh.connect(connectOptions);
+      this.emitConnectionEvents(options);
+    } catch (error) {
+      throw new ConnectionError(options.host, error instanceof Error ? error : new Error(String(error)));
+    }
+
+    const now = Date.now();
+    const connection: PooledConnection = {
+      ssh,
+      host: options.host,
+      lastUsed: now,
+      useCount: 1,
+      created: now,
+      errors: 0,
+      reconnectAttempts: 0,
+      config: options
+    };
+
+    // Add to pool if enabled
+    if (this.sshConfig.connectionPool.enabled) {
+      this.addConnectionToPool(key, connection);
+    }
+
+    return connection;
+  }
+
+  private async validateConnectionOptions(options: SSHAdapterOptions): Promise<void> {
+    // Validate SSH options
     const validationResult = SSHKeyValidator.validateSSHOptions({
       host: options.host,
       username: options.username,
@@ -328,83 +389,48 @@ export class SSHAdapter extends BaseAdapter {
         );
       }
 
-      // Emit validation event
       this.emitAdapterEvent('ssh:key-validated', {
         host: options.host,
         keyType: keyValidation.keyType || 'unknown',
         username: options.username || process.env['USER'] || 'unknown'
       });
     }
+  }
 
-    // Create new connection
-    const ssh = new NodeSSH();
-    const connectOptions: SSH2Config = {
-      ...this.sshConfig.defaultConnectOptions,
+  private emitConnectionEvents(options: SSHAdapterOptions): void {
+    this.emitAdapterEvent('ssh:connect', {
       host: options.host,
-      username: options.username,
       port: options.port ?? 22,
-      privateKey: options.privateKey as any,
-      passphrase: options.passphrase,
-      password: options.password
-    };
+      username: options.username || process.env['USER'] || 'unknown'
+    });
 
-    try {
-      await ssh.connect(connectOptions);
-
-      // Emit SSH-specific connect event
-      this.emitAdapterEvent('ssh:connect', {
-        host: options.host,
-        port: options.port ?? 22,
-        username: options.username || process.env['USER'] || 'unknown'
-      });
-
-      // Emit generic connection event
-      this.emitAdapterEvent('connection:open', {
-        host: options.host,
-        port: options.port ?? 22,
-        type: 'ssh',
-        metadata: {
-          username: options.username || process.env['USER'] || 'unknown'
-        }
-      });
-    } catch (error) {
-      throw new ConnectionError(options.host, error instanceof Error ? error : new Error(String(error)));
-    }
-
-    const now = Date.now();
-    const connection: PooledConnection = {
-      ssh,
+    this.emitAdapterEvent('connection:open', {
       host: options.host,
-      lastUsed: now,
-      useCount: 1,
-      created: now,
-      errors: 0,
-      reconnectAttempts: 0,
-      config: options
-    };
-
-    if (this.sshConfig.connectionPool.enabled) {
-      // Check pool size limit
-      if (this.connectionPool.size >= this.sshConfig.connectionPool.maxConnections) {
-        // Remove oldest idle connection
-        this.removeOldestIdleConnection();
+      port: options.port ?? 22,
+      type: 'ssh',
+      metadata: {
+        username: options.username || process.env['USER'] || 'unknown'
       }
+    });
+  }
 
-      this.connectionPool.set(key, connection);
-      this.metricsCollector.onConnectionCreated();
-
-      // Set up keep-alive if enabled
-      if (this.sshConfig.connectionPool.keepAlive) {
-        this.setupKeepAlive(connection);
-      }
-
-      // Emit metrics event
-      this.emitAdapterEvent('ssh:pool-metrics', {
-        metrics: this.getPoolMetrics()
-      });
+  private addConnectionToPool(key: string, connection: PooledConnection): void {
+    // Check pool size limit
+    if (this.connectionPool.size >= this.sshConfig.connectionPool.maxConnections) {
+      this.removeOldestIdleConnection();
     }
 
-    return connection;
+    this.connectionPool.set(key, connection);
+    this.metricsCollector.onConnectionCreated();
+
+    // Set up keep-alive if enabled
+    if (this.sshConfig.connectionPool.keepAlive) {
+      this.setupKeepAlive(connection);
+    }
+
+    this.emitAdapterEvent('ssh:pool-metrics', {
+      metrics: this.getPoolMetrics()
+    });
   }
 
   private getConnectionKey(options: SSHAdapterOptions): string {

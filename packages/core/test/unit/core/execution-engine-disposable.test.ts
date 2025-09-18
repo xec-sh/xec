@@ -134,16 +134,28 @@ describe('ExecutionEngine Disposable functionality', () => {
 
     it('should cancel active processes', async () => {
       const engine = new ExecutionEngine();
-      
+
+      // Register a mock adapter that simulates a long-running process
+      const mockAdapter = new MockAdapter();
+      mockAdapter.mockCommand(/sh -c "sleep 10"/, {
+        stdout: 'sleeping...',
+        stderr: '',
+        exitCode: 0,
+        delay: 10000, // 10 second delay
+        signal: 'SIGTERM' // Simulate being terminated
+      });
+      engine.registerAdapter('mock', mockAdapter);
+      const mockEngine = engine.with({ adapter: 'mock' as any });
+
       // Start a long-running process using template literal to get ProcessPromise
-      const longProcess = engine.run`sleep 10`;
-      
+      const longProcess = mockEngine.run`sleep 10`;
+
       // Give it a moment to start
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Dispose engine while process is running
       await (engine as any).dispose();
-      
+
       // Process should be terminated with a signal
       const result = await longProcess;
       expect(result.signal).toBe('SIGTERM');
@@ -153,12 +165,18 @@ describe('ExecutionEngine Disposable functionality', () => {
 
   describe('Global $ disposal', () => {
     it('should dispose global $ instance', async () => {
+      // Configure global $ with a mock adapter
+      const mockAdapter = new MockAdapter();
+      mockAdapter.mockSuccess(/sh -c "echo \\"test\\""/, 'test\n');
+      $.registerAdapter('mock', mockAdapter);
+      const $mock = $.with({ adapter: 'mock' as any });
+
       // Execute a command to ensure global engine is initialized
-      await $`echo "test"`;
-      
+      await $mock`echo "test"`;
+
       // Import the dispose function
       const { dispose } = await import('../../../src/index.js');
-      
+
       // Should not throw
       await expect(dispose()).resolves.toBeUndefined();
     });
@@ -174,16 +192,28 @@ describe('ExecutionEngine Disposable functionality', () => {
 
     it('should recreate engine after disposal', async () => {
       const { dispose } = await import('../../../src/index.js');
-      
+
+      // Configure global $ with a mock adapter for first use
+      const mockAdapter1 = new MockAdapter();
+      mockAdapter1.mockSuccess(/sh -c "echo \\"before dispose\\""/, 'before dispose\n');
+      $.registerAdapter('mock', mockAdapter1);
+      const $mock1 = $.with({ adapter: 'mock' as any });
+
       // First use
-      const result1 = await $`echo "before dispose"`;
+      const result1 = await $mock1`echo "before dispose"`;
       expect(result1.stdout).toContain('before dispose');
-      
+
       // Dispose
       await dispose();
-      
+
+      // Configure a new mock adapter after disposal
+      const mockAdapter2 = new MockAdapter();
+      mockAdapter2.mockSuccess(/sh -c "echo \\"after dispose\\""/, 'after dispose\n');
+      $.registerAdapter('mock', mockAdapter2);
+      const $mock2 = $.with({ adapter: 'mock' as any });
+
       // Should work again (new engine created)
-      const result2 = await $`echo "after dispose"`;
+      const result2 = await $mock2`echo "after dispose"`;
       expect(result2.stdout).toContain('after dispose');
     });
   });
@@ -222,6 +252,10 @@ describe('ExecutionEngine Disposable functionality', () => {
         callback: (engine: ExecutionEngine) => Promise<T>
       ): Promise<T> {
         const engine = new ExecutionEngine(config);
+        // Register a mock adapter
+        const mockAdapter = new MockAdapter();
+        mockAdapter.mockSuccess(/echo test/, 'test\n');
+        engine.registerAdapter('mock', mockAdapter);
         try {
           return await callback(engine);
         } finally {
@@ -234,7 +268,11 @@ describe('ExecutionEngine Disposable functionality', () => {
       let engineUsed = false;
       const result = await withEngine({}, async (engine) => {
         engineUsed = true;
-        const res = await engine.execute({ command: 'echo', args: ['test'] });
+        const res = await engine.execute({
+          command: 'echo',
+          args: ['test'],
+          adapter: 'mock'
+        });
         return res.stdout;
       });
 
@@ -306,20 +344,28 @@ describe('ExecutionEngine Disposable functionality', () => {
 
     it('should clear active processes tracking', async () => {
       const engine = new ExecutionEngine();
-      
+
+      // Register a mock adapter
+      const mockAdapter = new MockAdapter();
+      mockAdapter.mockSuccess(/sh -c "echo \\"test1\\""/, 'test1\n');
+      mockAdapter.mockSuccess(/sh -c "echo \\"test2\\""/, 'test2\n');
+      mockAdapter.mockSuccess(/sh -c "echo \\"test3\\""/, 'test3\n');
+      engine.registerAdapter('mock', mockAdapter);
+      const mockEngine = engine.with({ adapter: 'mock' as any });
+
       // Start multiple processes
       const processes = [
-        engine.run`echo "test1"`,
-        engine.run`echo "test2"`,
-        engine.run`echo "test3"`
+        mockEngine.run`echo "test1"`,
+        mockEngine.run`echo "test2"`,
+        mockEngine.run`echo "test3"`
       ];
-      
+
       // Should have active processes
       expect((engine as any)._activeProcesses.size).toBe(3);
-      
+
       // Wait for completion
       await Promise.all(processes);
-      
+
       // Should be cleared after completion
       expect((engine as any)._activeProcesses.size).toBe(0);
     });
@@ -335,18 +381,32 @@ describe('ExecutionEngine Disposable functionality', () => {
 
     it('should handle multiple simultaneous process cancellations', async () => {
       const engine = new ExecutionEngine();
-      
+
+      // Register a mock adapter that simulates long-running processes
+      const mockAdapter = new MockAdapter();
+      for (let i = 1; i <= 5; i++) {
+        mockAdapter.mockCommand(new RegExp(`sh -c "sleep ${i}"`), {
+          stdout: '',
+          stderr: '',
+          exitCode: 0,
+          delay: i * 1000, // Delay based on sleep duration
+          signal: 'SIGTERM' // Simulate being terminated
+        });
+      }
+      engine.registerAdapter('mock', mockAdapter);
+      const mockEngine = engine.with({ adapter: 'mock' as any });
+
       // Start multiple long-running processes
-      const processes = Array.from({ length: 5 }, (_, i) => 
-        engine.run`sleep ${i + 1}`
+      const processes = Array.from({ length: 5 }, (_, i) =>
+        mockEngine.run`sleep ${i + 1}`
       );
-      
+
       // Give them a moment to start
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Dispose should cancel all
       await (engine as any).dispose();
-      
+
       // All should be terminated
       const results = await Promise.all(processes);
       results.forEach(result => {
