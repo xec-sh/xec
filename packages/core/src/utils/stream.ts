@@ -93,8 +93,10 @@ export class StreamHandler {
       autoDestroy: true
     });
 
-    // Clean up when transform is destroyed
-    transform.on('close', () => self.dispose());
+    // Don't automatically dispose on close - let the user decide when to dispose
+    // The stream handler might still be needed after the stream closes
+    // transform.on('close', () => self.dispose());
+
     // Don't reset on error - we might still want the partial data
     // transform.on('error', () => self.reset());
 
