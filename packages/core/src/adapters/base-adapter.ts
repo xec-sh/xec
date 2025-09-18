@@ -268,6 +268,72 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     return result;
   }
 
+  /**
+   * Create an ExecutionResult without throwing on non-zero exit code regardless of configuration.
+   * This is useful for adapters that need to decide on custom error types after constructing the result
+   * or when implementing special cases like timeout handling with nothrow.
+   */
+  protected async createResultNoThrow(
+    stdout: string,
+    stderr: string,
+    exitCode: number,
+    signal: string | undefined,
+    command: string,
+    startTime: number,
+    endTime: number,
+    context?: { host?: string; container?: string; originalCommand?: Command }
+  ): Promise<ExecutionResult> {
+    const maskedStdout = this.maskSensitiveData(stdout);
+    const maskedStderr = this.maskSensitiveData(stderr);
+    const maskedCommand = this.maskSensitiveData(command);
+
+    return new ExecutionResultImpl(
+      maskedStdout,
+      maskedStderr,
+      exitCode,
+      signal,
+      maskedCommand,
+      endTime - startTime,
+      new Date(startTime),
+      new Date(endTime),
+      this.adapterName,
+      context?.host,
+      context?.container
+    );
+  }
+
+  /**
+   * Synchronous variant of createResultNoThrow.
+   */
+  protected createResultNoThrowSync(
+    stdout: string,
+    stderr: string,
+    exitCode: number,
+    signal: string | undefined,
+    command: string,
+    startTime: number,
+    endTime: number,
+    context?: { host?: string; container?: string; originalCommand?: Command }
+  ): ExecutionResult {
+    const maskedStdout = this.maskSensitiveData(stdout);
+    const maskedStderr = this.maskSensitiveData(stderr);
+    const maskedCommand = this.maskSensitiveData(command);
+
+    return new ExecutionResultImpl(
+      maskedStdout,
+      maskedStderr,
+      exitCode,
+      signal,
+      maskedCommand,
+      endTime - startTime,
+      new Date(startTime),
+      new Date(endTime),
+      this.adapterName,
+      context?.host,
+      context?.container
+    );
+  }
+
   // Helper method to determine if we should throw on non-zero exit
   protected shouldThrowOnNonZeroExit(command: Command | string, exitCode: number): boolean {
     if (exitCode === 0) {

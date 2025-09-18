@@ -6,7 +6,7 @@ import { StreamHandler } from '../../utils/stream.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
-import { DockerError, AdapterError, sanitizeCommandForError } from '../../core/error.js';
+import { DockerError, AdapterError, sanitizeCommandForError, TimeoutError } from '../../core/error.js';
 
 export interface DockerAutoCreateOptions {
   enabled: boolean;
@@ -195,7 +195,24 @@ export class DockerAdapter extends BaseAdapter {
 
         // Check for container existence before executing
         if (!await this.containerExists(containerName)) {
-          throw new DockerError(containerName, 'execute', new Error(`Container '${containerName}' not found`));
+          const endTime = Date.now();
+          const errorMessage = `Container '${containerName}' not found`;
+
+          // If nothrow is set, return error result instead of throwing
+          if (mergedCommand.nothrow) {
+            return this.createResultNoThrow(
+              '',
+              errorMessage,
+              125, // Docker standard error code for container not found
+              undefined,
+              this.buildCommandString(mergedCommand),
+              startTime,
+              endTime,
+              { container: containerName, originalCommand: mergedCommand }
+            );
+          }
+
+          throw new DockerError(containerName, 'execute', new Error(errorMessage));
         }
 
         // Emit docker:exec event
@@ -222,6 +239,25 @@ export class DockerAdapter extends BaseAdapter {
         { container: containerName, originalCommand: mergedCommand }
       );
     } catch (error) {
+      // Standardize timeout handling across adapters
+      if (error instanceof TimeoutError) {
+        const endTime = Date.now();
+        if (mergedCommand.nothrow) {
+          return this.createResultNoThrow(
+            '',
+            error.message,
+            124,
+            'SIGTERM',
+            this.buildCommandString(mergedCommand),
+            startTime,
+            endTime,
+            { container: containerName, originalCommand: mergedCommand }
+          );
+        }
+        // Re-throw TimeoutError (do not wrap) for consistent behavior
+        throw error;
+      }
+
       if (error instanceof DockerError) {
         throw error;
       }
@@ -584,7 +620,8 @@ export class DockerAdapter extends BaseAdapter {
         if (timeoutId) clearTimeout(timeoutId);
 
         if (timedOut) {
-          reject(new Error(`Command timed out after ${timeout}ms`));
+          const argsString = args.join(' ');
+          reject(new TimeoutError(`docker ${argsString}`, timeout || 0));
           return;
         }
 

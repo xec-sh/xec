@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { it, jest, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';
-import { DockerError, AdapterError } from '../../../src/core/error.js';
+import { DockerError, AdapterError, TimeoutError } from '../../../src/core/error.js';
 
 const sleep = promisify(setTimeout);
 
@@ -515,14 +515,15 @@ describe('DockerAdapter Enhanced Tests', () => {
       // Try to execute on a container that doesn't exist
       const result = await adapter.execute({
         command: 'echo test',
+        nothrow: true,  // Enable nothrow to get result instead of exception
         adapterOptions: {
           type: 'docker',
           container: 'container-that-does-not-exist-12345'
         }
       });
-      // Should not throw when throwOnNonZeroExit is false, but should have non-zero exit code
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('No such container');
+      // Should not throw when nothrow is true, but should have non-zero exit code
+      expect(result.exitCode).toBe(125);  // Docker standard error code for container not found
+      expect(result.stderr).toContain("Container 'container-that-does-not-exist-12345' not found");
     });
 
     it('should throw DockerError when throwOnNonZeroExit is true', async () => {
@@ -926,13 +927,19 @@ describe('DockerAdapter Enhanced Tests', () => {
   });
   describe('Process spawn error handling', () => {
     it('should handle Docker not being available', async () => {
-      // Save original PATH
-      const originalPath = process.env['PATH'];
-
-      // Remove docker from PATH to simulate it not being available
-      process.env['PATH'] = '/tmp/nonexistent';
-
+      // Mock the executeDockerCommand to simulate Docker not being available
       const badAdapter = new DockerAdapter();
+
+      // Override the executeDockerCommand method to simulate Docker not found
+      const originalExecute = badAdapter['executeDockerCommand'];
+      (badAdapter as any)['executeDockerCommand'] = jest.fn().mockRejectedValue(
+        Object.assign(new Error('spawn docker ENOENT'), {
+          code: 'ENOENT',
+          errno: -2,
+          syscall: 'spawn docker',
+          path: 'docker'
+        })
+      );
 
       const available = await badAdapter.isAvailable();
       expect(available).toBe(false);
@@ -945,10 +952,9 @@ describe('DockerAdapter Enhanced Tests', () => {
         }
       })).rejects.toThrow();
 
+      // Restore original method
+      (badAdapter as any)['executeDockerCommand'] = originalExecute;
       await badAdapter.dispose();
-
-      // Restore PATH
-      process.env['PATH'] = originalPath;
     });
   });
 
@@ -1060,24 +1066,38 @@ describe('DockerAdapter Enhanced Tests', () => {
     });
   });
 
-  describe('Timeout behavior without native support', () => {
+  describe('Timeout behavior', () => {
     beforeEach(async () => {
       await ensureTestContainer(testContainerName);
     });
 
-    it('should execute long commands without timeout enforcement', async () => {
-      // DockerAdapter doesn't implement timeout, so this should complete
+    it('should handle timeout with nothrow', async () => {
+      // DockerAdapter now implements timeout handling
       const result = await adapter.execute({
         command: 'sleep 2',
-        timeout: 100, // This timeout is ignored by DockerAdapter
+        timeout: 100, // 100ms timeout
+        nothrow: true, // Return result instead of throwing
         adapterOptions: {
           type: 'docker',
           container: testContainerName
         }
       });
 
-      expect(result.exitCode).toBe(0);
-      expect(result.duration).toBeGreaterThanOrEqual(2000);
+      expect(result.exitCode).toBe(124); // Standard timeout exit code
+      expect(result.stderr).toContain('docker');
+      expect(result.duration).toBeLessThan(2000); // Command was interrupted
+    });
+
+    it('should throw TimeoutError without nothrow', async () => {
+      // Without nothrow, should throw TimeoutError
+      await expect(adapter.execute({
+        command: 'sleep 2',
+        timeout: 100, // 100ms timeout
+        adapterOptions: {
+          type: 'docker',
+          container: testContainerName
+        }
+      })).rejects.toThrow(TimeoutError);
     });
   });
 });
