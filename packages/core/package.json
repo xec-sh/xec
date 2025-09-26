@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/core",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Universal shell execution engine",
   "author": "LuxQuant",
   "license": "MIT",

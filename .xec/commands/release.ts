@@ -97,36 +97,36 @@ async function parseChangesFile(): Promise<string | null> {
   return content.trim();
 }
 
-// Helper to update CHANGELOG.md with new release
-async function updateChangelog(version: string, content: string): Promise<void> {
-  const changelogPath = 'CHANGELOG.md';
-  const changelog = readFileSync(changelogPath, 'utf8');
+// // Helper to update CHANGELOG.md with new release
+// async function updateChangelog(version: string, content: string): Promise<void> {
+//   const changelogPath = 'CHANGELOG.md';
+//   const changelog = readFileSync(changelogPath, 'utf8');
 
-  // Find the marker
-  const marker = '<!-- CHANGELOG-INSERT-MARKER -->';
-  const markerIndex = changelog.indexOf(marker);
+//   // Find the marker
+//   const marker = '<!-- CHANGELOG-INSERT-MARKER -->';
+//   const markerIndex = changelog.indexOf(marker);
 
-  if (markerIndex === -1) {
-    throw new Error('CHANGELOG.md is missing the insert marker');
-  }
+//   if (markerIndex === -1) {
+//     throw new Error('CHANGELOG.md is missing the insert marker');
+//   }
 
-  // Find the end of the marker section (next line after marker comments)
-  const afterMarker = changelog.indexOf('\n\n', markerIndex) + 2;
+//   // Find the end of the marker section (next line after marker comments)
+//   const afterMarker = changelog.indexOf('\n\n', markerIndex) + 2;
 
-  // Format date
-  const date = new Date().toISOString().split('T')[0];
+//   // Format date
+//   const date = new Date().toISOString().split('T')[0];
 
-  // Create new release entry
-  const newEntry = `## [${version}] - ${date}\n\n${content}\n\n`;
+//   // Create new release entry
+//   const newEntry = `## [${version}] - ${date}\n\n${content}\n\n`;
 
-  // Insert new entry after marker
-  const updatedChangelog =
-    changelog.slice(0, afterMarker) +
-    newEntry +
-    changelog.slice(afterMarker);
+//   // Insert new entry after marker
+//   const updatedChangelog =
+//     changelog.slice(0, afterMarker) +
+//     newEntry +
+//     changelog.slice(afterMarker);
 
-  writeFileSync(changelogPath, updatedChangelog);
-}
+//   writeFileSync(changelogPath, updatedChangelog);
+// }
 
 // Helper to generate changelog from git commits - optimized
 async function generateChangelog(fromVersion: string, toVersion: string): Promise<string> {
@@ -495,83 +495,83 @@ export function command(program: Command): void {
 
         s.stop('✅ Package versions updated');
 
-        // Step 3.5: Update CHANGELOG.md from CHANGES.md
-        s.start('Updating CHANGELOG...');
+        // // Step 3.5: Update CHANGELOG.md from CHANGES.md
+        // s.start('Updating CHANGELOG...');
 
-        let changelogContent = '';
+        // let changelogContent = '';
 
-        if (!config.dryRun) {
-          // Parallel file reads for better performance
-          const [changelogExists, changesExists] = await $.parallel.settled([
-            `test -f CHANGELOG.md && echo true || echo false`,
-            `test -f CHANGES.md && echo true || echo false`
-          ]).then(r => r.results.map(res =>
-            res instanceof Error ? false : res.stdout.trim() === 'true'
-          ));
+        // if (!config.dryRun) {
+        //   // Parallel file reads for better performance
+        //   const [changelogExists, changesExists] = await $.parallel.settled([
+        //     `test -f CHANGELOG.md && echo true || echo false`,
+        //     `test -f CHANGES.md && echo true || echo false`
+        //   ]).then(r => r.results.map(res =>
+        //     res instanceof Error ? false : res.stdout.trim() === 'true'
+        //   ));
 
-          // Save originals in parallel if they exist
-          const backupTasks: (Promise<void>)[] = [];
-          if (changelogExists) {
-            backupTasks.push((async () => {
-              rollbackState.originalChangelog = readFileSync('CHANGELOG.md', 'utf8');
-            })());
-          }
-          if (changesExists) {
-            backupTasks.push((async () => {
-              rollbackState.originalChangesFile = readFileSync('CHANGES.md', 'utf8');
-            })());
-          }
-          await Promise.all(backupTasks);
+        //   // Save originals in parallel if they exist
+        //   const backupTasks: (Promise<void>)[] = [];
+        //   if (changelogExists) {
+        //     backupTasks.push((async () => {
+        //       rollbackState.originalChangelog = readFileSync('CHANGELOG.md', 'utf8');
+        //     })());
+        //   }
+        //   if (changesExists) {
+        //     backupTasks.push((async () => {
+        //       rollbackState.originalChangesFile = readFileSync('CHANGES.md', 'utf8');
+        //     })());
+        //   }
+        //   await Promise.all(backupTasks);
 
-          // Try CHANGES.md first
-          const changesContent = await parseChangesFile();
-          if (changesContent) {
-            changelogContent = changesContent;
-            usedChangesFile = true;
-            kit.log.info('Using content from CHANGES.md for changelog');
-          } else {
-            // Fallback to git commits
-            changelogContent = await generateChangelog(config.previousVersion, config.version);
-            kit.log.info('Generated changelog from git commits');
-          }
+        //   // Try CHANGES.md first
+        //   const changesContent = await parseChangesFile();
+        //   if (changesContent) {
+        //     changelogContent = changesContent;
+        //     usedChangesFile = true;
+        //     kit.log.info('Using content from CHANGES.md for changelog');
+        //   } else {
+        //     // Fallback to git commits
+        //     changelogContent = await generateChangelog(config.previousVersion, config.version);
+        //     kit.log.info('Generated changelog from git commits');
+        //   }
 
-          // Update CHANGELOG.md
-          try {
-            await updateChangelog(config.version, changelogContent);
-            s.stop('✅ CHANGELOG.md updated');
-          } catch (error) {
-            s.stop('⚠️  Failed to update CHANGELOG.md');
-            kit.log.warn('Could not update CHANGELOG.md: ' + error);
-          }
-        } else {
-          s.stop('✅ CHANGELOG.md update skipped (dry run)');
-        }
+        //   // Update CHANGELOG.md
+        //   try {
+        //     await updateChangelog(config.version, changelogContent);
+        //     s.stop('✅ CHANGELOG.md updated');
+        //   } catch (error) {
+        //     s.stop('⚠️  Failed to update CHANGELOG.md');
+        //     kit.log.warn('Could not update CHANGELOG.md: ' + error);
+        //   }
+        // } else {
+        //   s.stop('✅ CHANGELOG.md update skipped (dry run)');
+        // }
 
         // Step 4: Build packages
-        s.start('Building packages...');
+        // s.start('Building packages...');
 
-        if (!config.dryRun) {
-          // Use $.batch for cleaner API with concurrency control
-          const buildResult = await $.batch(
-            config.packages.map(pkg => `cd ${pkg.path} && yarn build`),
-            {
-              concurrency: 3, // Optimal for most systems
-              onProgress: (done, total, succeeded, failed) => {
-                s.start(`Building packages: ${done}/${total} (✓ ${succeeded}, ✗ ${failed})`);
-              }
-            }
-          );
+        // if (!config.dryRun) {
+        //   // Use $.batch for cleaner API with concurrency control
+        //   const buildResult = await $.batch(
+        //     config.packages.map(pkg => `cd ${pkg.path} && yarn build`),
+        //     {
+        //       concurrency: 3, // Optimal for most systems
+        //       onProgress: (done, total, succeeded, failed) => {
+        //         s.start(`Building packages: ${done}/${total} (✓ ${succeeded}, ✗ ${failed})`);
+        //       }
+        //     }
+        //   );
 
-          if (buildResult.failed.length > 0) {
-            s.stop('❌ Build failed');
-            await performRollback(rollbackState, config);
-            throw new Error(`Build failed for ${buildResult.failed.length} packages`);
-          }
+        //   if (buildResult.failed.length > 0) {
+        //     s.stop('❌ Build failed');
+        //     await performRollback(rollbackState, config);
+        //     throw new Error(`Build failed for ${buildResult.failed.length} packages`);
+        //   }
 
-          s.stop(`✅ Built ${buildResult.succeeded.length} packages successfully`);
-        } else {
-          s.stop('✅ Package build skipped (dry run)');
-        }
+        //   s.stop(`✅ Built ${buildResult.succeeded.length} packages successfully`);
+        // } else {
+        //   s.stop('✅ Package build skipped (dry run)');
+        // }
 
         // Step 5: Git operations
         if (!config.skipGit && !config.dryRun) {
