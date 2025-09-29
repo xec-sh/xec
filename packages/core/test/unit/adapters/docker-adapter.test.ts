@@ -5,6 +5,7 @@ import { it, jest, expect, describe, afterAll, afterEach, beforeAll, beforeEach 
 
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';
 import { DockerError, AdapterError, TimeoutError } from '../../../src/core/error.js';
+import { findDockerPath } from '../../../src/adapters/docker/docker-utils.js';
 
 const sleep = promisify(setTimeout);
 
@@ -17,8 +18,9 @@ let testContainers: string[] = [];
 // Helper function to execute docker commands directly
 async function execDocker(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve) => {
-    const proc = spawn('/usr/local/bin/docker', args, {
-      env: { ...process.env, PATH: `/usr/local/bin:${process.env['PATH']}` }
+    const dockerPath = findDockerPath();
+    const proc = spawn(dockerPath, args, {
+      env: { ...process.env, PATH: `/usr/local/bin:/opt/homebrew/bin:${process.env['PATH']}` }
     });
     let stdout = '';
     let stderr = '';
@@ -1235,8 +1237,8 @@ describe('DockerAdapter - Run Mode', () => {
 
   it('should handle environment variables in run mode', async () => {
     const result = await adapter.execute({
-      command: 'sh',
-      args: ['-c', 'echo $TEST_VAR'],
+      command: 'printenv',
+      args: ['TEST_VAR'],
       env: { TEST_VAR: 'test_value' },
       adapterOptions: {
         type: 'docker',

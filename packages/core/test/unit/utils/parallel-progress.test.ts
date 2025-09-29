@@ -12,10 +12,12 @@ import type { ParallelResult, ParallelOptions } from '../../../src/utils/paralle
 class MockExecutionEngine {
   private delay: number;
   private shouldFail: boolean;
+  private throwOnFail: boolean;
 
-  constructor(delay = 10, shouldFail = false) {
+  constructor(delay = 10, shouldFail = false, throwOnFail = true) {
     this.delay = delay;
     this.shouldFail = shouldFail;
+    this.throwOnFail = throwOnFail;
   }
 
   async execute(command: Command): Promise<ExecutionResult> {
@@ -35,12 +37,27 @@ class MockExecutionEngine {
       await new Promise(resolve => setTimeout(resolve, this.delay));
     }
 
-    if (this.shouldFail && command.command?.includes('fail')) {
-      throw new Error(`Command failed: ${command.command}`);
-    }
-
     const startedAt = new Date();
     const finishedAt = new Date(startedAt.getTime() + this.delay);
+
+    // Handle failure based on throwOnFail flag
+    if (this.shouldFail && command.command?.includes('fail')) {
+      if (this.throwOnFail) {
+        throw new Error(`Command failed: ${command.command}`);
+      } else {
+        return new ExecutionResultImpl(
+          '',
+          `Command failed: ${command.command}`,
+          1,  // Exit code 1 for failure
+          undefined,
+          command.command || '',
+          this.delay,
+          startedAt,
+          finishedAt,
+          'mock'
+        );
+      }
+    }
 
     return new ExecutionResultImpl(
       `Output: ${command.command}`,
@@ -473,7 +490,7 @@ describe('Parallel Execution with Progress', () => {
 
   describe('Edge cases and error handling', () => {
     it('should handle errors with limited concurrency and progress', async () => {
-      const failEngine = new MockExecutionEngine(10, true);
+      const failEngine = new MockExecutionEngine(10, true, false);  // throwOnFail = false
       const progressData: Array<{ failed: number }> = [];
 
       // The test expects errors to be caught by parallel, not thrown
