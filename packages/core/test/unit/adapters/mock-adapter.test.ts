@@ -41,8 +41,9 @@ describe('MockAdapter', () => {
       const result = await adapter.execute({
         command: 'echo test'
       });
-      
-      expect(result.stdout).toBe('');
+
+      // MockAdapter has special handling for echo commands - it simulates echo output
+      expect(result.stdout).toBe('test\n');
       expect(result.stderr).toBe('');
       expect(result.exitCode).toBe(0);
       expect(result.adapter).toBe('mock');

@@ -6,6 +6,7 @@ import { ExecutionResult } from '../../core/result.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import { TimeoutError, ExecutionError, sanitizeCommandForError } from '../../core/error.js';
+import { findKubectlPath } from './kubernetes-utils.js';
 
 export interface KubernetesAdapterConfig extends BaseAdapterConfig {
   /**
@@ -43,7 +44,7 @@ export class KubernetesAdapter extends BaseAdapter {
     super(config);
     this.name = this.adapterName;
     this.k8sConfig = config;
-    this.kubectlPath = config.kubectlPath || 'kubectl';
+    this.kubectlPath = config.kubectlPath || findKubectlPath();
   }
 
   async isAvailable(): Promise<boolean> {

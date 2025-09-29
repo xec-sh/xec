@@ -3,6 +3,21 @@
 ## 🎯 Project Mission
 Xec is a modern, type-safe command execution system built with TypeScript. It provides a unified API for executing commands across local, SSH, Docker, and Kubernetes environments with a syntax inspired by Google's zx.
 
+## ⚠️ CRITICAL: Zero-Tolerance Reliability Policy
+
+**This is a HIGH-RELIABILITY SYSTEM**. Commands executed through Xec may affect critical infrastructure. We DO NOT make assumptions, approximations, or partial implementations:
+
+- **100% Runtime Compatibility**: All code MUST work identically on Node.js, Bun, and Deno
+- **100% Type Safety**: No `any` types in public APIs, 100% type coverage
+- **Zero Warnings**: No TypeScript warnings, no linter warnings, no deprecation warnings
+- **Zero Core Dependencies**: Core package has ZERO external runtime dependencies
+- **No "Good Enough"**: If it's not perfect, it's not ready
+- **No Workarounds**: Fix the root cause, not the symptom
+- **No Assumptions**: Test everything, verify everything, prove everything
+- **No Silent Failures**: Every error must be caught, logged, and handled appropriately
+
+**REMEMBER**: This framework executes commands that could affect production systems. A single bug could have catastrophic consequences. There is NO room for error.
+
 ## 📁 Monorepo Structure
 ```
 xec/
@@ -101,8 +116,14 @@ src/
 
 ## 📋 Development Principles
 
-### 1. ⚠️ Task Focus
+### 1. ⚠️ Task Focus & Correctness First
 **CRITICAL**: Only implement what is explicitly requested. No additional features, files, or "nice-to-haves" unless specified.
+
+**Correctness is non-negotiable**:
+- Code must be provably correct through types and tests
+- Use mathematical rigor where applicable
+- Referential transparency: same input always produces same output
+- Pure functions by default, side effects explicitly marked
 
 ### 1.1. 🚫 No Duplicate Files
 **CRITICAL**: When improving or fixing existing files, ALWAYS update the original files directly. NEVER create duplicate files with suffixes like `-enhanced`, `-fixed`, `-v2`, etc. This prevents code fragmentation and maintains consistency.
@@ -113,18 +134,20 @@ src/
 - ✅ Modify `autocomplete.ts` in place
 - ❌ Create `autocomplete-fixed.ts`
 
-### 2. 🔒 Type Safety First
+### 2. 🔒 Type Safety & Mathematical Rigor
 ```typescript
-// ✅ Good
+// ✅ Good - Type-safe with exhaustive checks
 function execute(command: string, options: CommandOptions): Promise<ExecutionResult>
 
-// ❌ Bad
+// ❌ Bad - Unsafe typing
 function execute(command: any, options?: any): Promise<any>
 ```
-- No `any` types in public APIs
-- Use `unknown` when type is truly unknown
-- Full TypeScript strict mode
-- Comprehensive type definitions
+- **No `any` types** - ZERO tolerance
+- **Provably correct**: Use types to prove correctness at compile time
+- **Full TypeScript strict mode**: All strict flags enabled
+- **Exhaustive pattern matching**: All cases must be handled
+- **Type coverage**: 100% of public APIs must be fully typed
+- **Phantom types**: Use branded types for additional compile-time safety
 
 ### 3. 📦 Error Handling
 ```typescript
@@ -248,11 +271,27 @@ See `packages/terex/examples/tui-tester.ts` for a complete example of comparing 
 
 ## 🧪 Testing Strategy
 
-### Testing Philosophy
+### Zero-Tolerance Testing Philosophy
+- **100% Coverage Required**: Every function, branch, and edge case MUST be tested
 - **Real over Mock**: Prefer real implementations with fixtures over mocks
 - **Test Public APIs**: Focus on testing public interfaces, not internals
-- **Coverage Goals**: 90%+ for critical paths, 80%+ overall
+- **Property-Based Testing**: Test invariants, not just examples
+- **Mutation Testing**: >95% mutation score required - surviving mutants = missing tests
+- **Cross-Runtime Testing**: Tests must pass on Node.js, Deno, and Bun
 - **Fast Feedback**: Unit tests should run in milliseconds
+- **Tests as Specification**: Tests define behavior and serve as living documentation
+
+### Test Pyramid
+```
+         /\
+        /  \  E2E Tests (5%)
+       /    \
+      /------\  Integration Tests (15%)
+     /        \
+    /----------\  Component Tests (30%)
+   /            \
+  /--------------\  Unit Tests (50%)
+```
 
 ### Test Structure
 Tests mirror the source code structure:
@@ -274,6 +313,10 @@ packages/core/
     │   │   └── ssh-adapter.integration.test.ts
     │   └── scenarios/
     │       └── multi-adapter.test.ts
+    ├── property/          # Property-based tests
+    │   └── execution-properties.test.ts
+    ├── mutation/          # Mutation tests
+    │   └── mutation.config.ts
     └── e2e/              # End-to-end tests (full system)
         └── cli-commands.test.ts
 ```
@@ -320,7 +363,45 @@ describeSSH('SSH Adapter Integration', () => {
 });
 ```
 
-#### 3. End-to-End Tests
+#### 3. Property-Based Tests
+- Test invariants and mathematical properties
+- Generate random inputs to find edge cases
+- Ensure laws hold (associativity, commutativity, etc.)
+
+```typescript
+// Property-based test example
+import * as fc from 'fast-check';
+
+test.property('pipe composition is associative',
+  fc.string(), fc.string(), fc.string(),
+  async (cmd1, cmd2, cmd3) => {
+    const left = await xec(cmd1).pipe(xec(cmd2)).pipe(xec(cmd3));
+    const right = await xec(cmd1).pipe(xec(cmd2).pipe(xec(cmd3)));
+    expect(left.stdout).toBe(right.stdout);
+  }
+);
+```
+
+#### 4. Mutation Tests
+- Verify test suite quality
+- All mutants must be killed
+- >95% mutation score required
+
+```typescript
+// mutation.config.ts
+export default {
+  mutate: ['src/**/*.ts'],
+  ignore: ['**/*.test.ts', '**/*.spec.ts'],
+  testRunner: 'vitest',
+  thresholds: {
+    high: 95,
+    low: 85,
+    break: 80
+  }
+};
+```
+
+#### 5. End-to-End Tests
 - Test complete user workflows
 - Use the CLI as users would
 - Verify documentation examples work
@@ -339,6 +420,33 @@ describe('CLI E2E', () => {
 ```
 
 ### Testing Best Practices
+
+#### Testing Commands
+
+```bash
+# Run all tests with coverage
+yarn test:coverage
+
+# Run specific test file
+yarn test path/to/test.ts
+
+# Run tests in watch mode
+yarn test --watch
+
+# Run mutation testing
+yarn test:mutation
+
+# Run property-based tests
+yarn test:property
+
+# Run benchmarks
+yarn bench
+
+# Run tests on different runtimes
+node --test
+bun test
+deno test
+```
 
 #### Use Real Implementations
 ```typescript
@@ -423,6 +531,63 @@ export function describeDocker(name: string, fn: () => void) {
 }
 ```
 
+## 🔍 Troubleshooting Approach
+
+### Systematic Diagnosis Process
+
+1. **Identify Symptoms**
+   - Collect all error messages and stack traces
+   - Measure performance metrics (CPU, memory, I/O)
+   - Detect behavioral anomalies
+   - Check resource usage and limits
+
+2. **Isolate Problem**
+   - Binary search to find root cause
+   - Create minimal reproduction case
+   - Remove variables systematically
+   - Test in isolation
+
+3. **Form Hypotheses**
+   - Analyze stack traces thoroughly
+   - Review recent changes (git log/diff)
+   - Check known issues and documentation
+   - Consider environmental factors
+
+4. **Verify Solution**
+   - Test fix in isolation first
+   - Confirm no side effects or regressions
+   - Document solution and prevention
+   - Add tests to prevent recurrence
+
+### Debug Tools
+
+```typescript
+// Built-in debug utilities
+import { trace, profile, inspect } from '@xec-sh/core/debug';
+
+// Trace execution flow
+const debugEngine = trace('execution', engine);
+
+// Profile performance
+const profiledExec = profile(xec);
+console.log(profiledExec.stats);
+
+// Inspect internal state
+const state = inspect(engine);
+```
+
+### Common Issues & Solutions
+
+| Symptom | Likely Cause | Solution |
+|---------|-------------|----------|
+| Command hangs | Missing stream handler | Add timeout or check stream consumption |
+| Memory leak | Unbounded buffer/cache | Implement size limits or TTL |
+| Type errors in pipe | Incompatible adapters | Verify adapter options alignment |
+| SSH connection fails | Key permissions | Check chmod 600 on private key |
+| Docker not found | Missing Docker socket | Verify Docker daemon is running |
+| Slow performance | Missing connection pooling | Enable adapter pooling |
+| Lost output | Async race condition | Use proper stream handling |
+
 ## 🚀 Development Workflow
 
 ### Quick Start
@@ -438,25 +603,44 @@ yarn test                    # Run unit tests
 yarn test:integration        # Run integration tests
 yarn test:e2e               # Run end-to-end tests
 yarn test:full              # Run all tests
+yarn test:coverage          # Run with coverage report
+yarn test:mutation          # Run mutation tests
+yarn bench                  # Run performance benchmarks
 
 # Code quality
 yarn typecheck              # TypeScript validation
 yarn lint                   # ESLint checks
 yarn format                 # Prettier formatting
 yarn fix:all                # Fix all auto-fixable issues
+yarn audit                  # Security vulnerability check
 
 # Documentation
 yarn docs:dev               # Start docs dev server
 yarn docs:build             # Build documentation
 ```
 
+### Code Quality Gates
+
+All code MUST pass these gates before commit:
+
+- ✅ **Type checking**: `yarn typecheck` (ZERO errors/warnings)
+- ✅ **Linting**: `yarn lint` (ZERO violations)
+- ✅ **Formatting**: `yarn format:check` (100% compliant)
+- ✅ **Unit tests**: `yarn test` (100% passing)
+- ✅ **Coverage**: `yarn test:coverage` (>95% for new code)
+- ✅ **Integration tests**: `yarn test:integration` (100% passing)
+- ✅ **Mutation tests**: `yarn test:mutation` (>95% killed)
+- ✅ **Performance**: `yarn bench` (no regressions)
+- ✅ **Security**: `yarn audit` (ZERO vulnerabilities)
+- ✅ **Docs**: Update `/docs` if API changed
+- ✅ **Changelog**: Update CHANGELOG.md for user-facing changes
+
 ### Pre-commit Checklist
-1. **Tests Pass**: `yarn test:full`
-2. **Types Valid**: `yarn typecheck`
-3. **Lint Clean**: `yarn lint`
-4. **Format Correct**: `yarn format:check`
-5. **Docs Updated**: Update `/docs` if API changed
-6. **Changelog**: Update CHANGELOG.md for user-facing changes
+1. **All Quality Gates Pass**: See above
+2. **No Debug Code**: Remove all console.logs, debugger statements
+3. **No TODO Comments**: Resolve or create issues
+4. **API Compatibility**: Ensure no breaking changes without major version
+5. **Cross-Runtime**: Test on Node.js, Deno, and Bun
 
 ### 📖 Documentation Updates
 **CRITICAL**: When changing public APIs or documented features:
@@ -493,45 +677,84 @@ XECSH_NO_COLOR=true          # Disable colored output
 ## 📚 Package Guidelines
 
 ### @xec-sh/core
-- Zero CLI dependencies
-- Minimal external dependencies
+- **ZERO external dependencies** (non-negotiable)
+- **100% ESM modules**
+- **Platform-agnostic code** (Node.js, Deno, Bun)
 - All adapters optional via lazy loading
-- Comprehensive error types
-- Streaming-first APIs
+- Comprehensive error types with stack traces
+- Streaming-first APIs with backpressure handling
+- Provably correct through types
 
 ### @xec-sh/cli
 - Depends only on @xec-sh/core
-- User-friendly error messages
+- User-friendly error messages with suggestions
 - Interactive prompts when appropriate
 - Respect NO_COLOR and CI environment
-- Fast startup time (<100ms)
+- **Fast startup time** (<50ms required, <30ms target)
+- Progressive enhancement based on TTY capabilities
 
 ### @xec-sh/test-utils
-- Zero production dependencies
+- **Zero production dependencies**
 - Provides test helpers only
-- Docker container management
-- Fixture generators
+- Docker container management with lifecycle hooks
+- Fixture generators with deterministic output
 - Test environment validators
+- Property-based testing utilities
+- Mutation testing helpers
 
-## ⚡ Performance Guidelines
+## ⚡ Performance Standards
 
-### Startup Performance
-- Lazy load adapters on first use
-- Minimize synchronous requires
-- Use dynamic imports for optional features
-- Cache configuration parsing
+### Performance Requirements
 
-### Runtime Performance
-- Stream large outputs instead of buffering
-- Pool connections (SSH, Docker)
-- Implement request coalescing
-- Use native Node.js APIs where possible
+**Every performance-critical operation MUST have benchmarks:**
+
+```typescript
+import { bench, describe } from 'vitest';
+
+describe('execution performance', () => {
+  bench('simple command', async () => {
+    await xec('echo test');
+  });
+
+  bench('piped commands', async () => {
+    await xec('echo test').pipe(xec('grep test'));
+  });
+
+  bench('parallel execution', async () => {
+    await Promise.all([
+      xec('echo 1'),
+      xec('echo 2'),
+      xec('echo 3')
+    ]);
+  });
+});
+```
+
+### Performance Targets
+
+- **Command creation**: <100ns
+- **Simple execution**: <5ms overhead
+- **Pipe setup**: <200ns
+- **SSH connection**: <100ms (pooled: <10ms)
+- **Docker exec**: <50ms
+- **Memory overhead**: <5MB per command
+- **Startup time**: <50ms
+
+### Optimization Guidelines
+
+1. **Measure First**: Never optimize without benchmarks
+2. **Stream Everything**: Never buffer entire outputs in memory
+3. **Pool Resources**: Connection pooling for SSH/Docker
+4. **Lazy Loading**: Load adapters only when needed
+5. **Cache Wisely**: Cache with TTL and size limits
+6. **Profile Regularly**: Run benchmarks in CI to catch regressions
 
 ### Memory Management
-- Set reasonable buffer limits
-- Clean up event listeners
-- Dispose resources properly
-- Avoid global state accumulation
+- Set strict buffer limits (default: 10MB)
+- Clean up event listeners immediately
+- Dispose resources with try/finally
+- ZERO global state accumulation
+- Monitor heap usage in tests
 
 ## 🔐 Security Guidelines
 
@@ -609,6 +832,47 @@ docker version
 docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 ```
 
+## 📊 Metrics for Success
+
+### Code Quality Metrics
+- **Test coverage**: >95% (100% for critical paths)
+- **Mutation score**: >95%
+- **Cyclomatic complexity**: <10 per function
+- **Type coverage**: 100%
+- **Bundle size**: <50KB (core)
+- **Dependencies**: 0 (core)
+
+### Performance Metrics
+- **Operations/second**: >10K for simple commands
+- **Memory overhead**: <5MB per command
+- **Startup time**: <50ms
+- **Connection pooling efficiency**: >90%
+
+### Reliability Metrics
+- **Error rate**: <0.01%
+- **Mean time to recovery**: <1s
+- **Resource leak rate**: 0%
+- **Cross-runtime compatibility**: 100%
+
+## 🚨 Red Flags - NEVER DO THIS
+
+Watch out for these anti-patterns:
+
+- 🚫 **External dependencies in core** - ZERO tolerance
+- 🚫 **Runtime-specific code** - Must work on all runtimes
+- 🚫 **Mutable global state** - All state must be immutable
+- 🚫 **Implicit behavior** - Everything must be explicit
+- 🚫 **Silent failures** - All errors must be handled
+- 🚫 **Missing tests** - 100% coverage required
+- 🚫 **Poor error messages** - Errors must be actionable
+- 🚫 **Memory leaks** - All resources must be cleaned up
+- 🚫 **Synchronous I/O in async context** - Always use async
+- 🚫 **Uncaught promises** - All promises must be handled
+- 🚫 **Type assertions without guards** - Validate at runtime
+- 🚫 **Console.log in production** - Use proper logging
+- 🚫 **Hardcoded values** - Use configuration
+- 🚫 **Race conditions** - Proper synchronization required
+
 ## 🎯 Decision Log
 
 ### Why Template Literals?
@@ -680,6 +944,23 @@ yarn version              # Version packages
 yarn release              # Publish to npm
 ```
 
+## 🌟 Remember
+
+> "Perfection is achieved not when there is nothing more to add,
+> but when there is nothing left to take away."
+> — Antoine de Saint-Exupéry
+
+Every line of code should embody this philosophy. We're not just building a command execution system; we're crafting a tool that teams will rely on for critical operations.
+
 ---
 
-**Remember**: Excellence through discipline. Every feature exactly as requested, every API fully tested, every resource properly managed.
+**Remember**:
+- **Excellence through discipline** - Every feature exactly as requested
+- **Zero-tolerance for errors** - This is a HIGH-RELIABILITY SYSTEM
+- **Test everything** - If it's not tested, it's broken
+- **Performance matters** - Measure, optimize, verify
+- **Security first** - Never compromise on security
+
+**Last Updated**: 2025-09-29
+**Version**: 0.8.1
+**Status**: Living Document

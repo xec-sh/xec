@@ -289,7 +289,7 @@ describe('StreamHandler Memory Management', () => {
       });
 
       expect(onError).toHaveBeenCalled();
-      expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+      expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
     });
 
     it('should not call callbacks after dispose', () => {
