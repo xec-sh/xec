@@ -159,9 +159,9 @@ export class TargetResolver {
       for (const [name, config] of Object.entries(this.config.targets.pods)) {
         targets.push({
           id: `pods.${name}`,
-          type: 'k8s',
+          type: 'kubernetes',
           name,
-          config: this.applyDefaults({ ...config, type: 'k8s' } as PodConfig),
+          config: this.applyDefaults({ ...config, type: 'kubernetes' } as PodConfig),
           source: 'configured'
         });
       }
@@ -203,7 +203,7 @@ export class TargetResolver {
     }
 
     let targetConfig: any;
-    let targetType: 'ssh' | 'docker' | 'k8s';
+    let targetType: 'ssh' | 'docker' | 'kubernetes';
 
     switch (ref.type) {
       case 'hosts':
@@ -218,7 +218,7 @@ export class TargetResolver {
 
       case 'pods':
         targetConfig = targets.pods?.[ref.name!];
-        targetType = 'k8s';
+        targetType = 'kubernetes';
         break;
 
       default:
@@ -318,9 +318,9 @@ export class TargetResolver {
         if (matchPattern(pattern, name)) {
           targets.push({
             id: `pods.${name}`,
-            type: 'k8s',
+            type: 'kubernetes',
             name,
-            config: this.applyDefaults({ ...config, type: 'k8s' } as PodConfig),
+            config: this.applyDefaults({ ...config, type: 'kubernetes' } as PodConfig),
             source: 'configured'
           });
         }
@@ -350,10 +350,10 @@ export class TargetResolver {
       const namespace = this.config.targets?.kubernetes?.$namespace || 'default';
       return {
         id: reference,
-        type: 'k8s',
+        type: 'kubernetes',
         name: reference,
         config: this.applyDefaults({
-          type: 'k8s',
+          type: 'kubernetes',
           pod: reference,
           namespace
         }),
@@ -534,8 +534,8 @@ export class TargetResolver {
         return `dynamic-ssh-${(config as HostConfig).host}`;
       case 'docker':
         return `dynamic-docker-${(config as ContainerConfig).container || 'ephemeral'}`;
-      case 'k8s':
-        return `dynamic-k8s-${(config as PodConfig).pod || 'unknown'}`;
+      case 'kubernetes':
+        return `dynamic-kubernetes-${(config as PodConfig).pod || 'unknown'}`;
       case 'local':
       default:
         return 'local';
@@ -598,7 +598,7 @@ export class TargetResolver {
         }
         break;
 
-      case 'k8s':
+      case 'kubernetes':
         if (defaults.kubernetes) {
           typeSpecificDefaults = this.applyKubernetesDefaults(defaults.kubernetes, targetConfig as PodConfig);
         }
@@ -615,7 +615,7 @@ export class TargetResolver {
     let final = deepMerge(withTypeDefaults, targetConfig);
 
     // Special handling for arrays that should be concatenated
-    if (targetConfig.type === 'k8s') {
+    if (targetConfig.type === 'kubernetes') {
       const k8sTarget = targetConfig as PodConfig;
       if (defaults.kubernetes?.execFlags && k8sTarget.execFlags) {
         // Concatenate execFlags arrays

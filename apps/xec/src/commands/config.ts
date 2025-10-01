@@ -678,7 +678,7 @@ export class ConfigCommand extends BaseCommand {
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
         { value: 'docker', label: '🐳 Docker Container' },
-        { value: 'k8s', label: '☸️  Kubernetes Pod' },
+        { value: 'kubernetes', label: '☸️  Kubernetes Pod' },
       ],
     }) as string;
 
@@ -706,7 +706,7 @@ export class ConfigCommand extends BaseCommand {
       case 'docker':
         targetConfig = await this.promptDockerConfig();
         break;
-      case 'k8s':
+      case 'kubernetes':
         targetConfig = await this.promptK8sConfig();
         break;
     }
@@ -730,7 +730,7 @@ export class ConfigCommand extends BaseCommand {
         if (!config.targets.containers) config.targets.containers = {};
         config.targets.containers[name] = targetConfig;
         break;
-      case 'k8s':
+      case 'kubernetes':
         if (!config.targets.pods) config.targets.pods = {};
         config.targets.pods[name] = targetConfig;
         break;
@@ -887,7 +887,7 @@ export class ConfigCommand extends BaseCommand {
     }) as string;
 
     const config: any = {
-      type: 'k8s',
+      type: 'kubernetes',
       pod,
       namespace,
     };

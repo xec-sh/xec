@@ -2,6 +2,13 @@
  * Configuration system type definitions for Xec
  */
 
+import type { AdapterType as CoreAdapterType } from '@xec-sh/core';
+
+/**
+ * Re-export AdapterType from core for consistency
+ */
+export type { CoreAdapterType as AdapterType };
+
 /**
  * Main configuration interface
  */
@@ -41,9 +48,10 @@ export interface Configuration {
 }
 
 /**
- * Target types
+ * Target types - aligned with core adapter types
+ * Note: Use 'kubernetes' instead of 'k8s' for consistency with core
  */
-export type TargetType = 'local' | 'ssh' | 'docker' | 'k8s';
+export type TargetType = 'local' | 'ssh' | 'docker' | 'kubernetes';
 
 /**
  * Base target configuration
@@ -118,7 +126,7 @@ export interface ContainerConfig extends BaseTarget {
  * Kubernetes pod configuration
  */
 export interface PodConfig extends BaseTarget {
-  type: 'k8s';
+  type: 'kubernetes';
   namespace?: string;
   pod?: string;
   selector?: string;

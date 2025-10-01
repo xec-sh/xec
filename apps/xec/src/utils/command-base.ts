@@ -284,7 +284,7 @@ export abstract class BaseCommand {
           return dockerEngine;
         }
 
-      case 'k8s':
+      case 'kubernetes':
         {
           const k8sOptions: any = {
             pod: config.pod,
@@ -338,7 +338,7 @@ export abstract class BaseCommand {
           break;
         }
 
-      case 'k8s':
+      case 'kubernetes':
         {
           const k8sConfig = target.config as any;
           if (k8sConfig.namespace && k8sConfig.namespace !== 'default') {

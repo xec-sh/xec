@@ -223,7 +223,7 @@ export class ForwardCommand extends ConfigAwareCommand {
         case 'docker':
           session = await this.forwardDocker(target, mapping, options);
           break;
-        case 'k8s':
+        case 'kubernetes':
           session = await this.forwardKubernetes(target, mapping, options);
           break;
         default:
@@ -454,7 +454,7 @@ export class ForwardCommand extends ConfigAwareCommand {
         [
           { value: 'ssh', label: 'SSH host' },
           { value: 'docker', label: 'Docker container' },
-          { value: 'k8s', label: 'Kubernetes pod' },
+          { value: 'kubernetes', label: 'Kubernetes pod' },
         ],
         (item) => `${InteractiveHelpers.getTargetIcon(item.value)} ${item.label}`
       );

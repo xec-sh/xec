@@ -440,7 +440,7 @@ export class InCommand extends ConfigAwareCommand {
 
         command.push(config.container || target.name || '');
         command.push(config.shell || '/bin/sh');
-      } else if (target.type === 'k8s') {
+      } else if (target.type === 'kubernetes') {
         const config = target.config as any;
         command = ['kubectl', 'exec', '-it'];
 

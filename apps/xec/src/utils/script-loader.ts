@@ -19,7 +19,7 @@ export interface ScriptContext {
 }
 
 export interface TargetInfo {
-  type: 'local' | 'ssh' | 'docker' | 'k8s';
+  type: 'local' | 'ssh' | 'docker' | 'kubernetes';
   name?: string;
   host?: string;
   container?: string;
@@ -492,7 +492,7 @@ export class ScriptLoader {
       case 'docker':
         targetInfo.container = (target.config as any).container || target.name;
         break;
-      case 'k8s':
+      case 'kubernetes':
         targetInfo.pod = (target.config as any).pod || target.name;
         targetInfo.namespace = (target.config as any).namespace;
         break;
@@ -588,7 +588,7 @@ let defaultLoader: ScriptLoader;
 /**
  * Get default loader instance
  */
-export function getUnifiedScriptLoader(options?: LoaderOptions): ScriptLoader {
+export function getScriptLoader(options?: LoaderOptions): ScriptLoader {
   if (!defaultLoader) {
     defaultLoader = new ScriptLoader(options);
   }
@@ -602,7 +602,7 @@ export async function executeScript(
   scriptPath: string,
   options?: ExecutionOptions
 ): Promise<ScriptExecutionResult> {
-  const loader = getUnifiedScriptLoader(options);
+  const loader = getScriptLoader(options);
   return loader.executeScript(scriptPath, options);
 }
 
@@ -613,7 +613,7 @@ export async function evaluateCode(
   code: string,
   options?: ExecutionOptions
 ): Promise<ScriptExecutionResult> {
-  const loader = getUnifiedScriptLoader(options);
+  const loader = getScriptLoader(options);
   return loader.evaluateCode(code, options);
 }
 
@@ -621,6 +621,6 @@ export async function evaluateCode(
  * Convenience function to start REPL
  */
 export async function startRepl(options?: ExecutionOptions): Promise<void> {
-  const loader = getUnifiedScriptLoader(options);
+  const loader = getScriptLoader(options);
   return loader.startRepl(options);
 }

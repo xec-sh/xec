@@ -7,7 +7,7 @@ import { Command } from 'commander';
 import * as chokidar from 'chokidar';
 
 import { validateOptions } from '../utils/validation.js';
-import { getUnifiedScriptLoader } from '../utils/script-loader.js';
+import { getScriptLoader } from '../utils/script-loader.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
@@ -239,7 +239,7 @@ export class WatchCommand extends ConfigAwareCommand {
         case 'docker':
           session = await this.watchDocker(target, paths, options);
           break;
-        case 'k8s':
+        case 'kubernetes':
           session = await this.watchKubernetes(target, paths, options);
           break;
         default:
@@ -537,7 +537,7 @@ export class WatchCommand extends ConfigAwareCommand {
         }
       } else if (options.script) {
         // Execute script using ScriptLoader
-        const scriptLoader = getUnifiedScriptLoader({
+        const scriptLoader = getScriptLoader({
           verbose: options.verbose,
           quiet: options.quiet,
         });

@@ -48,7 +48,7 @@ export class TargetAPI {
    * List all configured targets
    * @param type - Filter by target type
    */
-  async list(type?: 'ssh' | 'docker' | 'k8s'): Promise<Target[]> {
+  async list(type?: 'ssh' | 'docker' | 'kubernetes'): Promise<Target[]> {
     await this.initialize();
     const config = this.configManager.getConfig();
     const targets: Target[] = [];
@@ -82,14 +82,14 @@ export class TargetAPI {
     }
 
     // Add Kubernetes pods
-    if (!type || type === 'k8s') {
+    if (!type || type === 'kubernetes') {
       const pods = config.targets?.pods || {};
       for (const [name, podConfig] of Object.entries(pods)) {
         targets.push({
           id: `pods.${name}`,
-          type: 'k8s',
+          type: 'kubernetes',
           name,
-          config: { ...podConfig, type: 'k8s' } as PodConfig,
+          config: { ...podConfig, type: 'kubernetes' } as PodConfig,
           source: 'configured'
         });
       }
@@ -206,7 +206,7 @@ export class TargetAPI {
       case 'docker':
         await this.copyDocker(resolvedTarget, sourcePath, destPath, isUpload, options);
         break;
-      case 'k8s':
+      case 'kubernetes':
         await this.copyKubernetes(resolvedTarget, sourcePath, destPath, isUpload, options);
         break;
       default:
@@ -257,7 +257,7 @@ export class TargetAPI {
       case 'ssh':
         forwardProcess = await this.forwardSSH(resolvedTarget, localPort, remotePort);
         break;
-      case 'k8s':
+      case 'kubernetes':
         forwardProcess = await this.forwardKubernetes(resolvedTarget, localPort, remotePort);
         break;
       default:

@@ -88,7 +88,7 @@ async function detectTarget(arg: string): Promise<Target | null> {
     return {
       type: 'kubernetes',
       name: arg,
-      config: { ...pods[arg], type: 'k8s' },
+      config: { ...pods[arg], type: 'kubernetes' },
     };
   }
 
@@ -318,7 +318,6 @@ export async function createTargetEngine(target: any, options: any = {}): Promis
         ...options
       });
 
-    case 'k8s':
     case 'kubernetes':
       return $.k8s({
         pod: config.pod || target.name,

@@ -21,7 +21,7 @@ export interface InteractiveOptions {
 
 export interface TargetSelectorOptions {
   message: string;
-  type?: 'all' | 'ssh' | 'docker' | 'k8s' | 'local';
+  type?: 'all' | 'ssh' | 'docker' | 'kubernetes' | 'local';
   allowMultiple?: boolean;
   allowCustom?: boolean;
 }
@@ -71,7 +71,7 @@ export class InteractiveHelpers {
           const typeMap: Record<string, TargetType> = {
             'ssh': 'ssh',
             'docker': 'docker',
-            'k8s': 'k8s',
+            'kubernetes': 'kubernetes',
             'local': 'local'
           };
 
@@ -159,7 +159,7 @@ export class InteractiveHelpers {
       options: [
         { value: 'ssh', label: '🖥️  SSH Host' },
         { value: 'docker', label: '🐳 Docker Container' },
-        { value: 'k8s', label: '☸️  Kubernetes Pod' },
+        { value: 'kubernetes', label: '☸️  Kubernetes Pod' },
       ],
     });
 
@@ -167,7 +167,7 @@ export class InteractiveHelpers {
 
     if (this.isCancelled(targetType)) return null;
 
-    switch (targetType as 'ssh' | 'docker' | 'k8s') {
+    switch (targetType as 'ssh' | 'docker' | 'kubernetes') {
       case 'ssh': {
         const hostInput = await text({
           message: 'Enter SSH host:',
@@ -228,7 +228,7 @@ export class InteractiveHelpers {
         };
       }
 
-      case 'k8s': {
+      case 'kubernetes': {
         const namespace = await text({
           message: 'Enter namespace:',
           placeholder: 'default',
@@ -254,11 +254,11 @@ export class InteractiveHelpers {
         const podStr = String(pod);
 
         return {
-          id: `k8s:${namespaceStr}/${podStr}`,
-          type: 'k8s',
+          id: `kubernetes:${namespaceStr}/${podStr}`,
+          type: 'kubernetes',
           name: podStr,
           config: {
-            type: 'k8s',
+            type: 'kubernetes',
             name: podStr,
             namespace: namespaceStr,
           } as PodConfig,
@@ -274,7 +274,7 @@ export class InteractiveHelpers {
         return '🖥️ ';
       case 'docker':
         return '🐳';
-      case 'k8s':
+      case 'kubernetes':
         return '☸️ ';
       case 'local':
         return '💻';
