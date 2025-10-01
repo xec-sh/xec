@@ -90,8 +90,8 @@
   },
   "homepage": "https://xec.sh",
   "dependencies": {
-    "@xec-sh/core": "^0.8.1",
-    "@xec-sh/kit": "^0.8.1",
+    "@xec-sh/core": "workspace:*",
+    "@xec-sh/kit": "workspace:*",
     "chokidar": "^4.0.3",
     "commander": "14.0.1",
     "csv-parse": "^6.1.0",
