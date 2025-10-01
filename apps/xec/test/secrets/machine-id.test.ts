@@ -4,6 +4,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
+import { getGlobalConfigDir } from '../../src/config/utils.js';
 import { getMachineId, getCachedMachineId } from '../../src/secrets/machine-id.js';
 
 describe('Machine ID Module', () => {
@@ -16,7 +17,7 @@ describe('Machine ID Module', () => {
     await fs.promises.mkdir(tempDir, { recursive: true });
     
     // Reset the cached machine ID
-    const cacheFile = path.join(os.homedir(), '.xec', '.machine-id');
+    const cacheFile = path.join(getGlobalConfigDir(), '.machine-id');
     if (fs.existsSync(cacheFile)) {
       try {
         fs.unlinkSync(cacheFile);

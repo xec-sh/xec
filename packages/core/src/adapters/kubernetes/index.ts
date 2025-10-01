@@ -3,10 +3,10 @@ import { spawn, type ChildProcess } from 'child_process';
 
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
+import { findKubectlPath } from './kubernetes-utils.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import { TimeoutError, ExecutionError, sanitizeCommandForError } from '../../core/error.js';
-import { findKubectlPath } from './kubernetes-utils.js';
 
 export interface KubernetesAdapterConfig extends BaseAdapterConfig {
   /**

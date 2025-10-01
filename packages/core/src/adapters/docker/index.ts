@@ -6,7 +6,7 @@ import { StreamHandler } from '../../utils/stream.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
-import { DockerError, AdapterError, sanitizeCommandForError, TimeoutError } from '../../core/error.js';
+import { DockerError, AdapterError, TimeoutError, sanitizeCommandForError } from '../../core/error.js';
 
 export interface DockerAutoCreateOptions {
   enabled: boolean;

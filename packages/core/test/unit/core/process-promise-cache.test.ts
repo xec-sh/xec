@@ -1,8 +1,8 @@
 import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { globalCache } from '../../../src/utils/cache.js';
-import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
+import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 describe('ProcessPromise Cache', () => {
   let engine: ExecutionEngine;

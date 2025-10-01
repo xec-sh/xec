@@ -375,6 +375,26 @@ export function getDefaultShell(): string {
   return process.env['SHELL'] || '/bin/sh';
 }
 
+/**
+ * Get the global xec configuration directory
+ * Defaults to ~/.xec, can be overridden with XEC_HOME_DIR environment variable
+ */
 export function getGlobalConfigDir(): string {
   return process.env['XEC_HOME_DIR'] || path.join(homedir(), '.xec');
+}
+
+/**
+ * Get the module cache directory
+ * Used for storing cached npm modules and dependencies
+ */
+export function getModuleCacheDir(): string {
+  return path.join(getGlobalConfigDir(), 'module-cache');
+}
+
+/**
+ * Get the secrets storage directory
+ * Used for storing encrypted secrets locally
+ */
+export function getSecretsDir(): string {
+  return path.join(getGlobalConfigDir(), 'secrets');
 }

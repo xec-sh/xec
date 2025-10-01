@@ -1,4 +1,3 @@
-import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs/promises';
@@ -6,6 +5,8 @@ import { existsSync } from 'fs';
 import { log } from '@xec-sh/kit';
 import { transform } from 'esbuild';
 import { pathToFileURL } from 'url';
+
+import { getModuleCacheDir } from '../config/utils.js';
 
 export interface ModuleLoaderOptions {
   cacheDir?: string;
@@ -45,7 +46,7 @@ export class ModuleLoader {
       cdnOnly: false,
       ...options
     };
-    this.cacheDir = this.options.cacheDir || path.join(os.homedir(), '.xec', 'module-cache');
+    this.cacheDir = this.options.cacheDir || getModuleCacheDir();
   }
 
   /**
