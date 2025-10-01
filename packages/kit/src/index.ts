@@ -28,4 +28,12 @@ export * from './utilities/limit-options.js';
 export * from './prompts/group-multi-select.js';
 
 // Export core functionality
-export { isCancel, settings, updateSettings, type ClackSettings } from './core/index.js';
+export {
+  block,
+  getRows,
+  isCancel,
+  settings,
+  getColumns,
+  updateSettings,
+  type ClackSettings,
+} from './core/index.js';
