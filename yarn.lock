@@ -6550,8 +6550,8 @@ __metadata:
     "@types/node": "npm:24.3.1"
     "@types/ssh2": "npm:^1.15.5"
     "@types/which": "npm:^3.0.4"
-    "@xec-sh/core": "npm:^0.8.1"
-    "@xec-sh/kit": "npm:^0.8.1"
+    "@xec-sh/core": "workspace:*"
+    "@xec-sh/kit": "workspace:*"
     "@xec-sh/testing": "workspace:*"
     chokidar: "npm:^4.0.3"
     commander: "npm:14.0.1"
@@ -6586,7 +6586,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/core@npm:^0.8.1, @xec-sh/core@workspace:packages/core":
+"@xec-sh/core@workspace:*, @xec-sh/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@xec-sh/core@workspace:packages/core"
   dependencies:
@@ -6635,7 +6635,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/kit@npm:^0.8.1, @xec-sh/kit@workspace:packages/kit":
+"@xec-sh/kit@workspace:*, @xec-sh/kit@workspace:packages/kit":
   version: 0.0.0-use.local
   resolution: "@xec-sh/kit@workspace:packages/kit"
   dependencies:
