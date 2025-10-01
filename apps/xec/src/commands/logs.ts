@@ -307,7 +307,7 @@ export class LogsCommand extends ConfigAwareCommand {
 
       // Execute log command
       // For Docker and K8s logs, we need to run commands on the host, not in the target
-      const useLocalEngine = target.type === 'docker' || target.type === 'k8s';
+      const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
       const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
 
       if (options.follow) {
@@ -382,7 +382,7 @@ export class LogsCommand extends ConfigAwareCommand {
         try {
           const logCommand = await this.buildLogCommand(target, logPath, options);
           // For Docker and K8s logs, we need to run commands on the host
-          const useLocalEngine = target.type === 'docker' || target.type === 'k8s';
+          const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
           const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
           const result = await engine.raw`${logCommand}`;
 
@@ -442,7 +442,7 @@ export class LogsCommand extends ConfigAwareCommand {
         break;
       }
 
-      case 'k8s': {
+      case 'kubernetes': {
         const config = target.config as any;
         const namespace = config.namespace || 'default';
         const pod = config.pod || target.name;
@@ -620,7 +620,7 @@ export class LogsCommand extends ConfigAwareCommand {
   ): Promise<void> {
     const logCommand = await this.buildLogCommand(target, logPath, options);
     // For Docker and K8s logs, we need to run commands on the host
-    const useLocalEngine = target.type === 'docker' || target.type === 'k8s';
+    const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
     const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
 
     await this.streamLogs(target, engine, logCommand, { ...options, prefix: true });
@@ -822,13 +822,13 @@ export class LogsCommand extends ConfigAwareCommand {
       if (!logSourceType) return null;
 
       // Select target based on log source type
-      let targetType: 'all' | 'ssh' | 'docker' | 'k8s' | 'local' = 'all';
+      let targetType: 'all' | 'ssh' | 'docker' | 'kubernetes' | 'local' = 'all';
       switch (logSourceType.value) {
         case 'container':
           targetType = 'docker';
           break;
         case 'pod':
-          targetType = 'k8s';
+          targetType = 'kubernetes';
           break;
         case 'file':
         case 'syslog':
@@ -1012,7 +1012,7 @@ export class LogsCommand extends ConfigAwareCommand {
       }
 
       // Container-specific options
-      if (target.type === 'k8s') {
+      if (target.type === 'kubernetes') {
         const showPrevious = await InteractiveHelpers.confirmAction(
           'Show logs from previous container instance?',
           false

@@ -6,8 +6,8 @@ import * as fs from 'fs/promises';
 import { EventEmitter } from 'events';
 
 import { TargetResolver } from './target-resolver.js';
+import { getScriptLoader } from '../utils/script-loader.js';
 import { VariableInterpolator } from './variable-interpolator.js';
-import { getUnifiedScriptLoader } from '../utils/script-loader.js';
 
 import type {
   TaskStep,
@@ -464,7 +464,7 @@ export class TaskExecutor extends EventEmitter {
     const targetEngine = target ? await this.createTargetEngine(target) : null;
 
     // Use ScriptLoader for proper module resolution
-    const scriptLoader = getUnifiedScriptLoader({
+    const scriptLoader = getScriptLoader({
       verbose: this.options.debug,
       quiet: options.quiet,
     });
@@ -517,7 +517,7 @@ export class TaskExecutor extends EventEmitter {
     const targetEngine = target ? await this.createTargetEngine(target) : null;
 
     // Use ScriptLoader for proper module resolution and CDN loading
-    const scriptLoader = getUnifiedScriptLoader({
+    const scriptLoader = getScriptLoader({
       verbose: this.options.debug,
       quiet: options.quiet,
     });
@@ -697,7 +697,7 @@ export class TaskExecutor extends EventEmitter {
           return dockerEngine;
         }
 
-      case 'k8s':
+      case 'kubernetes':
         {
           const k8sOptions: any = {
             pod: config.pod,

@@ -42,8 +42,8 @@ export class ScriptContext {
         name: target.name,
         host: target.type === 'ssh' ? (target.config as any).host : undefined,
         container: target.type === 'docker' ? (target.config as any).container : undefined,
-        pod: target.type === 'k8s' ? (target.config as any).pod : undefined,
-        namespace: target.type === 'k8s' ? (target.config as any).namespace : undefined,
+        pod: target.type === 'kubernetes' ? (target.config as any).pod : undefined,
+        namespace: target.type === 'kubernetes' ? (target.config as any).namespace : undefined,
         config: target.config
       }
       : undefined;

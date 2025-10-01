@@ -512,7 +512,7 @@ export class CopyCommand extends ConfigAwareCommand {
         break;
       }
 
-      case 'k8s': {
+      case 'kubernetes': {
         const config = source.config as any;
         const namespace = config.namespace || 'default';
         const pod = config.pod || source.name;
@@ -608,7 +608,7 @@ export class CopyCommand extends ConfigAwareCommand {
         break;
       }
 
-      case 'k8s': {
+      case 'kubernetes': {
         const config = destination.config as any;
         const namespace = config.namespace || 'default';
         const pod = config.pod || destination.name;

@@ -239,7 +239,7 @@ export function parseTargetReference(ref: string): {
       'ssh': 'hosts',
       'docker': 'containers',
       'pod': 'pods',
-      'k8s': 'pods'
+      'kubernetes': 'pods'
     };
 
     return {
