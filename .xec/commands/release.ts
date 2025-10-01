@@ -16,6 +16,7 @@ const PACKAGES = [
   { name: '@xec-sh/core', path: 'packages/core' },
   { name: '@xec-sh/cli', path: 'apps/xec' },
   { name: '@xec-sh/kit', path: 'packages/kit' },
+  { name: '@xec-sh/testing', path: 'packages/testing' },
 ];
 
 // Release configuration
@@ -896,7 +897,7 @@ ${isPrerelease ? '**This is a pre-release version.**\n' : ''}
 
 - **@xec-sh/core**: v${config.version}
 - **@xec-sh/cli**: v${config.version}
-- **@xec-sh/test-utils**: v${config.version}
+- **@xec-sh/testing**: v${config.version}
 
 ## 📥 Installation
 

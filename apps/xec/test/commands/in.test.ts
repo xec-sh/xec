@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 import { it, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
-import { describeSSH, getSSHConfig, KindClusterManager, DockerContainerManager } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, KindClusterManager, DockerContainerManager } from '@xec-sh/testing';
 
 import { InCommand } from '../../src/commands/in.js';
 

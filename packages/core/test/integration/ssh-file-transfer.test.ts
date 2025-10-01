@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
 import { randomBytes } from 'crypto';
 import { expect, beforeEach } from '@jest/globals';
-import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
 import { SSHAdapter } from '../../../src/adapters/ssh/index';
@@ -24,25 +24,25 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-      const fileName = 'simple.txt';
-      const content = 'Hello, SSH file transfer!';
-      const localPath = join(localTempDir, fileName);
-      const remotePath = join(remoteTempDir, fileName);
+        const fileName = 'simple.txt';
+        const content = 'Hello, SSH file transfer!';
+        const localPath = join(localTempDir, fileName);
+        const remotePath = join(remoteTempDir, fileName);
 
-      // Create local file
-      await fs.writeFile(localPath, content);
+        // Create local file
+        await fs.writeFile(localPath, content);
 
-      // Upload file
-      await ssh.uploadFile(localPath, remotePath, sshOptions);
+        // Upload file
+        await ssh.uploadFile(localPath, remotePath, sshOptions);
 
-      // Verify upload
-      const result = await $ssh`cat ${remotePath}`;
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout).toBe(content);
+        // Verify upload
+        const result = await $ssh`cat ${remotePath}`;
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toBe(content);
       } finally {
         await fs.rm(localTempDir, { recursive: true, force: true });
         await $ssh`rm -rf ${remoteTempDir}`.nothrow();
@@ -55,29 +55,29 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-      const fileName = 'binary.dat';
-      const binaryData = randomBytes(1024 * 10); // 10KB of random data
-      const localPath = join(localTempDir, fileName);
-      const remotePath = join(remoteTempDir, fileName);
+        const fileName = 'binary.dat';
+        const binaryData = randomBytes(1024 * 10); // 10KB of random data
+        const localPath = join(localTempDir, fileName);
+        const remotePath = join(remoteTempDir, fileName);
 
-      // Create local binary file
-      await fs.writeFile(localPath, binaryData);
+        // Create local binary file
+        await fs.writeFile(localPath, binaryData);
 
-      // Upload file
-      await ssh.uploadFile(localPath, remotePath, sshOptions);
+        // Upload file
+        await ssh.uploadFile(localPath, remotePath, sshOptions);
 
-      // Verify file size
-      const sizeResult = await $ssh`stat -c%s ${remotePath}`;
-      expect(parseInt(sizeResult.stdout.trim())).toBe(binaryData.length);
+        // Verify file size
+        const sizeResult = await $ssh`stat -c%s ${remotePath}`;
+        expect(parseInt(sizeResult.stdout.trim())).toBe(binaryData.length);
 
-      // Verify checksum
-      const localChecksum = await $`sha256sum ${localPath} | cut -d' ' -f1`;
-      const remoteChecksum = await $ssh`sha256sum ${remotePath} | cut -d' ' -f1`;
-      expect(remoteChecksum.stdout.trim()).toBe(localChecksum.stdout.trim());
+        // Verify checksum
+        const localChecksum = await $`sha256sum ${localPath} | cut -d' ' -f1`;
+        const remoteChecksum = await $ssh`sha256sum ${remotePath} | cut -d' ' -f1`;
+        expect(remoteChecksum.stdout.trim()).toBe(localChecksum.stdout.trim());
       } finally {
         await fs.rm(localTempDir, { recursive: true, force: true });
         await $ssh`rm -rf ${remoteTempDir}`.nothrow();
@@ -90,24 +90,24 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-      const fileName = 'large.dat';
-      const size = 1024 * 1024 * 5; // 5MB
-      const localPath = join(localTempDir, fileName);
-      const remotePath = join(remoteTempDir, fileName);
+        const fileName = 'large.dat';
+        const size = 1024 * 1024 * 5; // 5MB
+        const localPath = join(localTempDir, fileName);
+        const remotePath = join(remoteTempDir, fileName);
 
-      // Create large file
-      await $`dd if=/dev/zero of=${localPath} bs=1M count=5`;
+        // Create large file
+        await $`dd if=/dev/zero of=${localPath} bs=1M count=5`;
 
-      // Upload file
-      await ssh.uploadFile(localPath, remotePath, sshOptions);
+        // Upload file
+        await ssh.uploadFile(localPath, remotePath, sshOptions);
 
-      // Verify size
-      const sizeResult = await $ssh`stat -c%s ${remotePath}`;
-      expect(parseInt(sizeResult.stdout.trim())).toBe(size);
+        // Verify size
+        const sizeResult = await $ssh`stat -c%s ${remotePath}`;
+        expect(parseInt(sizeResult.stdout.trim())).toBe(size);
       } finally {
         await fs.rm(localTempDir, { recursive: true, force: true });
         await $ssh`rm -rf ${remoteTempDir}`.nothrow();
@@ -120,30 +120,30 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-      const fileName = 'executable.sh';
-      const content = '#!/bin/sh\necho "Hello from script"';
-      const localPath = join(localTempDir, fileName);
-      const remotePath = join(remoteTempDir, fileName);
+        const fileName = 'executable.sh';
+        const content = '#!/bin/sh\necho "Hello from script"';
+        const localPath = join(localTempDir, fileName);
+        const remotePath = join(remoteTempDir, fileName);
 
-      // Create executable file
-      await fs.writeFile(localPath, content);
-      await fs.chmod(localPath, 0o755);
+        // Create executable file
+        await fs.writeFile(localPath, content);
+        await fs.chmod(localPath, 0o755);
 
-      // Upload file
-      await ssh.uploadFile(localPath, remotePath, sshOptions);
+        // Upload file
+        await ssh.uploadFile(localPath, remotePath, sshOptions);
 
-      // SFTP doesn't preserve permissions by default
-      // So we need to set them manually after upload
-      await $ssh`chmod 755 ${remotePath}`;
+        // SFTP doesn't preserve permissions by default
+        // So we need to set them manually after upload
+        await $ssh`chmod 755 ${remotePath}`;
 
-      // Check that we can execute the file
-      const result = await $ssh`${remotePath}`;
-      expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toBe('Hello from script');
+        // Check that we can execute the file
+        const result = await $ssh`${remotePath}`;
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout.trim()).toBe('Hello from script');
       } finally {
         await fs.rm(localTempDir, { recursive: true, force: true });
         await $ssh`rm -rf ${remoteTempDir}`.nothrow();
@@ -156,11 +156,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const specialNames = [
           'file with spaces.txt',
           'file-with-dashes.txt',
@@ -194,11 +194,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'overwrite.txt';
         const localPath = join(localTempDir, fileName);
         const remotePath = join(remoteTempDir, fileName);
@@ -228,11 +228,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const localPath = join(localTempDir, 'test.txt');
         const remotePath = '/nonexistent/directory/test.txt';
 
@@ -252,11 +252,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const localPath = join(localTempDir, 'nonexistent.txt');
         const remotePath = join(remoteTempDir, 'test.txt');
 
@@ -276,11 +276,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'download.txt';
         const content = 'Download test content';
         const remotePath = join(remoteTempDir, fileName);
@@ -307,11 +307,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'binary-download.dat';
         const remotePath = join(remoteTempDir, fileName);
         const localPath = join(localTempDir, fileName);
@@ -340,11 +340,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'large-download.dat';
         const remotePath = join(remoteTempDir, fileName);
         const localPath = join(localTempDir, fileName);
@@ -370,11 +370,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'executable-download.sh';
         const remotePath = join(remoteTempDir, fileName);
         const localPath = join(localTempDir, fileName);
@@ -406,11 +406,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const remotePath = join(remoteTempDir, 'nonexistent.txt');
         const localPath = join(localTempDir, 'download.txt');
 
@@ -428,11 +428,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'overwrite-download.txt';
         const remotePath = join(remoteTempDir, fileName);
         const localPath = join(localTempDir, fileName);
@@ -464,11 +464,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const dirName = 'upload-dir';
         const localDir = join(localTempDir, dirName);
         const remoteDir = join(remoteTempDir, dirName);
@@ -504,11 +504,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         // downloadDirectory method doesn't exist in SSHAdapter
         const dirName = 'download-dir';
         const remoteDir = join(remoteTempDir, dirName);
@@ -544,11 +544,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const dirName = 'empty-dir';
         const localDir = join(localTempDir, dirName);
         const remoteDir = join(remoteTempDir, dirName);
@@ -581,11 +581,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const targetFile = 'target.txt';
         const linkName = 'link.txt';
         const remotePath = join(remoteTempDir, targetFile);
@@ -614,11 +614,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileName = 'unicode.txt';
         const content = 'Hello 世界 🌍 Привет مرحبا';
         const localPath = join(localTempDir, fileName);
@@ -629,7 +629,7 @@ describeSSH('SSH File Transfer Tests', () => {
 
         // Upload and download
         await ssh.uploadFile(localPath, remotePath, sshOptions);
-        
+
         const downloadPath = join(localTempDir, `downloaded-${fileName}`);
         await ssh.downloadFile(remotePath, downloadPath, sshOptions);
 
@@ -650,11 +650,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileCount = 10;
         const uploads = [];
 
@@ -688,11 +688,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const fileCount = 10;
         const downloads = [];
 
@@ -713,7 +713,7 @@ describeSSH('SSH File Transfer Tests', () => {
         // Verify all downloads
         for (let i = 0; i < fileCount; i++) {
           const content = await fs.readFile(
-            join(localTempDir, `concurrent-download-${i}.txt`), 
+            join(localTempDir, `concurrent-download-${i}.txt`),
             'utf8'
           );
           expect(content.trim()).toBe(`Remote content ${i}`);
@@ -732,11 +732,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         // This is difficult to test without mocking
         // We'll test that transfers can be retried
         const fileName = 'retry-test.txt';
@@ -763,11 +763,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         const remotePath = '/root/test.txt'; // Root directory, no permission
         const localPath = join(localTempDir, 'test.txt');
 
@@ -787,11 +787,11 @@ describeSSH('SSH File Transfer Tests', () => {
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
       const sshOptions = { type: 'ssh' as const, ...sshConfig };
-      
+
       try {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
-        
+
         // This is hard to test without filling the disk
         // We'll test with a very restricted location instead
         const remotePath = '/proc/test.txt'; // Can't write to /proc

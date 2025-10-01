@@ -38,7 +38,7 @@ Command tests follow a consistent structure:
 // apps/xec/test/commands/my-command.test.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MyCommand } from '../../src/commands/my-command';
-import { createTestConfig } from '@xec-sh/test-utils';
+import { createTestConfig } from '@xec-sh/testing';
 
 describe('MyCommand', () => {
   let command: MyCommand;
@@ -139,7 +139,7 @@ describe('with mocked execution', () => {
 Use test containers for integration tests:
 
 ```typescript
-import { SSHTestContainer } from '@xec-sh/test-utils';
+import { SSHTestContainer } from '@xec-sh/testing';
 
 describe('integration', () => {
   let container: SSHTestContainer;
@@ -177,7 +177,7 @@ describe('integration', () => {
 ### Testing with Docker
 
 ```typescript
-import { DockerTestContainer } from '@xec-sh/test-utils';
+import { DockerTestContainer } from '@xec-sh/testing';
 
 describe('docker integration', () => {
   let container: DockerTestContainer;
@@ -207,7 +207,7 @@ describe('docker integration', () => {
 Create test configurations:
 
 ```typescript
-import { createTestConfig } from '@xec-sh/test-utils';
+import { createTestConfig } from '@xec-sh/testing';
 
 const config = createTestConfig({
   targets: {
@@ -233,7 +233,7 @@ const config = createTestConfig({
 Create mock targets:
 
 ```typescript
-import { createMockTarget } from '@xec-sh/test-utils';
+import { createMockTarget } from '@xec-sh/testing';
 
 const sshTarget = createMockTarget('ssh', {
   host: 'test.example.com',
@@ -252,7 +252,7 @@ const dockerTarget = createMockTarget('docker', {
 Capture command output:
 
 ```typescript
-import { captureOutput } from '@xec-sh/test-utils';
+import { captureOutput } from '@xec-sh/testing';
 
 it('should output correct message', async () => {
   const output = await captureOutput(async () => {
@@ -312,7 +312,7 @@ describe('error handling', () => {
 Verify correct exit codes:
 
 ```typescript
-import { getExitCode } from '@xec-sh/test-utils';
+import { getExitCode } from '@xec-sh/testing';
 
 it('should exit with correct code', async () => {
   const exitCode = await getExitCode(async () => {
@@ -367,7 +367,7 @@ describe('flags', () => {
 Measure execution time:
 
 ```typescript
-import { measureTime } from '@xec-sh/test-utils';
+import { measureTime } from '@xec-sh/testing';
 
 describe('performance', () => {
   it('should complete within timeout', async () => {
@@ -396,7 +396,7 @@ describe('performance', () => {
 Monitor memory usage:
 
 ```typescript
-import { measureMemory } from '@xec-sh/test-utils';
+import { measureMemory } from '@xec-sh/testing';
 
 it('should not leak memory', async () => {
   const initialMemory = measureMemory();

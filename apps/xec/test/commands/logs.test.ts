@@ -8,7 +8,7 @@ import {
   SSH_TEST_CONFIGS,
   KindClusterManager,
   DockerContainerManager,
-} from '@xec-sh/test-utils';
+} from '@xec-sh/testing';
 
 import logsCommand from '../../src/commands/logs.js';
 
@@ -105,7 +105,7 @@ tasks: {}
 
     // Change to test directory
     process.chdir(testDir);
-    
+
     // Always reset to a safe default config before each test
     const safeConfig = `
 name: test-project
@@ -121,7 +121,7 @@ targets:
 
   describe('Docker container logs', () => {
     let dockerProgram: Command;
-    
+
     beforeEach(() => {
       // Create fresh program instance for Docker tests
       dockerProgram = new Command();
@@ -131,14 +131,14 @@ targets:
         .exitOverride()
         .option('-v, --verbose', 'Enable verbose output')
         .option('-q, --quiet', 'Suppress output');
-      
+
       // Change to test directory
       process.chdir(testDir);
-      
+
       // Register logs command
       logsCommand(dockerProgram);
     });
-    
+
     afterEach(() => {
       // Ensure we reset back to safe config after each test
       const safeConfig = `
@@ -151,7 +151,7 @@ targets:
       // Ensure we're back in test directory
       process.chdir(testDir);
     });
-    
+
     beforeAll(async () => {
       // Check if Docker is available
       if (!dockerManager.isDockerAvailable()) {
@@ -295,7 +295,7 @@ targets:
 
       // Wait for initial logs to be captured
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // The follow command runs asynchronously, we need to wait for it to start streaming
       // Let's check if we're getting output periodically
       let checkCount = 0;
@@ -319,9 +319,9 @@ targets:
 
       // We should have captured multiple lines (including the streaming message)
       expect(capturedOutput.length).toBeGreaterThan(2);
-      
+
       // Check if we have any content that looks like logs
-      const hasLogContent = capturedOutput.some(line => 
+      const hasLogContent = capturedOutput.some(line =>
         line.includes('Starting application') ||
         line.includes('INFO') ||
         line.includes('ERROR') ||
@@ -331,7 +331,7 @@ targets:
         line.includes('GMT') ||  // Timestamps from heartbeat
         line.includes('UTC')     // Alternative timestamp format
       );
-      
+
       // We should have captured some log-like content
       expect(hasLogContent).toBe(true);
 
@@ -385,7 +385,7 @@ targets:
         .exitOverride()
         .option('-v, --verbose', 'Enable verbose output')
         .option('-q, --quiet', 'Suppress output');
-      
+
       // Register logs command
       logsCommand(errorProgram);
 
@@ -406,14 +406,14 @@ targets:
       const tempXecDir = join(tempTestDir, '.xec');
       mkdirSync(tempXecDir, { recursive: true });
       writeFileSync(join(tempXecDir, 'config.yaml'), config);
-      
+
       const originalCwd = process.cwd();
       process.chdir(tempTestDir);
 
       try {
         // Clear captured errors before test
         capturedErrors = [];
-        
+
         await expect(
           errorProgram.parseAsync(['node', 'xec', 'logs', 'containers.missing', '--tail', '5'])
         ).rejects.toThrow();
@@ -425,7 +425,7 @@ targets:
         // Always restore CWD and clean up
         process.chdir(originalCwd);
         rmSync(tempTestDir, { recursive: true, force: true });
-        
+
         // Ensure we reset back to safe config
         const safeConfig = `
 name: test-project
@@ -440,7 +440,7 @@ targets:
 
   describe('Kubernetes pod logs', () => {
     let k8sProgram: Command;
-    
+
     beforeEach(() => {
       // Create fresh program instance for K8s tests
       k8sProgram = new Command();
@@ -450,13 +450,13 @@ targets:
         .exitOverride()
         .option('-v, --verbose', 'Enable verbose output')
         .option('-q, --quiet', 'Suppress output');
-      
+
       // Change to test directory
       process.chdir(testDir);
-      
+
       // Register logs command
       logsCommand(k8sProgram);
-      
+
       // Reset to K8s config before each test
       if (kindManager) {
         const config = `
@@ -475,7 +475,7 @@ targets:
         writeFileSync(configFile, config);
       }
     });
-    
+
     beforeAll(async () => {
 
       // Skip if kubectl is not available
@@ -499,7 +499,7 @@ targets:
       } catch (e) {
         // Ignore errors, pod might not exist
       }
-      
+
       // Create a pod that generates logs
       const loggingPodYaml = `
 apiVersion: v1
@@ -519,19 +519,19 @@ spec:
       runAsUser: 1000
       runAsGroup: 1000
 `;
-      
+
       // Apply the custom pod yaml
       await $`echo ${loggingPodYaml} | kubectl apply -f -`.env({ KUBECONFIG: kindManager.getKubeConfigPath() });
-      
+
       // Wait for pod to be ready
       await kindManager.waitForPod('test-pod', 'default');
-      
+
       // Wait a bit more for initial logs to be available
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Deploy multi-container pod
       await kindManager.createMultiContainerPod('multi-pod', 'default');
-      
+
       // Wait a bit for logs to be generated
       await new Promise(resolve => setTimeout(resolve, 3000));
 
@@ -572,7 +572,7 @@ targets:
 
       // Set KUBECONFIG for the command
       process.env.KUBECONFIG = kindManager.getKubeConfigPath();
-      
+
       // Debug: check current config
       const currentConfig = readFileSync(configFile, 'utf-8');
       if (!currentConfig.includes('type: k8s')) {
@@ -669,7 +669,7 @@ targets:
         .exitOverride()
         .option('-v, --verbose', 'Enable verbose output')
         .option('-q, --quiet', 'Suppress output');
-      
+
       // Register logs command
       logsCommand(errorProgram);
 
@@ -677,7 +677,7 @@ targets:
       const tempTestDir = mkdtempSync(join(tmpdir(), 'xec-k8s-error-test-'));
       const tempXecDir = join(tempTestDir, '.xec');
       mkdirSync(tempXecDir, { recursive: true });
-      
+
       const config = `
 name: test-project
 targets:
@@ -688,7 +688,7 @@ targets:
       pod: non-existent-pod-${Date.now()}
 `;
       writeFileSync(join(tempXecDir, 'config.yaml'), config);
-      
+
       const originalCwd = process.cwd();
       process.chdir(tempTestDir);
 
@@ -703,7 +703,7 @@ targets:
         // Always restore CWD and clean up
         process.chdir(originalCwd);
         rmSync(tempTestDir, { recursive: true, force: true });
-        
+
         // Ensure we reset back to safe config
         const safeConfig = `
 name: test-project
@@ -959,7 +959,7 @@ targets:
       // Append new content to the file
       appendFileSync(followFile, 'New line 3\n');
       await new Promise(resolve => setTimeout(resolve, 200));
-      
+
       appendFileSync(followFile, 'New line 4\n');
       await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -990,7 +990,7 @@ targets:
     let container1: string | null = null;
     let container2: string | null = null;
     let multiProgram: Command;
-    
+
     beforeEach(() => {
       // Create fresh program instance for multi-target tests
       multiProgram = new Command();
@@ -1000,13 +1000,13 @@ targets:
         .exitOverride()
         .option('-v, --verbose', 'Enable verbose output')
         .option('-q, --quiet', 'Suppress output');
-      
+
       // Change to test directory
       process.chdir(testDir);
-      
+
       // Register logs command
       logsCommand(multiProgram);
-      
+
       // Reset to multi-target config before each test
       if (container1 && container2) {
         const config = `
@@ -1216,10 +1216,10 @@ WARN: Retrying connection
 ERROR: Still failing
 INFO: Finally connected
 `);
-      
+
       // Create a result file for task output
       const resultFile = join(testDir, 'task-result.txt');
-      
+
       // Create config with task that writes to a file
       const config = `
 name: test-project
@@ -1293,7 +1293,7 @@ targets:
       await expect(
         program.parseAsync(['node', 'xec', 'logs', 'containers.nonexistent'])
       ).rejects.toThrow('process.exit called with code');
-      
+
       const errors = capturedErrors.join(' ').toLowerCase();
       // Should fail with an error (target not found or unknown error)
       expect(errors).toMatch(/target.*not found|not found|does not exist|no such|unknown.*error|error/i);
@@ -1303,7 +1303,7 @@ targets:
       // Clear errors before test
       capturedErrors = [];
       capturedOutput = [];
-      
+
       // Create a simple config
       const config = `
 name: test-project
@@ -1312,12 +1312,12 @@ targets:
     type: local
 `;
       writeFileSync(configFile, config);
-      
+
       // When no target is provided, the command should fail
       await expect(
         program.parseAsync(['node', 'xec', 'logs'])
       ).rejects.toThrow();
-      
+
       // Check that an error message was captured
       const allOutput = [...capturedErrors, ...capturedOutput].join(' ');
       // Should have some error output about missing arguments
@@ -1418,7 +1418,7 @@ targets:
         writeFileSync(configFile, config);
       }
     });
-    
+
     it('should handle time-based filtering with --since', async () => {
       if (!dockerManager.isDockerAvailable() || !testContainer) {
         console.log('Test skipped - Docker not available');

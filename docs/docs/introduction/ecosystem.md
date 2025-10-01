@@ -53,7 +53,7 @@ xec run script.js
 xec --help
 ```
 
-### @xec-sh/test-utils
+### @xec-sh/testing
 Testing utilities for projects using Xec.
 
 **Features**:
@@ -65,12 +65,12 @@ Testing utilities for projects using Xec.
 
 **Installation**:
 ```bash
-npm install --save-dev @xec-sh/test-utils
+npm install --save-dev @xec-sh/testing
 ```
 
 **Usage**:
 ```typescript
-import { createTestContainer } from '@xec-sh/test-utils';
+import { createTestContainer } from '@xec-sh/testing';
 
 const container = await createTestContainer({
   image: 'postgres:14',
@@ -307,7 +307,7 @@ Reusable GitHub Actions for Xec operations.
 |---------|---------|---------|------------|
 | @xec-sh/core | 0.7.x | ≥20.0.0 | ≥5.0.0 |
 | @xec-sh/cli | 0.7.x | ≥20.0.0 | ≥5.0.0 |
-| @xec-sh/test-utils | 0.7.x | ≥20.0.0 | ≥5.0.0 |
+| @xec-sh/testing | 0.7.x | ≥20.0.0 | ≥5.0.0 |
 
 ## Roadmap
 
@@ -389,7 +389,7 @@ module.exports = {
 ### Package Selection
 - Use `@xec-sh/core` for library integration
 - Use `@xec-sh/cli` for command-line tools
-- Use `@xec-sh/test-utils` for testing
+- Use `@xec-sh/testing` for testing
 
 ### Version Management
 - Pin major versions in production

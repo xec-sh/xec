@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { it, jest, expect } from '@jest/globals';
-import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
 import { TimeoutError } from '../../src/core/error.js';
@@ -11,9 +11,9 @@ describeSSH('SSH Docker Integration Tests', () => {
   describe('Basic Connectivity Tests', () => {
     testEachPackageManager('should connect to container', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
-      
+
       const result = await $ssh`echo "Hello from ${container.name}"`;
-      
+
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain(`Hello from ${container.name}`);
     });
@@ -110,7 +110,7 @@ describeSSH('SSH Docker Integration Tests', () => {
     testEachPackageManager.skip('should handle command timeout', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const $timeout = $ssh.timeout(2000); // 2 seconds
-      
+
       try {
         await $timeout`sleep 10`;
         throw new Error('Expected timeout error but command succeeded');
@@ -142,11 +142,11 @@ describeSSH('SSH Docker Integration Tests', () => {
     testEachPackageManager('should create remote directories', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const testDir = '/tmp/xec-test-' + Date.now();
-      
+
       try {
         // First ensure connection is established
         await $ssh`echo "Connection established"`;
-        
+
         const result = await $ssh`mkdir -p ${testDir}/subdir`;
         expect(result.exitCode).toBe(0);
 
@@ -154,7 +154,7 @@ describeSSH('SSH Docker Integration Tests', () => {
         expect(checkResult.stdout.trim()).toBe('exists');
       } finally {
         // Cleanup
-        await $ssh`rm -rf ${testDir}`.catch(() => {});
+        await $ssh`rm -rf ${testDir}`.catch(() => { });
       }
     });
 
@@ -162,18 +162,18 @@ describeSSH('SSH Docker Integration Tests', () => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const testDir = '/tmp/xec-test-' + Date.now();
       const localTestFile = '/tmp/xec-local-test-' + Date.now() + '.txt';
-      
+
       try {
         // First ensure connection is established
         await $ssh`echo "Connection established"`;
         // Create local test file
         await $`echo "Local test content" > ${localTestFile}`;
-        
+
         const remotePath = `${testDir}/uploaded.txt`;
-        
+
         // Create remote directory
         await $ssh`mkdir -p ${testDir}`;
-        
+
         // Upload file
         await $ssh.uploadFile(localTestFile, remotePath);
 
@@ -184,7 +184,7 @@ describeSSH('SSH Docker Integration Tests', () => {
       } finally {
         // Cleanup
         await $`rm -f ${localTestFile}`.nothrow();
-        await $ssh`rm -rf ${testDir}`.catch(() => {});
+        await $ssh`rm -rf ${testDir}`.catch(() => { });
       }
     });
 
@@ -192,12 +192,12 @@ describeSSH('SSH Docker Integration Tests', () => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const testDir = '/tmp/xec-test-' + Date.now();
       const localDownloadPath = `/tmp/xec-download-${Date.now()}.txt`;
-      
+
       try {
         // First ensure connection is established
         await $ssh`echo "Connection established"`;
         const remotePath = `${testDir}/remote.txt`;
-        
+
         // Create remote directory and file
         await $ssh`mkdir -p ${testDir} && echo "Remote test content" > ${remotePath}`;
 
@@ -210,27 +210,27 @@ describeSSH('SSH Docker Integration Tests', () => {
       } finally {
         // Cleanup
         await $`rm -f ${localDownloadPath}`.nothrow();
-        await $ssh`rm -rf ${testDir}`.catch(() => {});
+        await $ssh`rm -rf ${testDir}`.catch(() => { });
       }
     });
 
     testEachPackageManager('should handle file permissions', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const testDir = '/tmp/xec-test-' + Date.now();
-      
+
       try {
         // First ensure connection is established
         await $ssh`echo "Connection established"`;
         const testFile = `${testDir}/permissions.txt`;
-        
+
         await $ssh`mkdir -p ${testDir} && touch ${testFile} && chmod 644 ${testFile}`;
 
         const result = await $ssh`ls -l ${testFile} | awk '{print $1}'`;
-        
+
         expect(result.stdout).toMatch(/-rw-r--r--/);
       } finally {
         // Cleanup
-        await $ssh`rm -rf ${testDir}`.catch(() => {});
+        await $ssh`rm -rf ${testDir}`.catch(() => { });
       }
     });
   });
@@ -250,7 +250,7 @@ describeSSH('SSH Docker Integration Tests', () => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const result = await $ssh`echo "error" >&2`.nothrow();
       expect(result.exitCode).toBe(0);
-      
+
       // Check for our expected error message in stderr
       if (result.stderr) {
         // CentOS 7 might have locale warnings, so just check for our message
@@ -265,10 +265,10 @@ describeSSH('SSH Docker Integration Tests', () => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const result = await $ssh`echo "stdout"; echo "stderr" >&2`.nothrow();
       expect(result.exitCode).toBe(0);
-      
+
       // Check stdout always contains our expected output
       expect(result.stdout).toContain('stdout');
-      
+
       // Check stderr contains our expected error (might have additional locale warnings)
       if (result.stderr) {
         expect(result.stderr).toContain('stderr');
@@ -291,7 +291,7 @@ describeSSH('SSH Docker Integration Tests', () => {
       const result = await $ssh`dd if=/dev/urandom bs=1024 count=1 2>/dev/null | base64`;
       expect(result.exitCode).toBe(0);
       expect(result.stdout.length).toBeGreaterThan(0);
-      
+
       // Verify it's valid base64
       expect(() => Buffer.from(result.stdout.trim(), 'base64')).not.toThrow();
     });
@@ -301,7 +301,7 @@ describeSSH('SSH Docker Integration Tests', () => {
     testEachPackageManager('should retry failed commands', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const attemptCount = 0;
-      
+
       const $retry = $ssh.retry({
         maxRetries: 3,
         initialDelay: 100
@@ -326,7 +326,7 @@ describeSSH('SSH Docker Integration Tests', () => {
 
     testEachPackageManager('should respect retry configuration', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
-      
+
       const $retry = $ssh.retry({
         maxRetries: 2,
         initialDelay: 50
@@ -402,11 +402,11 @@ describeSSH('SSH Docker Integration Tests', () => {
 
     it('should handle parallel connections to different containers', async () => {
       const containers = getAvailableContainers().slice(0, 3);
-      const connections = containers.map(container => 
+      const connections = containers.map(container =>
         $.ssh(getSSHConfig(container.name))
       );
 
-      const promises = connections.map(($ssh, index) => 
+      const promises = connections.map(($ssh, index) =>
         $ssh`echo "Hello from container ${index}"`
       );
 
@@ -483,7 +483,7 @@ describeSSH('SSH Docker Integration Tests', () => {
 
       // Execute multiple commands to ensure connection pooling works
       const results = [];
-      
+
       for (let i = 0; i < 5; i++) {
         const result = await $ssh`echo "test ${i}"`;
         results.push(result);
@@ -497,17 +497,17 @@ describeSSH('SSH Docker Integration Tests', () => {
     });
 
     it('should handle connection limits', async () => {
-      const connections = Array(10).fill(null).map(() => 
+      const connections = Array(10).fill(null).map(() =>
         $.ssh(getSSHConfig('ubuntu-apt'))
       );
 
       // Execute commands on all connections
-      const promises = connections.map(($ssh, index) => 
+      const promises = connections.map(($ssh, index) =>
         $ssh`echo "connection ${index}"`
       );
 
       const results = await Promise.all(promises);
-      
+
       results.forEach((result, index) => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout.trim()).toBe(`connection ${index}`);
@@ -536,14 +536,14 @@ describeSSH('SSH Docker Integration Tests', () => {
     testEachPackageManager('should handle rapid command execution', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
       const commandCount = 10; // Reduced to avoid SSH channel limits
-      
+
       // Execute commands sequentially to avoid overloading SSH connection
       const results = [];
       for (let i = 0; i < commandCount; i++) {
         const result = await $ssh`echo ${i}`;
         results.push(result);
       }
-      
+
       results.forEach((result, index) => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout.trim()).toBe(String(index));
@@ -552,7 +552,7 @@ describeSSH('SSH Docker Integration Tests', () => {
 
     testEachPackageManager.skip('should handle command interruption', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
-      
+
       try {
         await $ssh.timeout(2000)`sleep 5`;
         throw new Error('Expected timeout error but command succeeded');

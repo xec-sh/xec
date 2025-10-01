@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { dockerManager } from '@xec-sh/test-utils';
+import { dockerManager } from '@xec-sh/testing';
 
 import { configure } from './src/index.js';
 

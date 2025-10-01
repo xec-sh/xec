@@ -2,7 +2,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
 import { it, expect } from '@jest/globals';
-import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
 import { SSHAdapter } from '../../../src/adapters/ssh/index';
@@ -15,7 +15,7 @@ describeSSH('SSH Authentication Tests', () => {
       const sshConfig = getSSHConfig(container.name);
 
       try {
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
@@ -33,7 +33,7 @@ describeSSH('SSH Authentication Tests', () => {
       const ssh = new SSHAdapter();
       const sshConfig = getSSHConfig(container.name);
 
-      await expect(ssh.execute({ 
+      await expect(ssh.execute({
         command: 'whoami',
         adapterOptions: {
           type: 'ssh',
@@ -41,7 +41,7 @@ describeSSH('SSH Authentication Tests', () => {
           password: 'wrongpassword'
         }
       })).rejects.toThrow(/authentication|password|failed|Connection/i);
-      
+
       await ssh.dispose();
     });
 
@@ -49,7 +49,7 @@ describeSSH('SSH Authentication Tests', () => {
       const ssh = new SSHAdapter();
       const sshConfig = getSSHConfig(container.name);
 
-      await expect(ssh.execute({ 
+      await expect(ssh.execute({
         command: 'whoami',
         adapterOptions: {
           type: 'ssh',
@@ -57,7 +57,7 @@ describeSSH('SSH Authentication Tests', () => {
           username: 'nonexistentuser'
         }
       })).rejects.toThrow(/authentication|failed|Connection/i);
-      
+
       await ssh.dispose();
     });
   });
@@ -67,11 +67,11 @@ describeSSH('SSH Authentication Tests', () => {
     it('should authenticate with private key file (ubuntu-apt)', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
       const ssh = new SSHAdapter();
-      
+
       // Generate a temporary key pair
       const keyDir = join(tmpdir(), `ssh-test-keys-${Date.now()}`);
       await fs.mkdir(keyDir, { recursive: true });
-      
+
       const privateKeyPath = join(keyDir, 'id_rsa');
       const publicKeyPath = join(keyDir, 'id_rsa.pub');
 
@@ -113,7 +113,7 @@ describeSSH('SSH Authentication Tests', () => {
 
         // Test authentication with private key
         const privateKeyContent = await fs.readFile(privateKeyPath, 'utf8');
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
@@ -154,11 +154,11 @@ describeSSH('SSH Authentication Tests', () => {
     testEachPackageManager('should authenticate with private key content as Buffer', async (container) => {
       const sshConfig = getSSHConfig(container.name);
       const ssh = new SSHAdapter();
-      
+
       // Generate a temporary key pair
       const keyDir = join(tmpdir(), `ssh-test-keys-${Date.now()}-${container.name}`);
       await fs.mkdir(keyDir, { recursive: true });
-      
+
       const privateKeyPath = join(keyDir, 'id_rsa');
       const publicKeyPath = join(keyDir, 'id_rsa.pub');
 
@@ -186,7 +186,7 @@ describeSSH('SSH Authentication Tests', () => {
         });
 
         // Test authentication with private key as Buffer
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
@@ -217,7 +217,7 @@ describeSSH('SSH Authentication Tests', () => {
       const ssh = new SSHAdapter();
       const sshConfig = getSSHConfig(container.name);
 
-      await expect(ssh.execute({ 
+      await expect(ssh.execute({
         command: 'whoami',
         adapterOptions: {
           type: 'ssh',
@@ -227,7 +227,7 @@ describeSSH('SSH Authentication Tests', () => {
           privateKey: Buffer.from('invalid-key-content')
         }
       })).rejects.toThrow();
-      
+
       await ssh.dispose();
     });
 
@@ -236,7 +236,7 @@ describeSSH('SSH Authentication Tests', () => {
       const encryptedKeyPath = join(tmpdir(), `encrypted-key-${Date.now()}`);
       const passphrase = 'test-passphrase';
       const sshConfig = getSSHConfig(container.name);
-      
+
       await $`ssh-keygen -t rsa -b 2048 -f ${encryptedKeyPath} -N ${passphrase} -q`;
 
       try {
@@ -244,7 +244,7 @@ describeSSH('SSH Authentication Tests', () => {
         const ssh = new SSHAdapter();
 
         // This should use password auth as the encrypted key won't be in authorized_keys
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
@@ -258,7 +258,7 @@ describeSSH('SSH Authentication Tests', () => {
         });
         expect(result.exitCode).toBe(0);
         expect(result.stdout.trim()).toBe(sshConfig.username);
-        
+
         await ssh.dispose();
       } finally {
         await fs.rm(encryptedKeyPath, { force: true });
@@ -277,7 +277,7 @@ describeSSH('SSH Authentication Tests', () => {
       });
 
       const start = Date.now();
-      await expect(ssh.execute({ 
+      await expect(ssh.execute({
         command: 'whoami',
         timeout: 2000, // Command execution timeout
         adapterOptions: {
@@ -288,12 +288,12 @@ describeSSH('SSH Authentication Tests', () => {
           password: 'test'
         }
       })).rejects.toThrow(/timeout|timed out|Connection|ETIMEDOUT|ECONNREFUSED/i);
-      
+
       const duration = Date.now() - start;
       // Connection should timeout within reasonable time
       // Allow up to 25 seconds due to OS-level TCP timeout
       expect(duration).toBeLessThan(25000);
-      
+
       await ssh.dispose();
     });
 
@@ -303,7 +303,7 @@ describeSSH('SSH Authentication Tests', () => {
 
       try {
         // Should work with valid connection
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'echo ready',
           timeout: 5000,
           adapterOptions: {
@@ -324,7 +324,7 @@ describeSSH('SSH Authentication Tests', () => {
       const alpineConfig = getSSHConfig('alpine-apk');
 
       try {
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'cat /etc/os-release | grep ^ID=',
           adapterOptions: {
             type: 'ssh' as const,
@@ -348,7 +348,7 @@ describeSSH('SSH Authentication Tests', () => {
       try {
         // When both privateKey and password are provided, SSH library handles the preference
         // Since we don't have a valid private key, it will use password authentication
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
@@ -368,7 +368,7 @@ describeSSH('SSH Authentication Tests', () => {
     testEachPackageManager('should handle authentication with SSH agent', async (container) => {
       // Check if SSH_AUTH_SOCK is set (SSH agent available)
       const hasAgent = !!process.env['SSH_AUTH_SOCK'];
-      
+
       if (!hasAgent) {
         console.log('Skipping SSH agent test - no agent available');
         return;
@@ -379,7 +379,7 @@ describeSSH('SSH Authentication Tests', () => {
       const sshConfig = getSSHConfig(container.name);
 
       try {
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
@@ -399,7 +399,7 @@ describeSSH('SSH Authentication Tests', () => {
       const sshConfig = getSSHConfig(container.name);
 
       try {
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'echo "authenticated"',
           adapterOptions: {
             type: 'ssh' as const,
@@ -416,7 +416,7 @@ describeSSH('SSH Authentication Tests', () => {
     testEachPackageManager('should handle known_hosts file', async (container) => {
       const knownHostsPath = join(tmpdir(), `known_hosts-${Date.now()}`);
       const sshConfig = getSSHConfig(container.name);
-      
+
       // Get the host key
       const hostKeyResult = await $`ssh-keyscan -p ${sshConfig.port} ${sshConfig.host} 2>/dev/null`;
       await fs.writeFile(knownHostsPath, hostKeyResult.stdout);
@@ -425,7 +425,7 @@ describeSSH('SSH Authentication Tests', () => {
       const ssh = new SSHAdapter();
 
       try {
-        const result = await ssh.execute({ 
+        const result = await ssh.execute({
           command: 'echo verified',
           adapterOptions: {
             type: 'ssh' as const,
@@ -482,7 +482,7 @@ describeSSH('SSH Authentication Tests', () => {
             ...sshConfig
           }
         });
-        
+
         if (result.exitCode === 0) {
           // User has NOPASSWD
           const whoamiResult = await ssh.execute({
@@ -517,7 +517,7 @@ describeSSH('SSH Authentication Tests', () => {
 
         try {
           attemptCount++;
-          const result = await ssh.execute({ 
+          const result = await ssh.execute({
             command: 'whoami',
             adapterOptions: {
               type: 'ssh' as const,
@@ -525,7 +525,7 @@ describeSSH('SSH Authentication Tests', () => {
               password
             }
           });
-          
+
           // Should only succeed with correct password
           expect(password).toBe(sshConfig.password);
           expect(result.exitCode).toBe(0);
@@ -550,9 +550,9 @@ describeSSH('SSH Authentication Tests', () => {
   describe('$ Helper Authentication', () => {
     testEachPackageManager('should work with $ helper for SSH', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      
+
       const $ssh = $.ssh(sshConfig);
-      
+
       const result = await $ssh`whoami`;
       expect(result.exitCode).toBe(0);
       expect(result.stdout.trim()).toBe(sshConfig.username);
@@ -560,9 +560,9 @@ describeSSH('SSH Authentication Tests', () => {
 
     testEachPackageManager('should chain SSH with other helpers', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      
+
       const $ssh = $.ssh(sshConfig).cd('/tmp').env({ TEST_VAR: 'value' });
-      
+
       const result = await $ssh`pwd && echo $TEST_VAR`;
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('/tmp');
@@ -584,7 +584,7 @@ describeSSH('SSH Authentication Tests', () => {
             ...sshConfig
           }
         });
-        
+
         // It should be available in the next command on the same connection
         const result = await ssh.execute({
           command: 'echo $TEST_SESSION_VAR',
@@ -593,7 +593,7 @@ describeSSH('SSH Authentication Tests', () => {
             ...sshConfig
           }
         });
-        
+
         // Note: Each command runs in a new shell, so env vars don't persist
         // This is expected behavior
         expect(result.stdout.trim()).toBe('');
@@ -616,7 +616,7 @@ describeSSH('SSH Authentication Tests', () => {
       try {
         // Multiple commands on same connection
         for (let i = 0; i < 5; i++) {
-          const result = await ssh.execute({ 
+          const result = await ssh.execute({
             command: `echo "Command ${i}"`,
             adapterOptions: {
               type: 'ssh' as const,

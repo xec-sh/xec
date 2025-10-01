@@ -35,7 +35,7 @@ xec/
 ```mermaid
 graph TD
     CLI["@xec-sh/cli"] --> CORE["@xec-sh/core"]
-    CLI --> TEST["@xec-sh/test-utils"]
+    CLI --> TEST["@xec-sh/testing"]
     CORE --> TEST
 ```
 
@@ -473,7 +473,7 @@ graph LR
     C --> D[npm Publish]
     D --> E[@xec-sh/core]
     D --> F[@xec-sh/cli]
-    D --> G[@xec-sh/test-utils]
+    D --> G[@xec-sh/testing]
 ```
 
 ### Distribution Channels

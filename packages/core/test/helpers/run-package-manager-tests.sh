@@ -3,6 +3,9 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Path to docker-ssh-manager.sh in @xec-sh/testing package (from monorepo root)
+MONOREPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+DOCKER_MANAGER="$MONOREPO_ROOT/packages/testing/docker-ssh-manager.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -115,16 +118,16 @@ if [ -n "$CONTAINERS" ]; then
     IFS=',' read -ra CONTAINER_ARRAY <<< "$CONTAINERS"
     for container in "${CONTAINER_ARRAY[@]}"; do
         echo -e "${YELLOW}Starting ${container}...${NC}"
-        ./test/helpers/docker-ssh-manager.sh start "$container"
+        "$DOCKER_MANAGER" start "$container"
     done
 else
     # Start all containers
-    ./test/helpers/docker-ssh-manager.sh start
+    "$DOCKER_MANAGER" start
 fi
 
 # Check container status
 echo -e "\n${YELLOW}Container Status:${NC}"
-./test/helpers/docker-ssh-manager.sh status
+"$DOCKER_MANAGER" status
 
 if [ "$START_ONLY" = true ]; then
     echo -e "\n${GREEN}Containers started. Exiting without running tests.${NC}"
@@ -156,15 +159,15 @@ if [ "$KEEP_RUNNING" = false ]; then
         # Stop specific containers
         IFS=',' read -ra CONTAINER_ARRAY <<< "$CONTAINERS"
         for container in "${CONTAINER_ARRAY[@]}"; do
-            ./test/helpers/docker-ssh-manager.sh stop "$container"
+            "$DOCKER_MANAGER" stop "$container"
         done
     else
         # Stop all containers
-        ./test/helpers/docker-ssh-manager.sh stop
+        "$DOCKER_MANAGER" stop
     fi
 else
     echo -e "\n${YELLOW}Keeping containers running. To stop them manually:${NC}"
-    echo "./test/helpers/docker-ssh-manager.sh stop"
+    echo "$DOCKER_MANAGER stop"
 fi
 
 # Exit with test exit code

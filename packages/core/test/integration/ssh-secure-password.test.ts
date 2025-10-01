@@ -1,5 +1,5 @@
 import { it, jest, expect } from '@jest/globals';
-import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
@@ -64,7 +64,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
     testEachPackageManager('should work with custom SecurePasswordHandler', async (container) => {
       const sshConfig = getSSHConfig(container.name);
       const customHandler = new SecurePasswordHandler();
-      
+
       const ssh = new SSHAdapter({
         sudo: {
           enabled: true,
@@ -194,7 +194,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
     testEachPackageManager('should work with echo method (not recommended)', async (container) => {
       const sshConfig = getSSHConfig(container.name);
       const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-      
+
       const ssh = new SSHAdapter({
         sudo: {
           enabled: true,
@@ -211,7 +211,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
 
         expect(result.exitCode).toBe(0);
         expect(result.stdout.trim()).toBe('root');
-        
+
         // Should have warned about insecure method
         expect(consoleWarnSpy).toHaveBeenCalledWith(
           expect.stringContaining('Using echo for sudo password is insecure')
@@ -273,7 +273,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
   describe('SSH Adapter with secure sudo', () => {
     testEachPackageManager('should execute sudo commands via SSHAdapter with secure-askpass', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      
+
       // Test SSHAdapter with secure sudo configuration
       const ssh = new SSHAdapter({
         sudo: {
@@ -317,10 +317,10 @@ describeSSH('SSH Secure Password Integration Tests', () => {
 
     testEachPackageManager('should combine $ helper for regular commands with SSHAdapter for sudo', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      
+
       // Use $ helper for regular SSH commands
       const $ssh = $.ssh(sshConfig);
-      
+
       // Use SSHAdapter for sudo commands
       const sshWithSudo = new SSHAdapter({
         sudo: {
@@ -363,7 +363,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
     it('should mask passwords in logs', () => {
       const command = 'echo mySecretPass123 | sudo -S ls';
       const masked = SecurePasswordHandler.maskPassword(command, 'mySecretPass123');
-      
+
       expect(masked).toBe('echo ***MASKED*** | sudo -S ls');
       expect(masked).not.toContain('mySecretPass123');
     });
@@ -380,9 +380,9 @@ describeSSH('SSH Secure Password Integration Tests', () => {
 
     it('should generate secure passwords', () => {
       const password = SecurePasswordHandler.generatePassword(16);
-      
+
       expect(password).toHaveLength(16);
-      
+
       const validation = SecurePasswordHandler.validatePassword(password);
       expect(validation.isValid).toBe(true);
     });

@@ -10,7 +10,7 @@ import * as yaml from 'js-yaml';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
-import { describeSSH, getSSHConfig, DockerContainerManager } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, DockerContainerManager } from '@xec-sh/testing';
 
 import { ForwardCommand } from '../../src/commands/forward.js';
 
@@ -176,7 +176,7 @@ describe('Forward Command', () => {
 
       // Verify the session is tracked
       expect(command['sessions'].size).toBeGreaterThan(0);
-      
+
       // Get the session to verify it's correctly stored
       const sessionKey = Array.from(command['sessions'].keys())[0];
       const session = command['sessions'].get(sessionKey);
