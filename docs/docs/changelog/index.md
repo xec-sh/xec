@@ -388,7 +388,7 @@ This changelog covers the entire Xec monorepo:
 
 - **@xec-sh/core** - Core execution engine
 - **@xec-sh/cli** - Command-line interface
-- **@xec-sh/test-utils** - Testing utilities
+- **@xec-sh/testing** - Testing utilities
 - **Documentation** - User guides and API reference
 
 For package-specific details, consult individual package documentation.

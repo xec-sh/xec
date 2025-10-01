@@ -1,10 +1,10 @@
 import { it, jest, expect } from '@jest/globals';
-import { 
-  describeSSH, 
+import {
+  describeSSH,
   getSSHConfig,
   testPackageManagers,
   testEachPackageManager
-} from '@xec-sh/test-utils';
+} from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
 
@@ -57,8 +57,8 @@ describeSSH('Package Manager Integration Tests', () => {
   });
 
   describe('Package List Operations', () => {
-    testPackageManagers(['apt', 'yum', 'dnf', 'apk', 'pacman'], 
-      'should list installed packages', 
+    testPackageManagers(['apt', 'yum', 'dnf', 'apk', 'pacman'],
+      'should list installed packages',
       async (container) => {
         const config = getSSHConfig(container.name);
         const $ssh = $.ssh(config);
@@ -136,8 +136,8 @@ describeSSH('Package Manager Integration Tests', () => {
   });
 
   describe('Package Info Operations', () => {
-    testPackageManagers(['apt', 'yum', 'dnf', 'apk', 'pacman'], 
-      'should get package information', 
+    testPackageManagers(['apt', 'yum', 'dnf', 'apk', 'pacman'],
+      'should get package information',
       async (container) => {
         const config = getSSHConfig(container.name);
         const $ssh = $.ssh(config);
@@ -209,8 +209,8 @@ describeSSH('Package Manager Integration Tests', () => {
   });
 
   describe('Package Installation Simulation', () => {
-    testPackageManagers(['apt', 'yum', 'dnf', 'apk', 'pacman'], 
-      'should show what would be installed (dry run)', 
+    testPackageManagers(['apt', 'yum', 'dnf', 'apk', 'pacman'],
+      'should show what would be installed (dry run)',
       async (container) => {
         const config = getSSHConfig(container.name);
         const $ssh = $.ssh(config);
@@ -244,8 +244,8 @@ describeSSH('Package Manager Integration Tests', () => {
   });
 
   describe('Repository Management', () => {
-    testPackageManagers(['apt', 'yum', 'dnf'], 
-      'should list configured repositories', 
+    testPackageManagers(['apt', 'yum', 'dnf'],
+      'should list configured repositories',
       async (container) => {
         const config = getSSHConfig(container.name);
         const $ssh = $.ssh(config);
@@ -272,8 +272,8 @@ describeSSH('Package Manager Integration Tests', () => {
   });
 
   describe('Cache Operations', () => {
-    testPackageManagers(['apt', 'yum', 'dnf', 'apk'], 
-      'should check cache statistics', 
+    testPackageManagers(['apt', 'yum', 'dnf', 'apk'],
+      'should check cache statistics',
       async (container) => {
         const config = getSSHConfig(container.name);
         const $ssh = $.ssh(config);
@@ -335,7 +335,7 @@ describeSSH('Package Manager Integration Tests', () => {
       // List installed snaps
       const list = await $ssh`snap list 2>/dev/null || echo "core"`;
       expect(list.exitCode).toBe(0);
-      
+
       // Snap might not have any packages installed in test container
       if (!list.stdout.trim() || list.stdout.trim() === 'core' || list.stdout.includes('No snaps are installed')) {
         console.log('No snaps installed in test container');

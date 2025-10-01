@@ -1,6 +1,6 @@
 import { performance } from 'perf_hooks';
 import { it, expect, describe } from '@jest/globals';
-import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
 import { SSHAdapter } from '../../../src/adapters/ssh/index';
@@ -17,11 +17,11 @@ describeSSH('SSH Performance and Stress Tests', () => {
 
       for (let i = 0; i < iterations; i++) {
         const start = performance.now();
-        
+
         const ssh = new SSHAdapter();
 
         try {
-          await ssh.execute({ 
+          await ssh.execute({
             command: 'echo test',
             adapterOptions: {
               type: 'ssh' as const,
@@ -86,14 +86,14 @@ describeSSH('SSH Performance and Stress Tests', () => {
       const start = performance.now();
 
       const results: any[] = [];
-      
+
       // Execute commands in batches to avoid SSH channel limits
       for (let batch = 0; batch < commandCount / batchSize; batch++) {
         const batchPromises = Array(batchSize).fill(null).map((_, i) => {
           const cmdIndex = batch * batchSize + i;
           return $ssh`echo ${cmdIndex}`;
         });
-        
+
         const batchResults = await Promise.all(batchPromises);
         results.push(...batchResults);
       }
@@ -152,10 +152,10 @@ describeSSH('SSH Performance and Stress Tests', () => {
         const duration = performance.now() - start;
 
         expect(result.exitCode).toBe(0);
-        
+
         const throughputMBps = (size / 1024 / 1024) / (duration / 1000);
         throughputs.push(throughputMBps);
-        
+
         console.log(`${container.name}: Transfer ${size} bytes: ${duration.toFixed(2)}ms (${throughputMBps.toFixed(2)} MB/s)`);
       }
 
@@ -169,7 +169,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
       const $ssh = $.ssh(sshConfig);
       const lineCount = 10000;
       const start = performance.now();
-      
+
       const result = await $ssh`seq 1 ${lineCount}`;
       const duration = performance.now() - start;
 
@@ -201,7 +201,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
         }
 
         // Execute commands on all connections with error handling
-        const promises = connections.map(($ssh, i) => 
+        const promises = connections.map(($ssh, i) =>
           $ssh`echo "Connection ${i} - $(hostname)"`.catch(err => ({
             exitCode: 1,
             stdout: '',
@@ -237,14 +237,14 @@ describeSSH('SSH Performance and Stress Tests', () => {
         // Execute many commands that would exceed typical pool limits
         const commandCount = 50;
         const batchSize = 10;
-        
+
         for (let batch = 0; batch < commandCount / batchSize; batch++) {
-          const promises = Array(batchSize).fill(null).map((_, i) => 
+          const promises = Array(batchSize).fill(null).map((_, i) =>
             $ssh`echo "Batch ${batch}, Command ${i}"`
           );
-          
+
           const results = await Promise.all(promises);
-          
+
           results.forEach(result => {
             expect(result.exitCode).toBe(0);
           });
@@ -272,7 +272,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
         // Perform many operations
         for (let i = 0; i < 100; i++) {
           await $ssh`echo "Iteration ${i}"`;
-          
+
           // Periodically check memory growth
           if (i % 20 === 0 && i > 0) {
             if (global.gc) {
@@ -314,16 +314,16 @@ describeSSH('SSH Performance and Stress Tests', () => {
 
         for (const { size, bytes } of sizes) {
           const start = performance.now();
-          
+
           // Generate random data and capture it
           const result = await $ssh`dd if=/dev/urandom bs=1 count=${bytes} 2>/dev/null | base64`;
-          
+
           const duration = performance.now() - start;
           const throughput = (bytes / 1024 / 1024) / (duration / 1000);
-          
+
           expect(result.exitCode).toBe(0);
           expect(result.stdout.length).toBeGreaterThan(bytes); // Base64 is larger
-          
+
           console.log(`Buffered ${size} in ${duration.toFixed(2)}ms (${throughput.toFixed(2)} MB/s)`);
         }
       } finally {
@@ -342,28 +342,28 @@ describeSSH('SSH Performance and Stress Tests', () => {
         const errorRate = 0.2; // 20% should fail
         const batchSize = 10;
         const results: any[] = [];
-        
+
         // Execute in batches to avoid channel exhaustion
         for (let batch = 0; batch < totalCommands / batchSize; batch++) {
           const batchPromises = Array(batchSize).fill(null).map((_, i) => {
             const cmdIndex = batch * batchSize + i;
             const shouldFail = Math.random() < errorRate;
-            const command = shouldFail 
+            const command = shouldFail
               ? `exit ${cmdIndex % 5 + 1}` // Various exit codes
               : `echo "Success ${cmdIndex}"`;
-            
+
             return $ssh`${command}`.nothrow();
           });
-          
+
           const batchResults = await Promise.all(batchPromises);
           results.push(...batchResults);
         }
-        
+
         const successes = results.filter(r => r.exitCode === 0).length;
         const failures = results.filter(r => r.exitCode !== 0).length;
-        
+
         console.log(`Commands: ${totalCommands}, Successes: ${successes}, Failures: ${failures}`);
-        
+
         // Should handle mixed success/failure
         expect(successes + failures).toBe(totalCommands);
         expect(failures).toBeGreaterThan(0);
@@ -383,7 +383,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
 
       try {
         const attemptCount = 0;
-        
+
         // Create a command that fails first time
         const testFile = `/tmp/recovery-test-${Date.now()}`;
         const result = await $ssh`
@@ -432,7 +432,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
             const start = performance.now();
             const result = await $ssh`${command}`;
             times.push(performance.now() - start);
-            
+
             expect(result.exitCode).toBe(0);
           } catch (error) {
             console.warn(`Benchmark "${name}" iteration ${i} failed:`, error);
@@ -440,7 +440,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
             break;
           }
         }
-        
+
         if (failed || times.length === 0) {
           console.log(`${name}: FAILED`);
           continue;
@@ -458,7 +458,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
 
   describe('Container-Specific Performance', () => {
     it('should compare performance across different containers', async () => {
-      const containers = getAvailableContainers().filter(c => 
+      const containers = getAvailableContainers().filter(c =>
         ['ubuntu-apt', 'alpine-apk', 'fedora-dnf'].includes(c.name)
       );
 
@@ -472,7 +472,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
         try {
           // Test basic command execution speed
           const times: number[] = [];
-          
+
           for (let i = 0; i < 5; i++) {
             const start = performance.now();
             await $ssh`echo "test"`;
@@ -480,12 +480,12 @@ describeSSH('SSH Performance and Stress Tests', () => {
           }
 
           const avgTime = times.reduce((a, b) => a + b) / times.length;
-          
+
           // Test data processing
           const dataStart = performance.now();
           const result = await $ssh`seq 1 1000 | wc -l`;
           const dataTime = performance.now() - dataStart;
-          
+
           expect(result.stdout.trim()).toBe('1000');
 
           console.log(`${container.name}:`);

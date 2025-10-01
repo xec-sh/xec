@@ -7,7 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
-import { DockerContainerManager } from '@xec-sh/test-utils';
+import { DockerContainerManager } from '@xec-sh/testing';
 import { it, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
 import { OnCommand } from '../../src/commands/on.js';
@@ -29,7 +29,7 @@ describe('On Command - Real SSH Integration', () => {
   let projectDir: string;
   let command: TestableOnCommand;
   let dockerManager: DockerContainerManager;
-  
+
   // Helper function to create default options for execute calls
   const createOptions = (overrides: any = {}) => ({
     quiet: false,
@@ -105,7 +105,7 @@ describe('On Command - Real SSH Integration', () => {
 
       // Create a test file to verify command execution
       const testFile = path.join(tempDir, 'test-output.txt');
-      
+
       // Execute command that writes to a file
       // Pass arguments in the format expected by execute method
       await command.execute([

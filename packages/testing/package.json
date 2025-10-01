@@ -1,6 +1,6 @@
 {
-  "name": "@xec-sh/test-utils",
-  "version": "0.7.1",
+  "name": "@xec-sh/testing",
+  "version": "0.8.1",
   "description": "Shared test utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,6 +32,7 @@
   },
   "files": [
     "dist",
-    "docker"
+    "docker",
+    "docker-ssh-manager.sh"
   ]
 }

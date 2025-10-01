@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { Readable } from 'stream';
-import { KindClusterManager } from '@xec-sh/test-utils';
+import { KindClusterManager } from '@xec-sh/testing';
 import { existsSync, unlinkSync, mkdtempSync, writeFileSync } from 'fs';
 import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 

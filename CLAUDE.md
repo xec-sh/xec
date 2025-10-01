@@ -26,7 +26,7 @@ xec/
 │── docs/             # Documentation site (Docusaurus)
 ├── packages/
 │   ├── core/         # Core execution engine (@xec-sh/core)
-│   └── test-utils/   # Shared testing utilities (@xec-sh/test-utils)
+│   └── test-utils/   # Shared testing utilities (@xec-sh/testing)
 ├── docker/           # Test containers for different environments
 ├── experiments/      # Experimental features and prototypes
 ├── turbo.json        # Build orchestration
@@ -48,7 +48,7 @@ xec/
          │ uses for testing
          ▼
 ┌──────────────────┐
-│@xec-sh/test-utils│ Testing Infrastructure
+│@xec-sh/testing│ Testing Infrastructure
 └──────────────────┘
 ```
 
@@ -473,7 +473,7 @@ it('should write file', async () => {
 #### Test Utilities
 ```typescript
 // Use test utilities for common patterns
-import { withTempDir, withDocker, withSSH } from '@xec-sh/test-utils';
+import { withTempDir, withDocker, withSSH } from '@xec-sh/testing';
 
 it('should process files', withTempDir(async (tmpDir) => {
   // tmpDir is automatically cleaned up
@@ -693,7 +693,7 @@ XECSH_NO_COLOR=true          # Disable colored output
 - **Fast startup time** (<50ms required, <30ms target)
 - Progressive enhancement based on TTY capabilities
 
-### @xec-sh/test-utils
+### @xec-sh/testing
 - **Zero production dependencies**
 - Provides test helpers only
 - Docker container management with lifecycle hooks

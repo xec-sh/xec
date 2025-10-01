@@ -252,7 +252,7 @@ test/
 
 ```typescript
 import { describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import { TestEnvironment } from '@xec-sh/test-utils';
+import { TestEnvironment } from '@xec-sh/testing';
 
 describe('FeatureName', () => {
   let env: TestEnvironment;

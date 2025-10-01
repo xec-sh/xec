@@ -444,7 +444,7 @@ describe('deployment', () => {
 ### Integration Testing
 
 ```typescript
-import { TestContainer } from '@xec-sh/test-utils';
+import { TestContainer } from '@xec-sh/testing';
 
 describe('integration', () => {
   let container: TestContainer;

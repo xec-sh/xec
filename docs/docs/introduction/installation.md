@@ -121,11 +121,11 @@ Features:
 - Connection pooling
 - Error handling
 
-### @xec-sh/test-utils
+### @xec-sh/testing
 Testing utilities for Xec scripts and commands.
 
 ```bash
-npm install --save-dev @xec-sh/test-utils
+npm install --save-dev @xec-sh/testing
 ```
 
 Features:

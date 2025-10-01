@@ -1,4 +1,4 @@
-import { describeSSH, getSSHConfig } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
@@ -28,7 +28,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
   describe('tunnel() with real SSH connection', () => {
     it('should create a tunnel to SSH service', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // First establish SSH connection by executing a command
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -40,7 +40,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       const result = await adapter.execute(connectCommand);
       expect(result.stdout).toContain('connected');
 
@@ -62,7 +62,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Test that we can connect through the tunnel to SSH
       const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const tunnelSSH = new NodeSSH();
-      
+
       const connected = await tunnelSSH.connect({
         host: '127.0.0.1',
         port: tunnel.localPort,
@@ -87,7 +87,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should create a tunnel with dynamic port allocation', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // First establish SSH connection by executing a command
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -99,7 +99,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Create tunnel with dynamic port (0 means let the system choose)
@@ -117,7 +117,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Test connectivity through the dynamically allocated port
       const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const tunnelSSH = new NodeSSH();
-      
+
       const connected = await tunnelSSH.connect({
         host: '127.0.0.1',
         port: tunnel.localPort,
@@ -138,7 +138,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should create tunnel to a remote service (SSH echo test)', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // First establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -150,7 +150,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Instead of netcat, we'll tunnel to the SSH port itself and verify we can connect
@@ -167,7 +167,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Verify we can connect through the tunnel to SSH
       const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const tunnelSSH = new NodeSSH();
-      
+
       // Try to connect through the tunnel
       const connected = await tunnelSSH.connect({
         host: '127.0.0.1',
@@ -193,7 +193,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should track active tunnels correctly', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -205,7 +205,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Check no tunnels initially
@@ -240,7 +240,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should handle multiple close calls on same tunnel gracefully', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -252,7 +252,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       const tunnel = await adapter.tunnel({
@@ -265,11 +265,11 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       // First close
       await tunnel.close();
-      
+
       // The tunnel object should update its state
       // Note: The current implementation may not update isOpen, let's check the actual behavior
       // We should check if multiple closes throw or not
-      
+
       // Second close should not throw
       await expect(tunnel.close()).resolves.not.toThrow();
     });
@@ -285,7 +285,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should pass localHost option correctly', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -297,7 +297,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Create tunnel binding to all interfaces
@@ -315,7 +315,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should handle tunnel creation failure gracefully', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -327,7 +327,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Try to create tunnel to non-existent port (should fail)
@@ -344,7 +344,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should emit tunnel events', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -356,7 +356,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       const events: any[] = [];
@@ -378,7 +378,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Check tunnel created events
       const createdEvents = events.filter(e => e.type.includes('created'));
       expect(createdEvents.length).toBeGreaterThan(0);
-      
+
       const sshCreatedEvent = events.find(e => e.type === 'ssh:tunnel-created');
       expect(sshCreatedEvent).toBeDefined();
       expect(sshCreatedEvent?.data).toMatchObject({
@@ -395,14 +395,14 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // Check tunnel closed events
       const closedEvents = events.filter(e => e.type.includes('closed'));
       expect(closedEvents.length).toBeGreaterThan(0);
-      
+
       const sshClosedEvent = events.find(e => e.type === 'ssh:tunnel-closed');
       expect(sshClosedEvent).toBeDefined();
     });
 
     it('should create tunnel to remote service and verify file content', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -414,13 +414,13 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Create a file on the remote host through SSH first
       const remoteFile = '/tmp/tunnel-test.txt';
       const testContent = `test-${Date.now()}`;
-      
+
       const writeCommand: Command = {
         command: `echo "${testContent}" > ${remoteFile}`,
         adapterOptions: {
@@ -446,7 +446,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       // We'll use another SSH connection through the tunnel to verify it works
       const { NodeSSH } = await import('../../../src/adapters/ssh/ssh.js');
       const ssh = new NodeSSH();
-      
+
       const connected = await ssh.connect({
         host: '127.0.0.1',
         port: tunnel.localPort,
@@ -466,7 +466,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
       // Clean up
       await tunnel.close();
-      
+
       const cleanupCommand: Command = {
         command: `rm -f ${remoteFile}`,
         adapterOptions: {
@@ -484,7 +484,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
   describe('dispose() with tunnels', () => {
     it('should close all active tunnels on dispose', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -496,7 +496,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Create multiple tunnels
@@ -513,7 +513,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       });
 
       expect((adapter as any).activeTunnels.size).toBe(2);
-      
+
       // Store initial state
       const tunnel1Port = tunnel1.localPort;
       const tunnel2Port = tunnel2.localPort;
@@ -522,25 +522,25 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
       await adapter.dispose();
 
       expect((adapter as any).activeTunnels.size).toBe(0);
-      
+
       // Verify tunnels are actually closed by trying to connect
       const net = await import('net');
-      
+
       const canConnect = async (port: number): Promise<boolean> => new Promise((resolve) => {
-          const client = new net.Socket();
-          client.on('connect', () => {
-            client.destroy();
-            resolve(true);
-          });
-          client.on('error', () => {
-            resolve(false);
-          });
-          client.connect(port, '127.0.0.1');
-          setTimeout(() => {
-            client.destroy();
-            resolve(false);
-          }, 100);
+        const client = new net.Socket();
+        client.on('connect', () => {
+          client.destroy();
+          resolve(true);
         });
+        client.on('error', () => {
+          resolve(false);
+        });
+        client.connect(port, '127.0.0.1');
+        setTimeout(() => {
+          client.destroy();
+          resolve(false);
+        }, 100);
+      });
 
       // Both tunnels should be closed
       expect(await canConnect(tunnel1Port)).toBe(false);
@@ -549,7 +549,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should handle errors gracefully when closing tunnels during dispose', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -561,7 +561,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       const tunnel1 = await adapter.tunnel({
@@ -598,7 +598,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
   describe('concurrent tunnel operations', () => {
     it('should handle multiple concurrent tunnel creations', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Establish SSH connection
       const connectCommand: Command = {
         command: 'echo "connected"',
@@ -610,11 +610,11 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           password: sshConfig.password
         }
       };
-      
+
       await adapter.execute(connectCommand);
 
       // Create multiple tunnels concurrently
-      const tunnelPromises = Array.from({ length: 5 }, (_, i) => 
+      const tunnelPromises = Array.from({ length: 5 }, (_, i) =>
         adapter.tunnel({
           localPort: 0,
           remoteHost: 'localhost',
@@ -641,7 +641,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
     it('should handle tunnel operations with connection pooling', async () => {
       const sshConfig = getSSHConfig('ubuntu-apt');
-      
+
       // Create adapter with connection pooling
       const pooledAdapter = new SSHAdapter({
         connectionPool: {
@@ -664,7 +664,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
             password: sshConfig.password
           }
         };
-        
+
         await pooledAdapter.execute(connectCommand);
 
         // Create tunnel using pooled connection
@@ -687,7 +687,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
             password: sshConfig.password
           }
         };
-        
+
         const result = await pooledAdapter.execute(echoCommand);
         expect(result.stdout).toContain('test through pooled connection');
 

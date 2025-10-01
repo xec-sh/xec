@@ -131,7 +131,7 @@ xec in pod:app-pod script.ts        # Kubernetes execution
 | [@xec-sh/core](./packages/kit) | ![npm](https://img.shields.io/npm/v/@xec-sh/kit) | Terminal prompts and utils |
 | [@xec-sh/core](./packages/core) | ![npm](https://img.shields.io/npm/v/@xec-sh/core) | Core execution engine |
 | [@xec-sh/cli](./apps/xec) | ![npm](https://img.shields.io/npm/v/@xec-sh/cli) | Command-line interface |
-| [@xec-sh/test-utils](./packages/test-utils) | - | Testing utilities |
+| [@xec-sh/testing](./packages/test-utils) | - | Testing utilities |
 
 ## 🛠️ Development
 

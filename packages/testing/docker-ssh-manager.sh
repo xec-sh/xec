@@ -4,7 +4,8 @@
 # This script manages Docker containers for SSH testing across different Linux distributions
 
 # Configuration
-DOCKER_DIR="${DOCKER_DIR:-$(dirname "$0")/../../docker}"
+# Script is in packages/testing/, docker images are in packages/testing/docker/
+DOCKER_DIR="${DOCKER_DIR:-$(dirname "$0")/docker}"
 DOCKER_CMD="${DOCKER_CMD:-/usr/local/bin/docker}"
 
 # Container configurations - using separate arrays for compatibility

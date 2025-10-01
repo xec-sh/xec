@@ -9,7 +9,7 @@ import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { configure } from '@xec-sh/core';
-import { describeSSH, getSSHConfig } from '@xec-sh/test-utils';
+import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { WatchCommand } from '../../src/commands/watch.js';
@@ -364,7 +364,7 @@ describe('Watch Command', () => {
 
       // Use a simpler approach - use the initial flag to ensure command works
       const markerFile = path.join(tempDir, 'ssh-watch-executed.txt');
-      
+
       // Start watching on SSH host with initial execution
       const watchPromise = command.execute([
         'hosts.test',
@@ -375,7 +375,7 @@ describe('Watch Command', () => {
           initial: true,  // Execute initially to verify it works
           debounce: '100'
         }
-      ]).catch((err) => { 
+      ]).catch((err) => {
         console.error('Watch error:', err);
       });
 
@@ -385,24 +385,24 @@ describe('Watch Command', () => {
       // Check that watching is running
       const sessions = command['sessions'];
       expect(sessions.size).toBe(1);
-      
+
       // For SSH watching, we mainly verify that:
       // 1. The session was created successfully
       // 2. The initial command executed (if initial flag is set)
       // 3. The watcher process is running
-      
+
       const session = sessions.get('hosts.test');
       expect(session).toBeDefined();
       expect(session?.watcher).toBeDefined();
-      
+
       // Cleanup
       command['running'] = false;
-      
+
       // Kill the watcher process
       if (session?.watcher?.child) {
         session.watcher.child.kill();
       }
-      
+
       await sshEngine`rm -rf /tmp/watch-test`;
     });
   }, { containers: ['ubuntu-apt'] });
@@ -730,11 +730,11 @@ describe('Watch Command', () => {
       // Check that session was created
       const sessions = command['sessions'];
       expect(sessions.size).toBe(1);
-      
+
       const session = sessions.get('containers.test');
       expect(session).toBeDefined();
       expect(session?.target.type).toBe('docker');
-      
+
       // Stop watching
       command['running'] = false;
       if (session?.watcher?.child) {
@@ -749,7 +749,7 @@ describe('Watch Command', () => {
         version: '2.0',
         targets: {
           pods: {
-            test: { 
+            test: {
               pod: 'test-pod',
               namespace: 'default',
               container: 'app'
@@ -781,11 +781,11 @@ describe('Watch Command', () => {
       // Check that session was created
       const sessions = command['sessions'];
       expect(sessions.size).toBe(1);
-      
+
       const session = sessions.get('pods.test');
       expect(session).toBeDefined();
       expect(session?.target.type).toBe('k8s');
-      
+
       // Stop watching
       command['running'] = false;
       if (session?.watcher?.child) {
@@ -873,7 +873,7 @@ describe('Watch Command', () => {
         // Should have logged error but continue watching
         const errorLog = logOutput.join('\n');
         expect(errorLog).toContain('Execution failed');
-        
+
         // Session should still be active
         expect(command['sessions'].size).toBe(1);
       } finally {
@@ -905,7 +905,7 @@ describe('Watch Command', () => {
         // Create a session manually to test error handling
         const target = { id: 'test', type: 'local' as const, name: 'test', config: {} };
         const session = await command['watchLocal'](target, ['/nonexistent/path'], { quiet: true });
-        
+
         // Emit error on watcher
         if (session.watcher && 'emit' in session.watcher) {
           session.watcher.emit('error', new Error('Test watcher error'));
@@ -925,15 +925,15 @@ describe('Watch Command', () => {
     it('should validate pattern array in shouldIgnoreFile', () => {
       // Test that shouldIgnoreFile handles pattern array correctly
       const testFile = 'test.js';
-      
+
       // Test with single pattern
       const result1 = command['shouldIgnoreFile'](testFile, { pattern: ['*.js'] });
       expect(result1).toBe(false);
-      
+
       // Test with multiple patterns
       const result2 = command['shouldIgnoreFile'](testFile, { pattern: ['*.ts', '*.jsx'] });
       expect(result2).toBe(true);
-      
+
       // Test without pattern
       const result3 = command['shouldIgnoreFile'](testFile, {});
       expect(result3).toBe(false);
@@ -967,7 +967,7 @@ describe('Watch Command', () => {
 
       // Check that session was created with polling
       expect(command['sessions'].size).toBe(1);
-      
+
       // Stop watching
       command['running'] = false;
     });
@@ -986,7 +986,7 @@ describe('Watch Command', () => {
       );
 
       const testFile = path.join(watchDir, 'verbose-test.txt');
-      
+
       // Capture console output
       const originalLog = console.log;
       const logOutput: string[] = [];
@@ -1092,11 +1092,11 @@ describe('Watch Command', () => {
       );
 
       // Create a mock target with unsupported type
-      const unsupportedTarget = { 
-        id: 'unsupported', 
-        type: 'unsupported' as any, 
-        name: 'unsupported', 
-        config: {} 
+      const unsupportedTarget = {
+        id: 'unsupported',
+        type: 'unsupported' as any,
+        name: 'unsupported',
+        config: {}
       };
 
       await expect(
@@ -1142,7 +1142,7 @@ describe('Watch Command', () => {
 
       // Check that session was created
       expect(command['sessions'].size).toBe(1);
-      
+
       // Stop watching
       command['running'] = false;
     });
