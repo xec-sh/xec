@@ -67,6 +67,8 @@ At its core, `@xec-sh/kit` is a modular library that combines:
 - ✅ **Password** - Masked password input
 - ✅ **Select Key** - Quick single-key selection
 - ✅ **Group Multi-Select** - Grouped multi-selection with categories
+- ✅ **Path Selector** - Interactive file/directory picker with autocomplete
+- ✅ **Group** - Group multiple prompts with context sharing
 
 ### Prism Color System
 
@@ -89,12 +91,16 @@ At its core, `@xec-sh/kit` is a modular library that combines:
 
 ### Utilities
 
+- ✅ **Intro/Outro** - Start and end CLI with styled messages
 - ✅ **Logging** - Structured logging with levels (info, success, warn, error, step)
+- ✅ **Streaming** - Real-time output for iterables and async iterables
+- ✅ **Cancel Messages** - Styled cancellation messages
 - ✅ **Path Utilities** - Path manipulation helpers
-- ✅ **Stream Utilities** - Stream handling for prompts and output
 - ✅ **Message Utilities** - Formatted message rendering
 - ✅ **String Width** - Unicode-aware string width calculation
 - ✅ **ANSI Utilities** - Strip, parse, and manipulate ANSI codes
+- ✅ **Terminal Detection** - Unicode support, TTY, and CI detection
+- ✅ **Symbol Utilities** - 30+ pre-defined Unicode symbols
 
 ---
 
@@ -1294,6 +1300,69 @@ const config = await group({
 
 ---
 
+### path()
+
+Interactive file/directory path selector with autocomplete.
+
+#### Signature
+
+```typescript
+function path(options: PathOptions): Promise<string | symbol>
+
+interface PathOptions extends CommonOptions {
+  message: string;
+  root?: string;
+  directory?: boolean;
+  initialValue?: string;
+  validate?: (value: string | undefined) => string | Error | undefined;
+}
+```
+
+#### Example
+
+```typescript
+import { path } from '@xec-sh/kit';
+
+// Select any file/directory
+const filePath = await path({
+  message: 'Select a file',
+  initialValue: process.cwd(),
+});
+
+// Select only directories
+const dirPath = await path({
+  message: 'Select output directory',
+  directory: true,
+});
+
+// With validation
+const configPath = await path({
+  message: 'Select config file',
+  validate: (value) => {
+    if (!value?.endsWith('.json')) {
+      return 'Must be a JSON file';
+    }
+  },
+});
+
+// With custom root
+const projectFile = await path({
+  message: 'Select project file',
+  root: '/Users/projects',
+  initialValue: '/Users/projects',
+});
+```
+
+#### Features
+
+- **Interactive Autocomplete**: Real-time file system navigation
+- **Directory Filtering**: Optionally show only directories
+- **Path Validation**: Custom validation logic
+- **Smart Defaults**: Auto-fills current directory
+- **Keyboard Navigation**: Arrow keys to browse, Tab to autocomplete
+
+---
+
 <!-- PART 2 COMPLETE - Continue with Part 3 -->
 ## Prism Color System
 
@@ -1475,12 +1544,13 @@ prism.underline.hsl(200, 80, 60)('Underline HSL');
 ### Utility Functions
 
 ```typescript
-import { 
-  stripAnsi, 
-  stringLength, 
+import {
+  stripAnsi,
+  stringLength,
   hasAnsi,
   parseColor,
   getCssColor,
+  getCssColorNames,
   isValidColor
 } from '@xec-sh/kit';
 
@@ -1511,6 +1581,11 @@ const hex = getCssColor('tomato');
 isValidColor('#ff6432'); // true
 isValidColor('tomato'); // true
 isValidColor('invalid'); // false
+
+// Get all CSS color names
+const colorNames = getCssColorNames();
+// ['aliceblue', 'antiquewhite', 'aqua', ..., 'yellowgreen']
+// Returns array of 140+ CSS color names
 ```
 
 ### Color Space Conversions
@@ -2315,6 +2390,84 @@ deploy.complete('Deployment successful');
 
 Utility functions for common CLI tasks.
 
+### intro()
+
+Display a title message at the start of your CLI.
+
+#### Signature
+
+```typescript
+function intro(title?: string, options?: CommonOptions): void
+```
+
+#### Example
+
+```typescript
+import { intro } from '@xec-sh/kit';
+
+intro('create-project');
+// ┌  create-project
+
+intro(prism.bgCyan(prism.black(' My CLI ')));
+// ┌  My CLI (with background)
+```
+
+---
+
+### outro()
+
+Display a completion message at the end of your CLI.
+
+#### Signature
+
+```typescript
+function outro(message?: string, options?: CommonOptions): void
+```
+
+#### Example
+
+```typescript
+import { outro, prism } from '@xec-sh/kit';
+
+outro('Done!');
+// │
+// └  Done!
+
+outro(prism.green('✓ Installation complete!'));
+// │
+// └  ✓ Installation complete!
+
+outro(prism.red('✗ Installation failed'));
+// │
+// └  ✗ Installation failed
+```
+
+---
+
+### cancel()
+
+Display a cancellation message.
+
+#### Signature
+
+```typescript
+function cancel(message?: string, options?: CommonOptions): void
+```
+
+#### Example
+
+```typescript
+import { cancel, prism } from '@xec-sh/kit';
+
+cancel('Operation cancelled');
+// └  Operation cancelled
+
+cancel(prism.red('Aborted by user'));
+// └  Aborted by user
+```
+
+---
+
 ### log
 
 Structured logging with colored output.
@@ -2370,35 +2523,152 @@ log.message('Custom icon', {
 });
 ```
 
+---
+
+### stream
+
+Stream-based logging for real-time output with iterables and async iterables.
+
+#### Signature
+
+```typescript
+const stream: {
+  message(iterable: Iterable<string> | AsyncIterable<string>, options?: LogMessageOptions): Promise<void>;
+  info(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  success(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  step(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  warn(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  warning(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  error(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+};
+```
+
+#### Example
+
+```typescript
+import { stream } from '@xec-sh/kit';
+
+// Stream from async generator
+async function* buildOutput() {
+  yield 'Compiling...';
+  await delay(100);
+  yield 'Bundling...';
+  await delay(100);
+  yield 'Done!';
+}
+
+await stream.info(buildOutput());
+
+// Stream from array
+await stream.success(['Step 1', 'Step 2', 'Step 3']);
+
+// Stream command output
+import { exec } from 'child_process';
+import { createInterface } from 'readline';
+
+const child = exec('npm install');
+const rl = createInterface({ input: child.stdout });
+
+await stream.step(rl);
+
+// Real-time progress
+async function* progress() {
+  for (let i = 0; i <= 100; i += 10) {
+    yield `Progress: ${i}%`;
+    await delay(200);
+  }
+}
+
+await stream.info(progress());
+```
+
+#### Features
+
+- **Async Iterator Support**: Stream from any async iterable
+- **Real-time Output**: Display output as it arrives
+- **Automatic Line Wrapping**: Handles terminal width
+- **Same API as log**: Familiar interface with info/success/warn/error
+- **Backpressure Handling**: Properly handles slow consumers
+
+---
+
 ### Common Symbols
 
 Pre-defined Unicode symbols for consistent UI.
 
 ```typescript
 import {
-  S_BAR,              // │
-  S_BAR_H,            // ─
-  S_BAR_START,        // ├
-  S_BAR_END,          // └
-  S_CONNECT_LEFT,     // ┴
-  S_CORNER_TOP_LEFT,  // ╭
-  S_CORNER_TOP_RIGHT, // ╮
-  S_CORNER_BOTTOM_LEFT,   // ╰
-  S_CORNER_BOTTOM_RIGHT,  // ╯
-  S_RADIO_ACTIVE,     // ●
-  S_RADIO_INACTIVE,   // ○
-  S_CHECKBOX_ACTIVE,  // ◉
-  S_CHECKBOX_INACTIVE,// ◯
-  S_CHECKBOX_SELECTED,// ◉
-  S_STEP_SUBMIT,      // ✔
-  S_STEP_CANCEL,      // ✖
-  S_STEP_ERROR,       // ✖
-  S_WARN,             // ⚠
-  S_INFO,             // ℹ
-  S_SUCCESS,          // ✔
-  S_ERROR,            // ✖
+  // Box drawing symbols
+  S_BAR,                    // │
+  S_BAR_H,                  // ─
+  S_BAR_START,              // ┌
+  S_BAR_END,                // └
+  S_BAR_START_RIGHT,        // ┐
+  S_BAR_END_RIGHT,          // ┘
+  S_CONNECT_LEFT,           // ├
+  S_CORNER_TOP_LEFT,        // ╭
+  S_CORNER_TOP_RIGHT,       // ╮
+  S_CORNER_BOTTOM_LEFT,     // ╰
+  S_CORNER_BOTTOM_RIGHT,    // ╯
+
+  // Radio/checkbox symbols
+  S_RADIO_ACTIVE,           // ●
+  S_RADIO_INACTIVE,         // ○
+  S_CHECKBOX_ACTIVE,        // ◻
+  S_CHECKBOX_INACTIVE,      // ◻
+  S_CHECKBOX_SELECTED,      // ◼
+
+  // Step/state symbols
+  S_STEP_ACTIVE,            // ◆
+  S_STEP_SUBMIT,            // ◇
+  S_STEP_CANCEL,            // ■
+  S_STEP_ERROR,             // ▲
+
+  // Status symbols
+  S_INFO,                   // ●
+  S_SUCCESS,                // ◆
+  S_WARN,                   // ▲
+  S_ERROR,                  // ■
+
+  // Other symbols
+  S_PASSWORD_MASK,          // ▪
 } from '@xec-sh/kit';
 ```
+
+#### Helper Functions
+
+```typescript
+import { symbol, unicodeOr, unicode, isCI, isTTY } from '@xec-sh/kit';
+
+// Get state symbol with color
+import { symbol } from '@xec-sh/kit';
+const activeSymbol = symbol('active');   // cyan ◆
+const submitSymbol = symbol('submit');   // green ◇
+const cancelSymbol = symbol('cancel');   // red ■
+const errorSymbol = symbol('error');     // yellow ▲
+
+// Choose Unicode or fallback
+const check = unicodeOr('✓', 'v');       // '✓' if Unicode supported, 'v' otherwise
+const arrow = unicodeOr('→', '->');      // '→' if Unicode supported, '->' otherwise
+
+// Check Unicode support
+if (unicode) {
+  console.log('Unicode is supported');
+}
+
+// Check if running in CI
+if (isCI()) {
+  console.log('Running in CI environment');
+}
+
+// Check if output is TTY
+import { isTTY } from '@xec-sh/kit';
+if (isTTY(process.stdout)) {
+  console.log('Output is a terminal');
+}
+```
+
+---
 
 ### Settings
 
@@ -3053,6 +3323,7 @@ export function password(options: PasswordOptions): Promise<string | symbol>;
 export function selectKey<T extends string>(options: SelectKeyOptions<T>): Promise<T | symbol>;
 export function groupMultiselect<T>(options: GroupMultiSelectOptions<T>): Promise<T[] | symbol>;
 export function group<T>(prompts: PromptGroup<T>, options?: GroupOptions): Promise<T>;
+export function path(options: PathOptions): Promise<string | symbol>;
 
 // Components
 export function spinner(options?: SpinnerOptions): SpinnerResult;
@@ -3064,6 +3335,10 @@ export function tasks(list: Task[], options?: CommonOptions): Promise<void>;
 export function taskLog(options: TaskLogOptions): TaskLogger;
 
 // Utilities
+export function intro(title?: string, options?: CommonOptions): void;
+export function outro(message?: string, options?: CommonOptions): void;
+export function cancel(message?: string, options?: CommonOptions): void;
+
 export const log: {
   message(message: string | string[], options?: LogMessageOptions): void;
   info(message: string, options?: LogMessageOptions): void;
@@ -3074,10 +3349,27 @@ export const log: {
   error(message: string, options?: LogMessageOptions): void;
 };
 
+export const stream: {
+  message(iterable: Iterable<string> | AsyncIterable<string>, options?: LogMessageOptions): Promise<void>;
+  info(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  success(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  step(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  warn(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  warning(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+  error(iterable: Iterable<string> | AsyncIterable<string>): Promise<void>;
+};
+
 export function isCancel(value: unknown): value is symbol;
-export function block(): Promise<void>;
+export function block(options?: BlockOptions): () => void;
 export function getRows(output?: NodeJS.WritableStream): number;
 export function getColumns(output?: NodeJS.WritableStream): number;
+
+// Common utilities
+export function symbol(state: State): string;
+export function unicodeOr(unicode: string, fallback: string): string;
+export const unicode: boolean;
+export function isCI(): boolean;
+export function isTTY(output: NodeJS.WritableStream): boolean;
 
 // Settings
 export const settings: ClackSettings;
@@ -3094,6 +3386,7 @@ export function stringLength(text: string): number;
 export function hasAnsi(text: string): boolean;
 export function parseColor(color: string): RGB | null;
 export function getCssColor(name: string): string | undefined;
+export function getCssColorNames(): string[];
 export function isValidColor(color: string): boolean;
 
 // Color space conversions
