@@ -4,10 +4,10 @@ import { Command } from 'commander';
 import { log, note, text, intro, outro, prism, select, cancel, spinner, isCancel } from '@xec-sh/kit';
 
 import { validateOptions } from '../utils/validation.js';
-import { ConfigAwareCommand, ConfigAwareOptions, SubcommandBase } from '../utils/command-base.js';
-import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
+import { InteractiveOptions } from '../utils/interactive-helpers.js';
+import { SubcommandBase, ConfigAwareOptions } from '../utils/command-base.js';
 
-import type { ResolvedTarget, DockerDefaults, CommandConfig } from '../config/types.js';
+import type { CommandConfig, DockerDefaults } from '../config/types.js';
 
 interface DockerOptions extends ConfigAwareOptions, InteractiveOptions {
   verbose?: boolean;

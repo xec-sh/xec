@@ -1,7 +1,6 @@
 import { it, jest, expect, describe } from '@jest/globals';
 
 import { $ } from '../../../src/index.js';
-import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 

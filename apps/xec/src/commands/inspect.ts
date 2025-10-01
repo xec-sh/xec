@@ -12,6 +12,7 @@ import { createRequire } from 'module';
 import { prism, select, confirm } from '@xec-sh/kit';
 
 import { formatBytes } from '../utils/formatters.js';
+import { getModuleCacheDir } from '../config/utils.js';
 import { TaskManager } from '../config/task-manager.js';
 import { getModuleLoader } from '../utils/module-loader.js';
 import { TargetResolver } from '../config/target-resolver.js';
@@ -447,7 +448,7 @@ class ProjectInspector {
         },
         metadata: {
           category: 'statistics',
-          cacheDir: path.join(os.homedir(), '.xec', 'module-cache'),
+          cacheDir: getModuleCacheDir(),
         },
       });
     }

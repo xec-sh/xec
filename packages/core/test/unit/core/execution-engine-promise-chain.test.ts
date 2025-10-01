@@ -1,6 +1,5 @@
 import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
-import { $ } from '../../../src/index.js';
 import { CommandError } from '../../../src/core/error.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
@@ -17,9 +16,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
     engine.registerAdapter('mock', mockAdapter);
     const mockEngine = engine.with({ adapter: 'mock' as any });
     // Create a proper tagged template function
-    const $mock = (strings: TemplateStringsArray, ...values: any[]) => {
-      return mockEngine.tag(strings, ...values);
-    };
+    const $mock = (strings: TemplateStringsArray, ...values: any[]) => mockEngine.tag(strings, ...values);
     return { engine, mockAdapter, $mock };
   }
 

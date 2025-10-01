@@ -4,8 +4,8 @@ import { spawn } from 'node:child_process';
 import { it, jest, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';
-import { DockerError, AdapterError, TimeoutError } from '../../../src/core/error.js';
 import { findDockerPath } from '../../../src/adapters/docker/docker-utils.js';
+import { DockerError, AdapterError, TimeoutError } from '../../../src/core/error.js';
 
 const sleep = promisify(setTimeout);
 
