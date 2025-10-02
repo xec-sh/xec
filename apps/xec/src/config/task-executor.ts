@@ -6,7 +6,7 @@ import * as fs from 'fs/promises';
 import { EventEmitter } from 'events';
 
 import { TargetResolver } from './target-resolver.js';
-import { getScriptLoader } from '../utils/script-loader.js';
+import { getScriptLoader } from '../adapters/loader-adapter.js';
 import { VariableInterpolator } from './variable-interpolator.js';
 
 import type {

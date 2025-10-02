@@ -52,6 +52,17 @@
   - Integration tests for REPL (21 tests)
   - Examples: basic-usage.ts, custom-runtime.ts, cdn-modules.ts, repl.ts
 
+- **Phase 8**: CLI Migration (COMPLETED)
+  - Added @xec-sh/loader dependency to @xec-sh/cli
+  - Created loader-adapter.ts for backward compatibility
+  - Migrated all imports in commands: run, on, in, watch, inspect
+  - Migrated imports in config/task-executor.ts
+  - Migrated imports in utils/cli-command-manager.ts
+  - Updated src/index.ts to export from @xec-sh/loader
+  - Removed old files: script-loader.ts, module-loader.ts, script-utils.ts
+  - TypeScript typecheck: ✅ No errors
+  - Build: ✅ Successful
+
 ### 📊 Test Statistics
 
 - **Total Tests**: 318 passing, 3 skipped
@@ -60,7 +71,6 @@
 
 ### 🚧 Remaining Phases
 
-- **Phase 8**: CLI Migration
 - **Phase 9**: Documentation & Polish
 - **Phase 10**: Release
 

@@ -92,6 +92,7 @@
   "dependencies": {
     "@xec-sh/core": "workspace:*",
     "@xec-sh/kit": "workspace:*",
+    "@xec-sh/loader": "workspace:*",
     "chokidar": "^4.0.3",
     "commander": "14.0.1",
     "csv-parse": "^6.1.0",

@@ -14,7 +14,7 @@ import { prism, select, confirm } from '@xec-sh/kit';
 import { formatBytes } from '../utils/formatters.js';
 import { getModuleCacheDir } from '../config/utils.js';
 import { TaskManager } from '../config/task-manager.js';
-import { getModuleLoader } from '../utils/module-loader.js';
+import { ModuleLoader } from '@xec-sh/loader';
 import { TargetResolver } from '../config/target-resolver.js';
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
@@ -433,7 +433,7 @@ class ProjectInspector {
 
   private async inspectCache(action?: string): Promise<InspectionResult[]> {
     const results: InspectionResult[] = [];
-    const loader = getModuleLoader({ verbose: false });
+    const loader = new ModuleLoader({ preferredCDN: 'esm.sh' });
 
     if (!action || action === 'stats') {
       const stats = await loader.getCacheStats();

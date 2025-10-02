@@ -1,0 +1,425 @@
+/**
+ * Adapter layer for @xec-sh/loader
+ * Provides CLI-specific functionality and maintains backward compatibility
+ */
+
+import type { Command } from 'commander';
+import * as path from 'path';
+import * as repl from 'repl';
+import * as fs from 'fs/promises';
+import { $ } from '@xec-sh/core';
+import { log, prism } from '@xec-sh/kit';
+
+import {
+  ScriptExecutor,
+  CodeEvaluator,
+  REPLServer,
+  ModuleLoader,
+  ScriptRuntime,
+  GlobalInjector,
+  type ExecutionOptions as LoaderExecutionOptions,
+  type ScriptContext as LoaderScriptContext,
+} from '@xec-sh/loader';
+
+import type { ResolvedTarget } from '../config/types.js';
+
+export interface ScriptContext {
+  args: string[];
+  argv: string[];
+  __filename: string;
+  __dirname: string;
+}
+
+export interface TargetInfo {
+  type: 'local' | 'ssh' | 'docker' | 'kubernetes';
+  name?: string;
+  host?: string;
+  container?: string;
+  pod?: string;
+  namespace?: string;
+  config: any;
+}
+
+export interface LoaderOptions {
+  verbose?: boolean;
+  cache?: boolean;
+  preferredCDN?: 'esm.sh' | 'jsr.io' | 'unpkg' | 'skypack' | 'jsdelivr';
+  quiet?: boolean;
+  typescript?: boolean;
+}
+
+export interface ExecutionOptions extends LoaderOptions {
+  target?: ResolvedTarget;
+  targetEngine?: any;
+  context?: ScriptContext;
+  watch?: boolean;
+}
+
+export interface ScriptExecutionResult {
+  success: boolean;
+  error?: Error;
+  output?: string;
+}
+
+/**
+ * ScriptLoader adapter - wraps @xec-sh/loader with CLI-specific functionality
+ */
+export class ScriptLoader {
+  private executor: ScriptExecutor;
+  private evaluator: CodeEvaluator;
+  private moduleLoader: ModuleLoader;
+  private options: LoaderOptions;
+
+  constructor(options: LoaderOptions = {}) {
+    this.options = {
+      verbose: options.verbose || process.env['XEC_DEBUG'] === 'true',
+      cache: options.cache !== false,
+      preferredCDN: (options.preferredCDN || 'esm.sh') as LoaderOptions['preferredCDN'],
+      quiet: options.quiet || false,
+      typescript: options.typescript || false,
+    };
+
+    this.executor = new ScriptExecutor();
+    this.evaluator = new CodeEvaluator();
+    this.moduleLoader = new ModuleLoader({
+      preferredCDN: this.options.preferredCDN,
+    });
+  }
+
+  /**
+   * Execute a script file with optional target context
+   */
+  async executeScript(
+    scriptPath: string,
+    options: ExecutionOptions = {}
+  ): Promise<ScriptExecutionResult> {
+    try {
+      // Handle watch mode
+      if (options.watch) {
+        return await this.executeWithWatch(scriptPath, options);
+      }
+
+      // Execute the script
+      return await this.executeScriptInternal(scriptPath, options);
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  /**
+   * Internal script execution with context injection
+   */
+  private async executeScriptInternal(
+    scriptPath: string,
+    options: ExecutionOptions
+  ): Promise<ScriptExecutionResult> {
+    // Prepare script context
+    const context: ScriptContext = options.context || {
+      args: [],
+      argv: [process.argv[0] || 'node', scriptPath],
+      __filename: scriptPath,
+      __dirname: path.dirname(scriptPath),
+    };
+
+    // Initialize global module context
+    await this.initializeGlobalModuleContext();
+
+    // Prepare custom globals
+    const customGlobals: Record<string, any> = {
+      __xecScriptContext: context,
+    };
+
+    // Add target context if provided
+    if (options.target && options.targetEngine) {
+      const targetInfo = this.createTargetInfo(options.target);
+      customGlobals['$target'] = options.targetEngine;
+      customGlobals['$targetInfo'] = targetInfo;
+    } else if (options.target || options.targetEngine) {
+      // For compatibility: inject local target even for standalone scripts
+      const localTarget = $;
+      const localTargetInfo: TargetInfo = {
+        type: 'local',
+        name: 'local',
+        config: {},
+      };
+      customGlobals['$target'] = localTarget;
+      customGlobals['$targetInfo'] = localTargetInfo;
+    }
+
+    // Execute with ScriptExecutor
+    const result = await this.executor.executeScript(scriptPath, {
+      context,
+      customGlobals,
+      verbose: this.options.verbose,
+      quiet: this.options.quiet,
+    });
+
+    return result;
+  }
+
+  /**
+   * Execute script with file watching
+   */
+  private async executeWithWatch(
+    scriptPath: string,
+    options: ExecutionOptions
+  ): Promise<ScriptExecutionResult> {
+    const { watch } = await import('chokidar');
+
+    const runAndLog = async () => {
+      try {
+        if (!this.options.quiet) {
+          log.info(prism.dim(`Running ${scriptPath}...`));
+        }
+        const result = await this.executeScriptInternal(scriptPath, options);
+        if (!result.success && result.error) {
+          console.error(result.error);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    // Run initially
+    await runAndLog();
+
+    // Watch for changes
+    const watcher = watch(scriptPath, { ignoreInitial: true });
+    watcher.on('change', async () => {
+      console.clear();
+      log.info(prism.dim('File changed, rerunning...'));
+      await runAndLog();
+    });
+
+    // Keep process alive
+    process.stdin.resume();
+
+    return {
+      success: true,
+    };
+  }
+
+  /**
+   * Evaluate code string with optional target context
+   */
+  async evaluateCode(
+    code: string,
+    options: ExecutionOptions = {}
+  ): Promise<ScriptExecutionResult> {
+    try {
+      // Initialize global module context
+      await this.initializeGlobalModuleContext();
+
+      // Display runtime info
+      if (!this.options.quiet && !options.quiet) {
+        log.info(`Evaluating code...`);
+      }
+
+      // Prepare custom globals
+      const customGlobals: Record<string, any> = {};
+
+      // Add target context if provided
+      if (options.target && options.targetEngine) {
+        const targetInfo = this.createTargetInfo(options.target);
+        customGlobals['$target'] = options.targetEngine;
+        customGlobals['$targetInfo'] = targetInfo;
+      }
+
+      // Evaluate code
+      const result = await this.evaluator.evaluateCode(code, {
+        customGlobals,
+        verbose: this.options.verbose,
+        quiet: this.options.quiet,
+      });
+
+      return result;
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+  }
+
+  /**
+   * Start an interactive REPL session
+   */
+  async startRepl(options: ExecutionOptions = {}): Promise<void> {
+    // Initialize global module context
+    await this.initializeGlobalModuleContext();
+
+    // Display runtime info
+    const title = options.target
+      ? `Xec Interactive Shell (${options.target.name})`
+      : 'Xec Interactive Shell';
+
+    log.info(prism.bold(title));
+    log.info(prism.dim('Type .help for commands'));
+
+    // Create REPL prompt
+    const prompt = options.target
+      ? prism.cyan(`xec:${options.target.name}> `)
+      : prism.cyan('xec> ');
+
+    // Import utilities
+    const scriptRuntime = new ScriptRuntime();
+
+    // Build REPL context
+    const replContext: any = {
+      $,
+      ...this.getScriptUtilities(),
+      prism,
+      console,
+      process,
+      $runtime: scriptRuntime,
+      use: (spec: string) => (globalThis as any).use?.(spec),
+      x: (spec: string) => (globalThis as any).x?.(spec),
+    };
+
+    // Add target context if provided
+    if (options.target && options.targetEngine) {
+      const targetInfo = this.createTargetInfo(options.target);
+      replContext.$target = options.targetEngine;
+      replContext.$targetInfo = targetInfo;
+    }
+
+    // Create REPL server
+    const replServer = new REPLServer({
+      prompt,
+      useGlobal: false,
+      breakEvalOnSigint: true,
+      useColors: true,
+      context: replContext,
+      includeBuiltins: true,
+      showWelcome: false, // We already showed welcome message
+    });
+
+    // Start REPL
+    replServer.start();
+
+    // Show helpful message
+    if (options.target && options.targetEngine) {
+      console.log(prism.gray('Available globals:'));
+      console.log(prism.gray('  $target     - Execute commands on the target'));
+      console.log(prism.gray('  $targetInfo - Information about the current target'));
+      console.log(prism.gray('  $           - Execute commands locally'));
+      console.log(prism.gray('  prism       - Terminal colors'));
+      console.log(prism.gray('  use()       - Import NPM packages or CDN modules'));
+      console.log(prism.gray('  import()    - Import modules'));
+      console.log(prism.gray(''));
+      console.log(prism.gray('Example: await $target`ls -la`'));
+      console.log(prism.gray('Example: const lodash = await use("lodash")'));
+    } else {
+      console.log(prism.gray('Type .runtime to see runtime information'));
+    }
+    console.log(prism.gray(''));
+  }
+
+  /**
+   * Load a dynamic command module
+   */
+  async loadDynamicCommand(
+    filePath: string,
+    program: Command,
+    commandName: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Initialize global module context
+      await this.initializeGlobalModuleContext();
+
+      // Load the module using ModuleLoader
+      const moduleExports = await this.moduleLoader.import(filePath);
+
+      // Check if the module exports a default function or a setup function
+      const setupFn = moduleExports.default || moduleExports.setup;
+      if (typeof setupFn === 'function') {
+        // Execute the setup function with program
+        await setupFn(program);
+        return { success: true };
+      } else {
+        return {
+          success: false,
+          error: `Command file must export a default function or setup function`,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Initialize global module context (use, x, Import functions)
+   */
+  private async initializeGlobalModuleContext(): Promise<void> {
+    // Inject global functions for module loading
+    const injector = new GlobalInjector({
+      globals: {
+        use: async (spec: string) => {
+          return await this.moduleLoader.import(spec);
+        },
+        x: async (spec: string) => {
+          return await this.moduleLoader.import(spec);
+        },
+        Import: async (spec: string) => {
+          return await this.moduleLoader.import(spec);
+        },
+      },
+    });
+
+    // Execute without restoring (we want these to stay global)
+    injector.inject();
+  }
+
+  /**
+   * Get script utilities (cd, pwd, env, etc.)
+   */
+  private getScriptUtilities(): Record<string, any> {
+    const runtime = new ScriptRuntime();
+    return {
+      cd: runtime.cd.bind(runtime),
+      pwd: runtime.pwd.bind(runtime),
+      env: runtime.env.bind(runtime),
+      setEnv: runtime.setEnv.bind(runtime),
+      sleep: runtime.sleep.bind(runtime),
+      retry: runtime.retry.bind(runtime),
+      within: runtime.within.bind(runtime),
+      quote: runtime.quote.bind(runtime),
+      tmpdir: runtime.tmpdir.bind(runtime),
+      tmpfile: runtime.tmpfile.bind(runtime),
+      template: runtime.template.bind(runtime),
+    };
+  }
+
+  /**
+   * Create target info from resolved target
+   */
+  private createTargetInfo(target: ResolvedTarget): TargetInfo {
+    return {
+      type: target.type,
+      name: target.name,
+      host: 'host' in target ? (target as any).host : undefined,
+      container: 'container' in target ? (target as any).container : undefined,
+      pod: 'pod' in target ? (target as any).pod : undefined,
+      namespace: 'namespace' in target ? (target as any).namespace : undefined,
+      config: target,
+    };
+  }
+}
+
+/**
+ * Get a singleton ScriptLoader instance
+ */
+let cachedLoader: ScriptLoader | null = null;
+
+export function getScriptLoader(options: LoaderOptions = {}): ScriptLoader {
+  if (!cachedLoader) {
+    cachedLoader = new ScriptLoader(options);
+  }
+  return cachedLoader;
+}
