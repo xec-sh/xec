@@ -167,19 +167,23 @@ export class ModuleFetcher {
   private transformContent(content: string, baseURL: string): string {
     // Transform /node/module@version paths to node:module (from statements)
     content = content.replace(
-      /from\s+["']\/node\/([^@"']+)(?:@[^"']+)?(?:\.mjs)?["']/g,
+      /from\s+["']\/node\/([^@"']+?)(?:\.mjs)?(?:@[^"']+)?["']/g,
       (match, moduleName) => {
         const quote = match.includes('"') ? '"' : "'";
-        return `from ${quote}node:${moduleName}${quote}`;
+        // Remove .mjs extension if present in module name
+        const cleanModuleName = moduleName.replace(/\.mjs$/, '');
+        return `from ${quote}node:${cleanModuleName}${quote}`;
       }
     );
 
     // Transform /node/module@version paths to node:module (import statements without from)
     content = content.replace(
-      /import\s+["']\/node\/([^@"']+)(?:@[^"']+)?(?:\.mjs)?["']/g,
+      /import\s+["']\/node\/([^@"']+?)(?:\.mjs)?(?:@[^"']+)?["']/g,
       (match, moduleName) => {
         const quote = match.includes('"') ? '"' : "'";
-        return `import ${quote}node:${moduleName}${quote}`;
+        // Remove .mjs extension if present in module name
+        const cleanModuleName = moduleName.replace(/\.mjs$/, '');
+        return `import ${quote}node:${cleanModuleName}${quote}`;
       }
     );
 
