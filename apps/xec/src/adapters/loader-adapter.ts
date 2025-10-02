@@ -360,6 +360,7 @@ export class ScriptLoader {
         // Add preamble with global context
         const preamble = `
 // Injected global context for dynamic commands
+const $ = globalThis.$;
 const kit = globalThis.kit;
 const prism = globalThis.prism;
 const log = globalThis.log;
@@ -423,6 +424,9 @@ const Import = globalThis.Import;
     // Inject global functions for module loading AND kit utilities
     const injector = new GlobalInjector({
       globals: {
+        // Core execution function (CRITICAL for commands like release.ts)
+        $: $,
+
         // Module loading functions
         use: async (spec: string) => await this.moduleLoader.import(spec),
         x: async (spec: string) => await this.moduleLoader.import(spec),
