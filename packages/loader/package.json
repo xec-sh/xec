@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/loader",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Universal script loader and module system for Xec",
   "type": "module",
   "main": "./dist/index.js",
@@ -32,8 +32,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@xec-sh/core": "workspace:*",
-    "@xec-sh/kit": "workspace:*",
+    "@xec-sh/core": "^0.8.3",
+    "@xec-sh/kit": "^0.8.3",
     "esbuild": "0.25.10"
   },
   "devDependencies": {
