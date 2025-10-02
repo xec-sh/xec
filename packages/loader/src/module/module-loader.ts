@@ -87,8 +87,10 @@ export class ModuleLoader {
       console.log(`[ModuleLoader] Resolved to: ${resolution.resolved}`);
     }
 
-    // Check if it's a local file or built-in Node module
-    if (resolution.resolved.startsWith('/') ||
+    // Check if it's a local file or built-in Node module (but not HTTP URLs)
+    if (resolution.resolved.startsWith('http://') || resolution.resolved.startsWith('https://')) {
+      // HTTP(S) URLs need to be fetched, not imported directly
+    } else if (resolution.resolved.startsWith('/') ||
         resolution.resolved.startsWith('file://') ||
         resolution.resolved.startsWith('node:') ||
         this.isBuiltinModule(resolution.resolved)) {
@@ -96,7 +98,7 @@ export class ModuleLoader {
       return import(resolution.resolved);
     }
 
-    // Fetch from CDN
+    // Fetch from CDN or HTTP(S) URL
     const fetched = await this.fetcher.fetch(resolution.resolved);
 
     // Execute module
