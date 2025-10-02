@@ -27,6 +27,23 @@ export {
   CompositeModuleResolver,
 } from './module/index.js';
 
+// Export runtime utilities
+export {
+  ScriptRuntime,
+  createRuntime,
+  GlobalInjector,
+  createInjector,
+} from './runtime/index.js';
+
+// Export transformation utilities
+export {
+  TypeScriptTransformer,
+  createTransformer,
+  ImportTransformer,
+  createImportTransformer,
+  transformImports,
+} from './transform/index.js';
+
 // Re-export for convenience
 export type {
   ExecutionOptions,
