@@ -5,8 +5,7 @@ import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
-import { ScriptLoader } from '../adapters/loader-adapter.js';
-import { GlobalInjector, ModuleLoader } from '@xec-sh/loader';
+import { ScriptLoader, getScriptLoader } from '../adapters/loader-adapter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,7 +30,8 @@ export class CliCommandManager {
 
   constructor() {
     this.initializeCommandDirs();
-    this.scriptLoader = new ScriptLoader({
+    // Use singleton ScriptLoader to ensure global context is shared
+    this.scriptLoader = getScriptLoader({
       verbose: process.env['XEC_DEBUG'] === 'true',
       preferredCDN: 'esm.sh',
       cache: true
@@ -70,27 +70,14 @@ export class CliCommandManager {
 
   /**
    * Initialize module context (once)
+   * Note: ScriptLoader now handles all global context initialization including kit
    */
   private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
 
-    try {
-      // Initialize global module context using @xec-sh/loader
-      const moduleLoader = new ModuleLoader({ preferredCDN: 'esm.sh' });
-      const injector = new GlobalInjector({
-        globals: {
-          use: async (spec: string) => await moduleLoader.import(spec),
-          x: async (spec: string) => await moduleLoader.import(spec),
-          Import: async (spec: string) => await moduleLoader.import(spec),
-        },
-      });
-      injector.inject();
-      this.initialized = true;
-    } catch (err) {
-      if (process.env['XEC_DEBUG']) {
-        console.warn('Failed to initialize module context:', err);
-      }
-    }
+    // ScriptLoader now handles all global context initialization
+    // No need to duplicate it here
+    this.initialized = true;
   }
 
   /**

@@ -128,19 +128,23 @@ export class ModuleFetcher {
    * Common patterns with esm.sh:
    * - export * from "/path/to/actual/module.mjs";
    * - export * from "/path"; export { default } from "/path";
+   * - import "/node/process.mjs"; export * from "/path"; (with polyfills)
    */
   private detectRedirect(content: string, baseURL: string): string | null {
     // Remove comments and whitespace
     const cleaned = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '').trim();
 
+    // Remove import statements (esm.sh polyfills like /node/process.mjs)
+    const withoutImports = cleaned.replace(/import\s+["'][^"']+["'];?\s*/g, '');
+
     // Pattern 1: export * from "/path"; export { default } from "/path";
     const pattern1 = /export\s+\*\s+from\s+["']([^"']+)["'];?\s*export\s+{\s*default\s*}\s+from\s+["']\1["']/;
-    let match = cleaned.match(pattern1);
+    let match = withoutImports.match(pattern1);
 
     // Pattern 2: Just export * from "/path";
     if (!match) {
       const pattern2 = /^export\s+\*\s+from\s+["']([^"']+)["'];?\s*$/;
-      match = cleaned.match(pattern2);
+      match = withoutImports.match(pattern2);
     }
 
     if (match && match[1]) {
@@ -161,12 +165,21 @@ export class ModuleFetcher {
    * Transform ESM content to rewrite import paths
    */
   private transformContent(content: string, baseURL: string): string {
-    // Transform /node/module@version paths to node:module
+    // Transform /node/module@version paths to node:module (from statements)
     content = content.replace(
-      /from\s+["']\/node\/([^@"']+)(?:@[^"']+)?["']/g,
+      /from\s+["']\/node\/([^@"']+)(?:@[^"']+)?\.mjs["']/g,
       (match, moduleName) => {
         const quote = match.includes('"') ? '"' : "'";
         return `from ${quote}node:${moduleName}${quote}`;
+      }
+    );
+
+    // Transform /node/module@version paths to node:module (import statements without from)
+    content = content.replace(
+      /import\s+["']\/node\/([^@"']+)(?:@[^"']+)?\.mjs["']/g,
+      (match, moduleName) => {
+        const quote = match.includes('"') ? '"' : "'";
+        return `import ${quote}node:${moduleName}${quote}`;
       }
     );
 
@@ -180,10 +193,11 @@ export class ModuleFetcher {
           return match;
         })
         .replace(/import\s+["'](\/.+?)["']/g, (match, importPath) => {
-          if (!importPath.startsWith('/node/')) {
-            return `import "https://esm.sh${importPath}"`;
+          // Skip /node/ imports as they're already transformed above
+          if (importPath.startsWith('/node/')) {
+            return match;
           }
-          return match;
+          return `import "https://esm.sh${importPath}"`;
         })
         .replace(/import\s*\(\s*["'](\/.+?)["']\s*\)/g, (match, importPath) => {
           if (!importPath.startsWith('/node/')) {
