@@ -1982,36 +1982,47 @@ export interface InjectOptions {
 - script-executor.test.ts: 7 tests passing
 - code-evaluator.test.ts: 8 tests passing
 
-### Phase 4: Module System (Week 3-4)
+### Phase 4: Module System (Week 3-4) ✅ COMPLETED
 
 **Goal**: Implement module resolution and loading
 
-1. **ModuleResolver** (`src/module/module-resolver.ts`)
-   - Define interface
-   - Implement LocalModuleResolver
-   - Implement CDNModuleResolver
-   - Implement NodeModuleResolver
+1. **ModuleResolver** (`src/module/module-resolver.ts`) ✅
+   - ✅ Define interface
+   - ✅ Implement LocalModuleResolver
+   - ✅ Implement CDNModuleResolver (with prefix-to-CDN mapping)
+   - ✅ Implement NodeModuleResolver (with CDN fallback)
+   - ✅ Implement CompositeModuleResolver
 
-2. **ModuleFetcher** (`src/module/module-fetcher.ts`)
-   - Extract from `ModuleLoader`
-   - Add retry logic
-   - Add tests
+2. **ModuleFetcher** (`src/module/module-fetcher.ts`) ✅
+   - ✅ Implement HTTP fetching with cache integration
+   - ✅ Add retry logic with exponential backoff
+   - ✅ Add content transformation (node: imports, esm.sh paths)
+   - ✅ Add tests (9 passing, 1 skipped)
 
-3. **ModuleExecutor** (`src/module/module-executor.ts`)
-   - Extract from `ModuleLoader`
-   - Improve type detection
-   - Add tests
+3. **ModuleExecutor** (`src/module/module-executor.ts`) ✅
+   - ✅ Implement ESM module execution
+   - ✅ Implement CJS module execution
+   - ✅ Implement UMD module execution
+   - ✅ Improve type detection (ESM/CJS/UMD)
+   - ✅ Add cleanup functionality
+   - ✅ Add tests (14 passing, 1 skipped)
 
-4. **ModuleCache** (`src/module/module-cache.ts`)
-   - Implement MemoryCache
-   - Implement FileSystemCache
-   - Implement HybridCache
-   - Add tests
+4. **ModuleCache** (`src/module/module-cache.ts`) ✅
+   - ✅ Implement MemoryCache (with LRU eviction)
+   - ✅ Implement FileSystemCache (with SHA-256 hashing)
+   - ✅ Implement HybridCache (memory + disk with promotion)
+   - ✅ Add TTL support
+   - ✅ Add tests (22 passing)
 
-5. **Integration**
-   - Create `ModuleLoader` orchestrator
-   - Wire up all components
-   - Add integration tests
+5. **Integration** ✅
+   - ✅ Create `ModuleLoader` orchestrator
+   - ✅ Wire up all components (resolver → fetcher → executor)
+   - ✅ Add support for local files, CDN modules, and built-in Node modules
+   - ✅ Add concurrent loading with deduplication
+   - ✅ Add integration tests (18 passing)
+
+**Test Results**: 121 total tests passing, 2 skipped
+**Files Created**: 11 implementation files + 5 test files
 
 ### Phase 5: Runtime & Transform (Week 4-5)
 

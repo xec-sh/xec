@@ -13,6 +13,20 @@ export {
   CodeEvaluator,
 } from './core/index.js';
 
+// Export module system
+export {
+  ModuleLoader,
+  ModuleFetcher,
+  ModuleExecutor,
+  MemoryCache,
+  FileSystemCache,
+  HybridCache,
+  LocalModuleResolver,
+  CDNModuleResolver,
+  NodeModuleResolver,
+  CompositeModuleResolver,
+} from './module/index.js';
+
 // Re-export for convenience
 export type {
   ExecutionOptions,
