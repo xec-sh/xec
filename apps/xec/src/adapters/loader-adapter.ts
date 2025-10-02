@@ -4,21 +4,17 @@
  */
 
 import type { Command } from 'commander';
+
 import * as path from 'path';
-import * as repl from 'repl';
-import * as fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
 import { log, prism } from '@xec-sh/kit';
-
 import {
-  ScriptExecutor,
-  CodeEvaluator,
   REPLServer,
   ModuleLoader,
+  CodeEvaluator,
   ScriptRuntime,
+  ScriptExecutor,
   GlobalInjector,
-  type ExecutionOptions as LoaderExecutionOptions,
-  type ScriptContext as LoaderScriptContext,
 } from '@xec-sh/loader';
 
 import type { ResolvedTarget } from '../config/types.js';
@@ -360,15 +356,9 @@ export class ScriptLoader {
     // Inject global functions for module loading
     const injector = new GlobalInjector({
       globals: {
-        use: async (spec: string) => {
-          return await this.moduleLoader.import(spec);
-        },
-        x: async (spec: string) => {
-          return await this.moduleLoader.import(spec);
-        },
-        Import: async (spec: string) => {
-          return await this.moduleLoader.import(spec);
-        },
+        use: async (spec: string) => await this.moduleLoader.import(spec),
+        x: async (spec: string) => await this.moduleLoader.import(spec),
+        Import: async (spec: string) => await this.moduleLoader.import(spec),
       },
     });
 

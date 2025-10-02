@@ -121,7 +121,8 @@ export class CDNModuleResolver implements ModuleResolver {
         return `${baseUrl}/${pkg}`;
       case 'esm.sh':
         // esm.sh uses direct package names
-        return `${baseUrl}/${pkg}`;
+        // Use ?bundle to inline all dependencies
+        return `${baseUrl}/${pkg}?bundle`;
       case 'unpkg':
       case 'jsdelivr':
         return `${baseUrl}/${pkg}`;
