@@ -1,0 +1,72 @@
+{
+  "name": "@xec-sh/loader",
+  "version": "0.1.0",
+  "description": "Universal script loader and module system for Xec",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./runtime": {
+      "import": "./dist/runtime/index.js",
+      "types": "./dist/runtime/index.d.ts"
+    },
+    "./repl": {
+      "import": "./dist/repl/index.js",
+      "types": "./dist/repl/index.d.ts"
+    },
+    "./compat": {
+      "import": "./dist/compat/index.js",
+      "types": "./dist/compat/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@xec-sh/core": "workspace:*",
+    "@xec-sh/kit": "workspace:*",
+    "esbuild": "^0.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@xec-sh/testing": "workspace:*",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "peerDependencies": {
+    "chokidar": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "chokidar": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "xec",
+    "script",
+    "loader",
+    "module",
+    "typescript",
+    "execution"
+  ],
+  "author": "Xec Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xec-sh/xec.git",
+    "directory": "packages/loader"
+  }
+}

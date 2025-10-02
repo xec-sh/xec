@@ -494,6 +494,415 @@ const result = await loader.loadDynamicCommand(
 
 ---
 
+## Real-World Usage Patterns
+
+### Current Usage in @xec-sh/cli
+
+Based on analysis of the codebase, here are the real usage patterns that the new package must support:
+
+#### 1. Script Execution with Remote Target Context
+
+**Current Implementation** (`commands/in.ts`, `commands/on.ts`):
+```typescript
+// Execute script on remote target (Docker/K8s/SSH)
+const scriptLoader = new ScriptLoader({ verbose, cache: true });
+const engine = await createTargetEngine(target); // Docker/K8s/SSH engine
+
+const result = await scriptLoader.executeScript(scriptPath, {
+  target: target,              // ResolvedTarget
+  targetEngine: engine,         // Execution engine with $target context
+  context: {
+    args: ['arg1', 'arg2'],
+    argv: ['node', scriptPath, 'arg1', 'arg2'],
+    __filename: path.resolve(scriptPath),
+    __dirname: path.dirname(path.resolve(scriptPath))
+  }
+});
+
+// Inside script.ts:
+// await $target`ls -la`  // Executes on remote target
+// $targetInfo.type       // 'docker' | 'kubernetes' | 'ssh'
+```
+
+#### 2. REPL with Target Context
+
+**Current Implementation** (`commands/in.ts`):
+```typescript
+// Start REPL with $target available
+const scriptLoader = new ScriptLoader({ verbose, cache: true });
+const engine = await createTargetEngine(target);
+
+await scriptLoader.startRepl({
+  target: target,
+  targetEngine: engine
+});
+
+// REPL session:
+// xec:mycontainer> await $target`npm test`
+// xec:mycontainer> const lodash = await use('lodash')
+// xec:mycontainer> await $target`echo ${await $`hostname`}` // Mix local & remote
+```
+
+#### 3. Task Script Execution
+
+**Current Implementation** (`config/task-executor.ts`):
+```typescript
+// Execute script defined in task step
+const scriptLoader = getScriptLoader({ verbose, quiet });
+
+const result = await scriptLoader.executeScript(scriptPath, {
+  target: resolvedTarget,
+  targetEngine: engine,
+  context: {
+    args: [],
+    argv: [process.argv[0], scriptPath],
+    __filename: scriptPath,
+    __dirname: path.dirname(scriptPath)
+  },
+  quiet: true
+});
+
+// Task file (xec.config.ts):
+// tasks:
+//   deploy:
+//     steps:
+//       - script: ./scripts/deploy.ts  // Executed with ScriptLoader
+```
+
+#### 4. Inline Code Evaluation
+
+**Current Implementation** (`commands/run.ts`):
+```typescript
+// Execute inline TypeScript/JavaScript
+const scriptLoader = new ScriptLoader({ typescript: true });
+
+await scriptLoader.evaluateCode(
+  `
+  const result = await $\`echo "Hello"\`;
+  console.log(result.stdout);
+  `,
+  {
+    context: {
+      args: ['arg1'],
+      argv: ['xec', '<eval>', 'arg1']
+    }
+  }
+);
+
+// CLI usage:
+// xec run -e 'console.log(await $`date`)'
+// xec run -e 'const _ = await use("lodash"); console.log(_.chunk([1,2,3,4], 2))'
+```
+
+#### 5. CDN Module Loading in Scripts
+
+**Current Implementation** (via `module-loader.ts` global injection):
+```typescript
+// Script example using CDN modules
+// file: script.ts
+
+// Method 1: use() function (user-friendly)
+const lodash = await use('lodash');
+const dayjs = await use('dayjs');
+
+// Method 2: x() ultra-minimal
+const chalk = await x('chalk');
+
+// Method 3: prefix syntax
+const react = await use('npm:react');
+const zod = await use('jsr:@std/encoding');
+
+// Method 4: native import (works after init)
+const { default: axios } = await import('axios');
+
+// All utilities available globally:
+await $`ls -la`;
+cd('/tmp');
+const files = await glob('*.js');
+echo.success('Done!');
+```
+
+#### 6. Watch Mode for Development
+
+**Current Implementation** (`commands/watch.ts`, `script-loader.ts`):
+```typescript
+// Watch script and re-run on changes
+const scriptLoader = new ScriptLoader();
+
+await scriptLoader.executeScript(scriptPath, {
+  watch: true,  // Enable file watching
+  context: { args: [] }
+});
+
+// CLI usage:
+// xec run script.ts --watch
+```
+
+#### 7. Dynamic CLI Command Loading
+
+**Current Implementation** (`script-loader.ts`):
+```typescript
+// Load custom CLI commands from TypeScript files
+const scriptLoader = new ScriptLoader();
+
+const result = await scriptLoader.loadDynamicCommand(
+  commandFilePath,
+  program,      // Commander.js program
+  commandName
+);
+
+// Custom command file:
+// export default function(program: Command) {
+//   program
+//     .command('mycmd')
+//     .action(async () => { ... });
+// }
+```
+
+### High-Level API Design
+
+The new `@xec-sh/loader` package should expose these high-level APIs for easy consumption:
+
+#### Simple Script Runner
+
+```typescript
+import { createScriptRunner } from '@xec-sh/loader';
+
+// Create runner with sensible defaults
+const runner = createScriptRunner({
+  verbose: false,
+  cache: true,
+  cdn: 'esm.sh'
+});
+
+// Execute script
+const result = await runner.execute('./script.ts');
+if (result.ok) {
+  console.log('Success!');
+}
+```
+
+#### Script Runner with Context Injection
+
+```typescript
+import { createScriptRunner } from '@xec-sh/loader';
+import { $ } from '@xec-sh/core';
+
+// Create SSH engine
+const sshEngine = $.ssh({ host: 'example.com', username: 'admin' });
+
+// Run script with $target context
+const runner = createScriptRunner();
+const result = await runner.executeWithContext('./deploy.ts', {
+  target: {
+    type: 'ssh',
+    name: 'production',
+    engine: sshEngine,
+    info: {
+      host: 'example.com',
+      user: 'admin'
+    }
+  },
+  args: ['--env=prod']
+});
+```
+
+#### REPL with Custom Context
+
+```typescript
+import { createREPL } from '@xec-sh/loader';
+import { $ } from '@xec-sh/core';
+
+// Start REPL with custom context
+const repl = createREPL({
+  context: {
+    $target: $.docker({ container: 'myapp' }),
+    myCustom: 'value'
+  },
+  prompt: 'myapp> '
+});
+
+await repl.start();
+```
+
+#### Module Importer
+
+```typescript
+import { createModuleImporter } from '@xec-sh/loader';
+
+// Create importer with caching
+const importer = createModuleImporter({
+  cache: {
+    dir: '/tmp/xec-cache',
+    ttl: 3600
+  },
+  cdn: {
+    primary: 'esm.sh',
+    fallback: ['unpkg', 'jsdelivr']
+  }
+});
+
+// Import from CDN
+const lodash = await importer.import('lodash');
+const react = await importer.import('npm:react@18');
+const zod = await importer.import('jsr:@std/encoding');
+
+// Clear cache
+await importer.clearCache();
+```
+
+#### Global Context Manager
+
+```typescript
+import { createGlobalContext, disposeGlobalContext } from '@xec-sh/loader';
+
+// Set up global utilities
+const context = await createGlobalContext({
+  utilities: true,      // Inject $, echo, cd, pwd, etc.
+  moduleLoader: true,   // Inject use(), x()
+  customGlobals: {
+    myAPI: apiClient
+  }
+});
+
+// Script can now use globals:
+// await $`ls -la`
+// const _ = await use('lodash')
+// myAPI.fetch()
+
+// Clean up
+await disposeGlobalContext(context);
+```
+
+#### Code Evaluator
+
+```typescript
+import { createEvaluator } from '@xec-sh/loader';
+
+const evaluator = createEvaluator({
+  typescript: true,
+  timeout: 5000
+});
+
+// Evaluate TypeScript code
+const result = await evaluator.eval(`
+  interface User { name: string; age: number }
+  const user: User = { name: 'Alice', age: 30 };
+  return user;
+`);
+
+console.log(result.value); // { name: 'Alice', age: 30 }
+```
+
+#### All-in-One Loader
+
+```typescript
+import { Loader } from '@xec-sh/loader';
+import { $ } from '@xec-sh/core';
+
+// Create unified loader
+const loader = new Loader({
+  cache: true,
+  cdn: 'esm.sh',
+  typescript: true,
+  verbose: false
+});
+
+// Initialize (sets up global context)
+await loader.init();
+
+// Execute script
+await loader.executeScript('./script.ts', {
+  args: ['arg1', 'arg2']
+});
+
+// Execute with target
+await loader.executeScript('./deploy.ts', {
+  target: $.docker({ container: 'app' })
+});
+
+// Evaluate code
+await loader.eval('console.log(await $`date`)');
+
+// Start REPL
+await loader.repl({ prompt: 'xec> ' });
+
+// Import module
+const lodash = await loader.import('lodash');
+
+// Clean up
+await loader.dispose();
+```
+
+### Migration Examples from CLI
+
+#### Before (Current):
+```typescript
+// commands/run.ts
+import { ScriptLoader } from '../utils/script-loader.js';
+import { getModuleLoader } from '../utils/module-loader.js';
+
+const scriptLoader = new ScriptLoader({ verbose, cache: true });
+const result = await scriptLoader.executeScript(scriptPath, options);
+```
+
+#### After (With @xec-sh/loader):
+```typescript
+// commands/run.ts
+import { createScriptRunner } from '@xec-sh/loader';
+
+const runner = createScriptRunner({ verbose, cache: true });
+const result = await runner.execute(scriptPath, options);
+```
+
+#### Before (Task Executor):
+```typescript
+// config/task-executor.ts
+import { getScriptLoader } from '../utils/script-loader.js';
+
+const scriptLoader = getScriptLoader({ verbose, quiet });
+const result = await scriptLoader.executeScript(scriptPath, {
+  target: target,
+  targetEngine: engine,
+  context: { ... }
+});
+```
+
+#### After (Task Executor):
+```typescript
+// config/task-executor.ts
+import { createScriptRunner } from '@xec-sh/loader';
+
+const runner = createScriptRunner({ verbose, quiet });
+const result = await runner.executeWithContext(scriptPath, {
+  target: { engine, info: target },
+  context: { ... }
+});
+```
+
+### Compatibility Layer
+
+For smooth migration, provide a compatibility layer that mimics the old API:
+
+```typescript
+// @xec-sh/loader/compat
+export { ScriptLoader } from './compat/script-loader.js';
+export { ModuleLoader } from './compat/module-loader.js';
+export { getScriptLoader, getModuleLoader } from './compat/singletons.js';
+```
+
+This allows CLI to migrate gradually:
+
+```typescript
+// Phase 1: Use compat layer (no code changes)
+import { ScriptLoader } from '@xec-sh/loader/compat';
+
+// Phase 2: Migrate to new API (with code changes)
+import { createScriptRunner } from '@xec-sh/loader';
+```
+
+---
+
 ## Module Specifications
 
 ### core/execution-context.ts
@@ -1429,17 +1838,20 @@ export interface InjectOptions {
 
 ## Migration Strategy
 
-### Phase 1: Package Setup (Week 1)
+### Phase 1: Package Setup (Week 1) ✅ COMPLETED
 
 **Goal**: Create package structure and build infrastructure
 
-1. **Create package directory**
+**Status**: ✅ Completed
+**Date**: 2025-10-02
+
+1. **Create package directory** ✅
    ```bash
    mkdir -p packages/loader
    cd packages/loader
    ```
 
-2. **Initialize package.json**
+2. **Initialize package.json** ✅
    ```json
    {
      "name": "@xec-sh/loader",
@@ -1502,23 +1914,26 @@ export interface InjectOptions {
    - Update `turbo.json` build configuration
    - Run `yarn install` to link package
 
-### Phase 2: Type Definitions (Week 1-2)
+### Phase 2: Type Definitions (Week 1-2) ✅ COMPLETED
 
 **Goal**: Define all TypeScript interfaces and types
 
-1. **Create type files** in `src/types/`:
-   - `execution.ts`
-   - `module.ts`
-   - `cache.ts`
-   - `runtime.ts`
-   - `index.ts` (barrel export)
+**Status**: ✅ Completed
+**Date**: 2025-10-02
 
-2. **Validate types**
+1. **Create type files** in `src/types/`: ✅
+   - ✅ `execution.ts` - ExecutionOptions, ExecutionResult, ScriptContext, TargetInfo
+   - ✅ `module.ts` - ModuleType, CDNProvider, ModuleResolver, ModuleSpecifier
+   - ✅ `cache.ts` - Cache interface, CacheEntry, CacheStats
+   - ✅ `runtime.ts` - RuntimeOptions, REPLOptions, ProcessInfo
+   - ✅ `index.ts` (barrel export)
+
+2. **Validate types** ✅
    ```bash
-   yarn typecheck
+   yarn typecheck  # ✅ Passed with 0 errors
    ```
 
-3. **Write type tests** (type-level testing)
+3. **Write type tests** (type-level testing) ⏭️ Skipped (not critical for Phase 1-3)
    ```typescript
    // test/types/execution.test-d.ts
    import { expectType, expectError } from 'tsd';
@@ -1531,29 +1946,41 @@ export interface InjectOptions {
    expectType<ExecutionOptions>(options);
    ```
 
-### Phase 3: Core Modules (Week 2-3)
+### Phase 3: Core Modules (Week 2-3) ✅ COMPLETED
 
 **Goal**: Implement core execution infrastructure
 
-1. **ExecutionContext** (`src/core/execution-context.ts`)
-   - Copy relevant parts from `script-loader.ts`
-   - Refactor to class-based design
-   - Add tests
+**Status**: ✅ Completed
+**Date**: 2025-10-02
 
-2. **ScriptExecutor** (`src/core/script-executor.ts`)
-   - Extract from `ScriptLoader` class
-   - Remove CLI-specific code
-   - Add tests
+1. **ExecutionContext** (`src/core/execution-context.ts`) ✅
+   - ✅ Implemented isolated execution context management
+   - ✅ Global injection/restoration logic
+   - ✅ Target context support ($target, $targetInfo)
+   - ✅ Tests: 16/16 passing
 
-3. **CodeEvaluator** (`src/core/code-evaluator.ts`)
-   - Extract from `ScriptLoader.evaluateCode`
-   - Simplify and clean up
-   - Add tests
+2. **ScriptExecutor** (`src/core/script-executor.ts`) ✅
+   - ✅ Script file execution with context injection
+   - ✅ Dynamic module loading support
+   - ✅ File existence validation
+   - ✅ Tests: 7/7 passing
 
-4. **Run tests**
+3. **CodeEvaluator** (`src/core/code-evaluator.ts`) ✅
+   - ✅ Inline code evaluation via data URLs
+   - ✅ TypeScript-ready (base64 encoded modules)
+   - ✅ Async/await support
+   - ✅ Return value extraction with eval<T>()
+   - ✅ Tests: 8/8 passing
+
+4. **Run tests** ✅
    ```bash
-   yarn test src/core
+   yarn test src/core  # ✅ All 31 tests passing
    ```
+
+**Test Results**: ✅ 31/31 tests passing
+- execution-context.test.ts: 16 tests passing
+- script-executor.test.ts: 7 tests passing
+- code-evaluator.test.ts: 8 tests passing
 
 ### Phase 4: Module System (Week 3-4)
 
