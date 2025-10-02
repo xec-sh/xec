@@ -351,6 +351,11 @@ export class ScriptLoader {
         // We need to replace this with assignment to globalThis.prism
         let finalCode = transformed.code;
 
+        // Fix esbuild's incorrect .mjs extensions for node: imports
+        // esbuild sometimes generates: import process from "node:process.mjs"
+        // Node.js expects: import process from "node:process"
+        finalCode = finalCode.replace(/from\s+["']node:([^"']+)\.mjs["']/g, 'from "node:$1"');
+
         // Replace problematic declarations
         finalCode = finalCode.replace(
           /const prism = globalThis\.prism \|\| kit\.prism;/g,
@@ -358,8 +363,10 @@ export class ScriptLoader {
         );
 
         // Add preamble with global context
+        // IMPORTANT: process is already global in Node.js, no need to import it
         const preamble = `
 // Injected global context for dynamic commands
+const process = globalThis.process;
 const $ = globalThis.$;
 const kit = globalThis.kit;
 const prism = globalThis.prism;
@@ -371,11 +378,24 @@ const Import = globalThis.Import;
 `;
 
         // Write to temp file with preamble
-        const tmpFile = path.join('/tmp', `xec-cmd-${Date.now()}.mjs`);
-        await fs.promises.writeFile(tmpFile, preamble + finalCode);
+        // Use .js extension and write to project's .xec directory to ensure proper module resolution
+        const tmpDir = path.join(process.cwd(), '.xec', '.tmp');
+        await fs.promises.mkdir(tmpDir, { recursive: true });
+        const tmpFile = path.join(tmpDir, `xec-cmd-${Date.now()}.js`);
+        const fullCode = preamble + finalCode;
+
+        await fs.promises.writeFile(tmpFile, fullCode);
 
         try {
-          moduleExports = await import(`file://${tmpFile}`);
+          // Use a more explicit file URL to avoid module resolution issues
+          const fileUrl = new URL(`file://${tmpFile}`).href;
+
+          if (process.env['XEC_DEBUG']) {
+            console.log(`[loadDynamicCommand] Importing URL: ${fileUrl}`);
+            console.log(`[loadDynamicCommand] File exists:`, await fs.promises.access(tmpFile).then(() => true).catch(() => false));
+          }
+
+          moduleExports = await import(fileUrl);
         } finally {
           // Clean up temp file (keep for debugging)
           if (!process.env['XEC_DEBUG']) {
@@ -401,6 +421,13 @@ const Import = globalThis.Import;
         };
       }
     } catch (error) {
+      // Enhanced error logging for debugging
+      if (process.env['XEC_DEBUG']) {
+        console.error('[loadDynamicCommand] Error details:', error);
+        if (error instanceof Error && error.stack) {
+          console.error('[loadDynamicCommand] Stack trace:', error.stack);
+        }
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

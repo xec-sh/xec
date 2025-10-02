@@ -166,10 +166,24 @@ export class CliCommandManager {
   private async discoverDynamicCommands(): Promise<CliCommand[]> {
     const commands: CliCommand[] = [];
 
+    // DEBUG: Log command directories being searched
+    if (process.env['XEC_DEBUG']) {
+      console.log('[DEBUG] Searching for dynamic commands in:');
+      for (const dir of this.commandDirs) {
+        const exists = await fs.pathExists(dir);
+        console.log(`[DEBUG]   ${exists ? '✓' : '✗'} ${dir}`);
+      }
+    }
+
     for (const dir of this.commandDirs) {
       if (await fs.pathExists(dir)) {
         await this.discoverCommandsInDirectory(dir, commands, '');
       }
+    }
+
+    // DEBUG: Log discovered commands
+    if (process.env['XEC_DEBUG']) {
+      console.log(`[DEBUG] Discovered ${commands.length} dynamic commands:`, commands.map(c => c.name));
     }
 
     return commands;

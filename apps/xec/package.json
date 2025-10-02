@@ -61,20 +61,20 @@
     "xec": "bin/xec"
   },
   "devDependencies": {
-    "@jest/globals": "30.1.2",
+    "@jest/globals": "30.2.0",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/minimist": "^1.2.5",
     "@types/mustache": "^4.2.6",
-    "@types/node": "24.3.1",
+    "@types/node": "24.6.2",
     "@types/ssh2": "^1.15.5",
     "@types/which": "^3.0.4",
     "@xec-sh/testing": "workspace:*",
-    "jest": "30.1.3",
+    "jest": "30.2.0",
     "source-map-support": "0.5.21",
     "tempy": "^3.1.0",
-    "ts-jest": "29.4.1",
+    "ts-jest": "29.4.4",
     "ts-loader": "9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
@@ -112,7 +112,7 @@
     "ps-list": "^8.1.1",
     "table": "^6.9.0",
     "which": "^5.0.0",
-    "zod": "^4.1.9"
+    "zod": "^4.1.11"
   },
   "installConfig": {
     "hoistingLimits": "workspaces"

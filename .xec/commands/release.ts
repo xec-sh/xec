@@ -8,8 +8,8 @@ import { join } from 'path';
 // If not available, fallback to kit.prism
 const prism = (globalThis as any).prism || kit.prism;
 
-// Dynamic imports with efficient loading
-const semver = await use('npm:semver@7');
+// Dynamic imports - defer loading until command execution
+let semver: any;
 
 // Package configurations
 const PACKAGES = [
@@ -222,6 +222,11 @@ export function command(program: Command): void {
     .option('--prerelease <tag>', 'Create a prerelease version (alpha, beta, rc)')
     .option('--config <path>', 'Path to release configuration file')
     .action(async (version: string | undefined, options: any) => {
+      // Load dependencies
+      if (!semver) {
+        semver = await use('npm:semver@7');
+      }
+
       const s = kit.spinner();
       const rollbackState: RollbackState = {
         originalPackageJsons: new Map(),
