@@ -44,6 +44,16 @@ export {
   transformImports,
 } from './transform/index.js';
 
+// Export REPL utilities
+export {
+  REPLServer,
+  createREPLServer,
+  startREPL,
+  REPLCommands,
+  createCommands,
+  createBuiltinCommands,
+} from './repl/index.js';
+
 // Re-export for convenience
 export type {
   ExecutionOptions,
