@@ -65,6 +65,7 @@ export class ScriptLoader {
   private evaluator: CodeEvaluator;
   private moduleLoader: ModuleLoader;
   private options: LoaderOptions;
+  private globalContextInitialized = false;
 
   constructor(options: LoaderOptions = {}) {
     this.options = {
@@ -323,14 +324,71 @@ export class ScriptLoader {
     commandName: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Initialize global module context
+      // CRITICAL: Initialize global module context BEFORE importing
+      // This ensures kit, prism, log are available during module parsing
       await this.initializeGlobalModuleContext();
 
-      // Load the module using ModuleLoader
-      const moduleExports = await this.moduleLoader.import(filePath);
+      // Load the module - use esbuild for TypeScript files, dynamic import for JS
+      let moduleExports;
+      if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
+        // TypeScript files: use esbuild to transpile and then import
+        const fs = await import('fs');
+        const path = await import('path');
 
-      // Check if the module exports a default function or a setup function
-      const setupFn = moduleExports.default || moduleExports.setup;
+        const code = await fs.promises.readFile(filePath, 'utf-8');
+
+        // Transform TypeScript to JavaScript
+        const { transform } = await import('esbuild');
+        const transformed = await transform(code, {
+          loader: filePath.endsWith('.tsx') ? 'tsx' : 'ts',
+          format: 'esm',
+          target: 'node20',
+          platform: 'node'
+        });
+
+        // IMPORTANT: Remove conflicting declarations from transformed code
+        // release.ts has: const prism = globalThis.prism || kit.prism;
+        // We need to replace this with assignment to globalThis.prism
+        let finalCode = transformed.code;
+
+        // Replace problematic declarations
+        finalCode = finalCode.replace(
+          /const prism = globalThis\.prism \|\| kit\.prism;/g,
+          '// prism is available from globalThis'
+        );
+
+        // Add preamble with global context
+        const preamble = `
+// Injected global context for dynamic commands
+const kit = globalThis.kit;
+const prism = globalThis.prism;
+const log = globalThis.log;
+const use = globalThis.use;
+const x = globalThis.x;
+const Import = globalThis.Import;
+
+`;
+
+        // Write to temp file with preamble
+        const tmpFile = path.join('/tmp', `xec-cmd-${Date.now()}.mjs`);
+        await fs.promises.writeFile(tmpFile, preamble + finalCode);
+
+        try {
+          moduleExports = await import(`file://${tmpFile}`);
+        } finally {
+          // Clean up temp file (keep for debugging)
+          if (!process.env['XEC_DEBUG']) {
+            await fs.promises.unlink(tmpFile).catch(() => {});
+          }
+        }
+      } else {
+        // JavaScript files: use direct import
+        const fileUrl = filePath.startsWith('/') ? `file://${filePath}` : filePath;
+        moduleExports = await import(fileUrl);
+      }
+
+      // Check if the module exports a default function, setup, or command function
+      const setupFn = moduleExports.default || moduleExports.setup || moduleExports.command;
       if (typeof setupFn === 'function') {
         // Execute the setup function with program
         await setupFn(program);
@@ -338,7 +396,7 @@ export class ScriptLoader {
       } else {
         return {
           success: false,
-          error: `Command file must export a default function or setup function`,
+          error: `Command file must export a default function, setup function, or command function`,
         };
       }
     } catch (error) {
@@ -350,20 +408,38 @@ export class ScriptLoader {
   }
 
   /**
-   * Initialize global module context (use, x, Import functions)
+   * Initialize global module context (use, x, Import functions + kit utilities)
+   * Only initializes once per instance
    */
   private async initializeGlobalModuleContext(): Promise<void> {
-    // Inject global functions for module loading
+    // Skip if already initialized
+    if (this.globalContextInitialized) {
+      return;
+    }
+
+    // Import kit for global utilities
+    const kit = await import('@xec-sh/kit');
+
+    // Inject global functions for module loading AND kit utilities
     const injector = new GlobalInjector({
       globals: {
+        // Module loading functions
         use: async (spec: string) => await this.moduleLoader.import(spec),
         x: async (spec: string) => await this.moduleLoader.import(spec),
         Import: async (spec: string) => await this.moduleLoader.import(spec),
+
+        // Kit utilities (needed for dynamic commands like release.ts)
+        kit: kit,
+        prism: kit.prism,
+        log: kit.log,
       },
     });
 
     // Execute without restoring (we want these to stay global)
     injector.inject();
+
+    // Mark as initialized
+    this.globalContextInitialized = true;
   }
 
   /**
