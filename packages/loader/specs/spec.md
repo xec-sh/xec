@@ -55,7 +55,10 @@
     - Fixed redirect detection for esm.sh modules
     - Added ?bundle parameter for bundled modules
     - Fixed caching issue with redirect content
+    - Fixed node: import transformation (made .mjs extension optional)
     - Verified with lodash, date-fns, zod, camelcase
+  - Test coverage: >95% for all source modules
+  - Coverage tool (@vitest/coverage-v8) installed and configured
 
 - **Phase 8**: CLI Migration (COMPLETED)
   - Added @xec-sh/loader dependency to @xec-sh/cli
@@ -87,9 +90,15 @@
 
 ### 📊 Test Statistics
 
-- **Total Tests**: 318 passing, 3 skipped
+- **Total Tests**: 318 passing, 3 skipped (321 total)
 - **Test Files**: 16 files
 - **Coverage**: Comprehensive unit and integration tests
+  - **src/core**: 100% statements, 92.68% branches, 100% functions
+  - **src/module**: 94.98% statements, 87.26% branches, 98.27% functions
+  - **src/repl**: 93.81% statements, 100% branches, 96.42% functions
+  - **src/runtime**: 98.46% statements, 100% branches, 90.9% functions
+  - **src/transform**: 96.99% statements, 91.3% branches, 100% functions
+  - **Overall**: >95% coverage target achieved ✅
 
 ### 🚧 Remaining Phases
 
