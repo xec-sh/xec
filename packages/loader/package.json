@@ -17,10 +17,6 @@
     "./repl": {
       "import": "./dist/repl/index.js",
       "types": "./dist/repl/index.d.ts"
-    },
-    "./compat": {
-      "import": "./dist/compat/index.js",
-      "types": "./dist/compat/index.d.ts"
     }
   },
   "files": [
