@@ -2024,29 +2024,43 @@ export interface InjectOptions {
 **Test Results**: 121 total tests passing, 2 skipped
 **Files Created**: 11 implementation files + 5 test files
 
-### Phase 5: Runtime & Transform (Week 4-5)
+### Phase 5: Runtime & Transform (Week 4-5) ✅ COMPLETED
 
 **Goal**: Implement runtime utilities and transformations
 
-1. **ScriptRuntime** (`src/runtime/script-runtime.ts`)
-   - Copy from `script-utils.ts`
-   - Refactor to class
-   - Remove CLI dependencies
-   - Add tests
+1. **ScriptRuntime** (`src/runtime/script-runtime.ts`) ✅
+   - ✅ Copied utilities from `script-utils.ts`
+   - ✅ Refactored to class-based API
+   - ✅ Removed CLI dependencies (@xec-sh/kit)
+   - ✅ Added 29 comprehensive tests (28 passing, 1 skipped)
+   - Features: cd/pwd, env management, retry with backoff, sleep, within, quote, tmpdir/tmpfile, template strings
 
-2. **GlobalInjector** (`src/runtime/global-injector.ts`)
-   - Extract global injection logic
-   - Add safety checks
-   - Add tests
+2. **GlobalInjector** (`src/runtime/global-injector.ts`) ✅
+   - ✅ Extracted and enhanced global injection logic from ExecutionContext
+   - ✅ Added safety checks (reserved globals, skipGlobals option)
+   - ✅ Added preserveOriginals option
+   - ✅ Added execute/executeSync methods
+   - ✅ Added 25 comprehensive tests (all passing)
 
-3. **TypeScriptTransformer** (`src/transform/typescript-transformer.ts`)
-   - Extract from `ModuleLoader`
-   - Add caching
-   - Add tests
+3. **TypeScriptTransformer** (`src/transform/typescript-transformer.ts`) ✅
+   - ✅ Extracted esbuild transformation from `ModuleLoader`
+   - ✅ Added intelligent caching with Cache<string> integration
+   - ✅ Added loader detection (.ts, .tsx, .jsx, .js)
+   - ✅ Added transformWithOptions for custom configs
+   - ✅ Added needsTransformation and transformIfNeeded helpers
+   - ✅ Added 22 comprehensive tests (all passing)
 
-4. **ImportTransformer** (`src/transform/import-transformer.ts`)
-   - Extract ESM content transformation
-   - Add tests
+4. **ImportTransformer** (`src/transform/import-transformer.ts`) ✅
+   - ✅ Extracted ESM content transformation from module-fetcher
+   - ✅ Added /node/module@version → node:module transformation
+   - ✅ Added relative to absolute URL transformation
+   - ✅ Added custom transformation rules system
+   - ✅ Added transformESMsh and transformCDN methods
+   - ✅ Added 29 comprehensive tests (all passing)
+
+**Test Results**: 225 total tests passing, 3 skipped
+**Files Created**: 8 implementation files + 4 test files
+**Test Coverage**: Runtime (29 tests), GlobalInjector (25 tests), TypeScriptTransformer (22 tests), ImportTransformer (29 tests)
 
 ### Phase 6: REPL (Week 5)
 
