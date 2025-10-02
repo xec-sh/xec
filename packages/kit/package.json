@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/kit",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "TypeScript library for building beautiful command-line interfaces",
   "type": "module",
   "main": "./dist/index.js",

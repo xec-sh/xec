@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/cli",
   "description": "Xec: The Universal Shell for TypeScript",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "author": "DevGrid",
   "type": "module",
   "license": "MIT",
@@ -90,9 +90,9 @@
   },
   "homepage": "https://xec.sh",
   "dependencies": {
-    "@xec-sh/core": "workspace:*",
-    "@xec-sh/kit": "workspace:*",
-    "@xec-sh/loader": "workspace:*",
+    "@xec-sh/core": "^0.8.3",
+    "@xec-sh/kit": "^0.8.3",
+    "@xec-sh/loader": "^0.8.3",
     "chokidar": "^4.0.3",
     "commander": "14.0.1",
     "csv-parse": "^6.1.0",
