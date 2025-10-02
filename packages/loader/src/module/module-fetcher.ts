@@ -56,10 +56,18 @@ export class ModuleFetcher {
         const content = await response.text();
         const responseHeaders = this.extractHeaders(response);
 
+        // Check if this is a redirect module (common with esm.sh)
+        // IMPORTANT: Check BEFORE transforming, as transform changes paths
+        const redirectTarget = this.detectRedirect(content, url);
+        if (redirectTarget) {
+          // Recursively fetch the actual module (don't cache redirects)
+          return this.fetch(redirectTarget, options);
+        }
+
         // Transform content if needed
         const transformedContent = this.transformContent(content, url);
 
-        // Cache the result
+        // Cache the transformed result
         await this.cache.set(url, transformedContent);
 
         return {
@@ -113,6 +121,40 @@ export class ModuleFetcher {
       headers[key.toLowerCase()] = value;
     });
     return headers;
+  }
+
+  /**
+   * Detect if content is just a redirect module (re-export)
+   * Common patterns with esm.sh:
+   * - export * from "/path/to/actual/module.mjs";
+   * - export * from "/path"; export { default } from "/path";
+   */
+  private detectRedirect(content: string, baseURL: string): string | null {
+    // Remove comments and whitespace
+    const cleaned = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '').trim();
+
+    // Pattern 1: export * from "/path"; export { default } from "/path";
+    const pattern1 = /export\s+\*\s+from\s+["']([^"']+)["'];?\s*export\s+{\s*default\s*}\s+from\s+["']\1["']/;
+    let match = cleaned.match(pattern1);
+
+    // Pattern 2: Just export * from "/path";
+    if (!match) {
+      const pattern2 = /^export\s+\*\s+from\s+["']([^"']+)["'];?\s*$/;
+      match = cleaned.match(pattern2);
+    }
+
+    if (match && match[1]) {
+      const targetPath = match[1];
+      // If it's a relative path, resolve it against the base URL
+      if (targetPath.startsWith('/')) {
+        const base = new URL(baseURL);
+        return `${base.protocol}//${base.host}${targetPath}`;
+      }
+      // Otherwise return as-is (shouldn't happen with esm.sh)
+      return targetPath;
+    }
+
+    return null;
   }
 
   /**

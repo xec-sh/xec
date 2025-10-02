@@ -48,7 +48,7 @@ describe('CDNModuleResolver', () => {
   it('should resolve npm: prefix', async () => {
     expect(resolver.canResolve('npm:lodash')).toBe(true);
     const result = await resolver.resolve('npm:lodash');
-    expect(result.resolved).toBe('https://esm.sh/lodash');
+    expect(result.resolved).toBe('https://esm.sh/lodash?bundle');
     expect(result.type).toBe('esm');
     expect(result.cdn).toBe('esm.sh'); // Maps to preferred CDN
   });
@@ -61,7 +61,7 @@ describe('CDNModuleResolver', () => {
 
   it('should resolve esm: prefix', async () => {
     const result = await resolver.resolve('esm:react@18.2.0');
-    expect(result.resolved).toBe('https://esm.sh/react@18.2.0');
+    expect(result.resolved).toBe('https://esm.sh/react@18.2.0?bundle');
   });
 
   it('should resolve unpkg: prefix', async () => {
@@ -135,7 +135,7 @@ describe('NodeModuleResolver', () => {
 
   it('should fallback to CDN for non-existent packages', async () => {
     const result = await resolver.resolve('non-existent-package-12345');
-    expect(result.resolved).toBe('https://esm.sh/non-existent-package-12345');
+    expect(result.resolved).toBe('https://esm.sh/non-existent-package-12345?bundle');
   });
 
   it('should throw if no CDN fallback is provided', async () => {
@@ -168,7 +168,7 @@ describe('CompositeModuleResolver', () => {
 
   it('should use first matching resolver', async () => {
     const result = await resolver.resolve('npm:lodash');
-    expect(result.resolved).toBe('https://esm.sh/lodash');
+    expect(result.resolved).toBe('https://esm.sh/lodash?bundle');
   });
 
   it('should throw if no resolver can handle specifier', async () => {
