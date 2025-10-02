@@ -4,9 +4,9 @@
  */
 
 import type {
-  ExecutionContextOptions,
   TargetInfo,
   ScriptContext,
+  ExecutionContextOptions,
 } from '../types/index.js';
 
 /**

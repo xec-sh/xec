@@ -5,7 +5,8 @@
 
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import type { ModuleResolver, ModuleResolution, ModuleSpecifier, CDNProvider } from '../types/index.js';
+
+import type { CDNProvider, ModuleResolver, ModuleSpecifier, ModuleResolution } from '../types/index.js';
 
 /**
  * CDN URL mappings

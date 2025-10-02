@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { it, expect, describe, afterEach } from 'vitest';
+
 import { REPLServer, REPLCommands } from '../../src/index.js';
-import * as repl from 'node:repl';
 
 describe('Integration: REPL System', () => {
   let replServer: REPLServer | undefined;

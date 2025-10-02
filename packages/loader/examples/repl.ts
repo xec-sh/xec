@@ -19,9 +19,9 @@
 import {
   REPLServer,
   REPLCommands,
-  createBuiltinCommands,
   ScriptRuntime,
   GlobalInjector,
+  createBuiltinCommands,
 } from '../src/index.js';
 
 async function main() {

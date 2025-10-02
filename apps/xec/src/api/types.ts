@@ -4,7 +4,7 @@
 
 import type { ExecutionEngine, ExecutionResult as CoreExecutionResult } from '@xec-sh/core';
 
-import type { ResolvedTarget, TaskDefinition as ConfigTaskDefinition, TargetType } from '../config/types.js';
+import type { TargetType, ResolvedTarget, TaskDefinition as ConfigTaskDefinition } from '../config/types.js';
 
 // Configuration API Types
 export interface ConfigurationOptions {

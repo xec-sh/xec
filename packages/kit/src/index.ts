@@ -26,6 +26,7 @@ export * from './prompts/autocomplete.js';
 export * from './components/progress-bar.js';
 export * from './utilities/limit-options.js';
 export * from './prompts/group-multi-select.js';
+export { table, interactiveTable } from './components/table/index.js';
 
 // Export core functionality
 export {
@@ -37,3 +38,72 @@ export {
   updateSettings,
   type ClackSettings,
 } from './core/index.js';
+
+// Export table optimization utilities (Phase 4)
+export {
+  Cache,
+  memoize,
+  TableError,
+  TableCache,
+  safeExecute,
+  formatError,
+  isTableError,
+  ErrorRecovery,
+  safeExecuteAsync,
+  createRenderError,
+  createStreamError,
+  isRecoverableError,
+  getGlobalTableCache,
+  createValidationError,
+  createEditFailedError,
+  resetGlobalTableCache,
+  createInvalidDataError,
+  createExportFailedError,
+  createColumnNotFoundError,
+} from './components/table/index.js';
+
+// Export table utilities (Phase 3)
+export {
+  saveEdit,
+  batchAsync,
+  exportToCSV,
+  exportToTSV,
+  loadChunked,
+  exportToJSON,
+  exportToText,
+  exportToHTML,
+  exitEditMode,
+  streamToArray,
+  arrayToStream,
+  enterEditMode,
+  isCellEditable,
+  updateEditValue,
+  exportToMarkdown,
+  getCurrentCellInfo,
+  asyncIterableToArray,
+  arrayToAsyncIterable,
+  navigateToNextEditableColumn,
+  navigateToPreviousEditableColumn,
+} from './components/table/index.js';
+
+// Export table types
+export type {
+  WordWrap,
+  Alignment,
+  TableState,
+  TableColumn,
+  CacheConfig,
+  BorderStyle,
+  TableOptions,
+  ExportOptions,
+  StreamOptions,
+  CacheStrategy,
+  SelectionMode,
+  SortDirection,
+  VirtualConfig,
+  StreamProgress,
+  TableErrorCode,
+  TableErrorHandler,
+  VirtualTableOptions,
+  InteractiveTableOptions,
+} from './components/table/index.js';

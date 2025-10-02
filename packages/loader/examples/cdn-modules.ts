@@ -8,16 +8,17 @@
  * - Module execution
  */
 
+import * as os from 'node:os';
+import * as path from 'node:path';
+
 import {
+  MemoryCache,
+  HybridCache,
   ModuleLoader,
   ModuleFetcher,
   CDNModuleResolver,
-  MemoryCache,
-  HybridCache,
   ImportTransformer,
 } from '../src/index.js';
-import * as path from 'node:path';
-import * as os from 'node:os';
 
 async function main() {
   console.log('=== @xec-sh/loader CDN Module Examples ===\n');

@@ -1,9 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import { TypeScriptTransformer, createTransformer } from '../../../src/transform/typescript-transformer.js';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { MemoryCache } from '../../../src/module/module-cache.js';
+import { createTransformer, TypeScriptTransformer } from '../../../src/transform/typescript-transformer.js';
 
 describe('TypeScriptTransformer', () => {
   let transformer: TypeScriptTransformer;

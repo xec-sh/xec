@@ -4,16 +4,16 @@
  */
 
 export {
+  startREPL,
   REPLServer,
   createREPLServer,
-  startREPL,
   type REPLServerOptions,
 } from './repl-server.js';
 
 export {
   REPLCommands,
   createCommands,
-  createBuiltinCommands,
   type REPLCommand,
+  createBuiltinCommands,
   type REPLCommandHandler,
 } from './repl-commands.js';

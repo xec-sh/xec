@@ -2,8 +2,10 @@
  * Tests for ExecutionContext
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { it, expect, describe, afterEach } from 'vitest';
+
 import { ExecutionContext } from '../../../src/core/execution-context.js';
+
 import type { ExecutionContextOptions } from '../../../src/types/index.js';
 
 describe('ExecutionContext', () => {
@@ -162,9 +164,7 @@ describe('ExecutionContext', () => {
       const customGlobals = { testValue: 42 };
       context = new ExecutionContext({ customGlobals });
 
-      const result = await context.execute(async () => {
-        return (globalThis as any).testValue * 2;
-      });
+      const result = await context.execute(async () => (globalThis as any).testValue * 2);
 
       expect(result).toBe(84);
       expect((globalThis as any).testValue).toBeUndefined();

@@ -9,12 +9,12 @@ import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { exec } from 'child_process';
 import { createRequire } from 'module';
+import { ModuleLoader } from '@xec-sh/loader';
 import { prism, select, confirm } from '@xec-sh/kit';
 
 import { formatBytes } from '../utils/formatters.js';
 import { getModuleCacheDir } from '../config/utils.js';
 import { TaskManager } from '../config/task-manager.js';
-import { ModuleLoader } from '@xec-sh/loader';
 import { TargetResolver } from '../config/target-resolver.js';
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';

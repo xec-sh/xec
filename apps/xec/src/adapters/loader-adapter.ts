@@ -425,7 +425,7 @@ const Import = globalThis.Import;
     const injector = new GlobalInjector({
       globals: {
         // Core execution function (CRITICAL for commands like release.ts)
-        $: $,
+        $,
 
         // Module loading functions
         use: async (spec: string) => await this.moduleLoader.import(spec),
@@ -433,7 +433,7 @@ const Import = globalThis.Import;
         Import: async (spec: string) => await this.moduleLoader.import(spec),
 
         // Kit utilities (needed for dynamic commands like release.ts)
-        kit: kit,
+        kit,
         prism: kit.prism,
         log: kit.log,
       },

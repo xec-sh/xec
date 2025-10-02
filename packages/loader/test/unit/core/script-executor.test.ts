@@ -2,11 +2,12 @@
  * Tests for ScriptExecutor
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { ScriptExecutor } from '../../../src/core/script-executor.js';
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { it, expect, describe, afterAll, beforeAll } from 'vitest';
+
+import { ScriptExecutor } from '../../../src/core/script-executor.js';
 
 describe('ScriptExecutor', () => {
   let executor: ScriptExecutor;

@@ -2,7 +2,8 @@
  * Tests for CodeEvaluator
  */
 
-import { describe, it, expect } from 'vitest';
+import { it, expect, describe } from 'vitest';
+
 import { CodeEvaluator } from '../../../src/core/code-evaluator.js';
 
 describe('CodeEvaluator', () => {

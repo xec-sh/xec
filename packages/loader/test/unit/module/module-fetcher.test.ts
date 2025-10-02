@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ModuleFetcher } from '../../../src/module/module-fetcher.js';
+import { it, vi, expect, describe, beforeEach } from 'vitest';
+
 import { MemoryCache } from '../../../src/module/module-cache.js';
+import { ModuleFetcher } from '../../../src/module/module-fetcher.js';
 
 // Mock global fetch
 global.fetch = vi.fn();
