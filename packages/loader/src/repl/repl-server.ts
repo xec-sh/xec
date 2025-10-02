@@ -114,6 +114,11 @@ export class REPLServer {
    * Start the REPL server
    */
   start(): NodeREPLServer {
+    // Check if already running
+    if (this.server) {
+      throw new Error('REPL server is already running');
+    }
+
     // Show welcome message
     if (this.options.showWelcome) {
       this.showWelcome();
@@ -191,9 +196,12 @@ export class REPLServer {
   }
 
   /**
-   * Get REPL context
+   * Get REPL context or a specific key
    */
-  getContext(): Record<string, any> {
+  getContext(key?: string): any {
+    if (key) {
+      return this.options.context[key];
+    }
     return { ...this.options.context };
   }
 
@@ -211,7 +219,12 @@ export class REPLServer {
    * Unregister a command
    */
   unregisterCommand(name: string): boolean {
-    return this.commands.unregister(name);
+    const result = this.commands.unregister(name);
+    if (result && this.server) {
+      // Remove from server.commands if it exists
+      delete (this.server.commands as any)[name];
+    }
+    return result;
   }
 
   /**
