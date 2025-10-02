@@ -7,7 +7,7 @@ import { Command } from 'commander';
 import * as chokidar from 'chokidar';
 
 import { validateOptions } from '../utils/validation.js';
-import { getScriptLoader } from '../utils/script-loader.js';
+import { getScriptLoader } from '../adapters/loader-adapter.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 

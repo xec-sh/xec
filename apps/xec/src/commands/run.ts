@@ -7,7 +7,7 @@ import { log, prism } from '@xec-sh/kit';
 import { TaskManager } from '../config/task-manager.js';
 import { ConfigurationManager } from '../config/configuration-manager.js';
 import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
-import { ScriptLoader, type ExecutionOptions } from '../utils/script-loader.js';
+import { ScriptLoader, type ExecutionOptions } from '../adapters/loader-adapter.js';
 
 interface RunOptions extends ConfigAwareOptions {
   eval?: string;

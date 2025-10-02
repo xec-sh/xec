@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
-import { ScriptLoader } from './script-loader.js';
-import { initializeGlobalModuleContext } from './module-loader.js';
+import { ScriptLoader } from '../adapters/loader-adapter.js';
+import { GlobalInjector, ModuleLoader } from '@xec-sh/loader';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,10 +75,16 @@ export class CliCommandManager {
     if (this.initialized) return;
 
     try {
-      await initializeGlobalModuleContext({
-        verbose: process.env['XEC_DEBUG'] === 'true',
-        preferredCDN: 'esm.sh'
+      // Initialize global module context using @xec-sh/loader
+      const moduleLoader = new ModuleLoader({ preferredCDN: 'esm.sh' });
+      const injector = new GlobalInjector({
+        globals: {
+          use: async (spec: string) => await moduleLoader.import(spec),
+          x: async (spec: string) => await moduleLoader.import(spec),
+          Import: async (spec: string) => await moduleLoader.import(spec),
+        },
       });
+      injector.inject();
       this.initialized = true;
     } catch (err) {
       if (process.env['XEC_DEBUG']) {

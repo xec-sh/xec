@@ -25,7 +25,8 @@ import './globals.js';
 // ========================================
 export * from '@xec-sh/core';
 
-export { ModuleLoader } from './utils/module-loader.js';
+// Re-export ModuleLoader from @xec-sh/loader
+export { ModuleLoader } from '@xec-sh/loader';
 
 // Re-export external utilities from script-utils
 import { default as scriptUtils } from './utils/script-utils.js';
