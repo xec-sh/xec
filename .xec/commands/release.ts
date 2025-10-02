@@ -16,6 +16,7 @@ const PACKAGES = [
   { name: '@xec-sh/core', path: 'packages/core' },
   { name: '@xec-sh/cli', path: 'apps/xec' },
   { name: '@xec-sh/kit', path: 'packages/kit' },
+  { name: '@xec-sh/loader', path: 'packages/loader' },
   { name: '@xec-sh/testing', path: 'packages/testing' },
 ];
 
