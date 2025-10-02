@@ -3,12 +3,12 @@
  * @module @xec-sh/loader/module/module-loader
  */
 
-import type { ModuleLoaderOptions, ModuleSpecifier } from '../types/index.js';
-import { CompositeModuleResolver, LocalModuleResolver, CDNModuleResolver, NodeModuleResolver } from './module-resolver.js';
 import { ModuleFetcher } from './module-fetcher.js';
 import { ModuleExecutor } from './module-executor.js';
 import { MemoryCache, HybridCache } from './module-cache.js';
-import type { Cache } from '../types/index.js';
+import { CDNModuleResolver, NodeModuleResolver, LocalModuleResolver, CompositeModuleResolver } from './module-resolver.js';
+
+import type { Cache , ModuleSpecifier, ModuleLoaderOptions } from '../types/index.js';
 
 /**
  * ModuleLoader - main orchestrator for module loading

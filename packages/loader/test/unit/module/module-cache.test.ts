@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import {
   MemoryCache,
-  FileSystemCache,
   HybridCache,
+  FileSystemCache,
 } from '../../../src/module/module-cache.js';
 
 describe('MemoryCache', () => {

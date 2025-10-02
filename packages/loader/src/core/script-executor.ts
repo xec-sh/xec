@@ -6,12 +6,14 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import type {
-  ExecutionOptions,
-  ExecutionResult,
-  ScriptContext,
-} from '../types/index.js';
+
 import { ExecutionContext } from './execution-context.js';
+
+import type {
+  ScriptContext,
+  ExecutionResult,
+  ExecutionOptions,
+} from '../types/index.js';
 
 /**
  * ScriptExecutor executes script files with context injection

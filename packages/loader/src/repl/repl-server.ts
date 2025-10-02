@@ -3,8 +3,10 @@
  * @module @xec-sh/loader/repl/repl-server
  */
 
-import * as repl from 'node:repl';
 import type { REPLServer as NodeREPLServer } from 'node:repl';
+
+import * as repl from 'node:repl';
+
 import { REPLCommands, createBuiltinCommands } from './repl-commands.js';
 
 /**

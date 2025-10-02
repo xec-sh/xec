@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { REPLServer, createREPLServer } from '../../../src/repl/repl-server.js';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { REPLCommands } from '../../../src/repl/repl-commands.js';
+import { REPLServer, createREPLServer } from '../../../src/repl/repl-server.js';
 
 // Mock Node.js repl module
 vi.mock('node:repl', () => ({

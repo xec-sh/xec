@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { GlobalInjector, createInjector } from '../../../src/runtime/global-injector.js';
 
 describe('GlobalInjector', () => {
@@ -113,9 +114,7 @@ describe('GlobalInjector', () => {
     });
 
     it('should execute async function with injected globals', async () => {
-      const result = await injector.execute(async () => {
-        return (globalThis as any).injectedValue;
-      });
+      const result = await injector.execute(async () => (globalThis as any).injectedValue);
 
       expect(result).toBe(42);
     });
@@ -158,9 +157,7 @@ describe('GlobalInjector', () => {
     });
 
     it('should execute sync function with injected globals', () => {
-      const result = injector.executeSync(() => {
-        return (globalThis as any).syncValue;
-      });
+      const result = injector.executeSync(() => (globalThis as any).syncValue);
 
       expect(result).toBe('test');
       expect((globalThis as any).syncValue).toBeUndefined();

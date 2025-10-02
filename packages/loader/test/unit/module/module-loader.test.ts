@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { ModuleLoader } from '../../../src/module/module-loader.js';
 
 // Mock global fetch

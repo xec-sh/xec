@@ -7,10 +7,11 @@
  * - Context management
  */
 
-import { ScriptExecutor, CodeEvaluator, ExecutionContext } from '../src/index.js';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
+
+import { CodeEvaluator, ScriptExecutor, ExecutionContext } from '../src/index.js';
 
 async function main() {
   console.log('=== @xec-sh/loader Basic Usage Examples ===\n');

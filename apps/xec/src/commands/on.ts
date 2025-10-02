@@ -5,8 +5,8 @@ import { Command } from 'commander';
 
 import { parseTimeout } from '../utils/time.js';
 import { validateOptions } from '../utils/validation.js';
-import { ScriptLoader, type ExecutionOptions } from '../adapters/loader-adapter.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
+import { ScriptLoader, type ExecutionOptions } from '../adapters/loader-adapter.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
 import type { ResolvedTarget } from '../config/types.js';

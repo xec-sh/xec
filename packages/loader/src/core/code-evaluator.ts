@@ -3,12 +3,13 @@
  * @module @xec-sh/loader/core/code-evaluator
  */
 
-import type {
-  EvaluationOptions,
-  ExecutionResult,
-  ScriptContext,
-} from '../types/index.js';
 import { ExecutionContext } from './execution-context.js';
+
+import type {
+  ScriptContext,
+  ExecutionResult,
+  EvaluationOptions,
+} from '../types/index.js';
 
 /**
  * CodeEvaluator evaluates inline code strings

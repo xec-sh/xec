@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { ImportTransformer, createImportTransformer, transformImports } from '../../../src/transform/import-transformer.js';
+import { it, expect, describe } from 'vitest';
+
+import { transformImports, ImportTransformer, createImportTransformer } from '../../../src/transform/import-transformer.js';
 
 describe('ImportTransformer', () => {
   describe('createImportTransformer', () => {
@@ -225,9 +226,7 @@ describe('ImportTransformer', () => {
         customRules: [
           {
             pattern: /import (.+) from "(.+)"/g,
-            replacement: (match, name, path) => {
-              return `const ${name} = require("${path}")`;
-            },
+            replacement: (match, name, path) => `const ${name} = require("${path}")`,
           },
         ],
       });

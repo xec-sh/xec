@@ -4,9 +4,10 @@
  */
 
 import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
 import * as crypto from 'node:crypto';
+import * as fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+
 import type { ModuleType } from '../types/index.js';
 
 export interface ModuleExecutionOptions {

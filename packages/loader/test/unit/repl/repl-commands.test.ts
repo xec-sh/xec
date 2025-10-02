@@ -1,6 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { REPLCommands, createCommands, createBuiltinCommands } from '../../../src/repl/repl-commands.js';
 import type { REPLServer } from 'node:repl';
+
+import { it, vi, expect, describe, beforeEach } from 'vitest';
+
+import { REPLCommands, createCommands, createBuiltinCommands } from '../../../src/repl/repl-commands.js';
 
 describe('REPLCommands', () => {
   let commands: REPLCommands;

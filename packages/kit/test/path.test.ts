@@ -4,7 +4,11 @@ import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach 
 import * as prompts from '../src/index.js';
 import { MockReadable, MockWritable } from './test-utils.js';
 
-vi.mock('node:fs');
+// Mock node:fs with memfs
+vi.mock('node:fs', async () => {
+  const memfs = await vi.importActual<typeof import('memfs')>('memfs');
+  return memfs.fs;
+});
 
 describe.each(['true', 'false'])('text (isCI = %s)', (isCI) => {
   let originalCI: string | undefined;

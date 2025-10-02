@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { it, expect, describe, beforeEach } from 'vitest';
+
 import {
-  LocalModuleResolver,
   CDNModuleResolver,
   NodeModuleResolver,
+  LocalModuleResolver,
   CompositeModuleResolver,
 } from '../../../src/module/module-resolver.js';
 

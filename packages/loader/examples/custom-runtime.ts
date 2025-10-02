@@ -7,14 +7,14 @@
  * - Runtime context management
  */
 
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+
 import {
   ScriptRuntime,
   GlobalInjector,
   ScriptExecutor,
-  CodeEvaluator,
 } from '../src/index.js';
-import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
 
 async function main() {
   console.log('=== @xec-sh/loader Custom Runtime Examples ===\n');

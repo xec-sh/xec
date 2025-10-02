@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
+
 import { ScriptRuntime, createRuntime } from '../../../src/runtime/script-runtime.js';
 
 describe('ScriptRuntime', () => {
@@ -150,9 +151,7 @@ describe('ScriptRuntime', () => {
       const originalDir = runtime.pwd();
       const tmpDir = runtime.tmpdir();
 
-      const result = await runtime.within({ cwd: tmpDir }, async () => {
-        return runtime.pwd();
-      });
+      const result = await runtime.within({ cwd: tmpDir }, async () => runtime.pwd());
 
       expect(result).toBe(tmpDir);
       expect(runtime.pwd()).toBe(originalDir);

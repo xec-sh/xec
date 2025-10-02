@@ -3,29 +3,12 @@
  * @module @xec-sh/loader
  */
 
-// Export types
-export type * from './types/index.js';
-
 // Export core modules
 export {
-  ExecutionContext,
-  ScriptExecutor,
   CodeEvaluator,
+  ScriptExecutor,
+  ExecutionContext,
 } from './core/index.js';
-
-// Export module system
-export {
-  ModuleLoader,
-  ModuleFetcher,
-  ModuleExecutor,
-  MemoryCache,
-  FileSystemCache,
-  HybridCache,
-  LocalModuleResolver,
-  CDNModuleResolver,
-  NodeModuleResolver,
-  CompositeModuleResolver,
-} from './module/index.js';
 
 // Export runtime utilities
 export {
@@ -35,31 +18,48 @@ export {
   createInjector,
 } from './runtime/index.js';
 
-// Export transformation utilities
-export {
-  TypeScriptTransformer,
-  createTransformer,
-  ImportTransformer,
-  createImportTransformer,
-  transformImports,
-} from './transform/index.js';
-
 // Export REPL utilities
 export {
-  REPLServer,
-  createREPLServer,
   startREPL,
+  REPLServer,
   REPLCommands,
   createCommands,
+  createREPLServer,
   createBuiltinCommands,
 } from './repl/index.js';
 
+// Export transformation utilities
+export {
+  transformImports,
+  createTransformer,
+  ImportTransformer,
+  TypeScriptTransformer,
+  createImportTransformer,
+} from './transform/index.js';
+
+// Export module system
+export {
+  MemoryCache,
+  HybridCache,
+  ModuleLoader,
+  ModuleFetcher,
+  ModuleExecutor,
+  FileSystemCache,
+  CDNModuleResolver,
+  NodeModuleResolver,
+  LocalModuleResolver,
+  CompositeModuleResolver,
+} from './module/index.js';
+
+// Export types
+export type * from './types/index.js';
+
 // Re-export for convenience
 export type {
-  ExecutionOptions,
-  ExecutionResult,
-  ScriptLoaderOptions,
-  EvaluationOptions,
   TargetInfo,
   ScriptContext,
+  ExecutionResult,
+  ExecutionOptions,
+  EvaluationOptions,
+  ScriptLoaderOptions,
 } from './types/index.js';
