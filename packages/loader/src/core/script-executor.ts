@@ -15,10 +15,58 @@ import { ExecutionContext } from './execution-context.js';
 
 /**
  * ScriptExecutor executes script files with context injection
+ *
+ * Provides a clean API for executing TypeScript/JavaScript scripts with
+ * custom context and global variables. Supports target-aware execution
+ * for local, SSH, Docker, and Kubernetes environments.
+ *
+ * @example
+ * ```typescript
+ * const executor = new ScriptExecutor();
+ *
+ * const result = await executor.executeScript('./deploy.ts', {
+ *   context: {
+ *     args: ['production'],
+ *     argv: ['node', './deploy.ts', 'production'],
+ *     __filename: path.resolve('./deploy.ts'),
+ *     __dirname: process.cwd(),
+ *   },
+ *   customGlobals: {
+ *     API_KEY: process.env.API_KEY,
+ *   },
+ * });
+ *
+ * if (result.success) {
+ *   console.log('Deployment successful!');
+ * } else {
+ *   console.error('Deployment failed:', result.error);
+ * }
+ * ```
  */
 export class ScriptExecutor {
   /**
-   * Execute a script file
+   * Execute a script file with optional context and custom globals
+   *
+   * @param scriptPath - Path to the script file (absolute or relative)
+   * @param options - Execution options
+   * @returns Promise resolving to execution result
+   *
+   * @example
+   * ```typescript
+   * const result = await executor.executeScript('./script.ts', {
+   *   context: {
+   *     args: ['arg1', 'arg2'],
+   *     argv: ['node', './script.ts', 'arg1', 'arg2'],
+   *     __filename: path.resolve('./script.ts'),
+   *     __dirname: process.cwd(),
+   *   },
+   *   customGlobals: {
+   *     $target: targetEngine,
+   *     API_URL: 'https://api.example.com',
+   *   },
+   *   verbose: true,
+   * });
+   * ```
    */
   async executeScript(
     scriptPath: string,
