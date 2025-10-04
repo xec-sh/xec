@@ -118,15 +118,31 @@ export class MockAdapter extends BaseAdapter {
         }
       }
 
-      // Simulate delay
-      const delay = mockResponse.delay ?? this.mockConfig.defaultDelay ?? 10;
-      if (delay > 0) {
-        await this.delay(delay);
-      }
-
-      // Handle abort signal
+      // Check if already aborted before starting
       if (command.signal?.aborted) {
         throw new AdapterError(this.adapterName, 'execute', new Error('Operation aborted'));
+      }
+
+      // Simulate delay with abort signal support
+      const delay = mockResponse.delay ?? this.mockConfig.defaultDelay ?? 10;
+      let wasAborted = false;
+      if (delay > 0) {
+        wasAborted = await this.delay(delay, command.signal);
+      }
+
+      // If aborted during delay, return result with signal
+      if (wasAborted) {
+        const endTime = Date.now();
+        return this.createResult(
+          mockResponse.stdout ?? '',
+          mockResponse.stderr ?? '',
+          mockResponse.exitCode ?? 0,
+          mockResponse.signal || 'SIGTERM',
+          commandString,
+          startTime,
+          endTime,
+          { originalCommand: mergedCommand }
+        );
       }
 
       // Throw error if configured
@@ -256,8 +272,30 @@ export class MockAdapter extends BaseAdapter {
     return command;
   }
 
-  private async delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private async delay(ms: number, signal?: AbortSignal): Promise<boolean> {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(false), ms);
+
+      // If signal is provided and already aborted, resolve immediately with aborted=true
+      if (signal?.aborted) {
+        clearTimeout(timeout);
+        resolve(true);
+        return;
+      }
+
+      // Listen for abort event
+      const abortHandler = () => {
+        clearTimeout(timeout);
+        resolve(true);
+      };
+
+      signal?.addEventListener('abort', abortHandler, { once: true });
+
+      // Clean up listener when timeout completes
+      setTimeout(() => {
+        signal?.removeEventListener('abort', abortHandler);
+      }, ms);
+    });
   }
 
   private shouldHandleEcho(command: string): boolean {

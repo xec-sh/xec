@@ -3,13 +3,8 @@
  * @module @xec-sh/loader/module
  */
 
-export { ModuleLoader } from './module-loader.js';
-export { ModuleFetcher } from './module-fetcher.js';
-export { ModuleExecutor } from './module-executor.js';
-export { MemoryCache, HybridCache, FileSystemCache } from './module-cache.js';
-export {
-  CDNModuleResolver,
-  NodeModuleResolver,
-  LocalModuleResolver,
-  CompositeModuleResolver,
-} from './module-resolver.js';
+export * from './module-cache.js';
+export * from './module-loader.js';
+export * from './module-fetcher.js';
+export * from './module-executor.js';
+export * from './module-resolver.js';

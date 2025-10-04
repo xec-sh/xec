@@ -260,11 +260,11 @@ describe('Disposable', () => {
     });
 
     it('should work with BaseAdapter implementations', async () => {
-      const { MockAdapter } = await import('../../../src/adapters/mock-adapter.js');
+      const { MockAdapter } = await import('../../../src/adapters/mock/index.js');
       const adapter = new MockAdapter();
-      
+
       expect(isDisposable(adapter)).toBe(true);
-      
+
       // Should be able to dispose without errors
       await expect(adapter.dispose()).resolves.toBeUndefined();
     });

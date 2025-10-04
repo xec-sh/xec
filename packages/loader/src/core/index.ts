@@ -3,6 +3,6 @@
  * @module @xec-sh/loader/core
  */
 
-export { CodeEvaluator } from './code-evaluator.js';
-export { ScriptExecutor } from './script-executor.js';
-export { ExecutionContext } from './execution-context.js';
+export * from './code-evaluator.js';
+export * from './script-executor.js';
+export * from './execution-context.js';

@@ -295,6 +295,10 @@ spec:
     securityContext:
       runAsUser: 1000
       runAsGroup: 1000
+  - name: nginx
+    image: nginx:alpine
+    ports:
+    - containerPort: 80
 `;
     
     const podPath = join(this.tempDir, `${name}.yaml`);
