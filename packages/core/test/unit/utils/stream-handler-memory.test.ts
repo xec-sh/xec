@@ -78,7 +78,7 @@ describe('StreamHandler Memory Management', () => {
       });
     });
 
-    it('should clean up after transform flush', async () => {
+    it('should keep buffers after flush for later access', async () => {
       const handler = new StreamHandler();
       const transform = handler.createTransform();
 
@@ -89,9 +89,9 @@ describe('StreamHandler Memory Management', () => {
 
       await new Promise<void>((resolve) => {
         transform.end(() => {
-          // After flush, buffers should be cleared
-          expect(handler.getContent()).toBe('');
-          expect(handler.getBuffer().length).toBe(0);
+          // After flush, buffers should still be available for getContent()
+          expect(handler.getContent()).toBe('test');
+          expect(handler.getBuffer().length).toBe(4);
           resolve();
         });
       });
