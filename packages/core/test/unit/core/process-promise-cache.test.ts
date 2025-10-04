@@ -18,26 +18,53 @@ describe('ProcessPromise Cache', () => {
 
     // Set up mock adapter
     const mockAdapter = new MockAdapter();
-    // Set up various mock responses
-    mockAdapter.mockSuccess(/sh -c "echo \\"test output\\""/, 'test output\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"different output\\""/, 'different output\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"test1\\""/, 'test1\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"test2\\""/, 'test2\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"test3\\""/, 'test3\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"cached\\""/, 'cached output\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"related1\\""/, 'related1\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"related2\\""/, 'related2\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"related3\\""/, 'related3\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"modified1\\""/, 'modified1\n');
-    mockAdapter.mockSuccess(/sh -c "echo \\"modified2\\""/, 'modified2\n');
+    // Set up various mock responses - match patterns for template literals
+    mockAdapter.mockSuccess(/echo "test output"/, 'test output\n');
+    mockAdapter.mockSuccess(/echo "different output"/, 'different output\n');
+    mockAdapter.mockSuccess(/echo "test1"/, 'test1\n');
+    mockAdapter.mockSuccess(/echo "test2"/, 'test2\n');
+    mockAdapter.mockSuccess(/echo "test3"/, 'test3\n');
+    mockAdapter.mockSuccess(/echo "cached"/, 'cached output\n');
+    mockAdapter.mockSuccess(/echo "related1"/, 'related1\n');
+    mockAdapter.mockSuccess(/echo "related2"/, 'related2\n');
+    mockAdapter.mockSuccess(/echo "related3"/, 'related3\n');
+    mockAdapter.mockSuccess(/echo "modified1"/, 'modified1\n');
+    mockAdapter.mockSuccess(/echo "modified2"/, 'modified2\n');
 
-    // Set up responses for dynamic patterns (with timestamps, etc)
-    // Use default response that echoes back the command
-    mockAdapter.mockDefault({
-      stdout: 'default output\n',
-      stderr: '',
-      exitCode: 0
-    });
+    // Mock echo commands without quotes
+    mockAdapter.mockSuccess(/echo dev-result/, 'dev-result\n');
+    mockAdapter.mockSuccess(/echo prod-result/, 'prod-result\n');
+    mockAdapter.mockSuccess(/echo tmp-result/, 'tmp-result\n');
+    mockAdapter.mockSuccess(/echo usr-result/, 'usr-result\n');
+    mockAdapter.mockSuccess(/echo different/, 'different\n');
+    mockAdapter.mockSuccess(/echo test$/, 'test\n');
+    mockAdapter.mockSuccess(/echo Line1/, 'Line1\nLine2\nLine3\n');
+    mockAdapter.mockSuccess(/echo "quiet test"/, 'quiet test\n');
+    mockAdapter.mockSuccess(/echo "timeout test"/, 'timeout test\n');
+    mockAdapter.mockSuccess(/echo "wrong"/, 'wrong\n');
+    mockAdapter.mockSuccess(/echo wrong\d/, 'wrong\n');
+
+    // Mock for count patterns
+    mockAdapter.mockSuccess(/echo "count: 100"/, 'count: 100\n');
+    mockAdapter.mockSuccess(/echo "count: 101"/, 'count: 101\n');
+    mockAdapter.mockSuccess(/echo "INSERT done"/, 'INSERT done\n');
+
+    // Mock for api patterns
+    mockAdapter.mockSuccess(/echo "api-users data"/, 'api-users data\n');
+    mockAdapter.mockSuccess(/echo "api-posts data"/, 'api-posts data\n');
+    mockAdapter.mockSuccess(/echo "db-stats data"/, 'db-stats data\n');
+    mockAdapter.mockSuccess(/echo "new api-users"/, 'new api-users\n');
+    mockAdapter.mockSuccess(/echo "new api-posts"/, 'new api-posts\n');
+    mockAdapter.mockSuccess(/echo "should not see this"/, 'should not see this\n');
+    mockAdapter.mockSuccess(/echo "update done"/, 'update done\n');
+
+    // Mock exit commands
+    mockAdapter.mockFailure(/exit 1/, '', 1);
+    mockAdapter.mockFailure(/exit 42/, '', 42);
+    mockAdapter.mockSuccess(/exit 0/, '');
+
+    // Don't set up default mock - let MockAdapter's built-in echo handling work
+    // This allows dynamic content (timestamps, variables) to be echoed back
     engine.registerAdapter('mock', mockAdapter);
     mockEngine = engine.with({ adapter: 'mock' as any });
 

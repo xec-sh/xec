@@ -627,10 +627,10 @@ describe('ExecutionEngine', () => {
       customEngine.registerAdapter('mock', newMockAdapter);
       
       const testEngine = customEngine.with({ adapter: 'mock' as any });
-      
-      // Mock any command with default response
-      newMockAdapter.mockDefault({ stdout: 'custom_value', stderr: '', exitCode: 0 });
-      
+
+      // Mock any command with default response (echo adds newline)
+      newMockAdapter.mockDefault({ stdout: 'custom_value\n', stderr: '', exitCode: 0 });
+
       const result = await testEngine.tag`echo $CUSTOM_VAR`;
       expect(result.stdout).toBe('custom_value\n');
       
@@ -880,13 +880,13 @@ describe('ExecutionEngine - Isolated Tests', () => {
     envEngine.registerAdapter('mock', envMockAdapter);
     
     const testEngine = envEngine.with({ adapter: 'mock' as any });
-    
-    // Mock the exact command that will be executed
-    envMockAdapter.mockDefault({ stdout: 'test_value', stderr: '', exitCode: 0 });
-    
+
+    // Mock the exact command that will be executed (echo adds newline)
+    envMockAdapter.mockDefault({ stdout: 'test_value\n', stderr: '', exitCode: 0 });
+
     const promise = testEngine.tag`echo $TEST_VAR`;
     const result = await promise.env({ TEST_VAR: 'test_value' });
-    
+
     expect(result.stdout).toBe('test_value\n');
   });
 
@@ -905,10 +905,10 @@ describe('ExecutionEngine - Isolated Tests', () => {
     customEngine.registerAdapter('mock', newMockAdapter);
     
     const testEngine = customEngine.with({ adapter: 'mock' as any });
-    
-    // Mock any command with default response
-    newMockAdapter.mockDefault({ stdout: 'custom_value', stderr: '', exitCode: 0 });
-    
+
+    // Mock any command with default response (echo adds newline)
+    newMockAdapter.mockDefault({ stdout: 'custom_value\n', stderr: '', exitCode: 0 });
+
     const result = await testEngine.tag`echo $CUSTOM_VAR`;
     expect(result.stdout).toBe('custom_value\n');
   });

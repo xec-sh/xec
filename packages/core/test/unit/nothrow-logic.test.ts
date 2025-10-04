@@ -316,9 +316,9 @@ describe('nothrow() and throwOnNonZeroExit logic', () => {
     });
 
     it('should handle real command with nothrow()', async () => {
-      // Use a command that definitely fails
+      // Use a command that definitely fails with stderr output
       const command = engine.createProcessPromise({
-        command: 'exit 1',
+        command: 'echo "Command failed with exit code 1" >&2 && exit 1',
         adapter: 'local'
       }).nothrow();
 

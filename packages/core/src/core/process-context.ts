@@ -43,6 +43,11 @@ export class ProcessContext {
       const commandParts = await Promise.resolve(this.commandResolver());
       const command = this.buildCommand(commandParts);
 
+      // Save the final nothrow value back to state for use in promise handling
+      if (command.nothrow !== undefined) {
+        this.state.modifications.nothrow = command.nothrow;
+      }
+
       // Fast path for non-cached execution
       if (!this.state.cacheOptions) {
         return await this.engine.execute(command);

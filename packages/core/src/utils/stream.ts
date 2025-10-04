@@ -46,7 +46,11 @@ export class StreamHandler {
           if (self.totalLength + chunk.length > self.maxBuffer) {
             // Clean up buffer to prevent memory leak
             self.reset();
-            callback(new Error(`Stream exceeded maximum buffer size of ${self.maxBuffer} bytes`));
+            const error = new Error(`Stream exceeded maximum buffer size of ${self.maxBuffer} bytes`);
+            if (self.onError) {
+              self.onError(error);
+            }
+            callback(error);
             return;
           }
 
@@ -77,6 +81,8 @@ export class StreamHandler {
             if (self.onData && str) {
               self.onData(str);
             }
+            // Clear buffers after flush to prevent memory leaks
+            self.reset();
           }
           callback();
         } catch (error) {
@@ -85,7 +91,10 @@ export class StreamHandler {
       },
 
       final(callback) {
-        // Don't reset here - we need the buffer content for getContent()
+        // Clear buffers after final to prevent memory leaks
+        if (!self.disposed) {
+          self.reset();
+        }
         callback();
       },
 
@@ -93,12 +102,19 @@ export class StreamHandler {
       autoDestroy: true
     });
 
-    // Don't automatically dispose on close - let the user decide when to dispose
-    // The stream handler might still be needed after the stream closes
-    // transform.on('close', () => self.dispose());
+    // Automatically dispose when stream is closed to prevent memory leaks
+    transform.on('close', () => {
+      if (!self.disposed) {
+        self.dispose();
+      }
+    });
 
-    // Don't reset on error - we might still want the partial data
-    // transform.on('error', () => self.reset());
+    // Reset on error to clean up partial data and prevent memory leaks
+    transform.on('error', () => {
+      if (!self.disposed) {
+        self.reset();
+      }
+    });
 
     return transform;
   }

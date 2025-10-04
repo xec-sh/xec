@@ -25,6 +25,7 @@ export class MockAdapter extends BaseAdapter {
   private responses: Map<string, MockResponse> = new Map();
   private regexResponses: Array<{ pattern: RegExp; response: MockResponse }> = [];
   private defaultResponse: MockResponse = { stdout: '', stderr: '', exitCode: 0 };
+  private isDefaultResponseCustomized = false;
   private executedCommands: string[] = [];
   private mockConfig: MockAdapterConfig;
 
@@ -77,8 +78,8 @@ export class MockAdapter extends BaseAdapter {
         }
       }
 
-      // Special handling for commands when using default response
-      if (mockResponse === this.defaultResponse) {
+      // Special handling for commands when using default response (and not customized)
+      if (mockResponse === this.defaultResponse && !this.isDefaultResponseCustomized) {
         // Handle echo commands
         if (this.shouldHandleEcho(baseCommandString)) {
           const echoOutput = this.handleEchoCommand(baseCommandString, mergedCommand.env);
@@ -96,8 +97,8 @@ export class MockAdapter extends BaseAdapter {
         }
       }
 
-      // Special handling for exit commands
-      if (mockResponse === this.defaultResponse) {
+      // Special handling for exit commands (only if default response not customized)
+      if (mockResponse === this.defaultResponse && !this.isDefaultResponseCustomized) {
         const exitMatch = baseCommandString.match(/(?:^|\s)exit\s+(\d+)(?:\s|$)/);
         if (exitMatch && exitMatch[1]) {
           const exitCode = parseInt(exitMatch[1], 10);
@@ -107,8 +108,8 @@ export class MockAdapter extends BaseAdapter {
         }
       }
 
-      // Special handling for sh -c "exit N" commands
-      if (mockResponse === this.defaultResponse) {
+      // Special handling for sh -c "exit N" commands (only if default response not customized)
+      if (mockResponse === this.defaultResponse && !this.isDefaultResponseCustomized) {
         const shExitMatch = baseCommandString.match(/sh\s+-c\s+["']exit\s+(\d+)["']/);
         if (shExitMatch && shExitMatch[1]) {
           const exitCode = parseInt(shExitMatch[1], 10);
@@ -192,6 +193,7 @@ export class MockAdapter extends BaseAdapter {
 
   mockDefault(response: MockResponse): void {
     this.defaultResponse = response;
+    this.isDefaultResponseCustomized = true;
   }
 
   clearMocks(): void {
@@ -199,6 +201,7 @@ export class MockAdapter extends BaseAdapter {
     this.regexResponses = [];
     this.executedCommands = [];
     this.defaultResponse = { stdout: '', stderr: '', exitCode: 0 };
+    this.isDefaultResponseCustomized = false;
   }
 
   getExecutedCommands(): string[] {
