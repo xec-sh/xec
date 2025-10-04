@@ -99,14 +99,11 @@ export class StreamHandler {
       autoDestroy: true
     });
 
-    // Automatically dispose when stream is closed to prevent memory leaks
-    transform.on('close', () => {
-      if (!self.disposed) {
-        self.dispose();
-      }
-    });
+    // Don't automatically reset/dispose on close - user may need to access
+    // buffer content via getContent() after stream ends
+    // Memory cleanup should be handled explicitly by calling dispose() or reset()
 
-    // Reset on error to clean up partial data and prevent memory leaks
+    // Only reset on error to clean up partial/invalid data
     transform.on('error', () => {
       if (!self.disposed) {
         self.reset();
