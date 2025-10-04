@@ -10,7 +10,7 @@ export type StreamOption = 'pipe' | 'ignore' | 'inherit' | Writable;
 /**
  * Supported adapter types for command execution
  */
-export type AdapterType = 'local' | 'ssh' | 'docker' | 'kubernetes' | 'remote-docker' | 'auto' | 'mock';
+export type AdapterType = 'local' | 'ssh' | 'docker' | 'kubernetes' | 'auto' | 'mock';
 
 /**
  * SSH adapter configuration options
@@ -68,23 +68,13 @@ export interface KubernetesAdapterOptions {
 }
 
 /**
- * Remote Docker adapter configuration options
- */
-export interface RemoteDockerAdapterOptions {
-  type: 'remote-docker';
-  ssh: Omit<SSHAdapterOptions, 'type'>;
-  docker: Omit<DockerAdapterOptions, 'type'>;
-}
-
-/**
  * Union type for all adapter-specific options
  */
 export type AdapterSpecificOptions =
   | SSHAdapterOptions
   | DockerAdapterOptions
   | LocalAdapterOptions
-  | KubernetesAdapterOptions
-  | RemoteDockerAdapterOptions;
+  | KubernetesAdapterOptions;
 
 /**
  * Command execution configuration

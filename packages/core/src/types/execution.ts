@@ -112,6 +112,5 @@ export interface ExecutionEngineConfig extends EventConfig {
     docker?: any;  // DockerAdapterConfig
     kubernetes?: any; // KubernetesAdapterConfig
     local?: any;   // LocalAdapterConfig
-    remoteDocker?: any; // RemoteDockerAdapterConfig
   };
 }

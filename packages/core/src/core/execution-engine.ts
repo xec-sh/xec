@@ -47,13 +47,12 @@ setupUnhandledRejectionHandler();
 import { LocalAdapter } from '../adapters/local/index.js';
 import { DockerAdapter } from '../adapters/docker/index.js';
 import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
-import { RemoteDockerAdapter } from '../adapters/remote-docker/index.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
 import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
-import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from '../types/command.js';
+import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
 
 import type { UshEventMap } from '../types/events.js';
 import type { Disposable } from '../types/disposable.js';
@@ -209,15 +208,6 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       ...this._config.adapters?.docker
     };
     this.adapters.set('docker', new DockerAdapter(dockerConfig));
-
-    // Initialize Remote Docker adapter if config provided
-    if (this._config.adapters?.remoteDocker) {
-      const remoteDockerConfig = {
-        ...this.getBaseAdapterConfig(),
-        ...this._config.adapters.remoteDocker
-      };
-      this.adapters.set('remote-docker', new RemoteDockerAdapter(remoteDockerConfig));
-    }
   }
 
   private getBaseAdapterConfig() {
@@ -479,20 +469,6 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
             this.adapters.set('kubernetes', new KubernetesAdapter(k8sConfig));
           }
           return this.adapters.get('kubernetes') || null;
-        case 'remote-docker':
-          if (!this.adapters.has('remote-docker')) {
-            // Create Remote Docker adapter on demand
-            const remoteDockerConfig = this._config.adapters?.remoteDocker;
-            if (!remoteDockerConfig || !remoteDockerConfig.ssh) {
-              throw new Error('Remote Docker adapter requires SSH configuration');
-            }
-            const fullConfig = {
-              ...this.getBaseAdapterConfig(),
-              ...remoteDockerConfig
-            };
-            this.adapters.set('remote-docker', new RemoteDockerAdapter(fullConfig));
-          }
-          return this.adapters.get('remote-docker') || null;
         case 'local':
           return this.adapters.get('local') || null;
         default:
@@ -746,13 +722,6 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   k8s(options?: Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext {
     // If no options provided, return a context that requires pod() to be called
     return createK8sExecutionContext(this, options || {});
-  }
-
-  remoteDocker(options: Omit<RemoteDockerAdapterOptions, 'type'>): ExecutionEngine {
-    return this.with({
-      adapter: 'remote-docker',
-      adapterOptions: { type: 'remote-docker', ...options }
-    });
   }
 
   local(): ExecutionEngine {

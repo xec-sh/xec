@@ -66,7 +66,7 @@ The main orchestrator of the entire execution system. It manages adapters, handl
    - Automatic adapter selection based on command configuration
    - Lazy loading of adapters for optimal performance
    - Support for custom adapter registration
-   - Built-in adapters: Local, SSH, Docker, Kubernetes, RemoteDocker
+   - Built-in adapters: Local, SSH, Docker, Kubernetes
 
 2. **Template Literal Support**
    ```typescript
@@ -99,7 +99,6 @@ The main orchestrator of the entire execution system. It manages adapters, handl
        ssh?: SSHAdapterConfig;
        docker?: DockerAdapterConfig;
        kubernetes?: K8sAdapterConfig;
-       remoteDocker?: RemoteDockerAdapterConfig;
      };
    }
    ```
@@ -109,7 +108,6 @@ The main orchestrator of the entire execution system. It manages adapters, handl
    - `ssh(options)` - SSH execution context
    - `docker(options)` - Docker execution (fluent API or adapter)
    - `k8s(options)` - Kubernetes execution context
-   - `remoteDocker(options)` - Remote Docker execution
    - `local()` - Force local adapter
    - `cd(dir)` - Change working directory
    - `pwd()` - Get current working directory
