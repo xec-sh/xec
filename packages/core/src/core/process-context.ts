@@ -50,7 +50,24 @@ export class ProcessContext {
 
       // Fast path for non-cached execution
       if (!this.state.cacheOptions) {
-        return await this.engine.execute(command);
+        try {
+          return await this.engine.execute(command);
+        } catch (error) {
+          if (command.nothrow) {
+            return new ExecutionResultImpl(
+              '',
+              error instanceof Error ? error.message : String(error),
+              1,
+              undefined,
+              command.command || '',
+              0,
+              new Date(),
+              new Date(),
+              command.adapter || 'local'
+            );
+          }
+          throw error;
+        }
       }
 
       // Cache path
