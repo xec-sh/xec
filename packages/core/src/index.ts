@@ -18,7 +18,6 @@ export { DockerContainer } from './adapters/docker/docker-api.js';
 export { KubernetesAdapter } from './adapters/kubernetes/index.js';
 export { RuntimeDetector } from './adapters/local/runtime-detect.js';
 export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
-export { RemoteDockerAdapter } from './adapters/remote-docker/index.js';
 export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
@@ -53,7 +52,7 @@ export function createCallableEngine(engine: ExecutionEngine): CallableExecution
 
         // Methods that return a new engine instance
         const chainableMethods = [
-          'with', 'k8s', 'remoteDocker',
+          'with', 'k8s',
           'local', 'cd', 'env', 'timeout', 'shell', 'retry', 'defaults', 'raw'
         ];
 
@@ -326,6 +325,5 @@ export type {
   AdapterType,
   SSHAdapterOptions,
   DockerAdapterOptions,
-  KubernetesAdapterOptions,
-  RemoteDockerAdapterOptions
+  KubernetesAdapterOptions
 } from './types/command.js';

@@ -4,7 +4,6 @@ export { KubernetesAdapter, type KubernetesAdapterConfig } from './kubernetes/in
 export { MockAdapter, type MockResponse, type MockAdapterConfig } from './mock/index.js';
 // Re-export base adapter
 export { BaseAdapter, type BaseAdapterConfig, type SensitiveDataMaskingConfig } from './base-adapter.js';
-export { RemoteDockerAdapter, type RemoteDockerAdapterConfig, type RemoteDockerAdapterOptions } from './remote-docker/index.js';
 export { DockerAdapter, type DockerAdapterConfig, type DockerAutoCreateOptions, type DockerDefaultExecOptions } from './docker/index.js';
 
 export { SSHAdapter, type SSHSudoOptions, type SSHSFTPOptions, type SSHAdapterConfig, type SSHMultiplexingOptions, type SSHConnectionPoolOptions } from './ssh/index.js';

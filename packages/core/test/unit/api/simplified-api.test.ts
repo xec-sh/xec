@@ -203,21 +203,19 @@ describe('Simplified API', () => {
     });
 
     test('should export adapters for advanced users', async () => {
-      const { 
+      const {
         ExecutionEngine,
         LocalAdapter,
         SSHAdapter,
         DockerAdapter,
-        KubernetesAdapter,
-        RemoteDockerAdapter
+        KubernetesAdapter
       } = await import('../../../src/index.js');
-      
+
       expect(ExecutionEngine).toBeDefined();
       expect(LocalAdapter).toBeDefined();
       expect(SSHAdapter).toBeDefined();
       expect(DockerAdapter).toBeDefined();
       expect(KubernetesAdapter).toBeDefined();
-      expect(RemoteDockerAdapter).toBeDefined();
     });
 
     test('should export advanced types', async () => {

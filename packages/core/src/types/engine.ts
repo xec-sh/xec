@@ -3,10 +3,10 @@ import type { SSHExecutionContext } from '../adapters/ssh/ssh-api.js';
 import type { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
 import type { K8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
-import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions, RemoteDockerAdapterOptions } from '../types/command.js';
+import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
 
 // Callable ExecutionEngine interface
-export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'k8s' | 'remoteDocker' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'retry' | 'defaults'> {
+export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'k8s' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'retry' | 'defaults'> {
   // Make it callable
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
 
@@ -20,7 +20,6 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   docker(options: Omit<DockerAdapterOptions, 'type'>): CallableExecutionEngine;
   docker(): DockerFluentAPI;
   k8s(options?: Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext;
-  remoteDocker(options: Omit<RemoteDockerAdapterOptions, 'type'>): CallableExecutionEngine;
   local(): CallableExecutionEngine;
   cd(dir: string): CallableExecutionEngine;
   env(env: Record<string, string>): CallableExecutionEngine;
