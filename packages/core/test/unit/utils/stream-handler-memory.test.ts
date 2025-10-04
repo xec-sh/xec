@@ -57,6 +57,9 @@ describe('StreamHandler Memory Management', () => {
 
       const transform = handler.createTransform();
 
+      // Consume the readable side
+      transform.resume();
+
       // Write data that exceeds buffer
       const largeData = Buffer.alloc(20, 'x');
 
@@ -79,6 +82,9 @@ describe('StreamHandler Memory Management', () => {
       const handler = new StreamHandler();
       const transform = handler.createTransform();
 
+      // Consume the readable side so the stream can finish
+      transform.resume();
+
       transform.write(Buffer.from('test'));
 
       await new Promise<void>((resolve) => {
@@ -94,6 +100,9 @@ describe('StreamHandler Memory Management', () => {
     it('should clean up when transform is closed', async () => {
       const handler = new StreamHandler();
       const transform = handler.createTransform();
+
+      // Consume the readable side
+      transform.resume();
 
       transform.write(Buffer.from('test data'));
 
@@ -165,6 +174,9 @@ describe('StreamHandler Memory Management', () => {
       const handler = new StreamHandler();
       const transform = handler.createTransform();
 
+      // Consume the readable side
+      transform.resume();
+
       const readable = Readable.from(['chunk1', 'chunk2', 'chunk3']);
       readable.pipe(transform);
 
@@ -186,6 +198,9 @@ describe('StreamHandler Memory Management', () => {
     it('should handle concurrent operations safely', async () => {
       const handler = new StreamHandler();
       const transform = handler.createTransform();
+
+      // Consume the readable side
+      transform.resume();
 
       const operations = [];
 
@@ -283,6 +298,9 @@ describe('StreamHandler Memory Management', () => {
 
       const transform = handler.createTransform();
 
+      // Consume the readable side
+      transform.resume();
+
       await new Promise<void>((resolve) => {
         transform.on('error', () => resolve());
         transform.write(Buffer.alloc(20));
@@ -319,14 +337,26 @@ describe('StreamHandler Memory Management', () => {
       const handler = new StreamHandler({ maxBuffer: 1024 * 1024 }); // 1MB
       const transform = handler.createTransform();
 
+      // Consume the readable side
+      transform.resume();
+
       // Write 100KB of data in 1KB chunks
       const chunkSize = 1024;
       const numChunks = 100;
 
+      // Write data and wait for all chunks to be processed
       for (let i = 0; i < numChunks; i++) {
         const chunk = Buffer.alloc(chunkSize, i % 256);
-        transform.write(chunk);
+        const canContinue = transform.write(chunk);
+
+        // If backpressure, wait for drain
+        if (!canContinue) {
+          await new Promise(resolve => transform.once('drain', resolve));
+        }
       }
+
+      // Give transform a chance to process final chunks
+      await new Promise(resolve => setImmediate(resolve));
 
       const buffer = handler.getBuffer();
       expect(buffer.length).toBe(chunkSize * numChunks);

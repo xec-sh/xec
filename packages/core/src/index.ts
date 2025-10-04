@@ -1,5 +1,6 @@
 import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-engine.js';
 
+import type { Command } from './types/command.js';
 import type { CallableExecutionEngine } from './types/engine.js';
 
 export { pipeUtils } from './utils/pipe.js';
@@ -83,6 +84,45 @@ export const $ = new Proxy(function () { } as any, {
       defaultEngineInstance = new ExecutionEngine();
       defaultEngine = createCallableEngine(defaultEngineInstance);
     }
+
+    // Special handling for defaults() on global $ to mutate instead of create new instance
+    if (prop === 'defaults') {
+      return (config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }) => {
+        if (!defaultEngineInstance) {
+          defaultEngineInstance = new ExecutionEngine();
+          defaultEngine = createCallableEngine(defaultEngineInstance);
+        }
+
+        // Build the config update object
+        const configUpdate: Partial<ExecutionEngineConfig> = {};
+
+        if (config.defaultEnv) {
+          configUpdate.defaultEnv = config.defaultEnv;
+        }
+        if (config.defaultCwd !== undefined) {
+          configUpdate.defaultCwd = config.defaultCwd;
+        }
+        if (config.timeout !== undefined) {
+          configUpdate.defaultTimeout = config.timeout;
+        }
+        if (config.shell !== undefined) {
+          configUpdate.defaultShell = config.shell;
+        }
+        if (config.env !== undefined) {
+          configUpdate.defaultEnv = { ...configUpdate.defaultEnv, ...config.env };
+        }
+        if (config.cwd !== undefined && config.defaultCwd === undefined) {
+          configUpdate.defaultCwd = config.cwd;
+        }
+
+        // Use config.set() to mutate the global configuration
+        (defaultEngine as any).config.set(configUpdate);
+
+        // Return the same global $ for chaining
+        return defaultEngine;
+      };
+    }
+
     return (defaultEngine as any)[prop];
   },
 
