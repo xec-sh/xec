@@ -32,8 +32,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@xec-sh/core": "^0.8.3",
-    "@xec-sh/kit": "^0.8.3",
+    "@xec-sh/kit": "workspace:*",
     "esbuild": "0.25.10"
   },
   "devDependencies": {

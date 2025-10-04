@@ -340,20 +340,22 @@ describe('Security Test Suite', () => {
       // Test that in production, sensitive commands are sanitized
       const originalEnv = process.env['NODE_ENV'];
       const originalJest = process.env['JEST_WORKER_ID'];
-      
+      const originalSanitize = process.env['XEC_SANITIZE_COMMANDS'];
+
       try {
         // First, verify sanitization works in production mode
         delete process.env['NODE_ENV'];
         delete process.env['JEST_WORKER_ID'];
-        
+        process.env['XEC_SANITIZE_COMMANDS'] = 'true';
+
         const { sanitizeCommandForError } = await import('../../../src/core/error.js');
         const sanitized = sanitizeCommandForError('cat /some/nonexistent/sensitive/path/to/secret.key');
         expect(sanitized).toBe('cat [arguments hidden]');
-        
+
         // Also test other sensitive commands
         expect(sanitizeCommandForError('rm -rf /important/path')).toBe('rm [arguments hidden]');
         expect(sanitizeCommandForError('grep password /etc/passwd')).toBe('grep [arguments hidden]');
-        
+
         // Non-sensitive commands should not be sanitized
         expect(sanitizeCommandForError('echo hello')).toBe('echo hello');
         expect(sanitizeCommandForError('node script.js')).toBe('node script.js');
@@ -361,8 +363,13 @@ describe('Security Test Suite', () => {
         // Restore environment
         if (originalEnv !== undefined) process.env['NODE_ENV'] = originalEnv;
         if (originalJest !== undefined) process.env['JEST_WORKER_ID'] = originalJest;
+        if (originalSanitize !== undefined) {
+          process.env['XEC_SANITIZE_COMMANDS'] = originalSanitize;
+        } else {
+          delete process.env['XEC_SANITIZE_COMMANDS'];
+        }
       }
-      
+
       // In test environment, verify that sanitization is disabled
       const { sanitizeCommandForError: sanitizeInTest } = await import('../../../src/core/error.js');
       expect(sanitizeInTest('cat /sensitive/path')).toBe('cat /sensitive/path');

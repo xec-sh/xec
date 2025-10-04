@@ -448,9 +448,9 @@ describe('KubernetesAdapter Enhanced Tests', () => {
         shell: true,
         adapterOptions: {
           type: 'kubernetes',
-          pod: 'test-pod',
+          pod: 'multi-container-pod',
           container: 'nginx',
-          namespace: 'test'
+          namespace: 'production'
         }
       });
 

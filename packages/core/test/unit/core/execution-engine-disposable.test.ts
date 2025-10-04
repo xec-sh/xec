@@ -143,7 +143,7 @@ describe('ExecutionEngine Disposable functionality', () => {
 
       // Register a mock adapter that simulates a long-running process
       const mockAdapter = new MockAdapter();
-      mockAdapter.mockCommand(/sh -c "sleep 10"/, {
+      mockAdapter.mockCommand(/sleep 10/, {
         stdout: 'sleeping...',
         stderr: '',
         exitCode: 0,
@@ -153,14 +153,17 @@ describe('ExecutionEngine Disposable functionality', () => {
       engine.registerAdapter('mock', mockAdapter);
       const mockEngine = engine.with({ adapter: 'mock' });
 
-      // Start a long-running process using template literal to get ProcessPromise
+      // Start a long-running process
       const longProcess = mockEngine.tag`sleep 10`;
+
+      // Trigger execution
+      void longProcess.catch(() => {});
 
       // Give it a moment to start
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Dispose engine while process is running
-      await engine.dispose();
+      // Dispose mockEngine while process is running
+      await mockEngine.dispose();
 
       // Process should be terminated with a signal
       const result = await longProcess;
@@ -277,7 +280,8 @@ describe('ExecutionEngine Disposable functionality', () => {
         const res = await engine.execute({
           command: 'echo',
           args: ['test'],
-          adapter: 'mock'
+          adapter: 'mock',
+          shell: false
         });
         return res.stdout;
       });
@@ -354,30 +358,36 @@ describe('ExecutionEngine Disposable functionality', () => {
     it('should clear active processes tracking', async () => {
       const engine = new ExecutionEngine();
 
-      // Register a mock adapter
+      // Register a mock adapter with longer delays to ensure processes are tracked
       const mockAdapter = new MockAdapter();
-      mockAdapter.mockSuccess(/sh -c "echo \\"test1\\""/, 'test1\n');
-      mockAdapter.mockSuccess(/sh -c "echo \\"test2\\""/, 'test2\n');
-      mockAdapter.mockSuccess(/sh -c "echo \\"test3\\""/, 'test3\n');
+      mockAdapter.mockCommand(/echo "test1"/, { stdout: 'test1\n', stderr: '', exitCode: 0, delay: 100 });
+      mockAdapter.mockCommand(/echo "test2"/, { stdout: 'test2\n', stderr: '', exitCode: 0, delay: 100 });
+      mockAdapter.mockCommand(/echo "test3"/, { stdout: 'test3\n', stderr: '', exitCode: 0, delay: 100 });
       engine.registerAdapter('mock', mockAdapter);
       const mockEngine = engine.with({ adapter: 'mock' });
 
-      // Start multiple processes
+      // Start multiple processes - trigger execution without blocking
       const processes = [
         mockEngine.tag`echo "test1"`,
         mockEngine.tag`echo "test2"`,
         mockEngine.tag`echo "test3"`
       ];
 
-      // Should have active processes
-      const enginePrivate = engine as any;
-      expect(enginePrivate._activeProcesses.size).toBe(3);
+      // Trigger execution by calling .catch() to start tracking
+      processes.forEach(p => void p.catch(() => {}));
+
+      // Give them a moment to be tracked (need less time than delay to catch them in-flight)
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Should have active processes - check mockEngine, not engine!
+      const mockEnginePrivate = mockEngine as any;
+      expect(mockEnginePrivate._activeProcesses.size).toBe(3);
 
       // Wait for completion
       await Promise.all(processes);
 
       // Should be cleared after completion
-      expect(enginePrivate._activeProcesses.size).toBe(0);
+      expect(mockEnginePrivate._activeProcesses.size).toBe(0);
     });
   });
 
@@ -395,7 +405,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       // Register a mock adapter that simulates long-running processes
       const mockAdapter = new MockAdapter();
       for (let i = 1; i <= 5; i++) {
-        mockAdapter.mockCommand(new RegExp(`sh -c "sleep ${i}"`), {
+        mockAdapter.mockCommand(new RegExp(`sleep ${i}`), {
           stdout: '',
           stderr: '',
           exitCode: 0,
@@ -410,6 +420,9 @@ describe('ExecutionEngine Disposable functionality', () => {
       const processes = Array.from({ length: 5 }, (_, i) =>
         mockEngine.tag`sleep ${i + 1}`
       );
+
+      // Trigger execution for all processes
+      processes.forEach(p => void p.catch(() => {}));
 
       // Give them a moment to start
       await new Promise(resolve => setTimeout(resolve, 100));

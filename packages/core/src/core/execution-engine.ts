@@ -529,6 +529,10 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       }
     };
 
+    // Create a new ProcessPromiseBuilder that references the new engine
+    // This ensures that when template literals are used, they call the modified execute
+    newEngine.processBuilder = new ProcessPromiseBuilder(newEngine);
+
     return newEngine;
   }
 

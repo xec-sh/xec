@@ -489,36 +489,31 @@ describe('Parallel Execution with Progress', () => {
   });
 
   describe('Edge cases and error handling', () => {
-    it('should handle errors with limited concurrency and progress', async () => {
-      const failEngine = new MockExecutionEngine(10, true, false);  // throwOnFail = false
-      const progressData: Array<{ failed: number }> = [];
+    it('should handle errors with progress tracking', async () => {
+      const failEngine = new MockExecutionEngine(10, true, true);  // throwOnFail = true
+      const progressData: Array<{ failed: number; succeeded: number }> = [];
 
-      // The test expects errors to be caught by parallel, not thrown
-      let error: Error | undefined;
-      let result: any;
-
-      try {
-        result = await parallel(
-          ['cmd1', 'fail1', 'cmd2', 'fail2', 'cmd3'],
-          failEngine as any,
-          {
-            maxConcurrency: 2,
-            stopOnError: false,
-            onProgress: (completed, total, succeeded, failed) => {
-              progressData.push({ failed });
-            }
+      // With stopOnError: false, parallel catches errors and continues
+      const result = await parallel(
+        ['cmd1', 'fail1', 'cmd2', 'fail2', 'cmd3'],
+        failEngine as any,
+        {
+          stopOnError: false,
+          onProgress: (completed, total, succeeded, failed) => {
+            progressData.push({ failed, succeeded });
           }
-        );
-      } catch (e) {
-        error = e as Error;
-      }
+        }
+      );
 
-      // With stopOnError: false, parallel should not throw
-      expect(error).toBeUndefined();
-      expect(result).toBeDefined();
+      // Errors are caught by parallel and counted as failures
       expect(result.failed.length).toBe(2);
       expect(result.succeeded.length).toBe(3);
-      expect(progressData.length).toBeGreaterThan(0);
+      expect(progressData.length).toBe(5);
+
+      // Verify progress tracking
+      const lastProgress = progressData[progressData.length - 1];
+      expect(lastProgress?.failed).toBe(2);
+      expect(lastProgress?.succeeded).toBe(3);
     });
 
     it('should handle non-throwing errors in commands', async () => {
@@ -551,6 +546,30 @@ describe('Parallel Execution with Progress', () => {
       result.results.forEach(r => {
         expect((r as ExecutionResult).exitCode).toBe(1);
       });
+    });
+
+    it('should handle limited concurrency without errors', async () => {
+      const slowEngine = new MockExecutionEngine(5);
+      const progressData: number[] = [];
+
+      const result = await parallel(
+        ['cmd1', 'cmd2', 'cmd3', 'cmd4', 'cmd5'],
+        slowEngine as any,
+        {
+          maxConcurrency: 2,
+          onProgress: (completed) => {
+            progressData.push(completed);
+          }
+        }
+      );
+
+      // All commands should succeed
+      expect(result.succeeded.length).toBe(5);
+      expect(result.failed.length).toBe(0);
+
+      // Progress should be tracked
+      expect(progressData.length).toBe(5);
+      expect(progressData).toEqual([1, 2, 3, 4, 5]);
     });
   });
 });

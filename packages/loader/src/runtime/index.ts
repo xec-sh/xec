@@ -3,15 +3,5 @@
  * @module @xec-sh/loader/runtime
  */
 
-export {
-  GlobalInjector,
-  createInjector,
-  type GlobalInjectorOptions,
-} from './global-injector.js';
-
-export {
-  ScriptRuntime,
-  createRuntime,
-  type RetryOptions,
-  type WithinOptions,
-} from './script-runtime.js';
+export * from './script-runtime.js';
+export * from './global-injector.js';

@@ -38,19 +38,18 @@ export async function parallel(
   const isProcessPromise = (obj: any): obj is ProcessPromise =>
     obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
 
-  // Normalize commands and create promises
-  const promises = commands.map(cmd => {
-    if (isProcessPromise(cmd)) {
-      // ProcessPromise is already executing, just return it
-      return cmd;
-    } else {
-      // Convert string or Command to a promise
-      const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
-      return executeWithTimeout(engine, normalizedCmd, timeout);
-    }
-  });
-
   if (maxConcurrency === Infinity) {
+    // Only create promises upfront when using unlimited concurrency
+    const promises = commands.map(cmd => {
+      if (isProcessPromise(cmd)) {
+        // ProcessPromise is already executing, just return it
+        return cmd;
+      } else {
+        // Convert string or Command to a promise
+        const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
+        return executeWithTimeout(engine, normalizedCmd, timeout);
+      }
+    });
 
     const settled = await Promise.allSettled(promises);
 

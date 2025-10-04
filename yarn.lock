@@ -7019,9 +7019,9 @@ __metadata:
     "@types/node": "npm:24.6.2"
     "@types/ssh2": "npm:^1.15.5"
     "@types/which": "npm:^3.0.4"
-    "@xec-sh/core": "workspace:*"
-    "@xec-sh/kit": "workspace:*"
-    "@xec-sh/loader": "workspace:*"
+    "@xec-sh/core": "npm:^0.8.3"
+    "@xec-sh/kit": "npm:^0.8.3"
+    "@xec-sh/loader": "npm:^0.8.3"
     "@xec-sh/testing": "workspace:*"
     chokidar: "npm:^4.0.3"
     commander: "npm:14.0.1"
@@ -7056,7 +7056,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/core@workspace:*, @xec-sh/core@workspace:packages/core":
+"@xec-sh/core@npm:^0.8.3, @xec-sh/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@xec-sh/core@workspace:packages/core"
   dependencies:
@@ -7105,7 +7105,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/kit@workspace:*, @xec-sh/kit@workspace:packages/kit":
+"@xec-sh/kit@npm:^0.8.3, @xec-sh/kit@workspace:*, @xec-sh/kit@workspace:packages/kit":
   version: 0.0.0-use.local
   resolution: "@xec-sh/kit@workspace:packages/kit"
   dependencies:
@@ -7123,13 +7123,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@xec-sh/loader@workspace:*, @xec-sh/loader@workspace:packages/loader":
+"@xec-sh/loader@npm:^0.8.3, @xec-sh/loader@workspace:packages/loader":
   version: 0.0.0-use.local
   resolution: "@xec-sh/loader@workspace:packages/loader"
   dependencies:
     "@types/node": "npm:24.6.2"
     "@vitest/coverage-v8": "npm:3.2.4"
-    "@xec-sh/core": "workspace:*"
     "@xec-sh/kit": "workspace:*"
     "@xec-sh/testing": "workspace:*"
     esbuild: "npm:0.25.10"

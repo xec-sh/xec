@@ -13,7 +13,7 @@ function handleSFTP(accept: any) {
 
   let dirHandle = 105185
   const handles: Set<number> = new Set()
-  const dirHandles: Map<number, string[]> = new Map()
+  const dirHandles: Map<number, { path: string; contents: string[] }> = new Map()
   sftpStream.on('OPEN', function (reqId: any, filename: any, flags: any) {
     let handleId
     try {
@@ -126,26 +126,36 @@ function handleSFTP(accept: any) {
 
     dirHandle += 1
     const currentDirHandle = dirHandle
-    dirHandles.set(currentDirHandle, contents)
+    dirHandles.set(currentDirHandle, { path, contents })
     const handle = Buffer.alloc(8)
     handle.write(currentDirHandle.toString())
     sftpStream.handle(reqId, handle)
   })
   sftpStream.on('READDIR', function (reqId: any, givenHandle: any) {
     const handle = parseInt(givenHandle, 10)
-    const contents = dirHandles.get(handle)
-    if (contents == null || !contents.length) {
+    const dirInfo = dirHandles.get(handle)
+    if (dirInfo == null || !dirInfo.contents.length) {
       sftpStream.status(reqId, STATUS_CODE['EOF'])
       return
     }
 
-    const item = contents.pop()
+    const item = dirInfo.contents.pop()
+    const fullPath = FS.realpathSync.native(dirInfo.path + '/' + item)
+
+    let attrs
+    try {
+      attrs = FS.statSync(fullPath)
+    } catch (error) {
+      console.error('READDIR stat error:', error)
+      sftpStream.status(reqId, STATUS_CODE['FAILURE'])
+      return
+    }
 
     sftpStream.name(reqId, [
       {
         filename: item,
         longname: item,
-        attrs: null,
+        attrs,
       },
     ])
   })
