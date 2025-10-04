@@ -509,6 +509,7 @@ describe('KubernetesAdapter Complex Scenarios', () => {
     kubeConfigPath = cluster.getKubeConfigPath();
 
     adapter = new KubernetesAdapter({
+      throwOnNonZeroExit: false,
       kubeconfig: kubeConfigPath
     });
 
