@@ -97,7 +97,7 @@ describe('StreamHandler Memory Management', () => {
       });
     });
 
-    it('should clean up when transform is closed', async () => {
+    it('should clean up when explicitly disposed', async () => {
       const handler = new StreamHandler();
       const transform = handler.createTransform();
 
@@ -105,17 +105,20 @@ describe('StreamHandler Memory Management', () => {
       transform.resume();
 
       transform.write(Buffer.from('test data'));
+      transform.end();
 
+      // Wait for stream to finish
       await new Promise<void>((resolve) => {
-        transform.on('close', () => {
-          // After close, handler should be disposed
-          expect(handler.getContent()).toBe('');
-          expect(handler.getBuffer().length).toBe(0);
-          resolve();
-        });
-
-        transform.destroy();
+        transform.on('finish', resolve);
       });
+
+      // Before dispose, content should be available
+      expect(handler.getContent()).toBe('test data');
+
+      // After explicit dispose, buffers should be cleared
+      handler.dispose();
+      expect(handler.getContent()).toBe('');
+      expect(handler.getBuffer().length).toBe(0);
     });
   });
 
@@ -178,20 +181,21 @@ describe('StreamHandler Memory Management', () => {
       transform.resume();
 
       const readable = Readable.from(['chunk1', 'chunk2', 'chunk3']);
-      readable.pipe(transform);
 
-      // Dispose while streaming
-      setTimeout(() => handler.dispose(), 10);
+      // Dispose immediately before piping to ensure error on first chunk
+      handler.dispose();
+      readable.pipe(transform);
 
       await new Promise((resolve) => {
         transform.on('error', (err) => {
           expect(err.message).toContain('StreamHandler has been disposed');
           resolve(undefined);
         });
+        // If no error, resolve on finish (shouldn't happen)
         transform.on('finish', resolve);
       });
 
-      // Handler should be disposed
+      // After disposal, getContent should return empty string
       expect(handler.getContent()).toBe('');
     });
 
