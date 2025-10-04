@@ -81,8 +81,7 @@ export class StreamHandler {
             if (self.onData && str) {
               self.onData(str);
             }
-            // Clear buffers after flush to prevent memory leaks
-            self.reset();
+            // Don't reset here - buffer content is needed for getContent()
           }
           callback();
         } catch (error) {
@@ -91,10 +90,8 @@ export class StreamHandler {
       },
 
       final(callback) {
-        // Clear buffers after final to prevent memory leaks
-        if (!self.disposed) {
-          self.reset();
-        }
+        // Don't reset here - buffer content is needed for getContent()
+        // Cleanup will happen on 'close' event or explicit dispose()
         callback();
       },
 
