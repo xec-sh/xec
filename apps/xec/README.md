@@ -316,16 +316,16 @@ git clone https://github.com/xec-sh/xec.git
 cd xec/apps/xec
 
 # Install dependencies
-yarn install
+pnpm install
 
 # Development mode
-yarn dev
+pnpm dev
 
 # Run tests
-yarn test
+pnpm test
 
 # Build for production
-yarn build
+pnpm build
 ```
 
 ## 📊 Performance

@@ -9,7 +9,7 @@ The local adapter is included in the core package:
 ```bash
 npm install @xec-sh/core
 # or
-yarn add @xec-sh/core
+pnpm add @xec-sh/core
 ```
 
 ## Basic Configuration

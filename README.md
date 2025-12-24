@@ -137,18 +137,18 @@ xec in pod:app-pod script.ts        # Kubernetes execution
 
 ```bash
 # Prerequisites
-corepack enable          # Enable Yarn 4.9.2
-yarn install            # Install dependencies
+corepack enable          # Enable pnpm
+pnpm install            # Install dependencies
 
 # Development
-yarn dev                # Watch mode
-yarn test              # Run tests
-yarn build             # Build all packages
+pnpm dev                # Watch mode
+pnpm test              # Run tests
+pnpm build             # Build all packages
 
 # Quality
-yarn lint              # Lint code
-yarn type-check        # Type checking
-yarn test:coverage     # Coverage report
+pnpm lint              # Lint code
+pnpm type-check        # Type checking
+pnpm test:coverage     # Coverage report
 ```
 
 ## 🤝 Contributing

@@ -444,7 +444,7 @@ Implement volume caching strategies:
 await $.docker.run('node', {
   volumes: [
     'npm-cache:/root/.npm',      // NPM cache
-    'yarn-cache:/usr/local/share/.cache/yarn',  // Yarn cache
+    'pnpm-cache:/root/.local/share/pnpm',  // pnpm cache
     './:/app'
   ]
 });

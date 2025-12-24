@@ -1,6 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Default",
+  "exclude": [
+    "experiments",
+    "node_modules"
+  ],
   "compilerOptions": {
     "moduleDetection": "force",
     "declaration": true,

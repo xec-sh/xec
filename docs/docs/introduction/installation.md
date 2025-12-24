@@ -1,7 +1,7 @@
 ---
 title: Installation
 description: How to install Xec on your system
-keywords: [install, setup, npm, yarn, global, local]
+keywords: [install, setup, npm, pnpm, global, local]
 ---
 
 # Installation
@@ -12,7 +12,7 @@ Before installing Xec, ensure your system meets these requirements:
 
 - **Node.js**: Version 18.0.0 or higher
 - **Operating System**: macOS, Linux, or Windows (with WSL recommended)
-- **Package Manager**: npm (included with Node.js) or Yarn
+- **Package Manager**: npm (included with Node.js) or pnpm
 
 ### Optional Dependencies
 
@@ -31,9 +31,6 @@ Install Xec globally to use it from anywhere on your system:
 ```bash
 # Using npm
 npm install -g @xec-sh/cli
-
-# Using yarn
-yarn global add @xec-sh/cli
 
 # Using pnpm
 pnpm add -g @xec-sh/cli
@@ -78,17 +75,17 @@ For contributing to Xec or using the latest development version:
 git clone https://github.com/xec-sh/xec.git
 cd xec
 
-# Enable Corepack for Yarn
+# Enable Corepack for pnpm
 corepack enable
 
 # Install dependencies
-yarn install
+pnpm install
 
 # Build the project
-yarn build
+pnpm build
 
 # Link for global usage
-yarn link
+pnpm link --global
 ```
 
 ## Package Overview

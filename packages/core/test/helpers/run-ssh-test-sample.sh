@@ -20,7 +20,7 @@ sleep 3
 echo ""
 echo "Running basic SSH connectivity test..."
 cd packages/core
-yarn test test/integration/ssh-docker-integration.test.ts -t "should connect to ubuntu-apt container"
+pnpm test test/integration/ssh-docker-integration.test.ts -t "should connect to ubuntu-apt container"
 
 echo ""
 echo "To stop the container, run:"

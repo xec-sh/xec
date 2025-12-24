@@ -429,7 +429,7 @@ Generate coverage reports:
 
 ```bash
 # Run tests with coverage
-yarn test:coverage
+pnpm test:coverage
 
 # View HTML report
 open coverage/index.html
@@ -555,13 +555,13 @@ vi.mock('fs/promises', () => ({
 
 ```typescript
 // Enable debug output
-DEBUG=xec:* yarn test
+DEBUG=xec:* pnpm test
 
 // Run single test
-yarn test -t "should execute successfully"
+pnpm test -t "should execute successfully"
 
 // Run with inspector
-node --inspect yarn test
+node --inspect pnpm test
 ```
 
 ## Related Topics

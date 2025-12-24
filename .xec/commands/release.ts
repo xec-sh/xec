@@ -660,57 +660,23 @@ export function command(program: Command): void {
           }
 
           if (!config.skipNpm) {
-            // Update .yarnrc.yml if token provided
+            // Update .npmrc if token provided
             if (config.npmToken) {
-              const yarnrcPath = join(process.cwd(), '.yarnrc.yml');
+              const npmrcPath = join(process.cwd(), '.npmrc');
 
-              // Check if .yarnrc.yml already exists and save original content
-              let originalYarnrc: string | null = null;
-              let yarnrcConfig: any = {};
+              // Check if .npmrc already exists and save original content
+              let originalNpmrc: string | null = null;
 
-              if (existsSync(yarnrcPath)) {
-                originalYarnrc = readFileSync(yarnrcPath, 'utf8');
-                // Parse YAML manually (simple key: value pairs)
-                const lines = originalYarnrc.split('\n');
-                for (const line of lines) {
-                  const trimmedLine = line.trim();
-                  if (!trimmedLine || trimmedLine.startsWith('#')) continue;
-
-                  const colonIndex = trimmedLine.indexOf(':');
-                  if (colonIndex > 0) {
-                    const key = trimmedLine.substring(0, colonIndex).trim();
-                    const value = trimmedLine.substring(colonIndex + 1).trim().replace(/^["']|["']$/g, '');
-                    if (key && value) {
-                      yarnrcConfig[key] = value;
-                    }
-                  }
-                }
+              if (existsSync(npmrcPath)) {
+                originalNpmrc = readFileSync(npmrcPath, 'utf8');
               } else {
-                rollbackState.createdFiles.push(yarnrcPath);
+                rollbackState.createdFiles.push(npmrcPath);
               }
 
               try {
-                // Update yarnrc config with new token
-                yarnrcConfig.npmAuthToken = config.npmToken;
-                yarnrcConfig.npmPublishRegistry = yarnrcConfig.npmPublishRegistry || 'https://registry.npmjs.org';
-                yarnrcConfig.npmRegistryServer = yarnrcConfig.npmRegistryServer || 'https://registry.npmjs.org';
-
-                // Convert back to YAML format
-                const yarnrcContent = Object.entries(yarnrcConfig)
-                  .map(([key, value]) => {
-                    // Keep npmAuthToken without quotes, quote URLs
-                    if (key === 'npmAuthToken' || key === 'nodeLinker') {
-                      return `${key}: ${value}`;
-                    } else if (typeof value === 'string' && (value.includes('://') || value.includes('registry'))) {
-                      return `${key}: "${value}"`;
-                    } else {
-                      return `${key}: ${value}`;
-                    }
-                  })
-                  .join('\n\n') + '\n';
-
-                // Create .yarnrc.yml in project root
-                writeFileSync(yarnrcPath, yarnrcContent);
+                // Create .npmrc with auth token
+                const npmrcContent = `//registry.npmjs.org/:_authToken=${config.npmToken}\n`;
+                writeFileSync(npmrcPath, npmrcContent);
 
                 // Core packages must be published first
                 const corePackages = config.packages.filter(p => p.name === '@xec-sh/core');
@@ -719,7 +685,7 @@ export function command(program: Command): void {
                 // Publish core first (dependency for others)
                 if (corePackages.length > 0) {
                   s.start(`Publishing ${corePackages[0]?.name}...`);
-                  await $`yarn workspace ${corePackages[0]?.name} npm publish --access public`;
+                  await $`pnpm --filter ${corePackages[0]?.name} publish --access public --no-git-checks`;
 
                   // Wait a bit for NPM to process the package
                   s.start('Waiting for NPM to process the package...');
@@ -732,7 +698,7 @@ export function command(program: Command): void {
                   s.start(`Publishing ${pkg?.name}... (${i + 1}/${otherPackages.length})`);
 
                   try {
-                    await $`yarn workspace ${pkg?.name} npm publish --access public`;
+                    await $`pnpm --filter ${pkg?.name} publish --access public --no-git-checks`;
 
                     // Wait between publishes to avoid NPM rate limiting
                     if (i < otherPackages.length - 1) {
@@ -749,14 +715,14 @@ export function command(program: Command): void {
                 s.stop('❌ NPM publishing failed');
                 throw error;
               } finally {
-                // Clean up .yarnrc.yml
-                if (originalYarnrc !== null) {
+                // Clean up .npmrc
+                if (originalNpmrc !== null) {
                   // Restore original content
-                  writeFileSync(yarnrcPath, originalYarnrc);
+                  writeFileSync(npmrcPath, originalNpmrc);
                 } else {
                   // Remove created file
                   try {
-                    await $`rm -f ${yarnrcPath}`.nothrow();
+                    await $`rm -f ${npmrcPath}`.nothrow();
                   } catch { }
                 }
               }
@@ -764,7 +730,7 @@ export function command(program: Command): void {
               // Publish without token - use sequential for auth prompts
               for (const pkg of config.packages) {
                 kit.log.step(`Publishing ${pkg.name}...`);
-                await $`yarn workspace ${pkg.name} npm publish --access public`;
+                await $`pnpm --filter ${pkg.name} publish --access public --no-git-checks`;
               }
             }
 
@@ -912,9 +878,9 @@ ${isPrerelease ? '**This is a pre-release version.**\n' : ''}
 npm install -g @xec-sh/cli
 npm install @xec-sh/core
 
-# Yarn
-yarn global add @xec-sh/cli
-yarn add @xec-sh/core
+# pnpm
+pnpm add -g @xec-sh/cli
+pnpm add @xec-sh/core
 
 # JSR.io  
 deno add @xec/core

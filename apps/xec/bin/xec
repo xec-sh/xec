@@ -70,7 +70,7 @@ import('../dist/main.js')
   .then(cli => cli.run())
   .catch(err => {
     if (err.code === 'MODULE_NOT_FOUND') {
-      console.error('Error: Xec CLI is not built. Please run "yarn build" first.');
+      console.error('Error: Xec CLI is not built. Please run "pnpm build" first.');
     } else {
       console.error('Failed to start Xec CLI:', err.message || err);
       // Always show stack trace for debugging

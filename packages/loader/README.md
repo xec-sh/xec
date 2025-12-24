@@ -58,9 +58,6 @@
 # npm
 npm install @xec-sh/loader
 
-# yarn
-yarn add @xec-sh/loader
-
 # pnpm
 pnpm add @xec-sh/loader
 ```
@@ -732,19 +729,19 @@ Contributions are welcome! Please read our [Contributing Guide](../../CONTRIBUTI
 
 ```bash
 # Install dependencies
-yarn install
+pnpm install
 
 # Build
-yarn build
+pnpm build
 
 # Run tests
-yarn test
+pnpm test
 
 # Run tests in watch mode
-yarn test:watch
+pnpm test:watch
 
 # Type check
-yarn typecheck
+pnpm typecheck
 
 # Run examples
 npx tsx examples/basic-usage.ts

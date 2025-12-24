@@ -27,7 +27,7 @@ Production-ready examples and complete workflows.
 ```bash
 # Install dependencies
 cd packages/core
-yarn install
+pnpm install
 
 # Run an example
 tsx examples/01-basics/01-hello-world.ts

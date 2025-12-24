@@ -9,7 +9,7 @@ The SSH adapter requires the `ssh2` module:
 ```bash
 npm install @xec-sh/core ssh2
 # or
-yarn add @xec-sh/core ssh2
+pnpm add @xec-sh/core ssh2
 ```
 
 ## Basic Configuration

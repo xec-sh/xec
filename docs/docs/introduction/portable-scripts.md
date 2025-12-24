@@ -253,7 +253,7 @@ if ($target.type !== 'local') {
 }
 
 // Use different package managers
-const installer = $target.type === 'docker' ? 'yarn' : 'npm';
+const installer = $target.type === 'docker' ? 'pnpm' : 'npm';
 await $`${installer} install`;
 
 // Environment-specific optimizations

@@ -141,7 +141,7 @@ echo -e "\n${YELLOW}Running package manager tests...${NC}"
 export JEST_TIMEOUT=$((TIMEOUT * 1000))
 
 # Build test command
-TEST_CMD="yarn test test/integration/package-managers.test.ts"
+TEST_CMD="pnpm test test/integration/package-managers.test.ts"
 
 if [ -n "$TEST_PATTERN" ]; then
     TEST_CMD="$TEST_CMD -t \"$TEST_PATTERN\""
