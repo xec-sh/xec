@@ -8,7 +8,8 @@ import { ModuleExecutor } from './module-executor.js';
 import { MemoryCache, HybridCache } from './module-cache.js';
 import { CDNModuleResolver, NodeModuleResolver, LocalModuleResolver, CompositeModuleResolver } from './module-resolver.js';
 
-import type { Cache , ModuleSpecifier, ModuleLoaderOptions } from '../types/index.js';
+import type { Cache, ModuleSpecifier, ModuleLoaderOptions, ModuleExports } from '../types/index.js';
+import { isNodeBuiltinModule } from '../constants.js';
 
 /**
  * ModuleLoader - main orchestrator for module loading
@@ -59,7 +60,7 @@ export class ModuleLoader {
   /**
    * Import a module by specifier
    */
-  async import(specifier: ModuleSpecifier): Promise<any> {
+  async import(specifier: ModuleSpecifier): Promise<ModuleExports> {
     // Check for pending loads (prevent duplicate fetches)
     if (this.pendingLoads.has(specifier)) {
       return this.pendingLoads.get(specifier)!;
@@ -75,7 +76,7 @@ export class ModuleLoader {
     }
   }
 
-  private async loadModule(specifier: ModuleSpecifier): Promise<any> {
+  private async loadModule(specifier: ModuleSpecifier): Promise<ModuleExports> {
     if (this.options.verbose) {
       console.log(`[ModuleLoader] Loading: ${specifier}`);
     }
@@ -93,9 +94,9 @@ export class ModuleLoader {
     } else if (resolution.resolved.startsWith('/') ||
         resolution.resolved.startsWith('file://') ||
         resolution.resolved.startsWith('node:') ||
-        this.isBuiltinModule(resolution.resolved)) {
+        isNodeBuiltinModule(resolution.resolved)) {
       // Direct import for local files and built-in modules
-      return import(resolution.resolved);
+      return import(resolution.resolved) as Promise<ModuleExports>;
     }
 
     // Fetch from CDN or HTTP(S) URL
@@ -125,19 +126,5 @@ export class ModuleLoader {
    */
   async getCacheStats() {
     return this.cache.stats();
-  }
-
-  /**
-   * Check if a specifier is a built-in Node.js module
-   */
-  private isBuiltinModule(specifier: string): boolean {
-    const builtins = [
-      'fs', 'path', 'url', 'crypto', 'http', 'https', 'stream', 'buffer',
-      'events', 'util', 'os', 'child_process', 'zlib', 'readline', 'process',
-      'assert', 'querystring', 'string_decoder', 'timers', 'tty', 'v8', 'vm',
-      'worker_threads', 'cluster', 'dgram', 'dns', 'domain', 'net', 'perf_hooks',
-      'punycode', 'repl', 'tls'
-    ];
-    return builtins.includes(specifier);
   }
 }

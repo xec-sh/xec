@@ -15,6 +15,7 @@ import {
   ScriptRuntime,
   ScriptExecutor,
   GlobalInjector,
+  TypeScriptTransformer,
 } from '@xec-sh/loader';
 
 import type { ResolvedTarget } from '../config/types.js';
@@ -315,84 +316,57 @@ export class ScriptLoader {
     console.log(prism.gray(''));
   }
 
+  // TypeScript transformer instance for dynamic command loading
+  // Uses TypeScriptTransformer from @xec-sh/loader
+  private readonly tsTransformer = new TypeScriptTransformer(undefined, {
+    target: 'esnext',
+    format: 'esm',
+  });
+
   /**
    * Load a dynamic command module
+   * Uses TypeScriptTransformer from @xec-sh/loader for base transformation
    */
   async loadDynamicCommand(
     filePath: string,
     program: Command,
-    commandName: string
+    _commandName: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // CRITICAL: Initialize global module context BEFORE importing
       // This ensures kit, prism, log are available during module parsing
       await this.initializeGlobalModuleContext();
 
-      // Load the module - use esbuild for TypeScript files, dynamic import for JS
+      // Load the module - use TypeScriptTransformer for TS files, dynamic import for JS
       let moduleExports;
-      if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
-        // TypeScript files: use esbuild to transpile and then import
+      if (this.tsTransformer.needsTransformation(filePath)) {
+        // TypeScript files: use TypeScriptTransformer from @xec-sh/loader
         const fs = await import('fs');
-        const path = await import('path');
+        const nodePath = await import('path');
 
         const code = await fs.promises.readFile(filePath, 'utf-8');
 
-        // Transform TypeScript to JavaScript
-        const { transform } = await import('esbuild');
-        const transformed = await transform(code, {
-          loader: filePath.endsWith('.tsx') ? 'tsx' : 'ts',
-          format: 'esm',
-          target: 'node20',
-          platform: 'node'
+        // Use TypeScriptTransformer with Node.js platform options
+        let transformedCode = await this.tsTransformer.transformWithOptions(code, filePath, {
+          platform: 'node',
         });
 
-        // IMPORTANT: Remove conflicting declarations from transformed code
-        // release.ts has: const prism = globalThis.prism || kit.prism;
-        // We need to replace this with assignment to globalThis.prism
-        let finalCode = transformed.code;
+        // Apply CLI-specific post-processing
+        transformedCode = this.applyCliTransformations(transformedCode);
 
-        // Fix esbuild's incorrect .mjs extensions for node: imports
-        // esbuild sometimes generates: import process from "node:process.mjs"
-        // Node.js expects: import process from "node:process"
-        finalCode = finalCode.replace(/from\s+["']node:([^"']+)\.mjs["']/g, 'from "node:$1"');
-
-        // Replace problematic declarations
-        finalCode = finalCode.replace(
-          /const prism = globalThis\.prism \|\| kit\.prism;/g,
-          '// prism is available from globalThis'
-        );
-
-        // Add preamble with global context
-        // IMPORTANT: process is already global in Node.js, no need to import it
-        const preamble = `
-// Injected global context for dynamic commands
-const process = globalThis.process;
-const $ = globalThis.$;
-const kit = globalThis.kit;
-const prism = globalThis.prism;
-const log = globalThis.log;
-const use = globalThis.use;
-const x = globalThis.x;
-const Import = globalThis.Import;
-
-`;
-
-        // Write to temp file with preamble
-        // Use .js extension and write to project's .xec directory to ensure proper module resolution
-        const tmpDir = path.join(process.cwd(), '.xec', '.tmp');
+        // Add preamble with global context and write to temp file
+        const fullCode = this.createGlobalPreamble() + transformedCode;
+        const tmpDir = nodePath.join(process.cwd(), '.xec', '.tmp');
         await fs.promises.mkdir(tmpDir, { recursive: true });
-        const tmpFile = path.join(tmpDir, `xec-cmd-${Date.now()}.js`);
-        const fullCode = preamble + finalCode;
+        const tmpFile = nodePath.join(tmpDir, `xec-cmd-${Date.now()}.js`);
 
         await fs.promises.writeFile(tmpFile, fullCode);
 
         try {
-          // Use a more explicit file URL to avoid module resolution issues
           const fileUrl = new URL(`file://${tmpFile}`).href;
 
           if (process.env['XEC_DEBUG']) {
             console.log(`[loadDynamicCommand] Importing URL: ${fileUrl}`);
-            console.log(`[loadDynamicCommand] File exists:`, await fs.promises.access(tmpFile).then(() => true).catch(() => false));
           }
 
           moduleExports = await import(fileUrl);
@@ -411,7 +385,6 @@ const Import = globalThis.Import;
       // Check if the module exports a default function, setup, or command function
       const setupFn = moduleExports.default || moduleExports.setup || moduleExports.command;
       if (typeof setupFn === 'function') {
-        // Execute the setup function with program
         await setupFn(program);
         return { success: true };
       } else {
@@ -421,7 +394,6 @@ const Import = globalThis.Import;
         };
       }
     } catch (error) {
-      // Enhanced error logging for debugging
       if (process.env['XEC_DEBUG']) {
         console.error('[loadDynamicCommand] Error details:', error);
         if (error instanceof Error && error.stack) {
@@ -433,6 +405,45 @@ const Import = globalThis.Import;
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  /**
+   * Apply CLI-specific transformations to transpiled code
+   * Fixes esbuild quirks and patterns specific to xec commands
+   */
+  private applyCliTransformations(code: string): string {
+    let result = code;
+
+    // Fix esbuild's incorrect .mjs extensions for node: imports
+    // esbuild sometimes generates: import process from "node:process.mjs"
+    // Node.js expects: import process from "node:process"
+    result = result.replace(/from\s+["']node:([^"']+)\.mjs["']/g, 'from "node:$1"');
+
+    // Replace problematic declarations that conflict with globals
+    result = result.replace(
+      /const prism = globalThis\.prism \|\| kit\.prism;/g,
+      '// prism is available from globalThis'
+    );
+
+    return result;
+  }
+
+  /**
+   * Create preamble with global context for dynamic commands
+   */
+  private createGlobalPreamble(): string {
+    return `
+// Injected global context for dynamic commands
+const process = globalThis.process;
+const $ = globalThis.$;
+const kit = globalThis.kit;
+const prism = globalThis.prism;
+const log = globalThis.log;
+const use = globalThis.use;
+const x = globalThis.x;
+const Import = globalThis.Import;
+
+`;
   }
 
   /**

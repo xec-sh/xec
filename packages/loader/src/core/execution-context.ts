@@ -7,6 +7,7 @@ import type {
   TargetInfo,
   ScriptContext,
   ExecutionContextOptions,
+  ExecutionEngine,
 } from '../types/index.js';
 
 /**
@@ -14,8 +15,8 @@ import type {
  */
 export class ExecutionContext {
   private readonly options: ExecutionContextOptions;
-  private readonly injectedGlobals = new Map<string, any>();
-  private readonly originalGlobals = new Map<string, any>();
+  private readonly injectedGlobals = new Map<string, unknown>();
+  private readonly originalGlobals = new Map<string, unknown>();
 
   constructor(options: ExecutionContextOptions = {}) {
     this.options = options;
@@ -31,7 +32,7 @@ export class ExecutionContext {
   /**
    * Get target execution engine
    */
-  getTargetEngine(): any {
+  getTargetEngine(): ExecutionEngine | undefined {
     return this.options.targetEngine;
   }
 
@@ -45,7 +46,7 @@ export class ExecutionContext {
   /**
    * Get custom globals
    */
-  getCustomGlobals(): Record<string, any> {
+  getCustomGlobals(): Record<string, unknown> {
     return this.options.customGlobals || {};
   }
 
@@ -53,7 +54,7 @@ export class ExecutionContext {
    * Inject globals into the environment
    */
   async injectGlobals(): Promise<void> {
-    const globalsToInject = new Map<string, any>();
+    const globalsToInject = new Map<string, unknown>();
 
     // Add script context
     if (this.options.context) {
@@ -74,11 +75,12 @@ export class ExecutionContext {
     }
 
     // Save original values and inject
+    const global = globalThis as Record<string, unknown>;
     for (const [key, value] of globalsToInject) {
       if (key in globalThis) {
-        this.originalGlobals.set(key, (globalThis as any)[key]);
+        this.originalGlobals.set(key, global[key]);
       }
-      (globalThis as any)[key] = value;
+      global[key] = value;
       this.injectedGlobals.set(key, value);
     }
   }
@@ -87,11 +89,12 @@ export class ExecutionContext {
    * Restore original globals
    */
   async restoreGlobals(): Promise<void> {
+    const global = globalThis as Record<string, unknown>;
     for (const [key] of this.injectedGlobals) {
       if (this.originalGlobals.has(key)) {
-        (globalThis as any)[key] = this.originalGlobals.get(key);
+        global[key] = this.originalGlobals.get(key);
       } else {
-        delete (globalThis as any)[key];
+        delete global[key];
       }
     }
 

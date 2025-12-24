@@ -4,6 +4,58 @@
  */
 
 /**
+ * Execution engine interface (compatible with @xec-sh/core)
+ * This provides a generic interface for command execution without tight coupling
+ */
+export interface ExecutionEngine {
+  /**
+   * Execute a command and return result
+   */
+  (command: string | TemplateStringsArray, ...args: unknown[]): Promise<ExecutionEngineResult>;
+}
+
+/**
+ * Result from execution engine
+ */
+export interface ExecutionEngineResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+/**
+ * Module exports interface for dynamic module loading
+ */
+export interface ModuleExports {
+  default?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Target configuration with known properties
+ */
+export interface TargetConfig {
+  /** SSH host */
+  host?: string;
+  /** SSH port */
+  port?: number;
+  /** SSH username */
+  username?: string;
+  /** Docker container name */
+  container?: string;
+  /** Kubernetes pod name */
+  pod?: string;
+  /** Kubernetes namespace */
+  namespace?: string;
+  /** Working directory */
+  cwd?: string;
+  /** Environment variables */
+  env?: Record<string, string>;
+  /** Additional configuration */
+  [key: string]: unknown;
+}
+
+/**
  * Target information for remote execution
  */
 export interface TargetInfo {
@@ -13,7 +65,7 @@ export interface TargetInfo {
   container?: string;
   pod?: string;
   namespace?: string;
-  config: Record<string, any>;
+  config: TargetConfig;
 }
 
 /**
@@ -34,7 +86,7 @@ export interface ExecutionContextOptions {
   target?: TargetInfo;
 
   /** Target execution engine (from @xec-sh/core) */
-  targetEngine?: any;
+  targetEngine?: ExecutionEngine;
 
   /** Script context */
   context?: ScriptContext;
@@ -52,7 +104,7 @@ export interface ExecutionContextOptions {
   env?: Record<string, string>;
 
   /** Custom globals to inject */
-  customGlobals?: Record<string, any>;
+  customGlobals?: Record<string, unknown>;
 }
 
 /**

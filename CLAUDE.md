@@ -425,22 +425,22 @@ describe('CLI E2E', () => {
 
 ```bash
 # Run all tests with coverage
-yarn test:coverage
+pnpm test:coverage
 
 # Run specific test file
-yarn test path/to/test.ts
+pnpm test path/to/test.ts
 
 # Run tests in watch mode
-yarn test --watch
+pnpm test --watch
 
 # Run mutation testing
-yarn test:mutation
+pnpm test:mutation
 
 # Run property-based tests
-yarn test:property
+pnpm test:property
 
 # Run benchmarks
-yarn bench
+pnpm bench
 
 # Run tests on different runtimes
 node --test
@@ -593,45 +593,45 @@ const state = inspect(engine);
 ### Quick Start
 ```bash
 # Initial setup
-corepack enable              # Enable Yarn 4.9.2
-yarn install                 # Install dependencies
-yarn build                   # Build all packages
+corepack enable              # Enable pnpm
+pnpm install                 # Install dependencies
+pnpm build                   # Build all packages
 
 # Development
-yarn dev                     # Watch mode for all packages
-yarn test                    # Run unit tests
-yarn test:integration        # Run integration tests
-yarn test:e2e               # Run end-to-end tests
-yarn test:full              # Run all tests
-yarn test:coverage          # Run with coverage report
-yarn test:mutation          # Run mutation tests
-yarn bench                  # Run performance benchmarks
+pnpm dev                     # Watch mode for all packages
+pnpm test                    # Run unit tests
+pnpm test:integration        # Run integration tests
+pnpm test:e2e               # Run end-to-end tests
+pnpm test:full              # Run all tests
+pnpm test:coverage          # Run with coverage report
+pnpm test:mutation          # Run mutation tests
+pnpm bench                  # Run performance benchmarks
 
 # Code quality
-yarn typecheck              # TypeScript validation
-yarn lint                   # ESLint checks
-yarn format                 # Prettier formatting
-yarn fix:all                # Fix all auto-fixable issues
-yarn audit                  # Security vulnerability check
+pnpm typecheck              # TypeScript validation
+pnpm lint                   # ESLint checks
+pnpm format                 # Prettier formatting
+pnpm fix:all                # Fix all auto-fixable issues
+pnpm audit                  # Security vulnerability check
 
 # Documentation
-yarn docs:dev               # Start docs dev server
-yarn docs:build             # Build documentation
+pnpm docs:dev               # Start docs dev server
+pnpm docs:build             # Build documentation
 ```
 
 ### Code Quality Gates
 
 All code MUST pass these gates before commit:
 
-- ✅ **Type checking**: `yarn typecheck` (ZERO errors/warnings)
-- ✅ **Linting**: `yarn lint` (ZERO violations)
-- ✅ **Formatting**: `yarn format:check` (100% compliant)
-- ✅ **Unit tests**: `yarn test` (100% passing)
-- ✅ **Coverage**: `yarn test:coverage` (>95% for new code)
-- ✅ **Integration tests**: `yarn test:integration` (100% passing)
-- ✅ **Mutation tests**: `yarn test:mutation` (>95% killed)
-- ✅ **Performance**: `yarn bench` (no regressions)
-- ✅ **Security**: `yarn audit` (ZERO vulnerabilities)
+- ✅ **Type checking**: `pnpm typecheck` (ZERO errors/warnings)
+- ✅ **Linting**: `pnpm lint` (ZERO violations)
+- ✅ **Formatting**: `pnpm format:check` (100% compliant)
+- ✅ **Unit tests**: `pnpm test` (100% passing)
+- ✅ **Coverage**: `pnpm test:coverage` (>95% for new code)
+- ✅ **Integration tests**: `pnpm test:integration` (100% passing)
+- ✅ **Mutation tests**: `pnpm test:mutation` (>95% killed)
+- ✅ **Performance**: `pnpm bench` (no regressions)
+- ✅ **Security**: `pnpm audit` (ZERO vulnerabilities)
 - ✅ **Docs**: Update `/docs` if API changed
 - ✅ **Changelog**: Update CHANGELOG.md for user-facing changes
 
@@ -653,7 +653,7 @@ All code MUST pass these gates before commit:
 
 ### Required Tools
 - Node.js 20+ (with corepack)
-- Yarn 4.9.2 (via corepack)
+- pnpm (via corepack)
 - Docker (for integration tests)
 - kubectl (for Kubernetes tests)
 
@@ -803,13 +803,13 @@ describe('execution performance', () => {
 ### Debug Output
 ```bash
 # Enable all debug output
-XECSH_DEBUG=* yarn test
+XECSH_DEBUG=* pnpm test
 
 # Debug specific components
-XECSH_DEBUG=ssh,docker yarn test
+XECSH_DEBUG=ssh,docker pnpm test
 
 # Debug with timing
-XECSH_DEBUG_TIMING=true yarn test
+XECSH_DEBUG_TIMING=true pnpm test
 ```
 
 ### Common Issues
@@ -820,7 +820,7 @@ XECSH_DEBUG_TIMING=true yarn test
 docker ps | grep xecsh-test-ssh
 
 # Restart SSH containers
-yarn workspace @xec-sh/core docker:restart
+pnpm --filter @xec-sh/core docker:restart
 ```
 
 #### Docker Tests Failing
@@ -930,18 +930,18 @@ type(scope): description
 
 ```bash
 # Most common development commands
-yarn dev                    # Start development mode
-yarn test                   # Run tests
-yarn fix:all               # Fix all issues
+pnpm dev                    # Start development mode
+pnpm test                   # Run tests
+pnpm fix:all               # Fix all issues
 
 # Package specific
-yarn workspace @xec-sh/core test
-yarn workspace @xec-sh/cli build
+pnpm --filter @xec-sh/core test
+pnpm --filter @xec-sh/cli build
 
 # Release
-yarn changeset             # Create changeset
-yarn version              # Version packages
-yarn release              # Publish to npm
+pnpm changeset             # Create changeset
+pnpm version              # Version packages
+pnpm release              # Publish to npm
 ```
 
 ## 🌟 Remember

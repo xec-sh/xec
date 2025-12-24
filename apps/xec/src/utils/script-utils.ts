@@ -6,19 +6,24 @@ import { glob } from 'glob';
 import fetch from 'node-fetch';
 import * as kit from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
+import { ScriptRuntime, createRuntime } from '@xec-sh/loader';
 
 // Re-export USH $ with enhanced features
 export const $ = xecDollar;
 
-// Current working directory management
-let currentDir = process.cwd();
+// Singleton runtime instance for consistent state
+const runtime = createRuntime();
 
+/**
+ * Change current directory
+ * Uses ScriptRuntime from @xec-sh/loader + process.chdir for CLI context
+ */
 export function cd(dir?: string): string {
   if (dir === undefined) {
-    return currentDir;
+    return runtime.pwd();
   }
 
-  const newDir = path.resolve(currentDir, dir);
+  const newDir = path.resolve(runtime.pwd(), dir);
 
   if (!fs.existsSync(newDir)) {
     throw new Error(`Directory not found: ${newDir}`);
@@ -28,13 +33,17 @@ export function cd(dir?: string): string {
     throw new Error(`Not a directory: ${newDir}`);
   }
 
-  currentDir = newDir;
-  process.chdir(newDir);
-  return currentDir;
+  // Use runtime's chdir which updates both internal state and process.cwd()
+  runtime.chdir(newDir);
+  return runtime.pwd();
 }
 
+/**
+ * Get current directory
+ * Delegates to ScriptRuntime from @xec-sh/loader
+ */
 export function pwd(): string {
-  return currentDir;
+  return runtime.pwd();
 }
 
 // Enhanced echo with color support
@@ -86,20 +95,23 @@ export { fs, glob };
 // HTTP utilities
 export { fetch };
 
-// Process utilities
+// Process utilities - delegate to ScriptRuntime
 export function exit(code: number = 0): void {
-  process.exit(code);
+  runtime.exit(code);
 }
 
 export function env(key: string, defaultValue?: string): string | undefined {
-  return process.env[key] || defaultValue;
+  return runtime.env(key, defaultValue);
 }
 
 export function setEnv(key: string, value: string): void {
-  process.env[key] = value;
+  runtime.setEnv(key, value);
 }
 
-// Retry utility
+// Re-export retry options type from loader
+export type { RetryOptions } from '@xec-sh/loader';
+
+// Retry utility - delegate to ScriptRuntime
 export async function retry<T>(
   fn: () => Promise<T>,
   options: {
@@ -109,64 +121,34 @@ export async function retry<T>(
     onRetry?: (error: Error, attempt: number) => void;
   } = {}
 ): Promise<T> {
-  const {
-    retries = 3,
-    delay = 1000,
-    backoff = 2,
-    onRetry = () => { },
-  } = options;
-
-  let lastError: Error;
-
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error as Error;
-
-      if (i < retries) {
-        onRetry(lastError, i + 1);
-        await sleep(delay * Math.pow(backoff, i));
-      }
-    }
-  }
-
-  throw lastError!;
+  return runtime.retry(fn, options);
 }
 
-// Sleep utility
+// Sleep utility - delegate to ScriptRuntime
 export function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return runtime.sleep(ms);
 }
 
-// Template utility
-export function template(strings: TemplateStringsArray, ...values: any[]): string {
-  return strings.reduce((result, str, i) => {
-    const value = values[i - 1];
-    return result + (value !== undefined ? value : '') + str;
-  });
+// Template utility - delegate to ScriptRuntime
+export function template(strings: TemplateStringsArray, ...values: unknown[]): string {
+  return runtime.template(strings, ...values);
 }
 
 // Which utility
 export { which };
 
-// Quote utility for shell arguments
+// Quote utility for shell arguments - delegate to ScriptRuntime
 export function quote(arg: string): string {
-  if (!/[\s"'$`\\]/.test(arg)) {
-    return arg;
-  }
-
-  return "'" + arg.replace(/'/g, "'\"'\"'") + "'";
+  return runtime.quote(arg);
 }
 
-// Temporary file/directory utilities
+// Temporary file/directory utilities - delegate to ScriptRuntime
 export function tmpdir(): string {
-  return os.tmpdir();
+  return runtime.tmpdir();
 }
 
 export function tmpfile(prefix: string = 'xec-', suffix: string = ''): string {
-  const random = Math.random().toString(36).substring(2, 15);
-  return path.join(os.tmpdir(), `${prefix}${random}${suffix}`);
+  return runtime.tmpfile(prefix, suffix);
 }
 
 // YAML utilities
@@ -203,39 +185,23 @@ export async function loadEnv(envPath?: string) {
   return config({ path: envPath });
 }
 
-// Kill process utility
+// Kill process utility - delegate to ScriptRuntime
 export function kill(pid: number, signal: string = 'SIGTERM'): void {
-  process.kill(pid, signal);
+  runtime.kill(pid, signal);
 }
 
-// Process list
-export async function ps(): Promise<any[]> {
+// Process list (CLI-specific, not in loader)
+export async function ps(): Promise<unknown[]> {
   const { default: pslist } = await import('ps-list');
   return pslist();
 }
 
-// Within utility for scoped execution
+// Within utility for scoped execution - delegate to ScriptRuntime
 export async function within<T>(
   options: { cwd?: string; env?: Record<string, string> },
   fn: () => Promise<T>
 ): Promise<T> {
-  const originalCwd = process.cwd();
-  const originalEnv = { ...process.env };
-
-  try {
-    if (options.cwd) {
-      cd(options.cwd);
-    }
-
-    if (options.env) {
-      Object.assign(process.env, options.env);
-    }
-
-    return await fn();
-  } finally {
-    cd(originalCwd);
-    process.env = originalEnv;
-  }
+  return runtime.within(options, fn);
 }
 
 // Logging utilities
@@ -260,30 +226,42 @@ export const log = {
 // Color utilities
 export const prism: typeof kit.prism = kit.prism;
 
-// Export all utilities as default
-const scriptUtils: any = {
+/**
+ * Script utilities object containing all available utilities
+ * Core utilities delegate to @xec-sh/loader's ScriptRuntime
+ * CLI-specific utilities (echo, spinner, log, yaml, csv, etc.) are added here
+ */
+const scriptUtils: Record<string, unknown> = {
+  // Core execution
   $,
+  // Directory management (delegates to ScriptRuntime)
   cd,
   pwd,
+  // CLI-specific output utilities
   echo,
   spinner,
   kit,
   prism: kit.prism,
+  // File system
   fs,
   glob,
   path,
   os,
+  // HTTP
   fetch,
+  // Process utilities (delegates to ScriptRuntime)
   exit,
   env,
   setEnv,
   retry,
   sleep,
   template,
+  // Shell utilities
   which,
   quote,
   tmpdir,
   tmpfile,
+  // CLI-specific utilities
   yaml,
   csv,
   diff,
@@ -293,9 +271,14 @@ const scriptUtils: any = {
   ps,
   within,
   log,
+  // Expose runtime for advanced usage
+  runtime,
 };
 
 // Export kit as named export
 export { kit };
+
+// Export the runtime singleton for advanced usage
+export { runtime };
 
 export default scriptUtils;
