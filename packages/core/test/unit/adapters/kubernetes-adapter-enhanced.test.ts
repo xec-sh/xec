@@ -1,26 +1,46 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { Readable } from 'stream';
-import { KindClusterManager } from '@xec-sh/testing';
+import { KindClusterManager, isKindAvailable, isKubectlAvailable, isDockerAvailable } from '@xec-sh/testing';
 import { existsSync, unlinkSync, mkdtempSync, writeFileSync } from 'fs';
 import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { TimeoutError } from '../../../src/core/error.js';
 import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
-describe('KubernetesAdapter Enhanced Tests', () => {
+// Check for required binaries
+const hasRequiredBinaries = (): boolean => {
+  return isDockerAvailable() && isKindAvailable() && isKubectlAvailable();
+};
+
+// Skip these tests if required binaries are not available
+const describeIfK8s = hasRequiredBinaries() ? describe : describe.skip;
+
+describeIfK8s('KubernetesAdapter Enhanced Tests', () => {
   let adapter: KubernetesAdapter;
   let cluster: KindClusterManager;
   let kubeConfigPath: string;
+  let clusterReady = false;
 
   beforeAll(async () => {
-    // Set up PATH to include kubectl and kind
-    process.env['PATH'] = `${process.env['PATH']}:/usr/local/bin:/opt/homebrew/bin`;
+    // Create kind cluster with unique name to avoid conflicts
+    const clusterName = `xec-k8s-test-${Date.now().toString(36)}`;
+    cluster = new KindClusterManager({ name: clusterName });
 
-    // Create kind cluster
-    cluster = new KindClusterManager({ name: 'ush-k8s-enhanced-tests' });
-    await cluster.createCluster();
-    kubeConfigPath = cluster.getKubeConfigPath();
+    try {
+      await cluster.createCluster();
+      kubeConfigPath = cluster.getKubeConfigPath();
+      clusterReady = true;
+    } catch (error) {
+      console.error('Failed to create kind cluster:', error);
+      // Try to cleanup any partially created cluster
+      try {
+        await cluster.deleteCluster();
+      } catch {
+        // Ignore cleanup errors
+      }
+      throw error;
+    }
 
     // Create necessary namespaces
     try {
@@ -53,8 +73,16 @@ describe('KubernetesAdapter Enhanced Tests', () => {
 
   afterAll(async () => {
     if (cluster) {
-      await cluster.deleteCluster();
-      cluster.cleanup();
+      try {
+        await cluster.deleteCluster();
+      } catch (error) {
+        console.warn('Error deleting cluster:', error);
+      }
+      try {
+        cluster.cleanup();
+      } catch (error) {
+        console.warn('Error cleaning up cluster:', error);
+      }
     }
   }, 120000); // 2 minutes timeout
 

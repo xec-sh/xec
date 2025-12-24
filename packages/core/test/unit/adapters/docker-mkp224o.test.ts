@@ -35,11 +35,13 @@ describe('Docker ephemeral container name conflicts', () => {
     }
 
     // Pull alpine image if not present
-    const pullResult = await $`docker pull ${testImage}`.nothrow();
+    const pullResult = await $`docker pull ${testImage}`.nothrow().timeout(120000);
     if (!pullResult.ok) {
-      throw new Error(`Failed to pull test image: ${pullResult.stderr}`);
+      console.warn(`Failed to pull test image: ${pullResult.stderr}`);
+      dockerAvailable = false;
+      return;
     }
-  });
+  }, 180000); // 3 minute timeout for image pull
 
   it('should run multiple ephemeral containers without name conflicts', async () => {
     if (!dockerAvailable) {
