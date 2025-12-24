@@ -1,4 +1,8 @@
-import { it, expect, describe, beforeEach } from 'vitest';
+import { it, expect, describe, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import {
   CDNModuleResolver,
@@ -9,9 +13,18 @@ import {
 
 describe('LocalModuleResolver', () => {
   let resolver: LocalModuleResolver;
+  let tempDir: string;
+  let testFile: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     resolver = new LocalModuleResolver();
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-loader-test-'));
+    testFile = path.join(tempDir, 'test.js');
+    await fs.writeFile(testFile, 'export default 42;');
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   });
 
   it('should resolve relative paths', async () => {
@@ -24,10 +37,17 @@ describe('LocalModuleResolver', () => {
   });
 
   it('should resolve file:// URLs', async () => {
-    expect(resolver.canResolve('file:///usr/local/test.js')).toBe(true);
-    const result = await resolver.resolve('file:///usr/local/test.js');
-    expect(result.resolved).toBe('/usr/local/test.js');
+    const fileUrl = pathToFileURL(testFile).href;
+    expect(resolver.canResolve(fileUrl)).toBe(true);
+    const result = await resolver.resolve(fileUrl);
+    expect(result.resolved).toBe(testFile);
     expect(result.type).toBe('esm');
+  });
+
+  it('should throw for non-existent file:// URLs', async () => {
+    const nonExistentUrl = 'file:///non/existent/path/test.js';
+    expect(resolver.canResolve(nonExistentUrl)).toBe(true);
+    await expect(resolver.resolve(nonExistentUrl)).rejects.toThrow('Local module not found');
   });
 
   it('should not resolve bare specifiers', () => {
@@ -36,6 +56,21 @@ describe('LocalModuleResolver', () => {
 
   it('should not resolve http URLs', () => {
     expect(resolver.canResolve('https://example.com/test.js')).toBe(false);
+  });
+
+  it('should reject paths with null bytes', async () => {
+    await expect(resolver.resolve('./test\0.js')).rejects.toThrow('null byte detected');
+  });
+
+  it('should respect baseDir constraint', async () => {
+    const constrainedResolver = new LocalModuleResolver({ baseDir: tempDir });
+
+    // Should resolve file within baseDir
+    const result = await constrainedResolver.resolve(testFile);
+    expect(result.resolved).toBe(testFile);
+
+    // Should reject file outside baseDir
+    await expect(constrainedResolver.resolve('/etc/passwd')).rejects.toThrow('escapes allowed directory');
   });
 });
 

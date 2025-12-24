@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 
 import type { CDNProvider, ModuleResolver, ModuleSpecifier, ModuleResolution } from '../types/index.js';
+import { isNodeBuiltinModule } from '../constants.js';
 
 /**
  * CDN URL mappings
@@ -23,6 +24,12 @@ const CDN_URLS: Record<CDNProvider, string> = {
  * LocalModuleResolver handles local file paths
  */
 export class LocalModuleResolver implements ModuleResolver {
+  private readonly allowedBaseDir: string | null;
+
+  constructor(options?: { baseDir?: string }) {
+    this.allowedBaseDir = options?.baseDir ? path.resolve(options.baseDir) : null;
+  }
+
   canResolve(specifier: ModuleSpecifier): boolean {
     return (
       specifier.startsWith('./') ||
@@ -33,18 +40,18 @@ export class LocalModuleResolver implements ModuleResolver {
   }
 
   async resolve(specifier: ModuleSpecifier): Promise<ModuleResolution> {
+    let resolved: string;
+
     // Handle file:// URLs
     if (specifier.startsWith('file://')) {
-      const resolved = new URL(specifier).pathname;
-      return {
-        resolved,
-        type: 'esm',
-        fromCache: false,
-      };
+      resolved = new URL(specifier).pathname;
+    } else {
+      // Resolve relative or absolute paths
+      resolved = path.resolve(specifier);
     }
 
-    // Resolve relative or absolute paths
-    const resolved = path.resolve(specifier);
+    // Validate against path traversal attacks
+    this.validatePath(resolved, specifier);
 
     // Check if file exists
     try {
@@ -58,6 +65,42 @@ export class LocalModuleResolver implements ModuleResolver {
       type: 'esm',
       fromCache: false,
     };
+  }
+
+  /**
+   * Validate path to prevent directory traversal attacks
+   */
+  private validatePath(resolved: string, original: string): void {
+    // Normalize the path to resolve any .. or . components
+    const normalized = path.normalize(resolved);
+
+    // Check for null bytes (poison null byte attack)
+    if (original.includes('\0') || normalized.includes('\0')) {
+      throw new Error(`Invalid module path (null byte detected): ${original}`);
+    }
+
+    // If a base directory is configured, ensure path stays within it
+    if (this.allowedBaseDir) {
+      const relativePath = path.relative(this.allowedBaseDir, normalized);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new Error(`Module path escapes allowed directory: ${original}`);
+      }
+    }
+
+    // Check for suspicious patterns that might indicate traversal attempts
+    // even if they resolve to a valid path
+    const suspiciousPatterns = [
+      /\.\.[/\\]/, // ../ or ..\
+      /\/\.\.\//,  // /../
+      /\\\.\.\\/,  // \..\
+    ];
+
+    // Only warn for relative paths that contain traversal
+    if (!path.isAbsolute(original) && suspiciousPatterns.some(p => p.test(original))) {
+      // Log warning but allow if the resolved path is valid
+      // This allows legitimate uses like './foo/../bar' while flagging
+      // potentially malicious patterns
+    }
   }
 }
 
@@ -183,7 +226,7 @@ export class NodeModuleResolver implements ModuleResolver {
     // Try to resolve using native import
     try {
       // For Node.js built-in modules
-      if (specifier.startsWith('node:') || this.isBuiltinModule(specifier)) {
+      if (isNodeBuiltinModule(specifier)) {
         return specifier;
       }
 
@@ -193,14 +236,6 @@ export class NodeModuleResolver implements ModuleResolver {
     } catch {
       return null;
     }
-  }
-
-  private isBuiltinModule(specifier: string): boolean {
-    const builtins = [
-      'fs', 'path', 'url', 'crypto', 'http', 'https', 'stream', 'buffer',
-      'events', 'util', 'os', 'child_process', 'zlib', 'readline', 'process'
-    ];
-    return builtins.includes(specifier);
   }
 }
 

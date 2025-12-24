@@ -10,9 +10,10 @@ import * as fs from 'node:fs/promises';
 import type { Cache, CacheEntry, CacheStats, MemoryCacheOptions, FileSystemCacheOptions } from '../types/index.js';
 
 /**
- * In-memory cache implementation
+ * In-memory LRU cache implementation
+ * Uses Map's insertion order + re-insertion on access for true LRU behavior
  */
-export class MemoryCache<T = any> implements Cache<T> {
+export class MemoryCache<T = unknown> implements Cache<T> {
   private cache = new Map<string, CacheEntry<T>>();
   private maxSize: number;
   private ttl: number;
@@ -32,16 +33,26 @@ export class MemoryCache<T = any> implements Cache<T> {
       return null;
     }
 
+    // LRU: Move to end by re-inserting (Map maintains insertion order)
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+
     return entry.content;
   }
 
   async set(key: string, value: T, _ttl?: number): Promise<void> {
-    // Enforce max size (LRU-like eviction)
-    if (this.cache.size >= this.maxSize) {
-      // Remove oldest entry
+    // If key already exists, delete first to ensure it moves to end
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+
+    // Enforce max size (evict least recently used - first entry in map)
+    while (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
-      if (firstKey) {
+      if (firstKey !== undefined) {
         this.cache.delete(firstKey);
+      } else {
+        break;
       }
     }
 

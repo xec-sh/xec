@@ -3,6 +3,8 @@
  * @module @xec-sh/loader/runtime/global-injector
  */
 
+import { RESERVED_GLOBALS_SET } from '../constants.js';
+
 /**
  * Options for global injection
  */
@@ -10,7 +12,7 @@ export interface GlobalInjectorOptions {
   /**
    * Custom globals to inject
    */
-  globals?: Record<string, any>;
+  globals?: Record<string, unknown>;
 
   /**
    * Whether to preserve original values
@@ -27,8 +29,8 @@ export interface GlobalInjectorOptions {
  * GlobalInjector provides safe injection and restoration of global variables
  */
 export class GlobalInjector {
-  private injectedGlobals = new Map<string, any>();
-  private originalGlobals = new Map<string, any>();
+  private injectedGlobals = new Map<string, unknown>();
+  private originalGlobals = new Map<string, unknown>();
   private isInjected = false;
   private readonly options: Required<GlobalInjectorOptions>;
 
@@ -52,25 +54,7 @@ export class GlobalInjector {
    */
   private isSafeToInject(key: string): boolean {
     // Don't inject reserved Node.js globals
-    const reservedGlobals = [
-      'global',
-      'process',
-      'Buffer',
-      'console',
-      'setTimeout',
-      'setInterval',
-      'setImmediate',
-      'clearTimeout',
-      'clearInterval',
-      'clearImmediate',
-      '__filename',
-      '__dirname',
-      'require',
-      'module',
-      'exports',
-    ];
-
-    if (reservedGlobals.includes(key)) {
+    if (RESERVED_GLOBALS_SET.has(key)) {
       return false;
     }
 
@@ -89,6 +73,7 @@ export class GlobalInjector {
       throw new Error('Globals are already injected. Call restore() first.');
     }
 
+    const global = globalThis as Record<string, unknown>;
     for (const [key, value] of Object.entries(this.options.globals)) {
       if (!this.isSafeToInject(key)) {
         console.warn(`[GlobalInjector] Skipping unsafe global: ${key}`);
@@ -98,12 +83,12 @@ export class GlobalInjector {
       // Store original value if it exists
       if (key in globalThis) {
         if (this.options.preserveOriginals) {
-          this.originalGlobals.set(key, (globalThis as any)[key]);
+          this.originalGlobals.set(key, global[key]);
         }
       }
 
       // Inject new value
-      (globalThis as any)[key] = value;
+      global[key] = value;
       this.injectedGlobals.set(key, value);
     }
 
@@ -118,13 +103,14 @@ export class GlobalInjector {
       return;
     }
 
+    const global = globalThis as Record<string, unknown>;
     for (const key of this.injectedGlobals.keys()) {
       if (this.originalGlobals.has(key)) {
         // Restore original value
-        (globalThis as any)[key] = this.originalGlobals.get(key);
+        global[key] = this.originalGlobals.get(key);
       } else {
         // Remove injected value
-        delete (globalThis as any)[key];
+        delete global[key];
       }
     }
 
@@ -160,7 +146,7 @@ export class GlobalInjector {
   /**
    * Add global to inject
    */
-  addGlobal(key: string, value: any): void {
+  addGlobal(key: string, value: unknown): void {
     if (this.isInjected) {
       throw new Error('Cannot add globals while they are injected. Call restore() first.');
     }
@@ -196,7 +182,7 @@ export class GlobalInjector {
   /**
    * Get all globals that will be injected
    */
-  getGlobals(): Record<string, any> {
+  getGlobals(): Record<string, unknown> {
     return { ...this.options.globals };
   }
 

@@ -8,7 +8,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
-import type { ModuleType } from '../types/index.js';
+import type { ModuleType, ModuleExports } from '../types/index.js';
 
 export interface ModuleExecutionOptions {
   specifier: string;
@@ -30,7 +30,7 @@ export class ModuleExecutor {
   /**
    * Execute module and return exports
    */
-  async execute(options: ModuleExecutionOptions): Promise<any> {
+  async execute(options: ModuleExecutionOptions): Promise<ModuleExports> {
     const { content, specifier, headers } = options;
 
     // Detect module type if not provided
@@ -55,29 +55,32 @@ export class ModuleExecutor {
 
   /**
    * Detect module type from content and headers
+   * Uses regex patterns to avoid false positives from comments and strings
    */
   private detectModuleType(content: string, headers?: Record<string, string>): ModuleType {
-    // Check content-type header
+    // Check content-type header for ESM hint
     const contentType = headers?.['content-type'] || '';
-    if (contentType.includes('application/javascript')) {
-      // ESM if has import/export
-      if (content.includes('import ') || content.includes('export ')) {
-        return 'esm';
-      }
-    }
+    const hasEsmContentType = contentType.includes('application/javascript');
 
-    // Check for UMD pattern
-    if (content.includes('typeof define') && content.includes('typeof module')) {
+    // Check for UMD pattern first (most specific)
+    // UMD modules typically have factory function checks for AMD and CommonJS
+    if (this.hasUmdPattern(content)) {
       return 'umd';
     }
 
-    // Check for CommonJS
-    if (content.includes('module.exports') || content.includes('exports.')) {
+    // Check for ESM syntax using regex patterns
+    // These patterns match actual code, not comments or strings
+    if (this.hasEsmSyntax(content)) {
+      return 'esm';
+    }
+
+    // Check for CommonJS patterns
+    if (this.hasCjsSyntax(content)) {
       return 'cjs';
     }
 
-    // Check for ESM
-    if (content.includes('import ') || content.includes('export ')) {
+    // If content-type suggests JavaScript but no clear pattern, assume ESM
+    if (hasEsmContentType) {
       return 'esm';
     }
 
@@ -85,9 +88,57 @@ export class ModuleExecutor {
   }
 
   /**
+   * Check for ESM import/export syntax
+   * Uses regex to match actual statements, not string content
+   */
+  private hasEsmSyntax(content: string): boolean {
+    // Match import statements at start of line or after semicolon/brace
+    // Avoids matching 'import' inside strings or comments
+    const importPattern = /(?:^|[;\s{}])import\s+(?:[\w*{},\s]+from\s+)?['"`]/m;
+
+    // Match export statements at start of line or after semicolon/brace
+    const exportPattern = /(?:^|[;\s{}])export\s+(?:default\s+|const\s+|let\s+|var\s+|function\s+|class\s+|async\s+|\{)/m;
+
+    // Match export from statements
+    const exportFromPattern = /(?:^|[;\s{}])export\s+\*?\s*(?:\{[^}]*\})?\s*from\s+['"`]/m;
+
+    return importPattern.test(content) ||
+           exportPattern.test(content) ||
+           exportFromPattern.test(content);
+  }
+
+  /**
+   * Check for CommonJS require/exports syntax
+   */
+  private hasCjsSyntax(content: string): boolean {
+    // Match module.exports or exports. at start of line
+    const moduleExportsPattern = /(?:^|[;\s])module\.exports\s*[=\[.]/m;
+    const exportsPattern = /(?:^|[;\s])exports\.\w+\s*=/m;
+
+    // Match require() calls (but not import.meta.require or similar)
+    const requirePattern = /(?:^|[=\s(,])require\s*\(\s*['"`]/m;
+
+    return moduleExportsPattern.test(content) ||
+           exportsPattern.test(content) ||
+           requirePattern.test(content);
+  }
+
+  /**
+   * Check for UMD wrapper pattern
+   */
+  private hasUmdPattern(content: string): boolean {
+    // UMD typically has both AMD and CommonJS checks
+    // Pattern: function wrapper with typeof define and typeof exports/module
+    const umdPattern = /\(function\s*\([^)]*\)\s*\{[\s\S]*typeof\s+define[\s\S]*typeof\s+(?:exports|module)/;
+    const umdAltPattern = /typeof\s+define\s*[!=]==?\s*['"]function['"][\s\S]*typeof\s+(?:exports|module)/;
+
+    return umdPattern.test(content) || umdAltPattern.test(content);
+  }
+
+  /**
    * Execute ESM module
    */
-  private async executeESM(content: string, specifier: string): Promise<any> {
+  private async executeESM(content: string, specifier: string): Promise<ModuleExports> {
     // Create temp file for ESM module
     await fs.mkdir(this.tempDir, { recursive: true });
 
@@ -115,7 +166,7 @@ export class ModuleExecutor {
   /**
    * Execute CommonJS module
    */
-  private executeCJS(content: string): any {
+  private executeCJS(content: string): ModuleExports {
     const moduleExports = {};
     const moduleObj = { exports: moduleExports };
 
@@ -151,7 +202,7 @@ export class ModuleExecutor {
   /**
    * Execute UMD module
    */
-  private executeUMD(content: string): any {
+  private executeUMD(content: string): ModuleExports {
     const moduleExports = {};
     const moduleObj = { exports: moduleExports };
 

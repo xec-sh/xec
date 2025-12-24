@@ -51,6 +51,15 @@ export {
   CompositeModuleResolver,
 } from './module/index.js';
 
+// Export constants
+export {
+  NODE_BUILTIN_MODULES,
+  NODE_BUILTIN_MODULES_SET,
+  isNodeBuiltinModule,
+  RESERVED_GLOBALS,
+  RESERVED_GLOBALS_SET,
+} from './constants.js';
+
 // Export types
 export type * from './types/index.js';
 
@@ -62,4 +71,8 @@ export type {
   ExecutionOptions,
   EvaluationOptions,
   ScriptLoaderOptions,
+  ExecutionEngine,
+  ExecutionEngineResult,
+  ModuleExports,
+  TargetConfig,
 } from './types/index.js';

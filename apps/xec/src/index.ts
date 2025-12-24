@@ -29,14 +29,16 @@ export * from '@xec-sh/core';
 export { ModuleLoader } from '@xec-sh/loader';
 
 // Re-export external utilities from script-utils
-import { default as scriptUtils } from './utils/script-utils.js';
+import {
+  fs,
+  os,
+  glob,
+  path,
+  fetch,
+  which,
+} from './utils/script-utils.js';
 
-export const fs = scriptUtils.fs;
-export const os = scriptUtils.os;
-export const glob = scriptUtils.glob;
-export const path = scriptUtils.path;
-export const fetch = scriptUtils.fetch;
-export const which = scriptUtils.which;
+export { fs, os, glob, path, fetch, which };
 
 // ========================================
 // EXPORT ADVANCED UTILITIES

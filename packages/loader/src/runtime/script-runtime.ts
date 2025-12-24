@@ -6,15 +6,10 @@
 import os from 'node:os';
 import path from 'node:path';
 
-/**
- * Options for retry operations
- */
-export interface RetryOptions {
-  retries?: number;
-  delay?: number;
-  backoff?: number;
-  onRetry?: (error: Error, attempt: number) => void;
-}
+import type { RetryOptions } from '../types/runtime.js';
+
+// Re-export for convenience
+export type { RetryOptions };
 
 /**
  * Options for within() scoped execution
