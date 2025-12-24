@@ -223,7 +223,7 @@ const [status, branch] = await $.parallel.all([
 ]);
 
 // Batch with progress
-await $.batch(packages.map(pkg => `cd ${pkg.path} && yarn build`), {
+await $.batch(packages.map(pkg => `cd ${pkg.path} && pnpm build`), {
   concurrency: 3,
   onProgress: (done, total) => console.log(`${done}/${total}`)
 });

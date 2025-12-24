@@ -112,12 +112,6 @@ At its core, `@xec-sh/kit` is a modular library that combines:
 npm install @xec-sh/kit
 ```
 
-### yarn
-
-```bash
-yarn add @xec-sh/kit
-```
-
 ### pnpm
 
 ```bash
@@ -3431,42 +3425,42 @@ git clone https://github.com/xec-sh/xec.git
 cd xec/packages/kit
 
 # Install dependencies
-yarn install
+pnpm install
 
 # Build
-yarn build
+pnpm build
 
 # Run tests
-yarn test
+pnpm test
 
 # Watch mode
-yarn test:watch
+pnpm test:watch
 
 # Type checking
-yarn typecheck
+pnpm typecheck
 ```
 
 ### Testing
 
 ```bash
 # Run all tests
-yarn test
+pnpm test
 
 # Run with coverage
-yarn test --coverage
+pnpm test --coverage
 
 # Visual testing (TUI)
-yarn test:tui
+pnpm test:tui
 ```
 
 ### Code Quality
 
 ```bash
 # Format code
-yarn prettier:write
+pnpm prettier:write
 
 # Check formatting
-yarn prettier:check
+pnpm prettier:check
 ```
 
 ---

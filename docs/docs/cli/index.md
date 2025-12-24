@@ -30,9 +30,6 @@ The Xec CLI provides a powerful command-line interface for executing commands ac
 # Using npm
 npm install -g @xec-sh/cli
 
-# Using yarn
-yarn global add @xec-sh/cli
-
 # Using pnpm
 pnpm add -g @xec-sh/cli
 ```

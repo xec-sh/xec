@@ -39,18 +39,18 @@ docs/
 ### Prerequisites
 
 ```bash
-# Enable Yarn 4.9.2
+# Enable pnpm
 corepack enable
 
 # Install dependencies
-yarn install
+pnpm install
 ```
 
 ### Local Development
 
 ```bash
 # Start development server with hot reload
-yarn start
+pnpm start
 
 # The site opens at http://localhost:3000
 ```
@@ -59,10 +59,10 @@ yarn start
 
 ```bash
 # Build static site
-yarn build
+pnpm build
 
 # Test production build locally
-yarn serve
+pnpm serve
 ```
 
 ## ✍️ Writing Documentation
@@ -147,7 +147,7 @@ Pushes to `main` branch automatically deploy via GitHub Actions.
 
 ```bash
 # Deploy to GitHub Pages
-GIT_USER=<github-username> yarn deploy
+GIT_USER=<github-username> pnpm deploy
 ```
 
 ## ⚙️ Configuration
@@ -223,20 +223,20 @@ The site includes:
 
 **Build fails with module errors:**
 ```bash
-yarn cache clean
+pnpm store prune
 rm -rf node_modules
-yarn install
+pnpm install
 ```
 
 **Search not working:**
 ```bash
-yarn build
-yarn serve  # Test with production build
+pnpm build
+pnpm serve  # Test with production build
 ```
 
 **Broken links:**
 ```bash
-yarn build  # Will report broken links
+pnpm build  # Will report broken links
 ```
 
 ## 📄 License

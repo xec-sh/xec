@@ -66,7 +66,7 @@ We are committed to providing a friendly, safe, and welcoming environment for al
 
 - **Node.js** 18+ (recommend using [nvm](https://github.com/nvm-sh/nvm))
 - **Git** 2.25+
-- **Yarn** 4.9.2 (via Corepack)
+- **pnpm** 10+ (via Corepack)
 - **Docker** (optional, for testing adapters)
 - **kubectl** (optional, for Kubernetes adapter testing)
 
@@ -89,18 +89,18 @@ We are committed to providing a friendly, safe, and welcoming environment for al
 
 3. **Enable Corepack and install dependencies**
    ```bash
-   corepack enable    # Enables Yarn 4.9.2
-   yarn install       # Install all dependencies
+   corepack enable    # Enables pnpm
+   pnpm install       # Install all dependencies
    ```
 
 4. **Build the project**
    ```bash
-   yarn build         # Build all packages
+   pnpm build         # Build all packages
    ```
 
 5. **Run tests**
    ```bash
-   yarn test          # Run all tests
+   pnpm test          # Run all tests
    ```
 
 ## 🏗 Development Setup
@@ -138,12 +138,12 @@ xec/
 
 2. **Configure Git hooks**:
    ```bash
-   yarn install  # Automatically sets up Lefthook
+   pnpm install  # Automatically sets up Lefthook
    ```
 
 3. **Set up test containers** (optional):
    ```bash
-   yarn workspace @xec-sh/core docker:start
+   pnpm --filter @xec-sh/core docker:start
    ```
 
 ## 🔄 Development Workflow
@@ -174,9 +174,9 @@ Follow these steps:
 4. **Update documentation** - Keep docs in sync
 5. **Run quality checks**:
    ```bash
-   yarn test            # Run tests
-   yarn fix:all         # Fix linting/formatting
-   yarn build           # Ensure it builds
+   pnpm test            # Run tests
+   pnpm fix:all         # Fix linting/formatting
+   pnpm build           # Ensure it builds
    ```
 
 ### 4. Commit your changes
@@ -290,22 +290,22 @@ describe('FeatureName', () => {
 
 ```bash
 # All tests
-yarn test
+pnpm test
 
 # Specific workspace
-yarn workspace @xec-sh/core test
+pnpm --filter @xec-sh/core test
 
 # Watch mode
-yarn test --watch
+pnpm test --watch
 
 # Coverage report
-yarn test --coverage
+pnpm test --coverage
 
 # Specific test file
-yarn test path/to/test.spec.ts
+pnpm test path/to/test.spec.ts
 
 # Integration tests only
-yarn test:integration
+pnpm test:integration
 ```
 
 ## 📚 Documentation
@@ -413,9 +413,9 @@ BREAKING CHANGE: Result.value is now Result.data
 ### Before Creating a PR
 
 - [ ] Update `CHANGES.md` with your changes
-- [ ] All tests pass (`yarn test`)
-- [ ] Code is formatted (`yarn fix:all`)
-- [ ] Build succeeds (`yarn build`)
+- [ ] All tests pass (`pnpm test`)
+- [ ] Code is formatted (`pnpm fix:all`)
+- [ ] Build succeeds (`pnpm build`)
 - [ ] Documentation is updated
 - [ ] Commit messages follow conventions
 
@@ -517,7 +517,7 @@ Releases are automated but follow these guidelines:
 
 1. **Enable debug output**:
    ```bash
-   DEBUG=xec:* yarn test
+   DEBUG=xec:* pnpm test
    ```
 
 2. **Use VSCode debugger**:
@@ -526,7 +526,7 @@ Releases are automated but follow these guidelines:
 
 3. **Verbose mode**:
    ```bash
-   yarn xec --verbose <command>
+   pnpm xec --verbose <command>
    ```
 
 ## 🚨 Troubleshooting
@@ -535,19 +535,19 @@ Releases are automated but follow these guidelines:
 
 1. **Build fails**
    ```bash
-   yarn clean
-   yarn install
-   yarn build
+   pnpm clean
+   pnpm install
+   pnpm build
    ```
 
 2. **Tests fail locally but pass in CI**
    - Check Node.js version
-   - Clear test cache: `yarn test --clearCache`
+   - Clear test cache: `pnpm test --clearCache`
    - Check for timing issues
 
 3. **Type errors**
    ```bash
-   yarn fix:types
+   pnpm fix:types
    ```
 
 ### Getting Help

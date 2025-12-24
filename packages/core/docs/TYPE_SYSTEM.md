@@ -200,7 +200,7 @@ To explore available types:
 
 If types are not showing up:
 
-1. Rebuild the CLI package: `yarn workspace @xec-sh/cli build`
+1. Rebuild the CLI package: `pnpm --filter @xec-sh/cli build`
 2. Ensure the reference path is correct: `/// <reference path="../../apps/xec/globals.d.ts" />`
 3. Restart your TypeScript language server in your IDE
 
