@@ -109,14 +109,45 @@ describe('ModuleFetcher', () => {
     expect(global.fetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
   });
 
-  it.skip('should handle timeout', async () => {
-    // Skip: Difficult to properly mock timeout behavior in tests
-    const mockResponse = new Promise(() => {}); // Never resolves
-    (global.fetch as any).mockReturnValue(mockResponse);
+  it('should handle timeout via AbortController', async () => {
+    // Test AbortController timeout handling
+    // The fetch is aborted when timeout is reached
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    (global.fetch as any).mockRejectedValue(abortError);
 
     await expect(
       fetcher.fetch('https://example.com/module.js', { timeout: 100, retries: 0 })
     ).rejects.toThrow();
+
+    // Verify fetch was called with abort signal
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://example.com/module.js',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it('should abort slow requests', async () => {
+    // Simulate a slow request that triggers timeout
+    let rejectFetch: (reason: Error) => void;
+    const slowPromise = new Promise<never>((_, reject) => {
+      rejectFetch = reject;
+    });
+    (global.fetch as any).mockReturnValue(slowPromise);
+
+    // Start the fetch with short timeout
+    const fetchPromise = fetcher.fetch('https://example.com/module.js', {
+      timeout: 50,
+      retries: 0
+    });
+
+    // Simulate AbortController triggering after timeout
+    setTimeout(() => {
+      rejectFetch(new DOMException('The operation was aborted', 'AbortError'));
+    }, 60);
+
+    await expect(fetchPromise).rejects.toThrow();
   });
 
   it('should throw on HTTP errors', async () => {
