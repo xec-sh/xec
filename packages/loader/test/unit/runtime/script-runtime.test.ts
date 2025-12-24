@@ -1,4 +1,4 @@
-import { it, expect, describe, afterEach, beforeEach } from 'vitest';
+import { it, vi, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { ScriptRuntime, createRuntime } from '../../../src/runtime/script-runtime.js';
 
@@ -144,6 +144,57 @@ describe('ScriptRuntime', () => {
       const delay2 = timestamps[2] - timestamps[1];
       expect(delay2).toBeGreaterThan(delay1);
     });
+
+    it('should succeed on first try with no retries needed', async () => {
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        return 'immediate success';
+      };
+
+      const result = await runtime.retry(fn, { retries: 3, delay: 10 });
+      expect(result).toBe('immediate success');
+      expect(attempts).toBe(1);
+    });
+
+    it('should work with zero retries', async () => {
+      const fn = async () => {
+        throw new Error('Fails immediately');
+      };
+
+      await expect(
+        runtime.retry(fn, { retries: 0, delay: 10 })
+      ).rejects.toThrow('Fails immediately');
+    });
+
+    it('should succeed on last retry attempt', async () => {
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        if (attempts <= 3) {
+          throw new Error('Not yet');
+        }
+        return 'success on last try';
+      };
+
+      const result = await runtime.retry(fn, { retries: 3, delay: 10 });
+      expect(result).toBe('success on last try');
+      expect(attempts).toBe(4); // Initial + 3 retries
+    });
+
+    it('should use default values when options not provided', async () => {
+      let attempts = 0;
+      const fn = async () => {
+        attempts++;
+        if (attempts < 2) {
+          throw new Error('First fail');
+        }
+        return 'success';
+      };
+
+      const result = await runtime.retry(fn);
+      expect(result).toBe('success');
+    });
   });
 
   describe('within', () => {
@@ -179,6 +230,62 @@ describe('ScriptRuntime', () => {
 
       expect(runtime.pwd()).toBe(originalDir);
     });
+
+    it('should handle both cwd and env changes together', async () => {
+      const originalDir = runtime.pwd();
+      const originalEnv = process.env.TEST_BOTH;
+      const tmpDir = runtime.tmpdir();
+
+      const result = await runtime.within(
+        { cwd: tmpDir, env: { TEST_BOTH: 'combined' } },
+        async () => {
+          expect(runtime.pwd()).toBe(tmpDir);
+          expect(process.env.TEST_BOTH).toBe('combined');
+          return 'combined result';
+        }
+      );
+
+      expect(result).toBe('combined result');
+      expect(runtime.pwd()).toBe(originalDir);
+      expect(process.env.TEST_BOTH).toBe(originalEnv);
+    });
+
+    it('should handle empty options', async () => {
+      const originalDir = runtime.pwd();
+      const result = await runtime.within({}, async () => 'no changes');
+
+      expect(result).toBe('no changes');
+      expect(runtime.pwd()).toBe(originalDir);
+    });
+
+    it('should handle nested within calls', async () => {
+      const originalDir = runtime.pwd();
+      const tmpDir = runtime.tmpdir();
+
+      const result = await runtime.within({ cwd: tmpDir }, async () => {
+        const innerDir = runtime.pwd();
+        expect(innerDir).toBe(tmpDir);
+
+        return runtime.within({ env: { NESTED: 'yes' } }, async () => {
+          expect(process.env.NESTED).toBe('yes');
+          expect(runtime.pwd()).toBe(tmpDir);
+          return 'nested result';
+        });
+      });
+
+      expect(result).toBe('nested result');
+      expect(runtime.pwd()).toBe(originalDir);
+      expect(process.env.NESTED).toBeUndefined();
+    });
+
+    it('should preserve return value from async function', async () => {
+      const result = await runtime.within({}, async () => {
+        await runtime.sleep(10);
+        return { data: [1, 2, 3] };
+      });
+
+      expect(result).toEqual({ data: [1, 2, 3] });
+    });
   });
 
   describe('quote', () => {
@@ -200,6 +307,29 @@ describe('ScriptRuntime', () => {
     it('should handle quotes in input', () => {
       const result = runtime.quote("has'quote");
       expect(result).toContain("'");
+    });
+
+    it('should handle empty string', () => {
+      expect(runtime.quote('')).toBe('');
+    });
+
+    it('should handle strings with backslashes', () => {
+      const result = runtime.quote('path\\to\\file');
+      expect(result).toContain("'");
+    });
+
+    it('should handle strings with double quotes', () => {
+      const result = runtime.quote('say "hello"');
+      expect(result).toContain("'");
+    });
+
+    it('should handle numeric strings', () => {
+      expect(runtime.quote('12345')).toBe('12345');
+    });
+
+    it('should handle paths with special chars', () => {
+      const result = runtime.quote('/path/to/file with spaces');
+      expect(result).toBe("'/path/to/file with spaces'");
     });
   });
 
@@ -250,12 +380,51 @@ describe('ScriptRuntime', () => {
       expect(runtime.getCwd()).toBe(process.cwd());
     });
 
-    it.skip('should change process working directory', () => {
-      // Skip: process.chdir() is not supported in workers
-      const tmpDir = runtime.tmpdir();
-      runtime.chdir(tmpDir);
-      expect(process.cwd()).toBe(tmpDir);
-      expect(runtime.pwd()).toBe(tmpDir);
+    it('should change process working directory', () => {
+      // Mock process.chdir since it's not supported in worker threads
+      const originalChdir = process.chdir;
+      const originalCwd = process.cwd;
+      let mockedCwd = process.cwd();
+
+      process.chdir = vi.fn((dir: string) => {
+        mockedCwd = dir;
+      });
+      process.cwd = vi.fn(() => mockedCwd);
+
+      try {
+        const tmpDir = runtime.tmpdir();
+        runtime.chdir(tmpDir);
+
+        expect(process.chdir).toHaveBeenCalledWith(tmpDir);
+        expect(runtime.pwd()).toBe(tmpDir);
+      } finally {
+        // Restore original functions
+        process.chdir = originalChdir;
+        process.cwd = originalCwd;
+      }
+    });
+
+    it('should sync internal state with process.cwd after chdir', () => {
+      // Mock process.chdir
+      const originalChdir = process.chdir;
+      const originalCwd = process.cwd;
+      let mockedCwd = '/initial/path';
+
+      process.chdir = vi.fn((dir: string) => {
+        mockedCwd = dir;
+      });
+      process.cwd = vi.fn(() => mockedCwd);
+
+      try {
+        const newRuntime = new ScriptRuntime();
+        newRuntime.chdir('/new/path');
+
+        expect(newRuntime.pwd()).toBe('/new/path');
+        expect(process.chdir).toHaveBeenCalledWith('/new/path');
+      } finally {
+        process.chdir = originalChdir;
+        process.cwd = originalCwd;
+      }
     });
   });
 
@@ -266,6 +435,91 @@ describe('ScriptRuntime', () => {
 
       runtime.resetEnv();
       expect(process.env.TEST_RESET).toBeUndefined();
+    });
+  });
+
+  describe('kill', () => {
+    it('should call process.kill with correct arguments', () => {
+      const originalKill = process.kill;
+      const mockKill = vi.fn();
+      process.kill = mockKill as unknown as typeof process.kill;
+
+      try {
+        runtime.kill(12345);
+        expect(mockKill).toHaveBeenCalledWith(12345, 'SIGTERM');
+      } finally {
+        process.kill = originalKill;
+      }
+    });
+
+    it('should support custom signals', () => {
+      const originalKill = process.kill;
+      const mockKill = vi.fn();
+      process.kill = mockKill as unknown as typeof process.kill;
+
+      try {
+        runtime.kill(12345, 'SIGKILL');
+        expect(mockKill).toHaveBeenCalledWith(12345, 'SIGKILL');
+      } finally {
+        process.kill = originalKill;
+      }
+    });
+
+    it('should support SIGINT signal', () => {
+      const originalKill = process.kill;
+      const mockKill = vi.fn();
+      process.kill = mockKill as unknown as typeof process.kill;
+
+      try {
+        runtime.kill(999, 'SIGINT');
+        expect(mockKill).toHaveBeenCalledWith(999, 'SIGINT');
+      } finally {
+        process.kill = originalKill;
+      }
+    });
+  });
+
+  describe('exit', () => {
+    it('should call process.exit with default code 0', () => {
+      const originalExit = process.exit;
+      const mockExit = vi.fn();
+      process.exit = mockExit as unknown as typeof process.exit;
+
+      try {
+        runtime.exit();
+        expect(mockExit).toHaveBeenCalledWith(0);
+      } finally {
+        process.exit = originalExit;
+      }
+    });
+
+    it('should call process.exit with custom code', () => {
+      const originalExit = process.exit;
+      const mockExit = vi.fn();
+      process.exit = mockExit as unknown as typeof process.exit;
+
+      try {
+        runtime.exit(1);
+        expect(mockExit).toHaveBeenCalledWith(1);
+      } finally {
+        process.exit = originalExit;
+      }
+    });
+
+    it('should support various exit codes', () => {
+      const originalExit = process.exit;
+      const mockExit = vi.fn();
+      process.exit = mockExit as unknown as typeof process.exit;
+
+      try {
+        runtime.exit(42);
+        expect(mockExit).toHaveBeenCalledWith(42);
+
+        runtime.exit(127);
+        expect(mockExit).toHaveBeenCalledWith(127);
+      } finally {
+        process.exit = originalExit;
+      }
     });
   });
 });

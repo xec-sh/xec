@@ -79,16 +79,31 @@ describe('ModuleExecutor', () => {
       expect(module.default.num).toBe(123);
     });
 
-    it.skip('should execute CJS module with require', async () => {
-      // Skip: require() is not supported in CDN module execution
+    it('should throw helpful error when CJS module uses require()', async () => {
+      // require() is not supported in CDN module execution
+      // Test that we get a clear error message when a module tries to use require()
       const content = 'const path = require("path"); module.exports = { dirname: path.dirname("/foo/bar") };';
-      const module = await executor.execute({
-        specifier: 'test-module',
-        content,
-        type: 'cjs',
-      });
 
-      expect(module.default.dirname).toBe('/foo');
+      await expect(
+        executor.execute({
+          specifier: 'test-module',
+          content,
+          type: 'cjs',
+        })
+      ).rejects.toThrow("require('path') not supported in CDN modules");
+    });
+
+    it('should throw with module name in require error', async () => {
+      // Verify the error includes the specific module name that was required
+      const content = 'const lodash = require("lodash"); module.exports = lodash;';
+
+      await expect(
+        executor.execute({
+          specifier: 'test-module',
+          content,
+          type: 'cjs',
+        })
+      ).rejects.toThrow("require('lodash') not supported in CDN modules");
     });
   });
 
