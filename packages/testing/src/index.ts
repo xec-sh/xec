@@ -1,19 +1,23 @@
+// Binary detection utilities
+export * from './utils/binary-detector.js';
+
 // Docker utilities
-export * from './docker/container-manager';
+export * from './docker/container-manager.js';
+
 // Kubernetes utilities
-export * from './k8s/kind-cluster-manager';
+export * from './k8s/kind-cluster-manager.js';
 
 // SSH test helpers
-export * from './helpers/ssh-test-helpers';
+export * from './helpers/ssh-test-helpers.js';
 
-export { 
+export {
   docker,
   execInContainer,
   getContainerInfo,
   getContainerLogs,
   type ContainerInfo,
   cleanupTestContainers
-} from './docker/utils';
+} from './docker/utils.js';
 
 // SSH connection configuration
 export interface SSHConnectionConfig {

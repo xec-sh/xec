@@ -59,6 +59,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@types/dockerode": "3.3.44",
     "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",

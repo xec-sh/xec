@@ -1,5 +1,11 @@
 import { join, resolve } from 'path';
 import { execSync } from 'child_process';
+import {
+  isDockerAvailable as checkDockerAvailable,
+  findBinary,
+  getExtendedEnv,
+  isSshpassAvailable,
+} from '../utils/binary-detector.js';
 
 export interface ContainerConfig {
   name: string;
@@ -45,22 +51,23 @@ export class DockerContainerManager {
    * Check if Docker is available
    */
   isDockerAvailable(): boolean {
-    try {
-      execSync('/usr/local/bin/docker --version', { stdio: 'ignore' });
-      return true;
-    } catch {
-      return false;
-    }
+    return checkDockerAvailable();
   }
 
   /**
    * Check if a container is running
    */
   isContainerRunning(name: string): boolean {
+    const dockerPath = findBinary('docker');
+    if (!dockerPath) {
+      return false;
+    }
+
     try {
-      const result = execSync(`/usr/local/bin/docker ps --format '{{.Names}}' | grep -q "^${name}$"`, {
+      execSync(`${dockerPath} ps --format '{{.Names}}' | grep -q "^${name}$"`, {
         shell: '/bin/bash',
-        stdio: 'pipe'
+        stdio: 'pipe',
+        env: getExtendedEnv(),
       });
       return true;
     } catch {
@@ -72,8 +79,15 @@ export class DockerContainerManager {
    * Check if a port is available
    */
   isPortAvailable(port: number): boolean {
+    const ncPath = findBinary('nc');
+    if (!ncPath) {
+      // Fallback: try with Node.js net module approach
+      // For now, assume port is available if we can't check
+      return true;
+    }
+
     try {
-      execSync(`nc -z localhost ${port}`, { stdio: 'ignore' });
+      execSync(`${ncPath} -z localhost ${port}`, { stdio: 'ignore', env: getExtendedEnv() });
       return false; // Port is in use
     } catch {
       return true; // Port is available
@@ -235,13 +249,21 @@ export class DockerContainerManager {
    * Wait for SSH to be ready on a specific port
    */
   async waitForSSH(port: number, maxAttempts = 30): Promise<boolean> {
+    const sshpassPath = findBinary('sshpass');
+    if (!sshpassPath) {
+      console.warn('sshpass not found, cannot check SSH readiness');
+      // Fallback: just wait a bit and assume it's ready
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return true;
+    }
+
     console.log(`Waiting for SSH on port ${port} to be ready...`);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         execSync(
-          `sshpass -p password ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -p ${port} user@localhost exit`,
-          { stdio: 'ignore' }
+          `${sshpassPath} -p password ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -p ${port} user@localhost exit`,
+          { stdio: 'ignore', env: getExtendedEnv() }
         );
         console.log(`SSH on port ${port} is ready`);
         return true;

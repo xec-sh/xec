@@ -22,7 +22,9 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
 
   afterEach(async () => {
     // Clean up adapter and all connections
-    await adapter.dispose();
+    if (adapter) {
+      await adapter.dispose();
+    }
   });
 
   describe('tunnel() with real SSH connection', () => {

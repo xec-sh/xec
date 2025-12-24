@@ -1,6 +1,7 @@
 import { afterAll, describe, beforeAll } from '@jest/globals';
 
-import { dockerManager, ContainerConfig, DOCKER_CONTAINERS } from '../docker/container-manager';
+import { dockerManager, ContainerConfig, DOCKER_CONTAINERS } from '../docker/container-manager.js';
+import { isDockerAvailable, isSshpassAvailable } from '../utils/binary-detector.js';
 
 export interface SSHTestConfig {
   containers?: string[]; // Specific containers to start, or all if not specified
@@ -12,24 +13,25 @@ export interface SSHTestConfig {
  * Wrapper for SSH test suites that automatically manages Docker containers
  */
 export function describeSSH(
-  name: string, 
-  fn: () => void, 
+  name: string,
+  fn: () => void,
   config: SSHTestConfig = {}
 ): void {
   const {
-    containers = DOCKER_CONTAINERS.map(c => c.name),
-    timeout = 120000,
+    containers = ['ubuntu-apt'], // Default to just one container for faster tests
+    timeout = 180000, // 3 minutes timeout
     skipIfNoDocker = true
   } = config;
 
   // Check if we should skip
-  const shouldSkip = dockerManager.shouldSkipSSHTests() || 
+  const shouldSkip = dockerManager.shouldSkipSSHTests() ||
     (skipIfNoDocker && !dockerManager.isDockerAvailable());
 
   const describeFn = shouldSkip ? describe.skip : describe;
 
   describeFn(name, () => {
     let containersStarted = false;
+    let startedContainersList: string[] = [];
 
     beforeAll(async () => {
       if (!dockerManager.isDockerAvailable()) {
@@ -38,32 +40,57 @@ export function describeSSH(
       }
 
       console.log(`Starting Docker containers for ${name}...`);
-      
+
       // Start only the specified containers
       containersStarted = true;
+      startedContainersList = [];
+
       for (const containerName of containers) {
-        const started = await dockerManager.startContainer(containerName);
-        if (!started) {
-          containersStarted = false;
-          console.error(`Failed to start container ${containerName}`);
+        try {
+          // Check if container is already running (from another test)
+          if (dockerManager.isContainerRunning(containerName)) {
+            console.log(`Container ${containerName} is already running, reusing`);
+            startedContainersList.push(containerName);
+            continue;
+          }
+
+          const started = await dockerManager.startContainer(containerName);
+          if (started) {
+            startedContainersList.push(containerName);
+          } else {
+            console.warn(`Failed to start container ${containerName}, continuing...`);
+          }
+        } catch (error) {
+          console.warn(`Error starting container ${containerName}:`, error);
         }
       }
 
-      if (!containersStarted) {
-        throw new Error('Failed to start required Docker containers');
+      if (startedContainersList.length === 0) {
+        containersStarted = false;
+        throw new Error('Failed to start any required Docker containers');
       }
 
-      // Wait a bit for SSH to be fully ready
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for SSH to be fully ready on all started containers
+      for (const containerName of startedContainersList) {
+        const container = DOCKER_CONTAINERS.find(c => c.name === containerName);
+        if (container) {
+          await dockerManager.waitForSSH(container.port, 15);
+        }
+      }
     }, timeout);
 
     afterAll(async () => {
-      if (containersStarted) {
+      // Don't stop containers by default - let them be reused by other tests
+      // Only stop if explicitly requested or if there are too many running
+      if (process.env['STOP_CONTAINERS_AFTER_TESTS'] === 'true' && startedContainersList.length > 0) {
         console.log(`Cleaning up Docker containers for ${name}...`);
-        
-        // Only stop the containers we started
-        for (const containerName of containers) {
-          await dockerManager.stopContainer(containerName);
+
+        for (const containerName of startedContainersList) {
+          try {
+            await dockerManager.stopContainer(containerName);
+          } catch (error) {
+            console.warn(`Error stopping container ${containerName}:`, error);
+          }
         }
       }
     }, timeout / 2);

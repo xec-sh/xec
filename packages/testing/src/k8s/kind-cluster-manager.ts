@@ -2,6 +2,13 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import { rmSync, existsSync, mkdtempSync, writeFileSync } from 'fs';
+import {
+  findBinary,
+  getExtendedEnv,
+  isKindAvailable,
+  isKubectlAvailable,
+  isDockerAvailable,
+} from '../utils/binary-detector.js';
 
 export interface KindClusterConfig {
   name: string;
@@ -23,22 +30,19 @@ export class KindClusterManager {
 
   private exec(command: string, options: { silent?: boolean; skipKubeconfig?: boolean } = {}): string {
     try {
-      const env: NodeJS.ProcessEnv = {
-        ...process.env,
-        PATH: `${process.env['PATH']}:/usr/local/bin:/opt/homebrew/bin`
-      };
-      
+      const env = getExtendedEnv();
+
       // Only set KUBECONFIG if not explicitly skipped
       if (!options.skipKubeconfig) {
         env['KUBECONFIG'] = this.kubeConfigPath;
       }
-      
+
       const result = execSync(command, {
         encoding: 'utf8',
         stdio: options.silent ? 'pipe' : 'inherit',
         env
       });
-      
+
       return result ? result.toString() : '';
     } catch (error: any) {
       if (!options.silent) {
@@ -47,6 +51,28 @@ export class KindClusterManager {
       }
       throw error;
     }
+  }
+
+  /**
+   * Check if all required binaries are available
+   */
+  static checkRequirements(): { available: boolean; missing: string[] } {
+    const missing: string[] = [];
+
+    if (!isDockerAvailable()) {
+      missing.push('docker');
+    }
+    if (!isKindAvailable()) {
+      missing.push('kind');
+    }
+    if (!isKubectlAvailable()) {
+      missing.push('kubectl');
+    }
+
+    return {
+      available: missing.length === 0,
+      missing
+    };
   }
 
   async isClusterRunning(): Promise<boolean> {

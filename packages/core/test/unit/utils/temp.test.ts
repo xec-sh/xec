@@ -304,9 +304,11 @@ describe('Temp Utilities', () => {
         await file.cleanup();
       }
       
-      // Also test that temp files are created in safe locations
+      // Also test that temp files are created in safe locations (system temp dir)
       const file = new TempFile();
-      expect(file.path).toMatch(/^(\/tmp|\/var\/folders|[A-Z]:\\Temp)/);
+      const systemTempDir = tmpdir();
+      // Verify file is created within the system temp directory
+      expect(file.path.startsWith(systemTempDir)).toBe(true);
     });
 
     test('should handle special characters in content', async () => {

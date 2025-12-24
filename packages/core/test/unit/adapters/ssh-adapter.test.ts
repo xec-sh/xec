@@ -7,6 +7,8 @@ import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testi
 import { $ } from '../../../src/index.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
+// Use only ubuntu-apt for faster tests in unit tests
+// Integration tests can use all containers
 describeSSH('SSHAdapter - Real SSH Tests', () => {
   let adapter: SSHAdapter;
   let testDir: string;
