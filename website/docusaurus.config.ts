@@ -19,12 +19,16 @@ const config: Config = {
   projectName: 'xec',
 
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   // i18n configuration
   i18n: {
     defaultLocale: 'en',
-    locales: ['en', 'ru'],
+    locales: ['en'],
     localeConfigs: {
       en: {
         label: 'English',
@@ -32,13 +36,6 @@ const config: Config = {
         htmlLang: 'en-US',
         calendar: 'gregory',
         path: 'en',
-      },
-      ru: {
-        label: 'Русский',
-        direction: 'ltr',
-        htmlLang: 'ru-RU',
-        calendar: 'gregory',
-        path: 'ru',
       },
     },
   },
