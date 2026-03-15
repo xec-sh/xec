@@ -6,12 +6,12 @@ import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { FileWatcher } from '@xec-sh/loader';
 
-import { validateOptions } from '../utils/validation.js';
-import { getScriptLoader } from '../adapters/loader-adapter.js';
+import { validateOptions } from '@xec-sh/ops/utils/validation.js';
+import { getScriptLoader } from '@xec-sh/ops/adapters/loader-adapter.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
-import type { ResolvedTarget } from '../config/types.js';
+import type { ResolvedTarget } from '@xec-sh/ops/config/types.js';
 
 interface WatchOptions extends ConfigAwareOptions, InteractiveOptions {
   pattern?: string[];

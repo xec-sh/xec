@@ -4,8 +4,8 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { BaseCommand } from '../utils/command-base.js';
-import { ConfigurationManager } from '../config/configuration-manager.js';
-import { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from '../config/defaults.js';
+import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
+import { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from '@xec-sh/ops/config/defaults.js';
 
 
 /**

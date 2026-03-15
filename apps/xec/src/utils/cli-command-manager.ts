@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
-import { ScriptLoader, getScriptLoader } from '../adapters/loader-adapter.js';
+import { ScriptLoader, getScriptLoader } from '@xec-sh/ops/adapters/loader-adapter.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -3,13 +3,13 @@ import path from 'path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 
-import { parseTimeout } from '../utils/time.js';
-import { validateOptions } from '../utils/validation.js';
+import { parseTimeout } from '@xec-sh/ops/utils/time.js';
+import { validateOptions } from '@xec-sh/ops/utils/validation.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
-import { ScriptLoader, type ExecutionOptions } from '../adapters/loader-adapter.js';
+import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops/adapters/loader-adapter.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
-import type { ResolvedTarget } from '../config/types.js';
+import type { ResolvedTarget } from '@xec-sh/ops/config/types.js';
 
 interface OnOptions extends ConfigAwareOptions, InteractiveOptions {
   task?: string;

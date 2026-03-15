@@ -9,8 +9,8 @@ const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
 };
 import { execSync } from 'child_process';
 
-import { TaskManager } from '../config/task-manager.js';
-import { ConfigurationManager } from '../config/configuration-manager.js';
+import { TaskManager } from '@xec-sh/ops/config/task-manager.js';
+import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
 
 export interface CommandPaletteItem {
   id: string;

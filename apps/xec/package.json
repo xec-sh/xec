@@ -48,12 +48,8 @@
     "@xec-sh/core": "workspace:*",
     "@xec-sh/kit": "workspace:*",
     "@xec-sh/loader": "workspace:*",
-    "commander": "^14.0.2",
-    "dotenv": "^17.2.3",
-    "fs-extra": "^11.3.3",
-    "glob": "^13.0.0",
-    "js-yaml": "^4.1.1",
-    "zod": "^4.3.6"
+    "@xec-sh/ops": "workspace:*",
+    "commander": "^14.0.2"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

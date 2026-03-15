@@ -7,7 +7,7 @@ import { checkForCommandTypo } from '@xec-sh/core';
 
 import { handleError } from './utils/error-handler.js';
 import { customizeHelp } from './utils/help-customizer.js';
-import { TaskManager, ConfigurationManager } from './config/index.js';
+import { TaskManager, ConfigurationManager } from '@xec-sh/ops/config/index.js';
 import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { saveCommandHistory, initializeCommandPalette } from './utils/command-palette.js';

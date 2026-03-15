@@ -38,6 +38,26 @@
       "types": "./dist/completion/index.d.ts",
       "import": "./dist/completion/index.js"
     },
+    "./config/*": {
+      "types": "./dist/config/*.d.ts",
+      "import": "./dist/config/*.js"
+    },
+    "./secrets/*": {
+      "types": "./dist/secrets/*.d.ts",
+      "import": "./dist/secrets/*.js"
+    },
+    "./api/*": {
+      "types": "./dist/api/*.d.ts",
+      "import": "./dist/api/*.js"
+    },
+    "./adapters/*": {
+      "types": "./dist/adapters/*.d.ts",
+      "import": "./dist/adapters/*.js"
+    },
+    "./utils/*": {
+      "types": "./dist/utils/*.d.ts",
+      "import": "./dist/utils/*.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
