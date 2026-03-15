@@ -1,7 +1,7 @@
 import { unlinkSync, writeFileSync } from 'fs';
 import { KindClusterManager } from '@xec-sh/testing';
 
-import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
+import { KubernetesAdapter } from '../../src/adapters/kubernetes/index.js';
 
 /**
  * Integration tests for KubernetesAdapter.

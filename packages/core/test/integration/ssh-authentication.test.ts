@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
-import { SSHAdapter } from '../../../src/adapters/ssh/index';
+import { SSHAdapter } from '../../src/adapters/ssh/index';
 
 describeSSH('SSH Authentication Tests', () => {
 

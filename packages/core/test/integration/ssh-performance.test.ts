@@ -2,7 +2,7 @@ import { performance } from 'perf_hooks';
 import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
-import { SSHAdapter } from '../../../src/adapters/ssh/index';
+import { SSHAdapter } from '../../src/adapters/ssh/index';
 
 // Performance tests may take longer
 const LONG_TIMEOUT = 120000; // 2 minutes

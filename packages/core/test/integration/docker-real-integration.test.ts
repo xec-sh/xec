@@ -3,7 +3,7 @@ import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
 
 import { $ } from '../../src/index.js';
-import { DockerAdapter } from '../../../src/adapters/docker/index.js';
+import { DockerAdapter } from '../../src/adapters/docker/index.js';
 
 // Skip if Docker is not available
 const DOCKER_AVAILABLE = await (async () => {
