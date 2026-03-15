@@ -110,7 +110,7 @@ const config: Config = {
       require.resolve('@easyops-cn/docusaurus-search-local'),
       {
         hashed: true,
-        language: ['en', 'ru'],
+        language: ['en'],
         highlightSearchTermsOnTargetPage: true,
         explicitSearchResultPath: true,
         docsRouteBasePath: '/docs',
@@ -172,10 +172,6 @@ const config: Config = {
           to: '/blog',
           label: 'Blog',
           position: 'left',
-        },
-        {
-          type: 'localeDropdown',
-          position: 'right',
         },
         {
           href: 'https://github.com/xec-sh/xec',
