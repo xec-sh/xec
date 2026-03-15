@@ -404,7 +404,7 @@ export abstract class BaseCommand {
   protected stopSpinner(message?: string, code?: number): void {
     if (this.currentSpinner) {
       if (code === 0 || code === undefined) {
-        this.currentSpinner.success(message || 'Done');
+        this.currentSpinner.stop(message || 'Done');
       } else {
         this.currentSpinner.error(message || 'Failed');
       }
