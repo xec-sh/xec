@@ -1,17 +1,17 @@
-name: Deploy Documentation
+name: Deploy Website
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'docs/**'
-      - '.github/workflows/deploy-docs.yml'
+      - 'website/**'
+      - '.github/workflows/deploy-website.yml'
   pull_request:
     branches:
       - main
     paths:
-      - 'docs/**'
+      - 'website/**'
   workflow_dispatch:
 
 permissions:
@@ -56,19 +56,19 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
-          cd docs
+          cd website
           pnpm install --frozen-lockfile
 
-      - name: Build documentation
+      - name: Build website
         run: |
-          cd docs
+          cd website
           pnpm build
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./docs/build
+          path: ./website/build
 
   deploy:
     if: github.event_name != 'pull_request'
