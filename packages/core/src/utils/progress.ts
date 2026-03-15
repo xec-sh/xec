@@ -344,6 +344,10 @@ export class Spinner {
       process.stdout.write(output);
       this.frameIndex = (this.frameIndex + 1) % this.frames.length;
     }, this.options.interval || 80);
+    // Don't keep the process alive just for the progress animation
+    if (this.intervalId && typeof this.intervalId.unref === 'function') {
+      this.intervalId.unref();
+    }
   }
   
   stop(): void {
