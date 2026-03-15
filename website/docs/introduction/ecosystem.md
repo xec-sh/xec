@@ -2,421 +2,223 @@
 sidebar_position: 5
 sidebar_label: Ecosystem
 title: The Xec Ecosystem
-description: Overview of the Xec ecosystem, packages, and integrations
+description: Overview of the Xec ecosystem — packages, architecture, and integrations
 ---
 
 # The Xec Ecosystem
 
-Xec is more than a single tool—it's an ecosystem of packages, integrations, and community resources designed to provide comprehensive command execution capabilities.
+Xec is an ecosystem of 6 packages providing a complete DevOps automation platform — from shell execution to deployment pipelines.
 
-## Core Packages
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│  @xec-sh/cli   — Thin CLI wrapper           │
+│  (commands: run, on, in, deploy, watch...)   │
+└──────────────────┬──────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────┐
+│  @xec-sh/ops   — DevOps Operations Library   │
+│  deploy, health, pipeline, workflow,         │
+│  discovery, retry, config, secrets, api      │
+└──────────────────┬──────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────┐
+│  @xec-sh/core  — Shell Execution Engine      │
+│  $`cmd`, SSH, Docker, K8s adapters,          │
+│  connection pooling, streaming, retry        │
+└──────────────────┬──────────────────────────┘
+                   │
+┌──────────┬───────▼────────┬─────────────────┐
+│ @xec-sh/ │   @xec-sh/    │   @xec-sh/      │
+│   kit    │    loader      │    testing       │
+│ TUI/CLI  │ Script loading │ Test utilities   │
+│components│ Module system  │ Docker helpers   │
+└──────────┴────────────────┴─────────────────┘
+```
+
+## Packages
 
 ### @xec-sh/core
-The heart of the Xec ecosystem—the universal execution engine.
+The shell execution engine. Use it to run commands locally, over SSH, in Docker containers, or on Kubernetes pods.
 
-**Features**:
-- Template literal command execution
-- Multi-adapter architecture
-- Connection pooling and caching
-- Event system and streaming
-- TypeScript-first design
-
-**Installation**:
 ```bash
-npm install @xec-sh/core
+pnpm add @xec-sh/core
 ```
 
-**Usage**:
 ```typescript
-import { $ } from '@xec-sh/core';
-await $`echo "Hello from core"`;
+import { $, configure } from '@xec-sh/core';
+
+// Local execution
+const result = await $`echo "Hello, world!"`;
+
+// SSH
+const $ssh = $.ssh({ host: 'server.example.com', username: 'deploy' });
+await $ssh`docker-compose up -d`;
+
+// Docker
+const $docker = $.docker({ container: 'my-app' });
+await $docker`npm run build`;
+
+// Kubernetes
+const $k8s = $.k8s({ pod: 'api-server', namespace: 'production' });
+await $k8s`cat /var/log/app.log`;
+
+// Utilities
+import { echo, sleep, glob, kill, parseDuration } from '@xec-sh/core';
+await sleep('5s');
+echo`Build complete!`;
+const files = await glob('src/**/*.ts');
 ```
 
-### @xec-sh/cli
-Command-line interface for Xec, providing interactive and script execution capabilities.
+### @xec-sh/ops
+The DevOps operations library. Use it standalone in any project — no CLI required.
 
-**Features**:
-- Interactive REPL mode
-- Script execution
-- Dynamic command loading
-- Configuration management
-- Built-in command library
-
-**Installation**:
 ```bash
-npm install -g @xec-sh/cli
+pnpm add @xec-sh/ops
 ```
 
-**Usage**:
-```bash
-xec run script.js
-xec --help
-```
-
-### @xec-sh/testing
-Testing utilities for projects using Xec.
-
-**Features**:
-- Test container management
-- Mock adapters for testing
-- SSH test helpers
-- Kubernetes test clusters
-- Assertion utilities
-
-**Installation**:
-```bash
-npm install --save-dev @xec-sh/testing
-```
-
-**Usage**:
 ```typescript
-import { createTestContainer } from '@xec-sh/testing';
+import { Deployer, HealthChecker, Pipeline, Workflow, Discovery } from '@xec-sh/ops';
 
-const container = await createTestContainer({
-  image: 'postgres:14',
-  env: { POSTGRES_PASSWORD: 'test' }
+// Deploy with health checks
+const deployer = Deployer.create({
+  name: 'api',
+  targets: ['web-1', 'web-2'],
+  strategy: 'rolling',
+  hooks: {
+    deploy: async (ctx) => { await ctx.exec`docker pull myapp:${ctx.version}`; },
+    verify: async (ctx) => ctx.healthCheck(),
+  },
+});
+await deployer.deploy('v1.2.3');
+
+// CI/CD Pipeline
+const result = await Pipeline.create('ci')
+  .step('test', { run: 'pnpm test', matrix: { node: ['18', '20'] } })
+  .step('build', { run: 'pnpm build', dependsOn: ['test'] })
+  .step('deploy', { run: 'pnpm deploy', dependsOn: ['build'], condition: ctx => ctx.branch === 'main' })
+  .run({ branch: 'main' });
+
+// Health checks
+const report = await HealthChecker.create()
+  .http('https://api.example.com/health')
+  .tcp('db.example.com', 5432)
+  .command('docker ps', { contains: 'my-service' })
+  .run();
+
+// Infrastructure discovery
+const targets = await Discovery.create()
+  .docker({ label: 'env=prod' })
+  .kubernetes({ namespace: 'production' })
+  .scan();
+
+// Configuration management
+import { ConfigurationManager } from '@xec-sh/ops';
+const config = new ConfigurationManager({
+  projectRoot: '/my/project',
+  configDirName: '.myapp',       // Custom config dir
+  envPrefix: 'MYAPP_',           // Custom env prefix
 });
 ```
 
-## Execution Adapters
-
-### Local Adapter
-Built into @xec-sh/core, executes commands on the local machine.
-
-**Features**:
-- Direct process spawning
-- Shell selection
-- Environment management
-- Working directory control
-
-### SSH Adapter
-Remote command execution via SSH protocol.
-
-**Features**:
-- Connection pooling
-- Key-based authentication
-- SSH tunneling
-- File transfer (SCP/SFTP)
-- Proxy jump support
-
-### Docker Adapter
-Container command execution and management.
-
-**Features**:
-- Container lifecycle management
-- Ephemeral container support
-- Volume and network management
-- Docker Compose integration
-- Build and push operations
-
-### Kubernetes Adapter
-Pod execution and cluster operations.
-
-**Features**:
-- Pod exec and logs
-- Port forwarding
-- File copy to/from pods
-- Multi-container support
-- Namespace management
-
-### Remote Docker Adapter
-Docker operations over SSH connections.
-
-**Features**:
-- Remote Docker daemon access
-- SSH tunnel for Docker socket
-- Full Docker API over SSH
-- Secure remote container management
-
-## Configuration System
-
-### Project Configuration
-`.xec/config.yaml` provides project-specific settings.
-
-```yaml
-# .xec/config.yaml
-defaults:
-  shell: /bin/bash
-  timeout: 30000
-
-targets:
-  production:
-    type: ssh
-    host: prod.example.com
-    username: deploy
-
-  staging:
-    type: docker
-    container: staging-app
-
-tasks:
-  deploy:
-    target: production
-    commands:
-      - git pull
-      - npm install
-      - npm run build
-```
-
-### Global Configuration
-User-level configuration in `~/.xec/config.yaml`.
-
-### Environment Variables
-Configuration through environment variables:
+### @xec-sh/kit
+TUI components for building CLI interfaces — prompts, spinners, tables, colors.
 
 ```bash
-XEC_DEFAULT_SHELL=/bin/zsh
-XEC_SSH_TIMEOUT=10000
-XEC_CACHE_DIR=/tmp/xec-cache
+pnpm add @xec-sh/kit
 ```
-
-## Plugin System
-
-### Dynamic Commands
-Extend Xec with custom commands in `.xec/commands/`.
 
 ```typescript
-// .xec/commands/deploy.ts
-export function command(program) {
-  program
-    .command('deploy <env>')
-    .description('Deploy to environment')
-    .action(async (env) => {
-      const { $ } = await import('@xec-sh/core');
-      // Implementation
-    });
-}
+import { text, select, confirm, spinner, prism, table, date } from '@xec-sh/kit';
+
+const name = await text({ message: 'Project name?' });
+const framework = await select({
+  message: 'Framework?',
+  options: [
+    { value: 'next', label: 'Next.js' },
+    { value: 'nuxt', label: 'Nuxt' },
+  ],
+});
+const s = spinner();
+s.start('Installing...');
+// ...
+s.stop('Done!');
 ```
 
-### Custom Adapters
-Create adapters for new execution environments.
+### @xec-sh/loader
+Script loading, module resolution, REPL, TypeScript transformation.
+
+```bash
+pnpm add @xec-sh/loader
+```
 
 ```typescript
-import { BaseAdapter } from '@xec-sh/core';
+import { ScriptExecutor, ModuleLoader, startREPL, FileWatcher, PluginManager } from '@xec-sh/loader';
 
-class CustomAdapter extends BaseAdapter {
-  async execute(command: Command): Promise<ExecutionResult> {
-    // Custom execution logic
-    return this.createResult({
-      stdout: 'output',
-      stderr: '',
-      exitCode: 0
-    });
-  }
-}
+// Execute TypeScript scripts
+const executor = new ScriptExecutor();
+await executor.executeScript('./deploy.ts');
+
+// Watch mode
+const watcher = new FileWatcher('./src', { extensions: ['.ts'] });
+watcher.on('change', (event) => console.log(`Changed: ${event.relativePath}`));
+watcher.start();
+
+// Plugin system
+const plugins = new PluginManager();
+plugins.register({
+  name: 'alias',
+  resolveSpecifier: (spec) => spec.startsWith('@/') ? spec.replace('@/', './src/') : undefined,
+});
 ```
 
-## Integrations
+### @xec-sh/testing
+Shared test utilities for Docker/SSH/Kubernetes test environments.
 
-### CI/CD Platforms
-
-#### GitHub Actions
-```yaml
-- name: Execute with Xec
-  run: |
-    npx @xec-sh/cli run ./scripts/deploy.js
+```bash
+pnpm add -D @xec-sh/testing
 ```
-
-#### GitLab CI
-```yaml
-deploy:
-  script:
-    - npm install @xec-sh/core
-    - node deploy-script.js
-```
-
-#### Jenkins
-```groovy
-sh 'npx @xec-sh/cli run build.js'
-```
-
-### Container Platforms
-
-#### Docker Compose
-```yaml
-services:
-  xec-runner:
-    image: node:18
-    volumes:
-      - ./scripts:/scripts
-    command: npx @xec-sh/cli run /scripts/task.js
-```
-
-#### Kubernetes Jobs
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: xec-job
-spec:
-  template:
-    spec:
-      containers:
-      - name: xec
-        image: node:18
-        command: ["npx", "@xec-sh/cli", "run", "job.js"]
-```
-
-### Development Tools
-
-#### VS Code Extension
-(Planned) Xec command palette and IntelliSense support.
-
-#### JetBrains Plugin
-(Planned) Xec integration for IntelliJ-based IDEs.
-
-## Community Resources
-
-### Official Resources
-
-- **Documentation**: [docs.xec.sh](https://docs.xec.sh)
-- **GitHub**: [github.com/xec-sh/xec](https://github.com/xec-sh/xec)
-- **npm Registry**: [@xec-sh](https://www.npmjs.com/org/xec-sh)
-- **Discord**: [discord.gg/xec](https://discord.gg/xec)
-
-### Community Projects
-
-#### Xec Scripts Collection
-Community-contributed scripts and examples.
-
-#### Xec Docker Images
-Pre-built Docker images with Xec installed.
-
-#### Xec GitHub Actions
-Reusable GitHub Actions for Xec operations.
-
-## Ecosystem Architecture
-
-```
-┌─────────────────────────────────────────┐
-│           User Applications             │
-├─────────────────────────────────────────┤
-│     @xec-sh/cli    │   Custom Scripts   │
-├────────────────────┴────────────────────┤
-│            @xec-sh/core                 │
-├──────────────────────────────────────────┤
-│            Adapter Layer                 │
-├────┬────┬────┬────┬────┬──────────────┤
-│Local│SSH │Docker│ K8s │Remote│ Custom  │
-└────┴────┴────┴────┴────┴──────────────┘
-```
-
-## Version Compatibility
-
-| Package | Version | Node.js | TypeScript |
-|---------|---------|---------|------------|
-| @xec-sh/core | 0.7.x | ≥20.0.0 | ≥5.0.0 |
-| @xec-sh/cli | 0.7.x | ≥20.0.0 | ≥5.0.0 |
-| @xec-sh/testing | 0.7.x | ≥20.0.0 | ≥5.0.0 |
-
-## Roadmap
-
-### Near Term (Q1 2025)
-- Plugin marketplace
-- Enhanced Kubernetes features
-- Performance optimizations
-- Additional authentication methods
-
-### Medium Term (Q2-Q3 2025)
-- Cloud provider adapters (AWS, GCP, Azure)
-- Workflow orchestration engine
-- Visual debugging tools
-- Enhanced security features
-
-### Long Term (Q4 2025+)
-- Distributed execution
-- AI-powered command suggestions
-- Cross-platform GUI
-- Enterprise features
-
-## Contributing to the Ecosystem
-
-### Package Development
-Create packages that extend Xec:
 
 ```typescript
-// xec-plugin-aws/index.ts
-import { $ } from '@xec-sh/core';
+import { describeSSH, getSSHConfig, dockerManager } from '@xec-sh/testing';
 
-export class AWSAdapter {
-  async executeOnEC2(instanceId: string, command: string) {
-    // Implementation using AWS SSM
-  }
-}
+describeSSH('SSH Tests', () => {
+  it('should execute on remote', async () => {
+    const config = getSSHConfig('ubuntu-apt');
+    // ...
+  });
+});
 ```
 
-### Adapter Creation
-Implement adapters for new environments:
+### @xec-sh/cli
+The xec command-line tool — a thin wrapper over `@xec-sh/ops`.
 
-```typescript
-import { BaseAdapter } from '@xec-sh/core';
+```bash
+pnpm add -g @xec-sh/cli
 
-class CloudRunAdapter extends BaseAdapter {
-  async execute(command: Command): Promise<ExecutionResult> {
-    // Cloud Run execution logic
-    return this.createResult({
-      stdout: '',
-      stderr: '',
-      exitCode: 0
-    });
-  }
-}
+# Or use directly
+npx xec run deploy.ts
+xec on server-1 "docker-compose up -d"
+xec in my-container "npm test"
 ```
 
-### Tool Integration
-Integrate Xec into existing tools:
+## When to Use Which Package
 
-```javascript
-// webpack.config.js
-const { $ } = require('@xec-sh/core');
+| Use Case | Package |
+|----------|---------|
+| Shell scripting in TypeScript | `@xec-sh/core` |
+| DevOps automation library | `@xec-sh/ops` |
+| Building CLI tools | `@xec-sh/kit` |
+| Script/module loading | `@xec-sh/loader` |
+| Test infrastructure | `@xec-sh/testing` |
+| Ready-to-use CLI | `@xec-sh/cli` |
 
-module.exports = {
-  plugins: [
-    {
-      apply: (compiler) => {
-        compiler.hooks.afterEmit.tapAsync('XecPlugin', async (compilation, callback) => {
-          await $`npm run post-build`;
-          callback();
-        });
-      }
-    }
-  ]
-};
-```
+## Key Design Principles
 
-## Best Practices
-
-### Package Selection
-- Use `@xec-sh/core` for library integration
-- Use `@xec-sh/cli` for command-line tools
-- Use `@xec-sh/testing` for testing
-
-### Version Management
-- Pin major versions in production
-- Use latest minor versions for features
-- Test thoroughly before major upgrades
-
-### Security
-- Audit dependencies regularly
-- Use environment variables for secrets
-- Implement least-privilege access
-- Enable audit logging in production
-
-## Support and Resources
-
-### Getting Help
-- **Documentation**: Comprehensive guides and API references
-- **GitHub Issues**: Bug reports and feature requests
-- **Stack Overflow**: Tagged questions with `xec`
-
-### Training and Certification
-(Planned) Official training courses and certification programs.
-
-### Commercial Support
-(Planned) Enterprise support packages with SLAs.
-
-## Conclusion
-
-The Xec ecosystem provides a comprehensive solution for command execution across diverse environments. Whether you're building simple automation scripts or complex orchestration systems, the ecosystem offers the tools, integrations, and community support needed for success.
-
-As the ecosystem grows, it maintains its core philosophy: making command execution simple, safe, and consistent everywhere. Join the community and help shape the future of universal command execution.
+1. **Library-first** — All functionality is in libraries (`core`, `ops`), CLI is just a thin wrapper
+2. **Zero vendor lock-in** — Use any package independently
+3. **Type-safe** — Full TypeScript with strict mode, no `any` in public APIs
+4. **Cross-runtime** — Works on Node.js, Bun, Deno
+5. **Composable** — Mix and match packages as needed
+6. **Production-ready** — Connection pooling, retry policies, health checks, secret management
