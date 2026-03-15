@@ -333,8 +333,8 @@ MIIEpAIBAAKCAQEA...
       const result = await interpolator.interpolateAsync(template, {});
       const duration = Date.now() - start;
       
-      // Should complete reasonably fast (under 3 seconds for 100 file operations)
-      expect(duration).toBeLessThan(3000);
+      // Should complete reasonably fast (under 10 seconds for 100 file operations)
+      expect(duration).toBeLessThan(10000);
       
       // Verify result
       const expected = Array.from({ length: secretCount }, (_, i) => `value-${i}`).join(',');

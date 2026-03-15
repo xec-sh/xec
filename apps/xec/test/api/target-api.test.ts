@@ -77,9 +77,9 @@ describe('Target API', () => {
       expect(dockerTargets).toHaveLength(2);
       expect(dockerTargets.every(t => t.type === 'docker')).toBe(true);
       
-      const k8sTargets = await api.list('k8s');
+      const k8sTargets = await api.list('kubernetes');
       expect(k8sTargets).toHaveLength(1);
-      expect(k8sTargets.every(t => t.type === 'k8s')).toBe(true);
+      expect(k8sTargets.every(t => t.type === 'kubernetes')).toBe(true);
     });
   });
 

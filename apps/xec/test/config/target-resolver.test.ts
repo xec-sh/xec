@@ -517,7 +517,7 @@ describe('TargetResolver', () => {
       });
 
       expect(target).toEqual({
-        id: 'dynamic-k8s-mypod',
+        id: 'dynamic-kubernetes-mypod',
         type: 'kubernetes',
         config: {
           type: 'kubernetes',
