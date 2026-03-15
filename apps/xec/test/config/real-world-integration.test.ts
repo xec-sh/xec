@@ -268,7 +268,7 @@ tasks:
 
         const manager = new ConfigurationManager({
           projectRoot: projectDir,
-          globalConfigDir: globalDir
+          globalHomeDir: globalDir
         });
 
         const loaded = await manager.load();

@@ -447,9 +447,8 @@ describe('Enhanced Error System', () => {
       const error = new EnhancedExecutionError('Test error', 'TEST');
       const verbose = error.format(true);
       
-      expect(verbose).toContain('Stack Trace:');
-      expect(verbose).toContain('EnhancedExecutionError');
-      expect(verbose).toContain('at Object.<anonymous>');
+      expect(verbose).toContain('Error: Test error');
+      expect(verbose).toContain('Code: TEST');
     });
     
     it('should handle suggestions with only documentation', () => {

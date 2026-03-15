@@ -499,7 +499,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
 
       const manager = new ConfigurationManager({
         projectRoot: tempDir,
-        globalConfigDir: globalDir
+        globalHomeDir: globalDir
       });
       const loaded = await manager.load();
 

@@ -130,10 +130,10 @@ describe('TargetResolver', () => {
 
       expect(target).toEqual({
         id: 'pods.api',
-        type: 'k8s',
+        type: 'kubernetes',
         name: 'api',
         config: {
-          type: 'k8s',
+          type: 'kubernetes',
           namespace: 'production',
           selector: 'app=api'
         },
@@ -248,10 +248,10 @@ describe('TargetResolver', () => {
 
         expect(target).toEqual({
           id: 'mypod',
-          type: 'k8s',
+          type: 'kubernetes',
           name: 'mypod',
           config: {
-            type: 'k8s',
+            type: 'kubernetes',
             pod: 'mypod',
             namespace: 'default'
           },
@@ -289,7 +289,7 @@ describe('TargetResolver', () => {
         const target = await testResolver.resolve('mypod');
 
         expect(target.config).toMatchObject({
-          type: 'k8s',
+          type: 'kubernetes',
           pod: 'mypod',
           namespace: 'production'
         });
@@ -511,16 +511,16 @@ describe('TargetResolver', () => {
 
     it('should create dynamic Kubernetes target', async () => {
       const target = await resolver.create({
-        type: 'k8s',
+        type: 'kubernetes',
         pod: 'mypod',
         namespace: 'custom'
       });
 
       expect(target).toEqual({
         id: 'dynamic-k8s-mypod',
-        type: 'k8s',
+        type: 'kubernetes',
         config: {
-          type: 'k8s',
+          type: 'kubernetes',
           pod: 'mypod',
           namespace: 'custom'
         },
@@ -884,7 +884,7 @@ describe('TargetResolver', () => {
         const target = await resolver.resolve('pods.test-pod');
 
         expect(target.config).toMatchObject({
-          type: 'k8s',
+          type: 'kubernetes',
           selector: 'app=test',
           // Common defaults
           timeout: 30000,

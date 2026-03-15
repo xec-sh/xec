@@ -24,7 +24,7 @@ describe('ConfigurationManager', () => {
     // Initialize manager with test directory
     manager = new ConfigurationManager({
       projectRoot: tempDir,
-      globalConfigDir: path.join(tempDir, 'global'),
+      globalHomeDir: path.join(tempDir, 'global'),
       cache: false
     });
   });
@@ -430,7 +430,7 @@ vars:
       // Initialize manager from workspace directory
       const workspaceManager = new ConfigurationManager({
         projectRoot: workspaceDir,
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 
@@ -472,7 +472,7 @@ vars:
       // Initialize manager from deep workspace directory
       const manager = new ConfigurationManager({
         projectRoot: workDir,
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 
@@ -509,7 +509,7 @@ vars:
       // Initialize manager from workspace directory
       const manager = new ConfigurationManager({
         projectRoot: workspaceDir,
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 
@@ -536,7 +536,7 @@ vars:
       // Initialize manager from isolated directory
       const manager = new ConfigurationManager({
         projectRoot: isolatedDir,
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 
@@ -574,7 +574,7 @@ vars:
       const manager = new ConfigurationManager({
         projectRoot: workspaceDir,
         profile: 'production',
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 
@@ -593,7 +593,7 @@ vars:
 
       const manager = new ConfigurationManager({
         projectRoot: workspaceDir,
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 
@@ -611,7 +611,7 @@ vars:
       // Initialize manager from workspace
       const manager = new ConfigurationManager({
         projectRoot: workspaceDir,
-        globalConfigDir: path.join(tempDir, 'global'),
+        globalHomeDir: path.join(tempDir, 'global'),
         cache: false
       });
 

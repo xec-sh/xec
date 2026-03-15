@@ -17,11 +17,11 @@ import {
 vi.mock('@xec-sh/core', () => ({
   $: vi.fn(),
   unifiedConfig: {},
-  CommandRegistry: vi.fn().mockImplementation(() => ({
-    register: vi.fn(),
-    getAllCommands: vi.fn(() => []),
-    getCommand: vi.fn()
-  }))
+  CommandRegistry: vi.fn().mockImplementation(function(this: Record<string, unknown>) {
+    this.register = vi.fn();
+    this.getAllCommands = vi.fn().mockReturnValue([]);
+    this.getCommand = vi.fn();
+  })
 }));
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,7 +45,7 @@ describe('CliCommandManager', () => {
         if (module === '@xec-sh/kit') {
           return Promise.resolve({
             log: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), success: vi.fn() },
-            spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn() }))
+            spinner: vi.fn().mockReturnValue({ start: vi.fn(), stop: vi.fn() })
           });
         }
         return Promise.reject(new Error(`Module not found: ${module}`));
