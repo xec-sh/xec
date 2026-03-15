@@ -104,7 +104,7 @@ describe('Watch Command', () => {
 
       await expect(
         command.execute(['local', watchDir, { quiet: true }])
-      ).rejects.toThrow('Either --command or --task must be specified');
+      ).rejects.toThrow('Either --command, --task, or --script');
     });
 
     it('should require target specification', async () => {
