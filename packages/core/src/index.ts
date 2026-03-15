@@ -12,6 +12,21 @@ export { withTempDir, withTempFile } from './utils/temp.js';
 export { ExecutionEngine } from './core/execution-engine.js';
 export { parallel, ParallelEngine } from './utils/parallel.js';
 
+// Core helpers — zx-compatible utilities
+export {
+  echo,
+  glob,
+  kill,
+  sleep,
+  xfetch,
+  readStdin,
+  expBackoff,
+  yamlParse,
+  yamlStringify,
+  parseDuration,
+  type Duration,
+} from './utils/helpers.js';
+
 export type { ExecutionEngineConfig };
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
 export { DockerContainer } from './adapters/docker/docker-api.js';
