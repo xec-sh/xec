@@ -1,4 +1,3 @@
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { EnvSecretProvider } from '../../src/secrets/providers/env.js';
 

@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import {
   sleep,
@@ -163,17 +162,17 @@ describe('time utils', () => {
   
   describe('sleep', () => {
     let originalSetTimeout: typeof setTimeout;
-    let setTimeoutSpy: jest.SpiedFunction<typeof setTimeout>;
+    let setTimeoutSpy: vi.SpiedFunction<typeof setTimeout>;
     
     beforeEach(() => {
       originalSetTimeout = global.setTimeout;
-      jest.useFakeTimers();
-      setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+      vi.useFakeTimers();
+      setTimeoutSpy = vi.spyOn(global, 'setTimeout');
     });
     
     afterEach(() => {
       setTimeoutSpy.mockRestore();
-      jest.useRealTimers();
+      vi.useRealTimers();
       global.setTimeout = originalSetTimeout;
     });
     
@@ -182,7 +181,7 @@ describe('time utils', () => {
       
       expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 100);
       
-      jest.runAllTimers();
+      vi.runAllTimers();
       await promise;
     });
     
@@ -191,24 +190,24 @@ describe('time utils', () => {
       
       expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 500);
       
-      jest.runAllTimers();
+      vi.runAllTimers();
       await promise;
     });
   });
   
   describe('createTimeoutPromise', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
     
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
     
     it('should reject after timeout', async () => {
       const promise = createTimeoutPromise('1s');
       
-      jest.runAllTimers();
+      vi.runAllTimers();
       
       await expect(promise).rejects.toThrow('Operation timed out');
     });
@@ -216,7 +215,7 @@ describe('time utils', () => {
     it('should use custom error message', async () => {
       const promise = createTimeoutPromise(500, 'Custom timeout');
       
-      jest.runAllTimers();
+      vi.runAllTimers();
       
       await expect(promise).rejects.toThrow('Custom timeout');
     });
@@ -224,15 +223,15 @@ describe('time utils', () => {
   
   describe('withTimeout', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
     
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
     
     it('should resolve if function completes before timeout', async () => {
-      const fn = jest.fn().mockResolvedValue('success');
+      const fn = vi.fn().mockResolvedValue('success');
       
       const promise = withTimeout(fn, '1s');
       
@@ -245,19 +244,19 @@ describe('time utils', () => {
     });
     
     it('should reject if function takes too long', async () => {
-      const fn = jest.fn().mockImplementation(() => 
+      const fn = vi.fn().mockImplementation(() => 
         new Promise(resolve => setTimeout(() => resolve('too late'), 2000))
       );
       
       const promise = withTimeout(fn, '1s', 'Function timed out');
       
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       await expect(promise).rejects.toThrow('Function timed out');
     });
     
     it('should propagate function errors', async () => {
-      const fn = jest.fn().mockRejectedValue(new Error('Function error'));
+      const fn = vi.fn().mockRejectedValue(new Error('Function error'));
       
       await expect(withTimeout(fn, '1s')).rejects.toThrow('Function error');
     });
@@ -265,15 +264,15 @@ describe('time utils', () => {
   
   describe('retryWithBackoff', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
     
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
     
     it('should succeed on first try', async () => {
-      const fn = jest.fn().mockResolvedValue('success');
+      const fn = vi.fn().mockResolvedValue('success');
       
       const result = await retryWithBackoff(fn);
       
@@ -282,7 +281,7 @@ describe('time utils', () => {
     });
     
     it('should retry on failure', async () => {
-      const fn = jest.fn()
+      const fn = vi.fn()
         .mockRejectedValueOnce(new Error('First failure'))
         .mockRejectedValueOnce(new Error('Second failure'))
         .mockResolvedValue('success');
@@ -290,7 +289,7 @@ describe('time utils', () => {
       const promise = retryWithBackoff(fn, { maxRetries: 3, initialDelay: 100 });
       
       // Process all timers and promises
-      await jest.runAllTimersAsync();
+      await vi.runAllTimersAsync();
       
       const result = await promise;
       
@@ -299,30 +298,30 @@ describe('time utils', () => {
     }, 10000);
     
     it('should throw after max retries', async () => {
-      const fn = jest.fn().mockRejectedValue(new Error('Always fails'));
+      const fn = vi.fn().mockRejectedValue(new Error('Always fails'));
       
       const promise = retryWithBackoff(fn, { maxRetries: 2, initialDelay: 10 });
       
       // Use real timers for this test to avoid issues with async timer handling
-      jest.useRealTimers();
+      vi.useRealTimers();
       
       await expect(promise).rejects.toThrow('Always fails');
       expect(fn).toHaveBeenCalledTimes(3); // initial + 2 retries
       
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 10000);
     
     it('should respect maxDelay', async () => {
-      const fn = jest.fn().mockRejectedValue(new Error('Fail'));
+      const fn = vi.fn().mockRejectedValue(new Error('Fail'));
       const delays: number[] = [];
       
       // Use real timers for this test
-      jest.useRealTimers();
+      vi.useRealTimers();
       
       // Mock setTimeout to capture delays
       const originalSetTimeout = global.setTimeout;
-      global.setTimeout = jest.fn((callback, delay) => {
+      global.setTimeout = vi.fn((callback, delay) => {
         if (delay && delay > 0) delays.push(delay);
         return originalSetTimeout(callback, delay);
       }) as any;
@@ -343,17 +342,17 @@ describe('time utils', () => {
       
       // Restore original setTimeout and fake timers
       global.setTimeout = originalSetTimeout;
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 10000);
     
     it('should apply timeout to each attempt', async () => {
       // Mock a function that never resolves
-      const fn = jest.fn().mockImplementation(() => 
+      const fn = vi.fn().mockImplementation(() => 
         new Promise(() => {}) // Never resolves
       );
       
       // Use real timers for this test
-      jest.useRealTimers();
+      vi.useRealTimers();
       
       const promise = retryWithBackoff(fn, {
         maxRetries: 1,
@@ -365,11 +364,11 @@ describe('time utils', () => {
       expect(fn).toHaveBeenCalledTimes(2); // Initial attempt + 1 retry
       
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 1000); // 1 second should be plenty
     
     it('should use default options', async () => {
-      const fn = jest.fn()
+      const fn = vi.fn()
         .mockRejectedValueOnce(new Error('Fail'))
         .mockResolvedValue('success');
       
@@ -377,7 +376,7 @@ describe('time utils', () => {
       
       // First attempt fails, wait for default delay (1s)
       await Promise.resolve();
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       await Promise.resolve();
       
       const result = await promise;

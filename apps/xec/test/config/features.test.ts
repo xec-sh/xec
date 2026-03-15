@@ -2,7 +2,6 @@
  * Tests for features.ts
  */
 
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import {
   features,

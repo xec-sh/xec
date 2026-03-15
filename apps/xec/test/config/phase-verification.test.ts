@@ -7,7 +7,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import {
   TaskManager,
@@ -331,7 +330,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         strict: false
       });
 
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       await manager.load();
 

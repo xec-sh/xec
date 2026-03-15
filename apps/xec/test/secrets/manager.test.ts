@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SecretManager } from '../../src/secrets/manager.js';
 import { SecretError, SecretProvider } from '../../src/secrets/types.js';
@@ -75,7 +74,7 @@ describe('SecretManager', () => {
 
     it('should handle initialization errors', async () => {
       const errorProvider = new MockProvider();
-      errorProvider.initialize = jest.fn().mockRejectedValue(
+      errorProvider.initialize = vi.fn().mockRejectedValue(
         new Error('Init failed')
       );
       
@@ -225,7 +224,7 @@ describe('SecretManager', () => {
 
     it('should wrap provider errors', async () => {
       const errorProvider = new MockProvider();
-      errorProvider.get = jest.fn().mockRejectedValue(
+      errorProvider.get = vi.fn().mockRejectedValue(
         new Error('Provider error')
       );
       
@@ -248,7 +247,7 @@ describe('SecretManager', () => {
     const OLD_ENV = process.env;
 
     beforeEach(() => {
-      jest.resetModules();
+      vi.resetModules();
       process.env = { ...OLD_ENV };
     });
 

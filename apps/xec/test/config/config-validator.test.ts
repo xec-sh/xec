@@ -2,7 +2,6 @@
  * Configuration Validator tests
  */
 
-import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { ConfigValidator } from '../../src/config/config-validator.js';
 

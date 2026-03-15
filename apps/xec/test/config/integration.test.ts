@@ -5,7 +5,6 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { TargetResolver, ConfigurationManager } from '../../src/config/index.js';
 
@@ -358,7 +357,7 @@ tasks:
         strict: false // Don't throw, just warn
       });
 
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       const loaded = await manager.load();
 
@@ -397,7 +396,7 @@ targets:
       const resolver = new TargetResolver(loaded);
 
       // Mock isDockerContainer method to simulate running containers
-      const isDockerContainerSpy = jest.spyOn(resolver as any, 'isDockerContainer')
+      const isDockerContainerSpy = vi.spyOn(resolver as any, 'isDockerContainer')
         .mockImplementation(async (name: string) => {
           const runningContainers = ['configured-app', 'detected-container', 'redis-cache'];
           return runningContainers.includes(name);

@@ -1,7 +1,6 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { rm } from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ModuleLoader } from '../../src/utils/module-loader.js';
 
@@ -33,7 +32,7 @@ describe('ModuleLoader - Simplified API', () => {
   });
 
   it('use() should call importModule with the correct spec', async () => {
-    const importModuleSpy = jest.spyOn(loader, 'importModule');
+    const importModuleSpy = vi.spyOn(loader, 'importModule');
 
     // Call use() with a test spec
     const testSpec = 'npm:test-package';
@@ -44,7 +43,7 @@ describe('ModuleLoader - Simplified API', () => {
   });
 
   it('x() should call importModule with the correct spec', async () => {
-    const importModuleSpy = jest.spyOn(loader, 'importModule');
+    const importModuleSpy = vi.spyOn(loader, 'importModule');
 
     // Call x() with a test spec
     const testSpec = 'jsr:@test/package';

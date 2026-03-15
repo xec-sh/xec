@@ -6,7 +6,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { OnCommand } from '../../src/commands/on.js';
 

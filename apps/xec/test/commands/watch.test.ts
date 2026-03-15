@@ -10,7 +10,6 @@ import * as fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { configure } from '@xec-sh/core';
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { WatchCommand } from '../../src/commands/watch.js';
 

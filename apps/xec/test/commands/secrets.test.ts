@@ -9,7 +9,6 @@ import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 import * as kit from '@xec-sh/kit';
 import { Command } from 'commander';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import secretsCommand from '../../src/commands/secrets.js';
 
@@ -19,9 +18,9 @@ describe('Secrets Command (Real Implementation)', () => {
   let secretsDir: string;
   let originalExit: typeof process.exit;
   let exitCode: number | undefined;
-  let consoleLogSpy: jest.SpyInstance;
-  let consoleErrorSpy: jest.SpyInstance;
-  let kitLogErrorSpy: jest.SpyInstance;
+  let consoleLogSpy: vi.SpyInstance;
+  let consoleErrorSpy: vi.SpyInstance;
+  let kitLogErrorSpy: vi.SpyInstance;
 
   beforeEach(async () => {
     // Create test directory
@@ -59,9 +58,9 @@ describe('Secrets Command (Real Implementation)', () => {
     }) as any;
     
     // Spy on console methods
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    kitLogErrorSpy = jest.spyOn(kit.log, 'error').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    kitLogErrorSpy = vi.spyOn(kit.log, 'error').mockImplementation(() => {});
   });
 
   afterEach(async () => {

@@ -2,7 +2,6 @@
  * Configuration utilities tests
  */
 
-import { it, expect, describe } from '@jest/globals';
 
 import {
   isCI,

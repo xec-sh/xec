@@ -9,7 +9,6 @@ import * as yaml from 'js-yaml';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 // Removed test helpers that don't exist
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { TargetAPI } from '../../src/api/target-api.js';
 

@@ -9,7 +9,6 @@ import * as yaml from 'js-yaml';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 // Removed Docker imports to avoid connection issues in test environment
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ScriptContext, executeScript } from '../../src/api/script-context.js';
 

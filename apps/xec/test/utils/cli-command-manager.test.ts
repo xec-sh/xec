@@ -2,7 +2,6 @@ import path from 'path';
 import fs from 'fs-extra';
 import { Command } from 'commander';
 import { fileURLToPath } from 'url';
-import { it, jest, expect, describe, afterAll, beforeAll, beforeEach } from '@jest/globals';
 
 import {
   findCommand,
@@ -15,13 +14,13 @@ import {
 } from '../../src/utils/cli-command-manager.js';
 
 // Mock @xec-sh/core
-jest.mock('@xec-sh/core', () => ({
-  $: jest.fn(),
+vi.mock('@xec-sh/core', () => ({
+  $: vi.fn(),
   unifiedConfig: {},
-  CommandRegistry: jest.fn().mockImplementation(() => ({
-    register: jest.fn(),
-    getAllCommands: jest.fn(() => []),
-    getCommand: jest.fn()
+  CommandRegistry: vi.fn().mockImplementation(() => ({
+    register: vi.fn(),
+    getAllCommands: vi.fn(() => []),
+    getCommand: vi.fn()
   }))
 }));
 
@@ -39,14 +38,14 @@ describe('CliCommandManager', () => {
 
     // Mock global module context
     (globalThis as any).__xecModuleContext = {
-      import: jest.fn().mockImplementation((module: string) => {
+      import: vi.fn().mockImplementation((module: string) => {
         if (module === 'chalk') {
           return Promise.resolve({ default: {} });
         }
         if (module === '@xec-sh/kit') {
           return Promise.resolve({
-            log: { info: jest.fn(), error: jest.fn(), warn: jest.fn(), success: jest.fn() },
-            spinner: jest.fn(() => ({ start: jest.fn(), stop: jest.fn() }))
+            log: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), success: vi.fn() },
+            spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn() }))
           });
         }
         return Promise.reject(new Error(`Module not found: ${module}`));
@@ -341,8 +340,8 @@ describe('CliCommandManager', () => {
         const testProgram = new Command('test');
         
         // Spy on console to check if summary is reported
-        const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+        const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation();
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
 
         process.env['XEC_DEBUG'] = 'true';
         const names = await loadDynamicCommands(testProgram);
@@ -461,7 +460,7 @@ describe('CliCommandManager', () => {
       manager.addCommandDirectory(fixturesDir);
 
       // Suppress expected console errors from test fixtures
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation();
 
       await manager.discoverAndLoad(program);
 

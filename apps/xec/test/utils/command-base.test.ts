@@ -1,5 +1,4 @@
 import { Command } from 'commander';
-import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { BaseCommand, CommandConfig, SubcommandBase } from '../../src/utils/command-base.js';
 

@@ -165,7 +165,7 @@ export class ScriptLoader {
     scriptPath: string,
     options: ExecutionOptions
   ): Promise<ScriptExecutionResult> {
-    const { watch } = await import('chokidar');
+    const { FileWatcher } = await import('@xec-sh/loader');
 
     const runAndLog = async () => {
       try {
@@ -184,13 +184,16 @@ export class ScriptLoader {
     // Run initially
     await runAndLog();
 
-    // Watch for changes
-    const watcher = watch(scriptPath, { ignoreInitial: true });
+    // Watch for changes using @xec-sh/loader's FileWatcher
+    const dir = await import('node:path').then(p => p.dirname(scriptPath));
+    const ext = await import('node:path').then(p => p.extname(scriptPath));
+    const watcher = new FileWatcher(dir, { extensions: [ext || '.ts', '.js'], debounce: 300 });
     watcher.on('change', async () => {
       console.clear();
       log.info(prism.dim('File changed, rerunning...'));
       await runAndLog();
     });
+    watcher.start();
 
     // Keep process alive
     process.stdin.resume();

@@ -9,7 +9,15 @@ import { glob } from 'glob';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
-import { minimatch } from 'minimatch';
+// Simple minimatch replacement — supports * and ** patterns
+function minimatch(filePath: string, pattern: string): boolean {
+  const regex = pattern
+    .replace(/\*\*/g, '{{GLOBSTAR}}')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replace(/\{\{GLOBSTAR\}\}/g, '.*');
+  return new RegExp(`^${regex}$`).test(filePath);
+}
 
 import { tasks } from './task-api.js';
 import { config } from './config-api.js';

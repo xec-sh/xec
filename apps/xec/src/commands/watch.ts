@@ -4,7 +4,7 @@ import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import * as chokidar from 'chokidar';
+import { FileWatcher } from '@xec-sh/loader';
 
 import { validateOptions } from '../utils/validation.js';
 import { getScriptLoader } from '../adapters/loader-adapter.js';
@@ -27,7 +27,8 @@ interface WatchOptions extends ConfigAwareOptions, InteractiveOptions {
 
 interface WatchSession {
   target: ResolvedTarget;
-  watcher?: chokidar.FSWatcher | any;
+  // Can be FileWatcher (local), ProcessPromise (SSH/Docker), or other watcher-like object
+  watcher?: { close?(): void; kill?(signal?: string): void };
   lastRun?: Date;
   debounceTimer?: NodeJS.Timeout;
 }
@@ -267,38 +268,25 @@ export class WatchCommand extends ConfigAwareCommand {
     paths: string[],
     options: WatchOptions
   ): Promise<WatchSession> {
-    // Create watcher options
-    const watcherOptions: Parameters<typeof chokidar.watch>[1] = {
-      persistent: true,
-      ignoreInitial: true,
-      usePolling: options.poll,
-      interval: parseInt(options.interval || '1000', 10),
-    };
+    // Create watcher using @xec-sh/loader's FileWatcher
+    const watcher = new FileWatcher(paths, {
+      debounce: parseInt(options.interval || '200', 10),
+      ignore: options.exclude || [],
+      recursive: true,
+    });
 
-    // Add ignore patterns
-    if (options.exclude && options.exclude.length > 0) {
-      watcherOptions.ignored = options.exclude;
-    }
-
-    // Create watcher
-    const watcher = chokidar.watch(paths, watcherOptions);
-
-    // Set up event handlers
-    const handleChange = (filePath: string) => {
-      if (this.shouldIgnoreFile(filePath, options)) {
+    watcher.on('change', (event) => {
+      if (this.shouldIgnoreFile(event.path, options)) {
         return;
       }
-
-      this.scheduleExecution(target, filePath, options);
-    };
-
-    watcher.on('change', handleChange);
-    watcher.on('add', handleChange);
-    watcher.on('unlink', handleChange);
+      this.scheduleExecution(target, event.path, options);
+    });
 
     watcher.on('error', (error) => {
       this.log(`Watch error: ${error}`, 'error');
     });
+
+    watcher.start();
 
     return {
       target,

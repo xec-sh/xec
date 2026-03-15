@@ -2,7 +2,6 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
-import { it, jest, expect, describe, afterAll, beforeAll, beforeEach } from '@jest/globals';
 import { rmSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
 import {
   SSH_TEST_CONFIGS,
@@ -13,7 +12,7 @@ import {
 import logsCommand from '../../src/commands/logs.js';
 
 // Mock process.exit to prevent test runner from exiting
-const mockExit = jest.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
+const mockExit = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
   throw new Error(`process.exit called with code ${code}`);
 });
 

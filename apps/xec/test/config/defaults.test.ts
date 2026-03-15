@@ -2,7 +2,6 @@
  * Tests for defaults.ts
  */
 
-import { it, expect, describe } from '@jest/globals';
 
 import {
   sortConfigKeys,

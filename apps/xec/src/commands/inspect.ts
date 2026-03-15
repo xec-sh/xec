@@ -2,7 +2,7 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
 import { glob } from 'glob';
-import { table } from 'table';
+// table rendering handled by output-formatter
 import { promisify } from 'util';
 import { $ } from '@xec-sh/core';
 import { fileURLToPath } from 'url';
@@ -906,7 +906,11 @@ class ProjectInspector {
       }
     };
 
-    console.log(table(data, config));
+    // Simple table output
+    const output = data.map((row: string[]) => row.map((cell) =>
+      String(cell ?? '').padEnd(20)
+    ).join(' ')).join('\n');
+    console.log(output);
 
     if (this.options.verbose) {
       console.log(prism.dim(`\nTotal: ${results.length} ${type === 'all' ? 'items' : type}`));

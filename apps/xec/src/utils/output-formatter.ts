@@ -1,6 +1,21 @@
 import jsYaml from 'js-yaml';
-import { table } from 'table';
 import { prism } from '@xec-sh/kit';
+
+// Simple table renderer — replaces external 'table' package
+function renderTable(data: string[][], config?: { columns?: Record<number, { alignment?: string; width?: number }> }): string {
+  if (data.length === 0) return '';
+  const colWidths = data[0]!.map((_, i) => Math.max(...data.map(row => String(row[i] ?? '').length)));
+  return data.map(row =>
+    row.map((cell, i) => {
+      const width = config?.columns?.[i]?.width ?? colWidths[i]!;
+      const str = String(cell ?? '');
+      const align = config?.columns?.[i]?.alignment ?? 'left';
+      if (align === 'right') return str.padStart(width);
+      if (align === 'center') return str.padStart(Math.floor((width + str.length) / 2)).padEnd(width);
+      return str.padEnd(width);
+    }).join('  ')
+  ).join('\n');
+}
 
 export type OutputFormat = 'text' | 'json' | 'yaml' | 'csv';
 
@@ -412,7 +427,7 @@ export class OutputFormatter {
       })),
     };
 
-    console.log(table(tableData, config));
+    console.log(renderTable(tableData, config));
   }
 
   private outputCsv(data: any[]): void {

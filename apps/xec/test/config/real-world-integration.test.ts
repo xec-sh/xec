@@ -7,7 +7,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import {
   TaskManager,
@@ -665,7 +664,7 @@ tasks:
           strict: false  // Don't throw, just warn
         });
 
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
         const loaded = await manager.load();
 

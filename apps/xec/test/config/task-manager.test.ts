@@ -5,7 +5,6 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { TaskManager } from '../../src/config/task-manager.js';
 import { ConfigurationManager } from '../../src/config/configuration-manager.js';
