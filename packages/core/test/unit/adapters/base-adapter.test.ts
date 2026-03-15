@@ -1,4 +1,3 @@
-import { test, jest, expect, describe } from '@jest/globals';
 
 import { Command } from '../../../src/types/command.js';
 import { ExecutionResult } from '../../../src/types/result.js';
@@ -511,7 +510,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
       const controller = new AbortController();
       controller.abort();
 
-      const cleanup = jest.fn();
+      const cleanup = vi.fn();
 
       await expect(adapter.testHandleAbortSignal(controller.signal, cleanup))
         .rejects.toThrow('Operation aborted');
@@ -521,7 +520,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
     test('should handle abort during operation', async () => {
       const adapter = new TestAdapter();
       const controller = new AbortController();
-      const cleanup = jest.fn();
+      const cleanup = vi.fn();
 
       // Start handling
       const promise = adapter.testHandleAbortSignal(controller.signal, cleanup);
@@ -535,7 +534,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
 
     test('should handle undefined signal', async () => {
       const adapter = new TestAdapter();
-      const cleanup = jest.fn();
+      const cleanup = vi.fn();
 
       await expect(adapter.testHandleAbortSignal(undefined, cleanup))
         .resolves.toBeUndefined();
@@ -620,7 +619,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
   describe('StreamHandler creation', () => {
     test('should create stream handler with options', () => {
       const adapter = new TestAdapter();
-      const onData = jest.fn();
+      const onData = vi.fn();
 
       const handler = adapter.testCreateStreamHandler({
         onData,
@@ -674,7 +673,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
 
     test('should emit event when listeners exist', () => {
       const adapter = new TestAdapter();
-      const listener = jest.fn();
+      const listener = vi.fn();
 
       adapter.on('command:start', listener);
 
@@ -702,7 +701,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
 
     test('should create progress reporter when enabled', () => {
       const adapter = new TestAdapter();
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const command: Command = {
         command: 'test',
         progress: {
@@ -738,7 +737,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
 
     test('should timeout when promise takes too long', async () => {
       const adapter = new TestAdapter();
-      const cleanup = jest.fn();
+      const cleanup = vi.fn();
 
       // Create a promise that never resolves
       const promise = new Promise(() => { });

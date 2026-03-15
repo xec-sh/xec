@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { $ } from '../../src/index.js';
 

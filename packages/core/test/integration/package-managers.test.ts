@@ -1,4 +1,3 @@
-import { it, jest, expect } from '@jest/globals';
 import {
   describeSSH,
   getSSHConfig,
@@ -10,7 +9,7 @@ import { $ } from '../../src/index';
 
 // Use custom describe that handles Docker containers automatically
 describeSSH('Package Manager Integration Tests', () => {
-  jest.setTimeout(120000); // 2 minutes for package operations
+  vi.setTimeout(120000); // 2 minutes for package operations
 
   describe('Package Manager Commands', () => {
     testEachPackageManager('should execute package manager info command', async (container) => {

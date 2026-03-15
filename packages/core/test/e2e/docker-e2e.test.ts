@@ -1,7 +1,6 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 // Set up PATH with Docker location before importing $
 if (!process.env['PATH']?.includes('/usr/local/bin')) {

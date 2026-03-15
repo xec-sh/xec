@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { AdapterError } from '../../../src/core/error.js';
 import { SSHAdapter, SSHAdapterConfig } from '../../../src/adapters/ssh/index.js';
@@ -7,7 +6,7 @@ describe('SSH Connection Pool', () => {
   let adapter: SSHAdapter;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   afterEach(async () => {
@@ -180,7 +179,7 @@ describe('SSH Connection Pool', () => {
 
   describe('Pool Cleanup', () => {
     it('should clean up timers on dispose', async () => {
-      const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+      const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
       
       adapter = new SSHAdapter({
         connectionPool: {
@@ -240,8 +239,8 @@ describe('SSH Connection Pool', () => {
     it('should be able to register event listeners', () => {
       adapter = new SSHAdapter();
       
-      const metricsHandler = jest.fn();
-      const cleanupHandler = jest.fn();
+      const metricsHandler = vi.fn();
+      const cleanupHandler = vi.fn();
       
       adapter.on('ssh:pool-metrics', metricsHandler);
       adapter.on('ssh:pool-cleanup', cleanupHandler);
@@ -254,7 +253,7 @@ describe('SSH Connection Pool', () => {
     it('should remove event listeners', () => {
       adapter = new SSHAdapter();
       
-      const handler = jest.fn();
+      const handler = vi.fn();
       adapter.on('ssh:pool-metrics', handler);
       
       expect(adapter.listenerCount('ssh:pool-metrics')).toBe(1);

@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
 import { join, dirname } from 'node:path';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import createServer from './ssh-server.js';
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';

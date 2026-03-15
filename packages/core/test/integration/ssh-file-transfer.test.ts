@@ -2,7 +2,6 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
 import { randomBytes } from 'crypto';
-import { expect, beforeEach } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';

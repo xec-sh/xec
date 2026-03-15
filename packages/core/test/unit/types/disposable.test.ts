@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { isDisposable } from '../../../src/types/disposable.js';
 

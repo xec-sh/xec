@@ -1,4 +1,4 @@
-import { expect } from '@jest/globals';
+import { expect } from 'vitest';
 
 import { Command } from '../../src/types/command.js';
 import { ExecutionResult } from '../../src/core/result.js';

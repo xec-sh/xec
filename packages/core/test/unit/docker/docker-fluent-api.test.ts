@@ -1,4 +1,3 @@
-import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import {
@@ -18,7 +17,7 @@ import {
 
 describe('Docker Fluent API', () => {
   let engine: ExecutionEngine;
-  let mockRun: jest.Mock;
+  let mockRun: vi.Mock;
 
   beforeEach(() => {
     engine = new ExecutionEngine();
@@ -43,7 +42,7 @@ describe('Docker Fluent API', () => {
       buffer: () => Buffer.from('')
     };
 
-    mockRun = jest.fn(() => {
+    mockRun = vi.fn(() => {
       // Return a ProcessPromise-like object
       const promise: any = Promise.resolve(mockResult);
       promise.nothrow = () => promise;
@@ -58,7 +57,7 @@ describe('Docker Fluent API', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('DockerFluentAPI', () => {

@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { TimeoutError } from '../../../src/core/error.js';
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';

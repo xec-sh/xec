@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import {
   MultiProgress,
@@ -11,17 +10,17 @@ const originalStdoutColumns = process.stdout.columns;
 
 describe('Progress Utility Comprehensive Tests', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     // Set a fixed terminal width for consistent tests
     process.stdout.columns = 80;
     
     // Mock stdout write to prevent actual output
-    jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   });
 
   afterEach(() => {
-    jest.useRealTimers();
-    jest.restoreAllMocks();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     process.stdout.columns = originalStdoutColumns;
   });
 
@@ -102,7 +101,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       const progress = createProgressBar({ total: 100 });
       
       progress.update(25);
-      jest.advanceTimersByTime(1000); // 1 second
+      vi.advanceTimersByTime(1000); // 1 second
       progress.update(50);
       
       const lastCall = (process.stdout.write as any).mock.calls.length - 1;
@@ -153,7 +152,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       spinner.start();
       
       // Advance time to trigger first frame
-      jest.advanceTimersByTime(80);
+      vi.advanceTimersByTime(80);
       
       // Initial frame
       expect(process.stdout.write).toHaveBeenCalled();
@@ -161,7 +160,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       expect(firstCall[0]).toContain('Processing');
       
       // Advance time to trigger more animation frames
-      jest.advanceTimersByTime(160);
+      vi.advanceTimersByTime(160);
       
       // Should have written multiple frames
       const callCount = (process.stdout.write as any).mock.calls.length;
@@ -176,7 +175,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       
       // Advance time - should not write more frames
       const callCountAtStop = (process.stdout.write as any).mock.calls.length;
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       const callCountAfterDelay = (process.stdout.write as any).mock.calls.length;
       
       expect(callCountAfterDelay).toBe(callCountAtStop);
@@ -212,7 +211,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       spinner.start();
       spinner.stop();
       spinner.start('Step 2');
-      jest.advanceTimersByTime(100);
+      vi.advanceTimersByTime(100);
       
       const lastCall = (process.stdout.write as any).mock.calls.length - 1;
       const output = (process.stdout.write as any).mock.calls[lastCall][0];
@@ -308,7 +307,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       }, 100);
       
       // Simulate time passing
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       const output = (process.stdout.write as any).mock.calls.map((call: any) => call[0]).join('');
       expect(output).toMatch(/[0-9]+\/[0-9]+ bytes/);
@@ -360,7 +359,7 @@ describe('Progress Utility Comprehensive Tests', () => {
         spinner.start(step);
         
         // Simulate step duration
-        jest.advanceTimersByTime(1000 + Math.random() * 2000);
+        vi.advanceTimersByTime(1000 + Math.random() * 2000);
         
         // 90% success rate
         if (Math.random() > 0.1) {
@@ -421,7 +420,7 @@ describe('Progress Utility Comprehensive Tests', () => {
       spinner1.start();
       spinner2.start();
       
-      jest.advanceTimersByTime(500);
+      vi.advanceTimersByTime(500);
       
       spinner1.succeed('Task 1 complete');
       spinner2.fail('Task 2 failed');

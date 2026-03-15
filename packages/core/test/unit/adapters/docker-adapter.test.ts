@@ -1,7 +1,6 @@
 import { promisify } from 'node:util';
 import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
-import { it, jest, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';
 import { findDockerPath } from '../../../src/adapters/docker/docker-utils.js';
@@ -73,7 +72,7 @@ describe('DockerAdapter Enhanced Tests', () => {
   });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Generate unique container name for this test
     testContainerName = `${TEST_CONTAINER_PREFIX}${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
@@ -87,8 +86,8 @@ describe('DockerAdapter Enhanced Tests', () => {
 
   afterEach(async () => {
     await adapter.dispose();
-    jest.clearAllTimers();
-    jest.useRealTimers();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   afterAll(async () => {
@@ -570,7 +569,7 @@ describe('DockerAdapter Enhanced Tests', () => {
       await ensureTestContainer(testContainerName);
 
       // Mock console.warn
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       // Save original TTY values
       const originalStdinTTY = process.stdin.isTTY;
@@ -940,7 +939,7 @@ describe('DockerAdapter Enhanced Tests', () => {
       dockerError.syscall = 'spawn docker';
       dockerError.path = 'docker';
 
-      (badAdapter as any)['executeDockerCommand'] = jest.fn(() => Promise.reject(dockerError));
+      (badAdapter as any)['executeDockerCommand'] = vi.fn(() => Promise.reject(dockerError));
 
       const available = await badAdapter.isAvailable();
       expect(available).toBe(false);
@@ -1113,7 +1112,7 @@ describe('DockerAdapter Integration-like Tests', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     adapter = new DockerAdapter();
     integrationContainerName = `${TEST_CONTAINER_PREFIX}integration-${Date.now()}`;
   });

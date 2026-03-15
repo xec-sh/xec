@@ -1,4 +1,3 @@
-import { test, expect, describe } from '@jest/globals';
 
 import { $ } from '../../src/index';
 

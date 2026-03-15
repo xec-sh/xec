@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { AdapterError } from '../../../src/core/error.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
@@ -6,16 +5,16 @@ import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password
 
 describe('SSHAdapter - Secure Password Integration', () => {
   let adapter: SSHAdapter;
-  let mockSecureHandler: jest.Mocked<SecurePasswordHandler>;
+  let mockSecureHandler: vi.Mocked<SecurePasswordHandler>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create a mock SecurePasswordHandler
     mockSecureHandler = {
-      createAskPassScript: jest.fn<(password: string) => Promise<string>>().mockResolvedValue('/tmp/askpass-mock.sh'),
-      cleanup: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      createSecureEnv: jest.fn<(path: string, env?: Record<string, string>) => Record<string, string>>().mockReturnValue({
+      createAskPassScript: vi.fn<(password: string) => Promise<string>>().mockResolvedValue('/tmp/askpass-mock.sh'),
+      cleanup: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      createSecureEnv: vi.fn<(path: string, env?: Record<string, string>) => Record<string, string>>().mockReturnValue({
         SUDO_ASKPASS: '/tmp/askpass-mock.sh',
         SUDO_LECTURE: 'no',
         SUDO_ASKPASS_REQUIRE: '1'
@@ -114,7 +113,7 @@ describe('SSHAdapter - Secure Password Integration', () => {
     });
 
     it('should cleanup secure handler on dispose if created internally', async () => {
-      const cleanupSpy = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
+      const cleanupSpy = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
       
       adapter = new SSHAdapter({
         sudo: {
@@ -266,7 +265,7 @@ describe('SSHAdapter - Secure Password Integration', () => {
 
   describe('Method-specific Warnings', () => {
     it('should warn when using echo method', () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       
       // The warning would be shown during execution, not construction
       adapter = new SSHAdapter({

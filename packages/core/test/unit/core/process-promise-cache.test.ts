@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { globalCache } from '../../../src/utils/cache.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
@@ -74,8 +73,8 @@ describe('ProcessPromise Cache', () => {
   
   afterEach(async () => {
     await engine.dispose();
-    jest.clearAllMocks();
-    jest.useRealTimers();
+    vi.clearAllMocks();
+    vi.useRealTimers();
     
     // Restore console.error
     console.error = originalConsoleError;
@@ -104,26 +103,18 @@ describe('ProcessPromise Cache', () => {
     });
     
     it('should respect TTL', async () => {
-      jest.useFakeTimers({ advanceTimers: true });
-      
-      // Create a unique timestamp
-      const timestamp = Date.now();
-      
-      // Cache with 2 second TTL
-      const result1 = await mockEngine.run`echo "${timestamp}"`.cache({ key: 'ttl-test', ttl: 2000 });
-      expect(result1.stdout).toContain(String(timestamp));
-      
-      // Still cached after 1 second
-      jest.advanceTimersByTime(1000);
-      const result2 = await mockEngine.run`echo "should not appear"`.cache({ key: 'ttl-test', ttl: 2000 });
-      expect(result2.stdout).toContain(String(timestamp));
-      
-      // Expired after 3 seconds total
-      jest.advanceTimersByTime(2000);
-      const newTimestamp = Date.now();
-      const result3 = await mockEngine.run`echo "${newTimestamp}"`.cache({ key: 'ttl-test', ttl: 2000 });
-      expect(result3.stdout).toContain(String(newTimestamp));
-      expect(result3.stdout).not.toContain(String(timestamp));
+      // Use real timers but short TTL to avoid fake timer deadlocks
+      const result1 = await mockEngine.run`echo "cached-value"`.cache({ key: 'ttl-test', ttl: 200 });
+      expect(result1.stdout).toContain('cached-value');
+
+      // Still cached immediately
+      const result2 = await mockEngine.run`echo "should not appear"`.cache({ key: 'ttl-test', ttl: 200 });
+      expect(result2.stdout).toContain('cached-value');
+
+      // Wait for TTL to expire
+      await new Promise((done) => setTimeout(done, 300));
+      const result3 = await mockEngine.run`echo "new-value"`.cache({ key: 'ttl-test', ttl: 200 });
+      expect(result3.stdout).toContain('new-value');
     });
   });
   

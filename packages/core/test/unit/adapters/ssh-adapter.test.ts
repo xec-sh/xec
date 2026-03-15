@@ -1,6 +1,5 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { it, jest, expect, afterEach, beforeEach } from '@jest/globals';
 import { rmSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
@@ -14,7 +13,7 @@ describeSSH('SSHAdapter - Real SSH Tests', () => {
   let testDir: string;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Create a unique test directory for each test
     testDir = join(tmpdir(), `ssh-test-${Date.now()}-${Math.random().toString(36).substring(7)}`);
     mkdirSync(testDir, { recursive: true });

@@ -1,6 +1,5 @@
 import { tmpdir } from 'node:os';
 import { access, unlink } from 'node:fs/promises';
-import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password.js';
 
@@ -9,7 +8,7 @@ describe('SecurePasswordHandler', () => {
   const createdFiles: string[] = [];
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     handler = new SecurePasswordHandler();
     createdFiles.length = 0;
   });

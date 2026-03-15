@@ -1,4 +1,3 @@
-import { it, expect, describe, beforeEach, afterEach } from '@jest/globals';
 
 import { $, AdapterError, dispose, configure } from '../../src/index.js';
 import { globalCache } from '../../src/utils/cache.js';

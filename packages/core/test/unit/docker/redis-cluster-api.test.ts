@@ -1,4 +1,3 @@
-import { test, expect, describe } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import { DockerRedisClusterAPI } from '../../../src/adapters/docker/docker-fluent-api.js';

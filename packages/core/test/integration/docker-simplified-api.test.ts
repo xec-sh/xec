@@ -1,4 +1,3 @@
-import { test, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { $ } from '../../src/index.js';
 import { withTempDir } from '../../src/utils/temp.js';

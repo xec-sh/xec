@@ -1,20 +1,19 @@
-import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { ProgressReporter, createProgressReporter } from '../../../src/utils/progress.js';
 
 describe('ProgressReporter', () => {
-  let consoleLogSpy: jest.SpiedFunction<typeof console.log>;
-  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+  let consoleLogSpy: vi.SpiedFunction<typeof console.log>;
+  let consoleErrorSpy: vi.SpiedFunction<typeof console.error>;
 
   beforeEach(() => {
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
-    jest.useFakeTimers();
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
-    jest.useRealTimers();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   describe('Basic functionality', () => {
@@ -24,7 +23,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should create reporter with custom options', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({
         enabled: true,
         onProgress,
@@ -36,7 +35,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should not emit events when disabled', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({
         enabled: false,
         onProgress
@@ -52,7 +51,7 @@ describe('ProgressReporter', () => {
 
   describe('Event emission', () => {
     test('should emit start event', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       reporter.start('Starting task');
@@ -64,7 +63,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should emit progress event with percentage', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       reporter.start();
@@ -82,7 +81,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should emit complete event', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       reporter.start();
@@ -101,7 +100,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should emit error event', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       const error = new Error('Test error');
@@ -118,7 +117,7 @@ describe('ProgressReporter', () => {
 
   describe('Output reporting', () => {
     test('should track line count', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({
         onProgress,
         reportLines: true
@@ -139,7 +138,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should track byte count', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       reporter.start();
@@ -157,7 +156,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should track output data', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({
         onProgress,
         reportLines: true
@@ -180,7 +179,7 @@ describe('ProgressReporter', () => {
 
   describe('Prefix handling', () => {
     test('should add prefix to messages', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({
         onProgress,
         prefix: 'MyTask'
@@ -292,7 +291,7 @@ describe('ProgressReporter', () => {
 
   describe('Edge cases', () => {
     test('should handle zero total in percentage calculation', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       reporter.progress('Processing', 0, 0);
@@ -308,7 +307,7 @@ describe('ProgressReporter', () => {
     });
 
     test('should handle zero duration', () => {
-      const onProgress = jest.fn();
+      const onProgress = vi.fn();
       const reporter = new ProgressReporter({ onProgress });
 
       reporter.start();

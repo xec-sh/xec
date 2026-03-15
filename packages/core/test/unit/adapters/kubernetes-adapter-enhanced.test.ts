@@ -3,7 +3,6 @@ import { tmpdir } from 'os';
 import { Readable } from 'stream';
 import { KindClusterManager, isKindAvailable, isKubectlAvailable, isDockerAvailable } from '@xec-sh/testing';
 import { existsSync, unlinkSync, mkdtempSync, writeFileSync } from 'fs';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { TimeoutError } from '../../../src/core/error.js';
 import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';

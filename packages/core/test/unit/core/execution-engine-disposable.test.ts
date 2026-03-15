@@ -1,4 +1,3 @@
-import { it, jest, expect, describe } from '@jest/globals';
 
 import { $ } from '../../../src/index.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
@@ -12,7 +11,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       
       // Create spies for adapter dispose methods
       const mockAdapter = new MockAdapter();
-      const disposeSpy = jest.spyOn(mockAdapter, 'dispose');
+      const disposeSpy = vi.spyOn(mockAdapter, 'dispose');
       
       // Register the adapter
       engine.registerAdapter('mock', mockAdapter);
@@ -57,7 +56,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       // Get the SSH adapter
       const engineWithAdapters: any = engine;
       const sshAdapter = engineWithAdapters.adapters.get('ssh');
-      const disposeSpy = jest.spyOn(sshAdapter, 'dispose');
+      const disposeSpy = vi.spyOn(sshAdapter, 'dispose');
 
       // Dispose engine
       await engine.dispose();
@@ -76,10 +75,10 @@ describe('ExecutionEngine Disposable functionality', () => {
       }
 
       const failingAdapter = new FailingAdapter();
-      const failSpy = jest.spyOn(failingAdapter, 'dispose');
+      const failSpy = vi.spyOn(failingAdapter, 'dispose');
 
       const successAdapter = new MockAdapter();
-      const successSpy = jest.spyOn(successAdapter, 'dispose');
+      const successSpy = vi.spyOn(successAdapter, 'dispose');
 
       engine.registerAdapter('failing', failingAdapter);
       engine.registerAdapter('success', successAdapter);
@@ -125,7 +124,7 @@ describe('ExecutionEngine Disposable functionality', () => {
     it('should clean up event listeners', async () => {
       const engine = new ExecutionEngine();
       
-      const listener = jest.fn();
+      const listener = vi.fn();
       engine.on('command:start', listener);
       
       // Verify listener is registered
@@ -445,7 +444,7 @@ describe('ExecutionEngine Disposable functionality', () => {
 
       // Mock cleanup to throw error
       Object.defineProperty(tempFile, 'cleanup', {
-        value: jest.fn(() => Promise.reject(new Error('Cleanup failed'))),
+        value: vi.fn(() => Promise.reject(new Error('Cleanup failed'))),
         writable: true,
         configurable: true
       });
