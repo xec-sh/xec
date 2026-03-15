@@ -52,10 +52,7 @@ jobs:
             ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
-        run: |
-          pnpm install --frozen-lockfile
-          cd website
-          pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Build website
         run: |
