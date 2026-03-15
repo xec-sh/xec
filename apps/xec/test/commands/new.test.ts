@@ -1,7 +1,8 @@
 import path from 'path';
 import fs from 'fs-extra';
+import os from 'os';
 import { execSync } from 'child_process';
-import { temporaryDirectory } from 'tempy';
+import { mkdtempSync } from 'fs';
 
 describe('new command', () => {
   let tempDir: string;
@@ -10,7 +11,7 @@ describe('new command', () => {
 
   beforeEach(async () => {
     // Create temporary directory for testing
-    tempDir = temporaryDirectory();
+    tempDir = mkdtempSync(path.join(os.tmpdir(), 'xec-new-test-'));
     await fs.ensureDir(tempDir);
     
     // Save current directory and change to temp
@@ -400,7 +401,7 @@ describe('new command', () => {
         // Clean up for each test
         process.chdir(originalCwd);
         await fs.remove(tempDir);
-        tempDir = temporaryDirectory();
+        tempDir = mkdtempSync(path.join(os.tmpdir(), 'xec-new-test-'));
         await fs.ensureDir(tempDir);
         process.chdir(tempDir);
         
