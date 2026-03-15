@@ -407,13 +407,6 @@ const sidebars: SidebarsConfig = {
         'migration/from-webpack',
       ],
     },
-    {
-      type: 'category',
-      label: 'Changelog',
-      items: [
-        'changelog/index',
-      ],
-    },
   ],
 };
 
