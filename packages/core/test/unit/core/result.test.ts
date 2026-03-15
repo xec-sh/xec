@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { CommandError } from '../../../src/core/error.js';
 import { ExecutionResultImpl } from '../../../src/core/result.js';

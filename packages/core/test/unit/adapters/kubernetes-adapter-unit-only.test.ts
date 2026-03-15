@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
@@ -9,7 +8,7 @@ describe('KubernetesAdapter - Unit Tests (No Cluster)', () => {
   let adapter: KubernetesAdapter;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(async () => {

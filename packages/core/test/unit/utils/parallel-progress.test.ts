@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { ExecutionResultImpl } from '../../../src/core/result.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
@@ -171,7 +170,7 @@ describe('Parallel Execution with Progress', () => {
       const progressUpdates: number[] = [];
 
       // Mock the parallel.settled method
-      const mockSettled = jest.fn<
+      const mockSettled = vi.fn<
         (commands: (string | Command)[], options?: ParallelOptions) => Promise<ParallelResult>
       >().mockImplementation(async (commands: (string | Command)[], options?: ParallelOptions) => {
         // Simulate progress
@@ -246,7 +245,7 @@ describe('Parallel Execution with Progress', () => {
     it('should use default concurrency if not specified', async () => {
       const engine = new ExecutionEngine();
 
-      const mockSettled = jest.fn<
+      const mockSettled = vi.fn<
         (commands: (string | Command)[], options?: ParallelOptions) => Promise<ParallelResult>
       >().mockResolvedValue({
         results: [],

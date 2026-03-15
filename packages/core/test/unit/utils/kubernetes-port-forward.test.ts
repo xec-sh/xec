@@ -1,4 +1,3 @@
-import { it, expect, describe, beforeEach } from '@jest/globals';
 
 // We'll test the KubernetesPortForward class directly
 describe('Kubernetes Port Forward Unit Tests', () => {

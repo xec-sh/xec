@@ -1,6 +1,5 @@
 import { platform } from 'os';
 import { existsSync } from 'fs';
-import { it, expect, describe, afterEach } from '@jest/globals';
 
 // Import the real function directly
 import { createInteractiveSession } from '../../../src/utils/interactive-process.js';

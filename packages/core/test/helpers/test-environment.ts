@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { Readable, Writable, PassThrough } from 'node:stream';
 
@@ -90,7 +90,7 @@ export function createMockProcess(options: MockProcessOptions = {}): MockProcess
 }
 
 export function mockSpawnImplementation(expectedCommands: Map<string, MockProcessOptions>) {
-  return jest.fn((command: string, args?: string[], options?: any) => {
+  return vi.fn((command: string, args?: string[], options?: any) => {
     const fullCommand = args ? `${command} ${args.join(' ')}` : command;
 
     // Find matching command

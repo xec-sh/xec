@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { ExecutionEngine, createCallableEngine } from '../../src/index.js';
 

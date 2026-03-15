@@ -1,4 +1,3 @@
-import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { $, configure } from '../../src/index.js';
 

@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { ExecutionError } from '../../../src/core/error.js';
 import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';

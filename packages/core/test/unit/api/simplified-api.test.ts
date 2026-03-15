@@ -1,4 +1,3 @@
-import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { globalCache } from '../../../src/utils/cache.js';
 import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
@@ -443,7 +442,7 @@ describe('Simplified API', () => {
       await dispose();
       
       // Import fresh $ to test lazy initialization
-      jest.resetModules();
+      vi.resetModules();
       const freshModule = await import('../../../src/index.js');
       const fresh$ = freshModule.$;
       

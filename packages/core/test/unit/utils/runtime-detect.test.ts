@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { RuntimeDetector } from '../../../src/adapters/local/runtime-detect.js';
 
@@ -113,9 +112,9 @@ describe('RuntimeDetector', () => {
     describe('Bun features', () => {
       beforeEach(() => {
         (globalThis as any).Bun = {
-          spawn: jest.fn(),
-          serve: jest.fn(),
-          SQLite: jest.fn(),
+          spawn: vi.fn(),
+          serve: vi.fn(),
+          SQLite: vi.fn(),
           version: '1.0.0'
         };
       });

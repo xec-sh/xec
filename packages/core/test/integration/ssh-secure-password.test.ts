@@ -1,4 +1,3 @@
-import { it, jest, expect } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index.js';
@@ -193,7 +192,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
 
     testEachPackageManager('should work with echo method (not recommended)', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation();
 
       const ssh = new SSHAdapter({
         sudo: {

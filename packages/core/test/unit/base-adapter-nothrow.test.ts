@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { BaseAdapter } from '../../src/adapters/base-adapter.js';
 

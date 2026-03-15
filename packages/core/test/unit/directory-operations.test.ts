@@ -1,6 +1,5 @@
 import * as os from 'os';
 import * as path from 'path';
-import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { $, configure } from '../../src/index.js';
 

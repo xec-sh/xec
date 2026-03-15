@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { promises as fs } from 'node:fs';
-import { test, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { TempDir, TempFile, withTempDir, withTempFile } from '../../../src/utils/temp.js';
 

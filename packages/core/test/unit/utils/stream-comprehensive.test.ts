@@ -1,5 +1,4 @@
 import { Readable, Writable, Transform } from 'stream';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { 
   pipeStreams, 
@@ -13,12 +12,12 @@ describe('Stream Utilities Comprehensive Tests', () => {
   let consoleErrorSpy: any;
 
   beforeEach(() => {
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('createOutputStream', () => {

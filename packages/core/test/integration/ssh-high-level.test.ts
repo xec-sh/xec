@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';

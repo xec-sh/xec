@@ -1,7 +1,6 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { $ } from '../../src/index.js';
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';

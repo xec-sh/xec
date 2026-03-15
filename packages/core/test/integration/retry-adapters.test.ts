@@ -1,4 +1,3 @@
-import { test, expect, describe } from '@jest/globals';
 
 import { $, ExecutionEngine } from '../../src/index';
 import { ExecutionResultImpl } from '../../src/core/result';

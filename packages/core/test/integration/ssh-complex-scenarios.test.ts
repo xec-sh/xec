@@ -1,5 +1,4 @@
 import { promises as fs } from 'fs';
-import { expect, describe } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';

@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ExecutionResultImpl } from '../../../src/core/result.js';
 import { ResultCache, globalCache } from '../../../src/utils/cache.js';
@@ -63,11 +62,11 @@ describe('ResultCache', () => {
 
   describe('TTL (Time To Live)', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should expire entries after TTL', () => {
@@ -81,7 +80,7 @@ describe('ResultCache', () => {
       expect(cache.get(key)).toBe(result);
 
       // Advance time past TTL
-      jest.advanceTimersByTime(6000);
+      vi.advanceTimersByTime(6000);
 
       // Should be expired
       expect(cache.get(key)).toBeNull();
@@ -94,7 +93,7 @@ describe('ResultCache', () => {
       cache.set(key, result, 0);
 
       // Advance time significantly
-      jest.advanceTimersByTime(3600000); // 1 hour
+      vi.advanceTimersByTime(3600000); // 1 hour
 
       // Should still exist
       expect(cache.get(key)).toBe(result);
@@ -109,7 +108,7 @@ describe('ResultCache', () => {
       shortCache.set('key3', createMockResult('result3'), 0);
 
       // Advance time to expire key1
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
 
       // key1 should be cleaned up
       expect(shortCache.get('key1')).toBeNull();

@@ -1,5 +1,4 @@
 import { Readable } from 'node:stream';
-import { it, jest, expect, describe } from '@jest/globals';
 
 import { 
   StreamHandler, 
@@ -18,8 +17,8 @@ describe('StreamHandler', () => {
     });
     
     it('should create with custom options', () => {
-      const onData = jest.fn();
-      const onError = jest.fn();
+      const onData = vi.fn();
+      const onError = vi.fn();
       
       const handler = new StreamHandler({
         encoding: 'latin1',
@@ -75,7 +74,7 @@ describe('StreamHandler', () => {
     });
     
     it('should call onData callback', async () => {
-      const onData = jest.fn();
+      const onData = vi.fn();
       const handler = new StreamHandler({ onData });
       const transform = handler.createTransform();
       

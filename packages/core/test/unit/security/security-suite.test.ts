@@ -1,5 +1,4 @@
 import { rmSync, mkdirSync, existsSync } from 'node:fs';
-import { test, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { $ } from '../../../src/index.js';
 import * as shellEscape from '../../../src/utils/shell-escape.js';
@@ -8,16 +7,16 @@ import { withTempDir, withTempFile } from '../../../src/utils/temp.js';
 describe('Security Test Suite', () => {
   beforeEach(() => {
     // Reset configuration to defaults before each test
-    jest.clearAllMocks();
-    jest.resetModules();
+    vi.clearAllMocks();
+    vi.resetModules();
     // Clear any unhandled promise rejections
     process.removeAllListeners('unhandledRejection');
   });
 
   afterEach(async () => {
     // Clean up any open handles or resources
-    jest.clearAllMocks();
-    jest.resetModules();
+    vi.clearAllMocks();
+    vi.resetModules();
     // Give time for any pending operations to complete
     await new Promise(resolve => setImmediate(resolve));
   });
@@ -167,19 +166,19 @@ describe('Security Test Suite', () => {
   describe('SSH Security', () => {
     test('should validate SSH connection options', async () => {
       const mockClient = {
-        connect: jest.fn(),
-        on: jest.fn(),
-        end: jest.fn(),
-        exec: jest.fn()
+        connect: vi.fn(),
+        on: vi.fn(),
+        end: vi.fn(),
+        exec: vi.fn()
       };
 
       // Mock SSH2 Client
-      jest.mock('ssh2', () => ({
-        Client: jest.fn(() => mockClient)
+      vi.mock('ssh2', () => ({
+        Client: vi.fn(() => mockClient)
       }));
 
       // Test that sensitive options are not logged
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const sshEngine = $.ssh({
         host: 'example.com',
         username: 'user',

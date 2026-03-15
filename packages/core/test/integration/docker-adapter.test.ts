@@ -1,4 +1,3 @@
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import { $ } from '../../src/index.js';
 import { DockerAdapter } from '../../../src/adapters/docker/index.js';

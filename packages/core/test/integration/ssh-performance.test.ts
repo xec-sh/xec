@@ -1,5 +1,4 @@
 import { performance } from 'perf_hooks';
-import { it, expect, describe } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';

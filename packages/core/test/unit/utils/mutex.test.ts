@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { Mutex, KeyedMutex } from '../../../src/utils/mutex.js';
 

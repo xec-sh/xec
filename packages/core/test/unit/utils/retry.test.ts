@@ -1,4 +1,3 @@
-import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { ExecutionEngine } from '../../../src/index';
 import { ExecutionResultImpl } from '../../../src/core/result';
@@ -38,7 +37,7 @@ describe('Retry Mechanism', () => {
   describe('withExecutionRetry function', () => {
     test('should retry on failure with default options', async () => {
       let attempts = 0;
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         if (attempts < 3) {
           return createResult({
@@ -66,7 +65,7 @@ describe('Retry Mechanism', () => {
 
     test('should respect maxRetries', async () => {
       let attempts = 0;
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         return createResult({
           command: 'test',
@@ -91,13 +90,13 @@ describe('Retry Mechanism', () => {
       const originalSetTimeout = global.setTimeout;
       
       // Mock setTimeout to capture delays
-      global.setTimeout = jest.fn((fn: any, delay?: number) => {
+      global.setTimeout = vi.fn((fn: any, delay?: number) => {
         delays.push(delay || 0);
         return originalSetTimeout(fn, 0); // Execute immediately in tests
       }) as any;
 
       let attempts = 0;
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         if (attempts < 4) {
           return createResult({
@@ -135,7 +134,7 @@ describe('Retry Mechanism', () => {
 
     test('should check isRetryable function', async () => {
       let attempts = 0;
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         if (attempts === 1) {
           return createResult({
@@ -166,10 +165,10 @@ describe('Retry Mechanism', () => {
     });
 
     test('should call onRetry callback', async () => {
-      const onRetry = jest.fn();
+      const onRetry = vi.fn();
       let attempts = 0;
       
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         if (attempts < 3) {
           return createResult({
@@ -287,7 +286,7 @@ describe('Retry Mechanism', () => {
       const mockAdapter = new LocalAdapter();
       
       // Mock execute to fail first time
-      mockAdapter.execute = jest.fn(async (cmd: any) => {
+      mockAdapter.execute = vi.fn(async (cmd: any) => {
         attempts++;
         if (attempts === 1) {
           return createResult({
@@ -324,7 +323,7 @@ describe('Retry Mechanism', () => {
       let attempts = 0;
       const mockAdapter = new LocalAdapter();
       
-      mockAdapter.execute = jest.fn(async (cmd: any) => {
+      mockAdapter.execute = vi.fn(async (cmd: any) => {
         attempts++;
         if (attempts < 3) {
           return createResult({
@@ -366,7 +365,7 @@ describe('Retry Mechanism', () => {
     test('should contain all error information', async () => {
       let attempts = 0;
       
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         return createResult({
           command: `test-attempt-${attempts}`,
@@ -398,7 +397,7 @@ describe('Retry Mechanism', () => {
   describe('Default retry behavior', () => {
     test('should retry on non-zero exit codes by default', async () => {
       let attempts = 0;
-      const fn = jest.fn(async () => {
+      const fn = vi.fn(async () => {
         attempts++;
         if (attempts === 1) {
           return createResult({
@@ -425,7 +424,7 @@ describe('Retry Mechanism', () => {
     });
 
     test('should not retry on success (exit code 0)', async () => {
-      const fn = jest.fn(async () => createResult({
+      const fn = vi.fn(async () => createResult({
           command: 'test',
           exitCode: 0,
           stdout: 'success immediately',

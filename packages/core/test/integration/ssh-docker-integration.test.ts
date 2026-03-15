@@ -1,12 +1,11 @@
 import { readFileSync } from 'fs';
-import { it, jest, expect } from '@jest/globals';
 import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
 import { TimeoutError } from '../../src/core/error.js';
 
 describeSSH('SSH Docker Integration Tests', () => {
-  jest.setTimeout(60000); // 60 seconds timeout for SSH operations
+  vi.setTimeout(60000); // 60 seconds timeout for SSH operations
 
   describe('Basic Connectivity Tests', () => {
     testEachPackageManager('should connect to container', async (container) => {

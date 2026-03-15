@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 
 import { createK8sExecutionContext } from '../../../src/adapters/kubernetes/kubernetes-api.js';
 
@@ -6,34 +6,34 @@ import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import type { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 describe('Kubernetes API', () => {
-  let mockEngine: jest.Mocked<ExecutionEngine>;
-  let mockAdapter: jest.Mocked<KubernetesAdapter>;
+  let mockEngine: vi.Mocked<ExecutionEngine>;
+  let mockAdapter: vi.Mocked<KubernetesAdapter>;
   let mockK8sEngine: any;
 
   beforeEach(() => {
     // Mock Kubernetes adapter
     mockAdapter = {
-      execute: jest.fn(),
-      executeKubectl: jest.fn(),
-      portForward: jest.fn(),
-      streamLogs: jest.fn(),
-      copyFiles: jest.fn(),
-      dispose: jest.fn()
+      execute: vi.fn(),
+      executeKubectl: vi.fn(),
+      portForward: vi.fn(),
+      streamLogs: vi.fn(),
+      copyFiles: vi.fn(),
+      dispose: vi.fn()
     } as any;
 
     // Mock k8s engine returned by with()
     mockK8sEngine = {
-      run: jest.fn().mockReturnValue({ stdout: 'test output', exitCode: 0 }),
-      raw: jest.fn().mockReturnValue({ stdout: 'raw output', exitCode: 0 })
+      run: vi.fn().mockReturnValue({ stdout: 'test output', exitCode: 0 }),
+      raw: vi.fn().mockReturnValue({ stdout: 'raw output', exitCode: 0 })
     };
 
     // Mock execution engine
     mockEngine = {
-      getAdapter: jest.fn().mockReturnValue(mockAdapter),
-      k8s: jest.fn().mockReturnThis(),
-      with: jest.fn().mockReturnValue(mockK8sEngine),
-      run: jest.fn(),
-      raw: jest.fn()
+      getAdapter: vi.fn().mockReturnValue(mockAdapter),
+      k8s: vi.fn().mockReturnThis(),
+      with: vi.fn().mockReturnValue(mockK8sEngine),
+      run: vi.fn(),
+      raw: vi.fn()
     } as any;
   });
 
@@ -98,7 +98,7 @@ describe('Kubernetes API', () => {
 
     it('should throw error when kubernetes adapter is not available', () => {
       const mockEngineNoAdapter = {
-        getAdapter: jest.fn().mockReturnValue(null)
+        getAdapter: vi.fn().mockReturnValue(null)
       } as any;
 
       expect(() => createK8sExecutionContext(mockEngineNoAdapter, {})).toThrow('Kubernetes adapter not available');
@@ -203,8 +203,8 @@ describe('Kubernetes API', () => {
         localPort: 8080,
         remotePort: 80,
         isOpen: false,
-        open: jest.fn().mockImplementation(() => Promise.resolve()),
-        close: jest.fn().mockImplementation(() => Promise.resolve())
+        open: vi.fn().mockImplementation(() => Promise.resolve()),
+        close: vi.fn().mockImplementation(() => Promise.resolve())
       };
 
       beforeEach(() => {
@@ -274,7 +274,7 @@ describe('Kubernetes API', () => {
 
     describe('streaming logs', () => {
       const mockLogStream = {
-        stop: jest.fn()
+        stop: vi.fn()
       };
 
       beforeEach(() => {
@@ -282,7 +282,7 @@ describe('Kubernetes API', () => {
       });
 
       it('should stream logs', async () => {
-        const onData = jest.fn();
+        const onData = vi.fn();
         const stream = await pod.streamLogs(onData, {
           follow: true,
           tail: 20
@@ -301,7 +301,7 @@ describe('Kubernetes API', () => {
       });
 
       it('should follow logs (alias)', async () => {
-        const onData = jest.fn();
+        const onData = vi.fn();
         const stream = await pod.follow(onData, {
           container: 'app',
           tail: 50
@@ -333,7 +333,7 @@ describe('Kubernetes API', () => {
       it('should handle streamLogs rejection', async () => {
         mockAdapter.streamLogs.mockRejectedValue(new Error('stream failed'));
 
-        await expect(pod.streamLogs(jest.fn())).rejects.toThrow('stream failed');
+        await expect(pod.streamLogs(vi.fn())).rejects.toThrow('stream failed');
       });
     });
 
@@ -349,8 +349,8 @@ describe('Kubernetes API', () => {
           localPort: 8080,
           remotePort: 80,
           isOpen: false,
-          open: jest.fn().mockImplementation(() => Promise.reject(new Error('open failed'))),
-          close: jest.fn()
+          open: vi.fn().mockImplementation(() => Promise.reject(new Error('open failed'))),
+          close: vi.fn()
         };
         mockAdapter.portForward.mockReturnValue(mockPortForward as any);
 
@@ -520,7 +520,7 @@ describe('Kubernetes API', () => {
     });
 
     it('should handle streaming logs options correctly', async () => {
-      const onData = jest.fn();
+      const onData = vi.fn();
       const context = createK8sExecutionContext(mockEngine, {});
       const pod = context.pod('test-pod');
 

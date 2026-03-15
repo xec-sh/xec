@@ -1,4 +1,3 @@
-import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { $, ExecutionEngine } from '../../src/index';
 import { RetryError } from '../../src/utils/retry-adapter';
@@ -485,7 +484,7 @@ describe('Comprehensive Retry Functionality Tests', () => {
 
     test('should handle immediate success', async () => {
       let attempts = 0;
-      const onRetry = jest.fn();
+      const onRetry = vi.fn();
 
       const mockAdapter = {
         async execute(cmd: any) {

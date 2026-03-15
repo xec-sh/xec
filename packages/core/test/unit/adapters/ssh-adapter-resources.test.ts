@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 // Create a mock adapter that simulates SSH behavior without real connections
 class MockSSHAdapter {
@@ -30,10 +29,10 @@ class MockSSHAdapter {
 
   private createMockConnection() {
     const connection = {
-      connect: jest.fn(() => Promise.resolve()),
-      dispose: jest.fn(() => Promise.resolve()),
-      isConnected: jest.fn(() => true),
-      execCommand: jest.fn(() => Promise.resolve({
+      connect: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(() => Promise.resolve()),
+      isConnected: vi.fn(() => true),
+      execCommand: vi.fn(() => Promise.resolve({
         stdout: 'test',
         stderr: '',
         code: 0,
@@ -159,7 +158,7 @@ describe('SSH Adapter Resource Management', () => {
 
   beforeEach(() => {
     // Clear previous mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     sshModule.__clearMockInstances();
 
     // Create mock adapter
@@ -184,8 +183,8 @@ describe('SSH Adapter Resource Management', () => {
     if (adapter) {
       await adapter.dispose();
     }
-    jest.clearAllMocks();
-    jest.clearAllTimers();
+    vi.clearAllMocks();
+    vi.clearAllTimers();
   });
 
   describe('Connection Pool Cleanup', () => {
@@ -225,7 +224,7 @@ describe('SSH Adapter Resource Management', () => {
     });
 
     it('should clear keep-alive timers on connection removal', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       // Create a connection
       await adapter.execute({
@@ -237,7 +236,7 @@ describe('SSH Adapter Resource Management', () => {
       const instance = mockInstances[0];
 
       // Advance time to trigger keep-alive
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
 
       // Verify keep-alive was called
       expect(instance.execCommand).toHaveBeenCalledWith('echo "keep-alive"', expect.any(Object));
@@ -246,8 +245,8 @@ describe('SSH Adapter Resource Management', () => {
       await adapter.dispose();
 
       // Clear all timers and advance time
-      jest.clearAllTimers();
-      jest.advanceTimersByTime(5000);
+      vi.clearAllTimers();
+      vi.advanceTimersByTime(5000);
 
       // Verify no more keep-alive calls after disposal
       const keepAliveCallCount = instance.execCommand.mock.calls.filter(
@@ -256,11 +255,11 @@ describe('SSH Adapter Resource Management', () => {
 
       expect(keepAliveCallCount).toBe(1); // Only the initial keep-alive
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should enforce maximum connection lifetime', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       // Create a connection
       await adapter.execute({
@@ -272,7 +271,7 @@ describe('SSH Adapter Resource Management', () => {
       const firstInstance = mockInstances[0];
 
       // Advance time past max lifetime
-      jest.advanceTimersByTime(11000); // maxLifetime is 10000ms
+      vi.advanceTimersByTime(11000); // maxLifetime is 10000ms
 
       // Execute another command - should create new connection
       await adapter.execute({
@@ -286,11 +285,11 @@ describe('SSH Adapter Resource Management', () => {
       expect(firstInstance.dispose).toHaveBeenCalledTimes(1);
       expect(updatedInstances[1].connect).toHaveBeenCalledTimes(1);
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should handle connection cleanup errors gracefully', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
       // Create a connection that will fail to dispose
       await adapter.execute({
@@ -315,7 +314,7 @@ describe('SSH Adapter Resource Management', () => {
     });
 
     it('should remove connections that exceed error threshold', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
 
       // Create a connection
       await adapter.execute({
@@ -331,14 +330,14 @@ describe('SSH Adapter Resource Management', () => {
 
       // Trigger keep-alive failures
       for (let i = 0; i < 4; i++) {
-        jest.advanceTimersByTime(1000);
-        await jest.runAllTimersAsync();
+        vi.advanceTimersByTime(1000);
+        await vi.runAllTimersAsync();
       }
 
       // Connection should be removed after 3 failures
       expect(instance.dispose).toHaveBeenCalledTimes(1);
 
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should handle concurrent connection closes properly', async () => {

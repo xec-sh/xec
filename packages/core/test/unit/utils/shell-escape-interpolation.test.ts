@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 
 import { interpolate } from '../../../src/utils/shell-escape.js';
 

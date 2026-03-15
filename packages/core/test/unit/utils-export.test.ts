@@ -1,4 +1,3 @@
-import { it, jest, expect, describe } from '@jest/globals';
 
 import { 
   retry, 
@@ -13,7 +12,7 @@ import {
 
 describe('Utility Exports', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   it('should export pipeUtils object with utility functions', () => {
     expect(pipeUtils).toBeDefined();
@@ -118,8 +117,8 @@ describe('Utility Exports', () => {
     it('should be able to create a ParallelEngine instance', () => {
       // ParallelEngine requires an engine parameter
       const mockEngine = { 
-        run: jest.fn(),
-        with: jest.fn()
+        run: vi.fn(),
+        with: vi.fn()
       } as any;
       
       const parallelEngine = new ParallelEngine(mockEngine);
@@ -146,7 +145,7 @@ describe('Utility Exports', () => {
       expect(replaceTransform.readable).toBe(true);
       
       // Test tee transform
-      const mockWritable = { write: jest.fn() } as any;
+      const mockWritable = { write: vi.fn() } as any;
       const teeTransform = pipeUtils.tee(mockWritable);
       expect(teeTransform).toBeDefined();
       expect(teeTransform.writable).toBe(true);
@@ -167,7 +166,7 @@ describe('Utility Exports', () => {
     
     it('should handle retry function', async () => {
       let attempts = 0;
-      const testFunction = jest.fn(async () => {
+      const testFunction = vi.fn(async () => {
         attempts++;
         if (attempts < 2) {
           return { exitCode: 1, stdout: '', stderr: 'Test error', command: 'test' } as any;
@@ -185,7 +184,7 @@ describe('Utility Exports', () => {
     });
     
     it('should handle retry exhaustion', async () => {
-      const testFunction = jest.fn(async () => ({ exitCode: 1, stdout: '', stderr: 'Always fails', command: 'test' } as any));
+      const testFunction = vi.fn(async () => ({ exitCode: 1, stdout: '', stderr: 'Always fails', command: 'test' } as any));
       
       await expect(retry(testFunction, {
         maxRetries: 2,
@@ -197,8 +196,8 @@ describe('Utility Exports', () => {
     
     it('should create parallel engine with proper interface', () => {
       const mockEngine = {
-        execute: jest.fn(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' })),
-        with: jest.fn()
+        execute: vi.fn(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' })),
+        with: vi.fn()
       } as any;
       
       const parallelEngine = new ParallelEngine(mockEngine);
@@ -232,7 +231,7 @@ describe('Utility Exports', () => {
     
     it('should test retry with custom isRetryable function', async () => {
       let attempts = 0;
-      const testFunction = jest.fn(async () => {
+      const testFunction = vi.fn(async () => {
         attempts++;
         if (attempts === 1) {
           return { exitCode: 2, stdout: '', stderr: 'Retryable error', command: 'test' } as any;
@@ -252,7 +251,7 @@ describe('Utility Exports', () => {
     
     it('should test parallel execution with various options', async () => {
       const mockEngine = {
-        execute: jest.fn((cmd: any) => 
+        execute: vi.fn((cmd: any) => 
           // Add a small delay to ensure duration > 0
           new Promise(resolve => setTimeout(() => resolve({ 
             exitCode: 0, 
@@ -260,7 +259,7 @@ describe('Utility Exports', () => {
             stderr: '' 
           }), 1))
         ),
-        with: jest.fn()
+        with: vi.fn()
       } as any;
       
       const commands = ['echo 1', 'echo 2', 'echo 3'];
@@ -293,7 +292,7 @@ describe('Utility Exports', () => {
     it('should test parallel execution with error handling', async () => {
       let callCount = 0;
       const mockEngine = {
-        execute: jest.fn((cmd: any) => {
+        execute: vi.fn((cmd: any) => {
           callCount++;
           if (cmd.command === 'echo 2') {
             return Promise.reject(new Error('Command failed'));
@@ -304,7 +303,7 @@ describe('Utility Exports', () => {
             stderr: '' 
           });
         }),
-        with: jest.fn()
+        with: vi.fn()
       } as any;
       
       const commands = ['echo 1', 'echo 2', 'echo 3'];
@@ -321,7 +320,7 @@ describe('Utility Exports', () => {
     it('should test parallel execution with stopOnError', async () => {
       let callCount = 0;
       const mockEngine = {
-        execute: jest.fn((cmd: any) => {
+        execute: vi.fn((cmd: any) => {
           callCount++;
           if (callCount === 2) {
             return Promise.reject(new Error('Command failed'));
@@ -332,7 +331,7 @@ describe('Utility Exports', () => {
             stderr: '' 
           }), 10));
         }),
-        with: jest.fn()
+        with: vi.fn()
       } as any;
       
       const commands = ['echo 1', 'echo 2', 'echo 3', 'echo 4'];
@@ -349,7 +348,7 @@ describe('Utility Exports', () => {
     
     it('should test retry with non-retryable errors', async () => {
       let attempts = 0;
-      const testFunction = jest.fn(async () => {
+      const testFunction = vi.fn(async () => {
         attempts++;
         return { exitCode: 255, stdout: '', stderr: 'Fatal error', command: 'test' } as any;
       });
@@ -366,7 +365,7 @@ describe('Utility Exports', () => {
     
     it('should test ParallelEngine methods', async () => {
       const mockEngine = {
-        execute: jest.fn((cmd: any) => {
+        execute: vi.fn((cmd: any) => {
           // Make 'sleep' commands slower than others
           const delay = cmd.command.includes('sleep') ? 50 : 1;
           return new Promise(resolve => setTimeout(() => resolve({ 
@@ -375,7 +374,7 @@ describe('Utility Exports', () => {
             stderr: cmd.command.includes('fail') ? 'error' : '' 
           }), delay));
         }),
-        with: jest.fn()
+        with: vi.fn()
       } as any;
       
       const parallelEngine = new ParallelEngine(mockEngine);

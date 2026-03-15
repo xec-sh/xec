@@ -1,5 +1,4 @@
 import { Writable } from 'node:stream';
-import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { CommandError, TimeoutError } from '../../../src/core/error.js';
@@ -11,7 +10,7 @@ describe('ExecutionEngine', () => {
 
   beforeEach(() => {
     // Clear all mocks before each test
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create new engine instance with default config
     engine = new ExecutionEngine({

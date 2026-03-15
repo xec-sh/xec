@@ -1,4 +1,3 @@
-import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { $ } from '../../src/index';
 import { ExecutionEngine } from '../../src/core/execution-engine';
@@ -241,7 +240,7 @@ describe('Retry Mechanism with Exit Codes', () => {
 
   describe('Retry options inheritance', () => {
     test('should use command-level retry options', async () => {
-      const onRetryCallback = jest.fn();
+      const onRetryCallback = vi.fn();
 
       let attempts = 0;
       const mockAdapter = {

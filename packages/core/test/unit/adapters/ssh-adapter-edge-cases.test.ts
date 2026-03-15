@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { AdapterError, TimeoutError, ConnectionError } from '../../../src/core/error.js';
@@ -7,7 +6,7 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
   let adapter: SSHAdapter;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(async () => {
@@ -25,7 +24,7 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
     });
 
     it('should handle connection pool cleanup interval', async () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       
       adapter = new SSHAdapter({
         connectionPool: { 
@@ -40,12 +39,12 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
       expect(adapter).toBeInstanceOf(SSHAdapter);
       
       // Fast forward time to trigger cleanup (if implemented)
-      jest.advanceTimersByTime(120000); // 2 minutes
+      vi.advanceTimersByTime(120000); // 2 minutes
       
       // Adapter should still be valid
       expect(adapter).toBeInstanceOf(SSHAdapter);
       
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should handle connection pool with minimal configuration', () => {

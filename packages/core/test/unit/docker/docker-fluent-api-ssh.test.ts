@@ -1,4 +1,3 @@
-import { test, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { SSHFluentAPI, DockerFluentAPI } from '../../../src/adapters/docker/docker-fluent-api/index.js';
 
@@ -8,28 +7,28 @@ import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
 const createMockProcessPromise = (result = { stdout: '', stderr: '', exitCode: 0, ok: true }): any => {
   const basePromise = Promise.resolve(result);
   const mockPromise: any = Object.assign(basePromise, {
-    nothrow: jest.fn(() => createMockProcessPromise(result)),
-    timeout: jest.fn(() => createMockProcessPromise(result)),
-    quiet: jest.fn(() => createMockProcessPromise(result)),
-    signal: jest.fn(() => createMockProcessPromise(result)),
-    pipe: jest.fn(() => createMockProcessPromise(result)),
-    kill: jest.fn(),
-    cwd: jest.fn(() => createMockProcessPromise(result)),
-    env: jest.fn(() => createMockProcessPromise(result)),
-    shell: jest.fn(() => createMockProcessPromise(result)),
-    interactive: jest.fn(() => createMockProcessPromise(result)),
-    stdout: jest.fn(() => createMockProcessPromise(result)),
-    stderr: jest.fn(() => createMockProcessPromise(result)),
-    text: jest.fn(() => Promise.resolve('')),
-    lines: jest.fn(() => Promise.resolve([])),
-    json: jest.fn(() => Promise.resolve({})),
+    nothrow: vi.fn(() => createMockProcessPromise(result)),
+    timeout: vi.fn(() => createMockProcessPromise(result)),
+    quiet: vi.fn(() => createMockProcessPromise(result)),
+    signal: vi.fn(() => createMockProcessPromise(result)),
+    pipe: vi.fn(() => createMockProcessPromise(result)),
+    kill: vi.fn(),
+    cwd: vi.fn(() => createMockProcessPromise(result)),
+    env: vi.fn(() => createMockProcessPromise(result)),
+    shell: vi.fn(() => createMockProcessPromise(result)),
+    interactive: vi.fn(() => createMockProcessPromise(result)),
+    stdout: vi.fn(() => createMockProcessPromise(result)),
+    stderr: vi.fn(() => createMockProcessPromise(result)),
+    text: vi.fn(() => Promise.resolve('')),
+    lines: vi.fn(() => Promise.resolve([])),
+    json: vi.fn(() => Promise.resolve({})),
     stdin: {} as any
   });
   return mockPromise;
 };
 
 const mockEngine = {
-  run: jest.fn((strings: any, ...values: any[]) => {
+  run: vi.fn((strings: any, ...values: any[]) => {
     // Reconstruct command from template literal parts
     const cmd = Array.isArray(strings)
       ? strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
@@ -41,7 +40,7 @@ const mockEngine = {
     }
     return createMockProcessPromise();
   }),
-  raw: jest.fn((strings: any, ...values: any[]) => {
+  raw: vi.fn((strings: any, ...values: any[]) => {
     // Reconstruct command from template literal parts
     const cmd = Array.isArray(strings)
       ? strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
@@ -61,7 +60,7 @@ describe('Docker Fluent API - SSH Service', () => {
   let docker: DockerFluentAPI;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     docker = new DockerFluentAPI(mockEngine);
   });
 
@@ -167,8 +166,8 @@ describe('Docker Fluent API - SSH Service', () => {
       ssh.ssh('ls -la');
 
       // Check that run was called with template literal parts
-      const lastCall = (mockEngine.run as jest.Mock).mock.calls[
-        (mockEngine.run as jest.Mock).mock.calls.length - 1
+      const lastCall = (mockEngine.run as vi.Mock).mock.calls[
+        (mockEngine.run as vi.Mock).mock.calls.length - 1
       ] as any[];
       expect(lastCall).toBeDefined();
       expect(lastCall[0]).toEqual(expect.arrayContaining([expect.stringContaining('sshpass')]));
@@ -184,8 +183,8 @@ describe('Docker Fluent API - SSH Service', () => {
       ssh.scpTo('/local/file.txt', '/remote/file.txt');
 
       // Check that run was called
-      const lastCall = (mockEngine.run as jest.Mock).mock.calls[
-        (mockEngine.run as jest.Mock).mock.calls.length - 1
+      const lastCall = (mockEngine.run as vi.Mock).mock.calls[
+        (mockEngine.run as vi.Mock).mock.calls.length - 1
       ] as any[];
       expect(lastCall).toBeDefined();
       expect(lastCall[0]).toEqual(expect.arrayContaining([expect.stringContaining('scp')]));
@@ -201,8 +200,8 @@ describe('Docker Fluent API - SSH Service', () => {
       ssh.scpFrom('/remote/file.txt', '/local/file.txt');
 
       // Check that run was called
-      const lastCall = (mockEngine.run as jest.Mock).mock.calls[
-        (mockEngine.run as jest.Mock).mock.calls.length - 1
+      const lastCall = (mockEngine.run as vi.Mock).mock.calls[
+        (mockEngine.run as vi.Mock).mock.calls.length - 1
       ] as any[];
       expect(lastCall).toBeDefined();
       expect(lastCall[0]).toEqual(expect.arrayContaining([expect.stringContaining('scp')]));
@@ -242,7 +241,7 @@ describe('Docker Fluent API - SSH Service', () => {
       await ssh.start();
 
       // Alpine uses apk - check raw calls for the docker run command
-      const rawCalls = (mockEngine.raw as jest.Mock).mock.calls;
+      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
       const commands = rawCalls.map(call => {
         if (!Array.isArray(call[0])) return String(call[0]);
         const strings = call[0];
@@ -268,7 +267,7 @@ describe('Docker Fluent API - SSH Service', () => {
       await ssh.start();
 
       // Ubuntu uses apt-get - check raw calls for the docker run command
-      const rawCalls = (mockEngine.raw as jest.Mock).mock.calls;
+      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
       const hasAptCommand = rawCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
@@ -286,7 +285,7 @@ describe('Docker Fluent API - SSH Service', () => {
       await ssh.start();
 
       // Fedora uses dnf - check raw calls for the docker run command
-      const rawCalls = (mockEngine.raw as jest.Mock).mock.calls;
+      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
       const hasDnfCommand = rawCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
@@ -305,7 +304,7 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh();
       await ssh.start();
 
-      const rawCalls = (mockEngine.raw as jest.Mock).mock.calls;
+      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
       const hasAutoRemove = rawCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
@@ -322,7 +321,7 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh().persistent(true);
       await ssh.start();
 
-      const rawCalls = (mockEngine.raw as jest.Mock).mock.calls;
+      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
       const hasAutoRemove = rawCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
@@ -381,7 +380,7 @@ describe('Docker Fluent API - SSH Service', () => {
       await ssh.start();
 
       // Should attempt to copy public key
-      const runCalls = (mockEngine.run as jest.Mock).mock.calls;
+      const runCalls = (mockEngine.run as vi.Mock).mock.calls;
       const hasCopyCommand = runCalls.some(call =>
         (call[0] as any)?.[0]?.includes?.('docker cp')
       );
@@ -391,7 +390,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Error Handling', () => {
     test('should throw error if SSH service does not start', async () => {
-      (mockEngine.run as jest.Mock).mockImplementation((strings: any, ...values: any[]) => {
+      (mockEngine.run as vi.Mock).mockImplementation((strings: any, ...values: any[]) => {
         // Reconstruct command from template literal parts
         const cmd = Array.isArray(strings)
           ? strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
@@ -434,7 +433,7 @@ describe('Docker Fluent API - SSH Service', () => {
         ]
       }]);
 
-      (mockEngine.run as jest.Mock).mockImplementation((strings: any, ...values: any[]) => {
+      (mockEngine.run as vi.Mock).mockImplementation((strings: any, ...values: any[]) => {
         const cmd = Array.isArray(strings)
           ? strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
           : String(strings);
@@ -458,7 +457,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should return null when container info fails', async () => {
-      (mockEngine.run as jest.Mock).mockImplementation(() => {
+      (mockEngine.run as vi.Mock).mockImplementation(() => {
         throw new Error('Container not found');
       });
 

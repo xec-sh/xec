@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { CommandError } from '../../../src/core/error.js';
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
@@ -21,7 +20,7 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {

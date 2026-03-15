@@ -1,4 +1,3 @@
-import { it, expect, describe, afterEach } from '@jest/globals';
 
 import { AdapterError } from '../../../src/core/error.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';

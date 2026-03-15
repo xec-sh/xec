@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { CommandError } from '../../src/core/error.js';
 import { MockAdapter } from '../../src/adapters/mock/index.js';
@@ -8,7 +7,7 @@ describe('nothrow() and throwOnNonZeroExit logic', () => {
   let mockAdapter: MockAdapter;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockAdapter = new MockAdapter();
     mockAdapter.clearMocks();
   });

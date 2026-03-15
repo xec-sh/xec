@@ -1,4 +1,3 @@
-import { it, expect, describe, beforeEach } from '@jest/globals';
 
 import { ExecutionResultImpl } from '../../../src/core/result.js';
 import { BaseAdapter } from '../../../src/adapters/base-adapter.js';

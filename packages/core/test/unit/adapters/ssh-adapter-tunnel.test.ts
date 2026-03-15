@@ -1,5 +1,4 @@
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 

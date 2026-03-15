@@ -1,5 +1,4 @@
 import { Readable } from 'node:stream';
-import { it, jest, expect, describe } from '@jest/globals';
 
 import { StreamHandler } from '../../../src/utils/stream.js';
 
@@ -49,7 +48,7 @@ describe('StreamHandler Memory Management', () => {
     });
 
     it('should clean up on transform error', async () => {
-      const onError = jest.fn();
+      const onError = vi.fn();
       const handler = new StreamHandler({
         maxBuffer: 10, // Very small buffer
         onError
@@ -281,7 +280,7 @@ describe('StreamHandler Memory Management', () => {
 
   describe('Callback handling', () => {
     it('should call onData callback with chunks', async () => {
-      const onData = jest.fn();
+      const onData = vi.fn();
       const handler = new StreamHandler({ onData });
       const transform = handler.createTransform();
 
@@ -294,7 +293,7 @@ describe('StreamHandler Memory Management', () => {
     });
 
     it('should call onError callback on errors', async () => {
-      const onError = jest.fn();
+      const onError = vi.fn();
       const handler = new StreamHandler({
         maxBuffer: 10,
         onError
@@ -315,8 +314,8 @@ describe('StreamHandler Memory Management', () => {
     });
 
     it('should not call callbacks after dispose', () => {
-      const onData = jest.fn();
-      const onError = jest.fn();
+      const onData = vi.fn();
+      const onError = vi.fn();
       const handler = new StreamHandler({ onData, onError });
       const transform = handler.createTransform();
 

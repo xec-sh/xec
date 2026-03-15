@@ -2,7 +2,6 @@ import { Socket } from 'node:net';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { it, expect, describe } from '@jest/globals';
 
 import { Config, NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { PRIVATE_KEY_PATH, PRIVATE_KEY_PPK_PATH } from './helpers.js';

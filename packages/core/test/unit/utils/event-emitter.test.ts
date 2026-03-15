@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import { EnhancedEventEmitter } from '../../../src/utils/event-emitter.js';
 
@@ -11,7 +10,7 @@ describe('EnhancedEventEmitter', () => {
 
   describe('Basic Functionality', () => {
     it('should emit and receive basic events', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.on('command:start', handler);
       
@@ -31,7 +30,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should support emitEnhanced with automatic metadata', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.on('cache:hit', handler);
       
@@ -53,9 +52,9 @@ describe('EnhancedEventEmitter', () => {
 
   describe('Event Filtering', () => {
     it('should filter events by adapter', () => {
-      const sshHandler = jest.fn();
-      const dockerHandler = jest.fn();
-      const allHandler = jest.fn();
+      const sshHandler = vi.fn();
+      const dockerHandler = vi.fn();
+      const allHandler = vi.fn();
       
       emitter.onFiltered('command:start', { adapter: 'ssh' }, sshHandler);
       emitter.onFiltered('command:start', { adapter: 'docker' }, dockerHandler);
@@ -85,7 +84,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should filter by multiple adapters', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('command:complete', { adapter: ['ssh', 'docker'] }, handler);
       
@@ -120,7 +119,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should filter by custom properties', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('connection:open', { 
         host: 'example.com',
@@ -160,7 +159,7 @@ describe('EnhancedEventEmitter', () => {
 
   describe('Wildcard Patterns', () => {
     it('should support simple wildcard patterns', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('command:*', handler);
       
@@ -190,7 +189,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should support wildcard with filtering', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('ssh:*', { adapter: 'ssh' }, handler);
       
@@ -220,7 +219,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should support catch-all wildcard', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('*', handler);
       
@@ -248,7 +247,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should handle dynamic event registration', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       // Register wildcard handler first
       emitter.onFiltered('cache:*', handler);
@@ -272,7 +271,7 @@ describe('EnhancedEventEmitter', () => {
 
   describe('Listener Management', () => {
     it('should remove filtered listeners', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('command:start', { adapter: 'ssh' }, handler);
       
@@ -297,7 +296,7 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should remove wildcard listeners', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       emitter.onFiltered('cache:*', handler);
       
@@ -324,9 +323,9 @@ describe('EnhancedEventEmitter', () => {
 
   describe('Complex Scenarios', () => {
     it('should handle multiple filters on same event', () => {
-      const sshHandler = jest.fn();
-      const dockerHandler = jest.fn();
-      const errorHandler = jest.fn();
+      const sshHandler = vi.fn();
+      const dockerHandler = vi.fn();
+      const errorHandler = vi.fn();
       
       emitter.onFiltered('command:complete', { adapter: 'ssh' }, sshHandler);
       emitter.onFiltered('command:complete', { adapter: 'docker' }, dockerHandler);
@@ -360,9 +359,9 @@ describe('EnhancedEventEmitter', () => {
     });
 
     it('should handle overlapping wildcard patterns', () => {
-      const allHandler = jest.fn();
-      const commandHandler = jest.fn();
-      const sshHandler = jest.fn();
+      const allHandler = vi.fn();
+      const commandHandler = vi.fn();
+      const sshHandler = vi.fn();
       
       emitter.onFiltered('*', allHandler);
       emitter.onFiltered('command:*', commandHandler);
