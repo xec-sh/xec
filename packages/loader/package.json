@@ -17,6 +17,14 @@
     "./repl": {
       "import": "./dist/repl/index.js",
       "types": "./dist/repl/index.d.ts"
+    },
+    "./watch": {
+      "import": "./dist/watch/index.js",
+      "types": "./dist/watch/index.d.ts"
+    },
+    "./plugin": {
+      "import": "./dist/plugin/index.js",
+      "types": "./dist/plugin/index.d.ts"
     }
   },
   "files": [
