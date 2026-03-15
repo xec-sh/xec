@@ -18,6 +18,9 @@ const DOCKER_AVAILABLE = await (async () => {
 
 const describeIfDocker = DOCKER_AVAILABLE ? describe : describe.skip;
 
+// Docker operations are slow - increase timeout for all tests in this file
+vi.setConfig({ testTimeout: 120000 });
+
 describeIfDocker('DockerAdapter Integration Tests', () => {
   let adapter: DockerAdapter;
   const TEST_IMAGE = 'alpine:latest';
