@@ -6,11 +6,9 @@
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
-    "target": "ES2020",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "downlevelIteration": true
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler"
   },
   "include": [
     "src/**/*"
