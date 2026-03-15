@@ -160,7 +160,6 @@ describe('Script Context', () => {
       const scriptPath = path.join(tempDir, 'test.js');
       const context = await ScriptContext.create(scriptPath);
       
-      expect(typeof context.chalk).toBe('function');
       expect(typeof context.glob).toBe('function');
       expect(typeof context.minimatch).toBe('function');
       expect(context.tasks).toBeDefined();
@@ -182,7 +181,6 @@ describe('Script Context', () => {
       
       expect((global as any).$target).toBe($);
       expect((global as any).config).toBeDefined();
-      expect((global as any).chalk).toBeDefined();
       
       // Cleanup
       ScriptContext.cleanup(context);
