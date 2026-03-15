@@ -1,6 +1,7 @@
 {
   "name": "xec-sh",
   "private": true,
+  "version": "0.8.3",
   "type": "module",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
@@ -25,6 +26,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@xec-sh/kit": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@types/add": "^2.0.3",
     "@types/debug": "^4",
@@ -39,6 +41,7 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-perfectionist": "^5.6.0",
     "eslint-plugin-unused-imports": "4.4.1",
+    "glob": "^13.0.6",
     "globals": "^17.4.0",
     "prettier": "^3.8.1",
     "semver": "^7.7.4",
