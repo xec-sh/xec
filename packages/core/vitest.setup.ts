@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { beforeAll, afterAll } from 'vitest';
 import { dockerManager } from '@xec-sh/testing';
 
@@ -13,7 +14,6 @@ configure({
 
 // Store whether we should manage containers globally
 const shouldManageContainersGlobally = () => {
-  // Check if we're running SSH tests without the new helper
   const testFiles = process.argv.filter((arg) => arg.endsWith('.test.ts'));
   const isRunningOldSSHTests = testFiles.some(
     (file) =>
@@ -53,3 +53,27 @@ if (shouldManageContainersGlobally()) {
     await new Promise((done) => setTimeout(done, 100));
   }, 60000);
 }
+
+/**
+ * Global cleanup: remove ALL orphaned test containers after test run.
+ * This prevents Docker from being polluted by containers that tests
+ * failed to clean up (due to timeouts, crashes, or missing finally blocks).
+ */
+afterAll(async () => {
+  try {
+    // Remove containers matching test naming patterns
+    const patterns = ['xec-test-', 'temp-ush-', 'volume-test-', 'multi-test-', 'xec-e2e-'];
+    for (const pattern of patterns) {
+      try {
+        execSync(
+          `docker ps -aq --filter "name=${pattern}" | xargs -r docker rm -f 2>/dev/null`,
+          { stdio: 'pipe', timeout: 15000 }
+        );
+      } catch {
+        // Ignore — no matching containers or Docker not available
+      }
+    }
+  } catch {
+    // Docker not available or cleanup failed — not critical
+  }
+}, 30000);
