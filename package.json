@@ -15,7 +15,6 @@
     "fm:fix": "prettier --write \"{apps,packages}/**/*.{js,jsx,ts,tsx}\"",
     "fix:all": "pnpm run lint:fix && pnpm run fm:fix",
     "cleanup": "find . -name \"node_modules\" -type d -prune -exec rm -rf '{}' +",
-    "changeset": "changeset",
     "ai-prompt": "ts-node scripts/gen-aiprompt.ts",
     "publish": "ts-node scripts/publish.ts",
     "link:global": "cd apps/xec && pnpm build && npm link",
@@ -27,7 +26,6 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.8",
     "@eslint/js": "^10.0.1",
     "@types/add": "^2.0.3",
     "@types/debug": "^4",
