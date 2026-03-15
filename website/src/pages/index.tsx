@@ -1,3 +1,4 @@
+import React from 'react';
 import styles from './index.module.css';
 
 import clsx from 'clsx';
@@ -60,7 +61,7 @@ await Deployer.create({
   );
 }
 
-export default function Home(): JSX.Element {
+export default function Home(): React.ReactNode {
   const pageDescription = translate({
     id: 'homepage.description',
     message: 'Xec is a TypeScript-native execution system with 6 packages: core (shell execution), ops (deploy, pipelines, workflows), kit (TUI components), loader (script loading), testing (test utilities), and cli (command-line interface).',
