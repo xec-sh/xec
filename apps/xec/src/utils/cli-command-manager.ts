@@ -1,5 +1,9 @@
 import path from 'path';
-import fs from 'fs-extra';
+import fs from 'node:fs/promises';
+
+async function pathExists(p: string): Promise<boolean> {
+  try { await fs.access(p); return true; } catch { return false; }
+}
 import { log } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
@@ -132,7 +136,7 @@ export class CliCommandManager {
     const commandsDir = path.join(__dirname, '../commands');
     const commands: CliCommand[] = [];
 
-    if (!await fs.pathExists(commandsDir)) {
+    if (!await pathExists(commandsDir)) {
       return commands;
     }
 
@@ -170,13 +174,13 @@ export class CliCommandManager {
     if (process.env['XEC_DEBUG']) {
       console.log('[DEBUG] Searching for dynamic commands in:');
       for (const dir of this.commandDirs) {
-        const exists = await fs.pathExists(dir);
+        const exists = await pathExists(dir);
         console.log(`[DEBUG]   ${exists ? '✓' : '✗'} ${dir}`);
       }
     }
 
     for (const dir of this.commandDirs) {
-      if (await fs.pathExists(dir)) {
+      if (await pathExists(dir)) {
         await this.discoverCommandsInDirectory(dir, commands, '');
       }
     }

@@ -98,9 +98,15 @@ importers:
       commander:
         specifier: ^14.0.2
         version: 14.0.2
+      fs-extra:
+        specifier: ^11.3.3
+        version: 11.3.3
       glob:
         specifier: ^13.0.0
         version: 13.0.0
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
       zod:
         specifier: ^4.3.6
         version: 4.3.6
