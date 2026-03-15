@@ -1,7 +1,6 @@
 import { afterAll, describe, beforeAll } from '@jest/globals';
 
 import { dockerManager, ContainerConfig, DOCKER_CONTAINERS } from '../docker/container-manager.js';
-import { isDockerAvailable, isSshpassAvailable } from '../utils/binary-detector.js';
 
 export interface SSHTestConfig {
   containers?: string[]; // Specific containers to start, or all if not specified
@@ -30,7 +29,6 @@ export function describeSSH(
   const describeFn = shouldSkip ? describe.skip : describe;
 
   describeFn(name, () => {
-    let containersStarted = false;
     let startedContainersList: string[] = [];
 
     beforeAll(async () => {
@@ -42,7 +40,6 @@ export function describeSSH(
       console.log(`Starting Docker containers for ${name}...`);
 
       // Start only the specified containers
-      containersStarted = true;
       startedContainersList = [];
 
       for (const containerName of containers) {
@@ -66,7 +63,6 @@ export function describeSSH(
       }
 
       if (startedContainersList.length === 0) {
-        containersStarted = false;
         throw new Error('Failed to start any required Docker containers');
       }
 
@@ -140,7 +136,7 @@ export function testEachPackageManager(
   });
 }
 
-testEachPackageManager.only = function(
+testEachPackageManager.only = function testOnly(
   testName: string,
   testFn: (container: ContainerConfig) => Promise<void> | void
 ): void {
@@ -151,7 +147,7 @@ testEachPackageManager.only = function(
   });
 };
 
-testEachPackageManager.skip = function(
+testEachPackageManager.skip = function testSkip(
   testName: string,
   testFn: (container: ContainerConfig) => Promise<void> | void
 ): void {

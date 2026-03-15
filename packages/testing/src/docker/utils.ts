@@ -62,13 +62,13 @@ export async function getContainerLogs(containerName: string): Promise<{ stdout:
   return new Promise((resolve, reject) => {
     container.modem.demuxStream(stream, 
       {
-        write: (chunk: any) => stdout.push(chunk.toString())
+        write: (chunk: Buffer) => stdout.push(chunk.toString())
       },
       {
-        write: (chunk: any) => stderr.push(chunk.toString())
+        write: (chunk: Buffer) => stderr.push(chunk.toString())
       }
     );
-    
+
     stream.on('end', () => {
       resolve({
         stdout: stdout.join(''),
@@ -99,13 +99,13 @@ export async function execInContainer(
   return new Promise((resolve, reject) => {
     container.modem.demuxStream(stream,
       {
-        write: (chunk: any) => stdout.push(chunk.toString())
+        write: (chunk: Buffer) => stdout.push(chunk.toString())
       },
       {
-        write: (chunk: any) => stderr.push(chunk.toString())
+        write: (chunk: Buffer) => stderr.push(chunk.toString())
       }
     );
-    
+
     stream.on('end', async () => {
       const info = await exec.inspect();
       resolve({

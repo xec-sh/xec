@@ -4,8 +4,8 @@ import {
   isDockerAvailable as checkDockerAvailable,
   findBinary,
   getExtendedEnv,
-  isSshpassAvailable,
 } from '../utils/binary-detector.js';
+import { validateShellName } from '../utils/shell-escape.js';
 
 export interface ContainerConfig {
   name: string;
@@ -58,6 +58,7 @@ export class DockerContainerManager {
    * Check if a container is running
    */
   isContainerRunning(name: string): boolean {
+    validateShellName(name, 'container name');
     const dockerPath = findBinary('docker');
     if (!dockerPath) {
       return false;
@@ -105,6 +106,7 @@ export class DockerContainerManager {
    * Start a specific container
    */
   async startContainer(containerName: string): Promise<boolean> {
+    validateShellName(containerName, 'container name');
     if (!this.isDockerAvailable()) {
       console.warn('Docker is not available, skipping container start');
       return false;
@@ -190,6 +192,7 @@ export class DockerContainerManager {
    * Stop a specific container
    */
   async stopContainer(containerName: string): Promise<boolean> {
+    validateShellName(containerName, 'container name');
     if (!this.startedContainers.has(containerName)) {
       // We didn't start this container, don't stop it
       return true;
@@ -253,7 +256,7 @@ export class DockerContainerManager {
     if (!sshpassPath) {
       console.warn('sshpass not found, cannot check SSH readiness');
       // Fallback: just wait a bit and assume it's ready
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise(done => setTimeout(done, 5000));
       return true;
     }
 
@@ -269,7 +272,7 @@ export class DockerContainerManager {
         return true;
       } catch {
         // SSH not ready yet
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(done => setTimeout(done, 2000));
       }
     }
 

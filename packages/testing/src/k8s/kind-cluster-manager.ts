@@ -3,12 +3,12 @@ import { join } from 'path';
 import { execSync } from 'child_process';
 import { rmSync, existsSync, mkdtempSync, writeFileSync } from 'fs';
 import {
-  findBinary,
   getExtendedEnv,
   isKindAvailable,
   isKubectlAvailable,
   isDockerAvailable,
 } from '../utils/binary-detector.js';
+import { validateShellName } from '../utils/shell-escape.js';
 
 export interface KindClusterConfig {
   name: string;
@@ -17,12 +17,17 @@ export interface KindClusterConfig {
   nodes?: number;
 }
 
+interface K8sCondition { type: string; status: string; }
+interface K8sNode { status: { conditions: K8sCondition[] } }
+interface K8sNodeList { items: K8sNode[] }
+
 export class KindClusterManager {
   private clusterName: string;
   private kubeConfigPath: string;
   private tempDir: string;
 
   constructor(config: KindClusterConfig = { name: 'xec-test-cluster' }) {
+    validateShellName(config.name, 'cluster name');
     this.clusterName = config.name;
     this.tempDir = mkdtempSync(join(tmpdir(), 'xec-kind-'));
     this.kubeConfigPath = join(this.tempDir, 'kubeconfig');
@@ -44,10 +49,10 @@ export class KindClusterManager {
       });
 
       return result ? result.toString() : '';
-    } catch (error: any) {
+    } catch (error) {
       if (!options.silent) {
         console.error(`Command failed: ${command}`);
-        console.error(error.message);
+        console.error(error instanceof Error ? error.message : String(error));
       }
       throw error;
     }
@@ -158,14 +163,19 @@ nodes:
       try {
         // Check if all nodes are ready
         const output = this.exec('kubectl get nodes -o json', { silent: true });
-        const nodes = JSON.parse(output);
-        
-        const allReady = nodes.items.every((node: any) => 
-          node.status.conditions.some((c: any) => 
+        let nodes: K8sNodeList;
+        try {
+          nodes = JSON.parse(output) as K8sNodeList;
+        } catch {
+          continue; // Invalid JSON, retry
+        }
+
+        const allReady = nodes.items.every((node: K8sNode) =>
+          node.status.conditions.some((c: K8sCondition) =>
             c.type === 'Ready' && c.status === 'True'
           )
         );
-        
+
         if (allReady) {
           console.log('Cluster is ready!');
           
@@ -182,13 +192,15 @@ nodes:
         // Cluster not ready yet
       }
       
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(done => setTimeout(done, 1000));
     }
-    
+
     throw new Error(`Cluster did not become ready within ${timeoutSeconds} seconds`);
   }
 
   async deployTestPod(name: string = 'test-pod', namespace: string = 'test'): Promise<void> {
+    validateShellName(name, 'pod name');
+    validateShellName(namespace, 'namespace');
     // Ensure namespace exists
     try {
       this.exec(`kubectl create namespace ${namespace}`, { silent: true });
@@ -247,10 +259,15 @@ spec:
           `kubectl get pod ${name} -n ${namespace} -o json`,
           { silent: true }
         );
-        const status = JSON.parse(statusOutput);
-        
+        let status: { status?: { phase?: string; conditions?: K8sCondition[]; containerStatuses?: { name: string; state?: { waiting?: { reason?: string } } }[] } };
+        try {
+          status = JSON.parse(statusOutput);
+        } catch {
+          continue; // Invalid JSON, retry
+        }
+
         // Check if all containers are ready
-        const isReady = status.status?.conditions?.find((c: any) => c.type === 'Ready')?.status === 'True';
+        const isReady = status.status?.conditions?.find((c: K8sCondition) => c.type === 'Ready')?.status === 'True';
         
         if (isReady) {
           console.log(`Pod ${name} is ready!`);
@@ -273,9 +290,9 @@ spec:
         console.log(`Failed to get pod status: ${e}`);
       }
       
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(done => setTimeout(done, 2000));
     }
-    
+
     // Get final pod status for error message
     try {
       const finalStatus = this.exec(
@@ -291,6 +308,8 @@ spec:
   }
 
   async createMultiContainerPod(name: string = 'multi-pod', namespace: string = 'test'): Promise<void> {
+    validateShellName(name, 'pod name');
+    validateShellName(namespace, 'namespace');
     // Ensure namespace exists
     try {
       this.exec(`kubectl create namespace ${namespace}`, { silent: true });
