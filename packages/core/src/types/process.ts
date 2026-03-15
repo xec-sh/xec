@@ -90,6 +90,9 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
   // Caching
   cache(options?: any): ProcessPromise; // CacheOptions
   
+  // Async iteration over output lines: for await (const line of $`cmd`) { ... }
+  [Symbol.asyncIterator](): AsyncIterableIterator<string>;
+
   // Process-related properties
   child?: any;
   exitCode: Promise<number | null>;

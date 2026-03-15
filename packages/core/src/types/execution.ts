@@ -92,7 +92,14 @@ export interface ExecutionEngineConfig extends EventConfig {
   encoding?: BufferEncoding;
   verbose?: boolean;
   quiet?: boolean;
-  
+
+  // Shell prefix/postfix (e.g., "set -euo pipefail;" / "; exit $?")
+  prefix?: string;
+  postfix?: string;
+
+  // Prefer local binaries in node_modules/.bin
+  preferLocal?: boolean | string;
+
   // Retry configuration
   retry?: {
     retries?: number;

@@ -225,6 +225,21 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         ...(contextCommand.env || {})
       }
     };
+    // Apply prefix/postfix to command string if configured
+    const prefix = this._config.prefix || '';
+    const postfix = this._config.postfix || '';
+    if ((prefix || postfix) && finalCommand.command && finalCommand.shell !== false) {
+      finalCommand.command = `${prefix}${finalCommand.command}${postfix}`;
+    }
+
+    // Resolve preferLocal: prepend node_modules/.bin to PATH
+    if (this._config.preferLocal && finalCommand.env) {
+      const localBin = typeof this._config.preferLocal === 'string'
+        ? this._config.preferLocal
+        : path.join(finalCommand.cwd || process.cwd(), 'node_modules', '.bin');
+      finalCommand.env['PATH'] = `${localBin}:${finalCommand.env['PATH'] || process.env['PATH'] || ''}`;
+    }
+
     const mergedCommand = finalCommand;
     const adapter = await this.selectAdapter(mergedCommand);
 

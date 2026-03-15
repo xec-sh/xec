@@ -427,6 +427,24 @@ export class ProcessPromiseBuilder {
       json: <T = any>() => promise.then(this.createTransformHandler<T>(context, r => this.parseJson(r.stdout.trim()) as T)),
       lines: () => promise.then(this.createTransformHandler(context, r => this.parseLines(r.stdout))),
       buffer: () => promise.then(this.createTransformHandler(context, r => Buffer.from(r.stdout))),
+
+      // Async iteration: for await (const line of $`cmd`) { ... }
+      [Symbol.asyncIterator]: () => {
+        let lines: string[] | null = null;
+        let index = 0;
+        return {
+          async next(): Promise<IteratorResult<string>> {
+            if (!lines) {
+              const result = await promise;
+              lines = result.stdout.split('\n').filter((l: string) => l.length > 0);
+            }
+            if (index < lines.length) {
+              return { value: lines[index++]!, done: false };
+            }
+            return { value: undefined as any, done: true };
+          },
+        };
+      },
     });
 
     Object.defineProperty(promise, 'exitCode', {
