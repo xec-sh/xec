@@ -35,7 +35,7 @@ import type {
   Configuration,
   CommandConfig,
   ResolvedTarget,
-} from './config/types.js';
+} from '@xec-sh/ops/config/types.js';
 
 // Re-export commonly used items to global scope
 declare global {

@@ -6,8 +6,8 @@ import { log, text, prism, intro, outro, select, confirm, spinner } from '@xec-s
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
-import { sortConfigKeys, getDefaultConfig } from '../config/defaults.js';
-import { ConfigurationManager } from '../config/configuration-manager.js';
+import { sortConfigKeys, getDefaultConfig } from '@xec-sh/ops/config/defaults.js';
+import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
 
 interface NewOptions extends CommandOptions {
   force?: boolean;

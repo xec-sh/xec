@@ -92,4 +92,4 @@ export type {
   Configuration,
   CommandConfig,
   ResolvedTarget,
-} from './config/types.js';
+} from '@xec-sh/ops/config/types.js';

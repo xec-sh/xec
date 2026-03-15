@@ -4,11 +4,11 @@ import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import * as readline from 'readline';
 
-import { validateOptions } from '../utils/validation.js';
+import { validateOptions } from '@xec-sh/ops/utils/validation.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 
-import type { ResolvedTarget } from '../config/types.js';
+import type { ResolvedTarget } from '@xec-sh/ops/config/types.js';
 
 interface LogsOptions extends ConfigAwareOptions {
   follow?: boolean;
