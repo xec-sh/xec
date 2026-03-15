@@ -1,13 +1,26 @@
-export function diffLines(a: string, b: string): number[] {
-  if (a === b) return [];
+export interface DiffResult {
+  lines: number[];
+  numLinesBefore: number;
+  numLinesAfter: number;
+  numLines: number;
+}
+
+export function diffLines(a: string, b: string): DiffResult | undefined {
+  if (a === b) return undefined;
 
   const aLines = a.split('\n');
   const bLines = b.split('\n');
+  const numLines = Math.max(aLines.length, bLines.length);
   const diff: number[] = [];
 
-  for (let i = 0; i < Math.max(aLines.length, bLines.length); i++) {
+  for (let i = 0; i < numLines; i++) {
     if (aLines[i] !== bLines[i]) diff.push(i);
   }
 
-  return diff;
+  return {
+    lines: diff,
+    numLinesBefore: aLines.length,
+    numLinesAfter: bLines.length,
+    numLines,
+  };
 }

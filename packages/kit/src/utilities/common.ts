@@ -56,8 +56,35 @@ export const symbol = (state: State) => {
   }
 };
 
+export const symbolBar = (state: State) => {
+  switch (state) {
+    case 'initial':
+    case 'active':
+      return prism.cyan(S_BAR);
+    case 'cancel':
+      return prism.red(S_BAR);
+    case 'error':
+      return prism.yellow(S_BAR);
+    case 'submit':
+      return prism.green(S_BAR);
+    default:
+      return prism.gray(S_BAR);
+  }
+};
+
+export const computeLabel = (label: string, format: (text: string) => string): string => {
+  if (!label.includes('\n')) {
+    return format(label);
+  }
+  return label
+    .split('\n')
+    .map((line) => format(line))
+    .join('\n');
+};
+
 export interface CommonOptions {
   input?: Readable;
   output?: Writable;
   signal?: AbortSignal;
+  withGuide?: boolean;
 }

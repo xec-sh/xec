@@ -124,7 +124,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
       vi.advanceTimersByTime(80);
 
-      result.stop('', 1);
+      result.cancel('');
 
       expect(output.buffer).toMatchSnapshot();
     });
@@ -136,7 +136,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
       vi.advanceTimersByTime(80);
 
-      result.stop('', 2);
+      result.error('');
 
       expect(output.buffer).toMatchSnapshot();
     });

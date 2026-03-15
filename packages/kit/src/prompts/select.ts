@@ -1,53 +1,31 @@
 import prism from '../prism/index.js';
-import { SelectPrompt } from '../core/index.js';
+import { SelectPrompt, settings, wrapTextWithPrefix } from '../core/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
 import {
   S_BAR,
   symbol,
+  symbolBar,
   S_BAR_END,
   S_RADIO_ACTIVE,
   S_RADIO_INACTIVE,
   type CommonOptions,
+  computeLabel,
 } from '../utilities/common.js';
 
 type Primitive = Readonly<string | boolean | number>;
 
 export type Option<Value> = Value extends Primitive
   ? {
-      /**
-       * Internal data for this option.
-       */
       value: Value;
-      /**
-       * The optional, user-facing text for this option.
-       *
-       * By default, the `value` is converted to a string.
-       */
       label?: string;
-      /**
-       * An optional hint to display to the user when
-       * this option might be selected.
-       *
-       * By default, no `hint` is displayed.
-       */
       hint?: string;
+      disabled?: boolean;
     }
   : {
-      /**
-       * Internal data for this option.
-       */
       value: Value;
-      /**
-       * Required. The user-facing text for this option.
-       */
       label: string;
-      /**
-       * An optional hint to display to the user when
-       * this option might be selected.
-       *
-       * By default, no `hint` is displayed.
-       */
       hint?: string;
+      disabled?: boolean;
     };
 
 export interface SelectOptions<Value> extends CommonOptions {
@@ -58,19 +36,24 @@ export interface SelectOptions<Value> extends CommonOptions {
 }
 
 export const select = <Value>(opts: SelectOptions<Value>) => {
-  const opt = (option: Option<Value>, state: 'inactive' | 'active' | 'selected' | 'cancelled') => {
+  const opt = (
+    option: Option<Value>,
+    state: 'inactive' | 'active' | 'selected' | 'cancelled' | 'disabled'
+  ) => {
     const label = option.label ?? String(option.value);
     switch (state) {
       case 'selected':
-        return `${prism.dim(label)}`;
+        return `${computeLabel(label, prism.dim)}`;
       case 'active':
         return `${prism.green(S_RADIO_ACTIVE)} ${label}${
           option.hint ? ` ${prism.dim(`(${option.hint})`)}` : ''
         }`;
       case 'cancelled':
-        return `${prism.strikethrough(prism.dim(label))}`;
+        return `${computeLabel(label, (str) => prism.strikethrough(prism.dim(str)))}`;
+      case 'disabled':
+        return `${prism.dim(S_RADIO_INACTIVE)} ${computeLabel(label, (str) => prism.strikethrough(prism.dim(str)))}`;
       default:
-        return `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}`;
+        return `${prism.dim(S_RADIO_INACTIVE)} ${computeLabel(label, prism.dim)}`;
     }
   };
 
@@ -81,30 +64,49 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
     output: opts.output,
     initialValue: opts.initialValue,
     render() {
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+      const titlePrefix = `${symbol(this.state)}  `;
+      const titlePrefixBar = `${symbolBar(this.state)}  `;
+      const messageLines = wrapTextWithPrefix(
+        opts.output,
+        opts.message,
+        titlePrefixBar,
+        titlePrefix
+      );
+      const title = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${messageLines}\n`;
 
       switch (this.state) {
         case 'submit': {
           const selectedOption = this.options[this.cursor];
           if (!selectedOption) return title;
-          return `${title}${prism.gray(S_BAR)}  ${opt(selectedOption, 'selected')}`;
+          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${submitPrefix}  ${opt(selectedOption, 'selected')}`;
         }
         case 'cancel': {
           const selectedOption = this.options[this.cursor];
           if (!selectedOption) return title;
-          return `${title}${prism.gray(S_BAR)}  ${opt(
+          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${cancelPrefix}  ${opt(
             selectedOption,
             'cancelled'
-          )}\n${prism.gray(S_BAR)}`;
+          )}\n${cancelPrefix}`;
         }
         default: {
-          return `${title}${prism.cyan(S_BAR)}  ${limitOptions({
+          const barChar = hasGuide ? prism.cyan(S_BAR) : '';
+          const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+          const prefix = `${barChar}  `;
+          const titleLineCount = title.split('\n').length;
+          const footerLineCount = 2;
+          return `${title}${prefix}${limitOptions({
             output: opts.output,
             cursor: this.cursor,
             options: this.options,
             maxItems: opts.maxItems,
-            style: (item, active) => opt(item, active ? 'active' : 'inactive'),
-          }).join(`\n${prism.cyan(S_BAR)}  `)}\n${prism.cyan(S_BAR_END)}\n`;
+            columnPadding: prefix.length,
+            rowPadding: titleLineCount + footerLineCount,
+            style: (item, active) =>
+              item.disabled ? opt(item, 'disabled') : opt(item, active ? 'active' : 'inactive'),
+          }).join(`\n${prefix}`)}\n${barEnd}\n`;
         }
       }
     },

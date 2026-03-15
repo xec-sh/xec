@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { AutocompletePrompt } from '../core/index.js';
+import { AutocompletePrompt, settings } from '../core/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
 import {
   S_BAR,
@@ -60,6 +60,10 @@ interface AutocompleteSharedOptions<Value> extends CommonOptions {
    */
   placeholder?: string;
   /**
+   * Custom filter function. By default, filters by label, hint, and value.
+   */
+  filter?: (search: string, option: Option<Value>) => boolean;
+  /**
    * Validates the value
    */
   validate?: (value: Value | Value[] | undefined) => string | Error | undefined;
@@ -77,23 +81,28 @@ export interface AutocompleteOptions<Value> extends AutocompleteSharedOptions<Va
 }
 
 export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
+  const filterFn = opts.filter ?? ((search: string, opt: Option<Value>) => getFilteredOption(search, opt));
   const prompt = new AutocompletePrompt({
     options: opts.options,
     initialValue: opts.initialValue ? [opts.initialValue] : undefined,
     initialUserInput: opts.initialUserInput,
-    filter: (search: string, opt: Option<Value>) => getFilteredOption(search, opt),
+    filter: filterFn,
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
     validate: opts.validate,
     render() {
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
       // Title and message display
-      const headings = [`${prism.gray(S_BAR)}`, `${symbol(this.state)}  ${opts.message}`];
+      const headings = hasGuide ? [`${prism.gray(S_BAR)}`, `${symbol(this.state)}  ${opts.message}`] : [`${symbol(this.state)}  ${opts.message}`];
       const userInput = this.userInput;
-      const valueAsString = String(this.value ?? '');
       const options = this.options;
       const placeholder = opts.placeholder;
-      const showPlaceholder = valueAsString === '' && placeholder !== undefined;
+      const showPlaceholder = userInput === '' && placeholder !== undefined;
+
+      const barCyan = hasGuide ? prism.cyan(S_BAR) : '';
+      const barGray = hasGuide ? prism.gray(S_BAR) : '';
+      const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
 
       // Handle different states
       switch (this.state) {
@@ -102,12 +111,12 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           const selected = getSelectedOptions(this.selectedValues, options);
           const label =
             selected.length > 0 ? `  ${prism.dim(selected.map(getLabel).join(', '))}` : '';
-          return `${headings.join('\n')}\n${prism.gray(S_BAR)}${label}`;
+          return `${headings.join('\n')}\n${barGray}${label}`;
         }
 
         case 'cancel': {
           const userInputText = userInput ? `  ${prism.strikethrough(prism.dim(userInput))}` : '';
-          return `${headings.join('\n')}\n${prism.gray(S_BAR)}${userInputText}`;
+          return `${headings.join('\n')}\n${barGray}${userInputText}`;
         }
 
         default: {
@@ -131,15 +140,16 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           // No matches message
           const noResults =
             this.filteredOptions.length === 0 && userInput
-              ? [`${prism.cyan(S_BAR)}  ${prism.yellow('No matches found')}`]
+              ? [`${barCyan}  ${prism.yellow('No matches found')}`]
               : [];
 
+          const errorBar = hasGuide ? prism.yellow(S_BAR) : '';
           const validationError =
-            this.state === 'error' ? [`${prism.yellow(S_BAR)}  ${prism.yellow(this.error)}`] : [];
+            this.state === 'error' ? [`${errorBar}  ${prism.yellow(this.error)}`] : [];
 
           headings.push(
-            `${prism.cyan(S_BAR)}`,
-            `${prism.cyan(S_BAR)}  ${prism.dim('Search:')}${searchText}${matches}`,
+            `${barCyan}`,
+            `${barCyan}  ${prism.dim('Search:')}${searchText}${matches}`,
             ...noResults,
             ...validationError
           );
@@ -152,8 +162,8 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           ];
 
           const footers = [
-            `${prism.cyan(S_BAR)}  ${prism.dim(instructions.join(' • '))}`,
-            `${prism.cyan(S_BAR_END)}`,
+            `${barCyan}  ${prism.dim(instructions.join(' • '))}`,
+            `${barEnd}`,
           ];
 
           // Render options with selection
@@ -172,6 +182,9 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
                       ? prism.dim(` (${option.hint})`)
                       : '';
 
+                  if (option.disabled) {
+                    return `${prism.dim(S_RADIO_INACTIVE)} ${prism.strikethrough(prism.dim(label))}`;
+                  }
                   return active
                     ? `${prism.green(S_RADIO_ACTIVE)} ${label}${hint}`
                     : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}${hint}`;
@@ -183,7 +196,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           // Return the formatted prompt
           return [
             ...headings,
-            ...displayOptions.map((option) => `${prism.cyan(S_BAR)}  ${option}`),
+            ...displayOptions.map((option) => `${barCyan}  ${option}`),
             ...footers,
           ].join('\n');
         }
@@ -231,11 +244,12 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
     return `${checkbox} ${prism.dim(label)}`;
   };
 
+  const filterFn = opts.filter ?? ((search: string, opt: Option<Value>) => getFilteredOption(search, opt));
   // Create text prompt which we'll use as foundation
   const prompt = new AutocompletePrompt<Option<Value>>({
     options: opts.options,
     multiple: true,
-    filter: (search, opt) => getFilteredOption(search, opt),
+    filter: filterFn,
     validate: () => {
       if (opts.required && prompt.selectedValues.length === 0) {
         return 'Please select at least one item';
@@ -247,8 +261,10 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
     input: opts.input,
     output: opts.output,
     render() {
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
       // Title and symbol
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
+      const title = `${titlePrefix}${opts.message}\n`;
 
       // Selection counter
       const userInput = this.userInput;
@@ -270,13 +286,17 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
           )
           : '';
 
+      const barCyan = hasGuide ? prism.cyan(S_BAR) : '';
+      const barGray = hasGuide ? prism.gray(S_BAR) : '';
+      const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+
       // Render prompt state
       switch (this.state) {
         case 'submit': {
-          return `${title}${prism.gray(S_BAR)}  ${prism.dim(`${this.selectedValues.length} items selected`)}`;
+          return `${title}${barGray}  ${prism.dim(`${this.selectedValues.length} items selected`)}`;
         }
         case 'cancel': {
-          return `${title}${prism.gray(S_BAR)}  ${prism.strikethrough(prism.dim(userInput))}`;
+          return `${title}${barGray}  ${prism.strikethrough(prism.dim(userInput))}`;
         }
         default: {
           // Instructions
@@ -290,11 +310,11 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
           // No results message
           const noResults =
             this.filteredOptions.length === 0 && userInput
-              ? [`${prism.cyan(S_BAR)}  ${prism.yellow('No matches found')}`]
+              ? [`${barCyan}  ${prism.yellow('No matches found')}`]
               : [];
 
           const errorMessage =
-            this.state === 'error' ? [`${prism.cyan(S_BAR)}  ${prism.yellow(this.error)}`] : [];
+            this.state === 'error' ? [`${barCyan}  ${prism.yellow(this.error)}`] : [];
 
           // Get limited options for display
           const displayOptions = limitOptions({
@@ -309,12 +329,12 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
           // Build the prompt display
           return [
             title,
-            `${prism.cyan(S_BAR)}  ${prism.dim('Search:')} ${searchText}${matches}`,
+            `${barCyan}  ${prism.dim('Search:')} ${searchText}${matches}`,
             ...noResults,
             ...errorMessage,
-            ...displayOptions.map((option) => `${prism.cyan(S_BAR)}  ${option}`),
-            `${prism.cyan(S_BAR)}  ${prism.dim(instructions.join(' • '))}`,
-            `${prism.cyan(S_BAR_END)}`,
+            ...displayOptions.map((option) => `${barCyan}  ${option}`),
+            `${barCyan}  ${prism.dim(instructions.join(' • '))}`,
+            `${barEnd}`,
           ].join('\n');
         }
       }

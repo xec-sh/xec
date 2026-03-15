@@ -2,8 +2,10 @@
  * @vitest-environment node
  */
 
-import { it, expect, describe } from 'vitest';
+import { it, expect, describe, beforeAll, afterAll } from 'vitest';
 
+import prism from '../src/prism/index.js';
+import { ColorLevel } from '../src/prism/utils/supports.js';
 import { toggleSort } from '../src/components/table/table-sorter.js';
 import { createTableState } from '../src/components/table/table-state.js';
 import { navigateDown } from '../src/components/table/table-navigator.js';
@@ -12,6 +14,17 @@ import { selectAll, toggleSelection } from '../src/components/table/table-select
 import { renderInteractiveTable } from '../src/components/table/interactive-renderer.js';
 
 import type { InteractiveTableOptions } from '../src/components/table/types.js';
+
+// Ensure prism emits ANSI codes regardless of TTY detection,
+// since these tests explicitly verify ANSI escape sequences in rendered output.
+let savedLevel: ColorLevel;
+beforeAll(() => {
+  savedLevel = prism.level;
+  prism.level = ColorLevel.Basic;
+});
+afterAll(() => {
+  prism.level = savedLevel;
+});
 
 function createTestData() {
   return [

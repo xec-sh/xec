@@ -76,11 +76,16 @@ export interface SpinnerOptions extends CommonOptions {
   delay?: number;
   /** Built-in spinner frame style (overrides frames and delay) */
   style?: SpinnerFrameStyle;
+  /** Custom function to style the spinner frame character */
+  styleFrame?: (frame: string) => string;
 }
 
 export interface SpinnerResult {
   start(msg?: string): void;
-  stop(msg?: string, code?: number): void;
+  stop(msg?: string): void;
+  cancel(msg?: string): void;
+  error(msg?: string): void;
+  clear(): void;
   message(msg?: string): void;
   readonly isCancelled: boolean;
 }
@@ -95,6 +100,7 @@ export const spinner = ({
   delay,
   style = 'braille',
   signal,
+  styleFrame,
 }: SpinnerOptions = {}): SpinnerResult => {
   // Use built-in style if no custom frames provided
   if (!frames) {
@@ -104,6 +110,8 @@ export const spinner = ({
       delay = unicode ? frameSet.delay.unicode : frameSet.delay.ascii;
     }
   }
+
+  const defaultStyleFrame = styleFrame ?? ((frame: string) => prism.magenta(frame));
   const isCI = isCIFn();
 
   let unblock: () => void;
@@ -122,7 +130,7 @@ export const spinner = ({
         : (cancelMessage ?? settings.messages.cancel);
     isCancelled = code === 1;
     if (isSpinnerActive) {
-      stop(msg, code);
+      _stop(msg, code);
       if (isCancelled && typeof onCancel === 'function') {
         onCancel();
       }
@@ -198,7 +206,7 @@ export const spinner = ({
       }
       clearPrevMessage();
       _prevMessage = _message;
-      const frame = prism.magenta(frames[frameIndex]);
+      const frame = defaultStyleFrame(frames[frameIndex] ?? '');
       let outputMessage: string;
 
       if (isCI) {
@@ -222,26 +230,33 @@ export const spinner = ({
     }, delay);
   };
 
-  const stop = (msg = '', code = 0): void => {
+  const _stop = (msg = '', code = 0, silent = false): void => {
     if (!isSpinnerActive) return;
     isSpinnerActive = false;
     clearInterval(loop);
     clearPrevMessage();
-    const step =
-      code === 0
-        ? prism.green(S_STEP_SUBMIT)
-        : code === 1
-          ? prism.red(S_STEP_CANCEL)
-          : prism.red(S_STEP_ERROR);
-    _message = msg ?? _message;
-    if (indicator === 'timer') {
-      output.write(`${step}  ${_message} ${formatTimer(_origin)}\n`);
-    } else {
-      output.write(`${step}  ${_message}\n`);
+    if (!silent) {
+      const step =
+        code === 0
+          ? prism.green(S_STEP_SUBMIT)
+          : code === 1
+            ? prism.red(S_STEP_CANCEL)
+            : prism.red(S_STEP_ERROR);
+      _message = msg ?? _message;
+      if (indicator === 'timer') {
+        output.write(`${step}  ${_message} ${formatTimer(_origin)}\n`);
+      } else {
+        output.write(`${step}  ${_message}\n`);
+      }
     }
     clearHooks();
-    unblock();
+    if (unblock) unblock();
   };
+
+  const stop = (msg = ''): void => _stop(msg, 0);
+  const cancel = (msg = ''): void => _stop(msg, 1);
+  const error = (msg = ''): void => _stop(msg, 2);
+  const clear = (): void => _stop('', 0, true);
 
   const message = (msg = ''): void => {
     _message = removeTrailingDots(msg ?? _message);
@@ -250,6 +265,9 @@ export const spinner = ({
   return {
     start,
     stop,
+    cancel,
+    error,
+    clear,
     message,
     get isCancelled() {
       return isCancelled;

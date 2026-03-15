@@ -1,6 +1,7 @@
 export * from './prism/index.js';
 // Export all prompts
 export * from './prompts/text.js';
+export * from './prompts/date.js';
 
 export * from './prompts/group.js';
 // Export all utilities
@@ -35,8 +36,11 @@ export {
   isCancel,
   settings,
   getColumns,
+  findCursor,
   updateSettings,
   type ClackSettings,
+  type DateParts,
+  type DateFormatConfig,
 } from './core/index.js';
 
 // Export table optimization utilities (Phase 4)

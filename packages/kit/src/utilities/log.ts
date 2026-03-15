@@ -1,4 +1,5 @@
 import prism from '../prism/index.js';
+import { settings } from '../core/index.js';
 import {
   S_BAR,
   S_INFO,
@@ -23,9 +24,12 @@ export const log = {
       secondarySymbol = prism.gray(S_BAR),
       output = process.stdout,
       spacing = 1,
+      withGuide,
     }: LogMessageOptions = {}
   ) => {
+    const hasGuide = (withGuide ?? settings.withGuide) !== false;
     const parts: string[] = [];
+    const secondaryPrefix = hasGuide ? `${secondarySymbol}  ` : '';
     for (let i = 0; i < spacing; i++) {
       parts.push(`${secondarySymbol}`);
     }
@@ -39,9 +43,9 @@ export const log = {
       }
       for (const ln of lines) {
         if (ln.length > 0) {
-          parts.push(`${secondarySymbol}  ${ln}`);
+          parts.push(`${secondaryPrefix}${ln}`);
         } else {
-          parts.push(secondarySymbol);
+          parts.push(hasGuide ? secondarySymbol : '');
         }
       }
     }

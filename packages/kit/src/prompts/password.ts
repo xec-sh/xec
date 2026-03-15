@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { PasswordPrompt } from '../core/index.js';
+import { PasswordPrompt, settings } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -22,7 +22,9 @@ export const password = (opts: PasswordOptions) =>
     input: opts.input,
     output: opts.output,
     render() {
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+      const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
+      const title = `${titlePrefix}${opts.message}\n`;
       const userInput = this.userInputWithCursor;
       const masked = this.masked;
 
@@ -32,22 +34,27 @@ export const password = (opts: PasswordOptions) =>
           if (opts.clearOnError) {
             this.clear();
           }
-          return `${title.trim()}\n${prism.yellow(S_BAR)}${maskedText}\n${prism.yellow(
-            S_BAR_END
-          )}  ${prism.yellow(this.error)}\n`;
+          const errorPrefix = hasGuide ? prism.yellow(S_BAR) : '';
+          const errorEnd = hasGuide ? prism.yellow(S_BAR_END) : '';
+          return `${title.trim()}\n${errorPrefix}${maskedText}\n${errorEnd}  ${prism.yellow(this.error)}\n`;
         }
         case 'submit': {
           const maskedText = masked ? `  ${prism.dim(masked)}` : '';
-          return `${title}${prism.gray(S_BAR)}${maskedText}`;
+          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${submitPrefix}${maskedText}`;
         }
         case 'cancel': {
           const maskedText = masked ? `  ${prism.strikethrough(prism.dim(masked))}` : '';
-          return `${title}${prism.gray(S_BAR)}${maskedText}${
-            masked ? `\n${prism.gray(S_BAR)}` : ''
+          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${cancelPrefix}${maskedText}${
+            masked ? `\n${cancelPrefix}` : ''
           }`;
         }
-        default:
-          return `${title}${prism.cyan(S_BAR)}  ${userInput}\n${prism.cyan(S_BAR_END)}\n`;
+        default: {
+          const defaultPrefix = hasGuide ? `${prism.cyan(S_BAR)}  ` : '';
+          const defaultEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+          return `${title}${defaultPrefix}${userInput}\n${defaultEnd}\n`;
+        }
       }
     },
   }).prompt() as Promise<string | symbol>;

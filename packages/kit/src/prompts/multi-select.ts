@@ -1,14 +1,16 @@
 import prism from '../prism/index.js';
-import { MultiSelectPrompt } from '../core/index.js';
+import { MultiSelectPrompt, settings, wrapTextWithPrefix } from '../core/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
 import {
   S_BAR,
   symbol,
+  symbolBar,
   S_BAR_END,
   S_CHECKBOX_ACTIVE,
   type CommonOptions,
   S_CHECKBOX_INACTIVE,
   S_CHECKBOX_SELECTED,
+  computeLabel,
 } from '../utilities/common.js';
 
 import type { Option } from './select.js';
@@ -24,21 +26,31 @@ export interface MultiSelectOptions<Value> extends CommonOptions {
 export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
   const opt = (
     option: Option<Value>,
-    state: 'inactive' | 'active' | 'selected' | 'active-selected' | 'submitted' | 'cancelled'
+    state:
+      | 'inactive'
+      | 'active'
+      | 'selected'
+      | 'active-selected'
+      | 'submitted'
+      | 'cancelled'
+      | 'disabled'
   ) => {
     const label = option.label ?? String(option.value);
+    if (state === 'disabled') {
+      return `${prism.dim(S_CHECKBOX_INACTIVE)} ${computeLabel(label, (str) => prism.strikethrough(prism.dim(str)))}`;
+    }
     if (state === 'active') {
       return `${prism.cyan(S_CHECKBOX_ACTIVE)} ${label}${
         option.hint ? ` ${prism.dim(`(${option.hint})`)}` : ''
       }`;
     }
     if (state === 'selected') {
-      return `${prism.green(S_CHECKBOX_SELECTED)} ${prism.dim(label)}${
+      return `${prism.green(S_CHECKBOX_SELECTED)} ${computeLabel(label, prism.dim)}${
         option.hint ? ` ${prism.dim(`(${option.hint})`)}` : ''
       }`;
     }
     if (state === 'cancelled') {
-      return `${prism.strikethrough(prism.dim(label))}`;
+      return `${computeLabel(label, (str) => prism.strikethrough(prism.dim(str)))}`;
     }
     if (state === 'active-selected') {
       return `${prism.green(S_CHECKBOX_SELECTED)} ${label}${
@@ -46,9 +58,9 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
       }`;
     }
     if (state === 'submitted') {
-      return `${prism.dim(label)}`;
+      return `${computeLabel(label, prism.dim)}`;
     }
-    return `${prism.dim(S_CHECKBOX_INACTIVE)} ${prism.dim(label)}`;
+    return `${prism.dim(S_CHECKBOX_INACTIVE)} ${computeLabel(label, prism.dim)}`;
   };
   const required = opts.required ?? true;
 
@@ -72,10 +84,22 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
       return undefined;
     },
     render() {
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+      const titlePrefix = `${symbol(this.state)}  `;
+      const titlePrefixBar = `${symbolBar(this.state)}  `;
+      const wrappedMessage = wrapTextWithPrefix(
+        opts.output,
+        opts.message,
+        titlePrefixBar,
+        titlePrefix
+      );
+      const title = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${wrappedMessage}\n`;
       const value = this.value ?? [];
 
       const styleOption = (option: Option<Value>, active: boolean) => {
+        if (option.disabled) {
+          return opt(option, 'disabled');
+        }
         const selected = value.includes(option.value);
         if (active && selected) {
           return opt(option, 'active-selected');
@@ -88,7 +112,8 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
 
       switch (this.state) {
         case 'submit': {
-          return `${title}${prism.gray(S_BAR)}  ${
+          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${submitPrefix}  ${
             this.options
               .filter(({ value: optionValue }) => value.includes(optionValue))
               .map((option) => opt(option, 'submitted'))
@@ -96,37 +121,52 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
           }`;
         }
         case 'cancel': {
+          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
           const label = this.options
             .filter(({ value: optionValue }) => value.includes(optionValue))
             .map((option) => opt(option, 'cancelled'))
             .join(prism.dim(', '));
-          return `${title}${prism.gray(S_BAR)}${
-            label.trim() ? `  ${label}\n${prism.gray(S_BAR)}` : ''
+          return `${title}${cancelPrefix}${
+            label.trim() ? `  ${label}\n${cancelPrefix}` : ''
           }`;
         }
         case 'error': {
+          const errorBar = hasGuide ? prism.yellow(S_BAR) : '';
+          const errorEnd = hasGuide ? prism.yellow(S_BAR_END) : '';
+          const prefix = `${errorBar}  `;
           const footer = this.error
             .split('\n')
             .map((ln, i) =>
-              i === 0 ? `${prism.yellow(S_BAR_END)}  ${prism.yellow(ln)}` : `   ${ln}`
+              i === 0 ? `${errorEnd}  ${prism.yellow(ln)}` : `   ${ln}`
             )
             .join('\n');
-          return `${title + prism.yellow(S_BAR)}  ${limitOptions({
+          const titleLineCount = title.split('\n').length;
+          const footerLineCount = footer.split('\n').length + 1;
+          return `${title}${prefix}${limitOptions({
             output: opts.output,
             options: this.options,
             cursor: this.cursor,
             maxItems: opts.maxItems,
+            columnPadding: prefix.length,
+            rowPadding: titleLineCount + footerLineCount,
             style: styleOption,
-          }).join(`\n${prism.yellow(S_BAR)}  `)}\n${footer}\n`;
+          }).join(`\n${prefix}`)}\n${footer}\n`;
         }
         default: {
-          return `${title}${prism.cyan(S_BAR)}  ${limitOptions({
+          const barChar = hasGuide ? prism.cyan(S_BAR) : '';
+          const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+          const prefix = `${barChar}  `;
+          const titleLineCount = title.split('\n').length;
+          const footerLineCount = 2;
+          return `${title}${prefix}${limitOptions({
             output: opts.output,
             options: this.options,
             cursor: this.cursor,
             maxItems: opts.maxItems,
+            columnPadding: prefix.length,
+            rowPadding: titleLineCount + footerLineCount,
             style: styleOption,
-          }).join(`\n${prism.cyan(S_BAR)}  `)}\n${prism.cyan(S_BAR_END)}\n`;
+          }).join(`\n${prefix}`)}\n${barEnd}\n`;
         }
       }
     },
