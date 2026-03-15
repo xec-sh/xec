@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { log, text, prism, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
-import { SecretManager } from '@xec-sh/ops/secrets/index.js';
+import { SecretManager } from '@xec-sh/ops';
 import { ConfigAwareCommand } from '../utils/command-base.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 
@@ -534,7 +534,7 @@ export class SecretsCommand extends ConfigAwareCommand {
     s.start(`Generating ${length}-character secret`);
 
     try {
-      const { generateSecret } = await import('../secrets/crypto.js');
+      const { generateSecret } = await import('@xec-sh/ops');
       const value = generateSecret(length);
 
       await manager.set(key, value);

@@ -35,7 +35,7 @@ import type {
   Configuration,
   CommandConfig,
   ResolvedTarget,
-} from '@xec-sh/ops/config/types.js';
+} from '@xec-sh/ops';
 
 // Re-export commonly used items to global scope
 declare global {
@@ -47,35 +47,35 @@ declare global {
   const x: (spec: string) => Promise<any>;
 
   // Script utilities from @xec-sh/cli
-  const ps: typeof import('./utils/script-utils.js').ps;
-  const cd: typeof import('./utils/script-utils.js').cd;
-  const env: typeof import('./utils/script-utils.js').env;
-  const csv: typeof import('./utils/script-utils.js').csv;
-  const pwd: typeof import('./utils/script-utils.js').pwd;
-  const log: typeof import('./utils/script-utils.js').log;
-  const echo: typeof import('./utils/script-utils.js').echo;
-  const exit: typeof import('./utils/script-utils.js').exit;
-  const kill: typeof import('./utils/script-utils.js').kill;
-  const yaml: typeof import('./utils/script-utils.js').yaml;
-  const diff: typeof import('./utils/script-utils.js').diff;
-  const sleep: typeof import('./utils/script-utils.js').sleep;
-  const retry: typeof import('./utils/script-utils.js').retry;
-  const quote: typeof import('./utils/script-utils.js').quote;
-  const kit: typeof import('./utils/script-utils.js').kit;
-  const prism: typeof import('./utils/script-utils.js').prism;
-  const within: typeof import('./utils/script-utils.js').within;
-  const setEnv: typeof import('./utils/script-utils.js').setEnv;
-  const tmpdir: typeof import('./utils/script-utils.js').tmpdir;
-  const spinner: typeof import('./utils/script-utils.js').spinner;
-  const tmpfile: typeof import('./utils/script-utils.js').tmpfile;
-  const loadEnv: typeof import('./utils/script-utils.js').loadEnv;
-  const template: typeof import('./utils/script-utils.js').template;
-  const parseArgs: typeof import('./utils/script-utils.js').parseArgs;
-  const fs: typeof import('./utils/script-utils.js').fs;
-  const os: typeof import('./utils/script-utils.js').os;
-  const glob: typeof import('./utils/script-utils.js').glob;
-  const path: typeof import('./utils/script-utils.js').path;
-  const which: typeof import('./utils/script-utils.js').which;
+  const ps: typeof import('@xec-sh/ops').ps;
+  const cd: typeof import('@xec-sh/ops').cd;
+  const env: typeof import('@xec-sh/ops').env;
+  const csv: typeof import('@xec-sh/ops').csv;
+  const pwd: typeof import('@xec-sh/ops').pwd;
+  const log: typeof import('@xec-sh/ops').log;
+  const echo: typeof import('@xec-sh/ops').echo;
+  const exit: typeof import('@xec-sh/ops').exit;
+  const kill: typeof import('@xec-sh/ops').kill;
+  const yaml: typeof import('@xec-sh/ops').yaml;
+  const diff: typeof import('@xec-sh/ops').diff;
+  const sleep: typeof import('@xec-sh/ops').sleep;
+  const retry: typeof import('@xec-sh/ops').retry;
+  const quote: typeof import('@xec-sh/ops').quote;
+  const kit: typeof import('@xec-sh/ops').kit;
+  const prism: typeof import('@xec-sh/ops').prism;
+  const within: typeof import('@xec-sh/ops').within;
+  const setEnv: typeof import('@xec-sh/ops').setEnv;
+  const tmpdir: typeof import('@xec-sh/ops').tmpdir;
+  const spinner: typeof import('@xec-sh/ops').spinner;
+  const tmpfile: typeof import('@xec-sh/ops').tmpfile;
+  const loadEnv: typeof import('@xec-sh/ops').loadEnv;
+  const template: typeof import('@xec-sh/ops').template;
+  const parseArgs: typeof import('@xec-sh/ops').parseArgs;
+  const fs: typeof import('@xec-sh/ops').fs;
+  const os: typeof import('@xec-sh/ops').os;
+  const glob: typeof import('@xec-sh/ops').glob;
+  const path: typeof import('@xec-sh/ops').path;
+  const which: typeof import('@xec-sh/ops').which;
 
   // Make ALL types from @xec-sh/core available in global namespace
   // This automatically includes all current and future types

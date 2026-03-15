@@ -49,7 +49,9 @@
     "@xec-sh/kit": "workspace:*",
     "@xec-sh/loader": "workspace:*",
     "@xec-sh/ops": "workspace:*",
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "glob": "^13.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

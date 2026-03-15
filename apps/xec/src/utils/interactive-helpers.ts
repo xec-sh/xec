@@ -11,9 +11,9 @@ import {
   multiselect
 } from '@xec-sh/kit';
 
-import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
+import { ConfigurationManager } from '@xec-sh/ops';
 
-import type { PodConfig, HostConfig, TargetType, ResolvedTarget, ContainerConfig } from '@xec-sh/ops/config/types.js';
+import type { PodConfig, HostConfig, TargetType, ResolvedTarget, ContainerConfig } from '@xec-sh/ops';
 
 export interface InteractiveOptions {
   interactive?: boolean;

@@ -36,14 +36,14 @@ import {
   path,
   fetch,
   which,
-} from './utils/script-utils.js';
+} from '@xec-sh/ops';
 
 export { fs, os, glob, path, fetch, which };
 
 // ========================================
 // EXPORT ADVANCED UTILITIES
 // ========================================
-export { createTargetEngine } from './utils/direct-execution.js';
+export { createTargetEngine } from '@xec-sh/ops';
 // ========================================
 // RE-EXPORT CLI SCRIPT UTILITIES
 // ========================================
@@ -74,7 +74,7 @@ export {
   loadEnv,
   template,
   parseArgs,
-} from './utils/script-utils.js';
+} from '@xec-sh/ops';
 
 // ========================================
 // RE-EXPORT GLOBAL NAMESPACE
@@ -92,4 +92,4 @@ export type {
   Configuration,
   CommandConfig,
   ResolvedTarget,
-} from '@xec-sh/ops/config/types.js';
+} from '@xec-sh/ops';

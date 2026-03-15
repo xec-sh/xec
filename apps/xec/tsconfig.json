@@ -5,14 +5,12 @@
     "baseUrl": "./src",
     "rootDir": "./src",
     "outDir": "./dist",
-    "lib": [
-      "ESNext"
-    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
     "noImplicitAny": false
   },
-  "include": [
-    "src/**/*.ts"
-  ],
+  "include": ["src/**/*.ts"],
   "exclude": [
     "**/*spec.ts",
     "src/commands/disabled/**/*",

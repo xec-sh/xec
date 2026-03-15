@@ -12,14 +12,14 @@ import { createRequire } from 'module';
 import { ModuleLoader } from '@xec-sh/loader';
 import { prism, select, confirm } from '@xec-sh/kit';
 
-import { formatBytes } from '@xec-sh/ops/utils/formatters.js';
-import { getModuleCacheDir } from '@xec-sh/ops/config/utils.js';
-import { TaskManager } from '@xec-sh/ops/config/task-manager.js';
-import { TargetResolver } from '@xec-sh/ops/config/target-resolver.js';
+import { formatBytes } from '@xec-sh/ops';
+import { getModuleCacheDir } from '@xec-sh/ops';
+import { TaskManager } from '@xec-sh/ops';
+import { TargetResolver } from '@xec-sh/ops';
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
-import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
-import { VariableInterpolator } from '@xec-sh/ops/config/variable-interpolator.js';
+import { ConfigurationManager } from '@xec-sh/ops';
+import { VariableInterpolator } from '@xec-sh/ops';
 
 interface InspectOptions extends CommandOptions {
   filter?: string;

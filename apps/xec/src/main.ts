@@ -5,10 +5,10 @@ import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { checkForCommandTypo } from '@xec-sh/core';
 
-import { handleError } from './utils/error-handler.js';
+import { handleError } from '@xec-sh/ops';
 import { customizeHelp } from './utils/help-customizer.js';
-import { TaskManager, ConfigurationManager } from '@xec-sh/ops/config/index.js';
-import { isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
+import { TaskManager, ConfigurationManager } from '@xec-sh/ops';
+import { isDirectCommand, executeDirectCommand } from '@xec-sh/ops';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { saveCommandHistory, initializeCommandPalette } from './utils/command-palette.js';
 
@@ -262,17 +262,17 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
 // Helper functions for direct script execution
 async function runScriptDirectly(scriptPath: string, args: string[], options: any) {
-  const { executeScript } = await import('./utils/script-loader.js');
+  const { executeScript } = await import('@xec-sh/ops');
   await executeScript(scriptPath, { ...options, context: { args } });
 }
 
 async function evalCodeDirectly(code: string, args: string[], options: any) {
-  const { evaluateCode } = await import('./utils/script-loader.js');
+  const { evaluateCode } = await import('@xec-sh/ops');
   await evaluateCode(code, { ...options, context: { args } });
 }
 
 async function startReplDirectly(options: any) {
-  const { startRepl } = await import('./utils/script-loader.js');
+  const { startRepl } = await import('@xec-sh/ops');
   await startRepl(options);
 }
 

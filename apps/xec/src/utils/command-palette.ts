@@ -9,8 +9,8 @@ const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
 };
 import { execSync } from 'child_process';
 
-import { TaskManager } from '@xec-sh/ops/config/task-manager.js';
-import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
+import { TaskManager } from '@xec-sh/ops';
+import { ConfigurationManager } from '@xec-sh/ops';
 
 export interface CommandPaletteItem {
   id: string;
@@ -487,7 +487,7 @@ export class CommandPalette {
    * Select a script file
    */
   private static async selectScript(): Promise<string | null> {
-    const { selectFiles } = await import('./file-helpers.js');
+    const { selectFiles } = await import('@xec-sh/ops');
     const files = await selectFiles({
       title: 'Select script to run',
       multiple: false,

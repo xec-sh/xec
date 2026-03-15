@@ -4,13 +4,13 @@ import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 
-import { parseTimeout } from '@xec-sh/ops/utils/time.js';
-import { validateOptions } from '@xec-sh/ops/utils/validation.js';
+import { parseTimeout } from '@xec-sh/ops';
+import { validateOptions } from '@xec-sh/ops';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
-import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops/adapters/loader-adapter.js';
+import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
-import type { ResolvedTarget } from '@xec-sh/ops/config/types.js';
+import type { ResolvedTarget } from '@xec-sh/ops';
 
 interface InOptions extends ConfigAwareOptions, InteractiveOptions {
   task?: string;

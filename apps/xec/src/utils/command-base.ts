@@ -3,11 +3,11 @@ import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
 
-import { handleError } from '@xec-sh/ops/utils/error-handler.js';
-import { OutputFormatter } from '@xec-sh/ops/utils/output-formatter.js';
-import { TaskManager, TargetResolver, ConfigurationManager } from '@xec-sh/ops/config/index.js';
+import { handleError } from '@xec-sh/ops';
+import { OutputFormatter } from '@xec-sh/ops';
+import { TaskManager, TargetResolver, ConfigurationManager } from '@xec-sh/ops';
 
-import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops/config/types.js';
+import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
 
 export interface CommandOptions {
   verbose?: boolean;
