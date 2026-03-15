@@ -62,19 +62,7 @@ const config: Config = {
             [require('rehype-katex'), { strict: false }],
           ],
         },
-        blog: {
-          showReadingTime: true,
-          editUrl: 'https://github.com/xec-sh/xec/tree/main/docs/',
-          feedOptions: {
-            type: ['rss', 'atom'],
-            xslt: true,
-          },
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
-          remarkPlugins: [
-            [require('remark-math'), { strict: false }],
-          ],
+        blog: false as any, // Disabled
           rehypePlugins: [
             [require('rehype-katex'), { strict: false }],
           ],
@@ -114,9 +102,8 @@ const config: Config = {
         highlightSearchTermsOnTargetPage: true,
         explicitSearchResultPath: true,
         docsRouteBasePath: '/docs',
-        blogRouteBasePath: '/blog',
         indexDocs: true,
-        indexBlog: true,
+        indexBlog: false,
         indexPages: false,
         removeDefaultStopWordFilter: false,
         removeDefaultStemmer: false,
@@ -167,11 +154,6 @@ const config: Config = {
           sidebarId: 'docsSidebar',
           position: 'left',
           label: 'Docs',
-        },
-        {
-          to: '/blog',
-          label: 'Blog',
-          position: 'left',
         },
         {
           href: 'https://github.com/xec-sh/xec',
@@ -252,10 +234,6 @@ const config: Config = {
         {
           title: 'Project',
           items: [
-            {
-              label: 'Blog',
-              to: '/blog',
-            },
             {
               label: 'Roadmap',
               href: 'https://github.com/xec-sh/xec/projects',
