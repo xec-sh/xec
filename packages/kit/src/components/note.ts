@@ -3,7 +3,7 @@ import type { Writable } from 'node:stream';
 import process from 'node:process';
 
 import prism from '../prism/index.js';
-import { getColumns } from '../core/index.js';
+import { getColumns, settings } from '../core/index.js';
 import stringWidth from '../core/utils/string-width.js';
 import { wrapAnsi, WrapAnsiOptions } from '../core/utils/wrap-ansi.js';
 import {
@@ -38,6 +38,8 @@ const wrapWithFormat = (message: string, width: number, format: FormatFn): strin
 export const note = (message = '', title = '', opts?: NoteOptions) => {
   const output: Writable = opts?.output ?? process.stdout;
   const format = opts?.format ?? defaultNoteFormatter;
+  const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+  const leadingBorder = hasGuide ? `${prism.gray(S_BAR)}\n` : '';
   const wrapMsg = wrapWithFormat(message, getColumns(output) - 6, format);
   const lines = ['', ...wrapMsg.split('\n').map(format), ''];
   const titleLen = stringWidth(title);
@@ -55,7 +57,7 @@ export const note = (message = '', title = '', opts?: NoteOptions) => {
     )
     .join('\n');
   output.write(
-    `${prism.gray(S_BAR)}\n${prism.green(S_STEP_SUBMIT)}  ${prism.reset(title)} ${prism.gray(
+    `${leadingBorder}${prism.green(S_STEP_SUBMIT)}  ${prism.reset(title)} ${prism.gray(
       S_BAR_H.repeat(Math.max(len - titleLen - 1, 1)) + S_CORNER_TOP_RIGHT
     )}\n${msg}\n${prism.gray(S_CONNECT_LEFT + S_BAR_H.repeat(len + 2) + S_CORNER_BOTTOM_RIGHT)}\n`
   );

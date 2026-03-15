@@ -70,9 +70,14 @@ export function progress({
   };
   return {
     start,
-    stop: spin.stop,
+    stop: (msg?: string) => spin.stop(msg),
+    cancel: (msg?: string) => spin.cancel(msg),
+    error: (msg?: string) => spin.error(msg),
+    clear: () => spin.clear(),
     advance,
-    isCancelled: spin.isCancelled,
-    message: (msg: string) => advance(0, msg),
+    get isCancelled() {
+      return spin.isCancelled;
+    },
+    message: (msg?: string) => advance(0, msg),
   };
 }

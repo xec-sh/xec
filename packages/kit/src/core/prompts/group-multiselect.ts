@@ -70,20 +70,28 @@ export default class GroupMultiSelectPrompt<T extends { value: any }> extends Pr
       switch (key) {
         case 'left':
         case 'up': {
-          this.cursor = this.cursor === 0 ? this.options.length - 1 : this.cursor - 1;
-          const currentIsGroup = this.options[this.cursor]?.group === true;
-          if (!this.#selectableGroups && currentIsGroup) {
+          let attempts = this.options.length;
+          do {
             this.cursor = this.cursor === 0 ? this.options.length - 1 : this.cursor - 1;
-          }
+            attempts--;
+          } while (
+            !this.#selectableGroups &&
+            this.options[this.cursor]?.group === true &&
+            attempts > 0
+          );
           break;
         }
         case 'down':
         case 'right': {
-          this.cursor = this.cursor === this.options.length - 1 ? 0 : this.cursor + 1;
-          const currentIsGroup = this.options[this.cursor]?.group === true;
-          if (!this.#selectableGroups && currentIsGroup) {
+          let attempts = this.options.length;
+          do {
             this.cursor = this.cursor === this.options.length - 1 ? 0 : this.cursor + 1;
-          }
+            attempts--;
+          } while (
+            !this.#selectableGroups &&
+            this.options[this.cursor]?.group === true &&
+            attempts > 0
+          );
           break;
         }
         case 'space':

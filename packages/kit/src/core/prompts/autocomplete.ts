@@ -1,11 +1,13 @@
 import type { Key } from 'node:readline';
 
 import prism from '../../prism/index.js';
+import { findCursor } from '../utils/cursor.js';
 import Prompt, { type PromptOptions } from './prompt.js';
 
 interface OptionLike {
   value: unknown;
   label?: string;
+  disabled?: boolean;
 }
 
 type FilterFunction<T extends OptionLike> = (search: string, opt: T) => boolean;
@@ -142,12 +144,9 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
     const isDownKey = key.name === 'down';
     const isReturnKey = key.name === 'return';
 
-    // Start navigation mode with up/down arrows
+    // Start navigation mode with up/down arrows (wraparound + skip disabled)
     if (isUpKey || isDownKey) {
-      this.#cursor = Math.max(
-        0,
-        Math.min(this.#cursor + (isUpKey ? -1 : 1), this.filteredOptions.length - 1)
-      );
+      this.#cursor = findCursor(this.#cursor, isUpKey ? -1 : 1, this.filteredOptions);
       this.focusedValue = this.filteredOptions[this.#cursor]?.value;
       if (!this.multiple) {
         this.selectedValues = [this.focusedValue];
@@ -205,7 +204,8 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
       } else {
         this.filteredOptions = [...options];
       }
-      this.#cursor = getCursorForValue(this.focusedValue, this.filteredOptions);
+      const valueCursor = getCursorForValue(this.focusedValue, this.filteredOptions);
+      this.#cursor = findCursor(valueCursor, 0, this.filteredOptions);
       this.focusedValue = this.filteredOptions[this.#cursor]?.value;
       if (!this.multiple) {
         if (this.focusedValue !== undefined) {

@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { GroupMultiSelectPrompt } from '../core/index.js';
+import { GroupMultiSelectPrompt, settings } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -101,7 +101,9 @@ export const groupMultiselect = <Value>(opts: GroupMultiSelectOptions<Value>) =>
       return undefined;
     },
     render() {
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+      const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
+      const title = `${titlePrefix}${opts.message}\n`;
       const value = this.value ?? [];
 
       switch (this.state) {

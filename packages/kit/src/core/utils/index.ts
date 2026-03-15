@@ -6,9 +6,11 @@ import { ReadStream } from 'node:tty';
 import * as readline from 'node:readline';
 import { stdin, stdout } from 'node:process';
 
+import { wrapAnsi } from './wrap-ansi.js';
 import { isActionKey } from './settings.js';
 
 export * from './string.js';
+export * from './cursor.js';
 export * from './settings.js';
 
 const isWindows = globalThis.process.platform.startsWith('win');
@@ -98,3 +100,22 @@ export const getRows = (output: Writable): number => {
   }
   return 20;
 };
+
+export function wrapTextWithPrefix(
+  output: Writable | undefined,
+  text: string,
+  prefix: string,
+  startPrefix: string = prefix
+): string {
+  const columns = getColumns(output ?? stdout);
+  const wrapped = wrapAnsi(text, columns - prefix.length, {
+    hard: true,
+    trim: false,
+  });
+  return wrapped
+    .split('\n')
+    .map((line: string, index: number) => {
+      return `${index === 0 ? startPrefix : prefix}${line}`;
+    })
+    .join('\n');
+}

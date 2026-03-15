@@ -30,26 +30,24 @@ export const group = async <T>(
   prompts: PromptGroup<T>,
   opts?: PromptGroupOptions<T>
 ): Promise<Prettify<PromptGroupAwaitedReturn<T>>> => {
-  const results = {} as any;
+  const results: Record<string, unknown> = {};
   const promptNames = Object.keys(prompts);
 
   for (const name of promptNames) {
     const prompt = prompts[name as keyof T];
-    const result = await prompt({ results })?.catch((e) => {
-      throw e;
-    });
+    const result = await prompt({ results } as Parameters<typeof prompt>[0]);
 
     // Pass the results to the onCancel function
     // so the user can decide what to do with the results
     // TODO: Switch to callback within core to avoid isCancel Fn
     if (typeof opts?.onCancel === 'function' && isCancel(result)) {
       results[name] = 'canceled';
-      opts.onCancel({ results });
+      opts.onCancel({ results } as Parameters<typeof opts.onCancel>[0]);
       continue;
     }
 
     results[name] = result;
   }
 
-  return results;
+  return results as Prettify<PromptGroupAwaitedReturn<T>>;
 };

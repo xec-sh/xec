@@ -47,8 +47,8 @@ export const limitOptions = <TOption>(params: LimitOptionsParams<TOption>): stri
 
   const paramMaxItems = params.maxItems ?? Number.POSITIVE_INFINITY;
   const outputMaxItems = Math.max(rows - rowPadding, 0);
-  // We clamp to minimum 5 because anything less doesn't make sense UX wise
-  const maxItems = Math.max(paramMaxItems, 5);
+  // Use the smaller of user-specified and terminal-computed limits, with minimum 5 for UX
+  const maxItems = Math.min(paramMaxItems, Math.max(outputMaxItems, 5));
   let slidingWindowLocation = 0;
 
   if (cursor >= maxItems - 3) {

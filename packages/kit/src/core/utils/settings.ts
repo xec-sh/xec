@@ -1,6 +1,21 @@
 const actions = ['up', 'down', 'left', 'right', 'space', 'enter', 'cancel'] as const;
 export type Action = (typeof actions)[number];
 
+const DEFAULT_MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 /** Global settings for Clack programs, stored in memory */
 interface InternalClackSettings {
   actions: Set<Action>;
@@ -8,6 +23,16 @@ interface InternalClackSettings {
   messages: {
     cancel: string;
     error: string;
+  };
+  withGuide: boolean;
+  date: {
+    monthNames: string[];
+    messages: {
+      invalidMonth: string;
+      invalidDay: (days: number, month: string) => string;
+      afterMin: (min: Date) => string;
+      beforeMax: (max: Date) => string;
+    };
   };
 }
 
@@ -26,6 +51,16 @@ export const settings: InternalClackSettings = {
   messages: {
     cancel: 'Canceled',
     error: 'Something went wrong',
+  },
+  withGuide: true,
+  date: {
+    monthNames: [...DEFAULT_MONTH_NAMES],
+    messages: {
+      invalidMonth: 'There are only 12 months in a year',
+      invalidDay: (days, month) => `There are only ${days} days in ${month}`,
+      afterMin: (min) => `Date must be on or after ${min.toISOString().slice(0, 10)}`,
+      beforeMax: (max) => `Date must be on or before ${max.toISOString().slice(0, 10)}`,
+    },
   },
 };
 
@@ -54,6 +89,30 @@ export interface ClackSettings {
      */
     error?: string;
   };
+
+  /**
+   * Whether to show the guide border on prompts
+   * @default true
+   */
+  withGuide?: boolean;
+
+  /**
+   * Date prompt localization
+   */
+  date?: {
+    /** Month names for validation messages (January, February, ...) */
+    monthNames?: string[];
+    messages?: {
+      /** Shown when month > 12 */
+      invalidMonth?: string;
+      /** (days, monthName) => message for invalid day */
+      invalidDay?: (days: number, month: string) => string;
+      /** (min) => message when date is before minDate */
+      afterMin?: (min: Date) => string;
+      /** (max) => message when date is after maxDate */
+      beforeMax?: (max: Date) => string;
+    };
+  };
 }
 
 export function updateSettings(updates: ClackSettings) {
@@ -79,6 +138,31 @@ export function updateSettings(updates: ClackSettings) {
     }
     if (messages.error !== undefined) {
       settings.messages.error = messages.error;
+    }
+  }
+
+  if (updates.withGuide !== undefined) {
+    settings.withGuide = updates.withGuide !== false;
+  }
+
+  if (updates.date !== undefined) {
+    const date = updates.date;
+    if (date.monthNames !== undefined) {
+      settings.date.monthNames = [...date.monthNames];
+    }
+    if (date.messages !== undefined) {
+      if (date.messages.invalidMonth !== undefined) {
+        settings.date.messages.invalidMonth = date.messages.invalidMonth;
+      }
+      if (date.messages.invalidDay !== undefined) {
+        settings.date.messages.invalidDay = date.messages.invalidDay;
+      }
+      if (date.messages.afterMin !== undefined) {
+        settings.date.messages.afterMin = date.messages.afterMin;
+      }
+      if (date.messages.beforeMax !== undefined) {
+        settings.date.messages.beforeMax = date.messages.beforeMax;
+      }
     }
   }
 }

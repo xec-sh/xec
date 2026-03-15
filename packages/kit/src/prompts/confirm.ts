@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { ConfirmPrompt } from '../core/index.js';
+import { ConfirmPrompt, settings } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -14,6 +14,7 @@ export interface ConfirmOptions extends CommonOptions {
   active?: string;
   inactive?: string;
   initialValue?: boolean;
+  vertical?: boolean;
 }
 export const confirm = (opts: ConfirmOptions) => {
   const active = opts.active ?? 'Yes';
@@ -26,26 +27,37 @@ export const confirm = (opts: ConfirmOptions) => {
     output: opts.output,
     initialValue: opts.initialValue ?? true,
     render() {
-      const title = `${prism.gray(S_BAR)}\n${symbol(this.state)}  ${opts.message}\n`;
+      const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+      const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
+      const title = `${titlePrefix}${opts.message}\n`;
       const value = this.value ? active : inactive;
 
       switch (this.state) {
-        case 'submit':
-          return `${title}${prism.gray(S_BAR)}  ${prism.dim(value)}`;
-        case 'cancel':
-          return `${title}${prism.gray(S_BAR)}  ${prism.strikethrough(
+        case 'submit': {
+          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${submitPrefix}  ${prism.dim(value)}`;
+        }
+        case 'cancel': {
+          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
+          return `${title}${cancelPrefix}  ${prism.strikethrough(
             prism.dim(value)
-          )}\n${prism.gray(S_BAR)}`;
+          )}\n${cancelPrefix}`;
+        }
         default: {
-          return `${title}${prism.cyan(S_BAR)}  ${
-            this.value
-              ? `${prism.green(S_RADIO_ACTIVE)} ${active}`
-              : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(active)}`
-          } ${prism.dim('/')} ${
-            !this.value
-              ? `${prism.green(S_RADIO_ACTIVE)} ${inactive}`
-              : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(inactive)}`
-          }\n${prism.cyan(S_BAR_END)}\n`;
+          const barChar = hasGuide ? prism.cyan(S_BAR) : '';
+          const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+          const separator = opts.vertical
+            ? (hasGuide ? `\n${barChar}  ` : '\n')
+            : ` ${prism.dim('/')} `;
+
+          const activeOption = this.value
+            ? `${prism.green(S_RADIO_ACTIVE)} ${active}`
+            : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(active)}`;
+          const inactiveOption = !this.value
+            ? `${prism.green(S_RADIO_ACTIVE)} ${inactive}`
+            : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(inactive)}`;
+
+          return `${title}${barChar}  ${activeOption}${separator}${inactiveOption}\n${barEnd}\n`;
         }
       }
     },
