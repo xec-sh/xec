@@ -34,15 +34,12 @@ xec/
 
 ### Package Dependencies
 
-```mermaid
-graph TD
-    CLI["@xec-sh/cli"] --> OPS["@xec-sh/ops"]
-    CLI --> KIT["@xec-sh/kit"]
-    OPS --> CORE["@xec-sh/core"]
-    OPS --> LOADER["@xec-sh/loader"]
-    OPS --> KIT
-    LOADER --> KIT
-    CORE --> TEST["@xec-sh/testing"]
+```
+@xec-sh/cli ──→ @xec-sh/ops ──→ @xec-sh/core
+     │               │                │
+     └──→ @xec-sh/kit ←── @xec-sh/loader
+                                       │
+                            @xec-sh/testing
 ```
 
 ## Core Components
@@ -167,7 +164,7 @@ async function main() {
 
 ### Command Execution Flow
 
-```mermaid
+```
 sequenceDiagram
     participant User
     participant CLI
@@ -187,7 +184,7 @@ sequenceDiagram
 
 ### Configuration Loading
 
-```mermaid
+```
 graph LR
     A[CLI Args] --> D[Config Resolver]
     B[Config File] --> D
@@ -247,7 +244,7 @@ class TimeoutError extends XecError {}
 
 ### Error Flow
 
-```mermaid
+```
 graph TD
     A[Command Execution] --> B{Success?}
     B -->|Yes| C[Return Result]
@@ -471,7 +468,7 @@ describe('SSH Integration', () => {
 
 ### Package Publishing
 
-```mermaid
+```
 graph LR
     A[Git Push] --> B[CI/CD Pipeline]
     B --> C[Build & Test]
@@ -500,7 +497,7 @@ graph LR
 
 ### Extensibility Roadmap
 
-```mermaid
+```
 graph TD
     A[Current] --> B[Plugin System]
     B --> C[Marketplace]
