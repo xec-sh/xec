@@ -50,7 +50,9 @@
     "@xec-sh/loader": "workspace:*",
     "@xec-sh/ops": "workspace:*",
     "commander": "^14.0.2",
+    "fs-extra": "^11.3.3",
     "glob": "^13.0.0",
+    "js-yaml": "^4.1.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
