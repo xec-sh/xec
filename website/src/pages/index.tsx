@@ -8,16 +8,15 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 
 function HomepageHeader() {
-  const { siteConfig } = useDocusaurusContext();
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <h1 className="hero__title">
-          <Translate id="homepage.title">Universal Command Execution for the Modern Stack</Translate>
+          <Translate id="homepage.title">Universal Execution System for TypeScript</Translate>
         </h1>
         <p className="hero__subtitle">
           <Translate id="homepage.tagline">
-            One execution API for local, SSH, Docker, and Kubernetes environments. Write once in TypeScript, run anywhere.
+            Execute commands across local, SSH, Docker, and Kubernetes with a single API. Deploy, orchestrate, and automate — all in TypeScript.
           </Translate>
         </p>
         <div className={styles.buttons}>
@@ -25,14 +24,14 @@ function HomepageHeader() {
             className="button button--secondary button--lg"
             to="/docs/introduction/quick-start">
             <Translate id="homepage.getStarted">
-              Get Started - 5min ⏱️
+              Get Started — 5min ⏱️
             </Translate>
           </Link>
           <Link
             className="button button--outline button--secondary button--lg margin-left--md"
-            to="/docs/introduction/">
+            to="/docs/introduction/ecosystem">
             <Translate id="homepage.learnMore">
-              Learn More
+              Explore Ecosystem
             </Translate>
           </Link>
         </div>
@@ -40,26 +39,19 @@ function HomepageHeader() {
           <pre>
             <code>
               {`import { $ } from '@xec-sh/core';
+import { Deployer, Pipeline, HealthChecker } from '@xec-sh/ops';
 
-// Local execution
+// Execute anywhere
 await $\`npm run build\`;
+await $.ssh({ host: 'prod' })\`systemctl restart app\`;
+await $.docker({ container: 'api' })\`python migrate.py\`;
 
-// SSH execution with connection pooling
-await $.ssh({
-  host: 'prod-server',
-  username: 'deploy'
-})\`systemctl restart app\`;
-
-// Docker container execution
-await $.docker({
-  container: 'my-app'
-})\`python manage.py migrate\`;
-
-// Kubernetes pod execution  
-await $.k8s({
-  pod: 'app-pod',
-  namespace: 'production'
-})\`kubectl rollout status deployment/app\`;`}
+// Deploy with health checks
+await Deployer.create({
+  targets: ['web-1', 'web-2'],
+  strategy: 'rolling',
+  hooks: { deploy: (ctx) => ctx.exec\`docker pull app:\${ctx.version}\` }
+}).deploy('v1.2.3');`}
             </code>
           </pre>
         </div>
@@ -69,15 +61,14 @@ await $.k8s({
 }
 
 export default function Home(): JSX.Element {
-  const { siteConfig } = useDocusaurusContext();
   const pageDescription = translate({
     id: 'homepage.description',
-    message: 'Xec is a universal command execution system with a powerful TypeScript-native API. Execute commands seamlessly across local, SSH, Docker, and Kubernetes environments through a unified execution engine with enterprise features like connection pooling, retry logic, and parallel execution.',
+    message: 'Xec is a TypeScript-native execution system with 6 packages: core (shell execution), ops (deploy, pipelines, workflows), kit (TUI components), loader (script loading), testing (test utilities), and cli (command-line interface).',
   });
 
   return (
     <Layout
-      title={translate({ id: 'homepage.layoutTitle', message: 'Universal Command Execution System' })}
+      title={translate({ id: 'homepage.layoutTitle', message: 'Universal Execution System' })}
       description={pageDescription}>
       <HomepageHeader />
       <main>
@@ -85,193 +76,93 @@ export default function Home(): JSX.Element {
 
         <section className={styles.ecosystem}>
           <div className="container">
-            <div className="row">
-              <div className="col col--12">
-                <h2 className={styles.ecosystemTitle}>
-                  <Translate id="homepage.ecosystem.title">
-                    Unified Ecosystem
-                  </Translate>
-                </h2>
-                <p className={styles.ecosystemDescription}>
-                  <Translate id="homepage.ecosystem.description">
-                    A powerful core package and CLI working together to execute commands and automate tasks across any environment
-                  </Translate>
-                </p>
-              </div>
-            </div>
+            <h2 className={clsx('text--center', styles.ecosystemTitle)}>
+              <Translate id="homepage.ecosystem.title">
+                6 Packages, One Ecosystem
+              </Translate>
+            </h2>
 
             <div className="row margin-top--lg">
-              <div className="col col--6">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>Xec CLI</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>
-                      <Translate id="homepage.cli.description">
-                        Command-line interface with built-in commands, dynamic command loading, and full TypeScript/JavaScript scripting support.
-                      </Translate>
-                    </p>
-                  </div>
-                  <div className="card__footer">
-                    <Link to="/docs/commands/cli-reference" className="button button--primary button--block">
-                      <Translate id="homepage.exploreCliDocs">Explore CLI Docs</Translate>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col col--6">
+              <div className="col col--4">
                 <div className={clsx('card', styles.packageCard)}>
                   <div className="card__header">
                     <h3>@xec-sh/core</h3>
                   </div>
                   <div className="card__body">
-                    <p>
-                      <Translate id="homepage.core.description">
-                        Powerful execution engine with template literal syntax, multi-environment adapters, connection pooling, and enterprise features.
-                      </Translate>
-                    </p>
+                    <p>Shell execution engine — <code>$`cmd`</code>, SSH, Docker, Kubernetes adapters, connection pooling, streaming.</p>
                   </div>
                   <div className="card__footer">
                     <Link to="/docs/core/execution-engine/overview" className="button button--primary button--block">
-                      <Translate id="homepage.exploreCoreDocs">Explore Core Docs</Translate>
+                      Core Docs
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col col--4">
+                <div className={clsx('card', styles.packageCard)}>
+                  <div className="card__header">
+                    <h3>@xec-sh/ops</h3>
+                  </div>
+                  <div className="card__body">
+                    <p>DevOps library — deploy strategies, CI/CD pipelines, DAG workflows, health checks, infrastructure discovery.</p>
+                  </div>
+                  <div className="card__footer">
+                    <Link to="/docs/ops/" className="button button--primary button--block">
+                      Ops Docs
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col col--4">
+                <div className={clsx('card', styles.packageCard)}>
+                  <div className="card__header">
+                    <h3>@xec-sh/cli</h3>
+                  </div>
+                  <div className="card__body">
+                    <p>Command-line tool — thin wrapper over @xec-sh/ops. Commands: run, on, in, deploy, watch, tasks, config.</p>
+                  </div>
+                  <div className="card__footer">
+                    <Link to="/docs/commands/cli-reference" className="button button--primary button--block">
+                      CLI Docs
                     </Link>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section className={styles.useCases}>
-          <div className="container">
-            <h2 className="text--center margin-bottom--xl">
-              <Translate id="homepage.useCases.title">
-                Built for Real-World Challenges
-              </Translate>
-            </h2>
-            <div className="row">
-              <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.multiEnv.title">
-                      Multi-Environment Execution
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.multiEnv.description">
-                      Same code runs everywhere - from local development to cloud production. No more environment-specific scripts.
-                    </Translate>
-                  </p>
+            <div className="row margin-top--md">
+              <div className="col col--4">
+                <div className={clsx('card', styles.packageCard)}>
+                  <div className="card__header">
+                    <h3>@xec-sh/kit</h3>
+                  </div>
+                  <div className="card__body">
+                    <p>TUI components — prompts, spinners, tables, progress bars, Prism color system. Zero external dependencies.</p>
+                  </div>
                 </div>
               </div>
-              <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.infrastructure.title">
-                      Infrastructure Management
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.infrastructure.description">
-                      Control servers, containers, and clusters with unified commands. SSH pooling and Docker lifecycle management built-in.
-                    </Translate>
-                  </p>
-                </div>
-              </div>
-              <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.cicd.title">
-                      CI/CD Pipelines
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.cicd.description">
-                      Build sophisticated deployment workflows with TypeScript. Full control with proper error handling and retry logic.
-                    </Translate>
-                  </p>
-                </div>
-              </div>
-              <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.devops.title">
-                      DevOps Automation
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.devops.description">
-                      Automate operations with TypeScript safety. Parallel execution, event monitoring, and audit logging included.
-                    </Translate>
-                  </p>
-                </div>
-              </div>
-              <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.testing.title">
-                      Cross-Platform Testing
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.testing.description">
-                      Test on multiple environments simultaneously. Execute test suites across different containers and configurations.
-                    </Translate>
-                  </p>
-                </div>
-              </div>
-              <div className="col col--6">
-                <div className={styles.useCase}>
-                  <h3>
-                    <Translate id="homepage.useCases.hybrid.title">
-                      Hybrid Cloud Operations
-                    </Translate>
-                  </h3>
-                  <p>
-                    <Translate id="homepage.useCases.hybrid.description">
-                      Manage mixed infrastructure seamlessly. Execute across on-premise servers and cloud containers with one API.
-                    </Translate>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
-        <section className={styles.problemSolution}>
-          <div className="container">
-            <h2 className="text--center margin-bottom--xl">
-              <Translate id="homepage.problemSolution.title">
-                Solving Real Problems
-              </Translate>
-            </h2>
-            <div className="row">
-              <div className="col col--6">
-                <div className={styles.problem}>
-                  <h3>❌ The Problem</h3>
-                  <ul>
-                    <li>Different APIs for local/remote execution</li>
-                    <li>SSH connection management is complex</li>
-                    <li>Docker commands are verbose</li>
-                    <li>Kubernetes kubectl is cumbersome</li>
-                    <li>Can't execute across environments</li>
-                    <li>No type safety in shell scripts</li>
-                  </ul>
+              <div className="col col--4">
+                <div className={clsx('card', styles.packageCard)}>
+                  <div className="card__header">
+                    <h3>@xec-sh/loader</h3>
+                  </div>
+                  <div className="card__body">
+                    <p>Script loading — TypeScript transform, CDN modules, REPL, file watcher, plugin system.</p>
+                  </div>
                 </div>
               </div>
-              <div className="col col--6">
-                <div className={styles.solution}>
-                  <h3>✅ The Xec Solution</h3>
-                  <ul>
-                    <li>Single unified execution API</li>
-                    <li>Built-in connection pooling</li>
-                    <li>Simple $.docker() interface</li>
-                    <li>Intuitive $.k8s() execution</li>
-                    <li>Multi-target parallel execution</li>
-                    <li>Full TypeScript with IntelliSense</li>
-                  </ul>
+
+              <div className="col col--4">
+                <div className={clsx('card', styles.packageCard)}>
+                  <div className="card__header">
+                    <h3>@xec-sh/testing</h3>
+                  </div>
+                  <div className="card__body">
+                    <p>Test utilities — Docker container management, SSH test helpers, binary detection.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -282,7 +173,7 @@ export default function Home(): JSX.Element {
           <div className="container">
             <h2 className="text--center margin-bottom--xl">
               <Translate id="homepage.comparison.title">
-                Why Choose Xec?
+                Why Xec?
               </Translate>
             </h2>
             <div className="row">
@@ -292,53 +183,52 @@ export default function Home(): JSX.Element {
                     <tr>
                       <th>Feature</th>
                       <th>Xec</th>
-                      <th>SSH Clients</th>
                       <th>Ansible</th>
-                      <th>zx/shelljs</th>
+                      <th>zx</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td>Multi-environment</td>
-                      <td>✅ Native support</td>
-                      <td>❌ SSH only</td>
+                      <td>Multi-environment (SSH/Docker/K8s)</td>
+                      <td>✅ Native</td>
                       <td>✅ Via plugins</td>
                       <td>❌ Local only</td>
                     </tr>
                     <tr>
-                      <td>TypeScript API</td>
-                      <td>✅ Full support</td>
-                      <td>❌ None</td>
-                      <td>❌ YAML only</td>
+                      <td>TypeScript-native</td>
+                      <td>✅ Full strict mode</td>
+                      <td>❌ YAML</td>
                       <td>✅ Partial</td>
                     </tr>
                     <tr>
-                      <td>Connection pooling</td>
-                      <td>✅ Built-in</td>
-                      <td>⚠️ Manual</td>
-                      <td>✅ Built-in</td>
-                      <td>❌ N/A</td>
+                      <td>Deploy strategies</td>
+                      <td>✅ Rolling, canary, blue-green</td>
+                      <td>✅ Playbooks</td>
+                      <td>❌ None</td>
                     </tr>
                     <tr>
-                      <td>Docker/K8s</td>
-                      <td>✅ Native</td>
+                      <td>CI/CD pipelines</td>
+                      <td>✅ Pipeline engine with matrix</td>
+                      <td>❌ External</td>
                       <td>❌ None</td>
+                    </tr>
+                    <tr>
+                      <td>Health checks</td>
+                      <td>✅ HTTP, TCP, command, custom</td>
                       <td>⚠️ Modules</td>
                       <td>❌ None</td>
                     </tr>
                     <tr>
-                      <td>Template literals</td>
-                      <td>✅ $`cmd`</td>
-                      <td>❌ None</td>
-                      <td>❌ None</td>
-                      <td>✅ $`cmd`</td>
+                      <td>Library usage (no CLI)</td>
+                      <td>✅ @xec-sh/ops</td>
+                      <td>❌ CLI only</td>
+                      <td>✅ Import</td>
                     </tr>
                     <tr>
-                      <td>Enterprise features</td>
-                      <td>✅ Complete</td>
-                      <td>❌ Limited</td>
-                      <td>✅ Complete</td>
-                      <td>❌ Basic</td>
+                      <td>Connection pooling</td>
+                      <td>✅ Built-in</td>
+                      <td>✅ Built-in</td>
+                      <td>❌ N/A</td>
                     </tr>
                   </tbody>
                 </table>
@@ -351,27 +241,27 @@ export default function Home(): JSX.Element {
           <div className="container text--center">
             <h2>
               <Translate id="homepage.cta.title">
-                Start Automating Your Tasks Today
+                Start Building
               </Translate>
             </h2>
             <p className={styles.ctaDescription}>
               <Translate id="homepage.cta.description">
-                Join thousands of developers who are already using Xec to simplify their workflows and automate complex tasks.
+                Install @xec-sh/core for shell execution, @xec-sh/ops for DevOps automation, or @xec-sh/cli for the full command-line experience.
               </Translate>
             </p>
             <div className={styles.ctaButtons}>
               <Link
                 className="button button--primary button--lg"
-                to="/docs/introduction/">
-                <Translate id="homepage.cta.startBuilding">
-                  Get Started
+                to="/docs/introduction/installation">
+                <Translate id="homepage.cta.install">
+                  Installation Guide
                 </Translate>
               </Link>
               <Link
                 className="button button--outline button--primary button--lg margin-left--md"
                 to="https://github.com/xec-sh/xec">
                 <Translate id="homepage.cta.viewOnGitHub">
-                  View on GitHub
+                  GitHub
                 </Translate>
               </Link>
             </div>
