@@ -62,11 +62,7 @@ const config: Config = {
             [require('rehype-katex'), { strict: false }],
           ],
         },
-        blog: false as any, // Disabled
-          rehypePlugins: [
-            [require('rehype-katex'), { strict: false }],
-          ],
-        },
+        blog: false,
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -203,10 +199,6 @@ const config: Config = {
             {
               label: 'Migration',
               to: '/docs/migration/from-npm-scripts',
-            },
-            {
-              label: 'Changelog',
-              to: '/docs/changelog',
             },
           ],
         },
