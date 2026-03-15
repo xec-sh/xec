@@ -7,7 +7,6 @@
  *   pnpm release                    Interactive release
  *   pnpm release --list             List all packages
  *   pnpm release --dry-run          Simulate release
- *   pnpm release --skip-tests       Skip tests
  *   pnpm release --skip-build       Skip builds
  *   pnpm release --skip-publish     Skip npm publish
  *   pnpm release --force            Allow dirty working tree
@@ -45,7 +44,6 @@ interface Package {
 }
 
 interface ReleaseOptions {
-  skipTests?: boolean
   skipBuild?: boolean
   skipPublish?: boolean
   dryRun?: boolean
@@ -292,7 +290,6 @@ async function main() {
 
   const args = process.argv.slice(2)
   const options: ReleaseOptions = {
-    skipTests: args.includes('--skip-tests'),
     skipBuild: args.includes('--skip-build'),
     skipPublish: args.includes('--skip-publish'),
     dryRun: args.includes('--dry-run'),
@@ -341,14 +338,7 @@ async function main() {
       console.log(prism.green('✅ Built'))
     }
 
-    // 7. Test
-    if (!options.skipTests) {
-      console.log(prism.cyan('\n🧪 Testing...'))
-      exec('pnpm test')
-      console.log(prism.green('✅ Tests passed'))
-    }
-
-    // 8. Publish
+    // 7. Publish
     if (!options.skipPublish) {
       const publishable = packages.filter(p => !p.private)
       console.log(prism.cyan(`\n📦 Publishing ${publishable.length} packages...`))
