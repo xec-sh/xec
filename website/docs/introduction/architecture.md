@@ -21,22 +21,28 @@ Xec uses a monorepo architecture managed by Turborepo:
 ```
 xec/
 ├── apps/
-│   ├── xec/              # CLI application (@xec-sh/cli)
-│   └── docs/             # Documentation site
+│   └── xec/              # CLI application (@xec-sh/cli) — thin wrapper
 ├── packages/
-│   ├── core/             # Core execution engine (@xec-sh/core)
-│   └── test-utils/       # Shared testing utilities
-├── docker/               # Test containers
-└── turbo.json           # Build orchestration
+│   ├── core/             # Shell execution engine (@xec-sh/core)
+│   ├── ops/              # DevOps operations library (@xec-sh/ops)
+│   ├── kit/              # TUI/CLI components (@xec-sh/kit)
+│   ├── loader/           # Script loading & modules (@xec-sh/loader)
+│   └── testing/          # Shared test utilities (@xec-sh/testing)
+├── website/              # Documentation site (Docusaurus)
+└── turbo.json            # Build orchestration
 ```
 
 ### Package Dependencies
 
 ```mermaid
 graph TD
-    CLI["@xec-sh/cli"] --> CORE["@xec-sh/core"]
-    CLI --> TEST["@xec-sh/testing"]
-    CORE --> TEST
+    CLI["@xec-sh/cli"] --> OPS["@xec-sh/ops"]
+    CLI --> KIT["@xec-sh/kit"]
+    OPS --> CORE["@xec-sh/core"]
+    OPS --> LOADER["@xec-sh/loader"]
+    OPS --> KIT
+    LOADER --> KIT
+    CORE --> TEST["@xec-sh/testing"]
 ```
 
 ## Core Components
@@ -418,7 +424,7 @@ describe('SSH Integration', () => {
 ### Test Utilities
 
 ```typescript
-// packages/test-utils provides:
+// packages/testing provides:
 - Test containers (SSH, Docker, K8s)
 - Mock adapters
 - Fixture management
