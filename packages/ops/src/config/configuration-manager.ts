@@ -64,10 +64,22 @@ export class ConfigurationManager {
   private validator: ConfigValidator;
   private secretManager: SecretManager;
 
+  // Resolved configuration paths
+  private configDirName: string;
+  private configFileNames: string[];
+  private rootConfigFileNames: string[];
+  private profilesDirName: string;
+
   constructor(private options: ConfigManagerOptions = {}) {
     this.options.projectRoot = this.options.projectRoot || process.cwd();
     this.options.globalHomeDir = this.options.globalHomeDir || getGlobalConfigDir();
     this.options.envPrefix = this.options.envPrefix || 'XEC_';
+
+    // Configurable directory and file names
+    this.configDirName = this.options.configDirName ?? '.xec';
+    this.configFileNames = this.options.configFileNames ?? ['config.yaml', 'config.yml'];
+    this.rootConfigFileNames = this.options.rootConfigFileNames ?? ['xec.yaml', 'xec.yml'];
+    this.profilesDirName = this.options.profilesDirName ?? 'profiles';
 
     // Initialize secret manager based on configuration
     this.secretManager = new SecretManager(this.options.secretProvider);
@@ -220,7 +232,7 @@ export class ConfigurationManager {
    */
   async getConfigPath(): Promise<string> {
     const saveRoot = await this.findProjectRoot(this.options.projectRoot!);
-    return path.join(saveRoot || this.options.projectRoot!, '.xec', 'config.yaml');
+    return path.join(saveRoot || this.options.projectRoot!, this.configDirName, this.configFileNames[0] || 'config.yaml');
   }
 
   /**
@@ -251,11 +263,11 @@ export class ConfigurationManager {
       throw new Error('No configuration to save');
     }
 
-    // If no path specified, save to project root .xec directory
+    // If no path specified, save to project config directory
     let targetPath = filePath;
     if (!targetPath) {
       const saveRoot = await this.findProjectRoot(this.options.projectRoot!);
-      targetPath = path.join(saveRoot || this.options.projectRoot!, '.xec', 'config.yaml');
+      targetPath = path.join(saveRoot || this.options.projectRoot!, this.configDirName, this.configFileNames[0] || 'config.yaml');
     }
 
     const dir = path.dirname(targetPath);
@@ -355,29 +367,42 @@ export class ConfigurationManager {
    * Check if a directory has an xec configuration file
    */
   private hasXecConfig(dir: string): boolean {
-    return existsSync(path.join(dir, '.xec', 'config.yaml')) ||
-           existsSync(path.join(dir, '.xec', 'config.yml'));
+    return this.configFileNames.some(f =>
+      existsSync(path.join(dir, this.configDirName, f))
+    );
   }
 
   /**
-   * Build configuration search paths in priority order
+   * Build configuration search paths in priority order.
+   * All paths are derived from configurable names, not hardcoded.
    */
   private buildConfigSearchPaths(searchRoot: string): string[] {
-    const locations = [
-      // Prioritize .xec directory in project/monorepo root
-      path.join(searchRoot, '.xec', 'config.yaml'),
-      path.join(searchRoot, '.xec', 'config.yml'),
-      // Also check current directory if different from searchRoot
-      ...(searchRoot !== this.options.projectRoot ? [
-        path.join(this.options.projectRoot!, '.xec', 'config.yaml'),
-        path.join(this.options.projectRoot!, '.xec', 'config.yml'),
-      ] : []),
-      // Legacy locations
-      path.join(searchRoot, 'xec.yaml'),
-      path.join(searchRoot, 'xec.yml'),
-      path.join(this.options.projectRoot!, 'xec.yaml'),
-      path.join(this.options.projectRoot!, 'xec.yml')
-    ];
+    const locations: string[] = [];
+
+    // Config dir files (e.g., .xec/config.yaml)
+    for (const f of this.configFileNames) {
+      locations.push(path.join(searchRoot, this.configDirName, f));
+    }
+
+    // Also check current directory if different from searchRoot
+    if (searchRoot !== this.options.projectRoot) {
+      for (const f of this.configFileNames) {
+        locations.push(path.join(this.options.projectRoot!, this.configDirName, f));
+      }
+    }
+
+    // Root-level files (e.g., xec.yaml)
+    for (const f of this.rootConfigFileNames) {
+      locations.push(path.join(searchRoot, f));
+      if (searchRoot !== this.options.projectRoot) {
+        locations.push(path.join(this.options.projectRoot!, f));
+      }
+    }
+
+    // Extra user-provided search paths
+    if (this.options.extraConfigPaths) {
+      locations.push(...this.options.extraConfigPaths);
+    }
 
     // Remove duplicates while preserving order
     return [...new Set(locations)];
@@ -388,12 +413,12 @@ export class ConfigurationManager {
    */
   private buildProfileSearchPaths(searchRoot: string, profileName: string): string[] {
     const paths = [
-      path.join(searchRoot, '.xec', 'profiles', `${profileName}.yaml`),
+      path.join(searchRoot, this.configDirName, this.profilesDirName, `${profileName}.yaml`),
     ];
     
     // Also check current directory if different from searchRoot
     if (searchRoot !== this.options.projectRoot) {
-      paths.push(path.join(this.options.projectRoot!, '.xec', 'profiles', `${profileName}.yaml`));
+      paths.push(path.join(this.options.projectRoot!, this.configDirName, this.profilesDirName, `${profileName}.yaml`));
     }
     
     return paths;

@@ -32,7 +32,7 @@ export { TaskManager } from './config/task-manager.js';
 export { TaskExecutor } from './config/task-executor.js';
 export { TargetResolver } from './config/target-resolver.js';
 export { getDefaultConfig, mergeWithDefaults, sortConfigKeys } from './config/defaults.js';
-export type { Configuration, ResolvedTarget, TargetConfig, TargetType, TaskDefinition, CommandConfig, DockerDefaults, ContainerConfig, PodConfig, HostConfig } from './config/types.js';
+export type { Configuration, ResolvedTarget, TargetConfig, TargetType, TaskDefinition, CommandConfig, DockerDefaults, ContainerConfig, PodConfig, HostConfig, ConfigManagerOptions } from './config/types.js';
 
 // ─── Secrets ────────────────────────────────────────────────────────
 
