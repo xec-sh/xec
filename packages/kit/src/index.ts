@@ -38,10 +38,32 @@ export {
   getColumns,
   findCursor,
   updateSettings,
-  type ClackSettings,
   type DateParts,
+  type ClackSettings,
   type DateFormatConfig,
 } from './core/index.js';
+
+// Export table types
+export type {
+  WordWrap,
+  Alignment,
+  TableState,
+  TableColumn,
+  CacheConfig,
+  BorderStyle,
+  TableOptions,
+  ExportOptions,
+  StreamOptions,
+  CacheStrategy,
+  SelectionMode,
+  SortDirection,
+  VirtualConfig,
+  StreamProgress,
+  TableErrorCode,
+  TableErrorHandler,
+  VirtualTableOptions,
+  InteractiveTableOptions,
+} from './components/table/index.js';
 
 // Export table optimization utilities (Phase 4)
 export {
@@ -88,26 +110,4 @@ export {
   arrayToAsyncIterable,
   navigateToNextEditableColumn,
   navigateToPreviousEditableColumn,
-} from './components/table/index.js';
-
-// Export table types
-export type {
-  WordWrap,
-  Alignment,
-  TableState,
-  TableColumn,
-  CacheConfig,
-  BorderStyle,
-  TableOptions,
-  ExportOptions,
-  StreamOptions,
-  CacheStrategy,
-  SelectionMode,
-  SortDirection,
-  VirtualConfig,
-  StreamProgress,
-  TableErrorCode,
-  TableErrorHandler,
-  VirtualTableOptions,
-  InteractiveTableOptions,
 } from './components/table/index.js';

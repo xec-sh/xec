@@ -8,9 +8,9 @@
  * - TSV (Tab-Separated Values)
  */
 
-import { formatCellValue } from './cell-formatter.js';
-
 import type { TableColumn } from './types.js';
+
+import { formatCellValue } from './cell-formatter.js';
 
 /**
  * Export options

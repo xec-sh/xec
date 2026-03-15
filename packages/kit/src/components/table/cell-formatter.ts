@@ -2,10 +2,10 @@
  * Cell formatting utilities
  */
 
+import type { Alignment, TableColumn } from './types.js';
+
 import stringWidth from '../../core/utils/string-width.js';
 import getStringTruncatedWidth from '../../core/utils/string-truncated-width.js';
-
-import type { Alignment, TableColumn } from './types.js';
 
 /**
  * Align text within a given width

@@ -4,7 +4,7 @@
  * Provides functions for managing cell editing state and operations.
  */
 
-import type { TableState, InteractiveTableOptions, TableColumn } from './types.js';
+import type { TableState, TableColumn, InteractiveTableOptions } from './types.js';
 
 /**
  * Enter edit mode for current cell

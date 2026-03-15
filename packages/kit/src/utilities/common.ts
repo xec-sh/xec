@@ -1,9 +1,8 @@
+import type { State } from '../core/index.js';
 import type { Readable, Writable } from 'node:stream';
 
 import prism from '../prism/index.js';
 import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
-
-import type { State } from '../core/index.js';
 
 export const unicode = isUnicodeSupported();
 export const isCI = (): boolean => process.env['CI'] === 'true';

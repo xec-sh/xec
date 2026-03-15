@@ -122,7 +122,7 @@ export class PrismBuilder {
     this[IS_EMPTY] = isEmpty;
 
     // Create callable function
-    const callable = function (...args: unknown[]): string {
+    const callable = function prismCallable(...args: unknown[]): string {
       const text = args.length === 1 ? String(args[0]) : args.join(' ');
       return applyStyle(callable as any, text);
     } as any;

@@ -47,14 +47,13 @@ function getPaddingForLine(
   contentAlign: BoxAlignment | undefined
 ): [number, number] {
   let leftPadding = padding;
-  let rightPadding = padding;
   if (contentAlign === 'center') {
     leftPadding = Math.floor((innerWidth - lineLength) / 2);
   } else if (contentAlign === 'right') {
     leftPadding = innerWidth - lineLength - padding;
   }
 
-  rightPadding = innerWidth - leftPadding - lineLength;
+  const rightPadding = innerWidth - leftPadding - lineLength;
 
   return [leftPadding, rightPadding];
 }

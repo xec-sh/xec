@@ -1,18 +1,17 @@
+import type { Action } from '../utils/index.js';
 import type { Readable, Writable } from 'node:stream';
+import type { ClackState, ClackEvents } from '../types.js';
 
 import { erase, cursor } from 'sisteransi';
 import { stdin, stdout } from 'node:process';
 import readline, { type Key, type ReadLine } from 'node:readline';
 
 import { wrapAnsi } from '../utils/wrap-ansi.js';
-import { settings, diffLines, getRows, setRawMode, isActionKey, CANCEL_SYMBOL } from '../utils/index.js';
-
-import type { Action } from '../utils/index.js';
-import type { ClackState, ClackEvents } from '../types.js';
+import { getRows, settings, diffLines, setRawMode, isActionKey, CANCEL_SYMBOL } from '../utils/index.js';
 
 export interface PromptOptions<TValue, Self extends Prompt<TValue>> {
   render(this: Omit<Self, 'prompt'>): string | undefined;
-  initialValue?: any;
+  initialValue?: TValue;
   initialUserInput?: string;
   validate?: ((value: TValue | undefined) => string | Error | undefined) | undefined;
   input?: Readable;
@@ -31,7 +30,7 @@ export default class Prompt<TValue> {
   private _render: (context: Omit<Prompt<TValue>, 'prompt'>) => string | undefined;
   private _track = false;
   private _prevFrame = '';
-  private _subscribers = new Map<string, { cb: (...args: any) => any; once?: boolean }[]>();
+  private _subscribers = new Map<string, { cb: (...args: any[]) => any; once?: boolean }[]>();
   protected _cursor = 0;
 
   public state: ClackState = 'initial';
@@ -124,7 +123,8 @@ export default class Prompt<TValue> {
           this.state = 'cancel';
 
           this.close();
-          return resolve(CANCEL_SYMBOL);
+          resolve(CANCEL_SYMBOL);
+          return;
         }
 
         this._abortSignal.addEventListener(

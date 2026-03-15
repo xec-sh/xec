@@ -211,6 +211,7 @@ export class Cache<K, V> {
         }
         break;
       }
+      // no default
     }
 
     if (keyToEvict !== undefined) {

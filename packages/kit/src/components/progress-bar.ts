@@ -1,8 +1,8 @@
+import type { State } from '../core/index.js';
+
 import prism from '../prism/index.js';
 import { unicodeOr } from '../utilities/common.js';
 import { spinner, type SpinnerResult, type SpinnerOptions } from './spinner.js';
-
-import type { State } from '../core/index.js';
 
 const S_PROGRESS_CHAR: Record<NonNullable<ProgressOptions['style']>, string> = {
   light: unicodeOr('─', '-'),

@@ -1,8 +1,8 @@
-import prism from '../prism/index.js';
-import { DatePrompt, settings } from '../core/index.js';
-import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
+import type { DateParts, DateFormatConfig } from '../core/index.js';
 
-import type { DateFormatConfig, DateParts } from '../core/index.js';
+import prism from '../prism/index.js';
+import { settings, DatePrompt } from '../core/index.js';
+import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export type DateFormat = 'YYYY/MM/DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY';
 

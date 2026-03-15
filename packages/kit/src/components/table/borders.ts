@@ -2,9 +2,9 @@
  * Border styles and rendering utilities
  */
 
-import { unicodeOr } from '../../utilities/common.js';
-
 import type { BorderStyle, BorderChars } from './types.js';
+
+import { unicodeOr } from '../../utilities/common.js';
 
 /**
  * Border character sets for different styles

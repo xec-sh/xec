@@ -97,6 +97,7 @@ export default class GroupMultiSelectPrompt<T extends { value: any }> extends Pr
         case 'space':
           this.toggleValue();
           break;
+        // no default
       }
     });
   }

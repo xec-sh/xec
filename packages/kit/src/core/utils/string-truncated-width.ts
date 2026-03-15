@@ -55,8 +55,10 @@ const isWideNotCJKTNotEmoji = (x: number): boolean =>
 export { isFullWidth, isWideNotCJKTNotEmoji };
 
  
+/* eslint-disable no-control-regex */
 const ANSI_RE =
   /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|\u001b\]8;[^;]*;.*?(?:\u0007|\u001b\u005c)/y;
+/* eslint-enable no-control-regex */
 // eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\x00-\x08\x0A-\x1F\x7F-\x9F]{1,1000}/y;
 const CJKT_WIDE_RE =
@@ -106,14 +108,14 @@ const getStringTruncatedWidth = (
   let indexPrev = 0;
   let index = 0;
   const length = input.length;
-  let lengthExtra = 0;
+  let lengthExtra: number;
   let truncationEnabled = false;
   let truncationIndex = length;
   const truncationLimit = Math.max(0, LIMIT - ELLIPSIS_WIDTH);
   let unmatchedStart = 0;
   let unmatchedEnd = 0;
   let width = 0;
-  let widthExtra = 0;
+  let widthExtra: number;
 
   /* PARSE LOOP */
 

@@ -2,14 +2,14 @@
  * Interactive table rendering
  */
 
+import type { TableState, TableLayout, InteractiveTableOptions } from './types.js';
+
 import prism from '../../prism/index.js';
 import { isSelected } from './table-selector.js';
 import { S_BAR } from '../../utilities/common.js';
 import { formatCell, formatHeader } from './cell-formatter.js';
 import { getTotalTableWidth, calculateColumnWidths } from './column-width.js';
 import { renderRow, getBorderChars, renderHorizontalBorder } from './borders.js';
-
-import type { TableState, TableLayout, InteractiveTableOptions } from './types.js';
 
 /**
  * Calculate layout for interactive table
@@ -114,9 +114,7 @@ function renderInteractiveBody<T>(
 
     // Calculate total content width (sum of column widths + separators between columns)
     const separatorWidth = layout.hasBorders && layout.borders.left ? 3 : 1; // ' | ' or ' '
-    const totalContentWidth = layout.columns.reduce((sum, col, idx) => {
-      return sum + col.width + (idx < layout.columns.length - 1 ? separatorWidth : 0);
-    }, 0);
+    const totalContentWidth = layout.columns.reduce((sum, col, idx) => sum + col.width + (idx < layout.columns.length - 1 ? separatorWidth : 0), 0);
 
     const padding = Math.max(0, totalContentWidth - message.length);
     const leftPad = Math.floor(padding / 2);

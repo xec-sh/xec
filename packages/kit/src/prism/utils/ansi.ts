@@ -139,30 +139,30 @@ export function rgbToAnsi16(r: number, g: number, b: number): number {
   const value = brightness > 0.5 ? 1 : 0;
 
   // Determine color
-  let ansi = 30; // black
+  let ansiCode = 30; // black
 
   const threshold = brightness > 0.5 ? 127 : 64;
 
   if (r > threshold && g < threshold && b < threshold)
-    ansi = 31; // red
+    ansiCode = 31; // red
   else if (r < threshold && g > threshold && b < threshold)
-    ansi = 32; // green
+    ansiCode = 32; // green
   else if (r > threshold && g > threshold && b < threshold)
-    ansi = 33; // yellow
+    ansiCode = 33; // yellow
   else if (r < threshold && g < threshold && b > threshold)
-    ansi = 34; // blue
+    ansiCode = 34; // blue
   else if (r > threshold && g < threshold && b > threshold)
-    ansi = 35; // magenta
+    ansiCode = 35; // magenta
   else if (r < threshold && g > threshold && b > threshold)
-    ansi = 36; // cyan
-  else if (r > threshold && g > threshold && b > threshold) ansi = 37; // white
+    ansiCode = 36; // cyan
+  else if (r > threshold && g > threshold && b > threshold) ansiCode = 37; // white
 
   // Add bright offset if needed
-  if (value === 1 && ansi >= 30 && ansi <= 37) {
-    ansi += 60; // Convert to bright (90-97)
+  if (value === 1 && ansiCode >= 30 && ansiCode <= 37) {
+    ansiCode += 60; // Convert to bright (90-97)
   }
 
-  return ansi;
+  return ansiCode;
 }
 
 /**

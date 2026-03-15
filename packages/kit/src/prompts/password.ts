@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { PasswordPrompt, settings } from '../core/index.js';
+import { settings, PasswordPrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,

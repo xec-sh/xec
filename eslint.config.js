@@ -73,7 +73,6 @@ const sortImportsRules = () => {
       {
         order: 'asc',
         type: 'line-length',
-        groupKind: 'values-first',
       },
     ],
     'perfectionist/sort-imports': [
@@ -83,8 +82,6 @@ const sortImportsRules = () => {
         ignoreCase: true,
         type: 'line-length',
         environment: 'node',
-        maxLineLength: undefined,
-        newlinesBetween: 'always',
         internalPattern: ['^src/.+'],
         groups: [
           'style',
@@ -93,8 +90,6 @@ const sortImportsRules = () => {
           ['builtin', 'external'],
           'internal',
           ['parent', 'sibling', 'index'],
-          ['parent-type', 'sibling-type', 'index-type'],
-          'object',
           'unknown',
         ],
       },

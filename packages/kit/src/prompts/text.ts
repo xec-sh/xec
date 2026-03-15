@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { TextPrompt, settings } from '../core/index.js';
+import { settings, TextPrompt } from '../core/index.js';
 import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export interface TextOptions extends CommonOptions {

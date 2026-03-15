@@ -1,8 +1,8 @@
-import prism from '../prism/index.js';
-import { SelectKeyPrompt, settings } from '../core/index.js';
-import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
-
 import type { Option } from './select.js';
+
+import prism from '../prism/index.js';
+import { settings, SelectKeyPrompt } from '../core/index.js';
+import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export interface SelectKeyOptions<Value extends string> extends CommonOptions {
   message: string;

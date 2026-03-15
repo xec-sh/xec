@@ -3,7 +3,7 @@ import type { Writable } from 'node:stream';
 import process from 'node:process';
 
 import prism from '../prism/index.js';
-import { getColumns, settings } from '../core/index.js';
+import { settings, getColumns } from '../core/index.js';
 import stringWidth from '../core/utils/string-width.js';
 import { wrapAnsi, WrapAnsiOptions } from '../core/utils/wrap-ansi.js';
 import {
