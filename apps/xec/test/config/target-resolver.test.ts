@@ -6,7 +6,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { TargetResolver } from '../../src/config/target-resolver.js';
 

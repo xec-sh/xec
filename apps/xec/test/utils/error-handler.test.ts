@@ -1,5 +1,4 @@
 import * as kit from '@xec-sh/kit';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ValidationError } from '../../src/utils/validation.js';
 import { CommandOptions } from '../../src/utils/command-base.js';
@@ -19,17 +18,17 @@ import {
 } from '../../src/utils/error-handler.js';
 
 // Mock console methods
-const mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
+const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();
 
 // Track process.exit calls without actually exiting
 let processExitCode: number | undefined;
-const mockProcessExit = jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
+const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
   processExitCode = code;
   // Throw to prevent further execution in tests
   throw new Error(`Process exited with code: ${code}`);
 }) as any;
 
-const mockKitError = jest.spyOn(kit.log, 'error').mockImplementation();
+const mockKitError = vi.spyOn(kit.log, 'error').mockImplementation();
 
 describe('error-handler', () => {
   const defaultOptions: CommandOptions = {
@@ -43,13 +42,13 @@ describe('error-handler', () => {
   };
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     processExitCode = undefined;
     delete process.env['XEC_DEBUG'];
   });
   
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('Error Classes', () => {
@@ -220,7 +219,7 @@ describe('error-handler', () => {
       ];
       
       testCases.forEach(({ error, code }) => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
         expect(() => handleError(error, defaultOptions)).toThrow(`Process exited with code: ${code}`);
       });
     });
@@ -244,7 +243,7 @@ describe('error-handler', () => {
   
   describe('withErrorHandling', () => {
     it('should wrap async function with error handling', async () => {
-      const asyncFn = jest.fn().mockRejectedValue(new Error('Async error'));
+      const asyncFn = vi.fn().mockRejectedValue(new Error('Async error'));
       const wrapped = withErrorHandling(asyncFn, defaultOptions);
       
       await expect(wrapped()).rejects.toThrow('Process exited with code: 1');
@@ -252,7 +251,7 @@ describe('error-handler', () => {
     });
     
     it('should pass through successful results', async () => {
-      const asyncFn = jest.fn().mockResolvedValue('success');
+      const asyncFn = vi.fn().mockResolvedValue('success');
       const wrapped = withErrorHandling(asyncFn, defaultOptions);
       
       const result = await wrapped();
@@ -261,7 +260,7 @@ describe('error-handler', () => {
     });
     
     it('should pass arguments to wrapped function', async () => {
-      const asyncFn = jest.fn().mockResolvedValue('result');
+      const asyncFn = vi.fn().mockResolvedValue('result');
       const wrapped = withErrorHandling(asyncFn, defaultOptions);
       
       await wrapped('arg1', 'arg2');
@@ -376,7 +375,7 @@ describe('error-handler', () => {
       ];
       
       validationErrors.forEach(({ field, expectedSuggestion }) => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
         const error = new ValidationError(`Invalid ${field}`, field);
         expect(() => handleError(error, defaultOptions)).toThrow();
         
@@ -406,7 +405,7 @@ describe('error-handler', () => {
       ];
       
       systemErrors.forEach(({ code, suggestion }) => {
-        jest.clearAllMocks();
+        vi.clearAllMocks();
         const error = new Error('System error');
         (error as any).code = code;
         

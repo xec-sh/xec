@@ -2,7 +2,6 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 // Helper to execute xec commands
 async function runXecCommand(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {

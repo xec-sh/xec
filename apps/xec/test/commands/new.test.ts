@@ -2,7 +2,6 @@ import path from 'path';
 import fs from 'fs-extra';
 import { execSync } from 'child_process';
 import { temporaryDirectory } from 'tempy';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 describe('new command', () => {
   let tempDir: string;

@@ -9,7 +9,6 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 import { describeSSH, getSSHConfig, DockerContainerManager } from '@xec-sh/testing';
 
 import { ForwardCommand } from '../../src/commands/forward.js';

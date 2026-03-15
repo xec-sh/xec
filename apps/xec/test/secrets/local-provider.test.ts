@@ -2,7 +2,6 @@ import * as os from 'os';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
-import { it, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { SecretError } from '../../src/secrets/types.js';
 import { LocalSecretProvider } from '../../src/secrets/providers/local.js';

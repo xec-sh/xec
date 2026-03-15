@@ -1,4 +1,3 @@
-import { it, expect, describe } from '@jest/globals';
 import { CommandError, TimeoutError, ConnectionError } from '@xec-sh/core';
 
 import {

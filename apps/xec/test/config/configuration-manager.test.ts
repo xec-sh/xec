@@ -5,7 +5,6 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { ConfigurationManager } from '../../src/config/configuration-manager.js';
 
@@ -352,7 +351,7 @@ vars:
   env: test  # This conflicts with reserved name`
       );
 
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       await manager.load();
 

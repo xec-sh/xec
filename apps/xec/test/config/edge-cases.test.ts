@@ -6,7 +6,6 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import {
   TaskParser,
@@ -81,7 +80,7 @@ profiles:
         strict: false
       });
 
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       await manager.load();
 
@@ -200,9 +199,9 @@ tasks:
       const resolver = new TargetResolver(config);
 
       // Mock all detection methods to fail
-      jest.spyOn(resolver as any, 'isDockerContainer').mockResolvedValue(false);
-      jest.spyOn(resolver as any, 'isKubernetesPod').mockResolvedValue(false);
-      jest.spyOn(resolver as any, 'getSSHHost').mockResolvedValue(undefined);
+      vi.spyOn(resolver as any, 'isDockerContainer').mockResolvedValue(false);
+      vi.spyOn(resolver as any, 'isKubernetesPod').mockResolvedValue(false);
+      vi.spyOn(resolver as any, 'getSSHHost').mockResolvedValue(undefined);
 
       // Should throw error for unknown target that doesn't look like a hostname
       await expect(resolver.resolve('unknown-target'))
@@ -230,9 +229,9 @@ tasks:
       const resolver = new TargetResolver(config);
 
       // Mock the auto-detection methods to avoid actual command execution
-      jest.spyOn(resolver as any, 'isDockerContainer').mockResolvedValue(false);
-      jest.spyOn(resolver as any, 'isKubernetesPod').mockResolvedValue(false);
-      jest.spyOn(resolver as any, 'getSSHHost').mockResolvedValue(undefined);
+      vi.spyOn(resolver as any, 'isDockerContainer').mockResolvedValue(false);
+      vi.spyOn(resolver as any, 'isKubernetesPod').mockResolvedValue(false);
+      vi.spyOn(resolver as any, 'getSSHHost').mockResolvedValue(undefined);
 
       // Invalid type (treated as auto-detect)
       // Since 'invalid.target' looks like a hostname, it will default to SSH

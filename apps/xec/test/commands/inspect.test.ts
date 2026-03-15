@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs-extra';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import command from '../../src/commands/inspect.js';
 
@@ -11,8 +10,8 @@ import command from '../../src/commands/inspect.js';
 
 describe('inspect command', () => {
   let program: Command;
-  let consoleLogSpy: jest.SpyInstance;
-  let consoleErrorSpy: jest.SpyInstance;
+  let consoleLogSpy: vi.SpyInstance;
+  let consoleErrorSpy: vi.SpyInstance;
   let testDir: string;
   let originalCwd: string;
 
@@ -151,8 +150,8 @@ describe('inspect command', () => {
     command(program);
 
     // Mock console output
-    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => { });
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
   });
 
   afterEach(async () => {
@@ -166,7 +165,7 @@ describe('inspect command', () => {
     // Clean up test directory
     await fs.remove(testDir);
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('basic functionality', () => {
@@ -770,7 +769,7 @@ describe('inspect command', () => {
       await fs.writeFile(path.join(testDir, '.xec', 'config.yaml'), 'invalid:\n  yaml:\n bad indent here');
 
       // Mock console.warn to capture warnings
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       try {
         // The command should continue despite invalid config
@@ -789,7 +788,7 @@ describe('inspect command', () => {
       await fs.writeFile(path.join(testDir, '.xec', 'config.yaml'), 'invalid:\n  yaml:\n bad indent here');
 
       // Mock console.warn to capture warnings
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => { });
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
 
       try {
         // The command should continue despite invalid config

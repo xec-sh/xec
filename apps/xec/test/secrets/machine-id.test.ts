@@ -2,7 +2,6 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { getGlobalConfigDir } from '../../src/config/utils.js';
 import { getMachineId, getCachedMachineId } from '../../src/secrets/machine-id.js';
@@ -11,7 +10,7 @@ describe('Machine ID Module', () => {
   const tempDir = path.join(os.tmpdir(), 'xec-test-machine-id-' + Date.now());
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create temp directory
     await fs.promises.mkdir(tempDir, { recursive: true });
@@ -28,7 +27,7 @@ describe('Machine ID Module', () => {
   });
 
   afterEach(async () => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     
     // Clean up temp directory
     try {

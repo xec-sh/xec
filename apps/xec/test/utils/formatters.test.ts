@@ -1,4 +1,3 @@
-import { it, jest, expect, describe, beforeEach } from '@jest/globals';
 
 import {
   truncate,
@@ -54,12 +53,12 @@ describe('formatters', () => {
     beforeEach(() => {
       // Fix the current time for consistent tests
       mockDate = new Date('2024-01-15T12:00:00Z');
-      jest.useFakeTimers();
-      jest.setSystemTime(mockDate);
+      vi.useFakeTimers();
+      vi.setSystemTime(mockDate);
     });
     
     afterEach(() => {
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
     
     it('should format "just now" for recent times', () => {

@@ -22,7 +22,6 @@ import type {
   CallableExecutionEngine,
   DockerPersistentOptions,
   KubernetesAdapterOptions,
-  RemoteDockerAdapterOptions,
 } from '@xec-sh/core';
 
 // Import ALL exports from @xec-sh/core as a namespace
@@ -98,7 +97,6 @@ declare global {
       CallableExecutionEngine,
       DockerPersistentOptions,
       KubernetesAdapterOptions,
-      RemoteDockerAdapterOptions,
     };
 
     // Export CLI configuration types

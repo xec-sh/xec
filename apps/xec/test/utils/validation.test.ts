@@ -1,7 +1,6 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import { it, expect, describe, afterAll, beforeAll } from '@jest/globals';
 
 import {
   schemas,

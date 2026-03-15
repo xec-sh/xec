@@ -6,7 +6,6 @@
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { it, jest, expect, describe, afterEach, beforeEach } from '@jest/globals';
 
 import { TaskExecutor } from '../../src/config/task-executor.js';
 import { TargetResolver } from '../../src/config/target-resolver.js';
@@ -629,8 +628,8 @@ describe('TaskExecutor', () => {
 
   describe('task output handling', () => {
     it('should suppress output in quiet mode', async () => {
-      const consoleLog = jest.spyOn(console, 'log');
-      const consoleError = jest.spyOn(console, 'error');
+      const consoleLog = vi.spyOn(console, 'log');
+      const consoleError = vi.spyOn(console, 'error');
 
       const task: TaskDefinition = {
         command: `echo "test" > ${path.join(testDir, 'quiet.txt')}`,

@@ -8,7 +8,6 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 import { DockerContainerManager } from '@xec-sh/testing';
-import { it, expect, describe, afterAll, afterEach, beforeAll, beforeEach } from '@jest/globals';
 
 import { OnCommand } from '../../src/commands/on.js';
 
