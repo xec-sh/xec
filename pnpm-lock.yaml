@@ -292,10 +292,40 @@ importers:
       '@xec-sh/core':
         specifier: workspace:*
         version: link:../core
+      '@xec-sh/kit':
+        specifier: workspace:*
+        version: link:../kit
+      '@xec-sh/loader':
+        specifier: workspace:*
+        version: link:../loader
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+      fs-extra:
+        specifier: ^11.3.3
+        version: 11.3.3
+      glob:
+        specifier: ^13.0.0
+        version: 13.0.0
+      js-yaml:
+        specifier: ^4.1.1
+        version: 4.1.1
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
+      '@types/fs-extra':
+        specifier: ^11.0.4
+        version: 11.0.4
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: ^25.5.0
         version: 25.5.0
+      '@types/ssh2':
+        specifier: ^1.15.5
+        version: 1.15.5
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1876,14 +1906,6 @@ packages:
 
   '@iconify/utils@3.1.0':
     resolution: {integrity: sha512-Zlzem1ZXhI1iHeeERabLNzBHdOa4VhQbqAcOQaMKuTuyZCpwKbC2R4Dd0Zo3g9EAc+Y4fiarO8HIHRAth7+skw==}
-
-  '@isaacs/balanced-match@4.0.1':
-    resolution: {integrity: sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==}
-    engines: {node: 20 || >=22}
-
-  '@isaacs/brace-expansion@5.0.0':
-    resolution: {integrity: sha512-ZT55BDLV0yv0RBm2czMiZ+SqCGO7AvmOM3G/w2xhVPH+te0aKgFjmBvGlL1dH+ql2tgGO3MVrbb3jCKyvpgnxA==}
-    engines: {node: 20 || >=22}
 
   '@jest/schemas@29.6.3':
     resolution: {integrity: sha512-mo5j5X+jIZmJQveBKeS/clAueipV7KgiX1vMgCxam1RNYiqE1w62n0/tJJnHtjW8ZHcQco5gY85jA3mi0L+nSA==}
@@ -5676,10 +5698,6 @@ packages:
 
   minimalistic-assert@1.0.1:
     resolution: {integrity: sha512-UtJcAD4yEaGtjPezWuO9wC4nwUnVH/8/Im3yEHQP4b67cXlD/Qr9hdITCU1xDbSEXg2XKNaP8jsReV7vQd00/A==}
-
-  minimatch@10.1.1:
-    resolution: {integrity: sha512-enIvLvRAFZYXJzkCYG5RKmPfrFArdLv+R+lbQ53BmIMLIry74bjKzX6iHAm8WYamJkhSSEabrWN5D97XnKObjQ==}
-    engines: {node: 20 || >=22}
 
   minimatch@10.2.4:
     resolution: {integrity: sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg==}
@@ -10468,12 +10486,6 @@ snapshots:
       '@iconify/types': 2.0.0
       mlly: 1.8.0
 
-  '@isaacs/balanced-match@4.0.1': {}
-
-  '@isaacs/brace-expansion@5.0.0':
-    dependencies:
-      '@isaacs/balanced-match': 4.0.1
-
   '@jest/schemas@29.6.3':
     dependencies:
       '@sinclair/typebox': 0.27.8
@@ -13555,7 +13567,7 @@ snapshots:
 
   glob@13.0.0:
     dependencies:
-      minimatch: 10.1.1
+      minimatch: 10.2.4
       minipass: 7.1.2
       path-scurry: 2.0.1
 
@@ -14994,10 +15006,6 @@ snapshots:
       webpack: 5.104.1
 
   minimalistic-assert@1.0.1: {}
-
-  minimatch@10.1.1:
-    dependencies:
-      '@isaacs/brace-expansion': 5.0.0
 
   minimatch@10.2.4:
     dependencies:
