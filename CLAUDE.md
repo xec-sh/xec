@@ -23,11 +23,13 @@ Xec is a modern, type-safe command execution system built with TypeScript. It pr
 xec/
 ├── apps/
 │   └── xec/          # CLI application (@xec-sh/cli)
-│── docs/             # Documentation site (Docusaurus)
+│── website/          # Documentation site (Docusaurus)
 ├── packages/
-│   ├── core/         # Core execution engine (@xec-sh/core)
-│   └── test-utils/   # Shared testing utilities (@xec-sh/testing)
-├── docker/           # Test containers for different environments
+│   ├── core/         # Shell execution engine (@xec-sh/core)
+│   ├── ops/          # DevOps operations library (@xec-sh/ops)
+│   ├── kit/          # TUI/CLI components (@xec-sh/kit)
+│   ├── loader/       # Script loading & modules (@xec-sh/loader)
+│   └── testing/      # Shared test utilities (@xec-sh/testing)
 ├── experiments/      # Experimental features and prototypes
 ├── turbo.json        # Build orchestration
 └── CLAUDE.md         # This file - project specification
@@ -37,19 +39,24 @@ xec/
 
 ### Dependency Graph
 ```
-┌─────────────────┐
-│  @xec-sh/cli    │ User Interface Layer
-└────────┬────────┘
-         │ depends on
-         ▼                 
-┌─────────────────┐  
-│ @xec-sh/core    │  Execution Engine
-└────────┬────────┘  (with adapters)
-         │ uses for testing
-         ▼
 ┌──────────────────┐
-│@xec-sh/testing│ Testing Infrastructure
-└──────────────────┘
+│  @xec-sh/cli     │  Thin CLI wrapper
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│  @xec-sh/ops     │  DevOps operations library
+└────────┬─────────┘  (deploy, pipeline, workflow, health, discovery)
+         │
+┌────────▼─────────┐
+│  @xec-sh/core    │  Shell execution engine
+└────────┬─────────┘  (SSH, Docker, K8s adapters)
+         │
+┌────────┴────┬────────────┬──────────────┐
+│ @xec-sh/kit │ @xec-sh/   │ @xec-sh/     │
+│ TUI/CLI     │  loader    │  testing     │
+│ components  │ Scripts &  │ Test utils   │
+└─────────────┘ modules    └──────────────┘
+                └──────────┘
 ```
 
 ### Core Components
