@@ -55,6 +55,7 @@ interface PooledConnection {
   host: string;
   lastUsed: number;
   useCount: number;
+  activeUseCount: number; // Reference count: >0 means connection is in use, prevents eviction
   created: number;
   errors: number;
   keepAliveTimer?: NodeJS.Timeout;
@@ -141,6 +142,7 @@ export class SSHAdapter extends BaseAdapter {
 
     try {
       connection = await this.getConnection(sshOptions);
+      connection.activeUseCount++;
 
       // Emit execute event
       this.emitAdapterEvent('ssh:execute', {
@@ -245,8 +247,11 @@ export class SSHAdapter extends BaseAdapter {
         error instanceof Error ? error : new Error(String(error))
       );
     } finally {
-      if (connection && this.sshConfig.connectionPool.enabled) {
-        connection.lastUsed = Date.now();
+      if (connection) {
+        connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+        if (this.sshConfig.connectionPool.enabled) {
+          connection.lastUsed = Date.now();
+        }
       }
     }
   }
@@ -348,6 +353,7 @@ export class SSHAdapter extends BaseAdapter {
       host: options.host,
       lastUsed: now,
       useCount: 1,
+      activeUseCount: 0,
       created: now,
       errors: 0,
       reconnectAttempts: 0,
@@ -672,8 +678,13 @@ export class SSHAdapter extends BaseAdapter {
       const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000; // Default 1 hour
       const connectionsToClose: Array<[string, PooledConnection, string]> = [];
 
-      // Identify connections to close
+      // Identify connections to close (skip connections currently in use)
       for (const [key, connection] of this.connectionPool.entries()) {
+        // Never evict connections with active operations
+        if (connection.activeUseCount > 0) {
+          continue;
+        }
+
         // Check idle timeout
         if (now - connection.lastUsed > idleTimeout) {
           connectionsToClose.push([key, connection, 'idle_timeout']);

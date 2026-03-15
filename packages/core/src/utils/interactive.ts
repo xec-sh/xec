@@ -208,6 +208,10 @@ export class Spinner {
       process.stdout.write(`\r${this.frames[this.currentFrame]} ${this.text}`);
       this.currentFrame = (this.currentFrame + 1) % this.frames.length;
     }, 80);
+    // Don't keep the process alive just for the spinner animation
+    if (this.interval && typeof this.interval.unref === 'function') {
+      this.interval.unref();
+    }
   }
 
   update(text: string): void {

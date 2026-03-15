@@ -188,91 +188,90 @@ export async function dispose(): Promise<void> {
     await isConfiguringPromise;
   }
   await cleanupEngine();
+  removeCleanupHandlers();
 }
 
-// Register cleanup handlers for process termination
+// Branded symbol for xec promise identification (replaces fragile string-based checks)
+const XEC_PROMISE_BRAND = Symbol.for('xec:promise');
+
+/** Mark a promise as an xec promise for unhandled rejection suppression */
+export function brandXecPromise(promise: Promise<unknown>): void {
+  (promise as unknown as Record<symbol, boolean>)[XEC_PROMISE_BRAND] = true;
+}
+
+/** Check if a promise is an xec promise */
+function isXecPromise(promise: Promise<unknown>): boolean {
+  return (promise as unknown as Record<symbol, boolean>)[XEC_PROMISE_BRAND] === true;
+}
+
+// Store handler references for proper cleanup
+const cleanupHandlers: {
+  exit?: () => void;
+  sigint?: () => void;
+  sigterm?: () => void;
+  uncaughtException?: (error: Error) => void;
+  unhandledRejection?: (reason: unknown, promise: Promise<unknown>) => void;
+} = {};
+
 let cleanupRegistered = false;
 
 function registerCleanupHandlers(): void {
   if (cleanupRegistered) return;
   cleanupRegistered = true;
 
-  // Handle normal process termination
-  process.on('exit', () => {
-    // Synchronous cleanup only - can't use async here
+  cleanupHandlers.exit = () => {
     if (defaultEngineInstance) {
-      // Best effort cleanup - we can't await in exit handler
-      cleanupEngine().catch(() => {
-        // Ignore errors during cleanup
-      });
+      cleanupEngine().catch(() => { /* best effort */ });
     }
-  });
+  };
+  process.on('exit', cleanupHandlers.exit);
 
-  // Handle SIGINT (Ctrl+C)
-  process.on('SIGINT', async () => {
-    try {
-      await cleanupEngine();
-    } catch {
-      // Ignore errors
-    } finally {
-      // Only exit if not in test environment
-      if (process.env['NODE_ENV'] !== 'test') {
-        process.exit(0);
-      }
+  cleanupHandlers.sigint = async () => {
+    try { await cleanupEngine(); } catch { /* ignore */ }
+    finally {
+      if (process.env['NODE_ENV'] !== 'test') process.exit(0);
     }
-  });
+  };
+  process.on('SIGINT', cleanupHandlers.sigint);
 
-  // Handle SIGTERM
-  process.on('SIGTERM', async () => {
-    try {
-      await cleanupEngine();
-    } catch {
-      // Ignore errors
-    } finally {
-      // Only exit if not in test environment
-      if (process.env['NODE_ENV'] !== 'test') {
-        process.exit(0);
-      }
+  cleanupHandlers.sigterm = async () => {
+    try { await cleanupEngine(); } catch { /* ignore */ }
+    finally {
+      if (process.env['NODE_ENV'] !== 'test') process.exit(0);
     }
-  });
+  };
+  process.on('SIGTERM', cleanupHandlers.sigterm);
 
-  // Handle uncaught exceptions (skip in test environment)
-  if (process.env['NODE_ENV'] !== 'test' && !process.env['JEST_WORKER_ID']) {
-    process.on('uncaughtException', async (error) => {
-      try {
-        await cleanupEngine();
-      } catch {
-        // Ignore errors
-      } finally {
-        process.exit(1);
-      }
-    });
+  // Skip in test environments
+  if (process.env['NODE_ENV'] !== 'test' && !process.env['VITEST_WORKER_ID']) {
+    cleanupHandlers.uncaughtException = async () => {
+      try { await cleanupEngine(); } catch { /* ignore */ }
+      finally { process.exit(1); }
+    };
+    process.on('uncaughtException', cleanupHandlers.uncaughtException);
 
-    // Handle unhandled promise rejections
-    process.on('unhandledRejection', async (reason, promise) => {
-      // Check if this is an xec promise that will be handled later
-      const isXecPromise = (promise as any).__isXecPromise ||
-        (reason && (reason as any).code === 'COMMAND_FAILED') ||
-        (reason && (reason as any).constructor && (reason as any).constructor.name === 'CommandError');
-
-      if (isXecPromise) {
-        // Suppress the warning for xec promises - they will be handled when awaited
-        return;
-      }
+    cleanupHandlers.unhandledRejection = async (reason: unknown, promise: Promise<unknown>) => {
+      // Use branded symbol instead of fragile string-based type checking
+      if (isXecPromise(promise)) return;
 
       console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      try {
-        await cleanupEngine();
-      } catch {
-        // Ignore errors
-      } finally {
-        process.exit(1);
-      }
-    });
+      try { await cleanupEngine(); } catch { /* ignore */ }
+      finally { process.exit(1); }
+    };
+    process.on('unhandledRejection', cleanupHandlers.unhandledRejection);
   }
 }
 
-// Register cleanup handlers when the module is first loaded
+/** Remove all registered cleanup handlers (for tests and dispose) */
+function removeCleanupHandlers(): void {
+  if (cleanupHandlers.exit) process.removeListener('exit', cleanupHandlers.exit);
+  if (cleanupHandlers.sigint) process.removeListener('SIGINT', cleanupHandlers.sigint);
+  if (cleanupHandlers.sigterm) process.removeListener('SIGTERM', cleanupHandlers.sigterm);
+  if (cleanupHandlers.uncaughtException) process.removeListener('uncaughtException', cleanupHandlers.uncaughtException);
+  if (cleanupHandlers.unhandledRejection) process.removeListener('unhandledRejection', cleanupHandlers.unhandledRejection);
+  cleanupRegistered = false;
+}
+
 registerCleanupHandlers();
 
 export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';

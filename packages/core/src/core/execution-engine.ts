@@ -15,35 +15,8 @@ import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 
-// Global handler for unhandled promise rejections from xec promises
-// This prevents Node.js from logging unhandled rejection warnings for xec promises
-// that will be handled later when awaited or chained
-let unhandledRejectionHandler: ((reason: any, promise: Promise<any>) => void) | null = null;
-
-function setupUnhandledRejectionHandler() {
-  if (unhandledRejectionHandler) return; // Already set up
-
-  unhandledRejectionHandler = (reason: any, promise: Promise<any>) => {
-    // Check if this is an xec promise by looking for xec-specific error types or properties
-    const isXecPromise = (promise as any).__isXecPromise ||
-      (reason && reason.code === 'COMMAND_FAILED') ||
-      (reason && reason.constructor && reason.constructor.name === 'CommandError');
-
-    if (isXecPromise) {
-      // Suppress the unhandled rejection warning for xec promises
-      // They will be handled when awaited or chained
-      return;
-    }
-
-    // For non-xec promises, log the unhandled rejection as usual
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  };
-
-  process.on('unhandledRejection', unhandledRejectionHandler);
-}
-
-// Set up the handler when this module is loaded
-setupUnhandledRejectionHandler();
+// Note: Unhandled rejection handling is managed centrally in index.ts
+// using branded symbols (XEC_PROMISE_BRAND) instead of fragile string checks
 import { LocalAdapter } from '../adapters/local/index.js';
 import { DockerAdapter } from '../adapters/docker/index.js';
 import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
