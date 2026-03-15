@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/ops",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "description": "DevOps operations library — deploy, health checks, pipelines, discovery, workflows",
   "type": "module",
   "main": "./dist/index.js",
