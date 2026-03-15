@@ -10,6 +10,29 @@ export {
   ExecutionContext,
 } from './core/index.js';
 
+// Export streaming execution
+export {
+  streamExecute,
+  streamLines,
+  type StreamEvent,
+  type StreamingResult,
+  type StreamingExecutionOptions,
+} from './core/streaming-executor.js';
+
+// Export watch system
+export {
+  FileWatcher,
+  watchFiles,
+  type FileChangeEvent,
+  type WatchOptions,
+} from './watch/index.js';
+
+// Export plugin system
+export {
+  PluginManager,
+  type LoaderPlugin,
+} from './plugin/index.js';
+
 // Export runtime utilities
 export {
   ScriptRuntime,
