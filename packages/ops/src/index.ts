@@ -1,51 +1,56 @@
 /**
  * @xec-sh/ops — DevOps operations library
  *
- * A comprehensive, zero-CLI-dependency library for building DevOps
- * automation tools. Use it standalone in any TypeScript/JavaScript
- * project or as the foundation for CLI applications.
- *
- * @example
- * ```typescript
- * import { Deployer, HealthChecker, Pipeline, Workflow, Discovery } from '@xec-sh/ops';
- *
- * // Deploy with health checks
- * const deployer = Deployer.create({ ... });
- * const result = await deployer.deploy('v1.2.3');
- *
- * // Run CI pipeline
- * const pipeline = Pipeline.create('ci')
- *   .step('test', { run: 'pnpm test' })
- *   .step('build', { run: 'pnpm build', dependsOn: ['test'] });
- * await pipeline.run();
- *
- * // Discover infrastructure
- * const targets = await Discovery.create()
- *   .docker({ label: 'env=prod' })
- *   .kubernetes({ namespace: 'prod' })
- *   .scan();
- * ```
+ * Complete DevOps automation toolkit usable as a standalone library.
+ * The xec CLI is a thin wrapper over this package.
  *
  * @module @xec-sh/ops
  */
 
-// Deploy
+// ─── DevOps Automation ──────────────────────────────────────────────
+
 export { Deployer, type DeployConfig, type DeployResult, type DeployStrategy, type DeployHooks, type DeployContext, type DeployTargetResult, type DeployHealthCheck } from './deploy/index.js';
 
-// Health
 export { HealthChecker, type HealthReport, type CheckResult, type HttpCheckOptions, type TcpCheckOptions, type CommandCheckOptions } from './health/index.js';
 
-// Pipeline
 export { Pipeline, type PipelineResult, type PipelineContext, type StepConfig, type StepResult } from './pipeline/index.js';
 
-// Workflow
-export { Workflow, type WorkflowResult, type WorkflowContext, type TaskOptions, type TaskResult } from './workflow/index.js';
+export { Workflow, type WorkflowResult, type WorkflowContext, type TaskOptions as WorkflowTaskOptions, type TaskResult as WorkflowTaskResult } from './workflow/index.js';
 
-// Discovery
 export { Discovery, type DiscoveredTarget, type DockerDiscoveryOptions, type K8sDiscoveryOptions, type SshDiscoveryOptions } from './discovery/index.js';
 
-// Retry
 export { retry, RetryPolicy, type RetryConfig, type BackoffStrategy } from './retry/index.js';
 
-// Completion
 export { generateCompletion, type CompletionConfig, type Shell } from './completion/index.js';
+
+// ─── Configuration ──────────────────────────────────────────────────
+
+export { ConfigurationManager } from './config/configuration-manager.js';
+export { ConfigValidator } from './config/config-validator.js';
+export { VariableInterpolator } from './config/variable-interpolator.js';
+export { TaskManager } from './config/task-manager.js';
+export { TaskExecutor } from './config/task-executor.js';
+export { TargetResolver } from './config/target-resolver.js';
+export type { Configuration, ResolvedTarget, TargetConfig, TargetType, TaskDefinition, CommandConfig } from './config/types.js';
+
+// ─── Secrets ────────────────────────────────────────────────────────
+
+export { SecretManager } from './secrets/manager.js';
+export type { SecretProvider, SecretProviderConfig, SecretMetadata, EncryptedSecret } from './secrets/types.js';
+export { SecretError } from './secrets/types.js';
+
+// ─── Scripting API ──────────────────────────────────────────────────
+
+export { ScriptContext } from './api/script-context.js';
+export { TargetAPI } from './api/target-api.js';
+export { TaskAPI } from './api/task-api.js';
+export { ConfigAPI } from './api/config-api.js';
+
+// ─── Script Loader ──────────────────────────────────────────────────
+
+export { getScriptLoader, ScriptLoader } from './adapters/loader-adapter.js';
+
+// ─── Utilities ──────────────────────────────────────────────────────
+
+export { parseTimeout, formatDuration, parseInterval } from './utils/time.js';
+export { createTargetEngine } from './utils/direct-execution.js';
