@@ -1,6 +1,10 @@
+import { vi } from 'vitest';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { promises as fs } from 'fs';
+
+// E2E Docker tests need longer timeouts for container operations
+vi.setConfig({ testTimeout: 180000, hookTimeout: 180000 });
 
 // Set up PATH with Docker location before importing $
 if (!process.env['PATH']?.includes('/usr/local/bin')) {

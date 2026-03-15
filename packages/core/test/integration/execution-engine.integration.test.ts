@@ -299,7 +299,7 @@ describe('Unified Execution Engine - Integration Tests', () => {
     it('should execute with local context', async () => {
       const engine = new ExecutionEngine();
       const result = await within(
-        { env: { TEST_VAR: 'test-value' } },
+        { defaultEnv: { TEST_VAR: 'test-value' } },
         async () => engine.execute({ command: 'echo $TEST_VAR', shell: true })
       );
 

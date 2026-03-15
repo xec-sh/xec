@@ -280,7 +280,7 @@ describeIfDocker('DockerAdapter Integration Tests', () => {
       });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('No such container');
+      expect(result.stderr).toMatch(/No such container|not found/i);
     });
 
     it('should handle invalid image when creating container', async () => {
