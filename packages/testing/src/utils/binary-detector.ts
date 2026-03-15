@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { platform } from 'os';
+import { validateShellName } from './shell-escape.js';
 
 /**
  * Common paths where binaries might be installed
@@ -66,6 +67,8 @@ export function findBinary(name: string): string | null {
   if (binaryPathCache.has(name)) {
     return binaryPathCache.get(name) ?? null;
   }
+
+  validateShellName(name, 'binary name');
 
   // Check predefined common paths
   const commonPaths = COMMON_BINARY_PATHS[name];

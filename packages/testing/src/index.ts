@@ -19,6 +19,12 @@ export {
   cleanupTestContainers
 } from './docker/utils.js';
 
+// Shell escape utilities
+export * from './utils/shell-escape.js';
+
+/** Default test SSH password - used only for test container authentication */
+const TEST_SSH_PASSWORD = 'password';
+
 // SSH connection configuration
 export interface SSHConnectionConfig {
   host: string;
@@ -35,7 +41,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2201,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'apt',
     testPackage: 'curl'
   },
@@ -43,7 +49,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2202,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'yum',
     testPackage: 'wget'
   },
@@ -51,7 +57,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2203,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'dnf',
     testPackage: 'nano'
   },
@@ -59,7 +65,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2204,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'apk',
     testPackage: 'vim'
   },
@@ -67,7 +73,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2205,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'pacman',
     testPackage: 'htop'
   },
@@ -75,7 +81,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2206,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'brew',
     testPackage: 'jq'
   },
@@ -83,7 +89,7 @@ export const SSH_TEST_CONFIGS: SSHConnectionConfig[] = [
     host: 'localhost',
     port: 2207,
     username: 'user',
-    password: 'password',
+    password: TEST_SSH_PASSWORD,
     packageManager: 'snap',
     testPackage: 'hello'
   }
