@@ -48,7 +48,7 @@ console.log(allHealthy ? '✅ All services healthy' : '❌ Some services unhealt
 ```typescript
 // health-monitor.ts
 import { $, on, docker, k8s } from '@xec-sh/core';
-import { parallel } from '@xec-sh/core/utils';
+import { parallel } from '@xec-sh/core';
 
 interface HealthCheckResult {
   target: string;

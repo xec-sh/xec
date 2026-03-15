@@ -553,7 +553,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install Xec
-        run: npm install -g @xec/cli
+        run: npm install -g @xec-sh/cli
       - name: Validate configuration
         run: xec config validate --strict
 ```

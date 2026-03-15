@@ -253,7 +253,7 @@ await $.with({
 })`npm test`;
 
 // Strip ANSI codes if needed
-import { stripAnsi } from '@xec-sh/core/utils';
+import { stripAnsi } from '@xec-sh/core';
 
 const colored = await $`ls --color=always`;
 const plain = stripAnsi(colored.stdout);

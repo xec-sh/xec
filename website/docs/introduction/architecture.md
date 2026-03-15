@@ -91,7 +91,6 @@ abstract class BaseAdapter {
 - **SSHAdapter**: Remote execution via SSH
 - **DockerAdapter**: Container execution via Docker API
 - **KubernetesAdapter**: Pod execution via kubectl
-- **RemoteDockerAdapter**: Docker on remote hosts
 
 ### 3. Command Builder
 
