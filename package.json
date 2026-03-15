@@ -18,10 +18,10 @@
     "release": "tsx scripts/release.ts",
     "link:global": "cd apps/xec && pnpm build && npm link",
     "unlink:global": "cd apps/xec && npm unlink -g @xec-sh/cli",
-    "docs:start": "cd docs && pnpm start",
-    "docs:build": "cd docs && pnpm build",
-    "docs:serve": "cd docs && pnpm serve",
-    "docs:deploy": "cd docs && pnpm deploy",
+    "docs:start": "cd website && pnpm start",
+    "docs:build": "cd website && pnpm build",
+    "docs:serve": "cd website && pnpm serve",
+    "docs:deploy": "cd website && pnpm deploy",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
