@@ -4,7 +4,7 @@ description: Testing strategies and best practices for Xec commands
 keywords: [commands, testing, unit tests, integration tests, mocking]
 source_files:
   - apps/xec/test/commands/
-  - packages/test-utils/src/
+  - packages/testing/src/
   - apps/xec/src/commands/base-command.ts
 key_functions:
   - createTestConfig()
@@ -19,8 +19,8 @@ verification_date: 2025-08-03
 
 **Source Files:**
 - `apps/xec/test/commands/*.test.ts` - Command test files
-- `packages/test-utils/src/config.ts` - Test configuration utilities
-- `packages/test-utils/src/mocks.ts` - Mock objects and helpers
+- `packages/testing/src/config.ts` - Test configuration utilities
+- `packages/testing/src/mocks.ts` - Mock objects and helpers
 - `apps/xec/src/commands/base-command.ts` - Base command for testing
 
 **Test Utilities:**
