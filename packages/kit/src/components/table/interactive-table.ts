@@ -2,6 +2,8 @@
  * Interactive Table - Keyboard-navigable table with selection, sorting, and filtering
  */
 
+import type { TableState, SelectionMode, InteractiveTableOptions } from './types.js';
+
 import { toggleSort } from './table-sorter.js';
 import { createTableState } from './table-state.js';
 import Prompt, { type PromptOptions } from '../../core/prompts/prompt.js';
@@ -25,8 +27,6 @@ import {
   navigatePageUp,
   navigatePageDown,
 } from './table-navigator.js';
-
-import type { TableState, SelectionMode, InteractiveTableOptions } from './types.js';
 
 interface InteractiveTablePromptOptions<T>
   extends PromptOptions<T[], InteractiveTablePrompt<T>> {
@@ -105,6 +105,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
             this.updateValue();
           }
           break;
+        // no default
       }
     });
   }
@@ -164,6 +165,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
             }
           }
           break;
+        // no default
       }
 
       // Page navigation

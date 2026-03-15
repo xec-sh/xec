@@ -1,9 +1,9 @@
+import type { CommonOptions } from './common.js';
+
 import { join, dirname } from 'node:path';
 import { lstatSync, existsSync, readdirSync } from 'node:fs';
 
 import { autocomplete } from '../prompts/autocomplete.js';
-
-import type { CommonOptions } from './common.js';
 
 export interface PathOptions extends CommonOptions {
   root?: string;
@@ -75,7 +75,7 @@ export const path = (opts: PathOptions) => {
         return items.map((item) => ({
           value: item.path,
         }));
-      } catch (_e) {
+      } catch {
         return [];
       }
     },

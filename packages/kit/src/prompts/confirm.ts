@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { ConfirmPrompt, settings } from '../core/index.js';
+import { settings, ConfirmPrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,

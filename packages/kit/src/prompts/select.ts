@@ -1,15 +1,15 @@
 import prism from '../prism/index.js';
-import { SelectPrompt, settings, wrapTextWithPrefix } from '../core/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
+import { settings, SelectPrompt, wrapTextWithPrefix } from '../core/index.js';
 import {
   S_BAR,
   symbol,
   symbolBar,
   S_BAR_END,
+  computeLabel,
   S_RADIO_ACTIVE,
   S_RADIO_INACTIVE,
   type CommonOptions,
-  computeLabel,
 } from '../utilities/common.js';
 
 type Primitive = Readonly<string | boolean | number>;

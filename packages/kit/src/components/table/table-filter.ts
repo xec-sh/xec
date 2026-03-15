@@ -2,9 +2,9 @@
  * Table filtering logic
  */
 
-import { updateStateData } from './table-state.js';
-
 import type { TableState, InteractiveTableOptions } from './types.js';
+
+import { updateStateData } from './table-state.js';
 
 /**
  * Enter filter mode

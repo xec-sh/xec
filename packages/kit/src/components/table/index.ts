@@ -3,12 +3,11 @@
  */
 
 import type { Readable, Writable } from 'node:stream';
+import type { TableOptions, InteractiveTableOptions } from './types.js';
 
 import { renderTable } from './table-renderer.js';
 import InteractiveTablePrompt from './interactive-table.js';
 import { renderInteractiveTable } from './interactive-renderer.js';
-
-import type { TableOptions, InteractiveTableOptions } from './types.js';
 
 /**
  * Render a static table to the output stream
@@ -138,6 +137,12 @@ export function interactiveTable<T = any>(
   }).prompt() as Promise<T[] | symbol>;
 }
 
+export type { ExportOptions } from './table-exporter.js';
+export type { CacheConfig, CacheStrategy } from './cache.js';
+
+export type { StreamOptions, StreamProgress } from './streaming.js';
+export type { TableErrorCode, TableErrorHandler } from './errors.js';
+
 // Export caching utilities (Phase 4)
 export {
   Cache,
@@ -146,6 +151,7 @@ export {
   getGlobalTableCache,
   resetGlobalTableCache,
 } from './cache.js';
+
 // Export table utilities (Phase 3)
 export {
   exportToCSV,
@@ -155,7 +161,6 @@ export {
   exportToHTML,
   exportToMarkdown,
 } from './table-exporter.js';
-
 // Export streaming utilities (Phase 3)
 export {
   batchAsync,
@@ -165,6 +170,7 @@ export {
   asyncIterableToArray,
   arrayToAsyncIterable,
 } from './streaming.js';
+
 // Export inline editing utilities (Phase 3)
 export {
   saveEdit,
@@ -176,7 +182,6 @@ export {
   navigateToNextEditableColumn,
   navigateToPreviousEditableColumn,
 } from './table-editor.js';
-
 // Export error handling utilities (Phase 4)
 export {
   TableError,
@@ -194,12 +199,6 @@ export {
   createExportFailedError,
   createColumnNotFoundError,
 } from './errors.js';
-
-export type { ExportOptions } from './table-exporter.js';
-export type { CacheConfig, CacheStrategy } from './cache.js';
-
-export type { StreamOptions, StreamProgress } from './streaming.js';
-export type { TableErrorCode, TableErrorHandler } from './errors.js';
 
 // Re-export types
 export type {

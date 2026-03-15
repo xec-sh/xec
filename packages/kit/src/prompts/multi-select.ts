@@ -1,19 +1,19 @@
+import type { Option } from './select.js';
+
 import prism from '../prism/index.js';
-import { MultiSelectPrompt, settings, wrapTextWithPrefix } from '../core/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
+import { settings, MultiSelectPrompt, wrapTextWithPrefix } from '../core/index.js';
 import {
   S_BAR,
   symbol,
   symbolBar,
   S_BAR_END,
+  computeLabel,
   S_CHECKBOX_ACTIVE,
   type CommonOptions,
   S_CHECKBOX_INACTIVE,
   S_CHECKBOX_SELECTED,
-  computeLabel,
 } from '../utilities/common.js';
-
-import type { Option } from './select.js';
 
 export interface MultiSelectOptions<Value> extends CommonOptions {
   message: string;

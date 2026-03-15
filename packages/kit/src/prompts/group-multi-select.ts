@@ -1,5 +1,7 @@
+import type { Option } from './select.js';
+
 import prism from '../prism/index.js';
-import { GroupMultiSelectPrompt, settings } from '../core/index.js';
+import { settings, GroupMultiSelectPrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -9,8 +11,6 @@ import {
   S_CHECKBOX_INACTIVE,
   S_CHECKBOX_SELECTED,
 } from '../utilities/common.js';
-
-import type { Option } from './select.js';
 
 export interface GroupMultiSelectOptions<Value> extends CommonOptions {
   message: string;
@@ -165,7 +165,7 @@ export const groupMultiselect = <Value>(opts: GroupMultiSelectOptions<Value>) =>
                 !active &&
                 typeof option.group === 'string' &&
                 this.options[this.cursor]?.value === option.group;
-              let optionText = '';
+              let optionText: string;
               if (groupActive) {
                 optionText = opt(
                   option,

@@ -2,8 +2,8 @@
  * Table component types and interfaces
  */
 
-import type { CommonOptions } from '../../utilities/common.js';
 import type { CacheConfig, CacheStrategy } from './cache.js';
+import type { CommonOptions } from '../../utilities/common.js';
 
 /**
  * Border style types
@@ -176,6 +176,7 @@ export interface ColumnLayout {
 /**
  * Table layout calculation result
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export interface TableLayout<T = any> {
   /** Column layouts */
   columns: ColumnLayout[];

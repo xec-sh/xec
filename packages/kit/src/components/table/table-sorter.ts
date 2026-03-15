@@ -2,9 +2,9 @@
  * Table sorting logic
  */
 
-import { updateStateData } from './table-state.js';
-
 import type { TableState, SortColumn, SortDirection, InteractiveTableOptions } from './types.js';
+
+import { updateStateData } from './table-state.js';
 
 /**
  * Toggle sort on a column
@@ -20,7 +20,7 @@ export function toggleSort<T>(
     return state;
   }
 
-  let newSort: SortColumn | null = null;
+  let newSort: SortColumn | null;
 
   if (state.sort && state.sort.key === columnKey) {
     // Already sorting this column - toggle direction

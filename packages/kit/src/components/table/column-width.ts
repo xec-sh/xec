@@ -2,10 +2,10 @@
  * Column width calculation utilities
  */
 
+import type { TableColumn, ColumnLayout, TableOptions } from './types.js';
+
 import { getColumns } from '../../core/index.js';
 import stringWidth from '../../core/utils/string-width.js';
-
-import type { TableColumn, ColumnLayout, TableOptions } from './types.js';
 
 /**
  * Calculate the visual width of content

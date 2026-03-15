@@ -1,5 +1,4 @@
 import type { Key } from 'node:readline';
-
 import type { Action } from './utils/settings.js';
 
 /**
@@ -11,11 +10,11 @@ export type ClackState = 'initial' | 'active' | 'cancel' | 'submit' | 'error';
  * Typed event emitter for clack
  */
 export interface ClackEvents<TValue> {
-  initial: (value?: any) => void;
-  active: (value?: any) => void;
-  cancel: (value?: any) => void;
-  submit: (value?: any) => void;
-  error: (value?: any) => void;
+  initial: (value?: TValue) => void;
+  active: (value?: TValue) => void;
+  cancel: (value?: TValue) => void;
+  submit: (value?: TValue) => void;
+  error: (value?: TValue) => void;
   cursor: (key?: Action) => void;
   key: (key: string | undefined, info: Key) => void;
   value: (value?: TValue) => void;

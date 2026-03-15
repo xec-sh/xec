@@ -2,13 +2,13 @@
  * Table rendering logic
  */
 
+import type { TableLayout, TableOptions } from './types.js';
+
 import prism from '../../prism/index.js';
 import { isCI, isTTY } from '../../utilities/common.js';
 import { formatCell, formatHeader } from './cell-formatter.js';
 import { getTotalTableWidth, calculateColumnWidths } from './column-width.js';
 import { renderRow, getBorderChars, renderHorizontalBorder } from './borders.js';
-
-import type { TableLayout, TableOptions } from './types.js';
 
 /**
  * Calculate table layout

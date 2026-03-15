@@ -1,6 +1,6 @@
-import fastStringTruncatedWidth from './string-truncated-width.js';
-
 import type { TruncationOptions, WidthOptions as Options } from './string-truncated-width.js';
+
+import fastStringTruncatedWidth from './string-truncated-width.js';
 
 const NO_TRUNCATION: TruncationOptions = {
   limit: Infinity,

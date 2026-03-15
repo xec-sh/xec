@@ -1,10 +1,9 @@
 import type { Writable } from 'node:stream';
+import type { CommonOptions } from './common.js';
 
 import prism from '../prism/index.js';
 import { wrapAnsi } from '../core/utils/wrap-ansi.js';
 import { getRows, getColumns } from '../core/index.js';
-
-import type { CommonOptions } from './common.js';
 
 export interface LimitOptionsParams<TOption> extends CommonOptions {
   options: TOption[];

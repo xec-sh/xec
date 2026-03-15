@@ -1,6 +1,8 @@
+import type { Option } from './select.js';
+
 import prism from '../prism/index.js';
-import { AutocompletePrompt, settings } from '../core/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
+import { settings, AutocompletePrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -11,8 +13,6 @@ import {
   S_CHECKBOX_INACTIVE,
   S_CHECKBOX_SELECTED,
 } from '../utilities/common.js';
-
-import type { Option } from './select.js';
 
 function getLabel<T>(option: Option<T>) {
   return option.label ?? String(option.value ?? '');
@@ -121,7 +121,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
 
         default: {
           // Display cursor position - show plain text in navigation mode
-          let searchText = '';
+          let searchText: string;
           if (this.isNavigating || showPlaceholder) {
             const searchTextValue = showPlaceholder ? placeholder : userInput;
             searchText = searchTextValue !== '' ? ` ${prism.dim(searchTextValue)}` : '';

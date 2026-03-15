@@ -84,6 +84,7 @@ export default class MultiSelectPrompt<T extends OptionLike> extends Prompt<T['v
         case 'space':
           this.toggleValue();
           break;
+        // no default
       }
     });
   }

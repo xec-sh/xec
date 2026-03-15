@@ -89,6 +89,7 @@ export function rgbToHsl(rgb: RGB): HSL {
       case b:
         h = ((r - g) / diff + 4) / 6;
         break;
+      // no default
     }
   }
 
@@ -165,6 +166,7 @@ export function rgbToHsv(rgb: RGB): HSV {
       case b:
         h = ((r - g) / diff + 4) / 6;
         break;
+      // no default
     }
   }
 

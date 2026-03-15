@@ -1,4 +1,5 @@
 import type { Key } from 'node:readline';
+
 import { settings } from '../utils/settings.js';
 import Prompt, { type PromptOptions } from './prompt.js';
 
@@ -297,13 +298,18 @@ export default class DatePrompt extends Prompt<Date> {
     if (!key) return;
     switch (key) {
       case 'right':
-        return this.#moveCursorNext();
+        this.#moveCursorNext();
+        break;
       case 'left':
-        return this.#moveCursorPrevious();
+        this.#moveCursorPrevious();
+        break;
       case 'up':
-        return this.#incrementSegment();
+        this.#incrementSegment();
+        break;
       case 'down':
-        return this.#decrementSegment();
+        this.#decrementSegment();
+        break;
+      // no default
     }
   }
 

@@ -42,9 +42,8 @@ interface BufferEntry {
  * Strip destructive ANSI codes (cursor movement, erase, etc.)
  * that could corrupt task log rendering.
  */
-const stripDestructiveANSI = (input: string): string => {
-  return input.replace(/\x1b\[(?:\d+;)*\d*[ABCDEFGHfJKSTsu]|\x1b\[(s|u)/g, '');
-};
+// eslint-disable-next-line no-control-regex
+const stripDestructiveANSI = (input: string): string => input.replace(/\x1b\[(?:\d+;)*\d*[ABCDEFGHfJKSTsu]|\x1b\[(s|u)/g, '');
 
 /**
  * Renders a log which clears on success and remains on failure
@@ -199,24 +198,24 @@ export const taskLog = (opts: TaskLogOptions) => {
         message(msg: string, mopts?: TaskLogMessageOptions) {
           message(buffer, msg, mopts);
         },
-        error(message: string) {
+        error(msg: string) {
           completeBuffer(buffer, {
             status: 'error',
-            message,
+            message: msg,
           });
         },
-        success(message: string) {
+        success(msg: string) {
           completeBuffer(buffer, {
             status: 'success',
-            message,
+            message: msg,
           });
         },
       };
     },
-    error(message: string, opts?: TaskLogCompletionOptions): void {
+    error(msg: string, completionOpts?: TaskLogCompletionOptions): void {
       clear(true);
-      log.error(message, { output, secondarySymbol, spacing: 1 });
-      if (opts?.showLog !== false) {
+      log.error(msg, { output, secondarySymbol, spacing: 1 });
+      if (completionOpts?.showLog !== false) {
         renderBuffer();
       }
       // clear buffer since error is an end state
@@ -226,10 +225,10 @@ export const taskLog = (opts: TaskLogOptions) => {
         buffers[0].full = '';
       }
     },
-    success(message: string, opts?: TaskLogCompletionOptions): void {
+    success(msg: string, completionOpts?: TaskLogCompletionOptions): void {
       clear(true);
-      log.success(message, { output, secondarySymbol, spacing: 1 });
-      if (opts?.showLog === true) {
+      log.success(msg, { output, secondarySymbol, spacing: 1 });
+      if (completionOpts?.showLog === true) {
         renderBuffer();
       }
       // clear buffer since success is an end state

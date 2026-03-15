@@ -114,8 +114,6 @@ export function wrapTextWithPrefix(
   });
   return wrapped
     .split('\n')
-    .map((line: string, index: number) => {
-      return `${index === 0 ? startPrefix : prefix}${line}`;
-    })
+    .map((line: string, index: number) => `${index === 0 ? startPrefix : prefix}${line}`)
     .join('\n');
 }
