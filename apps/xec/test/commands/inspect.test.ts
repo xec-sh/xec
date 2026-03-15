@@ -68,7 +68,7 @@ describe('inspect command', () => {
         },
         pods: {
           'test-pod': {
-            type: 'k8s',
+            type: 'kubernetes',
             namespace: 'default',
             selector: 'app=test'
           }
