@@ -591,23 +591,66 @@ export interface ValidationError {
  * Configuration manager options
  */
 export interface ConfigManagerOptions {
-  /** Project root directory */
+  /** Project root directory (default: process.cwd()) */
   projectRoot?: string;
 
-  /** Global config directory */
+  /** Global config home directory (default: ~/.xec or XEC_HOME_DIR env) */
   globalHomeDir?: string;
 
-  /** Active profile */
+  /** Active profile name */
   profile?: string;
 
-  /** Environment variable prefix */
+  /** Environment variable prefix for config overrides (default: 'XEC_') */
   envPrefix?: string;
 
-  /** Enable caching */
+  /** Enable configuration caching */
   cache?: boolean;
 
-  /** Strict mode (fail on warnings) */
+  /** Strict mode — fail on warnings */
   strict?: boolean;
+
+  /**
+   * Config directory name relative to project root (default: '.xec').
+   * Set to '' to disable project-local configs.
+   */
+  configDirName?: string;
+
+  /**
+   * Config file names to search for, in priority order.
+   * Default: ['config.yaml', 'config.yml']
+   */
+  configFileNames?: string[];
+
+  /**
+   * Root-level config file names (searched in project root, not in configDir).
+   * Default: ['xec.yaml', 'xec.yml']
+   */
+  rootConfigFileNames?: string[];
+
+  /**
+   * Profiles directory name inside configDir (default: 'profiles')
+   */
+  profilesDirName?: string;
+
+  /**
+   * Secrets directory path (default: globalHomeDir + '/secrets')
+   */
+  secretsDir?: string;
+
+  /**
+   * Module cache directory path (default: globalHomeDir + '/module-cache')
+   */
+  moduleCacheDir?: string;
+
+  /**
+   * Additional config search paths (searched after standard paths)
+   */
+  extraConfigPaths?: string[];
+
+  /**
+   * Custom default configuration to merge with built-in defaults
+   */
+  defaults?: Partial<Configuration>;
 
   /** Secret provider configuration */
   secretProvider?: {
