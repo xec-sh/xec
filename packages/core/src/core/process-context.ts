@@ -8,6 +8,12 @@ import type { ProcessPromise } from '../types/process.js';
 import type { Command, StreamOption } from '../types/command.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
 
+/** Branded symbol for xec promise identification — shared across modules */
+const XEC_PROMISE_BRAND = Symbol.for('xec:promise');
+
+/** Marker for transform handlers (text/json/lines/buffer) to distinguish from direct await */
+const TRANSFORM_HANDLER = Symbol.for('xec:transform');
+
 export { ProcessPromise } from '../types/process.js';
 
 /**
@@ -326,7 +332,7 @@ export class ProcessPromiseBuilder {
         // Check if we're being awaited directly (not through .text(), .json(), etc)
         // We can detect this by checking if onfulfilled is the internal handler from .text()/.json()
         // or if it's a user-provided handler
-        const isDirectAwait = onfulfilled && !onfulfilled.__isTransformHandler;
+        const isDirectAwait = onfulfilled && !(onfulfilled as any)[TRANSFORM_HANDLER];
 
         if (isDirectAwait) {
           // For direct await, check if we should throw
@@ -361,11 +367,9 @@ export class ProcessPromiseBuilder {
       }
     } as any;
 
-    // Add properties for type compatibility and tracking
-    Object.assign(lazyPromise, {
-      __isXecPromise: true,
-      engine: context.engine
-    });
+    // Brand the promise for reliable identification in unhandled rejection handler
+    (lazyPromise as unknown as Record<symbol, boolean>)[XEC_PROMISE_BRAND] = true;
+    Object.assign(lazyPromise, { engine: context.engine });
 
     // Attach methods in single pass
     this.attachProcessMethods(lazyPromise, context);
@@ -374,10 +378,31 @@ export class ProcessPromiseBuilder {
   }
 
   /**
-   * Method attachment with minimal allocations
+   * Create a transform handler that checks exit code before applying transform.
+   * Shared logic extracted to avoid duplicating the same closure 4 times.
+   */
+  private createTransformHandler<T>(
+    context: ProcessContext,
+    transform: (r: ExecutionResult) => T
+  ): ((r: ExecutionResult) => T) {
+    const handler = (r: ExecutionResult): T => {
+      if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
+        const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+        if (!globalNothrow) {
+          r.throwIfFailed();
+        }
+      }
+      return transform(r);
+    };
+    (handler as any)[TRANSFORM_HANDLER] = true;
+    return handler;
+  }
+
+  /**
+   * Method attachment with minimal allocations.
+   * Uses shared transform handler creator to avoid duplicating error-check logic.
    */
   private attachProcessMethods(promise: ProcessPromise, context: ProcessContext): void {
-    // Batch assign properties
     Object.assign(promise, {
       stdin: null,
       child: undefined,
@@ -397,70 +422,13 @@ export class ProcessPromiseBuilder {
       pipe: (target: PipeTarget, ...args: any[]) => context.pipe(target, ...args),
       kill: (signal?: string) => context.kill(signal),
 
-      // Transformations - these should throw if the command failed and throwOnNonZeroExit is true
-      text: () => {
-        const handler = (r: ExecutionResult) => {
-          // Check if we should throw based on exitCode and throwOnNonZeroExit
-          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
-            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
-            if (!globalNothrow) {
-              r.throwIfFailed();
-            }
-          }
-          return r.stdout.trim();
-        };
-        // Mark this as a transform handler
-        (handler as any).__isTransformHandler = true;
-        return promise.then(handler);
-      },
-      json: <T = any>() => {
-        const handler = (r: ExecutionResult) => {
-          // Check if we should throw based on exitCode and throwOnNonZeroExit
-          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
-            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
-            if (!globalNothrow) {
-              r.throwIfFailed();
-            }
-          }
-          return this.parseJson(r.stdout.trim()) as T;
-        };
-        // Mark this as a transform handler
-        (handler as any).__isTransformHandler = true;
-        return promise.then(handler);
-      },
-      lines: () => {
-        const handler = (r: ExecutionResult) => {
-          // Check if we should throw based on exitCode and throwOnNonZeroExit
-          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
-            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
-            if (!globalNothrow) {
-              r.throwIfFailed();
-            }
-          }
-          return this.parseLines(r.stdout);
-        };
-        // Mark this as a transform handler
-        (handler as any).__isTransformHandler = true;
-        return promise.then(handler);
-      },
-      buffer: () => {
-        const handler = (r: ExecutionResult) => {
-          // Check if we should throw based on exitCode and throwOnNonZeroExit
-          if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
-            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
-            if (!globalNothrow) {
-              r.throwIfFailed();
-            }
-          }
-          return Buffer.from(r.stdout);
-        };
-        // Mark this as a transform handler
-        (handler as any).__isTransformHandler = true;
-        return promise.then(handler);
-      }
+      // Transformations — use shared handler creator to deduplicate error-check logic
+      text: () => promise.then(this.createTransformHandler(context, r => r.stdout.trim())),
+      json: <T = any>() => promise.then(this.createTransformHandler<T>(context, r => this.parseJson(r.stdout.trim()) as T)),
+      lines: () => promise.then(this.createTransformHandler(context, r => this.parseLines(r.stdout))),
+      buffer: () => promise.then(this.createTransformHandler(context, r => Buffer.from(r.stdout))),
     });
 
-    // Single property definition for lazy evaluation
     Object.defineProperty(promise, 'exitCode', {
       get: () => promise.then(r => r.exitCode),
       configurable: true

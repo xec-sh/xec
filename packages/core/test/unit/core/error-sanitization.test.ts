@@ -14,24 +14,44 @@ describe('sanitizeCommandForError', () => {
     process.env = originalEnv;
   });
 
-  describe('when XEC_SANITIZE_COMMANDS is not set (default)', () => {
+  describe('when XEC_SANITIZE_COMMANDS is not set (default = sanitize ON)', () => {
     beforeEach(() => {
       delete process.env['XEC_SANITIZE_COMMANDS'];
       delete process.env['NODE_ENV'];
       delete process.env['JEST_WORKER_ID'];
+      delete process.env['VITEST_WORKER_ID'];
     });
 
-    it('should not sanitize commands by default', () => {
+    it('should sanitize sensitive commands by default', () => {
+      const command = 'cat /secret/path/to/file.txt';
+      expect(sanitizeCommandForError(command)).toBe('cat [arguments hidden]');
+    });
+
+    it('should truncate long commands by default', () => {
+      const command = 'docker run --rm -v /Users/user/projects:/app -e SECRET=value image command arg1 arg2 arg3';
+      expect(sanitizeCommandForError(command)).toBe('docker ... (11 arguments)');
+    });
+  });
+
+  describe('when XEC_SANITIZE_COMMANDS=false (opt-out)', () => {
+    beforeEach(() => {
+      process.env['XEC_SANITIZE_COMMANDS'] = 'false';
+      delete process.env['NODE_ENV'];
+      delete process.env['JEST_WORKER_ID'];
+      delete process.env['VITEST_WORKER_ID'];
+    });
+
+    it('should not sanitize commands when disabled', () => {
       const command = 'cat /secret/path/to/file.txt';
       expect(sanitizeCommandForError(command)).toBe(command);
     });
 
-    it('should not sanitize long commands', () => {
+    it('should not sanitize long commands when disabled', () => {
       const command = 'docker run --rm -v /Users/user/projects:/app -e SECRET=value image command arg1 arg2 arg3';
       expect(sanitizeCommandForError(command)).toBe(command);
     });
 
-    it('should not sanitize sensitive commands', () => {
+    it('should not sanitize sensitive commands when disabled', () => {
       const command = 'rm -rf /important/directory/*';
       expect(sanitizeCommandForError(command)).toBe(command);
     });
@@ -42,6 +62,7 @@ describe('sanitizeCommandForError', () => {
       process.env['XEC_SANITIZE_COMMANDS'] = 'true';
       delete process.env['NODE_ENV'];
       delete process.env['JEST_WORKER_ID'];
+      delete process.env['VITEST_WORKER_ID'];
     });
 
     it('should sanitize sensitive commands with arguments', () => {
@@ -107,6 +128,7 @@ describe('sanitizeCommandForError', () => {
       process.env['XEC_SANITIZE_COMMANDS'] = 'true';
       delete process.env['NODE_ENV'];
       delete process.env['JEST_WORKER_ID'];
+      delete process.env['VITEST_WORKER_ID'];
     });
 
     it('should handle commands with no arguments', () => {

@@ -33,16 +33,17 @@ export class CommandError extends ExecutionError {
 }
 
 /**
- * Sanitize command for error messages to avoid exposing sensitive information
+ * Sanitize command for error messages to avoid exposing sensitive information.
+ * Enabled by default (security-first). Set XEC_SANITIZE_COMMANDS=false to disable.
  */
 export function sanitizeCommandForError(command: string): string {
   // Skip sanitization in test environment to avoid test failures
-  if (process.env['NODE_ENV'] === 'test' || process.env['JEST_WORKER_ID'] !== undefined) {
+  if (process.env['NODE_ENV'] === 'test' || process.env['VITEST_WORKER_ID'] !== undefined) {
     return command;
   }
 
-  // Skip sanitization if explicitly disabled (default behavior)
-  if (process.env['XEC_SANITIZE_COMMANDS'] !== 'true') {
+  // Skip sanitization only if explicitly disabled
+  if (process.env['XEC_SANITIZE_COMMANDS'] === 'false') {
     return command;
   }
 

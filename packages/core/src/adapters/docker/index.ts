@@ -593,46 +593,41 @@ export class DockerAdapter extends BaseAdapter {
       stderrTransform.on('data', () => { });
     }
 
-    // Wait for completion
+    // Wait for completion with proper race condition protection
     return new Promise((resolve, reject) => {
       let timeoutId: NodeJS.Timeout | undefined;
-      let timedOut = false;
+      let settled = false; // Prevent double resolve/reject
+
+      const settle = <T>(fn: (value: T) => void, value: T) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        fn(value);
+      };
 
       if (timeout && timeout > 0) {
         timeoutId = setTimeout(() => {
-          timedOut = true;
           child.kill('SIGTERM');
           // Give it a moment to die gracefully, then force kill
           setTimeout(() => {
-            if (!child.killed) {
-              child.kill('SIGKILL');
-            }
+            if (!child.killed) child.kill('SIGKILL');
           }, 1000);
+          const argsString = args.join(' ');
+          settle(reject, new TimeoutError(`docker ${argsString}`, timeout));
         }, timeout);
       }
 
       child.on('error', (error) => {
-        if (timeoutId) clearTimeout(timeoutId);
-        reject(error);
+        settle(reject, error);
       });
 
       child.on('exit', (code, signal) => {
-        if (timeoutId) clearTimeout(timeoutId);
-
-        if (timedOut) {
-          const argsString = args.join(' ');
-          reject(new TimeoutError(`docker ${argsString}`, timeout || 0));
-          return;
-        }
-
-        const result = {
+        settle(resolve, {
           stdout: stdoutHandler.getContent(),
           stderr: stderrHandler.getContent(),
           exitCode: code ?? 0,
           signal
-        };
-
-        resolve(result);
+        });
       });
     });
   }

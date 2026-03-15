@@ -379,22 +379,35 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     return command.command;
   }
 
+  /**
+   * Set up abort signal handling. Returns a cleanup function that MUST be
+   * called when the operation completes (in a finally block) to prevent
+   * listener accumulation on long-lived AbortSignal instances.
+   */
+  protected setupAbortSignal(
+    signal: AbortSignal | undefined,
+    onAbort: () => void
+  ): (() => void) {
+    if (!signal) return () => {};
+
+    if (signal.aborted) {
+      onAbort();
+      throw new AdapterError(this.adapterName, 'execute', new Error('Operation aborted'));
+    }
+
+    const abortHandler = () => { onAbort(); };
+    signal.addEventListener('abort', abortHandler, { once: true });
+
+    // Return cleanup function to remove listener on normal completion
+    return () => { signal.removeEventListener('abort', abortHandler); };
+  }
+
+  /** @deprecated Use setupAbortSignal instead */
   protected async handleAbortSignal(
     signal: AbortSignal | undefined,
     cleanup: () => void
   ): Promise<void> {
-    if (!signal) return;
-
-    if (signal.aborted) {
-      cleanup();
-      throw new AdapterError(this.adapterName, 'execute', new Error('Operation aborted'));
-    }
-
-    const abortHandler = () => {
-      cleanup();
-    };
-
-    signal.addEventListener('abort', abortHandler, { once: true });
+    this.setupAbortSignal(signal, cleanup);
   }
 
   protected createCombinedEnv(baseEnv: Record<string, string>, commandEnv?: Record<string, string>): Record<string, string> {
