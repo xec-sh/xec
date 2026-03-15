@@ -1,5 +1,6 @@
-import { join, resolve } from 'path';
-import { execSync } from 'child_process';
+import { join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 import {
   isDockerAvailable as checkDockerAvailable,
   findBinary,
@@ -34,6 +35,8 @@ export class DockerContainerManager {
     // Resolve the path to the docker-ssh-manager.sh script
     // When running from dist, we need to go up to package root
     // When used as npm package, the script is at package root
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
     const packageRoot = resolve(__dirname, '..', '..');
     this.managerScriptPath = resolve(packageRoot, 'docker-ssh-manager.sh');
     // Resolve the path to docker images
