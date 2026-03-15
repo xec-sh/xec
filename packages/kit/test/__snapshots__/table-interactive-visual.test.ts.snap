@@ -2,7 +2,7 @@
 
 exports[`table-interactive-visual > Alternate rows > should render with alternating row colors 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -10,20 +10,20 @@ exports[`table-interactive-visual > Alternate rows > should render with alternat
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render empty table 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-[2m│                      (no data)                      │[22m
+<dim>│                      (no data)                      │</bold>
 └───────┴─────────────────┴──────────────┴────────────┘"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render table with focus on first row 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -31,12 +31,12 @@ exports[`table-interactive-visual > Basic rendering > should render table with f
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render table with focus on middle row 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 1     │ Alice           │ Developer    │ Active     │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -44,12 +44,12 @@ exports[`table-interactive-visual > Basic rendering > should render table with f
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 3/5[22m"
+<dim>Row 3/5</bold>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with double borders 1`] = `
 "╔═══════╦═════════════════╦══════════════╦════════════╗
-║ [1mID   [22m ║ [1mName           [22m ║ [1mRole        [22m ║ [1mStatus    [22m ║
+║ <bold>ID   </bold> ║ <bold>Name           </bold> ║ <bold>Role        </bold> ║ <bold>Status    </bold> ║
 ╠═══════╬═════════════════╬══════════════╬════════════╣
 ║ [7m1    [27m ║ [7mAlice          [27m ║ [7mDeveloper   [27m ║ [7mActive    [27m ║
 ║ 2     ║ Bob             ║ Designer     ║ Active     ║
@@ -57,12 +57,12 @@ exports[`table-interactive-visual > Border styles > should render with double bo
 ║ 4     ║ David           ║ Developer    ║ Active     ║
 ║ 5     ║ Eve             ║ Designer     ║ Active     ║
 ╚═══════╩═════════════════╩══════════════╩════════════╝
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with rounded borders 1`] = `
 "╭───────┬─────────────────┬──────────────┬────────────╮
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -70,12 +70,12 @@ exports[`table-interactive-visual > Border styles > should render with rounded b
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 ╰───────┴─────────────────┴──────────────┴────────────╯
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with single borders 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -83,56 +83,56 @@ exports[`table-interactive-visual > Border styles > should render with single bo
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render without borders 1`] = `
-"[1mID   [22m [1mName           [22m [1mRole        [22m [1mStatus    [22m
+"<bold>ID   </bold> <bold>Name           </bold> <bold>Role        </bold> <bold>Status    </bold>
 [7m1    [27m [7mAlice          [27m [7mDeveloper   [27m [7mActive    [27m
 2     Bob             Designer     Active    
 3     Charlie         Manager      Inactive  
 4     David           Developer    Active    
 5     Eve             Designer     Active    
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with filter + sort + selection 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName ↑         [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name ↑         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
-│ [36m4    [39m │ [36mDavid          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
+│ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m2 selected[39m • [33mFilter: Developer[39m [2m2/5[22m • [2mRow 1/2[22m"
+<green>2 selected</fg> • <yellow>Filter: Developer</fg> <dim>2/5</bold> • <dim>Row 1/2</bold>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with filter mode active + existing filter 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 4     │ David           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[33mFilter: Devel[39m [2m2/5[22m • [2mRow 1/2[22m
-[36m> [39mDevel"
+<yellow>Filter: Devel</fg> <dim>2/5</bold> • <dim>Row 1/2</bold>
+<cyan>> </fg>Devel"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with sort + focus + selection 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID ↓ [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID ↓ </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 5     │ Eve             │ Designer     │ Active     │
-│ [36m4    [39m │ [36mDavid          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
+│ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 1     │ Alice           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m2 selected[39m • [2mRow 3/5[22m"
+<green>2 selected</fg> • <dim>Row 3/5</bold>"
 `;
 
 exports[`table-interactive-visual > Compact mode > should render in compact mode 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -140,31 +140,31 @@ exports[`table-interactive-visual > Compact mode > should render in compact mode
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render empty filter results 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-[2m│                     No results                      │[22m
+<dim>│                     No results                      │</bold>
 └───────┴─────────────────┴──────────────┴────────────┘
-[33mFilter: NonExistent[39m [2m0/5[22m"
+<yellow>Filter: NonExistent</fg> <dim>0/5</bold>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render filtered results 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m2    [27m │ [7mBob            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[33mFilter: Designer[39m [2m2/5[22m • [2mRow 1/2[22m"
+<yellow>Filter: Designer</fg> <dim>2/5</bold> • <dim>Row 1/2</bold>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render in filter mode with input 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -172,49 +172,49 @@ exports[`table-interactive-visual > Filter states > should render in filter mode
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[33mFilter: Dev[39m [2m5/5[22m • [2mRow 1/5[22m
-[36m> [39mDev"
+<yellow>Filter: Dev</fg> <dim>5/5</bold> • <dim>Row 1/5</bold>
+<cyan>> </fg>Dev"
 `;
 
 exports[`table-interactive-visual > Filter states > should render with active filter 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 4     │ David           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[33mFilter: Developer[39m [2m2/5[22m • [2mRow 1/2[22m"
+<yellow>Filter: Developer</fg> <dim>2/5</bold> • <dim>Row 1/2</bold>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with all rows selected 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [36m1    [39m │ [36mAlice          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
-│ [36m2    [39m │ [36mBob            [39m │ [36mDesigner    [39m │ [36mActive    [39m │
+│ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
+│ <cyan>2    </fg> │ <cyan>Bob            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 │ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
-│ [36m4    [39m │ [36mDavid          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
-│ [36m5    [39m │ [36mEve            [39m │ [36mDesigner    [39m │ [36mActive    [39m │
+│ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
+│ <cyan>5    </fg> │ <cyan>Eve            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m5 selected[39m • [2mRow 3/5[22m"
+<green>5 selected</fg> • <dim>Row 3/5</bold>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with multiple rows selected 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [36m1    [39m │ [36mAlice          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
-│ [36m2    [39m │ [36mBob            [39m │ [36mDesigner    [39m │ [36mActive    [39m │
+│ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
+│ <cyan>2    </fg> │ <cyan>Bob            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ [7m4    [27m │ [7mDavid          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m3 selected[39m • [2mRow 4/5[22m"
+<green>3 selected</fg> • <dim>Row 4/5</bold>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with single row selected 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -222,25 +222,25 @@ exports[`table-interactive-visual > Selection states > should render with single
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m1 selected[39m • [2mRow 1/5[22m"
+<green>1 selected</fg> • <dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Selection states > should show selection count in status bar 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [36m1    [39m │ [36mAlice          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
+│ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ [7m2    [27m │ [7mBob            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m2 selected[39m • [2mRow 2/5[22m"
+<green>2 selected</fg> • <dim>Row 2/5</bold>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render sorted data in correct order 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName ↑         [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name ↑         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -248,12 +248,12 @@ exports[`table-interactive-visual > Sort indicators > should render sorted data 
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render with ascending sort indicator 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName ↑         [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name ↑         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -261,12 +261,12 @@ exports[`table-interactive-visual > Sort indicators > should render with ascendi
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render with descending sort indicator 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName ↓         [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name ↓         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m5    [27m │ [7mEve            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
 │ 4     │ David           │ Developer    │ Active     │
@@ -274,22 +274,22 @@ exports[`table-interactive-visual > Sort indicators > should render with descend
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 1     │ Alice           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 1/5[22m"
+<dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show all status components together 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [36m1    [39m │ [36mAlice          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
+│ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ [7m4    [27m │ [7mDavid          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m2 selected[39m • [33mFilter: Developer[39m [2m2/5[22m • [2mRow 2/2[22m"
+<green>2 selected</fg> • <yellow>Filter: Developer</fg> <dim>2/5</bold> • <dim>Row 2/2</bold>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show filter query and count 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -297,12 +297,12 @@ exports[`table-interactive-visual > Status bar variations > should show filter q
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[33mFilter: Active[39m [2m5/5[22m • [2mRow 1/5[22m"
+<yellow>Filter: Active</fg> <dim>5/5</bold> • <dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show row position in status bar 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 1     │ Alice           │ Developer    │ Active     │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -310,25 +310,25 @@ exports[`table-interactive-visual > Status bar variations > should show row posi
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 3/5[22m"
+<dim>Row 3/5</bold>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show selection count when items selected 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
-│ [36m2    [39m │ [36mBob            [39m │ [36mDesigner    [39m │ [36mActive    [39m │
-│ [36m3    [39m │ [36mCharlie        [39m │ [36mManager     [39m │ [36mInactive  [39m │
-│ [36m4    [39m │ [36mDavid          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
-│ [36m5    [39m │ [36mEve            [39m │ [36mDesigner    [39m │ [36mActive    [39m │
+│ <cyan>2    </fg> │ <cyan>Bob            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
+│ <cyan>3    </fg> │ <cyan>Charlie        </fg> │ <cyan>Manager     </fg> │ <cyan>Inactive  </fg> │
+│ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
+│ <cyan>5    </fg> │ <cyan>Eve            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m5 selected[39m • [2mRow 1/5[22m"
+<green>5 selected</fg> • <dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should combine focus and selection styling 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
 │ 2     │ Bob             │ Designer     │ Active     │
@@ -336,12 +336,12 @@ exports[`table-interactive-visual > Visual focus indicators > should combine foc
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m1 selected[39m • [2mRow 1/5[22m"
+<green>1 selected</fg> • <dim>Row 1/5</bold>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should highlight focused row with inverse colors 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 1     │ Alice           │ Developer    │ Active     │
 │ [7m2    [27m │ [7mBob            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
@@ -349,18 +349,18 @@ exports[`table-interactive-visual > Visual focus indicators > should highlight f
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[2mRow 2/5[22m"
+<dim>Row 2/5</bold>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should show selected rows with cyan color 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
-│ [1mID   [22m │ [1mName           [22m │ [1mRole        [22m │ [1mStatus    [22m │
+│ <bold>ID   </bold> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [36m1    [39m │ [36mAlice          [39m │ [36mDeveloper   [39m │ [36mActive    [39m │
+│ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-[32m2 selected[39m • [2mRow 3/5[22m"
+<green>2 selected</fg> • <dim>Row 3/5</bold>"
 `;
