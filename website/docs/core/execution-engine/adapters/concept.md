@@ -216,22 +216,14 @@ await k8s`ls -la`;
 - File copying
 - Namespace support
 
-### RemoteDockerAdapter
+### Remote Docker (via SSH Composition)
 
-Docker via SSH connection:
+For Docker on remote hosts, compose SSH and Docker manually:
 
 ```typescript
-const remote = $.remoteDocker({
-  ssh: { host: 'server', username: 'user' },
-  docker: { container: 'app' }
-});
-await remote`ls -la`;
+const $ssh = $.ssh({ host: 'server', username: 'user' });
+await $ssh`docker exec app ls -la`;
 ```
-
-**Features:**
-- SSH and Docker combination
-- Remote container management
-- Docker API tunneling
 
 ## Common Adapter Capabilities
 

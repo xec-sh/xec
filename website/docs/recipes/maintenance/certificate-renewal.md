@@ -49,7 +49,7 @@ console.log('✅ Certificates renewed and services reloaded');
 ```typescript
 // cert-manager.ts
 import { $, on } from '@xec-sh/core';
-import { parallel } from '@xec-sh/core/utils';
+import { parallel } from '@xec-sh/core';
 
 class CertificateManager {
   constructor(

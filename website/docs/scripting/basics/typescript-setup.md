@@ -487,16 +487,17 @@ describe('Math functions', () => {
 
 ```typescript
 // deploy.test.ts
+import { vi } from 'vitest';
 import { $ } from '@xec-sh/core';
 import { deploy } from './deploy';
 
-jest.mock('@xec-sh/core', () => ({
-  $: jest.fn()
+vi.mock('@xec-sh/core', () => ({
+  $: vi.fn()
 }));
 
 describe('Deployment', () => {
   test('deploys to staging', async () => {
-    const mockExec = $ as jest.MockedFunction<typeof $>;
+    const mockExec = $ as vi.MockedFunction<typeof $>;
     mockExec.mockResolvedValue({
       stdout: 'Success',
       stderr: '',
