@@ -1,360 +1,121 @@
 # @xec-sh/cli
 
-**Command-line interface for the Xec Universal Command Execution System** - Execute commands, scripts, and tasks across local, SSH, Docker, and Kubernetes environments with a unified TypeScript API.
+Command-line tool for executing commands, scripts, and tasks across local, SSH, Docker, and Kubernetes environments.
 
-[![npm version](https://img.shields.io/npm/v/@xec-sh/cli.svg)](https://www.npmjs.com/package/@xec-sh/cli)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-
-## 🚀 Installation
+## Install
 
 ```bash
-# Install globally
-npm install -g @xec-sh/cli
-
-# Or use directly with npx
-npx @xec-sh/cli
+pnpm add -g @xec-sh/cli
 ```
 
-## 📚 Documentation
-
-- 🌐 [Official Documentation](https://xec.sh/docs/projects/cli)
-- 📖 [Getting Started](https://xec.sh/docs/introduction/quick-start)
-- 🔧 [Command Reference](https://xec.sh/docs/commands)
-- 💡 [Examples](https://xec.sh/docs/projects/cli/real-world-examples)
-- 📝 [v0.8.0 Changelog](https://xec.sh/docs/changelog)
-
-## ✨ v0.8.0 Features
-
-### Core Capabilities
-- **🌍 Universal Script Execution** - Write once, run anywhere with automatic `$target` injection
-- **📝 Enhanced Configuration** - Interactive config management with custom parameters
-- **🔄 Module Loading 2.0** - CDN module support (npm, jsr, esm.sh, unpkg)
-- **⚡ TypeScript Native** - Full TypeScript support with transpilation
-- **🎯 Target Context** - Automatic environment adaptation for scripts
-- **🛠️ Task Automation** - YAML-based task definitions with parameter support
-
-### Built-in Commands
-
-| Command | Description |
-|---------|-------------|
-| `xec run <script>` | Execute JavaScript/TypeScript files or tasks |
-| `xec on <host> <cmd>` | Execute commands on SSH hosts |
-| `xec in <container> <cmd>` | Execute in Docker containers or K8s pods |
-| `xec copy <src> <dest>` | Transfer files between targets |
-| `xec forward <port>` | Port forwarding for any target |
-| `xec watch <cmd>` | Watch files and auto-execute |
-| `xec config` | Interactive configuration management |
-| `xec new` | Create new scripts, configs, or tasks |
-| `xec logs` | View logs from any target |
-| `xec secrets` | Manage secrets securely |
-
-## 🎮 Quick Start
-
-### Basic Execution
+## Quick Start
 
 ```bash
-# Run local commands
-xec run 'echo "Hello, World!"'
-
-# Execute TypeScript/JavaScript files
-xec run deploy.ts --env production
-
-# Interactive REPL with Xec context
-xec run --repl
+# Run a TypeScript/JavaScript file
+xec run deploy.ts
 
 # Evaluate inline code
 xec run -e 'await $`date`'
-```
 
-### Multi-Environment Commands
+# Start an interactive REPL
+xec run --repl
 
-```bash
-# SSH execution
+# Execute on a remote host via SSH (parallel supported)
 xec on prod-server 'docker ps'
 xec on user@host.com 'uptime'
 
-# Docker execution
+# Execute inside a Docker container or K8s pod
 xec in my-container 'npm test'
-xec in docker:alpine 'cat /etc/os-release'
-
-# Kubernetes execution
-xec in pod:webapp 'date'
-xec in pod:api -n production 'env'
+xec in pod:webapp 'hostname'
 ```
-
-### Write Once, Run Anywhere (v0.8.0)
-
-Create universal scripts that work in any environment:
-
-```typescript
-// deploy.ts - Universal deployment script
-console.log('Starting deployment...');
-
-// $target is automatically injected based on execution context
-await $target`git pull origin main`;
-await $target`npm install --production`;
-await $target`npm run build`;
-await $target`pm2 restart app`;
-
-console.log('Deployment complete!');
-```
-
-Execute the same script everywhere:
-```bash
-xec run deploy.ts                    # Local execution
-xec on prod-server deploy.ts        # SSH execution
-xec in app-container deploy.ts      # Docker execution
-xec in pod:app deploy.ts           # Kubernetes execution
-```
-
-## 📋 Configuration
-
-### Project Configuration
-
-Create `.xec/config.yaml`:
-
-```yaml
-# Define your infrastructure
-targets:
-  hosts:
-    prod:
-      type: ssh
-      host: prod.example.com
-      user: deploy
-      privateKey: ~/.ssh/deploy_key
-    
-  containers:
-    app:
-      type: docker
-      image: node:20-alpine
-      volumes: 
-        - ./src:/app/src
-    
-  pods:
-    api:
-      type: k8s
-      namespace: production
-      selector: app=api
-
-# Define reusable tasks
-tasks:
-  test:
-    command: npm test
-    
-  deploy:
-    targets: [hosts.prod]
-    steps:
-      - command: git pull
-      - command: npm install
-      - command: pm2 restart app
-      
-  backup:
-    schedule: "0 2 * * *"  # 2 AM daily
-    target: hosts.prod
-    command: |
-      tar -czf backup-$(date +%Y%m%d).tar.gz /data
-      aws s3 cp backup-*.tar.gz s3://backups/
-```
-
-### Enhanced Config Command (v0.8.0)
-
-Interactive configuration management:
 
 ```bash
-# Interactive mode with continuous menu
-xec config
+# Watch files and re-execute on change
+xec watch 'npm test'
 
-# Manage custom parameters
+# Task runner (reads .xec/config.yaml)
+xec tasks run deploy
+
+# Configuration management
 xec config set api.endpoint "https://api.example.com"
-xec config set features.debug true
 xec config get api.endpoint
 
-# Export custom configuration
-xec config export --format json > custom-config.json
+# Secret management
+xec secrets set API_KEY
+xec secrets get API_KEY
+
+# File transfer between targets
+xec copy ./local.txt prod-server:/remote/path.txt
+
+# Port forwarding
+xec forward prod-server 5432:5432
+
+# View remote logs
+xec logs prod-server /var/log/app.log
+
+# Inspect system information
+xec inspect
+
+# Scaffold a new project or script
+xec new script deploy.ts
+
+# Docker container management
+xec docker ps
 ```
 
-## 🔧 Script API
-
-Scripts have access to enhanced global context:
-
 ```typescript
-#!/usr/bin/env xec
+// deploy.ts -- Scripts have access to the full xec API
+import '@xec-sh/cli';
 
-// Universal execution (v0.8.0)
-// $target adapts to execution environment automatically
-await $target`npm install`;
-await $target`npm test`;
+await $`npm run build`;
 
-// Access target information
-if ($targetInfo?.type === 'ssh') {
-  console.log(`Running on SSH host: ${$targetInfo.host}`);
-}
-
-// Local execution (always available)
-const branch = await $`git branch --show-current`;
-
-// Configuration access
-const apiUrl = config.get('api.endpoint');
-
-// Interactive prompts
 const env = await select({
-  message: 'Choose environment',
-  options: ['dev', 'staging', 'prod']
+  message: 'Deploy to?',
+  options: [
+    { value: 'staging', label: 'Staging' },
+    { value: 'production', label: 'Production' },
+  ],
 });
 
-// File operations
-const files = await glob('**/*.ts');
-await fs.writeFile('report.json', JSON.stringify(data));
-
-// Logging utilities
-log.info('Processing...');
-log.success('Complete!');
-
-// HTTP requests
-const response = await fetch('https://api.example.com');
-const data = await response.json();
+await $.ssh('prod-server')`./deploy.sh ${env}`;
+log.success('Deployed!');
 ```
 
-## 🧩 Dynamic Commands
+## Commands
 
-Create custom commands in `.xec/commands/`:
+| Command | Description |
+|---------|-------------|
+| `xec run <script>` | Execute scripts, inline code (`-e`), REPL (`--repl`), or tasks |
+| `xec on <host> <cmd>` | Execute commands on remote SSH hosts (supports parallel) |
+| `xec in <target> <cmd>` | Execute in Docker containers or Kubernetes pods |
+| `xec watch <cmd>` | Watch files and auto-execute on changes |
+| `xec tasks` | List and run tasks defined in config |
+| `xec config` | View and manage configuration |
+| `xec secrets` | Manage secrets securely |
+| `xec copy <src> <dest>` | Transfer files between local and remote targets |
+| `xec forward <target> <ports>` | Port forwarding to any target |
+| `xec logs <target> [path]` | View logs from any target |
+| `xec inspect` | Inspect system and environment information |
+| `xec new <type> [name]` | Scaffold new projects, scripts, or configs |
+| `xec docker` | Docker container management |
 
-```typescript
-// .xec/commands/database.ts
-export function command(program) {
-  const db = program
-    .command('database')
-    .alias('db')
-    .description('Database operations');
-  
-  db.command('backup')
-    .description('Backup database')
-    .option('--output <file>', 'Output file')
-    .action(async (options) => {
-      const { $ } = await import('@xec-sh/core');
-      
-      // Command has access to global context
-      const host = config.get('database.host');
-      await $.ssh(host)`pg_dump myapp > ${options.output}`;
-      
-      log.success('Backup complete!');
-    });
-}
-```
+## Features
 
-## 💡 Examples
+- Thin wrapper over @xec-sh/ops -- all operations available programmatically
+- Universal script execution with automatic `$target` injection based on context
+- TypeScript and JavaScript files executed with automatic transpilation
+- CDN module loading (npm, jsr, esm.sh, unpkg, skypack, jsdelivr)
+- Interactive REPL with full xec context
+- SSH execution with connection pooling and parallel host targeting
+- Docker and Kubernetes container execution
+- File watching with auto-re-execution
+- YAML-based task definitions with parameters
+- Configuration management with profiles and variable interpolation
+- Encrypted secret management
+- File transfer, port forwarding, and log viewing across targets
+- Shell completion generation
+- Built with commander
 
-### CI/CD Pipeline Script
+## License
 
-```typescript
-// ci-deploy.ts
-const environment = process.argv[2] || 'staging';
-
-// Run tests
-log.info('Running tests...');
-await $target`npm test`;
-
-// Build application
-log.info('Building application...');
-await $target`npm run build`;
-
-// Deploy based on environment
-if (environment === 'production') {
-  // Production deployment
-  await $target`npm run deploy:prod`;
-  
-  // Notify team
-  await fetch('https://hooks.slack.com/...', {
-    method: 'POST',
-    body: JSON.stringify({ text: 'Production deployed!' })
-  });
-} else {
-  // Staging deployment
-  await $target`npm run deploy:staging`;
-}
-
-log.success(`Deployed to ${environment}!`);
-```
-
-### Multi-Server Health Check
-
-```typescript
-// health-check.ts
-const servers = ['web1', 'web2', 'db1'];
-
-for (const server of servers) {
-  const ssh = $.ssh({ host: `${server}.example.com` });
-  
-  try {
-    const health = await ssh`systemctl is-active nginx`;
-    log.success(`${server}: ${health.stdout.trim()}`);
-  } catch (error) {
-    log.error(`${server}: Failed - ${error.message}`);
-  }
-}
-```
-
-## 🔌 Module Loading (v0.8.0)
-
-Enhanced CDN module support:
-
-```typescript
-// Import from various CDN sources
-const { z } = await import('npm:zod');
-const { serve } = await import('jsr:@std/http');
-const _ = await import('https://esm.sh/lodash');
-
-// Modules are cached in ~/.xec/module-cache
-// TypeScript transformation is automatic
-```
-
-## 🛠️ Development
-
-```bash
-# Clone the repository
-git clone https://github.com/xec-sh/xec.git
-cd xec/apps/xec
-
-# Install dependencies
-pnpm install
-
-# Development mode
-pnpm dev
-
-# Run tests
-pnpm test
-
-# Build for production
-pnpm build
-```
-
-## 📊 Performance
-
-- **Startup Time**: <100ms for command resolution
-- **Script Loading**: 200-500ms with TypeScript (cached after first run)
-- **Connection Pooling**: Reuse SSH connections for <10ms subsequent commands
-- **Module Cache**: CDN modules cached locally for instant loading
-
-## 🤝 Contributing
-
-We welcome contributions! See our [Contributing Guide](https://github.com/xec-sh/xec/blob/main/CONTRIBUTING.md).
-
-## 🔗 Links
-
-- 🌐 [Website](https://xec.sh)
-- 📖 [Getting Started](https://xec.sh/docs/introduction/quick-start)
-- 💬 [GitHub Discussions](https://github.com/xec-sh/xec/discussions)
-- 🐛 [Issue Tracker](https://github.com/xec-sh/xec/issues)
-- 📦 [npm Package](https://www.npmjs.com/package/@xec-sh/cli)
-
-## 📄 License
-
-MIT © [Xec Contributors](https://github.com/xec-sh/xec/graphs/contributors)
-
----
-
-<div align="center">
-  <strong>Universal command execution for the modern stack</strong>
-  <br>
-  <sub>Part of the Xec Universal Command Execution System</sub>
-</div>
+MIT
