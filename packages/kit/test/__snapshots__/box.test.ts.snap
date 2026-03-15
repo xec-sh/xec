@@ -225,11 +225,11 @@ exports[`box (isCI = false) > renders wide characters with specified width 1`] =
 
 exports[`box (isCI = false) > renders with formatBorder formatting 1`] = `
 [
-  "┌ 0 ┌,┐,└,┘─title──────┐ 1 ┌,┐,└,┘
+  "[31m┌ 0 ┌,┐,└,┘[39m[31m─[39mtitle[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m┐ 1 ┌,┐,└,┘[39m
 ",
-  "│  message   │
+  "[31m│[39m  message   [31m│[39m
 ",
-  "└ 2 ┌,┐,└,┘────────────┘ 3 ┌,┐,└,┘
+  "[31m└ 2 ┌,┐,└,┘[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m┘ 3 ┌,┐,└,┘[39m
 ",
 ]
 `;
@@ -489,11 +489,11 @@ exports[`box (isCI = true) > renders wide characters with specified width 1`] = 
 
 exports[`box (isCI = true) > renders with formatBorder formatting 1`] = `
 [
-  "┌ 0 ┌,┐,└,┘─title──────┐ 1 ┌,┐,└,┘
+  "[31m┌ 0 ┌,┐,└,┘[39m[31m─[39mtitle[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m┐ 1 ┌,┐,└,┘[39m
 ",
-  "│  message   │
+  "[31m│[39m  message   [31m│[39m
 ",
-  "└ 2 ┌,┐,└,┘────────────┘ 3 ┌,┐,└,┘
+  "[31m└ 2 ┌,┐,└,┘[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m─[39m[31m┘ 3 ┌,┐,└,┘[39m
 ",
 ]
 `;
