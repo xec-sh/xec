@@ -2,8 +2,15 @@ import jsYaml from 'js-yaml';
 import { log, prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
-import { CommandOptions } from './command-base.js';
 import { enhanceError, type ErrorContext, type EnhancedExecutionError } from './enhanced-error.js';
+
+/** Options relevant to error handling (subset of CLI command options) */
+export interface CommandOptions {
+  verbose?: boolean;
+  quiet?: boolean;
+  output?: 'text' | 'json' | 'yaml' | 'csv';
+  dryRun?: boolean;
+}
 
 export interface ErrorDetails {
   code?: string;

@@ -3,11 +3,11 @@ import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import { log, note, text, intro, outro, prism, select, cancel, spinner, isCancel } from '@xec-sh/kit';
 
-import { validateOptions } from '@xec-sh/ops/utils/validation.js';
+import { validateOptions } from '@xec-sh/ops';
 import { InteractiveOptions } from '../utils/interactive-helpers.js';
 import { SubcommandBase, ConfigAwareOptions } from '../utils/command-base.js';
 
-import type { CommandConfig, DockerDefaults } from '@xec-sh/ops/config/types.js';
+import type { CommandConfig, DockerDefaults } from '@xec-sh/ops';
 
 interface DockerOptions extends ConfigAwareOptions, InteractiveOptions {
   verbose?: boolean;

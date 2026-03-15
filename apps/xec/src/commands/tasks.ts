@@ -11,8 +11,8 @@ import {
   type Task as KitTask,
 } from '@xec-sh/kit';
 
-import { TaskManager } from '@xec-sh/ops/config/task-manager.js';
-import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
+import { TaskManager } from '@xec-sh/ops';
+import { ConfigurationManager } from '@xec-sh/ops';
 
 
 export interface TasksCommandOptions {

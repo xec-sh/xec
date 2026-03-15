@@ -4,10 +4,10 @@ import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import { log, prism } from '@xec-sh/kit';
 
-import { TaskManager } from '@xec-sh/ops/config/task-manager.js';
-import { ConfigurationManager } from '@xec-sh/ops/config/configuration-manager.js';
+import { TaskManager } from '@xec-sh/ops';
+import { ConfigurationManager } from '@xec-sh/ops';
 import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
-import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops/adapters/loader-adapter.js';
+import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops';
 
 interface RunOptions extends ConfigAwareOptions {
   eval?: string;

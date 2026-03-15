@@ -31,26 +31,56 @@ export { VariableInterpolator } from './config/variable-interpolator.js';
 export { TaskManager } from './config/task-manager.js';
 export { TaskExecutor } from './config/task-executor.js';
 export { TargetResolver } from './config/target-resolver.js';
-export type { Configuration, ResolvedTarget, TargetConfig, TargetType, TaskDefinition, CommandConfig } from './config/types.js';
+export { getDefaultConfig, mergeWithDefaults, sortConfigKeys } from './config/defaults.js';
+export type { Configuration, ResolvedTarget, TargetConfig, TargetType, TaskDefinition, CommandConfig, DockerDefaults, ContainerConfig, PodConfig, HostConfig } from './config/types.js';
 
 // ─── Secrets ────────────────────────────────────────────────────────
 
 export { SecretManager } from './secrets/manager.js';
-export type { SecretProvider, SecretProviderConfig, SecretMetadata, EncryptedSecret } from './secrets/types.js';
-export { SecretError } from './secrets/types.js';
+export { generateSecret, encrypt, decrypt } from './secrets/crypto.js';
+export * from './secrets/types.js';
 
 // ─── Scripting API ──────────────────────────────────────────────────
 
-export { ScriptContext } from './api/script-context.js';
-export { TargetAPI } from './api/target-api.js';
-export { TaskAPI } from './api/task-api.js';
-export { ConfigAPI } from './api/config-api.js';
+export * from './api/index.js';
 
 // ─── Script Loader ──────────────────────────────────────────────────
 
+import { getScriptLoader as _getScriptLoader } from './adapters/loader-adapter.js';
 export { getScriptLoader, ScriptLoader } from './adapters/loader-adapter.js';
+export type { ExecutionOptions } from './adapters/loader-adapter.js';
+
+/** Execute a script file — convenience wrapper */
+export async function executeScript(path: string, options?: Record<string, unknown>): Promise<unknown> {
+  return _getScriptLoader().executeScript(path, options as any);
+}
+
+/** Evaluate inline code — convenience wrapper */
+export async function evaluateCode(code: string, options?: Record<string, unknown>): Promise<unknown> {
+  return _getScriptLoader().evaluateCode(code, options as any);
+}
+
+/** Start interactive REPL — convenience wrapper */
+export async function startRepl(options?: Record<string, unknown>): Promise<void> {
+  return _getScriptLoader().startRepl(options as any);
+}
 
 // ─── Utilities ──────────────────────────────────────────────────────
 
-export { parseTimeout, formatDuration, parseInterval } from './utils/time.js';
-export { createTargetEngine } from './utils/direct-execution.js';
+export { parseTimeout, parseInterval } from './utils/time.js';
+export { validateOptions } from './utils/validation.js';
+export { FileHelpers, selectFiles, selectDirectory, findFiles } from './utils/file-helpers.js';
+export { handleError } from './utils/error-handler.js';
+export { enhanceError, EnhancedExecutionError } from './utils/enhanced-error.js';
+export { OutputFormatter } from './utils/output-formatter.js';
+export { formatDuration, formatBytes } from './utils/formatters.js';
+export { createTargetEngine, isDirectCommand, executeDirectCommand } from './utils/direct-execution.js';
+export { getModuleCacheDir } from './config/utils.js';
+
+// Re-export script utilities (cd, pwd, env, echo, sleep, etc.)
+export {
+  $, cd, pwd, env, setEnv, exit, kill, sleep, echo, quote,
+  within, template, csv, diff, parseArgs, loadEnv, ps,
+  which, fetch, tmpdir, tmpfile, glob, fs, os, path, yaml,
+  kit, log, prism, spinner, retry as scriptRetry,
+} from './utils/script-utils.js';
