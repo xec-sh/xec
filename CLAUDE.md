@@ -10,7 +10,9 @@ Xec is a modern, type-safe command execution system built with TypeScript. It pr
 - **100% Runtime Compatibility**: All code MUST work identically on Node.js, Bun, and Deno
 - **100% Type Safety**: No `any` types in public APIs, 100% type coverage
 - **Zero Warnings**: No TypeScript warnings, no linter warnings, no deprecation warnings
-- **Zero Core Dependencies**: Core package has ZERO external runtime dependencies
+- **Minimal Core Dependencies**: Core currently depends on `ssh2`, `js-yaml` and `zod` only.
+  Every addition must be justified in review; `shell-escape` is declared but unused and is
+  scheduled for removal.
 - **No "Good Enough"**: If it's not perfect, it's not ready
 - **No Workarounds**: Fix the root cause, not the symptom
 - **No Assumptions**: Test everything, verify everything, prove everything
@@ -672,9 +674,10 @@ All code MUST pass these gates before commit:
 ### Environment Variables
 ```bash
 # Testing
-XECSH_TEST_SSH=true          # Enable SSH integration tests
-XECSH_TEST_DOCKER=true       # Enable Docker integration tests
-XECSH_TEST_K8S=true          # Enable Kubernetes tests
+# Integration tests detect Docker/kubectl automatically; there are no opt-in
+# flags. To run SSH tests, start the fixture containers first:
+#   pnpm --filter @xec-sh/core docker:start
+SKIP_SSH_DOCKER_TESTS=true   # Opt OUT of SSH tests that need Docker
 
 # Development
 XECSH_DEBUG=true             # Enable debug logging
@@ -684,7 +687,7 @@ XECSH_NO_COLOR=true          # Disable colored output
 ## 📚 Package Guidelines
 
 ### @xec-sh/core
-- **ZERO external dependencies** (non-negotiable)
+- **Minimal dependencies** — currently `ssh2`, `js-yaml`, `zod`; additions need review
 - **100% ESM modules**
 - **Platform-agnostic code** (Node.js, Deno, Bun)
 - All adapters optional via lazy loading
@@ -847,7 +850,7 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 - **Cyclomatic complexity**: <10 per function
 - **Type coverage**: 100%
 - **Bundle size**: <50KB (core)
-- **Dependencies**: 0 (core)
+- **Dependencies**: 3 (core) — `ssh2`, `js-yaml`, `zod`
 
 ### Performance Metrics
 - **Operations/second**: >10K for simple commands
@@ -968,6 +971,6 @@ Every line of code should embody this philosophy. We're not just building a comm
 - **Performance matters** - Measure, optimize, verify
 - **Security first** - Never compromise on security
 
-**Last Updated**: 2025-09-29
-**Version**: 0.8.1
+**Last Updated**: 2026-08-03
+**Version**: 0.9.0
 **Status**: Living Document
