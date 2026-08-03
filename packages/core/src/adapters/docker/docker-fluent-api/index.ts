@@ -2,6 +2,10 @@
  * Docker Fluent API - Main Entry Point
  */
 
+import type { ServicePresetConfig } from './types.js';
+import type { ExecutionResult } from '../../../types/result.js';
+import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
+
 import { ServiceName } from './types.js';
 import { SSHFluentAPI } from './services/ssh.js';
 import { DockerBuildFluentAPI } from './build.js';
@@ -10,9 +14,6 @@ import { KafkaFluentAPI, RabbitMQFluentAPI } from './services/messaging.js';
 // Import for internal use
 import { DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
 import { MySQLFluentAPI, MongoDBFluentAPI, PostgreSQLFluentAPI } from './services/databases.js';
-
-import type { ServicePresetConfig } from './types.js';
-import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 
 // Type exports
 export * from './types.js';
@@ -169,15 +170,21 @@ export class DockerFluentAPI {
   /**
    * Run docker command directly (compatibility with old API)
    */
-  run(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
-    const dockerCmd = `docker ${strings.raw.join(' ')}`;
-    return this.engine.run([dockerCmd] as any, ...values);
+  run(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise {
+    // Prefix `docker ` onto the first literal segment so every interpolated
+    // value keeps its position and is escaped by engine.run.
+    const cooked = [...strings];
+    const raw = [...strings.raw];
+    cooked[0] = `docker ${cooked[0] ?? ''}`;
+    raw[0] = `docker ${raw[0] ?? ''}`;
+    const prefixed = Object.assign(cooked, { raw }) as TemplateStringsArray;
+    return this.engine.run(prefixed, ...values);
   }
 
   /**
    * Execute docker command (alias for run)
    */
-  exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
+  exec(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise {
     return this.run(strings, ...values);
   }
 
@@ -220,24 +227,29 @@ export class DockerFluentAPI {
    * Utility: Remove container
    */
   async rm(container: string, force = false): Promise<void> {
-    const forceFlag = force ? '-f' : '';
-    await this.engine.run`docker rm ${forceFlag} ${container}`;
+    const args = ['rm'];
+    if (force) args.push('-f');
+    args.push(container);
+    await this.engine.run`docker ${args}`;
   }
 
   /**
    * Utility: Remove image
    */
   async rmi(image: string, force = false): Promise<void> {
-    const forceFlag = force ? '-f' : '';
-    await this.engine.run`docker rmi ${forceFlag} ${image}`;
+    const args = ['rmi'];
+    if (force) args.push('-f');
+    args.push(image);
+    await this.engine.run`docker ${args}`;
   }
 
   /**
    * Utility: List containers
    */
   async ps(all = false): Promise<string> {
-    const allFlag = all ? '-a' : '';
-    const result = await this.engine.run`docker ps ${allFlag}`;
+    const args = ['ps'];
+    if (all) args.push('-a');
+    const result = await this.engine.run`docker ${args}`;
     return result.stdout;
   }
 
@@ -256,7 +268,7 @@ export class DockerFluentAPI {
     const flags = ['--force'];
     if (all) flags.push('--all');
     if (volumes) flags.push('--volumes');
-    await this.engine.run`docker system prune ${flags.join(' ')}`;
+    await this.engine.run`docker system prune ${flags}`;
   }
 }
 
@@ -329,9 +341,8 @@ export class DockerComposeFluentAPI {
   /**
    * Run compose command with environment
    */
-  private async runCompose(command: string): Promise<any> {
-    const args = this.buildArgs();
-    const cmdStr = `docker compose ${args.join(' ')} ${command}`;
+  private async runCompose(command: string[]): Promise<ExecutionResult> {
+    const args = [...this.buildArgs(), ...command];
 
     // Set environment variables
     const originalEnv: Record<string, string | undefined> = {};
@@ -341,7 +352,7 @@ export class DockerComposeFluentAPI {
     }
 
     try {
-      return await this.engine.run`${cmdStr}`;
+      return await this.engine.run`docker compose ${args}`;
     } finally {
       // Restore environment
       for (const [key, value] of Object.entries(originalEnv)) {
@@ -358,73 +369,76 @@ export class DockerComposeFluentAPI {
    * Start services
    */
   async up(detached = true, build = false): Promise<void> {
-    const flags: string[] = [];
-    if (detached) flags.push('-d');
-    if (build) flags.push('--build');
-    await this.runCompose(`up ${flags.join(' ')}`);
+    const args = ['up'];
+    if (detached) args.push('-d');
+    if (build) args.push('--build');
+    await this.runCompose(args);
   }
 
   /**
    * Stop services
    */
   async down(volumes = false, removeImages = false): Promise<void> {
-    const flags: string[] = [];
-    if (volumes) flags.push('--volumes');
-    if (removeImages) flags.push('--rmi all');
-    await this.runCompose(`down ${flags.join(' ')}`);
+    const args = ['down'];
+    if (volumes) args.push('--volumes');
+    if (removeImages) args.push('--rmi', 'all');
+    await this.runCompose(args);
   }
 
   /**
    * Start services
    */
   async start(...services: string[]): Promise<void> {
-    await this.runCompose(`start ${services.join(' ')}`);
+    await this.runCompose(['start', ...services]);
   }
 
   /**
    * Stop services
    */
   async stop(...services: string[]): Promise<void> {
-    await this.runCompose(`stop ${services.join(' ')}`);
+    await this.runCompose(['stop', ...services]);
   }
 
   /**
    * Restart services
    */
   async restart(...services: string[]): Promise<void> {
-    await this.runCompose(`restart ${services.join(' ')}`);
+    await this.runCompose(['restart', ...services]);
   }
 
   /**
    * Build services
    */
   async build(...services: string[]): Promise<void> {
-    await this.runCompose(`build ${services.join(' ')}`);
+    await this.runCompose(['build', ...services]);
   }
 
   /**
    * View logs
    */
   async logs(service?: string, follow = false, tail?: number): Promise<string> {
-    const flags: string[] = [];
-    if (follow) flags.push('-f');
-    if (tail) flags.push('--tail', String(tail));
-    const result = await this.runCompose(`logs ${flags.join(' ')} ${service || ''}`);
+    const args = ['logs'];
+    if (follow) args.push('-f');
+    if (tail) args.push('--tail', String(tail));
+    if (service) args.push(service);
+    const result = await this.runCompose(args);
     return result.stdout;
   }
 
   /**
    * Execute command in service
    */
-  async exec(service: string, command: string): Promise<any> {
-    return await this.runCompose(`exec ${service} ${command}`);
+  async exec(service: string, command: string): Promise<ExecutionResult> {
+    // The command is a shell command for the container; `sh -c` keeps it
+    // one compose argument instead of a binary named after the whole string.
+    return await this.runCompose(['exec', service, 'sh', '-c', command]);
   }
 
   /**
    * List services
    */
   async ps(): Promise<string> {
-    const result = await this.runCompose('ps');
+    const result = await this.runCompose(['ps']);
     return result.stdout;
   }
 }
@@ -484,7 +498,7 @@ export class DockerNetworkFluentAPI {
 
     args.push(this.name);
 
-    await this.engine.run`docker ${args.join(' ')}`;
+    await this.engine.run`docker ${args}`;
   }
 
   /**
@@ -515,15 +529,17 @@ export class DockerNetworkFluentAPI {
 
     args.push(this.name, container);
 
-    await this.engine.run`docker ${args.join(' ')}`;
+    await this.engine.run`docker ${args}`;
   }
 
   /**
    * Disconnect container from network
    */
   async disconnect(container: string, force = false): Promise<void> {
-    const forceFlag = force ? '--force' : '';
-    await this.engine.run`docker network disconnect ${forceFlag} ${this.name} ${container}`;
+    const args = ['network', 'disconnect'];
+    if (force) args.push('--force');
+    args.push(this.name, container);
+    await this.engine.run`docker ${args}`;
   }
 
   /**
@@ -584,15 +600,17 @@ export class DockerVolumeFluentAPI {
 
     args.push(this.name);
 
-    await this.engine.run`docker ${args.join(' ')}`;
+    await this.engine.run`docker ${args}`;
   }
 
   /**
    * Remove volume
    */
   async remove(force = false): Promise<void> {
-    const forceFlag = force ? '--force' : '';
-    await this.engine.run`docker volume rm ${forceFlag} ${this.name}`;
+    const args = ['volume', 'rm'];
+    if (force) args.push('--force');
+    args.push(this.name);
+    await this.engine.run`docker ${args}`;
   }
 
   /**
@@ -651,7 +669,7 @@ export class DockerSwarmFluentAPI {
       args.push('--data-path-addr', options.dataPathAddr);
     }
 
-    const result = await this.engine.run`docker ${args.join(' ')}`;
+    const result = await this.engine.run`docker ${args}`;
 
     // Extract join token
     const match = result.stdout.match(/docker swarm join --token ([^\s]+)/);
@@ -669,8 +687,9 @@ export class DockerSwarmFluentAPI {
    * Leave swarm
    */
   async leave(force = false): Promise<void> {
-    const forceFlag = force ? '--force' : '';
-    await this.engine.run`docker swarm leave ${forceFlag}`;
+    const args = ['swarm', 'leave'];
+    if (force) args.push('--force');
+    await this.engine.run`docker ${args}`;
   }
 
   /**
@@ -751,7 +770,7 @@ export class DockerSwarmFluentAPI {
 
     args.push(image);
 
-    await this.engine.run`docker ${args.join(' ')}`;
+    await this.engine.run`docker ${args}`;
   }
 
   /**
@@ -783,7 +802,7 @@ export class DockerSwarmFluentAPI {
 
     args.push(name);
 
-    await this.engine.run`docker ${args.join(' ')}`;
+    await this.engine.run`docker ${args}`;
   }
 
   /**
@@ -824,7 +843,7 @@ export class DockerSwarmFluentAPI {
 
     args.push(name);
 
-    const result = await this.engine.run`docker ${args.join(' ')}`;
+    const result = await this.engine.run`docker ${args}`;
     return result.stdout;
   }
 }

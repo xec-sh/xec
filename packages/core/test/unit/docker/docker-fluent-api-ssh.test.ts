@@ -29,31 +29,24 @@ const createMockProcessPromise = (result = { stdout: '', stderr: '', exitCode: 0
 
 const mockEngine = {
   run: vi.fn((strings: any, ...values: any[]) => {
-    // Reconstruct command from template literal parts
+    // Reconstruct command from template literal parts; array values (argv
+    // form) stringify comma-joined, which is enough for substring checks
     const cmd = Array.isArray(strings)
-      ? strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
+      ? strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? String(values[i]) : ''), '')
       : String(strings);
 
-    if (cmd.includes('netstat') || cmd.includes('ss')) {
+    // isRunning pipes docker ps into `grep -w` - return exit code 1 to indicate NOT running
+    if (cmd.includes('| grep -w')) {
+      return createMockProcessPromise({ stdout: '', stderr: '', exitCode: 1, ok: false });
+    }
+
+    if (cmd.includes('netstat') || cmd.includes('ss -tln')) {
       // SSH ready check - return success with :22 in output
       return createMockProcessPromise({ stdout: 'tcp 0 0 0.0.0.0:22 0.0.0.0:* LISTEN', stderr: '', exitCode: 0, ok: true });
     }
     return createMockProcessPromise();
   }),
-  raw: vi.fn((strings: any, ...values: any[]) => {
-    // Reconstruct command from template literal parts
-    const cmd = Array.isArray(strings)
-      ? strings.reduce((acc, str, i) => acc + str + (values[i] || ''), '')
-      : String(strings);
-
-    // docker ps | grep checks if container is running - return exit code 1 to indicate NOT running
-    if (cmd.includes('docker ps') && cmd.includes('grep')) {
-      return createMockProcessPromise({ stdout: '', stderr: '', exitCode: 1, ok: false });
-    }
-
-    // All other raw commands succeed
-    return createMockProcessPromise();
-  })
+  raw: vi.fn(() => createMockProcessPromise())
 } as unknown as ExecutionEngine;
 
 describe('Docker Fluent API - SSH Service', () => {
@@ -125,16 +118,16 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh({ distro: 'ubuntu' });
       await ssh.start();
 
-      // Check that raw was called (used for docker run command)
-      expect(mockEngine.raw).toHaveBeenCalled();
+      // Check that run was called (used for docker run command)
+      expect(mockEngine.run).toHaveBeenCalled();
     });
 
     test('should configure with Alpine distro', async () => {
       const ssh = docker.ssh({ distro: 'alpine' });
       await ssh.start();
 
-      // Check that raw was called (used for docker run command)
-      expect(mockEngine.raw).toHaveBeenCalled();
+      // Check that run was called (used for docker run command)
+      expect(mockEngine.run).toHaveBeenCalled();
     });
 
     test('should configure with custom packages', async () => {
@@ -240,9 +233,9 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh({ distro: 'alpine' });
       await ssh.start();
 
-      // Alpine uses apk - check raw calls for the docker run command
-      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
-      const commands = rawCalls.map(call => {
+      // Alpine uses apk - check run calls for the docker run command
+      const runCalls = (mockEngine.run as vi.Mock).mock.calls;
+      const commands = runCalls.map(call => {
         if (!Array.isArray(call[0])) return String(call[0]);
         const strings = call[0];
         const values = call.slice(1);
@@ -266,9 +259,9 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh({ distro: 'ubuntu' });
       await ssh.start();
 
-      // Ubuntu uses apt-get - check raw calls for the docker run command
-      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
-      const hasAptCommand = rawCalls.some(call => {
+      // Ubuntu uses apt-get - check run calls for the docker run command
+      const runCalls = (mockEngine.run as vi.Mock).mock.calls;
+      const hasAptCommand = runCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
         const values = call.slice(1);
@@ -284,9 +277,9 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh({ distro: 'fedora' });
       await ssh.start();
 
-      // Fedora uses dnf - check raw calls for the docker run command
-      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
-      const hasDnfCommand = rawCalls.some(call => {
+      // Fedora uses dnf - check run calls for the docker run command
+      const runCalls = (mockEngine.run as vi.Mock).mock.calls;
+      const hasDnfCommand = runCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
         const values = call.slice(1);
@@ -304,8 +297,8 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh();
       await ssh.start();
 
-      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
-      const hasAutoRemove = rawCalls.some(call => {
+      const runCalls = (mockEngine.run as vi.Mock).mock.calls;
+      const hasAutoRemove = runCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
         const values = call.slice(1);
@@ -321,8 +314,8 @@ describe('Docker Fluent API - SSH Service', () => {
       const ssh = docker.ssh().persistent(true);
       await ssh.start();
 
-      const rawCalls = (mockEngine.raw as vi.Mock).mock.calls;
-      const hasAutoRemove = rawCalls.some(call => {
+      const runCalls = (mockEngine.run as vi.Mock).mock.calls;
+      const hasAutoRemove = runCalls.some(call => {
         if (!Array.isArray(call[0])) return false;
         const strings = call[0];
         const values = call.slice(1);

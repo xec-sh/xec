@@ -1,7 +1,7 @@
 import { Readable } from 'node:stream';
 import { spawn } from 'node:child_process';
-import { statSync, existsSync } from 'node:fs';
 
+import { findDockerPath } from './docker-utils.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
@@ -81,7 +81,28 @@ export interface DockerAdapterConfig extends BaseAdapterConfig {
   version?: string;
   defaultExecOptions?: DockerDefaultExecOptions;
   autoCreate?: DockerAutoCreateOptions;
+
+  /**
+   * Timeout applied to Docker *management* operations — inspect, ps, start,
+   * stop, cp and friends — as opposed to the user's own command.
+   *
+   * Without it a wedged daemon makes every one of these wait forever, which
+   * is indistinguishable from a hung application. Defaults to 60 seconds.
+   */
+  managementTimeout?: number;
+
+  /**
+   * Timeout applied to Docker operations that legitimately take minutes:
+   * `pull`, `push`, `build` and `compose up`. Defaults to 10 minutes.
+   */
+  transferTimeout?: number;
 }
+
+/** Fallback timeout for short-lived Docker management commands, in ms. */
+const DEFAULT_MANAGEMENT_TIMEOUT = 60_000;
+
+/** Fallback timeout for image and compose operations, in ms. */
+const DEFAULT_TRANSFER_TIMEOUT = 600_000;
 
 export class DockerAdapter extends BaseAdapter {
   protected readonly adapterName = 'docker';
@@ -109,33 +130,10 @@ export class DockerAdapter extends BaseAdapter {
     };
   }
 
-  private findDockerPath(): string {
-    // Check common docker paths
-    const paths = [
-      '/usr/local/bin/docker',
-      '/usr/bin/docker',
-      '/opt/homebrew/bin/docker',
-      'docker' // fallback to PATH
-    ];
-
-    for (const path of paths) {
-      try {
-        if (path === 'docker') return path; // Let spawn handle PATH lookup
-        if (existsSync(path) && statSync(path).isFile()) {
-          return path;
-        }
-      } catch {
-        // Ignore errors, try next path
-      }
-    }
-
-    return 'docker'; // fallback
-  }
-
   async isAvailable(): Promise<boolean> {
     try {
       // Check if docker CLI is available
-      const result = await this.executeDockerCommand(['version', '--format', 'json'], {});
+      const result = await this.executeDockerCommand(['version', '--format', 'json'], this.managementOptions());
       return result.exitCode === 0;
     } catch (error) {
       // If spawn fails (e.g., docker command not found), return false
@@ -334,7 +332,7 @@ export class DockerAdapter extends BaseAdapter {
 
   private async containerExists(container: string): Promise<boolean> {
     try {
-      const result = await this.executeDockerCommand(['inspect', container], {});
+      const result = await this.executeDockerCommand(['inspect', container], this.managementOptions());
       return result.exitCode === 0;
     } catch {
       return false;
@@ -357,15 +355,15 @@ export class DockerAdapter extends BaseAdapter {
 
     createArgs.push(this.dockerConfig.autoCreate!.image, 'sh');
 
-    const createResult = await this.executeDockerCommand(createArgs, {});
+    const createResult = await this.executeDockerCommand(createArgs, this.managementOptions());
     if (createResult.exitCode !== 0) {
       throw new DockerError(containerName, 'create', new Error(createResult.stderr));
     }
 
     // Start the container
-    const startResult = await this.executeDockerCommand(['start', containerName], {});
+    const startResult = await this.executeDockerCommand(['start', containerName], this.managementOptions());
     if (startResult.exitCode !== 0) {
-      await this.executeDockerCommand(['rm', '-f', containerName], {});
+      await this.executeDockerCommand(['rm', '-f', containerName], this.managementOptions());
       throw new DockerError(containerName, 'start', new Error(startResult.stderr));
     }
 
@@ -531,6 +529,24 @@ export class DockerAdapter extends BaseAdapter {
     return args;
   }
 
+  /**
+   * Options for a short management command (inspect, ps, start, stop, cp …).
+   *
+   * @returns Command options carrying the management timeout.
+   */
+  private managementOptions(): Partial<Command> {
+    return { timeout: this.dockerConfig.managementTimeout ?? DEFAULT_MANAGEMENT_TIMEOUT };
+  }
+
+  /**
+   * Options for a long-running image or compose operation.
+   *
+   * @returns Command options carrying the transfer timeout.
+   */
+  private transferOptions(): Partial<Command> {
+    return { timeout: this.dockerConfig.transferTimeout ?? DEFAULT_TRANSFER_TIMEOUT };
+  }
+
   protected async executeDockerCommand(
     args: string[],
     command: Partial<Command>
@@ -558,7 +574,7 @@ export class DockerAdapter extends BaseAdapter {
     const useInheritStdin = hasTTY && hasInteractive && process.stdin.isTTY;
 
     // Try to find docker in common locations
-    const dockerPath = this.findDockerPath();
+    const dockerPath = findDockerPath();
 
     const child = spawn(dockerPath, args, {
       env,
@@ -597,12 +613,30 @@ export class DockerAdapter extends BaseAdapter {
     return new Promise((resolve, reject) => {
       let timeoutId: NodeJS.Timeout | undefined;
       let settled = false; // Prevent double resolve/reject
+      let processExited = false;
+      let stdoutClosed = !child.stdout;
+      let stderrClosed = !child.stderr;
+      let exitCode: number | null = null;
+      let exitSignal: string | null = null;
 
       const settle = <T>(fn: (value: T) => void, value: T) => {
         if (settled) return;
         settled = true;
         if (timeoutId) clearTimeout(timeoutId);
         fn(value);
+      };
+
+      // Resolving on 'exit' alone can truncate trailing output still in
+      // flight; wait until both stdio streams have closed as well.
+      const tryResolve = () => {
+        if (processExited && stdoutClosed && stderrClosed) {
+          settle(resolve, {
+            stdout: stdoutHandler.getContent(),
+            stderr: stderrHandler.getContent(),
+            exitCode: exitCode ?? 0,
+            signal: exitSignal
+          });
+        }
       };
 
       if (timeout && timeout > 0) {
@@ -621,13 +655,25 @@ export class DockerAdapter extends BaseAdapter {
         settle(reject, error);
       });
 
-      child.on('exit', (code, signal) => {
-        settle(resolve, {
-          stdout: stdoutHandler.getContent(),
-          stderr: stderrHandler.getContent(),
-          exitCode: code ?? 0,
-          signal
+      if (child.stdout) {
+        child.stdout.on('close', () => {
+          stdoutClosed = true;
+          tryResolve();
         });
+      }
+
+      if (child.stderr) {
+        child.stderr.on('close', () => {
+          stderrClosed = true;
+          tryResolve();
+        });
+      }
+
+      child.on('exit', (code, signal) => {
+        exitCode = code;
+        exitSignal = signal;
+        processExited = true;
+        tryResolve();
       });
     });
   }
@@ -683,7 +729,7 @@ export class DockerAdapter extends BaseAdapter {
             type: 'directory'
           });
 
-          await this.executeDockerCommand(['rm', '-f', container], {});
+          await this.executeDockerCommand(['rm', '-f', container], this.managementOptions());
         } catch (error) {
           // Ignore errors during cleanup
         }
@@ -698,7 +744,7 @@ export class DockerAdapter extends BaseAdapter {
     if (all) args.push('-a');
     args.push('--format', '{{.Names}}');
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError('', 'list', new Error(result.stderr));
     }
@@ -734,14 +780,14 @@ export class DockerAdapter extends BaseAdapter {
 
     args.push(options.image);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(options.name, 'create', new Error(result.stderr));
     }
   }
 
   async startContainer(container: string): Promise<void> {
-    const result = await this.executeDockerCommand(['start', container], {});
+    const result = await this.executeDockerCommand(['start', container], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'start', new Error(result.stderr));
     }
@@ -830,14 +876,14 @@ export class DockerAdapter extends BaseAdapter {
       args.push(...options.command);
     }
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(options.name, 'run', new Error(`Docker run failed: ${result.stderr || result.stdout}`));
     }
   }
 
   async stopContainer(container: string): Promise<void> {
-    const result = await this.executeDockerCommand(['stop', container], {});
+    const result = await this.executeDockerCommand(['stop', container], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'stop', new Error(result.stderr));
     }
@@ -848,7 +894,7 @@ export class DockerAdapter extends BaseAdapter {
     if (force) args.push('-f');
     args.push(container);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'remove', new Error(result.stderr));
     }
@@ -893,8 +939,10 @@ export class DockerAdapter extends BaseAdapter {
     // Always specify '.' as the build context in the command
     args.push('.');
 
-    // Execute the command with cwd set to the context directory
+    // Execute the command with cwd set to the context directory. Builds pull
+    // base images and compile layers, so they use the longer timeout.
     const result = await this.executeDockerCommand(args, {
+      ...this.transferOptions(),
       cwd: options.context || process.cwd()
     });
 
@@ -907,7 +955,7 @@ export class DockerAdapter extends BaseAdapter {
    * Push image to registry
    */
   async pushImage(image: string): Promise<void> {
-    const result = await this.executeDockerCommand(['push', image], {});
+    const result = await this.executeDockerCommand(['push', image], this.transferOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(image, 'push', new Error(result.stderr));
     }
@@ -917,7 +965,7 @@ export class DockerAdapter extends BaseAdapter {
    * Pull image from registry
    */
   async pullImage(image: string): Promise<void> {
-    const result = await this.executeDockerCommand(['pull', image], {});
+    const result = await this.executeDockerCommand(['pull', image], this.transferOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(image, 'pull', new Error(result.stderr));
     }
@@ -927,7 +975,7 @@ export class DockerAdapter extends BaseAdapter {
    * Tag an image
    */
   async tagImage(source: string, target: string): Promise<void> {
-    const result = await this.executeDockerCommand(['tag', source, target], {});
+    const result = await this.executeDockerCommand(['tag', source, target], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(source, 'tag', new Error(result.stderr));
     }
@@ -948,7 +996,7 @@ export class DockerAdapter extends BaseAdapter {
       }
     }
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError('', 'images', new Error(result.stderr));
     }
@@ -963,7 +1011,7 @@ export class DockerAdapter extends BaseAdapter {
     if (force) args.push('-f');
     args.push(image);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(image, 'rmi', new Error(result.stderr));
     }
@@ -997,7 +1045,7 @@ export class DockerAdapter extends BaseAdapter {
 
     args.push(container);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'logs', new Error(result.stderr));
     }
@@ -1030,7 +1078,7 @@ export class DockerAdapter extends BaseAdapter {
     args.push(container);
 
     return new Promise((resolve, reject) => {
-      const child = spawn('docker', args);
+      const child = spawn(findDockerPath(), args);
       let buffer = '';
       let resolved = false;
 
@@ -1134,7 +1182,7 @@ export class DockerAdapter extends BaseAdapter {
    * Copy files to container
    */
   async copyToContainer(src: string, container: string, dest: string): Promise<void> {
-    const result = await this.executeDockerCommand(['cp', src, `${container}:${dest}`], {});
+    const result = await this.executeDockerCommand(['cp', src, `${container}:${dest}`], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'cp', new Error(result.stderr));
     }
@@ -1144,7 +1192,7 @@ export class DockerAdapter extends BaseAdapter {
    * Copy files from container
    */
   async copyFromContainer(container: string, src: string, dest: string): Promise<void> {
-    const result = await this.executeDockerCommand(['cp', `${container}:${src}`, dest], {});
+    const result = await this.executeDockerCommand(['cp', `${container}:${src}`, dest], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'cp', new Error(result.stderr));
     }
@@ -1154,7 +1202,7 @@ export class DockerAdapter extends BaseAdapter {
    * Inspect container
    */
   async inspectContainer(container: string): Promise<any> {
-    const result = await this.executeDockerCommand(['inspect', container], {});
+    const result = await this.executeDockerCommand(['inspect', container], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'inspect', new Error(result.stderr));
     }
@@ -1218,7 +1266,7 @@ export class DockerAdapter extends BaseAdapter {
 
     args.push(name);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       // Check if error is because network already exists
       if (result.stderr.includes('already exists')) {
@@ -1232,7 +1280,7 @@ export class DockerAdapter extends BaseAdapter {
    * Remove a Docker network
    */
   async removeNetwork(name: string): Promise<void> {
-    const result = await this.executeDockerCommand(['network', 'rm', name], {});
+    const result = await this.executeDockerCommand(['network', 'rm', name], this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(name, 'network rm', new Error(result.stderr));
     }
@@ -1279,7 +1327,7 @@ export class DockerAdapter extends BaseAdapter {
 
     args.push(name);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(name, 'volume create', new Error(result.stderr));
     }
@@ -1293,7 +1341,7 @@ export class DockerAdapter extends BaseAdapter {
     if (force) args.push('-f');
     args.push(name);
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError(name, 'volume rm', new Error(result.stderr));
     }
@@ -1323,7 +1371,7 @@ export class DockerAdapter extends BaseAdapter {
     const args = this.buildComposeArgs(options);
     args.push('up', '-d');
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.transferOptions());
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose up', new Error(result.stderr));
     }
@@ -1336,7 +1384,7 @@ export class DockerAdapter extends BaseAdapter {
     const args = this.buildComposeArgs(options);
     args.push('down');
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose down', new Error(result.stderr));
     }
@@ -1349,7 +1397,7 @@ export class DockerAdapter extends BaseAdapter {
     const args = this.buildComposeArgs(options);
     args.push('ps');
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose ps', new Error(result.stderr));
     }
@@ -1366,7 +1414,7 @@ export class DockerAdapter extends BaseAdapter {
       args.push(service);
     }
 
-    const result = await this.executeDockerCommand(args, {});
+    const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose logs', new Error(result.stderr));
     }
@@ -1380,17 +1428,21 @@ export class DockerAdapter extends BaseAdapter {
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
+      let health: string | undefined;
       try {
         const info = await this.inspectContainer(container);
-        const health = info.State?.Health?.Status;
-
-        if (health === 'healthy') {
-          return;
-        } else if (health === 'unhealthy') {
-          throw new DockerError(container, 'health', new Error('Container is unhealthy'));
-        }
+        health = info.State?.Health?.Status;
       } catch (error) {
-        // Container might not exist yet
+        // Container might not exist yet — keep polling
+      }
+
+      // Evaluated outside the try so an unhealthy container fails fast
+      // instead of the throw being swallowed by the inspect catch.
+      if (health === 'healthy') {
+        return;
+      }
+      if (health === 'unhealthy') {
+        throw new DockerError(container, 'health', new Error('Container is unhealthy'));
       }
 
       // Wait a bit before checking again
