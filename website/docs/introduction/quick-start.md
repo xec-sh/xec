@@ -89,9 +89,14 @@ Connect to a remote server:
 ```javascript
 import { $ } from '@xec-sh/core';
 
-const server = $.ssh({
+// String shorthand: [user@]host[:port]
+const server = $.ssh('user@example.com');
+
+// Or with full options — the programmatic API uses 'username'
+// (YAML target config uses 'user' instead)
+const serverWithKey = $.ssh({
   host: 'example.com',
-  user: 'user',  // Note: 'user' not 'username'
+  username: 'user',
   privateKey: '~/.ssh/id_rsa'
 });
 
@@ -256,7 +261,7 @@ targets:
     prod:
       type: ssh
       host: prod.example.com
-      user: deploy  # Note: 'user' not 'username'
+      user: deploy  # YAML targets use 'user' (the programmatic $.ssh() API uses 'username')
       privateKey: ~/.ssh/deploy_key
   
   containers:

@@ -45,14 +45,12 @@ async function deployToEnvironments() {
   
   // 3. Deploy to Kubernetes production
   console.log('Deploying to production Kubernetes...');
-  const k8s = $.k8s({ namespace: 'production' });
-  
-  // Apply Kubernetes manifests
-  await k8s`kubectl apply -f k8s/production/`;
-  await k8s`kubectl rollout status deployment/app`;
+  // kubectl runs locally against the production namespace
+  await $`kubectl apply -f k8s/production/ -n production`;
+  await $`kubectl rollout status deployment/app -n production`;
   
   // Verify deployment
-  const healthCheck = await k8s`kubectl get pods -l app=myapp --field-selector=status.phase=Running`;
+  const healthCheck = await $`kubectl get pods -n production -l app=myapp --field-selector=status.phase=Running`;
   console.log('Production pods:', healthCheck.stdout);
 }
 ```
@@ -77,10 +75,8 @@ async function parallelEnvironmentOperations() {
       /opt/monitoring/check-services.sh
     `,
     
-    // Kubernetes cluster status
-    $.k8s({ context: 'production' })`
-      kubectl get nodes -o json | jq '.items[].status.conditions'
-    `
+    // Kubernetes cluster status (kubectl runs locally)
+    $`kubectl --context production get nodes -o json | jq '.items[].status.conditions'`
   ];
   
   const results = await $.parallel.settled(operations);
@@ -114,7 +110,7 @@ async function etlPipeline() {
     `,
     
     // Extract from API in Kubernetes
-    $.k8s({ namespace: 'data-services' }).pod('api-extractor')`
+    $.k8s({ namespace: 'data-services', pod: 'api-extractor' })`
       python extract_api_data.py --output /shared/api-data.json
     `,
     
@@ -124,7 +120,8 @@ async function etlPipeline() {
   
   // Transfer remote data locally for transformation
   await $`scp legacy-db.example.com:/tmp/users.sql ./temp/`;
-  await $.k8s().transfer.download('/shared/api-data.json', './temp/');
+  await $.k8s({ namespace: 'data-services' }).pod('api-extractor')
+    .copyFrom('/shared/api-data.json', './temp/api-data.json');
   
   // Transform data locally
   console.log('Transforming data...');
@@ -138,9 +135,8 @@ async function etlPipeline() {
     `,
     
     // Load to analytics cluster in Kubernetes
-    $.k8s({ namespace: 'analytics' })`
-      kubectl exec -i analytics-loader -- \
-        python load_data.py --source /processed/analytics_data.json
+    $.k8s('analytics/analytics-loader')`
+      python load_data.py --source /processed/analytics_data.json
     `,
     
     // Update local development database
@@ -173,7 +169,7 @@ async function syncDataAcrossEnvironments() {
         `,
         
         // Check Kubernetes volume changes
-        $.k8s().pod('data-monitor')`
+        $.k8s('data-monitor')`
           find /data -newer /tmp/last-sync -type f | wc -l
         `
       ]);
@@ -202,7 +198,7 @@ async function syncDataAcrossEnvironments() {
         // Update sync timestamps
         await $`date > .last-sync`;
         await $.ssh({ host: 'source-db.example.com' })`date > .last-sync-time`;
-        await $.k8s().pod('data-monitor')`date > /tmp/last-sync`;
+        await $.k8s('data-monitor')`date > /tmp/last-sync`;
         
         console.log('Data synchronization completed');
       }
@@ -219,7 +215,7 @@ async function syncLocalChanges() {
     $.ssh({ host: 'backup.example.com' })`
       rsync -avz --delete ./sync-data/ /backup/local-data/
     `,
-    $.k8s().transfer.upload('./sync-data/', '/shared/local-data/')
+    $.k8s().pod('data-monitor').copyTo('./sync-data/', '/shared/local-data/')
   ]);
 }
 
@@ -231,13 +227,13 @@ async function syncDatabaseChanges() {
   
   await $.parallel.all([
     $`scp source-db.example.com:/tmp/changes.sql ./temp/ && psql -d local_db < ./temp/changes.sql`,
-    $.k8s().pod('replica-db')`psql -d replica < /shared/changes.sql`
+    $.k8s('replica-db')`psql -d replica < /shared/changes.sql`
   ]);
 }
 
 async function syncKubernetesChanges() {
   // Sync Kubernetes volume changes
-  await $.k8s().transfer.download('/data/changed-files/', './temp/k8s-changes/');
+  await $.k8s().pod('data-monitor').copyFrom('/data/changed-files/', './temp/k8s-changes/');
   
   await $.parallel.all([
     $`rsync -avz ./temp/k8s-changes/ ./local-mirror/`,

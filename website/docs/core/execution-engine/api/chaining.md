@@ -79,7 +79,7 @@ const result = await sorted
 ```typescript
 // Pipe across different adapters
 await $.ssh('server')`cat remote-file.txt`
-  .pipe($.docker('processor')`python process.py`)
+  .pipe($.docker({ container: 'processor' })`python process.py`)
   .pipe($`gzip > output.gz`);
 
 // Complex pipeline
@@ -235,7 +235,7 @@ await $`risky-operation`
 async function executeWithFallbacks(target: string) {
   const attempts = [
     () => $.ssh(target)`command`,
-    () => $.docker(target)`command`,
+    () => $.docker({ container: target })`command`,
     () => $`command`
   ];
   

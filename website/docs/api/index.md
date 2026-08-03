@@ -2,21 +2,9 @@
 title: API Reference
 description: Complete API reference for Xec core and CLI packages
 keywords: [api, reference, core, cli, types, interfaces]
-source_files:
-  - packages/core/src/index.ts
-  - apps/xec/src/index.ts
-verification_date: 2025-08-03
 ---
 
 # API Reference
-
-## Implementation Reference
-
-**Source Files:**
-- `packages/core/src/index.ts` - Core library exports
-- `packages/core/src/types/index.ts` - Type definitions
-- `apps/xec/src/index.ts` - CLI exports
-- `packages/core/src/core/execution-engine.ts` - Main execution engine
 
 ## Overview
 
@@ -48,40 +36,59 @@ import { $ } from '@xec-sh/core';
 // Template literal syntax
 const result = await $`ls -la`;
 
-// With target
-const sshResult = await $.ssh('host')`uptime`;
-const dockerResult = await $.docker('container')`ps aux`;
-const k8sResult = await $.k8s('pod')`ls /app`;
+// With target — string shorthands
+const sshResult = await $.ssh('deploy@host:2222')`uptime`;
+const k8sResult = await $.k8s('prod/api-pod:sidecar')`ls /app`;
+
+// With target — full options
+const dockerResult = await $.docker({ container: 'my-app' })`ps aux`;
 ```
 
-### Shell Function ($$)
+`$.ssh()` accepts either a `[user@]host[:port]` string or an options object
+(`Omit<SSHAdapterOptions, 'type'>`). `$.k8s()` accepts either a
+`[namespace/]pod[:container]` string or an options object
+(`Omit<KubernetesAdapterOptions, 'type'>`). `$.docker()` requires an options
+object (or no arguments, which returns the fluent Docker API) — there is no
+string shorthand for Docker.
+
+### Programmatic Execution
+
+`$.run` and `$.raw` are tagged templates. Calling them as ordinary functions
+(`$.run('echo hello')`) throws a `TypeError` — a plain string would be
+iterated character by character. The supported programmatic forms are:
 
 ```typescript
-import { $$ } from '@xec-sh/core';
-
-// Direct shell execution
-await $$('echo "Hello, World!"');
-
-// With options
-await $$('npm install', { 
+// Full control via a Command object
+const result = await $.execute({
+  command: 'npm install',
   cwd: '/project',
-  timeout: 60000 
+  timeout: 60000,
 });
+
+// Command already assembled in a variable
+const cmd = 'echo hello';
+await $.run([cmd]);   // array form is a valid template substitute
+await $`${cmd}`;      // or interpolate into the template
 ```
 
 ### Type Definitions
 
 ```typescript
 import type {
-  ExecutionEngine,
   ProcessPromise,
   ExecutionResult,
-  Target,
-  SSHTarget,
-  DockerTarget,
-  KubernetesTarget,
-  ExecutionOptions,
-  StreamOptions
+  Command,
+  AdapterType,
+  SSHAdapterOptions,
+  DockerAdapterOptions,
+  KubernetesAdapterOptions,
+  CallableExecutionEngine,
+  SSHExecutionContext,
+  K8sExecutionContext,
+  K8sPod,
+  DockerOptions,
+  RetryOptions,
+  PipeTarget,
 } from '@xec-sh/core';
 ```
 
@@ -91,76 +98,106 @@ import type {
 
 | Method | Description | Returns |
 |--------|-------------|---------|
-| `$(strings, ...values)` | Template literal execution | `ProcessPromise` |
-| `$$(command, options?)` | Direct command execution | `Promise<ExecutionResult>` |
-| `$.ssh(target)` | SSH execution context | `ExecutionEngine` |
-| `$.docker(container)` | Docker execution context | `ExecutionEngine` |
-| `$.k8s(pod)` | Kubernetes execution context | `ExecutionEngine` |
+| `` $`command` `` | Template literal execution | `ProcessPromise` |
+| `$.execute(command)` | Execute a `Command` object | `Promise<ExecutionResult>` |
+| `$.ssh(target)` | SSH execution context (string shorthand or options) | `SSHExecutionContext` |
+| `$.docker(options)` | Docker execution context (options object) | `ExecutionEngine` |
+| `$.docker()` | Fluent Docker API | `DockerFluentAPI` |
+| `$.k8s(target?)` | Kubernetes execution context (string shorthand, options, or empty) | `K8sExecutionContext` |
 | `$.local()` | Local execution context | `ExecutionEngine` |
+| `$.with(config)` | Derived engine with merged config | `ExecutionEngine` |
 
 ### ProcessPromise Methods
 
 | Method | Description | Returns |
 |--------|-------------|---------|
-| `.pipe(command)` | Pipe output to command | `ProcessPromise` |
-| `.nothrow()` | Don't throw on error | `ProcessPromise` |
+| `.pipe(target)` | Pipe output to command, stream, or function | `ProcessPromise` |
+| `.nothrow()` | Don't throw on non-zero exit | `ProcessPromise` |
 | `.quiet()` | Suppress output | `ProcessPromise` |
-| `.timeout(ms)` | Set timeout | `ProcessPromise` |
+| `.timeout(ms, signal?)` | Set timeout | `ProcessPromise` |
+| `.signal(abortSignal)` | Attach an AbortSignal | `ProcessPromise` |
 | `.cwd(path)` | Set working directory | `ProcessPromise` |
 | `.env(vars)` | Set environment | `ProcessPromise` |
-| `.stdin(input)` | Provide stdin | `ProcessPromise` |
+| `.shell(shell)` | Select shell (string or boolean) | `ProcessPromise` |
+| `.interactive()` | Inherit stdio for interactive commands | `ProcessPromise` |
+| `.stdout(stream)` / `.stderr(stream)` | Redirect output streams | `ProcessPromise` |
+| `.cache(options?)` | Cache the result | `ProcessPromise` |
+| `.kill(signal?)` | Terminate the process | `void` |
+| `.text()` | Get trimmed text output | `Promise<string>` |
+| `.json()` | Parse JSON output | `Promise<T>` |
 | `.lines()` | Get output lines | `Promise<string[]>` |
-| `.json()` | Parse JSON output | `Promise<any>` |
-| `.text()` | Get text output | `Promise<string>` |
+| `.buffer()` | Get raw output | `Promise<Buffer>` |
 
-### Target Types
+`stdin` is a property (`NodeJS.WritableStream`), not a method. A
+`ProcessPromise` is also async-iterable: `for await (const line of $`cmd`)`.
+
+### Adapter Option Types
 
 ```typescript
-// SSH Target
-interface SSHTarget {
+// SSH (programmatic API uses `username`; YAML target config uses `user`)
+interface SSHAdapterOptions {
   type: 'ssh';
   host: string;
+  username: string;
   port?: number;
-  user?: string;
-  password?: string;
-  privateKey?: string;
+  privateKey?: string | Buffer;
   passphrase?: string;
+  password?: string;
+  sudo?: {
+    enabled: boolean;
+    password?: string;
+    user?: string;
+    passwordMethod?: 'stdin' | 'askpass' | 'echo' | 'secure';
+  };
 }
 
-// Docker Target
-interface DockerTarget {
+// Docker
+interface DockerAdapterOptions {
   type: 'docker';
   container: string;
   user?: string;
-  workingDir?: string;
+  workdir?: string;
+  tty?: boolean;
+  runMode?: 'exec' | 'run';
+  image?: string;
+  volumes?: string[];
+  autoRemove?: boolean;
 }
 
-// Kubernetes Target
-interface KubernetesTarget {
+// Kubernetes
+interface KubernetesAdapterOptions {
   type: 'kubernetes';
   pod: string;
   container?: string;
   namespace?: string;
-  context?: string;
+  execFlags?: string[];
+  tty?: boolean;
+  stdin?: boolean;
 }
 ```
 
-### Execution Options
+### Command Object
+
+`$.execute()` takes a `Command`:
 
 ```typescript
-interface ExecutionOptions {
-  cwd?: string;           // Working directory
-  env?: Record<string, string>; // Environment variables
-  shell?: string | boolean;     // Shell to use
-  timeout?: number;       // Timeout in ms
-  maxBuffer?: number;     // Max output buffer
-  encoding?: BufferEncoding;    // Output encoding
-  signal?: AbortSignal;   // Abort signal
-  stdin?: string | Buffer | Stream; // Input
-  stdout?: Stream;        // Output stream
-  stderr?: Stream;        // Error stream
-  quiet?: boolean;        // Suppress output
-  nothrow?: boolean;      // Don't throw on error
+interface Command {
+  command: string;                      // Command to execute
+  args?: string[];                      // Command arguments
+  cwd?: string;                         // Working directory
+  env?: Record<string, string>;         // Environment variables
+  timeout?: number;                     // Execution timeout (ms)
+  timeoutSignal?: string;               // Signal to send on timeout
+  stdin?: string | Buffer | Readable;   // Input data
+  stdout?: StreamOption;                // Output handling
+  stderr?: StreamOption;                // Error output handling
+  shell?: string | boolean;             // Use shell
+  detached?: boolean;                   // Detached process
+  signal?: AbortSignal;                 // Abort signal
+  nothrow?: boolean;                    // Don't throw on non-zero exit
+  retry?: RetryOptions;                 // Retry options
+  adapter?: AdapterType;                // Adapter selection
+  adapterOptions?: AdapterSpecificOptions;
 }
 ```
 
@@ -168,24 +205,57 @@ interface ExecutionOptions {
 
 ### Error Types
 
+The error classes exported by `@xec-sh/core`:
+
 ```typescript
 import {
   ExecutionError,
-  ValidationError,
+  CommandError,
   ConnectionError,
   TimeoutError,
-  ConfigurationError
+  AdapterError,
+  DockerError,
+  KubernetesError,
+  RetryError,
 } from '@xec-sh/core';
 
 try {
   await $`command`;
 } catch (error) {
-  if (error instanceof ExecutionError) {
+  if (error instanceof CommandError) {
     console.log('Exit code:', error.exitCode);
     console.log('Stderr:', error.stderr);
   }
 }
 ```
+
+### Why a Failure Failed
+
+Every `ExecutionError` carries a `kind` — a stable, machine-readable
+classification — and a `recoverable` flag. Branch on those rather than on the
+message text, which changes between versions and tools.
+
+```typescript
+import { classifyFailure, isRecoverable, type FailureKind } from '@xec-sh/core';
+
+try {
+  await $.docker({ container: 'api' })`./migrate.sh`;
+} catch (error) {
+  if (error instanceof ExecutionError && error.recoverable) {
+    // The daemon went away mid-flight; a fresh connection may succeed.
+    await reconnect();
+  }
+}
+```
+
+`kind` is one of `command-failed`, `timeout`, `connection-lost`,
+`connection-refused`, `authentication`, `not-found`, `permission-denied`,
+`invalid-usage` or `unknown`. Only `connection-lost` and `connection-refused`
+are reported as `recoverable` — retrying rejected credentials or a missing
+container only multiplies the error.
+
+`classifyFailure(error)` applies the same rules to any thrown value, including
+a raw stderr string from a tool you shelled out to yourself.
 
 ### Result Pattern
 
@@ -193,7 +263,7 @@ try {
 // Using nothrow for Result pattern
 const result = await $`command`.nothrow();
 
-if (result.exitCode === 0) {
+if (result.ok) {
   console.log('Success:', result.stdout);
 } else {
   console.log('Failed:', result.stderr);
@@ -202,27 +272,19 @@ if (result.exitCode === 0) {
 
 ## Advanced Usage
 
-### Connection Pooling
+### SSH Connection Reuse
+
+The SSH adapter pools connections automatically — repeated commands against
+the same host reuse one connection. There is no separate pool object to
+manage:
 
 ```typescript
-import { createSSHPool } from '@xec-sh/core';
+const server = $.ssh('deploy@server.example.com');
 
-const pool = createSSHPool({
-  max: 10,
-  min: 2,
-  idleTimeoutMillis: 30000
-});
-
-const conn = await pool.acquire({
-  host: 'server.example.com',
-  user: 'deploy'
-});
-
-try {
-  await conn.exec('command');
-} finally {
-  await pool.release(conn);
-}
+// All of these share a pooled connection
+await server`uptime`;
+await server`df -h`;
+await server`systemctl status app`;
 ```
 
 ### Stream Processing
@@ -231,9 +293,7 @@ try {
 import { $ } from '@xec-sh/core';
 
 // Stream output line by line
-const proc = $`tail -f /var/log/app.log`;
-
-for await (const line of proc.lines()) {
+for await (const line of $`tail -f /var/log/app.log`) {
   console.log('Log:', line);
 }
 ```
@@ -244,7 +304,7 @@ for await (const line of proc.lines()) {
 const targets = ['host1', 'host2', 'host3'];
 
 const results = await Promise.all(
-  targets.map(host => 
+  targets.map(host =>
     $.ssh(host)`uptime`.nothrow()
   )
 );
@@ -253,23 +313,6 @@ results.forEach((result, i) => {
   console.log(`${targets[i]}: ${result.stdout}`);
 });
 ```
-
-## Performance Characteristics
-
-**Based on Implementation:**
-
-### Method Performance
-- `$` template literal: &lt;1ms overhead
-- `$$` direct execution: &lt;1ms overhead  
-- `.ssh()` context: 100-500ms (new), &lt;10ms (pooled)
-- `.docker()` context: 50-100ms
-- `.k8s()` context: 200-500ms
-
-### Memory Usage
-- Base import: ~5MB
-- Per execution: ~1MB
-- Connection pool: ~2MB per connection
-- Stream buffer: Configurable (default 10MB)
 
 ## Related Documentation
 

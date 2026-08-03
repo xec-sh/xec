@@ -24,7 +24,7 @@ await $`npm run build`;
 await $.ssh('prod-server')`systemctl restart app`;
 
 // Docker container execution
-await $.docker('my-container')`python manage.py migrate`;
+await $.docker({ container: 'my-container' })`python manage.py migrate`;
 
 // Kubernetes pod execution
 await $.k8s('app-pod')`kubectl rollout status deployment/app`;
@@ -94,7 +94,7 @@ Deploy to development, staging, and production with a single command:
 ```typescript
 await Promise.all([
   $.ssh('dev')`./deploy.sh`,
-  $.docker('staging')`./deploy.sh`,
+  $.docker({ container: 'staging' })`./deploy.sh`,
   $.k8s('prod')`./deploy.sh`
 ]);
 ```
@@ -148,8 +148,8 @@ Run tests across different platforms in parallel:
 ```typescript
 const testResults = await Promise.all([
   $`npm test`,
-  $.docker('node:18')`npm test`,
-  $.docker('node:20')`npm test`,
+  $.docker({ container: 'node:18' })`npm test`,
+  $.docker({ container: 'node:20' })`npm test`,
 ]);
 ```
 
@@ -160,7 +160,7 @@ Coordinate operations across cloud providers and on-premise:
 ```typescript
 await $.ssh('aws-server')`backup.sh`;
 await $.k8s('gcp-cluster')`backup.sh`;
-await $.docker('on-premise')`backup.sh`;
+await $.docker({ container: 'on-premise' })`backup.sh`;
 ```
 
 ## 🔄 How Xec Compares

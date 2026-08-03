@@ -192,6 +192,8 @@ tasks:
 
 Execute steps conditionally:
 
+A registered variable holds the step's **trimmed output as a string** and is referenced in conditions as `${vars.<name>}`:
+
 ```yaml
 tasks:
   smart-deploy:
@@ -202,18 +204,16 @@ tasks:
       
       - name: Deploy to staging
         command: deploy-staging.sh
-        when: env_check.stdout == "staging"
+        when: ${vars.env_check} == "staging"
       
       - name: Deploy to production
         command: deploy-production.sh
-        when: env_check.stdout == "production"
-      
-      - name: Validate deployment
-        command: validate.sh
-        when: env_check.exitCode == 0
+        when: ${vars.env_check} == "production"
 ```
 
 ### Complex Conditions
+
+Conditions support `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and parentheses. References use `${...}` syntax; method calls are not supported:
 
 ```yaml
 tasks:
@@ -223,12 +223,10 @@ tasks:
         register: health
       
       - command: restart-service
-        when: health.exitCode != 0
+        when: ${vars.health} != "healthy"
       
       - command: scale-up
-        when: |
-          health.stdout.includes("high-load") &&
-          params.autoScale == true
+        when: ${vars.health} == "high-load" && ${params.autoScale} == true
 ```
 
 ## Error Handling
@@ -263,14 +261,9 @@ tasks:
         onFailure:
           retry: 3
           delay: 5s
-      
-      - name: Complex retry
-        command: unstable-operation
-        onFailure:
-          retry: 5
-          delay: 10s
-          backoff: exponential  # 10s, 20s, 40s...
 ```
+
+The retry handler supports `retry` (number of attempts) and `delay` (fixed pause between attempts, e.g. `5s`). There is no backoff option — the delay is constant across attempts. An `onFailure` handler can also run a recovery `task:` or `command:` instead of retrying.
 
 ### Error Recovery
 
@@ -295,6 +288,8 @@ tasks:
 
 Pass data between steps:
 
+The registered value is the step's trimmed stdout (a string), for both `command:` and `script:` steps:
+
 ```yaml
 tasks:
   data-pipeline:
@@ -304,81 +299,35 @@ tasks:
         register: version
       
       - name: Build with version
-        command: docker build -t app:${version.stdout} .
+        command: docker build -t app:${vars.version} .
       
       - name: Tag latest
-        command: docker tag app:${version.stdout} app:latest
-        when: version.stdout.includes("stable")
+        command: docker tag app:${vars.version} app:latest
+        when: ${vars.version} == "stable"
 ```
 
-### Complex Data Flow
+To pass structured data between steps, print it as JSON in one step and parse it in the next (e.g. with `jq`), or do the whole flow inside a single `script:` step.
+
+## Step Ordering and Task Dependencies
+
+Steps always run **in the order they are written** (unless `parallel: true` groups them). There is no per-step `dependsOn`; to run prerequisite tasks first, reference them as steps:
 
 ```yaml
 tasks:
-  process-data:
+  prepare-db:
+    command: setup-database.sh
+  
+  prepare-cache:
+    command: setup-cache.sh
+  
+  deploy-app:
     steps:
-      - name: Fetch data
-        script: |
-          const data = await api.getData();
-          return { count: data.length, items: data };
-        register: dataset
-      
-      - name: Process items
-        script: |
-          const processed = dataset.items.map(item => ({
-            ...item,
-            processed: true
-          }));
-          return processed;
-        register: processed_data
-      
-      - name: Save results
-        command: echo '${processed_data}' > results.json
+      - task: prepare-db     # Run another task as a step
+      - task: prepare-cache
+      - command: deploy.sh
 ```
 
-## Step Dependencies
-
-### Sequential Dependencies
-
-```yaml
-tasks:
-  sequential:
-    steps:
-      - name: step1
-        command: echo "First"
-        id: first
-      
-      - name: step2
-        command: echo "Second"
-        dependsOn: [first]
-      
-      - name: step3
-        command: echo "Third"
-        dependsOn: [step2]
-```
-
-### Complex Dependencies
-
-```yaml
-tasks:
-  complex-deps:
-    steps:
-      - name: prepare-db
-        command: setup-database.sh
-        id: db
-      
-      - name: prepare-cache
-        command: setup-cache.sh
-        id: cache
-      
-      - name: prepare-storage
-        command: setup-storage.sh
-        id: storage
-      
-      - name: deploy-app
-        command: deploy.sh
-        dependsOn: [db, cache, storage]
-```
+(The schema also accepts a task-level `dependsOn:` list, but it is only validated — the executor does not run dependencies automatically.)
 
 ## Always Run Steps
 
@@ -428,22 +377,7 @@ tasks:
       - command: verify-results
 ```
 
-### Step-Level Hooks
-
-```yaml
-tasks:
-  detailed-monitoring:
-    steps:
-      - name: Critical operation
-        command: important-task
-        hooks:
-          before:
-            - command: create-snapshot
-          after:
-            - command: verify-state
-          onError:
-            - command: restore-snapshot
-```
+Hooks exist at the **task level** only — individual steps do not accept a `hooks:` key. To bracket a critical step with setup/verification, make them explicit neighboring steps (with `alwaysRun: true` for cleanup) or use the step's `onFailure` handler.
 
 ## Real-World Examples
 
@@ -481,15 +415,15 @@ tasks:
       
       - name: Push to registry
         command: docker push app:${params.version}
-        when: params.branch == "main"
+        when: ${params.branch} == "main"
       
       - name: Deploy to staging
         task: deploy-staging
-        when: params.branch == "develop"
+        when: ${params.branch} == "develop"
       
       - name: Deploy to production
         task: deploy-production
-        when: params.branch == "main" && params.deploy == true
+        when: ${params.branch} == "main" && ${params.deploy} == true
 ```
 
 ### Database Migration
@@ -500,29 +434,22 @@ tasks:
     description: Safe database migration with rollback
     steps:
       - name: Create backup
-        command: pg_dump production > backup-$(date +%Y%m%d).sql
+        command: |
+          f=backup-$(date +%Y%m%d).sql
+          pg_dump production > "$f"
+          echo "$f"
         target: hosts.db-primary
         register: backup_file
       
       - name: Verify backup
-        command: test -s ${backup_file.stdout}
+        command: test -s ${vars.backup_file}
         onFailure: abort
       
       - name: Run migration
         command: psql production < migration.sql
         target: hosts.db-primary
-        register: migration_result
         onFailure:
-          command: psql production < ${backup_file.stdout}
-      
-      - name: Verify migration
-        script: |
-          const result = await db.query('SELECT version FROM schema_info');
-          if (result.version !== expectedVersion) {
-            throw new Error('Migration verification failed');
-          }
-        onFailure:
-          command: psql production < ${backup_file.stdout}
+          command: psql production < ${vars.backup_file}
       
       - name: Update replicas
         parallel: true
@@ -549,33 +476,32 @@ tasks:
         register: current_env
       
       - name: Set target environment
-        script: |
-          const target = current_env.stdout === 'blue' ? 'green' : 'blue';
-          return { target };
+        command: |
+          [ "${vars.current_env}" = "blue" ] && echo green || echo blue
         register: deploy_env
       
       - name: Deploy to inactive environment
         command: |
-          kubectl set image deployment/app-${deploy_env.target} \
+          kubectl set image deployment/app-${vars.deploy_env} \
             app=myapp:${params.version}
       
       - name: Wait for rollout
         command: |
-          kubectl rollout status deployment/app-${deploy_env.target} \
+          kubectl rollout status deployment/app-${vars.deploy_env} \
             --timeout=600s
         onFailure:
           retry: 3
           delay: 30s
       
       - name: Run smoke tests
-        command: ./smoke-test.sh ${deploy_env.target}
+        command: ./smoke-test.sh ${vars.deploy_env}
         onFailure:
-          command: kubectl rollout undo deployment/app-${deploy_env.target}
+          command: kubectl rollout undo deployment/app-${vars.deploy_env}
       
       - name: Switch traffic
         command: |
           kubectl patch service app \
-            -p '{"spec":{"selector":{"version":"${deploy_env.target}"}}}'
+            -p '{"spec":{"selector":{"version":"${vars.deploy_env}"}}}'
       
       - name: Verify switch
         command: curl -f https://app.example.com/health
@@ -584,8 +510,8 @@ tasks:
           delay: 10s
       
       - name: Scale down old environment
-        command: kubectl scale deployment/app-${current_env.stdout} --replicas=0
-        when: params.keepOld != true
+        command: kubectl scale deployment/app-${vars.current_env} --replicas=0
+        when: ${params.keepOld} != true
 ```
 
 ## Best Practices

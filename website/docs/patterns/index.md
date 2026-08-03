@@ -459,7 +459,7 @@ describe('integration', () => {
   });
   
   it('should execute in container', async () => {
-    const result = await $.docker(container.id)`echo test`;
+    const result = await $.docker({ container: container.id })`echo test`;
     expect(result.stdout).toBe('test\n');
   });
 });

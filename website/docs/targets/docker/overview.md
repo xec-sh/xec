@@ -2,46 +2,13 @@
 title: Docker Target Overview
 description: Container command execution, lifecycle management, and Docker operations
 keywords: [docker, container, execution, lifecycle, compose]
-source_files:
-  - packages/core/src/adapters/docker-adapter.ts
-  - packages/core/src/docker/docker-client.ts
-  - packages/core/src/docker/container.ts
-key_functions:
-  - DockerAdapter.execute()
-  - DockerClient.exec()
-  - ContainerManager.create()
-  - ContainerManager.start()
-verification_date: 2025-08-03
 ---
 
 # Docker Target Overview
 
-## Implementation Reference
-
-**Source Files:**
-- `packages/core/src/adapters/docker-adapter.ts` - Docker execution adapter
-- `packages/core/src/docker/docker-client.ts` - Docker API client
-- `packages/core/src/docker/container.ts` - Container management
-- `packages/core/src/docker/compose.ts` - Docker Compose operations
-- `packages/core/src/docker/volume.ts` - Volume management
-- `apps/xec/src/config/types.ts` - Docker target configuration (lines 76-95)
-
-**Key Classes:**
-- `DockerAdapter` - Docker command execution adapter
-- `DockerClient` - Docker API wrapper
-- `ContainerManager` - Container lifecycle management
-- `ComposeManager` - Docker Compose operations
-
-**Key Functions:**
-- `DockerAdapter.execute()` - Execute commands in containers (lines 30-120)
-- `DockerClient.exec()` - Docker exec implementation (lines 45-95)
-- `ContainerManager.create()` - Create containers (lines 25-80)
-- `ContainerManager.start()` - Start containers (lines 85-110)
-- `ComposeManager.up()` - Start compose services (lines 20-65)
-
 ## Overview
 
-Docker targets enable command execution inside Docker containers. Xec provides comprehensive Docker support including container lifecycle management, Docker Compose integration, volume management, and network operations.
+Docker targets enable command execution inside Docker containers. Xec provides container execution through the Docker adapter (`packages/core/src/adapters/docker/`), plus a fluent API (`$.docker()`) for container lifecycle, Docker Compose, networks, volumes, and common service presets.
 
 ## Target Configuration
 
@@ -50,48 +17,37 @@ Docker targets enable command execution inside Docker containers. Xec provides c
 ```yaml
 # .xec/config.yaml
 targets:
-  app:
-    type: docker
-    container: my-app  # Container name or ID
+  containers:
+    app:
+      container: my-app  # Container name or ID
     
-  database:
-    type: docker
-    container: postgres-db
-    user: postgres  # Execute as specific user
+    database:
+      container: postgres-db
+      user: postgres  # Execute as specific user
 ```
 
 ### Advanced Configuration
 
 ```yaml
 targets:
-  web-app:
-    type: docker
-    container: web-app
-    
-    # Execution options
-    user: www-data
-    workdir: /app
-    env:
-      NODE_ENV: production
-      PORT: 3000
-    
-    # Container options
-    privileged: false
-    tty: true
-    interactive: true
-    
-    # Network
-    network: app-network
-    
-    # Auto-create if not exists
-    image: node:18-alpine
-    create: true
-    createOptions:
-      ports:
-        - "3000:3000"
-      volumes:
-        - ./app:/app
-      restart: always
+  containers:
+    web-app:
+      container: web-app
+      
+      # Execution options
+      user: www-data
+      workdir: /app
+      env:
+        NODE_ENV: production
+        PORT: "3000"
+      tty: true
+      
+      # Ephemeral containers: run in a fresh container from an image
+      # image: node:22-alpine
+      # runMode: run
+      # volumes:
+      #   - ./app:/app
+      # autoRemove: true
 ```
 
 ## Container Execution
@@ -99,8 +55,8 @@ targets:
 ### Basic Execution
 
 ```typescript
-// Execute in existing container
-await $.docker('my-app')`ls -la`;
+// Execute in existing container (options object; there is no string form)
+await $.docker({ container: 'my-app' })`ls -la`;
 
 // Execute with options
 await $.docker({
@@ -109,497 +65,218 @@ await $.docker({
   workdir: '/app'
 })`npm install`;
 
-// Using configured target
-await $.target('app')`node server.js`;
+// Ephemeral container from an image (removed automatically)
+await $.docker({
+  image: 'node:22-alpine',
+  volumes: ['./app:/app'],
+  workdir: '/app'
+})`npm test`;
 ```
 
 ### Advanced Execution
 
 ```typescript
-// With environment variables
-await $.docker('my-app').env({
-  NODE_ENV: 'production',
-  DEBUG: 'app:*'
-})`npm start`;
+// With environment variables (engine chaining)
+await $.docker({ container: 'my-app' })
+  .env({ NODE_ENV: 'production', DEBUG: 'app:*' })`npm start`;
 
-// Interactive execution
-await $.docker('my-app').interactive()`/bin/bash`;
+// Interactive execution (on the process, not the engine)
+await $.docker({ container: 'my-app' })`/bin/bash`.interactive();
 
 // Execute as root
-await $.docker('my-app').user('root')`apt-get update`;
+await $.docker({ container: 'my-app', user: 'root' })`apt-get update`;
 
 // With working directory
-await $.docker('my-app').cwd('/app')`npm test`;
+await $.docker({ container: 'my-app', workdir: '/app' })`npm test`;
 ```
 
 ### Stream Processing
 
 ```typescript
-// Stream output
-await $.docker('my-app')`tail -f /var/log/app.log`
-  .pipe(process.stdout);
-
 // Process output line by line
-await $.docker('my-app')`cat /data/large-file.csv`
-  .lines(async (line) => {
-    await processLine(line);
-  });
+for await (const line of $.docker({ container: 'my-app' })`cat /data/large-file.csv`) {
+  await processLine(line);
+}
 
 // Pipe between containers
-await $.docker('source')`cat data.sql`
-  .pipe($.docker('postgres')`psql -U postgres`);
+await $.docker({ container: 'source' })`cat data.sql`
+  .pipe($.docker({ container: 'postgres' })`psql -U postgres`);
 ```
 
-## Container Lifecycle
+## The Fluent API
 
-### Creating Containers
+Calling `$.docker()` with no arguments returns the fluent Docker API:
 
 ```typescript
-// Create container from image
-const container = await $.docker.create({
-  name: 'my-app',
-  image: 'node:18-alpine',
-  command: 'node server.js',
-  ports: {
-    '3000': '3000'
-  },
-  volumes: {
-    './app': '/app'
-  },
-  env: {
-    NODE_ENV: 'production'
-  }
-});
+const docker = $.docker();
 
-// Start the container
-await container.start();
+// Ephemeral container builder
+await docker
+  .ephemeral('node:22-alpine')
+  .env({ NODE_ENV: 'test' })
+  .volume('./app', '/app')
+  .workdir('/app')
+  .autoRemove()
+  .run`npm test`;
 
-// Execute commands
-await $.docker(container.id)`npm install`;
+// Persistent container management
+const app = docker.container('my-app');
+await app.start();
+await app.exec`npm run migrate`;
+const logs = await app.logs({ tail: 100 });
+await app.restart();
+await app.stop();
+
+// Status and info
+if (await app.isRunning()) {
+  const info = await app.info();
+  console.log('Container state:', info);
+}
 ```
 
-### Managing Containers
+### Container Lifecycle
 
 ```typescript
-// Start container
-await $.docker('my-app').start();
+const container = $.docker().container('my-app');
 
-// Stop container
-await $.docker('my-app').stop();
-
-// Restart container
-await $.docker('my-app').restart();
-
-// Remove container
-await $.docker('my-app').remove();
-
-// Container status
-const status = await $.docker('my-app').status();
-console.log(`Container is ${status.State.Status}`);
+await container.start();          // Start
+await container.stop();           // Stop
+await container.restart();        // Restart
+await container.remove();         // Remove
+const status = await container.status();   // 'running' | 'stopped' | ...
+await container.waitForReady(30000);       // Wait until ready
 ```
 
-### Container Inspection
+### Service Presets
+
+The fluent API ships presets for common services:
 
 ```typescript
-// Get container info
-const info = await $.docker('my-app').inspect();
-console.log('Container IP:', info.NetworkSettings.IPAddress);
-console.log('Ports:', info.NetworkSettings.Ports);
+// Redis with sensible defaults
+await $.docker().redis().start();
 
-// List containers
-const containers = await $.docker.list({
-  all: true,  // Include stopped
-  filters: {
-    label: 'app=myapp'
-  }
-});
+// PostgreSQL
+await $.docker().postgresql({ database: 'app_test' }).start();
 
-// Container logs
-const logs = await $.docker('my-app').logs({
-  stdout: true,
-  stderr: true,
-  tail: 100,
-  follow: false
-});
+// Also available: mysql(), mongodb(), kafka(), rabbitmq(), redisCluster()
 ```
 
 ## Docker Compose Integration
 
-### Compose Operations
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  web:
-    build: .
-    ports:
-      - "3000:3000"
-  db:
-    image: postgres:14
-    environment:
-      POSTGRES_PASSWORD: secret
-```
-
 ```typescript
-// Start compose services
-await $.compose.up({
-  file: 'docker-compose.yml',
-  detach: true,
-  build: true
-});
+const compose = $.docker().compose('docker-compose.yml');
 
-// Execute in compose service
-await $.compose('web')`npm test`;
+// Start services (detached by default; pass build=true to build first)
+await compose.up(true, true);
 
-// Stop compose services
-await $.compose.down({
-  volumes: true,  // Remove volumes
-  removeOrphans: true
-});
+// Execute in a compose service
+await compose.exec('web', 'npm test');
 
-// Scale services
-await $.compose.scale({
-  web: 3,
-  worker: 5
-});
-```
+// Service management
+await compose.start('web');
+await compose.restart('web');
+const logs = await compose.logs('web', false, 100);
 
-### Service Management
-
-```typescript
-// Start specific service
-await $.compose.start('web');
-
-// Restart service
-await $.compose.restart('web');
-
-// View service logs
-await $.compose.logs('web', {
-  follow: true,
-  tail: 100
-});
-
-// Execute in service
-await $.compose.exec('web', 'npm run migrate');
+// Stop everything (optionally removing volumes)
+await compose.down(true);
 ```
 
 ## Volume Management
 
-### Working with Volumes
-
 ```typescript
-// Create volume
-await $.docker.volume.create({
-  name: 'app-data',
+// Create a volume
+await $.docker().volume('app-data').create({
   driver: 'local',
-  labels: {
-    app: 'myapp'
-  }
+  labels: { app: 'myapp' }
 });
 
-// List volumes
-const volumes = await $.docker.volume.list({
-  filters: {
-    label: 'app=myapp'
-  }
-});
+// Inspect / existence
+const vol = $.docker().volume('app-data');
+if (await vol.exists()) {
+  console.log(await vol.inspect());
+}
 
-// Copy to/from volume
-await $.docker('my-app').copy('./data', '/app/data');
-await $.docker('my-app').copyFrom('/app/logs', './logs');
-
-// Remove volume
-await $.docker.volume.remove('app-data');
+// Remove
+await vol.remove();
 ```
 
-### Bind Mounts
+To copy files in and out of containers, use `docker cp` or the container object from `DockerContainer` (`copyTo`/`copyFrom`):
 
 ```typescript
-// Create container with bind mount
-await $.docker.create({
-  name: 'dev-app',
-  image: 'node:18',
-  volumes: {
-    // Bind mount (host:container)
-    './src': '/app/src',
-    // Named volume
-    'app-data': '/data',
-    // Anonymous volume
-    '/tmp'
-  }
-});
-
-// Mount with options
-await $.docker.create({
-  name: 'app',
-  image: 'node:18',
-  mounts: [{
-    type: 'bind',
-    source: './src',
-    target: '/app/src',
-    readonly: false,
-    consistency: 'delegated'  // macOS optimization
-  }]
-});
+await $`docker cp ./data my-app:/app/data`;
+await $`docker cp my-app:/app/logs ./logs`;
 ```
 
 ## Network Operations
 
-### Network Management
-
 ```typescript
-// Create network
-await $.docker.network.create({
-  name: 'app-network',
-  driver: 'bridge',
-  ipam: {
-    config: [{
-      subnet: '172.20.0.0/16',
-      gateway: '172.20.0.1'
-    }]
-  }
-});
+// Create a network
+const network = $.docker().network('app-network');
+await network.create({ driver: 'bridge', subnet: '172.20.0.0/16' });
 
-// Connect container to network
-await $.docker('my-app').connect('app-network', {
-  aliases: ['app', 'web']
-});
+// Connect / disconnect containers
+await network.connect('my-app', { aliases: ['app', 'web'] });
+await network.disconnect('my-app');
 
-// Disconnect from network
-await $.docker('my-app').disconnect('app-network');
-
-// List networks
-const networks = await $.docker.network.list();
+// Inspect and remove
+console.log(await network.inspect());
+await network.remove();
 ```
 
 ### Inter-Container Communication
 
 ```typescript
-// Create containers on same network
-const network = 'app-network';
+// Containers on the same network reach each other by name/alias
+await $.docker().network('app-network').create();
+await $.docker().network('app-network').connect('db', { aliases: ['database'] });
+await $.docker().network('app-network').connect('app');
 
-// Create database
-await $.docker.create({
-  name: 'db',
-  image: 'postgres:14',
-  network,
-  networkAliases: ['database']
-});
-
-// Create app that connects to db
-await $.docker.create({
-  name: 'app',
-  image: 'node:18',
-  network,
-  env: {
-    DB_HOST: 'database',  // Use network alias
-    DB_PORT: '5432'
-  }
-});
-
-// Test connection
-await $.docker('app')`ping database`;
+await $.docker({ container: 'app' })`ping -c 1 database`;
 ```
 
 ## Image Management
 
-### Working with Images
-
 ```typescript
-// Pull image
-await $.docker.image.pull('node:18-alpine');
+const docker = $.docker();
 
-// Build image
-await $.docker.image.build({
-  context: '.',
-  dockerfile: 'Dockerfile',
-  tag: 'my-app:latest',
-  buildArgs: {
-    NODE_VERSION: '18'
-  }
-});
+// Pull an image
+await docker.pull('node:22-alpine');
 
-// Push image
-await $.docker.image.push('my-app:latest');
+// Build an image
+await docker.build('.', 'my-app:latest').execute();
 
-// List images
-const images = await $.docker.image.list({
-  filters: {
-    label: 'app=myapp'
-  }
-});
+// List images / containers
+console.log(await docker.images());
+console.log(await docker.ps(true));  // true = include stopped
 
-// Remove image
-await $.docker.image.remove('my-app:old');
+// Remove containers and images
+await docker.rm('old-container', true);
+await docker.rmi('my-app:old');
 ```
 
-## Performance Characteristics
+## Performance Notes
 
-### Execution Overhead
-
-**Based on implementation measurements:**
-
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Container exec | 50-100ms | Existing container |
-| Container create | 200-500ms | From cached image |
-| Container start | 100-200ms | Already created |
-| Image pull | Variable | Network dependent |
-| Volume mount | &lt;10ms | Local filesystem |
-
-### Optimization Strategies
-
-1. **Keep Containers Running**:
-```typescript
-// Reuse long-running containers
-const container = await $.docker.ensure('dev-env', {
-  image: 'node:18',
-  command: 'tail -f /dev/null'  // Keep alive
-});
-
-// Execute multiple commands
-await $.docker(container)`npm install`;
-await $.docker(container)`npm test`;
-```
-
-2. **Use Exec Instead of Run**:
-```typescript
-// Slower - creates new container
-await $.docker.run('node:18', 'npm install');
-
-// Faster - uses existing container
-await $.docker('existing-container')`npm install`;
-```
-
-3. **Cache Images Locally**:
-```typescript
-// Pre-pull images
-const images = ['node:18', 'postgres:14', 'redis:7'];
-await Promise.all(
-  images.map(image => $.docker.image.pull(image))
-);
-```
-
-## Security Considerations
-
-### Container Security
-
-```typescript
-// Run with security options
-await $.docker.create({
-  name: 'secure-app',
-  image: 'node:18',
-  
-  // Security options
-  user: '1000:1000',  // Non-root user
-  readOnly: true,      // Read-only root filesystem
-  privileged: false,   // No privileged mode
-  
-  // Capabilities
-  capAdd: [],
-  capDrop: ['ALL'],
-  
-  // Security opt
-  securityOpt: [
-    'no-new-privileges:true',
-    'seccomp=default.json'
-  ],
-  
-  // Resource limits
-  memory: '512m',
-  cpus: '0.5'
-});
-```
-
-### Secret Management
-
-```typescript
-// Use Docker secrets (Swarm mode)
-await $.docker.secret.create({
-  name: 'db-password',
-  data: Buffer.from('secret-password').toString('base64')
-});
-
-// Mount secret in container
-await $.docker.create({
-  name: 'app',
-  image: 'node:18',
-  secrets: [{
-    name: 'db-password',
-    target: '/run/secrets/db-password'
-  }]
-});
-
-// Read secret in container
-await $.docker('app')`cat /run/secrets/db-password`;
-```
-
-## Health Checks
-
-### Container Health
-
-```typescript
-// Define health check
-await $.docker.create({
-  name: 'app',
-  image: 'node:18',
-  healthcheck: {
-    test: ['CMD', 'curl', '-f', 'http://localhost:3000/health'],
-    interval: '30s',
-    timeout: '3s',
-    retries: 3,
-    startPeriod: '40s'
-  }
-});
-
-// Check health status
-const health = await $.docker('app').health();
-if (health.Status === 'healthy') {
-  console.log('Container is healthy');
-}
-
-// Wait for healthy
-await $.docker('app').waitHealthy({
-  timeout: 60000
-});
-```
+- Executing in an **existing container** (`runMode: 'exec'`, the default when `container` is set) avoids container startup cost entirely.
+- **Ephemeral containers** (`image` + `runMode: 'run'`) pay image/container startup on every command — keep a long-running container for repeated commands.
+- Pre-pull images (`$.docker().pull(...)`) to avoid network delays at execution time.
 
 ## Error Handling
 
-### Common Docker Errors
-
 ```typescript
+import { DockerError } from '@xec-sh/core';
+
 try {
-  await $.docker('my-app')`command`;
+  await $.docker({ container: 'my-app' })`command`;
 } catch (error) {
-  if (error.code === 'CONTAINER_NOT_FOUND') {
-    console.error('Container does not exist');
-  } else if (error.code === 'CONTAINER_NOT_RUNNING') {
-    console.error('Container is not running');
-    await $.docker('my-app').start();
-  } else if (error.code === 'DOCKER_NOT_AVAILABLE') {
-    console.error('Docker daemon not running');
+  if (error instanceof DockerError) {
+    console.error('Docker operation failed:', error.message);
   }
 }
-```
 
-### Automatic Recovery
-
-```typescript
-// Auto-restart on failure
-async function ensureContainer(name: string, options: ContainerOptions) {
-  try {
-    const status = await $.docker(name).status();
-    if (status.State.Status !== 'running') {
-      await $.docker(name).start();
-    }
-  } catch (error) {
-    if (error.code === 'CONTAINER_NOT_FOUND') {
-      await $.docker.create({ name, ...options });
-      await $.docker(name).start();
-    }
-  }
+// Or without exceptions
+const result = await $.docker({ container: 'my-app' })`command`.nothrow();
+if (!result.ok) {
+  console.error(result.stderr);
 }
 ```
 
@@ -607,12 +284,10 @@ async function ensureContainer(name: string, options: ContainerOptions) {
 
 1. **Use specific image tags** instead of `latest`
 2. **Run containers as non-root** users
-3. **Set resource limits** to prevent resource exhaustion
-4. **Use health checks** for production containers
+3. **Set resource limits** to prevent resource exhaustion (via the ephemeral builder's `memory()`/`cpus()`)
+4. **Use health checks** for production containers (`healthcheck()` on the builder)
 5. **Clean up stopped containers** and unused images
-6. **Use multi-stage builds** for smaller images
-7. **Implement proper logging** with log drivers
-8. **Use secrets** for sensitive data
+6. **Keep containers running** and use exec for repeated commands
 
 ## Related Documentation
 

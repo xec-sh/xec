@@ -44,7 +44,7 @@ await $.all(servers.map(s => $.ssh(s)`
   git pull
   npm install
 `));
-await $.docker('container1')`python manage.py migrate`;
+await $.docker({ container: 'container1' })`python manage.py migrate`;
 ```
 
 **When to use Shell Scripts:**
@@ -151,12 +151,12 @@ kubectl logs -f app-pod
 ### Xec Unified Approach
 ```typescript
 // Xec - same API for both
-await $.docker('app-container')`npm run migrate`;
+await $.docker({ container: 'app-container' })`npm run migrate`;
 await $.k8s('app-pod')`npm run migrate`;
 
-// Stream logs from both
-const dockerLogs = $.docker('app-container').logs();
-const k8sLogs = $.k8s('app-pod').logs();
+// Fetch logs from both
+const dockerLogs = await $.docker().container('app-container').logs();
+const k8sLogs = await $.k8s().pod('app-pod').logs();
 ```
 
 **When to use native CLIs:**
@@ -191,7 +191,7 @@ await $`npm install`;
 await $`npm run build`;
 // Plus remote execution
 await $.ssh('server')`npm run deploy`;
-await $.docker('container')`npm run migrate`;
+await $.docker({ container: 'container' })`npm run migrate`;
 ```
 
 **When to use zx/shelljs:**

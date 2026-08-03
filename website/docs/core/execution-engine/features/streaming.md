@@ -81,13 +81,13 @@ await $`cat local-file.txt`
   .pipe($.ssh('server')`cat > remote-file.txt`);
 
 // Pipe from container to local
-await $.docker('container')`cat /app/data.json`
+await $.docker({ container: 'container' })`cat /app/data.json`
   .pipe($`jq '.'`)
   .stdout(process.stdout);
 
 // Chain across multiple environments
 await $.k8s('pod')`cat /data/export.csv`
-  .pipe($.docker('processor')`python process.py`)
+  .pipe($.docker({ container: 'processor' })`python process.py`)
   .pipe($`gzip > processed.csv.gz`);
 ```
 
@@ -234,27 +234,20 @@ merged.pipe(process.stdout);
 ### Real-time Logs
 
 ```typescript
-// Stream Docker logs
-await $.docker('container').logs({
-  follow: true,
-  tail: 100,
-  timestamps: true
-}).stdout((line) => {
-  const [timestamp, ...message] = line.split(' ');
-  console.log({
-    timestamp,
-    message: message.join(' ')
+// Stream Docker logs (docker CLI + line-processor pipe)
+await $`docker logs -f --tail 100 --timestamps my-container`
+  .pipe((line) => {
+    const [timestamp, ...message] = line.split(' ');
+    console.log({
+      timestamp,
+      message: message.join(' ')
+    });
   });
-});
 
-// Stream Kubernetes logs
-await $.k8s('pod', 'namespace').logs({
-  follow: true,
-  container: 'app',
-  since: '10m'
-}).stdout((line) => {
+// Stream Kubernetes logs (K8sPod.follow)
+await $.k8s({ namespace: 'production' }).pod('my-pod').follow((line) => {
   console.log(`[K8S] ${line}`);
-});
+}, { container: 'app' });
 ```
 
 ### Multi-Source Log Aggregation

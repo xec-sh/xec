@@ -73,7 +73,7 @@ import { $, on, glob } from '@xec-sh/core';
 // Multi-environment execution
 await $`npm install`;                           // Local
 await on('server', 'npm install');              // SSH
-await $.docker('container')`npm install`;       // Docker
+await $.docker({ container: 'container' })`npm install`;       // Docker
 await $.k8s('pod')`npm install`;               // Kubernetes
 
 // Better TypeScript support with types
@@ -84,7 +84,7 @@ const files: string[] = await glob('**/*.ts');
 await $.parallel([
   $`npm run build`,
   on('server1', 'npm test'),
-  $.docker('container')`npm lint`
+  $.docker({ container: 'container' })`npm lint`
 ]);
 
 // Enterprise features
@@ -184,7 +184,7 @@ const quiet = await $`npm install`.quiet();
 
 // Xec additions: multi-environment
 const remoteBranch = await on('server', 'git branch --show-current');
-const containerFiles = await $.docker('app')`ls -la`;
+const containerFiles = await $.docker({ container: 'app' })`ls -la`;
 ```
 
 ### 2. Error Handling
@@ -448,7 +448,7 @@ await Promise.all(
 await $.parallel([
   $`npm run build`,
   on('server', 'npm test'),
-  $.docker('container')`npm lint`
+  $.docker({ container: 'container' })`npm lint`
 ], { concurrency: 2 });
 ```
 
@@ -481,7 +481,7 @@ await Promise.all(
 );
 
 // Docker execution
-await $.docker('container')`npm install`;
+await $.docker({ container: 'container' })`npm install`;
 
 // Kubernetes execution
 await $.k8s('pod-name')`kubectl get pods`;

@@ -42,8 +42,12 @@ for (const host of hosts) {
   await $.ssh(`user@${host}`)`uptime`;
 }
 
-// Using target patterns
-await $.target('hosts.*')`systemctl status nginx`;
+```
+
+Target patterns are a CLI feature:
+
+```bash
+xec on "hosts.*" "systemctl status nginx"
 ```
 
 ### Configuration-Based Batching
@@ -51,32 +55,22 @@ await $.target('hosts.*')`systemctl status nginx`;
 ```yaml
 # .xec/config.yaml
 targets:
-  web-servers:
-    type: group
-    members:
-      - web1
-      - web2
-      - web3
-      
-  web1:
-    type: ssh
-    host: web1.example.com
-    user: deploy
-    
-  web2:
-    type: ssh
-    host: web2.example.com
-    user: deploy
-    
-  web3:
-    type: ssh
-    host: web3.example.com
-    user: deploy
+  hosts:
+    web1:
+      host: web1.example.com
+      user: deploy
+    web2:
+      host: web2.example.com
+      user: deploy
+    web3:
+      host: web3.example.com
+      user: deploy
 ```
 
-```typescript
-// Execute on group
-await $.target('web-servers')`sudo systemctl restart nginx`;
+```bash
+# Execute on all of them with a wildcard or brace expansion
+xec on "hosts.web*" "sudo systemctl restart nginx"
+xec on "{hosts.web1,hosts.web2}" "uptime"
 ```
 
 ## Parallel Execution
@@ -325,16 +319,15 @@ targets:
     tags: [database, production]
 ```
 
-```typescript
-// Execute on pattern
-await $.target('web*')`systemctl status nginx`;
+```bash
+# Execute on a wildcard pattern
+xec on "hosts.web*" "systemctl status nginx"
 
-// Execute on tagged hosts
-await $.target('tags:production')`uptime`;
-
-// Complex patterns
-await $.target('web* && tags:production')`deploy.sh`;
+# Multiple explicit targets via brace expansion
+xec on "{hosts.web1,hosts.db1}" "uptime"
 ```
+
+(There is no tag-based selection — patterns match target names only.)
 
 ### Dynamic Host Selection
 

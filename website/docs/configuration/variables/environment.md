@@ -15,50 +15,47 @@ Variables that control Xec behavior:
 
 ```bash
 # Configuration
-XEC_CONFIG=/path/to/config.yaml     # Custom config file
-XEC_PROFILE=production               # Active profile
-XEC_PROJECT_ROOT=/path/to/project   # Project directory
+XEC_CONFIG=/path/to/config.yaml     # Extra config file merged over the project config
+XEC_PROFILE=production              # Active profile
+XEC_HOME_DIR=~/.xec                 # Global config directory (default ~/.xec)
 
 # Behavior
-XEC_DEBUG=true                       # Enable debug output
-XEC_VERBOSE=true                     # Verbose output
-XEC_NO_COLOR=true                    # Disable colored output
-XEC_QUIET=true                       # Suppress output
+XEC_DEBUG=true                      # Enable debug output
+XEC_NO_INTERACTIVE=true             # Disable interactive prompts
+NO_COLOR=1                          # Disable colored output (standard variable)
 
-# Secrets
-XEC_SECRETS_DIR=~/.xec/secrets      # Secrets storage
-XEC_PASSPHRASE=encryption-key       # Secrets encryption key
+# Custom commands
+XEC_COMMANDS_PATH=./my-commands     # Extra dynamic-command directories
 ```
 
 ### 2. Configuration Variables
 
 Override configuration values:
 
-```bash
-# Override vars section
-XEC_VARS_APP_NAME=myapp
-XEC_VARS_VERSION=2.0.0
-XEC_VARS_DATABASE_HOST=db.example.com
-XEC_VARS_DATABASE_PORT=5432
+Any `XEC_*` variable (except `XEC_PROFILE`) is converted to a configuration path: the prefix is stripped, the rest is lowercased, and **every underscore becomes a dot**:
 
-# Nested variables
-XEC_VARS_CACHE__HOST=redis.example.com  # cache.host
-XEC_VARS_CACHE__PORT=6379              # cache.port
+```bash
+XEC_VARS_VERSION=2.0.0              # sets vars.version
+XEC_VARS_DATABASE_HOST=db.example.com  # sets vars.database.host (nested!)
+XEC_VARS_CACHE_PORT=6379            # sets vars.cache.port
 ```
+
+Because underscores always create nesting, variables whose names themselves contain underscores (e.g. `app_name`) cannot be addressed this way — use dotted/nested names in `vars` instead.
 
 ### 3. Secret Variables
 
-Provide secrets via environment:
+With the `env` secrets provider (or as a fallback for `${secrets.*}` lookups), secrets are read from `SECRET_*` environment variables — the key is uppercased and `.`/`-` become `_`:
 
 ```bash
-# Direct secrets
-XEC_SECRET_API_KEY=sk-1234567890
-XEC_SECRET_DATABASE_PASSWORD=secure-password
-XEC_SECRET_SSH_PASSPHRASE=key-passphrase
+SECRET_API_KEY=sk-1234567890          # ${secrets.api_key}
+SECRET_DATABASE_PASSWORD=secure-pass  # ${secrets.database_password}
+```
 
-# Secret provider configuration
-XEC_VAULT_TOKEN=vault-token
-XEC_AWS_SECRET_ACCESS_KEY=aws-key
+```yaml
+secrets:
+  provider: env
+  config:
+    prefix: SECRET_   # default
 ```
 
 ### 4. User Environment Variables
@@ -88,15 +85,15 @@ vars:
   home: ${env.HOME}
   user: ${env.USER}
   
-  # With defaults
-  apiUrl: ${env.API_URL:-http://localhost:3000}
-  nodeEnv: ${env.NODE_ENV:-development}
+  # With defaults — everything after ':' is the default (bash-style ':-' is not supported)
+  apiUrl: ${env.API_URL:http://localhost:3000}
+  nodeEnv: ${env.NODE_ENV:development}
   
   # Complex usage
   database:
-    host: ${env.DB_HOST:-localhost}
-    port: ${env.DB_PORT:-5432}
-    name: ${env.DB_NAME:-myapp}
+    host: ${env.DB_HOST:localhost}
+    port: ${env.DB_PORT:5432}
+    name: ${env.DB_NAME:myapp}
     url: postgres://${env.DB_USER}:${env.DB_PASSWORD}@${database.host}:${database.port}/${database.name}
 ```
 
@@ -113,9 +110,9 @@ tasks:
     
     # Pass environment to command
     env:
-      NODE_ENV: ${env.NODE_ENV:-development}
+      NODE_ENV: ${env.NODE_ENV:development}
       API_KEY: ${env.API_KEY}
-      WORKERS: ${env.WORKERS:-4}
+      WORKERS: ${env.WORKERS:4}
 ```
 
 ### In Scripts
@@ -139,17 +136,18 @@ tasks:
 
 ## Environment Variable Precedence
 
-Variables are resolved in this order (highest to lowest):
+Configuration sources are merged in this order (highest to lowest):
 
-1. **Command-line arguments**
-2. **XEC_VARS_* variables**
-3. **Profile variables**
-4. **Configuration file variables**
-5. **Default values**
+1. **Active profile** (`XEC_PROFILE`)
+2. **`XEC_*` environment variables** (e.g. `XEC_VARS_PORT`)
+3. **`XEC_CONFIG` file**
+4. **Project configuration file**
+5. **Global configuration** (`~/.xec/config.yaml`)
+6. **Built-in defaults**
 
 Example:
 
-```bash
+```yaml
 # Configuration file
 vars:
   port: 8080
@@ -159,14 +157,15 @@ profiles:
   production:
     vars:
       port: 3000
+```
 
-# Environment variable
+```bash
+# Environment variable overrides the config file value
 export XEC_VARS_PORT=9000
+xec run server        # port = 9000
 
-# Command line
-xec --var port=5000 run server
-
-# Result: port = 5000 (command-line wins)
+# But the active profile wins over the environment variable
+XEC_PROFILE=production xec run server  # port = 3000
 ```
 
 ## Setting Environment Variables
@@ -205,17 +204,9 @@ source .env  # Bash
 export $(cat .env | xargs)  # Alternative
 ```
 
-### dotenv Integration
-
-```yaml
-# Configure dotenv support
-secrets:
-  provider: dotenv
-  config:
-    file: .env
-    encoding: utf8
-    override: false
-```
+:::note
+There is no built-in dotenv support — load `.env` files in your shell (as above) before invoking `xec`. The `dotenv` secrets provider is declared in the type but not implemented.
+:::
 
 ### CI/CD Systems
 
@@ -276,73 +267,62 @@ xec run test    # Uses staging
 ### Override Profile
 
 ```bash
-# Environment sets default
+# Environment sets the session default
 export XEC_PROFILE=staging
 
-# Command-line overrides
-xec --profile production run deploy  # Uses production
+# Override per invocation
+XEC_PROFILE=production xec run deploy  # Uses production
 ```
 
 ### Dynamic Profile Selection
 
-```yaml
-tasks:
-  auto-profile:
-    script: |
-      // Select profile based on environment
-      const profile = process.env.CI 
-        ? 'ci'
-        : process.env.USER === 'developer'
-          ? 'development'
-          : 'production';
-      
-      await xec.useProfile(profile);
+Select the profile in the shell before invoking Xec:
+
+```bash
+if [ -n "$CI" ]; then
+  export XEC_PROFILE=ci
+elif [ "$USER" = "developer" ]; then
+  export XEC_PROFILE=development
+else
+  export XEC_PROFILE=production
+fi
+xec run deploy
 ```
 
 ## Secret Management
 
 ### Environment-Based Secrets
 
+With the `env` provider (prefix `SECRET_` by default):
+
 ```bash
 # Provide secrets via environment
-export XEC_SECRET_API_KEY=sk-1234567890
-export XEC_SECRET_DB_PASSWORD=secure-password
+export SECRET_API_KEY=sk-1234567890
+export SECRET_DB_PASSWORD=secure-password
+```
 
+```yaml
 # Use in configuration
+secrets:
+  provider: env
+
 vars:
   apiKey: ${secrets.api_key}
   dbPassword: ${secrets.db_password}
 ```
 
-### Secret Provider Configuration
-
-```bash
-# HashiCorp Vault
-export VAULT_ADDR=https://vault.example.com
-export VAULT_TOKEN=token
-
-# AWS Secrets Manager
-export AWS_REGION=us-east-1
-export AWS_SECRET_ACCESS_KEY=key
-export AWS_SECRET_ACCESS_KEY_ID=id
-
-# 1Password
-export OP_SESSION_myteam=session-token
-```
+The supported providers are `local` (default), `env`, and `git` — cloud providers such as Vault or AWS Secrets Manager are not implemented.
 
 ## Debugging Environment Variables
 
 ### List All Variables
 
 ```bash
-# Show all environment variables
+# Show all Xec-related environment variables
 env | grep XEC_
 
-# Show in Xec
-xec config show --env
-
-# Debug script
-xec debug env
+# Show the resolved configuration they produce
+XEC_DEBUG=true xec config view
 ```
 
 ### Trace Variable Resolution
@@ -505,21 +485,21 @@ tasks:
 # Check if variable is set
 echo $MY_VAR
 
-# Check in Xec
-xec config get env.MY_VAR
+# Check the value Xec resolves it to
+xec config get vars.myVar
 
 # Debug resolution
-xec --debug config show --vars
+XEC_DEBUG=true xec config list --path vars
 ```
 
 ### Variable Not Overriding
 
 ```bash
-# Check precedence
-xec config sources
+# See which files were loaded, in order
+XEC_DEBUG=true xec config view
 
-# Force override
-xec --var myVar=value run task
+# Force override for one invocation
+XEC_VARS_MYVAR=value xec run task
 ```
 
 ### Special Characters

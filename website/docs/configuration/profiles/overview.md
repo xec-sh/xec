@@ -35,16 +35,6 @@ profiles:
 
 ## Profile Activation
 
-### Command-Line
-
-```bash
-# Use specific profile
-xec --profile production run deploy
-
-# Short form
-xec -p staging run test
-```
-
 ### Environment Variable
 
 ```bash
@@ -53,16 +43,15 @@ export XEC_PROFILE=production
 xec run deploy
 ```
 
-### Configuration Default
+### Per-Command Flag
 
-```yaml
-# .xec/config.yaml
-defaultProfile: development
+Some commands (`on`, `in`, `copy`, `logs`, `watch`, `forward`, `inspect`) accept a profile flag directly:
 
-profiles:
-  development:
-    # ...
+```bash
+xec on -p production hosts.web "systemctl restart app"
 ```
+
+There is no global `--profile` flag and no `defaultProfile` configuration key — use `XEC_PROFILE` to select a profile for a whole session.
 
 ## Variable Overrides
 
@@ -130,22 +119,25 @@ profiles:
       highAvailability: true
 ```
 
-## Multiple Inheritance
+## Inheritance Chains
+
+`extends` accepts a single parent profile (multi-parent inheritance is not supported). Build layered configurations as a chain instead:
 
 ```yaml
 profiles:
-  security:
+  base:
     vars:
       encryption: true
       auditLog: enabled
   
-  performance:
+  hardened:
+    extends: base
     vars:
       caching: true
       compression: true
   
   production:
-    extends: [security, performance]
+    extends: hardened
     vars:
       environment: production
 ```
@@ -186,29 +178,22 @@ tasks:
 
 ### Profile Detection in Scripts
 
+The active profile is available to scripts through the environment:
+
 ```yaml
 tasks:
   smart-deploy:
     script: |
-      const profile = xec.profile;
+      const profile = process.env.XEC_PROFILE;
       if (profile === 'production') {
-        await xec.run('production-checks');
+        await $`./production-checks.sh`;
       }
-      await xec.run('deploy');
+      await $`./deploy.sh`;
 ```
 
 ## Profile Files
 
-Organize profiles in separate files:
-
-```yaml
-# .xec/config.yaml
-profiles:
-  $import:
-    - profiles/dev.yaml
-    - profiles/staging.yaml
-    - profiles/prod.yaml
-```
+Profiles that are not defined inline in `config.yaml` are looked up automatically in `.xec/profiles/<name>.yaml`:
 
 ```yaml
 # .xec/profiles/prod.yaml
@@ -222,32 +207,22 @@ targets:
       host: prod-web.example.com
 ```
 
-## Dynamic Profile Selection
-
-### Based on Git Branch
-
-```yaml
-tasks:
-  auto-deploy:
-    script: |
-      const branch = await $`git branch --show-current`;
-      const profile = branch === 'main' ? 'production' : 'staging';
-      await xec.useProfile(profile);
-      await xec.run('deploy');
+```bash
+# Activates .xec/profiles/prod.yaml
+XEC_PROFILE=prod xec run deploy
 ```
 
-### Based on Environment
+## Dynamic Profile Selection
 
-```yaml
-tasks:
-  smart-profile:
-    script: |
-      const profile = process.env.CI 
-        ? 'ci' 
-        : process.env.USER === 'developer' 
-          ? 'development' 
-          : 'production';
-      await xec.useProfile(profile);
+Select the profile in the shell before invoking Xec:
+
+```bash
+# Based on git branch
+branch=$(git branch --show-current)
+XEC_PROFILE=$([ "$branch" = "main" ] && echo production || echo staging) xec run deploy
+
+# Based on CI environment
+XEC_PROFILE=${CI:+ci} xec run test
 ```
 
 ## Profile Validation
@@ -255,14 +230,11 @@ tasks:
 Ensure profile configurations are valid:
 
 ```bash
-# Validate specific profile
-xec config validate --profile production
+# Validate configuration (including the active profile)
+XEC_PROFILE=production xec config validate
 
-# List available profiles
-xec config profiles
-
-# Show profile configuration
-xec config show --profile staging
+# Show a profile definition
+xec config get profiles.staging
 ```
 
 ## Common Patterns
@@ -396,7 +368,7 @@ profiles:
 
 ## Profile Composition
 
-### Base Profiles
+`extends` takes a single parent, so compose baselines as a chain — each layer extends the previous one:
 
 ```yaml
 profiles:
@@ -407,53 +379,32 @@ profiles:
       authentication: required
       encryption: aes256
   
-  # Performance baseline
-  fast:
+  # Performance layer on top of the security baseline
+  secure-fast:
+    extends: secure
     vars:
       caching: true
       compression: gzip
       connectionPool: 10
   
-  # Combine baselines
+  # Final profile
   production:
-    extends: [secure, fast]
-    vars:
-      environment: production
-```
-
-### Layered Profiles
-
-```yaml
-profiles:
-  # Infrastructure layer
-  aws:
-    vars:
-      cloud: aws
-      region: us-east-1
-  
-  # Application layer
-  api:
-    vars:
-      service: api
-      port: 3000
-  
-  # Combined profile
-  aws-api-prod:
-    extends: [aws, api]
+    extends: secure-fast
     vars:
       environment: production
 ```
 
 ## Profile Priority
 
-Configuration sources are merged in this order:
+Configuration sources are merged in this order (later overrides earlier):
 
-1. Base configuration
-2. Imported configurations
-3. Profile inheritance chain
-4. Active profile
-5. Environment variables
-6. Command-line arguments
+1. Built-in defaults
+2. Global configuration (`~/.xec/config.yaml`)
+3. Project configuration (`.xec/config.yaml`)
+4. `XEC_CONFIG` file and `XEC_*` environment variables
+5. Active profile (inheritance chain resolved parent-first)
+
+The active profile is the highest-priority source — its values win over everything else.
 
 ```yaml
 # Base
@@ -556,11 +507,10 @@ profiles:
 
 ```yaml
 profiles:
+  # Production environment profile.
+  # Requires: VPN connection, prod credentials
+  # Region: us-east-1
   production:
-    description: |
-      Production environment profile.
-      Requires: VPN connection, prod credentials
-      Region: us-east-1
     vars:
       environment: production
 ```
@@ -569,8 +519,8 @@ profiles:
 
 ```bash
 # Before switching profiles
-xec config validate --profile new-profile
-xec run smoke-test --profile new-profile --dry-run
+XEC_PROFILE=new-profile xec config validate
+XEC_PROFILE=new-profile xec run smoke-test
 ```
 
 ## Troubleshooting
@@ -578,11 +528,11 @@ xec run smoke-test --profile new-profile --dry-run
 ### Profile Not Found
 
 ```bash
-# List available profiles
-xec config profiles
+# List profile definitions
+xec config list --path profiles
 
-# Check profile name
-xec config show --profile correct-name
+# Check the profile definition
+xec config get profiles.correct-name
 ```
 
 ### Variable Not Overridden

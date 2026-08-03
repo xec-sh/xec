@@ -408,7 +408,7 @@ tasks:
 ```yaml
 tasks:
   flexible:
-    command: deploy --env ${DEPLOY_ENV:-staging}
+    command: deploy --env ${DEPLOY_ENV:staging}
     env:
       DEPLOY_ENV: ${params.environment}
 ```
