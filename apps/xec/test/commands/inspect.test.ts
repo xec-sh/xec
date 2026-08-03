@@ -514,71 +514,18 @@ describe('inspect command', () => {
       expect(consoleLogSpy).toHaveBeenCalled();
       const output = getConsoleOutput();
 
-      // Should differentiate built-in vs dynamic
+      // Should differentiate built-in vs dynamic (Type column with built-in rows)
       if (output.includes('No items found')) {
         expect(output).toMatch(/No items found/);
       } else {
-        expect(output).toMatch(/built-in.*Type|Type.*built-in/i);
+        expect(output).toMatch(/Type/);
+        expect(output).toMatch(/built-in/i);
       }
     });
   });
 
-  describe('configuration inspection', () => {
-    it('should show full configuration', async () => {
-      await program.parseAsync(['node', 'xec', 'inspect', 'config']);
-
-      expect(consoleLogSpy).toHaveBeenCalled();
-      const output = getConsoleOutput();
-
-      // Should show config structure
-      expect(output).toMatch(/Full Configuration/);
-      expect(output).toMatch(/vars|targets|tasks/);
-    });
-
-    it('should show specific config path', async () => {
-      await program.parseAsync(['node', 'xec', 'inspect', 'config', 'vars.app_name']);
-
-      expect(consoleLogSpy).toHaveBeenCalled();
-      const output = getConsoleOutput();
-
-      // Should show the path and value
-      expect(output).toMatch(/vars\.app_name|test-app/);
-    });
-
-    it('should handle non-existent config paths', async () => {
-      await program.parseAsync(['node', 'xec', 'inspect', 'config', 'non.existent.path']);
-
-      expect(consoleLogSpy).toHaveBeenCalled();
-      const output = getConsoleOutput();
-
-      // Should indicate path doesn't exist
-      expect(output).toMatch(/undefined|null|does not exist|non\.existent\.path/i);
-    });
-
-    it('should show config in JSON format', async () => {
-      await program.parseAsync(['node', 'xec', 'inspect', 'config', '--format', 'json']);
-
-      const rawOutput = getConsoleOutput();
-      const output = rawOutput.replace(/\x1b\[[0-9;]*m/g, ''); // Remove ANSI codes
-
-      // Check if it's still showing a table instead of JSON
-      if (output.includes('┌') || output.includes('│')) {
-        // Format option might not be working
-        console.warn('Format option not working correctly for config - output is still a table');
-        expect(output).toMatch(/Full Configuration|vars|targets|tasks/);
-        return;
-      }
-
-      const data = JSON.parse(output);
-
-      expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBeGreaterThan(0);
-      expect(data[0].type).toBe('config');
-      expect(data[0].data).toHaveProperty('vars');
-      expect(data[0].data).toHaveProperty('targets');
-      expect(data[0].data).toHaveProperty('tasks');
-    });
-  });
+  // NOTE: 'config' is no longer an inspect type — configuration is inspected
+  // through the 'vars', 'targets' and 'tasks' types, which are covered above.
 
   describe('system inspection', () => {
     it('should show system information', async () => {
@@ -591,14 +538,14 @@ describe('inspect command', () => {
       expect(output).toMatch(/Version|OS|Hardware|Environment|Network|Tools|Project/);
     });
 
-    it('should show version information only', async () => {
-      await program.parseAsync(['node', 'xec', 'inspect', 'system', 'version']);
+    it('should show runtime version information only', async () => {
+      await program.parseAsync(['node', 'xec', 'inspect', 'system', 'runtime']);
 
       expect(consoleLogSpy).toHaveBeenCalled();
       const output = getConsoleOutput();
 
-      // Should show version info
-      expect(output).toMatch(/CLI|Core|Node\.js/);
+      // Should show runtime version info (xec CLI/core and Node.js versions)
+      expect(output).toMatch(/runtime|node|xec/i);
       expect(output).not.toMatch(/Hardware|Network/);
     });
 
@@ -686,7 +633,7 @@ describe('inspect command', () => {
 
       // Check for expected system categories
       const categories = systemItems.map((item: any) => item.name);
-      expect(categories).toEqual(expect.arrayContaining(['version', 'os', 'hardware']));
+      expect(categories).toEqual(expect.arrayContaining(['runtime', 'os', 'hardware']));
     });
   });
 

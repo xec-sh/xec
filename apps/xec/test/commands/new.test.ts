@@ -63,12 +63,12 @@ describe('new command', () => {
       
       // Verify config content
       const config = await fs.readFile(path.join(projectDir, '.xec/config.yaml'), 'utf-8');
-      expect(config).toContain('version: "2.0"');
+      expect(config).toContain('version: 1.0.0');
       expect(config).toContain('name: test-project');
       expect(config).toContain('description: Test project');
-      
+
       // Should not create example files in minimal mode
-      expect(await fs.pathExists(path.join(projectDir, '.xec/scripts/example.js'))).toBe(false);
+      expect(await fs.pathExists(path.join(projectDir, '.xec/scripts/example.ts'))).toBe(false);
     });
 
     it('should create standard project structure', async () => {
@@ -79,13 +79,13 @@ describe('new command', () => {
       // Check that all standard files were created
       expect(await fs.pathExists(path.join(projectDir, '.xec/config.yaml'))).toBe(true);
       expect(await fs.pathExists(path.join(projectDir, '.xec/.gitignore'))).toBe(true);
-      expect(await fs.pathExists(path.join(projectDir, '.xec/scripts/example.js'))).toBe(true);
-      expect(await fs.pathExists(path.join(projectDir, '.xec/commands/hello.js'))).toBe(true);
-      expect(await fs.pathExists(path.join(projectDir, '.xec/README.md'))).toBe(true);
-      
+      expect(await fs.pathExists(path.join(projectDir, '.xec/scripts/example.ts'))).toBe(true);
+      expect(await fs.pathExists(path.join(projectDir, 'README.md'))).toBe(true);
+      expect(await fs.pathExists(path.join(projectDir, 'package.json'))).toBe(true);
+
       // Verify config content
       const config = await fs.readFile(path.join(projectDir, '.xec/config.yaml'), 'utf-8');
-      expect(config).toContain('version: "2.0"');
+      expect(config).toContain('version: 1.0.0');
       expect(config).toContain('name: test-project');
       expect(config).toContain('vars:');
       expect(config).toContain('targets:');
@@ -297,8 +297,8 @@ describe('new command', () => {
       runXec('new extension my-ext --advanced --force --desc "My extension"');
       
       const extDir = path.join(tempDir, 'my-ext');
-      expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-main.js'))).toBe(true);
-      expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-utils.js'))).toBe(true);
+      expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-main.ts'))).toBe(true);
+      expect(await fs.pathExists(path.join(extDir, 'scripts/my-ext-utils.ts'))).toBe(true);
       expect(await fs.pathExists(path.join(extDir, 'README.md'))).toBe(true);
       expect(await fs.pathExists(path.join(extDir, 'examples/basic.yaml'))).toBe(true);
     });

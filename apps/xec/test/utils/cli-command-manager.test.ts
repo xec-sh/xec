@@ -13,16 +13,15 @@ import {
   discoverAndLoadCommands
 } from '../../src/utils/cli-command-manager.js';
 
-// Mock @xec-sh/core
-vi.mock('@xec-sh/core', () => ({
-  $: vi.fn(),
-  unifiedConfig: {},
-  CommandRegistry: vi.fn().mockImplementation(function(this: Record<string, unknown>) {
-    this.register = vi.fn();
-    this.getAllCommands = vi.fn().mockReturnValue([]);
-    this.getCommand = vi.fn();
-  })
-}));
+// Partially mock @xec-sh/core: keep the real exports (CommandRegistry,
+// ExecutionError, …) and only stub command execution.
+vi.mock(import('@xec-sh/core'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    $: vi.fn() as never
+  };
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

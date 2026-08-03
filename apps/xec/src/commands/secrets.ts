@@ -393,6 +393,17 @@ export class SecretsCommand extends ConfigAwareCommand {
   private async getSecretManager(): Promise<SecretManager> {
     // Load configuration to get secret provider settings
     await this.initializeConfig({});
+
+    // Non-strict config load only warns about an unsupported provider and
+    // keeps the default one. Secrets operations must not silently fall back —
+    // the user would believe values live in the provider they configured.
+    const declared = (this.configManager.getConfig().secrets as { provider?: string } | undefined)?.provider;
+    if (declared && !SecretManager.isSupported(declared)) {
+      throw new Error(
+        `Secrets provider '${declared}' is not supported. Supported providers: local, env, git`
+      );
+    }
+
     return this.configManager.getSecretManager();
   }
 

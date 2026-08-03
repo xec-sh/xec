@@ -267,8 +267,11 @@ export class DockerContainerManager {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
+        // UserKnownHostsFile=/dev/null: test containers regenerate host keys,
+        // and a stale entry in the developer's known_hosts would reject the
+        // changed key even with StrictHostKeyChecking=no.
         execSync(
-          `${sshpassPath} -p password ssh -o StrictHostKeyChecking=no -o ConnectTimeout=2 -p ${port} user@localhost exit`,
+          `${sshpassPath} -p password ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=2 -p ${port} user@localhost exit`,
           { stdio: 'ignore', env: getExtendedEnv() }
         );
         console.log(`SSH on port ${port} is ready`);

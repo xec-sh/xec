@@ -688,21 +688,13 @@ export class DockerCommand extends SubcommandBase {
         return;
       }
 
-      // Run container
-      if (options.command) {
-        const result = await container.exec`${options.command}`;
-        s.stop(prism.green('✓ Container started successfully'));
-        console.log(result.stdout);
-        if (result.stderr) console.error(result.stderr);
-      } else {
-        const result = await container.exec``;
-        s.stop(prism.green('✓ Container started successfully'));
-        if (!mergedOptions.detached) {
-          console.log(result.stdout);
-          if (result.stderr) console.error(result.stderr);
-        } else {
-          note(`Container ID: ${mergedOptions.name || 'ephemeral'}\nStatus: Running`, 'Container Info');
-        }
+      // Run the container. exec`` on a named builder would try to `docker
+      // exec` into a container that does not exist yet — start() performs the
+      // actual `docker run`.
+      await container.start();
+      s.stop(prism.green('✓ Container started successfully'));
+      if (mergedOptions.detached) {
+        note(`Container ID: ${mergedOptions.name || 'ephemeral'}\nStatus: Running`, 'Container Info');
       }
     } catch (error) {
       s.stop(prism.red('✗ Failed to start container'));
@@ -721,14 +713,15 @@ export class DockerCommand extends SubcommandBase {
       if (options.user) container = container.user(options.user);
       if (options.workdir) container = container.workdir(options.workdir);
 
-      const command = cmdParts.join(' ');
-
       if (this.isDryRun()) {
-        this.log(`[DRY RUN] Would execute: ${command} in container ${containerName}`, 'info');
+        this.log(`[DRY RUN] Would execute: ${cmdParts.join(' ')} in container ${containerName}`, 'info');
         return;
       }
 
-      const result = await container.exec`${command}`;
+      // Interpolate the argv array into the template so each part is escaped
+      // as its own argument (a joined string would be quoted as a single
+      // command name) while the template path still applies workdir/user.
+      const result = await container.exec`${cmdParts}`;
       console.log(result.stdout);
       if (result.stderr) console.error(result.stderr);
     } catch (error) {
@@ -840,7 +833,8 @@ export class DockerCommand extends SubcommandBase {
         return;
       }
 
-      await builder.build();
+      // build() only validates the configuration — execute() runs the build
+      await builder.execute();
       s.stop(prism.green(`✓ Successfully built ${options.tag || 'image'}`));
     } catch (error) {
       s.stop(prism.red('✗ Build failed'));

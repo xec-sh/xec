@@ -245,7 +245,11 @@ export abstract class BaseCommand {
             port: config.port,
             privateKey: config.privateKey,
             password: config.password,
-            passphrase: config.passphrase
+            passphrase: config.passphrase,
+            // Without these an explicitly configured target silently falls
+            // back to the default host key policy.
+            hostKeyChecking: config.hostKeyChecking,
+            knownHostsPath: config.knownHostsPath
           });
 
           // Apply environment variables from config

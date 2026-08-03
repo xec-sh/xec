@@ -348,51 +348,33 @@ export class OnCommand extends ConfigAwareCommand {
     const maxConcurrent = parseInt(String(options.maxConcurrent || '10'), 10);
     this.log(`Executing on ${targets.length} hosts in parallel (max ${maxConcurrent} concurrent)...`, 'info');
 
-    // Create execution promises with concurrency control
-    let activeCount = 0;
+    // Worker-pool concurrency control: each worker drains the queue. (Racing
+    // already-settled promises in a wait loop would spin the event loop and
+    // exhaust memory while commands are still running.)
     const results: Array<{ target: ResolvedTarget; success: boolean; error?: any }> = [];
     const queue = [...targets];
 
-    const executeNext = async (): Promise<void> => {
-      if (queue.length === 0) return;
+    const worker = async (): Promise<void> => {
+      while (queue.length > 0) {
+        const target = queue.shift()!;
 
-      const target = queue.shift()!;
-      activeCount++;
+        try {
+          await this.executeSingle(target, cmd, { ...options, quiet: true });
+          results.push({ target, success: true });
+        } catch (error) {
+          results.push({ target, success: false, error });
 
-      try {
-        await this.executeSingle(target, cmd, { ...options, quiet: true });
-        results.push({ target, success: true });
-      } catch (error) {
-        results.push({ target, success: false, error });
-
-        if (options.failFast) {
-          // Cancel remaining executions
-          queue.length = 0;
+          if (options.failFast) {
+            // Cancel remaining executions
+            queue.length = 0;
+          }
         }
-      } finally {
-        activeCount--;
       }
     };
 
-    // Start initial batch
-    const initialBatch = Math.min(maxConcurrent, targets.length);
-    const promises: Promise<void>[] = [];
-
-    for (let i = 0; i < initialBatch; i++) {
-      promises.push(executeNext());
-    }
-
-    // Process queue
-    while (queue.length > 0 || activeCount > 0) {
-      await Promise.race(promises.filter(p => p));
-
-      if (queue.length > 0 && activeCount < maxConcurrent) {
-        promises.push(executeNext());
-      }
-    }
-
-    // Wait for all to complete
-    await Promise.all(promises);
+    await Promise.all(
+      Array.from({ length: Math.min(maxConcurrent, targets.length) }, () => worker())
+    );
 
     // Display results
     const successful = results.filter(r => r.success);

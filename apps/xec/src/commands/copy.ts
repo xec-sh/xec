@@ -516,12 +516,12 @@ export class CopyCommand extends ConfigAwareCommand {
         const config = source.config as any;
         const namespace = config.namespace || 'default';
         const pod = config.pod || source.name;
-        const containerFlag = config.container ? `-c ${config.container}` : '';
+        const containerFlag = config.container ? ['-c', config.container] : [];
 
         if (isDirectory) {
           // Use tar for directory transfer
           const tarFile = `${tempPath}.tar`;
-          const tarCommand = `kubectl exec -n ${namespace} ${containerFlag} ${pod} -- tar -cf - -C ${path.dirname(sourcePath)} ${path.basename(sourcePath)}`;
+          const tarCommand = `kubectl exec -n ${namespace} ${containerFlag.join(' ')} ${pod} -- tar -cf - -C ${path.dirname(sourcePath)} ${path.basename(sourcePath)}`;
           await localEngine`sh -c "${tarCommand} > ${tarFile}"`;
 
           // Extract tar
@@ -612,7 +612,7 @@ export class CopyCommand extends ConfigAwareCommand {
         const config = destination.config as any;
         const namespace = config.namespace || 'default';
         const pod = config.pod || destination.name;
-        const containerFlag = config.container ? `-c ${config.container}` : '';
+        const containerFlag = config.container ? ['-c', config.container] : [];
 
         if (isDirectory) {
           // Use tar for directory transfer
@@ -680,8 +680,23 @@ export class CopyCommand extends ConfigAwareCommand {
     }
   }
 
-  private buildSshArgs(config: any): string {
-    const args: string[] = [];
+  // Returned as an array: template interpolation escapes each element as its
+  // own argument, while a joined string would be passed as a single argument.
+  private buildSshArgs(config: any): string[] {
+    // Match the SSH adapter's host key policy, which verifies against
+    // known_hosts and defaults to accept-new. `accept-new` records a key the
+    // first time a host is seen and refuses a key that later changes — so a
+    // transfer cannot be silently redirected to a machine-in-the-middle, and
+    // `xec copy` still behaves the same as `xec on` against the same target.
+    const hostKeyChecking = config.hostKeyChecking ?? 'accept-new';
+    const args: string[] =
+      hostKeyChecking === 'off'
+        ? ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null']
+        : ['-o', `StrictHostKeyChecking=${hostKeyChecking === 'strict' ? 'yes' : 'accept-new'}`];
+
+    if (config.knownHostsPath) {
+      args.push('-o', `UserKnownHostsFile=${config.knownHostsPath}`);
+    }
 
     if (config.port && config.port !== 22) {
       args.push('-P', String(config.port));
@@ -691,7 +706,7 @@ export class CopyCommand extends ConfigAwareCommand {
       args.push('-i', config.privateKey);
     }
 
-    return args.join(' ');
+    return args;
   }
 
   private buildSshTarget(config: any): string {

@@ -132,6 +132,7 @@ describe('Forward Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -148,6 +149,7 @@ describe('Forward Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 
@@ -198,6 +200,7 @@ describe('Forward Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -214,6 +217,7 @@ describe('Forward Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 
@@ -275,6 +279,7 @@ describe('Forward Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -295,6 +300,7 @@ describe('Forward Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
       await sshEngine`echo ${testContent} > ${testFilePath}`;
@@ -708,7 +714,7 @@ describe('Forward Command', () => {
 
       // Test Kubernetes target resolution
       const target = await command['resolveTarget']('pods.webapp');
-      expect(target.type).toBe('k8s');
+      expect(target.type).toBe('kubernetes');
       expect(target.config.pod).toBe('webapp-deployment-abc123');
       expect(target.config.namespace).toBe('production');
 

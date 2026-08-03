@@ -268,11 +268,14 @@ export class WatchCommand extends ConfigAwareCommand {
     paths: string[],
     options: WatchOptions
   ): Promise<WatchSession> {
-    // Create watcher using @xec-sh/loader's FileWatcher
+    // Create watcher using @xec-sh/loader's FileWatcher.
+    // Watch all file types — pattern/exclude filtering is applied by
+    // shouldIgnoreFile, not by the watcher's extension filter.
     const watcher = new FileWatcher(paths, {
       debounce: parseInt(options.interval || '200', 10),
       ignore: options.exclude || [],
       recursive: true,
+      extensions: [],
     });
 
     watcher.on('change', (event) => {

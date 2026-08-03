@@ -262,6 +262,10 @@ export class ForwardCommand extends ConfigAwareCommand {
       privateKey: config.privateKey,
       password: config.password,
       privateKeyPath: config.privateKeyPath,
+      // Carry the target's host key policy through; omitting it silently
+      // downgrades an explicitly configured target to the default.
+      hostKeyChecking: config.hostKeyChecking,
+      knownHostsPath: config.knownHostsPath,
     };
 
     // Create SSH tunnel
@@ -366,8 +370,9 @@ export class ForwardCommand extends ConfigAwareCommand {
       '--address', options.bind || '127.0.0.1'
     ];
 
-    // Start port forwarding in background
-    const process = $.local()`kubectl ${args.join(' ')}`.nothrow();
+    // Start port forwarding in background — the array interpolates as
+    // separately escaped arguments
+    const process = $.local()`kubectl ${args}`.nothrow();
 
     // Wait a bit to ensure it started
     await new Promise(resolve => setTimeout(resolve, 1000));
