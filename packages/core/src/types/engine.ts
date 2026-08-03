@@ -15,11 +15,13 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
 
   // Override methods that return CallableExecutionEngine instead of ExecutionEngine
   with(config: Partial<Command>): CallableExecutionEngine;
-  ssh(options: Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext;
+  /** Target an SSH host by `[user@]host[:port]` shorthand or full options. */
+  ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext;
   docker(options: DockerOptions): CallableExecutionEngine;
   docker(options: Omit<DockerAdapterOptions, 'type'>): CallableExecutionEngine;
   docker(): DockerFluentAPI;
-  k8s(options?: Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext;
+  /** Target a pod by `[namespace/]pod[:container]` shorthand or full options. */
+  k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext;
   local(): CallableExecutionEngine;
   cd(dir: string): CallableExecutionEngine;
   env(env: Record<string, string>): CallableExecutionEngine;
