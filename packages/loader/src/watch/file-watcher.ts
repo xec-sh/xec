@@ -29,7 +29,7 @@ export interface FileChangeEvent {
 export interface WatchOptions {
   /** Debounce interval in milliseconds (default: 200) */
   debounce?: number;
-  /** File extensions to watch (default: ['.ts', '.js', '.mjs', '.cjs', '.tsx', '.jsx']) */
+  /** File extensions to watch; an empty array watches all files (default: ['.ts', '.js', '.mjs', '.cjs', '.tsx', '.jsx']) */
   extensions?: string[];
   /** Glob patterns to ignore (default: ['node_modules', '.git', 'dist', 'coverage']) */
   ignore?: string[];
@@ -145,8 +145,8 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
     const absolutePath = path.join(baseDir, filename);
     const ext = path.extname(filename);
 
-    // Filter by extension
-    if (!this.options.extensions.includes(ext)) return;
+    // Filter by extension; an empty list means "watch all files"
+    if (this.options.extensions.length > 0 && !this.options.extensions.includes(ext)) return;
 
     // Filter by ignore patterns
     for (const pattern of this.options.ignore) {

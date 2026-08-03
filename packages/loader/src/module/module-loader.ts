@@ -7,6 +7,7 @@ import { ModuleFetcher } from './module-fetcher.js';
 import { ModuleExecutor } from './module-executor.js';
 import { MemoryCache, HybridCache } from './module-cache.js';
 import { CDNModuleResolver, NodeModuleResolver, LocalModuleResolver, CompositeModuleResolver } from './module-resolver.js';
+import { ModuleIntegrityVerifier } from './module-integrity.js';
 
 import type { Cache, ModuleSpecifier, ModuleLoaderOptions, ModuleExports } from '../types/index.js';
 import { isNodeBuiltinModule } from '../constants.js';
@@ -19,6 +20,7 @@ export class ModuleLoader {
   private fetcher: ModuleFetcher;
   private executor: ModuleExecutor;
   private cache: Cache<string>;
+  private integrity: ModuleIntegrityVerifier;
   private options: Required<ModuleLoaderOptions>;
   private pendingLoads = new Map<string, Promise<any>>();
 
@@ -29,7 +31,12 @@ export class ModuleLoader {
       verbose: options.verbose || false,
       cache: options.cache !== false,
       cdnOnly: options.cdnOnly || false,
+      integrity: options.integrity ?? {},
     };
+
+    // Remote modules execute with full process privileges on machines that
+    // hold production credentials, so their contents are pinned by default.
+    this.integrity = new ModuleIntegrityVerifier(this.options.cacheDir, this.options.integrity);
 
     // Set up cache
     if (this.options.cache) {
@@ -53,7 +60,7 @@ export class ModuleLoader {
     }
 
     // Set up fetcher and executor
-    this.fetcher = new ModuleFetcher(this.cache);
+    this.fetcher = new ModuleFetcher(this.cache, this.integrity);
     this.executor = new ModuleExecutor(this.options.cacheDir + '/temp');
   }
 

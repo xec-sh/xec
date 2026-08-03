@@ -1,3 +1,4 @@
+import type { IntegrityPolicy } from '../module/module-integrity.js';
 /**
  * Module loading and resolution types
  * @module @xec-sh/loader/types/module
@@ -37,6 +38,15 @@ export interface ModuleLoaderOptions {
 
   /** Force CDN-only loading (no node_modules) */
   cdnOnly?: boolean;
+
+  /**
+   * Integrity policy for remotely fetched modules.
+   *
+   * Remote modules are executed with full process privileges, so their
+   * contents are pinned to a lockfile by default and only known CDN hosts are
+   * contacted. Set `{ mode: 'off' }` only for throwaway local work.
+   */
+  integrity?: IntegrityPolicy;
 }
 
 /**

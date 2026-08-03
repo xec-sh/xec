@@ -83,7 +83,9 @@ describe('ModuleLoader', () => {
       expect(module.foo).toBe('bar');
     });
 
-    it('should load module from direct HTTPS URL', async () => {
+    it('should refuse a host outside the integrity allowlist', async () => {
+      // Remote code runs with full process privileges, so an unlisted host is
+      // rejected before any request is made rather than fetched and executed.
       const mockResponse = {
         ok: true,
         status: 200,
@@ -92,7 +94,26 @@ describe('ModuleLoader', () => {
       };
       (global.fetch as any).mockResolvedValue(mockResponse);
 
-      const module = await loader.import('https://example.com/module.js');
+      await expect(loader.import('https://example.com/module.js')).rejects.toThrow(
+        /unlisted host/
+      );
+    });
+
+    it('should load module from a direct HTTPS URL on an allowed host', async () => {
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        text: async () => 'export const direct = true;',
+        headers: new Map([['content-type', 'application/javascript']]),
+      };
+      (global.fetch as any).mockResolvedValue(mockResponse);
+
+      const permissive = new ModuleLoader({
+        cache: false,
+        integrity: { allowedHosts: ['example.com'] },
+      });
+
+      const module = await permissive.import('https://example.com/module.js');
       expect(module.direct).toBe(true);
     });
   });
