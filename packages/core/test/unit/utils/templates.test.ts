@@ -24,7 +24,7 @@ describe('Templates', () => {
   describe('templates.create', () => {
     it('should create a command template', async () => {
       const template = $.templates.create('echo {{message}}');
-      mock.mockSuccess('sh -c "echo "Hello World""', 'Hello World');
+      mock.mockSuccess(`sh -c "echo 'Hello World'"`, 'Hello World');
 
       const result = await template.execute($mock, { message: 'Hello World' });
       expect(result.stdout).toBe('Hello World');
@@ -92,12 +92,26 @@ describe('Templates', () => {
 
     it('should escape values with spaces', () => {
       const rendered = $.templates.render('echo {{message}}', { message: 'Hello World' });
-      expect(rendered).toBe('echo "Hello World"');
+      expect(rendered).toBe("echo 'Hello World'");
     });
 
     it('should escape quotes in values', () => {
       const rendered = $.templates.render('echo {{message}}', { message: 'Hello "World"' });
-      expect(rendered).toBe('echo "Hello \\"World\\""');
+      expect(rendered).toBe(`echo 'Hello "World"'`);
+    });
+
+    it('should neutralise command substitution in values', () => {
+      // Double-quote wrapping used to leave `$(…)`, backticks and `$VAR`
+      // expandable, turning every templated parameter into an injection point.
+      expect($.templates.render('echo {{m}}', { m: '$(id)' })).toBe(`echo '$(id)'`);
+      expect($.templates.render('echo {{m}}', { m: '`id`' })).toBe("echo '`id`'");
+      expect($.templates.render('echo {{m}}', { m: '$HOME' })).toBe(`echo '$HOME'`);
+      expect($.templates.render('echo {{m}}', { m: 'a; rm -rf /' })).toBe(`echo 'a; rm -rf /'`);
+    });
+
+    it('should not let a quote in a value break out of quoting', () => {
+      const rendered = $.templates.render('echo {{m}}', { m: `'; id; '` });
+      expect(rendered).toBe(`echo ''\\''; id; '\\'''`);
     });
   });
 

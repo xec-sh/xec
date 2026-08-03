@@ -9,8 +9,17 @@ import { SSHAdapter } from '../adapters/ssh/index.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
-import { interpolate, interpolateRaw } from '../utils/shell-escape.js';
+import {
+  dialectFor,
+  interpolateRaw,
+  quoteForShell,
+  interpolateForShell,
+  isTemplateStringsArray,
+} from '../utils/shell-escape.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
+import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
+import { createOptimizedMasker } from '../utils/optimized-masker.js';
+import { DEFAULT_REDACTION, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
@@ -34,6 +43,45 @@ import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, Dock
 
 export { ProcessPromise } from '../types/process.js';
 export { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
+
+/**
+ * Redact credentials from a string before it is published to event listeners.
+ *
+ * Events reach loggers, telemetry sinks and user code, so anything emitted
+ * from them must already be safe to persist.
+ */
+const maskSecrets = createOptimizedMasker(createDefaultSensitivePatterns(), DEFAULT_REDACTION);
+
+/**
+ * Reject a tagged-template method invoked as an ordinary function.
+ *
+ * `run`/`raw` iterate `strings` as template segments. Handed a plain string
+ * they iterate its *characters*, splicing each argument between them:
+ * `run('echo hello', { cwd: '/tmp' })` produced the command
+ * `e'{"cwd":"/tmp"}'cho hello`. That corruption was silent, so callers with a
+ * command already in a variable worked around it instead of reporting it.
+ *
+ * @param strings - The value received in the `strings` position.
+ * @param method - Method name, used in the error message.
+ * @throws {TypeError} When the call is not a tagged template.
+ */
+function assertTaggedTemplate(strings: unknown, method: 'run' | 'raw'): void {
+  // A genuine tagged template, or a plain array of segments — the latter is a
+  // long-standing way to build a command programmatically and is unambiguous.
+  if (isTemplateStringsArray(strings) || Array.isArray(strings)) {
+    return;
+  }
+
+  throw new TypeError(
+    `$.${method} is a tagged template and must be called as $.${method}\`command\`, ` +
+      `not as $.${method}(...). ` +
+      (typeof strings === 'string'
+        ? `Passing a command string directly interleaves the remaining arguments ` +
+          `between its characters. Use $.execute({ command, ...options }), ` +
+          `$\`\${command}\`, or $.${method}([command]) instead.`
+        : `Received ${Object.prototype.toString.call(strings)}.`)
+  );
+}
 
 export class ExecutionEngine extends EnhancedEventEmitter implements Disposable {
   // Core features
@@ -247,13 +295,14 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       throw new AdapterError('unknown', 'execute', new Error('No suitable adapter found'));
     }
 
-    // Emit start event
+    // Emit start event. The command is redacted and only environment variable
+    // *names* are published — the values routinely hold credentials.
     this.emitEvent('command:start', {
-      command: mergedCommand.command || '',
+      command: maskSecrets(mergedCommand.command || ''),
       args: mergedCommand.args,
       cwd: mergedCommand.cwd,
       shell: typeof mergedCommand.shell === 'boolean' ? mergedCommand.shell : !!mergedCommand.shell,
-      env: mergedCommand.env
+      envKeys: mergedCommand.env ? Object.keys(mergedCommand.env) : undefined
     });
 
     try {
@@ -286,7 +335,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
       // Emit complete event
       this.emitEvent('command:complete', {
-        command: mergedCommand.command || '',
+        command: maskSecrets(mergedCommand.command || ''),
         exitCode: result.exitCode,
         stdout: result.stdout,
         stderr: result.stderr,
@@ -297,8 +346,8 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     } catch (error) {
       // Emit error event
       this.emitEvent('command:error', {
-        command: mergedCommand.command || '',
-        error: error instanceof Error ? error.message : String(error),
+        command: maskSecrets(mergedCommand.command || ''),
+        error: maskSecrets(error instanceof Error ? error.message : String(error)),
         duration: Date.now() - startTime
       });
 
@@ -322,10 +371,18 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
   // Template literal support
   run(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
+    assertTaggedTemplate(strings, 'run');
+
     // Create a deferred command that will await thenables before execution
     const deferredCommand = async () => {
       const resolvedValues = await this.awaitThenables(values);
-      const command = interpolate(strings, ...resolvedValues);
+      // Quote for the shell that will actually parse this command, so that
+      // `.shell('pwsh')` on Linux or a cmd.exe target get correct escaping.
+      const command = interpolateForShell(
+        dialectFor(this.currentConfig.shell),
+        strings,
+        ...resolvedValues
+      );
       return { command, shell: this.currentConfig.shell ?? true };
     };
 
@@ -334,6 +391,8 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
   // Raw template literal support (no escaping)
   raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
+    assertTaggedTemplate(strings, 'raw');
+
     // Create a deferred command that will await thenables before execution
     const deferredCommand = async () => {
       const resolvedValues = await this.awaitThenables(values);
@@ -363,13 +422,11 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
 
         const value = mergedParams[key];
 
-        // Escape string values using double quotes (matching test expectations)
+        // Every substituted value is quoted for the target shell. Double-quote
+        // wrapping is not enough here: `$(…)`, backticks and `$VAR` all still
+        // expand inside double quotes, which made this an injection point.
         if (typeof value === 'string') {
-          if (value.includes(' ') || value.includes('"') || value.includes("'")) {
-            // Escape double quotes and wrap in double quotes
-            return '"' + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-          }
-          return value;
+          return quoteForShell(value, dialectFor(this.currentConfig.shell));
         }
 
         return String(value);
@@ -641,7 +698,19 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return newEngine;
   }
 
-  ssh(options: Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext {
+  /**
+   * Target an SSH host.
+   *
+   * @param target - Either `[user@]host[:port]` shorthand or full adapter options.
+   *
+   * @example
+   * ```typescript
+   * await $.ssh('deploy@web-1')`systemctl restart api`;
+   * await $.ssh({ host: 'web-1', username: 'deploy', privateKey })`uptime`;
+   * ```
+   */
+  ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext {
+    const options = typeof target === 'string' ? parseSSHTarget(target) : target;
     return createSSHExecutionContext(this, options);
   }
 
@@ -707,9 +776,25 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   // Lazy-loaded fluent Docker API
   private _dockerFluentAPI?: any;
 
-  k8s(options?: Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext {
+  /**
+   * Target a Kubernetes pod.
+   *
+   * @param target - Either `[namespace/]pod[:container]` shorthand or full
+   *   adapter options. Omit it to build the target fluently.
+   *
+   * @example
+   * ```typescript
+   * await $.k8s('prod/api-pod')`./migrate.sh`;
+   * await $.k8s({ pod: 'api-pod', namespace: 'prod' })`./migrate.sh`;
+   * ```
+   */
+  k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext {
+    if (typeof target === 'string') {
+      return createK8sExecutionContext(this, parseK8sTarget(target));
+    }
+
     // If no options provided, return a context that requires pod() to be called
-    return createK8sExecutionContext(this, options || {});
+    return createK8sExecutionContext(this, target || {});
   }
 
   local(): ExecutionEngine {

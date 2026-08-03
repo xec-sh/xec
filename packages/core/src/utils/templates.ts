@@ -1,3 +1,5 @@
+import { dialectFor, quoteForShell } from './shell-escape.js';
+
 import type { Command } from '../types/command.js';
 import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
@@ -55,12 +57,10 @@ export class CommandTemplate {
   }
 
   private escapeShellArg(arg: string): string {
-    // If empty or contains special characters, quote and escape
-    if (!arg || /[^a-zA-Z0-9_\-./]/.test(arg)) {
-      // Escape backslashes and double quotes, then wrap in double quotes
-      return '"' + arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-    }
-    return arg;
+    // Single-quote the value: inside double quotes a shell still expands
+    // `$(…)`, backticks and `$VAR`, which turned every templated parameter
+    // into an injection point.
+    return quoteForShell(arg, dialectFor(this.options.shell));
   }
 
   async execute(

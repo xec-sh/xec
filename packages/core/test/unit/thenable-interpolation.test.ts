@@ -72,8 +72,12 @@ describe('Thenable Interpolation', () => {
     const undefinedPromise = Promise.resolve(undefined);
     
     const result = await $`echo start ${nullPromise} middle ${undefinedPromise} end`;
-    // null and undefined should be skipped in interpolation
-    expect(result.stdout.trim()).toBe('start middle end');
+    // A nullish value keeps its argument position as an empty token rather
+    // than vanishing. Dropping it silently rewrote the command: `chmod 700
+    // ${undefined}` became `chmod 700`, which changes meaning instead of
+    // failing. Here that shows up as the empty arguments echo prints between
+    // the words.
+    expect(result.stdout.trim()).toBe('start  middle  end');
     expect(result.exitCode).toBe(0);
   });
 

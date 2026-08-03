@@ -46,7 +46,7 @@ describe('shell-escape interpolation', () => {
           },
           { 
             input: new Date('2023-01-01T00:00:00.000Z'),
-            expected: '\'2023-01-01T00:00:00.000Z\'',
+            expected: '2023-01-01T00:00:00.000Z',
             description: 'Date object'
           },
           { 
@@ -172,11 +172,13 @@ describe('shell-escape interpolation', () => {
     });
 
     it('should handle null and undefined', () => {
+      // Nullish values keep their argument position as an empty token, so a
+      // missing value fails loudly instead of silently shifting argv.
       const result1 = interpolate(createTemplateStringsArray(['echo ', '']), null);
-      expect(result1).toBe('echo ');
-      
+      expect(result1).toBe("echo ''");
+
       const result2 = interpolate(createTemplateStringsArray(['echo ', '']), undefined);
-      expect(result2).toBe('echo ');
+      expect(result2).toBe("echo ''");
     });
 
     it('should JSON stringify objects', () => {
@@ -221,7 +223,8 @@ describe('shell-escape interpolation', () => {
     it('should handle Date objects', () => {
       const date = new Date('2023-12-01T10:30:00.000Z');
       const result = interpolate(createTemplateStringsArray(['echo ', '']), date);
-      expect(result).toBe('echo \'2023-12-01T10:30:00.000Z\'');
+      // An ISO timestamp contains no shell metacharacters, so it needs no quotes.
+      expect(result).toBe('echo 2023-12-01T10:30:00.000Z');
     });
 
     it('should handle complex nested structures', () => {
