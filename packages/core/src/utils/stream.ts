@@ -12,6 +12,8 @@ export interface StreamHandlerOptions {
   maxBuffer?: number;
   onData?: (chunk: string) => void;
   onError?: (error: Error) => void;
+  /** Called once the stream ends, after the final `onData`. */
+  onEnd?: () => void;
 }
 
 export class StreamHandler {
@@ -22,6 +24,7 @@ export class StreamHandler {
   private readonly maxBuffer: number;
   private readonly onData?: (chunk: string) => void;
   private readonly onError?: (error: Error) => void;
+  private readonly onEnd?: () => void;
   private disposed = false;
 
   constructor(options: StreamHandlerOptions = {}) {
@@ -30,6 +33,7 @@ export class StreamHandler {
     this.maxBuffer = options.maxBuffer || 1024 * 1024 * 10; // 10MB default
     this.onData = options.onData;
     this.onError = options.onError;
+    this.onEnd = options.onEnd;
   }
 
   createTransform(): Transform {
@@ -81,6 +85,9 @@ export class StreamHandler {
             if (self.onData && str) {
               self.onData(str);
             }
+            // Signals consumers that hold data back — such as the masking
+            // filter, which withholds a partial trailing line — to release it.
+            self.onEnd?.();
             // Don't reset here - buffer content is needed for getContent()
           }
           callback();

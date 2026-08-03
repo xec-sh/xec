@@ -157,7 +157,9 @@ describe('Security Test Suite', () => {
     });
 
     test('should handle empty strings and special cases', () => {
-      expect(shellEscape.escapeArg('')).toBe("");
+      // An empty value must survive as an explicit empty argument. Emitting
+      // zero characters would silently shift every following argument.
+      expect(shellEscape.escapeArg('')).toBe("''");
       // Test quote function for $ quoting
       expect(shellEscape.quote('')).toBe("$''");
     });
@@ -369,9 +371,11 @@ describe('Security Test Suite', () => {
         }
       }
 
-      // In test environment, verify that sanitization is disabled
+      // Sanitization must stay on inside the test environment too: NODE_ENV
+      // and worker-id variables are set on nearly every CI job, so keying the
+      // control off them disabled it precisely where logs are most public.
       const { sanitizeCommandForError: sanitizeInTest } = await import('../../../src/core/error.js');
-      expect(sanitizeInTest('cat /sensitive/path')).toBe('cat /sensitive/path');
+      expect(sanitizeInTest('cat /sensitive/path')).toBe('cat [arguments hidden]');
     });
 
     test('should sanitize error messages from remote hosts', async () => {

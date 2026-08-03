@@ -3,6 +3,8 @@ import { StreamHandler } from '../utils/stream.js';
 import { ProgressReporter } from '../utils/progress.js';
 import { TimeoutError, AdapterError } from '../core/error.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
+import { MaskingStreamFilter } from '../utils/masking-stream.js';
+import { createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
 
@@ -38,38 +40,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
   constructor(config: BaseAdapterConfig = {}) {
     super();
-    // Default sensitive data patterns
-    // Using named groups for better clarity in replacement
-    const defaultPatterns = [
-      // JSON string values for sensitive keys
-      /"(api[_-]?key|apikey|password|token|secret|client[_-]?secret)":\s*"([^"]+)"/gi,
-      // API keys and tokens - capture the value part
-      /\b(api[_-]?key|apikey|access[_-]?token|auth[_-]?token|authentication[_-]?token|private[_-]?key|secret[_-]?key)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // Authorization headers - preserve "Bearer" or "Basic" prefix
-      /(Authorization:\s*)(Bearer|Basic)(\s+)([a-zA-Z0-9_\-/.+=]+)/gi,
-      // AWS credentials
-      /\b(aws[_-]?access[_-]?key[_-]?id|aws[_-]?secret[_-]?access[_-]?key)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // GitHub tokens with pattern - direct matches
-      /\b(gh[ps]_[a-zA-Z0-9]{16,})/gi,
-      // GitHub token assignments
-      /\b(github[_-]?token)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // Generic tokens (including slack xoxb-, etc)
-      /\b(token)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // Generic passwords - handle quoted and unquoted values (including template variables)
-      /\b(password|passwd|pwd)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi,
-      // Command line password arguments
-      /(--password)(\s+)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // Command line secret arguments
-      /(--client[_-]?secret|--secret)(\s+)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // SSH private keys (full replacement)
-      /-----BEGIN\s+(RSA|DSA|EC|OPENSSH)\s+PRIVATE\s+KEY-----[\s\S]+?-----END\s+(RSA|DSA|EC|OPENSSH)\s+PRIVATE\s+KEY-----/gi,
-      // Environment variable assignments with secrets (including template variables)
-      /\b([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY|API_KEY)[A-Z0-9_]*)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi,
-      // Generic secret patterns
-      /\b(secret|client[_-]?secret)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-      // Standalone Bearer tokens
-      /\b(Bearer)(\s+)([a-zA-Z0-9_\-/.]+)/gi
-    ];
+    // Shared with the execution engine so every layer redacts identically.
+    const defaultPatterns = createDefaultSensitivePatterns();
 
     this.config = {
       defaultTimeout: config.defaultTimeout ?? 120000, // 2 minutes
@@ -135,14 +107,31 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   }
 
   protected createStreamHandler(options?: { onData?: (chunk: string) => void }): StreamHandler {
+    if (!options?.onData) {
+      return new StreamHandler({
+        encoding: this.config.encoding,
+        maxBuffer: this.config.maxBuffer
+      });
+    }
+
+    const onData = options.onData;
+
+    // Mask across chunk boundaries. Masking each chunk independently missed
+    // any secret split by a pipe read — `TOKEN=` at the end of one chunk and
+    // the value at the start of the next matched no pattern in either.
+    const filter = new MaskingStreamFilter(chunk => this.maskSensitiveData(chunk));
+
     return new StreamHandler({
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer,
-      onData: options?.onData ? (chunk: string) => {
-        // Apply masking to streaming data
-        const maskedChunk = this.maskSensitiveData(chunk);
-        options.onData!(maskedChunk);
-      } : undefined
+      onData: (chunk: string) => {
+        const masked = filter.push(chunk);
+        if (masked) onData(masked);
+      },
+      onEnd: () => {
+        const remainder = filter.flush();
+        if (remainder) onData(remainder);
+      }
     });
   }
 

@@ -9,6 +9,9 @@ export { within, withinSync } from './utils/within.js';
 export { LocalAdapter } from './adapters/local/index.js';
 export { DockerAdapter } from './adapters/docker/index.js';
 export { withTempDir, withTempFile } from './utils/temp.js';
+export { parseK8sTarget, parseSSHTarget } from './utils/target-shorthand.js';
+export { isRecoverable, classifyFailure, type FailureKind } from './core/failure-kind.js';
+export { dialectFor, quoteForShell, type ShellDialect } from './utils/shell-escape.js';
 export { ExecutionEngine } from './core/execution-engine.js';
 export { parallel, ParallelEngine } from './utils/parallel.js';
 

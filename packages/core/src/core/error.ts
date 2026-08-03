@@ -1,12 +1,33 @@
+import { classifyFailure, isRecoverable, type FailureKind } from './failure-kind.js';
+
 export class ExecutionError extends Error {
+  /**
+   * Stable, machine-readable reason this failed.
+   *
+   * Branch on this rather than on {@link message}: wording changes between
+   * versions and locales, the classification does not.
+   */
+  public readonly kind: FailureKind;
+
   constructor(
     message: string,
     public readonly code: string,
-    public readonly details?: Record<string, any>
+    public readonly details?: Record<string, any>,
+    kind?: FailureKind
   ) {
     super(message);
     this.name = 'ExecutionError';
+    this.kind = kind ?? classifyFailure({ code, message });
     Error.captureStackTrace(this, this.constructor);
+  }
+
+  /**
+   * Whether reconnecting and retrying is a sensible response.
+   *
+   * @returns `true` for transport failures a fresh connection may fix.
+   */
+  get recoverable(): boolean {
+    return isRecoverable(this.kind);
   }
 }
 
@@ -27,7 +48,7 @@ export class CommandError extends ExecutionError {
       stdout,
       stderr,
       duration
-    });
+    }, 'command-failed');
     this.name = 'CommandError';
   }
 }
@@ -37,12 +58,10 @@ export class CommandError extends ExecutionError {
  * Enabled by default (security-first). Set XEC_SANITIZE_COMMANDS=false to disable.
  */
 export function sanitizeCommandForError(command: string): string {
-  // Skip sanitization in test environment to avoid test failures
-  if (process.env['NODE_ENV'] === 'test' || process.env['VITEST_WORKER_ID'] !== undefined) {
-    return command;
-  }
-
-  // Skip sanitization only if explicitly disabled
+  // Skip sanitization only if explicitly disabled. This deliberately has no
+  // test-environment bypass: NODE_ENV=test and VITEST_WORKER_ID are routinely
+  // set in CI, so keying off them would silently disable a security control
+  // exactly where build logs are most widely readable.
   if (process.env['XEC_SANITIZE_COMMANDS'] === 'false') {
     return command;
   }
@@ -78,7 +97,7 @@ export class ConnectionError extends ExecutionError {
     super(`Failed to connect to ${host}: ${originalError.message}`, 'CONNECTION_FAILED', {
       host,
       originalError: originalError.message
-    });
+    }, classifyFailure(originalError) === 'unknown' ? 'connection-refused' : classifyFailure(originalError));
     this.name = 'ConnectionError';
   }
 }
@@ -88,10 +107,15 @@ export class TimeoutError extends ExecutionError {
     public readonly command: string,
     public readonly timeout: number
   ) {
-    super(`Command timed out after ${timeout}ms: ${command}`, 'TIMEOUT', {
-      command,
+    // The timed-out command may carry credentials — a piped sudo password, a
+    // bearer token in a curl header — so it is sanitized before it reaches the
+    // message, stack traces and any logger that captures them.
+    const safeCommand = sanitizeCommandForError(command);
+
+    super(`Command timed out after ${timeout}ms: ${safeCommand}`, 'TIMEOUT', {
+      command: safeCommand,
       timeout
-    });
+    }, 'timeout');
     this.name = 'TimeoutError';
   }
 }
