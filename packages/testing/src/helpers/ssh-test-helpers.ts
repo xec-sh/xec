@@ -111,7 +111,13 @@ export function getSSHConfig(containerName: string) {
     username: 'user',
     password: 'password',
     connectTimeout: 30000,
-    readyTimeout: 30000
+    readyTimeout: 30000,
+    // Fixture containers regenerate their host key on every rebuild, so a
+    // recorded key is guaranteed to go stale. Disabling verification here is
+    // deliberate and scoped to throwaway containers — it must never be the
+    // default for real hosts, and it keeps test runs from writing fixture
+    // keys into the developer's ~/.ssh/known_hosts.
+    hostKeyChecking: 'off' as const
   };
 }
 

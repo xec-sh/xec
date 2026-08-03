@@ -2,7 +2,9 @@
 import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
-import { escapeArg } from '../../utils/shell-escape.js';
+import { createHash, randomBytes } from 'node:crypto';
+
+import { escapeArg, quoteForShell } from '../../utils/shell-escape.js';
 import { SSHKeyValidator } from './ssh-key-validator.js';
 import { SecurePasswordHandler } from './secure-password.js';
 import { Command, SSHAdapterOptions } from '../../types/command.js';
@@ -42,12 +44,84 @@ export interface SSHSFTPOptions {
   concurrency: number;
 }
 
+/**
+ * Sudo settings after merging adapter-level {@link SSHSudoOptions} with the
+ * per-command `sudo` block.
+ *
+ * The two sources historically named the same concept differently (`method`
+ * vs `passwordMethod`); both are accepted here and reconciled at the single
+ * point of use rather than being smuggled through an `any`.
+ */
+interface SudoConfig {
+  enabled?: boolean;
+  password?: string;
+  user?: string;
+  prompt?: string;
+  method?: 'stdin' | 'askpass' | 'echo' | 'secure-askpass' | 'secure';
+  passwordMethod?: 'stdin' | 'askpass' | 'echo' | 'secure';
+  secureHandler?: SecurePasswordHandler;
+}
+
+/**
+ * Validate a sudo target user name before it reaches a remote command line.
+ *
+ * The name is restricted to the POSIX portable user-name set rather than
+ * merely quoted: a value such as `root; curl evil | sh` is a configuration
+ * error and must be rejected outright, not silently executed as a quoted
+ * argument that fails in a confusing way.
+ *
+ * @param user - The configured sudo user name.
+ * @returns The same name once validated.
+ * @throws {AdapterError} If the name contains anything outside `[A-Za-z0-9._-]`.
+ */
+/**
+ * Validate an environment variable name before it is emitted into a remote
+ * `export` statement.
+ *
+ * Only the value was previously escaped; the name was interpolated raw, so a
+ * key such as `X=1; rm -rf /; A` injected arbitrary commands.
+ *
+ * @param name - The environment variable name.
+ * @returns The same name once validated.
+ * @throws {AdapterError} If the name is not a valid POSIX identifier.
+ */
+function validateEnvName(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new AdapterError(
+      'ssh',
+      'env',
+      new Error(`Invalid environment variable name: ${JSON.stringify(name)}`)
+    );
+  }
+
+  return name;
+}
+
+function validateSudoUser(user: string): string {
+  if (user.length === 0 || user.length > 32 || !/^[a-zA-Z0-9._][a-zA-Z0-9._-]*$/.test(user)) {
+    throw new AdapterError(
+      'ssh',
+      'sudo',
+      new Error(`Invalid sudo user name: ${JSON.stringify(user)}`)
+    );
+  }
+
+  return user;
+}
+
 export interface SSHAdapterConfig extends BaseAdapterConfig {
   connectionPool?: SSHConnectionPoolOptions;
   defaultConnectOptions?: SSH2Config;
   multiplexing?: SSHMultiplexingOptions;
   sudo?: SSHSudoOptions;
   sftp?: SSHSFTPOptions;
+  /**
+   * Default host key checking policy for every connection this adapter opens.
+   * Individual commands may override it. Defaults to `accept-new`.
+   */
+  hostKeyChecking?: 'accept-new' | 'strict' | 'off';
+  /** Default `known_hosts` file for verification. */
+  knownHostsPath?: string;
 }
 
 interface PooledConnection {
@@ -107,7 +181,9 @@ export class SSHAdapter extends BaseAdapter {
       sftp: {
         enabled: config.sftp?.enabled ?? true,
         concurrency: config.sftp?.concurrency ?? 5
-      }
+      },
+      hostKeyChecking: config.hostKeyChecking ?? 'accept-new',
+      knownHostsPath: config.knownHostsPath as string
     };
 
     if (this.sshConfig.connectionPool.enabled) {
@@ -164,14 +240,20 @@ export class SSHAdapter extends BaseAdapter {
 
         if (Object.keys(explicitEnv).length > 0) {
           const envVars = Object.entries(explicitEnv)
-            .map(([key, value]) => `export ${key}=${escapeArg(value)}`)
+            .map(([key, value]) => `export ${validateEnvName(key)}=${quoteForShell(value, 'posix')}`)
             .join('; ');
           envPrefix = `${envVars}; `;
         }
       }
 
-      // Handle sudo if enabled
-      const finalCommand = await this.wrapWithSudo(envPrefix + commandString, mergedCommand, connection.ssh);
+      // Handle sudo if enabled.
+      //
+      // The env prefix must stay OUTSIDE the sudo wrapper: `sudo -S export
+      // FOO=bar; cmd` asks sudo to run the shell builtin `export` as a binary,
+      // which fails, after which `cmd` runs without sudo at all. Wrapping only
+      // the command keeps both halves working.
+      const sudoCommand = await this.wrapWithSudo(commandString, mergedCommand, connection.ssh);
+      const finalCommand = envPrefix + sudoCommand;
 
       // For SSH, only pass cwd if it was explicitly set in the original command
       const sshCommand = { ...mergedCommand };
@@ -337,7 +419,9 @@ export class SSHAdapter extends BaseAdapter {
       port: options.port ?? 22,
       privateKey: options.privateKey as any,
       passphrase: options.passphrase,
-      password: options.password
+      password: options.password,
+      hostKeyChecking: options.hostKeyChecking ?? this.sshConfig.hostKeyChecking,
+      knownHostsPath: options.knownHostsPath ?? this.sshConfig.knownHostsPath
     };
 
     try {
@@ -440,7 +524,23 @@ export class SSHAdapter extends BaseAdapter {
   }
 
   private getConnectionKey(options: SSHAdapterOptions): string {
-    return `${options.username}@${options.host}:${options.port ?? 22}`;
+    // Credentials are part of a pooled connection's identity. Keying only on
+    // user@host:port let two callers with *different* credentials share one
+    // socket, so the second caller's credentials were never verified — an
+    // authentication bypass in multi-tenant and credential-rotation setups.
+    //
+    // The material is hashed rather than embedded so that secrets never reach
+    // pool keys, log lines or metrics labels.
+    const credentialFingerprint = createHash('sha256')
+      .update(typeof options.privateKey === 'string' ? options.privateKey : (options.privateKey ?? ''))
+      .update(' ')
+      .update(options.passphrase ?? '')
+      .update(' ')
+      .update(options.password ?? '')
+      .digest('hex')
+      .slice(0, 16);
+
+    return `${options.username}@${options.host}:${options.port ?? 22}#${credentialFingerprint}`;
   }
 
   private async executeSSHCommand(
@@ -560,10 +660,20 @@ export class SSHAdapter extends BaseAdapter {
     return this.buildSudoCommandWithConfig(command, sudoConfig);
   }
 
-  private buildSudoCommandWithConfig(command: string, sudoConfig: any): string {
-    if (!sudoConfig || !sudoConfig.enabled) return command;
+  private buildSudoCommandWithConfig(rawCommand: string, sudoConfig: SudoConfig): string {
+    if (!sudoConfig || !sudoConfig.enabled) return rawCommand;
 
-    const sudoCmd = sudoConfig.user ? `sudo -u ${sudoConfig.user}` : 'sudo';
+    const sudoCmd = sudoConfig.user
+      ? `sudo -u ${quoteForShell(validateSudoUser(sudoConfig.user), 'posix')}`
+      : 'sudo';
+
+    // Run the whole command inside a privileged shell rather than handing its
+    // words to sudo directly. Without this, the *calling* shell expands
+    // `$(…)`, applies redirections and splits pipelines before sudo starts, so
+    // `echo $(whoami)` reported the unprivileged user and `cmd > /root/f`
+    // failed on permissions — surprising for something the user asked to run
+    // as root.
+    const command = `sh -c ${quoteForShell(rawCommand, 'posix')}`;
 
     // Handle password authentication
     if (sudoConfig.password) {
@@ -574,12 +684,12 @@ export class SSHAdapter extends BaseAdapter {
           // Use printf instead of echo for better security and compatibility
           // The password is still visible in process list, but for a shorter time
           console.warn('Using stdin method for sudo password may expose it in process listings. Consider using secure-askpass method.');
-          return `printf '%s\n' '${sudoConfig.password.replace(/'/g, "'\\''")}' | ${sudoCmd} -S ${command}`;
+          return `printf '%s\n' ${quoteForShell(sudoConfig.password, 'posix')} | ${sudoCmd} -S ${command}`;
 
         case 'echo':
           console.warn('Using echo for sudo password is insecure and may expose the password in process listings. Consider using secure-askpass method.');
           // Use printf for better compatibility and slightly better security
-          return `printf '%s\n' '${sudoConfig.password.replace(/'/g, "'\\''")}' | ${sudoCmd} -S ${command}`;
+          return `printf '%s\n' ${quoteForShell(sudoConfig.password, 'posix')} | ${sudoCmd} -S ${command}`;
 
         case 'askpass':
           // For askpass, we need to set up a temporary askpass script
@@ -588,26 +698,38 @@ export class SSHAdapter extends BaseAdapter {
 
         case 'secure':
         case 'secure-askpass': {
-          // For SSH, we need to create the askpass script on the remote machine
+          // Build an askpass script on the remote host so the password never
+          // appears in the remote process list.
+          //
+          // The lines below MUST be joined with newlines: a heredoc is
+          // line-oriented, and joining with ` && ` previously collapsed the
+          // whole script onto one line where `#!/bin/sh` started a comment
+          // that swallowed the command. The result was a no-op that exited 0,
+          // so sudo commands silently appeared to succeed.
+          const scriptId = randomBytes(12).toString('hex');
+          const remoteAskpassPath = `/tmp/.xec-askpass-${scriptId}`;
+          const quotedPath = quoteForShell(remoteAskpassPath, 'posix');
 
-          const scriptId = Math.random().toString(36).substring(7);
-          const remoteAskpassPath = `/tmp/askpass-${scriptId}.sh`;
+          // A random terminator cannot collide with password content.
+          const heredocTag = `XEC_ASKPASS_${randomBytes(8).toString('hex').toUpperCase()}`;
+          const quotedPassword = quoteForShell(sudoConfig.password, 'posix');
 
-          // Escape password for safe embedding in script
-          const escapedPassword = sudoConfig.password.replace(/'/g, "'\\''")
-
-          // Create askpass script on remote machine and execute command
-          const remoteScript = [
-            `cat > ${remoteAskpassPath} << 'EOF'`,
-            `#!/bin/sh`,
-            `echo '${escapedPassword}'`,
-            `EOF`,
-            `chmod 700 ${remoteAskpassPath}`,
-            `SUDO_ASKPASS=${remoteAskpassPath} ${sudoCmd} -A ${command}`,
-            `rm -f ${remoteAskpassPath}`
-          ].join(' && ');
-
-          return remoteScript;
+          return [
+            // umask before creation closes the world-readable window that a
+            // create-then-chmod sequence leaves open.
+            'umask 077',
+            `cat > ${quotedPath} << '${heredocTag}'`,
+            '#!/bin/sh',
+            `printf '%s\\n' ${quotedPassword}`,
+            heredocTag,
+            `chmod 700 ${quotedPath}`,
+            `SUDO_ASKPASS=${quotedPath} ${sudoCmd} -A ${command}`,
+            // Preserve the command's exit status across cleanup, and clean up
+            // even when the command fails.
+            '__xec_sudo_status=$?',
+            `rm -f ${quotedPath}`,
+            'exit $__xec_sudo_status'
+          ].join('\n');
         }
 
         default:
@@ -616,58 +738,6 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     // No password required
-    return `${sudoCmd} ${command}`;
-  }
-
-  private buildSudoCommand(command: string, sshOptions: SSHAdapterOptions): string {
-    const sudo = sshOptions.sudo;
-    if (!sudo || !sudo.enabled) return command;
-
-    const sudoCmd = sudo.user ? `sudo -u ${sudo.user}` : 'sudo';
-
-    // Handle password authentication
-    if (sudo.password) {
-      switch (sudo.passwordMethod) {
-        case 'stdin':
-          // Use printf instead of echo for better security
-          console.warn('Using stdin method for sudo password may expose it in process listings. Consider using secure method.');
-          return `printf '%s\n' '${sudo.password.replace(/'/g, "'\\''")}' | sudo -S ${command}`;
-
-        case 'askpass':
-          // For askpass, we need to set up a temporary askpass script
-          // This is more complex and would require additional setup
-          return `SUDO_ASKPASS=/tmp/askpass_$$ ${sudoCmd} -A ${command}`;
-
-        case 'secure':
-          // Use secure password handler if available
-          if (this.securePasswordHandler) {
-            try {
-              const askpassPath = this.securePasswordHandler.createAskPassScript(sudo.password);
-              const secureCommand = `SUDO_ASKPASS=${askpassPath} ${sudoCmd} -A ${command}`;
-
-              // Schedule cleanup after a short delay
-              setTimeout(() => {
-                try {
-                  this.securePasswordHandler?.cleanup();
-                } catch {
-                  // Ignore cleanup errors
-                }
-              }, 1000);
-
-              return secureCommand;
-            } catch (error) {
-              console.error('Failed to create secure askpass, falling back to stdin method:', error);
-              // Still need to provide the password via stdin
-              return `printf '%s\n' '${sudo.password.replace(/'/g, "'\\''")}' | sudo -S ${command}`;
-            }
-          }
-          break;
-
-        default:
-          return `${sudoCmd} ${command}`;
-      }
-    }
-
     return `${sudoCmd} ${command}`;
   }
 
