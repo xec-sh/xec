@@ -1,7 +1,7 @@
 import * as kit from '@xec-sh/kit';
 
-import { ValidationError } from '../../src/utils/validation.js';
-import { CommandOptions } from '../../src/utils/command-base.js';
+import { ValidationError } from '../../../src/utils/validation.js';
+import { CommandOptions } from '../../../src/utils/command-base.js';
 import {
   XecError,
   TaskError,
@@ -15,7 +15,7 @@ import {
   withErrorHandling,
   ConfigurationError,
   createContextError
-} from '../../src/utils/error-handler.js';
+} from '../../../src/utils/error-handler.js';
 
 // Mock console methods
 const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();

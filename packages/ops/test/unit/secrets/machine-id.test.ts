@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 
-import { getGlobalConfigDir } from '../../src/config/utils.js';
-import { getMachineId, getCachedMachineId } from '../../src/secrets/machine-id.js';
+import { getGlobalConfigDir } from '../../../src/config/utils.js';
+import { getMachineId, getCachedMachineId } from '../../../src/secrets/machine-id.js';
 
 describe('Machine ID Module', () => {
   const tempDir = path.join(os.tmpdir(), 'xec-test-machine-id-' + Date.now());
@@ -313,7 +313,7 @@ describe('Machine ID Module', () => {
       
       // Clear the in-memory cache by getting a fresh import
       // In real world, process restart would clear this
-      const { getMachineId: getMachineId2 } = await import('../../src/secrets/machine-id.js');
+      const { getMachineId: getMachineId2 } = await import('../../../src/secrets/machine-id.js');
       
       // Get ID again with "fresh" import
       const id2 = await getMachineId2();

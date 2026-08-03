@@ -6,10 +6,10 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
-import { TaskManager } from '../../src/config/task-manager.js';
-import { ConfigurationManager } from '../../src/config/configuration-manager.js';
+import { TaskManager } from '../../../src/config/task-manager.js';
+import { ConfigurationManager } from '../../../src/config/configuration-manager.js';
 
-import type { TaskConfig, Configuration } from '../../src/config/types.js';
+import type { TaskConfig, Configuration } from '../../../src/config/types.js';
 
 describe('TaskManager', () => {
   let taskManager: TaskManager;

@@ -6,7 +6,7 @@
  */
 
 import { ConfigurationManager } from '../config/configuration-manager.js';
-import { VariableInterpolator } from '../config/variable-interpolator.js';
+import { VariableInterpolator, type InterpolateOptions } from '../config/variable-interpolator.js';
 
 import type { ConfigValue, ConfigurationOptions, InterpolationContext } from './types.js';
 
@@ -63,57 +63,40 @@ export class ConfigAPI {
   }
 
   /**
-   * Set a configuration value
+   * Set a configuration value.
+   * Applied to both the resolved and the raw configuration so the change
+   * survives save() without leaking resolved secrets to disk.
    * @param path - Dot-separated path
    * @param value - Value to set
    */
   set(path: string, value: ConfigValue): void {
     this.ensureLoaded();
-    const parts = path.split('.');
-    const config = this.manager.getConfig();
-    let current: any = config;
-    
-    // Navigate to parent
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-      if (!part) continue;
-      if (!current[part] || typeof current[part] !== 'object') {
-        current[part] = {};
-      }
-      current = current[part];
-    }
-    
-    // Set the value
-    const lastPart = parts[parts.length - 1];
-    if (lastPart) {
-      current[lastPart] = value;
-    }
+    this.manager.set(path, value);
   }
 
   /**
-   * Remove a configuration value
+   * Remove a configuration value.
+   * Applied to both the resolved and the raw configuration so the removal
+   * survives save().
    * @param path - Dot-separated path
    */
   unset(path: string): void {
     this.ensureLoaded();
     const parts = path.split('.');
-    const config = this.manager.getConfig();
-    let current: any = config;
-    
-    // Navigate to parent
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-      if (!part || !current[part]) {
-        return; // Path doesn't exist
+    this.manager.update(config => {
+      let current: any = config;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!part || !current[part] || typeof current[part] !== 'object') {
+          return; // Path doesn't exist
+        }
+        current = current[part];
       }
-      current = current[part];
-    }
-    
-    // Delete the value
-    const lastPart = parts[parts.length - 1];
-    if (lastPart) {
-      delete current[lastPart];
-    }
+      const lastPart = parts[parts.length - 1];
+      if (lastPart) {
+        delete current[lastPart];
+      }
+    });
   }
 
   /**
@@ -161,11 +144,14 @@ export class ConfigAPI {
   }
 
   /**
-   * Interpolate variables in a string
+   * Interpolate variables in a string.
+   * Throws on unresolvable references by default; pass
+   * `{ onUndefined: 'keep' }` to leave them as literal text.
    * @param template - String with variable references
    * @param context - Additional context for interpolation
+   * @param options - Interpolation options
    */
-  interpolate(template: string, context: InterpolationContext = {}): string {
+  interpolate(template: string, context: InterpolationContext = {}, options?: InterpolateOptions): string {
     this.ensureLoaded();
     const config = this.manager.getConfig();
     
@@ -182,7 +168,7 @@ export class ConfigAPI {
       env,
       ...context
     };
-    return this.interpolator.interpolate(template, fullContext);
+    return this.interpolator.interpolate(template, fullContext, options);
   }
 
   /**

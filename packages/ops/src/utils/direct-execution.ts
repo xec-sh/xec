@@ -305,6 +305,10 @@ export async function createTargetEngine(target: any, options: any = {}): Promis
         passphrase: config.passphrase,
         keepAlive: config.keepAlive,
         keepAliveInterval: config.keepAliveInterval,
+        // Host key policy must reach the adapter, or a target that declares
+        // `hostKeyChecking` silently gets the default instead.
+        hostKeyChecking: config.hostKeyChecking,
+        knownHostsPath: config.knownHostsPath,
         ...options
       });
 

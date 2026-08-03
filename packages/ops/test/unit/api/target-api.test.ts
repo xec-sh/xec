@@ -10,7 +10,7 @@ import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 // Removed test helpers that don't exist
 
-import { TargetAPI } from '../../src/api/target-api.js';
+import { TargetAPI } from '../../../src/api/target-api.js';
 
 describe('Target API', () => {
   let tempDir: string;

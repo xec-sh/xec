@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 
-import { TaskAPI } from '../../src/api/task-api.js';
+import { TaskAPI } from '../../../src/api/task-api.js';
 
 describe('Task API', () => {
   let tempDir: string;

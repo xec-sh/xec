@@ -8,7 +8,7 @@ import {
   getNextRunTime,
   retryWithBackoff,
   createTimeoutPromise
-} from '../../src/utils/time.js';
+} from '../../../src/utils/time.js';
 
 describe('time utils', () => {
   describe('parseTimeout', () => {

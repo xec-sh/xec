@@ -15,7 +15,7 @@ import {
   ConfigValidator,
   ConfigurationManager,
   VariableInterpolator
-} from '../../src/config/index.js';
+} from '../../../src/config/index.js';
 
 describe('Configuration System Edge Cases', () => {
   let tempDir: string;
@@ -147,45 +147,57 @@ tasks:
         .toThrow('Maximum variable interpolation depth (10) exceeded');
     });
 
-    it('should handle command substitution errors', async () => {
+    it('should throw when a substituted command fails (strict default)', async () => {
       const interpolator = new VariableInterpolator();
 
       const context = {
         vars: {}
       };
 
-      // Command that doesn't exist
-      const result = await interpolator.interpolateAsync(
+      await expect(interpolator.interpolateAsync(
         '${cmd:this-command-does-not-exist-99999}',
         context
-      );
-
-      // Should return empty string on error
-      expect(result).toBe('');
+      )).rejects.toThrow(/Command substitution .* failed/);
     });
 
-    it('should handle malformed variable references', async () => {
+    it("should keep the literal when a substituted command fails with onUndefined: 'keep'", async () => {
+      const interpolator = new VariableInterpolator();
+
+      const result = await interpolator.interpolateAsync(
+        '${cmd:this-command-does-not-exist-99999}',
+        { vars: {} },
+        { onUndefined: 'keep' }
+      );
+
+      expect(result).toBe('${cmd:this-command-does-not-exist-99999}');
+    });
+
+    it('should throw for malformed unresolvable references (strict default)', () => {
       const interpolator = new VariableInterpolator();
 
       const context = {
         vars: { test: 'value' }
       };
 
-      // Various malformed references
-      const cases = [
-        '${vars.}',         // Empty path
-        '${vars..test}',    // Double dot
-        '${vars.test.}',    // Trailing dot
-        '${:command}',      // Missing type
-        '${vars}',          // Missing path
-        '${vars.test:}',    // Empty default
-      ];
+      expect(() => interpolator.interpolate('${vars..test}', context))
+        .toThrow(/'\.test' is not defined/);
+      expect(() => interpolator.interpolate('${vars.test.}', context))
+        .toThrow(/'test\.' is not defined/);
+    });
 
-      for (const testCase of cases) {
-        const result = interpolator.interpolate(testCase, context);
-        // Should return as-is or handle gracefully
-        expect(result).toBeDefined();
-      }
+    it("should keep malformed references literal with onUndefined: 'keep'", () => {
+      const interpolator = new VariableInterpolator();
+
+      const context = {
+        vars: { test: 'value' }
+      };
+
+      expect(interpolator.interpolate('${vars..test}', context, { onUndefined: 'keep' }))
+        .toBe('${vars..test}');
+      expect(interpolator.interpolate('${vars.test.}', context, { onUndefined: 'keep' }))
+        .toBe('${vars.test.}');
+      // A defined value with an (empty) default still resolves normally
+      expect(interpolator.interpolate('${vars.test:}', context)).toBe('value');
     });
   });
 

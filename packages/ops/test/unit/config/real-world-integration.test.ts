@@ -12,7 +12,7 @@ import {
   TaskManager,
   TargetResolver,
   ConfigurationManager
-} from '../../src/config/index.js';
+} from '../../../src/config/index.js';
 
 describe('Real-World Configuration Integration Tests', () => {
   let tempDir: string;
@@ -733,7 +733,8 @@ tasks:
         const loaded = await manager.load();
 
         expect(loaded.vars?.special).toBe('Hello World!');
-        expect(loaded.vars?.escaped).toBe('Use \\${vars.special} to reference');
+        // `\${...}` renders as literal `${...}` with the escape backslash stripped
+        expect(loaded.vars?.escaped).toBe('Use ${vars.special} to reference');
         expect(loaded.vars?.regex).toBe('^[a-z]+$');
         expect(loaded.vars?.path).toBe('/path/with/spaces and special chars/file');
 

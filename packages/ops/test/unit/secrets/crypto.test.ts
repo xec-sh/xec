@@ -9,7 +9,7 @@ import {
   secureCompare,
   generateSecret,
   createFingerprint
-} from '../../src/secrets/crypto.js';
+} from '../../../src/secrets/crypto.js';
 
 describe('Crypto Module', () => {
   const testMachineId = 'test-machine-id-12345';

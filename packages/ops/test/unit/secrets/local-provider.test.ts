@@ -3,8 +3,8 @@ import * as path from 'path';
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
 
-import { SecretError } from '../../src/secrets/types.js';
-import { LocalSecretProvider } from '../../src/secrets/providers/local.js';
+import { SecretError } from '../../../src/secrets/types.js';
+import { LocalSecretProvider } from '../../../src/secrets/providers/local.js';
 
 describe('LocalSecretProvider', () => {
   let provider: LocalSecretProvider;

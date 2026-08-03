@@ -18,7 +18,7 @@ import {
   validateRecipeStructure,
   validateProjectStructure,
   validateDirectoryWritable
-} from '../../src/utils/validation.js';
+} from '../../../src/utils/validation.js';
 
 describe('validation', () => {
   const tempDir = path.join(os.tmpdir(), 'xec-validation-test');

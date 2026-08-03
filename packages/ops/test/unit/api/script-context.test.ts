@@ -10,7 +10,7 @@ import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 // Removed Docker imports to avoid connection issues in test environment
 
-import { ScriptContext, executeScript } from '../../src/api/script-context.js';
+import { ScriptContext, executeScript } from '../../../src/api/script-context.js';
 
 describe('Script Context', () => {
   let tempDir: string;
@@ -36,10 +36,10 @@ describe('Script Context', () => {
     process.chdir(projectDir);
     
     // Reset singletons for new directory
-    const { config } = await import('../../src/api/config-api.js');
+    const { config } = await import('../../../src/api/config-api.js');
     (config as any).loaded = false;
     
-    const { tasks } = await import('../../src/api/task-api.js');
+    const { tasks } = await import('../../../src/api/task-api.js');
     (tasks as any).manager = undefined;
     (tasks as any).targetResolver = undefined;
     
@@ -64,7 +64,7 @@ describe('Script Context', () => {
     }
     
     // Reset config state for next test
-    const { config } = await import('../../src/api/config-api.js');
+    const { config } = await import('../../../src/api/config-api.js');
     (config as any).loaded = false;
     
     // Clean up files
@@ -124,7 +124,7 @@ describe('Script Context', () => {
       await fs.writeFile(configPath, yaml.dump(testConfig));
       
       // Create a new config instance for this test to avoid singleton issues
-      const { ConfigAPI } = await import('../../src/api/config-api.js');
+      const { ConfigAPI } = await import('../../../src/api/config-api.js');
       const testConfigApi = new ConfigAPI();
       await testConfigApi.load();
       
@@ -424,7 +424,7 @@ describe('Script Context', () => {
       expect(Object.keys(allTasks)).toHaveLength(1);
       
       // Create a new TaskAPI instance to test (avoiding singleton issues)
-      const { TaskAPI } = await import('../../src/api/task-api.js');
+      const { TaskAPI } = await import('../../../src/api/task-api.js');
       const testTaskApi = new TaskAPI();
       const taskList = await testTaskApi.list();
       expect(taskList).toHaveLength(1);

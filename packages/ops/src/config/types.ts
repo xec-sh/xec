@@ -76,6 +76,16 @@ export interface HostConfig extends BaseTarget {
   privateKey?: string;
   password?: string;
   passphrase?: string;
+  /**
+   * Host key checking policy for this target.
+   *
+   * Defaults to `accept-new`: the key is recorded on first connection and a
+   * later mismatch is refused. Use `off` only for disposable hosts such as
+   * test fixtures, whose keys change on every rebuild.
+   */
+  hostKeyChecking?: 'accept-new' | 'strict' | 'off';
+  /** Override the `known_hosts` file used to verify this target. */
+  knownHostsPath?: string;
   proxy?: string;
   keepAlive?: boolean;
   keepAliveInterval?: number;
@@ -449,8 +459,8 @@ export interface CommandConfig {
  * Secrets provider configuration
  */
 export interface SecretsConfig {
-  /** Provider type */
-  provider: 'local' | 'vault' | '1password' | 'aws-secrets' | 'env' | 'dotenv';
+  /** Provider type. Currently implemented: 'local', 'env', 'git'. */
+  provider: 'local' | 'git' | 'vault' | '1password' | 'aws-secrets' | 'env' | 'dotenv';
 
   /** Provider-specific configuration */
   config?: {
@@ -552,6 +562,8 @@ export interface StepResult {
   output?: string;
   error?: Error;
   target?: string;
+  /** True when the step was skipped because its `when:` condition evaluated to false */
+  skipped?: boolean;
 }
 
 /**
@@ -652,9 +664,9 @@ export interface ConfigManagerOptions {
    */
   defaults?: Partial<Configuration>;
 
-  /** Secret provider configuration */
+  /** Secret provider configuration. Currently implemented: 'local', 'env', 'git'. */
   secretProvider?: {
-    type: 'local' | 'vault' | 'aws-secrets' | '1password' | 'env' | 'dotenv';
+    type: 'local' | 'git' | 'vault' | 'aws-secrets' | '1password' | 'env' | 'dotenv';
     config?: Record<string, any>;
   };
 }

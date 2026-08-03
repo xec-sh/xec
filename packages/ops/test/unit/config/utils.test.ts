@@ -15,7 +15,7 @@ import {
   getDefaultShell,
   parseTargetReference,
   isValidTargetReference
-} from '../../src/config/utils.js';
+} from '../../../src/config/utils.js';
 
 describe('Configuration Utils', () => {
   describe('deepMerge()', () => {

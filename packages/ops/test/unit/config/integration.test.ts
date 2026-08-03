@@ -6,7 +6,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
-import { TargetResolver, ConfigurationManager } from '../../src/config/index.js';
+import { TargetResolver, ConfigurationManager } from '../../../src/config/index.js';
 
 
 describe('Configuration System Integration', () => {

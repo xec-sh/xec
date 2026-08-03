@@ -4,16 +4,39 @@ import { LocalSecretProvider } from './providers/local.js';
 import { SecretError, SecretProvider, SecretProviderConfig } from './types.js';
 
 /**
+ * Secret provider types that are actually implemented.
+ * The configuration validator uses this list, so validation and runtime
+ * support cannot drift apart.
+ */
+export const SUPPORTED_SECRET_PROVIDERS = ['local', 'env', 'git'] as const;
+
+export type SupportedSecretProvider = (typeof SUPPORTED_SECRET_PROVIDERS)[number];
+
+/**
+ * Provider types that are declared in the configuration schema but not yet implemented.
+ */
+export const UNIMPLEMENTED_SECRET_PROVIDERS = ['vault', '1password', 'aws-secrets', 'dotenv'] as const;
+
+/**
  * Secret manager that handles multiple secret providers
  */
 export class SecretManager {
-  private provider: SecretProvider;
+  private provider?: SecretProvider;
   private config: SecretProviderConfig;
   private initialized = false;
 
   constructor(config?: SecretProviderConfig) {
+    // Provider creation is deferred to initialize() so that constructing a
+    // manager with an unsupported provider type does not throw before
+    // configuration validation had a chance to report it properly.
     this.config = config || { type: 'local' };
-    this.provider = this.createProvider();
+  }
+
+  /**
+   * Check whether a provider type is implemented
+   */
+  static isSupported(type: string): type is SupportedSecretProvider {
+    return (SUPPORTED_SECRET_PROVIDERS as readonly string[]).includes(type);
   }
 
   /**
@@ -21,6 +44,9 @@ export class SecretManager {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+    if (!this.provider) {
+      this.provider = this.createProvider();
+    }
     await this.provider.initialize();
     this.initialized = true;
   }
@@ -35,13 +61,26 @@ export class SecretManager {
   }
 
   /**
+   * Return the initialized provider; initialize() must have run first
+   */
+  private requireProvider(): SecretProvider {
+    if (!this.provider) {
+      throw new SecretError(
+        'Secret provider is not initialized',
+        'PROVIDER_NOT_INITIALIZED'
+      );
+    }
+    return this.provider;
+  }
+
+  /**
    * Get a secret value
    */
   async get(key: string): Promise<string | null> {
     await this.ensureInitialized();
     this.validateKey(key);
     try {
-      return await this.provider.get(key);
+      return await this.requireProvider().get(key);
     } catch (error) {
       throw new SecretError(
         `Failed to get secret: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -74,7 +113,7 @@ export class SecretManager {
     this.validateKey(key);
     this.validateValue(value);
     try {
-      return await this.provider.set(key, value);
+      return await this.requireProvider().set(key, value);
     } catch (error) {
       throw new SecretError(
         `Failed to set secret: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -90,7 +129,7 @@ export class SecretManager {
   async delete(key: string): Promise<void> {
     await this.ensureInitialized();
     this.validateKey(key);
-    return this.provider.delete(key);
+    return this.requireProvider().delete(key);
   }
 
   /**
@@ -98,7 +137,7 @@ export class SecretManager {
    */
   async list(): Promise<string[]> {
     await this.ensureInitialized();
-    return this.provider.list();
+    return this.requireProvider().list();
   }
 
   /**
@@ -107,7 +146,7 @@ export class SecretManager {
   async has(key: string): Promise<boolean> {
     await this.ensureInitialized();
     this.validateKey(key);
-    return this.provider.has(key);
+    return this.requireProvider().has(key);
   }
 
   /**
@@ -163,7 +202,7 @@ export class SecretManager {
    */
   async updateProvider(config: SecretProviderConfig): Promise<void> {
     this.config = config;
-    this.provider = this.createProvider();
+    this.provider = undefined;
     this.initialized = false;
     await this.initialize();
   }
@@ -172,6 +211,8 @@ export class SecretManager {
    * Create a provider instance based on configuration
    */
   private createProvider(): SecretProvider {
+    const supported = SUPPORTED_SECRET_PROVIDERS.join(', ');
+
     switch (this.config.type) {
       case 'local':
         return new LocalSecretProvider(this.config.config);
@@ -185,14 +226,15 @@ export class SecretManager {
       case 'vault':
       case 'aws-secrets':
       case '1password':
+      case 'dotenv':
         throw new SecretError(
-          `Provider '${this.config.type}' not yet implemented`,
+          `Secret provider '${this.config.type}' is not yet implemented. Supported providers: ${supported}`,
           'PROVIDER_NOT_IMPLEMENTED'
         );
 
       default:
         throw new SecretError(
-          `Unknown secret provider type: ${this.config.type}`,
+          `Unknown secret provider type: '${this.config.type}'. Supported providers: ${supported}`,
           'INVALID_PROVIDER_TYPE'
         );
     }

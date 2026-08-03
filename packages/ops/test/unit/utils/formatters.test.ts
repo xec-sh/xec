@@ -5,7 +5,7 @@ import {
   formatError,
   formatDuration,
   formatRelativeTime
-} from '../../src/utils/formatters.js';
+} from '../../../src/utils/formatters.js';
 
 describe('formatters', () => {
   describe('formatBytes', () => {

@@ -3,6 +3,8 @@
  * Validates configuration structure and values
  */
 
+import { SUPPORTED_SECRET_PROVIDERS, UNIMPLEMENTED_SECRET_PROVIDERS } from '../secrets/index.js';
+
 import type {
   TaskConfig,
   Configuration,
@@ -396,9 +398,16 @@ export class ConfigValidator {
       return;
     }
 
-    const validProviders = ['local', 'vault', '1password', 'aws-secrets', 'env', 'dotenv'];
-    if (!validProviders.includes(secrets.provider)) {
-      this.addError('secrets.provider', `Invalid provider: ${secrets.provider}. Valid options: ${validProviders.join(', ')}`);
+    // Must match what SecretManager actually implements — the lists are shared
+    // so validation and runtime support cannot drift apart.
+    const supported = SUPPORTED_SECRET_PROVIDERS as readonly string[];
+    const notImplemented = UNIMPLEMENTED_SECRET_PROVIDERS as readonly string[];
+
+    if (!supported.includes(secrets.provider)) {
+      const message = notImplemented.includes(secrets.provider)
+        ? `Secrets provider '${secrets.provider}' is not yet implemented. Supported providers: ${supported.join(', ')}`
+        : `Unknown secrets provider: '${secrets.provider}'. Supported providers: ${supported.join(', ')}`;
+      this.addError('secrets.provider', message);
     }
   }
 

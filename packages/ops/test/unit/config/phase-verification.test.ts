@@ -12,7 +12,7 @@ import {
   TaskManager,
   TargetResolver,
   ConfigurationManager
-} from '../../src/config/index.js';
+} from '../../../src/config/index.js';
 
 describe('Phase 1 and Phase 2 Feature Verification', () => {
   let tempDir: string;

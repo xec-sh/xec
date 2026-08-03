@@ -1,5 +1,5 @@
 
-import { EnvSecretProvider } from '../../src/secrets/providers/env.js';
+import { EnvSecretProvider } from '../../../src/secrets/providers/env.js';
 
 describe('EnvSecretProvider', () => {
   let provider: EnvSecretProvider;

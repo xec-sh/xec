@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { promisify } from 'node:util';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 
 import { getCachedMachineId } from '../machine-id.js';
 import {
@@ -153,6 +153,10 @@ export class GitSecretProvider implements SecretProvider {
   private batchQueue: Map<string, string> = new Map();
   private batchTimer?: NodeJS.Timeout;
 
+  // Mutations are read-modify-write cycles on a shared encrypted file;
+  // without serialization concurrent calls drop each other's writes.
+  private mutationLock: Promise<unknown> = Promise.resolve();
+
   constructor(config?: SecretProviderConfig['config']) {
     this.config = config || {};
     this.repoPath = this.config.repoPath || this.findGitRoot();
@@ -243,9 +247,18 @@ export class GitSecretProvider implements SecretProvider {
     }
   }
 
+  private withMutationLock<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.mutationLock.then(fn, fn);
+    this.mutationLock = run.catch(() => undefined);
+    return run;
+  }
+
   async set(key: string, value: string): Promise<void> {
     await this.ensureInitialized();
+    await this.withMutationLock(() => this.setLocked(key, value));
+  }
 
+  private async setLocked(key: string, value: string): Promise<void> {
     try {
       // Phase 3: Invalidate cache
       const cacheKey = `${this.environment}:${key}`;
@@ -298,7 +311,10 @@ export class GitSecretProvider implements SecretProvider {
 
   async delete(key: string): Promise<void> {
     await this.ensureInitialized();
+    await this.withMutationLock(() => this.deleteLocked(key));
+  }
 
+  private async deleteLocked(key: string): Promise<void> {
     try {
       // Phase 3: Invalidate cache
       const cacheKey = `${this.environment}:${key}`;
@@ -361,24 +377,26 @@ export class GitSecretProvider implements SecretProvider {
    * Copy secrets from one environment to another
    */
   async copyEnvironment(source: string, target: string): Promise<void> {
-    const currentEnv = this.environment;
+    await this.withMutationLock(async () => {
+      const currentEnv = this.environment;
 
-    // Load source environment secrets
-    this.environment = source;
-    const sourceSecrets = await this.loadEncryptedSecrets();
+      // Load source environment secrets
+      this.environment = source;
+      const sourceSecrets = await this.loadEncryptedSecrets();
 
-    // Save to target environment
-    this.environment = target;
-    if (sourceSecrets) {
-      await this.saveEncryptedSecrets(sourceSecrets);
+      // Save to target environment
+      this.environment = target;
+      if (sourceSecrets) {
+        await this.saveEncryptedSecrets(sourceSecrets);
 
-      if (this.autoCommit) {
-        await this.commitChanges(`secrets: copy ${source} to ${target}`);
+        if (this.autoCommit) {
+          await this.commitChanges(`secrets: copy ${source} to ${target}`);
+        }
       }
-    }
 
-    // Restore original environment
-    this.environment = currentEnv;
+      // Restore original environment
+      this.environment = currentEnv;
+    });
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -725,8 +743,10 @@ export class GitSecretProvider implements SecretProvider {
 
   private async commitChanges(message: string): Promise<void> {
     try {
-      // Add changes to git
-      execSync(`git add ${this.secretsPath}`, { cwd: this.repoPath });
+      // Add changes to git. Arguments are passed as an argv array (no shell),
+      // so paths and commit messages cannot inject shell commands. `--` keeps
+      // a path from being parsed as an option.
+      execFileSync('git', ['add', '--', this.secretsPath], { cwd: this.repoPath });
 
       // Check if there are changes to commit
       const status = execSync('git status --porcelain', {
@@ -736,7 +756,7 @@ export class GitSecretProvider implements SecretProvider {
 
       if (status.trim()) {
         // Commit changes
-        execSync(`git commit -m "${message}"`, { cwd: this.repoPath });
+        execFileSync('git', ['commit', '-m', message], { cwd: this.repoPath });
       }
     } catch (error) {
       throw new SecretError(

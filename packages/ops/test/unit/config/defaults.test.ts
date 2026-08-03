@@ -9,7 +9,7 @@ import {
   ROOT_KEY_ORDER,
   getDefaultConfig,
   mergeWithDefaults
-} from '../../src/config/defaults.js';
+} from '../../../src/config/defaults.js';
 
 describe('Configuration Defaults', () => {
   describe('getDefaultConfig()', () => {

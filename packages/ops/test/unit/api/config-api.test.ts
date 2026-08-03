@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 
-import { ConfigAPI } from '../../src/api/config-api.js';
+import { ConfigAPI } from '../../../src/api/config-api.js';
 
 describe('Configuration API', () => {
   let tempDir: string;
@@ -318,8 +318,12 @@ describe('Configuration API', () => {
       delete process.env.TEST_VAR;
     });
 
-    it('should return template unchanged if variable not found', () => {
-      const result = api.interpolate('${vars.nonexistent}');
+    it('should throw if variable not found', () => {
+      expect(() => api.interpolate('${vars.nonexistent}')).toThrow(/nonexistent/);
+    });
+
+    it("should keep the template literal with onUndefined: 'keep'", () => {
+      const result = api.interpolate('${vars.nonexistent}', {}, { onUndefined: 'keep' });
       expect(result).toBe('${vars.nonexistent}');
     });
   });

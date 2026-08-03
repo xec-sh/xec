@@ -7,9 +7,9 @@ import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 
-import { TargetResolver } from '../../src/config/target-resolver.js';
+import { TargetResolver } from '../../../src/config/target-resolver.js';
 
-import type { Configuration } from '../../src/config/types.js';
+import type { Configuration } from '../../../src/config/types.js';
 
 describe('TargetResolver', () => {
   let resolver: TargetResolver;
@@ -588,7 +588,7 @@ describe('TargetResolver', () => {
         }
       }
 
-      const { matchPattern } = await import('../../src/config/utils');
+      const { matchPattern } = await import('../../../src/config/utils');
       const testResolver = new TestableTargetResolver(config);
       const targets = await testResolver.find('containers.*');
 
@@ -1595,7 +1595,7 @@ Host *
 
             const targets = [];
             for (const service of services) {
-              if ((await import('../../src/config/utils.js')).matchPattern(pattern, service.Service)) {
+              if ((await import('../../../src/config/utils.js')).matchPattern(pattern, service.Service)) {
                 targets.push({
                   id: `containers.${service.Service}`,
                   type: 'docker',

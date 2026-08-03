@@ -6,7 +6,7 @@ import {
   EnhancedTimeoutError,
   EnhancedExecutionError,
   EnhancedConnectionError
-} from '../../src/utils/enhanced-error.js';
+} from '../../../src/utils/enhanced-error.js';
 
 describe('Enhanced Error System', () => {
   describe('EnhancedExecutionError', () => {
