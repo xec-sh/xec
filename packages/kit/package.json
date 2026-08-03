@@ -26,7 +26,9 @@
   "files": [
     "dist",
     "src",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "author": {
     "name": "Xec Contributors"
@@ -50,13 +52,14 @@
     "xec"
   ],
   "scripts": {
-    "build": "bun scripts/build.ts",
+    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && bun scripts/build.ts",
     "build:watch": "bun scripts/build.ts --watch",
     "typecheck": "tsc --noEmit",
     "test": "FORCE_COLOR=1 vitest run",
     "test:watch": "FORCE_COLOR=1 vitest watch",
     "prettier:write": "prettier --write .",
-    "prettier:check": "prettier --check ."
+    "prettier:check": "prettier --check .",
+    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "sisteransi": "^1.0.5"

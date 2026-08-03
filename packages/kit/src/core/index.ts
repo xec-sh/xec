@@ -1,3 +1,11 @@
+/**
+ * Adapted from Clack (https://github.com/bombshell-dev/clack).
+ *
+ * Copyright (c) Nate Moore
+ * Licensed under the MIT License. See the NOTICE file at the root of this
+ * package for the full attribution and license text.
+ */
+
 export { findCursor } from './utils/cursor.js';
 export type { ClackState as State } from './types.js';
 export { default as Prompt } from './prompts/prompt.js';

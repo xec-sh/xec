@@ -1,4 +1,12 @@
 /**
+ * Adapted from Clack (https://github.com/bombshell-dev/clack).
+ *
+ * Copyright (c) Nate Moore
+ * Licensed under the MIT License. See the NOTICE file at the root of this
+ * package for the full attribution and license text.
+ */
+
+/**
  * Find the next non-disabled cursor position with wraparound.
  * If delta is 0, returns the current cursor if enabled, otherwise finds the next enabled option.
  */
