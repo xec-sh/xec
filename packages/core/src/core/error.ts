@@ -40,7 +40,9 @@ export class CommandError extends ExecutionError {
     public readonly signal: string | undefined,
     public readonly stdout: string,
     public readonly stderr: string,
-    public readonly duration: number
+    public readonly duration: number,
+    /** Where the caller wrote this command, if it was captured. */
+    public readonly callSite: string = ''
   ) {
     // Sanitize command for error message to avoid exposing sensitive paths
     const sanitizedCommand = sanitizeCommandForError(command);
@@ -55,12 +57,16 @@ export class CommandError extends ExecutionError {
     const meaning = explainExitCode(exitCode);
     const code = meaning ? `${exitCode} (${meaning})` : String(exitCode);
 
-    super(`Command failed with exit code ${code}: ${sanitizedCommand}${detail}`, 'COMMAND_FAILED', {
+    // The frame turns "which of these fourteen commands failed?" into a click.
+    const at = callSite ? `\n    at ${callSite}` : '';
+
+    super(`Command failed with exit code ${code}: ${sanitizedCommand}${detail}${at}`, 'COMMAND_FAILED', {
       exitCode,
       signal,
       stdout,
       stderr,
-      duration
+      duration,
+      callSite
     }, 'command-failed');
     this.name = 'CommandError';
   }

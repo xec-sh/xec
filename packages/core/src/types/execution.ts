@@ -93,6 +93,17 @@ export interface ExecutionEngineConfig extends EventConfig {
   verbose?: boolean;
   quiet?: boolean;
 
+  /**
+   * Record where each command was written, so a failure can name the line.
+   *
+   * Costs ~1.4µs per command — about 0.03% of a process spawn — and turns
+   * "which of these fourteen commands failed?" into a click. Disable it for
+   * throughput-sensitive embedding.
+   *
+   * @default true
+   */
+  captureCallSite?: boolean;
+
   // Shell prefix/postfix (e.g., "set -euo pipefail;" / "; exit $?")
   prefix?: string;
   postfix?: string;

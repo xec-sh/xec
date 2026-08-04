@@ -27,7 +27,9 @@ export class ExecutionResultImpl implements ExecutionResult {
      * Falls back to stdout + stderr where the adapter cannot observe the
      * interleaving, so the field is always usable.
      */
-    stdall?: string
+    stdall?: string,
+    /** Where the caller wrote this command; empty when not captured. */
+    public readonly callSite: string = ''
   ) {
     // A process killed by a signal reports no exit code, and coalescing that
     // to 0 made an OOM kill or an orchestrator SIGTERM indistinguishable from
@@ -82,7 +84,8 @@ export class ExecutionResultImpl implements ExecutionResult {
         this.signal,
         this.stdout,
         this.stderr,
-        this.duration
+        this.duration,
+        this.callSite
       );
     }
   }

@@ -10,6 +10,7 @@ import { PassThrough } from 'node:stream';
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
 import { executePipe } from './pipe-implementation.js';
+import { captureCallSite } from '../utils/call-site.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
 
 /** Branded symbol for xec promise identification — shared across modules */
@@ -33,6 +34,9 @@ export class ProcessContext {
     handle: null as ProcessHandle | null,
     started: false,
     isQuiet: false,
+
+    /** Where the caller wrote this command; see utils/call-site.ts. */
+    callSite: null as { stack?: string } | null,
 
     /**
      * Buffers anything written to `.stdin` before the process exists.
@@ -178,6 +182,7 @@ export class ProcessContext {
       handle: null,
       started: false,
       isQuiet: this.state.isQuiet,
+      callSite: this.state.callSite,
       stdinBridge: this.state.stdinBridge,
       spawnDeferred: null
     };
@@ -308,6 +313,7 @@ export class ProcessContext {
         // The adapter publishes the live process here; everything the caller
         // can reach while a command runs — `.child`, `.pid`, `.stdin`,
         // `.stdout`, `.stderr`, a targeted `.kill()` — flows from it.
+        callSite: this.state.callSite,
         onSpawn: (handle: ProcessHandle) => {
           this.state.handle = handle;
           this.state.spawnDeferred?.resolve(handle);
@@ -388,6 +394,12 @@ export class ProcessPromiseBuilder {
    * Context-based creation with minimal overhead
    */
   createProcessPromiseWithContext(context: ProcessContext): ProcessPromise {
+    // Captured once per command and carried through the chain, so the frame
+    // points at where the caller wrote it rather than at a chaining method.
+    if (!context.state.callSite && context.engine._config?.captureCallSite !== false) {
+      context.state.callSite = captureCallSite();
+    }
+
     // Create a lazy promise that only executes when awaited
     let executionStarted = false;
     let executionPromise: Promise<ExecutionResult> | null = null;
@@ -440,23 +452,30 @@ export class ProcessPromiseBuilder {
         // Check if we're being awaited directly (not through .text(), .json(), etc)
         // We can detect this by checking if onfulfilled is the internal handler from .text()/.json()
         // or if it's a user-provided handler
-        const isDirectAwait = onfulfilled && !(onfulfilled as any)[TRANSFORM_HANDLER];
+        // Only our own text()/json()/lines()/buffer() handlers opt out of
+        // throwing — they apply their own error checks. Everything else,
+        // including `.catch(fn)` and `.then(null, fn)` which arrive here with
+        // no onfulfilled at all, must see a failure as a rejection.
+        //
+        // The test used to be "is there an onfulfilled?", so `.catch()` took
+        // the non-throwing branch: a failing command resolved with its result
+        // and the handler never ran. A standard promise idiom silently
+        // reported success.
+        const isTransform = Boolean(onfulfilled && (onfulfilled as any)[TRANSFORM_HANDLER]);
 
-        if (isDirectAwait) {
-          // For direct await, check if we should throw
-          return executionPromise!.then(result => {
-            if (result.exitCode !== 0 && !context.state.modifications.nothrow) {
-              const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
-              if (!globalNothrow) {
-                result.throwIfFailed();
-              }
-            }
-            return result;
-          }).then(onfulfilled, onrejected);
-        } else {
-          // For transform methods, don't throw automatically
+        if (isTransform) {
           return executionPromise!.then(onfulfilled, onrejected);
         }
+
+        return executionPromise!.then(result => {
+          if (result.exitCode !== 0 && !context.state.modifications.nothrow) {
+            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+            if (!globalNothrow) {
+              result.throwIfFailed();
+            }
+          }
+          return result;
+        }).then(onfulfilled, onrejected);
       },
       catch(onrejected?: any) {
         return lazyPromise.then(undefined, onrejected);

@@ -3,6 +3,7 @@ import type { Disposable } from '../types/disposable.js';
 
 import { Command } from '../types/command.js';
 import { StreamHandler } from '../utils/stream.js';
+import { resolveCallSite } from '../utils/call-site.js';
 import { ProgressReporter } from '../utils/progress.js';
 import { TimeoutError, AdapterError } from '../core/error.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
@@ -233,7 +234,10 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       this.adapterName,
       context?.host,
       context?.container,
-      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
+      // Resolved here rather than at capture: formatting a stack is the
+      // expensive half, and most commands succeed.
+      resolveCallSite(context?.originalCommand?.callSite)
     );
 
 
@@ -282,7 +286,10 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       this.adapterName,
       context?.host,
       context?.container,
-      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
+      // Resolved here rather than at capture: formatting a stack is the
+      // expensive half, and most commands succeed.
+      resolveCallSite(context?.originalCommand?.callSite)
     );
 
 
@@ -335,7 +342,10 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       this.adapterName,
       context?.host,
       context?.container,
-      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
+      // Resolved here rather than at capture: formatting a stack is the
+      // expensive half, and most commands succeed.
+      resolveCallSite(context?.originalCommand?.callSite)
     );
   }
 
@@ -368,7 +378,10 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       this.adapterName,
       context?.host,
       context?.container,
-      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
+      // Resolved here rather than at capture: formatting a stack is the
+      // expensive half, and most commands succeed.
+      resolveCallSite(context?.originalCommand?.callSite)
     );
   }
 

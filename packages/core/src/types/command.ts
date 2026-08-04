@@ -117,6 +117,12 @@ export interface Command {
    */
   onSpawn?: (handle: ProcessHandle) => void;
 
+  /**
+   * Opaque stack holder recording where the caller wrote this command.
+   * Resolved into a `file:line` only if the command fails.
+   */
+  callSite?: { stack?: string } | null;
+
   // Retry configuration
   retry?: RetryOptions;                 // Retry options
 
