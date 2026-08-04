@@ -356,10 +356,10 @@ export class Spinner {
       process.stdout.write(output);
       this.frameIndex = (this.frameIndex + 1) % this.frames.length;
     }, this.options.interval || 80);
-    // Don't keep the process alive just for the progress animation
-    if (this.intervalId && typeof this.intervalId.unref === 'function') {
-      unrefTimer(this.intervalId);
-    }
+    // Don't keep the process alive just for the progress animation.
+    // No `typeof .unref` guard: on Deno the timer is a plain number and the
+    // guard skipped the shim — which is the one runtime that needs it.
+    unrefTimer(this.intervalId);
   }
   
   stop(): void {

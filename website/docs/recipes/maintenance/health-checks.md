@@ -95,14 +95,14 @@ class HealthMonitor {
   async checkProcessHealth(target: string, processName: string): Promise<HealthCheckResult> {
     const start = Date.now();
     
-    const result = await $.ssh(target)`
+    const state = await $.ssh(target)`
       pgrep -f ${processName} > /dev/null && echo "running" || echo "stopped"
-    `;
+    `.text();
     
     return {
       target,
       service: processName,
-      healthy: result.stdout.trim() === 'running',
+      healthy: state === 'running',
       responseTime: Date.now() - start
     };
   }
@@ -111,14 +111,14 @@ class HealthMonitor {
   async checkPortHealth(target: string, port: number): Promise<HealthCheckResult> {
     const start = Date.now();
     
-    const result = await $.ssh(target)`
+    const state = await $.ssh(target)`
       nc -z localhost ${port} && echo "open" || echo "closed"
-    `;
+    `.text();
     
     return {
       target,
       service: `port-${port}`,
-      healthy: result.stdout.trim() === 'open',
+      healthy: state === 'open',
       responseTime: Date.now() - start
     };
   }
@@ -269,11 +269,9 @@ interface DockerHealth {
 
 async function checkDockerHealth(): Promise<DockerHealth[]> {
   // Get all running containers with health status
-  const result = await $`
+  const lines = (await $`
     docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Health}}" --no-trunc
-  `;
-  
-  const lines = result.stdout.trim().split('\n').slice(1); // Skip header
+  `.lines()).slice(1); // Skip header
   const health: DockerHealth[] = [];
   
   for (const line of lines) {
@@ -282,9 +280,9 @@ async function checkDockerHealth(): Promise<DockerHealth[]> {
     // Get detailed container info
     const inspect = await $`
       docker inspect ${container} --format '{{.RestartCount}},{{.State.Health.Status}}'
-    `;
+    `.text();
     
-    const [restartCount, actualHealth] = inspect.stdout.trim().split(',');
+    const [restartCount, actualHealth] = inspect.split(',');
     
     health.push({
       container,
@@ -316,9 +314,9 @@ async function maintainContainerHealth() {
       // Verify health after restart
       const newHealth = await $`
         docker inspect ${container.container} --format '{{.State.Health.Status}}'
-      `;
+      `.text();
       
-      if (newHealth.stdout.trim() === 'healthy') {
+      if (newHealth === 'healthy') {
         console.log(`✅ ${container.container} is now healthy`);
       } else {
         console.log(`❌ ${container.container} still unhealthy - manual intervention required`);
@@ -344,11 +342,9 @@ interface PodHealth {
 
 async function checkK8sHealth(namespace: string = 'default'): Promise<PodHealth[]> {
   // Get pod health status
-  const result = await $`
+  const pods = await $`
     kubectl get pods -n ${namespace} -o json
-  `;
-  
-  const pods = JSON.parse(result.stdout);
+  `.json();
   const health: PodHealth[] = [];
   
   for (const pod of pods.items) {
@@ -368,8 +364,8 @@ async function checkK8sHealth(namespace: string = 'default'): Promise<PodHealth[
     if (!ready || restarts > 0) {
       const events = await $`
         kubectl get events -n ${namespace} --field-selector involvedObject.name=${pod.metadata.name} --sort-by='.lastTimestamp' | tail -5
-      `;
-      console.log(`Events for ${pod.metadata.name}:\n${events.stdout}`);
+      `.text();
+      console.log(`Events for ${pod.metadata.name}:\n${events}`);
     }
   }
   

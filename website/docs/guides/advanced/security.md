@@ -88,21 +88,18 @@ class SecretManager {
     const token = process.env.VAULT_TOKEN;
     const vaultAddr = process.env.VAULT_ADDR || 'http://localhost:8200';
     
-    const result = await $`curl -s -H "X-Vault-Token: ${token}" \
-      ${vaultAddr}/v1/secret/data/${name}`;
+    const data = await $`curl -s -H "X-Vault-Token: ${token}" \
+      ${vaultAddr}/v1/secret/data/${name}`.json();
     
-    const data = JSON.parse(result.stdout);
     return data.data.data.value;
   }
 
   async getFromAWS(name) {
     // AWS Secrets Manager
-    const result = await $`aws secretsmanager get-secret-value \
+    return $`aws secretsmanager get-secret-value \
       --secret-id ${name} \
       --query SecretString \
-      --output text`;
-    
-    return result.stdout.trim();
+      --output text`.text();
   }
 
   async getFromKeyring(name) {
@@ -158,10 +155,10 @@ class SecretManager {
 
   async getSystemKey() {
     // Derive key from system properties
-    const hostname = await $`hostname`;
+    const hostname = await $`hostname`.text();
     const machineId = await $.readFile('/etc/machine-id').catch(() => 'default');
     
-    const combined = `${hostname.stdout}:${machineId}`;
+    const combined = `${hostname}:${machineId}`;
     return crypto.createHash('sha256').update(combined).digest();
   }
 
@@ -391,14 +388,14 @@ class SecureSSH {
       const known = await $.readFile(this.knownHosts);
       if (!known.includes(host)) {
         // Fetch and verify host key
-        const key = await $`ssh-keyscan -t ed25519,rsa ${host}`;
+        const key = await $`ssh-keyscan -t ed25519,rsa ${host}`.text();
         
         // Prompt for verification (in production, implement proper verification)
         console.log(`New host key for ${host}:`);
-        console.log(key.stdout);
+        console.log(key);
         
         // Add to known hosts
-        await $`echo "${key.stdout}" >> ${this.knownHosts}`;
+        await $`echo "${key}" >> ${this.knownHosts}`;
       }
     } catch (error) {
       throw new Error(`Failed to verify host key: ${error.message}`);
@@ -474,8 +471,7 @@ class SecureSSH {
     }
     
     // Check key permissions
-    const keys = await $`ls -la ${this.keyPath}/*.pub | grep -v ".pub"`;
-    const keyFiles = keys.stdout.split('\n').filter(Boolean);
+    const keyFiles = await $`ls -la ${this.keyPath}/*.pub | grep -v ".pub"`.lines();
     
     for (const keyFile of keyFiles) {
       const perms = keyFile.split(/\s+/)[0];
@@ -647,8 +643,7 @@ class SecureFileHandler {
     const safePath = InputValidator.validatePath(filePath);
     
     // Calculate hash
-    const result = await $`sha256sum ${safePath}`;
-    const actualHash = result.stdout.split(' ')[0];
+    const actualHash = (await $`sha256sum ${safePath}`.text()).split(' ')[0];
     
     if (actualHash !== expectedHash) {
       throw new Error('File integrity check failed');
@@ -670,8 +665,8 @@ try {
   await fileHandler.encryptFile(temp.path, 'data.enc', 'strongpassword');
   
   // Verify integrity
-  const hash = await $`sha256sum data.enc`;
-  await fileHandler.verifyIntegrity('data.enc', hash.stdout.split(' ')[0]);
+  const hash = await $`sha256sum data.enc`.text();
+  await fileHandler.verifyIntegrity('data.enc', hash.split(' ')[0]);
   
 } finally {
   await temp.cleanup();

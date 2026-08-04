@@ -7,7 +7,7 @@ description: Understanding when Xec is the right tool for your needs
 
 # When to Use Xec
 
-Xec is powerful, but it's not the right tool for every situation. This guide helps you determine when Xec is the best choice for your project.
+Xec is not the right tool for every situation. This guide helps you determine when it is the best choice for your project.
 
 ## Perfect Use Cases
 
@@ -45,8 +45,7 @@ async function deploy(environment) {
   await server`pm2 restart app`;
   
   // Verify deployment
-  const result = await server`curl -s localhost:3000/health`;
-  const health = JSON.parse(result.stdout);
+  const health = await server`curl -s localhost:3000/health`.json();
   if (!health.ok) throw new Error('Health check failed');
 }
 ```
@@ -109,8 +108,8 @@ async function performMaintenance(servers) {
     const ssh = $.ssh({ host: server, username: 'admin' });
     
     // Check disk space
-    const result = await ssh`df -h`;
-    if (result.stdout.includes('100%')) {
+    const disk = await ssh`df -h`.text();
+    if (disk.includes('100%')) {
       await ssh`find /tmp -mtime +7 -delete`;
     }
     
@@ -150,7 +149,7 @@ async function setupTestEnv() {
 
 **Scenario**: Creating development tools and utilities.
 
-**Why Xec**: Quick script development with powerful capabilities.
+**Why Xec**: Quick script development.
 
 ```typescript
 // Development helper tool

@@ -450,11 +450,11 @@ import { $ } from '@xec-sh/core';
 
 async function conditionalDeploy() {
   // Check branch
-  const branch = await $`git branch --show-current`;
+  const branch = await $`git branch --show-current`.text();
   
-  if (branch.stdout.trim() === 'main') {
+  if (branch === 'main') {
     await $`npm run deploy:production`;
-  } else if (branch.stdout.trim() === 'develop') {
+  } else if (branch === 'develop') {
     await $`npm run deploy:staging`;
   } else {
     console.log('Not on deployable branch');

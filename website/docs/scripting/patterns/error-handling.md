@@ -246,12 +246,12 @@ async function deployService(name, version) {
   }
   
   // Network request
-  const health = await $`curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health`.nothrow();
-  if (health.stdout.trim() !== '200') {
+  const status = await $`curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health`.nothrow().text();
+  if (status !== '200') {
     throw new NetworkError(
       'Health check failed',
       'http://localhost:8080/health',
-      health.stdout.trim()
+      status
     );
   }
 }
@@ -500,7 +500,7 @@ async function withCleanup() {
   
   try {
     // Create temporary directory
-    tempDir = await $`mktemp -d`.then(r => r.stdout.trim());
+    tempDir = await $`mktemp -d`.text();
     console.log(`Created temp dir: ${tempDir}`);
     
     // Do work
@@ -768,8 +768,8 @@ class DeploymentManager {
     }
     
     // Check git status
-    const status = await $`git status --porcelain`.nothrow();
-    if (status.stdout.trim() && !this.config.force) {
+    const status = await $`git status --porcelain`.nothrow().text();
+    if (status && !this.config.force) {
       throw new Error('Working directory is not clean (use --force to override)');
     }
   }

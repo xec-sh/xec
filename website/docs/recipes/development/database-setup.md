@@ -50,9 +50,9 @@ const DB_PASSWORD = 'development';
 
 async function setupPostgres() {
   // Check if container exists
-  const existing = await $`docker ps -a --filter name=postgres-dev --format "{{.Names}}"`.nothrow();
+  const existing = await $`docker ps -a --filter name=postgres-dev --format "{{.Names}}"`.nothrow().text();
   
-  if (existing.stdout.trim()) {
+  if (existing) {
     console.log('Removing existing container...');
     await $`docker rm -f postgres-dev`;
   }
@@ -181,8 +181,8 @@ async function setupMySQL() {
   console.log('Waiting for MySQL to be ready...');
   let ready = false;
   for (let i = 0; i < 60; i++) {
-    const result = await $`docker exec mysql-dev mysqladmin ping -h localhost -u${MYSQL_USER} -p${MYSQL_PASSWORD}`.nothrow();
-    if (result.stdout.includes('mysqld is alive')) {
+    const ping = await $`docker exec mysql-dev mysqladmin ping -h localhost -u${MYSQL_USER} -p${MYSQL_PASSWORD}`.nothrow().text();
+    if (ping.includes('mysqld is alive')) {
       ready = true;
       break;
     }
@@ -307,8 +307,8 @@ async function setupRedis() {
   // Wait for Redis
   console.log('Waiting for Redis...');
   for (let i = 0; i < 10; i++) {
-    const result = await $`docker exec redis-dev redis-cli -a ${REDIS_PASSWORD} ping`.nothrow();
-    if (result.stdout.trim() === 'PONG') {
+    const pong = await $`docker exec redis-dev redis-cli -a ${REDIS_PASSWORD} ping`.nothrow().text();
+    if (pong === 'PONG') {
       console.log('✅ Redis is ready!');
       break;
     }
@@ -425,8 +425,8 @@ async function setupAllDatabases() {
   for (const service of services) {
     let healthy = false;
     for (let i = 0; i < 60; i++) {
-      const result = await $`docker-compose -f docker-compose.dev.yml ps ${service}`.nothrow();
-      if (result.stdout.includes('healthy')) {
+      const status = await $`docker-compose -f docker-compose.dev.yml ps ${service}`.nothrow().text();
+      if (status.includes('healthy')) {
         console.log(`✅ ${service} is healthy`);
         healthy = true;
         break;
@@ -505,8 +505,8 @@ async function checkDatabaseHealth() {
     {
       name: 'MySQL',
       check: async () => {
-        const result = await $`docker exec mysql-dev mysqladmin ping -h localhost`.nothrow();
-        return result.stdout.includes('mysqld is alive');
+        const ping = await $`docker exec mysql-dev mysqladmin ping -h localhost`.nothrow().text();
+        return ping.includes('mysqld is alive');
       }
     },
     {
@@ -519,8 +519,8 @@ async function checkDatabaseHealth() {
     {
       name: 'Redis',
       check: async () => {
-        const result = await $`docker exec redis-dev redis-cli ping`.nothrow();
-        return result.stdout.trim() === 'PONG';
+        const pong = await $`docker exec redis-dev redis-cli ping`.nothrow().text();
+        return pong === 'PONG';
       }
     }
   ];

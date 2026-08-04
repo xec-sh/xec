@@ -432,14 +432,17 @@ export class LocalAdapter extends BaseAdapter {
         exitSignal = signal;
         processExited = true;
 
-        // Cleanup transform streams
-        if (stdoutTransform) {
-          stdoutTransform.end();
-        }
-        if (stderrTransform) {
-          stderrTransform.end();
-        }
-
+        // The transforms are deliberately NOT ended here. `exit` means the
+        // process died, not that its output has been delivered: the last
+        // write can still sit in the OS pipe, and a grandchild that
+        // inherited the fd can keep writing after it. Ending the destination
+        // of a live pipe at that point paused the source with its data
+        // undelivered, so the stream never reached `close`, tryResolve never
+        // fired, and the command hung to its timeout. Node happened to hide
+        // this by flushing a small child's EOF before `exit`; Deno and Bun
+        // deliver `exit` first whenever a second command is in flight, which
+        // made any concurrent pair hang. The pipe ends each transform itself
+        // when its source stream ends.
         tryResolve();
       });
     });

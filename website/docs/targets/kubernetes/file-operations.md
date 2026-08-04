@@ -115,13 +115,11 @@ async function robustCopy(
 import type { K8sPod } from '@xec-sh/core';
 
 async function verifiedCopyTo(pod: K8sPod, localPath: string, remotePath: string) {
-  const local = await $`md5sum ${localPath}`;
-  const localHash = local.stdout.split(' ')[0];
+  const localHash = (await $`md5sum ${localPath}`.text()).split(' ')[0];
 
   await pod.copyTo(localPath, remotePath);
 
-  const remote = await pod.exec`md5sum ${remotePath}`;
-  const remoteHash = remote.stdout.split(' ')[0];
+  const remoteHash = (await pod.exec`md5sum ${remotePath}`.text()).split(' ')[0];
 
   if (localHash !== remoteHash) {
     throw new Error(`Integrity check failed: ${localHash} != ${remoteHash}`);

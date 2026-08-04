@@ -6,7 +6,7 @@ description: Automate deployments across environments with Xec
 
 # Deployment Automation
 
-Master deployment automation with Xec's powerful execution engine. Learn to deploy applications reliably across local, remote, containerized, and cloud environments.
+Deployment automation with Xec's execution engine: deploy applications reliably across local, remote, containerized, and cloud environments.
 
 ## Overview
 
@@ -247,9 +247,9 @@ class BlueGreenDeployment {
   private async verifySwitch(targetColor: string) {
     console.log('🔍 Verifying switch...');
     
-    const result = await this.server`curl -s http://localhost/version`;
+    const version = await this.server`curl -s http://localhost/version`.text();
     
-    if (!result.stdout.includes(targetColor)) {
+    if (!version.includes(targetColor)) {
       throw new Error('Switch verification failed');
     }
   }
@@ -602,12 +602,10 @@ class KubernetesDeployment {
     console.log('🔍 Verifying deployment...');
     
     // Check pod status
-    const pods = await $`kubectl get pods \
+    const podData = await $`kubectl get pods \
       -n ${this.namespace} \
       -l app=${this.deployment} \
-      -o json`;
-    
-    const podData = JSON.parse(pods.stdout);
+      -o json`.json();
     const runningPods = podData.items.filter(
       pod => pod.status.phase === 'Running'
     );
@@ -668,12 +666,10 @@ eploy() {
   
   // Update task definition
   console.log('📝 Updating task definition...');
-  const taskDef = await $`aws ecs describe-task-definition \
+  const newTaskDef = await $`aws ecs describe-task-definition \
     --task-definition ${taskDefinition} \
     --query 'taskDefinition' \
-    --output json`;
-  
-  const newTaskDef = JSON.parse(taskDef.stdout);
+    --output json`.json();
   newTaskDef.containerDefinitions[0].image = ecrImage;
   delete newTaskDef.taskDefinitionArn;
   delete newTaskDef.revision;
@@ -744,12 +740,12 @@ async function cloudRunDeploy() {
     --platform managed \
     --region ${region} \
     --project ${project} \
-    --format 'value(status.url)'`;
+    --format 'value(status.url)'`.text();
   
-  console.log(`✅ Deployed to: ${url.stdout.trim()}`);
+  console.log(`✅ Deployed to: ${url}`);
   
   // Verify deployment
-  const health = await $`curl -f ${url.stdout.trim()}/health`;
+  const health = await $`curl -f ${url}/health`;
   console.log('✅ Health check passed');
 }
 
@@ -796,9 +792,9 @@ async function azureAppDeploy() {
     --resource-group ${resourceGroup} \
     --name ${appName} \
     --query defaultHostName \
-    --output tsv`;
+    --output tsv`.text();
   
-  const health = await $`curl -f https://${url.stdout.trim()}/health`;
+  const health = await $`curl -f https://${url}/health`;
   console.log('✅ Azure deployment complete!');
   
   // Cleanup
@@ -892,9 +888,7 @@ class CanaryDeployment {
   private async checkMetric(metric: string): Promise<boolean> {
     // Query Prometheus for metric
     const query = encodeURIComponent(`rate(http_requests_total{status=~"5.."}[5m])`);
-    const result = await $`curl -s http://prometheus:9090/api/v1/query?query=${query}`;
-    
-    const data = JSON.parse(result.stdout);
+    const data = await $`curl -s http://prometheus:9090/api/v1/query?query=${query}`.json();
     const errorRate = parseFloat(data.data.result[0]?.value[1] || '0');
     
     // Fail if error rate > 1%
@@ -953,8 +947,8 @@ async function featureFlagDeploy() {
     await new Promise(resolve => setTimeout(resolve, 300000)); // 5 minutes
     
     // Check error rates
-    const metrics = await $`curl https://metrics.example.com/api/errors?feature=${feature}`;
-    const errorRate = JSON.parse(metrics.stdout).error_rate;
+    const metrics = await $`curl https://metrics.example.com/api/errors?feature=${feature}`.json();
+    const errorRate = metrics.error_rate;
     
     if (errorRate > 0.01) {
       console.error('❌ High error rate detected, disabling feature...');
@@ -1022,10 +1016,8 @@ class AutoRollbackDeployment {
   }
   
   private async saveCurrentVersion() {
-    const result = await $`kubectl get deployment ${this.config.service} \
-      -o jsonpath='{.spec.template.spec.containers[0].image}'`;
-    
-    this.previousVersion = result.stdout.trim();
+    this.previousVersion = await $`kubectl get deployment ${this.config.service} \
+      -o jsonpath='{.spec.template.spec.containers[0].image}'`.text();
     console.log(`📌 Current version: ${this.previousVersion}`);
   }
   
@@ -1069,8 +1061,7 @@ class AutoRollbackDeployment {
   }
   
   private async checkMetrics(): Promise<boolean> {
-    const metrics = await $`curl ${this.config.metricsEndpoint}`;
-    const data = JSON.parse(metrics.stdout);
+    const data = await $`curl ${this.config.metricsEndpoint}`.json();
     
     const errorRate = data.error_rate || 0;
     const responseTime = data.response_time || 0;
@@ -1198,8 +1189,8 @@ async function preDeploymentChecks() {
   console.log('🔍 Running pre-deployment checks...');
   
   // Check git status
-  const gitStatus = await $`git status --porcelain`;
-  if (gitStatus.stdout.trim()) {
+  const gitStatus = await $`git status --porcelain`.text();
+  if (gitStatus) {
     throw new Error('Uncommitted changes detected');
   }
   

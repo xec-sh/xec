@@ -269,8 +269,8 @@ Scripts have access to SSH context:
 
 ```javascript
 // deploy.js
-const hostname = await $target`hostname`;
-console.log(`Deploying to ${hostname.stdout.trim()}`);
+const hostname = await $target`hostname`.text();
+console.log(`Deploying to ${hostname}`);
 
 await $target`cd /app && git pull`;
 await $target`npm install`;

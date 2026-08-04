@@ -374,15 +374,14 @@ XEC_VERBOSE=true xec deploy \
 
 # Script evaluation with imports
 xec -e "
-import { $, on } from '@xec-sh/core';
-const result = await on('hosts.web', 'uptime');
-console.log(result.stdout);
+import { $ } from '@xec-sh/core';
+console.log(await $\`uptime\`.text());
 "
 
 # REPL with pre-loaded modules
 XEC_DEBUG=true xec --repl
-> const result = await $\`date\`
-> console.log(result.stdout)
+> const date = await $\`date\`.text()
+> console.log(date)
 ```
 
 ### Pipeline Integration

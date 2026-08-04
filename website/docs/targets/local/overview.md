@@ -12,8 +12,8 @@ Local targets run commands directly on the machine executing the script, through
 ```typescript
 import { $ } from '@xec-sh/core';
 
-const result = await $`echo "Hello, World!"`;
-console.log(result.stdout); // "Hello, World!\n"
+const greeting = await $`echo "Hello, World!"`.text();
+console.log(greeting); // "Hello, World!"
 ```
 
 ## Target configuration

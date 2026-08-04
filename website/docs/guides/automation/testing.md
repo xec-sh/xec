@@ -353,10 +353,8 @@ class DatabaseTestRunner {
     ];
     
     for (const check of checks) {
-      const result = await $`docker exec ${this.container} \
-        psql -U postgres -d testdb -t -c "${check}"`;
-      
-      const count = parseInt(result.stdout.trim());
+      const count = parseInt(await $`docker exec ${this.container} \
+        psql -U postgres -d testdb -t -c "${check}"`.text());
       
       if (count > 0) {
         throw new Error(`Data integrity check failed: ${check}`);
@@ -619,8 +617,7 @@ export default function() {
     console.log('📈 Analyzing results...');
     
     // Parse summary
-    const summary = await $`cat summary.json`;
-    const data = JSON.parse(summary.stdout);
+    const data = await $`cat summary.json`.json();
     
     // Extract key metrics
     const metrics = {
@@ -712,18 +709,15 @@ class StressTestRunner {
   }
   
   private async checkCPU(): Promise<number> {
-    const result = await $`ssh prod.example.com "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - $8}'"`;
-    return parseFloat(result.stdout.trim());
+    return parseFloat(await $`ssh prod.example.com "top -bn1 | grep 'Cpu(s)' | awk '{print 100 - $8}'"`.text());
   }
   
   private async checkMemory(): Promise<number> {
-    const result = await $`ssh prod.example.com "free | grep Mem | awk '{print ($3/$2) * 100}'"`;
-    return parseFloat(result.stdout.trim());
+    return parseFloat(await $`ssh prod.example.com "free | grep Mem | awk '{print ($3/$2) * 100}'"`.text());
   }
   
   private async checkErrors(): Promise<number> {
-    const result = await $`curl -s http://metrics.example.com/error-rate`;
-    return parseFloat(result.stdout.trim());
+    return parseFloat(await $`curl -s http://metrics.example.com/error-rate`.text());
   }
 }
 
@@ -767,8 +761,7 @@ class SecurityScanner {
     console.log('\n📦 Scanning dependencies...');
     
     // npm audit
-    const npmAudit = await $`npm audit --json`;
-    const auditData = JSON.parse(npmAudit.stdout);
+    const auditData = await $`npm audit --json`.json();
     
     if (auditData.metadata.vulnerabilities.high > 0 || 
         auditData.metadata.vulnerabilities.critical > 0) {
@@ -810,13 +803,11 @@ class SecurityScanner {
     console.log('\n📝 Scanning source code...');
     
     // Semgrep scan
-    const semgrep = await $`semgrep \
+    const results = await $`semgrep \
       --config=auto \
       --severity=ERROR \
       --json \
-      .`;
-    
-    const results = JSON.parse(semgrep.stdout);
+      .`.json();
     
     if (results.errors.length > 0) {
       console.error('  ❌ Code vulnerabilities found');
@@ -1054,8 +1045,7 @@ class TestImpactAnalyzer {
   }
   
   private async getChangedFiles(): Promise<string[]> {
-    const result = await $`git diff --name-only HEAD~1`;
-    return result.stdout.split('\n').filter(f => f);
+    return $`git diff --name-only HEAD~1`.lines();
   }
   
   private async mapToTests(files: string[]): Promise<string[]> {
@@ -1135,8 +1125,7 @@ class TestReporter {
   }
   
   private async collectJestResults() {
-    const result = await $`cat test-results/jest-results.json`;
-    const data = JSON.parse(result.stdout);
+    const data = await $`cat test-results/jest-results.json`.json();
     
     this.results.suites.push({
       name: 'Jest Tests',
@@ -1148,8 +1137,7 @@ class TestReporter {
   }
   
   private async collectCoverageResults() {
-    const result = await $`cat coverage/coverage-summary.json`;
-    const data = JSON.parse(result.stdout);
+    const data = await $`cat coverage/coverage-summary.json`.json();
     
     this.results.metrics.coverage = {
       lines: data.total.lines.pct,

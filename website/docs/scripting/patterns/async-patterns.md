@@ -43,14 +43,14 @@ async function parallel() {
 
 // With result handling
 async function parallelWithResults() {
-  const results = await Promise.all([
-    $`echo "Result 1"`,
-    $`echo "Result 2"`,
-    $`echo "Result 3"`
+  const outputs = await Promise.all([
+    $`echo "Result 1"`.text(),
+    $`echo "Result 2"`.text(),
+    $`echo "Result 3"`.text()
   ]);
   
-  results.forEach((result, i) => {
-    console.log(`Task ${i + 1}: ${result.stdout.trim()}`);
+  outputs.forEach((output, i) => {
+    console.log(`Task ${i + 1}: ${output}`);
   });
 }
 ```
@@ -867,7 +867,8 @@ class AsyncDeploymentWorkflow {
     const checks = await Promise.all(
       servers.map(s => 
         $`curl -s -o /dev/null -w "%{http_code}" https://${s}/health`
-          .then(r => r.stdout.trim() === '200')
+          .text()
+          .then(code => code === '200')
       )
     );
     

@@ -14,12 +14,12 @@ Command execution in a pod goes through `kubectl exec`. This page covers the opt
 ```typescript
 import { $ } from '@xec-sh/core';
 
-const result = await $.k8s({
+const processes = await $.k8s({
   pod: 'web-server-abc123',
   namespace: 'production',
-})`ps aux`;
+})`ps aux`.text();
 
-console.log(result.stdout);
+console.log(processes);
 ```
 
 ## Using a Pod Instance
@@ -29,10 +29,10 @@ For multiple commands against the same pod, get a handle once:
 ```typescript
 const pod = $.k8s({ namespace: 'default' }).pod('my-app-pod');
 
-const hostname = await pod.exec`hostname`;
+const hostname = await pod.exec`hostname`.text();
 const processes = await pod.exec`ps aux | grep node`;
 
-console.log(`Pod: ${hostname.stdout.trim()}`);
+console.log(`Pod: ${hostname}`);
 ```
 
 ## Pod Selection by Label

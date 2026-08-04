@@ -86,8 +86,8 @@ const pipeline = $`cat file.txt`
   .pipe('grep pattern')
   .pipe('wc -l');
 
-const lineCount = await pipeline;
-console.log('Line count:', lineCount.stdout.trim());
+const lineCount = await pipeline.text();
+console.log('Line count:', lineCount);
 ```
 
 ### Step 3: Remote Debugging

@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: Building CI/CD Pipelines
-description: Create powerful CI/CD pipelines with Xec's execution engine
+description: Create CI/CD pipelines with Xec's execution engine
 ---
 
 # Building CI/CD Pipelines
@@ -13,7 +13,7 @@ Learn how to leverage Xec's universal execution capabilities to build robust CI/
 Traditional CI/CD tools often require separate configurations for different environments. Xec provides:
 
 - **Unified API**: Same code works locally and in CI/CD systems
-- **Environment Abstraction**: Seamlessly switch between local, SSH, Docker, and Kubernetes
+- **Environment Abstraction**: Switch between local, SSH, Docker, and Kubernetes
 - **Native TypeScript**: Type-safe pipeline definitions
 - **Parallel Execution**: Built-in support for concurrent tasks
 - **Error Recovery**: Robust error handling with retry capabilities
@@ -505,12 +505,10 @@ async function k8sDeploy() {
   
   // Verify deployment
   console.log('\n✅ Verifying deployment...');
-  const pods = await $`kubectl get pods \
+  const podData = await $`kubectl get pods \
     -n ${namespace} \
     -l app=${deployment} \
-    -o json`;
-  
-  const podData = JSON.parse(pods.stdout);
+    -o json`.json();
   const readyPods = podData.items.filter(
     pod => pod.status.phase === 'Running'
   ).length;
@@ -547,8 +545,7 @@ await k8sDeploy();
 import { $ } from '@xec-sh/core';
 
 async function conditionalPipeline() {
-  const branch = await $`git branch --show-current`;
-  const branchName = branch.stdout.trim();
+  const branchName = await $`git branch --show-current`.text();
   
   // Determine pipeline flow based on branch
   const pipelineConfig = {
@@ -979,8 +976,8 @@ async function manageArtifacts() {
   const manifest = {
     version,
     buildTime: new Date().toISOString(),
-    commit: await $`git rev-parse HEAD`.then(r => r.stdout.trim()),
-    branch: await $`git branch --show-current`.then(r => r.stdout.trim())
+    commit: await $`git rev-parse HEAD`.text(),
+    branch: await $`git branch --show-current`.text()
   };
   
   await $`echo ${JSON.stringify(manifest)} > ${artifactDir}/manifest.json`;

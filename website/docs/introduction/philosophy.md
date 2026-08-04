@@ -72,7 +72,7 @@ await $.raw`echo ${userInput}`;  // Use with caution
 
 ### 3. Composability
 
-**Principle**: Small, focused components that combine into powerful workflows.
+**Principle**: Small, focused components that combine into complete workflows.
 
 **Implementation**:
 - Unix philosophy: do one thing well
@@ -126,11 +126,8 @@ interface ExecutionResult {
 
 ```typescript
 // Feels like writing shell scripts in JavaScript
-const result = await $`git branch --show-current`;
-const branch = result.stdout.trim();
-
-const filesResult = await $`ls -1`;
-const files = filesResult.stdout.split('\n').filter(Boolean);
+const branch = await $`git branch --show-current`.text();
+const files = await $`ls -1`.lines();
 ```
 
 ### 6. Progressive Enhancement
@@ -228,7 +225,7 @@ import type { ExecutionEngine } from '@xec-sh/core';
 
 export async function restart(target: ExecutionEngine, service: string) {
   await target`systemctl restart ${service}`;
-  return (await target`systemctl is-active ${service}`.nothrow()).stdout.trim();
+  return target`systemctl is-active ${service}`.nothrow().text();
 }
 
 await restart($.ssh('deploy@web-1'), 'api');
@@ -264,8 +261,9 @@ await $.batch(['cmd1', 'cmd2', 'cmd3'], {
 });
 
 // Stream processing with follow
-await $`tail -f app.log`
-  .timeout(0)  // No timeout for streaming
+for await (const line of $`tail -f app.log`) {
+  console.log(line);
+}
 ```
 
 ## The Xec Way
@@ -303,6 +301,6 @@ The automatic escaping exists for good reasons. Use `$.raw` only when absolutely
 
 ## Conclusion
 
-Xec's philosophy centers on making command execution **simple, safe, and consistent** across all environments. By following these principles, Xec provides a powerful yet approachable tool that scales from simple scripts to complex orchestration systems.
+Xec's philosophy centers on making command execution **simple, safe, and consistent** across all environments. By following these principles, Xec scales from simple scripts to complex orchestration systems.
 
 The beauty of Xec lies not in doing something entirely new, but in doing something necessary with elegance and consistency. It's not about replacing shell scripts or system commands—it's about making them accessible, safe, and enjoyable to use from JavaScript.

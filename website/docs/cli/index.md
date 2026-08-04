@@ -195,8 +195,7 @@ Execute inline code:
 xec -e "console.log('Hello')"
 
 xec --eval "
-  const result = await $\`ls\`;
-  console.log(result.stdout);
+  console.log(await $\`ls\`.text());
 "
 ```
 

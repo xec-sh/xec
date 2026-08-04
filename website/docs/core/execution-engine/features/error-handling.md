@@ -428,8 +428,7 @@ if (result.exitCode !== 0 || !/test/.test(result.stdout)) {
 }
 
 // Or against a health check's parsed output
-const health = await $`health-check`;
-const status = JSON.parse(health.stdout);
+const status = await $`health-check`.json();
 if (status.status !== 'healthy') {
   throw new Error('Health check failed');
 }

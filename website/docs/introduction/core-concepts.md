@@ -253,8 +253,8 @@ await $`
 await $`npm install`.pipe($`npm run build`);
 
 // Output capture
-const result = await $`git status`;
-console.log(result.stdout);
+const status = await $`git status`.text();
+console.log(status);
 
 // Error handling
 const result = await $`test-command`.nothrow();
@@ -375,9 +375,7 @@ Xec supports real-time output streaming for long-running commands.
 
 ```typescript
 // Stream output line by line
-const stream = $`tail -f /var/log/app.log`.stream();
-
-for await (const line of stream) {
+for await (const line of $`tail -f /var/log/app.log`) {
   console.log('Log:', line);
 }
 
@@ -524,7 +522,7 @@ await $.ssh({ host: 'server' })`command2`;  // Reuses pooled connection
 
 ```typescript
 // Good: Stream processing
-for await (const line of $`large-output`.stream()) {
+for await (const line of $`large-output`) {
   process(line);
 }
 

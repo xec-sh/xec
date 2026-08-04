@@ -125,7 +125,7 @@ xec run backup -p "databases=['users','orders']" -p compress=true
 xec run -e "console.log('Hello, World!')"
 
 # Evaluate with Xec features
-xec run -e "const result = await $\`ls -la\`; console.log(result.stdout)"
+xec run -e "console.log(await $\`ls -la\`.text())"
 
 # Complex evaluation with TypeScript
 xec run --typescript -e "
@@ -204,8 +204,8 @@ console.log($config);      // Loaded configuration object
 
 ```javascript
 // Command execution
-const result = await $`ls -la`;
-console.log(result.stdout);
+const listing = await $`ls -la`.text();
+console.log(listing);
 
 // File system operations
 const files = await glob('**/*.js');
@@ -308,8 +308,7 @@ xec run -e "console.log(Math.random())"
 
 # Async operations
 xec run -e "
-  const result = await $\`uname -a\`;
-  console.log('System:', result.stdout.trim());
+  console.log('System:', await $\`uname -a\`.text());
 "
 
 # File operations

@@ -1,6 +1,6 @@
 # Writing Your First Xec Script
 
-Xec scripts combine the power of TypeScript with seamless command execution across multiple environments. This guide walks you through creating your first script using the Xec execution engine.
+An Xec script is a JavaScript or TypeScript file that executes commands across local and remote environments. This guide walks you through creating your first one.
 
 ## Basic Script Structure
 
@@ -14,8 +14,8 @@ import { $ } from '@xec-sh/core';
 await $`echo "Hello from Xec!"`;
 
 // Get the current directory
-const pwd = await $`pwd`;
-console.log(`Current directory: ${pwd.stdout}`);
+const pwd = await $`pwd`.text();
+console.log(`Current directory: ${pwd}`);
 ```
 
 ## Running Your Script
@@ -100,14 +100,14 @@ async function sequentialCommands() {
 
 // Parallel execution
 async function parallelCommands() {
-  const results = await Promise.all([
-    $`echo "Task 1"`,
-    $`echo "Task 2"`,
-    $`echo "Task 3"`
+  const outputs = await Promise.all([
+    $`echo "Task 1"`.text(),
+    $`echo "Task 2"`.text(),
+    $`echo "Task 3"`.text()
   ]);
   
-  results.forEach((result, i) => {
-    console.log(`Task ${i + 1}: ${result.stdout}`);
+  outputs.forEach((output, i) => {
+    console.log(`Task ${i + 1}: ${output}`);
   });
 }
 

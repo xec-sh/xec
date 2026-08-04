@@ -26,8 +26,8 @@ import { $ } from '@xec-sh/core';
 const pod = $.k8s('production/my-app-7d9f8c6b5-x2vjm');
 // same as: $.k8s({ pod: 'my-app-7d9f8c6b5-x2vjm', namespace: 'production' })
 
-const result = await pod`ls -la /app`;
-console.log(result.stdout);
+const files = await pod`ls -la /app`.text();
+console.log(files);
 
 // Execute in a specific container of a multi-container pod
 const container = $.k8s({
@@ -178,8 +178,8 @@ There's no label-based log aggregation call. List matching pods with
 `kubectl` directly, then read each one:
 
 ```typescript
-const names = (await $`kubectl get pods -n production -l app=web-server -o jsonpath='{.items[*].metadata.name}'`)
-  .stdout.trim().split(/\s+/);
+const names = (await $`kubectl get pods -n production -l app=web-server -o jsonpath='{.items[*].metadata.name}'`.text())
+  .split(/\s+/);
 
 for (const name of names) {
   const logs = await $.k8s('production').pod(name).logs({ tail: 50 });

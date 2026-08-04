@@ -21,8 +21,8 @@ The Execution API (`packages/core/src/core/execution-engine.ts`) provides:
 import { $ } from '@xec-sh/core';
 
 // Basic execution
-const result = await $`ls -la`;
-console.log(result.stdout);
+const listing = await $`ls -la`.text();
+console.log(listing);
 
 // With variables
 const file = 'document.txt';

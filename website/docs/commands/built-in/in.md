@@ -269,8 +269,8 @@ Scripts have access to container context:
 
 ```javascript
 // deploy.js
-const result = await $target`npm run build`;
-console.log(result.stdout);
+const output = await $target`npm run build`.text();
+console.log(output);
 
 await $target`cp -r dist/* /var/www/`;
 ```

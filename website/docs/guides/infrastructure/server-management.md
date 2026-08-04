@@ -6,7 +6,7 @@ description: Manage multiple servers efficiently with Xec's SSH capabilities
 
 # Server Management
 
-Master server management at scale using Xec's powerful SSH adapter with connection pooling, parallel execution, and intelligent retry mechanisms.
+Server management at scale using Xec's SSH adapter with connection pooling, parallel execution, and retries.
 
 ## Overview
 
@@ -35,20 +35,20 @@ async function manageServer() {
   console.log('📊 Checking server status...');
   
   // System information
-  const info = await server`uname -a`;
-  console.log(`System: ${info.stdout}`);
+  const info = await server`uname -a`.text();
+  console.log(`System: ${info}`);
   
   // Disk usage
-  const disk = await server`df -h /`;
-  console.log(`Disk usage:\n${disk.stdout}`);
+  const disk = await server`df -h /`.text();
+  console.log(`Disk usage:\n${disk}`);
   
   // Memory usage
-  const memory = await server`free -h`;
-  console.log(`Memory:\n${memory.stdout}`);
+  const memory = await server`free -h`.text();
+  console.log(`Memory:\n${memory}`);
   
   // Running processes
-  const processes = await server`ps aux | head -10`;
-  console.log(`Top processes:\n${processes.stdout}`);
+  const processes = await server`ps aux | head -10`.text();
+  console.log(`Top processes:\n${processes}`);
   
   // Service status
   const nginx = await server`systemctl status nginx`.nothrow();
@@ -83,16 +83,16 @@ class ServerFleet {
     
     const results = await Promise.allSettled(
       Array.from(this.servers.entries()).map(async ([host, server]) => {
-        const result = await server`${command}`;
-        return { host, result };
+        const output = await server`${command}`.text();
+        return { host, output };
       })
     );
     
     // Process results
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        const { host, result: cmdResult } = result.value;
-        console.log(`✅ ${host}: ${cmdResult.stdout.trim()}`);
+        const { host, output } = result.value;
+        console.log(`✅ ${host}: ${output}`);
       } else {
         console.error(`❌ Failed: ${result.reason}`);
       }
@@ -280,8 +280,8 @@ class SSHTunnelManager {
     });
     
     // Now access database through localhost
-    const result = await $`psql -h localhost -p 5432 -U dbuser -c "SELECT version()"`;
-    console.log(`Database version: ${result.stdout}`);
+    const version = await $`psql -h localhost -p 5432 -U dbuser -c "SELECT version()"`.text();
+    console.log(`Database version: ${version}`);
   }
   
   async closeAll() {
@@ -514,8 +514,7 @@ class HealthMonitor {
   }
   
   private async checkCPU(server: any, host: string) {
-    const result = await server`top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}'`;
-    const usage = parseFloat(result.stdout.trim());
+    const usage = parseFloat(await server`top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}'`.text());
     
     if (usage > 80) {
       this.addAlert({
@@ -531,8 +530,7 @@ class HealthMonitor {
   }
   
   private async checkMemory(server: any, host: string) {
-    const result = await server`free | grep Mem | awk '{print ($3/$2) * 100}'`;
-    const usage = parseFloat(result.stdout.trim());
+    const usage = parseFloat(await server`free | grep Mem | awk '{print ($3/$2) * 100}'`.text());
     
     if (usage > 90) {
       this.addAlert({
@@ -548,8 +546,7 @@ class HealthMonitor {
   }
   
   private async checkDisk(server: any, host: string) {
-    const result = await server`df -h / | tail -1 | awk '{print $5}' | sed 's/%//'`;
-    const usage = parseFloat(result.stdout.trim());
+    const usage = parseFloat(await server`df -h / | tail -1 | awk '{print $5}' | sed 's/%//'`.text());
     
     if (usage > 85) {
       this.addAlert({
@@ -660,8 +657,7 @@ class LogManager {
     });
     
     // Get matching log files
-    const files = await server`find /var/log -name "${pattern}" 2>/dev/null`;
-    const logFiles = files.stdout.split('\n').filter(f => f);
+    const logFiles = await server`find /var/log -name "${pattern}" 2>/dev/null`.lines();
     
     for (const file of logFiles) {
       const filename = file.replace(/\//g, '_');
@@ -689,12 +685,9 @@ class LogManager {
           privateKey: '~/.ssh/id_rsa'
         });
         
-        const result = await server`grep -r "${query}" /var/log 2>/dev/null | head -20`;
+        const matches = await server`grep -r "${query}" /var/log 2>/dev/null | head -20`.lines();
         
-        return {
-          host,
-          matches: result.stdout.split('\n').filter(l => l)
-        };
+        return { host, matches };
       })
     );
     
@@ -882,10 +875,10 @@ class FileDistributor {
     console.log(`📤 Distributing ${localPath} to ${this.servers.length} servers...`);
     
     // Compress if directory
-    const isDirectory = await $`test -d ${localPath} && echo "true" || echo "false"`;
+    const isDirectory = (await $`test -d ${localPath} && echo "true" || echo "false"`.text()) === 'true';
     let sourceFile = localPath;
     
-    if (isDirectory.stdout.trim() === 'true') {
+    if (isDirectory) {
       console.log('📦 Compressing directory...');
       sourceFile = `/tmp/dist-${Date.now()}.tar.gz`;
       await $`tar -czf ${sourceFile} -C ${localPath} .`;
@@ -893,7 +886,7 @@ class FileDistributor {
     
     // Distribute to all servers
     const results = await Promise.allSettled(
-      this.servers.map(host => this.copyToServer(host, sourceFile, remotePath, isDirectory.stdout.trim() === 'true'))
+      this.servers.map(host => this.copyToServer(host, sourceFile, remotePath, isDirectory))
     );
     
     // Cleanup temp file
@@ -1199,9 +1192,9 @@ class BackupManager {
   }
   
   async listBackups() {
-    const backups = await $`ls -la ${this.backupLocation}/*.tar.gz`;
+    const backups = await $`ls -la ${this.backupLocation}/*.tar.gz`.text();
     console.log('📋 Available backups:');
-    console.log(backups.stdout);
+    console.log(backups);
   }
 }
 

@@ -19,21 +19,21 @@ import { $ } from '@xec-sh/core';
 const hosts = ['web1.example.com', 'web2.example.com', 'web3.example.com'];
 
 // Fails fast: rejects as soon as any host fails
-const results = await Promise.all(
-  hosts.map(host => $.ssh(`deploy@${host}`)`uptime`)
+const uptimes = await Promise.all(
+  hosts.map(host => $.ssh(`deploy@${host}`)`uptime`.text())
 );
-results.forEach((r, i) => console.log(`${hosts[i]}: ${r.stdout.trim()}`));
+uptimes.forEach((up, i) => console.log(`${hosts[i]}: ${up}`));
 ```
 
 ```typescript
 // Resilient: every host runs regardless of others failing
 const settled = await Promise.allSettled(
-  hosts.map(host => $.ssh(`deploy@${host}`)`systemctl status nginx`)
+  hosts.map(host => $.ssh(`deploy@${host}`)`systemctl status nginx`.text())
 );
 
 for (const [i, result] of settled.entries()) {
   if (result.status === 'fulfilled') {
-    console.log(`${hosts[i]}: ${result.value.stdout.trim()}`);
+    console.log(`${hosts[i]}: ${result.value}`);
   } else {
     console.error(`${hosts[i]} failed:`, result.reason.message);
   }

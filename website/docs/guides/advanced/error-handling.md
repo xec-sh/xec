@@ -465,8 +465,8 @@ migration
   .addStep(
     'verify',
     async () => {
-      const result = await $`psql mydb -c "SELECT version FROM migrations ORDER BY id DESC LIMIT 1"`;
-      if (!result.stdout.includes('v2.0')) {
+      const version = await $`psql mydb -c "SELECT version FROM migrations ORDER BY id DESC LIMIT 1"`.text();
+      if (!version.includes('v2.0')) {
         throw new Error('Migration verification failed');
       }
       return { verified: true };
@@ -547,14 +547,11 @@ class ErrorCollector {
     
     // Add Git info if available
     try {
-      const branch = await $`git branch --show-current`.nothrow();
-      const commit = await $`git rev-parse HEAD`.nothrow();
+      const branch = await $`git branch --show-current`.nothrow().text();
+      const commit = await $`git rev-parse HEAD`.nothrow().text();
       
-      if (branch.stdout) {
-        info.git = {
-          branch: branch.stdout.trim(),
-          commit: commit.stdout?.trim()
-        };
+      if (branch) {
+        info.git = { branch, commit };
       }
     } catch {
       // Ignore git errors

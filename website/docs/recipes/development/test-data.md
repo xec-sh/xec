@@ -568,8 +568,8 @@ async function seedPostgres() {
   console.log(`✅ Inserted ${products.length} products`);
   
   // Verify
-  const count = await $`docker exec postgres-dev psql -U developer -d myapp -t -c "SELECT COUNT(*) FROM users"`;
-  console.log(`\nDatabase seeded: ${count.stdout.trim()} users in database`);
+  const count = await $`docker exec postgres-dev psql -U developer -d myapp -t -c "SELECT COUNT(*) FROM users"`.text();
+  console.log(`\nDatabase seeded: ${count} users in database`);
 }
 
 seedPostgres().catch(console.error);
@@ -648,8 +648,8 @@ async function generateLargeDataset(records: number = 1000000) {
   console.log(`✅ Generated ${records.toLocaleString()} records in large-dataset.ndjson`);
   
   // Get file size
-  const stats = await $`ls -lh large-dataset.ndjson`;
-  console.log(stats.stdout);
+  const stats = await $`ls -lh large-dataset.ndjson`.text();
+  console.log(stats);
 }
 
 generateLargeDataset(1000000).catch(console.error);

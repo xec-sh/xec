@@ -736,8 +736,7 @@ class TransformChain {
   }
   
   async execute() {
-    const result = await $.exec(this.command);
-    let data = result.stdout;
+    let data = await $.exec(this.command).text();
     
     for (const transformer of this.transformers) {
       switch (transformer.type) {

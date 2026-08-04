@@ -240,8 +240,8 @@ await prod`docker stop myapp || true`;
 await prod`docker run -d --name myapp myapp:latest`;
 
 // Verify deployment
-const result = await prod`curl -s http://localhost/health`;
-console.log('Health check:', result.stdout);
+const health = await prod`curl -s http://localhost/health`.text();
+console.log('Health check:', health);
 ```
 
 Run it:

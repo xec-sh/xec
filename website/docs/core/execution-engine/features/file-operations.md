@@ -281,11 +281,10 @@ await $`unison /local/path ssh://server.com//remote/path`;
 
 ```typescript
 // Watch for file changes
-await $`inotifywait -m -r -e modify,create,delete /path/to/watch`
-  .stdout((line) => {
-    const [path, events, file] = line.split(' ');
-    console.log(`File ${file} ${events} in ${path}`);
-  });
+for await (const line of $`inotifywait -m -r -e modify,create,delete /path/to/watch`) {
+  const [path, events, file] = line.split(' ');
+  console.log(`File ${file} ${events} in ${path}`);
+}
 
 // Watch and sync
 await $`fswatch -r /local/src | while read f; do rsync -av /local/src/ /remote/dest/; done`;
@@ -335,8 +334,8 @@ await $`setfacl -m u:username:rwx file.txt`;
 await $`setfacl -R -m g:groupname:rx directory/`;
 
 // Get ACLs
-const acls = await $`getfacl file.txt`;
-console.log('ACLs:', acls.stdout);
+const acls = await $`getfacl file.txt`.text();
+console.log('ACLs:', acls);
 ```
 
 ## Error Handling
@@ -403,9 +402,9 @@ await $.transfer.copy(source, `docker://${container}:${dest}`); // For Docker
 await $`cat large.txt`.pipe($`gzip`).stdout(output);
 
 // ✅ Validate transfers
-const checksum = await $`md5sum file.txt`;
-const remoteChecksum = await remote`md5sum file.txt`;
-if (remoteChecksum.stdout !== checksum.stdout) {
+const checksum = await $`md5sum file.txt`.text();
+const remoteChecksum = await remote`md5sum file.txt`.text();
+if (remoteChecksum !== checksum) {
   throw new Error('Transfer verification failed');
 }
 

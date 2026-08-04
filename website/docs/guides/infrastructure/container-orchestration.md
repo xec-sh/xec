@@ -272,8 +272,8 @@ class K8sDeployment {
   }
 
   async waitForRollout() {
-    const deployments = await $`kubectl get deployments -n ${this.namespace} -o json`;
-    const names = JSON.parse(deployments.stdout).items.map(d => d.metadata.name);
+    const deployments = await $`kubectl get deployments -n ${this.namespace} -o json`.json();
+    const names = deployments.items.map(d => d.metadata.name);
     
     for (const name of names) {
       console.log(`Waiting for deployment ${name}...`);
@@ -283,8 +283,8 @@ class K8sDeployment {
   }
 
   async verifyPods() {
-    const pods = await $`kubectl get pods -n ${this.namespace} -o json`;
-    const podList = JSON.parse(pods.stdout).items;
+    const pods = await $`kubectl get pods -n ${this.namespace} -o json`.json();
+    const podList = pods.items;
     
     const notReady = podList.filter(pod => {
       const conditions = pod.status.conditions || [];
@@ -316,8 +316,8 @@ class K8sDeployment {
     console.log(`Starting canary deployment (${percentage}%)...`);
     
     // Get current replicas
-    const current = await $`kubectl get deployment ${deployment} -n ${this.namespace} -o jsonpath='{.spec.replicas}'`;
-    const totalReplicas = parseInt(current.stdout);
+    const current = await $`kubectl get deployment ${deployment} -n ${this.namespace} -o jsonpath='{.spec.replicas}'`.text();
+    const totalReplicas = parseInt(current);
     const canaryReplicas = Math.ceil(totalReplicas * percentage / 100);
     const stableReplicas = totalReplicas - canaryReplicas;
     
@@ -346,8 +346,8 @@ class K8sDeployment {
     
     // Check metrics (simplified example)
     for (let i = 0; i < 5; i++) {
-      const pods = await $`kubectl get pods -n ${this.namespace} -l app=${deployment} -o json`;
-      const podList = JSON.parse(pods.stdout).items;
+      const pods = await $`kubectl get pods -n ${this.namespace} -l app=${deployment} -o json`.json();
+      const podList = pods.items;
       
       for (const pod of podList) {
         const logs = await $`kubectl logs ${pod.metadata.name} -n ${this.namespace} --tail=10`.nothrow();
@@ -476,8 +476,7 @@ class HybridOrchestrator {
   }
 
   async getVersion() {
-    const gitTag = await $`git describe --tags --always`;
-    return gitTag.stdout.trim();
+    return $`git describe --tags --always`.text();
   }
 }
 
@@ -534,9 +533,9 @@ class RegistryManager {
     console.log(`Scanning ${image} for vulnerabilities...`);
     
     // Using trivy for scanning
-    const result = await $`trivy image ${image}`;
+    const report = await $`trivy image ${image}`.text();
     
-    if (result.stdout.includes('CRITICAL')) {
+    if (report.includes('CRITICAL')) {
       throw new Error('Critical vulnerabilities found');
     }
     
@@ -550,8 +549,7 @@ class RegistryManager {
     await this.docker.run`image prune -f`;
     
     // Remove old versions
-    const images = await this.docker.run`images --format "{{.Repository}}:{{.Tag}}" | grep ${this.registry}`;
-    const imageList = images.stdout.split('\n').filter(Boolean);
+    const imageList = await this.docker.run`images --format "{{.Repository}}:{{.Tag}}" | grep ${this.registry}`.lines();
     
     // Keep only last 5 versions
     const grouped = {};

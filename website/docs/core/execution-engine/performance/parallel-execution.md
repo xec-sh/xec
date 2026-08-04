@@ -83,15 +83,15 @@ const results = await Promise.all([
 
 // Parallel execution across servers
 const servers = ['server1', 'server2', 'server3'];
-const deployResults = await Promise.all(
+const deployOutputs = await Promise.all(
   servers.map(server =>
-    $.ssh({ host: server, username: 'deploy' })`deploy.sh`
+    $.ssh({ host: server, username: 'deploy' })`deploy.sh`.text()
   )
 );
 
 // Process results
-deployResults.forEach((result, index) => {
-  console.log(`${servers[index]}: ${result.stdout}`);
+deployOutputs.forEach((output, index) => {
+  console.log(`${servers[index]}: ${output}`);
 });
 ```
 
@@ -171,10 +171,7 @@ async function parallelMap<T, R>(
 const files = ['file1.txt', 'file2.txt', 'file3.txt'];
 const contents = await parallelMap(
   files,
-  async (file) => {
-    const result = await $`cat ${file}`;
-    return result.stdout;
-  },
+  (file) => $`cat ${file}`.text(),
   3  // Max 3 concurrent
 );
 ```

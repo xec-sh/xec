@@ -30,14 +30,21 @@ Xec provides unified log management across all execution targets, with built-in 
 ```typescript
 // aggregate-logs.ts
 import { $ } from '@xec-sh/core';
+import type { ProcessPromise } from '@xec-sh/core';
 
 // Stream logs from multiple sources — `docker logs` / `kubectl logs` are
 // commands you run against the container/pod, not commands run inside it,
 // so these go through the local engine rather than $.docker()/$.k8s()
+async function follow(name: string, proc: ProcessPromise) {
+  for await (const line of proc) {
+    console.log(`[${name}] ${line}`);
+  }
+}
+
 await Promise.all([
-  $.ssh('web-1')`tail -f /var/log/nginx/access.log`,
-  $`docker logs -f app-container`,
-  $`kubectl logs -f pod/api-server`
+  follow('web-1', $.ssh('web-1')`tail -f /var/log/nginx/access.log`),
+  follow('app', $`docker logs -f app-container`),
+  follow('api', $`kubectl logs -f pod/api-server`)
 ]);
 ```
 

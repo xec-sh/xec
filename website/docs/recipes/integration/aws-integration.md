@@ -64,8 +64,8 @@ async function setupAWS() {
   `;
   
   // Verify configuration
-  const identity = await $`aws sts get-caller-identity`;
-  console.log('AWS Identity:', JSON.parse(identity.stdout));
+  const identity = await $`aws sts get-caller-identity`.json();
+  console.log('AWS Identity:', identity);
   
   console.log('✅ AWS CLI configured successfully');
 }
@@ -111,9 +111,9 @@ class EC2Manager {
         ${filterArgs ? `--filters ${filterArgs}` : ''} \
         --query 'Reservations[*].Instances[*].[InstanceId,Tags[?Key==\`Name\`]|[0].Value,InstanceType,State.Name,PublicIpAddress,PrivateIpAddress]' \
         --output json
-    `;
+    `.json();
     
-    const instances = JSON.parse(result.stdout).flat();
+    const instances = result.flat();
     return instances.map(([instanceId, name, type, state, publicIp, privateIp]) => ({
       instanceId,
       name: name || 'unnamed',
@@ -160,7 +160,7 @@ class EC2Manager {
   }): Promise<string> {
     console.log(`Creating EC2 instance ${config.name}...`);
     
-    const result = await $`
+    const response = await $`
       aws ec2 run-instances \
         --image-id ${config.ami} \
         --instance-type ${config.type} \
@@ -170,9 +170,8 @@ class EC2Manager {
         --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${config.name}}]" \
         --region ${this.region} \
         --output json
-    `;
+    `.json();
     
-    const response = JSON.parse(result.stdout);
     const instanceId = response.Instances[0].InstanceId;
     
     console.log(`✅ Created instance ${instanceId}`);
@@ -298,15 +297,13 @@ class S3Manager {
   }
   
   async listObjects(bucket: string, prefix?: string): Promise<any[]> {
-    const result = await $`
+    return $`
       aws s3api list-objects-v2 \
         --bucket ${bucket} \
         ${prefix ? `--prefix ${prefix}` : ''} \
         --query 'Contents[*].[Key,Size,LastModified]' \
         --output json
-    `;
-    
-    return JSON.parse(result.stdout);
+    `.json();
   }
   
   async setupStaticWebsite(bucket: string): Promise<void> {
@@ -511,14 +508,13 @@ class ECSManager {
     console.log(`Deploying ECS service ${config.service}...`);
     
     // Register new task definition with updated image
-    const taskDefJson = await $`
+    const taskDef = await $`
       aws ecs describe-task-definition \
         --task-definition ${config.taskDefinition} \
         --query taskDefinition \
         --output json
-    `;
+    `.json();
     
-    const taskDef = JSON.parse(taskDefJson.stdout);
     taskDef.containerDefinitions[0].image = config.image;
     
     // Remove fields that can't be in registration
@@ -557,7 +553,7 @@ class ECSManager {
   async runTask(taskDefinition: string, overrides?: any): Promise<string> {
     console.log(`Running ECS task ${taskDefinition}...`);
     
-    const result = await $`
+    const response = await $`
       aws ecs run-task \
         --cluster ${this.cluster} \
         --task-definition ${taskDefinition} \
@@ -565,9 +561,8 @@ class ECSManager {
         --network-configuration "awsvpcConfiguration={subnets=[${process.env.ECS_SUBNETS}],securityGroups=[${process.env.ECS_SECURITY_GROUPS}],assignPublicIp=ENABLED}" \
         ${overrides ? `--overrides '${JSON.stringify(overrides)}'` : ''} \
         --output json
-    `;
+    `.json();
     
-    const response = JSON.parse(result.stdout);
     const taskArn = response.tasks[0].taskArn;
     
     console.log(`✅ Task started: ${taskArn}`);
@@ -577,13 +572,13 @@ class ECSManager {
   async getLogs(service: string, since = '5m'): Promise<void> {
     const logGroup = `/ecs/${this.cluster}/${service}`;
     
-    const logs = await $`
+    for await (const line of $`
       aws logs tail ${logGroup} \
         --since ${since} \
         --follow
-    `.nothrow();
-    
-    console.log(logs.stdout);
+    `.nothrow()) {
+      console.log(line);
+    }
   }
 }
 
@@ -649,9 +644,8 @@ class EKSManager {
     await $`kubectl apply -f ${manifest}`;
     
     // Wait for deployment to be ready
-    const deployment = await $`kubectl get deployment -o json`.then(
-      r => JSON.parse(r.stdout).items[0].metadata.name
-    );
+    const deployment = await $`kubectl get deployment -o json`.json()
+      .then(d => d.items[0].metadata.name);
     
     await $`kubectl rollout status deployment/${deployment}`;
     
@@ -728,14 +722,13 @@ class CloudFormationManager {
   }
   
   async getStackOutputs(stackName: string): Promise<Record<string, string>> {
-    const result = await $`
+    const outputs = await $`
       aws cloudformation describe-stacks \
         --stack-name ${stackName} \
         --query 'Stacks[0].Outputs' \
         --output json
-    `;
+    `.json();
     
-    const outputs = JSON.parse(result.stdout);
     return outputs.reduce((acc: any, out: any) => {
       acc[out.OutputKey] = out.OutputValue;
       return acc;
@@ -806,7 +799,7 @@ class CloudWatchManager {
   }
   
   async getMetrics(namespace: string, metricName: string, startTime: Date, endTime: Date): Promise<any> {
-    const result = await $`
+    return $`
       aws cloudwatch get-metric-statistics \
         --namespace ${namespace} \
         --metric-name ${metricName} \
@@ -815,9 +808,7 @@ class CloudWatchManager {
         --period 3600 \
         --statistics Average,Maximum,Minimum \
         --output json
-    `;
-    
-    return JSON.parse(result.stdout);
+    `.json();
   }
 }
 ```

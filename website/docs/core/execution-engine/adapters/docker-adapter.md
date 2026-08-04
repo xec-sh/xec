@@ -4,7 +4,7 @@ The Docker adapter enables command execution within Docker containers with full 
 
 ## Overview
 
-The Docker adapter (`packages/core/src/adapters/docker/index.ts`) provides seamless container command execution with:
+The Docker adapter (`packages/core/src/adapters/docker/index.ts`) provides container command execution with:
 
 - **Container lifecycle management** (create, start, stop, remove)
 - **Docker Compose integration** for multi-container applications
@@ -22,8 +22,8 @@ import { $ } from '@xec-sh/core';
 const container = $.docker('my-app');
 // same as: $.docker({ container: 'my-app' })
 
-const result = await container`ls -la /app`;
-console.log(result.stdout);
+const files = await container`ls -la /app`.text();
+console.log(files);
 
 // Execute in a new, one-off container from an image
 const ephemeral = $.docker({
@@ -344,8 +344,8 @@ For statistics, there's no dedicated stats API either — run `docker stats`
 the same way:
 
 ```typescript
-const stats = await $`docker stats --no-stream --format '{{json .}}' ${container_name}`;
-console.log(JSON.parse(stats.stdout));
+const stats = await $`docker stats --no-stream --format '{{json .}}' ${container_name}`.json();
+console.log(stats);
 ```
 
 ## Advanced Container Options

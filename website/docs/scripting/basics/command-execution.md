@@ -1,6 +1,6 @@
 # Command Execution with Template Literals
 
-The heart of Xec is its powerful template literal syntax for command execution. This guide covers everything you need to know about executing commands using the `$` template literal.
+The heart of Xec is its template literal syntax for command execution. This guide covers executing commands using the `$` template literal.
 
 ## Basic Syntax
 
@@ -52,9 +52,9 @@ const result = await promise;
 ### Capturing Output
 
 ```javascript
-// Get stdout as string
-const files = await $`ls`;
-console.log(files.stdout);
+// Get stdout as a trimmed string
+const files = await $`ls`.text();
+console.log(files);
 
 // Access all properties
 const result = await $`echo "test"`;
@@ -241,12 +241,10 @@ await $`ps aux | grep node | awk '{print $2}'`;
 
 ```javascript
 // Pipe between commands
-const files = await $`ls`;
-await $`echo "${files.stdout}" | grep ".js"`;
+await $`ls`.pipe($`grep ".js"`);
 
 // Process output before piping
-const result = await $`cat data.json`;
-const processed = JSON.parse(result.stdout);
+const processed = await $`cat data.json`.json();
 await $`echo ${JSON.stringify(processed)} | jq '.'`;
 ```
 
@@ -304,8 +302,8 @@ await $`cat "${filename}"`; // Properly escaped
 await $`echo "Current date: $(date)"`;
 
 // JavaScript alternative
-const date = await $`date`;
-await $`echo "Current date: ${date.stdout.trim()}"`;
+const date = await $`date`.text();
+await $`echo "Current date: ${date}"`;
 ```
 
 ## Advanced Patterns
@@ -436,15 +434,8 @@ const hugeFile = await $`cat very-large-file.txt`;
 // Good - stream processing
 await $`cat very-large-file.txt`.pipe(process.stdout);
 
-// Or process line by line
-import { createReadStream } from 'fs';
-import { createInterface } from 'readline';
-
-const rl = createInterface({
-  input: createReadStream('large-file.txt')
-});
-
-for await (const line of rl) {
+// Or process line by line as the command runs
+for await (const line of $`cat very-large-file.txt`) {
   // Process each line
 }
 ```
@@ -507,8 +498,8 @@ async function deploy() {
   console.log(chalk.blue('Starting deployment...'));
   
   // Check prerequisites
-  const gitStatus = await $`git status --porcelain`.nothrow();
-  if (gitStatus.stdout.trim()) {
+  const gitStatus = await $`git status --porcelain`.nothrow().text();
+  if (gitStatus) {
     throw new Error('Working directory not clean');
   }
   

@@ -61,27 +61,27 @@ When you use CLI commands to execute scripts, Xec:
 // health-check.js
 const checks = {
   local: async () => {
-    const disk = await $`df -h /`;
-    const memory = await $`free -m`;
-    return { disk: disk.stdout, memory: memory.stdout };
+    const disk = await $`df -h /`.text();
+    const memory = await $`free -m`.text();
+    return { disk, memory };
   },
   
   ssh: async () => {
-    const uptime = await $`uptime`;
-    const connections = await $`ss -tun | wc -l`;
-    return { uptime: uptime.stdout, connections: connections.stdout };
+    const uptime = await $`uptime`.text();
+    const connections = await $`ss -tun | wc -l`.text();
+    return { uptime, connections };
   },
   
   docker: async () => {
-    const processes = await $`ps aux`;
-    const network = await $`netstat -an`;
-    return { processes: processes.stdout, network: network.stdout };
+    const processes = await $`ps aux`.text();
+    const network = await $`netstat -an`.text();
+    return { processes, network };
   },
   
   kubernetes: async () => {
-    const pods = await $`kubectl get pods`;
-    const services = await $`kubectl get svc`;
-    return { pods: pods.stdout, services: services.stdout };
+    const pods = await $`kubectl get pods`.text();
+    const services = await $`kubectl get svc`.text();
+    return { pods, services };
   }
 };
 
@@ -237,8 +237,8 @@ if (!command) {
 }
 
 console.log(`Executing ${action} on ${$target.name}`);
-const result = await $`${command}`;
-console.log(result.stdout);
+const output = await $`${command}`.text();
+console.log(output);
 ```
 
 ## Advanced Patterns

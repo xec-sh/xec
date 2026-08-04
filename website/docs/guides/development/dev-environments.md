@@ -115,8 +115,8 @@ async function checkRequirements() {
 
   for (const check of checks) {
     try {
-      const result = await $`${check.cmd}`;
-      console.log(`✓ ${check.name}: ${result.stdout.trim()}`);
+      const version = await $`${check.cmd}`.text();
+      console.log(`✓ ${check.name}: ${version}`);
     } catch (error) {
       console.error(`✗ ${check.name} not found`);
       process.exit(1);
@@ -133,8 +133,8 @@ async function setupEnv() {
     await $`cp .env.example ${envFile}`;
     
     // Generate secrets
-    const secret = await $`openssl rand -hex 32`;
-    await $`sed -i '' 's/JWT_SECRET=.*/JWT_SECRET=${secret.stdout.trim()}/' ${envFile}`;
+    const secret = await $`openssl rand -hex 32`.text();
+    await $`sed -i '' 's/JWT_SECRET=.*/JWT_SECRET=${secret}/' ${envFile}`;
   }
 }
 

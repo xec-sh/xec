@@ -42,6 +42,8 @@ declare global {
       v8: string;
       typescript: string;
     };
+    /** Stops a timer id returned by Deno's setInterval/setTimeout from holding the process open. */
+    unrefTimer?: (id: number) => void;
     run: (options: {
       cmd: string[];
       cwd?: string;

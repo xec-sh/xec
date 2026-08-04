@@ -35,7 +35,7 @@ npm install @xec-sh/core
 
 ### Using the CLI
 
-Xec provides powerful built-in commands for multi-environment execution:
+Xec provides built-in commands for multi-environment execution:
 
 ```bash
 # Execute locally
@@ -66,12 +66,12 @@ Create a file `example.js`:
 import { $ } from '@xec-sh/core';
 
 // Execute locally
-const result = await $`echo "Hello, Xec!"`;
-console.log(result.stdout);  // "Hello, Xec!"
+const greeting = await $`echo "Hello, Xec!"`.text();
+console.log(greeting);  // "Hello, Xec!"
 
 // Get system information
-const info = await $`uname -a`;
-console.log(info.stdout);
+const info = await $`uname -a`.text();
+console.log(info);
 ```
 
 Run it:
@@ -100,8 +100,8 @@ const serverWithKey = $.ssh({
   privateKey: '~/.ssh/id_rsa'
 });
 
-const uptime = await server`uptime`;
-console.log(`Server uptime: ${uptime.stdout.trim()}`);
+const uptime = await server`uptime`.text();
+console.log(`Server uptime: ${uptime}`);
 ```
 
 ### Docker Execution
@@ -138,18 +138,15 @@ Execute in pods:
 import { $ } from '@xec-sh/core';
 
 // Execute command in pod
-const result = await $.k8s({ 
+const hostname = await $.k8s({ 
   pod: 'web-server', 
   namespace: 'default' 
-})`hostname`;
-console.log(`Pod hostname: ${result.stdout.trim()}`);
+})`hostname`.text();
+console.log(`Pod hostname: ${hostname}`);
 
-// Get logs from pod
-const logs = await $.k8s({ 
-  pod: 'web-server', 
-  namespace: 'default' 
-})`kubectl logs --tail=100`;
-console.log(logs.stdout);
+// Get logs from pod (kubectl runs locally, not inside the pod)
+const logs = await $`kubectl logs web-server -n default --tail=100`.text();
+console.log(logs);
 ```
 
 ## Common Patterns
@@ -174,18 +171,15 @@ try {
 ### Working with Output
 
 ```javascript
-// Get text output
-const result = await $`cat file.txt`;
-const text = result.stdout;
+// Get text output (trimmed stdout)
+const text = await $`cat file.txt`.text();
 
 // Parse JSON
-const jsonResult = await $`cat config.json`;
-const data = JSON.parse(jsonResult.stdout);
+const data = await $`cat config.json`.json();
 
-// Process lines
-const lsResult = await $`ls -1`;
-const lines = lsResult.stdout.split('\n').filter(Boolean);
-lines.forEach(file => console.log(file));
+// Process lines (empty lines dropped)
+const files = await $`ls -1`.lines();
+files.forEach(file => console.log(file));
 ```
 
 ### Method Chaining
@@ -227,8 +221,7 @@ xec run --repl
 
 # Now in REPL with $ available
 > await $`ls -la`
-> const result = await $`find . -name "*.js"`
-> const files = result.stdout.split('\n').filter(Boolean)
+> const files = await $`find . -name "*.js"`.lines()
 > files.length
 ```
 

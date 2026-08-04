@@ -629,8 +629,7 @@ class ReleaseManager {
   }
   
   private async getCurrentVersion(): Promise<string> {
-    const packageContent = await $`cat package.json`.quiet();
-    const packageJson: PackageJson = JSON.parse(packageContent.stdout);
+    const packageJson = await $`cat package.json`.quiet().json<PackageJson>();
     return packageJson.version;
   }
   
@@ -644,8 +643,8 @@ class ReleaseManager {
   
   private async runPreReleaseChecks(): Promise<void> {
     // Check git status
-    const status = await $`git status --porcelain`.nothrow();
-    if (status.stdout.trim() && !this.options.dryRun) {
+    const status = await $`git status --porcelain`.nothrow().text();
+    if (status && !this.options.dryRun) {
       throw new Error('Working directory is not clean');
     }
     
@@ -687,11 +686,11 @@ class ReleaseManager {
       ? `${lastTag.stdout.trim()}..HEAD`
       : 'HEAD';
     
-    const commits = await $`git log ${range} --pretty=format:"- %s"`;
+    const commits = await $`git log ${range} --pretty=format:"- %s"`.text();
     
     // Update CHANGELOG.md
     const date = new Date().toISOString().split('T')[0];
-    const entry = `## [${version}] - ${date}\n\n${commits.stdout}\n\n`;
+    const entry = `## [${version}] - ${date}\n\n${commits}\n\n`;
     
     await $`echo "${entry}" | cat - CHANGELOG.md > temp && mv temp CHANGELOG.md`;
   }

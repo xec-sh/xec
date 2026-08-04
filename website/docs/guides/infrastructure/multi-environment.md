@@ -26,8 +26,7 @@ import { $ } from '@xec-sh/core';
 import type { ExecutionEngine } from '@xec-sh/core';
 
 async function diskFree(target: ExecutionEngine): Promise<string> {
-  const result = await target`df -Pk / | tail -1 | awk '{print $5}'`;
-  return result.stdout.trim();
+  return target`df -Pk / | tail -1 | awk '{print $5}'`.text();
 }
 
 await diskFree($);                       // this machine

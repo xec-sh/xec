@@ -119,7 +119,7 @@ async function healthCheckAll(targets: string[]) {
 ```typescript
 // Build a data processing pipeline
 async function processLogs(logFile: string) {
-  const result = await $`
+  const lines = await $`
     cat ${logFile} |
     grep ERROR |
     awk '{print $1, $2, $NF}' |
@@ -127,15 +127,12 @@ async function processLogs(logFile: string) {
     uniq -c |
     sort -rn |
     head -20
-  `;
+  `.lines();
   
-  return result.stdout
-    .trim()
-    .split('\n')
-    .map(line => {
-      const [count, date, time, error] = line.trim().split(/\s+/);
-      return { count: parseInt(count), date, time, error };
-    });
+  return lines.map(line => {
+    const [count, date, time, error] = line.trim().split(/\s+/);
+    return { count: parseInt(count), date, time, error };
+  });
 }
 ```
 
@@ -197,7 +194,7 @@ async function monitorLogs(service: string) {
     journalctl -u ${service} -f --output=json
   `;
   
-  for await (const line of proc.lines()) {
+  for await (const line of proc) {
     try {
       const entry = JSON.parse(line);
       

@@ -1,6 +1,6 @@
 # Stream Processing Patterns
 
-Xec provides powerful streaming capabilities for handling large outputs, real-time data, and efficient I/O operations. This guide covers stream processing patterns for command execution.
+Xec streams command output for handling large outputs and real-time data. This guide covers stream processing patterns for command execution.
 
 ## How `.pipe()` Actually Behaves
 
@@ -541,10 +541,7 @@ const findHandle = await findProc.spawned;
 
 await parallelProcessor.process(
   findHandle.stdout,
-  async (filename) => {
-    const result = await $`wc -l ${filename.trim()}`.nothrow();
-    return result.stdout;
-  }
+  (filename) => $`wc -l ${filename.trim()}`.nothrow().text()
 );
 ```
 
@@ -682,8 +679,7 @@ class ResilientStream extends Transform {
 class APIStream extends ResilientStream {
   async process(chunk) {
     const data = JSON.parse(chunk.toString());
-    const response = await $`curl -X POST https://api.example.com/data -d '${JSON.stringify(data)}'`;
-    return response.stdout;
+    return $`curl -X POST https://api.example.com/data -d '${JSON.stringify(data)}'`.text();
   }
 }
 

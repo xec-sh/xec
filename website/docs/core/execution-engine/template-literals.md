@@ -339,8 +339,7 @@ await $`echo "Deployed at: ${getTimestamp()}"`;
 
 // Async functions
 async function getGitHash() {
-  const result = await $`git rev-parse HEAD`;
-  return result.stdout.trim();
+  return $`git rev-parse HEAD`.text();
 }
 
 await $`docker build -t app:${getGitHash()} .`;

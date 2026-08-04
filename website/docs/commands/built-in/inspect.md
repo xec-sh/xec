@@ -508,15 +508,12 @@ xec inspect --validate && xec run deploy
 
 ```javascript
 // Get configuration in scripts
-const { exec } = require('child_process');
-const config = JSON.parse(
-  await exec('xec inspect config --format json').stdout
-);
+import { $ } from '@xec-sh/core';
+
+const config = await $`xec inspect config --format json`.json();
 
 // Check if target exists
-const targets = JSON.parse(
-  await exec('xec inspect targets --format json').stdout
-);
+const targets = await $`xec inspect targets --format json`.json();
 const hasProduction = targets.some(t => t.name === 'hosts.production');
 ```
 

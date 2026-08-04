@@ -7,7 +7,7 @@ import { stdin, stdout } from 'node:process';
 import readline, { type Key, type ReadLine } from 'node:readline';
 
 import { wrapAnsi } from '../utils/wrap-ansi.js';
-import { getRows, settings, diffLines, setRawMode, isActionKey, CANCEL_SYMBOL } from '../utils/index.js';
+import { getRows, settings, diffLines, getColumns, setRawMode, isActionKey, CANCEL_SYMBOL } from '../utils/index.js';
 
 export interface PromptOptions<TValue, Self extends Prompt<TValue>> {
   render(this: Omit<Self, 'prompt'>): string | undefined;
@@ -267,13 +267,16 @@ export default class Prompt<TValue> {
 
   private restoreCursor() {
     const lines =
-      wrapAnsi(this._prevFrame, process.stdout.columns, { hard: true, trim: false }).split('\n')
+      wrapAnsi(this._prevFrame, getColumns(this.output), { hard: true, trim: false }).split('\n')
         .length - 1;
     this.output.write(cursor.move(-999, lines * -1));
   }
 
   private render() {
-    const frame = wrapAnsi(this._render(this) ?? '', process.stdout.columns, {
+    // Width comes from the stream being written to, not the global stdout:
+    // with an injected output the global is another terminal entirely, and
+    // behind a pipe or in CI it is undefined. getColumns falls back to 80.
+    const frame = wrapAnsi(this._render(this) ?? '', getColumns(this.output), {
       hard: true,
       trim: false,
     });

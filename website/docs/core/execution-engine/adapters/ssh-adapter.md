@@ -4,7 +4,7 @@ The SSH adapter enables command execution on remote hosts through secure shell c
 
 ## Overview
 
-The SSH adapter (`packages/core/src/adapters/ssh-adapter.ts`) provides seamless remote command execution with enterprise-grade features:
+The SSH adapter (`packages/core/src/adapters/ssh-adapter.ts`) provides remote command execution with:
 
 - **Connection pooling** for performance optimization
 - **Automatic reconnection** with configurable retry logic
@@ -26,8 +26,8 @@ const remote = $.ssh({
 });
 
 // Execute commands
-const result = await remote`ls -la /var/log`;
-console.log(result.stdout);
+const listing = await remote`ls -la /var/log`.text();
+console.log(listing);
 
 // With password authentication
 const passwordRemote = $.ssh({
@@ -232,9 +232,9 @@ const sudoResult = await remote`sudo systemctl restart nginx`;
 // Real-time output streaming
 const remote = $.ssh({ host: 'server.com', username: 'user' });
 
-await remote`tail -f /var/log/app.log`
-  .stdout((line) => console.log('LOG:', line))
-  .stderr((line) => console.error('ERROR:', line));
+for await (const line of remote`tail -f /var/log/app.log`) {
+  console.log('LOG:', line);
+}
 
 // Pipe between commands
 const compressed = await remote`tar czf - /data`

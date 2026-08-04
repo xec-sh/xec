@@ -65,7 +65,7 @@ import type { ExecutionEngine } from '@xec-sh/core';
 
 export async function restart(target: ExecutionEngine, service: string) {
   await target`systemctl restart ${service}`;
-  return (await target`systemctl is-active ${service}`.nothrow()).stdout.trim();
+  return target`systemctl is-active ${service}`.nothrow().text();
 }
 
 await restart($.ssh('deploy@web-1'), 'api');

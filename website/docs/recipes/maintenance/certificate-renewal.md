@@ -133,15 +133,14 @@ class CertificateManager {
 
   // Check certificate expiration
   async checkExpiration(target: string): Promise<CertStatus[]> {
-    const result = await $.ssh(target)`
+    const lines = await $.ssh(target)`
       certbot certificates --no-color 2>/dev/null | \
       grep -E "(Certificate Name:|Expiry Date:|Domains:)" | \
       paste -d ',' - - - | \
       sed 's/Certificate Name://g; s/Domains://g; s/Expiry Date://g'
-    `;
+    `.lines();
     
     const certificates: CertStatus[] = [];
-    const lines = result.stdout.trim().split('\n').filter(l => l);
     
     for (const line of lines) {
       const [name, domains, expiry] = line.split(',').map(s => s.trim());
@@ -325,11 +324,11 @@ class AutoRenewal {
     console.log(`🔍 Checking certificates on ${target}...`);
     
     // Check expiration
-    const result = await $.ssh(target)`
+    const status = await $.ssh(target)`
       certbot certificates 2>/dev/null | grep "INVALID\\|Expiry" || echo "CHECK_NEEDED"
-    `;
+    `.text();
     
-    if (result.stdout.includes('CHECK_NEEDED') || result.stdout.includes('INVALID')) {
+    if (status.includes('CHECK_NEEDED') || status.includes('INVALID')) {
       console.log(`⚠️ Certificate renewal needed on ${target}`);
       
       // Attempt renewal
@@ -359,11 +358,11 @@ class AutoRenewal {
     const services = ['nginx', 'apache2', 'httpd'];
     
     for (const service of services) {
-      const checkResult = await $.ssh(target)`
+      const state = await $.ssh(target)`
         systemctl is-active ${service} 2>/dev/null || echo "inactive"
-      `;
+      `.text();
       
-      if (!checkResult.stdout.includes('inactive')) {
+      if (!state.includes('inactive')) {
         await $.ssh(target)`systemctl reload ${service}`;
         console.log(`🔄 Reloaded ${service} on ${target}`);
       }
@@ -559,17 +558,17 @@ class CertificateMonitor {
   }
   
   async getServerCertificates(server: string) {
-    const result = await $.ssh(server)`
+    const output = await $.ssh(server)`
       echo "[]" | openssl s_client -servername localhost -connect localhost:443 2>/dev/null | \
       openssl x509 -noout -dates -subject -issuer 2>/dev/null || echo "NO_CERT"
-    `;
+    `.text();
     
-    if (result.stdout.includes('NO_CERT')) {
+    if (output.includes('NO_CERT')) {
       return [];
     }
     
     // Parse certificate details
-    const lines = result.stdout.split('\n');
+    const lines = output.split('\n');
     const notBefore = lines.find(l => l.startsWith('notBefore='))?.split('=')[1];
     const notAfter = lines.find(l => l.startsWith('notAfter='))?.split('=')[1];
     const subject = lines.find(l => l.startsWith('subject='))?.split('=').slice(1).join('=');
