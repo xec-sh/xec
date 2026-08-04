@@ -35,14 +35,27 @@ export function createDefaultSensitivePatterns(): RegExp[] {
   /(--password)(\s+)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
   // Command line secret arguments
   /(--client[_-]?secret|--secret)(\s+)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
-  // SSH private keys (full replacement)
-  /-----BEGIN\s+(RSA|DSA|EC|OPENSSH)\s+PRIVATE\s+KEY-----[\s\S]+?-----END\s+(RSA|DSA|EC|OPENSSH)\s+PRIVATE\s+KEY-----/gi,
+  // Any PEM private key, whatever the algorithm, replaced whole.
+  //
+  // The body must not span another `-----BEGIN`, which is what keeps this
+  // linear: a header with no matching footer — a truncated key, or a log full
+  // of them — otherwise made every candidate scan to end-of-input, and 800 KB
+  // of such output took 6.8 seconds. Blocks in a bundle still match one by one,
+  // and `-----BEGIN CERTIFICATE-----` is left alone.
+  /-----BEGIN[^-]{0,64}PRIVATE\s+KEY(?:\s+BLOCK)?-----(?:(?!-----BEGIN)[\s\S]){0,65536}?-----END[^-]{0,64}PRIVATE\s+KEY(?:\s+BLOCK)?-----/gi,
   // Environment variable assignments with secrets (including template variables)
   /\b([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY|API_KEY)[A-Z0-9_]*)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi,
   // Generic secret patterns
   /\b(secret|client[_-]?secret)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
   // Credentials embedded in a URL: postgres://user:pw@host, redis://, mongodb+srv://…
-  /([a-z][a-z0-9+.-]*:\/\/[^\s:/@]+):([^\s@]+)@/gi,
+  //
+  // Anchored on the literal `://` rather than on the scheme. Starting with the
+  // character class `[a-z]` gave the engine a candidate start position at every
+  // letter, and the greedy scheme scan then walked to end-of-input and back at
+  // each one — quadratic. On 200 KB of ordinary output that cost 29 seconds,
+  // which surfaced as commands appearing to hang, since every result is masked.
+  // The bounds keep the userinfo scan linear on pathological input too.
+  /(:\/\/[^\s:/@]{1,256}):([^\s@]{1,256})@/g,
   // Provider-issued tokens, matched by their documented prefixes.
   /\bAIza[0-9A-Za-z_-]{20,}/g,
   /\bxox[abposr]-[0-9A-Za-z-]{10,}/gi,
@@ -57,8 +70,6 @@ export function createDefaultSensitivePatterns(): RegExp[] {
   // assigned to a variable or a URL, it is caught by the rules above.
   // Basic-auth on a command line: curl -u user:password
   /(-u|--user)(\s+)([^\s:]+):([^\s]+)/g,
-  // Any PEM private key, not just the four algorithms listed below.
-  /-----BEGIN[^-]*PRIVATE KEY(?: BLOCK)?-----[\s\S]+?-----END[^-]*PRIVATE KEY(?: BLOCK)?-----/gi,
   // Standalone Bearer tokens
   /\b(Bearer)(\s+)([a-zA-Z0-9_\-/.]+)/gi
   ];
