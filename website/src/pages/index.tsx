@@ -30,7 +30,7 @@ const DEMO: readonly DemoLine[] = [
   },
   {
     code: [
-      ['await', 'kw'], [' $.'], ['docker', 'fn'], ['({ container: '], ["'api'", 'str'], [' })'],
+      ['await', 'kw'], [' $.'], ['docker', 'fn'], ['('], ["'api'", 'str'], [')'],
       ['`python migrate.py`', 'str'], [';', 'punc'],
     ],
   },
@@ -127,8 +127,9 @@ function Contrast(): React.ReactNode {
             <pre className={styles.miniCode}>
               <code>{`const result = await $.ssh(host)\`systemctl status api\`;
 
-result.exitCode   // number
+result.ok         // exit 0 and not signalled
 result.stdout     // string
+result.stdall     // both streams, in arrival order
 result.duration   // ms
 
 // same shape for local, docker and k8s`}</code>
@@ -146,56 +147,188 @@ result.duration   // ms
   );
 }
 
-const CAPABILITIES = [
+/**
+ * The guarantees, each of which exists in the repository as a test.
+ *
+ * This is the section that decides whether someone puts the tool near
+ * production. Marketing adjectives do not; a specific promise, phrased as the
+ * failure it prevents, does.
+ */
+const CONTRACT = [
   {
-    title: 'Typed results, structured failures',
+    title: 'An option works or it fails loudly',
     body:
-      'Every command resolves to the same result shape. Failures carry a machine-readable kind — connection-lost, authentication, not-found — so callers branch on the reason instead of matching error text.',
-    code: `if (error.recoverable) {
-  await reconnect();
-}`,
+      '.cd() on a container changes the directory in the container. .env() on a pod exports in the pod, and never leaks into your own process. Nothing is accepted and quietly dropped.',
   },
   {
-    title: 'Safe by construction',
+    title: 'No silent data loss',
     body:
-      'Interpolated values are quoted for the shell that will actually parse them. SSH host keys are checked against known_hosts. Secrets are masked in output, errors and events — including across stream chunk boundaries.',
-    code: `await $\`rm \${userInput}\`;
-// rm '; drop table --'`,
+      'Output past maxBuffer kills the producer and fails with the truncated head kept — never an empty result with exit code 0. A process killed by a signal is never ok, and reports 128 + signum.',
   },
   {
-    title: 'Built for long-running work',
+    title: 'Interpolation is safe by default',
     body:
-      'Connection pooling, a bounded timeout on every operation, streaming with backpressure, and recovery when a transport dies mid-command. Adapters load lazily, so importing the package costs nothing for SSH or Kubernetes.',
-    code: `await $.ssh(host)
-  .timeout(30_000)
-  \`./migrate.sh\`;`,
+      'Interpolated values are quoted for the shell that will actually parse them, so a value can never change the structure of a command. $.raw exists for when you mean it.',
   },
   {
-    title: 'Declarative targets and tasks',
+    title: 'Secrets stay out of logs',
     body:
-      'Describe hosts, containers and pods once in .xec/config.yaml, then run tasks against any of them from the CLI — or import the same engine and build your own tool on top of it.',
-    code: `xec on hosts.web-* uptime`,
+      'Tokens, API keys, URL credentials and PEM blocks are redacted in output, events, error messages and the verbose echo — with one rule set, including across stream chunk boundaries.',
+  },
+  {
+    title: 'Killing a command kills its tree',
+    body:
+      'sh -c "node server.js" is a process tree. Kill, abort, timeout and buffer overflow all signal the whole group, so nothing is orphaned holding a port.',
+  },
+  {
+    title: 'A cached result belongs to its target',
+    body:
+      'Cache keys carry the host, container, pod, namespace and cluster. One machine’s answer is never served for another — the failure mode that a health check would act on.',
   },
 ] as const;
 
-function Capabilities(): React.ReactNode {
+function Contract(): React.ReactNode {
   return (
     <section className={styles.sectionAlt}>
       <div className="container">
         <h2 className={styles.sectionTitle}>
-          <Translate id="homepage.capabilities.title">What you get</Translate>
+          <Translate id="homepage.contract.title">The contract</Translate>
         </h2>
+        <p className={styles.sectionLead}>
+          <Translate id="homepage.contract.lead">
+            These are not aspirations. Each one exists in the repository as a test, because
+            a tool that runs commands on production infrastructure earns trust by being
+            specific about what it will not do to you.
+          </Translate>
+        </p>
 
-        <div className={styles.capGrid}>
-          {CAPABILITIES.map(capability => (
-            <article key={capability.title} className={styles.capCard}>
-              <h3 className={styles.capTitle}>{capability.title}</h3>
-              <p className={styles.capBody}>{capability.body}</p>
-              <pre className={styles.miniCode}>
-                <code>{capability.code}</code>
-              </pre>
+        <div className={styles.contractGrid}>
+          {CONTRACT.map(item => (
+            <article key={item.title} className={styles.contractCard}>
+              <h3 className={styles.contractTitle}>{item.title}</h3>
+              <p className={styles.contractBody}>{item.body}</p>
             </article>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Two entry points, because people arrive as either a library or a CLI user. */
+function TwoWaysIn(): React.ReactNode {
+  return (
+    <section className={styles.section}>
+      <div className="container">
+        <h2 className={styles.sectionTitle}>
+          <Translate id="homepage.ways.title">Two ways in</Translate>
+        </h2>
+
+        <div className={styles.waysGrid}>
+          <article className={styles.wayCard}>
+            <span className={styles.wayLabel}>
+              <Translate id="homepage.ways.library">As a library</Translate>
+            </span>
+            <pre className={styles.miniCode}>
+              <code>{`npm i @xec-sh/core`}</code>
+            </pre>
+            <pre className={styles.miniCode}>
+              <code>{`const staging = $.ssh('deploy@staging')
+  .cd('/srv/app')
+  .env({ NODE_ENV: 'staging' })
+  .timeout('60s')
+  .retry({ maxRetries: 3 });
+
+await staging\`pnpm migrate\`;
+
+for await (const line of staging\`tail -f app.log\`) {
+  if (line.includes('ERROR')) alert(line);
+}`}</code>
+            </pre>
+            <p className={styles.wayNote}>
+              <Translate id="homepage.ways.libraryNote">
+                Every environment takes the same chain. Output streams as it arrives, so a
+                follow works the way you expect.
+              </Translate>
+            </p>
+          </article>
+
+          <article className={styles.wayCard}>
+            <span className={styles.wayLabel}>
+              <Translate id="homepage.ways.cli">As a CLI</Translate>
+            </span>
+            <pre className={styles.miniCode}>
+              <code>{`npm i -g @xec-sh/cli`}</code>
+            </pre>
+            <pre className={styles.miniCode}>
+              <code>{`xec on deploy@prod-1 'systemctl restart api'
+xec in postgres-main 'pg_dump mydb'
+xec in production/api-7f9d 'cat app.log'
+
+xec run deploy.ts          # a script, with $ in scope
+xec forward hosts.prod 8080:80`}</code>
+            </pre>
+            <p className={styles.wayNote}>
+              <Translate id="homepage.ways.cliNote">
+                Targets, defaults and tasks live in .xec/config.yaml. Scripts get the same
+                API the library exposes — nothing is CLI-only.
+              </Translate>
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** Honest scope. Saying what a tool is not is a trust signal, not a weakness. */
+function Scope(): React.ReactNode {
+  return (
+    <section className={styles.sectionAlt}>
+      <div className="container">
+        <div className={styles.scopeGrid}>
+          <div>
+            <h2 className={styles.sectionTitle}>
+              <Translate id="homepage.scope.title">What Xec is not</Translate>
+            </h2>
+            <p className={styles.sectionLead}>
+              <Translate id="homepage.scope.lead">
+                Knowing where a tool stops is worth as much as knowing what it does.
+              </Translate>
+            </p>
+          </div>
+
+          <ul className={styles.scopeList}>
+            <li>
+              <strong>
+                <Translate id="homepage.scope.ansible">Not an Ansible replacement.</Translate>
+              </strong>{' '}
+              <Translate id="homepage.scope.ansibleBody">
+                No inventory graph, no declarative convergence. Xec is imperative TypeScript
+                for the automation you would otherwise write in bash — with types, tests and
+                one API instead of four.
+              </Translate>
+            </li>
+            <li>
+              <strong>
+                <Translate id="homepage.scope.sdk">Not an SDK wrapper.</Translate>
+              </strong>{' '}
+              <Translate id="homepage.scope.sdkBody">
+                Adapters speak the native tools — the ssh2 protocol, the docker and kubectl
+                CLIs — so behaviour matches what you would get by hand, exit codes included.
+              </Translate>
+            </li>
+            <li>
+              <strong>
+                <Translate id="homepage.scope.deps">Not a dependency tree.</Translate>
+              </strong>{' '}
+              <Translate id="homepage.scope.depsBody">
+                The execution core declares one runtime dependency, ssh2, and loads it only
+                when an SSH target is used. Local execution loads no third-party code at
+                all — measured, not assumed.
+              </Translate>
+            </li>
+          </ul>
         </div>
       </div>
     </section>
@@ -242,6 +375,37 @@ function Packages(): React.ReactNode {
             </Link>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Measured facts, not adjectives.
+ *
+ * An infrastructure tool is evaluated on whether it can be trusted, and the
+ * things that answer that are countable: how much third-party code it drags
+ * in, how much of its behaviour is pinned by tests, how long it makes you
+ * wait. Every number here is measured, and each is checked in the repository.
+ */
+const FACTS = [
+  { value: '1', label: 'runtime dependency', note: 'ssh2 — loaded only when an SSH target is used' },
+  { value: '4', label: 'environments, one API', note: 'local, SSH, Docker, Kubernetes' },
+  { value: '5,000+', label: 'tests', note: 'across the engine, CLI, loader and UI kit' },
+  { value: '~150ms', label: 'CLI startup', note: 'against a ~20ms floor for an empty Node process' },
+] as const;
+
+function Facts(): React.ReactNode {
+  return (
+    <section className={styles.facts}>
+      <div className={`container ${styles.factsInner}`}>
+        {FACTS.map(fact => (
+          <div key={fact.label} className={styles.factItem}>
+            <span className={styles.factValue}>{fact.value}</span>
+            <span className={styles.factLabel}>{fact.label}</span>
+            <span className={styles.factNote}>{fact.note}</span>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -302,8 +466,11 @@ export default function Home(): React.ReactNode {
     >
       <Hero />
       <main>
+        <Facts />
         <Contrast />
-        <Capabilities />
+        <Contract />
+        <TwoWaysIn />
+        <Scope />
         <Packages />
       </main>
     </Layout>

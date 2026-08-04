@@ -290,33 +290,218 @@
 
 /* -------------------------------------------------------- capabilities -- */
 
-.capGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.25rem;
+/* --------------------------------------------------------------- facts -- */
+
+/*
+ * A single band of countable claims directly under the hero. It sits on the
+ * page's own surface rather than in cards: the point is that these are plain
+ * facts, not features being sold.
+ */
+.facts {
+  border-bottom: 1px solid var(--xec-border);
+  background: var(--xec-surface-raised);
 }
 
-.capCard {
+.factsInner {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2rem;
+  padding-top: 2.25rem;
+  padding-bottom: 2.25rem;
+}
+
+.factItem {
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  gap: 0.2rem;
+}
+
+.factValue {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--xec-accent-cyan);
+}
+
+.factLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--ifm-heading-color);
+}
+
+.factNote {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--xec-text-muted);
+}
+
+@media (max-width: 996px) {
+  .factsInner {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .factsInner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------ contract -- */
+
+/*
+ * The guarantees grid. Three columns on desktop so six promises read as one
+ * block rather than a long list — the point is their combined weight.
+ */
+.contractGrid {
+  display: grid;
+  /* Exactly three columns, so six promises fill two complete rows. An
+     auto-fit track count left a fourth column empty on wide screens — a
+     hole in a section whose whole job is to look deliberate. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--xec-border);
   border: 1px solid var(--xec-border);
-  border-radius: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+@media (max-width: 996px) {
+  .contractGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .contractGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/*
+ * Hairline separators instead of gaps and shadows: a dense, aligned table of
+ * promises reads as specification, which is the register this section wants.
+ */
+.contractCard {
+  padding: 1.9rem 1.75rem;
   background: var(--xec-surface);
 }
 
-.capTitle {
-  margin: 0 0 0.6rem;
-  font-size: 1.0625rem;
-  letter-spacing: -0.015em;
+.contractTitle {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  line-height: 1.35;
 }
 
-.capBody {
-  margin: 0 0 1.15rem;
-  font-size: 0.9rem;
-  line-height: 1.65;
+/* A short accent rule carries the eye down the column without a bullet. */
+.contractTitle::before {
+  content: '';
+  display: block;
+  width: 1.75rem;
+  height: 2px;
+  margin-bottom: 0.85rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--xec-accent), var(--xec-accent-cyan));
+}
+
+.contractBody {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.68;
   color: var(--xec-text-muted);
+}
+
+/* ------------------------------------------------------------ two ways -- */
+
+.waysGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+}
+
+.wayCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.75rem;
+  border: 1px solid var(--xec-border);
+  border-radius: 14px;
+  background: var(--xec-surface);
+}
+
+.wayLabel {
+  align-self: flex-start;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--xec-surface-raised);
+  border: 1px solid var(--xec-border);
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--xec-text-muted);
+}
+
+.wayNote {
+  /* Pinned to the bottom so two cards of unequal content still align, and
+     neither ends in a block of empty panel. */
+  margin: auto 0 0;
+  padding-top: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.68;
+  color: var(--xec-text-muted);
+}
+
+/* The code sample carries the card; let it take the slack. */
+.wayCard .miniCode:last-of-type {
   flex: 1;
+}
+
+/* --------------------------------------------------------------- scope -- */
+
+/*
+ * Deliberately asymmetric: the heading holds one column while the three
+ * disclaimers stack in the other, so the section reads as an aside rather
+ * than as another feature grid.
+ */
+.scopeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 3rem;
+  align-items: start;
+}
+
+.scopeList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1.15rem;
+}
+
+.scopeList li {
+  padding-left: 1.15rem;
+  border-left: 2px solid var(--xec-border);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--xec-text-muted);
+}
+
+.scopeList strong {
+  color: var(--ifm-heading-color);
+  font-weight: 650;
+}
+
+@media (max-width: 900px) {
+  .scopeGrid {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
 }
 
 /* ------------------------------------------------------------ packages -- */
