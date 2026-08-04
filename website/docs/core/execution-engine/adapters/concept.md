@@ -206,8 +206,11 @@ await docker`ls -la`;
 Command execution in Kubernetes pods:
 
 ```typescript
-const k8s = $.k8s().pod('my-pod');
+const k8s = $.k8s('my-pod');   // or $.k8s({ pod: 'my-pod' })
 await k8s`ls -la`;
+
+// Pod object API (not directly callable — use .exec)
+await $.k8s().pod('my-pod').exec`ls -la`;
 ```
 
 **Features:**

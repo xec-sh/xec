@@ -746,6 +746,7 @@ targets:
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       })`mkdir -p ${sshTestDir}`;
 
@@ -754,6 +755,7 @@ targets:
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       })`cat > ${sshLogFile} << 'EOF'
 2024-01-01 10:00:00 INFO Starting application
@@ -771,6 +773,7 @@ EOF`;
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       })`cat > ${fakeSyslogPath} << 'EOF'
 Jan  1 10:00:00 test-host kernel: Linux version 5.15.0
@@ -790,6 +793,7 @@ targets:
       host: ${sshConfig.host}
       port: ${sshConfig.port}
       username: ${sshConfig.username}
+      hostKeyChecking: "off"
       password: ${sshConfig.password}
       logPath: ${fakeSyslogPath}
 `;
@@ -805,6 +809,7 @@ targets:
             host: sshConfig.host,
             port: sshConfig.port,
             username: sshConfig.username,
+            hostKeyChecking: sshConfig.hostKeyChecking,
             password: sshConfig.password
           })`rm -rf ${sshTestDir}`.nothrow();
         } catch { }
@@ -827,6 +832,7 @@ targets:
       host: ${sshConfig.host}
       port: ${sshConfig.port}
       username: ${sshConfig.username}
+      hostKeyChecking: "off"
       password: ${sshConfig.password}
       logPath: ${fakeSyslogPath}
 `;
@@ -946,34 +952,27 @@ targets:
     it('should follow local file changes', async () => {
       // Create a file with initial content
       const followFile = join(testDir, 'follow.log');
-      const outputFile = join(testDir, 'follow-output.log');
       writeFileSync(followFile, 'Initial line 1\nInitial line 2\n');
 
-      // Use $ to run tail -f in background and write to output file
-      const followProcess = $`tail -f -n 100 ${followFile} > ${outputFile} 2>&1`.nothrow();
+      // Run tail -f directly so the process can be terminated deterministically
+      const { spawn } = await import('child_process');
+      const tail = spawn('tail', ['-f', '-n', '100', followFile]);
+      let output = '';
+      tail.stdout.on('data', chunk => { output += chunk.toString(); });
 
-      // Wait for tail to start
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Append new content to the file
-      appendFileSync(followFile, 'New line 3\n');
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      appendFileSync(followFile, 'New line 4\n');
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Kill the tail process
       try {
-        await $`pkill -f "tail -f.*${followFile}"`.nothrow();
-      } catch (e) {
-        // Process might have already exited
+        // Append new content and poll until tail has seen it
+        appendFileSync(followFile, 'New line 3\n');
+        appendFileSync(followFile, 'New line 4\n');
+
+        const deadline = Date.now() + 5000;
+        while (!output.includes('New line 4') && Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } finally {
+        tail.kill();
       }
 
-      // Wait for process to finish
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Check the output file
-      const output = readFileSync(outputFile, 'utf-8');
       expect(output).toContain('Initial line 1');
       expect(output).toContain('Initial line 2');
       expect(output).toContain('New line 3');
@@ -1588,7 +1587,7 @@ targets:
       output = capturedOutput.join('\n');
       expect(output).toContain('(ns: production)');
       expect(output).toContain('[main]');
-      expect(output).toContain('[k8s]');
+      expect(output).toContain('[kubernetes]');
     });
 
     it('should validate options with zod schema', async () => {

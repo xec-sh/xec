@@ -1,3 +1,6 @@
+import type { PodConfig, HostConfig, TargetType, ResolvedTarget, ContainerConfig } from '@xec-sh/ops';
+
+import { ConfigurationManager } from '@xec-sh/ops';
 import {
   log,
   text,
@@ -10,10 +13,6 @@ import {
   isCancel,
   multiselect
 } from '@xec-sh/kit';
-
-import { ConfigurationManager } from '@xec-sh/ops';
-
-import type { PodConfig, HostConfig, TargetType, ResolvedTarget, ContainerConfig } from '@xec-sh/ops';
 
 export interface InteractiveOptions {
   interactive?: boolean;

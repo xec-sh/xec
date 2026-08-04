@@ -1,14 +1,4 @@
 import type { ExecutionResult } from '@xec-sh/core';
-
-import * as path from 'path';
-import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
-import { EventEmitter } from 'events';
-
-import { TargetResolver } from './target-resolver.js';
-import { getScriptLoader } from '../adapters/loader-adapter.js';
-import { VariableInterpolator } from './variable-interpolator.js';
-
 import type {
   TaskStep,
   TaskResult,
@@ -18,6 +8,16 @@ import type {
   VariableContext,
   TaskErrorHandler,
 } from './types.js';
+
+import * as path from 'path';
+import { $ } from '@xec-sh/core';
+import * as fs from 'fs/promises';
+import { EventEmitter } from 'events';
+
+import { TargetResolver } from './target-resolver.js';
+import { getScriptLoader } from '../adapters/loader-adapter.js';
+import { VariableInterpolator } from './variable-interpolator.js';
+import { ConditionEvaluator, ConditionEvaluationError } from './condition-evaluator.js';
 
 export interface TaskExecutorOptions {
   /** Variable interpolator instance */
@@ -34,6 +34,13 @@ export interface TaskExecutorOptions {
 
   /** Dry run mode - don't execute commands */
   dryRun?: boolean;
+
+  /**
+   * Lookup for nested task definitions used by `step.task`.
+   * Steps that invoke other tasks fail loudly when no registry is provided —
+   * the executor never pretends a nested task ran.
+   */
+  taskRegistry?: (name: string) => TaskDefinition | undefined;
 }
 
 export interface TaskExecutionOptions {
@@ -60,8 +67,13 @@ export interface TaskExecutionOptions {
 }
 
 export class TaskExecutor extends EventEmitter {
+  private static readonly MAX_TASK_DEPTH = 10;
+
+  private conditionEvaluator: ConditionEvaluator;
+
   constructor(private options: TaskExecutorOptions) {
     super();
+    this.conditionEvaluator = new ConditionEvaluator(options.interpolator);
   }
 
   /**
@@ -72,6 +84,15 @@ export class TaskExecutor extends EventEmitter {
     task: TaskDefinition,
     options: TaskExecutionOptions = {}
   ): Promise<TaskResult> {
+    return this.executeInternal(taskName, task, options, [taskName]);
+  }
+
+  private async executeInternal(
+    taskName: string,
+    task: TaskDefinition,
+    options: TaskExecutionOptions,
+    chain: readonly string[]
+  ): Promise<TaskResult> {
     const startTime = Date.now();
     const result: TaskResult = {
       task: taskName,
@@ -80,7 +101,9 @@ export class TaskExecutor extends EventEmitter {
       steps: [],
     };
 
-    // Create variable context
+    // Create variable context. The full local environment is visible for
+    // ${env.X} interpolation (which happens locally), but is NOT forwarded to
+    // execution targets — see buildExecutionEnv().
     const context: VariableContext = {
       params: options.params || {},
       vars: options.vars || {},
@@ -102,7 +125,7 @@ export class TaskExecutor extends EventEmitter {
         result.success = true;
       } else if (task.steps) {
         // Pipeline execution
-        const stepResults = await this.executePipeline(task, context, options);
+        const stepResults = await this.executePipeline(task, context, options, chain);
         result.steps = stepResults;
 
         // Pipeline is successful if:
@@ -149,6 +172,34 @@ export class TaskExecutor extends EventEmitter {
   }
 
   /**
+   * Build the environment forwarded to the execution target.
+   *
+   * Only explicitly configured environment is forwarded: task-level env,
+   * step-level env, then caller-provided env (highest precedence). The local
+   * process.env is deliberately NOT included — forwarding it to SSH/Docker/K8s
+   * targets would leak local credentials (AWS_*, tokens, etc.) to remote hosts.
+   * Local targets still inherit process.env inside the local adapter itself.
+   */
+  private async buildExecutionEnv(
+    context: VariableContext,
+    ...sources: Array<Record<string, string> | undefined>
+  ): Promise<Record<string, string>> {
+    const merged: Record<string, string> = {};
+    for (const source of sources) {
+      if (source) {
+        Object.assign(merged, source);
+      }
+    }
+
+    const resolved: Record<string, string> = {};
+    for (const [key, value] of Object.entries(merged)) {
+      resolved[key] = await this.options.interpolator.interpolateAsync(String(value), context);
+    }
+
+    return resolved;
+  }
+
+  /**
    * Execute a simple command
    */
   private async executeCommand(
@@ -157,7 +208,7 @@ export class TaskExecutor extends EventEmitter {
     options: TaskExecutionOptions
   ): Promise<ExecutionResult> {
     // Interpolate command
-    const command = this.options.interpolator.interpolate(task.command!, context);
+    const command = await this.options.interpolator.interpolateAsync(task.command!, context);
 
     if (this.options.dryRun) {
       console.log(`[DRY RUN] Would execute: ${command}`);
@@ -171,15 +222,16 @@ export class TaskExecutor extends EventEmitter {
     // Create execution engine
     const engine = target ? await this.createTargetEngine(target) : $;
 
-    // Build command options
-    const cmdOptions: any = {
-      env: context.env,
-      cwd: options.cwd || task.workdir,
-      timeout: this.getTimeout(task.timeout, options.timeout),
-    };
+    const execEnv = await this.buildExecutionEnv(context, task.env, options.env);
+    const cwd = options.cwd || task.workdir || process.cwd();
+    const timeout = this.getTimeout(task.timeout, options.timeout) || 60000;
 
     // Execute command
-    const result = await engine.raw`${command}`.env(cmdOptions.env || {}).cwd(cmdOptions.cwd || process.cwd()).timeout(cmdOptions.timeout || 60000).nothrow();
+    let proc = engine.raw`${command}`;
+    if (Object.keys(execEnv).length > 0) {
+      proc = proc.env(execEnv);
+    }
+    const result = await proc.cwd(cwd).timeout(timeout).nothrow();
 
     if (!options.quiet) {
       if (result.stdout) console.log(result.stdout);
@@ -199,10 +251,10 @@ export class TaskExecutor extends EventEmitter {
   private async executePipeline(
     task: TaskDefinition,
     context: VariableContext,
-    options: TaskExecutionOptions
+    options: TaskExecutionOptions,
+    chain: readonly string[]
   ): Promise<StepResult[]> {
     const steps = task.steps!;
-    const results: StepResult[] = [];
 
     // Determine execution mode
     const parallel = task.parallel || false;
@@ -211,10 +263,10 @@ export class TaskExecutor extends EventEmitter {
 
     if (parallel) {
       // Parallel execution
-      return this.executeStepsParallel(steps, context, options, maxConcurrent, failFast);
+      return this.executeStepsParallel(steps, context, options, maxConcurrent, failFast, task.env, chain);
     } else {
       // Sequential execution
-      return this.executeStepsSequential(steps, context, options, failFast);
+      return this.executeStepsSequential(steps, context, options, failFast, task.env, chain);
     }
   }
 
@@ -225,13 +277,15 @@ export class TaskExecutor extends EventEmitter {
     steps: TaskStep[],
     context: VariableContext,
     options: TaskExecutionOptions,
-    failFast: boolean
+    failFast: boolean,
+    taskEnv: Record<string, string> | undefined,
+    chain: readonly string[]
   ): Promise<StepResult[]> {
     const results: StepResult[] = [];
     const stepContext = { ...context };
 
     for (const step of steps) {
-      const stepResult = await this.executeStep(step, stepContext, options);
+      const stepResult = await this.executeStep(step, stepContext, options, taskEnv, chain);
       results.push(stepResult);
 
       // Register step output for use in subsequent steps
@@ -264,7 +318,9 @@ export class TaskExecutor extends EventEmitter {
     context: VariableContext,
     options: TaskExecutionOptions,
     maxConcurrent: number,
-    failFast: boolean
+    failFast: boolean,
+    taskEnv: Record<string, string> | undefined,
+    chain: readonly string[]
   ): Promise<StepResult[]> {
     const results: StepResult[] = [];
     const queue = [...steps];
@@ -274,7 +330,7 @@ export class TaskExecutor extends EventEmitter {
       // Start new executions up to maxConcurrent
       while (queue.length > 0 && executing.size < maxConcurrent) {
         const step = queue.shift()!;
-        const promise = this.executeStep(step, context, options);
+        const promise = this.executeStep(step, context, options, taskEnv, chain);
 
         executing.add(promise);
 
@@ -287,7 +343,7 @@ export class TaskExecutor extends EventEmitter {
           if (!result.success && failFast) {
             queue.length = 0; // Clear queue
           }
-        }).catch(error => {
+        }).catch(() => {
           executing.delete(promise);
           if (failFast) {
             queue.length = 0;
@@ -313,7 +369,9 @@ export class TaskExecutor extends EventEmitter {
   private async executeStep(
     step: TaskStep,
     context: VariableContext,
-    options: TaskExecutionOptions
+    options: TaskExecutionOptions,
+    taskEnv: Record<string, string> | undefined,
+    chain: readonly string[]
   ): Promise<StepResult> {
     const startTime = Date.now();
     const result: StepResult = {
@@ -323,34 +381,28 @@ export class TaskExecutor extends EventEmitter {
     };
 
     try {
-      // Check conditional execution
-      if (step.when && !await this.evaluateCondition(step.when, context)) {
+      // Check conditional execution. An unevaluable condition throws — a step
+      // is only skipped when its condition genuinely evaluates to false.
+      if (step.when !== undefined && !this.evaluateCondition(step.when, context)) {
         result.success = true;
+        result.skipped = true;
         result.duration = Date.now() - startTime;
         return result;
       }
 
       // Execute based on step type
       if (step.command) {
-        const output = await this.executeStepCommand(step, context, options);
+        const output = await this.executeStepCommand(step, context, options, taskEnv);
         result.output = output.stdout;
         if (!output.ok) {
           throw new Error(`Step command failed with exit code ${output.exitCode}`);
         }
         result.success = true;
       } else if (step.task) {
-        // Execute nested task
-        // Note: This is a simplified implementation
-        // Full nested task execution with proper context will be implemented later
-        const nestedResult = await this.executeStepCommand(
-          { ...step, command: `echo "Would execute task: ${step.task}"` },
-          context,
-          options
-        );
-        result.output = nestedResult.stdout;
-        if (!nestedResult.ok) {
-          throw new Error(`Step task failed with exit code ${nestedResult.exitCode}`);
-        }
+        // Execute nested task for real; throws when the nested task fails or
+        // cannot be resolved — never fabricates success.
+        const nestedResult = await this.executeNestedTask(step, context, options, chain);
+        result.output = nestedResult.output ?? this.combineStepOutputs(nestedResult.steps);
         result.success = true;
       } else if (step.script) {
         const output = await this.executeStepScript(step, context, options);
@@ -367,9 +419,11 @@ export class TaskExecutor extends EventEmitter {
       result.error = error as Error;
       result.duration = Date.now() - startTime;
 
-      // Handle step error - handleStepError returns the retry result if successful
-      if (step.onFailure) {
-        const retryResult = await this.handleStepError(step, error as Error, context, options, result);
+      // Handle step error - handleStepError returns the retry result if successful.
+      // Condition evaluation errors are configuration errors: retrying would
+      // bypass the (unevaluable) condition, so they are never retried.
+      if (step.onFailure && !(error instanceof ConditionEvaluationError)) {
+        const retryResult = await this.handleStepError(step, context, options, result, taskEnv);
         if (retryResult) {
           return retryResult;
         }
@@ -383,26 +437,110 @@ export class TaskExecutor extends EventEmitter {
   }
 
   /**
+   * Execute a nested task referenced by `step.task`
+   */
+  private async executeNestedTask(
+    step: TaskStep,
+    context: VariableContext,
+    options: TaskExecutionOptions,
+    chain: readonly string[]
+  ): Promise<TaskResult> {
+    const taskName = step.task!;
+    const registry = this.options.taskRegistry;
+
+    if (!registry) {
+      throw new Error(
+        `Step '${step.name ?? taskName}' invokes task '${taskName}', but this TaskExecutor was created without a task registry (TaskExecutorOptions.taskRegistry). Nested task execution is unavailable.`
+      );
+    }
+
+    const nestedTask = registry(taskName);
+    if (!nestedTask) {
+      throw new Error(`Nested task '${taskName}' not found`);
+    }
+
+    if (chain.includes(taskName)) {
+      throw new Error(`Circular task invocation detected: ${[...chain, taskName].join(' -> ')}`);
+    }
+
+    if (chain.length >= TaskExecutor.MAX_TASK_DEPTH) {
+      throw new Error(
+        `Maximum nested task depth (${TaskExecutor.MAX_TASK_DEPTH}) exceeded: ${chain.join(' -> ')}`
+      );
+    }
+
+    // Inherit the parent's params, then apply the nested task's own defaults
+    // and check its required parameters.
+    const params: Record<string, any> = { ...context.params };
+    if (nestedTask.params) {
+      const missing: string[] = [];
+      for (const param of nestedTask.params) {
+        if (params[param.name] === undefined) {
+          if (param.default !== undefined) {
+            params[param.name] = param.default;
+          } else if (param.required) {
+            missing.push(param.name);
+          }
+        }
+      }
+      if (missing.length > 0) {
+        throw new Error(`Nested task '${taskName}' is missing required parameter(s): ${missing.join(', ')}`);
+      }
+    }
+
+    const nestedResult = await this.executeInternal(
+      taskName,
+      nestedTask,
+      {
+        ...options,
+        target: step.target ?? options.target,
+        params,
+        vars: context.vars,
+      },
+      [...chain, taskName]
+    );
+
+    if (!nestedResult.success) {
+      const reason = nestedResult.error ? `: ${nestedResult.error.message}` : '';
+      throw new Error(`Nested task '${taskName}' failed${reason}`);
+    }
+
+    return nestedResult;
+  }
+
+  private combineStepOutputs(steps: StepResult[] | undefined): string | undefined {
+    if (!steps || steps.length === 0) {
+      return undefined;
+    }
+
+    const outputs = steps.map(s => s.output).filter((o): o is string => Boolean(o));
+    return outputs.length > 0 ? outputs.join('\n') : undefined;
+  }
+
+  /**
    * Execute step command
    */
   private async executeStepCommand(
     step: TaskStep,
     context: VariableContext,
-    options: TaskExecutionOptions
+    options: TaskExecutionOptions,
+    taskEnv: Record<string, string> | undefined
   ): Promise<ExecutionResult> {
-    const command = this.options.interpolator.interpolate(step.command!, context);
+    const command = await this.options.interpolator.interpolateAsync(step.command!, context);
 
     if (this.options.dryRun) {
       console.log(`[DRY RUN] Step: ${step.name || 'unnamed'} - Would execute: ${command}`);
       return { stdout: '', stderr: '', exitCode: 0, ok: true } as ExecutionResult;
     }
 
+    const execEnv = await this.buildExecutionEnv(context, taskEnv, step.env, options.env);
+
     // Handle multiple targets
     if (step.targets && step.targets.length > 0) {
       // Execute on multiple targets
       const results = await Promise.all(
         step.targets.map(targetRef =>
-          this.executeOnTarget(command, targetRef, context, options)
+          this.executeOnTarget(command, targetRef, context, options, execEnv)
         )
       );
 
@@ -417,7 +555,7 @@ export class TaskExecutor extends EventEmitter {
 
     // Single target execution
     const targetRef = step.target || options.target;
-    return this.executeOnTarget(command, targetRef, context, options);
+    return this.executeOnTarget(command, targetRef, context, options, execEnv);
   }
 
   /**
@@ -427,18 +565,17 @@ export class TaskExecutor extends EventEmitter {
     command: string,
     targetRef: string | undefined,
     context: VariableContext,
-    options: TaskExecutionOptions
+    options: TaskExecutionOptions,
+    execEnv: Record<string, string>
   ): Promise<ExecutionResult> {
     const target = targetRef ? await this.resolveTarget(targetRef, context) : null;
     const engine = target ? await this.createTargetEngine(target) : $;
 
-    const cmdOptions: any = {
-      env: context.env,
-      cwd: options.cwd,
-      timeout: options.timeout,
-    };
-
-    return engine.raw`${command}`.env(cmdOptions.env || {}).cwd(cmdOptions.cwd || process.cwd()).timeout(cmdOptions.timeout || 60000).nothrow();
+    let proc = engine.raw`${command}`;
+    if (Object.keys(execEnv).length > 0) {
+      proc = proc.env(execEnv);
+    }
+    return proc.cwd(options.cwd || process.cwd()).timeout(options.timeout || 60000).nothrow();
   }
 
   /**
@@ -449,12 +586,12 @@ export class TaskExecutor extends EventEmitter {
     context: VariableContext,
     options: TaskExecutionOptions
   ): Promise<ExecutionResult> {
-    const scriptPath = this.options.interpolator.interpolate(step.script!, context);
+    const scriptPath = await this.options.interpolator.interpolateAsync(step.script!, context);
 
     // Check if script file exists
     try {
       await fs.access(scriptPath);
-    } catch (error) {
+    } catch {
       throw new Error(`Script file not found: ${scriptPath}`);
     }
 
@@ -502,12 +639,12 @@ export class TaskExecutor extends EventEmitter {
     context: VariableContext,
     options: TaskExecutionOptions
   ): Promise<ExecutionResult> {
-    const scriptPath = this.options.interpolator.interpolate(task.script!, context);
+    const scriptPath = await this.options.interpolator.interpolateAsync(task.script!, context);
 
     // Check if script file exists
     try {
       await fs.access(scriptPath);
-    } catch (error) {
+    } catch {
       throw new Error(`Script file not found: ${scriptPath}`);
     }
 
@@ -552,10 +689,10 @@ export class TaskExecutor extends EventEmitter {
    */
   private async handleStepError(
     step: TaskStep,
-    error: Error,
     context: VariableContext,
     options: TaskExecutionOptions,
-    originalResult: StepResult
+    originalResult: StepResult,
+    taskEnv: Record<string, string> | undefined
   ): Promise<StepResult | null> {
     const handler = step.onFailure;
 
@@ -572,8 +709,8 @@ export class TaskExecutor extends EventEmitter {
       return null;
     }
 
-    // Handle retry
-    if (typeof handler === 'object' && handler.retry) {
+    // Handle retry — only command steps can be retried here
+    if (typeof handler === 'object' && handler.retry && step.command) {
       const retryHandler = handler as TaskErrorHandler;
       const retries = retryHandler.retry || 0;
       const delay = this.parseDelay(retryHandler.delay || '1s');
@@ -584,7 +721,7 @@ export class TaskExecutor extends EventEmitter {
         await new Promise(resolve => setTimeout(resolve, delay));
 
         try {
-          const result = await this.executeStepCommand(step, context, options);
+          const result = await this.executeStepCommand(step, context, options, taskEnv);
           if (result.ok) {
             // Return successful result
             return {
@@ -595,7 +732,7 @@ export class TaskExecutor extends EventEmitter {
             };
           }
           // Command failed, continue retry loop
-        } catch (retryError) {
+        } catch {
           // Continue to next retry
         }
       }
@@ -617,19 +754,41 @@ export class TaskExecutor extends EventEmitter {
     }
 
     if (handler.command) {
-      const command = this.options.interpolator.interpolate(handler.command, context);
-      await $.raw`${command}`.shell(true).nothrow();
+      try {
+        const command = await this.options.interpolator.interpolateAsync(handler.command, context);
+        await $.raw`${command}`.shell(true).nothrow();
+      } catch (handlerError) {
+        // The handler must not mask the original task error — report and move on.
+        console.error(
+          `Task onError handler failed: ${handlerError instanceof Error ? handlerError.message : String(handlerError)}`
+        );
+      }
     }
   }
 
   /**
-   * Evaluate a conditional expression
+   * Evaluate a conditional expression.
+   *
+   * @throws {ConditionEvaluationError} when the expression is malformed or
+   *   references unresolvable variables — a broken condition never silently
+   *   skips a step.
    */
-  private async evaluateCondition(condition: string, context: VariableContext): Promise<boolean> {
-    // TODO: Implement proper expression evaluation
-    // For now, just interpolate and check for 'true'
-    const interpolated = this.options.interpolator.interpolate(condition, context);
-    return interpolated === 'true' || interpolated === '1';
+  private evaluateCondition(condition: unknown, context: VariableContext): boolean {
+    // YAML may deliver booleans/numbers despite the string typing
+    if (typeof condition === 'boolean') {
+      return condition;
+    }
+    if (typeof condition === 'number') {
+      return condition !== 0;
+    }
+    if (typeof condition !== 'string') {
+      throw new ConditionEvaluationError(
+        `unsupported condition type '${typeof condition}'`,
+        String(condition)
+      );
+    }
+
+    return this.conditionEvaluator.evaluate(condition, context);
   }
 
   /**
@@ -639,7 +798,7 @@ export class TaskExecutor extends EventEmitter {
     targetRef: string,
     context: VariableContext
   ): Promise<ResolvedTarget> {
-    const interpolated = this.options.interpolator.interpolate(targetRef, context);
+    const interpolated = await this.options.interpolator.interpolateAsync(targetRef, context);
     return this.options.targetResolver.resolve(interpolated);
   }
 

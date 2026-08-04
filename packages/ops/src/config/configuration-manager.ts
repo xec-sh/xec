@@ -2,17 +2,6 @@
  * Configuration Manager - handles loading, merging, and managing configurations
  */
 
-import * as path from 'path';
-import jsYaml from 'js-yaml';
-import { existsSync } from 'fs';
-import * as fs from 'fs/promises';
-
-import { SecretManager } from '../secrets/index.js';
-import { TargetResolver } from './target-resolver.js';
-import { ConfigValidator } from './config-validator.js';
-import { deepMerge, getGlobalConfigDir } from './utils.js';
-import { VariableInterpolator } from './variable-interpolator.js';
-
 import type {
   ConfigSource,
   Configuration,
@@ -22,6 +11,17 @@ import type {
   VariableContext,
   ConfigManagerOptions
 } from './types.js';
+
+import * as path from 'path';
+import jsYaml from 'js-yaml';
+import { existsSync } from 'fs';
+import * as fs from 'fs/promises';
+
+import { SecretManager } from '../secrets/index.js';
+import { TargetResolver } from './target-resolver.js';
+import { ConfigValidator } from './config-validator.js';
+import { deepMerge, getGlobalConfigDir } from './utils.js';
+import { VariableInterpolator, type InterpolateOptions } from './variable-interpolator.js';
 
 /**
  * Default configuration values
@@ -60,6 +60,12 @@ const DEFAULT_CONFIG: Partial<Configuration> = {
 export class ConfigurationManager {
   private sources: ConfigSource[] = [];
   private merged?: Configuration;
+  /**
+   * The merged configuration BEFORE variable interpolation. This is what
+   * save() persists — resolved secrets and ${cmd:...} output must never be
+   * written to disk.
+   */
+  private rawMerged?: Configuration;
   private interpolator: VariableInterpolator;
   private validator: ConfigValidator;
   private secretManager: SecretManager;
@@ -94,6 +100,7 @@ export class ConfigurationManager {
     // Clear previous state
     this.sources = [];
     this.merged = undefined;
+    this.rawMerged = undefined;
 
     // Initialize secret manager
     await this.secretManager.initialize();
@@ -108,13 +115,34 @@ export class ConfigurationManager {
     // 2. Merge configurations
     this.merged = this.mergeConfigurations();
 
-    // 3. Update secret provider from configuration if specified
+    // 3. Update secret provider from configuration if specified.
+    // Unsupported provider types are reported as validation errors instead of
+    // letting SecretManager initialization throw a raw SecretError mid-load.
     if (this.merged.secrets) {
-      await this.updateSecretProvider({
-        type: this.merged.secrets.provider,
-        config: this.merged.secrets.config
-      });
+      const providerType = this.merged.secrets.provider;
+      if (!SecretManager.isSupported(providerType)) {
+        const error: ValidationError = {
+          path: 'secrets.provider',
+          message: `Secrets provider '${providerType}' is not supported. Supported providers: local, env, git`,
+          value: providerType,
+          rule: 'error'
+        };
+        if (this.options.strict) {
+          throw new ConfigValidationError('Configuration validation failed', [error]);
+        }
+        console.warn(`Config warning: ${error.path} - ${error.message}`);
+        // Keep the previously configured provider; secret lookups against the
+        // unsupported provider will fail loudly during interpolation.
+      } else {
+        await this.updateSecretProvider({
+          type: providerType,
+          config: this.merged.secrets.config
+        });
+      }
     }
+
+    // Preserve the uninterpolated configuration for save()
+    this.rawMerged = JSON.parse(JSON.stringify(this.merged)) as Configuration;
 
     // 4. Resolve variables
     try {
@@ -161,7 +189,9 @@ export class ConfigurationManager {
   }
 
   /**
-   * Set a configuration value by path
+   * Set a configuration value by path.
+   * Applied to both the resolved configuration and the raw (uninterpolated)
+   * configuration so the change survives save().
    */
   set(p: string, value: any): void {
     if (!this.merged) {
@@ -169,6 +199,34 @@ export class ConfigurationManager {
     }
 
     this.setByPath(this.merged, p, value);
+    if (this.rawMerged) {
+      this.setByPath(this.rawMerged, p, value);
+    }
+  }
+
+  /**
+   * Apply a structural mutation to the configuration.
+   * The mutator runs against both the resolved and the raw configuration, so
+   * the change is visible immediately AND persisted by save() without leaking
+   * resolved secrets to disk.
+   */
+  update(mutator: (config: Configuration) => void): void {
+    if (!this.merged || !this.rawMerged) {
+      throw new Error('Configuration not loaded. Call load() first.');
+    }
+
+    mutator(this.merged);
+    mutator(this.rawMerged);
+  }
+
+  /**
+   * Get the raw (uninterpolated) configuration — the form that save() persists
+   */
+  getRawConfig(): Configuration {
+    if (!this.rawMerged) {
+      throw new Error('Configuration not loaded. Call load() first.');
+    }
+    return this.rawMerged;
   }
 
   /**
@@ -194,9 +252,11 @@ export class ConfigurationManager {
   }
 
   /**
-   * Interpolate variables in a string
+   * Interpolate variables in a string.
+   * Throws on unresolvable references by default; pass
+   * `{ onUndefined: 'keep' }` to leave them as literal text.
    */
-  interpolate(value: string, context?: Partial<VariableContext>): string {
+  interpolate(value: string, context?: Partial<VariableContext>, options?: InterpolateOptions): string {
     const fullContext: VariableContext = {
       vars: this.merged?.vars || {},
       env: this.getEnvironmentVariables(),
@@ -204,7 +264,7 @@ export class ConfigurationManager {
       ...context
     };
 
-    return this.interpolator.interpolate(value, fullContext);
+    return this.interpolator.interpolate(value, fullContext, options);
   }
 
   /**
@@ -256,10 +316,13 @@ export class ConfigurationManager {
   }
 
   /**
-   * Save configuration to file
+   * Save configuration to file.
+   * Persists the RAW (uninterpolated) configuration — resolved secrets and
+   * ${cmd:...} output are never written to disk.
    */
   async save(filePath?: string): Promise<void> {
-    if (!this.merged) {
+    const toSave = this.rawMerged ?? this.merged;
+    if (!toSave) {
       throw new Error('No configuration to save');
     }
 
@@ -276,7 +339,7 @@ export class ConfigurationManager {
     await fs.mkdir(dir, { recursive: true });
 
     // Convert to YAML
-    const yamlContent = jsYaml.dump(this.merged, {
+    const yamlContent = jsYaml.dump(toSave, {
       indent: 2,
       lineWidth: 120,
       sortKeys: false
@@ -691,17 +754,33 @@ export class ConfigurationManager {
       profile: this.getCurrentProfile()
     };
 
-    // Don't resolve task commands - they may contain params that are only available at runtime
     const configCopy = JSON.parse(JSON.stringify(config));
+
+    // Don't resolve task commands - they may contain params that are only available at runtime
     const tasks = configCopy.tasks;
     delete configCopy.tasks;
 
-    // Resolve variables in the config except tasks
-    const resolved = await this.interpolator.resolveConfig(configCopy, context);
+    // Don't resolve inactive profiles either - the active profile's values were
+    // already merged into the config, and other profiles may reference secrets
+    // or variables that only exist when that profile is active.
+    const profiles = configCopy.profiles;
+    delete configCopy.profiles;
 
-    // Add tasks back without resolution
+    // Resolve variables in the rest of the config. Unresolvable references
+    // throw a descriptive error instead of silently keeping the literal
+    // ${...} text (which would e.g. hand '${secrets.db_password}' to SSH as a
+    // password). ${params.*} references stay literal — they resolve at task
+    // runtime.
+    const resolved = await this.interpolator.resolveConfig(configCopy, context, {
+      lenientTypes: ['params']
+    });
+
+    // Add tasks and profiles back without resolution
     if (tasks) {
       resolved.tasks = tasks;
+    }
+    if (profiles) {
+      resolved.profiles = profiles;
     }
 
     return resolved;

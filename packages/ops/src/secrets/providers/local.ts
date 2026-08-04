@@ -50,7 +50,7 @@ export class LocalSecretProvider implements SecretProvider {
     // Verify we can read/write
     try {
       await fs.access(this.storageDir, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (error) {
+    } catch {
       throw new SecretError(
         `Cannot access secret storage directory: ${this.storageDir}`,
         'STORAGE_ACCESS_ERROR'

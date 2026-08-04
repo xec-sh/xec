@@ -1,6 +1,6 @@
 
-import { $, AdapterError, dispose, configure } from '../../src/index.js';
 import { globalCache } from '../../src/utils/cache.js';
+import { $, dispose, configure } from '../../src/index.js';
 
 describe('Timeout execution test', () => {
   beforeEach(async () => {

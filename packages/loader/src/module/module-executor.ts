@@ -3,12 +3,12 @@
  * @module @xec-sh/loader/module/module-executor
  */
 
+import type { ModuleType, ModuleExports } from '../types/index.js';
+
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-
-import type { ModuleType, ModuleExports } from '../types/index.js';
 
 export interface ModuleExecutionOptions {
   specifier: string;
@@ -179,7 +179,7 @@ export class ModuleExecutor {
       // Execute in function scope
       const func = new Function('exports', 'module', 'require', '__dirname', '__filename', content);
       func(moduleExports, moduleObj, requireStub, '/', '/module.js');
-    } catch (error) {
+    } catch {
       // Try simpler version without __dirname/__filename
       const func = new Function('exports', 'module', 'require', content);
       func(moduleExports, moduleObj, requireStub);

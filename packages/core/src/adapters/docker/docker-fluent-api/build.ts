@@ -2,10 +2,10 @@
  * Docker Build Fluent API
  */
 
-import { DockerEphemeralFluentAPI } from './base.js';
-
 import type { FluentAPIBuilder, DockerBuildConfig } from './types.js';
 import type { ExecutionEngine } from '../../../core/execution-engine.js';
+
+import { DockerEphemeralFluentAPI } from './base.js';
 
 /**
  * Docker Build Fluent API
@@ -304,8 +304,7 @@ export class DockerBuildFluentAPI implements FluentAPIBuilder<DockerBuildConfig>
     args.push(this.config.context!);
 
     // Execute build command
-    const cmdStr = args.join(' ');
-    const result = await this.engine.run`docker ${cmdStr}`;
+    const result = await this.engine.run`docker ${args}`;
 
     if (!result.ok) {
       throw new Error(`Docker build failed: ${result.stderr}`);
@@ -429,8 +428,7 @@ export class DockerBuildFluentAPI implements FluentAPIBuilder<DockerBuildConfig>
     args.push(this.config.context!);
 
     // Execute buildx command
-    const cmdStr = args.join(' ');
-    const result = await this.engine.run`docker ${cmdStr}`;
+    const result = await this.engine.run`docker ${args}`;
 
     if (!result.ok) {
       throw new Error(`Docker buildx failed: ${result.stderr}`);
@@ -472,13 +470,13 @@ export class DockerBuildFluentAPI implements FluentAPIBuilder<DockerBuildConfig>
 
     // Try different scanners in order of preference
     const scanners = [
-      { cmd: `docker scout cves ${image}`, name: 'Docker Scout' },
-      { cmd: `trivy image ${image}`, name: 'Trivy' },
-      { cmd: `docker scan ${image}`, name: 'Docker Scan' }
+      { args: ['docker', 'scout', 'cves', image], name: 'Docker Scout' },
+      { args: ['trivy', 'image', image], name: 'Trivy' },
+      { args: ['docker', 'scan', image], name: 'Docker Scan' }
     ];
 
     for (const scanner of scanners) {
-      const result = await this.engine.run`${scanner.cmd}`.nothrow();
+      const result = await this.engine.run`${scanner.args}`.nothrow();
       if (result.exitCode === 0) {
         return result.stdout;
       }

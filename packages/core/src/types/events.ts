@@ -19,7 +19,14 @@ export interface CommandStartEvent extends BaseUshEvent {
   args?: string[];
   cwd?: string;
   shell?: boolean;
-  env?: Record<string, string>;
+  /**
+   * Names of the environment variables passed to the command.
+   *
+   * Only the names are published. Emitting the values leaked every secret in
+   * the environment to any listener — including loggers and telemetry sinks —
+   * which is exactly where credentials must never appear.
+   */
+  envKeys?: string[];
 }
 
 export interface CommandCompleteEvent extends BaseUshEvent {

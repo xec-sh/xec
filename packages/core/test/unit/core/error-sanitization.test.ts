@@ -104,21 +104,31 @@ describe('sanitizeCommandForError', () => {
     });
   });
 
-  describe('when in test environment', () => {
-    it('should not sanitize when NODE_ENV is test', () => {
+  describe('when in a test or CI environment', () => {
+    // Sanitization used to switch itself off whenever NODE_ENV=test or a test
+    // runner variable was present. Those variables are set on virtually every
+    // CI job, so the redaction disappeared exactly where build logs are most
+    // widely readable. Only the explicit opt-out may disable it.
+    it('still sanitizes when NODE_ENV is test', () => {
       process.env['NODE_ENV'] = 'test';
       process.env['XEC_SANITIZE_COMMANDS'] = 'true';
-      
-      const command = 'cat /secret/file';
-      expect(sanitizeCommandForError(command)).toBe(command);
+
+      expect(sanitizeCommandForError('cat /secret/file')).toBe('cat [arguments hidden]');
     });
 
-    it('should not sanitize when JEST_WORKER_ID is set', () => {
+    it('still sanitizes when a test-runner worker id is set', () => {
       delete process.env['NODE_ENV'];
       process.env['JEST_WORKER_ID'] = '1';
+      process.env['VITEST_WORKER_ID'] = '1';
       process.env['XEC_SANITIZE_COMMANDS'] = 'true';
-      
-      const command = 'rm -rf /important/path';
+
+      expect(sanitizeCommandForError('rm -rf /important/path')).toBe('rm [arguments hidden]');
+    });
+
+    it('honours the explicit opt-out', () => {
+      process.env['XEC_SANITIZE_COMMANDS'] = 'false';
+
+      const command = 'cat /secret/file';
       expect(sanitizeCommandForError(command)).toBe(command);
     });
   });

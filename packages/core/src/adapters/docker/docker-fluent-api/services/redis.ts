@@ -2,8 +2,6 @@
  * Redis Docker Service Fluent API
  */
 
-import { DockerEphemeralFluentAPI } from '../base.js';
-
 import type { ExecutionResult } from '../../../../types/result.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../../core/execution-engine.js';
 import type {
@@ -12,6 +10,8 @@ import type {
   ClusterNodeInfo,
   RedisServiceConfig
 } from '../types.js';
+
+import { DockerEphemeralFluentAPI } from '../base.js';
 
 /**
  * Redis Single Instance Fluent API

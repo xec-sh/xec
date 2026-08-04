@@ -21,6 +21,7 @@ import SSH2, {
 } from 'ssh2'
 
 import { escapeUnix } from '../../utils/shell-escape.js'
+import { KnownHostsVerifier, type HostKeyChecking } from './known-hosts.js'
 
 // Helper functions to replace external dependencies
 function isReadableStream(obj: any): obj is stream.Readable {
@@ -86,6 +87,17 @@ class PromiseQueue {
 }
 
 export type Config = ConnectConfig & {
+  /**
+   * Host key checking policy.
+   *
+   * `ssh2` performs no verification unless a `hostVerifier` is supplied, so
+   * omitting this would let any machine-in-the-middle present its own key and
+   * read every command and credential on the session. Defaults to
+   * `accept-new`.
+   */
+  hostKeyChecking?: HostKeyChecking
+  /** Override the `known_hosts` file consulted. */
+  knownHostsPath?: string
   password?: string
   privateKey?: string
   privateKeyPath?: string
@@ -190,7 +202,7 @@ async function makeDirectoryWithSftp(path: string, sftp: SFTPWrapper) {
         }
       })
     })
-  } catch (_) {
+  } catch {
     /* No Op */
   }
   if (stats) {
@@ -305,8 +317,38 @@ export class NodeSSH {
     const connection = new SSH2.Client()
     this.connection = connection
 
+    // Verify the server's host key. Without this ssh2 accepts whatever key is
+    // presented, which makes every session interceptable.
+    let hostKeyRejection: Error | null = null
+
+    if (!config.hostVerifier) {
+      const verifier = new KnownHostsVerifier(
+        config.hostKeyChecking ?? 'accept-new',
+        config.knownHostsPath,
+      )
+      const host = typeof config.host === 'string' ? config.host : 'localhost'
+      const port = typeof config.port === 'number' ? config.port : 22
+
+      config.hostVerifier = (key: Buffer, callback: (valid: boolean) => void) => {
+        verifier
+          .verify(host, port, key)
+          .then(verdict => {
+            if (!verdict.ok) {
+              // ssh2 reports a rejected key as a generic handshake failure, so
+              // the actionable message is kept and rethrown below.
+              hostKeyRejection = new SSHError(verdict.message, 'EHOSTKEY')
+            }
+            callback(verdict.ok)
+          })
+          .catch(error => {
+            hostKeyRejection = error instanceof Error ? error : new Error(String(error))
+            callback(false)
+          })
+      }
+    }
+
     await new Promise<void>((resolve, reject) => {
-      connection.on('error', reject)
+      connection.on('error', error => reject(hostKeyRejection ?? error))
       if (config.onKeyboardInteractive) {
         connection.on('keyboard-interactive', config.onKeyboardInteractive)
       }
@@ -859,8 +901,13 @@ export class NodeSSH {
         const dispose = (): Promise<void> => new Promise((_resolve, _reject) => {
           connection.off('tcp connection', handler)
           connection.unforwardIn(remoteAddr, port, (_error) => {
+            // Reject with the *unforward* error. Rejecting with the outer
+            // `error` reported `undefined`, since that variable is guaranteed
+            // falsy here — and without the return the promise then resolved
+            // as well, hiding the failure entirely.
             if (_error) {
-              _reject(error)
+              _reject(_error)
+              return
             }
 
             _resolve()
@@ -915,6 +962,7 @@ export class NodeSSH {
           connection.openssh_unforwardInStreamLocal(socketPath, (_error) => {
             if (_error) {
               _reject(_error)
+              return
             }
 
             _resolve()

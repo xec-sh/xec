@@ -1,6 +1,5 @@
-import type { Writable, Transform } from 'node:stream';
-
 import type { ExecutionResult } from './result.js';
+import type { Writable, Transform } from 'node:stream';
 import type { Command, StreamOption } from './command.js';
 
 /**

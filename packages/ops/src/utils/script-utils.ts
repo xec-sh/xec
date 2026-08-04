@@ -4,7 +4,7 @@ import fs from 'fs-extra';
 import { glob } from 'glob';
 import * as kit from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
-import { ScriptRuntime, createRuntime } from '@xec-sh/loader';
+import { createRuntime } from '@xec-sh/loader';
 
 // Re-export USH $ with enhanced features
 export const $ = xecDollar;
@@ -134,6 +134,7 @@ export function template(strings: TemplateStringsArray, ...values: unknown[]): s
 
 // Which utility — use native child_process to find binaries
 import { execSync } from 'node:child_process';
+
 export function which(command: string): string | null {
   try {
     return execSync(`which ${command}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null;

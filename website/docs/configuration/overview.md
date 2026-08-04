@@ -61,7 +61,6 @@ tasks:
 tasks:
   backup:
     description: Backup data with retention
-    schedule: "0 2 * * *"
     steps:
       - command: rsync -av /data /backup/$(date +%Y%m%d)
       - command: find /backup -mtime +7 -delete
@@ -72,11 +71,11 @@ tasks:
 Xec loads and merges configurations from multiple sources in a specific order:
 
 1. **Built-in Defaults** - Xec's internal defaults
-2. **Global Configuration** - `~/.xec/config.yaml`
-3. **Project Configuration** - `.xec/config.yaml` in project root
-4. **Environment Variables** - `XEC_*` prefixed variables
-5. **Profile Configuration** - Profile-specific overrides
-6. **Command-line Arguments** - Runtime overrides
+2. **Global Configuration** - `~/.xec/config.yaml` (or `$XEC_HOME_DIR/config.yaml`)
+3. **Project Configuration** - `.xec/config.yaml` (or `xec.yaml`) at the project root
+4. **`XEC_CONFIG` File** - Extra file referenced by the environment variable
+5. **Environment Variables** - `XEC_*` prefixed variables (e.g. `XEC_VARS_PORT`)
+6. **Profile Configuration** - Active profile (`XEC_PROFILE`), highest priority
 
 Later sources override earlier ones, allowing flexible customization at different levels.
 
@@ -91,9 +90,6 @@ A typical Xec project configuration looks like:
 │   ├── dev.yaml
 │   ├── staging.yaml
 │   └── production.yaml
-├── tasks/              # Task definitions (can be imported)
-│   ├── deploy.yaml
-│   └── maintenance.yaml
 ├── scripts/            # Custom scripts
 │   └── health-check.js
 └── commands/          # Custom commands
@@ -151,10 +147,10 @@ targets:
   hosts:
     web:
       host: web.example.com
-      username: deploy
+      user: deploy
     db:
       host: db.example.com
-      username: admin
+      user: admin
 
 # Define reusable tasks
 tasks:

@@ -24,10 +24,17 @@ describe('README Examples', () => {
     const result1 = interpolate(createTemplateStringsArray(['touch ', '']), filename);
     expect(result1).toBe('touch \'my file.txt\'');
 
-    // Test arrays - the shell-escape library quotes arguments for safety
+    // Array elements are escaped individually. Plain filenames contain no
+    // shell metacharacters, so they are emitted unquoted — quoting them would
+    // only make logged commands harder to read.
     const files = ['file1.txt', 'file2.txt', 'file3.txt'];
     const result2 = interpolate(createTemplateStringsArray(['rm ', '']), files);
-    expect(result2).toBe('rm \'file1.txt\' \'file2.txt\' \'file3.txt\'');
+    expect(result2).toBe('rm file1.txt file2.txt file3.txt');
+
+    // Anything with a metacharacter still gets quoted.
+    const risky = ['a b.txt', '$(id)'];
+    const result2b = interpolate(createTemplateStringsArray(['rm ', '']), risky);
+    expect(result2b).toBe(`rm 'a b.txt' '$(id)'`);
 
     // Test mixed types
     const mixed = ['hello', 42, true, { key: 'value' }];

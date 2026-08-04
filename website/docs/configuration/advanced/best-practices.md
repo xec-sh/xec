@@ -166,12 +166,13 @@ vars:
 ```yaml
 vars:
   # Always provide defaults
-  port: ${env.PORT:-8080}
-  environment: ${env.NODE_ENV:-development}
-  logLevel: ${env.LOG_LEVEL:-info}
+  port: ${env.PORT:8080}
+  environment: ${env.NODE_ENV:development}
+  logLevel: ${env.LOG_LEVEL:info}
   
-  # Computed defaults
-  workers: ${env.WORKERS:-${runtime.cpus}}
+  # Computed values via command substitution
+  workers: ${env.WORKERS:4}
+  cpu_count: ${cmd:nproc}
 ```
 
 ## Security Best Practices
@@ -637,7 +638,7 @@ vars:
 
 # Good - simple and clear
 vars:
-  value: ${env.VALUE:-default}
+  value: ${env.VALUE:default}
 ```
 
 ## Monitoring and Observability

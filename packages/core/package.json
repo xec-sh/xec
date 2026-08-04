@@ -38,7 +38,7 @@
     "system-administration"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && tsc",
     "test": "vitest run",
     "test:unit": "vitest run test/unit/",
     "test:integration": "vitest run test/integration/",
@@ -49,11 +49,11 @@
     "docker:start": "../testing/docker-ssh-manager.sh start",
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "js-yaml": "^4.1.1",
-    "shell-escape": "^0.2.0",
     "ssh2": "^1.17.0",
     "zod": "^4.3.6"
   },

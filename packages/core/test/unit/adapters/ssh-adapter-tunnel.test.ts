@@ -1,8 +1,8 @@
+import type { Command } from '../../../src/types/command.js';
+
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
-
-import type { Command } from '../../../src/types/command.js';
 
 // Test with real SSH connections using Docker containers
 describeSSH('SSH Adapter Tunnel Tests', () => {
@@ -35,10 +35,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -69,6 +66,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         port: tunnel.localPort,
         username: sshConfig.username,
         password: sshConfig.password,
+        hostKeyChecking: 'off' as const,
         readyTimeout: 5000
       }).then(() => true).catch(() => false);
 
@@ -94,10 +92,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -124,6 +119,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         port: tunnel.localPort,
         username: sshConfig.username,
         password: sshConfig.password,
+        hostKeyChecking: 'off' as const,
         readyTimeout: 5000
       }).then(() => true).catch(() => false);
 
@@ -145,10 +141,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -175,6 +168,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         port: tunnel.localPort,
         username: sshConfig.username,
         password: sshConfig.password,
+        hostKeyChecking: 'off' as const,
         readyTimeout: 5000
       }).then(() => true).catch(() => false);
 
@@ -200,10 +194,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -247,10 +238,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -292,10 +280,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -322,10 +307,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -351,10 +333,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -409,10 +388,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -426,10 +402,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: `echo "${testContent}" > ${remoteFile}`,
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
       await adapter.execute(writeCommand);
@@ -453,6 +426,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         port: tunnel.localPort,
         username: sshConfig.username,
         password: sshConfig.password,
+        hostKeyChecking: 'off' as const,
         readyTimeout: 5000
       }).then(() => true).catch(() => false);
 
@@ -472,10 +446,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: `rm -f ${remoteFile}`,
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
       await adapter.execute(cleanupCommand);
@@ -491,10 +462,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -556,10 +524,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -605,10 +570,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         command: 'echo "connected"',
         adapterOptions: {
           type: 'ssh',
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          password: sshConfig.password
+          ...sshConfig
         }
       };
 
@@ -659,10 +621,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           command: 'echo "connected"',
           adapterOptions: {
             type: 'ssh',
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            password: sshConfig.password
+            ...sshConfig
           }
         };
 
@@ -682,10 +641,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           command: 'echo "test through pooled connection"',
           adapterOptions: {
             type: 'ssh',
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            password: sshConfig.password
+            ...sshConfig
           }
         };
 

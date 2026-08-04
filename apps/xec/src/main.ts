@@ -4,11 +4,9 @@ import { Command } from 'commander';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { checkForCommandTypo } from '@xec-sh/core';
+import { handleError , TaskManager, isDirectCommand , ConfigurationManager, executeDirectCommand } from '@xec-sh/ops';
 
-import { handleError } from '@xec-sh/ops';
 import { customizeHelp } from './utils/help-customizer.js';
-import { TaskManager, ConfigurationManager } from '@xec-sh/ops';
-import { isDirectCommand, executeDirectCommand } from '@xec-sh/ops';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { saveCommandHistory, initializeCommandPalette } from './utils/command-palette.js';
 

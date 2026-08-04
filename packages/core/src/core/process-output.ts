@@ -1,6 +1,6 @@
-import { TextDecoder } from 'util';
-
 import type { ProcessOutputOptions } from '../types/process.js';
+
+import { TextDecoder } from 'util';
 
 export { ProcessOutputOptions } from '../types/process.js';
 
@@ -79,7 +79,7 @@ export class ProcessOutput extends Error {
       return JSON.parse(text);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to parse JSON: ${message}\nOutput: ${text}`);
+      throw new Error(`Failed to parse JSON: ${message}\nOutput: ${text}`, { cause: err });
     }
   }
 

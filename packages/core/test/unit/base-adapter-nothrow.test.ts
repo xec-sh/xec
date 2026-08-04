@@ -1,7 +1,7 @@
 
-import { BaseAdapter } from '../../src/adapters/base-adapter.js';
-
 import type { Command } from '../../src/types/command.js';
+
+import { BaseAdapter } from '../../src/adapters/base-adapter.js';
 
 // Create a concrete implementation for testing
 class TestAdapter extends BaseAdapter {

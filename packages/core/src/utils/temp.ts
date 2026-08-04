@@ -1,9 +1,9 @@
+import type { UshEventMap, TypedEventEmitter } from '../types/events.js';
+
 import { tmpdir } from 'node:os';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, relative, normalize, isAbsolute } from 'node:path';
-
-import type { UshEventMap, TypedEventEmitter } from '../types/events.js';
 
 
 export interface TempOptions {
@@ -52,45 +52,27 @@ export class TempFile {
   }
 
   async create(content?: string): Promise<void> {
-    try {
-      if (content !== undefined) {
-        await fs.writeFile(this._path, content, 'utf8');
-      } else {
-        // Create empty file
-        await fs.writeFile(this._path, '', 'utf8');
-      }
-      
-      // Emit temp:create event
-      this.emitEvent('temp:create', {
-        path: this._path,
-        type: 'file'
-      });
-
-    } catch (error) {
-      throw error;
+    if (content !== undefined) {
+      await fs.writeFile(this._path, content, 'utf8');
+    } else {
+      // Create empty file
+      await fs.writeFile(this._path, '', 'utf8');
     }
+    
+    // Emit temp:create event
+    this.emitEvent('temp:create', {
+      path: this._path,
+      type: 'file'
+    });
+
   }
 
   async write(content: string): Promise<void> {
-    try {
-      await fs.writeFile(this._path, content, 'utf8');
-      
-
-    } catch (error) {
-
-      throw error;
-    }
+    await fs.writeFile(this._path, content, 'utf8');
   }
 
   async append(content: string): Promise<void> {
-    try {
-      await fs.appendFile(this._path, content, 'utf8');
-      
-
-    } catch (error) {
-
-      throw error;
-    }
+    await fs.appendFile(this._path, content, 'utf8');
   }
 
   async read(): Promise<string> {
@@ -118,7 +100,7 @@ export class TempFile {
           type: 'file'
         });
 
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
     }
@@ -162,18 +144,14 @@ export class TempDir {
   }
 
   async create(): Promise<void> {
-    try {
-      await fs.mkdir(this._path, { recursive: true });
-      
-      // Emit temp:create event
-      this.emitEvent('temp:create', {
-        path: this._path,
-        type: 'directory'
-      });
+    await fs.mkdir(this._path, { recursive: true });
+    
+    // Emit temp:create event
+    this.emitEvent('temp:create', {
+      path: this._path,
+      type: 'directory'
+    });
 
-    } catch (error) {
-      throw error;
-    }
   }
 
   async exists(): Promise<boolean> {
@@ -217,7 +195,7 @@ export class TempDir {
           type: 'directory'
         });
 
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
     }

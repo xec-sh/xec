@@ -1,13 +1,10 @@
+import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
+
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
+import { handleError , TaskManager , TargetResolver, OutputFormatter, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
-
-import { handleError } from '@xec-sh/ops';
-import { OutputFormatter } from '@xec-sh/ops';
-import { TaskManager, TargetResolver, ConfigurationManager } from '@xec-sh/ops';
-
-import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
 
 export interface CommandOptions {
   verbose?: boolean;
@@ -104,9 +101,17 @@ export abstract class BaseCommand {
     // Set up action handler
     command.action(async (...args) => {
       try {
-        const options = args[args.length - 1];
-        // Get verbose and quiet from parent command
-        const parentOptions = options.parent?.opts() || {};
+        // Commander calls an action as (...positionalArgs, options, command).
+        // Reading the last element as the options object picked up the
+        // Command instance instead, and left the real options sitting in the
+        // positional list — so `xec on host uptime` built the command
+        // "uptime [object Object]". Both are taken from their true positions
+        // here, and execute() receives the shape it has always assumed:
+        // positional arguments followed by options.
+        const invokedCommand = args[args.length - 1];
+        const options = args.length > 1 ? args[args.length - 2] : {};
+        const positionalArgs = args.slice(0, -2);
+        const parentOptions = invokedCommand?.parent?.opts?.() || {};
 
         // Extract command-specific options, excluding commander internals
         const commandOptions: any = {};
@@ -139,7 +144,7 @@ export abstract class BaseCommand {
         this.formatter.setVerbose(this.options.verbose || false);
 
         // Execute command
-        await this.execute(args);
+        await this.execute([...positionalArgs, this.options]);
       } catch (error) {
         handleError(error, this.options);
       }
@@ -245,7 +250,11 @@ export abstract class BaseCommand {
             port: config.port,
             privateKey: config.privateKey,
             password: config.password,
-            passphrase: config.passphrase
+            passphrase: config.passphrase,
+            // Without these an explicitly configured target silently falls
+            // back to the default host key policy.
+            hostKeyChecking: config.hostKeyChecking,
+            knownHostsPath: config.knownHostsPath
           });
 
           // Apply environment variables from config

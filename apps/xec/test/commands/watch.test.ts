@@ -337,6 +337,7 @@ describe('Watch Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -354,6 +355,7 @@ describe('Watch Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 
@@ -783,7 +785,7 @@ describe('Watch Command', () => {
 
       const session = sessions.get('pods.test');
       expect(session).toBeDefined();
-      expect(session?.target.type).toBe('k8s');
+      expect(session?.target.type).toBe('kubernetes');
 
       // Stop watching
       command['running'] = false;

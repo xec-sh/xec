@@ -9,6 +9,7 @@ export * from './task-manager.js';
 export * from './task-executor.js';
 export * from './target-resolver.js';
 export * from './config-validator.js';
+export * from './condition-evaluator.js';
 export * from './configuration-manager.js';
 export * from './variable-interpolator.js';
 

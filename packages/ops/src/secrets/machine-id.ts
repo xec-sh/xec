@@ -81,7 +81,7 @@ export async function getMachineId(): Promise<string> {
           } else {
             throw new Error('Failed to extract UUID from wmic output');
           }
-        } catch (error) {
+        } catch {
           // Fallback: Use Windows Product ID
           const productIdOutput = execSync(
             'wmic os get SerialNumber /value',
@@ -128,7 +128,7 @@ export async function getMachineId(): Promise<string> {
     ].join('-');
 
     return uuid;
-  } catch (error) {
+  } catch {
     // Last resort: Use hostname + CPU info + memory
     const fallbackId = [
       os.hostname(),

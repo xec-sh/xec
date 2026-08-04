@@ -72,16 +72,18 @@ Execute commands in existing containers using the Docker adapter:
 import { $ } from '@xec-sh/core';
 
 // Execute in running container
-const result = await $.docker('my-container')`ls -la /app`;
+const result = await $.docker({ container: 'my-container' })`ls -la /app`;
 console.log(result.stdout);
 
 // Execute with working directory
-const result = await $.docker('my-container', {
-  cwd: '/app'
+const result2 = await $.docker({
+  container: 'my-container',
+  workdir: '/app'
 })`npm test`;
 
 // Execute as specific user
-const result = await $.docker('my-container', {
+const result3 = await $.docker({
+  container: 'my-container',
   user: 'node'
 })`whoami`;
 ```
@@ -483,7 +485,7 @@ targets:
 async function executeWithRetry(container: string, command: string) {
   for (let i = 0; i < 3; i++) {
     try {
-      return await $.docker(container)`${command}`;
+      return await $.docker({ container })`${command}`;
     } catch (error) {
       if (error.code === 'CONTAINER_NOT_RUNNING') {
         await $.docker.start(container);
@@ -497,7 +499,7 @@ async function executeWithRetry(container: string, command: string) {
 // Health-based execution
 async function executeWhenHealthy(container: string, command: string) {
   await $.docker.waitHealthy(container);
-  return await $.docker(container)`${command}`;
+  return await $.docker({ container })`${command}`;
 }
 ```
 
@@ -521,7 +523,7 @@ try {
     name: containerName,
     rm: false  // Don't auto-remove for debugging
   });
-  await $.docker(containerName)`npm test`;
+  await $.docker({ container: containerName })`npm test`;
 } finally {
   await $.docker.remove(containerName, { force: true });
 }
@@ -529,7 +531,7 @@ try {
 // Good: Wait for readiness
 await $.docker.start('database');
 await $.docker.waitHealthy('database');
-await $.docker('app')`npm run migrate`;
+await $.docker({ container: 'app' })`npm run migrate`;
 ```
 
 ## Related Topics

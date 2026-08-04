@@ -201,6 +201,7 @@ describe('Copy Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -228,6 +229,7 @@ describe('Copy Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 
@@ -250,6 +252,7 @@ describe('Copy Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -266,6 +269,7 @@ describe('Copy Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 
@@ -299,6 +303,7 @@ describe('Copy Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -329,6 +334,7 @@ describe('Copy Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 

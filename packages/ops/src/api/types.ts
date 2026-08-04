@@ -3,7 +3,6 @@
  */
 
 import type { ExecutionEngine, ExecutionResult as CoreExecutionResult } from '@xec-sh/core';
-
 import type { TargetType, ResolvedTarget, TaskDefinition as ConfigTaskDefinition } from '../config/types.js';
 
 // Configuration API Types

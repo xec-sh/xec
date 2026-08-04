@@ -1,39 +1,29 @@
-import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-engine.js';
-
 import type { Command } from './types/command.js';
 import type { CallableExecutionEngine } from './types/engine.js';
 
+import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-engine.js';
+
 export { pipeUtils } from './utils/pipe.js';
 export { isDisposable } from './types/disposable.js';
+export type { EventFilter } from './types/events.js';
+export type { PipeTarget } from './types/process.js';
 export { within, withinSync } from './utils/within.js';
+export type { ExecutionResult } from './core/result.js';
 export { LocalAdapter } from './adapters/local/index.js';
+export type { ProcessPromise } from './types/process.js';
 export { DockerAdapter } from './adapters/docker/index.js';
 export { withTempDir, withTempFile } from './utils/temp.js';
 export { ExecutionEngine } from './core/execution-engine.js';
-export { parallel, ParallelEngine } from './utils/parallel.js';
 
-// Core helpers — zx-compatible utilities
-export {
-  echo,
-  glob,
-  kill,
-  sleep,
-  xfetch,
-  readStdin,
-  expBackoff,
-  yamlParse,
-  yamlStringify,
-  parseDuration,
-  type Duration,
-} from './utils/helpers.js';
+export type { RetryOptions } from './utils/retry-adapter.js';
 
 export type { ExecutionEngineConfig };
+export { parallel, ParallelEngine } from './utils/parallel.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
+export type { CommandSuggestion } from './utils/suggestions.js';
+export type { CallableExecutionEngine } from './types/engine.js';
 export { DockerContainer } from './adapters/docker/docker-api.js';
 export { KubernetesAdapter } from './adapters/kubernetes/index.js';
-export { RuntimeDetector } from './adapters/local/runtime-detect.js';
-export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
-export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
   return new Proxy(function () { } as any, {
@@ -167,7 +157,7 @@ export function configure(config: ExecutionEngineConfig): void {
         if (typeof (oldInstance as any).dispose === 'function') {
           await (oldInstance as any).dispose();
         }
-      } catch (error) {
+      } catch {
         // Ignore errors during cleanup
       } finally {
         isConfiguringPromise = null;
@@ -186,7 +176,7 @@ async function cleanupEngine(): Promise<void> {
       if (typeof (defaultEngineInstance as any).dispose === 'function') {
         await (defaultEngineInstance as any).dispose();
       }
-    } catch (error) {
+    } catch {
       // Ignore errors during cleanup
     } finally {
       // Clear references
@@ -289,16 +279,43 @@ function removeCleanupHandlers(): void {
 
 registerCleanupHandlers();
 
-export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';
+export { RuntimeDetector } from './adapters/local/runtime-detect.js';
 
+export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
+export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
+
+export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
+
+export { parseK8sTarget, parseSSHTarget } from './utils/target-shorthand.js';
+export type { Disposable, DisposableContainer } from './types/disposable.js';
+export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';
 export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
+
+export { dialectFor, quoteForShell, type ShellDialect } from './utils/shell-escape.js';
+
+export { isRecoverable, classifyFailure, type FailureKind } from './core/failure-kind.js';
+
 export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
+export type {
+  ErrorContext,
+  ErrorSuggestion,
+  EnhancedErrorDetails
+} from './types/error.js';
+
+export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
+export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './adapters/kubernetes/kubernetes-api.js';
 
 export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
-
+export type {
+  Command,
+  AdapterType,
+  SSHAdapterOptions,
+  DockerAdapterOptions,
+  KubernetesAdapterOptions
+} from './types/command.js';
 export {
   DockerFluentAPI,
   DockerFluentBuildAPI,
@@ -314,30 +331,51 @@ export {
   ConnectionError,
   KubernetesError
 } from './core/error.js';
-export type { EventFilter } from './types/events.js';
-export type { PipeTarget } from './types/process.js';
-
-export type { ExecutionResult } from './core/result.js';
-
-export type { ProcessPromise } from './types/process.js';
-export type { RetryOptions } from './utils/retry-adapter.js';
-
-export type { CommandSuggestion } from './utils/suggestions.js';
-export type { CallableExecutionEngine } from './types/engine.js';
-
-export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
-export type { Disposable, DisposableContainer } from './types/disposable.js';
+// Core helpers — zx-compatible utilities
+export {
+  echo,
+  glob,
+  kill,
+  sleep,
+  xfetch,
+  readStdin,
+  yamlParse,
+  expBackoff,
+  yamlStringify,
+  parseDuration,
+  type Duration,
+} from './utils/helpers.js';
+/**
+ * Event types.
+ *
+ * These were previously internal, which left a consumer no way to type an
+ * event handler — the observed result was `(event: any)` at every call site
+ * in a project that is otherwise strictly typed.
+ */
 export type {
-  ErrorContext,
-  ErrorSuggestion,
-  EnhancedErrorDetails
-} from './types/error.js';
-export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
-export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './adapters/kubernetes/kubernetes-api.js';
-export type {
-  Command,
-  AdapterType,
-  SSHAdapterOptions,
-  DockerAdapterOptions,
-  KubernetesAdapterOptions
-} from './types/command.js';
+  UshEvent,
+  UshEventMap,
+  UshEventType,
+  BaseUshEvent,
+  K8sExecEvent,
+  DockerRunEvent,
+  SSHConnectEvent,
+  SSHExecuteEvent,
+  DockerExecEvent,
+  RetryFailedEvent,
+  TypedEventEmitter,
+  CommandStartEvent,
+  CommandErrorEvent,
+  CommandRetryEvent,
+  SSHReconnectEvent,
+  RetryAttemptEvent,
+  RetrySuccessEvent,
+  SSHDisconnectEvent,
+  TransferStartEvent,
+  TransferErrorEvent,
+  SSHPoolMetricsEvent,
+  ConnectionOpenEvent,
+  CommandCompleteEvent,
+  ConnectionCloseEvent,
+  TransferCompleteEvent,
+} from './types/events.js';

@@ -31,13 +31,13 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && tsc",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@xec-sh/kit": "workspace:*",

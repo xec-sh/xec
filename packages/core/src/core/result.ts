@@ -1,6 +1,6 @@
-import { CommandError } from './error.js';
-
 import type { ExecutionResult } from '../types/result.js';
+
+import { CommandError } from './error.js';
 
 export { ExecutionResult } from '../types/result.js';
 
@@ -66,7 +66,7 @@ export class ExecutionResultImpl implements ExecutionResult {
     try {
       return JSON.parse(text);
     } catch (error) {
-      throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`);
+      throw new Error(`Failed to parse JSON: ${error instanceof Error ? error.message : String(error)}\nOutput: ${text}`, { cause: error });
     }
   }
 

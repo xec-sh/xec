@@ -1,3 +1,11 @@
+/**
+ * Adapted from is-unicode-supported (https://github.com/sindresorhus/is-unicode-supported).
+ *
+ * Copyright (c) Sindre Sorhus
+ * Licensed under the MIT License. See the NOTICE file at the root of this
+ * package for the full attribution and license text.
+ */
+
 import process from 'node:process';
 
 export default function isUnicodeSupported() {

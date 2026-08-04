@@ -2,13 +2,6 @@
  * Target Resolver - resolves and manages execution targets
  */
 
-import * as path from 'path';
-import { homedir } from 'os';
-import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
-
-import { deepMerge, matchPattern, expandBraces, parseTargetReference } from './utils.js';
-
 import type {
   PodConfig,
   HostConfig,
@@ -18,6 +11,13 @@ import type {
   TargetReference,
   ContainerConfig
 } from './types.js';
+
+import * as path from 'path';
+import { homedir } from 'os';
+import { $ } from '@xec-sh/core';
+import * as fs from 'fs/promises';
+
+import { deepMerge, matchPattern, expandBraces, parseTargetReference } from './utils.js';
 
 /**
  * Target resolver implementation

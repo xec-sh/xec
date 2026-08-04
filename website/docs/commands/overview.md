@@ -2,41 +2,15 @@
 title: Command System Overview
 description: Comprehensive overview of Xec's command system architecture and capabilities
 keywords: [commands, cli, architecture, built-in, custom, dynamic]
-source_files:
-  - apps/xec/src/main.ts
-  - apps/xec/src/commands/index.ts
-  - apps/xec/src/commands/base-command.ts
-  - apps/xec/src/utils/dynamic-commands.ts
-key_functions:
-  - main()
-  - getCommands()
-  - BaseCommand.execute()
-  - loadDynamicCommands()
-  - resolveCommand()
-verification_date: 2025-08-03
 ---
 
 # Command System Overview
 
-## Implementation Reference
-
-**Source Files:**
-- `apps/xec/src/main.ts` - Main CLI entry point and command resolution
-- `apps/xec/src/commands/index.ts` - Command registry and exports
-- `apps/xec/src/commands/base-command.ts` - Base command class
-- `apps/xec/src/utils/dynamic-commands.ts` - Dynamic command loading
-- `apps/xec/src/utils/error-handler.ts` - Error handling and exit codes
-
-**Key Functions:**
-- `main()` - CLI entry point (lines 45-312)
-- `getCommands()` - Returns command registry
-- `BaseCommand.execute()` - Command execution interface
-- `loadDynamicCommands()` - Loads commands from .xec/commands
-- `handleError()` - Maps errors to exit codes
-
 ## Overview
 
 Xec provides a powerful and extensible command system that supports both built-in commands and custom user-defined commands. This section covers the complete command reference for the Xec CLI.
+
+The CLI entry point lives in `apps/xec/src/main.ts`. Built-in commands are the modules in `apps/xec/src/commands/`, each registering itself with the commander program. Dynamic commands are loaded by `loadDynamicCommands()` from `apps/xec/src/utils/cli-command-manager.ts`, and the `BaseCommand` class custom commands extend is defined in `apps/xec/src/utils/command-base.ts`.
 
 ## Command Types
 
@@ -46,25 +20,26 @@ Xec supports three types of commands:
 
 Core commands that are included with Xec:
 
-- **[copy](built-in/copy.md)** - Copy files between targets
-- **[forward](built-in/forward.md)** - Forward ports between local and remote systems
+- **[config](built-in/config.md)** - Manage Xec configuration (aliases: `conf`, `cfg`)
+- **[copy](built-in/copy.md)** - Copy files between targets (alias: `cp`)
+- **docker** - Manage Docker containers, images, networks, and Compose via the fluent API (alias: `d`)
+- **[forward](built-in/forward.md)** - Forward ports between local and remote systems (alias: `fwd`)
 - **[in](built-in/in.md)** - Execute commands inside Docker containers or Kubernetes pods
-- **[on](built-in/on.md)** - Execute commands on SSH hosts
+- **[inspect](built-in/inspect.md)** - Inspect configuration and targets
 - **[logs](built-in/logs.md)** - View and stream logs from various sources
 - **[new](built-in/new.md)** - Create new Xec artifacts (scripts, configs, tasks)
-- **[watch](built-in/watch.md)** - Watch files for changes and execute commands
+- **[on](built-in/on.md)** - Execute commands on SSH hosts
 - **[run](built-in/run.md)** - Run Xec scripts or tasks
 - **[secrets](built-in/secrets.md)** - Manage secrets and credentials
-- **[inspect](built-in/inspect.md)** - Inspect configuration and targets
-- **[config](built-in/config.md)** - Manage Xec configuration
+- **[watch](built-in/watch.md)** - Watch files for changes and execute commands
 
 ### 2. Dynamic Commands
 
 Commands loaded from `.xec/commands/` directory that extend Xec's functionality.
 
-### 3. Script Execution
+### 3. Script and Task Execution
 
-Direct execution of JavaScript/TypeScript files as Xec scripts.
+Direct execution of JavaScript/TypeScript files as Xec scripts (`xec ./script.ts`), and execution of tasks defined in configuration by name (`xec deploy`).
 
 ## Command Structure
 
@@ -76,27 +51,27 @@ xec [global-options] <command> [command-options] [arguments]
 
 ### Global Options
 
-Options that apply to all commands (defined in `apps/xec/src/main.ts:71-97`):
+Options that apply to all commands:
 
-- `-v, --verbose` - Enable verbose output (increases log level)
+- `-v, --verbose` - Enable verbose output
 - `-q, --quiet` - Suppress non-error output
-- `--cwd <path>` - Set current working directory (changes process.cwd())
-- `--no-color` - Disable colored output (sets NO_COLOR env var)
-- `-e, --eval <code>` - Evaluate code directly (ScriptRunner.evalCode())
-- `--repl` - Start interactive REPL (ScriptRunner.startRepl())
-- `--dry-run` - Preview actions without executing
-- `--config <path>` - Custom config file path (default: .xec/config.yaml)
+- `--cwd <path>` - Set current working directory
+- `--no-color` - Disable colored output (sets `NO_COLOR`)
+- `-e, --eval <code>` - Evaluate code directly
+- `--repl` - Start interactive REPL
+
+Options such as `--dry-run`, `--profile`, or config-file selection are **per-subcommand**, not global — check `xec <command> --help` for what each command supports. The configuration file location is controlled by the `XEC_CONFIG` environment variable rather than a global flag.
 
 ## Command Resolution
 
-When you run a command, Xec resolves it in the following order (implemented in `apps/xec/src/main.ts:175-240`):
+When you run `xec <something>`, the CLI resolves it in the following order:
 
-1. **Built-in commands** - Core commands from registry (`getCommands()`)
-2. **Command aliases** - Mapped in command registry (e.g., 'cp' → 'copy')
-3. **Dynamic commands** - Loaded from `.xec/commands/` directory
-4. **Script files** - JavaScript/TypeScript files with `.js`, `.ts`, `.mjs`, `.mts` extensions
-5. **Task execution** - Tasks defined in configuration (`config.tasks`)
-6. **Default to 'run' command** - If no match found
+1. **`-e`/`--eval` and `--repl`** - Handled first, before any command lookup
+2. **Script files** - If the first argument ends in `.js`, `.ts`, or `.mjs`, or is an existing file, it runs as a script
+3. **Tasks** - If the argument is not a registered command but matches a task in configuration, the task runs (task parameters are passed as `--param=value` or `--param value`)
+4. **Direct command execution** - Target-prefixed direct execution (e.g. running a command on a configured target)
+5. **Built-in and dynamic commands** - Resolved by commander, including aliases
+6. **Unknown command** - Prints an error with "did you mean" typo suggestions
 
 ## Target Selection
 
@@ -120,32 +95,31 @@ Commands respect configuration from:
 
 1. `.xec/config.yaml` - Project configuration
 2. Command-specific defaults in configuration
-3. Environment variables
+3. Environment variables (`XEC_*`)
 4. Command-line options (highest priority)
 
 ## Error Handling
 
-All commands use standardized error handling (`apps/xec/src/utils/error-handler.ts`):
+Errors are handled by `handleError()` from `@xec-sh/ops`, which prints an actionable message and exits with a code based on the error type:
 
 ### Exit Codes
 
-| Code | Error Type | Description |
-|------|------------|-------------|
-| 0 | Success | Command completed successfully |
-| 1 | ValidationError | Invalid arguments or options |
-| 2 | ConfigurationError | Configuration file issues |
-| 3 | TargetNotFoundError | Target doesn't exist |
-| 4 | ConnectionError | Connection failures |
-| 5 | ExecutionError | Command execution failed |
-| 6 | AuthenticationError | Authentication failed |
-| 7 | FileSystemError | File operation failed |
-| 8 | DockerError | Docker-specific errors |
-| 9 | KubernetesError | Kubernetes-specific errors |
-| 10 | TimeoutError | Operation timed out |
-| 11 | PermissionError | Permission denied |
-| 12 | DependencyError | Missing dependencies |
-| 13 | NetworkError | Network-related errors |
-| 1 | Unknown | Unhandled errors |
+| Code | Error Type |
+|------|------------|
+| 0 | Success |
+| 1 | Generic / unhandled error |
+| 2 | ValidationError |
+| 3 | ConfigurationError |
+| 4 | ModuleError |
+| 5 | TaskError |
+| 6 | RecipeError |
+| 7 | NetworkError |
+| 8 | FileSystemError |
+| 9 | TimeoutError |
+| 10 | File not found (`ENOENT`) |
+| 11 | Permission denied (`EACCES`) |
+| 12 | Not a directory (`ENOTDIR`) |
+| 13 | Is a directory (`EISDIR`) |
 
 ### Error Features
 - Clear error messages with context
@@ -158,14 +132,13 @@ All commands use standardized error handling (`apps/xec/src/utils/error-handler.
 You can create custom commands by:
 
 1. Creating a `.xec/commands/` directory
-2. Adding JavaScript/TypeScript files that extend `BaseCommand`
+2. Adding JavaScript/TypeScript files that extend `BaseCommand` (from `apps/xec/src/utils/command-base.ts`)
 3. Commands are automatically loaded via `loadDynamicCommands()`
 
 **Implementation Details:**
-- Commands must extend `BaseCommand` class
-- Must implement `execute(args: string[], flags: Record<string, any>): Promise<void>`
-- Access configuration via `this.config`
-- Use `this.parseTargets()` for target resolution
+- Commands must extend the `BaseCommand` class
+- Must implement `execute(args: any[]): Promise<void>`
+- Command metadata (name, description, options, aliases, examples) is passed to the `BaseCommand` constructor
 - Throw specific error types for proper exit codes
 
 See [Creating Custom Commands](custom/creating-commands.md) for detailed guide.
@@ -174,7 +147,7 @@ See [Creating Custom Commands](custom/creating-commands.md) for detailed guide.
 
 ### Dry Run Mode
 
-Most commands support `--dry-run` to preview actions:
+Several commands support `--dry-run` to preview actions:
 
 ```bash
 xec copy --dry-run source.txt hosts.* /tmp/
@@ -182,16 +155,13 @@ xec copy --dry-run source.txt hosts.* /tmp/
 
 ### Parallel Execution
 
-Commands that operate on multiple targets use parallel execution (via `Promise.all()` in command implementations):
+Commands that operate on multiple targets execute in parallel:
 
 ```bash
 xec on "hosts.*" "uptime"  # Runs on all hosts in parallel
 ```
 
-**Performance Characteristics:**
-- Default parallelism: Unlimited (all targets simultaneously)
-- Connection pooling: SSH connections reused via pool
-- Stream multiplexing: Output streams merged in real-time
+SSH connections are reused via the connection pool, and output streams are merged in real time.
 
 ### Streaming Output
 

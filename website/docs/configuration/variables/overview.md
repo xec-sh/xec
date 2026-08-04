@@ -89,14 +89,16 @@ vars:
 
 ### Array Access
 
+Array elements are addressed with dot-index notation (bracket syntax like `${servers[0]}` is not supported):
+
 ```yaml
 vars:
   servers:
     - primary.example.com
     - secondary.example.com
   
-  primaryServer: ${servers[0]}
-  backupServer: ${servers[1]}
+  primaryServer: ${servers.0}
+  backupServer: ${servers.1}
 ```
 
 ## Variable Sources
@@ -121,9 +123,9 @@ vars:
   user: ${env.USER}
   customPath: ${env.CUSTOM_PATH}
   
-  # With defaults
-  apiUrl: ${env.API_URL:-http://localhost:3000}
-  logLevel: ${env.LOG_LEVEL:-info}
+  # With defaults (everything after ':' is the default)
+  apiUrl: ${env.API_URL:http://localhost:3000}
+  logLevel: ${env.LOG_LEVEL:info}
 ```
 
 ### 3. Secrets
@@ -152,19 +154,18 @@ tasks:
       docker run myapp:${params.version}
 ```
 
-### 5. Runtime Variables
+### 5. Command Substitution
 
-Dynamic values during execution:
+`${cmd:command}` runs a shell command **at configuration load time** and substitutes its trimmed stdout:
 
 ```yaml
-tasks:
-  info:
-    command: |
-      echo "Profile: ${profile}"
-      echo "Target: ${target.name}"
-      echo "Task: ${task.name}"
-      echo "Date: ${runtime.date}"
+vars:
+  git_sha: ${cmd:git rev-parse --short HEAD}
+  build_date: ${cmd:date +%Y-%m-%d}
+  current_user: ${cmd:whoami}
 ```
+
+Keep these commands fast — they execute on every configuration load. If the command fails, loading fails with a descriptive error. The resolved output is never written back to disk when the configuration is saved.
 
 ## Variable Scope
 
@@ -206,22 +207,20 @@ tasks:
 
 ### Task Scope
 
-Task-specific variables:
+Tasks do not have their own `vars:` section — use task parameters with defaults for task-local values:
 
 ```yaml
 tasks:
   scoped:
-    vars:
-      taskVar: "only-in-this-task"
-    command: echo ${taskVar}
-  
-  other:
-    command: echo ${taskVar}  # Error: not defined
+    params:
+      - name: taskVar
+        default: "only-in-this-task"
+    command: echo ${params.taskVar}
 ```
 
 ### Step Scope
 
-Step-level variables:
+A step's output can be registered as a variable for later steps. The registered value is the step's **trimmed output as a string**:
 
 ```yaml
 tasks:
@@ -230,211 +229,82 @@ tasks:
       - command: echo "test"
         register: output
       
-      - command: echo "Result: ${output.stdout}"
+      - command: echo "Result: ${output}"
         # output only available after registration
 ```
 
 ## Default Values
 
-### Using Defaults
+Defaults use a plain colon — everything after the first `:` is the default value. Bash-style `:-` is **not** supported (with `${env.PORT:-8080}` the default would literally be `-8080`):
 
 ```yaml
 vars:
-  # With pipe operator
-  port: ${env.PORT:-8080}
+  port: ${env.PORT:8080}
   
   # Nested defaults
   database:
-    host: ${env.DB_HOST:-localhost}
-    port: ${env.DB_PORT:-5432}
-    name: ${env.DB_NAME:-development}
+    host: ${env.DB_HOST:localhost}
+    port: ${env.DB_PORT:5432}
+    name: ${env.DB_NAME:development}
 ```
 
-### Conditional Defaults
+A reference without a default fails configuration loading when it cannot be resolved:
 
 ```yaml
 vars:
-  environment: ${env.ENV:-development}
-  
-  # Different defaults per environment
-  apiUrl: |
-    ${environment == 'production' 
-      ? 'https://api.example.com' 
-      : 'http://localhost:3000'}
+  required: ${env.REQUIRED_VAR}       # Fails if not set
+  optional: ${env.OPTIONAL_VAR:default}  # Has default
 ```
 
-## Variable Functions
+## What Interpolation Can and Cannot Do
 
-### String Functions
+Interpolation is a **path lookup**, not an expression language. There are no method calls, arithmetic, or ternaries inside `${...}`:
 
 ```yaml
 vars:
   name: "My App"
-  
-  # String manipulation
-  lower: ${name.toLowerCase()}        # my app
-  upper: ${name.toUpperCase()}        # MY APP
-  slug: ${name.replace(' ', '-')}     # My-App
+  servers: [web1, web2, web3]
+
+  first: ${servers.0}              # ✅ path lookup
+  greeting: "Hello ${name}"        # ✅ string composition
+  # lower: ${name.toLowerCase()}   # ❌ not supported
+  # port: ${base + offset}         # ❌ not supported
+  # replicas: ${env == 'prod' ? 5 : 1}  # ❌ not supported
 ```
 
-### Array Functions
+For computed values, run a shell command at load time with `${cmd:...}`:
 
 ```yaml
 vars:
-  servers:
-    - web1
-    - web2
-    - web3
-  
-  serverCount: ${servers.length}      # 3
-  firstServer: ${servers[0]}          # web1
-  lastServer: ${servers[-1]}          # web3
-  serverList: ${servers.join(',')}    # web1,web2,web3
+  name: "My App"
+  slug: ${cmd:echo "My App" | tr ' ' '-' | tr '[:upper:]' '[:lower:]'}
+  host_count: ${cmd:wc -l < hosts.txt}
 ```
 
-### Object Functions
-
-```yaml
-vars:
-  config:
-    host: localhost
-    port: 8080
-  
-  configKeys: ${Object.keys(config)}      # ['host', 'port']
-  configValues: ${Object.values(config)}  # ['localhost', 8080]
-```
-
-## Computed Variables
-
-### Simple Computation
-
-```yaml
-vars:
-  base: 8080
-  offset: 100
-  port: ${base + offset}  # 8180
-  
-  replicas: 3
-  totalReplicas: ${replicas * 2}  # 6
-```
-
-### Complex Computation
-
-```yaml
-vars:
-  environment: production
-  region: us-east-1
-  
-  # Computed URL
-  apiEndpoint: |
-    https://api-${environment}.${region}.example.com
-  
-  # Conditional computation
-  replicas: |
-    ${environment === 'production' ? 5 : 1}
-```
-
-## Variable Validation
-
-### Type Validation
-
-```yaml
-vars:
-  port: ${env.PORT}  # Must be number
-  
-tasks:
-  validate:
-    script: |
-      if (typeof port !== 'number') {
-        throw new Error('Port must be a number');
-      }
-```
-
-### Required Variables
-
-```yaml
-vars:
-  required: ${env.REQUIRED_VAR}  # Fails if not set
-  optional: ${env.OPTIONAL_VAR:-default}  # Has default
-```
+Conditional logic belongs in task `when:` clauses (which support `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, and parentheses) or in script steps.
 
 ## Variable Resolution Order
 
-Variables are resolved in this precedence:
+Configuration sources are merged in this order — later sources override earlier ones:
 
-1. **Command-line** - Highest priority
-2. **Environment variables** - `XEC_VARS_*`
-3. **Profile variables** - Active profile
-4. **Task parameters** - Task-specific
-5. **Global variables** - Config vars
-6. **Defaults** - Lowest priority
+1. **Built-in defaults** - Lowest priority
+2. **Global configuration** - `~/.xec/config.yaml`
+3. **Project configuration** - `.xec/config.yaml` (or `xec.yaml`)
+4. **`XEC_CONFIG` file** - Extra file referenced by the environment variable
+5. **`XEC_*` environment variables** - e.g. `XEC_VARS_PORT=9000` sets `vars.port`
+6. **Active profile** - Selected via `XEC_PROFILE`; highest priority
 
-## Advanced Patterns
-
-### Variable Templates
-
-```yaml
-vars:
-  template:
-    url: "https://${service}.${environment}.example.com"
-  
-  services:
-    api: ${template.url.replace('${service}', 'api')}
-    web: ${template.url.replace('${service}', 'web')}
-```
-
-### Dynamic Variable Loading
-
-```yaml
-tasks:
-  load-config:
-    script: |
-      const config = await loadExternalConfig();
-      xec.setVars({
-        dynamicVar: config.value,
-        computedVar: config.computed
-      });
-```
-
-### Variable Inheritance
-
-```yaml
-vars:
-  base:
-    timeout: 30000
-    retries: 3
-  
-  extended:
-    $merge: [base]
-    timeout: 60000  # Override
-    newProp: value   # Add new
-```
+Task parameters (`${params.name}`) are supplied per invocation and resolved in their own namespace, outside this merge.
 
 ## Escaping Variables
 
-### Literal Dollar Signs
+Only `${...}` sequences are interpolated. To output a literal `${...}`, escape it with a backslash:
 
 ```yaml
 vars:
-  # Escape with backslash
-  literal: "Price: \$100"
-  
-  # Or use single quotes
-  command: 'echo $HOME'  # Not interpolated
-```
-
-### Preventing Interpolation
-
-```yaml
-tasks:
-  no-interpolation:
-    command: |
-      # Use $$ for literal $
-      echo "$$HOME"
-      
-      # Or disable interpolation
-      $raw: true
-      command: echo $HOME ${var}
+  literal: "costs \${amount} dollars"   # stays ${amount}
+  price: "Price: $100"                  # no ${...}, left untouched
+  command: echo $HOME                   # shell variable, untouched by Xec
 ```
 
 ## Best Practices
@@ -472,8 +342,8 @@ vars:
 ```yaml
 vars:
   # Always provide sensible defaults
-  port: ${env.PORT:-8080}
-  environment: ${env.NODE_ENV:-development}
+  port: ${env.PORT:8080}
+  environment: ${env.NODE_ENV:development}
 ```
 
 ### 4. Document Variables
@@ -489,17 +359,17 @@ vars:
 
 ### 5. Validate Early
 
+References without defaults fail configuration loading when unresolvable, so required values surface immediately:
+
 ```yaml
-tasks:
-  validate-config:
-    script: |
-      // Validate required variables
-      const required = ['apiKey', 'dbPassword'];
-      for (const key of required) {
-        if (!vars[key]) {
-          throw new Error(`Missing required variable: ${key}`);
-        }
-      }
+vars:
+  apiKey: ${secrets.api_key}       # load fails if the secret is missing
+  dbHost: ${env.DB_HOST}           # load fails if DB_HOST is not set
+```
+
+```bash
+# Check the configuration before running tasks
+xec config validate
 ```
 
 ## Common Issues
@@ -521,22 +391,21 @@ vars:
   value: ${env.MISSING}
   
   # Use default to prevent failure
-  value: ${env.MISSING:-default}
+  value: ${env.MISSING:default}
 ```
 
 ### Type Mismatches
 
+A variable that holds the whole value keeps its YAML type (number, boolean, object); a variable embedded in a longer string is stringified:
+
 ```yaml
 vars:
-  port: "8080"  # String
-  
+  port: 8080         # Number — stays a number in ${port}
+  portString: "8080" # String
+
 tasks:
   connect:
-    # May fail if expecting number
     command: connect --port ${port}
-    
-    # Better: ensure correct type
-    command: connect --port ${parseInt(port)}
 ```
 
 ## Debugging Variables
@@ -545,24 +414,13 @@ tasks:
 
 ```bash
 # Show all variables
-xec config show --vars
+xec config list --path vars
 
 # Show specific variable
 xec config get vars.database.host
 
-# Debug interpolation
-xec --debug run task
-```
-
-### Trace Resolution
-
-```yaml
-tasks:
-  debug-vars:
-    script: |
-      console.log('All vars:', vars);
-      console.log('Environment:', env);
-      console.log('Profile:', profile);
+# Debug configuration loading
+XEC_DEBUG=true xec run task
 ```
 
 ## Next Steps

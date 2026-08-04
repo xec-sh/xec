@@ -8,10 +8,10 @@
  * @module @xec-sh/loader/core/streaming-executor
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { Readable } from 'node:stream';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 /**
  * Options for streaming execution

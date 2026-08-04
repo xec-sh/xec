@@ -3,35 +3,21 @@
  * @module @xec-sh/loader
  */
 
-// Export core modules
-export {
-  CodeEvaluator,
-  ScriptExecutor,
-  ExecutionContext,
-} from './core/index.js';
-
-// Export streaming execution
-export {
-  streamExecute,
-  streamLines,
-  type StreamEvent,
-  type StreamingResult,
-  type StreamingExecutionOptions,
-} from './core/streaming-executor.js';
-
-// Export watch system
-export {
-  FileWatcher,
-  watchFiles,
-  type FileChangeEvent,
-  type WatchOptions,
-} from './watch/index.js';
+// Export types
+export type * from './types/index.js';
 
 // Export plugin system
 export {
   PluginManager,
   type LoaderPlugin,
 } from './plugin/index.js';
+
+// Export core modules
+export {
+  CodeEvaluator,
+  ScriptExecutor,
+  ExecutionContext,
+} from './core/index.js';
 
 // Export runtime utilities
 export {
@@ -40,6 +26,14 @@ export {
   GlobalInjector,
   createInjector,
 } from './runtime/index.js';
+
+// Export watch system
+export {
+  watchFiles,
+  FileWatcher,
+  type WatchOptions,
+  type FileChangeEvent,
+} from './watch/index.js';
 
 // Export REPL utilities
 export {
@@ -51,6 +45,15 @@ export {
   createBuiltinCommands,
 } from './repl/index.js';
 
+// Export constants
+export {
+  RESERVED_GLOBALS,
+  isNodeBuiltinModule,
+  NODE_BUILTIN_MODULES,
+  RESERVED_GLOBALS_SET,
+  NODE_BUILTIN_MODULES_SET,
+} from './constants.js';
+
 // Export transformation utilities
 export {
   transformImports,
@@ -59,6 +62,15 @@ export {
   TypeScriptTransformer,
   createImportTransformer,
 } from './transform/index.js';
+
+// Export streaming execution
+export {
+  streamLines,
+  streamExecute,
+  type StreamEvent,
+  type StreamingResult,
+  type StreamingExecutionOptions,
+} from './core/streaming-executor.js';
 
 // Export module system
 export {
@@ -74,28 +86,16 @@ export {
   CompositeModuleResolver,
 } from './module/index.js';
 
-// Export constants
-export {
-  NODE_BUILTIN_MODULES,
-  NODE_BUILTIN_MODULES_SET,
-  isNodeBuiltinModule,
-  RESERVED_GLOBALS,
-  RESERVED_GLOBALS_SET,
-} from './constants.js';
-
-// Export types
-export type * from './types/index.js';
-
 // Re-export for convenience
 export type {
   TargetInfo,
+  TargetConfig,
   ScriptContext,
+  ModuleExports,
   ExecutionResult,
+  ExecutionEngine,
   ExecutionOptions,
   EvaluationOptions,
   ScriptLoaderOptions,
-  ExecutionEngine,
   ExecutionEngineResult,
-  ModuleExports,
-  TargetConfig,
 } from './types/index.js';

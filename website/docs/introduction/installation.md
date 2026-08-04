@@ -10,7 +10,7 @@ keywords: [install, setup, npm, pnpm, global, local]
 
 Before installing Xec, ensure your system meets these requirements:
 
-- **Node.js**: Version 18.0.0 or higher
+- **Node.js**: Version 22.0.0 or higher
 - **Operating System**: macOS, Linux, or Windows (with WSL recommended)
 - **Package Manager**: npm (included with Node.js) or pnpm
 
@@ -146,7 +146,7 @@ npm install -g @xec-sh/cli
 
 ```bash
 # Ubuntu/Debian
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 npm install -g @xec-sh/cli
 
@@ -180,7 +180,7 @@ npm install -g @xec-sh/cli
 Run Xec in a container:
 
 ```dockerfile
-FROM node:18-alpine
+FROM node:22-alpine
 RUN npm install -g @xec-sh/cli
 WORKDIR /app
 COPY . .
@@ -290,11 +290,11 @@ npm install -g @xec-sh/cli
 **Version Conflicts**
 ```bash
 # Check Node.js version
-node --version  # Should be >= 18.0.0
+node --version  # Should be >= 22.0.0
 
 # Update Node.js if needed
-nvm install 18
-nvm use 18
+nvm install 22
+nvm use 22
 ```
 
 **TypeScript Issues**

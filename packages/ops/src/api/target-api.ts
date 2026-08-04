@@ -5,13 +5,6 @@
  * Supports listing, resolving, and executing commands on targets.
  */
 
-import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
-
-import { TargetResolver } from '../config/target-resolver.js';
-import { createTargetEngine } from '../utils/direct-execution.js';
-import { ConfigurationManager } from '../config/configuration-manager.js';
-
 import type {
   PodConfig,
   HostConfig,
@@ -24,6 +17,13 @@ import type {
   ForwardOptions,
   ExecutionResult 
 } from './types.js';
+
+import { $ } from '@xec-sh/core';
+import * as fs from 'fs/promises';
+
+import { TargetResolver } from '../config/target-resolver.js';
+import { createTargetEngine } from '../utils/direct-execution.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
 
 export class TargetAPI {
   private configManager: ConfigurationManager;

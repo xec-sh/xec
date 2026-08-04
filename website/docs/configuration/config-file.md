@@ -18,19 +18,28 @@ Xec configuration files use YAML format with the following conventions:
 
 ## File Location
 
-Xec searches for configuration in these locations (in order):
+Xec first determines the project root by walking up from the current directory, taking the first of:
+
+1. A directory containing `.xec/config.yaml` (or `.yml`)
+2. A monorepo root (`package.json` with `workspaces`)
+3. A git repository root (`.git`)
+4. The current directory, if none of the above are found
+
+Within that root it loads the first configuration file found among (in order):
 
 1. `.xec/config.yaml` - Project directory (recommended)
 2. `.xec/config.yml` - Alternative extension
 3. `xec.yaml` - Root directory
 4. `xec.yml` - Alternative root location
 
+A global configuration at `~/.xec/config.yaml` (overridable via `XEC_HOME_DIR`) is loaded before the project file, and `XEC_CONFIG` can point to an additional file that overrides both. See [Configuration Precedence](#configuration-precedence) below for the full merge order.
+
 ```bash
 # Validate your configuration
 xec config validate
 
 # Show loaded configuration
-xec config show
+xec config view
 ```
 
 ## Root Structure
@@ -144,7 +153,7 @@ vars:
 
 ### Variable Interpolation
 
-Variables can reference other variables:
+Variables can reference other variables. The supported reference forms are `${vars.name}` (or bare `${name}`), `${env.NAME}`, `${params.name}` (inside tasks), `${secrets.name}` / `${secret:name}`, and `${cmd:command}`:
 
 ```yaml
 vars:
@@ -157,8 +166,23 @@ vars:
   
   # Environment variables
   home_dir: "${env.HOME}"
-  path_with_default: "${env.CUSTOM_PATH:-/default/path}"
+  # Default values: everything after ':' is the default
+  # (bash-style ':-' is NOT supported — ':-x' would yield the default '-x')
+  path_with_default: "${env.CUSTOM_PATH:/default/path}"
 ```
+
+### Command Substitution
+
+`${cmd:command}` executes a shell command **at configuration load time** and substitutes its trimmed stdout. Keep these commands fast and side-effect free — they run every time the configuration is loaded, and their output is never written back to disk by `xec config set`:
+
+```yaml
+vars:
+  git_sha: ${cmd:git rev-parse --short HEAD}
+  build_date: ${cmd:date +%Y-%m-%d}
+  image_tag: "myapp:${cmd:git describe --tags --always}"
+```
+
+If the command fails, configuration loading fails with a descriptive error.
 
 ## Targets Section
 
@@ -186,16 +210,16 @@ targets:
     type: local
     workdir: /workspace
   
-  # SSH hosts
+  # SSH hosts (the field is 'user'; the programmatic $.ssh() API uses 'username')
   hosts:
     web-server:
       host: web.example.com
-      username: deploy
+      user: deploy
       privateKey: ~/.ssh/id_rsa
     
     db-server:
       host: db.example.com
-      username: admin
+      user: admin
       password: ${secrets.db_password}
   
   # Docker containers
@@ -374,28 +398,15 @@ scripts:
   env:
     NODE_ENV: production
     API_KEY: ${secrets.api_key}
-  
-  # Auto-loaded global modules
-  globals:
-    - axios
-    - lodash
-    - moment
-  
-  # Security sandbox
-  sandbox:
-    enabled: true
-    restrictions:
-      - no_network      # Disable network access
-      - no_filesystem   # Disable file system access
-      - no_child_process # Disable subprocess spawning
-    memoryLimit: 256MB
-    cpuLimit: 1
-    timeout: 30s
 ```
+
+:::warning Not implemented
+The schema also accepts `scripts.globals` and `scripts.sandbox` keys, but they are only validated — **no sandboxing or global-module auto-loading is enforced at runtime**. Do not rely on `sandbox` for security isolation.
+:::
 
 ## Secrets Section
 
-Configure secret management:
+Configure secret management. The supported providers are `local`, `env`, and `git`:
 
 ```yaml
 secrets:
@@ -405,49 +416,24 @@ secrets:
     storageDir: ~/.xec/secrets
     passphrase: ${env.XEC_PASSPHRASE}
   
-  # HashiCorp Vault
-  # provider: vault
+  # Environment variables (reads SECRET_* by default)
+  # provider: env
   # config:
-  #   address: https://vault.example.com
-  #   token: ${env.VAULT_TOKEN}
-  #   path: secret/data/myapp
+  #   prefix: SECRET_
   
-  # AWS Secrets Manager
-  # provider: aws-secrets
-  # config:
-  #   region: us-east-1
-  #   prefix: myapp/
-  
-  # 1Password
-  # provider: 1password
-  # config:
-  #   vault: Production
-  #   account: my-team
+  # Encrypted file tracked in git
+  # provider: git
 ```
+
+:::warning Not implemented
+`vault`, `aws-secrets`, `1password`, and `dotenv` are declared in the provider type but **not implemented** — selecting them fails with a configuration error listing the supported providers.
+:::
 
 ## Extensions Section
 
-Load external extensions:
-
-```yaml
-extensions:
-  # NPM package
-  - source: "@xec/aws-tools"
-    tasks:
-      - s3-sync
-      - ec2-deploy
-    config:
-      region: us-east-1
-  
-  # Git repository
-  - source: "git+https://github.com/org/xec-extension.git"
-    tasks: "*"  # Import all tasks
-  
-  # Local path
-  - source: "./extensions/custom"
-    config:
-      apiKey: ${secrets.extension_key}
-```
+:::warning Not implemented
+The configuration schema accepts an `extensions:` array (each entry with a `source` and optional `tasks`/`config`), and it passes validation — but **nothing loads extensions at runtime**. The section currently has no effect. To extend Xec, use [custom commands](../commands/custom/creating-commands.md) in `.xec/commands/` instead.
+:::
 
 ## Complete Example
 
@@ -461,7 +447,7 @@ description: Production microservices deployment
 # Global variables
 vars:
   project: ecommerce
-  environment: ${env.DEPLOY_ENV:-staging}
+  environment: ${env.DEPLOY_ENV:staging}
   region: us-east-1
   
   # Service versions
@@ -482,12 +468,12 @@ targets:
   hosts:
     api-server:
       host: api.${environment}.example.com
-      username: deploy
+      user: deploy
       privateKey: ~/.ssh/deploy_key
     
     web-server:
       host: web.${environment}.example.com
-      username: deploy
+      user: deploy
       privateKey: ~/.ssh/deploy_key
   
   containers:
@@ -498,8 +484,8 @@ targets:
         POSTGRES_PASSWORD: ${secrets.db_password}
   
   kubernetes:
-    namespace: ${project}-${environment}
-    context: ${region}-cluster
+    $namespace: ${project}-${environment}
+    $context: ${region}-cluster
 
 # Automation tasks
 tasks:
@@ -539,7 +525,7 @@ profiles:
       replicas: 2
     targets:
       kubernetes:
-        namespace: ${project}-staging
+        $namespace: ${project}-staging
   
   production:
     vars:
@@ -548,8 +534,8 @@ profiles:
       monitoring: enabled
     targets:
       kubernetes:
-        namespace: ${project}-prod
-        context: prod-cluster
+        $namespace: ${project}-prod
+        $context: prod-cluster
 
 # Command defaults
 commands:
@@ -560,37 +546,35 @@ commands:
 
 # Secrets configuration
 secrets:
-  provider: vault
+  provider: local
   config:
-    address: https://vault.example.com
-    path: secret/data/${project}/${environment}
+    storageDir: ~/.xec/secrets
 ```
 
 ## Schema Validation
 
-Xec validates configuration against a JSON Schema:
+Xec validates the merged configuration on load:
 
 ```bash
 # Validate configuration
 xec config validate
 
-# Validate specific file
-xec config validate --file custom-config.yaml
-
-# Show validation errors with details
-xec config validate --verbose
+# Validate a specific file
+XEC_CONFIG=custom-config.yaml xec config validate
 ```
 
-## Variable Resolution Order
+## Configuration Precedence
 
-Variables are resolved in this precedence order:
+Configuration sources are merged in this order — later sources override earlier ones:
 
-1. **Command-line arguments** - Highest priority
-2. **Environment variables** - `XEC_*` prefixed
-3. **Profile variables** - Active profile vars
-4. **Task parameters** - Task-specific params
-5. **Global variables** - Config vars section
-6. **Defaults** - Built-in defaults
+1. **Built-in defaults** - Lowest priority
+2. **Global configuration** - `~/.xec/config.yaml` (or `$XEC_HOME_DIR/config.yaml`)
+3. **Project configuration** - First file found (see [File Location](#file-location))
+4. **`XEC_CONFIG` file** - Extra file referenced by the environment variable
+5. **`XEC_*` environment variables** - e.g. `XEC_VARS_PORT=9000` sets `vars.port`
+6. **Active profile** - Selected via `XEC_PROFILE`; highest priority
+
+Task parameters (`${params.name}`) are not part of this merge — they are supplied per task invocation and live in their own namespace.
 
 ## Best Practices
 

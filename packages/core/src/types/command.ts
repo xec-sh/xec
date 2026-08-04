@@ -1,5 +1,4 @@
 import type { Readable, Writable } from 'node:stream';
-
 import type { RetryOptions } from '../utils/retry-adapter.js';
 
 /**
@@ -23,6 +22,13 @@ export interface SSHAdapterOptions {
   privateKey?: string | Buffer;
   passphrase?: string;
   password?: string;
+  /**
+   * Host key checking policy. Defaults to `accept-new`: a host's key is
+   * recorded on first use and a later mismatch is refused.
+   */
+  hostKeyChecking?: 'accept-new' | 'strict' | 'off';
+  /** Override the `known_hosts` file consulted for verification. */
+  knownHostsPath?: string;
   sudo?: {
     enabled: boolean;
     password?: string;

@@ -36,10 +36,11 @@
     "scripting"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "bin": {
     "xec": "bin/xec"

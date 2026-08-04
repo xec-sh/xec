@@ -2,8 +2,6 @@
  * Base Docker Fluent API Classes
  */
 
-import { getDockerCommand } from '../docker-utils.js';
-
 import type { ExecutionResult } from '../../../types/result.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 import type {
@@ -17,6 +15,18 @@ import type {
   ServiceLifecycleHooks,
   DockerPersistentConfig
 } from './types.js';
+
+import { findDockerPath } from '../docker-utils.js';
+import { escapeUnix, interpolateForShell } from '../../../utils/shell-escape.js';
+
+/**
+ * Distinguish a tagged-template call from a plain `string[]` command.
+ * A TemplateStringsArray is itself an array, so `Array.isArray` alone
+ * cannot tell the two apart — only the `raw` property can.
+ */
+function isTemplateStringsArray(value: unknown): value is TemplateStringsArray {
+  return Array.isArray(value) && 'raw' in value && Array.isArray((value as TemplateStringsArray).raw);
+}
 
 /**
  * Base Docker Fluent API
@@ -139,14 +149,23 @@ export abstract class BaseDockerFluentAPI<T extends DockerContainerConfig> {
   protected abstract validate(): string[];
 
   /**
+   * Execute `docker <args>` on the host with every argument escaped as a
+   * single token, so container names, env values, formats, etc. can never
+   * be interpreted by the host shell.
+   */
+  protected dockerCommand(args: string[]): ProcessPromise {
+    return this.engine.run`${[findDockerPath(), ...args]}`;
+  }
+
+  /**
    * Execute command in container context
    */
-  abstract exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
+  abstract exec(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise;
 
   /**
    * Run command (alias for exec)
    */
-  run(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
+  run(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise {
     return this.exec(strings, ...values);
   }
 
@@ -483,16 +502,10 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     // Healthcheck
     if (this.config.healthcheck) {
       const hc = this.config.healthcheck;
-      if (typeof hc.test === 'string') {
-        // Wrap health-cmd in quotes if it contains spaces
-        const healthCmd = hc.test.includes(' ') ? `"${hc.test}"` : hc.test;
-        args.push('--health-cmd', healthCmd);
-      } else {
-        // Join array and wrap in quotes if needed
-        const healthCmd = hc.test.join(' ');
-        const quotedCmd = healthCmd.includes(' ') ? `"${healthCmd}"` : healthCmd;
-        args.push('--health-cmd', quotedCmd);
-      }
+      // Each arg reaches docker as one token; wrapping in quotes here would
+      // embed literal quote characters into the health command.
+      const healthCmd = typeof hc.test === 'string' ? hc.test : hc.test.join(' ');
+      args.push('--health-cmd', healthCmd);
       if (hc.interval) args.push('--health-interval', hc.interval);
       if (hc.timeout) args.push('--health-timeout', hc.timeout);
       if (hc.startPeriod) args.push('--health-start-period', hc.startPeriod);
@@ -579,15 +592,11 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
 
     // Pull image if requested
     if (this.config.pull) {
-      const pullCmd = getDockerCommand('pull', this.config.image!);
-    await this.engine.raw`${pullCmd}`;
+      await this.dockerCommand(['pull', this.config.image!]);
     }
 
     // Build and execute run command
-    const args = this.buildRunArgs();
-    const cmdStr = getDockerCommand(...args);
-    // Use raw to avoid double escaping since args are already properly formatted
-    await this.engine.raw`${cmdStr}`;
+    await this.dockerCommand(this.buildRunArgs());
 
     await this.executeHook('afterStart');
     await this.executeHook('onReady');
@@ -604,8 +613,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
       throw new Error('Container name is required to stop');
     }
 
-    const stopCmd = getDockerCommand('stop', name);
-    await this.engine.raw`${stopCmd}`.nothrow();
+    await this.dockerCommand(['stop', name]).nothrow();
     await this.executeHook('afterStop');
   }
 
@@ -626,8 +634,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
       throw new Error('Container name is required to remove');
     }
 
-    const rmCmd = getDockerCommand('rm', '-f', name);
-    await this.engine.raw`${rmCmd}`.nothrow();
+    await this.dockerCommand(['rm', '-f', name]).nothrow();
   }
 
   /**
@@ -654,8 +661,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     try {
-      const inspectCmd = getDockerCommand('inspect', '--format={{.State.Health.Status}}', this.config.name);
-      const result = await this.engine.raw`${inspectCmd}`.nothrow();
+      const result = await this.dockerCommand(['inspect', '--format={{.State.Health.Status}}', this.config.name]).nothrow();
       return result.stdout.trim() === 'healthy';
     } catch {
       return false;
@@ -681,61 +687,41 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
    */
   // Overloaded exec method to support both interfaces
   exec(command: string | string[]): Promise<ExecutionResult>;
-  exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  exec(commandOrStrings: string | string[] | TemplateStringsArray, ...values: any[]): Promise<ExecutionResult> | ProcessPromise {
-    // Handle string/array commands (ServiceManager interface)
-    if (typeof commandOrStrings === 'string' || (Array.isArray(commandOrStrings) && typeof commandOrStrings[0] === 'string')) {
-      const cmd = Array.isArray(commandOrStrings) ? commandOrStrings.join(' ') : commandOrStrings;
-      const containerName = this.config.name;
-      if (!containerName && !this.config.image) {
-        throw new Error('[xec-core] Container name or image required for execution');
-      }
-
-      if (containerName) {
-        // Use sh -c to ensure proper PATH environment
-        const escapedCmd = cmd.replace(/"/g, '\\"');
-        const fullCmd = getDockerCommand('exec', containerName, 'sh', '-c', `"${escapedCmd}"`);
-        return this.engine.raw`${fullCmd}`.then(result => result);
-      } else {
-        // Run ephemeral container
-        const args = this.buildRunArgs();
-        const execArgs = args.filter(arg => arg !== '-d');
-        execArgs.push('--rm');
-        const fullCmd = getDockerCommand(...execArgs, cmd);
-        return this.engine.raw`${fullCmd}`.then(result => result);
-      }
-    }
-
-    // Handle template literals
-    const strings = commandOrStrings as TemplateStringsArray;
+  exec(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise;
+  exec(commandOrStrings: string | string[] | TemplateStringsArray, ...values: unknown[]): Promise<ExecutionResult> | ProcessPromise {
     if (!this.config.name && !this.config.image) {
       throw new Error('[xec-core] Container name or image required for execution');
     }
 
-    // If we have a name, use exec, otherwise use run
+    // The command runs inside the container via `sh -c <script>`: template
+    // values and string[] elements are quoted for the container's POSIX
+    // shell, and the whole script travels as a single host-side token.
+    const isTemplate = isTemplateStringsArray(commandOrStrings);
+    const script = isTemplate
+      ? interpolateForShell('posix', commandOrStrings, ...values)
+      : Array.isArray(commandOrStrings)
+        ? escapeUnix(commandOrStrings)
+        : commandOrStrings;
+
+    let promise: ProcessPromise;
     if (this.config.name) {
-      // Build docker exec command with container name and command parts
-      const cmd = strings.raw.join('').trim();
-      const dockerPath = getDockerCommand().split(' ')[0]; // Get just the docker path
-
-      // Wrap command in sh -c to ensure proper PATH and environment setup
-      // This fixes issues with commands like redis-cli not being found
-      const escapedCmd = cmd.replace(/"/g, '\\"');
-      const execCommand = `${dockerPath} exec ${this.config.name} sh -c "${escapedCmd}"`;
-
-      // Create a template strings array manually to avoid escaping issues
-      const templateArr = Object.assign([execCommand], { raw: [execCommand] }) as TemplateStringsArray;
-      return this.engine.raw(templateArr) as ProcessPromise;
+      promise = this.dockerCommand(['exec', this.config.name, 'sh', '-c', script]);
     } else {
-      // Run ephemeral container
+      // Run ephemeral container: replace detached mode with --rm, which
+      // must precede the image argument to be parsed as a flag.
       const args = this.buildRunArgs();
-      // Remove -d flag for ephemeral execution
-      const execArgs = args.filter(arg => arg !== '-d');
-      execArgs.push('--rm'); // Always remove after execution
-      const cmdParts = strings.raw.join('').trim().split(/\s+/);
-      const cmdStr = getDockerCommand(...execArgs, ...cmdParts);
-      return this.engine.raw`${cmdStr}` as ProcessPromise;
+      const detachedIndex = args.indexOf('-d');
+      if (detachedIndex !== -1) {
+        args.splice(detachedIndex, 1);
+      }
+      if (!args.includes('--rm')) {
+        args.splice(1, 0, '--rm');
+      }
+      args.push('sh', '-c', script);
+      promise = this.dockerCommand(args);
     }
+
+    return isTemplate ? promise : promise.then(result => result);
   }
 
   /**
@@ -747,8 +733,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     try {
-      const inspectCmd = getDockerCommand('inspect', this.config.name);
-      const result = await this.engine.raw`${inspectCmd}`.nothrow();
+      const result = await this.dockerCommand(['inspect', this.config.name]).nothrow();
       if (result.exitCode !== 0) {
         return null;
       }
@@ -781,8 +766,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     try {
-      const psCmd = getDockerCommand('ps', '--format', '{{.Names}}');
-      const result = await this.engine.raw`${psCmd} | grep -w ${this.config.name}`.nothrow();
+      const result = await this.engine.run`${[findDockerPath(), 'ps', '--format', '{{.Names}}']} | grep -w ${this.config.name}`.nothrow();
       return result.exitCode === 0;
     } catch {
       return false;
@@ -808,9 +792,7 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
 
     args.push(this.config.name);
 
-    // Use raw to avoid double escaping
-    const logsCmd = getDockerCommand(...args);
-    const result = await this.engine.raw`${logsCmd}`;
+    const result = await this.dockerCommand(args);
     return result.stdout;
   }
 
@@ -929,8 +911,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
       return;
     }
 
-    const startCmd = getDockerCommand('start', this.config.container!);
-    await this.engine.raw`${startCmd}`;
+    await this.dockerCommand(['start', this.config.container!]);
 
     await this.executeHook('afterStart');
     await this.executeHook('onReady');
@@ -941,8 +922,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   async stop(): Promise<void> {
     await this.executeHook('beforeStop');
-    const stopCmd = getDockerCommand('stop', this.config.container!);
-    await this.engine.raw`${stopCmd}`;
+    await this.dockerCommand(['stop', this.config.container!]);
     await this.executeHook('afterStop');
   }
 
@@ -950,8 +930,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    * Restart container
    */
   async restart(): Promise<void> {
-    const restartCmd = getDockerCommand('restart', this.config.container!);
-    await this.engine.raw`${restartCmd}`;
+    await this.dockerCommand(['restart', this.config.container!]);
   }
 
   /**
@@ -962,8 +941,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
       throw new Error('Container name is required for removal');
     }
     await this.stop();
-    const rmCmd = getDockerCommand('rm', this.config.container);
-    await this.engine.raw`${rmCmd}`;
+    await this.dockerCommand(['rm', this.config.container]);
   }
 
   /**
@@ -984,50 +962,41 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   // Overloaded exec method to support both interfaces
   exec(command: string | string[]): Promise<ExecutionResult>;
-  exec(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
-  exec(commandOrStrings: string | string[] | TemplateStringsArray, ...values: any[]): Promise<ExecutionResult> | ProcessPromise {
-    // Handle string/array commands (ServiceManager interface)
-    if (typeof commandOrStrings === 'string' || (Array.isArray(commandOrStrings) && typeof commandOrStrings[0] === 'string')) {
-      const cmd = Array.isArray(commandOrStrings) ? commandOrStrings.join(' ') : commandOrStrings;
-      const container = this.config.container;
-      if (!container) {
-        throw new Error('[xec-core] Container name required for persistent API');
-      }
-      // Use sh -c to ensure proper PATH environment
-      const escapedCmd = cmd.replace(/"/g, '\\"');
-      const fullCmd = getDockerCommand('exec', container, 'sh', '-c', `"${escapedCmd}"`);
-      return this.engine.raw`${fullCmd}`.then(result => result);
-    }
-
-    // Handle template literals
-    const strings = commandOrStrings as TemplateStringsArray;
+  exec(strings: TemplateStringsArray, ...values: unknown[]): ProcessPromise;
+  exec(commandOrStrings: string | string[] | TemplateStringsArray, ...values: unknown[]): Promise<ExecutionResult> | ProcessPromise {
     const container = this.config.container;
     if (!container) {
       throw new Error('[xec-core] Container name required for persistent API');
     }
 
-    // Build command and wrap in sh -c for proper PATH handling
-    const cmd = strings.raw.join('').trim();
-    const escapedCmd = cmd.replace(/"/g, '\\"');
-    const dockerPath = getDockerCommand().split(' ')[0];
+    // The command runs inside the container via `sh -c <script>`: template
+    // values and string[] elements are quoted for the container's POSIX
+    // shell, and the whole script travels as a single host-side token.
+    const isTemplate = isTemplateStringsArray(commandOrStrings);
+    const script = isTemplate
+      ? interpolateForShell('posix', commandOrStrings, ...values)
+      : Array.isArray(commandOrStrings)
+        ? escapeUnix(commandOrStrings)
+        : commandOrStrings;
 
-    // Build exec command with environment variables if needed
-    const envArgs: string[] = [];
-    if (this.config.env) {
-      for (const [key, value] of Object.entries(this.config.env)) {
-        envArgs.push('-e', `${key}=${value}`);
+    const execArgs: string[] = ['exec'];
+    if (isTemplate) {
+      if (this.config.env) {
+        for (const [key, value] of Object.entries(this.config.env)) {
+          execArgs.push('-e', `${key}=${value}`);
+        }
+      }
+      if (this.config.workdir) {
+        execArgs.push('-w', this.config.workdir);
+      }
+      if (this.config.user) {
+        execArgs.push('-u', this.config.user);
       }
     }
-    if (this.config.workdir) {
-      envArgs.push('-w', this.config.workdir);
-    }
-    if (this.config.user) {
-      envArgs.push('-u', this.config.user);
-    }
+    execArgs.push(container, 'sh', '-c', script);
 
-    const execCommand = `${dockerPath} exec ${envArgs.join(' ')} ${container} sh -c "${escapedCmd}"`;
-    const templateArr = Object.assign([execCommand], { raw: [execCommand] }) as TemplateStringsArray;
-    return this.engine.raw(templateArr) as ProcessPromise;
+    const promise = this.dockerCommand(execArgs);
+    return isTemplate ? promise : promise.then(result => result);
   }
 
   /**
@@ -1035,8 +1004,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   async info(): Promise<ContainerRuntimeInfo | null> {
     try {
-      const inspectCmd = getDockerCommand('inspect', this.config.container!);
-      const result = await this.engine.raw`${inspectCmd}`.nothrow();
+      const result = await this.dockerCommand(['inspect', this.config.container!]).nothrow();
       if (result.exitCode !== 0) {
         return null;
       }
@@ -1065,8 +1033,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
    */
   async isRunning(): Promise<boolean> {
     try {
-      const psCmd = getDockerCommand('ps', '--format', '{{.Names}}');
-      const result = await this.engine.raw`${psCmd} | grep -w ${this.config.container}`.nothrow();
+      const result = await this.engine.run`${[findDockerPath(), 'ps', '--format', '{{.Names}}']} | grep -w ${this.config.container}`.nothrow();
       return result.exitCode === 0;
     } catch {
       return false;
@@ -1088,9 +1055,7 @@ export class DockerPersistentFluentAPI extends BaseDockerFluentAPI<DockerPersist
 
     args.push(this.config.container!);
 
-    // Use raw to avoid double escaping
-    const logsCmd = getDockerCommand(...args);
-    const result = await this.engine.raw`${logsCmd}`;
+    const result = await this.dockerCommand(args);
     return result.stdout;
   }
 

@@ -1,9 +1,9 @@
+import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
+import type { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
+
 import { vi } from 'vitest';
 
 import { createK8sExecutionContext } from '../../../src/adapters/kubernetes/kubernetes-api.js';
-
-import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
-import type { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 describe('Kubernetes API', () => {
   let mockEngine: vi.Mocked<ExecutionEngine>;

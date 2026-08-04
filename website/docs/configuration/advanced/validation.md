@@ -230,7 +230,7 @@ tasks:
 # Fix: Define or provide default
 tasks:
   test:
-    command: echo ${undefined:-default}
+    command: echo ${undefined:default}
 ```
 
 ### Variable Resolution

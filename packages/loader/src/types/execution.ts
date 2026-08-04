@@ -125,6 +125,14 @@ export interface ExecutionOptions extends ExecutionContextOptions {
 
   /** Preferred CDN for module loading */
   preferredCDN?: 'esm.sh' | 'jsr.io' | 'unpkg' | 'skypack' | 'jsdelivr';
+
+  /**
+   * Integrity policy for remotely fetched modules.
+   *
+   * Defaults to lockfile pinning against the known CDN hosts. Set
+   * `{ mode: 'off' }` only for throwaway local work.
+   */
+  integrity?: import('../module/module-integrity.js').IntegrityPolicy;
 }
 
 /**

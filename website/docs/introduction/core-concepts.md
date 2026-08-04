@@ -63,7 +63,7 @@ Executes commands inside Docker containers.
 
 ```typescript
 // Docker container execution
-await $.docker('my-app')`python manage.py migrate`;
+await $.docker({ container: 'my-app' })`python manage.py migrate`;
 ```
 
 #### Kubernetes Adapter

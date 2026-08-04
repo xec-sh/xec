@@ -74,13 +74,23 @@ describe('Error classes', () => {
 
   describe('TimeoutError', () => {
     it('should create timeout error', () => {
-      const error = new TimeoutError('ls -la', 5000);
+      const error = new TimeoutError('node script.js', 5000);
 
-      expect(error.message).toBe('Command timed out after 5000ms: ls -la');
+      expect(error.message).toBe('Command timed out after 5000ms: node script.js');
       expect(error.code).toBe('TIMEOUT');
-      expect(error.command).toBe('ls -la');
+      expect(error.command).toBe('node script.js');
       expect(error.timeout).toBe(5000);
       expect(error.name).toBe('TimeoutError');
+    });
+
+    it('should redact arguments of a sensitive command', () => {
+      // A timed-out command routinely carries credentials — a piped sudo
+      // password, a bearer token in a curl header — and the message reaches
+      // logs and stack traces.
+      const error = new TimeoutError('cat /home/deploy/.ssh/id_rsa', 5000);
+
+      expect(error.message).toBe('Command timed out after 5000ms: cat [arguments hidden]');
+      expect(error.message).not.toContain('id_rsa');
     });
   });
 

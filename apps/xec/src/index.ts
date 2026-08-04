@@ -25,8 +25,12 @@ import './globals.js';
 // ========================================
 export * from '@xec-sh/core';
 
-// Re-export ModuleLoader from @xec-sh/loader
-export { ModuleLoader } from '@xec-sh/loader';
+// ========================================
+// RE-EXPORT GLOBAL NAMESPACE
+// ========================================
+// The namespace is already defined in globals.ts via declare global
+// We just re-export it here for consistency with the import pattern
+export type { Xec } from './globals.js';
 
 // Re-export external utilities from script-utils
 import {
@@ -40,10 +44,24 @@ import {
 
 export { fs, os, glob, path, fetch, which };
 
+// Re-export ModuleLoader from @xec-sh/loader
+export { ModuleLoader } from '@xec-sh/loader';
 // ========================================
 // EXPORT ADVANCED UTILITIES
 // ========================================
 export { createTargetEngine } from '@xec-sh/ops';
+
+// ========================================
+// RE-EXPORT CLI-SPECIFIC TYPES
+// ========================================
+export type {
+  TargetType,
+  TargetConfig,
+  Configuration,
+  CommandConfig,
+  ResolvedTarget,
+} from '@xec-sh/ops';
+
 // ========================================
 // RE-EXPORT CLI SCRIPT UTILITIES
 // ========================================
@@ -74,22 +92,4 @@ export {
   loadEnv,
   template,
   parseArgs,
-} from '@xec-sh/ops';
-
-// ========================================
-// RE-EXPORT GLOBAL NAMESPACE
-// ========================================
-// The namespace is already defined in globals.ts via declare global
-// We just re-export it here for consistency with the import pattern
-export type { Xec } from './globals.js';
-
-// ========================================
-// RE-EXPORT CLI-SPECIFIC TYPES
-// ========================================
-export type {
-  TargetType,
-  TargetConfig,
-  Configuration,
-  CommandConfig,
-  ResolvedTarget,
 } from '@xec-sh/ops';

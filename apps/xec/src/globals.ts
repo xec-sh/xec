@@ -9,6 +9,14 @@
  * This will make all types from @xec-sh/cli and @xec-sh/core available globally.
  */
 
+// Import types from @xec-sh/cli config
+import type {
+  TargetType,
+  TargetConfig,
+  Configuration,
+  CommandConfig,
+  ResolvedTarget,
+} from '@xec-sh/ops';
 // Re-export specific commonly used types for convenience
 import type {
   Command,
@@ -27,15 +35,6 @@ import type {
 // Import ALL exports from @xec-sh/core as a namespace
 // This automatically includes all current and future types
 import * as CoreExports from '@xec-sh/core';
-
-// Import types from @xec-sh/cli config
-import type {
-  TargetType,
-  TargetConfig,
-  Configuration,
-  CommandConfig,
-  ResolvedTarget,
-} from '@xec-sh/ops';
 
 // Re-export commonly used items to global scope
 declare global {

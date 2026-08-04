@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { it, vi, expect, describe } from 'vitest';
+
 import { Workflow } from '../../src/workflow/index.js';
 
 describe('Workflow', () => {

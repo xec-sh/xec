@@ -20,17 +20,23 @@ import { $ } from '@xec-sh/core';
 // Local execution
 await $`ls -la`;
 
-// SSH execution
-const remote = $.ssh({ host: 'server.com', username: 'user' });
+// SSH execution — string shorthand or options object
+const remote = $.ssh('user@server.com');           // [user@]host[:port]
+// const remote = $.ssh({ host: 'server.com', username: 'user' });
 await remote`ls -la`;
 
 // Docker execution
 const container = $.docker({ container: 'my-app' });
 await container`ls -la`;
 
-// Kubernetes execution
-const pod = $.k8s().pod('my-pod');
+// Kubernetes execution — string shorthand or options object
+const pod = $.k8s('my-pod');                       // [namespace/]pod[:container]
+// const pod = $.k8s({ pod: 'my-pod', namespace: 'default' });
 await pod`ls -la`;
+
+// The pod object API: $.k8s().pod(name) returns a K8sPod whose
+// commands run via .exec (the pod object itself is not callable)
+await $.k8s().pod('my-pod').exec`ls -la`;
 ```
 
 ### Engine Architecture
@@ -115,9 +121,10 @@ const result = await $`ls -la`;
 result.stdout;      // Standard output
 result.stderr;      // Error output
 result.exitCode;    // Exit code
-result.duration;    // Execution time
-result.startTime;   // Start time
-result.endTime;     // End time
+result.ok;          // true when exitCode === 0
+result.duration;    // Execution time (ms)
+result.startedAt;   // Start time
+result.finishedAt;  // Finish time
 ```
 
 ## ProcessPromise API
@@ -148,12 +155,11 @@ if (result.exitCode !== 0) {
   console.log('Command failed:', result.stderr);
 }
 
-// Retry on failure
-await $`flaky-command`.retry({
+// Retry on failure (engine-level: $.retry() returns a derived engine)
+await $.retry({
   maxRetries: 3,
-  delay: 1000,
-  exponentialBackoff: true
-});
+  initialDelay: 1000
+})`flaky-command`;
 ```
 
 ### Execution Control
@@ -196,14 +202,14 @@ The engine supports Unix-like pipes:
 // Simple pipe
 await $`cat file.txt`.pipe($`grep pattern`).pipe($`wc -l`);
 
-// Pipe with processing
-await $`ls -la`.pipe(async (output) => {
-  const files = output.split('\n');
-  return files.filter(f => f.includes('.txt'));
+// Pipe to a function — called once per output line
+await $`ls -la`.pipe((line) => {
+  if (line.includes('.txt')) console.log(line);
 });
 
-// Pipe to file
-await $`generate-report`.pipe('report.txt');
+// Pipe to a writable stream (e.g. a file)
+import { createWriteStream } from 'node:fs';
+await $`generate-report`.pipe(createWriteStream('report.txt'));
 ```
 
 ## Parallel Execution
@@ -323,16 +329,16 @@ await $.withTempFile(async (path) => {
 ### File Transfer
 
 ```typescript
-// Between adapters
+// Between environments: ssh://user@host/path, docker://container:/path
 await $.transfer.copy(
   '/local/file.txt',
-  'remote:/server/file.txt'
+  'ssh://deploy@server/app/file.txt'
 );
 
 // With progress
-await $.transfer.sync('/source', '/dest', {
-  onProgress: (transferred, total) => {
-    console.log(`${transferred}/${total} bytes`);
+await $.transfer.sync('/source', 'docker://app:/dest', {
+  onProgress: (progress) => {
+    console.log(`${progress.transferredBytes}/${progress.totalBytes} bytes`);
   }
 });
 ```
@@ -401,11 +407,10 @@ await $.docker({ container: 'app' })`ls`;
 ### Stream Processing
 
 ```typescript
-// Process large outputs
-await $`generate-huge-output`
-  .stdout(async (chunk) => {
-    await processChunk(chunk);
-  });
+// Process large outputs line by line without buffering
+for await (const line of $`generate-huge-output`) {
+  await processLine(line);
+}
 ```
 
 ## Security
@@ -422,28 +427,22 @@ await $`mysql -e "SELECT * FROM data WHERE name = ${userInput}"`;
 
 ### Sensitive Data Masking
 
+Masking is enabled by default in every adapter: passwords, tokens, and keys
+matching the built-in patterns are replaced with `[REDACTED]` in events and
+error messages. It is configured per adapter:
+
 ```typescript
 const $ = new ExecutionEngine({
-  sensitiveDataMasking: {
-    enabled: true,
-    patterns: [/password=\w+/gi],
-    replacement: '[REDACTED]'
+  adapters: {
+    local: {
+      sensitiveDataMasking: {
+        enabled: true,
+        patterns: [/password=\w+/gi],
+        replacement: '[REDACTED]'
+      }
+    }
   }
 });
-
-// Passwords are hidden in logs
-await $`curl -u admin:secret123 https://api.example.com`;
-// Output: curl -u admin:[REDACTED] https://api.example.com
-```
-
-### Secure Password Handling
-
-```typescript
-import { SecureString } from '@xec-sh/core';
-
-const password = new SecureString('secret123');
-await $`mysql -p${password} -e "SHOW DATABASES"`;
-// Password won't appear in logs
 ```
 
 ## Integration with async/await
@@ -483,17 +482,17 @@ $.registerAdapter('custom', new CustomAdapter());
 await $.with({ adapter: 'custom' })`custom-command`;
 ```
 
-### Plugins and Middleware
+### Event Listeners
 
 ```typescript
-// Add logging middleware
+// Add logging via events (listeners observe execution;
+// they cannot modify results)
 $.on('command:start', async (event) => {
   await logger.log('Command started', event);
 });
 
-// Modify results
-$.on('command:complete', (event) => {
-  event.stdout = sanitize(event.stdout);
+$.on('command:complete', async (event) => {
+  await metrics.record(event.duration);
 });
 ```
 
@@ -510,8 +509,10 @@ async function deploy(environment: string) {
   await $`npm run build`;
   
   // Tests
-  await $`npm test`.nothrow() || 
+  const tests = await $`npm test`.nothrow();
+  if (!tests.ok) {
     throw new Error('Tests failed');
+  }
   
   // Deploy
   const server = $.ssh({
@@ -537,8 +538,8 @@ async function processLogs() {
   ]);
   
   // Process and aggregate
-  const errors = [...app1.stdout, ...app2.stdout, ...db.stdout]
-    .split('\n')
+  const errors = [app1.stdout, app2.stdout, db.stdout]
+    .flatMap(output => output.split('\n'))
     .filter(line => line.includes('ERROR'));
   
   // Save results

@@ -1,6 +1,6 @@
-import { ExecutionResult } from '../core/result.js';
-
 import type { EnhancedEventEmitter } from './event-emitter.js';
+
+import { ExecutionResult } from '../core/result.js';
 
 export interface RetryOptions {
   /**

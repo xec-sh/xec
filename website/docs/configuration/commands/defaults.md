@@ -378,12 +378,12 @@ profiles:
 commands:
   in:
     # Use environment variable
-    defaultTimeout: ${env.COMMAND_TIMEOUT:-30000}
-    shell: ${env.SHELL:-/bin/bash}
+    defaultTimeout: ${env.COMMAND_TIMEOUT:30000}
+    shell: ${env.SHELL:/bin/bash}
   
   logs:
-    tail: ${env.LOG_LINES:-100}
-    follow: ${env.LOG_FOLLOW:-false}
+    tail: ${env.LOG_LINES:100}
+    follow: ${env.LOG_FOLLOW:false}
 ```
 
 ## Command Aliases

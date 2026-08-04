@@ -2,12 +2,11 @@ import path from 'path';
 import fs from 'fs-extra';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
+import { sortConfigKeys , getDefaultConfig, ConfigurationManager } from '@xec-sh/ops';
 import { log, text, prism, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
-import { sortConfigKeys, getDefaultConfig } from '@xec-sh/ops';
-import { ConfigurationManager } from '@xec-sh/ops';
 
 interface NewOptions extends CommandOptions {
   force?: boolean;
@@ -1552,7 +1551,7 @@ ${config.description}
 
 3. Run the example task:
    \`\`\`bash
-   xec tasks:run hello
+   xec run hello
    \`\`\`
 
 ## Project Structure
@@ -1603,7 +1602,7 @@ This project has been initialized with Xec for automation tasks.
 
 3. Run the example task:
    \`\`\`bash
-   xec tasks:run hello
+   xec run hello
    \`\`\`
 
 ### Xec Project Structure
@@ -2146,10 +2145,10 @@ extensions:
 
 \`\`\`bash
 # Setup the extension
-xec tasks:run ${name}:setup
+xec run ${name}:setup
 
 # Run the main task
-xec tasks:run ${name}:run --mode=fast
+xec run ${name}:run --mode=fast
 \`\`\`
 
 ## Configuration

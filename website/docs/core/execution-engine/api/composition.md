@@ -319,7 +319,7 @@ class DockerStrategy implements ExecutionStrategy {
   constructor(private container: string) {}
   
   async execute(command: string) {
-    return await $.docker(this.container)`${command}`;
+    return await $.docker({ container: this.container })`${command}`;
   }
 }
 

@@ -64,9 +64,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && tsc",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
     "@xec-sh/core": "workspace:*",

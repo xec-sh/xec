@@ -1,7 +1,7 @@
+import type { ExecutionEngine } from '../core/execution-engine.js';
+
 import { createInterface } from 'node:readline';
 import { Readable, Writable } from 'node:stream';
-
-import type { ExecutionEngine } from '../core/execution-engine.js';
 
 export interface QuestionOptions {
   defaultValue?: string;

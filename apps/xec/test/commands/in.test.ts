@@ -385,6 +385,7 @@ describe('In Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password
             }
           }
@@ -408,6 +409,7 @@ describe('In Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 
@@ -430,6 +432,7 @@ describe('In Command', () => {
               host: sshConfig.host,
               port: sshConfig.port,
               user: sshConfig.username,
+              hostKeyChecking: sshConfig.hostKeyChecking,
               password: sshConfig.password,
               env: {
                 TEST_ENV: 'ssh_value',
@@ -450,6 +453,7 @@ describe('In Command', () => {
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
+        hostKeyChecking: sshConfig.hostKeyChecking,
         password: sshConfig.password
       });
 

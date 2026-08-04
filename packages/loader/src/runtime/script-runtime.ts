@@ -3,10 +3,10 @@
  * @module @xec-sh/loader/runtime/script-runtime
  */
 
+import type { RetryOptions } from '../types/runtime.js';
+
 import os from 'node:os';
 import path from 'node:path';
-
-import type { RetryOptions } from '../types/runtime.js';
 
 // Re-export for convenience
 export type { RetryOptions };

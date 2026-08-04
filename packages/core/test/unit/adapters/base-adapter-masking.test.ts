@@ -1,9 +1,9 @@
 
-import { ExecutionResultImpl } from '../../../src/core/result.js';
-import { BaseAdapter } from '../../../src/adapters/base-adapter.js';
-
 import type { Command } from '../../../src/types/command.js';
 import type { ExecutionResult } from '../../../src/types/result.js';
+
+import { ExecutionResultImpl } from '../../../src/core/result.js';
+import { BaseAdapter } from '../../../src/adapters/base-adapter.js';
 
 // Test implementation of BaseAdapter to test masking functionality
 class TestAdapter extends BaseAdapter {

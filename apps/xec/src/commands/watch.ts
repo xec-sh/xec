@@ -1,3 +1,5 @@
+import type { ResolvedTarget } from '@xec-sh/ops';
+
 import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -5,13 +7,10 @@ import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { FileWatcher } from '@xec-sh/loader';
+import { validateOptions , getScriptLoader } from '@xec-sh/ops';
 
-import { validateOptions } from '@xec-sh/ops';
-import { getScriptLoader } from '@xec-sh/ops';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
-
-import type { ResolvedTarget } from '@xec-sh/ops';
 
 interface WatchOptions extends ConfigAwareOptions, InteractiveOptions {
   pattern?: string[];
@@ -268,11 +267,14 @@ export class WatchCommand extends ConfigAwareCommand {
     paths: string[],
     options: WatchOptions
   ): Promise<WatchSession> {
-    // Create watcher using @xec-sh/loader's FileWatcher
+    // Create watcher using @xec-sh/loader's FileWatcher.
+    // Watch all file types — pattern/exclude filtering is applied by
+    // shouldIgnoreFile, not by the watcher's extension filter.
     const watcher = new FileWatcher(paths, {
       debounce: parseInt(options.interval || '200', 10),
       ignore: options.exclude || [],
       recursive: true,
+      extensions: [],
     });
 
     watcher.on('change', (event) => {

@@ -12,29 +12,24 @@ This guide helps you diagnose and resolve common configuration issues in Xec. Ea
 ### Configuration Debugging
 
 ```bash
-# Enable debug output
-xec --debug config show
+# Enable debug output — prints which config files are checked and loaded
+XEC_DEBUG=true xec config view
 
-# Trace configuration loading
-xec --trace config validate
+# Validate the merged configuration
+xec config validate
 
-# Show configuration sources
-xec config sources
-
-# Test configuration resolution
-xec config resolve --var database.host
+# Test configuration resolution for a single key
+xec config get vars.database.host
 ```
 
 ### Built-in Diagnostics
 
 ```bash
-# Run full diagnostics
-xec doctor
+# Check and fix configuration issues
+xec config doctor
 
-# Check specific component
-xec doctor --check configuration
-xec doctor --check targets
-xec doctor --check connectivity
+# Show all possible configuration options with defaults
+xec config doctor --defaults
 ```
 
 ## Common Issues
@@ -103,14 +98,14 @@ vars:
 ```yaml
 tasks:
   connect:
-    command: psql -p ${database.password:-default_password}
+    command: psql -p ${database.password:default_password}
 ```
 
 #### 3. Check Variable Path
 
 ```bash
 # List all variables
-xec config show --vars
+xec config list --path vars
 
 # Check specific variable
 xec config get vars.database
@@ -148,11 +143,11 @@ Error: Failed to connect to hosts.production: Connection refused
 ### Diagnostic Steps
 
 ```bash
-# Test SSH connectivity
-xec test hosts.production --verbose
+# Test connectivity by running a command on the target
+xec on hosts.production "echo ok" --verbose
 
 # Check SSH configuration
-xec config show --target hosts.production
+xec config get targets.hosts.production
 
 # Manual SSH test
 ssh -v user@host -p 22
@@ -257,13 +252,10 @@ Error: Task 'deploy' not found
 
 ```bash
 # List available tasks
-xec task list
-
-# Search for tasks
-xec task search deploy
+xec config tasks list
 
 # Check task definition
-xec config show --tasks
+xec config get tasks.deploy
 ```
 
 ### Problem: Task Parameters Missing
@@ -276,9 +268,13 @@ Error: Required parameter 'version' not provided
 
 ```bash
 # Provide parameter
-xec run deploy --version 1.2.3
+xec run deploy --param version=1.2.3
+# or, when running the task by name:
+xec deploy --version 1.2.3
+```
 
-# Or set default
+```yaml
+# Or set a default in the task definition
 tasks:
   deploy:
     params:
@@ -296,13 +292,10 @@ Error: Step 'build' failed with exit code 1
 
 ```bash
 # Run task with debug output
-xec run deploy --debug
+XEC_DEBUG=true xec run deploy
 
-# Run specific step
-xec run deploy --only-step build
-
-# Dry run
-xec run deploy --dry-run
+# Increase verbosity
+xec run deploy --verbose
 ```
 
 ## Profile Issues
@@ -316,11 +309,11 @@ Error: Profile 'production' not found
 ### Solutions
 
 ```bash
-# List available profiles
-xec config profiles
+# List profile definitions
+xec config list --path profiles
 
-# Check profile definition
-xec config show --profiles
+# Check a specific profile
+xec config get profiles.production
 ```
 
 ### Problem: Profile Inheritance Error
@@ -374,8 +367,9 @@ source .env && xec run deploy
 #### 3. Provide Default
 
 ```yaml
+# Default values use a plain colon: everything after ':' is the default
 vars:
-  apiKey: ${env.API_KEY:-development-key}
+  apiKey: ${env.API_KEY:development-key}
 ```
 
 ## Permission Issues
@@ -432,20 +426,21 @@ Error: Secret 'database_password' not found
 
 ```bash
 # Add secret to local store
-xec secret set database_password
+xec secrets set database_password
 
-# Or use environment
-export XEC_SECRET_DATABASE_PASSWORD="password"
+# Or, with the env provider, set the variable (default prefix SECRET_)
+export SECRET_DATABASE_PASSWORD="password"
 ```
 
 #### 2. Configure Secret Provider
 
+The supported providers are `local` (encrypted file storage, the default), `env` (environment variables), and `git` (encrypted file in the repository):
+
 ```yaml
 secrets:
-  provider: vault
+  provider: env
   config:
-    address: https://vault.example.com
-    token: ${env.VAULT_TOKEN}
+    prefix: SECRET_
 ```
 
 ## Performance Issues
@@ -454,28 +449,21 @@ secrets:
 
 ### Solutions
 
-#### 1. Optimize Imports
+#### 1. Avoid Expensive Command Substitutions
+
+Every `${cmd:...}` reference executes a shell command at configuration load time. Keep those commands fast, or replace them with static values or environment variables:
 
 ```yaml
-# Instead of multiple imports
-$import:
-  - tasks/*.yaml  # Glob pattern is faster
-
-# Than individual files
-$import:
-  - tasks/deploy.yaml
-  - tasks/backup.yaml
-  - tasks/monitoring.yaml
+vars:
+  # Runs on every load — keep it cheap
+  git_sha: ${cmd:git rev-parse --short HEAD}
 ```
 
-#### 2. Cache Configuration
+#### 2. Enable Debug Logging to Find the Bottleneck
 
 ```bash
-# Enable configuration cache
-xec config cache enable
-
-# Clear cache if needed
-xec config cache clear
+# Shows which files are checked and loaded
+XEC_DEBUG=true xec config view
 ```
 
 ### Problem: Connection Pool Exhausted
@@ -554,49 +542,41 @@ $import:
 
 ```bash
 # Test configuration step by step
-xec config validate           # Basic validation
-xec test --all-targets        # Test connectivity
-xec run simple-task          # Test simple task
-xec run complex-task --dry-run  # Test without execution
+xec config validate            # Basic validation
+xec on hosts.production "echo ok"  # Test connectivity
+xec run simple-task            # Test simple task
 ```
 
 ### 2. Isolation Testing
 
-```yaml
-# Create minimal test configuration
-# test-config.yaml
-version: "1.0"
-tasks:
-  test:
-    command: echo "test"
-
-# Test isolated configuration
-xec --config test-config.yaml run test
+```bash
+# Point Xec at a minimal test configuration
+XEC_CONFIG=test-config.yaml xec run test
 ```
 
 ### 3. Verbose Output
 
 ```bash
 # Maximum verbosity
-xec --debug --trace --verbose run deploy
+XEC_DEBUG=true xec run deploy --verbose
 
 # Log to file
-xec --debug run deploy 2>&1 | tee debug.log
+XEC_DEBUG=true xec run deploy 2>&1 | tee debug.log
 ```
 
 ### 4. Configuration Inspection
 
 ```bash
 # Show resolved configuration
-xec config show --resolved
+xec config view
 
-# Show specific section
-xec config show --targets
-xec config show --tasks
-xec config show --vars
+# Show specific sections
+xec config targets list
+xec config tasks list
+xec config vars list
 
-# Export configuration
-xec config export > config-snapshot.yaml
+# Export configuration as JSON
+xec config list --json > config-snapshot.json
 ```
 
 ## Recovery Procedures
@@ -612,24 +592,15 @@ git add .xec/
 git commit -m "Configuration backup"
 ```
 
-### Safe Mode
-
-```bash
-# Run with minimal configuration
-xec --safe-mode run task
-
-# Skip validation
-xec --skip-validation run task
-```
-
 ### Reset Configuration
 
 ```bash
-# Reset to defaults
-xec config reset
+# Restore from backup or version control
+cp -r .xec.backup .xec
+git checkout -- .xec/
 
-# Regenerate configuration
-xec init --force
+# Regenerate a fresh project configuration
+xec new project
 ```
 
 ## Getting Help
@@ -638,36 +609,28 @@ xec init --force
 
 ```bash
 # General help
-xec help
+xec --help
 
 # Command-specific help
-xec help config
-xec help run
-
-# Show examples
-xec examples
+xec config --help
+xec run --help
 ```
 
 ### Support Resources
 
 1. **Documentation**: https://xec.sh/docs
 2. **GitHub Issues**: https://github.com/xec-sh/xec/issues
-3. **Discord Community**: https://discord.gg/xec
-4. **Stack Overflow**: Tag `xec-cli`
 
 ### Reporting Issues
 
 When reporting issues, include:
 
 ```bash
-# System information
-xec doctor --system-info > system-info.txt
-
-# Configuration (sanitized)
-xec config export --sanitize > config.yaml
+# Configuration health check
+xec config doctor > doctor-output.txt
 
 # Debug log
-xec --debug --trace [command] 2>&1 > debug.log
+XEC_DEBUG=true xec [command] --verbose 2>&1 > debug.log
 
 # Error message
 # Include full error message and stack trace
@@ -687,7 +650,6 @@ git commit -m "Working configuration"
 ```bash
 # Test before applying
 xec config validate
-xec run task --dry-run
 ```
 
 ### 3. Document Changes
@@ -711,11 +673,11 @@ profiles:
 ### 5. Monitor Configuration
 
 ```bash
-# Regular validation
-xec config validate --schedule daily
+# Validate regularly (e.g. in CI or a cron job)
+xec config validate
 
-# Configuration drift detection
-xec config diff
+# Detect configuration drift against version control
+git diff .xec/
 ```
 
 ## Next Steps
@@ -727,4 +689,3 @@ xec config diff
 
 - [Configuration Overview](../overview.md) - Configuration basics
 - [Known Issues](https://github.com/xec-sh/xec/issues) - GitHub issues
-- [Community Forum](https://forum.xec.sh) - Community support

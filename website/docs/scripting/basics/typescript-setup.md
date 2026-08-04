@@ -313,6 +313,34 @@ const _ = await use<LodashModule>('lodash');
 const unique = _.uniq([1, 2, 2, 3]);
 ```
 
+### Remote Module Integrity
+
+Modules that `use()` fetches from a CDN run with full process privileges, so the loader verifies them before execution:
+
+- **Allowed hosts**: remote modules are only fetched from an allowlist of CDN hosts — by default `esm.sh`, `jsr.io`, `unpkg.com`, `cdn.skypack.dev`, and `cdn.jsdelivr.net`. Any other host is rejected unless added to the policy.
+- **Lockfile pinning**: each fetched URL's content digest is recorded in a lockfile (`<cacheDir>/module-lock.json` by default). Later fetches of the same URL must match the recorded digest, or loading fails with an integrity error — the npm/pnpm lockfile model applied to CDN modules.
+
+The policy has three modes, configured via the loader's `integrity` option:
+
+| Mode | Behavior |
+|------|----------|
+| `lockfile` (default) | Record a digest on first fetch; require every later fetch to match |
+| `strict` | Only URLs already present in the lockfile may load — nothing new is fetched |
+| `off` | No verification (only for throwaway local work) |
+
+```typescript
+// Programmatic configuration (ModuleLoaderOptions)
+{
+  integrity: {
+    mode: 'lockfile',                 // 'lockfile' | 'strict' | 'off'
+    allowedHosts: ['esm.sh'],         // narrow the default host allowlist
+    lockfilePath: './module-lock.json'
+  }
+}
+```
+
+If a digest mismatch is reported after a legitimate upstream change, remove the URL's entry from the lockfile and re-run to re-pin it.
+
 ### NPM Package Types
 
 ```typescript

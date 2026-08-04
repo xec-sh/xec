@@ -101,8 +101,8 @@ export function echo(first: TemplateStringsArray | string | unknown, ...rest: un
 
 // ─── Glob ───────────────────────────────────────────────────────────
 
-import { readdir, stat } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { readdir } from 'node:fs/promises';
+import { join, relative } from 'node:path';
 
 /**
  * Simple, zero-dependency glob implementation.

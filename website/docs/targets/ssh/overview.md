@@ -213,14 +213,17 @@ await $.ssh({
 // Simple command
 await $.ssh('user@host')`ls -la`;
 
-// With configuration object
+// With configuration object (programmatic API uses 'username')
 await $.ssh({
   host: 'server.example.com',
-  user: 'deploy'
+  username: 'deploy'
 })`df -h`;
+```
 
-// Using configured target
-await $.target('production')`systemctl status nginx`;
+Targets defined in `.xec/config.yaml` are addressed through the CLI:
+
+```bash
+xec on hosts.production "systemctl status nginx"
 ```
 
 ### Advanced Execution

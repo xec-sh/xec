@@ -4,6 +4,9 @@
  */
 
 import type { Cache } from '../types/index.js';
+import type { ModuleIntegrityVerifier } from './module-integrity.js';
+
+import { IntegrityError } from './module-integrity.js';
 
 export interface FetchOptions {
   timeout?: number;
@@ -21,7 +24,15 @@ export interface FetchedModule {
  * ModuleFetcher handles HTTP fetching of modules
  */
 export class ModuleFetcher {
-  constructor(private cache: Cache<string>) {}
+  /**
+   * @param cache - Cache for fetched module text.
+   * @param integrity - Verifier applied to every remote fetch. When omitted,
+   *   content is executed unverified — only acceptable for local file loading.
+   */
+  constructor(
+    private cache: Cache<string>,
+    private integrity?: ModuleIntegrityVerifier
+  ) {}
 
   /**
    * Fetch module from URL with caching and retry logic
@@ -33,9 +44,16 @@ export class ModuleFetcher {
       headers = {},
     } = options;
 
+    // Reject a disallowed host before contacting it at all.
+    this.integrity?.assertHostAllowed(url);
+
     // Check cache first
     const cached = await this.cache.get(url);
     if (cached) {
+      // The cache lives on disk and is writable by anything running as this
+      // user, so cached content is verified exactly like a fresh fetch.
+      await this.integrity?.verify(url, cached);
+
       return {
         content: cached,
         headers: {},
@@ -75,6 +93,11 @@ export class ModuleFetcher {
           return targetModule;
         }
 
+        // Verify before caching, so content that fails the check never
+        // reaches disk and cannot be served to a later run.
+        await this.integrity?.verify(url, transformedContent);
+        await this.integrity?.save();
+
         // Cache the transformed result
         await this.cache.set(url, transformedContent);
 
@@ -84,6 +107,12 @@ export class ModuleFetcher {
           url,
         };
       } catch (error) {
+        // An integrity failure is a verdict, not a transient fault. Retrying
+        // would re-fetch the same rejected bytes and could mask the mismatch.
+        if (error instanceof IntegrityError) {
+          throw error;
+        }
+
         lastError = error instanceof Error ? error : new Error(String(error));
 
         // Don't retry on 404 or other client errors

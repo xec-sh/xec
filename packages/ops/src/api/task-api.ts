@@ -5,15 +5,15 @@
  * Supports listing, executing, and creating tasks.
  */
 
-import { TaskManager } from '../config/task-manager.js';
-import { TargetResolver } from '../config/target-resolver.js';
-import { ConfigurationManager } from '../config/configuration-manager.js';
-
 import type { 
   TaskResult, 
   TaskDefinition, 
   TaskExecutionOptions 
 } from './types.js';
+
+import { TaskManager } from '../config/task-manager.js';
+import { TargetResolver } from '../config/target-resolver.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
 
 export class TaskAPI {
   private manager?: TaskManager;
@@ -138,17 +138,18 @@ export class TaskAPI {
    */
   async create(name: string, definition: Partial<TaskDefinition>): Promise<void> {
     await this.initialize();
-    
-    // Add task to configuration
-    const config = this.configManager.getConfig();
-    if (!config.tasks) {
-      config.tasks = {};
-    }
-    
+
     // Remove name from definition as it's stored as the key
     const { name: _, ...taskDef } = definition as any;
-    config.tasks[name] = taskDef;
-    
+
+    // Apply to both the resolved and raw configuration so save() persists it
+    this.configManager.update(config => {
+      if (!config.tasks) {
+        config.tasks = {};
+      }
+      config.tasks[name] = structuredClone(taskDef);
+    });
+
     // Save configuration
     await this.configManager.save();
   }
@@ -160,22 +161,25 @@ export class TaskAPI {
    */
   async update(name: string, definition: Partial<TaskDefinition>): Promise<void> {
     await this.initialize();
-    
-    const config = this.configManager.getConfig();
-    if (!config.tasks?.[name]) {
+
+    if (!this.configManager.getConfig().tasks?.[name]) {
       throw new Error(`Task '${name}' not found`);
     }
-    
-    // Merge with existing definition
-    const existing = config.tasks[name];
-    const updated = typeof existing === 'string'
-      ? { command: existing, ...definition }
-      : { ...existing, ...definition };
-    
-    // Remove name from definition
-    const { name: _, ...taskDef } = updated as any;
-    config.tasks[name] = taskDef;
-    
+
+    // Merge with each view's own existing definition so the raw configuration
+    // keeps its uninterpolated form
+    this.configManager.update(config => {
+      const existing = config.tasks?.[name];
+      if (existing === undefined) {
+        return;
+      }
+      const updated = typeof existing === 'string'
+        ? { command: existing, ...definition }
+        : { ...existing, ...definition };
+      const { name: _, ...taskDef } = updated as any;
+      config.tasks![name] = structuredClone(taskDef);
+    });
+
     await this.configManager.save();
   }
 
@@ -185,13 +189,16 @@ export class TaskAPI {
    */
   async delete(name: string): Promise<void> {
     await this.initialize();
-    
-    const config = this.configManager.getConfig();
-    if (!config.tasks?.[name]) {
+
+    if (!this.configManager.getConfig().tasks?.[name]) {
       throw new Error(`Task '${name}' not found`);
     }
-    
-    delete config.tasks[name];
+
+    this.configManager.update(config => {
+      if (config.tasks) {
+        delete config.tasks[name];
+      }
+    });
     await this.configManager.save();
   }
 

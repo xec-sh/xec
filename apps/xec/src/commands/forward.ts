@@ -1,14 +1,14 @@
+import type { ResolvedTarget } from '@xec-sh/ops';
+
 import { z } from 'zod';
 import * as net from 'net';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-
 import { validateOptions } from '@xec-sh/ops';
+
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
-
-import type { ResolvedTarget } from '@xec-sh/ops';
 
 interface ForwardOptions extends ConfigAwareOptions, InteractiveOptions {
   bind?: string;
@@ -262,15 +262,38 @@ export class ForwardCommand extends ConfigAwareCommand {
       privateKey: config.privateKey,
       password: config.password,
       privateKeyPath: config.privateKeyPath,
+      // Carry the target's host key policy through; omitting it silently
+      // downgrades an explicitly configured target to the default.
+      hostKeyChecking: config.hostKeyChecking,
+      knownHostsPath: config.knownHostsPath,
     };
 
     // Create SSH tunnel
     const engine = $.ssh(sshOptions);
 
     if (options.reverse) {
-      // Reverse tunnel: remote port -> local port
-      // Note: Reverse tunnels may require different handling
-      throw new Error('Reverse tunneling is not yet implemented in this version');
+      // Reverse tunnel (ssh -R): the remote host listens, and each connection
+      // is forwarded to the local port. The mapping reads the same way as a
+      // forward tunnel — local:remote — with the direction inverted.
+      await engine`echo "Establishing connection for tunnel"`.quiet();
+
+      const tunnel = await engine.reverseTunnel({
+        remotePort: mapping.remote,
+        remoteHost: options.bind,
+        localHost: 'localhost',
+        localPort: mapping.local
+      });
+
+      return {
+        target,
+        mapping,
+        process: tunnel,
+        cleanup: async () => {
+          if (tunnel && typeof tunnel.close === 'function') {
+            await tunnel.close();
+          }
+        },
+      };
     } else {
       // First, establish a connection by executing a simple command
       // This is required before creating a tunnel
@@ -318,18 +341,25 @@ export class ForwardCommand extends ConfigAwareCommand {
 
     // Stop any existing socat container
     try {
-      await local()`/usr/local/bin/docker stop ${socatContainer}`.nothrow();
-      await local()`/usr/local/bin/docker rm ${socatContainer}`.nothrow();
-    } catch { }
+      await local()`docker stop ${socatContainer}`.nothrow();
+      await local()`docker rm ${socatContainer}`.nothrow();
+    } catch (error) {
+      // Removing a container that is already gone is fine; anything else
+      // leaves a socat container running, so it must be visible.
+      this.log(
+        `Could not clean up helper container ${socatContainer}: ${error instanceof Error ? error.message : String(error)}`,
+        'warn'
+      );
+    }
 
     // Get container network
-    const inspectResult = await local()`/usr/local/bin/docker inspect ${container} --format='{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}'`;
+    const inspectResult = await local()`docker inspect ${container} --format='{{range .NetworkSettings.Networks}}{{.NetworkID}}{{end}}'`;
     const networkId = inspectResult.stdout.trim();
 
     // Start socat container
     const socatCommand = `socat TCP-LISTEN:${mapping.remote},fork,reuseaddr TCP:${container}:${mapping.remote}`;
 
-    await local()`/usr/local/bin/docker run -d --name ${socatContainer} --network ${networkId} -p ${options.bind}:${mapping.local}:${mapping.remote} alpine/socat ${socatCommand}`;
+    await local()`docker run -d --name ${socatContainer} --network ${networkId} -p ${options.bind}:${mapping.local}:${mapping.remote} alpine/socat ${socatCommand}`;
 
     return {
       target,
@@ -337,9 +367,16 @@ export class ForwardCommand extends ConfigAwareCommand {
       process: socatContainer,
       cleanup: async () => {
         try {
-          await local()`/usr/local/bin/docker stop ${socatContainer}`;
-          await local()`/usr/local/bin/docker rm ${socatContainer}`;
-        } catch { }
+          await local()`docker stop ${socatContainer}`;
+          await local()`docker rm ${socatContainer}`;
+        } catch (error) {
+          // A container that is already gone is fine; anything else leaves a
+          // socat helper running, which the user needs to know about.
+          this.log(
+            `Could not clean up helper container ${socatContainer}: ${error instanceof Error ? error.message : String(error)}`,
+            'warn'
+          );
+        }
       },
     };
   }
@@ -366,8 +403,9 @@ export class ForwardCommand extends ConfigAwareCommand {
       '--address', options.bind || '127.0.0.1'
     ];
 
-    // Start port forwarding in background
-    const process = $.local()`kubectl ${args.join(' ')}`.nothrow();
+    // Start port forwarding in background — the array interpolates as
+    // separately escaped arguments
+    const process = $.local()`kubectl ${args}`.nothrow();
 
     // Wait a bit to ensure it started
     await new Promise(resolve => setTimeout(resolve, 1000));

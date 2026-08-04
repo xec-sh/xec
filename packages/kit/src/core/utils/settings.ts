@@ -1,3 +1,11 @@
+/**
+ * Adapted from Clack (https://github.com/bombshell-dev/clack).
+ *
+ * Copyright (c) Nate Moore
+ * Licensed under the MIT License. See the NOTICE file at the root of this
+ * package for the full attribution and license text.
+ */
+
 const actions = ['up', 'down', 'left', 'right', 'space', 'enter', 'cancel'] as const;
 export type Action = (typeof actions)[number];
 

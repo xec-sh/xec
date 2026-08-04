@@ -1,9 +1,9 @@
+import type { Disposable } from '../../types/disposable.js';
+
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chmod, unlink, writeFile } from 'node:fs/promises';
 import { scryptSync, randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
-
-import type { Disposable } from '../../types/disposable.js';
 
 /**
  * Secure password handling utilities with improved security features:
@@ -122,7 +122,7 @@ echo '${escapedPassword}'
     } catch (error) {
       // Clean up stored password on error
       this.encryptedPasswords.delete(scriptId);
-      throw new Error(`Failed to create askpass script: ${error}`);
+      throw new Error(`Failed to create askpass script: ${error}`, { cause: error });
     }
   }
   

@@ -3,11 +3,10 @@ import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import { log, prism } from '@xec-sh/kit';
-
-import { TaskManager } from '@xec-sh/ops';
-import { ConfigurationManager } from '@xec-sh/ops';
-import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
+import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
 import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops';
+
+import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
 
 interface RunOptions extends ConfigAwareOptions {
   eval?: string;
@@ -271,7 +270,7 @@ export class RunCommand extends BaseCommand {
       } catch {
         // Not a file either
         log.error(`Task '${taskName}' not found`);
-        log.info(prism.dim('\nRun "xec tasks" to see available tasks'));
+        log.info(prism.dim('\nRun "xec inspect tasks" to see available tasks'));
         throw new Error(`Task '${taskName}' not found`);
       }
     }

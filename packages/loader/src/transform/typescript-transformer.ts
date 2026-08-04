@@ -3,9 +3,9 @@
  * @module @xec-sh/loader/transform/typescript-transformer
  */
 
-import { type TransformOptions, transform as esbuildTransform } from 'esbuild';
-
 import type { Cache } from '../types/index.js';
+
+import { type TransformOptions, transform as esbuildTransform } from 'esbuild';
 
 /**
  * Options for TypeScript transformation

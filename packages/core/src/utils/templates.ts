@@ -4,6 +4,8 @@ import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ExecutionEngineConfig } from '../types/execution.js';
 import type { ExecutionEngine } from '../core/execution-engine.js';
 
+import { dialectFor, quoteForShell } from './shell-escape.js';
+
 export interface TemplateOptions extends Partial<ExecutionEngineConfig> {
   validate?: (params: Record<string, any>) => void | Promise<void>;
   transform?: (result: ExecutionResult) => any;
@@ -55,12 +57,10 @@ export class CommandTemplate {
   }
 
   private escapeShellArg(arg: string): string {
-    // If empty or contains special characters, quote and escape
-    if (!arg || /[^a-zA-Z0-9_\-./]/.test(arg)) {
-      // Escape backslashes and double quotes, then wrap in double quotes
-      return '"' + arg.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-    }
-    return arg;
+    // Single-quote the value: inside double quotes a shell still expands
+    // `$(…)`, backticks and `$VAR`, which turned every templated parameter
+    // into an injection point.
+    return quoteForShell(arg, dialectFor(this.options.shell));
   }
 
   async execute(

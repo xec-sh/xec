@@ -5,8 +5,19 @@ import { themes as prismThemes } from 'prism-react-renderer';
 
 const config: Config = {
   title: 'Xec',
-  tagline: 'Universal Command Execution for the Modern Stack',
-  favicon: 'img/favicon.ico',
+  tagline: 'One $ for every environment',
+  favicon: 'img/favicon.svg',
+
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'alternate icon',
+        type: 'image/x-icon',
+        href: '/img/favicon.ico',
+      },
+    },
+  ],
 
   // Production URL for GitHub Pages
   url: 'https://xec.sh',
@@ -19,11 +30,6 @@ const config: Config = {
   projectName: 'xec',
 
   onBrokenLinks: 'warn',
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: 'warn',
-    },
-  },
 
   // i18n configuration
   i18n: {
@@ -111,9 +117,15 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
   },
 
   themeConfig: {
+    // Social card
+    image: 'img/xec-social-card.png',
+
     // Theme customization
     colorMode: {
       defaultMode: 'light',
@@ -125,15 +137,18 @@ const config: Config = {
     announcementBar: {
       id: 'alpha_version',
       content: '🚧 Xec is currently in alpha. APIs may change.',
-      backgroundColor: '#e6f7f9',
-      textColor: '#0a5d6b',
+      backgroundColor: '#3F2B9C',
+      textColor: '#E0D9FF',
       isCloseable: true,
     },
 
     // Meta tags
     metadata: [
       { name: 'keywords', content: 'xec, universal execution, typescript, ssh, docker, kubernetes, command execution, automation, devops' },
-      { name: 'description', content: 'Universal Command Execution System - One execution API for local, SSH, Docker, and Kubernetes environments' },
+      { name: 'description', content: 'TypeScript command execution across local, SSH, Docker and Kubernetes — one $ API, typed results, connection pooling.' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:site_name', content: 'Xec' },
+      { name: 'twitter:card', content: 'summary_large_image' },
     ],
 
     // Navigation

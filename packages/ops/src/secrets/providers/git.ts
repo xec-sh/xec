@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { promisify } from 'node:util';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 
 import { getCachedMachineId } from '../machine-id.js';
 import {
@@ -153,6 +153,10 @@ export class GitSecretProvider implements SecretProvider {
   private batchQueue: Map<string, string> = new Map();
   private batchTimer?: NodeJS.Timeout;
 
+  // Mutations are read-modify-write cycles on a shared encrypted file;
+  // without serialization concurrent calls drop each other's writes.
+  private mutationLock: Promise<unknown> = Promise.resolve();
+
   constructor(config?: SecretProviderConfig['config']) {
     this.config = config || {};
     this.repoPath = this.config.repoPath || this.findGitRoot();
@@ -243,9 +247,18 @@ export class GitSecretProvider implements SecretProvider {
     }
   }
 
+  private withMutationLock<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.mutationLock.then(fn, fn);
+    this.mutationLock = run.catch(() => undefined);
+    return run;
+  }
+
   async set(key: string, value: string): Promise<void> {
     await this.ensureInitialized();
+    await this.withMutationLock(() => this.setLocked(key, value));
+  }
 
+  private async setLocked(key: string, value: string): Promise<void> {
     try {
       // Phase 3: Invalidate cache
       const cacheKey = `${this.environment}:${key}`;
@@ -298,7 +311,10 @@ export class GitSecretProvider implements SecretProvider {
 
   async delete(key: string): Promise<void> {
     await this.ensureInitialized();
+    await this.withMutationLock(() => this.deleteLocked(key));
+  }
 
+  private async deleteLocked(key: string): Promise<void> {
     try {
       // Phase 3: Invalidate cache
       const cacheKey = `${this.environment}:${key}`;
@@ -361,24 +377,26 @@ export class GitSecretProvider implements SecretProvider {
    * Copy secrets from one environment to another
    */
   async copyEnvironment(source: string, target: string): Promise<void> {
-    const currentEnv = this.environment;
+    await this.withMutationLock(async () => {
+      const currentEnv = this.environment;
 
-    // Load source environment secrets
-    this.environment = source;
-    const sourceSecrets = await this.loadEncryptedSecrets();
+      // Load source environment secrets
+      this.environment = source;
+      const sourceSecrets = await this.loadEncryptedSecrets();
 
-    // Save to target environment
-    this.environment = target;
-    if (sourceSecrets) {
-      await this.saveEncryptedSecrets(sourceSecrets);
+      // Save to target environment
+      this.environment = target;
+      if (sourceSecrets) {
+        await this.saveEncryptedSecrets(sourceSecrets);
 
-      if (this.autoCommit) {
-        await this.commitChanges(`secrets: copy ${source} to ${target}`);
+        if (this.autoCommit) {
+          await this.commitChanges(`secrets: copy ${source} to ${target}`);
+        }
       }
-    }
 
-    // Restore original environment
-    this.environment = currentEnv;
+      // Restore original environment
+      this.environment = currentEnv;
+    });
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -391,7 +409,7 @@ export class GitSecretProvider implements SecretProvider {
     try {
       const gitRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
       return gitRoot;
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Not in a git repository. Please run this command from within a git repository.',
         'NOT_GIT_REPO'
@@ -402,7 +420,7 @@ export class GitSecretProvider implements SecretProvider {
   private async verifyGitRepository(): Promise<void> {
     try {
       execSync('git status', { cwd: this.repoPath, encoding: 'utf8' });
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Not in a git repository or git is not available',
         'NOT_GIT_REPO'
@@ -458,7 +476,7 @@ export class GitSecretProvider implements SecretProvider {
       // Load existing master key
       try {
         await this.loadMasterKey();
-      } catch (error) {
+      } catch {
         // If we can't load directly, we'll try team key later
         console.debug('Master key direct load failed, will try team key');
       }
@@ -541,7 +559,7 @@ export class GitSecretProvider implements SecretProvider {
 
       const masterKeyData = JSON.parse(decrypted);
       this.encryptionKey = Buffer.from(masterKeyData.key, 'base64');
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Failed to load master key. The key may be corrupted or you may not have access.',
         'NO_MASTER_KEY'
@@ -554,7 +572,7 @@ export class GitSecretProvider implements SecretProvider {
       // Try to load master key directly
       try {
         await this.loadMasterKey();
-      } catch (error) {
+      } catch {
         // If direct load fails, try to decrypt using user's team key (Phase 2)
         const teamKey = await this.decryptMasterKeyWithUserKey();
         if (teamKey) {
@@ -575,7 +593,7 @@ export class GitSecretProvider implements SecretProvider {
   private async verifyAccess(): Promise<void> {
     try {
       await fs.access(this.secretsPath, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (error) {
+    } catch {
       throw new SecretError(
         `Cannot access secret storage directory: ${this.secretsPath}`,
         'ACCESS_DENIED'
@@ -688,7 +706,7 @@ export class GitSecretProvider implements SecretProvider {
     if (secret.compressed) {
       try {
         decrypted = Buffer.from(zlib.gunzipSync(decrypted));
-      } catch (error) {
+      } catch {
         throw new SecretError('Failed to decompress secret', 'DECRYPTION_FAILED');
       }
     }
@@ -718,15 +736,17 @@ export class GitSecretProvider implements SecretProvider {
       }).trim();
 
       return email || 'unknown';
-    } catch (error) {
+    } catch {
       return 'unknown';
     }
   }
 
   private async commitChanges(message: string): Promise<void> {
     try {
-      // Add changes to git
-      execSync(`git add ${this.secretsPath}`, { cwd: this.repoPath });
+      // Add changes to git. Arguments are passed as an argv array (no shell),
+      // so paths and commit messages cannot inject shell commands. `--` keeps
+      // a path from being parsed as an option.
+      execFileSync('git', ['add', '--', this.secretsPath], { cwd: this.repoPath });
 
       // Check if there are changes to commit
       const status = execSync('git status --porcelain', {
@@ -736,7 +756,7 @@ export class GitSecretProvider implements SecretProvider {
 
       if (status.trim()) {
         // Commit changes
-        execSync(`git commit -m "${message}"`, { cwd: this.repoPath });
+        execFileSync('git', ['commit', '-m', message], { cwd: this.repoPath });
       }
     } catch (error) {
       throw new SecretError(
@@ -900,7 +920,7 @@ export class GitSecretProvider implements SecretProvider {
       for (const [userId, info] of Object.entries(metadata)) {
         this.teamKeys.set(userId, info as TeamKeyInfo);
       }
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Failed to load team keys',
         'TEAM_MEMBER_NOT_FOUND'
@@ -1217,7 +1237,7 @@ export class GitSecretProvider implements SecretProvider {
       );
 
       return decryptedKey;
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Failed to decrypt master key with user key',
         'DECRYPTION_FAILED'

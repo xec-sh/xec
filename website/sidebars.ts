@@ -397,6 +397,24 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Ops Library',
+      link: {
+        type: 'doc',
+        id: 'ops/index',
+      },
+      items: [
+        'ops/deploy',
+        'ops/pipeline',
+        'ops/workflow',
+        'ops/health',
+        'ops/discovery',
+        'ops/retry',
+        'ops/config',
+        'ops/secrets',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Migration',
       items: [
         'migration/from-npm-scripts',

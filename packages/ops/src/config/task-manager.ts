@@ -3,14 +3,6 @@
  * Main API for task management and execution
  */
 
-import { EventEmitter } from 'events';
-
-import { TaskParser } from './task-parser.js';
-import { TargetResolver } from './target-resolver.js';
-import { ConfigurationManager } from './configuration-manager.js';
-import { VariableInterpolator } from './variable-interpolator.js';
-import { TaskExecutor, TaskExecutionOptions } from './task-executor.js';
-
 import type {
   TaskConfig,
   TaskResult,
@@ -18,6 +10,14 @@ import type {
   Configuration,
   TaskDefinition,
 } from './types.js';
+
+import { EventEmitter } from 'events';
+
+import { TaskParser } from './task-parser.js';
+import { TargetResolver } from './target-resolver.js';
+import { ConfigurationManager } from './configuration-manager.js';
+import { VariableInterpolator } from './variable-interpolator.js';
+import { TaskExecutor, TaskExecutionOptions } from './task-executor.js';
 
 export interface TaskManagerOptions {
   /** Configuration manager instance */
@@ -64,20 +64,30 @@ export class TaskManager extends EventEmitter {
     // TargetResolver will be initialized in load() after config is loaded
     this.targetResolver = null as any;
 
-    this.executor = new TaskExecutor({
+    this.executor = this.createExecutor();
+  }
+
+  /**
+   * Create a TaskExecutor wired to this manager's state and forward its events
+   */
+  private createExecutor(): TaskExecutor {
+    const executor = new TaskExecutor({
       interpolator: this.interpolator,
       targetResolver: this.targetResolver,
-      defaultTimeout: options.defaultTimeout,
-      debug: options.debug,
-      dryRun: options.dryRun,
+      defaultTimeout: this.options.defaultTimeout,
+      debug: this.options.debug,
+      dryRun: this.options.dryRun,
+      taskRegistry: (name) => this.parsedTasks.get(name),
     });
 
     // Forward executor events
-    this.executor.on('task:start', event => this.emit('task:start', event));
-    this.executor.on('task:complete', event => this.emit('task:complete', event));
-    this.executor.on('task:error', event => this.emit('task:error', event));
-    this.executor.on('step:retry', event => this.emit('step:retry', event));
-    this.executor.on('event', event => this.emit('event', event));
+    executor.on('task:start', event => this.emit('task:start', event));
+    executor.on('task:complete', event => this.emit('task:complete', event));
+    executor.on('task:error', event => this.emit('task:error', event));
+    executor.on('step:retry', event => this.emit('step:retry', event));
+    executor.on('event', event => this.emit('event', event));
+
+    return executor;
   }
 
   /**
@@ -89,21 +99,12 @@ export class TaskManager extends EventEmitter {
     // Initialize target resolver now that we have config
     this.targetResolver = new TargetResolver(this.config);
 
-    // Update executor with real target resolver
-    this.executor = new TaskExecutor({
-      interpolator: this.interpolator,
-      targetResolver: this.targetResolver,
-      defaultTimeout: (this.executor as any).options.defaultTimeout,
-      debug: (this.executor as any).options.debug || this.options.debug,
-      dryRun: (this.executor as any).options.dryRun
-    });
+    // Recreate the interpolator with the configured secret manager so
+    // ${secret:...} / ${secrets....} references in tasks resolve for real
+    this.interpolator = new VariableInterpolator(this.configManager.getSecretManager());
 
-    // Re-attach event listeners
-    this.executor.on('task:start', event => this.emit('task:start', event));
-    this.executor.on('task:complete', event => this.emit('task:complete', event));
-    this.executor.on('task:error', event => this.emit('task:error', event));
-    this.executor.on('step:retry', event => this.emit('step:retry', event));
-    this.executor.on('event', event => this.emit('event', event));
+    // Update executor with real target resolver and interpolator
+    this.executor = this.createExecutor();
 
     if (!this.config.tasks) {
       return;
@@ -221,13 +222,14 @@ export class TaskManager extends EventEmitter {
 
     this.parsedTasks.set(taskName, task);
 
-    // Update configuration
+    // Update configuration (both resolved and raw, so save() persists it)
     if (!this.config) {
       await this.load();
     }
-    const currentConfig = this.config!;
-    currentConfig.tasks = currentConfig.tasks || {};
-    currentConfig.tasks[taskName] = config;
+    this.configManager.update(cfg => {
+      cfg.tasks = cfg.tasks || {};
+      cfg.tasks[taskName] = config;
+    });
 
     await this.configManager.save();
   }
@@ -253,14 +255,15 @@ export class TaskManager extends EventEmitter {
 
     this.parsedTasks.delete(taskName);
 
-    // Update configuration
+    // Update configuration (both resolved and raw, so save() persists it)
     if (!this.config) {
       await this.load();
     }
-    const currentConfig = this.config!;
-    if (currentConfig.tasks) {
-      delete currentConfig.tasks[taskName];
-    }
+    this.configManager.update(cfg => {
+      if (cfg.tasks) {
+        delete cfg.tasks[taskName];
+      }
+    });
 
     await this.configManager.save();
   }
@@ -304,10 +307,11 @@ export class TaskManager extends EventEmitter {
     explanation.push('Execution plan:');
 
     if (task.command) {
+      // Preview only — keep unresolvable references as literal text
       const interpolated = this.interpolator.interpolate(task.command, {
         params: params || {},
         vars: await this.configManager.get('vars') || {},
-      });
+      }, { onUndefined: 'keep' });
       explanation.push(`  Execute: ${interpolated}`);
     } else if (task.steps) {
       const parallel = task.parallel ? ' (in parallel)' : '';
@@ -320,10 +324,11 @@ export class TaskManager extends EventEmitter {
         const prefix = `    ${i + 1}. `;
 
         if (step.command) {
+          // Preview only — keep unresolvable references as literal text
           const interpolated = this.interpolator.interpolate(step.command, {
             params: params || {},
             vars: await this.configManager.get('vars') || {},
-          });
+          }, { onUndefined: 'keep' });
           explanation.push(`${prefix}${step.name || 'Command'}: ${interpolated}`);
         } else if (step.task) {
           explanation.push(`${prefix}${step.name || 'Task'}: Run task '${step.task}'`);

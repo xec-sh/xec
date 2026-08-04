@@ -46,3 +46,4 @@ CHANGES.md
 .xec/cache
 .xec/logs
 .xec-temp
+*.tsbuildinfo

@@ -11,15 +11,10 @@ import { exec } from 'child_process';
 import { createRequire } from 'module';
 import { ModuleLoader } from '@xec-sh/loader';
 import { prism, select, confirm } from '@xec-sh/kit';
+import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
 
-import { formatBytes } from '@xec-sh/ops';
-import { getModuleCacheDir } from '@xec-sh/ops';
-import { TaskManager } from '@xec-sh/ops';
-import { TargetResolver } from '@xec-sh/ops';
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
-import { ConfigurationManager } from '@xec-sh/ops';
-import { VariableInterpolator } from '@xec-sh/ops';
 
 interface InspectOptions extends CommandOptions {
   filter?: string;
@@ -494,7 +489,7 @@ class ProjectInspector {
         runtimeData.xec.name = cliPkg.name;
         runtimeData.xec.description = cliPkg.description;
         runtimeData.xec.path = join(__dirname, '../../bin/xec');
-      } catch (e) {
+      } catch {
         runtimeData.xec.cli = 'unknown';
       }
 
@@ -557,7 +552,7 @@ class ProjectInspector {
               if (key === 'ProductVersion') osData.productVersion = value;
               if (key === 'BuildVersion') osData.buildVersion = value;
             });
-          } catch (error) {
+          } catch {
             // Silently ignore if sw_vers is not available
           }
         } else if (process.platform === 'linux') {
@@ -569,7 +564,7 @@ class ProjectInspector {
               if (key === 'PRETTY_NAME') osData.distro = value?.replace(/"/g, '');
               if (key === 'VERSION_ID') osData.distroVersion = value?.replace(/"/g, '');
             });
-          } catch (error) {
+          } catch {
             // Silently ignore if /etc/os-release is not available
           }
         } else if (process.platform === 'win32') {
@@ -581,7 +576,7 @@ class ProjectInspector {
               if (key === 'Caption') osData.caption = value?.trim();
               if (key === 'Version') osData.winVersion = value?.trim();
             });
-          } catch (error) {
+          } catch {
             // Silently ignore if wmic is not available
           }
         }
@@ -711,7 +706,7 @@ class ProjectInspector {
             const result = await $.cd(os.homedir()).raw`${tool.cmd}`;
             toolsData.versions[tool.name] = result.lines().join('; ');
             toolsData.installed[tool.name] = true;
-          } catch (error) {
+          } catch {
             // Mark as not installed but don't throw errors
             toolsData.installed[tool.name] = false;
           }
@@ -770,7 +765,10 @@ class ProjectInspector {
             scripts: Object.keys(pkg.scripts || {}),
           };
         }
-      } catch { }
+      } catch {
+        // package.json is optional here — its absence simply means there is
+        // no project metadata to report, which is not an error.
+      }
 
       results.push({
         type: 'system',
@@ -1568,7 +1566,7 @@ class ProjectInspector {
         } else {
           str = JSON.stringify(value);
         }
-      } catch (error) {
+      } catch {
         str = '[Object]';
       }
     } else {
@@ -1632,7 +1630,7 @@ class ProjectInspector {
           usagePercent: (used / total * 100).toFixed(2),
           availablePercent: (available / total * 100).toFixed(2),
         };
-      } catch (error) {
+      } catch {
         // Fallback to Node.js values if vm_stat fails - silently ignore in tests
       }
     }

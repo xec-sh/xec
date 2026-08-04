@@ -34,7 +34,7 @@ import { $ } from '@xec-sh/core';
 // Stream logs from multiple sources
 await Promise.all([
   $.ssh('web-1')`tail -f /var/log/nginx/access.log`,
-  $.docker('app-container')`logs --follow`,
+  $.docker({ container: 'app-container' })`logs --follow`,
   $.k8s('pod/api-server')`logs --follow`
 ]);
 ```

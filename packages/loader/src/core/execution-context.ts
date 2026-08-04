@@ -6,8 +6,8 @@
 import type {
   TargetInfo,
   ScriptContext,
-  ExecutionContextOptions,
   ExecutionEngine,
+  ExecutionContextOptions,
 } from '../types/index.js';
 
 /**

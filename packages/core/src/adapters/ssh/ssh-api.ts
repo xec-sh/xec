@@ -14,6 +14,20 @@ export interface SSHTunnel {
 }
 
 /**
+ * A reverse tunnel: the remote host listens and forwards each connection to a
+ * local address. The counterpart of {@link SSHTunnel}, which listens locally.
+ */
+export interface ReverseSSHTunnel {
+  /** Port the remote host is listening on; resolved if 0 was requested. */
+  remotePort: number;
+  remoteHost: string;
+  localHost: string;
+  localPort: number;
+  isOpen: boolean;
+  close(): Promise<void>;
+}
+
+/**
  * Interface for the SSH execution context
  */
 export interface SSHExecutionContext {
@@ -29,6 +43,16 @@ export interface SSHExecutionContext {
     remoteHost: string;
     remotePort: number;
   }): Promise<SSHTunnel>;
+  /**
+   * Open a reverse tunnel (`ssh -R`): the remote host listens and forwards
+   * each connection to a local address.
+   */
+  reverseTunnel(options: {
+    remotePort: number;
+    remoteHost?: string;
+    localHost?: string;
+    localPort: number;
+  }): Promise<ReverseSSHTunnel>;
   uploadFile(localPath: string, remotePath: string): Promise<void>;
   downloadFile(remotePath: string, localPath: string): Promise<void>;
   uploadDirectory(localPath: string, remotePath: string): Promise<void>;
@@ -117,6 +141,28 @@ export function createSSHExecutionContext(
   };
 
   /**
+   * Open a reverse tunnel through the established connection.
+   */
+  const reverseTunnel = async (options: {
+    remotePort: number;
+    remoteHost?: string;
+    localHost?: string;
+    localPort: number;
+  }): Promise<ReverseSSHTunnel> => {
+    const adapter = engine.getAdapter('ssh') as SSHAdapter;
+
+    if (!adapter) {
+      throw new Error('SSH adapter not available');
+    }
+
+    // The adapter binds the tunnel to the last used connection, so one must
+    // exist before asking for it.
+    await exec`echo "Establishing connection for tunnel"`.quiet();
+
+    return adapter.reverseTunnel(options);
+  };
+
+  /**
    * Upload a file via SFTP
    */
   const uploadFile = async (localPath: string, remotePath: string): Promise<void> => {
@@ -192,6 +238,7 @@ export function createSSHExecutionContext(
     exec,
     raw,
     tunnel,
+    reverseTunnel,
     uploadFile,
     downloadFile,
     uploadDirectory,

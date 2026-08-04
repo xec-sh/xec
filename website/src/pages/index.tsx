@@ -5,7 +5,6 @@ import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import Translate, { translate } from '@docusaurus/Translate';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 
 function HomepageHeader() {
@@ -13,11 +12,11 @@ function HomepageHeader() {
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
         <h1 className="hero__title">
-          <Translate id="homepage.title">Universal Execution System for TypeScript</Translate>
+          <Translate id="homepage.title">One $ for every environment</Translate>
         </h1>
         <p className="hero__subtitle">
           <Translate id="homepage.tagline">
-            Execute commands across local, SSH, Docker, and Kubernetes with a single API. Deploy, orchestrate, and automate — all in TypeScript.
+            Run commands on your laptop, an SSH fleet, Docker containers and Kubernetes pods — through one typed TypeScript API.
           </Translate>
         </p>
         <div className={styles.buttons}>
@@ -40,19 +39,12 @@ function HomepageHeader() {
           <pre>
             <code>
               {`import { $ } from '@xec-sh/core';
-import { Deployer, Pipeline, HealthChecker } from '@xec-sh/ops';
 
-// Execute anywhere
+// Same command, four environments
 await $\`npm run build\`;
-await $.ssh({ host: 'prod' })\`systemctl restart app\`;
+await $.ssh('deploy@web-1')\`systemctl restart api\`;
 await $.docker({ container: 'api' })\`python migrate.py\`;
-
-// Deploy with health checks
-await Deployer.create({
-  targets: ['web-1', 'web-2'],
-  strategy: 'rolling',
-  hooks: { deploy: (ctx) => ctx.exec\`docker pull app:\${ctx.version}\` }
-}).deploy('v1.2.3');`}
+await $.k8s('prod/api-pod')\`./healthcheck.sh\`;`}
             </code>
           </pre>
         </div>
@@ -64,12 +56,12 @@ await Deployer.create({
 export default function Home(): React.ReactNode {
   const pageDescription = translate({
     id: 'homepage.description',
-    message: 'Xec is a TypeScript-native execution system with 6 packages: core (shell execution), ops (deploy, pipelines, workflows), kit (TUI components), loader (script loading), testing (test utilities), and cli (command-line interface).',
+    message: 'Xec is a TypeScript command execution system: one typed $ API that runs commands on local machines, SSH hosts, Docker containers and Kubernetes pods — with typed results, structured errors and connection pooling.',
   });
 
   return (
     <Layout
-      title={translate({ id: 'homepage.layoutTitle', message: 'Universal Execution System' })}
+      title={translate({ id: 'homepage.layoutTitle', message: 'One $ for every environment' })}
       description={pageDescription}>
       <HomepageHeader />
       <main>
@@ -79,7 +71,7 @@ export default function Home(): React.ReactNode {
           <div className="container">
             <h2 className={clsx('text--center', styles.ecosystemTitle)}>
               <Translate id="homepage.ecosystem.title">
-                6 Packages, One Ecosystem
+                The Xec Toolkit
               </Translate>
             </h2>
 
@@ -103,44 +95,15 @@ export default function Home(): React.ReactNode {
               <div className="col col--4">
                 <div className={clsx('card', styles.packageCard)}>
                   <div className="card__header">
-                    <h3>@xec-sh/ops</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>DevOps library — deploy strategies, CI/CD pipelines, DAG workflows, health checks, infrastructure discovery.</p>
-                  </div>
-                  <div className="card__footer">
-                    <Link to="/docs/ops/" className="button button--primary button--block">
-                      Ops Docs
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col col--4">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
                     <h3>@xec-sh/cli</h3>
                   </div>
                   <div className="card__body">
-                    <p>Command-line tool — thin wrapper over @xec-sh/ops. Commands: run, on, in, deploy, watch, tasks, config.</p>
+                    <p>Command-line tool — run scripts and tasks on any target: run, on, in, copy, forward, logs, watch, tasks, config.</p>
                   </div>
                   <div className="card__footer">
                     <Link to="/docs/commands/cli-reference" className="button button--primary button--block">
                       CLI Docs
                     </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="row margin-top--md">
-              <div className="col col--4">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>@xec-sh/kit</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>TUI components — prompts, spinners, tables, progress bars, Prism color system. Zero external dependencies.</p>
                   </div>
                 </div>
               </div>
@@ -152,6 +115,24 @@ export default function Home(): React.ReactNode {
                   </div>
                   <div className="card__body">
                     <p>Script loading — TypeScript transform, CDN modules, REPL, file watcher, plugin system.</p>
+                  </div>
+                  <div className="card__footer">
+                    <Link to="/docs/scripting/basics/first-script" className="button button--primary button--block">
+                      Scripting Docs
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="row margin-top--md">
+              <div className="col col--4 col--offset-2">
+                <div className={clsx('card', styles.packageCard)}>
+                  <div className="card__header">
+                    <h3>@xec-sh/kit</h3>
+                  </div>
+                  <div className="card__body">
+                    <p>TUI components — prompts, spinners, tables, progress bars, Prism color system. Zero external dependencies.</p>
                   </div>
                 </div>
               </div>
@@ -202,34 +183,34 @@ export default function Home(): React.ReactNode {
                       <td>✅ Partial</td>
                     </tr>
                     <tr>
-                      <td>Deploy strategies</td>
-                      <td>✅ Rolling, canary, blue-green</td>
-                      <td>✅ Playbooks</td>
-                      <td>❌ None</td>
+                      <td>Template literal $ syntax</td>
+                      <td>✅ Every environment</td>
+                      <td>❌ YAML tasks</td>
+                      <td>✅ Local only</td>
                     </tr>
                     <tr>
-                      <td>CI/CD pipelines</td>
-                      <td>✅ Pipeline engine with matrix</td>
-                      <td>❌ External</td>
-                      <td>❌ None</td>
+                      <td>Typed results &amp; errors</td>
+                      <td>✅ ExecutionResult</td>
+                      <td>❌ Untyped output</td>
+                      <td>⚠️ Partial</td>
                     </tr>
                     <tr>
-                      <td>Health checks</td>
-                      <td>✅ HTTP, TCP, command, custom</td>
-                      <td>⚠️ Modules</td>
+                      <td>Declarative targets &amp; tasks</td>
+                      <td>✅ .xec/config.yaml</td>
+                      <td>✅ Inventory &amp; playbooks</td>
                       <td>❌ None</td>
-                    </tr>
-                    <tr>
-                      <td>Library usage (no CLI)</td>
-                      <td>✅ @xec-sh/ops</td>
-                      <td>❌ CLI only</td>
-                      <td>✅ Import</td>
                     </tr>
                     <tr>
                       <td>Connection pooling</td>
                       <td>✅ Built-in</td>
                       <td>✅ Built-in</td>
                       <td>❌ N/A</td>
+                    </tr>
+                    <tr>
+                      <td>Library usage (no CLI)</td>
+                      <td>✅ @xec-sh/core</td>
+                      <td>❌ CLI only</td>
+                      <td>✅ Import</td>
                     </tr>
                   </tbody>
                 </table>
@@ -247,7 +228,7 @@ export default function Home(): React.ReactNode {
             </h2>
             <p className={styles.ctaDescription}>
               <Translate id="homepage.cta.description">
-                Install @xec-sh/core for shell execution, @xec-sh/ops for DevOps automation, or @xec-sh/cli for the full command-line experience.
+                Install @xec-sh/core to script command execution in TypeScript, or @xec-sh/cli for the full command-line experience.
               </Translate>
             </p>
             <div className={styles.ctaButtons}>

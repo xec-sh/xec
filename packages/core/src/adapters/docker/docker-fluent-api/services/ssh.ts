@@ -5,10 +5,10 @@
  * out of the box, perfect for testing SSH connections and remote execution.
  */
 
-import { DockerEphemeralFluentAPI } from '../base.js';
-
 import type { SSHServiceConfig, ContainerRuntimeInfo } from '../types.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../../core/execution-engine.js';
+
+import { DockerEphemeralFluentAPI } from '../base.js';
 
 /**
  * SSH Container Fluent API

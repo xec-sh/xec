@@ -112,7 +112,9 @@ describeSSH('SSH Secure Password Integration Tests', () => {
             adapterOptions: { type: 'ssh' as const, ...sshConfig }
           }),
           ssh.execute({
-            command: 'hostname',
+            // `hostname` is absent from root's PATH on some test images;
+            // `uname -n` is POSIX and reports the same thing everywhere.
+            command: 'uname -n',
             adapterOptions: { type: 'ssh' as const, ...sshConfig }
           })
         ]);
@@ -241,7 +243,11 @@ describeSSH('SSH Secure Password Integration Tests', () => {
         });
 
         expect(result.exitCode).not.toBe(0);
-        expect(result.stderr || result.stdout).toMatch(/incorrect password|authentication failure|Sorry/i);
+        // Wording varies by sudo version: "Authentication failed" (newer),
+        // "authentication failure" (PAM log style), "Sorry, try again" (older).
+        expect(result.stderr || result.stdout).toMatch(
+          /incorrect password|authentication fail(ed|ure)|Sorry/i
+        );
       } finally {
         await ssh.dispose();
       }
@@ -292,14 +298,16 @@ describeSSH('SSH Secure Password Integration Tests', () => {
         expect(idResult.exitCode).toBe(0);
         expect(idResult.stdout.trim()).toBe('0'); // root uid
 
-        // Test more complex sudo command
-        const lsResult = await ssh.execute({
-          command: 'ls -la /root/.ssh',
+        // Read a file only root may read. /etc/shadow exists on every distro
+        // under test, unlike /root/.ssh/authorized_keys — these containers
+        // authenticate by password, so that file is never created.
+        const shadowResult = await ssh.execute({
+          command: 'head -1 /etc/shadow',
           adapterOptions: { type: 'ssh' as const, ...sshConfig }
         });
 
-        expect(lsResult.exitCode).toBe(0);
-        expect(lsResult.stdout).toContain('authorized_keys');
+        expect(shadowResult.exitCode).toBe(0);
+        expect(shadowResult.stdout.trim()).toContain(':');
 
         // Verify we're running as root
         const whoamiResult = await ssh.execute({

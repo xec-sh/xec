@@ -235,7 +235,7 @@ async function executeWithFallback(command: string) {
   if (ssh.ok) return ssh;
   
   // Fallback to Docker
-  const docker = await $.docker('backup-container')`${command}`.nothrow();
+  const docker = await $.docker({ container: 'backup-container' })`${command}`.nothrow();
   if (docker.ok) return docker;
   
   // Final fallback to local

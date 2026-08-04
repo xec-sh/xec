@@ -11,6 +11,16 @@ import { DockerContainerManager } from '@xec-sh/testing';
 
 import { OnCommand } from '../../src/commands/on.js';
 
+// Mock process.exit so command error paths surface as test failures instead
+// of killing the vitest worker
+const mockExit = vi.spyOn(process, 'exit').mockImplementation((code?: string | number | null | undefined) => {
+  throw new Error(`process.exit called with code ${code}`);
+});
+
+afterAll(() => {
+  mockExit.mockRestore();
+});
+
 // Test helper that extends OnCommand for integration testing
 class TestableOnCommand extends OnCommand {
   // Override the initializeConfig to use test configuration
@@ -91,6 +101,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -130,6 +141,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -165,6 +177,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -195,6 +208,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -236,6 +250,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -268,6 +283,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -320,6 +336,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -373,6 +390,7 @@ describe('On Command - Real SSH Integration', () => {
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -384,22 +402,18 @@ describe('On Command - Real SSH Integration', () => {
         yaml.dump(config)
       );
 
-      // Create a local script
-      const scriptPath = path.join(projectDir, 'test-script.sh');
-      const scriptContent = `#!/bin/bash
-echo "Starting script"
-echo "Creating test file"
-touch /tmp/script-test.txt
-echo "Script completed" > /tmp/script-test.txt
-echo "Script finished"
-`;
-      await fs.writeFile(scriptPath, scriptContent);
-      await fs.chmod(scriptPath, 0o755);
-
-      // Execute script on remote host  
+      // `on` executes command strings on the remote host — it does not upload
+      // local files. Create the script remotely, then execute it there.
       await command.execute([
         'hosts.test-server',
-        scriptPath,
+        `printf '%s\\n' '#!/bin/sh' 'echo "Script completed" > /tmp/script-test.txt' 'echo "Script finished"' > /tmp/test-script.sh && chmod +x /tmp/test-script.sh`,
+        createOptions()
+      ]);
+
+      // Execute script on remote host
+      await command.execute([
+        'hosts.test-server',
+        '/tmp/test-script.sh',
         createOptions()
       ]);
 
@@ -413,7 +427,7 @@ echo "Script finished"
       // Clean up
       await command.execute([
         'hosts.test-server',
-        'rm /tmp/script-test.txt',
+        'rm -f /tmp/script-test.txt /tmp/test-script.sh',
         createOptions()
       ]);
     });
@@ -452,12 +466,14 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             },
             'server2': {
               host: 'localhost',
               port: 2202,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -514,12 +530,14 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             },
             'server2': {
               host: 'localhost',
               port: 2202,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -557,6 +575,7 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -611,6 +630,7 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -653,6 +673,7 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -709,6 +730,7 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
@@ -789,6 +811,7 @@ echo "Script finished"
               host: 'localhost',
               port: 2201,
               user: 'user',
+              hostKeyChecking: 'off',
               password: 'password'
             }
           }
