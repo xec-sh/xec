@@ -61,7 +61,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/**/*.map"
   ],
   "scripts": {
     "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && tsc",

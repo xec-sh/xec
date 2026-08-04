@@ -25,6 +25,7 @@
   "homepage": "https://github.com/xec-sh/xec/tree/main/packages/kit#readme",
   "files": [
     "dist",
+    "!dist/**/*.map",
     "src",
     "CHANGELOG.md",
     "LICENSE",
