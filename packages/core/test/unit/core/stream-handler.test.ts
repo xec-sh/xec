@@ -90,18 +90,25 @@ describe('StreamHandler', () => {
       expect(onData).toHaveBeenCalledWith('Test data');
     });
     
-    it('should respect maxBuffer limit', async () => {
+    it('truncates at maxBuffer and flags the overflow instead of erroring', async () => {
+      // Erroring the stream mid-flight destroyed the pipe (wedging the child
+      // on a full OS pipe) and wiped everything collected, so the caller saw
+      // an empty stdout with exit code 0. The contract now: keep the head,
+      // flag the overflow, keep draining; the adapter fails the command.
       const handler = new StreamHandler({ maxBuffer: 10 });
       const transform = handler.createTransform();
-      
-      await expect(new Promise<void>((resolve, reject) => {
+
+      await new Promise<void>((resolve, reject) => {
         transform.on('end', resolve);
         transform.on('error', reject);
-        
-        // Try to write more than maxBuffer
+
         transform.write(Buffer.from('This is a very long string'));
         transform.end();
-      })).rejects.toThrow('Stream exceeded maximum buffer size of 10 bytes');
+      });
+
+      expect(handler.getContent()).toBe('This is a ');
+      expect(handler.overflowError).not.toBeNull();
+      expect(handler.overflowError?.message).toContain('exceeded maxBuffer of 10 bytes');
     });
     
     it('should handle different encodings', async () => {

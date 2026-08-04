@@ -120,6 +120,34 @@ export class TimeoutError extends ExecutionError {
   }
 }
 
+/**
+ * Output exceeded the configured `maxBuffer`.
+ *
+ * This must be loud: the previous behaviour discarded everything collected so
+ * far and reported an empty stdout with exit code 0 — total data loss shaped
+ * exactly like success. Node's own `exec` and execa both kill the process and
+ * fail when the cap is hit, and callers rightly expect the same here.
+ *
+ * The truncated head of the output is preserved on the error so the caller
+ * can still see what the command was producing.
+ */
+export class MaxBufferExceededError extends ExecutionError {
+  constructor(
+    public readonly limit: number,
+    public readonly stream: 'stdout' | 'stderr',
+    /** Output collected before the cap was hit, truncated at the limit. */
+    public partialStdout: string = '',
+    public partialStderr: string = ''
+  ) {
+    super(
+      `${stream} exceeded maxBuffer of ${limit} bytes; output truncated and process terminated`,
+      'MAX_BUFFER_EXCEEDED',
+      { limit, stream }
+    );
+    this.name = 'MaxBufferExceededError';
+  }
+}
+
 export class DockerError extends ExecutionError {
   constructor(
     public readonly container: string,

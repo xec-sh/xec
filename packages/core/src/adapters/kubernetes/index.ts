@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
 import { findKubectlPath } from './kubernetes-utils.js';
+import { quoteForShell, validateEnvName } from '../../utils/shell-escape.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import { TimeoutError, ExecutionError, sanitizeCommandForError } from '../../core/error.js';
@@ -93,20 +94,33 @@ export class KubernetesAdapter extends BaseAdapter {
 
     // Execute via kubectl
     const startTime = Date.now();
+
+    // Kill kubectl once either stream blows the cap — there is no point
+    // letting the pod keep streaming into a void. Filled in after spawn.
+    let killOnOverflow: () => void = () => {};
+
     const stdoutHandler = new StreamHandler({
       maxBuffer: this.config.maxBuffer,
       encoding: this.config.encoding,
+      streamName: 'stdout',
+      onOverflow: () => killOnOverflow(),
     });
     const stderrHandler = new StreamHandler({
       maxBuffer: this.config.maxBuffer,
       encoding: this.config.encoding,
+      streamName: 'stderr',
+      onOverflow: () => killOnOverflow(),
     });
 
     return new Promise((resolve, reject) => {
-      const env = this.createCombinedEnv(mergedCommand.env || {});
+      // The local kubectl process gets the operator's environment only.
+      // `command.env` is for the pod — it travels as an export prelude in the
+      // exec args — and passing it here leaked every value, secrets included,
+      // into a local process that never needed them. `command.cwd` likewise
+      // names a directory in the pod, not on this machine.
+      const env = this.createCombinedEnv({});
 
       const proc = spawn(this.kubectlPath, kubectlArgs, {
-        cwd: mergedCommand.cwd,
         env: {
           ...env,
           PATH: `${env['PATH'] || process.env['PATH'] || ''}:/usr/local/bin:/opt/homebrew/bin`
@@ -145,6 +159,13 @@ export class KubernetesAdapter extends BaseAdapter {
         }, mergedCommand.timeout);
       }
 
+      killOnOverflow = () => proc.kill('SIGTERM');
+
+      // An abort kills the local kubectl, which tears down the exec session.
+      const clearAbort = this.setupAbortSignal(mergedCommand.signal, () => {
+        proc.kill('SIGTERM');
+      });
+
       // Pipe stdin if provided
       if (mergedCommand.stdin) {
         if (typeof mergedCommand.stdin === 'string' || Buffer.isBuffer(mergedCommand.stdin)) {
@@ -167,15 +188,26 @@ export class KubernetesAdapter extends BaseAdapter {
       // Handle process exit
       proc.on('error', (error) => {
         if (timeoutHandle) clearTimeout(timeoutHandle);
+        clearAbort();
         reject(new ExecutionError(`Failed to execute kubectl: ${error.message}`, 'KUBERNETES_ERROR'));
       });
 
       proc.on('exit', (code, signal) => {
         if (timeoutHandle) clearTimeout(timeoutHandle);
+        clearAbort();
 
         const endTime = Date.now();
         const stdout = stdoutHandler.getContent();
         const stderr = stderrHandler.getContent();
+
+        // Truncated output must never read as a clean success.
+        const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
+        if (overflow) {
+          overflow.partialStdout = stdout;
+          overflow.partialStderr = stderr;
+          reject(overflow);
+          return;
+        }
 
         // Create result without throwing on non-zero exit (we handle it below)
         const originalThrowOnNonZeroExit = this.config.throwOnNonZeroExit;
@@ -266,11 +298,34 @@ export class KubernetesAdapter extends BaseAdapter {
     // Separator
     args.push('--');
 
-    // The actual command
-    if (command.shell) {
-      // Execute through shell
-      const shellCmd = command.shell === true ? '/bin/sh' : command.shell;
-      args.push(shellCmd, '-c', this.buildCommandString(command));
+    // The actual command. `kubectl exec` has no --workdir or --env flags, so
+    // cwd and env reach the pod as a shell prelude. They used to be applied
+    // to the *local* kubectl process instead: `.env({TOKEN})` exported the
+    // secret into the operator's environment while the pod never saw it, and
+    // `.cd()` changed the local directory kubectl ran from.
+    const podEnv = command.env && Object.keys(command.env).length > 0 ? command.env : undefined;
+    const needsShell = Boolean(command.shell) || Boolean(command.cwd) || Boolean(podEnv);
+
+    if (needsShell) {
+      const shellCmd = typeof command.shell === 'string' ? command.shell : '/bin/sh';
+
+      const prelude: string[] = [];
+      if (command.cwd) {
+        prelude.push(`cd ${quoteForShell(command.cwd, 'posix')}`);
+      }
+      if (podEnv) {
+        for (const [key, value] of Object.entries(podEnv)) {
+          prelude.push(`export ${validateEnvName(key)}=${quoteForShell(value, 'posix')}`);
+        }
+      }
+
+      // A command written without shell:true still needs each part quoted
+      // once it is routed through `sh -c` for the prelude.
+      const body = command.shell
+        ? this.buildCommandString(command)
+        : this.buildCommandArray(command).map(part => quoteForShell(part, 'posix')).join(' ');
+
+      args.push(shellCmd, '-c', prelude.length > 0 ? `${prelude.join(' && ')} && ${body}` : body);
     } else {
       // Direct command execution
       args.push(...this.buildCommandArray(command));

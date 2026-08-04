@@ -6,6 +6,8 @@ import { createWriteStream } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 import { Readable, Writable, Transform, PassThrough } from 'node:stream';
 
+import { MaxBufferExceededError } from '../core/error.js';
+
 // Core StreamHandler functionality (previously in core/stream-handler.ts)
 export interface StreamHandlerOptions {
   encoding?: BufferEncoding;
@@ -14,6 +16,16 @@ export interface StreamHandlerOptions {
   onError?: (error: Error) => void;
   /** Called once the stream ends, after the final `onData`. */
   onEnd?: () => void;
+  /**
+   * Called exactly once when the collected output exceeds `maxBuffer`.
+   *
+   * Adapters use this to terminate the producing process, mirroring Node's
+   * own `exec` and execa: once the cap is hit there is no point letting the
+   * command keep writing into a void.
+   */
+  onOverflow?: (error: MaxBufferExceededError) => void;
+  /** Which stream this handler collects; names the overflow error. */
+  streamName?: 'stdout' | 'stderr';
 }
 
 export class StreamHandler {
@@ -25,6 +37,9 @@ export class StreamHandler {
   private readonly onData?: (chunk: string) => void;
   private readonly onError?: (error: Error) => void;
   private readonly onEnd?: () => void;
+  private readonly onOverflow?: (error: MaxBufferExceededError) => void;
+  private readonly streamName: 'stdout' | 'stderr';
+  private overflow: MaxBufferExceededError | null = null;
   private disposed = false;
 
   constructor(options: StreamHandlerOptions = {}) {
@@ -34,6 +49,19 @@ export class StreamHandler {
     this.onData = options.onData;
     this.onError = options.onError;
     this.onEnd = options.onEnd;
+    this.onOverflow = options.onOverflow;
+    this.streamName = options.streamName ?? 'stdout';
+  }
+
+  /**
+   * The overflow error, once `maxBuffer` has been exceeded.
+   *
+   * Adapters MUST consult this when building the result: the collected
+   * content is truncated, and reporting it as a complete success would be a
+   * silent data loss.
+   */
+  get overflowError(): MaxBufferExceededError | null {
+    return this.overflow;
   }
 
   /**
@@ -65,13 +93,22 @@ export class StreamHandler {
           }
 
           if (self.totalLength + chunk.length > self.maxBuffer) {
-            // Clean up buffer to prevent memory leak
-            self.reset();
-            const error = new Error(`Stream exceeded maximum buffer size of ${self.maxBuffer} bytes`);
-            if (self.onError) {
-              self.onError(error);
+            // Do NOT error the stream: destroying the pipe mid-flight left the
+            // child blocked on a full OS pipe, and the old reset() discarded
+            // everything already collected — the caller then saw an empty
+            // stdout with exit code 0. Instead: keep the head up to the limit,
+            // flag the overflow exactly once (the adapter kills the process),
+            // and keep draining so the child can terminate cleanly.
+            if (!self.overflow) {
+              const remaining = self.maxBuffer - self.totalLength;
+              if (remaining > 0) {
+                self.buffer.push(chunk.subarray(0, remaining));
+                self.totalLength += remaining;
+              }
+              self.overflow = new MaxBufferExceededError(self.maxBuffer, self.streamName);
+              self.onOverflow?.(self.overflow);
             }
-            callback(error);
+            callback();
             return;
           }
 

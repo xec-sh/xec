@@ -55,8 +55,10 @@ describeIfK8s('KubernetesAdapter Enhanced Tests', () => {
     await cluster.createMultiContainerPod('multi-container-pod', 'production');
     await cluster.deployTestPod('my-pod', 'default');
 
-    // Wait for pods to be ready
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Wait until the pods are actually Ready. A fixed sleep passes or fails
+    // with machine load; under a busy test run it regularly lost the race.
+    await cluster.kubectl('wait --for=condition=Ready pod --all -n default --timeout=120s');
+    await cluster.kubectl('wait --for=condition=Ready pod --all -n production --timeout=120s');
 
     // Create adapter with cluster's kubeconfig
     adapter = new KubernetesAdapter({
@@ -564,8 +566,8 @@ spec:
       }
     }
 
-    // Wait for pods to be ready
-    await new Promise(resolve => setTimeout(resolve, 15000));
+    // Wait until the web pods are actually Ready rather than sleeping.
+    await cluster.kubectl('wait --for=condition=Ready pod web-1 web-2 -n default --timeout=120s');
   }, 300000);
 
   afterAll(async () => {

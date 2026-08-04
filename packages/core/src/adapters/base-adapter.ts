@@ -28,7 +28,17 @@ export interface BaseAdapterConfig {
   sensitiveDataMasking?: Partial<SensitiveDataMaskingConfig>;
 }
 
-interface ResolvedBaseAdapterConfig extends Omit<Required<BaseAdapterConfig>, 'sensitiveDataMasking'> {
+interface ResolvedBaseAdapterConfig extends Omit<Required<BaseAdapterConfig>, 'sensitiveDataMasking' | 'defaultCwd'> {
+  /**
+   * Set only when configured explicitly. There is deliberately no
+   * `process.cwd()` fallback: the adapter may execute on an SSH host, in a
+   * container or in a pod, where the operator's local directory means
+   * nothing. That ambient default made every remote command carry a local
+   * path as its cwd — the SSH adapter grew a workaround stripping it back
+   * out, and once Docker/K8s honoured cwd it sent them `cd`-ing into a
+   * directory that only exists on the operator's machine.
+   */
+  defaultCwd: string | undefined;
   sensitiveDataMasking: SensitiveDataMaskingConfig;
 }
 
@@ -45,7 +55,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
     this.config = {
       defaultTimeout: config.defaultTimeout ?? 120000, // 2 minutes
-      defaultCwd: config.defaultCwd ?? process.cwd(),
+      defaultCwd: config.defaultCwd,
       defaultEnv: config.defaultEnv ?? {},
       defaultShell: config.defaultShell ?? true,
       encoding: config.encoding ?? 'utf8',
@@ -177,7 +187,12 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
         reject(new TimeoutError(command, timeout));
       }, timeout);
 
-      promise.finally(() => clearTimeout(timer));
+      // Not `.finally()`: that returns a second promise which rejects with
+      // the same reason and which nothing handles, so every failing command
+      // also surfaced as an unhandledRejection alongside the one the caller
+      // caught.
+      const clear = () => clearTimeout(timer);
+      promise.then(clear, clear);
     });
 
     return Promise.race([promise, timeoutPromise]);

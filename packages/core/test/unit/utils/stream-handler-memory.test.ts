@@ -47,34 +47,26 @@ describe('StreamHandler Memory Management', () => {
       expect(handler.getContent()).toBe('');
     });
 
-    it('should clean up on transform error', async () => {
-      const onError = vi.fn();
+    it('truncates on overflow, keeps the head, and reports once', async () => {
+      const onOverflow = vi.fn();
       const handler = new StreamHandler({
         maxBuffer: 10, // Very small buffer
-        onError
+        onOverflow
       });
 
       const transform = handler.createTransform();
-
-      // Consume the readable side
       transform.resume();
 
-      // Write data that exceeds buffer
-      const largeData = Buffer.alloc(20, 'x');
+      // The old behaviour errored the stream and wiped the buffer, so the
+      // caller received an empty stdout with exit code 0 — silent data loss.
+      transform.write(Buffer.alloc(20, 'x'));
+      transform.write(Buffer.alloc(20, 'y'));
+      transform.end();
 
-      await new Promise<void>((resolve, reject) => {
-        transform.on('error', (err) => {
-          expect(err.message).toContain('exceeded maximum buffer size');
-          expect(onError).toHaveBeenCalledWith(err);
-
-          // After error, buffers should be cleared
-          expect(handler.getContent()).toBe('');
-          expect(handler.getBuffer().length).toBe(0);
-          resolve();
-        });
-
-        transform.write(largeData);
-      });
+      expect(handler.getContent()).toBe('x'.repeat(10));
+      expect(handler.overflowError?.message).toContain('exceeded maxBuffer of 10 bytes');
+      // Reported exactly once, even across multiple over-limit chunks.
+      expect(onOverflow).toHaveBeenCalledTimes(1);
     });
 
     it('should keep buffers after flush for later access', async () => {
@@ -122,23 +114,17 @@ describe('StreamHandler Memory Management', () => {
   });
 
   describe('Memory limits', () => {
-    it('should enforce max buffer size', async () => {
+    it('should enforce max buffer size by truncating at the limit', () => {
       const handler = new StreamHandler({ maxBuffer: 100 });
       const transform = handler.createTransform();
+      transform.resume();
 
-      const errorPromise = new Promise<Error>((resolve) => {
-        transform.on('error', resolve);
-      });
+      transform.write(Buffer.alloc(150, 'x'));
 
-      // Try to write more than max buffer
-      const largeData = Buffer.alloc(150, 'x');
-      transform.write(largeData);
-
-      const error = await errorPromise;
-      expect(error.message).toContain('exceeded maximum buffer size');
-
-      // Buffers should be cleared after error
-      expect(handler.getBuffer().length).toBe(0);
+      // Memory stays bounded at the cap; the overflow is flagged for the
+      // adapter to fail the command loudly.
+      expect(handler.getBuffer().length).toBe(100);
+      expect(handler.overflowError).not.toBeNull();
     });
 
     it('should accumulate data up to max buffer', () => {
@@ -292,25 +278,25 @@ describe('StreamHandler Memory Management', () => {
       expect(onData).toHaveBeenCalledWith('chunk2');
     });
 
-    it('should call onError callback on errors', async () => {
+    it('reports overflow through onOverflow, not as a stream error', async () => {
+      // Overflow used to be an onError + stream error; that destroyed the
+      // pipe and the collected data. It is now a flagged truncation.
       const onError = vi.fn();
+      const onOverflow = vi.fn();
       const handler = new StreamHandler({
         maxBuffer: 10,
-        onError
+        onError,
+        onOverflow
       });
 
       const transform = handler.createTransform();
-
-      // Consume the readable side
       transform.resume();
+      transform.write(Buffer.alloc(20));
+      transform.end();
 
-      await new Promise<void>((resolve) => {
-        transform.on('error', () => resolve());
-        transform.write(Buffer.alloc(20));
-      });
-
-      expect(onError).toHaveBeenCalled();
-      expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+      expect(onOverflow).toHaveBeenCalledTimes(1);
+      expect(onOverflow.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+      expect(onError).not.toHaveBeenCalled();
     });
 
     it('should not call callbacks after dispose', () => {

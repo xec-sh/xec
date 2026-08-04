@@ -233,6 +233,25 @@ export function isTemplateStringsArray(value: unknown): value is TemplateStrings
 }
 
 /**
+ * Validate an environment variable name for interpolation into a shell.
+ *
+ * Only the value side is ever quoted; the *name* is interpolated raw, so a
+ * key such as `X=1; rm -rf /; A` would inject arbitrary commands. Every
+ * adapter that builds `export`/`env` prefixes must route names through this.
+ *
+ * @param name - The environment variable name.
+ * @returns The same name once validated.
+ * @throws {Error} If the name is not a valid POSIX identifier.
+ */
+export function validateEnvName(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid environment variable name: ${JSON.stringify(name)}`);
+  }
+
+  return name;
+}
+
+/**
  * Interpolate a template literal, escaping every substituted value.
  *
  * This is the safe path behind `` $`…` ``: literal segments are emitted

@@ -1,4 +1,5 @@
 
+import { Readable } from 'node:stream';
 import { connect as netConnect } from 'node:net';
 import { createHash, randomBytes } from 'node:crypto';
 
@@ -6,7 +7,7 @@ import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
 import { SSHKeyValidator } from './ssh-key-validator.js';
-import { quoteForShell } from '../../utils/shell-escape.js';
+import { quoteForShell, validateEnvName as validateEnvNameShared } from '../../utils/shell-escape.js';
 import { SecurePasswordHandler } from './secure-password.js';
 import { classifyFailure } from '../../core/failure-kind.js';
 import { Command, SSHAdapterOptions } from '../../types/command.js';
@@ -88,15 +89,11 @@ interface SudoConfig {
  * @throws {AdapterError} If the name is not a valid POSIX identifier.
  */
 function validateEnvName(name: string): string {
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
-    throw new AdapterError(
-      'ssh',
-      'env',
-      new Error(`Invalid environment variable name: ${JSON.stringify(name)}`)
-    );
+  try {
+    return validateEnvNameShared(name);
+  } catch (error) {
+    throw new AdapterError('ssh', 'env', error instanceof Error ? error : new Error(String(error)));
   }
-
-  return name;
 }
 
 function validateSudoUser(user: string): string {
@@ -139,7 +136,9 @@ interface PooledConnection {
   config: SSHAdapterOptions;
 }
 
-type RequiredSSHConfig = Required<SSHAdapterConfig>;
+// defaultCwd stays optional: an ambient local-path default is meaningless on
+// a remote host, and the base adapter deliberately no longer invents one.
+type RequiredSSHConfig = Omit<Required<SSHAdapterConfig>, 'defaultCwd'> & { defaultCwd?: string };
 
 export class SSHAdapter extends BaseAdapter {
   protected readonly adapterName = 'ssh';
@@ -310,11 +309,11 @@ export class SSHAdapter extends BaseAdapter {
       const finalCommand = envPrefix + sudoCommand;
 
       // For SSH, only pass cwd if it was explicitly set in the original command
+      // mergeCommand only carries a cwd that was explicitly asked for — the
+      // per-adapter workaround that stripped an ambient local default out
+      // again is gone along with the ambient default itself, so a configured
+      // defaultCwd now reaches the remote side instead of being discarded.
       const sshCommand = { ...mergedCommand };
-      if (!command.cwd && mergedCommand.cwd) {
-        // cwd was set by mergeCommand from defaultCwd, remove it for SSH
-        delete sshCommand.cwd;
-      }
 
       // Execute command
       const connectionKey = this.getConnectionKey(sshOptions);
@@ -604,21 +603,50 @@ export class SSHAdapter extends BaseAdapter {
     host?: string,
     connectionKey?: string
   ): Promise<SSHExecCommandResponse> {
+    // The remote process is terminated through the exec channel — on abort,
+    // and when output blows the cap, where letting it keep streaming into a
+    // void serves nobody. The channel arrives via onChannel below.
+    let channel: { signal(name: string): void; close(): void } | null = null;
+    let terminated = false;
+    const terminate = (): void => {
+      if (terminated || !channel) return;
+      terminated = true;
+      try {
+        channel.signal('TERM');
+      } catch {
+        // The channel may already be closing; closing below still applies.
+      }
+      try {
+        channel.close();
+      } catch {
+        // Already closed.
+      }
+    };
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      streamName: 'stdout',
+      onOverflow: () => terminate()
     });
 
     const stderrHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      streamName: 'stderr',
+      onOverflow: () => terminate()
     });
+
+    const clearAbort = this.setupAbortSignal(options.signal, terminate);
 
     // Create exec options
     const execOptions: any = {
       cwd: options.cwd,
       stdin: this.convertStdin(options.stdin),
-      execOptions: {}
+      execOptions: {},
+      onChannel: (ch: { signal(name: string): void; close(): void }) => {
+        channel = ch;
+      }
     };
 
     // Set up stream handling if we're piping
@@ -654,16 +682,30 @@ export class SSHAdapter extends BaseAdapter {
 
     // Handle timeout
     const timeout = options.timeout ?? this.config.defaultTimeout;
-    const result = await this.handleTimeout(
-      execPromise,
-      timeout,
-      command,
-      () => {
-        // SSH doesn't provide a direct way to kill the remote process
-        // For now, we'll just let the timeout happen and clean up afterwards
-        // Trying to dispose the connection here causes the test to hang
-      }
-    );
+    let result;
+    try {
+      result = await this.handleTimeout(
+        execPromise,
+        timeout,
+        command,
+        // A timed-out remote process is terminated through its exec channel,
+        // the same route as an abort.
+        terminate
+      );
+    } finally {
+      // Always detach the abort listener — leaving it attached after a
+      // timeout or exec error would accumulate one listener per command on a
+      // long-lived AbortSignal.
+      clearAbort();
+    }
+
+    // Truncated output must never read as a clean success.
+    const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
+    if (overflow) {
+      overflow.partialStdout = stdoutHandler.getContent();
+      overflow.partialStderr = stderrHandler.getContent();
+      throw overflow;
+    }
 
     // Override stdout/stderr with our collected data if we were piping
     if (options.stdout === 'pipe') {
@@ -676,13 +718,18 @@ export class SSHAdapter extends BaseAdapter {
     return result;
   }
 
-  private convertStdin(stdin: Command['stdin']): string | undefined {
+  private convertStdin(stdin: Command['stdin']): string | Readable | undefined {
     if (!stdin) return undefined;
     if (typeof stdin === 'string') return stdin;
     if (Buffer.isBuffer(stdin)) return stdin.toString();
 
-    // For streams, we'd need to collect the data first
-    // This is a limitation of the ssh2 library
+    if (stdin instanceof Readable) {
+      // The exec layer pipes a readable straight into the channel. This used
+      // to return undefined, so `$.ssh(...)\`cmd\`` with a stream stdin
+      // silently ran the command with no input at all.
+      return stdin;
+    }
+
     return undefined;
   }
 

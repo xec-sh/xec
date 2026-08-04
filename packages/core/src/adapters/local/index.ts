@@ -8,7 +8,7 @@ import { StreamHandler } from '../../utils/stream.js';
 import { RuntimeDetector } from './runtime-detect.js';
 import { ExecutionResult } from '../../core/result.js';
 import { resolveExitCode } from '../../core/failure-kind.js';
-import { CommandError, AdapterError } from '../../core/error.js';
+import { CommandError, AdapterError, MaxBufferExceededError } from '../../core/error.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 
 export interface LocalAdapterConfig extends BaseAdapterConfig {
@@ -85,9 +85,17 @@ export class LocalAdapter extends BaseAdapter {
 
       // If nothrow is set, return error as result instead of throwing
       if (mergedCommand.nothrow) {
+        // An overflow keeps the truncated head of the output: seeing what the
+        // command was producing is usually how the caller works out why it
+        // blew the cap.
+        const partialStdout = error instanceof MaxBufferExceededError ? error.partialStdout : '';
+        const partialStderr = error instanceof MaxBufferExceededError ? error.partialStderr : '';
+
         return await this.createResultNoThrow(
-          '',
-          error instanceof Error ? error.message : String(error),
+          partialStdout,
+          [partialStderr, error instanceof Error ? error.message : String(error)]
+            .filter(Boolean)
+            .join(partialStderr ? '\n' : ''),
           1,
           undefined,
           this.buildCommandString(mergedCommand),
@@ -97,7 +105,7 @@ export class LocalAdapter extends BaseAdapter {
         );
       }
 
-      if (error instanceof CommandError || error instanceof AdapterError) {
+      if (error instanceof CommandError || error instanceof AdapterError || error instanceof MaxBufferExceededError) {
         throw error;
       }
 
@@ -197,15 +205,25 @@ export class LocalAdapter extends BaseAdapter {
     // Create progress reporter if enabled
     const progressReporter = this.createProgressReporter(command);
 
+    // Once either stream exceeds maxBuffer there is no point letting the
+    // command keep producing; Node's exec and execa kill on overflow too.
+    // The child does not exist yet when the handlers are built, so the kill
+    // goes through a holder that spawn() fills in below.
+    let killOnOverflow: () => void = () => {};
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer,
+      streamName: 'stdout',
+      onOverflow: () => killOnOverflow(),
       onData: progressReporter ? (data) => progressReporter.reportOutput(data) : undefined
     });
 
     const stderrHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      streamName: 'stderr',
+      onOverflow: () => killOnOverflow()
     });
 
     const spawnOptions = this.buildNodeSpawnOptions(command);
@@ -229,6 +247,8 @@ export class LocalAdapter extends BaseAdapter {
       // Direct execution without shell
       child = spawn(command.command, command.args || [], spawnOptions);
     }
+
+    killOnOverflow = () => child.kill(this.localConfig.killSignal as NodeJS.Signals);
 
     // Handle stdin
     if (command.stdin) {
@@ -283,6 +303,19 @@ export class LocalAdapter extends BaseAdapter {
       const tryResolve = () => {
         // Only resolve when the process has exited and all streams are closed
         if (processExited && stdoutClosed && stderrClosed) {
+          // A capped stream means the collected output is incomplete. The
+          // child was killed on overflow, but if it managed to exit 0 first
+          // the result would read as a clean success with silently truncated
+          // output — so overflow always rejects, with the head preserved.
+          const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
+          if (overflow) {
+            overflow.partialStdout = stdoutHandler.getContent();
+            overflow.partialStderr = stderrHandler.getContent();
+            progressReporter?.error(overflow);
+            reject(overflow);
+            return;
+          }
+
           // Report completion to progress reporter
           if (progressReporter) {
             if (exitCode === 0) {

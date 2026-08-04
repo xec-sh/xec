@@ -173,7 +173,9 @@ export class DockerAdapter extends BaseAdapter {
         });
 
         const runArgs = this.buildDockerRunArgs(dockerOptions, mergedCommand);
-        result = await this.executeDockerCommand(runArgs, mergedCommand);
+        // cwd was translated to `-w` above; it names a directory inside the
+        // container, so it must not become the local docker CLI's cwd.
+        result = await this.executeDockerCommand(runArgs, { ...mergedCommand, cwd: undefined });
       } else {
         // Use traditional exec mode
         // Validate container name for security
@@ -221,7 +223,8 @@ export class DockerAdapter extends BaseAdapter {
 
         // Build docker exec command
         const dockerArgs = this.buildDockerExecArgs(containerName, dockerOptions, mergedCommand);
-        result = await this.executeDockerCommand(dockerArgs, mergedCommand);
+        // Same as run mode: cwd is the container's directory, not the CLI's.
+        result = await this.executeDockerCommand(dockerArgs, { ...mergedCommand, cwd: undefined });
       }
 
       const endTime = Date.now();
@@ -412,8 +415,12 @@ export class DockerAdapter extends BaseAdapter {
       args.push('-u', user);
     }
 
-    // Add working directory
-    const workdir = dockerOptions.workdir || this.dockerConfig.defaultExecOptions?.WorkingDir;
+    // Working directory inside the container. `command.cwd` wins: it is the
+    // per-command intent (`$.docker({...}).cd('/app')`), which used to be
+    // silently ignored here while being applied to the local docker CLI
+    // process instead — an ENOENT when the container path did not exist
+    // locally, and a no-op in the container either way.
+    const workdir = command.cwd || dockerOptions.workdir || this.dockerConfig.defaultExecOptions?.WorkingDir;
     if (workdir) {
       args.push('-w', workdir);
     }
@@ -484,9 +491,11 @@ export class DockerAdapter extends BaseAdapter {
       args.push('-u', dockerOptions.user);
     }
 
-    // Add working directory
-    if (dockerOptions.workdir) {
-      args.push('-w', dockerOptions.workdir);
+    // Working directory inside the container; `command.cwd` is the
+    // per-command intent and wins over the target-level option.
+    const workdir = command.cwd || dockerOptions.workdir;
+    if (workdir) {
+      args.push('-w', workdir);
     }
 
     // Add volumes
@@ -553,14 +562,22 @@ export class DockerAdapter extends BaseAdapter {
   ): Promise<{ stdout: string; stderr: string; exitCode: number; signal: string | null }> {
     const timeout = command.timeout;
 
+    // Kill the docker CLI once either stream blows the cap; the container
+    // side of an exec is torn down with it. Filled in after spawn.
+    let killOnOverflow: () => void = () => {};
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      streamName: 'stdout',
+      onOverflow: () => killOnOverflow()
     });
 
     const stderrHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer
+      maxBuffer: this.config.maxBuffer,
+      streamName: 'stderr',
+      onOverflow: () => killOnOverflow()
     });
 
     // For compose commands, we might need to pass environment variables
@@ -576,12 +593,23 @@ export class DockerAdapter extends BaseAdapter {
     // Try to find docker in common locations
     const dockerPath = findDockerPath();
 
+    // command.cwd is only meaningful locally for management operations that
+    // opt in (docker build passes the build context this way). The exec/run
+    // paths strip it before calling here, because there it names a directory
+    // inside the container.
     const child = spawn(dockerPath, args, {
       env,
-      cwd: command.cwd || process.cwd(), // Use command's cwd if provided
+      cwd: command.cwd || process.cwd(),
       windowsHide: true,
       // Always pipe stdout and stderr to capture output, only inherit stdin for TTY
       stdio: useInheritStdin ? ['inherit', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
+    });
+
+    killOnOverflow = () => child.kill('SIGTERM');
+
+    // An abort kills the local docker CLI, which ends the exec session.
+    const clearAbort = this.setupAbortSignal(command.signal, () => {
+      child.kill('SIGTERM');
     });
 
     // Handle stdin only if not in inherit mode
@@ -630,6 +658,17 @@ export class DockerAdapter extends BaseAdapter {
       // flight; wait until both stdio streams have closed as well.
       const tryResolve = () => {
         if (processExited && stdoutClosed && stderrClosed) {
+          clearAbort();
+
+          // Truncated output must never read as a clean success.
+          const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
+          if (overflow) {
+            overflow.partialStdout = stdoutHandler.getContent();
+            overflow.partialStderr = stderrHandler.getContent();
+            settle(reject, overflow);
+            return;
+          }
+
           settle(resolve, {
             stdout: stdoutHandler.getContent(),
             stderr: stderrHandler.getContent(),
@@ -652,6 +691,7 @@ export class DockerAdapter extends BaseAdapter {
       }
 
       child.on('error', (error) => {
+        clearAbort();
         settle(reject, error);
       });
 
