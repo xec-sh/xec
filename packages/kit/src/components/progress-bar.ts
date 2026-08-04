@@ -1,7 +1,7 @@
 import type { State } from '../core/index.js';
 
-import { settings } from '../core/index.js';
 import prism from '../prism/index.js';
+import { settings } from '../core/index.js';
 import { unicodeOr } from '../utilities/common.js';
 import { spinner, type SpinnerResult, type SpinnerOptions } from './spinner.js';
 

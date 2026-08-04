@@ -2,8 +2,8 @@ import type { LogMessageOptions } from './log.js';
 
 import { stripVTControlCharacters as strip } from 'node:util';
 
-import { settings } from '../core/index.js';
 import prism from '../prism/index.js';
+import { settings } from '../core/index.js';
 import { S_BAR, S_INFO, S_WARN, S_ERROR, S_SUCCESS, S_STEP_SUBMIT } from './common.js';
 
 const prefix = `${prism.gray(S_BAR)}  `;

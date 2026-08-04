@@ -1,8 +1,8 @@
 import type { State } from '../core/index.js';
 import type { Readable, Writable } from 'node:stream';
 
-import { settings } from '../core/index.js';
 import prism from '../prism/index.js';
+import { settings } from '../core/index.js';
 import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
 
 export const unicode = isUnicodeSupported();
