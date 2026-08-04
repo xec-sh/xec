@@ -6,7 +6,7 @@
  */
 import { setTimeout } from 'node:timers/promises';
 
-import { intro, progress, log, outro } from '../src/index.js';
+import { log, intro, outro, progress } from '../src/index.js';
 
 async function main() {
   intro('Progress Bar Examples');

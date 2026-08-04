@@ -8,13 +8,15 @@
  * - Scroll response: <16ms (60fps)
  */
 
-import { describe, it, expect } from 'vitest';
-import { createTableState } from '../src/components/table/table-state.js';
-import { toggleSort } from '../src/components/table/table-sorter.js';
-import { updateFilterQuery } from '../src/components/table/table-filter.js';
-import { navigateDown, navigatePageDown } from '../src/components/table/table-navigator.js';
-import { renderInteractiveTable } from '../src/components/table/interactive-renderer.js';
 import type { InteractiveTableOptions } from '../src/components/table/types.js';
+
+import { it, expect, describe } from 'vitest';
+
+import { toggleSort } from '../src/components/table/table-sorter.js';
+import { createTableState } from '../src/components/table/table-state.js';
+import { updateFilterQuery } from '../src/components/table/table-filter.js';
+import { renderInteractiveTable } from '../src/components/table/interactive-renderer.js';
+import { navigateDown, navigatePageDown } from '../src/components/table/table-navigator.js';
 
 /**
  * Generate test data

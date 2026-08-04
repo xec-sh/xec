@@ -2,6 +2,8 @@
  * @vitest-environment node
  */
 
+import type { TableState, TableColumn, InteractiveTableOptions } from '../src/components/table/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import {
@@ -10,8 +12,6 @@ import {
   toggleSort,
   getSortableColumns,
 } from '../src/components/table/table-sorter.js';
-
-import type { TableState, TableColumn, InteractiveTableOptions } from '../src/components/table/types.js';
 
 function createTestData(length: number) {
   return Array.from({ length }, (_, i) => ({

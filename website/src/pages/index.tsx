@@ -1,10 +1,9 @@
-import React from 'react';
-
-import Link from '@docusaurus/Link';
-import Layout from '@theme/Layout';
-import Translate, { translate } from '@docusaurus/Translate';
-
 import styles from './index.module.css';
+
+import React from 'react';
+import Layout from '@theme/Layout';
+import Link from '@docusaurus/Link';
+import Translate, { translate } from '@docusaurus/Translate';
 
 /**
  * A line of the hero demo.

@@ -6,7 +6,7 @@
  */
 import { basename } from 'node:path';
 
-import { intro, path, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, path, intro, outro, cancel, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Path Prompt Examples');

@@ -4,7 +4,7 @@
  * Multiple selection with space to toggle, 'a' to select all,
  * 'i' to invert, disabled options, and required validation.
  */
-import { intro, multiselect, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, intro, outro, cancel, isCancel, multiselect } from '../src/index.js';
 
 async function main() {
   intro('Multi-Select Prompt Examples');

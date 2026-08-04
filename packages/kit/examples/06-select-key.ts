@@ -4,7 +4,7 @@
  * Instant selection via keyboard shortcuts. Each option is triggered
  * by pressing its first character. Supports caseSensitive mode.
  */
-import { intro, selectKey, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, intro, outro, cancel, isCancel, selectKey } from '../src/index.js';
 
 async function main() {
   intro('Select Key Prompt Examples');

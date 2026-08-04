@@ -216,7 +216,7 @@ export class Deployer {
     createCtx: (target: string, attempt: number) => DeployContext
   ): Promise<void> {
     // Deploy to first target as canary
-    const [canary, ...rest] = this.config.targets;
+    const [canary, ..._rest] = this.config.targets;
     if (!canary) return;
 
     await this.deployTarget(canary, version, results, createCtx);

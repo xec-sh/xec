@@ -10,7 +10,7 @@
  *   0-9        - type digits directly
  *   Backspace  - clear current segment
  */
-import { intro, date, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, date, intro, outro, cancel, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Date Prompt Examples');

@@ -2,6 +2,8 @@
  * @vitest-environment node
  */
 
+import type { TableState } from '../src/components/table/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import {
@@ -12,8 +14,6 @@ import {
   navigatePageUp,
   navigatePageDown,
 } from '../src/components/table/table-navigator.js';
-
-import type { TableState } from '../src/components/table/types.js';
 
 function createTestState(focusedRow: number, dataLength: number, pageSize = 10): TableState<any> {
   const data = Array.from({ length: dataLength }, (_, i) => ({ id: i }));

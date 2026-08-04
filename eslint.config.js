@@ -26,7 +26,14 @@ const commonRules = () => ({
   '@typescript-eslint/no-explicit-any': 0,
   '@typescript-eslint/no-empty-object-type': 0,
   '@typescript-eslint/consistent-type-imports': 0,
-  '@typescript-eslint/no-unused-vars': [1, { args: 'none' }],
+  // `ignoreRestSiblings` covers the extract-to-omit idiom
+  // (`const { a, ...rest } = x`), and the underscore prefix is the
+  // conventional marker for a binding that exists only to hold a position —
+  // both are legitimate patterns rather than dead code.
+  '@typescript-eslint/no-unused-vars': [
+    1,
+    { args: 'none', ignoreRestSiblings: true, varsIgnorePattern: '^_' },
+  ],
 });
 
 /**

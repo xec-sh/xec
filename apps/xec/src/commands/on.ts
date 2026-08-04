@@ -1,11 +1,10 @@
-import { ScriptLoader } from '@xec-sh/ops';
 import type { ResolvedTarget, ExecutionOptions } from '@xec-sh/ops';
 
 import { z } from 'zod';
 import path from 'path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import { parseTimeout , validateOptions } from '@xec-sh/ops';
+import { ScriptLoader , parseTimeout , validateOptions } from '@xec-sh/ops';
 
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';

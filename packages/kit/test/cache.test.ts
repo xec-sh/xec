@@ -2,14 +2,14 @@
  * Tests for table caching utilities (Phase 4)
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { it, vi, expect, describe, beforeEach } from 'vitest';
+
 import {
   Cache,
-  TableCache,
   memoize,
+  TableCache,
   getGlobalTableCache,
   resetGlobalTableCache,
-  type CacheStrategy,
 } from '../src/components/table/cache.js';
 
 describe('cache', () => {

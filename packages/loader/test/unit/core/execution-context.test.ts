@@ -2,11 +2,11 @@
  * Tests for ExecutionContext
  */
 
+import type { ExecutionContextOptions } from '../../../src/types/index.js';
+
 import { it, expect, describe, afterEach } from 'vitest';
 
 import { ExecutionContext } from '../../../src/core/execution-context.js';
-
-import type { ExecutionContextOptions } from '../../../src/types/index.js';
 
 describe('ExecutionContext', () => {
   let context: ExecutionContext;

@@ -2,6 +2,8 @@
  * @vitest-environment node
  */
 
+import type { TableState, TableColumn, InteractiveTableOptions } from '../src/components/table/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import {
@@ -16,8 +18,6 @@ import {
   handleFilterInput,
   handleFilterBackspace,
 } from '../src/components/table/table-filter.js';
-
-import type { TableState, TableColumn, InteractiveTableOptions } from '../src/components/table/types.js';
 
 function createTestData() {
   return [

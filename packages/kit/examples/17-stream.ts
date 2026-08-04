@@ -6,7 +6,7 @@
  */
 import { setTimeout } from 'node:timers/promises';
 
-import { intro, stream, outro } from '../src/index.js';
+import { intro, outro, stream } from '../src/index.js';
 
 async function* generateSteps() {
   const steps = [

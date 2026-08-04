@@ -1,5 +1,5 @@
+import { afterAll, beforeAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { beforeAll, afterAll } from 'vitest';
 import { dockerManager } from '@xec-sh/testing';
 
 import { configure } from './src/index.js';

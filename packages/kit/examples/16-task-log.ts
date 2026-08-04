@@ -6,7 +6,7 @@
  */
 import { setTimeout } from 'node:timers/promises';
 
-import { intro, taskLog, outro } from '../src/index.js';
+import { intro, outro, taskLog } from '../src/index.js';
 
 async function main() {
   intro('Task Log Example');

@@ -3,7 +3,7 @@
  *
  * Masked input for sensitive data with validation and clearOnError.
  */
-import { intro, password, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, intro, outro, cancel, password, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Password Input Examples');

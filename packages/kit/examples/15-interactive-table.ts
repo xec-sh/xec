@@ -4,7 +4,7 @@
  * Full-featured interactive table with keyboard navigation,
  * sorting, filtering, single/multi selection, and cell editing.
  */
-import { interactiveTable, isCancel, log } from '../src/index.js';
+import { log, isCancel, interactiveTable } from '../src/index.js';
 
 interface Task {
   id: number;

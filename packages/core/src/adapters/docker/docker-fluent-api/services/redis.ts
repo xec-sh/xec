@@ -760,7 +760,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
 
     return lines.map(line => {
       const parts = line.split(' ');
-      const [id, address, flags, master, ping, pong, epoch, status] = parts;
+      const [id, address, flags, master, _ping, _pong, _epoch, status] = parts;
       const [host, ports] = address ? address.split(':') : ['', ''];
       const [port] = ports ? ports.split('@') : ['6379'];
 

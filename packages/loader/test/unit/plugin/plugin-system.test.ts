@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { it, expect, describe, beforeEach } from 'vitest';
 
-import { PluginManager, type LoaderPlugin } from '../../../src/plugin/index.js';
+import { PluginManager } from '../../../src/plugin/index.js';
 
 describe('PluginManager', () => {
   let manager: PluginManager;

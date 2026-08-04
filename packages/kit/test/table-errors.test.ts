@@ -2,22 +2,23 @@
  * Tests for table error handling (Phase 4)
  */
 
-import { describe, it, expect } from 'vitest';
+import { it, expect, describe } from 'vitest';
+
 import {
   TableError,
-  createInvalidDataError,
-  createColumnNotFoundError,
+  safeExecute,
+  formatError,
+  isTableError,
+  ErrorRecovery,
+  safeExecuteAsync,
   createRenderError,
   createStreamError,
+  isRecoverableError,
   createValidationError,
   createEditFailedError,
+  createInvalidDataError,
   createExportFailedError,
-  safeExecute,
-  safeExecuteAsync,
-  isTableError,
-  isRecoverableError,
-  formatError,
-  ErrorRecovery,
+  createColumnNotFoundError,
 } from '../src/components/table/errors.js';
 
 describe('table-errors', () => {

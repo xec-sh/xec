@@ -2,6 +2,8 @@
  * @vitest-environment node
  */
 
+import type { InteractiveTableOptions } from '../src/components/table/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import {
@@ -26,8 +28,6 @@ import {
   navigateFirst,
   navigatePageDown,
 } from '../src/components/table/table-navigator.js';
-
-import type { InteractiveTableOptions } from '../src/components/table/types.js';
 
 function createTestData() {
   return [

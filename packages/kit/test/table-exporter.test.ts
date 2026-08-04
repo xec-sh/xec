@@ -2,16 +2,18 @@
  * Tests for table export functionality
  */
 
-import { describe, it, expect } from 'vitest';
+import type { TableColumn } from '../src/components/table/types.js';
+
+import { it, expect, describe } from 'vitest';
+
 import {
   exportToCSV,
   exportToTSV,
   exportToJSON,
   exportToText,
-  exportToMarkdown,
   exportToHTML,
+  exportToMarkdown,
 } from '../src/components/table/table-exporter.js';
-import type { TableColumn } from '../src/components/table/types.js';
 
 interface TestData {
   id: number;

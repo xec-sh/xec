@@ -6,7 +6,7 @@
  */
 import { setTimeout } from 'node:timers/promises';
 
-import { intro, spinner, log, outro, prism } from '../src/index.js';
+import { log, intro, outro, prism, spinner } from '../src/index.js';
 
 async function main() {
   intro('Spinner Examples');

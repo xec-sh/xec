@@ -3,7 +3,8 @@
  * These tests ensure that empty tables are rendered correctly with borders
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { it, expect, describe, beforeEach } from 'vitest';
+
 import { table } from '../src/index.js';
 import { MockWritable } from './test-utils.js';
 

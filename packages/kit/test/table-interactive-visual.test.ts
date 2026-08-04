@@ -2,7 +2,9 @@
  * @vitest-environment node
  */
 
-import { it, expect, describe, beforeAll, afterAll } from 'vitest';
+import type { InteractiveTableOptions } from '../src/components/table/types.js';
+
+import { it, expect, describe, afterAll, beforeAll } from 'vitest';
 
 import prism from '../src/prism/index.js';
 import { ColorLevel } from '../src/prism/utils/supports.js';
@@ -12,8 +14,6 @@ import { navigateDown } from '../src/components/table/table-navigator.js';
 import { updateFilterQuery } from '../src/components/table/table-filter.js';
 import { selectAll, toggleSelection } from '../src/components/table/table-selector.js';
 import { renderInteractiveTable } from '../src/components/table/interactive-renderer.js';
-
-import type { InteractiveTableOptions } from '../src/components/table/types.js';
 
 // Ensure prism emits ANSI codes regardless of TTY detection,
 // since these tests explicitly verify ANSI escape sequences in rendered output.
@@ -204,7 +204,7 @@ describe('table-interactive-visual', () => {
 
     it('should render in filter mode with input', () => {
       const options = createTestOptions();
-      let state = createTableState(createTestData(), options);
+      const state = createTableState(createTestData(), options);
 
       state.isFiltering = true;
       state.filterQuery = 'Dev';

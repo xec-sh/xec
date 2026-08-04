@@ -4,7 +4,7 @@
  * Single-selection from a list of options with hints, disabled items,
  * and long message wrapping.
  */
-import { intro, select, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, intro, outro, select, cancel, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Select Prompt Examples');

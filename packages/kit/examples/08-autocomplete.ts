@@ -5,8 +5,8 @@
  * custom filter functions, and placeholder text.
  */
 import {
-  intro, autocomplete, autocompleteMultiselect,
-  isCancel, cancel, log, outro,
+  log, intro, outro,
+  cancel, isCancel, autocomplete, autocompleteMultiselect,
 } from '../src/index.js';
 
 const countries = [

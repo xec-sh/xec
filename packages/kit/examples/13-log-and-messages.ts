@@ -5,7 +5,7 @@
  * flow markers (intro, outro, cancel, note, box).
  */
 import {
-  intro, outro, cancel, note, box, log, prism,
+  box, log, note, intro, outro, prism,
 } from '../src/index.js';
 
 function main() {

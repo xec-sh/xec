@@ -2,6 +2,8 @@
  * @vitest-environment node
  */
 
+import type { TableState } from '../src/components/table/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import {
@@ -11,8 +13,6 @@ import {
   toggleSelection,
   getSelectionCount,
 } from '../src/components/table/table-selector.js';
-
-import type { TableState } from '../src/components/table/types.js';
 
 function createTestState(focusedRow: number, dataLength: number): TableState<any> {
   const data = Array.from({ length: dataLength }, (_, i) => ({ id: i, name: `Item ${i}` }));

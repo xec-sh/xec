@@ -7,10 +7,9 @@
  */
 import { setTimeout } from 'node:timers/promises';
 
-import {
-  intro, outro, cancel, note, log, prism,
-  group, text, password, select, multiselect, confirm, date,
-  spinner, progress, isCancel,
+import { note, text, date, intro, outro,
+  prism, group, cancel, select, confirm, spinner, password,
+  progress, multiselect,
 } from '../src/index.js';
 
 async function main() {

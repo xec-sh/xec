@@ -5,7 +5,7 @@
  * Groups can optionally be selectable to toggle all items at once.
  */
 import {
-  intro, groupMultiselect, isCancel, cancel, log, outro,
+  log, intro, outro, cancel, isCancel, groupMultiselect,
 } from '../src/index.js';
 
 async function main() {

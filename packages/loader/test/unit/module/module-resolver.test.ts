@@ -1,8 +1,8 @@
-import { it, expect, describe, beforeEach, afterEach } from 'vitest';
-import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import {
   CDNModuleResolver,

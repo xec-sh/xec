@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { rm, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
-import { FileWatcher, watchFiles } from '../../../src/watch/index.js';
+import { watchFiles, FileWatcher } from '../../../src/watch/index.js';
 
 describe('FileWatcher', () => {
   let tempDir: string;

@@ -4,7 +4,7 @@
  * The simplest prompt: single-line text input with placeholder,
  * default value, and validation.
  */
-import { intro, text, isCancel, cancel, outro, log } from '../src/index.js';
+import { log, text, intro, outro, cancel, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Text Input Examples');

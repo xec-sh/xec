@@ -2,15 +2,16 @@
  * Tests for streaming utilities
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { it, vi, expect, describe } from 'vitest';
+
 import {
-  streamToArray,
-  asyncIterableToArray,
-  loadChunked,
-  arrayToStream,
-  arrayToAsyncIterable,
   batchAsync,
+  loadChunked,
+  streamToArray,
+  arrayToStream,
   type StreamProgress,
+  asyncIterableToArray,
+  arrayToAsyncIterable,
 } from '../src/components/table/streaming.js';
 
 describe('streaming', () => {
@@ -163,9 +164,7 @@ describe('streaming', () => {
 
   describe('loadChunked', () => {
     it('should load data in chunks', async () => {
-      const mockLoadFn = vi.fn(async (offset: number, limit: number) => {
-        return Array.from({ length: limit }, (_, i) => offset + i);
-      });
+      const mockLoadFn = vi.fn(async (offset: number, limit: number) => Array.from({ length: limit }, (_, i) => offset + i));
 
       const result = await loadChunked(mockLoadFn, 10, { batchSize: 3 });
 
@@ -174,9 +173,7 @@ describe('streaming', () => {
     });
 
     it('should report progress', async () => {
-      const mockLoadFn = async (offset: number, limit: number) => {
-        return Array.from({ length: limit }, (_, i) => offset + i);
-      };
+      const mockLoadFn = async (offset: number, limit: number) => Array.from({ length: limit }, (_, i) => offset + i);
 
       const progressUpdates: StreamProgress[] = [];
       await loadChunked(mockLoadFn, 10, {
@@ -208,9 +205,7 @@ describe('streaming', () => {
     });
 
     it('should handle last partial chunk', async () => {
-      const mockLoadFn = vi.fn(async (offset: number, limit: number) => {
-        return Array.from({ length: limit }, (_, i) => offset + i);
-      });
+      const mockLoadFn = vi.fn(async (offset: number, limit: number) => Array.from({ length: limit }, (_, i) => offset + i));
 
       await loadChunked(mockLoadFn, 10, { batchSize: 3 });
 

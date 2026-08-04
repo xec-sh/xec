@@ -3,7 +3,7 @@
  *
  * Yes/No selection with horizontal and vertical layouts.
  */
-import { intro, confirm, isCancel, cancel, log, outro } from '../src/index.js';
+import { log, intro, outro, cancel, confirm, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Confirm Prompt Examples');
