@@ -2,413 +2,195 @@
 title: Local Target Overview
 description: Local command execution and shell environment management
 keywords: [local, shell, execution, bash, zsh, sh]
-source_files:
-  - packages/core/src/adapters/local-adapter.ts
-  - packages/core/src/utils/shell.ts
-  - apps/xec/src/config/types.ts
-key_functions:
-  - LocalAdapter.execute()
-  - LocalAdapter.spawn()
-  - detectShell()
-  - escapeShellArg()
-verification_date: 2025-08-03
+sidebar_position: 1
 ---
 
 # Local Target Overview
 
-## Implementation Reference
+Local targets run commands directly on the machine executing the script, through Node's `child_process` (or `Bun.spawn`, when the adapter is configured to prefer it). It is the default target — no configuration is required to use it.
 
-**Source Files:**
-- `packages/core/src/adapters/local-adapter.ts` - Local execution adapter implementation
-- `packages/core/src/utils/shell.ts` - Shell detection and escaping utilities
-- `apps/xec/src/config/types.ts` - Target type definitions (lines 45-52)
-- `packages/core/src/core/execution-engine.ts` - Execution engine integration
+```typescript
+import { $ } from '@xec-sh/core';
 
-**Key Classes:**
-- `LocalAdapter` - Implements local command execution
-- `ExecutionEngine` - Core execution orchestrator
+const result = await $`echo "Hello, World!"`;
+console.log(result.stdout); // "Hello, World!\n"
+```
 
-**Key Functions:**
-- `LocalAdapter.execute()` - Main execution method (lines 25-68)
-- `LocalAdapter.spawn()` - Process spawning (lines 70-112)
-- `detectShell()` - Shell detection logic
-- `escapeShellArg()` - Shell argument escaping
-
-## Overview
-
-Local targets execute commands directly on the machine where Xec is running. This is the default and simplest execution environment, providing direct access to the local filesystem, processes, and system resources.
-
-## Target Configuration
-
-### Basic Configuration
+## Target configuration
 
 ```yaml
 # .xec/config.yaml
 targets:
   local:
     type: local
-    shell: /bin/bash  # Optional: override default shell
-    env:              # Optional: environment variables
+    shell: /bin/bash   # optional: path to a shell binary, or false to skip the shell
+    env:
       NODE_ENV: development
-      PATH: /usr/local/bin:/usr/bin:/bin
-    cwd: /project    # Optional: working directory
+    cwd: /project
 ```
 
-### Default Local Target
+All fields are optional; `local` also accepts `timeout`, `encoding`, `maxBuffer` and `throwOnNonZeroExit`. `shell` takes a boolean or the path to a single executable — it cannot carry extra arguments (see [Shell Configuration](./shell-config.md)).
 
-When no target is specified, Xec uses an implicit local target:
+## Execution model
 
-```typescript
-// Implicit local target (from LocalAdapter constructor)
-{
-  type: 'local',
-  shell: process.env.SHELL || '/bin/sh',
-  env: process.env,
-  cwd: process.cwd()
-}
-```
-
-## Execution Model
-
-### Process Spawning
-
-Local execution uses Node.js `child_process.spawn()` internally:
+`LocalAdapter` (`packages/core/src/adapters/local/index.ts`) picks `Bun.spawn` or Node's `child_process.spawn` per command. The choice, and a few OS-level settings, are constructor-only — set them once when the engine is created, not per command:
 
 ```typescript
-// From LocalAdapter.spawn() implementation
-const child = spawn(command, args, {
-  cwd: options.cwd || process.cwd(),
-  env: { ...process.env, ...options.env },
-  shell: options.shell || true,
-  stdio: options.stdio || 'pipe',
-  detached: options.detached || false
+import { configure, RuntimeDetector } from '@xec-sh/core';
+
+configure({
+  adapters: {
+    local: {
+      preferBun: true,             // use Bun.spawn when the process is running under Bun
+      forceImplementation: 'bun',  // or 'node' — skip detection entirely
+      uid: 1000,                   // Unix only
+      gid: 1000,                   // Unix only
+      killSignal: 'SIGKILL',       // used for timeouts, buffer overflow and tree-kill (default SIGTERM)
+    },
+  },
 });
+
+RuntimeDetector.isBun(); // true when the current process is Bun
 ```
 
-### Shell Detection
-
-The adapter automatically detects the available shell (from `utils/shell.ts`):
-
-1. **Environment Variable**: `$SHELL` environment variable
-2. **Windows Detection**: `process.platform === 'win32'` → cmd.exe or PowerShell
-3. **Unix Fallback**: `/bin/sh` as universal fallback
+`configure()` replaces the default `$`. To run specific commands through an independently configured engine instead:
 
 ```typescript
-// Shell detection priority
-const shell = options.shell 
-  || process.env.SHELL 
-  || (isWindows ? 'cmd.exe' : '/bin/sh');
+import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
+
+const bunOnly = createCallableEngine(
+  new ExecutionEngine({ adapters: { local: { forceImplementation: 'bun' } } }),
+);
+await bunOnly`echo hello`;
 ```
 
-## Command Execution
+## Environment variables
 
-### Template Literal API
+Commands inherit `process.env`; anything passed as `env` is layered on top, per key — there is no way to run a command with a fully empty environment.
 
 ```typescript
-import { $ } from '@xec-sh/core';
+await $`echo $HOME`; // current HOME
 
-// Simple command
-const result = await $`ls -la`;
-console.log(result.stdout);
+await $.env({ NODE_ENV: 'production' })`npm run build`; // persists on the returned engine
 
-// With error handling
-const { ok, stdout, stderr, exitCode } = await $`test -f file.txt`.nothrow();
-if (!ok) {
-  console.error('File not found');
-}
-
-// Piping and chaining
-await $`cat file.txt`.pipe($`grep pattern`).pipe($`wc -l`);
+await $.with({ env: { DEBUG: 'app:*' } })`node app.js`; // this command only
 ```
 
-### Direct Execution
+## Working directory
 
 ```typescript
-const adapter = new LocalAdapter();
+$.pwd();                       // directory the engine currently uses
+const proj = $.cd('/project'); // returns a new engine rooted there
+await proj`npm install`;
 
-// Execute with options
-const result = await adapter.execute('npm install', {
-  cwd: '/project',
-  env: { NODE_ENV: 'production' },
-  timeout: 60000
-});
-```
+await $`pwd`.cwd('/tmp'); // override for a single command -> /tmp
 
-## Features
-
-### Environment Variables
-
-Local execution inherits and can override environment variables:
-
-```typescript
-// Inherits process.env by default
-await $`echo $HOME`;  // Uses current HOME
-
-// Override specific variables
-await $.env({ NODE_ENV: 'production' })`npm run build`;
-
-// Clear environment
-await $.env({})`printenv`;  // Empty environment
-```
-
-### Working Directory
-
-Control the execution directory:
-
-```typescript
-// Change directory for execution
-await $.cwd('/tmp')`pwd`;  // Outputs: /tmp
-
-// Temporary directory change
-await $.within(async () => {
-  await $.cd('/project');
+import { within } from '@xec-sh/core';
+await within('/project', async () => {
   await $`npm install`;
   await $`npm test`;
-});  // Returns to original directory
+}); // reverts afterward
 ```
 
-### Input/Output Handling
-
-#### Stream Processing
+## Reading output
 
 ```typescript
-// Capture output
-const { stdout, stderr } = await $`ls -la`;
+const result = await $`ls -la`;
+result.stdout;  // string
+result.stderr;  // string
+result.stdall;  // stdout and stderr merged in the order they arrived
+result.exitCode;
+result.ok;      // exitCode === 0 && no signal
+```
 
-// Stream to console
+Convenience readers, available directly on the pending command:
+
+```typescript
+await $`echo hi`.text();          // trimmed stdout
+await $`echo '{"a":1}'`.json();
+await $`printf 'a\nb\n'`.lines(); // ['a', 'b']
+```
+
+Binary output needs the awaited result's `.buffer()`, which returns the exact bytes written rather than a re-encoded string:
+
+```typescript
+const image = await $`cat photo.png`;
+const bytes = image.buffer();
+```
+
+Stream a long-running command line by line as it runs:
+
+```typescript
+for await (const line of $`tail -f app.log`) {
+  console.log(line);
+}
+```
+
+Pipe to another command or to a stream:
+
+```typescript
+await $`cat file.txt`.pipe($`grep pattern`).pipe($`wc -l`);
 await $`npm install`.pipe(process.stdout);
 
-// Redirect to file
-await $`echo "content"`.pipe(fs.createWriteStream('output.txt'));
-
-// Process line by line
-await $`tail -f log.txt`.lines(async (line) => {
-  console.log(`Log: ${line}`);
-});
+import { createWriteStream } from 'node:fs';
+await $`echo content`.pipe(createWriteStream('output.txt'));
 ```
 
-#### Input Redirection
+Provide input:
 
 ```typescript
-// From string
-await $`cat`.stdin('Hello, World\n');
+await $.with({ stdin: 'hello\n' })`cat`;
 
-// From file
-await $`wc -l`.stdin(fs.createReadStream('input.txt'));
-
-// From another command
-await $`echo "test"`.pipe($`cat`);
+import { createReadStream } from 'node:fs';
+await $.with({ stdin: createReadStream('input.txt') })`wc -l`;
 ```
 
-### Signal Handling
+## Live process access
+
+`` $`cmd` `` is lazy — nothing runs until it is awaited, started, or one of the live accessors below is read.
 
 ```typescript
-// Handle process signals
-const proc = $`sleep 100`;
+const p = $`sleep 100`;
+p.start(); // begins running, without awaiting
 
-// Send signal
-setTimeout(() => proc.kill('SIGTERM'), 1000);
+const handle = await p.spawned; // resolves once the process exists
+p.pid;     // process id (starts the command if it hasn't already)
+p.child;   // ProcessHandle: pid, stdin, stdout, stderr, kill()
 
-// Handle termination
-proc.on('exit', (code, signal) => {
-  console.log(`Process exited: ${code || signal}`);
-});
+p.stdin.write('input\n'); // writable immediately; buffered until the process exists
+p.stdin.end();
+
+p.kill('SIGTERM'); // signals the whole process tree, not just the direct child
+await p.nothrow();
 ```
 
-## Performance Characteristics
+On POSIX, a command runs in its own process group by default (`detached: true` unless overridden), and `.kill()` signals that group plus any descendant that escaped it — a shell wrapper like `sh -c 'node server.js'` cannot orphan what it started.
 
-### Execution Overhead
+## Timeouts
 
-**Based on implementation analysis:**
-
-- **Process Spawn**: 5-10ms (Node.js child_process overhead)
-- **Shell Invocation**: +2-5ms (shell interpreter startup)
-- **Environment Setup**: &lt;1ms (environment variable copying)
-- **Working Directory Change**: &lt;1ms (process.chdir)
-
-### Memory Usage
-
-- **Per Process**: 5-10MB (child process overhead)
-- **Output Buffering**: Variable (depends on stdout/stderr size)
-- **Stream Mode**: Constant memory (no buffering)
-
-### Optimization Strategies
-
-1. **Avoid Shell When Possible**:
 ```typescript
-// Slower (invokes shell)
-await $`echo hello`;
-
-// Faster (direct execution)
-await $.noshell()`echo`, ['hello']);
+await $`npm install`.timeout(60000);
+await $`npm install`.timeout('60s');
 ```
 
-2. **Use Streaming for Large Output**:
-```typescript
-// Memory intensive (buffers all output)
-const { stdout } = await $`find / -type f`;
+Commands time out after 30 seconds by default. A timeout rejects with `TimeoutError` and kills the process tree, using the adapter's `killSignal` (default `SIGTERM`, set at construction as shown above).
 
-// Memory efficient (streams output)
-await $`find / -type f`.pipe(process.stdout);
-```
+## Errors
 
-3. **Batch Operations**:
-```typescript
-// Inefficient (multiple shell invocations)
-await $`mkdir dir1`;
-await $`mkdir dir2`;
-await $`mkdir dir3`;
-
-// Efficient (single shell invocation)
-await $`mkdir dir1 dir2 dir3`;
-```
-
-## Error Handling
-
-### Exit Codes
-
-Local adapter preserves process exit codes:
+A non-zero exit code throws `CommandError` (`exitCode`, `signal`, `stdout`, `stderr`, `command`, `duration`) by default. Opt out per command with `.nothrow()`:
 
 ```typescript
-try {
-  await $`exit 42`;
-} catch (error) {
-  console.log(error.exitCode); // 42
-}
-```
-
-### Error Types
-
-| Error Class | Condition | Exit Code |
-|------------|-----------|-----------|
-| `ExecutionError` | Non-zero exit code | Process exit code |
-| `TimeoutError` | Execution timeout | 10 |
-| `FileSystemError` | Command not found | 127 |
-| `PermissionError` | Permission denied | 126 |
-
-### Signal Handling
-
-```typescript
-// Handle specific signals
-const proc = $`long-running-process`;
-
-process.on('SIGINT', () => {
-  proc.kill('SIGTERM');
-  process.exit(130); // Standard SIGINT exit code
-});
-```
-
-## Security Considerations
-
-### Command Injection Prevention
-
-The adapter provides automatic escaping:
-
-```typescript
-const userInput = "'; rm -rf /";
-
-// Safe - automatically escaped
-await $`echo ${userInput}`;
-// Executes: echo ''"'"'; rm -rf /'
-
-// Manual escaping
-const escaped = escapeShellArg(userInput);
-await $`echo ${escaped}`;
-```
-
-### Environment Isolation
-
-```typescript
-// Sanitize environment
-const cleanEnv = {
-  PATH: '/usr/local/bin:/usr/bin:/bin',
-  HOME: process.env.HOME,
-  USER: process.env.USER
-};
-
-await $.env(cleanEnv)`sensitive-command`;
-```
-
-## Platform Differences
-
-### Unix/Linux/macOS
-
-- **Default Shell**: `/bin/sh` or `$SHELL`
-- **Path Separator**: `:`
-- **Null Device**: `/dev/null`
-- **Temp Directory**: `/tmp` or `$TMPDIR`
-
-### Windows
-
-- **Default Shell**: `cmd.exe` or PowerShell
-- **Path Separator**: `;`
-- **Null Device**: `NUL`
-- **Temp Directory**: `%TEMP%` or `%TMP%`
-
-```typescript
-// Platform-aware execution
-const isWindows = process.platform === 'win32';
-
-if (isWindows) {
-  await $`dir`;  // Windows
-} else {
-  await $`ls`;   // Unix-like
-}
-```
-
-## Best Practices
-
-### 1. Use Appropriate Shell
-
-```typescript
-// For simple commands, avoid shell overhead
-await $.noshell()`node`, ['script.js'];
-
-// For complex pipelines, use shell
-await $`cat file | grep pattern | sort | uniq`;
-```
-
-### 2. Handle Errors Gracefully
-
-```typescript
-const result = await $`command`.nothrow();
+const result = await $`test -f file.txt`.nothrow();
 if (!result.ok) {
-  // Handle error without throwing
-  console.error(`Command failed: ${result.stderr}`);
+  console.error(result.stderr);
 }
 ```
 
-### 3. Set Timeouts for Long Operations
-
-```typescript
-await $`npm install`.timeout(60000); // 60 seconds
-```
-
-### 4. Use Streaming for Large Data
-
-```typescript
-// Stream large files
-await $`cat large-file.txt`
-  .pipe($`grep pattern`)
-  .pipe(fs.createWriteStream('filtered.txt'));
-```
-
-### 5. Clean Up Resources
-
-```typescript
-const proc = $`tail -f log.txt`;
-
-// Ensure cleanup
-process.on('exit', () => proc.kill());
-```
-
-## Troubleshooting
-
-See [Local Troubleshooting Guide](./troubleshooting.md) for common issues and solutions.
+See [Troubleshooting](./troubleshooting.md) for exit-code meanings and common failures.
 
 ## Related Documentation
 
-- [Shell Configuration](./shell-config.md) - Detailed shell setup
-- [Local Troubleshooting](./troubleshooting.md) - Common issues and solutions
-- [Execution Engine](../../core/execution-engine/overview.md) - Core execution architecture
+- [Shell Configuration](./shell-config.md) - shell selection, quoting, dialects
+- [Local Troubleshooting](./troubleshooting.md) - common issues and solutions
+- [Execution Engine](../../core/execution-engine/overview.md) - core execution architecture
 - [Local Adapter API](../../core/execution-engine/adapters/local-adapter.md) - API reference

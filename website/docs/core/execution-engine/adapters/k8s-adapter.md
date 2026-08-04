@@ -576,8 +576,8 @@ The Kubernetes adapter is implemented in:
 
 ## See Also
 
-- [Kubernetes Environment Setup](/docs/environments/kubernetes/setup)
-- [Pod Execution](/docs/environments/kubernetes/pod-execution)
-- [Port Forwarding](/docs/environments/kubernetes/port-forwarding)
-- [Log Streaming](/docs/environments/kubernetes/log-streaming)
-- [Multi-Container Pods](/docs/environments/kubernetes/multi-container)
+- [Kubernetes Target Overview](/docs/targets/kubernetes/overview)
+- [Pod Execution](/docs/targets/kubernetes/pod-execution)
+- [Port Forwarding](/docs/targets/kubernetes/port-forwarding)
+- [Log Streaming](/docs/targets/kubernetes/log-streaming)
+- [Multi-Container Pods](/docs/targets/kubernetes/multi-container)

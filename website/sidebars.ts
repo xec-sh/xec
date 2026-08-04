@@ -73,68 +73,6 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Environments',
-      link: {
-        type: 'doc',
-        id: 'environments/overview',
-      },
-      items: [
-        {
-          type: 'category',
-          label: 'Local',
-          items: [
-            'environments/local/setup',
-            'environments/local/shell-config',
-            'environments/local/debugging',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'SSH',
-          items: [
-            'environments/ssh/setup',
-            'environments/ssh/authentication',
-            'environments/ssh/sudo-security',
-            'environments/ssh/tunneling',
-            'environments/ssh/batch-operations',
-            'environments/ssh/connection-mgmt',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Docker',
-          items: [
-            'environments/docker/setup',
-            'environments/docker/lifecycle',
-            'environments/docker/compose',
-            'environments/docker/volumes',
-            'environments/docker/networking',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Kubernetes',
-          items: [
-            'environments/kubernetes/setup',
-            'environments/kubernetes/pod-execution',
-            'environments/kubernetes/multi-container',
-            'environments/kubernetes/port-forwarding',
-            'environments/kubernetes/log-streaming',
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Hybrid',
-          items: [
-            'environments/hybrid/multi-target',
-            'environments/hybrid/failover',
-            'environments/hybrid/orchestration',
-          ],
-        },
-      ],
-    },
-    {
-      type: 'category',
       label: 'Scripting',
       items: [
         {
@@ -277,6 +215,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'guides/infrastructure/server-management',
             'guides/infrastructure/container-orchestration',
+            'guides/infrastructure/multi-environment',
           ],
         },
         {
@@ -300,6 +239,10 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: 'Targets',
+      link: {
+        type: 'doc',
+        id: 'targets/overview',
+      },
       items: [
         {
           type: 'category',
@@ -317,6 +260,7 @@ const sidebars: SidebarsConfig = {
             'targets/ssh/overview',
             'targets/ssh/connection-config',
             'targets/ssh/authentication',
+            'targets/ssh/sudo-security',
             'targets/ssh/tunneling',
             'targets/ssh/batch-operations',
           ],
@@ -338,6 +282,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'targets/kubernetes/overview',
             'targets/kubernetes/pod-execution',
+            'targets/kubernetes/multi-container',
             'targets/kubernetes/port-forwarding',
             'targets/kubernetes/log-streaming',
             'targets/kubernetes/file-operations',

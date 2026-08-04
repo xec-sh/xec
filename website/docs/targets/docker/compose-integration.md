@@ -2,6 +2,7 @@
 title: Docker Compose Integration
 description: Working with Docker Compose in Xec
 keywords: [docker, compose, orchestration, services, multi-container]
+sidebar_position: 5
 ---
 
 # Docker Compose Integration
@@ -27,6 +28,15 @@ const staged = $.docker()
   .withProject('myapp-staging')       // -p project name
   .withProfiles('frontend', 'debug')  // --profile ...
   .withEnv({ TAG: 'v1.2.3' });        // environment for the compose process
+```
+
+`withEnv` works by setting `process.env` for the duration of each compose call and restoring it afterward — it's not scoped per-handle. Two `.withEnv()`-configured handles running concurrently will race on `process.env`; don't parallelize compose calls that rely on different env values.
+
+The builder takes a single compose file. For `-f file1 -f file2` overlays, drop to the adapter directly, which accepts an array:
+
+```typescript
+const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
+await docker.composeUp({ file: ['docker-compose.yml', 'docker-compose.override.yml'] });
 ```
 
 ## Starting and Stopping Services

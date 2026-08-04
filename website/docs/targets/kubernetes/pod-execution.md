@@ -1,273 +1,150 @@
 ---
 title: Pod Execution
-description: Executing commands inside Kubernetes pods using Xec
+description: Executing commands inside Kubernetes pods with Xec
 keywords: [kubernetes, k8s, pod, exec, containers, execution]
-source_files:
-  - packages/core/src/adapters/kubernetes-adapter.ts
-  - packages/core/src/utils/kubernetes-api.ts
-  - packages/core/src/core/command.ts
-key_functions:
-  - KubernetesAdapter.execute()
-  - KubernetesAdapter.buildKubectlExecArgs()
-  - createK8sPod()
-  - K8sPod.exec()
-verification_date: 2025-08-03
+sidebar_position: 2
 ---
 
 # Pod Execution
 
-## Implementation Reference
+Command execution in a pod goes through `kubectl exec`. This page covers the options that shape that call: pod selection, TTY/stdin, shell vs. raw, environment and working directory, timeouts, and error handling. See [Kubernetes Target Overview](./overview.md) for the basics of `$.k8s(...)` and [Multi-Container Pods](./multi-container.md) for targeting a specific container.
 
-**Source Files:**
-- `packages/core/src/adapters/kubernetes-adapter.ts` - Main Kubernetes adapter
-- `packages/core/src/utils/kubernetes-api.ts` - K8s API utilities and pod instances
-- `packages/core/src/core/command.ts` - KubernetesAdapterOptions interface
-
-**Key Functions:**
-- `KubernetesAdapter.execute()` - Main command execution in pods
-- `KubernetesAdapter.buildKubectlExecArgs()` - Build kubectl exec arguments
-- `createK8sPod()` - Create pod instance with execution methods
-- `K8sPod.exec()` - Execute commands in specific pod
-- `K8sPod.raw()` - Raw command execution without shell
-
-## Overview
-
-Xec provides powerful capabilities for executing commands inside Kubernetes pods through the `kubectl exec` interface. The execution engine handles pod selection, container targeting, and command execution with proper error handling and stream management.
-
-## Basic Pod Execution
-
-### Direct Pod Execution
-
-Execute commands in pods using the Kubernetes adapter:
+## Direct Pod Execution
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Execute in specific pod
 const result = await $.k8s({
   pod: 'web-server-abc123',
-  namespace: 'production'
+  namespace: 'production',
 })`ps aux`;
 
 console.log(result.stdout);
 ```
 
-### Using Pod Instance
+## Using a Pod Instance
 
-Get a pod instance for multiple operations:
+For multiple commands against the same pod, get a handle once:
 
 ```typescript
-const k8s = $.k8s({ namespace: 'default' });
-const pod = k8s.pod('my-app-pod');
+const pod = $.k8s({ namespace: 'default' }).pod('my-app-pod');
 
-// Execute multiple commands
 const hostname = await pod.exec`hostname`;
 const processes = await pod.exec`ps aux | grep node`;
-const diskUsage = await pod.exec`df -h`;
 
 console.log(`Pod: ${hostname.stdout.trim()}`);
-console.log(`Node processes: ${processes.stdout}`);
 ```
 
-## Container Selection
+## Pod Selection by Label
 
-### Multi-Container Pods
-
-Target specific containers in multi-container pods:
+A `pod` value that starts with `-l` is resolved to a matching pod name before the exec call runs — the adapter looks up the first pod the selector matches and execs into it, not into the selector itself:
 
 ```typescript
-// Execute in specific container
-const appResult = await $.k8s({
-  pod: 'multi-container-pod',
-  container: 'app',
-  namespace: 'production'
-})`cat /app/version.txt`;
-
-// Execute in sidecar container
-const sidecarResult = await $.k8s({
-  pod: 'multi-container-pod',
-  container: 'nginx',
-  namespace: 'production'
-})`nginx -t`;
+await $.k8s({
+  pod: '-l app=web,env=production',
+  namespace: 'production',
+})`systemctl status nginx`;
 ```
 
-### Container Methods
+There is no glob or regex matching on pod names — a `pod` value without the `-l` prefix is used as a literal pod name.
 
-Use pod instance methods for container-specific operations:
+## TTY and Stdin
 
 ```typescript
-const pod = k8s.pod('multi-container-pod');
+// Full interactive TTY (implies stdin)
+await $.k8s({ pod: 'debug-pod', tty: true })`top -b -n 1`;
 
-// Different containers in same pod
-const appStatus = await pod.exec`curl localhost:3000/health`;
-const nginxConfig = await pod.exec`nginx -T`; // Uses default container
-
-// Override container per command
-const specificContainer = await $.k8s({
-  pod: 'multi-container-pod',
-  container: 'sidecar'
-})`tail -f /var/log/sidecar.log`;
+// Explicitly disable stdin (no -i passed to kubectl)
+await $.k8s({ pod: 'worker-pod', stdin: false })`batch-process --config /app/config.json`;
 ```
 
-## Execution Options
+`kubectl exec` gets `-i` by default whenever `stdin` isn't explicitly `false` — plain commands are already run with stdin attached. `tty: true` adds `-t` as well and always implies `-i`, regardless of the `stdin` option.
 
-### TTY and Interactive Mode
+## Custom kubectl Flags
 
-Control TTY and interactive options:
-
-```typescript
-// Enable TTY for interactive commands
-const interactive = await $.k8s({
-  pod: 'debug-pod',
-  tty: true,
-  stdin: true
-})`top -b -n 1`;
-
-// Non-interactive mode (default)
-const batch = await $.k8s({
-  pod: 'worker-pod',
-  tty: false
-})`batch-process --config /app/config.json`;
-```
-
-### Custom kubectl Flags
-
-Pass additional flags to kubectl exec:
+`execFlags` appends raw arguments to the `kubectl exec` invocation:
 
 ```typescript
-const result = await $.k8s({
+await $.k8s({
   pod: 'my-pod',
-  execFlags: ['--quiet', '--request-timeout=30s']
+  execFlags: ['--request-timeout=30s'],
 })`long-running-command`;
 ```
 
-## Shell vs Raw Execution
-
-### Shell Execution (Default)
-
-Commands are executed through shell by default:
+## Shell vs. Raw Execution
 
 ```typescript
-// Shell command with pipes and redirects
-const result = await pod.exec`ps aux | grep node | wc -l`;
+// Through a shell — interpolated values are quoted for it
+await pod.exec`ps aux | grep node | wc -l`;
+await pod.exec`echo $HOME`;                 // shell expands this
 
-// Environment variable expansion
-const path = await pod.exec`echo $PATH`;
-
-// Complex shell operations
-const cleanup = await pod.exec`find /tmp -name "*.log" -mtime +7 -delete`;
+const userInput = 'x; rm -rf /tmp/*';
+await pod.exec`echo ${userInput}`;          // safe: shell-escaped, printed literally
+await pod.raw`echo ${userInput}`;           // unsafe: spliced into the command as-is
 ```
 
-### Raw Execution
-
-Execute commands directly without shell interpretation:
-
-```typescript
-// Raw command execution
-const direct = await pod.raw`ls -la /app`;
-
-// Safer for commands with special characters
-const literal = await pod.raw`echo "Hello | World"`;
-```
-
-## Pod Selection Patterns
-
-### Exact Pod Names
-
-Target pods by exact name:
-
-```typescript
-// Full pod name
-await $.k8s({
-  pod: 'web-deployment-abc123-xyz',
-  namespace: 'production'
-})`uptime`;
-```
-
-### Label Selectors
-
-Select pods using Kubernetes label selectors:
-
-```typescript
-// Using label selector syntax
-await $.k8s({
-  pod: '-l app=web,env=production',
-  namespace: 'production'
-})`systemctl status nginx`;
-
-// The adapter automatically resolves to first matching pod
-```
-
-### Pattern Matching
-
-Use patterns for pod selection:
-
-```typescript
-// Regex pattern (handled by kubectl)
-const webPods = await $.k8s({
-  pod: 'web-.*',
-  namespace: 'production'
-})`curl localhost:8080/health`;
-```
+Both still run through a shell in the pod (pipes, `&&`, redirects work in either) — the difference is only whether interpolated `${}` values are escaped first. `exec` is the default and safe for untrusted values; use `raw` only for values you already trust or that are meant to be shell syntax.
 
 ## Environment and Working Directory
 
-### Environment Variables
-
-Set environment variables for pod execution:
+`namespace` and `container` are set once, at `$.k8s(...)` or shorthand time — they can't be changed by chaining. `env` and `cwd` can:
 
 ```typescript
-const configured = $.k8s({
-  pod: 'my-pod'
-}).env({
-  DATABASE_URL: 'postgres://localhost:5432/mydb',
-  LOG_LEVEL: 'debug'
+const configured = $.k8s({ pod: 'my-pod' })
+  .env({ DATABASE_URL: 'postgres://localhost:5432/mydb' })
+  .cd('/app');
+
+await configured`echo "DB: $DATABASE_URL" && pwd`;
+```
+
+Both reach the pod as a shell prelude (`cd ... && export ... && <command>`) — they run inside the pod, not on the machine running Xec.
+
+## Timeouts and Retries
+
+```typescript
+const longRunning = $.k8s({ pod: 'batch-processor' }).timeout(300_000); // ms
+await longRunning`large-batch-job --input /data/large-file.csv`;
+
+const resilient = $.k8s({ pod: 'api-pod' }).retry({
+  maxRetries: 3,
+  initialDelay: 1000,
 });
-
-await configured`echo "DB: $DATABASE_URL"`;
+await resilient`curl -f http://external-api/data`;
 ```
 
-### Working Directory
+## Streaming Output
 
-Execute commands in specific directories:
+`ProcessPromise` supports async line iteration for any long-running command, kubernetes included:
 
 ```typescript
-const app = $.k8s({
-  pod: 'app-pod'
-}).cd('/app');
+const tail = pod.exec`tail -f /var/log/app.log`;
 
-// All commands run in /app directory
-await app`npm test`;
-await app`ls -la package.json`;
+for await (const line of tail) {
+  if (line.includes('ERROR')) console.error(line);
+}
 ```
+
+Break out of the loop and call `tail.kill()` to stop it. For pod logs specifically (as opposed to an arbitrary streaming command), prefer `pod.streamLogs()` / `pod.follow()` — see [Log Streaming](./log-streaming.md).
 
 ## Error Handling
 
-### Command Failures
-
-Handle pod execution failures:
-
 ```typescript
+import { ExecutionError } from '@xec-sh/core';
+
 try {
-  await $.k8s({
-    pod: 'worker-pod'
-  })`failing-command`;
+  await $.k8s({ pod: 'worker-pod' })`failing-command`;
 } catch (error) {
-  if (error.code === 'KUBERNETES_ERROR') {
-    console.log('Kubectl failed:', error.message);
-    console.log('Stderr:', error.stderr);
+  if (error instanceof ExecutionError && error.code === 'KUBERNETES_ERROR') {
+    console.log('kubectl failed:', error.message);
+    console.log('stderr:', error.details?.stderr);
   }
 }
 ```
 
-### Non-throwing Execution
-
-Use `.nothrow()` to handle failures gracefully:
+Use `.nothrow()` to get a result instead of a thrown error:
 
 ```typescript
-const result = await $.k8s({
-  pod: 'test-pod'
-})`risky-operation`.nothrow();
+const result = await $.k8s({ pod: 'test-pod' })`risky-operation`.nothrow();
 
 if (result.ok) {
   console.log('Success:', result.stdout);
@@ -277,162 +154,16 @@ if (result.ok) {
 }
 ```
 
-### Pod Availability
+## Checking Pod Readiness
 
-Check pod readiness before execution:
+`isPodReady` and `getPodFromSelector` live on the adapter, not on the pod context — reach them through `$.getAdapter('kubernetes')`:
 
 ```typescript
-const adapter = $.getAdapter('kubernetes');
+import { KubernetesAdapter } from '@xec-sh/core';
 
-// Check if pod is ready
-const isReady = await adapter.isPodReady('my-pod', 'default');
-if (!isReady) {
-  console.log('Pod not ready, waiting...');
-  // Implementation would wait or retry
+const k8s = $.getAdapter('kubernetes') as KubernetesAdapter;
+
+if (await k8s.isPodReady('my-pod', 'default')) {
+  await $.k8s({ pod: 'my-pod' })`echo ready`;
 }
-```
-
-## Advanced Execution
-
-### Timeout Configuration
-
-Set execution timeouts:
-
-```typescript
-const longRunning = $.k8s({
-  pod: 'batch-processor'
-}).timeout(300000); // 5 minutes
-
-await longRunning`large-batch-job --input /data/large-file.csv`;
-```
-
-### Retry Logic
-
-Implement retry for transient failures:
-
-```typescript
-const resilient = $.k8s({
-  pod: 'api-pod'
-}).retry({
-  attempts: 3,
-  delay: 1000
-});
-
-await resilient`curl -f http://external-api/data`;
-```
-
-### Streaming Output
-
-Stream command output in real-time:
-
-```typescript
-const stream = $.k8s({
-  pod: 'log-processor'
-})`tail -f /var/log/app.log`;
-
-// Process streaming output
-stream.stdout.on('data', (chunk) => {
-  process.stdout.write(`[${pod}] ${chunk}`);
-});
-
-await stream;
-```
-
-## Common Patterns
-
-### Health Checks
-
-Implement pod health checking:
-
-```typescript
-async function checkPodHealth(podName: string) {
-  const pod = $.k8s({ pod: podName, namespace: 'production' });
-  
-  const health = await pod.exec`curl -f http://localhost:8080/health`.nothrow();
-  
-  if (health.ok) {
-    const status = JSON.parse(health.stdout);
-    return { healthy: status.status === 'ok', details: status };
-  }
-  
-  return { healthy: false, error: health.stderr };
-}
-```
-
-### Log Collection
-
-Collect logs from application files:
-
-```typescript
-async function collectApplicationLogs(pods: string[]) {
-  const results = await Promise.all(
-    pods.map(async (podName) => {
-      const pod = $.k8s({ pod: podName, namespace: 'production' });
-      const logs = await pod.exec`tail -n 100 /var/log/app.log`.nothrow();
-      
-      return {
-        pod: podName,
-        logs: logs.ok ? logs.stdout : `Error: ${logs.stderr}`
-      };
-    })
-  );
-  
-  return results;
-}
-```
-
-### Configuration Validation
-
-Validate configuration in pods:
-
-```typescript
-async function validateConfig(podName: string) {
-  const pod = $.k8s({ pod: podName, namespace: 'staging' });
-  
-  // Check config file exists
-  const configCheck = await pod.exec`test -f /app/config.json`.nothrow();
-  if (!configCheck.ok) {
-    throw new Error('Configuration file missing');
-  }
-  
-  // Validate JSON syntax
-  const jsonCheck = await pod.exec`python -m json.tool /app/config.json`.nothrow();
-  if (!jsonCheck.ok) {
-    throw new Error('Invalid JSON configuration');
-  }
-  
-  // Application-specific validation
-  const appCheck = await pod.exec`/app/bin/validate-config`.nothrow();
-  if (!appCheck.ok) {
-    throw new Error(`Config validation failed: ${appCheck.stderr}`);
-  }
-  
-  return true;
-}
-```
-
-## Performance Considerations
-
-### Command Efficiency
-
-- **Batch Commands**: Combine multiple operations into single commands
-- **Shell Pipelines**: Use shell features to reduce round trips
-- **Local Processing**: Process data locally when possible
-
-### Resource Usage
-
-- **Memory**: Each kubectl exec creates a new process
-- **Network**: Commands go through Kubernetes API server
-- **Timing**: Allow 200-500ms overhead per command
-
-### Best Practices
-
-```typescript
-// Good: Single command with pipeline
-await pod.exec`ps aux | grep node | awk '{print $2}' | head -5`;
-
-// Less efficient: Multiple separate commands
-const ps = await pod.exec`ps aux`;
-const filtered = await pod.exec`echo "${ps.stdout}" | grep node`;
-const pids = await pod.exec`echo "${filtered.stdout}" | awk '{print $2}'`;
 ```

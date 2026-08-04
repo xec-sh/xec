@@ -1,473 +1,87 @@
-# Multi-Environment Execution
+---
+title: Targets Overview
+description: One execution API across local shells, SSH hosts, Docker containers and Kubernetes pods
+keywords: [targets, execution, local, ssh, docker, kubernetes]
+sidebar_position: 1
+---
 
-Xec provides a unified interface for executing commands across multiple environments, from local shells to remote Kubernetes clusters. This section covers how to configure and use each environment type effectively.
+# Targets Overview
 
-## Supported Environments
+A target is where a command runs. Xec ships four: the local machine, SSH hosts, Docker containers and Kubernetes pods. All four sit behind the same template-literal API, so the code that runs a command does not change when the place it runs does.
 
-### Local Environment
-Execute commands directly on your local machine using native shell integration. The local adapter supports both Node.js and Bun runtimes with automatic detection.
-
-**Key Features:**
-- Native shell execution (bash, sh, zsh, cmd.exe)
-- Bun runtime optimization when available
-- Process lifecycle management
-- Signal handling and timeout support
-- Stream piping and buffering
-
-**Basic Usage:**
-```javascript
+```typescript
 import { $ } from '@xec-sh/core';
 
-// Simple local execution
-const result = await $`ls -la`;
-console.log(result.stdout);
-
-// With custom shell
-const output = await $.with({ shell: '/bin/zsh' })`echo $ZSH_VERSION`;
+await $`uptime`;                          // local machine
+await $.ssh('deploy@web-1')`uptime`;      // SSH host
+await $.docker('my-app')`uptime`;         // Docker container
+await $.k8s('prod/api-7d9f')`uptime`;     // Kubernetes pod
 ```
 
-### SSH Environment
-Execute commands on remote servers via SSH with advanced connection management.
+Each target is implemented as an adapter in `@xec-sh/core`. Adapters are loaded lazily — a script that never touches Kubernetes never pays for the Kubernetes adapter.
 
-**Key Features:**
-- Connection pooling with automatic reuse
-- SSH tunneling and port forwarding
-- Batch operations across multiple hosts
-- Secure password handling
-- SFTP file transfers
-- Keep-alive and auto-reconnect
+## The four targets
 
-**Basic Usage:**
-```javascript
-// Single host execution
-const result = await $({
-  ssh: {
-    host: 'server.example.com',
-    username: 'user',
-    privateKey: '/path/to/key'
-  }
-})`uname -a`;
+### [Local](./local/overview.md)
 
-// Connection pooling (enabled by default)
-const ssh = {
-  host: 'server.example.com',
-  username: 'user',
-  connectionPool: {
-    enabled: true,
-    maxConnections: 10,
-    idleTimeout: 300000
-  }
-};
+The default. Commands run on the machine executing the script through Node's `child_process` (or `Bun.spawn` under Bun) — no configuration required. The section covers [shell selection](./local/shell-config.md) and [troubleshooting](./local/troubleshooting.md) of local execution.
 
-await $.with({ ssh })`command1`;
-await $.with({ ssh })`command2`; // Reuses connection
-```
+### [SSH](./ssh/overview.md)
 
-### Docker Environment
-Execute commands inside Docker containers with comprehensive lifecycle management.
+Commands run on remote hosts over pooled `ssh2` connections. The section covers [connection configuration](./ssh/connection-config.md), [authentication](./ssh/authentication.md), [sudo and security](./ssh/sudo-security.md), [tunneling](./ssh/tunneling.md) and [batch operations](./ssh/batch-operations.md) across many hosts.
 
-**Key Features:**
-- Container lifecycle management
-- Docker Compose integration
-- Volume and network management
-- Image building and management
-- Real-time log streaming
-- Health check support
+### [Docker](./docker/overview.md)
 
-**Basic Usage:**
-```javascript
-// Execute in existing container
-const result = await $({
-  docker: {
-    container: 'my-app'
-  }
-})`npm test`;
+Commands run inside containers by shelling out to your local `docker` CLI — either `exec` into a running container or an ephemeral `run` from an image. The section covers the [container lifecycle API](./docker/container-lifecycle.md), [Compose integration](./docker/compose-integration.md), [volumes](./docker/volume-management.md) and [networking](./docker/networking.md).
 
-// Run ephemeral container
-const output = await $({
-  docker: {
-    image: 'node:18',
-    runMode: 'run',
-    rm: true
-  }
-})`node --version`;
+### [Kubernetes](./kubernetes/overview.md)
 
-// With volume mounts
-await $({
-  docker: {
-    image: 'alpine',
-    runMode: 'run',
-    volumes: ['/local/path:/container/path']
-  }
-})`ls /container/path`;
-```
+Commands run inside pods through `kubectl exec`, with namespace, container and kubeconfig-context targeting. The section covers [pod execution](./kubernetes/pod-execution.md), [multi-container pods](./kubernetes/multi-container.md), [port forwarding](./kubernetes/port-forwarding.md), [log streaming](./kubernetes/log-streaming.md) and [file operations](./kubernetes/file-operations.md).
 
-### Kubernetes Environment
-Execute commands in Kubernetes pods with cluster-aware features.
+## What stays the same across targets
 
-**Key Features:**
-- Pod and container selection
-- Multi-container pod support
-- Port forwarding to services
-- Real-time log streaming
-- Namespace management
-- Context switching
+Every target returns the same `ExecutionResult` — `stdout`, `stderr`, `exitCode` and `ok` — and throws the same way on failure unless you opt out:
 
-**Basic Usage:**
-```javascript
-// Execute in pod
-const result = await $({
-  kubernetes: {
-    pod: 'app-pod-xyz',
-    namespace: 'production'
-  }
-})`df -h`;
-
-// Specific container in multi-container pod
-await $({
-  kubernetes: {
-    pod: 'app-pod-xyz',
-    container: 'web',
-    namespace: 'production'
-  }
-})`nginx -t`;
-
-// With context
-await $({
-  kubernetes: {
-    pod: 'debug-pod',
-    context: 'staging-cluster'
-  }
-})`env`;
-```
-
-## Environment Detection and Auto-Selection
-
-Xec can automatically detect the appropriate environment based on the command configuration:
-
-```javascript
-import { $, auto } from '@xec-sh/core';
-
-// Auto-detect based on options
-const result = await $(auto({
-  // Will use SSH if host is provided
-  host: process.env.REMOTE_HOST,
-  // Falls back to local if not
-  fallback: 'local'
-}))`echo "Hello from ${await $`hostname`}"`;
-```
-
-## Adapter Configuration
-
-### Global Configuration
-Set default configurations that apply to all executions:
-
-```javascript
-import { configure } from '@xec-sh/core';
-
-configure({
-  // Default timeout for all commands
-  defaultTimeout: 30000,
-  
-  // Default encoding
-  encoding: 'utf8',
-  
-  // Maximum output buffer size
-  maxBuffer: 10 * 1024 * 1024,
-  
-  // Throw on non-zero exit codes
-  throwOnNonZeroExit: true,
-  
-  // Default environment variables
-  defaultEnv: {
-    NODE_ENV: 'production'
-  }
-});
-```
-
-### Per-Execution Configuration
-Override settings for specific executions:
-
-```javascript
-const result = await $({
-  timeout: 60000,
-  throwOnNonZeroExit: false,
-  env: {
-    DEBUG: 'true'
-  },
-  cwd: '/app'
-})`npm run build`;
-```
-
-## Environment Chaining
-
-Execute commands that span multiple environments:
-
-```javascript
-// Copy file from remote to local via Docker
-const remotePath = '/remote/data.tar.gz';
-const containerPath = '/tmp/data.tar.gz';
-const localPath = './data.tar.gz';
-
-// Download from remote server
-await $.with({ ssh: sshConfig })`cat ${remotePath}`
-  .pipe($.with({ docker: { container: 'processor' } })`cat > ${containerPath}`);
-
-// Process in Docker
-await $.with({ docker: { container: 'processor' } })`
-  cd /tmp && 
-  tar -xzf data.tar.gz && 
-  ./process.sh
-`;
-
-// Copy result to local
-const processed = await $.with({ docker: { container: 'processor' } })`cat /tmp/result.json`;
-await $`echo '${processed}' > ${localPath}`;
-```
-
-## Parallel Execution Across Environments
-
-Execute commands simultaneously across multiple environments:
-
-```javascript
-import { parallel } from '@xec-sh/core';
-
-const results = await parallel([
-  $`local-command`,
-  $.with({ ssh: server1 })`remote-command-1`,
-  $.with({ ssh: server2 })`remote-command-2`,
-  $.with({ docker: { container: 'app' } })`container-command`,
-  $.with({ kubernetes: { pod: 'pod-1' } })`pod-command`
-]);
-
-// Results array maintains order
-const [local, remote1, remote2, docker, k8s] = results;
-```
-
-## Error Handling
-
-Each environment provides specific error information:
-
-```javascript
-try {
-  await $.with({ ssh: sshConfig })`false`;
-} catch (error) {
-  if (error.code === 'ECONNREFUSED') {
-    console.error('SSH connection refused');
-  } else if (error.exitCode === 1) {
-    console.error('Command failed with exit code 1');
-  }
-  
-  // Access environment-specific details
-  console.error('Host:', error.details?.host);
-  console.error('Command:', error.command);
+```typescript
+const result = await $.ssh('deploy@web-1')`systemctl is-active nginx`.nothrow();
+if (!result.ok) {
+  console.error(`nginx is not active: ${result.stderr.trim()}`);
 }
 ```
 
-## Stream Processing
+Every target context accepts the same chainable configuration before the command runs:
 
-All environments support unified stream processing:
+```typescript
+const app = $.docker('my-app')
+  .cd('/app')
+  .env({ NODE_ENV: 'production' })
+  .timeout(30000);
 
-```javascript
-// Stream from SSH to Docker
-await $.with({ ssh: remoteConfig })`tail -f /var/log/app.log`
-  .pipe($.with({ docker: { container: 'logger' } })`tee /logs/remote.log`);
-
-// Real-time processing
-const proc = $.with({ kubernetes: { pod: 'streamer' } })`watch -n 1 date`;
-proc.stdout.on('data', (chunk) => {
-  console.log('K8s output:', chunk.toString());
-});
-
-// Graceful shutdown
-setTimeout(() => proc.kill(), 10000);
+await app`npm run build`;
 ```
 
-## Performance Optimization
+Values interpolated into the template are escaped for the target's shell on every adapter. `$.transfer.copy` moves files between local, SSH and Docker targets (Kubernetes has its own [file operations](./kubernetes/file-operations.md) built on `kubectl cp`). Because the surface is uniform, a function that takes an engine runs unchanged against any of the four — [Working across environments](../guides/infrastructure/multi-environment.md) builds on exactly that to cover multi-host rollouts, retries and cross-target pipelines.
 
-### Connection Reuse
-SSH and Kubernetes adapters automatically reuse connections:
+## Targets in the CLI
 
-```javascript
-// SSH connection pooling
-const sshPool = {
-  host: 'server.com',
-  connectionPool: {
-    maxConnections: 5,
-    idleTimeout: 600000, // 10 minutes
-    keepAlive: true
-  }
-};
+Scripts pick a target in code, as above. The CLI picks one from `.xec/config.yaml`, where named targets carry the connection details:
 
-// Execute 100 commands using only 5 connections
-await Promise.all(
-  Array.from({ length: 100 }, (_, i) => 
-    $.with({ ssh: sshPool })`echo "Task ${i}"`
-  )
-);
+```yaml
+# .xec/config.yaml
+targets:
+  hosts:
+    production:
+      host: prod.example.com
+      user: deploy
+      privateKey: ~/.ssh/id_ed25519
+  containers:
+    app:
+      container: my-app
 ```
 
-### Batch Operations
-Execute commands efficiently across multiple targets:
-
-```javascript
-const hosts = ['server1.com', 'server2.com', 'server3.com'];
-
-// Parallel execution with connection pooling
-const results = await Promise.all(
-  hosts.map(host => 
-    $.with({ 
-      ssh: { 
-        host, 
-        username: 'deploy',
-        connectionPool: { enabled: true }
-      } 
-    })`systemctl restart app.service`
-  )
-);
+```bash
+xec on hosts.production "systemctl status nginx"   # SSH host
+xec in containers.app "npm test"                   # Docker container
 ```
 
-## Best Practices
-
-### 1. Use Connection Pooling
-Always enable connection pooling for SSH when executing multiple commands:
-
-```javascript
-// Good - reuses connection
-const ssh = { host: 'server', connectionPool: { enabled: true } };
-await $.with({ ssh })`command1`;
-await $.with({ ssh })`command2`;
-
-// Bad - creates new connection each time
-await $.with({ ssh: { host: 'server' } })`command1`;
-await $.with({ ssh: { host: 'server' } })`command2`;
-```
-
-### 2. Handle Environment-Specific Errors
-Each environment can produce unique errors:
-
-```javascript
-try {
-  await $.with({ docker: { container: 'app' } })`test -f /app/config.json`;
-} catch (error) {
-  if (error.code === 'CONTAINER_NOT_FOUND') {
-    // Container doesn't exist
-    await $.with({ docker: { image: 'app:latest', runMode: 'run' } })`setup.sh`;
-  } else if (error.exitCode === 1) {
-    // File doesn't exist
-    await $.with({ docker: { container: 'app' } })`cp /defaults/config.json /app/`;
-  }
-}
-```
-
-### 3. Use Appropriate Timeouts
-Set timeouts based on environment latency:
-
-```javascript
-// Local - short timeout
-await $.with({ timeout: 5000 })`quick-local-command`;
-
-// SSH - medium timeout
-await $.with({ ssh: config, timeout: 30000 })`remote-command`;
-
-// K8s - longer timeout for cluster operations
-await $.with({ kubernetes: config, timeout: 60000 })`kubectl apply -f manifest.yaml`;
-```
-
-### 4. Clean Up Resources
-Always dispose of adapters when done:
-
-```javascript
-import { createExecutionEngine } from '@xec-sh/core';
-
-const engine = createExecutionEngine();
-try {
-  await engine.execute({ ssh: config }, 'command');
-} finally {
-  await engine.dispose(); // Closes all connections
-}
-```
-
-## Environment-Specific Features
-
-### Local: Shell Detection
-The local adapter automatically detects and uses the appropriate shell:
-
-```javascript
-// Auto-detects bash, zsh, sh, or cmd.exe
-await $`echo $SHELL`;
-
-// Force specific shell
-await $.with({ shell: '/bin/bash' })`echo $BASH_VERSION`;
-```
-
-### SSH: Tunneling
-Create SSH tunnels for secure access:
-
-```javascript
-import { createSSHTunnel } from '@xec-sh/core';
-
-const tunnel = await createSSHTunnel({
-  ssh: sshConfig,
-  localPort: 3306,
-  remotePort: 3306,
-  remoteHost: 'database.internal'
-});
-
-// Use tunnel
-const mysql = new MySQL({ host: 'localhost', port: 3306 });
-
-// Clean up
-await tunnel.close();
-```
-
-### Docker: Compose Integration
-Work with Docker Compose projects:
-
-```javascript
-import { compose } from '@xec-sh/core';
-
-// Start services
-await compose.up({
-  file: 'docker-compose.yml',
-  detach: true
-});
-
-// Execute in service
-await $.with({ 
-  docker: { 
-    container: 'myapp_web_1' 
-  } 
-})`npm run migrate`;
-
-// Stop services
-await compose.down();
-```
-
-### Kubernetes: Port Forwarding
-Forward ports from Kubernetes services:
-
-```javascript
-import { portForward } from '@xec-sh/core';
-
-const forward = await portForward({
-  service: 'web-service',
-  namespace: 'default',
-  localPort: 8080,
-  remotePort: 80
-});
-
-// Access service locally
-const response = await fetch('http://localhost:8080');
-
-// Clean up
-await forward.close();
-```
-
-## Next Steps
-
-- [Local Environment Setup](./local/setup.md) - Configure local shell execution
-- [SSH Configuration](./ssh/setup.md) - Set up SSH connections and authentication
-- [Docker Integration](./docker/setup.md) - Work with Docker containers
-- [Kubernetes Operations](./kubernetes/setup.md) - Execute in Kubernetes clusters
-- [Hybrid Orchestration](./hybrid/multi-target.md) - Combine multiple environments
+[Targets Configuration](../configuration/targets/overview.md) documents the full YAML schema for every target type.

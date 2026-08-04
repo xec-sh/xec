@@ -2,537 +2,174 @@
 title: Docker Container Lifecycle
 description: Managing Docker container lifecycle with Xec
 keywords: [docker, containers, lifecycle, start, stop, restart, exec]
-source_files:
-  - packages/core/src/adapters/docker-adapter.ts
-  - packages/core/src/docker/docker-client.ts
-  - packages/core/src/docker/container.ts
-  - apps/xec/src/commands/in.ts
-key_functions:
-  - DockerAdapter.execute()
-  - DockerClient.exec()
-  - DockerClient.run()
-  - DockerClient.start()
-  - DockerClient.stop()
-  - ContainerManager.create()
-  - ContainerManager.remove()
-verification_date: 2025-08-03
+sidebar_position: 2
 ---
 
 # Docker Container Lifecycle
 
-## Implementation Reference
-
-**Source Files:**
-- `packages/core/src/adapters/docker-adapter.ts` - Docker adapter implementation
-- `packages/core/src/docker/docker-client.ts` - Docker API client
-- `packages/core/src/docker/container.ts` - Container management
-- `packages/core/src/docker/types.ts` - Docker type definitions
-- `apps/xec/src/commands/in.ts` - Container execution command
-
-**Key Functions:**
-- `DockerAdapter.execute()` - Main execution entry point
-- `DockerClient.exec()` - Execute commands in containers
-- `DockerClient.run()` - Run new containers
-- `DockerClient.start()` - Start stopped containers
-- `DockerClient.stop()` - Stop running containers
-- `DockerClient.inspect()` - Get container details
-- `ContainerManager.waitForHealthy()` - Wait for container readiness
-
-## Overview
-
-Xec provides comprehensive Docker container lifecycle management through the `@xec-sh/core` execution engine. This enables seamless command execution in containers, container management, and integration with Docker Compose.
-
-## Container States
-
-### State Transitions
-
-Docker containers managed by Xec follow standard Docker state transitions:
-
-```
-Created → Running → Paused → Stopped → Removed
-           ↓   ↑
-         Restarting
-```
-
-**State Detection (via `DockerClient.inspect()`):**
-- **running** - Container is actively executing
-- **paused** - Container execution is paused
-- **restarting** - Container is restarting
-- **exited** - Container has stopped
-- **dead** - Container is dead (unrecoverable)
-- **created** - Container created but not started
-
-## Container Execution
-
-### Direct Execution
-
-Execute commands in existing containers using the Docker adapter:
+Two fluent builders cover container lifecycle: `$.docker().container(name)` for a container that already exists (or will), and `$.docker().ephemeral(image)` for one built fresh from an image. Both come from `$.docker()` with no arguments, and both implement the same `start`/`stop`/`restart`/`remove`/`status`/`exec`/`info`/`isRunning`/`logs`/`waitForReady` surface — but the options each one actually honors differ, covered below.
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Execute in running container
-const result = await $.docker({ container: 'my-container' })`ls -la /app`;
-console.log(result.stdout);
-
-// Execute with working directory
-const result2 = await $.docker({
-  container: 'my-container',
-  workdir: '/app'
-})`npm test`;
-
-// Execute as specific user
-const result3 = await $.docker({
-  container: 'my-container',
-  user: 'node'
-})`whoami`;
+const app = $.docker().container('my-app');
+await app.start();
+await app.exec`npm run migrate`;
+await app.stop();
 ```
 
-### CLI Execution
+## Persistent Containers
 
-Use the `in` command for container execution:
-
-```bash
-# Execute command in container
-xec in my-container ls -la
-
-# Execute in specific container of a pod
-xec in my-container:app "npm start"
-
-# Interactive shell
-xec in my-container /bin/bash
-```
-
-## Container Management
-
-### Starting Containers
-
-Start stopped containers or create new ones:
+`.container(name)` targets a container by name. The setters that actually affect its `exec`/`run` calls are `.workdir()`, `.user()`, `.env()`/`.addEnv()`, and `.lifecycle()`:
 
 ```typescript
-// Start existing container
-await $.docker.start('my-container');
+const app = $.docker()
+  .container('my-app')
+  .workdir('/app')
+  .user('node')
+  .env({ NODE_ENV: 'production' })
+  .lifecycle({
+    beforeStart: () => console.log('starting...'),
+    afterStart: () => console.log('started'),
+    beforeStop: () => console.log('stopping...'),
+  });
 
-// Run new container from image
-const container = await $.docker.run('node:18', {
-  name: 'my-app',
-  detach: true,
-  ports: ['3000:3000'],
-  volumes: ['./app:/app'],
-  env: {
-    NODE_ENV: 'production'
-  }
-});
-
-// Run with command
-await $.docker.run('alpine', {
-  command: ['echo', 'Hello World'],
-  rm: true  // Remove after exit
-});
+await app.start();          // docker start (no-ops if already running)
+await app.exec`npm test`;   // workdir/user/env above are applied here
+await app.restart();
+await app.stop();
+await app.remove();         // stops first unless already stopped
 ```
 
-### Stopping Containers
+`.labels()`, `.addLabel()`, `.command()` and `.entrypoint()` are also present on this builder (inherited from a base class shared with the ephemeral one) but have no effect on a persistent container — nothing in `.exec()`/`.start()`/`.stop()` reads them. They only matter for `.ephemeral()`.
 
-Stop running containers gracefully:
+## Ephemeral Containers
+
+`.ephemeral(image)` builds a `docker run` invocation. Every setter below reaches the actual command:
 
 ```typescript
-// Stop with default timeout (10s)
-await $.docker.stop('my-container');
+const worker = $.docker()
+  .ephemeral('node:22-alpine')
+  .name('build-worker')
+  .env({ NODE_ENV: 'test' })
+  .volume('./app', '/app')            // single bind mount, host, container, mode?
+  .volumes(['npm-cache:/root/.npm'])  // more volumes, appended
+  .ports(['3000:3000'])
+  .network('app-network')
+  .workdir('/app')
+  .user('node')
+  .memory('512m')
+  .cpus('0.5')
+  .restartPolicy('unless-stopped')
+  .healthcheck(['CMD', 'curl', '-f', 'http://localhost:3000/health'], {
+    interval: '30s', timeout: '5s', retries: 3,
+  })
+  .autoRemove()
+  .pull();                            // pull the image before running
 
-// Stop with custom timeout
-await $.docker.stop('my-container', {
-  timeout: 30  // 30 seconds
-});
-
-// Force stop (SIGKILL)
-await $.docker.kill('my-container');
+await worker.start();
 ```
 
-### Restarting Containers
-
-Restart containers with optional timeout:
+`.name()` matters for how `.exec()` behaves. Named **and** started, `.exec()`/`.run` execs into that same running container, same as the persistent builder:
 
 ```typescript
-// Restart container
-await $.docker.restart('my-container');
-
-// Restart with timeout
-await $.docker.restart('my-container', {
-  timeout: 5  // Wait 5s before killing
-});
+const cache = $.docker().ephemeral('redis:alpine').name('cache').autoRemove();
+await cache.start();
+await cache.exec`redis-cli ping`;   // execs into the running `cache` container
+await cache.exec`redis-cli ping`;   // same container again
+await cache.stop();                 // also removes it (autoRemove)
 ```
 
-### Removing Containers
-
-Remove stopped containers:
+Without a name (or without calling `.start()` first), `.exec()` instead runs a fresh, one-off `docker run --rm ... sh -c '<command>'` — a new container per call:
 
 ```typescript
-// Remove stopped container
-await $.docker.remove('my-container');
-
-// Force remove running container
-await $.docker.remove('my-container', {
-  force: true
-});
-
-// Remove with volumes
-await $.docker.remove('my-container', {
-  volumes: true
-});
+const run = $.docker().ephemeral('node:22-alpine').volume('./app', '/app').workdir('/app');
+await run.exec`npm test`;   // its own container, removed when it exits
+await run.exec`npm test`;   // a *different* container, not the same one
 ```
 
-## Container Creation
+For repeated commands against the same container, name it and start it once; for one-shot commands, skip both.
 
-### Configuration Options
+`.status()` exists on both builders but only the persistent one implements it correctly (`info.status === 'running'`); the ephemeral builder's `.status().running` checks `info.status.includes('Up')` against `docker inspect`'s `State.Status`, which is always a lowercase word like `"running"` and never contains `"Up"` — so it reads as not-running even while it is. Use `.isRunning()` on an ephemeral container instead.
 
-Create containers with detailed configuration:
+## Executing Commands
+
+Both builders expose the same two calling conventions:
 
 ```typescript
-const container = await $.docker.create('nginx:latest', {
-  name: 'web-server',
-  hostname: 'web',
-  domainname: 'example.com',
-  
-  // Port mapping
-  ports: [
-    '80:80',
-    '443:443',
-    '127.0.0.1:8080:8080'
-  ],
-  
-  // Volume mounts
-  volumes: [
-    './html:/usr/share/nginx/html:ro',
-    'nginx-cache:/var/cache/nginx',
-    '/etc/ssl/certs:/etc/ssl/certs:ro'
-  ],
-  
-  // Environment variables
-  env: {
-    NGINX_HOST: 'example.com',
-    NGINX_PORT: '80'
-  },
-  
-  // Resource limits
-  memory: '512m',
-  cpus: '0.5',
-  
-  // Networking
-  network: 'bridge',
-  networkAlias: ['web', 'nginx'],
-  
-  // Health check
-  healthcheck: {
-    test: ['CMD', 'curl', '-f', 'http://localhost/'],
-    interval: '30s',
-    timeout: '3s',
-    retries: 3
-  },
-  
-  // Restart policy
-  restart: 'unless-stopped',
-  
-  // Labels
-  labels: {
-    'com.example.app': 'web',
-    'com.example.version': '1.0'
-  }
-});
+// Tagged template — returns a ProcessPromise (streaming, .pipe(), .nothrow(), ...)
+await app.exec`npm run build`;
+await app.run`npm run build`;        // .run is an alias for .exec
 
-// Start the created container
-await $.docker.start(container.id);
+// String or argv array — returns Promise<ExecutionResult> directly
+const result = await app.exec('npm run build');
+const result2 = await app.exec(['npm', 'run', 'build']);
 ```
 
-## Container Inspection
+## Waiting for Readiness
 
-### Getting Container Information
+`.waitForReady(timeout?)` (default 30000ms) is the builder-level check: it polls `isRunning()`, and if a `.healthcheck()` was configured, also waits for it to report healthy. Without a healthcheck configured, "running" is enough.
 
-Inspect container details and state:
+The lower-level `DockerAdapter.waitForHealthy(container, timeout?)` is stricter — it polls `docker inspect`'s `State.Health.Status` directly and only resolves on `"healthy"`. If the container has no `HEALTHCHECK` (set on the image or passed to `runContainer`), health status is never reported and this call just runs out the clock and throws.
 
 ```typescript
-// Get container details
-const info = await $.docker.inspect('my-container');
+await worker.waitForReady(60000);
 
-console.log({
-  id: info.Id,
-  name: info.Name,
-  state: info.State.Status,
-  running: info.State.Running,
-  exitCode: info.State.ExitCode,
-  startedAt: info.State.StartedAt,
-  image: info.Config.Image,
-  ports: info.NetworkSettings.Ports,
-  volumes: info.Mounts,
-  env: info.Config.Env
-});
-
-// Check if container exists
-const exists = await $.docker.exists('my-container');
-
-// Get container logs
-const logs = await $.docker.logs('my-container', {
-  follow: false,
-  tail: 100,
-  timestamps: true
-});
+// Or, against the adapter directly, when you need the stricter check
+const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
+await docker.waitForHealthy('my-app', 60000);
 ```
 
-## Health Checks
+## The Adapter Underneath
 
-### Container Health Monitoring
-
-Monitor and wait for container health:
+Both builders shell out through `DockerAdapter`, reachable directly via `$.getAdapter('docker')`. It's lower-level — plain container names and option objects, no chaining — but has a couple of things the builders don't: `getStats()`, and two-step create/start instead of only the combined `run`.
 
 ```typescript
-// Wait for container to be healthy
-await $.docker.waitHealthy('my-container', {
-  timeout: 60000,  // 60 seconds
-  interval: 1000   // Check every second
-});
+const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 
-// Check health status
-const health = await $.docker.health('my-container');
-if (health.Status === 'healthy') {
-  console.log('Container is healthy');
-}
+await docker.createContainer({ name: 'db', image: 'postgres:16-alpine' });
+await docker.startContainer('db');
+// or in one call:
+await docker.runContainer({ name: 'db', image: 'postgres:16-alpine', ports: ['5432:5432'] });
 
-// Custom health check
-const isHealthy = await $.docker.exec('my-container')`curl -f http://localhost/health`
-  .then(() => true)
-  .catch(() => false);
+const names = await docker.listContainers(true);      // string[], true = include stopped
+const info = await docker.inspectContainer('db');     // raw `docker inspect` JSON
+await docker.stopContainer('db');
+await docker.removeContainer('db', true);              // true = force
 ```
 
-## Container Events
-
-### Monitoring Container Events
-
-Listen to container lifecycle events:
+`getStats(container)` returns the parsed JSON from `docker stats --no-stream --format json <container>` — the CLI's flat per-container line (`CPUPerc`, `MemUsage`, `MemPerc`, `NetIO`, `BlockIO`, `PIDs`, plus `Container`/`ID`/`Name`), already formatted as human-readable strings. It is not the nested `cpu_stats`/`memory_stats`/`precpu_stats` shape from the Docker Engine HTTP API — there's no byte-level math to do on the result, just read the fields.
 
 ```typescript
-// Monitor container events
-const events = $.docker.events({
-  filters: {
-    container: ['my-container'],
-    event: ['start', 'stop', 'die', 'restart']
-  }
-});
-
-events.on('data', (event) => {
-  console.log(`Container ${event.Actor.ID}: ${event.Action}`);
-});
-
-// Stop monitoring
-events.stop();
+const stats = await docker.getStats('db');
+console.log(stats.CPUPerc, stats.MemUsage);
 ```
 
-## Auto-Cleanup
+## Auto-Creation and Cleanup
 
-### Temporary Containers
-
-Create containers that clean up automatically:
+Configured once via `configure({ adapters: { docker: { autoCreate: {...} } } })` (see [Adapter Configuration](./overview.md#adapter-configuration)): the first exec against a container name that doesn't exist yet transparently creates and starts one from `autoCreate.image`, and `dispose()` removes every container it created this way if `autoCreate.autoRemove` is set.
 
 ```typescript
-// Run with auto-remove
-await $.docker.run('alpine', {
-  rm: true,
-  command: ['echo', 'Temporary execution']
-});
-
-// Using try/finally for cleanup
-const container = await $.docker.create('node:18', {
-  name: `temp-${Date.now()}`
-});
-
-try {
-  await $.docker.start(container.id);
-  await $.docker.exec(container.id)`npm test`;
-} finally {
-  await $.docker.stop(container.id);
-  await $.docker.remove(container.id, { force: true });
-}
+// dispose() lives on the adapter, not on `$` or the per-target engine
+const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
+await docker.dispose();
 ```
-
-## Container Groups
-
-### Managing Multiple Containers
-
-Work with groups of related containers:
-
-```typescript
-// Start multiple containers
-const containers = ['web', 'api', 'db'];
-await Promise.all(
-  containers.map(name => $.docker.start(name))
-);
-
-// Stop all with prefix
-const allContainers = await $.docker.list({
-  filters: { name: ['^myapp-'] }
-});
-
-for (const container of allContainers) {
-  await $.docker.stop(container.Names[0]);
-}
-
-// Restart all running containers
-const running = await $.docker.list({
-  filters: { status: ['running'] }
-});
-
-await Promise.all(
-  running.map(c => $.docker.restart(c.Names[0]))
-);
-```
-
-## Configuration in Xec
-
-### Target Configuration
-
-Define Docker targets in `.xec/config.yaml`:
-
-```yaml
-targets:
-  containers:
-    web:
-      type: docker
-      container: web-server
-      
-    app:
-      type: docker
-      container: app-server
-      user: node
-      workdir: /app
-      
-    db:
-      type: docker
-      container: postgres
-      env:
-        PGUSER: postgres
-        
-    # Auto-start container if not running
-    worker:
-      type: docker
-      container: worker
-      autoStart: true
-      image: myapp:worker  # Image to use if container doesn't exist
-      
-    # Compose service reference
-    api:
-      type: docker
-      compose:
-        file: docker-compose.yml
-        service: api
-```
-
-### Lifecycle Hooks
-
-Configure lifecycle hooks:
-
-```yaml
-targets:
-  containers:
-    app:
-      type: docker
-      container: my-app
-      hooks:
-        beforeStart: |
-          echo "Starting container..."
-          docker network create app-net 2>/dev/null || true
-        afterStart: |
-          echo "Waiting for app to be ready..."
-          sleep 5
-        beforeStop: |
-          echo "Gracefully shutting down..."
-          docker exec my-app npm run shutdown
-        afterStop: |
-          echo "Container stopped"
-```
-
-## Performance Characteristics
-
-**Based on Implementation Analysis:**
-
-### Operation Timings
-- **Container Start**: 100-500ms (image cached)
-- **Container Stop**: 100ms-10s (depends on grace period)
-- **Container Exec**: 50-100ms overhead
-- **Container Create**: 200ms-2s (depends on image)
-- **Container Remove**: 50-200ms
-- **Health Check**: 100ms per check
-
-### Resource Usage
-- **Memory per Exec**: ~1MB
-- **Connection Overhead**: Minimal (Unix socket)
-- **Event Stream**: ~100KB/hour
 
 ## Error Handling
 
-### Common Errors and Solutions
-
-| Error | Exit Code | Solution |
-|-------|-----------|----------|
-| Container not found | 3 | Verify container name/ID |
-| Container not running | 5 | Start container first |
-| Permission denied | 11 | Check Docker permissions |
-| Image not found | 8 | Pull image first |
-| Port already in use | 8 | Use different port mapping |
-| Volume mount failed | 8 | Check path permissions |
-
-### Error Recovery
-
 ```typescript
-// Automatic retry on failure
-async function executeWithRetry(container: string, command: string) {
-  for (let i = 0; i < 3; i++) {
-    try {
-      return await $.docker({ container })`${command}`;
-    } catch (error) {
-      if (error.code === 'CONTAINER_NOT_RUNNING') {
-        await $.docker.start(container);
-        continue;
-      }
-      throw error;
-    }
+import { DockerError } from '@xec-sh/core';
+
+try {
+  await $.docker('missing-container')`echo hi`;
+} catch (error) {
+  if (error instanceof DockerError) {
+    console.error(error.container, error.operation, error.message);
   }
 }
-
-// Health-based execution
-async function executeWhenHealthy(container: string, command: string) {
-  await $.docker.waitHealthy(container);
-  return await $.docker({ container })`${command}`;
-}
 ```
 
-## Best Practices
-
-### Container Management
-
-1. **Always use names** - Use meaningful container names instead of IDs
-2. **Set resource limits** - Prevent containers from consuming all resources
-3. **Use health checks** - Define health checks for reliable container state
-4. **Clean up** - Remove stopped containers and unused images regularly
-5. **Use restart policies** - Configure appropriate restart behavior
-
-### Execution Patterns
-
-```typescript
-// Good: Named container with cleanup
-const containerName = `test-${Date.now()}`;
-try {
-  await $.docker.run('node:18', {
-    name: containerName,
-    rm: false  // Don't auto-remove for debugging
-  });
-  await $.docker({ container: containerName })`npm test`;
-} finally {
-  await $.docker.remove(containerName, { force: true });
-}
-
-// Good: Wait for readiness
-await $.docker.start('database');
-await $.docker.waitHealthy('database');
-await $.docker({ container: 'app' })`npm run migrate`;
-```
+In exec mode (no `autoCreate`), targeting a container that doesn't exist is checked before `docker exec` ever runs: xec raises its own `DockerError`, or — with `.nothrow()` — returns a result with `exitCode: 125` and no output.
 
 ## Related Topics
 
@@ -540,4 +177,3 @@ await $.docker({ container: 'app' })`npm run migrate`;
 - [Compose Integration](./compose-integration.md) - Docker Compose support
 - [Volume Management](./volume-management.md) - Managing volumes
 - [Networking](./networking.md) - Container networking
-- [in Command](../../commands/built-in/in.md) - CLI container execution

@@ -1,603 +1,101 @@
 ---
 title: Shell Configuration
-description: Shell detection, configuration, and customization for local execution
-keywords: [shell, bash, zsh, sh, powershell, configuration]
-source_files:
-  - packages/core/src/utils/shell.ts
-  - packages/core/src/adapters/local-adapter.ts
-  - apps/xec/src/utils/shell.ts
-key_functions:
-  - detectShell()
-  - getShellCommand()
-  - escapeShellArg()
-  - parseShellEnv()
-verification_date: 2025-08-03
+description: Shell selection, quoting, and cross-platform command escaping for local execution
+keywords: [shell, bash, zsh, sh, powershell, cmd, quoting, escaping]
+sidebar_position: 2
 ---
 
 # Shell Configuration
 
-## Implementation Reference
+The `shell` option controls whether a command runs through a shell, and which one. Every value interpolated into a `` $`...` `` template is quoted for that shell automatically.
 
-**Source Files:**
-- `packages/core/src/utils/shell.ts` - Shell utilities and detection
-- `packages/core/src/adapters/local-adapter.ts` - Shell execution (lines 25-68)
-- `apps/xec/src/utils/shell.ts` - CLI shell helpers
-- `packages/core/src/utils/escape.ts` - Shell escaping functions
+## The `shell` option
 
-**Key Functions:**
-- `detectShell()` - Automatic shell detection
-- `getShellCommand()` - Shell command construction
-- `escapeShellArg()` - Argument escaping for shells
-- `parseShellEnv()` - Environment variable parsing
+`shell` is `boolean | string`:
 
-## Shell Detection
-
-### Automatic Detection
-
-Xec automatically detects the shell using this priority (from `utils/shell.ts`):
+- **`true` (default)** — delegates to Node's built-in shell handling: `/bin/sh -c "command"` on POSIX, `cmd.exe` on Windows. This is what runs when `shell` is left unset.
+- **a string** — the path or bare name of a single executable, invoked as `<shell> -c "command"`. It must be just the executable: `'/bin/bash -i'` is not a valid path and spawning it fails with `ENOENT` — there is no separate field for extra flags.
+- **`false`** — no shell. `command` is executed as `argv[0]` with `args` as its arguments; pipes, redirection and `$VAR` expansion are not available.
 
 ```typescript
-function detectShell(): string {
-  // 1. Explicit XEC_SHELL environment variable
-  if (process.env.XEC_SHELL) {
-    return process.env.XEC_SHELL;
-  }
-  
-  // 2. SHELL environment variable (Unix-like)
-  if (process.env.SHELL) {
-    return process.env.SHELL;
-  }
-  
-  // 3. Windows detection
-  if (process.platform === 'win32') {
-    // Check for PowerShell
-    if (process.env.PSModulePath) {
-      return 'powershell.exe';
-    }
-    // Fallback to cmd.exe
-    return 'cmd.exe';
-  }
-  
-  // 4. Unix fallback
-  return '/bin/sh';
-}
+await $`ls -la`; // shell: true (default)
+
+await $.shell('/bin/bash')`echo $BASH_VERSION`;
+await $.shell('/bin/zsh')`echo $ZSH_VERSION`;
+
+// Skip the shell. This needs args as a separate array, which the template
+// literal form can't produce — it always collapses to one command string.
+await $.exec('node', { args: ['--version'], shell: false });
 ```
 
-### Manual Configuration
+`.shell(...)` exists both on `$` (persists on the returned engine) and on a single pending command — `` $`cmd`.shell('/bin/zsh') ``, applied before it starts.
 
-Override shell detection in configuration:
+A string shell is always invoked with `-c`, which is why this works for shells that accept that flag for a command string — `bash`, `zsh`, `sh`, `dash` and `fish` all do. On Windows, leave `cmd.exe` as the default (`shell: true`): an explicit `shell: 'cmd.exe'` would still be invoked with `-c`, which `cmd.exe` doesn't understand — it needs `/c`, so it can't be selected as a string shell this way.
+
+## Configuring a target's shell
 
 ```yaml
 # .xec/config.yaml
-defaults:
-  shell: /bin/zsh  # Global default
-
-targets:
-  local:
-    type: local
-    shell: /bin/bash  # Target-specific override
-    
-  custom:
-    type: local
-    shell: /usr/local/bin/fish  # Custom shell
-```
-
-## Supported Shells
-
-### POSIX Shells
-
-#### Bash (`/bin/bash`)
-
-**Features:**
-- Arrays and associative arrays
-- Advanced parameter expansion
-- Process substitution
-- Extensive built-ins
-
-**Configuration:**
-```yaml
-targets:
-  bash-target:
-    type: local
-    shell: /bin/bash
-    shellArgs: ['-c']  # Command mode
-    env:
-      BASH_ENV: ~/.bashrc  # Source file for non-interactive
-```
-
-**Special Considerations:**
-```typescript
-// Bash-specific features
-await $.shell('/bin/bash')`
-  array=(one two three)
-  echo "\${array[@]}"
-`;
-
-// Process substitution
-await $.shell('/bin/bash')`diff <(ls dir1) <(ls dir2)`;
-```
-
-#### Zsh (`/bin/zsh`)
-
-**Features:**
-- Extended globbing
-- Powerful completion system
-- Floating point arithmetic
-- Advanced array handling
-
-**Configuration:**
-```yaml
-targets:
-  zsh-target:
-    type: local
-    shell: /bin/zsh
-    shellArgs: ['-c']
-    env:
-      ZDOTDIR: ~/.config/zsh
-```
-
-**Special Considerations:**
-```typescript
-// Zsh-specific globbing
-await $.shell('/bin/zsh')`echo **/*.ts(.)`;  // Files only
-
-// Extended parameter expansion
-await $.shell('/bin/zsh')`echo \${(L)VAR}`;  // Lowercase
-```
-
-#### Sh (`/bin/sh`)
-
-**Features:**
-- POSIX compliant
-- Maximum portability
-- Minimal resource usage
-- Available on all Unix systems
-
-**Configuration:**
-```yaml
-targets:
-  portable:
-    type: local
-    shell: /bin/sh
-    shellArgs: ['-c']
-```
-
-**Limitations:**
-```typescript
-// No arrays in pure sh
-await $.shell('/bin/sh')`
-  # This won't work
-  # array=(one two three)
-  
-  # Use space-separated strings instead
-  items="one two three"
-  for item in $items; do
-    echo "$item"
-  done
-`;
-```
-
-### Alternative Shells
-
-#### Fish (`/usr/local/bin/fish`)
-
-**Features:**
-- User-friendly syntax
-- Autosuggestions
-- Web-based configuration
-- Not POSIX compliant
-
-**Configuration:**
-```yaml
-targets:
-  fish-target:
-    type: local
-    shell: /usr/local/bin/fish
-    shellArgs: ['-c']
-```
-
-**Special Syntax:**
-```typescript
-// Fish uses different syntax
-await $.shell('/usr/local/bin/fish')`
-  set files (ls *.txt)
-  for file in $files
-    echo "Processing $file"
-  end
-`;
-```
-
-### Windows Shells
-
-#### PowerShell
-
-**Features:**
-- Object-oriented pipeline
-- .NET integration
-- Extensive cmdlets
-- Cross-platform (PowerShell Core)
-
-**Configuration:**
-```yaml
-targets:
-  powershell:
-    type: local
-    shell: powershell.exe  # or 'pwsh' for PowerShell Core
-    shellArgs: ['-NoProfile', '-Command']
-```
-
-**PowerShell Commands:**
-```typescript
-// PowerShell specific
-await $.shell('powershell.exe')`
-  Get-ChildItem -Recurse | 
-  Where-Object {$_.Length -gt 1MB} |
-  Select-Object Name, Length
-`;
-```
-
-#### Command Prompt (cmd.exe)
-
-**Features:**
-- Windows native
-- Batch script compatible
-- Limited compared to Unix shells
-
-**Configuration:**
-```yaml
-targets:
-  cmd:
-    type: local
-    shell: cmd.exe
-    shellArgs: ['/c']
-```
-
-**CMD Specific:**
-```typescript
-// Windows CMD syntax
-await $.shell('cmd.exe')`dir /b *.txt`;
-await $.shell('cmd.exe')`copy source.txt dest.txt`;
-```
-
-## Shell Arguments
-
-### Command Execution Modes
-
-Different shells require different arguments for command execution:
-
-```typescript
-// Shell command construction (from local-adapter.ts)
-const shellCommands = {
-  '/bin/bash': ['-c', command],
-  '/bin/zsh': ['-c', command],
-  '/bin/sh': ['-c', command],
-  'cmd.exe': ['/c', command],
-  'powershell.exe': ['-NoProfile', '-Command', command],
-  'pwsh': ['-NoProfile', '-Command', command],
-  '/usr/local/bin/fish': ['-c', command]
-};
-```
-
-### Interactive vs Non-Interactive
-
-```yaml
-targets:
-  interactive:
-    type: local
-    shell: /bin/bash
-    shellArgs: ['-i', '-c']  # Interactive mode
-    
-  non-interactive:
-    type: local
-    shell: /bin/bash
-    shellArgs: ['-c']  # Non-interactive (default)
-    
-  login-shell:
-    type: local
-    shell: /bin/bash
-    shellArgs: ['-l', '-c']  # Login shell
-```
-
-## Environment Variables
-
-### Shell-Specific Environment
-
-```yaml
 targets:
   local:
     type: local
     shell: /bin/bash
-    env:
-      # Bash-specific
-      BASH_ENV: ~/.bashrc
-      HISTFILE: ~/.bash_history
-      HISTSIZE: 1000
-      
-      # Path configuration
-      PATH: /usr/local/bin:/usr/bin:/bin
-      
-      # Locale
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
 ```
 
-### Environment Inheritance
+There's no `shellArgs` field — `shell` is the whole story, and it takes exactly one executable path.
+
+## Startup files
+
+A string shell runs non-interactively via `-c`, so interactive/login startup files are not sourced automatically:
+
+| Shell | Sourced by `-c` |
+|-------|------------------|
+| bash  | `$BASH_ENV`, if set — not `.bashrc` or `.bash_profile` |
+| zsh   | `$ZDOTDIR/.zshenv` — not `.zshrc` |
+| sh    | nothing |
+
+Source what you need explicitly:
 
 ```typescript
-// Default: inherits process.env
-await $`echo $HOME`;  // Uses current HOME
-
-// Override specific variables
-await $.env({ 
-  NODE_ENV: 'production',
-  DEBUG: 'app:*' 
-})`npm start`;
-
-// Complete environment replacement
-await $.env({
-  PATH: '/usr/bin:/bin',
-  HOME: '/tmp',
-  USER: 'nobody'
-}).clearEnv()`env`;  // Only specified variables
+await $.shell('/bin/bash')`source ~/.bashrc && my-alias`;
 ```
 
-## Shell Features
+## Quoting and escaping
 
-### Globbing and Expansion
-
-```typescript
-// File globbing (shell-dependent)
-await $`ls *.{js,ts}`;  // Bash/Zsh brace expansion
-await $`ls **/*.ts`;     // Zsh recursive glob (with globstar in Bash)
-
-// Variable expansion
-await $`echo $HOME`;     // Environment variable
-await $`echo $(date)`;   // Command substitution
-await $`echo ${VAR:-default}`;  // Default values
-```
-
-### Pipes and Redirection
+Values interpolated into a `` $`...` `` template are quoted for the shell that will run them. The dialect (`'posix'`, `'cmd'` or `'powershell'`) is resolved from whatever `.shell(...)` is currently set — not from the host OS:
 
 ```typescript
-// Standard pipes
-await $`cat file.txt | grep pattern | sort`;
-
-// Redirection
-await $`echo "content" > output.txt`;
-await $`cat < input.txt`;
-await $`command 2>&1`;  // Stderr to stdout
-await $`command 2> /dev/null`;  // Discard stderr
-
-// Process substitution (Bash/Zsh)
-await $.shell('/bin/bash')`diff <(sort file1) <(sort file2)`;
-```
-
-### Job Control
-
-```typescript
-// Background execution (shell-dependent)
-await $`long-command &`;
-
-// Job control (interactive shells)
-await $.shell('/bin/bash').interactive()`
-  sleep 100 &
-  jobs
-  fg %1
-`;
-```
-
-## Shell Escaping
-
-### Automatic Escaping
-
-Xec automatically escapes shell arguments (from `utils/escape.ts`):
-
-```typescript
-function escapeShellArg(arg: string): string {
-  if (!/[^A-Za-z0-9_\-.,:\/@]/.test(arg)) {
-    return arg;  // No escaping needed
-  }
-  
-  // POSIX shells
-  if (process.platform !== 'win32') {
-    return `'${arg.replace(/'/g, "'\\''")}'`;
-  }
-  
-  // Windows
-  if (arg.includes('"')) {
-    return `"${arg.replace(/"/g, '""')}"`;
-  }
-  return `"${arg}"`;
-}
-```
-
-### Manual Escaping
-
-```typescript
-import { escapeShellArg } from '@xec-sh/core';
-
 const userInput = "'; rm -rf /";
-const safe = escapeShellArg(userInput);
+await $`echo ${userInput}`; // one literal argument, not executed
 
-// Safe execution
-await $`echo ${safe}`;
+await $.shell('pwsh')`echo ${userInput}`; // quoted for PowerShell, even on Linux
 ```
 
-## Shell Initialization
+Quoting only prevents *value* injection. It can't stop *option* injection — a value of `-rf` is a well-formed argument in any dialect. Use an explicit `--` separator at the call site if a value might be attacker-controlled and read as a flag.
 
-### RC Files
-
-Different shells load different initialization files:
-
-| Shell | Interactive Login | Interactive Non-Login | Non-Interactive |
-|-------|------------------|--------------------|-----------------|
-| Bash | `.bash_profile`, `.profile` | `.bashrc` | `$BASH_ENV` |
-| Zsh | `.zprofile`, `.zlogin` | `.zshrc` | `$ZDOTDIR/.zshenv` |
-| Sh | `.profile` | `$ENV` | None |
-| Fish | `config.fish` | `config.fish` | None |
-
-### Custom Initialization
-
-```yaml
-targets:
-  custom-init:
-    type: local
-    shell: /bin/bash
-    shellArgs: ['-c']
-    env:
-      BASH_ENV: /path/to/custom-init.sh
-    initScript: |
-      # Custom initialization
-      export PS1='xec> '
-      alias ll='ls -la'
-      set -e  # Exit on error
-```
-
-## Performance Optimization
-
-### Shell Selection Impact
-
-**Startup Time (measured):**
-- `/bin/sh`: ~5ms (fastest)
-- `/bin/dash`: ~5ms (Debian/Ubuntu)
-- `/bin/bash`: ~15ms
-- `/bin/zsh`: ~25ms
-- `fish`: ~35ms
-- `powershell.exe`: ~500ms (Windows)
-
-### Optimization Strategies
-
-1. **Use Minimal Shell for Simple Commands:**
-```typescript
-// For simple commands, use sh
-await $.shell('/bin/sh')`echo "fast"`;
-
-// For complex features, use appropriate shell
-await $.shell('/bin/bash')`[[ -f file ]] && echo "exists"`;
-```
-
-2. **Avoid Shell When Possible:**
-```typescript
-// Slower (shell overhead)
-await $`echo hello`;
-
-// Faster (no shell)
-await $.noshell()`echo`, ['hello']);
-```
-
-3. **Batch Commands:**
-```typescript
-// Inefficient (multiple shell startups)
-for (const file of files) {
-  await $`process ${file}`;
-}
-
-// Efficient (single shell)
-await $`
-  for file in ${files.join(' ')}; do
-    process "$file"
-  done
-`;
-```
-
-## Cross-Platform Compatibility
-
-### Writing Portable Scripts
+To quote a value you're assembling into a command string yourself — for `$.exec()`, a generated script, a log line — rather than through the auto-escaping template:
 
 ```typescript
-// Detect platform and use appropriate commands
-const isWindows = process.platform === 'win32';
+import { quoteForShell } from '@xec-sh/core';
 
-const listCommand = isWindows ? 'dir /b' : 'ls -1';
-await $`${listCommand}`;
-
-// Or use configuration
-const config = {
-  windows: {
-    shell: 'powershell.exe',
-    listCmd: 'Get-ChildItem'
-  },
-  unix: {
-    shell: '/bin/sh',
-    listCmd: 'ls'
-  }
-};
-
-const platform = isWindows ? 'windows' : 'unix';
-await $.shell(config[platform].shell)`${config[platform].listCmd}`;
+const safe = quoteForShell(userInput, 'posix');
+await $.exec('echo ' + safe);
 ```
 
-### Shell Feature Detection
+## Portability
+
+`sh` is POSIX-only — no arrays, no `[[ ]]`, no brace expansion:
 
 ```typescript
-// Check for shell features
-async function hasFeature(feature: string): Promise<boolean> {
-  try {
-    switch (feature) {
-      case 'arrays':
-        await $`arr=(1 2 3); echo "\${arr[0]}"`;
-        return true;
-      case 'globstar':
-        await $`shopt -s globstar 2>/dev/null`;
-        return true;
-      default:
-        return false;
-    }
-  } catch {
-    return false;
-  }
-}
+// Fails under /bin/sh
+await $.shell('/bin/sh')`[[ -f file ]] && echo exists`;
+
+// Works everywhere
+await $`[ -f file ] && echo exists`;
+await $.shell('/bin/bash')`[[ -f file ]] && echo exists`;
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Shell Not Found:**
-```typescript
-// Check if shell exists
-import { existsSync } from 'fs';
-
-const shell = '/usr/local/bin/fish';
-if (!existsSync(shell)) {
-  console.error(`Shell not found: ${shell}`);
-  // Fallback to default
-  await $`command`;
-}
-```
-
-2. **Permission Denied:**
-```typescript
-// Ensure shell is executable
-import { accessSync, constants } from 'fs';
-
-try {
-  accessSync(shell, constants.X_OK);
-} catch {
-  console.error(`Shell not executable: ${shell}`);
-}
-```
-
-3. **Encoding Issues:**
-```yaml
-# Set proper locale
-targets:
-  local:
-    env:
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
-```
-
-## Best Practices
-
-1. **Use POSIX Features for Portability**
-2. **Explicitly Set Shell When Needed**
-3. **Handle Shell-Specific Features Gracefully**
-4. **Test Across Different Shells**
-5. **Document Shell Requirements**
 
 ## Related Documentation
 
-- [Local Overview](./overview.md) - Local target fundamentals
-- [Troubleshooting](./troubleshooting.md) - Common shell issues
-- [Error Handling](../../scripting/patterns/error-handling.md) - Security best practices
+- [Local Overview](./overview.md) - local target fundamentals
+- [Troubleshooting](./troubleshooting.md) - common shell issues

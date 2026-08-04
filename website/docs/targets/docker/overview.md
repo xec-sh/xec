@@ -2,17 +2,20 @@
 title: Docker Target Overview
 description: Container command execution, lifecycle management, and Docker operations
 keywords: [docker, container, execution, lifecycle, compose]
+sidebar_position: 1
 ---
 
 # Docker Target Overview
 
-## Overview
+Docker targets run commands inside containers. Xec shells out to your local `docker` CLI (`packages/core/src/adapters/docker/`) — there's no bundled Docker Engine API client — and layers a fluent API (`$.docker()`) on top for container lifecycle, Compose, networks, volumes, and images.
 
-Docker targets enable command execution inside Docker containers. Xec provides container execution through the Docker adapter (`packages/core/src/adapters/docker/`), plus a fluent API (`$.docker()`) for container lifecycle, Docker Compose, networks, volumes, and common service presets.
+```typescript
+import { $ } from '@xec-sh/core';
+
+await $.docker('my-app')`ls -la`;
+```
 
 ## Target Configuration
-
-### Basic Docker Target
 
 ```yaml
 # .xec/config.yaml
@@ -20,29 +23,22 @@ targets:
   containers:
     app:
       container: my-app  # Container name or ID
-    
+
     database:
       container: postgres-db
-      user: postgres  # Execute as specific user
-```
+      user: postgres      # Execute as specific user
 
-### Advanced Configuration
-
-```yaml
-targets:
-  containers:
     web-app:
       container: web-app
-      
-      # Execution options
       user: www-data
       workdir: /app
       env:
         NODE_ENV: production
         PORT: "3000"
       tty: true
-      
-      # Ephemeral containers: run in a fresh container from an image
+
+      # Ephemeral: run in a fresh container from an image instead of
+      # execing into an existing one
       # image: node:22-alpine
       # runMode: run
       # volumes:
@@ -52,65 +48,48 @@ targets:
 
 ## Container Execution
 
-### Basic Execution
-
 ```typescript
-// Execute in existing container (options object; there is no string form)
-await $.docker({ container: 'my-app' })`ls -la`;
+// Execute in an existing container — string shorthand
+await $.docker('my-app')`ls -la`;
 
-// Execute with options
-await $.docker({
-  container: 'my-app',
-  user: 'node',
-  workdir: '/app'
-})`npm install`;
+// Same, with options
+await $.docker({ container: 'my-app', user: 'node', workdir: '/app' })`npm install`;
 
-// Ephemeral container from an image (removed automatically)
+// Ephemeral container from an image, removed automatically after the command
 await $.docker({
   image: 'node:22-alpine',
   volumes: ['./app:/app'],
   workdir: '/app'
 })`npm test`;
-```
 
-### Advanced Execution
-
-```typescript
-// With environment variables (engine chaining)
-await $.docker({ container: 'my-app' })
-  .env({ NODE_ENV: 'production', DEBUG: 'app:*' })`npm start`;
+// Environment variables: chain .env(), not an `env` key in the target object
+// (DockerPersistentOptions/DockerEphemeralOptions declare `env`, but the
+// options-object shorthand never applies it — only .env() reaches the command)
+await $.docker('my-app').env({ NODE_ENV: 'production', DEBUG: 'app:*' })`npm start`;
 
 // Interactive execution (on the process, not the engine)
-await $.docker({ container: 'my-app' })`/bin/bash`.interactive();
+await $.docker('my-app')`/bin/bash`.interactive();
 
-// Execute as root
-await $.docker({ container: 'my-app', user: 'root' })`apt-get update`;
-
-// With working directory
-await $.docker({ container: 'my-app', workdir: '/app' })`npm test`;
-```
-
-### Stream Processing
-
-```typescript
-// Process output line by line
-for await (const line of $.docker({ container: 'my-app' })`cat /data/large-file.csv`) {
+// Stream output line by line
+for await (const line of $.docker('my-app')`cat /data/large-file.csv`) {
   await processLine(line);
 }
 
 // Pipe between containers
-await $.docker({ container: 'source' })`cat data.sql`
-  .pipe($.docker({ container: 'postgres' })`psql -U postgres`);
+await $.docker('source')`cat data.sql`
+  .pipe($.docker('postgres')`psql -U postgres`);
 ```
+
+Two option-object fields only take effect for **ephemeral** containers (`image` set): `volumes` and `workdir`/`user` reach `docker run`, but `env`, `ports`, `network`, `platform`, `pull`, `entrypoint` and `labels` from `DockerEphemeralOptions` are accepted by the type and silently dropped by `$.docker(options)` — they never reach the `docker run` command. For any of those, use the fluent ephemeral builder below.
 
 ## The Fluent API
 
-Calling `$.docker()` with no arguments returns the fluent Docker API:
+Calling `$.docker()` with no arguments returns the fluent Docker API — the full builder surface, not just exec shortcuts:
 
 ```typescript
 const docker = $.docker();
 
-// Ephemeral container builder
+// Ephemeral container builder — every setter here actually reaches `docker run`
 await docker
   .ephemeral('node:22-alpine')
   .env({ NODE_ENV: 'test' })
@@ -127,138 +106,102 @@ const logs = await app.logs({ tail: 100 });
 await app.restart();
 await app.stop();
 
-// Status and info
 if (await app.isRunning()) {
-  const info = await app.info();
-  console.log('Container state:', info);
+  console.log('Container state:', await app.info());
 }
 ```
 
-### Container Lifecycle
+See [Container Lifecycle](./container-lifecycle.md) for the full builder surface (`.ports()`, `.healthcheck()`, `.memory()`, lifecycle hooks, and what's live on a persistent vs. an ephemeral container — they don't share the same effective options).
 
-```typescript
-const container = $.docker().container('my-app');
-
-await container.start();          // Start
-await container.stop();           // Stop
-await container.restart();        // Restart
-await container.remove();         // Remove
-const status = await container.status();   // 'running' | 'stopped' | ...
-await container.waitForReady(30000);       // Wait until ready
-```
-
-### Service Presets
-
-The fluent API ships presets for common services:
-
-```typescript
-// Redis with sensible defaults
-await $.docker().redis().start();
-
-// PostgreSQL
-await $.docker().postgresql({ database: 'app_test' }).start();
-
-// Also available: mysql(), mongodb(), kafka(), rabbitmq(), redisCluster()
-```
-
-## Docker Compose Integration
+## Docker Compose
 
 ```typescript
 const compose = $.docker().compose('docker-compose.yml');
-
-// Start services (detached by default; pass build=true to build first)
-await compose.up(true, true);
-
-// Execute in a compose service
+await compose.up(true, true);       // detached, build first
 await compose.exec('web', 'npm test');
-
-// Service management
-await compose.start('web');
-await compose.restart('web');
-const logs = await compose.logs('web', false, 100);
-
-// Stop everything (optionally removing volumes)
-await compose.down(true);
+await compose.down(true);           // also remove volumes
 ```
 
-## Volume Management
+Full reference: [Compose Integration](./compose-integration.md).
+
+## Volumes and Networks
 
 ```typescript
-// Create a volume
-await $.docker().volume('app-data').create({
-  driver: 'local',
-  labels: { app: 'myapp' }
-});
-
-// Inspect / existence
-const vol = $.docker().volume('app-data');
-if (await vol.exists()) {
-  console.log(await vol.inspect());
-}
-
-// Remove
-await vol.remove();
+await $.docker().volume('app-data').create({ driver: 'local' });
+await $.docker().network('app-network').create({ driver: 'bridge' });
+await $.docker().network('app-network').connect('my-app', { alias: ['app', 'web'] });
 ```
 
-To copy files in and out of containers, use `docker cp` or the container object from `DockerContainer` (`copyTo`/`copyFrom`):
+File transfer in and out of containers goes through `docker cp`, not a volume API:
 
 ```typescript
 await $`docker cp ./data my-app:/app/data`;
 await $`docker cp my-app:/app/logs ./logs`;
 ```
 
-## Network Operations
-
-```typescript
-// Create a network
-const network = $.docker().network('app-network');
-await network.create({ driver: 'bridge', subnet: '172.20.0.0/16' });
-
-// Connect / disconnect containers
-await network.connect('my-app', { aliases: ['app', 'web'] });
-await network.disconnect('my-app');
-
-// Inspect and remove
-console.log(await network.inspect());
-await network.remove();
-```
-
-### Inter-Container Communication
-
-```typescript
-// Containers on the same network reach each other by name/alias
-await $.docker().network('app-network').create();
-await $.docker().network('app-network').connect('db', { aliases: ['database'] });
-await $.docker().network('app-network').connect('app');
-
-await $.docker({ container: 'app' })`ping -c 1 database`;
-```
+Details: [Volume Management](./volume-management.md), [Networking](./networking.md).
 
 ## Image Management
 
 ```typescript
 const docker = $.docker();
 
-// Pull an image
 await docker.pull('node:22-alpine');
-
-// Build an image
 await docker.build('.', 'my-app:latest').execute();
-
-// List images / containers
 console.log(await docker.images());
-console.log(await docker.ps(true));  // true = include stopped
-
-// Remove containers and images
+console.log(await docker.ps(true));   // true = include stopped
 await docker.rm('old-container', true);
 await docker.rmi('my-app:old');
 ```
 
-## Performance Notes
+## Adapter Configuration
 
-- Executing in an **existing container** (`runMode: 'exec'`, the default when `container` is set) avoids container startup cost entirely.
-- **Ephemeral containers** (`image` + `runMode: 'run'`) pay image/container startup on every command — keep a long-running container for repeated commands.
-- Pre-pull images (`$.docker().pull(...)`) to avoid network delays at execution time.
+Docker-adapter defaults are set once, globally, through `configure()` — not by constructing `new DockerAdapter()` yourself (that instance wouldn't be wired into `$`):
+
+```typescript
+import { configure } from '@xec-sh/core';
+
+configure({
+  adapters: {
+    docker: {
+      managementTimeout: 30_000,     // inspect/ps/start/stop/cp — default 60s
+      transferTimeout: 20 * 60_000,  // pull/push/build/compose up — default 10min
+      defaultExecOptions: {
+        User: '1000:1000',
+        WorkingDir: '/workspace',
+        Env: ['NODE_ENV=production'],
+      },
+      autoCreate: {
+        enabled: true,
+        image: 'alpine:latest',
+        autoRemove: true,
+      },
+    },
+  },
+});
+```
+
+`defaultExecOptions.Env` is a fallback: a chained `.env(...)` (or a raw `env` field on the command) always overrides it for the same key. `autoCreate` transparently creates and starts a throwaway container the first time you target a container name that doesn't exist yet, and removes it on `dispose()` if `autoRemove` is set.
+
+The adapter always shells out to a local `docker` binary — it does not read `socketPath`, `host`, `port`, or `version` from this config, so those fields have no effect. To reach a remote daemon, configure it the same way you would for any other `docker` invocation (`DOCKER_HOST`, `docker context use`), not through xec.
+
+### Events
+
+```typescript
+const adapter = $.getAdapter('docker');
+adapter?.on('docker:run', (e) => console.log('run:', e.image, e.container));
+adapter?.on('docker:exec', (e) => console.log('exec:', e.container, e.command));
+adapter?.on('temp:cleanup', (e) => console.log('cleaned up:', e.path));
+```
+
+### Availability
+
+```typescript
+const available = await $.getAdapter('docker')?.isAvailable();
+if (!available) {
+  console.error('Docker is not available');
+}
+```
 
 ## Error Handling
 
@@ -266,15 +209,15 @@ await docker.rmi('my-app:old');
 import { DockerError } from '@xec-sh/core';
 
 try {
-  await $.docker({ container: 'my-app' })`command`;
+  await $.docker('my-app')`command`;
 } catch (error) {
   if (error instanceof DockerError) {
-    console.error('Docker operation failed:', error.message);
+    console.error(error.container, error.operation, error.message);
   }
 }
 
 // Or without exceptions
-const result = await $.docker({ container: 'my-app' })`command`.nothrow();
+const result = await $.docker('my-app')`command`.nothrow();
 if (!result.ok) {
   console.error(result.stderr);
 }
@@ -284,10 +227,9 @@ if (!result.ok) {
 
 1. **Use specific image tags** instead of `latest`
 2. **Run containers as non-root** users
-3. **Set resource limits** to prevent resource exhaustion (via the ephemeral builder's `memory()`/`cpus()`)
+3. **Set resource limits** to prevent resource exhaustion (`memory()`/`cpus()` on the ephemeral builder)
 4. **Use health checks** for production containers (`healthcheck()` on the builder)
-5. **Clean up stopped containers** and unused images
-6. **Keep containers running** and use exec for repeated commands
+5. **Keep containers running** and use exec for repeated commands — executing in an existing container skips container startup entirely, while an ephemeral container pays it on every call
 
 ## Related Documentation
 

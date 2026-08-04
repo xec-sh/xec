@@ -224,7 +224,7 @@ Handle errors across different execution targets:
 ```javascript
 #!/usr/bin/env xec
 
-import { $ } from '@xec-sh/core';
+import { $, sleep } from '@xec-sh/core';
 
 class RemoteExecutor {
   constructor(targets) {
@@ -265,7 +265,7 @@ class RemoteExecutor {
         
         if (attempt < retries) {
           // Exponential backoff
-          await $.sleep(Math.pow(2, attempt) * 1000);
+          await sleep(Math.pow(2, attempt) * 1000);
         }
       }
     }

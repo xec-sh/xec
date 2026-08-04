@@ -1,582 +1,149 @@
 ---
-title: Kubernetes Overview
-description: Working with Kubernetes clusters and resources using Xec
-keywords: [kubernetes, k8s, pods, containers, orchestration]
-source_files:
-  - packages/core/src/adapters/k8s-adapter.ts
-  - packages/core/src/k8s/kubectl-client.ts
-  - packages/core/src/k8s/types.ts
-  - apps/xec/src/commands/in.ts
-key_functions:
-  - K8sAdapter.execute()
-  - KubectlClient.exec()
-  - KubectlClient.getNamespaces()
-  - KubectlClient.getPods()
-verification_date: 2025-08-03
+title: Kubernetes Target Overview
+description: Command execution inside Kubernetes pods through kubectl exec, with pod/namespace/container targeting and multi-cluster context
+keywords: [kubernetes, k8s, pods, containers, kubectl, namespace, context]
+sidebar_position: 1
 ---
 
-# Kubernetes Overview
-
-## Implementation Reference
-
-**Source Files:**
-- `packages/core/src/adapters/k8s-adapter.ts` - Kubernetes adapter implementation
-- `packages/core/src/k8s/kubectl-client.ts` - kubectl wrapper client
-- `packages/core/src/k8s/types.ts` - Kubernetes type definitions
-- `packages/core/src/k8s/pod-executor.ts` - Pod execution logic
-- `apps/xec/src/commands/in.ts` - Container/pod execution command
-
-**Key Functions:**
-- `K8sAdapter.execute()` - Main execution entry point
-- `KubectlClient.exec()` - Execute commands in pods
-- `KubectlClient.getPods()` - List pods
-- `KubectlClient.getNamespaces()` - List namespaces
-- `KubectlClient.portForward()` - Setup port forwarding
-- `KubectlClient.logs()` - Stream pod logs
+# Kubernetes Target Overview
 
 ## Overview
 
-Xec provides seamless integration with Kubernetes clusters through the `@xec-sh/core` execution engine. This enables command execution in pods, resource management, and cluster operations using familiar Xec patterns.
+Kubernetes targets run commands inside pods by shelling out to `kubectl exec`. Xec does not talk to the Kubernetes API directly — it drives the `kubectl` binary the same way you would from a terminal. The adapter lives at `packages/core/src/adapters/kubernetes/`.
 
 ## Prerequisites
 
-### kubectl Configuration
-
-Xec uses `kubectl` for Kubernetes operations:
-
 ```bash
-# Verify kubectl is installed
 kubectl version --client
-
-# Verify cluster access
 kubectl cluster-info
-
-# Check current context
 kubectl config current-context
 ```
 
-### Cluster Access
+The adapter looks for `kubectl` in common install locations (Homebrew, Docker Desktop, standard Linux paths) and otherwise falls back to `kubectl` on `PATH`. Set `kubectlPath` explicitly if yours lives somewhere else.
 
-Ensure proper cluster authentication:
-
-```bash
-# List available contexts
-kubectl config get-contexts
-
-# Switch context
-kubectl config use-context my-cluster
-
-# Test access
-xec in my-pod:container whoami
-```
-
-## Basic Concepts
-
-### Target Definition
-
-Define Kubernetes targets in configuration:
-
-```yaml
-targets:
-  pods:
-    web:
-      type: kubernetes
-      namespace: default
-      pod: web-server
-      container: nginx  # Optional, defaults to first container
-      
-    api:
-      type: kubernetes  
-      namespace: production
-      pod: api-server-.*  # Regex pattern for pod selection
-      
-    worker:
-      type: kubernetes
-      namespace: jobs
-      selector: app=worker  # Label selector
-```
-
-### Execution Context
-
-Kubernetes execution context includes:
-- **Namespace** - Kubernetes namespace
-- **Pod** - Target pod name or pattern
-- **Container** - Specific container in pod
-- **Context** - kubectl context (cluster)
-
-## Pod Execution
-
-### Direct Execution
-
-Execute commands in pods using the Kubernetes adapter:
+## Basic Execution
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Execute in pod
-const result = await $.k8s('my-pod')`ls -la /app`;
-console.log(result.stdout);
+// Shorthand: [namespace/]pod[:container]
+await $.k8s('api-pod')`ls -la /app`;
+await $.k8s('prod/api-7d9f')`hostname`;
+await $.k8s('prod/api-7d9f:sidecar')`ps aux`;
 
-// Execute in specific namespace
-const result = await $.k8s('my-pod', {
-  namespace: 'production'
-})`kubectl get services`;
-
-// Execute in specific container
-const result = await $.k8s('my-pod', {
-  container: 'app'
-})`npm list`;
-
-// Execute with working directory
-const result = await $.k8s('my-pod', {
-  cwd: '/app'
-})`npm test`;
+// Object form — the only form that accepts every option
+await $.k8s({ pod: 'api-pod', namespace: 'production', container: 'app' })`npm test`;
 ```
 
-### CLI Execution
+`$.k8s(target)` takes exactly one argument, either the shorthand string or an options object — the two cannot be combined. There is no `.container(...)` to chain on afterward; set it in the initial call or the shorthand's `:container` suffix.
 
-Use the `in` command for pod execution:
+## Chaining
 
-```bash
-# Execute in pod
-xec in my-pod ls -la
-
-# Execute in specific container
-xec in my-pod:nginx nginx -t
-
-# Execute in namespace
-xec in prod/my-pod whoami
-
-# Interactive shell
-xec in my-pod /bin/bash
-```
-
-## Namespace Management
-
-### Working with Namespaces
+`$.k8s(...)` returns a context you can refine before running anything:
 
 ```typescript
-// List namespaces
-const namespaces = await $.k8s.getNamespaces();
-namespaces.forEach(ns => {
-  console.log({
-    name: ns.metadata.name,
-    status: ns.status.phase,
-    created: ns.metadata.creationTimestamp
-  });
-});
+const app = $.k8s({ pod: 'api-pod' })
+  .cd('/app')
+  .env({ NODE_ENV: 'production' })
+  .timeout(30000)                              // milliseconds, not a duration string
+  .retry({ maxRetries: 3, initialDelay: 1000 });
 
-// Execute in specific namespace
-await $.k8s('my-pod', {
-  namespace: 'staging'
-})`echo "Running in staging"`;
-
-// Get pods in namespace
-const pods = await $.k8s.getPods('production');
+await app`npm test`;
 ```
 
-### Default Namespace
+Each call returns a new context rather than mutating the current one, so it composes like the other adapters. `.env(...)` merges with whatever was already set; the rest replace.
 
-Configure default namespace:
+## The Pod API
 
-```yaml
-# .xec/config.yaml
-kubernetes:
-  defaultNamespace: production
-  
-targets:
-  pods:
-    app:
-      type: kubernetes
-      pod: my-app
-      # Uses defaultNamespace if not specified
-```
-
-## Pod Selection
-
-### By Name
-
-Select pods by exact name:
+`.pod(name)` returns a handle bound to one pod, in the namespace already set on the context, with more than plain exec:
 
 ```typescript
-// Exact pod name
-await $.k8s('web-server-abc123')`ps aux`;
+const pod = $.k8s({ namespace: 'production' }).pod('web-server');
 
-// With namespace
-await $.k8s('prod/web-server-abc123')`ps aux`;
+await pod.exec`hostname`;                // through a shell, interpolated values quoted
+await pod.raw`echo "no escaping here"`;  // values interpolated literally
+
+await pod.logs({ tail: 100 });
+await pod.portForward(8080, 80);
+await pod.copyTo('./config.json', '/app/config.json');
 ```
 
-### By Pattern
+`pod.exec` and `pod.raw` both return the same `ProcessPromise` any Xec command does — `.nothrow()`, `.timeout()`, `for await` line iteration, `.pipe()` all work. See [Pod Execution](./pod-execution.md) and [Multi-Container Pods](./multi-container.md) for container selection, [Log Streaming](./log-streaming.md), [Port Forwarding](./port-forwarding.md), and [File Operations](./file-operations.md) for each capability in depth.
 
-Select pods using patterns:
+## Cluster and Context
+
+Every call can name its own cluster:
 
 ```typescript
-// Regex pattern
-await $.k8s('web-server-.*')`uptime`;
-
-// Glob pattern
-await $.k8s('worker-*')`celery status`;
-
-// First matching pod
-const pod = await $.k8s.findPod('api-.*');
-await $.k8s(pod.metadata.name)`health-check`;
+await $.k8s({ pod: 'api', context: 'production-cluster', kubeconfig: '~/.kube/prod-config' })`whoami`;
 ```
 
-### By Labels
+Without `context`, a target runs against whatever `kubectl config current-context` currently points to on the machine running it — set it explicitly for anything that must land on a specific cluster regardless of the operator's local kubectl state.
 
-Select pods using label selectors:
+To set defaults for every `$.k8s(...)` call instead of repeating them, configure the adapter once, up front:
 
 ```typescript
-// Label selector
-const pods = await $.k8s.getPods({
-  labelSelector: 'app=web,env=production'
-});
+import { configure } from '@xec-sh/core';
 
-// Execute on all matching pods
-for (const pod of pods) {
-  await $.k8s(pod.metadata.name)`restart-app`;
-}
-```
-
-## Container Selection
-
-### Multi-Container Pods
-
-Work with specific containers:
-
-```typescript
-// List containers in pod
-const pod = await $.k8s.getPod('my-pod');
-const containers = pod.spec.containers.map(c => c.name);
-console.log('Containers:', containers);
-
-// Execute in specific container
-await $.k8s('my-pod', {
-  container: 'sidecar'
-})`tail -f /var/log/sidecar.log`;
-
-// Execute in init container
-await $.k8s('my-pod', {
-  container: 'init-db',
-  containerType: 'init'
-})`check-migration`;
-```
-
-### Default Container
-
-Xec uses the first container by default:
-
-```yaml
-targets:
-  pods:
-    multi:
-      type: kubernetes
-      pod: multi-container-pod
-      container: app  # Specify default container
-```
-
-## Resource Management
-
-### Getting Resources
-
-Query Kubernetes resources:
-
-```typescript
-// Get deployments
-const deployments = await $.k8s.get('deployments');
-
-// Get services
-const services = await $.k8s.get('services', {
-  namespace: 'default'
-});
-
-// Get specific resource
-const configmap = await $.k8s.get('configmap/app-config');
-
-// Get with JSON output
-const pods = await $.k8s.getJson('pods', {
-  labelSelector: 'app=web'
+configure({
+  adapters: {
+    kubernetes: {
+      context: 'production-cluster',
+      kubeconfig: '~/.kube/prod-config',
+      namespace: 'production',
+      kubectlPath: '/usr/local/bin/kubectl',
+      kubectlTimeout: 30000,
+    },
+  },
 });
 ```
 
-### Resource Operations
+Per-target values passed to an individual `$.k8s(...)` call override these defaults.
 
-Manage Kubernetes resources:
+## Low-Level Adapter Access
 
-```typescript
-// Scale deployment
-await $.k8s.scale('deployment/web', 3);
-
-// Restart deployment
-await $.k8s.rollout.restart('deployment/api');
-
-// Delete pod
-await $.k8s.delete('pod/failed-pod');
-
-// Apply configuration
-await $.k8s.apply('./k8s/deployment.yaml');
-```
-
-## Cluster Information
-
-### Cluster Status
-
-Get cluster information:
+For things the pod API doesn't cover — checking pod readiness, resolving a label selector, running arbitrary `kubectl` — reach the adapter directly:
 
 ```typescript
-// Cluster info
-const info = await $.k8s.clusterInfo();
-console.log('Kubernetes master:', info.master);
+import { KubernetesAdapter } from '@xec-sh/core';
 
-// Node status
-const nodes = await $.k8s.get('nodes');
-nodes.forEach(node => {
-  console.log({
-    name: node.metadata.name,
-    status: node.status.conditions,
-    capacity: node.status.capacity
-  });
-});
+const k8s = $.getAdapter('kubernetes') as KubernetesAdapter;
 
-// Component status
-const components = await $.k8s.get('componentstatuses');
+await k8s.isPodReady('api-pod', 'production');
+const pod = await k8s.getPodFromSelector('app=web', 'production');
+const { stdout } = await k8s.executeKubectl(['get', 'pods', '-o', 'name']);
 ```
 
-### Context Management
-
-Work with multiple clusters:
-
-```typescript
-// Get current context
-const context = await $.k8s.currentContext();
-
-// List contexts
-const contexts = await $.k8s.getContexts();
-
-// Switch context (affects subsequent operations)
-await $.k8s.useContext('production-cluster');
-
-// Execute with specific context
-await $.k8s('my-pod', {
-  context: 'staging-cluster'
-})`hostname`;
-```
-
-## Authentication
-
-### Service Account
-
-Use service account authentication:
-
-```yaml
-targets:
-  pods:
-    admin:
-      type: kubernetes
-      pod: admin-pod
-      serviceAccount: admin-sa
-```
-
-### Kubeconfig
-
-Specify custom kubeconfig:
-
-```typescript
-// Use custom kubeconfig
-await $.k8s('my-pod', {
-  kubeconfig: '/path/to/kubeconfig'
-})`whoami`;
-
-// Environment variable
-process.env.KUBECONFIG = '/path/to/kubeconfig';
-await $.k8s('my-pod')`ls`;
-```
-
-## Configuration in Xec
-
-### Kubernetes Settings
-
-Configure Kubernetes in `.xec/config.yaml`:
-
-```yaml
-kubernetes:
-  defaultNamespace: default
-  defaultContext: minikube
-  timeout: 30s
-  
-  # kubectl path (if not in PATH)
-  kubectlPath: /usr/local/bin/kubectl
-  
-  # Default labels for operations
-  labels:
-    managed-by: xec
-    environment: development
-
-targets:
-  pods:
-    web:
-      type: kubernetes
-      namespace: default
-      pod: web-.*
-      container: nginx
-      
-    db:
-      type: kubernetes
-      namespace: database
-      selector: app=postgres
-      
-    # Pattern-based selection
-    workers:
-      type: kubernetes
-      namespace: jobs
-      podPattern: worker-\d+
-      
-    # Multi-cluster target
-    prod-api:
-      type: kubernetes
-      context: production
-      namespace: api
-      pod: api-server
-```
-
-### Kubernetes Tasks
-
-Define Kubernetes operations as tasks:
-
-```yaml
-tasks:
-  deploy:
-    description: Deploy application to Kubernetes
-    steps:
-      - command: kubectl apply -f k8s/
-      
-  scale:
-    params:
-      - name: replicas
-        default: 3
-    steps:
-      - command: kubectl scale deployment/web --replicas=${params.replicas}
-      
-  logs:
-    params:
-      - name: pod
-    steps:
-      - command: kubectl logs -f ${params.pod}
-      
-  debug:
-    params:
-      - name: pod
-    steps:
-      - command: kubectl describe pod ${params.pod}
-      - command: kubectl logs ${params.pod} --previous
-```
-
-## Performance Characteristics
-
-**Based on Implementation:**
-
-### Operation Timings
-- **Pod Exec**: 200-500ms (API call + network)
-- **Pod List**: 50-200ms
-- **Namespace List**: 20-50ms
-- **Log Streaming**: 100ms to start
-- **Port Forward**: 200-500ms to establish
-
-### Resource Usage
-- **Memory**: ~5MB per active connection
-- **CPU**: Minimal except during operations
-- **Network**: HTTPS API calls to cluster
+`new KubernetesAdapter(config)` builds a standalone instance outside the engine, taking the same config shape as `configure()` above. It isn't managed by `$`, so call its own `.dispose()` when you're done with it.
 
 ## Error Handling
 
-### Common Errors
-
-| Error | Code | Solution |
-|-------|------|----------|
-| Pod not found | 3 | Verify pod name and namespace |
-| Container not found | 3 | Check container name in pod |
-| Permission denied | 11 | Check RBAC permissions |
-| Connection refused | 4 | Verify cluster connectivity |
-| Context not found | 2 | Check kubeconfig contexts |
-| Namespace not found | 3 | Create namespace or fix name |
-
-### Error Recovery
+Failures throw a plain `ExecutionError` with `code: 'KUBERNETES_ERROR'` — stdout/stderr live on `.details`, not directly on the error:
 
 ```typescript
-// Retry with pod selection
-async function executeWithRetry(pattern: string, command: string) {
-  for (let i = 0; i < 3; i++) {
-    try {
-      const pod = await $.k8s.findPod(pattern);
-      if (pod) {
-        return await $.k8s(pod.metadata.name)`${command}`;
-      }
-    } catch (error) {
-      if (i === 2) throw error;
-      await new Promise(r => setTimeout(r, 1000));
-    }
-  }
-}
+import { ExecutionError } from '@xec-sh/core';
 
-// Wait for pod ready
-async function executeWhenReady(pod: string, command: string) {
-  await $.k8s.waitForPod(pod, {
-    condition: 'Ready',
-    timeout: 60000
-  });
-  return await $.k8s(pod)`${command}`;
-}
-```
-
-## Best Practices
-
-### Pod Selection
-
-1. **Use specific names** when possible
-2. **Verify pod existence** before execution
-3. **Handle multiple matches** with patterns
-4. **Use labels** for group operations
-5. **Specify namespace** explicitly
-
-### Resource Management
-
-```typescript
-// Good: Explicit namespace
-await $.k8s('my-pod', {
-  namespace: 'production'
-})`command`;
-
-// Good: Error handling
 try {
-  await $.k8s('my-pod')`risky-operation`;
+  await $.k8s('worker-pod')`failing-command`;
 } catch (error) {
-  if (error.code === 'PodNotFound') {
-    console.log('Pod not available');
+  if (error instanceof ExecutionError) {
+    console.error(error.code, error.details?.stderr);
   }
 }
 
-// Good: Wait for readiness
-await $.k8s.waitForPod('new-pod');
-await $.k8s('new-pod')`startup-check`;
+// Or without throwing
+const result = await $.k8s('worker-pod')`risky-operation`.nothrow();
+if (!result.ok) {
+  console.error(result.exitCode, result.stderr);
+}
 ```
 
-### Security
+## Related
 
-```yaml
-# Use service accounts
-targets:
-  pods:
-    secure:
-      type: kubernetes
-      pod: secure-pod
-      serviceAccount: limited-sa
-      namespace: restricted
-```
-
-## Related Topics
-
-- [Pod Execution](./pod-execution.md) - Detailed pod execution
-- [Port Forwarding](./port-forwarding.md) - Kubernetes port forwarding
-- [Log Streaming](./log-streaming.md) - Pod log management
-- [File Operations](./file-operations.md) - File transfer with pods
-- [in Command](../../commands/built-in/in.md) - CLI pod execution
+- [Pod Execution](./pod-execution.md)
+- [Multi-Container Pods](./multi-container.md)
+- [Port Forwarding](./port-forwarding.md)
+- [Log Streaming](./log-streaming.md)
+- [File Operations](./file-operations.md)
+- [Kubernetes targets in `.xec/config.yaml`](../../configuration/targets/kubernetes-targets.md)
+- [`xec in` — CLI pod execution](../../commands/built-in/in.md)

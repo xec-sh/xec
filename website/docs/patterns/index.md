@@ -19,9 +19,9 @@ This section covers common patterns, best practices, and design approaches for b
 - [Async Patterns](../scripting/patterns/async-patterns.md) - Async/await usage
 
 ### Target Patterns
-- [Multi-Target Execution](../environments/hybrid/multi-target.md) - Running across multiple hosts
-- [Failover Strategies](../environments/hybrid/failover.md) - Handling target failures
-- [Orchestration](../environments/hybrid/orchestration.md) - Complex orchestration
+- [Multi-Target Execution](../guides/infrastructure/multi-environment.md#running-one-step-against-many-targets) - Running one step across multiple hosts
+- [Handling Target Failures](../guides/infrastructure/multi-environment.md#naming-which-target-failed) - Reading failures honestly and stopping a rollout early
+- [Multi-Stage Pipelines](../guides/infrastructure/multi-environment.md#stages-that-depend-on-each-other) - Stages that depend on each other
 
 ### Data Patterns
 - [Stream Processing](../scripting/patterns/streaming.md) - Real-time data handling

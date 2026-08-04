@@ -25,18 +25,18 @@ For general CI/CD guidance:
 ## Container & Orchestration Platforms
 
 ### Docker
-- [Docker Environments](../environments/docker/setup.md) - Docker environment setup
-- [Docker Compose](../environments/docker/compose.md) - Docker Compose integration
-- [Container Lifecycle](../environments/docker/lifecycle.md) - Container management
-- [Docker Networking](../environments/docker/networking.md) - Network configuration
-- [Docker Volumes](../environments/docker/volumes.md) - Volume management
+- [Docker Targets](../targets/docker/overview.md) - Docker target setup
+- [Docker Compose](../targets/docker/compose-integration.md) - Docker Compose integration
+- [Container Lifecycle](../targets/docker/container-lifecycle.md) - Container management
+- [Docker Networking](../targets/docker/networking.md) - Network configuration
+- [Docker Volumes](../targets/docker/volume-management.md) - Volume management
 
 ### Kubernetes
-- [Kubernetes Setup](../environments/kubernetes/setup.md) - K8s environment configuration
-- [Pod Execution](../environments/kubernetes/pod-execution.md) - Executing in pods
-- [Port Forwarding](../environments/kubernetes/port-forwarding.md) - Service forwarding
-- [Log Streaming](../environments/kubernetes/log-streaming.md) - Real-time logs
-- [Multi-Container Pods](../environments/kubernetes/multi-container.md) - Complex pod setups
+- [Kubernetes Targets](../targets/kubernetes/overview.md) - K8s target configuration
+- [Pod Execution](../targets/kubernetes/pod-execution.md) - Executing in pods
+- [Port Forwarding](../targets/kubernetes/port-forwarding.md) - Service forwarding
+- [Log Streaming](../targets/kubernetes/log-streaming.md) - Real-time logs
+- [Multi-Container Pods](../targets/kubernetes/multi-container.md) - Complex pod setups
 
 ## Development Workflows
 

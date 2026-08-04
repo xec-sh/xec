@@ -467,7 +467,7 @@ The Docker adapter is implemented in:
 
 ## See Also
 
-- [Docker Environment Setup](/docs/environments/docker/setup)
-- [Container Lifecycle](/docs/environments/docker/lifecycle)
-- [Docker Compose](/docs/environments/docker/compose)
+- [Docker Target Overview](/docs/targets/docker/overview)
+- [Container Lifecycle](/docs/targets/docker/container-lifecycle)
+- [Docker Compose](/docs/targets/docker/compose-integration)
 - [Streaming](/docs/core/execution-engine/features/streaming)
