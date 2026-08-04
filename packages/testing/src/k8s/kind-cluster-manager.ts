@@ -34,12 +34,40 @@ export class KindClusterManager {
     this.kubeConfigPath = join(this.tempDir, 'kubeconfig');
   }
 
+  /**
+   * Write the running cluster's kubeconfig to this instance's path if it is
+   * not there yet.
+   *
+   * Each instance gets its own temp directory, so the file only ever existed
+   * for the instance that called {@link createCluster}. Any other instance —
+   * a caller that skipped creation because the cluster was already up, or a
+   * second manager built for teardown — ran `kubectl` with `KUBECONFIG`
+   * pointing at a file that did not exist. kubectl then fell back to no
+   * cluster at all and returned empty results instead of failing, so pods
+   * appeared not to exist and cleanup silently did nothing.
+   */
+  private ensureKubeConfig(): void {
+    if (existsSync(this.kubeConfigPath)) {
+      return;
+    }
+
+    try {
+      this.exec(
+        `kind export kubeconfig --name ${this.clusterName} --kubeconfig ${this.kubeConfigPath}`,
+        { silent: true, skipKubeconfig: true }
+      );
+    } catch {
+      // The cluster may genuinely not exist yet; createCluster() will make it.
+    }
+  }
+
   private exec(command: string, options: { silent?: boolean; skipKubeconfig?: boolean } = {}): string {
     try {
       const env = getExtendedEnv();
 
       // Only set KUBECONFIG if not explicitly skipped
       if (!options.skipKubeconfig) {
+        this.ensureKubeConfig();
         env['KUBECONFIG'] = this.kubeConfigPath;
       }
 
@@ -360,6 +388,9 @@ spec:
   }
 
   getKubeConfigPath(): string {
+    // Callers hand this straight to an adapter, which never goes through
+    // exec(), so materialise the file here too.
+    this.ensureKubeConfig();
     return this.kubeConfigPath;
   }
 
