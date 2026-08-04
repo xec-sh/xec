@@ -8,6 +8,8 @@ export { isDisposable } from './types/disposable.js';
 export type { EventFilter } from './types/events.js';
 export type { PipeTarget } from './types/process.js';
 export { within, withinSync } from './utils/within.js';
+import { getLocalContext } from './utils/within.js';
+
 export type { ExecutionResult } from './core/result.js';
 export { LocalAdapter } from './adapters/local/index.js';
 export type { ProcessPromise } from './types/process.js';
@@ -125,6 +127,29 @@ export const $ = new Proxy(function callableEngineTarget() { } as any, {
         }
         if (config.cwd !== undefined && config.defaultCwd === undefined) {
           configUpdate.defaultCwd = config.cwd;
+        }
+
+        // Inside a `within()` scope, write to the scope rather than the
+        // process-wide engine. Without this the whole point of the scope was
+        // lost: `within(() => $.defaults({ cwd: '/tmp' }))` changed the
+        // directory for the rest of the program, silently and permanently —
+        // the opposite of what a scoped block promises, and the example our
+        // own README used to illustrate isolation.
+        const scope = getLocalContext();
+        if (scope) {
+          if (configUpdate.defaultEnv) {
+            scope.defaultEnv = { ...scope.defaultEnv, ...configUpdate.defaultEnv };
+          }
+          if (configUpdate.defaultCwd !== undefined) {
+            scope.cwd = configUpdate.defaultCwd;
+          }
+          if (configUpdate.defaultTimeout !== undefined) {
+            scope.timeout = configUpdate.defaultTimeout;
+          }
+          if (configUpdate.defaultShell !== undefined) {
+            scope.shell = configUpdate.defaultShell;
+          }
+          return defaultEngine;
         }
 
         // Use config.set() to mutate the global configuration
