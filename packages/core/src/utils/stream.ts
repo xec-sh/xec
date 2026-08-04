@@ -199,6 +199,29 @@ export class StreamHandler {
     return fullBuffer.toString(this.encoding);
   }
 
+  /**
+   * The collected bytes, when decoding them to text would lose information.
+   *
+   * Returning them always would keep every chunk alive for the lifetime of
+   * the result; returning them never corrupted binary output, because the
+   * string round-trip replaces each invalid byte with U+FFFD — a command
+   * writing 6 raw bytes came back as 14 bytes of replacement characters.
+   * Comparing the encoded length against the raw length detects exactly the
+   * case that needs them, and costs one integer compare for the text that
+   * does not.
+   *
+   * @returns The raw bytes, or null when the text form is faithful.
+   */
+  getRawIfLossy(): Buffer | null {
+    if (this.disposed) return null;
+
+    const raw = Buffer.concat(this.buffer, this.totalLength);
+    const text = raw.toString(this.encoding);
+
+    return Buffer.byteLength(text, this.encoding) === raw.length ? null : raw;
+  }
+
+
   getBuffer(): Buffer {
     if (this.disposed) {
       return Buffer.alloc(0);

@@ -215,7 +215,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string; rawStdout?: Buffer }
   ): ExecutionResult {
     // Apply sensitive data masking
     const maskedStdout = this.maskSensitiveData(stdout);
@@ -237,7 +237,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
       // Resolved here rather than at capture: formatting a stack is the
       // expensive half, and most commands succeed.
-      resolveCallSite(context?.originalCommand?.callSite)
+      resolveCallSite(context?.originalCommand?.callSite),
+      context?.rawStdout
     );
 
 
@@ -267,7 +268,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string; rawStdout?: Buffer }
   ): Promise<ExecutionResult> {
     // Apply sensitive data masking
     const maskedStdout = this.maskSensitiveData(stdout);
@@ -289,7 +290,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
       // Resolved here rather than at capture: formatting a stack is the
       // expensive half, and most commands succeed.
-      resolveCallSite(context?.originalCommand?.callSite)
+      resolveCallSite(context?.originalCommand?.callSite),
+      context?.rawStdout
     );
 
 
@@ -324,7 +326,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string; rawStdout?: Buffer }
   ): Promise<ExecutionResult> {
     const maskedStdout = this.maskSensitiveData(stdout);
     const maskedStderr = this.maskSensitiveData(stderr);
@@ -345,7 +347,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
       // Resolved here rather than at capture: formatting a stack is the
       // expensive half, and most commands succeed.
-      resolveCallSite(context?.originalCommand?.callSite)
+      resolveCallSite(context?.originalCommand?.callSite),
+      context?.rawStdout
     );
   }
 
@@ -360,7 +363,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string; rawStdout?: Buffer }
   ): ExecutionResult {
     const maskedStdout = this.maskSensitiveData(stdout);
     const maskedStderr = this.maskSensitiveData(stderr);
@@ -381,7 +384,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined,
       // Resolved here rather than at capture: formatting a stack is the
       // expensive half, and most commands succeed.
-      resolveCallSite(context?.originalCommand?.callSite)
+      resolveCallSite(context?.originalCommand?.callSite),
+      context?.rawStdout
     );
   }
 

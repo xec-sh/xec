@@ -25,6 +25,8 @@ interface ProcessResult {
   stderr: string;
   /** stdout and stderr in arrival order, where the runtime can observe it. */
   stdall?: string;
+  /** Exact stdout bytes, only when decoding them to text would lose data. */
+  rawStdout?: Buffer;
   exitCode: number | null;
   signal: string | null;
 }
@@ -60,7 +62,11 @@ export class LocalAdapter extends BaseAdapter {
       const endTime = Date.now();
 
       // Use createResultNoThrow if nothrow is set, otherwise use createResult which respects throwOnNonZeroExit
-      const resultContext = { originalCommand: mergedCommand, stdall: result.stdall };
+      const resultContext = {
+        originalCommand: mergedCommand,
+        stdall: result.stdall,
+        rawStdout: result.rawStdout,
+      };
 
       if (mergedCommand.nothrow) {
         return await this.createResultNoThrow(
@@ -365,6 +371,7 @@ export class LocalAdapter extends BaseAdapter {
             stdout: stdoutHandler.getContent(),
             stderr: stderrHandler.getContent(),
             stdall: Buffer.concat(interleaved).toString(this.config.encoding),
+            rawStdout: stdoutHandler.getRawIfLossy() ?? undefined,
             exitCode,
             signal: exitSignal
           });

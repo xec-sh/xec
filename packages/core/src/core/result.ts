@@ -29,7 +29,15 @@ export class ExecutionResultImpl implements ExecutionResult {
      */
     stdall?: string,
     /** Where the caller wrote this command; empty when not captured. */
-    public readonly callSite: string = ''
+    public readonly callSite: string = '',
+    /**
+     * The exact bytes of stdout, present only when the text form is lossy.
+     *
+     * Text round-trips faithfully and needs no second copy; binary output
+     * does not, so without this `buffer()` returned U+FFFD replacement
+     * characters re-encoded as UTF-8 rather than what the command wrote.
+     */
+    private readonly rawStdout?: Buffer
   ) {
     // A process killed by a signal reports no exit code, and coalescing that
     // to 0 made an OOM kill or an orchestrator SIGTERM indistinguishable from
@@ -108,6 +116,8 @@ export class ExecutionResultImpl implements ExecutionResult {
   }
 
   buffer(): Buffer {
-    return Buffer.from(this.stdout);
+    // The raw bytes when the text form lost information — `cat image.png`
+    // must return the image, not its replacement characters.
+    return this.rawStdout ?? Buffer.from(this.stdout);
   }
 }
