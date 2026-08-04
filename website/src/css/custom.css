@@ -1,18 +1,17 @@
 /**
- * Any CSS included here will be global. The classic template
- * bundles Infima by default. Infima is a CSS framework designed to
- * work well for content-centric websites.
+ * Global styles and design tokens.
+ *
+ * Prose is set in a sans face and code in a mono face. Setting the site's base
+ * font to a monospace — as this file previously did — makes every heading and
+ * paragraph read as terminal output, which is the single strongest signal of
+ * an unfinished site.
  */
 
-/* Import Fira Code font */
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
-
-/* Import KaTeX styles for math formulas */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import url('https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css');
 
-/* You can override the default Infima variables here. */
 :root {
-  /* Brand violet primary #5A3FE0 (AA contrast on white) */
+  /* Brand violet, AA-contrast on white */
   --ifm-color-primary: #5A3FE0;
   --ifm-color-primary-dark: #5138C9;
   --ifm-color-primary-darker: #4C34BE;
@@ -20,42 +19,44 @@
   --ifm-color-primary-light: #6B52E5;
   --ifm-color-primary-lighter: #7A63E8;
   --ifm-color-primary-lightest: #9585EF;
-  
-  --ifm-code-font-size: 95%;
-  --ifm-font-family-base:
-    'Fira Code', monospace, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
-  --ifm-font-family-monospace:
-    'Fira Code', SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  
+
+  --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', monospace;
+
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.65;
+  --ifm-heading-font-weight: 700;
+  --ifm-heading-line-height: 1.2;
+  --ifm-code-font-size: 90%;
+  --ifm-global-radius: 10px;
+
   --docusaurus-highlighted-code-line-bg: rgba(90, 63, 224, 0.1);
 
-  /* Brand gradient: violet → cyan */
-  --xec-hero-gradient: linear-gradient(135deg, #6D3BF5 0%, #22D3EE 100%);
-  --xec-border-color: #d1d5db;
-  --xec-accent-primary: #5A3FE0;
-  --xec-accent-secondary: #22D3EE;
-  --xec-accent-cyan: #22D3EE;
-  --xec-accent-cyan-soft: rgba(34, 211, 238, 0.15);
+  /* Surfaces and accents. Depth comes from layered near-neutrals rather than
+     a saturated gradient, which dates quickly and fights the content. */
+  --xec-surface: #ffffff;
+  --xec-surface-raised: #f7f6fb;
+  --xec-border: #e5e3ef;
+  --xec-text-muted: #55506b;
+  --xec-accent: #5A3FE0;
+  --xec-accent-cyan: #0891B2;
+  --xec-glow: rgba(109, 59, 245, 0.10);
+
+  /* Terminal chrome, identical in both themes so the demo always reads as a
+     terminal rather than as part of the page. */
+  --xec-term-bg: #131022;
+  --xec-term-header: #1B1730;
+  --xec-term-border: #2A2444;
+  --xec-term-text: #E6E1FF;
+  --xec-term-muted: #8B84AD;
+  --xec-term-accent: #4EE2F5;
+  --xec-term-violet: #A594FF;
+  --xec-term-green: #6EE7A8;
 }
 
-/* Apply Fira Code font to all code elements */
-code,
-pre,
-.prism-code,
-.token-line,
-.codeBlockContainer_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Container-styles-module {
-  font-family: 'Fira Code', monospace !important;
-  font-variant-ligatures: contextual;
-}
-
-/* Enable ligatures for inline code */
-code {
-  font-feature-settings: "calt" 1;
-}
-
-/* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  /* Lighter violet primary #A594FF for dark-mode readability */
   --ifm-color-primary: #A594FF;
   --ifm-color-primary-dark: #8F7BFF;
   --ifm-color-primary-darker: #8471FF;
@@ -63,50 +64,72 @@ code {
   --ifm-color-primary-light: #BBADFF;
   --ifm-color-primary-lighter: #C6BAFF;
   --ifm-color-primary-lightest: #E0D9FF;
-  --docusaurus-highlighted-code-line-bg: rgba(165, 148, 255, 0.2);
+  --docusaurus-highlighted-code-line-bg: rgba(165, 148, 255, 0.16);
 
-  /* Brand dark surfaces */
   --ifm-background-color: #0B0A14;
   --ifm-background-surface-color: #12101C;
 
-  /* Keep the same gradient in dark mode */
-  --xec-hero-gradient: linear-gradient(135deg, #6D3BF5 0%, #22D3EE 100%);
-  --xec-border-color: #4b5563;
-  --xec-accent-primary: #A594FF;
-  --xec-accent-secondary: #4EE2F5;
+  --xec-surface: #0B0A14;
+  --xec-surface-raised: #12101C;
+  --xec-border: #241F3A;
+  --xec-text-muted: #9D96B8;
+  --xec-accent: #A594FF;
   --xec-accent-cyan: #4EE2F5;
-  --xec-accent-cyan-soft: rgba(78, 226, 245, 0.15);
+  --xec-glow: rgba(109, 59, 245, 0.18);
 }
 
-/* Additional specific selectors for Docusaurus code blocks */
-.codeBlock_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Content-styles-module,
-.language-bash,
-.language-shell,
-.language-typescript,
-.language-javascript,
-.language-json,
-.language-yaml,
-.language-yml,
-.language-markdown,
-.language-md,
-.language-tsx,
-.language-jsx,
-.theme-code-block,
-.prism-code,
-.codeBlockLines_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Content-styles-module,
-.codeBlockContent_node_modules-\@docusaurus-theme-classic-lib-theme-CodeBlock-Content-styles-module {
-  font-family: 'Fira Code', monospace !important;
+/* Only code is monospace. */
+code,
+pre,
+kbd,
+.prism-code {
+  font-family: var(--ifm-font-family-monospace);
   font-variant-ligatures: contextual;
 }
 
-/* Terminal-style code blocks */
-.terminal,
-.console {
-  font-family: 'Fira Code', monospace !important;
+/* Tighter, more deliberate heading scale than the Infima default. */
+h1 {
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+  letter-spacing: -0.03em;
 }
 
-/* Code tabs */
-.tabs__item code,
-.tabItem_node_modules-\@docusaurus-theme-classic-lib-theme-Tabs-styles-module code {
-  font-family: 'Fira Code', monospace !important;
+h2 {
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+/* Long-form text is easier to read with a bounded measure. */
+.markdown > p,
+.markdown > ul,
+.markdown > ol {
+  max-width: 72ch;
+}
+
+.navbar {
+  border-bottom: 1px solid var(--xec-border);
+  box-shadow: none;
+  backdrop-filter: saturate(180%) blur(12px);
+  background-color: color-mix(in srgb, var(--ifm-background-color) 88%, transparent);
+}
+
+.navbar__title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.footer {
+  border-top: 1px solid var(--xec-border);
+  --ifm-footer-background-color: var(--xec-surface-raised);
+}
+
+/* Docusaurus renders the announcement bar full-bleed; keep it quiet so it
+   reads as a status note rather than a banner ad. */
+div[class^='announcementBar_'] {
+  font-weight: 500;
+  border-bottom: 1px solid var(--xec-border);
 }

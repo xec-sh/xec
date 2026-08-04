@@ -1,52 +1,288 @@
 import React from 'react';
+
+import Link from '@docusaurus/Link';
+import Layout from '@theme/Layout';
+import Translate, { translate } from '@docusaurus/Translate';
+
 import styles from './index.module.css';
 
-import clsx from 'clsx';
-import Layout from '@theme/Layout';
-import Link from '@docusaurus/Link';
-import Translate, { translate } from '@docusaurus/Translate';
-import HomepageFeatures from '@site/src/components/HomepageFeatures';
+/**
+ * A line of the hero demo.
+ *
+ * The demo is the product: the same command shape running in four places. It
+ * is rendered as a terminal rather than as a styled code block so the point
+ * lands before any of the prose is read.
+ */
+type DemoLine = {
+  readonly comment?: string;
+  readonly code?: readonly (readonly [text: string, tone?: 'kw' | 'fn' | 'str' | 'punc'])[];
+};
 
-function HomepageHeader() {
+const DEMO: readonly DemoLine[] = [
+  { code: [['import', 'kw'], [' { $ } '], ['from', 'kw'], [" '@xec-sh/core'", 'str'], [';', 'punc']] },
+  {},
+  { comment: '// the same command, four environments' },
+  { code: [['await', 'kw'], [' $'], ['`npm run build`', 'str'], [';', 'punc']] },
+  {
+    code: [
+      ['await', 'kw'], [' $.'], ['ssh', 'fn'], ['('], ["'deploy@web-1'", 'str'], [')'],
+      ['`systemctl restart api`', 'str'], [';', 'punc'],
+    ],
+  },
+  {
+    code: [
+      ['await', 'kw'], [' $.'], ['docker', 'fn'], ['({ container: '], ["'api'", 'str'], [' })'],
+      ['`python migrate.py`', 'str'], [';', 'punc'],
+    ],
+  },
+  {
+    code: [
+      ['await', 'kw'], [' $.'], ['k8s', 'fn'], ['('], ["'prod/api-pod'", 'str'], [')'],
+      ['`./healthcheck.sh`', 'str'], [';', 'punc'],
+    ],
+  },
+];
+
+function Terminal(): React.ReactNode {
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner)}>
+    <div className={styles.terminal}>
+      <div className={styles.terminalBar}>
+        <span className={styles.dot} data-tone="red" />
+        <span className={styles.dot} data-tone="amber" />
+        <span className={styles.dot} data-tone="green" />
+        <span className={styles.terminalTitle}>deploy.ts</span>
+      </div>
+
+      <pre className={styles.terminalBody}>
+        <code>
+          {DEMO.map((line, index) => {
+            if (line.comment) {
+              return (
+                <span key={index} className={styles.lineComment}>
+                  {line.comment}
+                  {'\n'}
+                </span>
+              );
+            }
+
+            if (!line.code) {
+              return <span key={index}>{'\n'}</span>;
+            }
+
+            return (
+              <span key={index}>
+                {line.code.map(([text, tone], part) => (
+                  <span key={part} className={tone ? styles[`t_${tone}`] : undefined}>
+                    {text}
+                  </span>
+                ))}
+                {'\n'}
+              </span>
+            );
+          })}
+        </code>
+      </pre>
+    </div>
+  );
+}
+
+/** What the same job costs without a unified layer, stated concretely. */
+function Contrast(): React.ReactNode {
+  return (
+    <section className={styles.section}>
       <div className="container">
-        <h1 className="hero__title">
-          <Translate id="homepage.title">One $ for every environment</Translate>
-        </h1>
-        <p className="hero__subtitle">
-          <Translate id="homepage.tagline">
-            Run commands on your laptop, an SSH fleet, Docker containers and Kubernetes pods — through one typed TypeScript API.
+        <h2 className={styles.sectionTitle}>
+          <Translate id="homepage.contrast.title">The seam this closes</Translate>
+        </h2>
+        <p className={styles.sectionLead}>
+          <Translate id="homepage.contrast.lead">
+            Running a command somewhere other than your own machine means assembling four
+            libraries with four APIs, four error shapes and four streaming models — then
+            keeping them in step.
           </Translate>
         </p>
-        <div className={styles.buttons}>
-          <Link
-            className="button button--secondary button--lg"
-            to="/docs/introduction/quick-start">
-            <Translate id="homepage.getStarted">
-              Get Started — 5min ⏱️
-            </Translate>
-          </Link>
-          <Link
-            className="button button--outline button--secondary button--lg margin-left--md"
-            to="/docs/introduction/ecosystem">
-            <Translate id="homepage.learnMore">
-              Explore Ecosystem
-            </Translate>
-          </Link>
-        </div>
-        <div className={styles.heroCode}>
-          <pre>
-            <code>
-              {`import { $ } from '@xec-sh/core';
 
-// Same command, four environments
-await $\`npm run build\`;
-await $.ssh('deploy@web-1')\`systemctl restart api\`;
-await $.docker({ container: 'api' })\`python migrate.py\`;
-await $.k8s('prod/api-pod')\`./healthcheck.sh\`;`}
-            </code>
-          </pre>
+        <div className={styles.contrastGrid}>
+          <div className={styles.contrastCard} data-variant="before">
+            <span className={styles.contrastLabel}>
+              <Translate id="homepage.contrast.before">Assembled by hand</Translate>
+            </span>
+            <ul className={styles.stackList}>
+              <li><code>execa</code><span>local processes</span></li>
+              <li><code>ssh2</code><span>remote hosts</span></li>
+              <li><code>dockerode</code><span>containers</span></li>
+              <li><code>@kubernetes/client-node</code><span>pods</span></li>
+            </ul>
+            <p className={styles.contrastNote}>
+              <Translate id="homepage.contrast.beforeNote">
+                Four result types. Four ways a failure surfaces. Moving a service from a
+                container to a host means rewriting the code that talks to it.
+              </Translate>
+            </p>
+          </div>
+
+          <div className={styles.contrastCard} data-variant="after">
+            <span className={styles.contrastLabel}>
+              <Translate id="homepage.contrast.after">With xec</Translate>
+            </span>
+            <pre className={styles.miniCode}>
+              <code>{`const result = await $.ssh(host)\`systemctl status api\`;
+
+result.exitCode   // number
+result.stdout     // string
+result.duration   // ms
+
+// same shape for local, docker and k8s`}</code>
+            </pre>
+            <p className={styles.contrastNote}>
+              <Translate id="homepage.contrast.afterNote">
+                One result type, one error hierarchy, one streaming model. The target
+                changes; the code does not.
+              </Translate>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const CAPABILITIES = [
+  {
+    title: 'Typed results, structured failures',
+    body:
+      'Every command resolves to the same result shape. Failures carry a machine-readable kind — connection-lost, authentication, not-found — so callers branch on the reason instead of matching error text.',
+    code: `if (error.recoverable) {
+  await reconnect();
+}`,
+  },
+  {
+    title: 'Safe by construction',
+    body:
+      'Interpolated values are quoted for the shell that will actually parse them. SSH host keys are checked against known_hosts. Secrets are masked in output, errors and events — including across stream chunk boundaries.',
+    code: `await $\`rm \${userInput}\`;
+// rm '; drop table --'`,
+  },
+  {
+    title: 'Built for long-running work',
+    body:
+      'Connection pooling, a bounded timeout on every operation, streaming with backpressure, and recovery when a transport dies mid-command. Adapters load lazily, so importing the package costs nothing for SSH or Kubernetes.',
+    code: `await $.ssh(host)
+  .timeout(30_000)
+  \`./migrate.sh\`;`,
+  },
+  {
+    title: 'Declarative targets and tasks',
+    body:
+      'Describe hosts, containers and pods once in .xec/config.yaml, then run tasks against any of them from the CLI — or import the same engine and build your own tool on top of it.',
+    code: `xec on hosts.web-* uptime`,
+  },
+] as const;
+
+function Capabilities(): React.ReactNode {
+  return (
+    <section className={styles.sectionAlt}>
+      <div className="container">
+        <h2 className={styles.sectionTitle}>
+          <Translate id="homepage.capabilities.title">What you get</Translate>
+        </h2>
+
+        <div className={styles.capGrid}>
+          {CAPABILITIES.map(capability => (
+            <article key={capability.title} className={styles.capCard}>
+              <h3 className={styles.capTitle}>{capability.title}</h3>
+              <p className={styles.capBody}>{capability.body}</p>
+              <pre className={styles.miniCode}>
+                <code>{capability.code}</code>
+              </pre>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const PACKAGES = [
+  {
+    name: '@xec-sh/core',
+    role: 'Execution engine — the $ API, adapters, pooling, streaming.',
+    to: '/docs/core/execution-engine/overview',
+  },
+  {
+    name: '@xec-sh/cli',
+    role: 'Command line — run tasks and commands against any target.',
+    to: '/docs/commands/overview',
+  },
+  {
+    name: '@xec-sh/loader',
+    role: 'Script loading — TypeScript transform, REPL, watch mode.',
+    to: '/docs/scripting/basics/first-script',
+  },
+  {
+    name: '@xec-sh/kit',
+    role: 'Terminal UI — prompts, spinners, tables, colour.',
+    to: '/docs/introduction/ecosystem',
+  },
+] as const;
+
+function Packages(): React.ReactNode {
+  return (
+    <section className={styles.section}>
+      <div className="container">
+        <h2 className={styles.sectionTitle}>
+          <Translate id="homepage.packages.title">Packages</Translate>
+        </h2>
+
+        <div className={styles.pkgList}>
+          {PACKAGES.map(pkg => (
+            <Link key={pkg.name} to={pkg.to} className={styles.pkgRow}>
+              <code className={styles.pkgName}>{pkg.name}</code>
+              <span className={styles.pkgRole}>{pkg.role}</span>
+              <span className={styles.pkgArrow} aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Hero(): React.ReactNode {
+  return (
+    <header className={styles.hero}>
+      <div className={`container ${styles.heroInner}`}>
+        <div className={styles.heroCopy}>
+          <h1 className={styles.heroTitle}>
+            <Translate id="homepage.title">One</Translate>{' '}
+            <span className={styles.heroDollar}>$</span>{' '}
+            <Translate id="homepage.title2">for every environment</Translate>
+          </h1>
+
+          <p className={styles.heroSubtitle}>
+            <Translate id="homepage.tagline">
+              A typed execution layer for TypeScript infrastructure. Run commands on your
+              laptop, an SSH fleet, Docker containers and Kubernetes pods through one API —
+              with the same result type, the same errors and the same streaming everywhere.
+            </Translate>
+          </p>
+
+          <div className={styles.heroActions}>
+            <Link className={styles.primaryButton} to="/docs/introduction/quick-start">
+              <Translate id="homepage.getStarted">Get started</Translate>
+            </Link>
+            <Link className={styles.secondaryButton} to="/docs/api">
+              <Translate id="homepage.apiRef">API reference</Translate>
+            </Link>
+          </div>
+
+          <p className={styles.installLine}>
+            <code>npm i @xec-sh/core</code>
+          </p>
+        </div>
+
+        <div className={styles.heroDemo}>
+          <Terminal />
         </div>
       </div>
     </header>
@@ -54,201 +290,22 @@ await $.k8s('prod/api-pod')\`./healthcheck.sh\`;`}
 }
 
 export default function Home(): React.ReactNode {
-  const pageDescription = translate({
+  const description = translate({
     id: 'homepage.description',
-    message: 'Xec is a TypeScript command execution system: one typed $ API that runs commands on local machines, SSH hosts, Docker containers and Kubernetes pods — with typed results, structured errors and connection pooling.',
+    message:
+      'Xec is a typed execution layer for TypeScript: one $ API that runs commands on local machines, SSH hosts, Docker containers and Kubernetes pods, with typed results, structured errors and connection pooling.',
   });
 
   return (
     <Layout
       title={translate({ id: 'homepage.layoutTitle', message: 'One $ for every environment' })}
-      description={pageDescription}>
-      <HomepageHeader />
+      description={description}
+    >
+      <Hero />
       <main>
-        <HomepageFeatures />
-
-        <section className={styles.ecosystem}>
-          <div className="container">
-            <h2 className={clsx('text--center', styles.ecosystemTitle)}>
-              <Translate id="homepage.ecosystem.title">
-                The Xec Toolkit
-              </Translate>
-            </h2>
-
-            <div className="row margin-top--lg">
-              <div className="col col--4">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>@xec-sh/core</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>Shell execution engine — <code>$`cmd`</code>, SSH, Docker, Kubernetes adapters, connection pooling, streaming.</p>
-                  </div>
-                  <div className="card__footer">
-                    <Link to="/docs/core/execution-engine/overview" className="button button--primary button--block">
-                      Core Docs
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col col--4">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>@xec-sh/cli</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>Command-line tool — run scripts and tasks on any target: run, on, in, copy, forward, logs, watch, tasks, config.</p>
-                  </div>
-                  <div className="card__footer">
-                    <Link to="/docs/commands/cli-reference" className="button button--primary button--block">
-                      CLI Docs
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col col--4">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>@xec-sh/loader</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>Script loading — TypeScript transform, CDN modules, REPL, file watcher, plugin system.</p>
-                  </div>
-                  <div className="card__footer">
-                    <Link to="/docs/scripting/basics/first-script" className="button button--primary button--block">
-                      Scripting Docs
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="row margin-top--md">
-              <div className="col col--4 col--offset-2">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>@xec-sh/kit</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>TUI components — prompts, spinners, tables, progress bars, Prism color system. Zero external dependencies.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="col col--4">
-                <div className={clsx('card', styles.packageCard)}>
-                  <div className="card__header">
-                    <h3>@xec-sh/testing</h3>
-                  </div>
-                  <div className="card__body">
-                    <p>Test utilities — Docker container management, SSH test helpers, binary detection.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.comparison}>
-          <div className="container">
-            <h2 className="text--center margin-bottom--xl">
-              <Translate id="homepage.comparison.title">
-                Why Xec?
-              </Translate>
-            </h2>
-            <div className="row">
-              <div className="col col--12">
-                <table className="comparison-table">
-                  <thead>
-                    <tr>
-                      <th>Feature</th>
-                      <th>Xec</th>
-                      <th>Ansible</th>
-                      <th>zx</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Multi-environment (SSH/Docker/K8s)</td>
-                      <td>✅ Native</td>
-                      <td>✅ Via plugins</td>
-                      <td>❌ Local only</td>
-                    </tr>
-                    <tr>
-                      <td>TypeScript-native</td>
-                      <td>✅ Full strict mode</td>
-                      <td>❌ YAML</td>
-                      <td>✅ Partial</td>
-                    </tr>
-                    <tr>
-                      <td>Template literal $ syntax</td>
-                      <td>✅ Every environment</td>
-                      <td>❌ YAML tasks</td>
-                      <td>✅ Local only</td>
-                    </tr>
-                    <tr>
-                      <td>Typed results &amp; errors</td>
-                      <td>✅ ExecutionResult</td>
-                      <td>❌ Untyped output</td>
-                      <td>⚠️ Partial</td>
-                    </tr>
-                    <tr>
-                      <td>Declarative targets &amp; tasks</td>
-                      <td>✅ .xec/config.yaml</td>
-                      <td>✅ Inventory &amp; playbooks</td>
-                      <td>❌ None</td>
-                    </tr>
-                    <tr>
-                      <td>Connection pooling</td>
-                      <td>✅ Built-in</td>
-                      <td>✅ Built-in</td>
-                      <td>❌ N/A</td>
-                    </tr>
-                    <tr>
-                      <td>Library usage (no CLI)</td>
-                      <td>✅ @xec-sh/core</td>
-                      <td>❌ CLI only</td>
-                      <td>✅ Import</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.cta}>
-          <div className="container text--center">
-            <h2>
-              <Translate id="homepage.cta.title">
-                Start Building
-              </Translate>
-            </h2>
-            <p className={styles.ctaDescription}>
-              <Translate id="homepage.cta.description">
-                Install @xec-sh/core to script command execution in TypeScript, or @xec-sh/cli for the full command-line experience.
-              </Translate>
-            </p>
-            <div className={styles.ctaButtons}>
-              <Link
-                className="button button--primary button--lg"
-                to="/docs/introduction/installation">
-                <Translate id="homepage.cta.install">
-                  Installation Guide
-                </Translate>
-              </Link>
-              <Link
-                className="button button--outline button--primary button--lg margin-left--md"
-                to="https://github.com/xec-sh/xec">
-                <Translate id="homepage.cta.viewOnGitHub">
-                  GitHub
-                </Translate>
-              </Link>
-            </div>
-          </div>
-        </section>
+        <Contrast />
+        <Capabilities />
+        <Packages />
       </main>
     </Layout>
   );
