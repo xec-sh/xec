@@ -18,6 +18,7 @@ import { LocalAdapter } from '../adapters/local/index.js';
 import { DockerAdapter } from '../adapters/docker/index.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
+import { parseDuration, type Duration } from '../utils/helpers.js';
 import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
@@ -923,7 +924,8 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     });
   }
 
-  timeout(ms: number): ExecutionEngine {
+  timeout(duration: Duration): ExecutionEngine {
+    const ms = parseDuration(duration);
     return this.with({ timeout: ms });
   }
 

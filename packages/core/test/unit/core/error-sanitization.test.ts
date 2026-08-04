@@ -1,159 +1,102 @@
-
 import { sanitizeCommandForError } from '../../../src/core/error.js';
 
+/**
+ * What a failure message may show of the command that failed.
+ *
+ * The rule used to be truncation: `cat /etc/hosts` became
+ * `cat [arguments hidden]`, and anything over three words became
+ * `docker ... (6 arguments)`. It was chosen as a security control but was a
+ * poor one — a credential in the first three words of an unlisted command
+ * passed straight through, while a harmless path was hidden — and it left
+ * the reader unable to tell which command had failed.
+ *
+ * The rule now is redaction, using the same patterns as output, events and
+ * verbose echoes: credentials are removed, everything else stays legible.
+ */
 describe('sanitizeCommandForError', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
-    // Reset environment for each test
     process.env = { ...originalEnv };
+    delete process.env['XEC_SANITIZE_COMMANDS'];
   });
 
   afterEach(() => {
-    // Restore original environment
     process.env = originalEnv;
   });
 
-  describe('when XEC_SANITIZE_COMMANDS is not set (default = sanitize ON)', () => {
-    beforeEach(() => {
-      delete process.env['XEC_SANITIZE_COMMANDS'];
-      delete process.env['NODE_ENV'];
-      delete process.env['JEST_WORKER_ID'];
-      delete process.env['VITEST_WORKER_ID'];
+  describe('redacts credentials', () => {
+    it.each([
+      ['a GitHub token', 'git push https://ghp_abcdefghij1234567890abcd@github.com/o/r', 'ghp_abcdefghij1234567890abcd'],
+      ['basic auth on a command line', 'curl -u admin:hunter2 https://api.example.com', 'hunter2'],
+      ['credentials in a database URL', 'psql postgres://app:S3cretPass@db:5432/prod', 'S3cretPass'],
+      ['an environment assignment', 'docker run -e API_KEY=sk_live_1234567890abcd img', 'sk_live_1234567890abcd'],
+      ['a password flag', 'mysql --password=hunter2 -u root', 'hunter2'],
+    ])('redacts %s', (_label, command, secret) => {
+      const sanitized = sanitizeCommandForError(command);
+
+      expect(sanitized).not.toContain(secret);
+      expect(sanitized).toContain('[REDACTED]');
     });
 
-    it('should sanitize sensitive commands by default', () => {
-      const command = 'cat /secret/path/to/file.txt';
-      expect(sanitizeCommandForError(command)).toBe('cat [arguments hidden]');
-    });
+    it('redacts a secret that truncation used to leave in place', () => {
+      // Truncation kept the first three words verbatim; a token in the second
+      // reached the log untouched.
+      const sanitized = sanitizeCommandForError('deploy --token=ghp_abcdefghij1234567890abcd prod');
 
-    it('should truncate long commands by default', () => {
-      const command = 'docker run --rm -v /Users/user/projects:/app -e SECRET=value image command arg1 arg2 arg3';
-      expect(sanitizeCommandForError(command)).toBe('docker ... (11 arguments)');
+      expect(sanitized).not.toContain('ghp_abcdefghij1234567890abcd');
     });
   });
 
-  describe('when XEC_SANITIZE_COMMANDS=false (opt-out)', () => {
-    beforeEach(() => {
+  describe('keeps the command identifiable', () => {
+    it.each([
+      'cat /etc/hosts',
+      'rm -rf /var/tmp/build-cache',
+      'kubectl get pods -n production -o json',
+      'find / -name "*.log" -mtime +30',
+    ])('leaves %s untouched', command => {
+      // Nothing here is a credential, so nothing is removed — the reader can
+      // see exactly what failed.
+      expect(sanitizeCommandForError(command)).toBe(command);
+    });
+
+    it('preserves the surrounding command when redacting', () => {
+      const sanitized = sanitizeCommandForError(
+        'docker run -e TOKEN=ghp_abcdefghij1234567890abcd registry.example.com/app:1.2.3'
+      );
+
+      expect(sanitized).toContain('docker run');
+      expect(sanitized).toContain('registry.example.com/app:1.2.3');
+    });
+  });
+
+  describe('the opt-out', () => {
+    it('returns the command verbatim when explicitly disabled', () => {
       process.env['XEC_SANITIZE_COMMANDS'] = 'false';
-      delete process.env['NODE_ENV'];
-      delete process.env['JEST_WORKER_ID'];
-      delete process.env['VITEST_WORKER_ID'];
-    });
 
-    it('should not sanitize commands when disabled', () => {
-      const command = 'cat /secret/path/to/file.txt';
+      const command = 'curl -u admin:hunter2 https://api.example.com';
       expect(sanitizeCommandForError(command)).toBe(command);
     });
 
-    it('should not sanitize long commands when disabled', () => {
-      const command = 'docker run --rm -v /Users/user/projects:/app -e SECRET=value image command arg1 arg2 arg3';
-      expect(sanitizeCommandForError(command)).toBe(command);
-    });
-
-    it('should not sanitize sensitive commands when disabled', () => {
-      const command = 'rm -rf /important/directory/*';
-      expect(sanitizeCommandForError(command)).toBe(command);
-    });
-  });
-
-  describe('when XEC_SANITIZE_COMMANDS is true', () => {
-    beforeEach(() => {
-      process.env['XEC_SANITIZE_COMMANDS'] = 'true';
-      delete process.env['NODE_ENV'];
-      delete process.env['JEST_WORKER_ID'];
-      delete process.env['VITEST_WORKER_ID'];
-    });
-
-    it('should sanitize sensitive commands with arguments', () => {
-      const sensitiveCommands = [
-        { cmd: 'cat /secret/file', expected: 'cat [arguments hidden]' },
-        { cmd: 'ls /private/dir', expected: 'ls [arguments hidden]' },
-        { cmd: 'rm -rf /important/path', expected: 'rm [arguments hidden]' },
-        { cmd: 'cp /src/file /dst/file', expected: 'cp [arguments hidden]' },
-        { cmd: 'mv /old/path /new/path', expected: 'mv [arguments hidden]' },
-        { cmd: 'chmod 755 /some/file', expected: 'chmod [arguments hidden]' },
-        { cmd: 'chown user:group /file', expected: 'chown [arguments hidden]' },
-        { cmd: 'find / -name secret', expected: 'find [arguments hidden]' },
-        { cmd: 'grep password /etc/passwd', expected: 'grep [arguments hidden]' }
-      ];
-
-      for (const { cmd, expected } of sensitiveCommands) {
-        expect(sanitizeCommandForError(cmd)).toBe(expected);
-      }
-    });
-
-    it('should truncate long commands', () => {
-      const command = 'docker run --rm -v /path:/app -e VAR=value image arg1 arg2 arg3 arg4 arg5';
-      expect(sanitizeCommandForError(command)).toBe('docker ... (12 arguments)');
-    });
-
-    it('should not sanitize short commands', () => {
-      const command = 'echo hello world';
-      expect(sanitizeCommandForError(command)).toBe(command);
-    });
-
-    it('should handle commands with full paths', () => {
-      const command = '/usr/bin/cat /secret/file';
-      expect(sanitizeCommandForError(command)).toBe('cat [arguments hidden]');
-    });
-
-    it('should handle empty commands', () => {
-      expect(sanitizeCommandForError('')).toBe('');
-      expect(sanitizeCommandForError('   ')).toBe('   ');
-    });
-  });
-
-  describe('when in a test or CI environment', () => {
-    // Sanitization used to switch itself off whenever NODE_ENV=test or a test
-    // runner variable was present. Those variables are set on virtually every
-    // CI job, so the redaction disappeared exactly where build logs are most
-    // widely readable. Only the explicit opt-out may disable it.
-    it('still sanitizes when NODE_ENV is test', () => {
-      process.env['NODE_ENV'] = 'test';
-      process.env['XEC_SANITIZE_COMMANDS'] = 'true';
-
-      expect(sanitizeCommandForError('cat /secret/file')).toBe('cat [arguments hidden]');
-    });
-
-    it('still sanitizes when a test-runner worker id is set', () => {
-      delete process.env['NODE_ENV'];
-      process.env['JEST_WORKER_ID'] = '1';
+    it('still redacts when a test-runner worker id is set', () => {
+      // Keying off NODE_ENV or VITEST_WORKER_ID would disable the control
+      // exactly where build logs are most widely readable.
       process.env['VITEST_WORKER_ID'] = '1';
-      process.env['XEC_SANITIZE_COMMANDS'] = 'true';
+      process.env['NODE_ENV'] = 'test';
 
-      expect(sanitizeCommandForError('rm -rf /important/path')).toBe('rm [arguments hidden]');
-    });
-
-    it('honours the explicit opt-out', () => {
-      process.env['XEC_SANITIZE_COMMANDS'] = 'false';
-
-      const command = 'cat /secret/file';
-      expect(sanitizeCommandForError(command)).toBe(command);
+      expect(sanitizeCommandForError('curl -u admin:hunter2 https://x')).not.toContain('hunter2');
     });
   });
 
   describe('edge cases', () => {
-    beforeEach(() => {
-      process.env['XEC_SANITIZE_COMMANDS'] = 'true';
-      delete process.env['NODE_ENV'];
-      delete process.env['JEST_WORKER_ID'];
-      delete process.env['VITEST_WORKER_ID'];
-    });
-
-    it('should handle commands with no arguments', () => {
-      expect(sanitizeCommandForError('ls')).toBe('ls');
-      expect(sanitizeCommandForError('cat')).toBe('cat');
-    });
-
-    it('should handle commands with special characters', () => {
-      const command = 'echo "hello world" > file.txt';
-      expect(sanitizeCommandForError(command)).toBe('echo ... (4 arguments)');
-    });
-
-    it('should handle commands with multiple spaces', () => {
-      const command = 'ls    -la    /home';
-      expect(sanitizeCommandForError(command)).toBe('ls [arguments hidden]');
+    it.each([
+      ['an empty string', ''],
+      ['whitespace only', '   '],
+      ['a bare command', 'ls'],
+      ['special characters', 'echo "hello $USER" | grep -E "^h.*"'],
+      ['multiple spaces', 'echo    spaced     out'],
+    ])('handles %s without altering it', (_label, command) => {
+      expect(sanitizeCommandForError(command)).toBe(command);
     });
   });
 });

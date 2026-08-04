@@ -38,7 +38,10 @@ describe('Error classes', () => {
       );
 
       // The head of stderr is part of the message now: it is the diagnosis.
-      expect(error.message).toBe('Command failed with exit code 127: echo "failed"\nerror text');
+      // The code carries its general meaning, and stderr carries the reason.
+      expect(error.message).toBe(
+        'Command failed with exit code 127 (command not found): echo "failed"\nerror text'
+      );
       expect(error.code).toBe('COMMAND_FAILED');
       expect(error.command).toBe('echo "failed"');
       expect(error.exitCode).toBe(127);
@@ -89,14 +92,16 @@ describe('Error classes', () => {
       expect(error.name).toBe('TimeoutError');
     });
 
-    it('should redact arguments of a sensitive command', () => {
+    it('redacts credentials in a timed-out command', () => {
       // A timed-out command routinely carries credentials — a piped sudo
       // password, a bearer token in a curl header — and the message reaches
-      // logs and stack traces.
-      const error = new TimeoutError('cat /home/deploy/.ssh/id_rsa', 5000);
+      // logs and stack traces. A file path is not a credential: hiding it
+      // would cost the reader the one fact that identifies the command.
+      const error = new TimeoutError('curl -u admin:hunter2 https://api.example.com', 5000);
 
-      expect(error.message).toBe('Command timed out after 5000ms: cat [arguments hidden]');
-      expect(error.message).not.toContain('id_rsa');
+      expect(error.message).not.toContain('hunter2');
+      expect(error.message).toContain('Command timed out after 5000ms');
+      expect(error.message).toContain('api.example.com');
     });
   });
 

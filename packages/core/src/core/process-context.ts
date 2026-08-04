@@ -10,6 +10,7 @@ import { PassThrough } from 'node:stream';
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
 import { executePipe } from './pipe-implementation.js';
+import { parseDuration, type Duration } from '../utils/helpers.js';
 
 /** Branded symbol for xec promise identification — shared across modules */
 const XEC_PROMISE_BRAND = Symbol.for('xec:promise');
@@ -188,9 +189,11 @@ export class ProcessContext {
   withSignal = (signal: AbortSignal): ProcessPromise =>
     this.mutate(s => { s.modifications.signal = signal; });
 
-  withTimeout = (ms: number, timeoutSignal?: string): ProcessPromise =>
+  withTimeout = (duration: Duration, timeoutSignal?: string): ProcessPromise =>
     this.mutate(s => {
-      s.modifications.timeout = ms;
+      // `.timeout('30s')` reads as the intent; `.timeout(30000)` invites the
+      // classic seconds/milliseconds slip. Both are accepted.
+      s.modifications.timeout = parseDuration(duration);
       if (timeoutSignal) s.modifications.timeoutSignal = timeoutSignal;
     });
 
@@ -511,7 +514,7 @@ export class ProcessPromiseBuilder {
     Object.assign(promise, {
       // Method wrappers with proper binding
       signal: (signal: AbortSignal) => context.withSignal(signal),
-      timeout: (ms: number, timeoutSignal?: string) => context.withTimeout(ms, timeoutSignal),
+      timeout: (duration: Duration, timeoutSignal?: string) => context.withTimeout(duration, timeoutSignal),
       quiet: () => context.withQuiet(),
       nothrow: () => context.withNothrow(),
       interactive: () => context.withInteractive(),

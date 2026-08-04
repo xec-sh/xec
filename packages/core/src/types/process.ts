@@ -1,4 +1,5 @@
 import type { ExecutionResult } from './result.js';
+import type { Duration } from '../utils/helpers.js';
 import type { CacheOptions } from '../utils/cache.js';
 import type { Writable, Transform } from 'node:stream';
 import type { ProcessHandle } from './process-handle.js';
@@ -95,7 +96,13 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
 
   pipe(target: PipeTarget | TemplateStringsArray, ...args: any[]): ProcessPromise;
   signal(signal: AbortSignal): ProcessPromise;
-  timeout(ms: number, timeoutSignal?: string): ProcessPromise;
+  /**
+   * Fail the command after a duration.
+   *
+   * @param duration - Milliseconds, or a string like `'30s'`, `'5m'`.
+   * @param timeoutSignal - Signal to deliver; defaults to SIGTERM.
+   */
+  timeout(duration: Duration, timeoutSignal?: string): ProcessPromise;
   quiet(): ProcessPromise;
   nothrow(): ProcessPromise;
   kill(signal?: NodeJS.Signals): void;

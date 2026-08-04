@@ -1,4 +1,6 @@
+import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { isRecoverable, classifyFailure, type FailureKind } from './failure-kind.js';
+import { DEFAULT_REDACTION, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 
 export class ExecutionError extends Error {
   /**
@@ -50,7 +52,10 @@ export class CommandError extends ExecutionError {
     const stderrHead = stderr.trim().split('\n').slice(0, 5).join('\n');
     const detail = stderrHead ? `\n${stderrHead}` : '';
 
-    super(`Command failed with exit code ${exitCode}: ${sanitizedCommand}${detail}`, 'COMMAND_FAILED', {
+    const meaning = explainExitCode(exitCode);
+    const code = meaning ? `${exitCode} (${meaning})` : String(exitCode);
+
+    super(`Command failed with exit code ${code}: ${sanitizedCommand}${detail}`, 'COMMAND_FAILED', {
       exitCode,
       signal,
       stdout,
@@ -61,40 +66,67 @@ export class CommandError extends ExecutionError {
   }
 }
 
+/** Redacts credentials using the same rules as output, events and echoes. */
+const maskCommand = createOptimizedMasker(createDefaultSensitivePatterns(), DEFAULT_REDACTION);
+
 /**
- * Sanitize command for error messages to avoid exposing sensitive information.
- * Enabled by default (security-first). Set XEC_SANITIZE_COMMANDS=false to disable.
+ * Redact credentials from a command before it appears in an error message.
+ *
+ * This used to *truncate* instead — `cat /etc/passwd` became
+ * `cat [arguments hidden]`, and anything over three words became
+ * `docker ... (6 arguments)`. That was worse on both counts it was meant to
+ * serve: the user could no longer tell which command failed, while a secret
+ * in the first three words survived untouched and one in an unlisted command
+ * was never considered.
+ *
+ * Redaction is the control that actually works, it is what every other layer
+ * already applies, and it leaves the command readable.
+ *
+ * Set `XEC_SANITIZE_COMMANDS=false` to opt out entirely. There is deliberately
+ * no test-environment bypass: NODE_ENV=test and VITEST_WORKER_ID are routinely
+ * set in CI, so keying off them would disable a security control exactly where
+ * build logs are most widely readable.
+ *
+ * @param command - The command string.
+ * @returns The command with credentials redacted.
  */
 export function sanitizeCommandForError(command: string): string {
-  // Skip sanitization only if explicitly disabled. This deliberately has no
-  // test-environment bypass: NODE_ENV=test and VITEST_WORKER_ID are routinely
-  // set in CI, so keying off them would silently disable a security control
-  // exactly where build logs are most widely readable.
   if (process.env['XEC_SANITIZE_COMMANDS'] === 'false') {
     return command;
   }
 
-  // Extract just the command name without arguments
-  const parts = command.trim().split(/\s+/);
-  if (parts.length === 0) return command;
+  return maskCommand(command);
+}
 
-  const baseCommand = parts[0];
-  if (!baseCommand) return command;
+/**
+ * What an exit code usually means, for the codes that carry real information.
+ *
+ * A bare "exit code 137" is a lookup task for the reader; "137 (killed —
+ * SIGKILL, commonly an out-of-memory kill)" is the answer they were going to
+ * look up. Deliberately not exhaustive: only entries that change what the
+ * reader would do next.
+ */
+const EXIT_CODE_MEANINGS: Record<number, string> = {
+  2: 'misuse of shell builtins',
+  126: 'command found but not executable',
+  127: 'command not found',
+  128: 'invalid exit argument',
+  130: 'interrupted — SIGINT (Ctrl-C)',
+  134: 'aborted — SIGABRT',
+  137: 'killed — SIGKILL, commonly an out-of-memory kill',
+  139: 'segmentation fault',
+  141: 'broken pipe — SIGPIPE, the reader closed early',
+  143: 'terminated — SIGTERM, commonly an orchestrator stopping the process',
+};
 
-  // For common commands that might expose sensitive paths, just show the command
-  const sensitiveCommands = ['cat', 'ls', 'rm', 'cp', 'mv', 'chmod', 'chown', 'find', 'grep'];
-  const commandName = baseCommand.split('/').pop() || baseCommand;
-
-  if (sensitiveCommands.includes(commandName) && parts.length > 1) {
-    return `${commandName} [arguments hidden]`;
-  }
-
-  // For other commands, show limited info
-  if (parts.length > 3) {
-    return `${baseCommand} ... (${parts.length - 1} arguments)`;
-  }
-
-  return command;
+/**
+ * Explain an exit code, when there is something worth explaining.
+ *
+ * @param exitCode - The process exit code.
+ * @returns A short explanation, or an empty string.
+ */
+export function explainExitCode(exitCode: number): string {
+  return EXIT_CODE_MEANINGS[exitCode] ?? '';
 }
 
 export class ConnectionError extends ExecutionError {

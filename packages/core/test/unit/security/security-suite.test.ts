@@ -337,31 +337,37 @@ describe('Security Test Suite', () => {
   });
 
   describe('Error Information Leakage', () => {
-    test('should not expose sensitive file paths in errors', async () => {
-      // Test that in production, sensitive commands are sanitized
+    test('should not expose credentials in errors', async () => {
+      // The control is redaction, not truncation. Truncation hid a file path
+      // — never the thing that leaks — while a token in an unlisted command
+      // passed through untouched, and it cost the reader the ability to tell
+      // which command failed.
       const originalEnv = process.env['NODE_ENV'];
       const originalJest = process.env['JEST_WORKER_ID'];
       const originalSanitize = process.env['XEC_SANITIZE_COMMANDS'];
 
       try {
-        // First, verify sanitization works in production mode
         delete process.env['NODE_ENV'];
         delete process.env['JEST_WORKER_ID'];
         process.env['XEC_SANITIZE_COMMANDS'] = 'true';
 
         const { sanitizeCommandForError } = await import('../../../src/core/error.js');
-        const sanitized = sanitizeCommandForError('cat /some/nonexistent/sensitive/path/to/secret.key');
-        expect(sanitized).toBe('cat [arguments hidden]');
 
-        // Also test other sensitive commands
-        expect(sanitizeCommandForError('rm -rf /important/path')).toBe('rm [arguments hidden]');
-        expect(sanitizeCommandForError('grep password /etc/passwd')).toBe('grep [arguments hidden]');
+        for (const [command, secret] of [
+          ['curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9" https://api.internal', 'eyJhbGciOiJIUzI1NiJ9'],
+          ['git clone https://ghp_abcdefghij1234567890abcd@github.com/org/repo', 'ghp_abcdefghij1234567890abcd'],
+          ['psql postgres://svc:S3cretPass@db.internal/prod', 'S3cretPass'],
+        ] as const) {
+          const sanitized = sanitizeCommandForError(command);
+          expect(sanitized).not.toContain(secret);
+          expect(sanitized).toContain('[REDACTED]');
+        }
 
-        // Non-sensitive commands should not be sanitized
+        // Commands carrying no credential stay fully readable.
         expect(sanitizeCommandForError('echo hello')).toBe('echo hello');
         expect(sanitizeCommandForError('node script.js')).toBe('node script.js');
+        expect(sanitizeCommandForError('rm -rf /important/path')).toBe('rm -rf /important/path');
       } finally {
-        // Restore environment
         if (originalEnv !== undefined) process.env['NODE_ENV'] = originalEnv;
         if (originalJest !== undefined) process.env['JEST_WORKER_ID'] = originalJest;
         if (originalSanitize !== undefined) {
@@ -371,11 +377,11 @@ describe('Security Test Suite', () => {
         }
       }
 
-      // Sanitization must stay on inside the test environment too: NODE_ENV
-      // and worker-id variables are set on nearly every CI job, so keying the
+      // Redaction must stay on inside the test environment too: NODE_ENV and
+      // worker-id variables are set on nearly every CI job, so keying the
       // control off them disabled it precisely where logs are most public.
       const { sanitizeCommandForError: sanitizeInTest } = await import('../../../src/core/error.js');
-      expect(sanitizeInTest('cat /sensitive/path')).toBe('cat [arguments hidden]');
+      expect(sanitizeInTest('curl -u admin:hunter2 https://x')).not.toContain('hunter2');
     });
 
     test('should sanitize error messages from remote hosts', async () => {
