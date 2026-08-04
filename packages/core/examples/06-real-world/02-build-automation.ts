@@ -243,7 +243,7 @@ async function optimizeBuild(distDir: string) {
     try {
       await opt.cmd;
       console.log(`✓ ${opt.name} завершено`);
-    } catch (error) {
+    } catch {
       console.log(`⚠ ${opt.name} - пропущено`);
     }
   }

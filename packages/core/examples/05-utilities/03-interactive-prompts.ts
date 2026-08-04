@@ -153,7 +153,7 @@ try {
   await $`sleep 1`;
   clearInterval(spinnerInterval);
   process.stdout.write('\r✓ Установка завершена!                    \n');
-} catch (error) {
+} catch {
   clearInterval(spinnerInterval);
   process.stdout.write('\r✗ Ошибка установки                         \n');
 }

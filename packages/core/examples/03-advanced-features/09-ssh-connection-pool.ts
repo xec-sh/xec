@@ -181,7 +181,7 @@ try {
   `.timeout(70000); // 70 second timeout
   
   console.log('Long operation completed successfully');
-} catch (error) {
+} catch {
   console.log('Operation failed, but connection will auto-reconnect for next command');
 }
 

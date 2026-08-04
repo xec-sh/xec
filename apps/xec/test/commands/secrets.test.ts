@@ -122,7 +122,7 @@ describe('Secrets Command (Real Implementation)', () => {
     it('should error for non-existent secret', async () => {
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'get', 'non-existent']);
-      } catch (error) {
+      } catch {
         // Expected due to process.exit
       }
       
@@ -176,7 +176,7 @@ describe('Secrets Command (Real Implementation)', () => {
       // Verify secret was deleted
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'get', 'delete-test']);
-      } catch (error) {
+      } catch {
         // Expected
       }
       
@@ -189,7 +189,7 @@ describe('Secrets Command (Real Implementation)', () => {
       // Verify deleted
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'get', 'delete-test']);
-      } catch (error) {
+      } catch {
         // Expected
       }
       
@@ -225,7 +225,7 @@ describe('Secrets Command (Real Implementation)', () => {
     it('should error on invalid length', async () => {
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'generate', 'gen-invalid', '--length', '-1']);
-      } catch (error) {
+      } catch {
         // Expected
       }
       
@@ -373,7 +373,7 @@ SECRET_ENV3="envvalue3"`;
       
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'set', 'test', '--value', 'value']);
-      } catch (error) {
+      } catch {
         // Expected
       }
       
@@ -383,7 +383,7 @@ SECRET_ENV3="envvalue3"`;
     it('should handle delete non-existent secret', async () => {
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'delete', 'non-existent', '--force']);
-      } catch (error) {
+      } catch {
         // Expected - command should still succeed even if secret doesn't exist
       }
       
@@ -427,7 +427,7 @@ SECRET_ENV3="envvalue3"`;
       
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'import', '--file', importFile]);
-      } catch (error) {
+      } catch {
         // Expected
       }
       
@@ -463,7 +463,7 @@ SECRET_ENV3="envvalue3"`;
     it('should handle generate with too large length', async () => {
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'generate', 'too-large', '--length', '257']);
-      } catch (error) {
+      } catch {
         // Expected
       }
       
@@ -475,7 +475,7 @@ SECRET_ENV3="envvalue3"`;
     it('should error on empty secret values with --value', async () => {
       try {
         await program.parseAsync(['node', 'test', 'secrets', 'set', 'empty-test', '--value', '']);
-      } catch (error) {
+      } catch {
         // Expected
       }
       

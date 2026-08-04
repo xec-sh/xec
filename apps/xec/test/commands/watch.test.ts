@@ -57,7 +57,7 @@ describe('Watch Command', () => {
     try {
       await fs.access(projectDir, fs.constants.F_OK | fs.constants.W_OK);
     } catch (e) {
-      throw new Error(`Project directory not accessible: ${projectDir}`);
+      throw new Error(`Project directory not accessible: ${projectDir}`, { cause: e });
     }
   });
 

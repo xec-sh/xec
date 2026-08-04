@@ -545,7 +545,7 @@ describeIfDocker('Docker Adapter Real Integration Tests', () => {
         
         try {
           await streamPromise;
-        } catch (e) {
+        } catch {
           // Expected when container stops
         }
         

@@ -270,7 +270,7 @@ describe('Security Test Suite', () => {
           expect(existsSync(tempPath)).toBe(true);
           throw new Error('Simulated error');
         });
-      } catch (error) {
+      } catch {
         // Expected error
       }
       
@@ -289,7 +289,7 @@ describe('Security Test Suite', () => {
           expect(existsSync(tempPath)).toBe(true);
           throw new Error('Simulated error');
         });
-      } catch (error) {
+      } catch {
         // Expected error
       }
       

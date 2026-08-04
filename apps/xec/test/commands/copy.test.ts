@@ -47,7 +47,7 @@ describe('Copy Command', () => {
   afterEach(async () => {
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
-    } catch (e) {
+    } catch {
       // Игнорируем ошибки при удалении временной директории
     }
   });

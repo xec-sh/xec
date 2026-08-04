@@ -41,7 +41,7 @@ console.log('Response:', echoResult.stdout);
 // 7. Timeouts
 try {
   await $.local().timeout(1000)`sleep 5`;
-} catch (error) {
+} catch {
   console.log('Command interrupted by timeout');
 }
 

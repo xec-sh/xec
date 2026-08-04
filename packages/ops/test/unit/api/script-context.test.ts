@@ -58,7 +58,7 @@ describe('Script Context', () => {
     // Restore original working directory
     try {
       process.chdir(originalCwd);
-    } catch (error) {
+    } catch {
       // If originalCwd no longer exists (due to test cleanup), go to temp dir
       process.chdir(os.tmpdir());
     }

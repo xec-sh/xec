@@ -229,7 +229,7 @@ describe('Machine ID Module', () => {
         try {
           const output = execSync('ioreg -rd1 -c IOPlatformExpertDevice | grep UUID', { encoding: 'utf8' });
           expect(output).toContain('IOPlatformUUID');
-        } catch (error) {
+        } catch {
           // Command might not be available in test environment
           console.log('ioreg command not available');
         }

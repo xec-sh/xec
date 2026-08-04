@@ -189,7 +189,7 @@ try {
     }
   }
   console.log('\nЗагрузка завершена');
-} catch (error) {
+} catch {
   console.error('\nОшибка загрузки (возможно, curl не установлен)');
 }
 
@@ -250,7 +250,7 @@ for (const check of systemChecks) {
     } else {
       process.stdout.write(`\r✗ ${check.name}                    \n`);
     }
-  } catch (error) {
+  } catch {
     process.stdout.write(`\r✗ ${check.name} (ошибка)          \n`);
   }
 }

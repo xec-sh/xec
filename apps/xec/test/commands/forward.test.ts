@@ -80,7 +80,7 @@ describe('Forward Command', () => {
         if (session.cleanup) {
           try {
             await session.cleanup();
-          } catch (e) {
+          } catch {
             // Ignore cleanup errors
           }
         }

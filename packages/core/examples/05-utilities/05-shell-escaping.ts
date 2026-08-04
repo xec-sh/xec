@@ -92,7 +92,7 @@ try {
   } else {
     console.log('Файлы не найдены');
   }
-} catch (error) {
+} catch {
   console.log('Ошибка поиска');
 }
 

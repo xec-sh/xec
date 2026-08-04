@@ -246,7 +246,7 @@ async function dockerToDockerTransfer() {
 // Запускаем только если контейнеры существуют
 try {
   await dockerToDockerTransfer();
-} catch (error) {
+} catch {
   console.log('Пропускаем docker-to-docker передачу (контейнеры не найдены)');
 }
 

@@ -212,7 +212,7 @@ try {
     'false', // This will fail
     'echo "Check 3: Will not run"'
   ]);
-} catch (error) {
+} catch {
   console.log('  ❌ Stopped on first error (as expected)');
 }
 
@@ -264,7 +264,7 @@ try {
   mixedResults.forEach((result, i) => {
     console.log(`Task ${i + 1}:`, result.stdout.trim());
   });
-} catch (error) {
+} catch {
   console.log('Error in one of the tasks');
 }
 
@@ -431,7 +431,7 @@ try {
   console.log('First completed task:', winner.stdout.trim());
 
   // Other tasks are still running, but their results are ignored
-} catch (error) {
+} catch {
   console.log('Error in one of the tasks');
 }
 

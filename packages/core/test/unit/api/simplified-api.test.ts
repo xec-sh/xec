@@ -404,11 +404,11 @@ describe('Simplified API', () => {
     });
 
     test('should chain multiple operations', async () => {
-      const result = await $
+      const chained = $
         .env({ CHAIN_TEST: 'chained' })
         .timeout(5000)
-        .cd('/tmp')
-        `sh -c "pwd && echo $CHAIN_TEST"`;
+        .cd('/tmp');
+      const result = await chained`sh -c "pwd && echo $CHAIN_TEST"`;
       
       const lines = result.stdout.trim().split('\n');
       expect(['/tmp', '/private/tmp']).toContain(lines[0]);

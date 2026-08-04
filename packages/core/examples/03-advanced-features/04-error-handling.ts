@@ -158,7 +158,7 @@ process.once('SIGINT', async () => {
 
   try {
     await longRunning;
-  } catch (error: unknown) {
+  } catch {
     console.log('Process terminated');
   }
 
@@ -203,13 +203,13 @@ async function runWithLogging(command: string) {
 // Testing
 try {
   await runWithLogging('false');
-} catch (e: unknown) {
+} catch {
   // Expected error
 }
 
 try {
   await runWithLogging('exit 42');
-} catch (e: unknown) {
+} catch {
   // Expected error
 }
 

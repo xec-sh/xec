@@ -42,13 +42,13 @@ describeIfK8s('KubernetesAdapter Enhanced Tests', () => {
     // Create necessary namespaces
     try {
       await cluster.kubectl('create namespace test');
-    } catch (e) {
+    } catch {
       // Namespace might already exist
     }
 
     try {
       await cluster.kubectl('create namespace production');
-    } catch (e) {
+    } catch {
       // Namespace might already exist
     }
 
@@ -575,7 +575,7 @@ spec:
     try {
       const cluster = new KindClusterManager({ name: 'ush-k8s-enhanced-tests' });
       await cluster.kubectl('delete pod web-1 web-2 -n default --ignore-not-found=true');
-    } catch (e) {
+    } catch {
       // Ignore cleanup errors
     }
   });

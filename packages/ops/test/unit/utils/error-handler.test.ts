@@ -1,9 +1,9 @@
 import * as kit from '@xec-sh/kit';
 
 import { ValidationError } from '../../../src/utils/validation.js';
-import { CommandOptions } from '../../../src/utils/command-base.js';
 import {
   XecError,
+  CommandOptions,
   TaskError,
   ModuleError,
   RecipeError,

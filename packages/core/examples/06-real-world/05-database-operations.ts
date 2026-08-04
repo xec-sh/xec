@@ -510,7 +510,7 @@ async function rollbackMigrations(config: MigrationConfig, migrations: string[])
           break;
       }
       
-    } catch (error) {
+    } catch {
       console.error(`  ❌ Не найден файл отката для ${migrationName}`);
     }
   }

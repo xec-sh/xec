@@ -17,7 +17,7 @@ try {
   const lastLines = await $`tail -100 /var/log/system.log | head -10`;
   console.log('Last 10 lines from log:');
   console.log(lastLines.stdout);
-} catch (error) {
+} catch {
   console.log('Failed to read log file');
 }
 
@@ -31,7 +31,7 @@ try {
   } else {
     console.log('No errors found in log');
   }
-} catch (error) {
+} catch {
   console.log('Log file not found or inaccessible');
 }
 
@@ -67,7 +67,7 @@ for (const line of lines) {
       const obj = JSON.parse(line);
       jsonLines.push(obj);
       console.log('Received JSON:', obj);
-    } catch (e) {
+    } catch {
       console.error('Parsing error:', line);
     }
   }
@@ -133,7 +133,7 @@ try {
 
   // Remove file
   await $`rm -f ${outputFile}`;
-} catch (error) {
+} catch {
   console.log('Download error');
 }
 
@@ -193,6 +193,6 @@ try {
   // Alternative way - use uptime
   const uptime = await $`uptime`;
   console.log('\nUptime:', uptime.stdout.trim());
-} catch (error) {
+} catch {
   console.log('Failed to get system information');
 }

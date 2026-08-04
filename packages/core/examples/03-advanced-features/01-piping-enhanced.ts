@@ -108,7 +108,7 @@ console.log('\n8. Error handling:');
 try {
   // This will fail because 'false' returns exit code 1
   await $`false`.pipe`echo "This won't run"`;
-} catch (error) {
+} catch {
   console.log('Pipe failed as expected');
 }
 

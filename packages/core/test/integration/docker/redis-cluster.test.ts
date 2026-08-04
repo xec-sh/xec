@@ -12,7 +12,7 @@ describe('Docker Redis Cluster', () => {
     // Check if Docker is available
     try {
       await engine.run`docker version`;
-    } catch (error) {
+    } catch {
       console.log('Docker not available, skipping Redis cluster tests');
       return;
     }

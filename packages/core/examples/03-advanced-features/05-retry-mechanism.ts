@@ -14,7 +14,7 @@ try {
   // Попытается 3 раза (плюс первая попытка)
   await $retry`curl -f http://example.com || exit 1`;
   console.log('Успешно получены данные');
-} catch (error) {
+} catch {
   console.log('Не удалось получить данные после всех попыток');
 }
 
@@ -44,7 +44,7 @@ const $exponentialRetry = $.retry({
 try {
   await $exponentialRetry`test -f /tmp/ready || exit 1`;
   console.log('Файл готов');
-} catch (error) {
+} catch {
   console.log('Файл не появился');
 }
 
@@ -62,7 +62,7 @@ const $conditionalRetry = $.retry({
 try {
   await $conditionalRetry`test -f /tmp/ready.flag`;
   console.log(`Файл найден после ${attemptCount} попыток`);
-} catch (error) {
+} catch {
   console.log('Файл не найден');
 }
 
@@ -77,7 +77,7 @@ const $localRetry = $.local().retry({
 try {
   await $localRetry`curl -f http://localhost:8080/health || exit 1`;
   console.log('Сервис доступен');
-} catch (error) {
+} catch {
   console.log('Сервис недоступен');
 }
 
@@ -121,7 +121,7 @@ setTimeout(async () => {
 try {
   await $serviceRetry`test -f ${markerFile}`;
   console.log('Сервис готов к работе');
-} catch (error) {
+} catch {
   console.log('Сервис не запустился');
 }
 
@@ -156,7 +156,7 @@ try {
   // Проверяем доступность сервиса с таймаутом
   await $complexRetry`curl -f --max-time 5 http://slow-service.com || exit 1`.timeout(30000);
   console.log('Сервис ответил');
-} catch (error) {
+} catch {
   console.log('Не удалось получить ответ от сервиса');
 }
 
@@ -185,7 +185,7 @@ try {
   await $metricRetry`test ${random} '<' '0.5' || exit 1`;
   retryMetrics.successfulAttempts = 1;
   console.log('Команда успешно выполнена');
-} catch (error) {
+} catch {
   console.log('Все попытки исчерпаны');
 }
 

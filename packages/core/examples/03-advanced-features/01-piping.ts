@@ -57,7 +57,7 @@ try {
   } else {
     console.log('No errors found');
   }
-} catch (error) {
+} catch {
   console.log('Failed to read log file');
 }
 
@@ -67,7 +67,7 @@ const jsonData = { name: 'test', value: 42 };
 try {
   const extracted = await $`echo '${JSON.stringify(jsonData)}' | jq '.value'`;
   console.log('Extracted value:', extracted.stdout.trim()); // 42
-} catch (error) {
+} catch {
   console.log('jq not installed, using alternative');
   const extracted = await $`echo '${JSON.stringify(jsonData)}' | grep -o '"value":[0-9]*' | cut -d: -f2`;
   console.log('Extracted value:', extracted.stdout.trim());
@@ -92,7 +92,7 @@ try {
   } else {
     console.log('Text files not found in /tmp');
   }
-} catch (error) {
+} catch {
   console.log('Error creating archive');
 }
 

@@ -137,14 +137,14 @@ console.log('\n8. Caching with error handling:');
 // Failed commands are not cached by default
 try {
   await $`exit 1`.cache({ key: 'failing-command' });
-} catch (error) {
+} catch {
   console.log('First execution failed');
 }
 
 try {
   await $`exit 1`.cache({ key: 'failing-command' });
   console.log('Second execution also fails (not cached)');
-} catch (error) {
+} catch {
   console.log('Second execution failed too');
 }
 

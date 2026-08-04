@@ -39,7 +39,7 @@ function handleSFTP(accept: any) {
     const contents = Buffer.alloc(length)
     try {
       FS.readSync(handle, contents, 0, length, offset)
-    } catch (error) {
+    } catch {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
       return
     }
@@ -114,7 +114,7 @@ function handleSFTP(accept: any) {
     let stat
     try {
       stat = FS.statSync(path)
-    } catch (error) {
+    } catch {
       sftpStream.status(reqId, STATUS_CODE['FAILURE'])
       return
     }

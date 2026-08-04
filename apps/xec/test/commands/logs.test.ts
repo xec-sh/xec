@@ -495,7 +495,7 @@ targets:
         await $`kubectl delete pod test-pod -n default --ignore-not-found=true`.env({ KUBECONFIG: kindManager.getKubeConfigPath() });
         // Wait for deletion to complete
         await new Promise(resolve => setTimeout(resolve, 2000));
-      } catch (e) {
+      } catch {
         // Ignore errors, pod might not exist
       }
 

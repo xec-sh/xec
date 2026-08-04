@@ -37,7 +37,7 @@ engine.on('command:error', (event) => {
 // Провоцируем ошибку
 try {
   await $engine`exit 1`;
-} catch (e) {
+} catch {
   // Ошибка будет обработана в событии
 }
 
