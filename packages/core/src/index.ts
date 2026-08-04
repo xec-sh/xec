@@ -204,11 +204,6 @@ export function brandXecPromise(promise: Promise<unknown>): void {
   (promise as unknown as Record<symbol, boolean>)[XEC_PROMISE_BRAND] = true;
 }
 
-/** Check if a promise is an xec promise */
-function isXecPromise(promise: Promise<unknown>): boolean {
-  return (promise as unknown as Record<symbol, boolean>)[XEC_PROMISE_BRAND] === true;
-}
-
 // Store handler references for proper cleanup
 const cleanupHandlers: {
   exit?: () => void;

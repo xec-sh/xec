@@ -884,26 +884,6 @@ class ProjectInspector {
       data.push(this.formatTableRow(result, type));
     }
 
-    const config = {
-      border: {
-        topBody: `─`,
-        topJoin: `┬`,
-        topLeft: `┌`,
-        topRight: `┐`,
-        bottomBody: `─`,
-        bottomJoin: `┴`,
-        bottomLeft: `└`,
-        bottomRight: `┘`,
-        bodyLeft: `│`,
-        bodyRight: `│`,
-        bodyJoin: `│`,
-        joinBody: `─`,
-        joinLeft: `├`,
-        joinRight: `┤`,
-        joinJoin: `┼`
-      }
-    };
-
     // Simple table output
     const output = data.map((row: string[]) => row.map((cell) =>
       String(cell ?? '').padEnd(20)

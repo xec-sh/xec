@@ -2005,9 +2005,6 @@ async function createProfile(name: string, options: NewOptions) {
 }
 
 async function createExtension(name: string, options: NewOptions) {
-  // Extract the description from desc option
-  const description = options.desc;
-
   const targetDir = path.resolve(name);
 
   // Check if directory exists

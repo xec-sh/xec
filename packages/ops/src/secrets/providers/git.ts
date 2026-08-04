@@ -1107,8 +1107,8 @@ export class GitSecretProvider implements SecretProvider {
     // 3. Backup old key (encrypted)
     await this.backupOldKey(this.encryptionKey!);
 
-    // 4. Update master key
-    const oldKey = this.encryptionKey;
+    // 4. Update master key. The plaintext was already collected above, so the
+    // old key is not needed past this point and is not kept in memory.
     this.encryptionKey = newMasterKey;
 
     // 5. Re-encrypt all secrets with new key
@@ -1151,7 +1151,7 @@ export class GitSecretProvider implements SecretProvider {
       member.encryptedMasterKey = encryptedMasterKey.toString('base64');
 
       // Save updated encrypted key
-      const encKeyPath = path.join(this.keyPath, 'team', `${member.userId.replace('@', '_at_')}.key.enc`);
+      const encKeyPath = path.join(this.keyPath, 'team', `${teamKeyFileName(member.userId)}.key.enc`);
       await fs.writeFile(encKeyPath, member.encryptedMasterKey, { mode: 0o644 });
     }
 

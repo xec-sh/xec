@@ -6,12 +6,7 @@ import { Command } from 'commander';
 import { validateOptions } from '@xec-sh/ops';
 import { log, note, text, intro, outro, prism, select, cancel, spinner, isCancel } from '@xec-sh/kit';
 
-import { InteractiveOptions } from '../utils/interactive-helpers.js';
 import { SubcommandBase, ConfigAwareOptions } from '../utils/command-base.js';
-
-interface DockerOptions extends ConfigAwareOptions, InteractiveOptions {
-  verbose?: boolean;
-}
 
 interface ContainerOptions extends ConfigAwareOptions {
   name?: string;

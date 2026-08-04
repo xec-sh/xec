@@ -646,7 +646,6 @@ export class SecretsCommand extends ConfigAwareCommand {
         secrets = JSON.parse(content);
       }
 
-      const keys = Object.keys(secrets);
       let imported = 0;
 
       for (const [key, value] of Object.entries(secrets)) {

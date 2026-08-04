@@ -520,8 +520,6 @@ export class LocalAdapter extends BaseAdapter {
     }
 
     // Handle stdio - convert Stream objects to 'pipe' for spawn
-    const isStream = (value: any) => value && typeof value === 'object' && typeof value.write === 'function';
-
     options.stdio = [
       command.stdin ? 'pipe' : 'ignore',
       (typeof command.stdout === 'string' ? command.stdout : 'pipe') || 'pipe',

@@ -130,57 +130,6 @@ function isCriticalError(error: any): boolean {
 }
 
 /**
- * Extract structured error information
- */
-function extractErrorInfo(error: any): any {
-  const baseInfo = {
-    error: true,
-    message: error.message || 'Unknown error',
-    timestamp: new Date().toISOString(),
-  };
-
-  if (error instanceof XecError) {
-    return {
-      ...baseInfo,
-      type: error.name,
-      code: error.code,
-      field: error.details?.field,
-      suggestion: error.details?.suggestion,
-      documentation: error.details?.documentation,
-    };
-  }
-
-  if (error instanceof ValidationError) {
-    return {
-      ...baseInfo,
-      type: 'ValidationError',
-      code: 'VALIDATION_ERROR',
-      field: error.field,
-      suggestion: getValidationSuggestion(error),
-    };
-  }
-
-  // Node.js system errors
-  if (error.code) {
-    return {
-      ...baseInfo,
-      type: 'SystemError',
-      code: error.code,
-      path: error.path,
-      syscall: error.syscall,
-      suggestion: getSystemErrorSuggestion(error),
-    };
-  }
-
-  // Generic error
-  return {
-    ...baseInfo,
-    type: 'Error',
-    stack: error.stack,
-  };
-}
-
-/**
  * Enhance error with CLI context
  */
 function enhanceErrorWithContext(error: any, options: CommandOptions): EnhancedExecutionError {
@@ -255,59 +204,6 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
   if (error.context?.command) {
     const baseCommand = error.context.command.split(' ')[0];
     console.error(prism.dim(`Run 'xec ${baseCommand} --help' for usage information`));
-  }
-}
-
-/**
- * Display error in text format (legacy)
- */
-function displayTextError(errorInfo: any, options: CommandOptions): void {
-  // Error header
-  const logger = log;
-  logger.error(prism.bold(errorInfo.message));
-
-  // Error details
-  if (errorInfo.field) {
-    console.error(prism.gray(`Field: ${errorInfo.field}`));
-  }
-
-  if (errorInfo.code) {
-    console.error(prism.gray(`Code: ${errorInfo.code}`));
-  }
-
-  // Suggestion
-  if (errorInfo.suggestion) {
-    console.error();
-    console.error(prism.yellow('💡 Suggestion:'));
-    console.error(prism.yellow(`   ${errorInfo.suggestion}`));
-  }
-
-  // Documentation link
-  if (errorInfo.documentation) {
-    console.error();
-    console.error(prism.blue('📚 Documentation:'));
-    console.error(prism.blue(`   ${errorInfo.documentation}`));
-  }
-
-  // Stack trace in verbose mode
-  if (options.verbose && errorInfo.stack) {
-    console.error();
-    console.error(prism.gray('Stack trace:'));
-    console.error(prism.gray(errorInfo.stack));
-  }
-
-  // Debug information
-  if (options.verbose) {
-    console.error();
-    console.error(prism.gray('Debug information:'));
-    console.error(prism.gray(`  Time: ${errorInfo.timestamp}`));
-    console.error(prism.gray(`  Type: ${errorInfo.type}`));
-    if (errorInfo.path) {
-      console.error(prism.gray(`  Path: ${errorInfo.path}`));
-    }
-    if (errorInfo.syscall) {
-      console.error(prism.gray(`  Syscall: ${errorInfo.syscall}`));
-    }
   }
 }
 

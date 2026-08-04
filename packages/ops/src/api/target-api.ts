@@ -302,9 +302,12 @@ export class TargetAPI {
       source: 'created'
     };
     
-    // Validate target can be created
+    // Validate the target can be created, then release it again. Keeping the
+    // engine was pointless — nothing here returns it — and it holds an adapter
+    // with its connection pool, so every create() leaked one.
     const engine = await createTargetEngine(target);
-    
+    await engine.dispose?.();
+
     return target;
   }
 

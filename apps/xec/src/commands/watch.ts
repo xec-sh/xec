@@ -301,7 +301,6 @@ export class WatchCommand extends ConfigAwareCommand {
     paths: string[],
     options: WatchOptions
   ): Promise<WatchSession> {
-    const config = target.config as any;
     const sshEngine = await this.createTargetEngine(target);
 
     // Use inotifywait or similar on remote system

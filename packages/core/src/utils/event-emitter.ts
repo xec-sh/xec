@@ -112,7 +112,7 @@ export class EnhancedEventEmitter extends (EventEmitter as new () => TypedEventE
       const eventStr = String(event);
       
       // Check if any wildcard patterns match this event
-      for (const [pattern, listeners] of this.wildcardListeners.entries()) {
+      for (const pattern of this.wildcardListeners.keys()) {
         const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
         if (regex.test(eventStr) && !this.hasWildcardListenerSetup(eventStr, pattern)) {
           this.markWildcardListenerSetup(eventStr, pattern);

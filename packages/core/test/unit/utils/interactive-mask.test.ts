@@ -1,4 +1,4 @@
-import { PassThrough, Writable } from 'node:stream';
+import { Writable, PassThrough } from 'node:stream';
 
 import { InteractiveSession } from '../../../src/utils/interactive.js';
 

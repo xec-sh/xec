@@ -426,7 +426,6 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private formatYamlWithDefaults(obj: any, userConfig: any, path: string, indent: number = 0): string {
-    const defaults = getDefaultConfig();
     let result = '';
     const indentStr = '  '.repeat(indent);
 

@@ -161,7 +161,7 @@ export class ResultCache {
       return new RegExp(`^${regexPattern}$`);
     });
     
-    for (const [key, cached] of this.cache.entries()) {
+    for (const key of this.cache.keys()) {
       if (regexes.some(regex => regex.test(key))) {
         this.cache.delete(key);
       }

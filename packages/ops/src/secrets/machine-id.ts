@@ -103,7 +103,7 @@ export async function getMachineId(): Promise<string> {
         const interfaces = os.networkInterfaces();
         const macs: string[] = [];
         
-        for (const [name, ifaces] of Object.entries(interfaces)) {
+        for (const ifaces of Object.values(interfaces)) {
           for (const iface of ifaces || []) {
             if (iface.mac && iface.mac !== '00:00:00:00:00:00') {
               macs.push(iface.mac);
