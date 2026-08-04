@@ -85,6 +85,8 @@ const config: Config = {
 
   themes: ['@docusaurus/theme-mermaid'],
 
+  clientModules: [require.resolve('./src/theme/MermaidViewer.js')],
+
   plugins: [
     [
       '@docusaurus/plugin-ideal-image',
@@ -264,6 +266,33 @@ const config: Config = {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
       additionalLanguages: ['bash', 'json', 'yaml', 'typescript', 'javascript', 'diff'],
+    },
+
+    mermaid: {
+      // Follows the site's light/dark toggle rather than picking one and
+      // leaving half the readers with a diagram that fights the page.
+      theme: { light: 'neutral', dark: 'dark' },
+      options: {
+        flowchart: {
+          curve: 'basis',
+          padding: 15,
+          nodeSpacing: 50,
+          rankSpacing: 55,
+          defaultRenderer: 'dagre-wrapper',
+          htmlLabels: true,
+        },
+        sequence: {
+          actorMargin: 40,
+          boxMargin: 10,
+          mirrorActors: false,
+        },
+        themeVariables: {
+          nodeBorder: '1px',
+          clusterBorder: '1px',
+          fontFamily: 'var(--ifm-font-family-base)',
+          fontSize: '14px',
+        },
+      },
     },
 
     // Search configuration

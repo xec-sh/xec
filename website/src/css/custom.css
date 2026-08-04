@@ -133,3 +133,119 @@ div[class^='announcementBar_'] {
   font-weight: 500;
   border-bottom: 1px solid var(--xec-border);
 }
+
+/* ---------------------------------------------------------------- Mermaid */
+
+/* An architecture diagram is usually wider than the column it sits in, so the
+   page shrinks it until the labels are unreadable. Clicking opens it full
+   screen; these styles set that up. */
+
+.docusaurus-mermaid-container,
+.mermaid {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 1.75rem 0;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-expand-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--xec-border);
+  border-radius: 8px;
+  background: var(--xec-surface-raised);
+  color: var(--xec-text-muted);
+  cursor: pointer;
+  /* Hidden until wanted: an always-visible control competes with the diagram
+     it is meant to serve. */
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.docusaurus-mermaid-container:hover .mermaid-expand-button,
+.mermaid:hover .mermaid-expand-button,
+.mermaid-expand-button:focus-visible {
+  opacity: 1;
+}
+
+.mermaid-expand-button:hover {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: #fff;
+}
+
+/* Touch devices have no hover, so the control would never appear. */
+@media (hover: none) {
+  .mermaid-expand-button {
+    opacity: 1;
+  }
+}
+
+.mermaid-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(9, 9, 14, 0.9);
+  user-select: none;
+}
+
+.mermaid-fullscreen-stage {
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.mermaid-fullscreen-svg {
+  background: var(--xec-surface-raised);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.mermaid-fullscreen-toolbar {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mermaid-toolbar-button {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: 1px solid var(--xec-border);
+  border-radius: 8px;
+  background: var(--xec-surface-raised);
+  color: var(--xec-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mermaid-toolbar-button:hover {
+  background: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  color: #fff;
+}
+
+.mermaid-toolbar-close:hover {
+  background: #d64545;
+  border-color: #d64545;
+}
