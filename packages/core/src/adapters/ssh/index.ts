@@ -7,13 +7,13 @@ import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
 import { SSHKeyValidator } from './ssh-key-validator.js';
-import { quoteForShell, validateEnvName as validateEnvNameShared } from '../../utils/shell-escape.js';
 import { SecurePasswordHandler } from './secure-password.js';
 import { classifyFailure } from '../../core/failure-kind.js';
 import { Command, SSHAdapterOptions } from '../../types/command.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { NodeSSH, Config as SSH2Config, SSHExecCommandResponse } from './ssh.js';
 import { AdapterError, TimeoutError, ConnectionError } from '../../core/error.js';
+import { quoteForShell, validateEnvName as validateEnvNameShared } from '../../utils/shell-escape.js';
 import { PooledConnectionMetrics, ConnectionPoolMetricsCollector } from './connection-pool-metrics.js';
 
 export interface SSHConnectionPoolOptions {

@@ -8,8 +8,8 @@ import { StreamHandler } from '../../utils/stream.js';
 import { RuntimeDetector } from './runtime-detect.js';
 import { ExecutionResult } from '../../core/result.js';
 import { resolveExitCode } from '../../core/failure-kind.js';
-import { CommandError, AdapterError, MaxBufferExceededError } from '../../core/error.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
+import { CommandError, AdapterError, MaxBufferExceededError } from '../../core/error.js';
 
 export interface LocalAdapterConfig extends BaseAdapterConfig {
   preferBun?: boolean;

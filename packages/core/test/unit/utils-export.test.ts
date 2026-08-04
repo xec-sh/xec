@@ -290,10 +290,8 @@ describe('Utility Exports', () => {
     });
     
     it('should test parallel execution with error handling', async () => {
-      let callCount = 0;
       const mockEngine = {
         execute: vi.fn((cmd: any) => {
-          callCount++;
           if (cmd.command === 'echo 2') {
             return Promise.reject(new Error('Command failed'));
           }
@@ -347,11 +345,9 @@ describe('Utility Exports', () => {
     });
     
     it('should test retry with non-retryable errors', async () => {
-      let attempts = 0;
-      const testFunction = vi.fn(async () => {
-        attempts++;
-        return { exitCode: 255, stdout: '', stderr: 'Fatal error', command: 'test' } as any;
-      });
+      const testFunction = vi.fn(
+        async () => ({ exitCode: 255, stdout: '', stderr: 'Fatal error', command: 'test' }) as any
+      );
       
       await expect(retry(testFunction, {
         maxRetries: 3,
