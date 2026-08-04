@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/cli",
-  "description": "Xec: The Universal Shell for TypeScript",
+  "description": "CLI for running commands, scripts, and tasks on local, SSH, Docker, and Kubernetes targets",
   "version": "0.9.0",
   "author": "LuxQuant",
   "type": "module",

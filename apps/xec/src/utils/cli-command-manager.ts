@@ -11,6 +11,8 @@ import { fileURLToPath } from 'url';
 import { Command } from 'commander';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
+import { COMMAND_MANIFEST } from './command-manifest.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -146,38 +148,28 @@ export class CliCommandManager {
   }
 
   /**
-   * Discover built-in commands
+   * Discover built-in commands.
+   *
+   * Read from the manifest rather than from disk. The previous version listed
+   * the directory and then imported every file to read its description —
+   * which is exactly what the manifest exists to avoid, since each command
+   * module statically imports `@xec-sh/ops` and brings the config and secrets
+   * layers with it. `xec --version` was loading a bundler.
+   *
+   * The manifest cannot drift: `command-manifest.test.ts` loads every module
+   * for real and fails if the two disagree.
    */
   private async discoverBuiltInCommands(): Promise<CliCommand[]> {
     const commandsDir = path.join(__dirname, '../commands');
-    const commands: CliCommand[] = [];
 
-    if (!await pathExists(commandsDir)) {
-      return commands;
-    }
-
-    const files = await fs.readdir(commandsDir);
-
-    for (const file of files) {
-      if (!file.endsWith('.js') && !file.endsWith('.ts')) continue;
-      if (file.endsWith('.d.ts')) continue;
-
-      const basename = path.basename(file, path.extname(file));
-      if (basename.includes('.test') || basename.includes('.spec')) continue;
-
-      const filePath = path.join(commandsDir, file);
-      const metadata = await this.extractCommandMetadata(filePath, basename);
-
-      commands.push({
-        name: basename,
-        type: 'built-in',
-        path: filePath,
-        loaded: true,
-        ...metadata
-      });
-    }
-
-    return commands;
+    return COMMAND_MANIFEST.map(entry => ({
+      name: entry.name,
+      type: 'built-in' as const,
+      path: path.join(commandsDir, `${entry.module}.js`),
+      loaded: true,
+      description: entry.description,
+      aliases: entry.aliases,
+    }));
   }
 
   /**
@@ -256,19 +248,37 @@ export class CliCommandManager {
       logger.info(`Loading ${dynamicCommands.length} dynamic commands`);
     }
 
+    // Register a stub per command and load the real one only when it is
+    // invoked. Loading them all up front meant every `xec --help` transformed
+    // and executed every `.xec/commands/*.ts` in the project — the script
+    // loader, esbuild and whatever the command imports at module scope, to
+    // print one line of description each.
     for (const cmd of dynamicCommands) {
-      const result = await (await this.getLoader()).loadDynamicCommand(
-        cmd.path,
-        program,
-        cmd.name
-      );
+      const stub = program
+        .command(cmd.name)
+        .description(cmd.description ?? '')
+        .allowUnknownOption()
+        .allowExcessArguments();
 
-      if (result.success) {
-        cmd.loaded = true;
-      } else {
-        cmd.loaded = false;
-        cmd.error = result.error;
+      for (const alias of cmd.aliases ?? []) {
+        stub.alias(alias);
       }
+
+      stub.action(async () => {
+        // A fresh program, so the real command registers its own options and
+        // arguments over the stub's permissive ones.
+        const fresh = new Command();
+        const result = await (await this.getLoader()).loadDynamicCommand(cmd.path, fresh, cmd.name);
+
+        if (!result.success) {
+          cmd.loaded = false;
+          cmd.error = result.error;
+          throw new Error(`Failed to load command '${cmd.name}': ${result.error}`);
+        }
+
+        cmd.loaded = true;
+        await fresh.parseAsync(process.argv);
+      });
     }
 
     this.reportLoadingSummary();
@@ -295,39 +305,14 @@ export class CliCommandManager {
     filePath: string,
     commandName: string
   ): Promise<{ description?: string; aliases?: string[]; usage?: string }> {
-    try {
-      // Try to load the module
-      const module = await import(fileURLToPath(new URL(`file://${filePath}`, import.meta.url)));
-
-      if (module.metadata) {
-        return module.metadata;
-      }
-
-      // Try to extract from temporary command
-      if (module.default || module.command) {
-        const program = new Command();
-        const commandFn = module.default || module.command;
-
-        if (typeof commandFn === 'function') {
-          commandFn(program);
-
-          if (program.commands.length > 0) {
-            const cmd = program.commands[0];
-            if (cmd) {
-              return {
-                description: cmd.description(),
-                aliases: cmd.aliases(),
-                usage: cmd.usage()
-              };
-            }
-          }
-        }
-      }
-    } catch {
-      // Fall back to content parsing
-    }
-
-    // Parse from file content
+    // Read the description out of the file rather than importing it.
+    //
+    // Discovery only needs a name and a line of text, but importing a
+    // command runs it: a TypeScript one has to go through the transformer,
+    // which pulls in esbuild, and any of them may import the ops layer at
+    // module scope. That was paid on every invocation — `xec --help` in a
+    // project with one `.xec/commands/*.ts` file loaded a bundler to print a
+    // sentence. The module is imported when the command is actually invoked.
     try {
       const content = await fs.readFile(filePath, 'utf-8');
       const description = this.parseDescription(content, commandName);

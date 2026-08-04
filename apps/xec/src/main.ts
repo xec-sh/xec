@@ -161,6 +161,17 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
   // Module loader is initialized lazily when needed by commands
 
+  // `--version` prints a string from package.json and needs no command to be
+  // registered. Falling through to loadCommands() made it discover — and, for
+  // any project with a .xec/commands directory, transform and execute — every
+  // dynamic command first, which pulls in the script loader and esbuild.
+  const flags = argv.slice(2);
+  if (flags.length === 1 && (flags[0] === '--version' || flags[0] === '-V')) {
+    program.outputHelp = () => '';
+    process.stdout.write(`${program.version()}\n`);
+    return;
+  }
+
   // Load all commands first (built-in and dynamic) BEFORE processing arguments
   // The first non-flag argument tells us which command to actually load.
   const requestedCommand = argv.slice(2).find(arg => !arg.startsWith('-'));

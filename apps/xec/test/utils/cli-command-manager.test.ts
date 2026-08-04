@@ -127,16 +127,21 @@ describe('CliCommandManager', () => {
       expect(commandNames).toContain('subdir:nested');
     });
 
-    it('should handle invalid command files', async () => {
+    it('registers an invalid command file and reports the error when it is run', async () => {
+      // Commands are loaded when invoked, not when discovered: importing every
+      // `.xec/commands/*.ts` up front made `xec --help` transform and execute
+      // all of them, which is what a manifest and lazy registration exist to
+      // avoid. The cost is that a broken file is no longer reported at
+      // startup — it is reported when someone tries to use it, which is when
+      // it matters.
       manager.addCommandDirectory(fixturesDir);
 
       await manager.discoverAndLoad(program);
 
-      const failedCommands = manager.getFailedCommands();
-      const failedNames = failedCommands.map(cmd => cmd.name);
+      const invalid = program.commands.find(cmd => cmd.name() === 'invalid');
+      expect(invalid, 'a file that cannot load is still offered').toBeDefined();
 
-      expect(failedNames).toContain('invalid');
-      expect(failedCommands.find(cmd => cmd.name === 'invalid')?.error).toContain('must export');
+      await expect(invalid!.parseAsync(['node', 'xec', 'invalid'])).rejects.toThrow(/invalid/);
     });
 
     it('should skip hidden files and test files', async () => {

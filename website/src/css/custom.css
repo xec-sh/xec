@@ -122,9 +122,35 @@ h3 {
   letter-spacing: -0.02em;
 }
 
+/* The footer is declared `style: 'dark'`, which gives Docusaurus' dark palette
+   light text — but the background below is the site's own surface token, which
+   in the light theme is nearly white. Light on light: the footer was
+   unreadable. Every colour is taken from the same tokens as the rest of the
+   page, so it follows the theme in both directions. */
 .footer {
   border-top: 1px solid var(--xec-border);
   --ifm-footer-background-color: var(--xec-surface-raised);
+  --ifm-footer-color: var(--xec-text-muted);
+  --ifm-footer-title-color: var(--xec-text);
+  --ifm-footer-link-color: var(--xec-text-muted);
+  --ifm-footer-link-hover-color: var(--ifm-color-primary);
+  color: var(--xec-text-muted);
+}
+
+.footer__title {
+  color: var(--xec-text);
+}
+
+.footer__link-item {
+  color: var(--xec-text-muted);
+}
+
+.footer__link-item:hover {
+  color: var(--ifm-color-primary);
+}
+
+.footer__copyright {
+  color: var(--xec-text-muted);
 }
 
 /* Docusaurus renders the announcement bar full-bleed; keep it quiet so it

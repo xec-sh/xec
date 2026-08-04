@@ -159,13 +159,6 @@ const config: Config = {
     },
 
     // Announcement bar
-    announcementBar: {
-      id: 'alpha_version',
-      content: '🚧 Xec is currently in alpha. APIs may change.',
-      backgroundColor: '#3F2B9C',
-      textColor: '#E0D9FF',
-      isCloseable: true,
-    },
 
     // Meta tags
     metadata: [
