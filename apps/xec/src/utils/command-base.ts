@@ -104,9 +104,17 @@ export abstract class BaseCommand {
     // Set up action handler
     command.action(async (...args) => {
       try {
-        const options = args[args.length - 1];
-        // Get verbose and quiet from parent command
-        const parentOptions = options.parent?.opts() || {};
+        // Commander calls an action as (...positionalArgs, options, command).
+        // Reading the last element as the options object picked up the
+        // Command instance instead, and left the real options sitting in the
+        // positional list — so `xec on host uptime` built the command
+        // "uptime [object Object]". Both are taken from their true positions
+        // here, and execute() receives the shape it has always assumed:
+        // positional arguments followed by options.
+        const invokedCommand = args[args.length - 1];
+        const options = args.length > 1 ? args[args.length - 2] : {};
+        const positionalArgs = args.slice(0, -2);
+        const parentOptions = invokedCommand?.parent?.opts?.() || {};
 
         // Extract command-specific options, excluding commander internals
         const commandOptions: any = {};
@@ -139,7 +147,7 @@ export abstract class BaseCommand {
         this.formatter.setVerbose(this.options.verbose || false);
 
         // Execute command
-        await this.execute(args);
+        await this.execute([...positionalArgs, this.options]);
       } catch (error) {
         handleError(error, this.options);
       }

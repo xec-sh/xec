@@ -39,6 +39,38 @@ interface LogStream {
   cleanup?: () => Promise<void>;
 }
 
+
+/**
+ * Read the timestamp a log line begins with.
+ *
+ * Covers the formats these targets actually emit: ISO-8601 as written by
+ * Docker and kubectl `--timestamps`, and the classic syslog form used by
+ * /var/log on most distributions. Syslog omits the year, so the current year
+ * is assumed — which is right except across a New Year boundary, where the
+ * ordering of a few lines may be off rather than the merge failing.
+ *
+ * @param line - A single log line.
+ * @returns Milliseconds since the epoch, or `null` when no timestamp is found.
+ */
+function parseLogTimestamp(line: string): number | null {
+  const iso = line.match(/^\s*(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/);
+
+  if (iso?.[1]) {
+    const at = Date.parse(iso[1].replace(' ', 'T'));
+    if (!Number.isNaN(at)) return at;
+  }
+
+  // Syslog: "Aug  4 09:12:33"
+  const syslog = line.match(/^\s*([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})/);
+
+  if (syslog?.[1]) {
+    const at = Date.parse(`${syslog[1]} ${new Date().getFullYear()}`);
+    if (!Number.isNaN(at)) return at;
+  }
+
+  return null;
+}
+
 export class LogsCommand extends ConfigAwareCommand {
   private streams: Map<string, LogStream> = new Map();
   private running = true;
@@ -347,9 +379,8 @@ export class LogsCommand extends ConfigAwareCommand {
     options: LogsOptions
   ): Promise<void> {
     if (options.aggregate) {
-      this.log('Aggregating logs from multiple targets...', 'info');
-      // TODO: Implement log aggregation with proper time sorting
-      throw new Error('Log aggregation is not yet implemented');
+      await this.aggregateLogs(targets, logPath, options);
+      return;
     }
 
     // Parallel viewing with prefixes
@@ -402,6 +433,76 @@ export class LogsCommand extends ConfigAwareCommand {
           this.displayLogs(logs, target, { ...options, prefix: true });
         }
       }
+    }
+  }
+
+  /**
+   * Collect logs from several targets and interleave them in time order.
+   *
+   * Viewing targets in parallel prefixes each line but leaves the streams
+   * interleaved by arrival, which is useless for correlating an incident
+   * across machines. This merges them on the timestamp each line carries.
+   *
+   * Lines without a recognisable timestamp keep their position relative to
+   * the last timestamped line from the same target, so a stack trace stays
+   * attached to the message that introduced it.
+   */
+  private async aggregateLogs(
+    targets: ResolvedTarget[],
+    logPath: string | undefined,
+    options: LogsOptions
+  ): Promise<void> {
+    this.log(`Aggregating logs from ${targets.length} targets...`, 'info');
+
+    const collected = await Promise.all(
+      targets.map(async (target) => {
+        try {
+          const logCommand = await this.buildLogCommand(target, logPath, options);
+          const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
+          const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
+          const result = await engine.raw`${logCommand}`;
+
+          return { target, output: result.stdout, error: null as unknown };
+        } catch (error) {
+          return { target, output: '', error };
+        }
+      })
+    );
+
+    const entries: Array<{ target: ResolvedTarget; line: string; at: number; seq: number }> = [];
+    let sequence = 0;
+
+    for (const { target, output, error } of collected) {
+      if (error) {
+        this.log(`${prism.red('✗')} ${this.formatTargetDisplay(target)}: ${error}`, 'error');
+        continue;
+      }
+
+      // Undated lines inherit the timestamp of the line above them so that
+      // multi-line records are not scattered across the merged output.
+      let carried = 0;
+
+      for (const line of output.split('\n')) {
+        if (line.length === 0) continue;
+
+        const parsed = parseLogTimestamp(line);
+        if (parsed !== null) carried = parsed;
+
+        entries.push({ target, line, at: carried, seq: sequence++ });
+      }
+    }
+
+    // Undated leading lines sort to the front; `seq` keeps the merge stable so
+    // that equal timestamps preserve each target's original order.
+    entries.sort((a, b) => (a.at === b.at ? a.seq - b.seq : a.at - b.at));
+
+    for (const entry of entries) {
+      const prefix = prism.dim(`[${this.formatTargetDisplay(entry.target)}]`);
+      console.log(`${prefix} ${entry.line}`);
+    }
+
+    if (entries.length === 0) {
+      this.log('No log entries found.', 'info');
     }
   }
 
