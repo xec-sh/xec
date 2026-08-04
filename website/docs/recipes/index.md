@@ -137,7 +137,7 @@ await Promise.all(
 // Use Result pattern for safe execution
 const result = await $`command`.nothrow();
 if (!result.ok) {
-  console.error(`Failed: ${result.error.message}`);
+  console.error(`Failed: ${result.cause}`);
 }
 ```
 

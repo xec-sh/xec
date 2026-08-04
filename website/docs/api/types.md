@@ -3,11 +3,13 @@ title: Type Definitions
 description: TypeScript type definitions for Xec core library
 keywords: [types, typescript, interfaces, definitions]
 source_files:
-  - packages/core/src/types/index.ts
-  - packages/core/src/types/target.ts
+  - packages/core/src/types/command.ts
   - packages/core/src/types/result.ts
-  - packages/core/src/types/options.ts
-verification_date: 2025-08-03
+  - packages/core/src/types/process.ts
+  - packages/core/src/types/execution.ts
+  - packages/core/src/types/events.ts
+  - packages/core/src/core/failure-kind.ts
+verification_date: 2026-08-04
 ---
 
 # Type Definitions
@@ -15,715 +17,376 @@ verification_date: 2025-08-03
 ## Implementation Reference
 
 **Source Files:**
-- `packages/core/src/types/index.ts` - Main type exports
-- `packages/core/src/types/target.ts` - Target type definitions
-- `packages/core/src/types/result.ts` - Result type definitions
-- `packages/core/src/types/options.ts` - Options type definitions
-- `packages/core/src/types/config.ts` - Configuration types
+- `packages/core/src/types/command.ts` - `Command` and adapter option types
+- `packages/core/src/types/result.ts` - `ExecutionResult`
+- `packages/core/src/types/process.ts` - `ProcessPromise`, `ProcessHandle`
+- `packages/core/src/types/execution.ts` - `ExecutionEngineConfig`
+- `packages/core/src/types/events.ts` - Event types
+- `packages/core/src/core/failure-kind.ts` - `FailureKind`
+
+There is no generic `Target` base type, and no `SSHTarget`/`DockerTarget`/`KubernetesTarget`/`LocalTarget`
+hierarchy — those names do not appear anywhere in `@xec-sh/core`. Each
+adapter has its own options type instead, distinguished by a `type` literal.
 
 ## Core Types
 
-### Target Types
+### Adapter Option Types
 
-#### Target
-
-Base target interface for all execution targets.
+#### SSHAdapterOptions
 
 ```typescript
-interface Target {
-  type: 'local' | 'ssh' | 'docker' | 'kubernetes';
-  name?: string;
-  description?: string;
-}
-```
-
-#### LocalTarget
-
-Local execution target.
-
-```typescript
-interface LocalTarget extends Target {
-  type: 'local';
-  shell?: string;
-  cwd?: string;
-  env?: Record<string, string>;
-}
-```
-
-#### SSHTarget
-
-SSH remote execution target.
-
-```typescript
-interface SSHTarget extends Target {
+interface SSHAdapterOptions {
   type: 'ssh';
   host: string;
+  username: string;         // not `user`
   port?: number;
-  user?: string;
-  password?: string;
   privateKey?: string | Buffer;
   passphrase?: string;
-  agentForward?: boolean;
-  strictHostKeyChecking?: boolean;
-  knownHosts?: string;
-  timeout?: number;
-  keepaliveInterval?: number;
-  keepaliveCountMax?: number;
-  readyTimeout?: number;
-  compress?: boolean;
-  algorithms?: {
-    kex?: string[];
-    cipher?: string[];
-    serverHostKey?: string[];
-    hmac?: string[];
+  password?: string;
+  hostKeyChecking?: 'accept-new' | 'strict' | 'off'; // default: 'accept-new'
+  knownHostsPath?: string;
+  sudo?: {
+    enabled: boolean;
+    password?: string;
+    user?: string;
+    passwordMethod?: 'stdin' | 'askpass' | 'echo' | 'secure';
+    secureHandler?: SecurePasswordHandler;
   };
 }
 ```
 
-#### DockerTarget
-
-Docker container execution target.
+#### DockerAdapterOptions
 
 ```typescript
-interface DockerTarget extends Target {
+interface DockerAdapterOptions {
   type: 'docker';
   container: string;
-  image?: string;
   user?: string;
-  workingDir?: string;
-  env?: Record<string, string>;
-  privileged?: boolean;
-  network?: string;
-  volumes?: string[];
-  ports?: string[];
-  detach?: boolean;
-  remove?: boolean;
+  workdir?: string;          // not `workingDir`
   tty?: boolean;
-  interactive?: boolean;
+  runMode?: 'exec' | 'run';
+  image?: string;
+  volumes?: string[];
+  autoRemove?: boolean;
 }
 ```
 
-#### KubernetesTarget
-
-Kubernetes pod execution target.
+#### KubernetesAdapterOptions
 
 ```typescript
-interface KubernetesTarget extends Target {
+interface KubernetesAdapterOptions {
   type: 'kubernetes';
   pod: string;
   container?: string;
   namespace?: string;
-  context?: string;
+  execFlags?: string[];
+  tty?: boolean;
+  stdin?: boolean;
+  context?: string;      // which cluster — defaults to the ambient kubeconfig context otherwise
   kubeconfig?: string;
-  labels?: Record<string, string>;
-  annotations?: Record<string, string>;
-  serviceAccount?: string;
 }
 ```
+
+#### LocalAdapterOptions
+
+```typescript
+interface LocalAdapterOptions {
+  type: 'local';
+}
+```
+
+These four are combined as `AdapterSpecificOptions` internally (not itself
+exported by name) and set on a `Command` via `adapter`/`adapterOptions` —
+though in practice you reach them through `$.ssh(...)`, `$.docker(...)`,
+`$.k8s(...)`, `$.local()` rather than building a `Command` by hand.
 
 ### Execution Types
 
-#### ExecutionOptions
+#### Command
 
-Options for command execution.
+The full shape accepted by `$.execute()` and built internally by every
+other execution method.
 
 ```typescript
-interface ExecutionOptions {
-  // Working directory
+interface Command {
+  command: string;
+  args?: string[];
+
   cwd?: string;
-  
-  // Environment variables
-  env?: Record<string, string | undefined>;
-  
-  // Shell configuration
-  shell?: string | boolean;
-  
-  // Timeout in milliseconds
-  timeout?: number;
-  
-  // Maximum buffer size for stdout/stderr
-  maxBuffer?: number;
-  
-  // Encoding for output
-  encoding?: BufferEncoding;
-  
-  // Abort signal for cancellation
-  signal?: AbortSignal;
-  
-  // Input stream or data
+  env?: Record<string, string>;
+  timeout?: number | string;      // ms, or a duration string like '30s'
+  timeoutSignal?: string;
+  maxBuffer?: number;             // cap on captured output, in bytes
+  throwOnNonZeroExit?: boolean;   // `.nothrow()` sets this to false
+
   stdin?: string | Buffer | Readable;
-  
-  // Output streams
-  stdout?: Writable;
-  stderr?: Writable;
-  
-  // Behavior flags
-  quiet?: boolean;
-  verbose?: boolean;
+  stdout?: StreamOption;          // 'pipe' | 'ignore' | 'inherit' | Writable
+  stderr?: StreamOption;
+
+  shell?: string | boolean;
+  detached?: boolean;
+  signal?: AbortSignal;
   nothrow?: boolean;
-  
-  // Process options
-  uid?: number;
-  gid?: number;
-  windowsHide?: boolean;
-  killSignal?: string | number;
+
+  onSpawn?: (handle: ProcessHandle) => void;
+  callSite?: { stack?: string } | null;
+
+  retry?: RetryOptions;
+  progress?: {
+    enabled?: boolean;
+    onProgress?: (event: any) => void;
+    updateInterval?: number;
+    reportLines?: boolean;
+  };
+
+  adapter?: AdapterType;  // 'local' | 'ssh' | 'docker' | 'kubernetes' | 'auto' | 'mock'
+  adapterOptions?: SSHAdapterOptions | DockerAdapterOptions | KubernetesAdapterOptions | LocalAdapterOptions;
 }
 ```
+
+There is no `ExecutionOptions` type, and no `uid`/`gid`/`windowsHide`/`killSignal`
+fields.
 
 #### ExecutionResult
 
-Result of command execution.
+What an awaited `ProcessPromise` (or `execute()`) resolves to:
 
 ```typescript
 interface ExecutionResult {
-  // Output
   stdout: string;
   stderr: string;
-  
-  // Exit status
+  stdall: string;         // stdout and stderr merged in arrival order
   exitCode: number;
   signal?: string;
-  
-  // Success indicator
-  ok: boolean;
-  
-  // Metadata
+  ok: boolean;            // exitCode === 0 && !signal
+  cause?: string;          // set when !ok
+
   command: string;
   duration: number;
-  target?: Target;
-  
-  // Original options
-  options?: ExecutionOptions;
+  startedAt: Date;
+  finishedAt: Date;
+
+  adapter: string;
+  host?: string;           // set for SSH
+  container?: string;      // set for Docker/Kubernetes
+
+  toMetadata(): object;
+  throwIfFailed(): void;
+  text(): string;
+  json<T = any>(): T;
+  lines(): string[];
+  buffer(): Buffer;        // exact original bytes — binary-safe
 }
 ```
+
+There is no `target`/`options` field on the real interface.
 
 #### ProcessOutput
 
-Extended output with additional properties.
-
-```typescript
-interface ProcessOutput extends ExecutionResult {
-  // Additional stream data
-  combined?: string;
-  
-  // Parsed data
-  lines?: string[];
-  json?: any;
-  
-  // Process info
-  pid?: number;
-  killed?: boolean;
-}
-```
-
-### Configuration Types
-
-#### Config
-
-Main configuration interface.
-
-```typescript
-interface Config {
-  // Project metadata
-  name?: string;
-  description?: string;
-  version?: string;
-  
-  // Targets
-  targets?: {
-    hosts?: Record<string, SSHTarget>;
-    containers?: Record<string, DockerTarget>;
-    pods?: Record<string, KubernetesTarget>;
-    groups?: Record<string, string[]>;
-  };
-  
-  // Tasks
-  tasks?: Record<string, Task>;
-  
-  // Variables
-  variables?: Record<string, any>;
-  
-  // Defaults
-  defaults?: {
-    shell?: string;
-    timeout?: number;
-    cwd?: string;
-    env?: Record<string, string>;
-    ssh?: Partial<SSHTarget>;
-    docker?: Partial<DockerTarget>;
-    kubernetes?: Partial<KubernetesTarget>;
-  };
-  
-  // Commands configuration
-  commands?: Record<string, CommandConfig>;
-  
-  // Aliases
-  aliases?: Record<string, string>;
-  
-  // Scripts configuration
-  scripts?: {
-    env?: Record<string, string>;
-    globals?: string[];
-    runtime?: 'auto' | 'node' | 'bun' | 'deno';
-  };
-}
-```
-
-#### Task
-
-Task definition.
-
-```typescript
-interface Task {
-  // Basic info
-  name?: string;
-  description?: string;
-  
-  // Execution
-  command?: string;
-  script?: string;
-  steps?: TaskStep[];
-  
-  // Parameters
-  params?: TaskParameter[];
-  
-  // Target selection
-  targets?: string | string[];
-  parallel?: boolean;
-  
-  // Options
-  timeout?: number;
-  cwd?: string;
-  env?: Record<string, string>;
-  
-  // Conditions
-  condition?: string;
-  continueOnError?: boolean;
-  
-  // Dependencies
-  depends?: string[];
-  
-  // Hooks
-  before?: string | string[];
-  after?: string | string[];
-  onError?: string | string[];
-}
-```
-
-#### TaskStep
-
-Individual step in a multi-step task.
-
-```typescript
-interface TaskStep {
-  name: string;
-  command?: string;
-  script?: string;
-  targets?: string | string[];
-  condition?: string;
-  continueOnError?: boolean;
-  timeout?: number;
-  env?: Record<string, string>;
-}
-```
-
-#### TaskParameter
-
-Task parameter definition.
-
-```typescript
-interface TaskParameter {
-  name: string;
-  description?: string;
-  type?: 'string' | 'number' | 'boolean' | 'array' | 'object';
-  required?: boolean;
-  default?: any;
-  values?: any[];
-  pattern?: string;
-  min?: number;
-  max?: number;
-}
-```
-
-### Connection Types
-
-#### ConnectionPool
-
-SSH connection pool configuration.
-
-```typescript
-interface ConnectionPoolConfig {
-  // Pool size
-  max?: number;
-  min?: number;
-  
-  // Timeouts
-  acquireTimeoutMillis?: number;
-  createTimeoutMillis?: number;
-  destroyTimeoutMillis?: number;
-  idleTimeoutMillis?: number;
-  reapIntervalMillis?: number;
-  
-  // Behavior
-  createRetryIntervalMillis?: number;
-  propagateCreateError?: boolean;
-  
-  // Validation
-  testOnBorrow?: boolean;
-  testOnReturn?: boolean;
-  testWhileIdle?: boolean;
-  
-  // Eviction
-  evictionRunIntervalMillis?: number;
-  numTestsPerEvictionRun?: number;
-  softIdleTimeoutMillis?: number;
-}
-```
-
-#### SSHConnection
-
-Active SSH connection.
-
-```typescript
-interface SSHConnection {
-  // Connection state
-  connected: boolean;
-  ready: boolean;
-  
-  // Execute command
-  exec(command: string, options?: ExecOptions): Promise<ExecutionResult>;
-  
-  // File operations
-  uploadFile(localPath: string, remotePath: string): Promise<void>;
-  downloadFile(remotePath: string, localPath: string): Promise<void>;
-  
-  // Port forwarding
-  forwardPort(localPort: number, remoteHost: string, remotePort: number): Promise<void>;
-  reverseForward(remotePort: number, localHost: string, localPort: number): Promise<void>;
-  
-  // Connection management
-  close(): Promise<void>;
-  destroy(): void;
-}
-```
+A `ProcessOutput` class exists in the package's source
+(`packages/core/src/core/process-output.ts`), but it is dead code — nothing
+in the implementation constructs one, and it is not exported. `ExecutionResult`
+is what a command actually resolves to; there is no `ProcessOutput` type to
+import.
 
 ### Error Types
 
-#### XecError
-
-Base error class for all Xec errors.
+There is no `XecError`, `ValidationError` or `ConfigurationError` — those
+names don't exist. Every real error extends `ExecutionError` directly:
 
 ```typescript
-class XecError extends Error {
+class ExecutionError extends Error {
+  readonly kind: FailureKind;
   readonly code: string;
-  readonly details?: any;
-  readonly cause?: Error;
+  readonly details?: Record<string, any>;
+  get recoverable(): boolean;
 }
 ```
 
-#### ExecutionError
+```typescript
+type FailureKind =
+  | 'command-failed'       // ran to completion, exited non-zero
+  | 'timeout'
+  | 'connection-lost'      // recoverable
+  | 'connection-refused'   // recoverable
+  | 'authentication'
+  | 'not-found'
+  | 'permission-denied'
+  | 'invalid-usage'
+  | 'host-key-mismatch'    // never retry — the peer may be an impostor
+  | 'unknown';
 
-Error thrown when command execution fails.
+function classifyFailure(error: unknown): FailureKind;
+function isRecoverable(kind: FailureKind): boolean; // true only for connection-lost / connection-refused
+```
+
+The concrete subclasses, and the fields each actually adds:
 
 ```typescript
-class ExecutionError extends XecError {
+class CommandError extends ExecutionError {
+  readonly command: string;
   readonly exitCode: number;
-  readonly signal?: string;
+  readonly signal: string | undefined;
   readonly stdout: string;
   readonly stderr: string;
-  readonly command: string;
   readonly duration: number;
-  readonly target?: Target;
+  readonly callSite: string; // where the caller wrote the command, if captured
 }
-```
 
-#### ValidationError
-
-Error thrown for validation failures.
-
-```typescript
-class ValidationError extends XecError {
-  readonly field?: string;
-  readonly value?: any;
-  readonly constraint?: string;
+class ConnectionError extends ExecutionError {
+  readonly host: string;
+  readonly originalError: Error;
 }
-```
 
-#### ConnectionError
-
-Error thrown for connection failures.
-
-```typescript
-class ConnectionError extends XecError {
-  readonly host?: string;
-  readonly port?: number;
-  readonly protocol?: string;
-  readonly attempt?: number;
-}
-```
-
-#### TimeoutError
-
-Error thrown when operation times out.
-
-```typescript
-class TimeoutError extends XecError {
+class TimeoutError extends ExecutionError {
+  readonly command: string;
   readonly timeout: number;
-  readonly operation?: string;
+}
+
+class MaxBufferExceededError extends ExecutionError {
+  readonly limit: number;
+  readonly stream: 'stdout' | 'stderr';
+  partialStdout: string;   // output collected before the cap was hit
+  partialStderr: string;
+}
+
+class RetryError extends Error {
+  readonly attempts: number;
+  readonly lastResult: ExecutionResult;
+  readonly results: ExecutionResult[];
+}
+
+class AdapterError extends ExecutionError {
+  readonly adapter: string;
+  readonly operation: string;
+  readonly originalError?: Error;
+}
+
+class DockerError extends ExecutionError {
+  readonly container: string;
+  readonly operation: string;
+  readonly originalError: Error;
+}
+
+class KubernetesError extends ExecutionError {
+  readonly pod: string;
+  readonly namespace?: string;
+  readonly container?: string;
 }
 ```
 
-#### ConfigurationError
+One adapter inconsistency worth knowing: a `.timeout()` that fires throws a
+genuine `TimeoutError` on the Docker, Kubernetes and SSH adapters (their
+source explicitly re-throws it unwrapped), but on the local adapter it
+currently surfaces as `AdapterError` with the same message instead — verified
+by triggering it directly. `error.kind === 'timeout'` is the one check that
+works the same way on every adapter; `instanceof TimeoutError` is not
+reliable across all of them.
 
-Error thrown for configuration issues.
+`explainExitCode(exitCode: number): string` is the real, exported function
+for turning a bare exit code into a short explanation — there is no
+`ExitCode` enum:
 
 ```typescript
-class ConfigurationError extends XecError {
-  readonly configPath?: string;
-  readonly key?: string;
-}
+explainExitCode(2);   // 'misuse of shell builtins'
+explainExitCode(126); // 'command found but not executable'
+explainExitCode(127); // 'command not found'
+explainExitCode(137); // 'killed — SIGKILL, commonly an out-of-memory kill'
+explainExitCode(143); // 'terminated — SIGTERM, commonly an orchestrator stopping the process'
+explainExitCode(0);   // '' — nothing worth explaining
 ```
+
+Signals are plain `NodeJS.Signals` strings throughout (`kill(signal?: NodeJS.Signals)`,
+`ExecutionResult.signal?: string`) — there is no custom `Signal` enum.
 
 ### Event Types
 
-#### ExecutionEvent
-
-Events emitted during execution.
+Every engine (and the SSH/K8s/Docker contexts, since they delegate to one)
+is a `TypedEventEmitter<UshEventMap>`: `.on(event, listener)`, `.once(...)`,
+`.off(...)`, `.emit(...)`. There is no generic `ExecutionEvent`/`ConnectionEvent`
+pair — each event has its own named, specific shape. All events share a base:
 
 ```typescript
-interface ExecutionEvent {
-  type: 'start' | 'stdout' | 'stderr' | 'end' | 'error';
+interface BaseUshEvent {
   timestamp: Date;
-  command?: string;
-  target?: Target;
-  data?: any;
+  adapter: string;
 }
 ```
 
-#### ConnectionEvent
-
-Events for connection lifecycle.
+A few representative event shapes:
 
 ```typescript
-interface ConnectionEvent {
-  type: 'connecting' | 'connected' | 'disconnecting' | 'disconnected' | 'error';
-  timestamp: Date;
-  target: Target;
-  error?: Error;
+interface CommandStartEvent extends BaseUshEvent {
+  command: string;      // redacted — secrets are masked before this is emitted
+  args?: string[];
+  cwd?: string;
+  shell?: boolean;
+  envKeys?: string[];   // names only, never values
+}
+
+interface CommandCompleteEvent extends BaseUshEvent {
+  command: string;
+  exitCode: number;
+  stdout?: string;
+  stderr?: string;
+  duration: number;
+}
+
+interface CommandErrorEvent extends BaseUshEvent {
+  command: string;
+  error: string;
+  duration: number;
 }
 ```
 
-### Utility Types
-
-#### DeepPartial
-
-Make all properties optional recursively.
-
-```typescript
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
-};
-```
-
-#### ValueOf
-
-Get union of all values in object.
-
-```typescript
-type ValueOf<T> = T[keyof T];
-```
-
-#### Promisable
-
-Value or Promise of value.
-
-```typescript
-type Promisable<T> = T | Promise<T>;
-```
-
-#### Nullable
-
-Value or null/undefined.
-
-```typescript
-type Nullable<T> = T | null | undefined;
-```
+The full set of exported event types: `UshEvent`, `UshEventMap`, `UshEventType`,
+`BaseUshEvent`, `CommandStartEvent`, `CommandCompleteEvent`, `CommandErrorEvent`,
+`CommandRetryEvent`, `RetryAttemptEvent`, `RetrySuccessEvent`, `RetryFailedEvent`,
+`ConnectionOpenEvent`, `ConnectionCloseEvent`, `SSHConnectEvent`, `SSHDisconnectEvent`,
+`SSHReconnectEvent`, `SSHExecuteEvent`, `SSHPoolMetricsEvent`, `DockerRunEvent`,
+`DockerExecEvent`, `K8sExecEvent`, `TransferStartEvent`, `TransferCompleteEvent`,
+`TransferErrorEvent`, `TypedEventEmitter`.
 
 ## Type Guards
 
-### Target Guards
+Only two guard functions are exported, and neither is about targets or
+errors specifically:
 
 ```typescript
-function isSSHTarget(target: Target): target is SSHTarget {
-  return target.type === 'ssh';
-}
-
-function isDockerTarget(target: Target): target is DockerTarget {
-  return target.type === 'docker';
-}
-
-function isKubernetesTarget(target: Target): target is KubernetesTarget {
-  return target.type === 'kubernetes';
-}
-
-function isLocalTarget(target: Target): target is LocalTarget {
-  return target.type === 'local';
-}
+function isRecoverable(kind: FailureKind): boolean;
+function isDisposable(value: unknown): value is Disposable;
 ```
 
-### Error Guards
+There is no `isSSHTarget`, `isDockerTarget`, `isKubernetesTarget`, `isLocalTarget`,
+`isExecutionError`, `isTimeoutError` or `isConnectionError`. For adapter
+options, check the `type` field directly (`options.type === 'ssh'`). For
+errors, `instanceof` already does the job a guard would — `error instanceof CommandError`,
+`error instanceof ExecutionError`, etc. — since these are real classes, not
+structural types.
+
+## The Result Pattern
+
+There is no generic `Result<T, E>` / `AsyncResult<T, E>` union type, and no
+`isOk`/`isErr` — those names don't exist in `@xec-sh/core`. The project's
+actual "Result pattern" is `ExecutionResult` itself, reached with
+`.nothrow()`:
 
 ```typescript
-function isExecutionError(error: unknown): error is ExecutionError {
-  return error instanceof ExecutionError;
-}
+const result = await $`command`.nothrow();
 
-function isTimeoutError(error: unknown): error is TimeoutError {
-  return error instanceof TimeoutError;
-}
-
-function isConnectionError(error: unknown): error is ConnectionError {
-  return error instanceof ConnectionError;
-}
-```
-
-## Generic Types
-
-### Result Type
-
-Result pattern for error handling.
-
-```typescript
-type Result<T, E = Error> = 
-  | { ok: true; value: T }
-  | { ok: false; error: E };
-
-function isOk<T, E>(result: Result<T, E>): result is { ok: true; value: T } {
-  return result.ok === true;
-}
-
-function isErr<T, E>(result: Result<T, E>): result is { ok: false; error: E } {
-  return result.ok === false;
-}
-```
-
-### AsyncResult
-
-Async version of Result.
-
-```typescript
-type AsyncResult<T, E = Error> = Promise<Result<T, E>>;
-```
-
-## Constants
-
-### Exit Codes
-
-```typescript
-enum ExitCode {
-  Success = 0,
-  GeneralError = 1,
-  MisuseOfShellBuiltin = 2,
-  PermissionDenied = 126,
-  CommandNotFound = 127,
-  InvalidExitArgument = 128,
-  // Signal-based codes
-  SIGHUP = 129,
-  SIGINT = 130,
-  SIGQUIT = 131,
-  SIGTERM = 143,
-}
-```
-
-### Signals
-
-```typescript
-enum Signal {
-  SIGHUP = 'SIGHUP',
-  SIGINT = 'SIGINT',
-  SIGQUIT = 'SIGQUIT',
-  SIGILL = 'SIGILL',
-  SIGTRAP = 'SIGTRAP',
-  SIGABRT = 'SIGABRT',
-  SIGBUS = 'SIGBUS',
-  SIGFPE = 'SIGFPE',
-  SIGKILL = 'SIGKILL',
-  SIGUSR1 = 'SIGUSR1',
-  SIGSEGV = 'SIGSEGV',
-  SIGUSR2 = 'SIGUSR2',
-  SIGPIPE = 'SIGPIPE',
-  SIGALRM = 'SIGALRM',
-  SIGTERM = 'SIGTERM',
-}
-```
-
-## Usage Examples
-
-### Using Target Types
-
-```typescript
-import { SSHTarget, DockerTarget } from '@xec-sh/core';
-
-const sshTarget: SSHTarget = {
-  type: 'ssh',
-  host: 'server.example.com',
-  user: 'deploy',
-  privateKey: '/home/user/.ssh/id_rsa'
-};
-
-const dockerTarget: DockerTarget = {
-  type: 'docker',
-  container: 'my-app',
-  user: 'node',
-  workingDir: '/app'
-};
-```
-
-### Using Result Type
-
-```typescript
-import { Result } from '@xec-sh/core';
-
-async function tryOperation(): Promise<Result<string>> {
-  try {
-    const data = await riskyOperation();
-    return { ok: true, value: data };
-  } catch (error) {
-    return { ok: false, error };
-  }
-}
-
-const result = await tryOperation();
 if (result.ok) {
-  console.log('Success:', result.value);
+  console.log('Success:', result.stdout);
 } else {
-  console.log('Error:', result.error.message);
+  console.log('Failed:', result.stderr, result.cause);
 }
 ```
 
-### Type Guards
-
-```typescript
-import { isSSHTarget, isExecutionError } from '@xec-sh/core';
-
-function handleTarget(target: Target) {
-  if (isSSHTarget(target)) {
-    console.log('SSH host:', target.host);
-  }
-}
-
-try {
-  await $`command`;
-} catch (error) {
-  if (isExecutionError(error)) {
-    console.log('Exit code:', error.exitCode);
-  }
-}
-```
+For anything outside a single command, the codebase uses ordinary throw/catch
+with the typed `ExecutionError` hierarchy above, not a wrapped `Result` value.
 
 ## Related Documentation
 
 - [API Index](./index.md) - API overview
 - [Execution Engine](./execution-engine.md) - Engine types
 - [Process Promise](./process-promise.md) - Promise types
-- [Configuration](../configuration/overview.md) - Config structure
+- [Configuration](../configuration/overview.md) - Configuration structure (`@xec-sh/ops`/CLI-level task and target config lives here, not in `@xec-sh/core`)

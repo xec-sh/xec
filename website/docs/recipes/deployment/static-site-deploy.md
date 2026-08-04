@@ -80,7 +80,7 @@ tasks:
 
 ```typescript
 // scripts/deploy-static.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 import path from 'path';
@@ -114,7 +114,7 @@ async function deployToNginx() {
   
   // 2. Copy files to server
   console.log(chalk.gray('Copying files...'));
-  await $$`
+  await $`
     rsync -avz --delete \
       --exclude='.git' \
       --exclude='node_modules' \

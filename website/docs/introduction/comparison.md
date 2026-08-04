@@ -38,8 +38,10 @@ docker exec container1 "python manage.py migrate"
 ### Xec Approach
 ```typescript
 // Xec script
+import { $, parallel } from '@xec-sh/core';
+
 const servers = ['server1', 'server2'];
-await $.all(servers.map(s => $.ssh(s)`
+await parallel(servers.map(s => $.ssh(s)`
   cd /app
   git pull
   npm install
@@ -77,12 +79,14 @@ await $.docker({ container: 'container1' })`python manage.py migrate`;
 ### Xec Equivalent
 ```typescript
 // Xec script
+import { $, parallel } from '@xec-sh/core';
+
 const webservers = config.targets.webservers;
-await $.all(webservers)`
+await parallel(webservers.map(host => $.ssh(host)`
   cd /app
   git pull
   npm install
-`;
+`));
 ```
 
 **When to use Ansible:**
@@ -223,15 +227,15 @@ def deploy(c):
 ### Xec Script
 ```typescript
 // deploy.ts
-import { $ } from '@xec-sh/core';
+import { $, parallel } from '@xec-sh/core';
 
 async function deploy(servers: string[]) {
-  await $.all(servers)`
+  await parallel(servers.map(host => $.ssh(host)`
     cd /app
     git pull
     npm install
     pm2 restart app
-  `;
+  `));
 }
 
 // Run with: xec deploy.ts
@@ -357,9 +361,12 @@ await $.ssh('server')`deploy.sh`;
 - command: deploy.sh
   delegate_to: "{{ item }}"
   with_items: "{{ servers }}"
+```
+```typescript
+// After: Xec
+import { $, parallel } from '@xec-sh/core';
 
-# After: Xec
-await $.all(servers)`deploy.sh`;
+await parallel(servers.map(host => $.ssh(host)`deploy.sh`));
 ```
 
 ### From zx to Xec
@@ -367,8 +374,9 @@ await $.all(servers)`deploy.sh`;
 // Before: zx (local only)
 await $`deploy.sh`;
 
-// After: Xec (anywhere)
-await $[target]`deploy.sh`;
+// After: Xec (anywhere) — target local, SSH, Docker or Kubernetes with the
+// same chain, e.g. an SSH host:
+await $.ssh(target)`deploy.sh`;
 ```
 
 ## Performance Comparison

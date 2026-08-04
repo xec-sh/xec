@@ -118,7 +118,7 @@ build();
 
 ```typescript
 // scripts/build.ts - Clean orchestration with Xec
-import { $, on, glob } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { rm } from 'fs/promises';
 
 const env = process.argv[2] || 'development';
@@ -146,11 +146,13 @@ if (env !== 'development') {
   
   await Promise.all(
     servers.map(server => 
-      on(server, 'mkdir -p /var/www && systemctl restart nginx')
+      $.ssh(server)`mkdir -p /var/www && systemctl restart nginx`
     )
   );
   
-  await $`xec copy dist/ ${servers.map(s => `${s}:/var/www/`).join(' ')}`;
+  await Promise.all(
+    servers.map(server => $`xec copy dist/ ${server}:/var/www/`)
+  );
 }
 
 console.log('✅ Build complete!');
@@ -293,7 +295,7 @@ server.start(8080);
 **Xec with Webpack:**
 ```typescript
 // scripts/dev.ts
-import { $, watch } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 
 // Start backend and frontend in parallel
 await Promise.all([
@@ -303,15 +305,9 @@ await Promise.all([
   // Webpack dev server
   $`webpack serve --config webpack.config.dev.js --port 8080`,
   
-  // Additional watchers
-  watch({
-    'src/styles/**/*.scss': async () => {
-      await $`sass src/styles:dist/css`;
-    },
-    'docs/**/*.md': async () => {
-      await $`markdown-pdf docs/*.md`;
-    }
-  })
+  // Additional watchers, driven by the CLI's file watcher
+  $`xec watch local "src/styles/**/*.scss" --command "sass src/styles:dist/css"`,
+  $`xec watch local "docs/**/*.md" --command "markdown-pdf docs/*.md"`
 ]);
 ```
 
@@ -405,6 +401,7 @@ module.exports = {
 ```typescript
 // scripts/optimize.ts
 import { $, glob } from '@xec-sh/core';
+import path from 'path';
 
 // Run webpack first
 await $`webpack --mode production`;
@@ -454,7 +451,8 @@ webpack(config);
 **Xec Approach:**
 ```typescript
 // scripts/analyze.ts
-import { $, fs } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
+import * as fs from 'node:fs/promises';
 
 // Build with stats
 await $`webpack --mode production --json > stats.json`;
@@ -512,14 +510,12 @@ async function buildAll(mode: string) {
   const builds = apps.map(async (app) => {
     console.log(`🏗️ Building ${app.name}...`);
     
-    process.chdir(app.path);
-    
-    await $`webpack \
+    // $.cd() scopes the directory to this one build; unlike process.chdir()
+    // it does not touch global state, so concurrent builds don't race
+    await $.cd(app.path)`webpack \
       --mode ${mode} \
       --output-public-path ${app.publicPath} \
       --define process.env.PORT=${app.port}`;
-    
-    process.chdir('../..');
     
     return app.name;
   });
@@ -568,7 +564,9 @@ switch (command) {
 
 ```typescript
 // scripts/test-chunks.ts
-import { $, glob, fs } from '@xec-sh/core';
+import { $, glob } from '@xec-sh/core';
+import * as fs from 'node:fs/promises';
+import path from 'path';
 
 // Build with code splitting
 await $`webpack --mode production`;
@@ -595,7 +593,8 @@ for (const chunk of chunks) {
 
 ```typescript
 // scripts/build-pwa.ts
-import { $, fs } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
+import * as fs from 'node:fs/promises';
 
 // Build the app
 await $`webpack --mode production`;

@@ -4,7 +4,7 @@ Method chaining enables fluent, readable command composition by linking multiple
 
 ## Overview
 
-Chaining support (`packages/core/src/core/command-builder.ts`) provides:
+Chaining support (`packages/core/src/core/process-context.ts`) provides:
 
 - **Fluent interface** for readable code
 - **Immutable operations** preventing side effects
@@ -25,7 +25,6 @@ await $`command`
   .cwd('/app')
   .env({ NODE_ENV: 'production' })
   .timeout(10000)
-  .retry(3)
   .quiet();
 
 // Each method returns a new instance
@@ -34,20 +33,24 @@ const production = base.env({ NODE_ENV: 'production' });
 const development = base.env({ NODE_ENV: 'development' });
 ```
 
+There is no `.retry()` on `ProcessPromise` — retry configures the engine,
+not an already-created command, because it has to wrap `execute()` to retry
+the whole run. Apply it before the template tag: `` $.retry({ maxRetries: 3 })`command` ``.
+
 ### Configuration Chaining
 
 ```typescript
-// Build complex configurations
-const result = await $`build.sh`
+// Build complex configurations. maxBuffer isn't a ProcessPromise method —
+// set it on the engine with .with() before the template tag runs. There is
+// no process-priority control (no .nice()).
+const result = await $.with({ maxBuffer: 50 * 1024 * 1024 })`build.sh`
   .cwd('/project')
   .env({
     NODE_ENV: 'production',
     API_URL: 'https://api.example.com'
   })
   .timeout(60000)
-  .maxBuffer(50 * 1024 * 1024)
   .shell('/bin/bash')
-  .nice(10)
   .nothrow();
 ```
 
@@ -92,10 +95,15 @@ await $.k8s('pod')`kubectl logs -f`
 
 ### Output Stream Chains
 
+`.stdout(stream)` takes a single `Writable` — calling it more than once
+doesn't build a pipeline, it just replaces the previous target, and the
+earlier streams never receive anything. To route output through several
+transforms, pipe the Node streams together yourself first, then hand the
+head of that chain to one `.stdout()` call:
+
 ```typescript
 import { Transform } from 'stream';
 
-// Chain stream transformations
 const uppercase = new Transform({
   transform(chunk, encoding, callback) {
     callback(null, chunk.toString().toUpperCase());
@@ -109,27 +117,24 @@ const addTimestamp = new Transform({
   }
 });
 
-await $`tail -f app.log`
-  .stdout(uppercase)
-  .stdout(addTimestamp)
-  .stdout(process.stdout);
+uppercase.pipe(addTimestamp).pipe(process.stdout);
+await $`tail -f app.log`.stdout(uppercase);
 ```
 
-### Multi-Stream Chains
+### Handling Both Streams
+
+There is no `.on()` on `ProcessPromise`, and `.stdout()`/`.stderr()` don't
+accept a per-line callback — only `'pipe' | 'ignore' | 'inherit'` or a
+`Writable`. To observe stdout and stderr separately as they arrive, read the
+live streams off the running process handle instead:
 
 ```typescript
-// Handle multiple streams
-await $`npm test`
-  .stdout((line) => console.log(`✓ ${line}`))
-  .stderr((line) => console.error(`✗ ${line}`))
-  .on('exit', (code) => console.log(`Exit: ${code}`));
-
-// Split and process
-const splitter = new Transform({/* ... */});
-await $`generate-data`
-  .stdout(splitter)
-  .stdout(fileStream)
-  .stdout(networkStream);
+const proc = $`npm test`;
+const handle = await proc.spawned;
+handle.stdout?.on('data', (chunk) => console.log(`✓ ${chunk}`));
+handle.stderr?.on('data', (chunk) => console.error(`✗ ${chunk}`));
+const result = await proc;
+console.log(`Exit: ${result.exitCode}`);
 ```
 
 ## Conditional Chaining
@@ -215,9 +220,9 @@ await $`primary-command`
     process.exit(1);
   });
 
-// With specific error handling
-await $`risky-operation`
-  .retry(3)
+// With specific error handling — retry configures the engine, so it's
+// applied before the template tag rather than chained after it
+await $.retry({ maxRetries: 3 })`risky-operation`
   .timeout(5000)
   .nothrow()
   .then(result => {
@@ -402,54 +407,65 @@ const results = await commands.reduce(
 
 ### Middleware Pattern
 
+Middleware here has to operate on the *engine*, not on an already-created
+`ProcessPromise` — `.retry()` in particular only exists on the engine, since
+it wraps `execute()` to retry the whole run:
+
 ```typescript
 class CommandMiddleware {
-  private middlewares: Array<(cmd: any) => any> = [];
+  private middlewares: Array<(engine: any) => any> = [];
   
-  use(middleware: (cmd: any) => any) {
+  use(middleware: (engine: any) => any) {
     this.middlewares.push(middleware);
     return this;
   }
   
-  apply(command: any) {
+  apply(engine: any) {
     return this.middlewares.reduce(
-      (cmd, middleware) => middleware(cmd),
-      command
+      (e, middleware) => middleware(e),
+      engine
     );
   }
 }
 
 // Usage
 const middleware = new CommandMiddleware()
-  .use(cmd => cmd.timeout(10000))
-  .use(cmd => cmd.retry(3))
-  .use(cmd => cmd.env({ LOG_LEVEL: 'debug' }));
+  .use(engine => engine.timeout(10000))
+  .use(engine => engine.retry({ maxRetries: 3 }))
+  .use(engine => engine.env({ LOG_LEVEL: 'debug' }));
 
-const command = middleware.apply($`deploy`);
-await command;
+await middleware.apply($)`deploy`;
 ```
 
 ### Decorator Pattern
 
+There is no `.on()` on `ProcessPromise` — a command has no per-instance
+event hooks. Decorate the act of running it instead, by wrapping a thunk
+rather than the `ProcessPromise` itself:
+
 ```typescript
 // Decorate commands with additional behavior
-function withLogging(command: any) {
-  return command
-    .on('start', () => console.log('Starting...'))
-    .on('output', (data: any) => console.log('Output:', data))
-    .on('complete', () => console.log('Complete'));
+async function withLogging<T>(run: () => Promise<T>): Promise<T> {
+  console.log('Starting...');
+  const result = await run();
+  console.log('Complete');
+  return result;
 }
 
-function withTiming(command: any) {
-  const start = Date.now();
-  return command.on('complete', () => {
-    console.log(`Took ${Date.now() - start}ms`);
-  });
+function withTiming<T>(run: () => Promise<T>): () => Promise<T> {
+  return async () => {
+    const start = Date.now();
+    try {
+      return await run();
+    } finally {
+      console.log(`Took ${Date.now() - start}ms`);
+    }
+  };
 }
 
 // Apply decorators
-const decorated = withTiming(withLogging($`long-operation`));
-await decorated;
+const decorated = withTiming(() => withLogging(() => $`long-operation`));
+await decorated();
 ```
 
 ## Best Practices
@@ -457,10 +473,13 @@ await decorated;
 ### Do's ✅
 
 ```typescript
-// ✅ Build chains progressively
-let command = $`base-command`;
+// ✅ Build chains progressively — retry is conditional on the engine,
+// since it has to be in place before the template tag runs; timeout is
+// conditional on the resulting ProcessPromise
+let engine = $;
+if (needsRetry) engine = engine.retry({ maxRetries: 3 });
+let command = engine`base-command`;
 if (needsTimeout) command = command.timeout(5000);
-if (needsRetry) command = command.retry(3);
 await command;
 
 // ✅ Use immutable chaining
@@ -469,8 +488,7 @@ const prod = base.env({ NODE_ENV: 'production' });
 const dev = base.env({ NODE_ENV: 'development' });
 
 // ✅ Handle errors in chains
-await $`risky`
-  .retry(3)
+await $.retry({ maxRetries: 3 })`risky`
   .timeout(5000)
   .catch(() => $`fallback`);
 
@@ -504,10 +522,9 @@ await $`command`;  // No timeout applied
 ## Implementation Details
 
 Chaining is implemented in:
-- `packages/core/src/core/command-builder.ts` - Chain building logic
-- `packages/core/src/core/fluent-interface.ts` - Fluent API design
-- `packages/core/src/utils/pipeline.ts` - Pipeline composition
-- `packages/core/src/core/method-chain.ts` - Method chaining
+- `packages/core/src/core/process-context.ts` - `ProcessPromise` construction and its chainable methods
+- `packages/core/src/core/execution-engine.ts` - Engine-level chaining methods (`.with()`, `.retry()`, `.env()`, ...)
+- `packages/core/src/core/pipe-implementation.ts` - `.pipe()`
 
 ## See Also
 

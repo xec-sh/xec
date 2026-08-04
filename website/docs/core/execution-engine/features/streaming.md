@@ -1,46 +1,55 @@
 # Streaming
 
-The Xec execution engine provides powerful streaming capabilities for handling real-time output, large data transfers, and continuous log monitoring across all adapters.
+The Xec execution engine streams command output as it arrives rather than
+buffering it to completion, and can pipe that output into another command, a
+line-processing function, or a Node.js stream.
 
 ## Overview
 
-Streaming support (`packages/core/src/utils/stream.ts`) provides:
+Streaming support (`packages/core/src/core/process-context.ts`,
+`packages/core/src/core/pipe-implementation.ts`) provides:
 
-- **Real-time output streaming** from commands
-- **Pipe operations** between commands
-- **Transform streams** for data processing
-- **Backpressure handling** for flow control
-- **Multi-stream management** (stdout/stderr)
-- **Stream composition** and splitting
+- **Real-time line iteration** with `for await`
+- **Pipe operations** into another command, a line function, a `Transform`, or a `Writable`
+- **Combined output** (`stdall`) preserving the arrival order of stdout and stderr
+- **Live process access** (`.spawned`/`.child`) for building a custom stream pipeline
 
 ## Basic Streaming
 
-### Output Streaming
+### Line-by-Line Iteration
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Stream output in real-time
-await $`tail -f /var/log/app.log`
-  .stdout((line) => {
-    console.log('LOG:', line);
-  })
-  .stderr((line) => {
-    console.error('ERROR:', line);
-  });
-
-// Stream with line buffering
-await $`long-running-process`
-  .stdout((line) => process.stdout.write(`[OUT] ${line}\n`))
-  .stderr((line) => process.stderr.write(`[ERR] ${line}\n`));
+// Stream output in real time, as lines arrive — not buffered until the
+// command finishes, which is what makes this useful for a follow like
+// `tail -f`
+for await (const line of $`tail -f /var/log/app.log`) {
+  console.log('LOG:', line);
+}
 ```
+
+This iterates stdout only.
+
+### Line Callbacks
+
+```typescript
+// .pipe() takes a line-processing function directly
+await $`long-running-process`
+  .pipe((line) => process.stdout.write(`[OUT] ${line}\n`));
+```
+
+`.stdout((line) => ...)` and `.stderr((line) => ...)` do **not** do this —
+`.stdout()`/`.stderr()` only accept `'pipe' | 'ignore' | 'inherit'` or a
+`Writable`, not a callback function. Passing a function there is silently
+ignored rather than throwing.
 
 ### Stream to File
 
 ```typescript
 import { createWriteStream } from 'fs';
 
-// Stream output to file
+// A real Writable is a valid .stdout()/.stderr() target
 const logFile = createWriteStream('output.log');
 const errorFile = createWriteStream('error.log');
 
@@ -50,28 +59,36 @@ await $`npm run build`
 
 // Append mode
 const appendStream = createWriteStream('app.log', { flags: 'a' });
-await $`echo "New log entry"`
-  .stdout(appendStream);
+await $`echo "New log entry"`.stdout(appendStream);
 ```
+
+`.stdout()` and `.stderr()` each hold exactly one destination — calling
+`.stdout()` twice replaces the first target, it does not chain the two
+together (see [Transform Streams](#transform-streams) below).
 
 ## Pipe Operations
 
 ### Command Piping
 
 ```typescript
-// Pipe between commands
+// Pipe between commands with .pipe as a tagged template, or a plain string
 await $`cat large-file.txt`
-  .pipe($`grep "error"`)
-  .pipe($`sort`)
-  .pipe($`uniq -c`);
+  .pipe`grep "error"`
+  .pipe`sort`
+  .pipe`uniq -c`;
 
-// Store intermediate results
-const filtered = await $`cat data.json`
-  .pipe($`jq '.items[]'`);
-
-const sorted = await filtered
-  .pipe($`sort -n`);
+// Store an intermediate result
+const filtered = await $`cat data.json`.pipe`jq '.items[]'`;
+const sorted = await filtered.pipe`sort -n`;
 ```
+
+Pipe to `` .pipe`command` `` or `.pipe('command')` — not
+`.pipe($\`command\`)`. Passing an already-built `ProcessPromise` as the pipe
+target does not work correctly in the current build: the target command
+runs once on its own (with no input), and the second, correctly-piped run is
+lost, so the result comes back empty. If you need a command assembled from a
+variable, use `.pipe(commandString)` or interpolate into the tagged form —
+`` .pipe`${dynamicPart}` ``.
 
 ### Cross-Environment Piping
 
@@ -79,17 +96,25 @@ const sorted = await filtered
 // Pipe from local to remote
 await $`cat local-file.txt`
   .pipe($.ssh('server')`cat > remote-file.txt`);
-
-// Pipe from container to local
-await $.docker({ container: 'container' })`cat /app/data.json`
-  .pipe($`jq '.'`)
-  .stdout(process.stdout);
-
-// Chain across multiple environments
-await $.k8s('pod')`cat /data/export.csv`
-  .pipe($.docker({ container: 'processor' })`python process.py`)
-  .pipe($`gzip > processed.csv.gz`);
 ```
+
+The same limitation applies across targets — the example above has the same
+shape as `.pipe($cmd)` and does not work. `stdin` is a writable property, not
+a method, so feed the destination command by writing to it directly:
+
+```typescript
+// Read locally, then write that output into a remote command's stdin
+const local = await $`cat local-file.txt`;
+const upload = $.ssh('server')`cat > remote-file.txt`;
+upload.stdin.write(local.stdout);
+upload.stdin.end();
+await upload;
+```
+
+Piping a command's output into another *target* in one step (local into a
+container, a pod into another container, and so on) is not directly
+supported today — read the source side's result, then write it to the
+destination command's `stdin`, as shown above.
 
 ## Transform Streams
 
@@ -98,95 +123,45 @@ await $.k8s('pod')`cat /data/export.csv`
 ```typescript
 import { Transform } from 'stream';
 
-// Create transform stream
 const uppercase = new Transform({
   transform(chunk, encoding, callback) {
     callback(null, chunk.toString().toUpperCase());
   }
 });
 
-// Apply transformation
-await $`echo "hello world"`
-  .stdout(uppercase)
-  .stdout(process.stdout);  // Outputs: HELLO WORLD
+// Wire the transform's own output first — .stdout() hands it the raw
+// output, it does not also arrange where the transformed output goes
+uppercase.pipe(process.stdout);
+await $`echo "hello world"`.stdout(uppercase);  // Outputs: HELLO WORLD
+```
 
-// JSON transformation
-const jsonParser = new Transform({
-  transform(chunk, encoding, callback) {
-    try {
-      const data = JSON.parse(chunk);
-      callback(null, JSON.stringify(data, null, 2));
-    } catch (err) {
-      callback(err);
-    }
-  }
-});
+`pipeUtils`, also exported from `@xec-sh/core`, has a few ready-made
+transforms for this: `pipeUtils.toUpperCase()`, `pipeUtils.grep(pattern)`,
+`pipeUtils.replace(search, replacement)`, and `pipeUtils.tee(...destinations)`
+(writes each chunk to every destination, then passes it through).
 
-await $`curl api.example.com/data`
-  .stdout(jsonParser)
-  .stdout(process.stdout);
+```typescript
+import { pipeUtils } from '@xec-sh/core';
+
+const grep = pipeUtils.grep(/ERROR/);
+grep.pipe(process.stdout);
+await $`cat app.log`.stdout(grep);
 ```
 
 ### Line Processing
 
+For line-oriented processing, `.pipe(fn)` (shown above) is simpler than a
+hand-rolled `Transform` and is already line-buffered correctly — a raw
+`Transform`'s `transform()` callback receives arbitrary chunks, so splitting
+on `\n` inside it can split a single line across two calls. `.pipe(fn)`
+does not have that problem:
+
 ```typescript
-// Process lines individually
-const lineProcessor = new Transform({
-  transform(chunk, encoding, callback) {
-    const lines = chunk.toString().split('\n');
-    const processed = lines
-      .filter(line => line.includes('ERROR'))
-      .map(line => `[${new Date().toISOString()}] ${line}`)
-      .join('\n');
-    callback(null, processed);
+await $`tail -f app.log`.pipe((line) => {
+  if (line.includes('ERROR')) {
+    console.log(`[${new Date().toISOString()}] ${line}`);
   }
 });
-
-await $`tail -f app.log`
-  .stdout(lineProcessor)
-  .stdout(process.stdout);
-```
-
-## Stream Control
-
-### Backpressure Handling
-
-```typescript
-// Handle backpressure automatically
-const slowConsumer = new Transform({
-  async transform(chunk, encoding, callback) {
-    // Simulate slow processing
-    await new Promise(resolve => setTimeout(resolve, 100));
-    callback(null, chunk);
-  }
-});
-
-// Execution automatically handles backpressure
-await $`cat large-file.txt`
-  .stdout(slowConsumer)
-  .stdout(process.stdout);
-```
-
-### Stream Pausing/Resuming
-
-```typescript
-// Manual stream control
-const command = $`tail -f /var/log/syslog`;
-const stream = command.stream();
-
-// Pause after 5 seconds
-setTimeout(() => {
-  stream.pause();
-  console.log('Stream paused');
-}, 5000);
-
-// Resume after 10 seconds
-setTimeout(() => {
-  stream.resume();
-  console.log('Stream resumed');
-}, 10000);
-
-await command;
 ```
 
 ## Multi-Stream Management
@@ -194,39 +169,31 @@ await command;
 ### Separate Stream Handling
 
 ```typescript
-// Handle stdout and stderr separately
-await $`command 2>&1`
-  .stdout((line) => {
-    if (line.startsWith('ERROR:')) {
-      logger.error(line);
-    } else {
-      logger.info(line);
-    }
-  });
-
-// Different handlers for each stream
+// Handle stdout and stderr with separate callbacks
 await $`npm test`
-  .stdout((line) => console.log(`✓ ${line}`))
-  .stderr((line) => console.error(`✗ ${line}`));
+  .pipe((line) => console.log(`✓ ${line}`));
+  // .pipe() only attaches to stdout — see stdall below for a
+  // stderr-inclusive view
 ```
 
-### Stream Merging
+To react differently to stdout and stderr as they arrive, read them from the
+live process handle directly:
 
 ```typescript
-import { PassThrough } from 'stream';
+const p = $`npm test`;
+const handle = await p.spawned;
+handle.stdout?.on('data', (chunk) => console.log(`✓ ${chunk}`));
+handle.stderr?.on('data', (chunk) => console.error(`✗ ${chunk}`));
+await p;
+```
 
-// Merge multiple streams
-const merged = new PassThrough();
+### Combined Output
 
-// Merge outputs from multiple commands
-await Promise.all([
-  $`tail -f app1.log`.stdout(merged),
-  $`tail -f app2.log`.stdout(merged),
-  $`tail -f app3.log`.stdout(merged)
-]);
-
-// Process merged stream
-merged.pipe(process.stdout);
+```typescript
+// stdout and stderr merged in the order they actually arrived — the full
+// picture of which step was running when something printed
+const result = await $`build.sh`.nothrow();
+console.log(result.stdall);
 ```
 
 ## Log Streaming
@@ -234,18 +201,15 @@ merged.pipe(process.stdout);
 ### Real-time Logs
 
 ```typescript
-// Stream Docker logs (docker CLI + line-processor pipe)
+// Stream Docker logs (the docker CLI, piped through a line processor)
 await $`docker logs -f --tail 100 --timestamps my-container`
   .pipe((line) => {
     const [timestamp, ...message] = line.split(' ');
-    console.log({
-      timestamp,
-      message: message.join(' ')
-    });
+    console.log({ timestamp, message: message.join(' ') });
   });
 
-// Stream Kubernetes logs (K8sPod.follow)
-await $.k8s({ namespace: 'production' }).pod('my-pod').follow((line) => {
+// Stream Kubernetes logs — K8sPod.follow, reached through .pod()
+await $.k8s('production').pod('my-pod').follow((line) => {
   console.log(`[K8S] ${line}`);
 }, { container: 'app' });
 ```
@@ -253,168 +217,66 @@ await $.k8s({ namespace: 'production' }).pod('my-pod').follow((line) => {
 ### Multi-Source Log Aggregation
 
 ```typescript
-// Aggregate logs from multiple sources
+// Aggregate logs from multiple SSH hosts
 async function aggregateLogs(sources: string[]) {
-  const logStream = new PassThrough();
-  
-  // Start all log streams
   await Promise.all(sources.map(source =>
     $.ssh(source)`tail -f /var/log/app.log`
-      .stdout((line) => {
-        logStream.write(`[${source}] ${line}\n`);
+      .pipe((line) => {
+        console.log(`[${source}] ${line}`);
       })
   ));
-  
-  // Process aggregated logs
-  logStream.pipe(process.stdout);
 }
 
 await aggregateLogs(['server1', 'server2', 'server3']);
 ```
 
-## Stream Composition
+## Building a Custom Pipeline
 
-### Pipeline Creation
+`.spawned` resolves to the live `ProcessHandle` once the command is running,
+with real Node.js `stdout`/`stderr`/`stdin` streams — the way to reach
+Node's own stream APIs (`pause()`/`resume()`, `pipeline()`, custom
+`highWaterMark`, and so on) for anything `.pipe()`/`.stdout()` don't cover
+directly:
 
 ```typescript
 import { pipeline } from 'stream/promises';
+import { createWriteStream } from 'fs';
 
-// Create processing pipeline
-async function processPipeline(input: string, output: string) {
-  const gunzip = $`gunzip -c ${input}`.stream();
-  const process = $`python process.py`.stream();
-  const compress = $`gzip -c`.stream();
-  const outputFile = createWriteStream(output);
-  
-  await pipeline(
-    gunzip,
-    process,
-    compress,
-    outputFile
-  );
-}
+const p = $`gunzip -c archive.tar.gz`;
+const handle = await p.spawned;
+
+await pipeline(
+  handle.stdout!,
+  createWriteStream('archive.tar')
+);
+
+await p;
 ```
 
-### Stream Splitting
-
 ```typescript
-// Split stream to multiple destinations
-const splitter = new PassThrough();
-const file1 = createWriteStream('output1.log');
-const file2 = createWriteStream('output2.log');
+// Pause and resume a live stream
+const p = $`tail -f /var/log/syslog`;
+const handle = await p.spawned;
 
-splitter.pipe(file1);
-splitter.pipe(file2);
-splitter.pipe(process.stdout);
-
-await $`generate-data`
-  .stdout(splitter);
-```
-
-## Progress Tracking
-
-### Stream Progress
-
-```typescript
-// Track streaming progress
-let bytesProcessed = 0;
-let linesProcessed = 0;
-
-const progressStream = new Transform({
-  transform(chunk, encoding, callback) {
-    bytesProcessed += chunk.length;
-    linesProcessed += chunk.toString().split('\n').length - 1;
-    
-    // Report progress every 100 lines
-    if (linesProcessed % 100 === 0) {
-      console.log(`Processed: ${linesProcessed} lines, ${bytesProcessed} bytes`);
-    }
-    
-    callback(null, chunk);
-  }
-});
-
-await $`cat large-file.txt`
-  .stdout(progressStream)
-  .stdout(process.stdout);
-```
-
-### Download Progress
-
-```typescript
-// Track download progress
-await $.ssh('server')`cat large-file.tar.gz`
-  .progress((transferred, total) => {
-    const percent = (transferred / total * 100).toFixed(2);
-    process.stdout.write(`\rDownloading: ${percent}%`);
-  })
-  .stdout(createWriteStream('downloaded.tar.gz'));
-```
-
-## Buffer Management
-
-### Custom Buffer Sizes
-
-```typescript
-// Configure buffer sizes
-await $`process-large-data`.stream({
-  highWaterMark: 1024 * 1024,  // 1MB buffer
-  encoding: 'utf8'
-});
-
-// Line buffering
-await $`tail -f log.txt`.stream({
-  lineBuffer: true,
-  maxLineLength: 4096
-});
-```
-
-### Memory Management
-
-```typescript
-// Limit memory usage for large streams
-const limitedStream = new Transform({
-  highWaterMark: 64 * 1024,  // 64KB chunks
-  transform(chunk, encoding, callback) {
-    // Process chunk without accumulating
-    const processed = processChunk(chunk);
-    callback(null, processed);
-  }
-});
-
-await $`cat huge-file.dat`
-  .stdout(limitedStream)
-  .stdout(process.stdout);
+setTimeout(() => { handle.stdout?.pause(); console.log('paused'); }, 5000);
+setTimeout(() => { handle.stdout?.resume(); console.log('resumed'); }, 10000);
 ```
 
 ## Error Handling in Streams
 
-### Stream Error Recovery
-
 ```typescript
-// Handle stream errors
-await $`unreliable-stream`
-  .stdout(process.stdout)
-  .on('error', (error) => {
-    console.error('Stream error:', error);
-    // Attempt recovery
-  })
-  .on('end', () => {
-    console.log('Stream completed');
-  });
-
-// Retry on stream failure
-async function streamWithRetry(command: string, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      await $`${command}`.stdout(process.stdout);
-      break;
-    } catch (error) {
-      console.error(`Attempt ${i + 1} failed:`, error);
-      if (i === retries - 1) throw error;
-    }
-  }
+// A ProcessPromise has no .on('error'/'end') of its own — handle failure
+// the same way as any other command
+try {
+  await $`unreliable-stream`.stdout(process.stdout);
+} catch (error) {
+  console.error('Command failed:', error);
 }
+
+// Retry on failure
+import { retry } from '@xec-sh/core';
+
+await retry(() => $.exec(command).stdout(process.stdout), { maxRetries: 3 });
 ```
 
 ## Best Practices
@@ -422,55 +284,41 @@ async function streamWithRetry(command: string, retries = 3) {
 ### Do's ✅
 
 ```typescript
-// ✅ Use streaming for large data
-await $`cat large-file.txt`
-  .stdout(processStream);  // Don't load all in memory
-
-// ✅ Handle backpressure
-const transform = new Transform({
-  highWaterMark: 16384,  // Control buffer size
-  transform(chunk, encoding, callback) {
-    // Process and pass through
-    callback(null, chunk);
-  }
-});
-
-// ✅ Clean up streams
-const stream = createWriteStream('output.txt');
-try {
-  await $`generate-data`.stdout(stream);
-} finally {
-  stream.end();
+// ✅ Use streaming for large output instead of buffering it all
+for await (const line of $`cat large-file.txt`) {
+  process(line);
 }
 
-// ✅ Use appropriate encoding
-await $`cat text-file.txt`.stream({ encoding: 'utf8' });
-await $`cat binary-file.dat`.stream({ encoding: null });
+// ✅ Read from a single, real Writable destination
+await $`generate-data`.stdout(createWriteStream('output.txt'));
+
+// ✅ Reach for .spawned when you need Node's own stream APIs
+const handle = await $`process-large-data`.spawned;
+handle.stdout?.pipe(myTransform).pipe(process.stdout);
 ```
 
 ### Don'ts ❌
 
 ```typescript
-// ❌ Buffer entire stream in memory
+// ❌ Buffer entire output in memory when it could be huge
 const output = await $`cat huge-file.txt`;  // May cause OOM
 
-// ❌ Ignore stream errors
-$`stream-command`.stdout(output);  // No error handling
+// ❌ Pass a callback to .stdout()/.stderr() expecting it to be called
+await $`cmd`.stdout((line) => console.log(line));  // Silently does nothing — use .pipe(fn)
 
-// ❌ Create infinite buffers
-await $`infinite-stream`.stdout(accumulatorArray);
+// ❌ Pipe to another command via .pipe($cmd)
+await $`cmd1`.pipe($`cmd2`);  // Broken — use .pipe`cmd2` or .pipe('cmd2')
 
-// ❌ Mix stream APIs incorrectly
-stream.write(await $`command`);  // Wrong approach
+// ❌ Ignore command failures
+$`stream-command`.stdout(output);  // Not awaited, errors go unhandled
 ```
 
 ## Implementation Details
 
 Streaming is implemented in:
-- `packages/core/src/utils/stream.ts` - Stream utilities
-- `packages/core/src/core/stream-handler.ts` - Stream management
-- `packages/core/src/adapters/base-adapter.ts` - Adapter stream interface
-- `packages/core/src/utils/line-buffer.ts` - Line buffering
+- `packages/core/src/core/process-context.ts` - line iteration (`for await`), `.spawned`/`.child`
+- `packages/core/src/core/pipe-implementation.ts` - `.pipe()` and `pipeUtils`
+- `packages/core/src/types/process-handle.ts` - the uniform live-process handle
 
 ## See Also
 

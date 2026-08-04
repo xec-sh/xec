@@ -251,8 +251,9 @@ deploy:review:
             ${process.env.CI_REGISTRY_IMAGE}:${process.env.CI_COMMIT_SHORT_SHA}
         `;
         
-        // Get assigned port
-        const port = await $.ssh('staging')`docker port review-${slug} 3000 | cut -d: -f2`.stdout.trim();
+        // Get assigned port — parens matter: .stdout is a method on the
+        // pending ProcessPromise, a string only on the awaited result
+        const port = (await $.ssh('staging')`docker port review-${slug} 3000 | cut -d: -f2`).stdout.trim();
         
         // Update proxy configuration
         await $.ssh('staging')`
@@ -669,7 +670,7 @@ import { $ } from '@xec-sh/core';
 import { writeFile } from 'fs/promises';
 
 async function generatePipeline() {
-  const services = await $`ls services/`.stdout.trim().split('\n');
+  const services = (await $`ls services/`).stdout.trim().split('\n');
   
   const pipeline = {
     stages: ['test', 'build', 'deploy'],

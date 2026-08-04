@@ -14,6 +14,11 @@ await $target`ls -la`;
 await $`pwd`;
 ```
 
+`$target` only exists when the script was run with `--target`; a plain
+`xec run script.js` never defines it at all (not even as `undefined` — the
+variable itself isn't declared), so check for it with `typeof` rather than
+referencing it directly, or fall back to `$`.
+
 ## Global Context Variables
 
 When a script executes, Xec injects several global variables:
@@ -22,19 +27,17 @@ When a script executes, Xec injects several global variables:
 
 ```javascript
 // Primary execution engines
-$target     // ExecutionEngine - Target-specific command execution
-$targetInfo // TargetInfo - Information about the current target
-$           // ExecutionEngine - Local command execution
+$target     // CallableExecutionEngine - present only when run with --target
+$targetInfo // TargetInfo - present only alongside $target
+$           // CallableExecutionEngine - local command execution
 
 // Script metadata
 __filename  // string - Absolute path to the script file
 __dirname   // string - Directory containing the script
-__script    // ScriptInfo - Complete script metadata
 
 // Script arguments
 args        // string[] - Arguments passed to the script
-argv        // string[] - Full argv array (includes script path)
-params      // Record<string, any> - Parsed named parameters
+argv        // string[] - [interpreter, scriptPath, ...args]
 ```
 
 ### Target Information
@@ -43,7 +46,7 @@ The `$targetInfo` object provides details about the execution target:
 
 ```typescript
 interface TargetInfo {
-  type: 'local' | 'ssh' | 'docker' | 'k8s';
+  type: 'local' | 'ssh' | 'docker' | 'kubernetes';
   name?: string;
   host?: string;       // SSH targets
   container?: string;  // Docker targets
@@ -66,69 +69,27 @@ if ($targetInfo) {
     case 'docker':
       console.log(`Container: ${$targetInfo.container}`);
       break;
-    case 'k8s':
+    case 'kubernetes':
       console.log(`Pod: ${$targetInfo.pod} in namespace ${$targetInfo.namespace}`);
       break;
   }
 }
 ```
 
-## Configuration Access
-
-Scripts have direct access to the configuration system:
-
-```javascript
-// Access configuration API
-const allTargets = config.get('targets');
-const tasks = config.get('tasks');
-const variables = config.get('vars');
-
-// Get specific configuration values
-const apiUrl = config.get('vars.api_url');
-const sshConfig = config.get('targets.production');
-
-// Reload configuration
-await config.reload();
-
-// Access resolved variables
-console.log('Environment:', vars.environment);
-console.log('Version:', vars.version);
-```
-
-## Task and Target APIs
-
-Scripts can interact with tasks and targets programmatically:
-
-```javascript
-// Task API
-await tasks.run('build');
-await tasks.run('deploy', { environment: 'staging' });
-const taskList = await tasks.list();
-const exists = await tasks.exists('test');
-
-// Target API
-const sshTargets = await targets.list('ssh');
-const prodTarget = await targets.get('production');
-await targets.execute('staging', 'ls -la');
-```
-
 ## Utility Functions
 
-Several utility functions are available globally:
+`xec run` also makes a set of scripting utilities from `@xec-sh/ops`
+available as globals, without an import — among them `glob`, `which`, `fs`,
+`os`, `path`, `sleep`, `retry`, `within`, `template`, `parseArgs`, `yaml`,
+`csv`, `diff`, and terminal helpers `log`/`echo`/`prism`/`kit`/`spinner`. See
+[TypeScript Configuration](./typescript-setup.md#type-definitions-for-global-context)
+for the full list and how to get IntelliSense for it. `chalk` is not one of
+them — import it normally if you use it (`import chalk from 'chalk'`).
 
 ```javascript
-// Terminal colors with chalk
-console.log(chalk.green('Success!'));
-console.log(chalk.red.bold('Error!'));
-
 // File globbing
 const files = await glob('**/*.js');
 const configs = await glob('config/*.yaml');
-
-// Pattern matching
-if (minimatch('src/index.js', '**/*.js')) {
-  console.log('File matches pattern');
-}
 ```
 
 ## Working with Multiple Targets
@@ -156,7 +117,7 @@ if ($targetInfo?.type === 'ssh') {
 } else if ($targetInfo?.type === 'docker') {
   // Docker-specific logic
   await $target`apt-get update && apt-get install -y curl`;
-} else if ($targetInfo?.type === 'k8s') {
+} else if ($targetInfo?.type === 'kubernetes') {
   // Kubernetes-specific logic
   await $target`kubectl get pods`;
 } else {
@@ -170,18 +131,20 @@ await $`echo "This always runs on the host"`;
 
 ## Parameter Parsing
 
-Scripts automatically parse command-line parameters:
+Command-line parameters aren't parsed automatically — a script gets its raw
+`args`/`argv` and parses them itself. `parseArgs`, one of the globals from
+`@xec-sh/ops` (see [Utility Functions](#utility-functions) above), covers
+the common `--key=value` and `--flag` cases:
 
 ```javascript
 // Script called with: xec run deploy.js --env=prod --version=1.2.3 --force
+const params = parseArgs(args);
 console.log(params.env);     // 'prod'
-console.log(params.version); // '1.2.3'  
-console.log(params.force);    // true
+console.log(params.version); // '1.2.3'
+console.log(params.force);   // true
 
-// Type conversion is automatic
-// --port=3000 becomes number 3000
-// --enabled=true becomes boolean true
-// --config='{"key":"value"}' becomes object
+// Values are always strings or booleans — parseArgs does not coerce
+// numbers, JSON, or anything else. Parse those yourself if you need them.
 ```
 
 ## Context Isolation
@@ -205,11 +168,13 @@ When running in REPL mode, additional helpers are available:
 xec run --repl
 
 // In REPL:
-> help()          // Show available commands
-> clear()         // Clear the console
+> .help           // Show available commands
+> .clear          // Clear the console
 > await $`ls`     // Execute commands
-> config.get()    // Access configuration
 ```
+
+`.help` and `.clear` are Node REPL dot-commands (`replServer.defineCommand`),
+not callable functions — they're typed without parentheses.
 
 ## Custom Context Extension
 

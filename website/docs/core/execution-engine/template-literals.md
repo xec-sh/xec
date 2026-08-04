@@ -39,12 +39,13 @@ All values substituted through `${}` are automatically escaped:
 // Files with spaces
 const file = "my document.txt";
 await $`cat ${file}`;
-// Executes: cat "my document.txt"
+// Executes: cat 'my document.txt'
 
-// Special characters
+// Special characters — a literal single quote inside the value is closed,
+// escaped, and reopened (the standard POSIX trick), not double-quoted
 const dangerous = "'; rm -rf /; echo '";
 await $`echo ${dangerous}`;
-// Executes: echo "'; rm -rf /; echo '"
+// Executes: echo ''\''; rm -rf /; echo '\'''
 // Output: '; rm -rf /; echo '
 
 // Command injection attempt
@@ -52,6 +53,10 @@ const userInput = "$(malicious command)";
 await $`echo ${userInput}`;
 // Safe! Outputs: $(malicious command)
 ```
+
+Values are quoted with single quotes (POSIX shells don't expand anything
+inside single quotes), not double quotes — this matters if you're predicting
+the exact command string, e.g. for logs or tests.
 
 ## Data Types and Their Handling
 
@@ -61,13 +66,13 @@ Strings are escaped with context awareness:
 
 ```typescript
 const text = "Hello, World!";
-await $`echo ${text}`;  // echo "Hello, World!"
+await $`echo ${text}`;  // echo 'Hello, World!'
 
 const path = "/path/with spaces/file.txt";
-await $`cat ${path}`;  // cat "/path/with spaces/file.txt"
+await $`cat ${path}`;  // cat '/path/with spaces/file.txt'
 
 const quote = 'He said "Hello"';
-await $`echo ${quote}`;  // echo "He said \"Hello\""
+await $`echo ${quote}`;  // echo 'He said "Hello"' — double quotes need no escaping inside single quotes
 ```
 
 ### Numbers and Boolean Values
@@ -120,16 +125,25 @@ await $`echo ${config} > config.json`;
 
 ### null and undefined
 
+`null` and `undefined` interpolate to an empty **quoted argument** (`''`) —
+they don't vanish, so they still occupy a position in `argv`:
+
 ```typescript
 const nullValue = null;
 const undefinedValue = undefined;
 
-await $`echo "Value: ${nullValue}"`;      // echo "Value: "
-await $`echo "Value: ${undefinedValue}"`; // echo "Value: "
+await $`echo Value: ${nullValue}`;      // echo Value: ''
+await $`echo Value: ${undefinedValue}`; // echo Value: ''
+```
 
-// Useful for optional parameters
+This means `undefined` is not a clean way to make a flag disappear —
+`` $`command ${optionalFlag} file.txt` `` still passes an empty-string
+argument when `optionalFlag` is `undefined`, which most CLIs don't treat the
+same as omitting it entirely. Filter it out of an array instead:
+
+```typescript
 const optionalFlag = condition ? '--verbose' : undefined;
-await $`command ${optionalFlag} file.txt`;
+await $`command ${[optionalFlag].filter(Boolean)} file.txt`;
 // If condition false: command file.txt
 // If condition true: command --verbose file.txt
 ```
@@ -162,16 +176,15 @@ await $`ssh ${user}@${host}`;
 
 ## Raw Mode - Without Escaping
 
-For cases when you need to disable escaping:
+For cases when you need to disable escaping, `$.raw` is a separate tagged
+template that skips it:
 
 ```typescript
-import { ExecutionEngine } from '@xec-sh/core';
-
-const $ = new ExecutionEngine();
+import { $ } from '@xec-sh/core';
 
 // Normal mode - with escaping
 const pattern = '*.txt';
-await $`ls ${pattern}`;  // ls "*.txt" (looks for file named *.txt)
+await $`ls ${pattern}`;  // ls '*.txt' (looks for file named *.txt)
 
 // Raw mode - without escaping
 await $.raw`ls ${pattern}`;  // ls *.txt (works as glob)
@@ -264,17 +277,17 @@ await $`NODE_ENV=production npm start -- --port ${port} --host ${host}`;
 ### Quotes
 
 ```typescript
-// Single quotes
+// Single quotes — the value gets closed, escaped, and reopened
 const single = "It's a test";
-await $`echo ${single}`;  // echo "It's a test"
+await $`echo ${single}`;  // echo 'It'\''s a test'
 
-// Double quotes
+// Double quotes — no escaping needed inside a single-quoted token
 const double = 'Say "Hello"';
-await $`echo ${double}`;  // echo "Say \"Hello\""
+await $`echo ${double}`;  // echo 'Say "Hello"'
 
 // Mixed
 const mixed = `It's "complex"`;
-await $`echo ${mixed}`;  // echo "It's \"complex\""
+await $`echo ${mixed}`;  // echo 'It'\''s "complex"'
 ```
 
 ### Shell Characters
@@ -287,11 +300,11 @@ await $`echo ${special}`;
 
 // Backticks
 const backticks = '`command`';
-await $`echo ${backticks}`;  // echo "\`command\`"
+await $`echo ${backticks}`;  // echo '`command`'
 
 // Shell variables
 const shellVar = '${PATH}';
-await $`echo ${shellVar}`;  // echo "\${PATH}"
+await $`echo ${shellVar}`;  // echo '${PATH}'
 ```
 
 ### Unicode and Emoji
@@ -312,8 +325,12 @@ await $`echo ${special}`;
 
 ## Function Interpolation
 
+Call the function yourself — `${getTimestamp()}`, not `${getTimestamp}` —
+interpolation doesn't invoke a bare function reference for you; it would be
+stringified as its source text instead. A `Promise` returned by the call is
+awaited automatically, as shown earlier.
+
 ```typescript
-// Functions are called automatically
 function getTimestamp() {
   return new Date().toISOString();
 }
@@ -446,22 +463,31 @@ const data2 = await getData();
 
 ## Debugging Template Literals
 
+There is no built-in way to preview the resolved command string before
+running it — `ProcessPromise` doesn't expose the command, and calling
+`.toString()` on one just gives `"[object Object]"` (the default inherited
+from `Object.prototype`; it's unrelated to `ExecutionResult`'s own
+`.toString()`, which returns stdout once a command has actually run). To see
+what actually ran, either turn on verbose mode, which echoes each command
+before it runs:
+
 ```typescript
-// View the final command
 const file = "test file.txt";
-const cmd = $`cat ${file}`;
 
-// Without executing, you can see the command
-console.log(cmd.toString());  // ProcessPromise doesn't have toString
+$.verbose = true;
+await $`cat ${file}`;
+// Outputs: $ cat 'test file.txt'
+```
 
-// For debugging use dry-run
-const $ = new ExecutionEngine();
+or listen for the `command:start` event, which fires with the same string:
+
+```typescript
 $.on('command:start', ({ command }) => {
   console.log('Executing:', command);
 });
 
 await $`cat ${file}`;
-// Outputs: Executing: cat "test file.txt"
+// Outputs: Executing: cat 'test file.txt'
 ```
 
 ## Best Practices
@@ -486,8 +512,11 @@ const { stdout: version } = await $`node --version`;
 ### ❌ Avoid
 
 ```typescript
-// Don't use string concatenation
-const bad = 'ls ' + userInput;  // Dangerous!
+// Don't use string concatenation — the whole concatenated string becomes
+// one quoted argument, so this doesn't inject, but it also doesn't do what
+// you meant: it tries to run a command literally named "ls <userInput>"
+// and fails with "command not found"
+const bad = 'ls ' + userInput;
 await $`${bad}`;
 
 // Don't forget await

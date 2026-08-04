@@ -92,7 +92,7 @@ tasks:
 
 ```typescript
 // scripts/deploy.ts
-import { $, $$, type Target } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 
@@ -147,7 +147,7 @@ async function deployToTarget(targetName: string) {
     `.nothrow();
     
     if (!gitResult.ok) {
-      throw new Error(`Git pull failed: ${gitResult.error.message}`);
+      throw new Error(`Git pull failed: ${gitResult.cause}`);
     }
     
     // 3. Install dependencies
@@ -172,7 +172,7 @@ async function deployToTarget(targetName: string) {
     `.nothrow();
     
     if (!migrationResult.ok) {
-      console.warn(chalk.yellow(`    ⚠️  Migration warnings: ${migrationResult.error.message}`));
+      console.warn(chalk.yellow(`    ⚠️  Migration warnings: ${migrationResult.cause}`));
     }
     
     // 6. Reload application with PM2

@@ -117,9 +117,8 @@ tasks:
 # .xec/config.yaml
 tasks:
   clean:
-    command: rm -rf dist
-    # Cross-platform version:
-    command: xec -e "await fs.rm('dist', { recursive: true, force: true })"
+    # Cross-platform: avoids depending on a Unix shell for `rm -rf`
+    command: xec -e "const fs = await import('node:fs/promises'); await fs.rm('dist', { recursive: true, force: true })"
     
   lint:
     command: eslint src/**/*.ts
@@ -370,7 +369,7 @@ tasks:
 **Xec Script Version:**
 ```typescript
 // scripts/deploy.ts
-import { $, on } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { readConfig } from './utils';
 
 const config = await readConfig();
@@ -394,7 +393,7 @@ await $`terser dist/bundle.js -o dist/bundle.min.js`;
 // Deploy
 console.log(`🚀 Deploying to ${target}...`);
 await $`xec copy dist/ ${target}:/var/www/html/`;
-await on(target, 'systemctl restart nginx');
+await $.ssh(target)`systemctl restart nginx`;
 
 // Notify
 console.log('✅ Deployment complete!');
@@ -449,7 +448,7 @@ tasks:
 
 ### Phase 1: Setup
 - [ ] Install Xec: `npm install -g @xec-sh/cli`
-- [ ] Initialize Xec: `xec new config`
+- [ ] Initialize Xec: `xec new project`
 - [ ] Create `.xec/config.yaml`
 
 ### Phase 2: Migrate Simple Scripts
@@ -498,10 +497,12 @@ This allows team members to use familiar `npm run` commands while leveraging Xec
 ### 1. Multi-Target Deployment
 ```typescript
 // Deploy to multiple servers simultaneously
+import { $ } from '@xec-sh/core';
+
 await Promise.all([
-  on('server1', 'systemctl restart app'),
-  on('server2', 'systemctl restart app'),
-  on('server3', 'systemctl restart app')
+  $.ssh('server1')`systemctl restart app`,
+  $.ssh('server2')`systemctl restart app`,
+  $.ssh('server3')`systemctl restart app`
 ]);
 ```
 
@@ -517,13 +518,13 @@ if (branch === 'main') {
 
 ### 3. Interactive Prompts
 ```typescript
-import { question } from '@xec-sh/core';
+import { confirm, isCancel, cancel } from '@xec-sh/kit';
 
-const proceed = await question({
+const proceed = await confirm({
   message: 'Deploy to production?',
-  type: 'confirm',
-  default: false
+  initialValue: false
 });
+if (isCancel(proceed)) { cancel('Cancelled.'); process.exit(0); }
 
 if (proceed) {
   await $`xec deploy production`;
@@ -532,14 +533,14 @@ if (proceed) {
 
 ### 4. Progress Tracking
 ```typescript
-import { spinner } from '@xec-sh/core';
+import { spinner } from '@xec-sh/kit';
 
-const spin = spinner('Building application...');
-spin.start();
+const spin = spinner();
+spin.start('Building application...');
 
 await $`webpack --mode production`;
 
-spin.succeed('Build complete!');
+spin.stop('Build complete!');
 ```
 
 ## Common Gotchas

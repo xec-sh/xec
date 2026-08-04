@@ -90,7 +90,7 @@ tasks:
 
 ```typescript
 // scripts/k8s-deploy.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { readFile, writeFile } from 'fs/promises';
 import * as yaml from 'js-yaml';
@@ -448,7 +448,7 @@ async function deployApplication() {
     `.nothrow();
     
     if (!result.ok) {
-      console.error(chalk.red(`Failed to apply ${manifest.kind}: ${result.error.message}`));
+      console.error(chalk.red(`Failed to apply ${manifest.kind}: ${result.cause}`));
       process.exit(1);
     }
     
@@ -503,13 +503,14 @@ async function verifyDeployment() {
   if (environment !== 'production') {
     console.log(chalk.gray('Testing service endpoint...'));
     
-    // Port forward to test locally
-    const portForward = $$`
+    // Port forward to test locally — start it in the background, don't await yet
+    const portForward = $`
       kubectl port-forward \
         service/myapp-service \
         8080:80 \
         --namespace=${env.namespace}
-    `;
+    `.nothrow();
+    portForward.start();
     
     // Wait for port forward to be ready
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -803,13 +804,13 @@ xec run scripts/canary-deploy.ts v1.2.3
 xec run scripts/argocd-deploy.ts production v1.2.3
 
 # Execute in pod
-xec in k8s:myapp-pod "ls -la /app"
+xec in pods.myapp-pod "ls -la /app"
 
 # Stream logs
-xec logs k8s:myapp --follow
+xec logs pods.myapp --follow
 
 # Port forward
-xec forward k8s:myapp 8080:3000
+xec forward pods.myapp 8080:3000
 ```
 
 ## Best Practices

@@ -91,7 +91,7 @@ module.exports = function(grunt) {
 
 ```typescript
 // scripts/build.ts
-import { $, glob, watch } from '@xec-sh/core';
+import { $, glob } from '@xec-sh/core';
 
 // Compile styles
 async function buildStyles() {
@@ -299,10 +299,10 @@ gulp.task('watch', () => {
 # .xec/config.yaml
 tasks:
   watch:styles:
-    command: xec watch --pattern "src/scss/**/*.scss" --exec "xec build:styles"
+    command: xec watch local "src/scss/**/*.scss" --command "xec build:styles"
     
   watch:scripts:
-    command: xec watch --pattern "src/js/**/*.js" --exec "xec build:scripts"
+    command: xec watch local "src/js/**/*.js" --command "xec build:scripts"
     
   watch:all:
     parallel: true
@@ -314,16 +314,15 @@ tasks:
 **Xec Script:**
 ```typescript
 // scripts/watch.ts
-import { watch } from '@xec-sh/core';
-import { buildStyles } from './styles';
-import { bundleScripts } from './bundle';
+import { $ } from '@xec-sh/core';
 
-// Watch multiple patterns
-watch({
-  'src/scss/**/*.scss': buildStyles,
-  'src/js/**/*.js': bundleScripts,
-  'src/images/**/*': () => $`xec optimize:images`
-});
+// File watching is a CLI capability (`xec watch`), not a core JS API —
+// run one watcher per pattern, each driving its own build task
+await Promise.all([
+  $`xec watch local "src/scss/**/*.scss" --command "xec build:styles"`,
+  $`xec watch local "src/js/**/*.js" --command "xec build:scripts"`,
+  $`xec watch local "src/images/**/*" --command "xec optimize:images"`
+]);
 
 console.log('👀 Watching for changes...');
 ```
@@ -474,7 +473,8 @@ tasks:
 
 ```typescript
 // scripts/build.ts
-import { $, glob, fs } from '@xec-sh/core';
+import { $, glob } from '@xec-sh/core';
+import * as fs from 'node:fs/promises';
 import path from 'path';
 
 const isProduction = process.argv.includes('--production');
@@ -565,15 +565,13 @@ export async function build() {
   console.log('🎉 Build complete!');
 }
 
-// Watch mode
+// Watch mode — delegates to the CLI's file watcher, one process per pattern
 if (isWatch) {
-  const { watch } = await import('@xec-sh/core');
-  
-  watch({
-    'app/scss/**/*.scss': buildStyles,
-    'app/js/**/*.js': buildScripts,
-    'app/images/**/*': optimizeImages
-  });
+  await Promise.all([
+    $`xec watch local "app/scss/**/*.scss" --command "xec build:styles"`,
+    $`xec watch local "app/js/**/*.js" --command "xec build:scripts"`,
+    $`xec watch local "app/images/**/*" --command "xec optimize:images"`
+  ]);
   
   console.log('👀 Watching for changes...');
 }
@@ -709,7 +707,7 @@ await $`webpack --mode ${env}`;
 
 if (env === 'production') {
   // Deploy to production servers
-  await on('production-servers', 'systemctl restart app');
+  await $.ssh('production-servers')`systemctl restart app`;
 }
 ```
 
@@ -739,8 +737,8 @@ async function shouldRebuild(file: string): Promise<boolean> {
 ```typescript
 // Build locally, deploy remotely
 await $`npm run build`;
-await on('staging-server', 'docker build -t app .');
-await on('staging-server', 'docker run -d app');
+await $.ssh('staging-server')`docker build -t app .`;
+await $.ssh('staging-server')`docker run -d app`;
 ```
 
 ## Common Migration Issues

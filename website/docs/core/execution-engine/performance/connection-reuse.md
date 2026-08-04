@@ -28,9 +28,11 @@ await remote`df -h`;
 await remote`ps aux | head`;
 ```
 
-Reuse is keyed by the connection target (host, port, username), so two
-`$.ssh(...)` calls with the same target share a connection even if they were
-created separately:
+Reuse is keyed by the full connection identity — host, port, username, and a
+hash of the credential material (private key or password, never the
+credential itself) — so two callers with different credentials for the same
+host never share a connection, but two `$.ssh(...)` calls with the same
+target and credentials do, even if they were created separately:
 
 ```typescript
 await $.ssh('deploy@server.example.com')`uptime`;
@@ -146,7 +148,7 @@ for (const cmd of commands) {
 
 ## See Also
 
-- [Connection Pooling](/core/execution-engine/features/connection-pooling)
-- [Performance Optimization](/core/execution-engine/performance/optimization)
-- [SSH Adapter](/core/execution-engine/adapters/ssh-adapter)
-- [Parallel Execution](/core/execution-engine/performance/parallel-execution)
+- [Connection Pooling](/docs/core/execution-engine/features/connection-pooling)
+- [Performance Optimization](/docs/core/execution-engine/performance/optimization)
+- [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
+- [Parallel Execution](/docs/core/execution-engine/performance/parallel-execution)

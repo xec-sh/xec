@@ -87,7 +87,7 @@ tasks:
 
 ```typescript
 // scripts/docker-deploy.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 import crypto from 'crypto';

@@ -64,7 +64,7 @@ echo "Deployment complete"
 
 ```typescript
 // scripts/deploy.ts
-import { $, on } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { readFile } from 'fs/promises';
 
 const env = process.argv[2] || 'staging';
@@ -88,14 +88,14 @@ for (const server of targetServers) {
   console.log(`Deploying to ${server.name}...`);
   
   try {
-    await on(server.host, 'mkdir -p /app');
+    await $.ssh(server.host)`mkdir -p /app`;
     await $`xec copy dist/ ${server.host}:/app/`;
     
-    await on(server.host, `
+    await $.ssh(server.host)`
       cd /app &&
       sed -i 's/VERSION_PLACEHOLDER/${version}/g' config.json &&
       systemctl restart app
-    `);
+    `;
   } catch (error) {
     console.error(`Failed to deploy to ${server.name}:`, error);
     throw error; // Or continue with next server
@@ -625,7 +625,7 @@ main "$@"
 
 ```typescript
 // scripts/backup.ts
-import { $, on } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { statfs } from 'fs';
 import { promisify } from 'util';
 import { appendFile } from 'fs/promises';
@@ -887,12 +887,12 @@ wait $PID
 **Xec:**
 ```typescript
 // Start without waiting
-const process = $`long_command`.nothrow();
+const job = $`long_command`.nothrow();
 
 // Do other work...
 
 // Wait for completion
-const result = await process;
+const result = await job;
 ```
 
 ### 3. File Descriptors
@@ -934,6 +934,7 @@ await runShellScript('./legacy/deploy.sh', 'production');
 ```typescript
 // utils/shell-utils.ts
 import { $ } from '@xec-sh/core';
+import { readFile, writeFile } from 'fs/promises';
 
 // which command equivalent
 export async function which(command: string): Promise<string | null> {

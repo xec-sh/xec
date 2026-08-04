@@ -505,9 +505,10 @@ const workflow = new Workflow()
 ### Do's ✅
 
 ```typescript
-// ✅ Keep compositions simple and focused
-const withDefaults = (cmd: any) => 
-  cmd.timeout(10000).retry(3);
+// ✅ Keep compositions simple and focused — retry belongs on the engine,
+// applied before the template tag runs (see Basic Composition above)
+const withDefaults = (engine: CallableExecutionEngine) =>
+  engine.timeout(10000).retry({ maxRetries: 3 });
 
 // ✅ Use composition for reusability
 const productionCommand = compose(

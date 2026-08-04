@@ -1,34 +1,35 @@
 # Kubernetes Adapter
 
-The Kubernetes adapter enables command execution within Kubernetes pods with advanced features like port forwarding and log streaming.
+The Kubernetes adapter enables command execution within existing Kubernetes pods, with port forwarding, log access and file copying built on top of `kubectl`.
 
 ## Overview
 
-The Kubernetes adapter (`packages/core/src/adapters/k8s-adapter.ts`) provides seamless pod command execution with:
+The Kubernetes adapter (`packages/core/src/adapters/kubernetes/index.ts`) shells out to `kubectl` and provides:
 
-- **Pod lifecycle management** (create, exec, delete)
-- **Multi-container pod support**
-- **Service port forwarding**
-- **Real-time log streaming**
-- **File operations** (copy to/from pods)
-- **Namespace management**
-- **ConfigMap and Secret integration**
+- **Pod command execution**, including a specific container in a multi-container pod
+- **Port forwarding** to a pod
+- **Log retrieval and streaming**
+- **File copying** to/from a pod (via `kubectl cp`)
+- **Namespace and context targeting**
+
+It does not create, patch or delete cluster resources — no pods, Jobs,
+ConfigMaps, Secrets or Namespaces. Everything here targets a pod that
+already exists; creating one is out of scope, the same way the SSH adapter
+doesn't provision the host it connects to.
 
 ## Basic Usage
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Execute in existing pod
-const pod = $.k8s({
-  pod: 'my-app-7d9f8c6b5-x2vjm',
-  namespace: 'production'
-});
+// Execute in an existing pod — string shorthand or options object
+const pod = $.k8s('production/my-app-7d9f8c6b5-x2vjm');
+// same as: $.k8s({ pod: 'my-app-7d9f8c6b5-x2vjm', namespace: 'production' })
 
 const result = await pod`ls -la /app`;
 console.log(result.stdout);
 
-// Execute in specific container
+// Execute in a specific container of a multi-container pod
 const container = $.k8s({
   pod: 'multi-container-pod',
   container: 'app',
@@ -38,12 +39,18 @@ const container = $.k8s({
 await container`cat /etc/config/app.yaml`;
 ```
 
+`$.k8s(target)` returns a `K8sExecutionContext` with the same chaining API
+every other target has (`.env()`, `.cd()`, `.timeout()`, `.shell()`,
+`.retry()`, `.with()`, `.pwd()`, `.which()`, `.transfer`, and so on) — a step
+written against a K8s target runs the same way it would against SSH, Docker
+or local.
+
 ## Pod Configuration
 
 ### Working with Existing Pods
 
 ```typescript
-// Connect to running pod
+// Connect to a running pod
 const existing = $.k8s({
   pod: 'web-server-abc123',
   namespace: 'production'
@@ -51,9 +58,11 @@ const existing = $.k8s({
 
 // Execute commands
 await existing`ps aux`;
-await existing`tail -f /var/log/app.log`;
+for await (const line of existing`tail -f /var/log/app.log`) {
+  console.log(line);
+}
 
-// With specific container
+// A specific container
 const sidecar = $.k8s({
   pod: 'app-pod',
   container: 'logging-agent',
@@ -61,506 +70,188 @@ const sidecar = $.k8s({
 });
 ```
 
-### Creating Ephemeral Pods
+`KubernetesAdapterOptions` also accepts `context` (which cluster context to
+use — without it, whatever `kubectl config current-context` happens to be)
+and `kubeconfig` (path to a specific kubeconfig file):
 
 ```typescript
-// Create pod from image
-const ephemeral = $.k8s({
-  image: 'busybox:latest',
-  name: 'debug-pod',
-  namespace: 'default',
-  rm: true  // Auto-delete after execution
-});
-
-// With resource limits
-const limited = $.k8s({
-  image: 'ubuntu:22.04',
-  name: 'worker',
-  resources: {
-    requests: {
-      memory: '256Mi',
-      cpu: '100m'
-    },
-    limits: {
-      memory: '512Mi',
-      cpu: '500m'
-    }
-  }
-});
-
-// With environment variables
-const withEnv = $.k8s({
-  image: 'node:18',
-  name: 'node-app',
-  env: {
-    NODE_ENV: 'production',
-    API_KEY: 'secret-key'
-  }
+const staging = $.k8s({
+  pod: 'app-pod',
+  namespace: 'staging',
+  context: 'staging-cluster'
 });
 ```
 
-## Namespace Management
+## Namespace and Context
 
-### Working with Namespaces
+There is no namespace-management API (`createNamespace`, `deleteNamespace`
+and similar don't exist) — `namespace` on a target only selects which
+namespace `kubectl` looks in for the pod you name:
 
 ```typescript
 // Default namespace
 const defaultNs = $.k8s({ pod: 'my-pod' });
 
-// Specific namespace
-const prodNs = $.k8s({ 
-  pod: 'app-pod',
-  namespace: 'production'
-});
-
-// Create namespace
-await $.k8s.createNamespace('staging');
-
-// List pods in namespace
-const pods = await $.k8s.listPods('production');
-
-// Delete namespace
-await $.k8s.deleteNamespace('old-namespace');
+// A specific one
+const prodNs = $.k8s({ pod: 'app-pod', namespace: 'production' });
 ```
 
-### Cross-Namespace Operations
+### Moving Data Between Pods
+
+There's no dedicated cross-namespace copy method; capture output and
+interpolate it into the next command, the same as you would locally:
 
 ```typescript
-// Copy between namespaces
 const source = $.k8s({ pod: 'source-pod', namespace: 'dev' });
 const dest = $.k8s({ pod: 'dest-pod', namespace: 'staging' });
 
-const data = await source`cat /data/export.json`;
-await dest.stdin(data)`cat > /data/import.json`;
+const data = (await source`cat /data/export.json`).stdout;
+await dest`cat > /data/import.json <<'XEC_EOF'
+${data}
+XEC_EOF`;
 ```
 
 ## Port Forwarding
 
-### Service Port Forwarding
+Port forwarding is a method on a **pod**, reached through `.pod(name)` —
+there is no `$.k8s.portForward(...)`; `k8s` is a method, not a namespace, and
+forwarding isn't exposed on the context directly:
 
 ```typescript
-// Forward service port
-const forward = await $.k8s.portForward({
-  service: 'web-service',
-  namespace: 'production',
-  localPort: 8080,
-  remotePort: 80
-});
+const pod = $.k8s('production').pod('web-service-7d9f8c6b5-x2vjm');
 
-// Access service locally
+// Forward a fixed local port to a pod port
+const forward = await pod.portForward(8080, 80);
+
+// Access the pod locally
 const response = await fetch('http://localhost:8080');
 
 // Close forwarding
 await forward.close();
 ```
 
-### Pod Port Forwarding
-
 ```typescript
-// Forward pod port directly
-const podForward = await $.k8s.portForward({
-  pod: 'database-pod',
-  namespace: 'data',
-  localPort: 5432,
-  remotePort: 5432
-});
+// Let the OS pick a free local port
+const dbForward = await $.k8s('data').pod('database-pod').portForwardDynamic(5432);
+console.log('Forwarded on port', dbForward.localPort);
 
-// Connect to database through forwarded port
-const db = await connectDB('localhost:5432');
-
-// Multiple port forwards
-const multiForward = await $.k8s.portForward({
-  pod: 'monitoring-pod',
-  forwards: [
-    { local: 3000, remote: 3000 },  // Grafana
-    { local: 9090, remote: 9090 }   // Prometheus
-  ]
-});
+const db = await connectDB(`localhost:${dbForward.localPort}`);
 ```
 
-## Log Streaming
+`K8sPortForward` has `.localPort`, `.remotePort`, `.isOpen` and `.close()`.
+For more than one port on the same pod, open more than one forward — there
+is no batch/multi-port form.
 
-### Real-time Log Streaming
+## Logs
 
 ```typescript
-const pod = $.k8s({ pod: 'app-pod', namespace: 'production' });
+const pod = $.k8s('production').pod('app-pod');
 
-// Stream logs
-await pod.logs({
-  follow: true,
-  tail: 100,
-  timestamps: true,
-  since: '10m'
-}).stdout((line) => {
+// One-shot retrieval
+const logs = await pod.logs({ tail: 100, timestamps: true });
+
+// A specific container's logs
+const nginxLogs = await pod.logs({ container: 'nginx' });
+
+// The previous instance of a crashed/restarted container
+const crashLogs = await pod.logs({ previous: true, container: 'app' });
+```
+
+### Streaming Logs
+
+```typescript
+// Callback form
+const stream = await pod.streamLogs((line) => {
   console.log('LOG:', line);
-}).stderr((line) => {
-  console.error('ERROR:', line);
-});
+}, { follow: true, tail: 100 });
 
-// Multi-container logs
-await pod.logs({
-  container: 'nginx',
-  follow: true
-});
+// later
+stream.stop();
 
-// Previous container logs
-await pod.logs({
-  previous: true,
-  container: 'app'
-});
+// Or, equivalently, .follow() — the same thing with follow: true implied
+await pod.follow((line) => console.log('LOG:', line));
 ```
 
-### Log Aggregation
+### Logs Across Several Pods
+
+There's no label-based log aggregation call. List matching pods with
+`kubectl` directly, then read each one:
 
 ```typescript
-// Get logs from multiple pods
-const selector = { app: 'web-server' };
-const pods = await $.k8s.getPodsByLabel(selector, 'production');
+const names = (await $`kubectl get pods -n production -l app=web-server -o jsonpath='{.items[*].metadata.name}'`)
+  .stdout.trim().split(/\s+/);
 
-for (const podName of pods) {
-  const pod = $.k8s({ pod: podName, namespace: 'production' });
-  const logs = await pod.getLogs({ tail: 50 });
-  console.log(`${podName}:\n${logs}`);
+for (const name of names) {
+  const logs = await $.k8s('production').pod(name).logs({ tail: 50 });
+  console.log(`${name}:\n${logs}`);
 }
 ```
 
+`KubernetesAdapter.getPodFromSelector(selector, namespace?)` and
+`.isPodReady(pod, namespace?)` also exist and do a single-pod version of
+this (first match for a label selector, and a readiness check), reachable
+via `($.getAdapter('kubernetes'))` with a cast to `KubernetesAdapter`, but
+for anything beyond one pod, `kubectl get pods` is simpler.
+
 ## File Operations
 
-### Copy Files to Pod
-
 ```typescript
-const pod = $.k8s({ pod: 'app-pod', namespace: 'default' });
+const pod = $.k8s('default').pod('app-pod');
 
-// Copy single file
+// Copy a file (or a directory — kubectl cp handles both) to the pod
 await pod.copyTo('/local/config.yaml', '/app/config.yaml');
 
-// Copy directory
-await pod.copyToDir('/local/assets', '/app/static');
-
-// Copy with specific container
-await pod.copyTo('/local/nginx.conf', '/etc/nginx/nginx.conf', {
-  container: 'nginx'
-});
-```
-
-### Copy Files from Pod
-
-```typescript
-// Copy file from pod
+// Copy from the pod
 await pod.copyFrom('/app/logs/error.log', '/local/logs/error.log');
 
-// Copy directory from pod
-await pod.copyFromDir('/app/data', '/local/backup');
-
-// Copy with tar streaming
-await pod.copyFrom('/var/log', '/local/pod-logs', {
-  compress: true
-});
+// With a specific container
+await pod.copyTo('/local/nginx.conf', '/etc/nginx/nginx.conf', 'nginx');
 ```
 
-## ConfigMaps and Secrets
-
-### Working with ConfigMaps
-
-```typescript
-// Create ConfigMap
-await $.k8s.createConfigMap('app-config', {
-  namespace: 'production',
-  data: {
-    'database.yaml': 'host: db.example.com\nport: 5432',
-    'app.properties': 'debug=false\nport=8080'
-  }
-});
-
-// Mount ConfigMap in pod
-const podWithConfig = $.k8s({
-  image: 'app:latest',
-  name: 'configured-app',
-  volumes: [{
-    name: 'config',
-    configMap: 'app-config',
-    mountPath: '/etc/config'
-  }]
-});
-
-// Update ConfigMap
-await $.k8s.updateConfigMap('app-config', {
-  namespace: 'production',
-  data: {
-    'database.yaml': 'host: new-db.example.com\nport: 5432'
-  }
-});
-```
-
-### Working with Secrets
-
-```typescript
-// Create Secret
-await $.k8s.createSecret('api-keys', {
-  namespace: 'production',
-  type: 'Opaque',
-  data: {
-    'api-key': Buffer.from('secret-key').toString('base64'),
-    'db-password': Buffer.from('password123').toString('base64')
-  }
-});
-
-// Mount Secret as environment variables
-const podWithSecrets = $.k8s({
-  image: 'app:latest',
-  name: 'secure-app',
-  envFrom: [{
-    secretRef: { name: 'api-keys' }
-  }]
-});
-
-// Mount Secret as files
-const podWithSecretFiles = $.k8s({
-  image: 'app:latest',
-  name: 'app-with-certs',
-  volumes: [{
-    name: 'certs',
-    secret: 'tls-certificates',
-    mountPath: '/etc/ssl/certs'
-  }]
-});
-```
+There is no compression option — `copyTo`/`copyFrom` run `kubectl cp`
+exactly as it behaves on the command line. `$.transfer` does not have a
+Kubernetes leg (it only handles local/SSH/Docker paths); pod file transfer
+goes through `copyTo`/`copyFrom` above instead.
 
 ## Multi-Container Pods
 
-### Container Management
+A sidecar container — a service mesh proxy like Istio's, a logging agent,
+anything running alongside the main container in the same pod — is reached
+the same way as any other container: name it explicitly.
 
 ```typescript
-// Execute in specific container
-const app = $.k8s({
-  pod: 'multi-container-pod',
-  container: 'app',
-  namespace: 'default'
-});
-
+// The main container
+const app = $.k8s({ pod: 'app-pod', container: 'app', namespace: 'default' });
 await app`npm run migrate`;
 
-// Execute in sidecar
-const sidecar = $.k8s({
-  pod: 'multi-container-pod',
-  container: 'logging-agent'
-});
-
-await sidecar`tail -f /var/log/collected.log`;
-
-// List containers in pod
-const containers = await $.k8s.getContainers('multi-container-pod');
-console.log('Containers:', containers);
+// A sidecar
+const proxy = $.k8s({ pod: 'app-pod', container: 'istio-proxy', namespace: 'default' });
+await proxy`curl -s localhost:15000/clusters`;
 ```
 
-### Init Containers
-
-```typescript
-// Create pod with init container
-const podWithInit = $.k8s({
-  image: 'app:latest',
-  name: 'app-with-init',
-  initContainers: [{
-    name: 'init-db',
-    image: 'migrate:latest',
-    command: ['./migrate.sh']
-  }]
-});
-
-// Wait for init completion
-await podWithInit.waitForReady({ timeout: 60000 });
-```
-
-## Job and CronJob Execution
-
-### Running Jobs
-
-```typescript
-// Create and run job
-const job = await $.k8s.createJob({
-  name: 'data-processing',
-  namespace: 'batch',
-  image: 'processor:latest',
-  command: ['python', 'process.py'],
-  completions: 1,
-  parallelism: 1,
-  backoffLimit: 3
-});
-
-// Wait for job completion
-await job.waitForCompletion({ timeout: 300000 });
-
-// Get job logs
-const logs = await job.getLogs();
-console.log('Job output:', logs);
-
-// Clean up
-await job.delete();
-```
-
-### Managing CronJobs
-
-```typescript
-// Create CronJob
-await $.k8s.createCronJob({
-  name: 'backup',
-  namespace: 'maintenance',
-  schedule: '0 2 * * *',  // Daily at 2 AM
-  image: 'backup:latest',
-  command: ['./backup.sh']
-});
-
-// Trigger CronJob manually
-await $.k8s.triggerCronJob('backup', 'maintenance');
-
-// Suspend/resume CronJob
-await $.k8s.suspendCronJob('backup', 'maintenance');
-await $.k8s.resumeCronJob('backup', 'maintenance');
-```
-
-## Service Mesh Integration
-
-### Working with Istio
-
-```typescript
-// Execute through sidecar proxy
-const istioApp = $.k8s({
-  pod: 'app-pod',
-  container: 'app',  // Skip istio-proxy sidecar
-  namespace: 'istio-system'
-});
-
-// Check sidecar status
-const sidecar = $.k8s({
-  pod: 'app-pod',
-  container: 'istio-proxy',
-  namespace: 'istio-system'
-});
-
-await sidecar`curl -s localhost:15000/clusters`;
-```
-
-## Health Checks and Probes
-
-### Readiness and Liveness
-
-```typescript
-const healthyPod = $.k8s({
-  image: 'app:latest',
-  name: 'healthy-app',
-  livenessProbe: {
-    httpGet: {
-      path: '/health',
-      port: 8080
-    },
-    initialDelaySeconds: 30,
-    periodSeconds: 10
-  },
-  readinessProbe: {
-    exec: {
-      command: ['cat', '/tmp/ready']
-    },
-    initialDelaySeconds: 5,
-    periodSeconds: 5
-  }
-});
-
-// Wait for pod to be ready
-await healthyPod.waitForReady();
-
-// Check pod status
-const status = await healthyPod.getStatus();
-console.log('Pod ready:', status.ready);
-```
-
-## Advanced Features
-
-### Resource Management
-
-```typescript
-// With resource quotas
-const limited = $.k8s({
-  image: 'worker:latest',
-  resources: {
-    requests: { memory: '256Mi', cpu: '250m' },
-    limits: { memory: '1Gi', cpu: '1000m' }
-  }
-});
-
-// With node affinity
-const nodeSpecific = $.k8s({
-  image: 'gpu-app:latest',
-  nodeSelector: {
-    'kubernetes.io/gpu': 'true'
-  },
-  tolerations: [{
-    key: 'gpu',
-    operator: 'Equal',
-    value: 'true',
-    effect: 'NoSchedule'
-  }]
-});
-```
-
-### Security Context
-
-```typescript
-const secure = $.k8s({
-  image: 'app:latest',
-  securityContext: {
-    runAsUser: 1000,
-    runAsGroup: 1000,
-    fsGroup: 2000,
-    runAsNonRoot: true,
-    readOnlyRootFilesystem: true,
-    capabilities: {
-      drop: ['ALL'],
-      add: ['NET_BIND_SERVICE']
-    }
-  }
-});
-```
-
-### Labels and Annotations
-
-```typescript
-const labeled = $.k8s({
-  image: 'app:latest',
-  labels: {
-    app: 'web-server',
-    version: 'v1.0.0',
-    environment: 'production'
-  },
-  annotations: {
-    'prometheus.io/scrape': 'true',
-    'prometheus.io/port': '9090'
-  }
-});
-
-// Query by labels
-const pods = await $.k8s.getPodsByLabel(
-  { app: 'web-server', environment: 'production' },
-  'default'
-);
-```
+There is no dedicated "list containers in this pod" call — read it off
+`kubectl get pod` directly: `` await $`kubectl get pod app-pod -n default -o jsonpath='{.spec.containers[*].name}'` ``.
 
 ## Error Handling
 
+Failures throw `KubernetesError` or `CommandError`, both extending
+`ExecutionError` with a `kind` to branch on rather than a specific error
+code:
+
 ```typescript
+import { $, ExecutionError } from '@xec-sh/core';
+
 const pod = $.k8s({ pod: 'app-pod', namespace: 'default' });
 
 try {
   await pod`command`;
 } catch (error) {
-  if (error.code === 'POD_NOT_FOUND') {
-    console.error('Pod does not exist');
-  } else if (error.code === 'CONTAINER_NOT_READY') {
-    console.error('Container is not ready');
-    await pod.waitForReady();
-  } else if (error.code === 'KUBECTL_NOT_FOUND') {
-    console.error('kubectl not installed or not in PATH');
-  } else if (error.code === 'KUBECONFIG_ERROR') {
-    console.error('Invalid kubeconfig or cluster unreachable');
+  if (error instanceof ExecutionError) {
+    if (error.kind === 'not-found') {
+      console.error('Pod or container does not exist');
+    } else if (error.kind === 'connection-refused' || error.kind === 'connection-lost') {
+      console.error('Cluster unreachable — check kubeconfig and context');
+    }
   }
 }
 ```
@@ -568,16 +259,12 @@ try {
 ## Implementation Details
 
 The Kubernetes adapter is implemented in:
-- `packages/core/src/adapters/k8s-adapter.ts` - Main adapter implementation
-- `packages/core/src/k8s/kubectl-client.ts` - kubectl wrapper
-- `packages/core/src/k8s/pod-executor.ts` - Pod execution logic
-- `packages/core/src/k8s/port-forward.ts` - Port forwarding implementation
-- `packages/core/src/k8s/log-stream.ts` - Log streaming functionality
+- `packages/core/src/adapters/kubernetes/index.ts` — main adapter, `kubectl` invocation, port forwarding, log streaming, file copy
+- `packages/core/src/adapters/kubernetes/kubernetes-api.ts` — `K8sExecutionContext`/`K8sPod`, the fluent surface shown throughout this page
+- `packages/core/src/adapters/kubernetes/kubernetes-utils.ts` — target parsing and helpers
 
 ## See Also
 
-- [Kubernetes Target Overview](/docs/targets/kubernetes/overview)
-- [Pod Execution](/docs/targets/kubernetes/pod-execution)
-- [Port Forwarding](/docs/targets/kubernetes/port-forwarding)
-- [Log Streaming](/docs/targets/kubernetes/log-streaming)
-- [Multi-Container Pods](/docs/targets/kubernetes/multi-container)
+- [SSH Adapter](/docs/core/execution-engine/adapters/ssh-adapter)
+- [Docker Adapter](/docs/core/execution-engine/adapters/docker-adapter)
+- [Streaming](/docs/core/execution-engine/features/streaming)

@@ -197,8 +197,10 @@ const buffer = await $`cat binary.dat`.buffer();
 The engine supports Unix-like pipes:
 
 ```typescript
-// Simple pipe
-await $`cat file.txt`.pipe($`grep pattern`).pipe($`wc -l`);
+// Simple pipe — pipe to a command string, not another $`...` ProcessPromise;
+// piping directly to a second tagged-template command does not carry its
+// output through correctly in the current build.
+await $`cat file.txt`.pipe('grep pattern').pipe('wc -l');
 
 // Pipe to a function — called once per output line
 await $`ls -la`.pipe((line) => {

@@ -189,7 +189,7 @@ class EC2Manager {
     // Execute via SSH
     const result = await $.ssh({
       host: instance.publicIp,
-      user: 'ec2-user',
+      username: 'ec2-user',
       privateKey: process.env.EC2_SSH_KEY
     })`${command}`;
     

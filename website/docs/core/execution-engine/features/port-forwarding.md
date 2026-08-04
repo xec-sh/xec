@@ -1,17 +1,21 @@
 # Port Forwarding
 
-Port forwarding enables secure access to remote services through SSH tunnels and Kubernetes port forwarding, making remote resources accessible as if they were local.
+Port forwarding makes a remote service reachable as if it were local (SSH
+tunnels, Kubernetes pod forwarding), or the reverse — makes a local service
+reachable from a remote host (SSH reverse tunnels).
 
 ## Overview
 
-Port forwarding (`packages/core/src/ssh/port-forwarding.ts`, `packages/core/src/k8s/port-forward.ts`) provides:
+Port forwarding (`packages/core/src/adapters/ssh/ssh-api.ts`,
+`packages/core/src/adapters/kubernetes/kubernetes-api.ts`) provides:
 
-- **SSH tunneling** with local, remote, and dynamic forwarding
-- **Kubernetes port forwarding** for pods and services
-- **Multiple simultaneous forwards** management
-- **Automatic reconnection** on failure
-- **SOCKS proxy** support
-- **Connection multiplexing** for efficiency
+- **SSH local tunneling** — a remote `host:port` reachable through a local port
+- **SSH reverse tunneling** — a local `host:port` reachable through a port on the remote host
+- **Kubernetes pod port forwarding** — a pod's port reachable through a local port, with an optional OS-assigned local port
+
+There is no SOCKS/dynamic forwarding, no jump-host chaining option, no
+connection multiplexing configuration, and no automatic reconnection — see
+[What Isn't Supported](#what-isnt-supported).
 
 ## SSH Port Forwarding
 
@@ -20,268 +24,129 @@ Port forwarding (`packages/core/src/ssh/port-forwarding.ts`, `packages/core/src/
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Forward local port to remote service
 const remote = $.ssh({ host: 'jump.server.com', username: 'user' });
 
-const tunnel = await remote.forward({
-  type: 'local',
-  localPort: 3306,
+const tunnel = await remote.tunnel({
   remoteHost: 'database.internal',
-  remotePort: 3306
+  remotePort: 3306,
+  // localPort omitted — the OS assigns one; pass a number to pin it
 });
 
-// Now connect to database through localhost:3306
+// Connect through the tunnel's actual local port
 const db = await mysql.connect({
   host: 'localhost',
-  port: 3306,
+  port: tunnel.localPort,
   user: 'dbuser',
   password: 'dbpass'
 });
 
-// Close tunnel when done
+// Close the tunnel when done
 await tunnel.close();
 ```
 
-### Remote Port Forwarding
+`tunnel.localPort`, `.localHost`, `.remoteHost`, `.remotePort` and `.isOpen`
+are readable at any time; `.open()` re-opens a tunnel that was closed.
+
+### Reverse Port Forwarding
 
 ```typescript
-// Make local service available on remote server
-const tunnel = await remote.forward({
-  type: 'remote',
+// Make a local service reachable from the remote host
+const tunnel = await remote.reverseTunnel({
   remotePort: 8080,
-  localHost: 'localhost',
-  localPort: 3000
+  localPort: 3000,
 });
 
-// Remote users can now access your local:3000 via remote:8080
-console.log('Local service exposed on remote:8080');
+console.log('Local :3000 is now reachable on the remote host at :', tunnel.remotePort);
 
-// Close when done
 await tunnel.close();
 ```
 
-### Dynamic Port Forwarding (SOCKS)
+The remote listener binds to `127.0.0.1` on the remote host by default —
+pass `remoteHost: '0.0.0.0'` explicitly if you want it reachable from
+outside that host, which is a deliberate, security-relevant choice rather
+than the default.
 
-```typescript
-// Create SOCKS proxy
-const proxy = await remote.forward({
-  type: 'dynamic',
-  localPort: 1080
-});
-
-// Use SOCKS proxy for HTTP requests
-const agent = new SocksProxyAgent('socks://localhost:1080');
-const response = await fetch('http://internal-service.com', { agent });
-
-// Or configure system-wide
-process.env.ALL_PROXY = 'socks://localhost:1080';
-```
+There is no dynamic (SOCKS) forwarding — both calls forward exactly one
+fixed `host:port` pair.
 
 ## Kubernetes Port Forwarding
 
-### Pod Port Forwarding
+Port forwarding is a method on a specific pod, reached through `.pod(name)`
+— not on the k8s context directly, and there is no way to target a
+Kubernetes Service by name.
 
 ```typescript
-// Forward pod port
-const forward = await $.k8s.portForward({
-  pod: 'database-pod',
-  namespace: 'production',
-  localPort: 5432,
-  remotePort: 5432
-});
+const pod = $.k8s('production').pod('database-pod');
 
-// Connect to database
-const client = new pg.Client({
-  host: 'localhost',
-  port: 5432
-});
+const forward = await pod.portForward(5432, 5432);  // local, remote
+
+const client = new pg.Client({ host: 'localhost', port: forward.localPort });
 await client.connect();
 
-// Close forwarding
 await forward.close();
 ```
 
-### Service Port Forwarding
+To let the OS pick a free local port instead of choosing one yourself:
 
 ```typescript
-// Forward service port
-const forward = await $.k8s.portForward({
-  service: 'web-service',
-  namespace: 'production',
-  localPort: 8080,
-  remotePort: 80
-});
-
-// Access service
-const response = await fetch('http://localhost:8080/api');
-
-// Auto-close after use
-await forward.use(async () => {
-  // Forward is active here
-  await fetch('http://localhost:8080/api');
-}); // Automatically closed after callback
+const forward = await pod.portForwardDynamic(5432);
+console.log('Forwarded to local port', forward.localPort);
 ```
 
-## Multiple Port Forwarding
+This shells out to `kubectl port-forward`, so `kubectl` must be on `PATH`
+and configured for the target cluster. `forward.localPort` only resolves to
+the real port once kubectl reports it has started forwarding — the
+`portForward`/`portForwardDynamic` promise already waits for that, so it is
+safe to read immediately after `await`.
 
-### Batch Forwarding
+## Multiple Forwards
+
+Neither SSH nor Kubernetes has a batch-forwarding helper — open each tunnel
+individually and track them yourself:
 
 ```typescript
-// Forward multiple ports at once
-const forwards = await remote.forwardMultiple([
-  { localPort: 3306, remoteHost: 'mysql.internal', remotePort: 3306 },
-  { localPort: 6379, remoteHost: 'redis.internal', remotePort: 6379 },
-  { localPort: 5432, remoteHost: 'postgres.internal', remotePort: 5432 }
+const forwards = await Promise.all([
+  remote.tunnel({ localPort: 3306, remoteHost: 'mysql.internal', remotePort: 3306 }),
+  remote.tunnel({ localPort: 6379, remoteHost: 'redis.internal', remotePort: 6379 }),
+  remote.tunnel({ localPort: 5432, remoteHost: 'postgres.internal', remotePort: 5432 }),
 ]);
 
-// Use all services
-await connectToAllDatabases();
+// ... use the services ...
 
-// Close all forwards
-await forwards.closeAll();
+await Promise.all(forwards.map(t => t.close()));
 ```
 
-### Kubernetes Multi-Port
+The same pattern covers multiple ports on one pod:
 
 ```typescript
-// Forward multiple ports from same pod
-const multiForward = await $.k8s.portForward({
-  pod: 'monitoring-stack',
-  namespace: 'monitoring',
-  forwards: [
-    { local: 3000, remote: 3000 },  // Grafana
-    { local: 9090, remote: 9090 },  // Prometheus
-    { local: 9093, remote: 9093 }   // Alertmanager
-  ]
-});
+const pod = $.k8s('monitoring').pod('monitoring-stack');
 
-// Access all services
-await Promise.all([
-  fetch('http://localhost:3000'),  // Grafana
-  fetch('http://localhost:9090'),  // Prometheus
-  fetch('http://localhost:9093')   // Alertmanager
+const [grafana, prometheus, alertmanager] = await Promise.all([
+  pod.portForward(3000, 3000),
+  pod.portForward(9090, 9090),
+  pod.portForward(9093, 9093),
 ]);
 ```
 
-## Advanced Tunneling
-
-### Jump Host Chains
+## Security Considerations
 
 ```typescript
-// Multi-hop SSH tunneling
-const jump1 = $.ssh({ host: 'jump1.example.com', username: 'user' });
-const jump2 = $.ssh({ 
-  host: 'jump2.internal',
-  username: 'user',
-  proxy: jump1  // Use jump1 as proxy
+// Local tunnel: bind the local end to loopback only (the default behavior
+// of most tools, made explicit here)
+const secure = await remote.tunnel({
+  localHost: '127.0.0.1',
+  remoteHost: 'database.internal',
+  remotePort: 3306,
 });
 
-// Forward through multiple hops
-const tunnel = await jump2.forward({
-  localPort: 8080,
-  remoteHost: 'final-destination.internal',
-  remotePort: 80
-});
-```
-
-### SSH Tunnel Options
-
-```typescript
-// Configure tunnel behavior
-const tunnel = await remote.forward({
+// Reverse tunnel: bind the *remote* listener to loopback only — the actual
+// default, shown explicitly. Passing '0.0.0.0' exposes your local service
+// to the remote host's whole network and should be a deliberate choice.
+const tunnel = await remote.reverseTunnel({
+  remoteHost: '127.0.0.1',
+  remotePort: 8080,
   localPort: 3000,
-  remoteHost: 'service.internal',
-  remotePort: 80,
-  
-  // Advanced options
-  localInterface: '127.0.0.1',    // Bind to specific interface
-  gatewayPorts: true,              // Allow external connections
-  exitOnFailure: false,            // Don't exit on forward failure
-  serverAliveInterval: 30,         // Keepalive interval
-  serverAliveCountMax: 3,          // Keepalive attempts
-  compression: true                // Enable compression
 });
-```
-
-## Auto-Reconnection
-
-### Persistent Tunnels
-
-```typescript
-// Create persistent tunnel with auto-reconnect
-class PersistentTunnel {
-  private tunnel: any;
-  private config: any;
-  private reconnecting = false;
-  
-  constructor(config: any) {
-    this.config = config;
-  }
-  
-  async connect() {
-    try {
-      this.tunnel = await $.ssh(this.config.ssh).forward(this.config.forward);
-      
-      this.tunnel.on('close', () => {
-        if (!this.reconnecting) {
-          this.reconnect();
-        }
-      });
-    } catch (error) {
-      console.error('Tunnel failed:', error);
-      setTimeout(() => this.reconnect(), 5000);
-    }
-  }
-  
-  async reconnect() {
-    this.reconnecting = true;
-    console.log('Reconnecting tunnel...');
-    await this.connect();
-    this.reconnecting = false;
-  }
-  
-  async close() {
-    if (this.tunnel) {
-      await this.tunnel.close();
-    }
-  }
-}
-
-// Usage
-const persistent = new PersistentTunnel({
-  ssh: { host: 'server.com', username: 'user' },
-  forward: { localPort: 3306, remoteHost: 'db.internal', remotePort: 3306 }
-});
-await persistent.connect();
-```
-
-### Health Monitoring
-
-```typescript
-// Monitor tunnel health
-const tunnel = await remote.forward({
-  localPort: 8080,
-  remoteHost: 'service.internal',
-  remotePort: 80
-});
-
-tunnel.on('ready', () => {
-  console.log('Tunnel established');
-});
-
-tunnel.on('error', (error) => {
-  console.error('Tunnel error:', error);
-});
-
-tunnel.on('close', () => {
-  console.log('Tunnel closed');
-});
-
-// Health check
-const isHealthy = await tunnel.healthCheck();
-if (!isHealthy) {
-  await tunnel.reconnect();
-}
 ```
 
 ## Use Cases
@@ -289,28 +154,26 @@ if (!isHealthy) {
 ### Database Access
 
 ```typescript
-// Access remote database through tunnel
 async function accessRemoteDB() {
   const tunnel = await $.ssh({
     host: 'bastion.example.com',
     username: 'deploy'
-  }).forward({
-    localPort: 5432,
+  }).tunnel({
     remoteHost: 'postgres.private.vpc',
-    remotePort: 5432
+    remotePort: 5432,
   });
-  
+
   try {
     const client = new pg.Client({
       host: 'localhost',
-      port: 5432,
+      port: tunnel.localPort,
       database: 'production'
     });
-    
+
     await client.connect();
     const result = await client.query('SELECT * FROM users');
     await client.end();
-    
+
     return result.rows;
   } finally {
     await tunnel.close();
@@ -318,218 +181,82 @@ async function accessRemoteDB() {
 }
 ```
 
-### Development Environment
+### Debugging a Remote Pod
 
 ```typescript
-// Forward all development services
-async function setupDevEnvironment() {
-  const remote = $.ssh({ host: 'dev.server.com', username: 'developer' });
-  
-  const services = await remote.forwardMultiple([
-    { name: 'API', localPort: 3000, remoteHost: 'api.dev', remotePort: 3000 },
-    { name: 'Database', localPort: 5432, remoteHost: 'db.dev', remotePort: 5432 },
-    { name: 'Redis', localPort: 6379, remoteHost: 'redis.dev', remotePort: 6379 },
-    { name: 'Elasticsearch', localPort: 9200, remoteHost: 'es.dev', remotePort: 9200 }
-  ]);
-  
-  console.log('Development services available:');
-  console.log('- API: http://localhost:3000');
-  console.log('- Database: postgres://localhost:5432');
-  console.log('- Redis: redis://localhost:6379');
-  console.log('- Elasticsearch: http://localhost:9200');
-  
-  // Keep alive until interrupted
-  process.on('SIGINT', async () => {
-    await services.closeAll();
-    process.exit(0);
-  });
-}
-```
-
-### Debugging Remote Services
-
-```typescript
-// Debug remote Kubernetes pod
 async function debugPod(podName: string, namespace: string) {
-  // Forward multiple debug ports
-  const debug = await $.k8s.portForward({
-    pod: podName,
-    namespace,
-    forwards: [
-      { local: 9229, remote: 9229 },    // Node.js debugger
-      { local: 3000, remote: 3000 },    // Application
-      { local: 9090, remote: 9090 }     // Metrics
-    ]
-  });
-  
+  const pod = $.k8s(namespace).pod(podName);
+
+  const [inspector, app, metrics] = await Promise.all([
+    pod.portForward(9229, 9229), // Node.js debugger
+    pod.portForward(3000, 3000), // Application
+    pod.portForward(9090, 9090), // Metrics
+  ]);
+
   console.log('Debug ports forwarded:');
   console.log('- Debugger: chrome://inspect');
   console.log('- Application: http://localhost:3000');
   console.log('- Metrics: http://localhost:9090/metrics');
-  
-  // Attach debugger
-  const inspector = require('inspector');
-  inspector.open(9229, 'localhost', false);
-  
-  return debug;
+
+  return { inspector, app, metrics };
 }
 ```
 
-## Security Considerations
+## What Isn't Supported
 
-### Binding Restrictions
+The tunnel and port-forward objects are deliberately small — `.localPort`,
+`.localHost`, `.remoteHost`, `.remotePort`, `.isOpen`, `.open()` (SSH local
+tunnels only), `.close()`. There is no:
 
-```typescript
-// Secure local binding (localhost only)
-const secure = await remote.forward({
-  localPort: 3306,
-  localInterface: '127.0.0.1',  // Only localhost
-  remoteHost: 'database.internal',
-  remotePort: 3306
-});
+- SOCKS/dynamic forwarding
+- Jump-host chaining through a `proxy` option — `SSHAdapterOptions` has no
+  such field; tunnel to the first host, then connect through it, if you need
+  a multi-hop path
+- SSH multiplexing options (`controlMaster`/`controlPath`/`controlPersist`)
+- Compression options for tunnel traffic
+- Forwarding a Kubernetes Service by name, rather than a specific pod
+- Automatic reconnection, health checks, or `EventEmitter`-style events
+  (`.on('ready'|'error'|'close', ...)`) on a tunnel or port-forward object
 
-// Allow external connections (less secure)
-const public = await remote.forward({
-  localPort: 8080,
-  localInterface: '0.0.0.0',    // All interfaces
-  gatewayPorts: true,
-  remoteHost: 'web.internal',
-  remotePort: 80
-});
-```
-
-### Authentication
-
-```typescript
-// Use SSH key authentication
-const authenticated = $.ssh({
-  host: 'secure.server.com',
-  username: 'user',
-  privateKey: '~/.ssh/id_rsa',
-  passphrase: process.env.SSH_KEY_PASSPHRASE
-});
-
-const tunnel = await authenticated.forward({
-  localPort: 443,
-  remoteHost: 'secure-service.internal',
-  remotePort: 443
-});
-```
-
-### Tunnel Access Control
-
-```typescript
-// Implement access control for tunnels
-class SecureTunnel {
-  private allowedIPs = new Set(['127.0.0.1']);
-  private tunnel: any;
-  
-  async create(config: any) {
-    this.tunnel = await $.ssh(config.ssh).forward(config.forward);
-    
-    // Add access control
-    const server = net.createServer((client) => {
-      const clientIP = client.remoteAddress;
-      
-      if (!this.allowedIPs.has(clientIP)) {
-        console.log(`Rejected connection from ${clientIP}`);
-        client.destroy();
-        return;
-      }
-      
-      // Forward to tunnel
-      const tunnel = net.connect(config.forward.localPort, '127.0.0.1');
-      client.pipe(tunnel).pipe(client);
-    });
-    
-    server.listen(config.forward.localPort + 1);
-  }
-}
-```
-
-## Performance Optimization
-
-### Connection Multiplexing
-
-```typescript
-// Reuse SSH connection for multiple tunnels
-const connection = $.ssh({
-  host: 'server.com',
-  username: 'user',
-  controlMaster: true,           // Enable multiplexing
-  controlPath: '~/.ssh/cm_%r@%h:%p',
-  controlPersist: '10m'          // Keep alive for 10 minutes
-});
-
-// Multiple tunnels share the connection
-const tunnels = await Promise.all([
-  connection.forward({ localPort: 3306, remoteHost: 'db1', remotePort: 3306 }),
-  connection.forward({ localPort: 3307, remoteHost: 'db2', remotePort: 3306 }),
-  connection.forward({ localPort: 3308, remoteHost: 'db3', remotePort: 3306 })
-]);
-```
-
-### Compression
-
-```typescript
-// Enable compression for tunnel traffic
-const compressed = await remote.forward({
-  localPort: 8080,
-  remoteHost: 'service',
-  remotePort: 80,
-  compression: true,
-  compressionLevel: 6  // 1-9, higher = better compression
-});
-```
+Build any of these yourself on top of `.tunnel()`/`.reverseTunnel()`/
+`.portForward()` — reconnecting on failure, for instance, is just calling
+`.close()` and the same method again.
 
 ## Error Handling
 
-### Tunnel Failures
-
 ```typescript
-// Handle tunnel failures gracefully
 try {
-  const tunnel = await remote.forward({
+  const tunnel = await remote.tunnel({
     localPort: 3000,
-    remoteHost: 'service',
-    remotePort: 80
+    remoteHost: 'service.internal',
+    remotePort: 80,
   });
 } catch (error) {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${port} already in use`);
-    // Try alternative port
-  } else if (error.code === 'ECONNREFUSED') {
-    console.error('Remote service not available');
-    // Implement retry logic
-  } else if (error.code === 'EPERM') {
-    console.error('Permission denied for port binding');
-    // Use higher port number
-  }
+  console.error('Tunnel failed to open:', error.message);
+  // A fixed localPort already in use, or the remote host/port unreachable,
+  // both surface as a rejection here — there is no structured error code to
+  // switch on, only the message.
 }
 ```
 
-### Recovery Strategies
+### Automatic Port Selection
 
 ```typescript
-// Automatic port selection on conflict
-async function forwardWithAutoPort(config: any) {
-  let port = config.localPort;
-  const maxAttempts = 10;
-  
+// .tunnel() does not retry or pick a free port itself if a fixed localPort
+// is taken — retry with a different one, or omit localPort so the OS
+// assigns one from the start
+async function tunnelWithRetry(
+  remote: ReturnType<typeof $.ssh>,
+  config: { remoteHost: string; remotePort: number; localPort: number },
+  maxAttempts = 10
+) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      return await remote.forward({
-        ...config,
-        localPort: port + i
-      });
+      return await remote.tunnel({ ...config, localPort: config.localPort + i });
     } catch (error) {
-      if (error.code !== 'EADDRINUSE') {
-        throw error;
-      }
+      if (i === maxAttempts - 1) throw error;
     }
   }
-  
-  throw new Error('No available ports found');
 }
 ```
 
@@ -539,64 +266,48 @@ async function forwardWithAutoPort(config: any) {
 
 ```typescript
 // ✅ Close tunnels when done
-const tunnel = await remote.forward(config);
+const tunnel = await remote.tunnel(config);
 try {
   await useService();
 } finally {
   await tunnel.close();
 }
 
-// ✅ Use specific interfaces
-await remote.forward({
-  localInterface: '127.0.0.1',  // Secure
-  localPort: 3306,
-  remoteHost: 'db',
-  remotePort: 3306
-});
+// ✅ Let the OS pick a local port when you don't need a specific one —
+// avoids collisions, and works for both SSH and Kubernetes
+const dbTunnel = await remote.tunnel({ remoteHost: 'db', remotePort: 3306 });
+const podForward = await pod.portForwardDynamic(3306);
 
-// ✅ Handle connection failures
-tunnel.on('error', (error) => {
-  console.error('Tunnel error:', error);
-  // Implement recovery
-});
-
-// ✅ Monitor tunnel health
-setInterval(async () => {
-  if (!await tunnel.isAlive()) {
-    await tunnel.reconnect();
-  }
-}, 30000);
+// ✅ Keep a reverse tunnel's remote listener on loopback unless you
+// specifically need it reachable from elsewhere on that network
+await remote.reverseTunnel({ remoteHost: '127.0.0.1', remotePort: 8080, localPort: 3000 });
 ```
 
 ### Don'ts ❌
 
 ```typescript
 // ❌ Leave tunnels open
-await remote.forward(config);
+await remote.tunnel(config);
 // Tunnel never closed
 
-// ❌ Bind to all interfaces without need
-await remote.forward({
-  localInterface: '0.0.0.0',  // Insecure
-  localPort: 3306
-});
+// ❌ Assume a fixed localPort is free
+await remote.tunnel({ localPort: 80, remoteHost: 'db', remotePort: 3306 });
+// May fail with the port already in use — prefer a dynamic port, or catch
+// and retry with a different one
 
-// ❌ Ignore port conflicts
-await remote.forward({ localPort: 80 });  // May fail
-
-// ❌ Create excessive tunnels
+// ❌ Open far more tunnels than you'll use concurrently
 for (let i = 0; i < 1000; i++) {
-  await remote.forward({ localPort: 3000 + i });
+  await remote.tunnel({ remoteHost: 'db', remotePort: 3306 });
 }
 ```
 
 ## Implementation Details
 
 Port forwarding is implemented in:
-- `packages/core/src/ssh/port-forwarding.ts` - SSH tunnel implementation
-- `packages/core/src/k8s/port-forward.ts` - Kubernetes port forwarding
-- `packages/core/src/utils/tunnel-manager.ts` - Tunnel lifecycle management
-- `packages/core/src/utils/socks-proxy.ts` - SOCKS proxy support
+- `packages/core/src/adapters/ssh/ssh-api.ts` - `.tunnel()` / `.reverseTunnel()` on the SSH execution context
+- `packages/core/src/adapters/ssh/index.ts` - `SSHAdapter.tunnel()` / `.reverseTunnel()`
+- `packages/core/src/adapters/kubernetes/kubernetes-api.ts` - `K8sPod.portForward()` / `.portForwardDynamic()`
+- `packages/core/src/adapters/kubernetes/index.ts` - `KubernetesAdapter.portForward()`, which shells out to `kubectl port-forward`
 
 ## See Also
 

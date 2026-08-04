@@ -528,7 +528,12 @@ async function seedPostgres() {
     CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
   `;
   
-  await $`docker exec -i postgres-dev psql -U developer -d myapp`.stdin(schema);
+  // .stdin is a writable stream, not a method: writes made before the
+  // process starts are buffered and forwarded on spawn
+  const createTables = $`docker exec -i postgres-dev psql -U developer -d myapp`;
+  createTables.stdin.write(schema);
+  createTables.stdin.end();
+  await createTables;
   console.log('✅ Tables created');
   
   // Insert users
@@ -539,7 +544,10 @@ async function seedPostgres() {
               '${user.lastName}', '${user.role}', ${user.isActive}, '${user.registeredAt}')
       ON CONFLICT (id) DO NOTHING;
     `;
-    await $`docker exec -i postgres-dev psql -U developer -d myapp`.stdin(sql).nothrow();
+    const insert = $`docker exec -i postgres-dev psql -U developer -d myapp`.nothrow();
+    insert.stdin.write(sql);
+    insert.stdin.end();
+    await insert;
   }
   console.log(`✅ Inserted ${users.length} users`);
   
@@ -552,7 +560,10 @@ async function seedPostgres() {
               ${product.price}, ${product.stock}, '${product.createdAt}')
       ON CONFLICT (id) DO NOTHING;
     `;
-    await $`docker exec -i postgres-dev psql -U developer -d myapp`.stdin(sql).nothrow();
+    const insert = $`docker exec -i postgres-dev psql -U developer -d myapp`.nothrow();
+    insert.stdin.write(sql);
+    insert.stdin.end();
+    await insert;
   }
   console.log(`✅ Inserted ${products.length} products`);
   
@@ -678,7 +689,10 @@ async function cleanupTestData() {
     TRUNCATE TABLE orders CASCADE;
   `;
   
-  await $`docker exec -i postgres-dev psql -U developer -d myapp`.stdin(cleanupSQL).nothrow();
+  const cleanup = $`docker exec -i postgres-dev psql -U developer -d myapp`.nothrow();
+  cleanup.stdin.write(cleanupSQL);
+  cleanup.stdin.end();
+  await cleanup;
   console.log('✅ Cleaned database tables');
   
   // Clear Redis cache

@@ -27,13 +27,14 @@ Xec provides integrated file watching and command execution capabilities, enabli
 
 ```typescript
 // dev-server.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 
-// Watch and rebuild on changes
-$$`xec watch "src/**/*.ts" "npm run build"`;
+// Watch and rebuild on changes — commands are lazy, so .start() is what
+// actually launches them; without it nothing would run
+$`xec watch local "src/**/*.ts" --command "npm run build"`.nothrow().start();
 
 // Run dev server with hot reload
-$$`npm run dev`;
+$`npm run dev`.nothrow().start();
 
 // Open browser
 await $`open http://localhost:3000`;
@@ -70,14 +71,14 @@ tasks:
     command: xec run scripts/dev-server.ts
   watch:
     description: Watch and rebuild
-    command: xec watch "src/**/*" "npm run build"
+    command: xec watch local "src/**/*" --command "npm run build"
 ```
 
 ### Full-Stack Development Server
 
 ```typescript
 // scripts/dev-server.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import chokidar from 'chokidar';
 import WebSocket from 'ws';
@@ -169,7 +170,8 @@ export default defineConfig({
   await $`echo '${viteConfig}' > frontend/vite.config.ts`;
   
   // Start Vite dev server
-  const frontend = $$`cd frontend && npm run dev`;
+  const frontend = $`cd frontend && npm run dev`.nothrow();
+  frontend.start();
   processes.set('frontend', frontend);
   
   // Watch for changes
@@ -210,7 +212,8 @@ async function startBackend() {
   await $`echo '${JSON.stringify(nodemonConfig, null, 2)}' > backend/nodemon.json`;
   
   // Start backend with nodemon
-  const backend = $$`cd backend && npx nodemon src/index.ts`;
+  const backend = $`cd backend && npx nodemon src/index.ts`.nothrow();
+  backend.start();
   processes.set('backend', backend);
   
   // Watch for backend changes
@@ -340,7 +343,8 @@ app.listen(${config.proxy.port}, () => {
   
   await $`echo '${proxyConfig}' > proxy-server.js`;
   
-  const proxy = $$`node proxy-server.js`;
+  const proxy = $`node proxy-server.js`.nothrow();
+  proxy.start();
   processes.set('proxy', proxy);
   
   console.log(chalk.green(`  ✓ Proxy running on http://localhost:${config.proxy.port}`));
@@ -368,7 +372,8 @@ async function startBrowserSync() {
   
   await $`echo '${JSON.stringify(bsConfig, null, 2)}' > bs-config.json`;
   
-  const browserSync = $$`npx browser-sync start --config bs-config.json`;
+  const browserSync = $`npx browser-sync start --config bs-config.json`.nothrow();
+  browserSync.start();
   processes.set('browser-sync', browserSync);
   
   console.log(chalk.green('  ✓ Browser Sync UI on http://localhost:3002'));
@@ -379,11 +384,13 @@ async function startTypeScriptWatch() {
   console.log(chalk.gray('Starting TypeScript watch mode...'));
   
   // Frontend TypeScript watch
-  const tscFrontend = $$`cd frontend && npx tsc --watch --noEmit`;
+  const tscFrontend = $`cd frontend && npx tsc --watch --noEmit`.nothrow();
+  tscFrontend.start();
   processes.set('tsc-frontend', tscFrontend);
   
   // Backend TypeScript watch
-  const tscBackend = $$`cd backend && npx tsc --watch --noEmit`;
+  const tscBackend = $`cd backend && npx tsc --watch --noEmit`.nothrow();
+  tscBackend.start();
   processes.set('tsc-backend', tscBackend);
   
   console.log(chalk.green('  ✓ TypeScript watch mode active'));
@@ -394,32 +401,34 @@ async function startTestRunner() {
   console.log(chalk.gray('Starting test runner...'));
   
   // Frontend tests
-  const testFrontend = $$`cd frontend && npm run test:watch`;
+  const testFrontend = $`cd frontend && npm run test:watch`.nothrow();
+  testFrontend.start();
   processes.set('test-frontend', testFrontend);
   
   // Backend tests
-  const testBackend = $$`cd backend && npm run test:watch`;
+  const testBackend = $`cd backend && npm run test:watch`.nothrow();
+  testBackend.start();
   processes.set('test-backend', testBackend);
   
   console.log(chalk.green('  ✓ Test runners active'));
 }
 
 // Cleanup function
-function cleanup() {
+async function cleanup() {
   console.log(chalk.yellow('\n📦 Shutting down development environment...'));
   
   // Kill all processes
-  processes.forEach((process, name) => {
+  processes.forEach((proc, name) => {
     console.log(chalk.gray(`  Stopping ${name}...`));
-    process.kill();
+    proc.kill();
   });
   
   // Close WebSocket connections
   sockets.forEach(ws => ws.close());
   wss.close();
   
-  // Stop database
-  $$`docker stop ${config.database.container}`.nothrow();
+  // Stop database — awaited so it actually finishes before exit
+  await $`docker stop ${config.database.container}`.nothrow();
   
   process.exit(0);
 }
@@ -470,7 +479,8 @@ import chalk from 'chalk';
 // React Native development
 async function startReactNative() {
   // Start Metro bundler
-  const metro = $$`npx react-native start --reset-cache`;
+  const metro = $`npx react-native start --reset-cache`.nothrow();
+  metro.start();
   
   // Start iOS simulator
   await $`open -a Simulator`;
@@ -494,7 +504,7 @@ async function startFlutter() {
   await $`flutter run -d all --hot`;
   
   // Watch for changes
-  $$`flutter analyze --watch`;
+  $`flutter analyze --watch`.nothrow().start();
 }
 ```
 
@@ -505,7 +515,7 @@ async function startFlutter() {
 xec dev
 
 # Watch specific files
-xec watch "src/**/*.ts" "npm run build"
+xec watch local "src/**/*.ts" --command "npm run build"
 
 # Start with specific services
 xec run scripts/dev-server.ts --only=frontend,backend

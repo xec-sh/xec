@@ -33,11 +33,16 @@ Xec automates the entire certificate lifecycle using Let's Encrypt for automated
 // renew-certs.ts
 import { $ } from '@xec-sh/core';
 
-// Renew certificates on all web servers
-await $.ssh('web-*')`
-  certbot renew --quiet --no-self-upgrade &&
-  nginx -s reload
-`;
+// Renew certificates on all web servers — $.ssh() targets one host at a
+// time, so fan out explicitly rather than passing a glob
+const webServers = ['web-1', 'web-2', 'web-3'];
+
+await Promise.all(
+  webServers.map(server => $.ssh(server)`
+    certbot renew --quiet --no-self-upgrade &&
+    nginx -s reload
+  `)
+);
 
 console.log('✅ Certificates renewed and services reloaded');
 ```
@@ -48,7 +53,7 @@ console.log('✅ Certificates renewed and services reloaded');
 
 ```typescript
 // cert-manager.ts
-import { $, on } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { parallel } from '@xec-sh/core';
 
 class CertificateManager {
@@ -63,7 +68,7 @@ class CertificateManager {
     console.log(`📦 Setting up Certbot on ${target}...`);
     
     // Install Certbot
-    await on(target)`
+    await $.ssh(target)`
       if ! command -v certbot &> /dev/null; then
         if [ -f /etc/debian_version ]; then
           apt-get update && apt-get install -y certbot python3-certbot-nginx
@@ -83,7 +88,7 @@ class CertificateManager {
     console.log(`🔐 Generating certificate for ${domain} on ${target}...`);
     
     // Use webroot method for verification
-    const result = await on(target)`
+    const result = await $.ssh(target)`
       certbot certonly \
         --webroot \
         --webroot-path ${this.webroot} \
@@ -111,7 +116,7 @@ class CertificateManager {
     // Configure DNS plugin based on provider
     const dnsPlugin = this.getDnsPlugin(dnsProvider);
     
-    await on(target)`
+    await $.ssh(target)`
       certbot certonly \
         --dns-${dnsPlugin} \
         --dns-${dnsPlugin}-credentials /root/.secrets/${dnsProvider}.ini \
@@ -129,7 +134,7 @@ class CertificateManager {
 
   // Check certificate expiration
   async checkExpiration(target: string): Promise<CertStatus[]> {
-    const result = await on(target)`
+    const result = await $.ssh(target)`
       certbot certificates --no-color 2>/dev/null | \
       grep -E "(Certificate Name:|Expiry Date:|Domains:)" | \
       paste -d ',' - - - | \
@@ -162,7 +167,7 @@ class CertificateManager {
     
     const forceFlag = force ? '--force-renewal' : '';
     
-    const result = await on(target)`
+    const result = await $.ssh(target)`
       certbot renew ${forceFlag} \
         --quiet \
         --no-self-upgrade \
@@ -187,16 +192,16 @@ class CertificateManager {
     // Copy certificates to all targets
     const deployments = targets.map(async target => {
       // Create directory
-      await on(target)`mkdir -p ${certPath}`;
+      await $.ssh(target)`mkdir -p ${certPath}`;
       
       // Copy certificate files
-      await $.copy(`${source}:${certPath}/fullchain.pem`, `${target}:${certPath}/fullchain.pem`);
-      await $.copy(`${source}:${certPath}/privkey.pem`, `${target}:${certPath}/privkey.pem`);
-      await $.copy(`${source}:${certPath}/cert.pem`, `${target}:${certPath}/cert.pem`);
-      await $.copy(`${source}:${certPath}/chain.pem`, `${target}:${certPath}/chain.pem`);
+      await $.transfer.copy(`ssh://${source}${certPath}/fullchain.pem`, `ssh://${target}${certPath}/fullchain.pem`);
+      await $.transfer.copy(`ssh://${source}${certPath}/privkey.pem`, `ssh://${target}${certPath}/privkey.pem`);
+      await $.transfer.copy(`ssh://${source}${certPath}/cert.pem`, `ssh://${target}${certPath}/cert.pem`);
+      await $.transfer.copy(`ssh://${source}${certPath}/chain.pem`, `ssh://${target}${certPath}/chain.pem`);
       
       // Set permissions
-      await on(target)`
+      await $.ssh(target)`
         chmod 600 ${certPath}/privkey.pem &&
         chmod 644 ${certPath}/fullchain.pem ${certPath}/cert.pem ${certPath}/chain.pem
       `;
@@ -252,7 +257,7 @@ server {
 `;
     
     // Write configuration
-    await on(target)`
+    await $.ssh(target)`
       echo '${config}' > /etc/nginx/sites-available/${domain} &&
       ln -sf /etc/nginx/sites-available/${domain} /etc/nginx/sites-enabled/ &&
       nginx -t &&
@@ -300,7 +305,7 @@ await certManager.configureNginx('web-1', 'example.com');
 
 ```typescript
 // auto-renew.ts
-import { $, on } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { schedule } from 'node-cron';
 
 class AutoRenewal {
@@ -321,7 +326,7 @@ class AutoRenewal {
     console.log(`🔍 Checking certificates on ${target}...`);
     
     // Check expiration
-    const result = await on(target)`
+    const result = await $.ssh(target)`
       certbot certificates 2>/dev/null | grep "INVALID\\|Expiry" || echo "CHECK_NEEDED"
     `;
     
@@ -329,7 +334,7 @@ class AutoRenewal {
       console.log(`⚠️ Certificate renewal needed on ${target}`);
       
       // Attempt renewal
-      const renewResult = await on(target)`
+      const renewResult = await $.ssh(target)`
         certbot renew --quiet --no-self-upgrade
       `;
       
@@ -355,12 +360,12 @@ class AutoRenewal {
     const services = ['nginx', 'apache2', 'httpd'];
     
     for (const service of services) {
-      const checkResult = await on(target)`
+      const checkResult = await $.ssh(target)`
         systemctl is-active ${service} 2>/dev/null || echo "inactive"
       `;
       
       if (!checkResult.stdout.includes('inactive')) {
-        await on(target)`systemctl reload ${service}`;
+        await $.ssh(target)`systemctl reload ${service}`;
         console.log(`🔄 Reloaded ${service} on ${target}`);
       }
     }
@@ -374,7 +379,7 @@ class AutoRenewal {
     
     // Send email notification
     if (process.env.SMTP_HOST) {
-      await on('localhost')`
+      await $.ssh('localhost')`
         echo "${message}" | \
         mail -s "SSL Certificate Renewal - ${status}" \
         -r "ssl-monitor@example.com" \
@@ -464,20 +469,22 @@ class MultiDomainCertManager {
   }
   
   async syncCertificate(source: string, target: string, certName: string) {
-    // Sync certificate files
-    await $.copy(
-      `${source}:/etc/letsencrypt/archive/${certName}`,
-      `${target}:/etc/letsencrypt/archive/${certName}`
+    // Sync certificate files — archive/ and live/ are directories, so copy recursively
+    await $.transfer.copy(
+      `ssh://${source}/etc/letsencrypt/archive/${certName}`,
+      `ssh://${target}/etc/letsencrypt/archive/${certName}`,
+      { recursive: true }
     );
     
-    await $.copy(
-      `${source}:/etc/letsencrypt/live/${certName}`,
-      `${target}:/etc/letsencrypt/live/${certName}`
+    await $.transfer.copy(
+      `ssh://${source}/etc/letsencrypt/live/${certName}`,
+      `ssh://${target}/etc/letsencrypt/live/${certName}`,
+      { recursive: true }
     );
     
-    await $.copy(
-      `${source}:/etc/letsencrypt/renewal/${certName}.conf`,
-      `${target}:/etc/letsencrypt/renewal/${certName}.conf`
+    await $.transfer.copy(
+      `ssh://${source}/etc/letsencrypt/renewal/${certName}.conf`,
+      `ssh://${target}/etc/letsencrypt/renewal/${certName}.conf`
     );
   }
   

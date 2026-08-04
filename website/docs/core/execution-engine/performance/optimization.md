@@ -4,42 +4,41 @@ Optimizing Xec execution performance through caching, efficient resource usage, 
 
 ## Overview
 
-Performance optimization (`packages/core/src/utils/performance.ts`) provides:
-
-- **Command caching** for repeated executions
-- **Resource pooling** for connections and processes
-- **Batch operations** to reduce overhead
-- **Lazy evaluation** for deferred execution
-- **Memory management** for large operations
-- **Profiling tools** for performance analysis
+Xec itself provides one performance-relevant primitive beyond connection
+pooling: per-command result caching (`ProcessPromise.cache()`). Batching,
+lazy evaluation, resource cleanup, profiling and dependency scheduling below
+are patterns you build yourself on top of `$`, not features the package
+ships — the examples show how to build them correctly against the real API,
+not an API surface Xec exposes for them.
 
 ## Command Caching
 
 ### Result Caching
 
+There is no engine-level or `$`-level cache method. Caching is per command,
+chained on the `ProcessPromise` before awaiting it:
+
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Enable caching for idempotent commands
-const cached = $.withCache({
-  ttl: 60000,  // Cache for 1 minute
-  key: (cmd) => `cache:${cmd.command}:${cmd.cwd}`
-});
+// First call executes and caches; the default TTL is 60000ms
+await $`git rev-parse HEAD`.cache({ ttl: 60000 });
 
-// First call executes
-await cached`git rev-parse HEAD`;
+// A second call with the same command, cwd, env and target returns the
+// cached result instead of running again
+await $`git rev-parse HEAD`.cache({ ttl: 60000 });
 
-// Subsequent calls use cache
-await cached`git rev-parse HEAD`;  // Returns cached result
-
-// Cache with custom key
-const versionCache = $.withCache({
+// Cache with an explicit key, so unrelated commands can share an entry
+await $`cat package.json | jq .version`.cache({
   key: 'app-version',
-  ttl: 300000  // 5 minutes
+  ttl: 300000,  // 5 minutes
 });
-
-await versionCache`cat package.json | jq .version`;
 ```
+
+The cache key normally covers the command text, cwd, env and target (host,
+container, pod, etc.) so two different hosts never share a cached result;
+`key` overrides it outright. `invalidateOn: string[]` names glob-style
+patterns matched against other cache keys to evict on a successful run.
 
 ### Conditional Caching
 
@@ -48,11 +47,16 @@ await versionCache`cat package.json | jq .version`;
 class ConditionalCache {
   private cache = new Map<string, any>();
   
+  // `key` must be passed explicitly — a ProcessPromise's own .toString()
+  // does not describe the command (it resolves to stdout only once
+  // awaited, and stringifies the pending promise object until then), so it
+  // cannot be used to tell commands apart.
   async execute(command: any, options: {
+    key: string;
     cacheIf?: (result: any) => boolean;
     ttl?: number;
-  } = {}) {
-    const key = command.toString();
+  }) {
+    const key = options.key;
     
     // Check cache
     if (this.cache.has(key)) {
@@ -80,6 +84,7 @@ class ConditionalCache {
 // Use conditional cache
 const cache = new ConditionalCache();
 await cache.execute($`expensive-operation`, {
+  key: 'expensive-operation',
   cacheIf: (result) => result.exitCode === 0,
   ttl: 120000
 });
@@ -156,23 +161,18 @@ await Promise.all([
 
 ### Connection Pooling
 
+SSH connections are pooled automatically — there is no pool object to
+create or drain. Reuse comes from calling `$.ssh(...)` with the same target
+repeatedly; pool size and idle timeout are adapter-wide settings. See
+[Connection Reuse](/docs/core/execution-engine/performance/connection-reuse) for
+the full configuration shape:
+
 ```typescript
-// Optimize SSH connections
-const sshPool = $.ssh.createPool({
-  hosts: ['server1', 'server2', 'server3'],
-  poolSize: 2,  // 2 connections per host
-  idleTimeout: 60000
-});
+const server1 = $.ssh({ host: 'server1', username: 'deploy' });
+const server2 = $.ssh({ host: 'server2', username: 'deploy' });
 
-// Execute using pool
-await sshPool.execute('server1', 'command');
-await sshPool.execute('server2', 'command');
-
-// Batch execute
-await sshPool.executeAll('command');
-
-// Clean up
-await sshPool.drain();
+await server1`command`;
+await server2`command`;
 ```
 
 ## Batch Operations
@@ -180,11 +180,14 @@ await sshPool.drain();
 ### Command Batching
 
 ```typescript
-// Batch multiple commands into single execution
+// Batch multiple commands into a single execution. $.exec() runs an
+// already-built string through the shell verbatim — unlike the tagged
+// template, it does not treat the string as something to escape, so a
+// joined `&&` chain runs as a real shell script rather than being escaped
+// into one literal (and non-existent) command name.
 async function batchCommands(commands: string[]) {
-  // Join commands with && for single execution
   const batched = commands.join(' && ');
-  return await $`sh -c "${batched}"`;
+  return await $.exec(batched);
 }
 
 // Instead of multiple executions
@@ -195,13 +198,18 @@ for (const cmd of commands) {
 // Use batching
 await batchCommands(commands);  // 1 round trip
 
-// Batch with error handling
+// Batch with error handling. `.stdin` is a property (the live input
+// stream), not a method — write the script to it and end the stream rather
+// than calling `.stdin(script)`.
 async function safeBatch(commands: string[]) {
   const script = commands
     .map(cmd => `${cmd} || echo "Failed: ${cmd}"`)
     .join('\n');
-  
-  return await $`bash -e`.stdin(script);
+
+  const proc = $`bash -e`;
+  proc.stdin.write(script);
+  proc.stdin.end();
+  return await proc;
 }
 ```
 
@@ -221,8 +229,11 @@ async function batchFileOps(operations: Array<{
       case 'delete': return `rm ${op.source}`;
     }
   }).join('\n');
-  
-  return await $`bash`.stdin(script);
+
+  const proc = $`bash`;
+  proc.stdin.write(script);
+  proc.stdin.end();
+  return await proc;
 }
 
 // Batch remote operations
@@ -342,9 +353,14 @@ import { pipeline } from 'stream/promises';
 // Bad: Loads entire file in memory
 const content = await $`cat huge-file.txt`;
 
-// Good: Stream processing
+// Good: Stream processing. ProcessPromise has no .stream() method — reach
+// the live stdout through `.spawned`, which resolves once the command is
+// actually running, and pipe that (a plain Node Readable) instead.
+const proc = $`cat huge-file.txt`;
+const handle = await proc.spawned;
+
 await pipeline(
-  $`cat huge-file.txt`.stream(),
+  handle.stdout,
   new Transform({
     transform(chunk, encoding, callback) {
       // Process chunk
@@ -353,6 +369,7 @@ await pipeline(
   }),
   createWriteStream('output.txt')
 );
+await proc;
 
 // Chunked processing
 async function processLargeFile(file: string, chunkSize = 1000) {
@@ -405,11 +422,11 @@ try {
   const tempFile = await $`mktemp`.text();
   resources.register('temp-file', () => $`rm -f ${tempFile}`);
   
-  const process = $`long-running-process`;
-  resources.register('process', () => process.kill());
+  const proc = $`long-running-process`;
+  resources.register('process', async () => proc.kill());
   
   // Do work
-  await process;
+  await proc;
 } finally {
   await resources.cleanup();
 }
@@ -599,11 +616,11 @@ await optimizer.execute();
 
 ```typescript
 // ✅ Cache expensive operations
-const gitHash = await $.cached('git-hash', $`git rev-parse HEAD`);
+const gitHash = await $`git rev-parse HEAD`.cache({ key: 'git-hash' });
 
-// ✅ Use connection pooling
-const pool = $.ssh.pool({ max: 5 });
-await pool.execute('server', 'command');
+// ✅ Reuse a target instead of re-resolving it — pooling is automatic
+const server = $.ssh({ host: 'server', username: 'deploy' });
+await server`command`;
 
 // ✅ Batch operations
 await $`
@@ -612,11 +629,11 @@ await $`
   command3
 `;
 
-// ✅ Stream large data
-await $`cat large.txt`.pipe($`process`).stdout(output);
+// ✅ Stream large data straight to a destination
+await $`cat large.txt`.pipe(output);
 
 // ✅ Profile performance-critical code
-const profiled = await profile('critical', $`important-command`);
+const profiled = await profiler.profile('critical', $`important-command`);
 ```
 
 ### Don'ts ❌
@@ -643,11 +660,14 @@ const temp = await $`mktemp`;
 
 ## Implementation Details
 
-Performance optimization is implemented in:
-- `packages/core/src/utils/performance.ts` - Performance utilities
-- `packages/core/src/utils/cache.ts` - Caching implementation
-- `packages/core/src/utils/pool.ts` - Resource pooling
-- `packages/core/src/utils/profiler.ts` - Profiling tools
+`ProcessPromise.cache()` is implemented in:
+- `packages/core/src/utils/cache.ts` - the result cache and key generation
+- `packages/core/src/core/process-context.ts` - where `.cache()` is wired into `ProcessPromise`
+
+There is no dedicated resource-pooling or profiling module — connection
+pooling lives in the SSH adapter (see
+[Connection Reuse](/docs/core/execution-engine/performance/connection-reuse)),
+and profiling is left to the host application, as shown above.
 
 ## See Also
 

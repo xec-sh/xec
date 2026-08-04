@@ -75,9 +75,10 @@ async function setupJsonServer() {
     await $`npm install -g json-server`;
   }
   
-  // Start json-server
+  // Start json-server — commands are lazy, so .start() is what launches it
   console.log('Starting JSON Server on port 3000...');
-  const server = $`json-server --watch db.json --routes routes.json --port 3000 --delay 500`;
+  const server = $`json-server --watch db.json --routes routes.json --port 3000 --delay 500`.nothrow();
+  server.start();
   
   // Wait for server to start
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -411,6 +412,7 @@ async function runMockServer() {
   // Start server in background
   console.log('Starting mock server...');
   const server = $`node mock-server.js`.nothrow();
+  server.start();
   
   // Wait for server to be ready
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -527,7 +529,8 @@ startServer();
   
   // Start GraphQL server
   console.log('Starting GraphQL mock server...');
-  const server = $`node graphql-server.js`;
+  const server = $`node graphql-server.js`.nothrow();
+  server.start();
   
   await new Promise(resolve => setTimeout(resolve, 3000));
   
