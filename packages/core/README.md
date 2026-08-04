@@ -128,7 +128,7 @@ $.verbose = true;                    // echo each command (redacted) to stderr
 One runtime dependency: `ssh2`, and it is not loaded until an SSH target is
 first used — importing the package pulls in Node builtins only. Docker and
 Kubernetes adapters speak the `docker`/`kubectl` CLIs, so behaviour matches
-what you would get by hand, and both load lazily. Works on Node.js 20+ and Bun.
+what you would get by hand, and both load lazily. Works on Node.js 20+, Bun and Deno.
 
 ## License
 
