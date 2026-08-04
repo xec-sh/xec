@@ -28,35 +28,6 @@ describe('TaskManager', () => {
     // Create test output directory for file-based tests
     await fs.mkdir(path.join(testDir, 'test-output'), { recursive: true });
 
-    testConfig = {
-      version: '2.0',
-      tasks: {
-        test: `echo "test output" > ${path.join(testDir, 'test-output', 'test.txt')}`,
-        build: {
-          command: `echo "building..." > ${path.join(testDir, 'test-output', 'build.txt')}`,
-          description: 'Build the project',
-        },
-        deploy: {
-          description: 'Deploy application',
-          steps: [
-            { name: 'Build', task: 'build' },
-            { name: 'Upload', command: `echo "uploading..." > ${path.join(testDir, 'test-output', 'upload.txt')}` },
-          ],
-        },
-        greet: {
-          command: `echo "Hello \${params.name}" > ${path.join(testDir, 'test-output', 'greet.txt')}`,
-          params: [
-            {
-              name: 'name',
-              type: 'string',
-              required: true,
-              description: 'Name to greet',
-            },
-          ],
-        },
-      },
-    };
-
     // Write the configuration file
     await fs.writeFile(
       configPath,

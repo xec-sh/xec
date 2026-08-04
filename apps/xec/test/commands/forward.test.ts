@@ -345,7 +345,6 @@ describe('Forward Command', () => {
 
     beforeEach(async () => {
       dockerManager = DockerContainerManager.getInstance();
-      testContainerName = 'xec-forward-test-' + Date.now();
     });
 
     afterEach(async () => {

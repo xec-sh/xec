@@ -417,7 +417,6 @@ describe('GitSecretProvider', () => {
         });
 
         memberPublicKey = publicKey;
-        memberPrivateKey = privateKey;
 
         // Save public key to file
         const pubKeyPath = path.join(testDir, 'member.pub');

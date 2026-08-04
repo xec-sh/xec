@@ -22,7 +22,6 @@ const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();
 
 // Track process.exit calls without actually exiting
 vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
-  processExitCode = code;
   // Throw to prevent further execution in tests
   throw new Error(`Process exited with code: ${code}`);
 }) as any;
@@ -42,7 +41,6 @@ describe('error-handler', () => {
   
   beforeEach(() => {
     vi.clearAllMocks();
-    processExitCode = undefined;
     delete process.env['XEC_DEBUG'];
   });
   

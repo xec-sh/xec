@@ -20,7 +20,6 @@ describe('Simplified API', () => {
       maxBuffer: 10 * 1024 * 1024
     });
     // Store current config
-    originalConfig = $.config.get();
   });
   
   afterEach(async () => {

@@ -5,6 +5,28 @@ import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { watchFiles, FileWatcher } from '../../../src/watch/index.js';
 
+/**
+ * Wait until `check` holds, polling rather than sleeping a fixed 200ms.
+ *
+ * The debounce is 50ms, but the filesystem event that starts it arrives
+ * whenever the OS gets round to it. Under a loaded test run that regularly
+ * exceeded the fixed wait, and the assertions failed against an empty list —
+ * a scheduling artefact reported as a watcher defect.
+ *
+ * @param check - Condition to wait for.
+ * @param timeoutMs - Give up after this long, so a real failure still fails.
+ */
+async function waitFor(check: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (!check() && Date.now() < deadline) {
+    await new Promise(resolve => { setTimeout(resolve, 10); });
+  }
+}
+
+/** Settle time for "nothing should have been reported" assertions. */
+const QUIET_MS = 300;
+
 describe('FileWatcher', () => {
   let tempDir: string;
 
@@ -32,7 +54,7 @@ describe('FileWatcher', () => {
 
     // Create a file
     await writeFile(join(tempDir, 'test.ts'), 'const x = 1;');
-    await new Promise((r) => setTimeout(r, 200));
+    await waitFor(() => changes.some(c => c.includes('test.ts')));
 
     watcher.close();
 
@@ -56,7 +78,9 @@ describe('FileWatcher', () => {
     // Create files with different extensions
     await writeFile(join(tempDir, 'test.ts'), 'export {}');
     await writeFile(join(tempDir, 'test.txt'), 'not watched');
-    await new Promise((r) => setTimeout(r, 200));
+    await waitFor(() => changes.some(c => c.endsWith('.ts')));
+    // Give the ignored file the same chance to be reported.
+    await new Promise(resolve => { setTimeout(resolve, QUIET_MS); });
 
     watcher.close();
 
@@ -84,7 +108,8 @@ describe('FileWatcher', () => {
 
     await writeFile(join(tempDir, 'node_modules', 'pkg.ts'), 'ignored');
     await writeFile(join(tempDir, 'src', 'app.ts'), 'watched');
-    await new Promise((r) => setTimeout(r, 200));
+    await waitFor(() => changes.some(c => c.includes('app.ts')));
+    await new Promise(resolve => { setTimeout(resolve, QUIET_MS); });
 
     watcher.close();
 
@@ -148,7 +173,7 @@ describe('watchFiles', () => {
     }, { extensions: ['.ts'], debounce: 50 });
 
     await writeFile(join(tempDir, 'test.ts'), 'x');
-    await new Promise((r) => setTimeout(r, 200));
+    await waitFor(() => changes.length > 0);
 
     stop();
     expect(typeof stop).toBe('function');

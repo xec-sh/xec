@@ -27,7 +27,6 @@ describe('Copy Command', () => {
   };
 
   beforeEach(async () => {
-    originalCwd = process.cwd();
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-copy-test-'));
     projectDir = path.join(tempDir, 'project');
     sourceDir = path.join(tempDir, 'source');
