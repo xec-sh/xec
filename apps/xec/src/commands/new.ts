@@ -1552,7 +1552,7 @@ ${config.description}
 
 3. Run the example task:
    \`\`\`bash
-   xec tasks:run hello
+   xec run hello
    \`\`\`
 
 ## Project Structure
@@ -1603,7 +1603,7 @@ This project has been initialized with Xec for automation tasks.
 
 3. Run the example task:
    \`\`\`bash
-   xec tasks:run hello
+   xec run hello
    \`\`\`
 
 ### Xec Project Structure
@@ -2146,10 +2146,10 @@ extensions:
 
 \`\`\`bash
 # Setup the extension
-xec tasks:run ${name}:setup
+xec run ${name}:setup
 
 # Run the main task
-xec tasks:run ${name}:run --mode=fast
+xec run ${name}:run --mode=fast
 \`\`\`
 
 ## Configuration

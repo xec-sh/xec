@@ -271,7 +271,7 @@ export class RunCommand extends BaseCommand {
       } catch {
         // Not a file either
         log.error(`Task '${taskName}' not found`);
-        log.info(prism.dim('\nRun "xec tasks" to see available tasks'));
+        log.info(prism.dim('\nRun "xec inspect tasks" to see available tasks'));
         throw new Error(`Task '${taskName}' not found`);
       }
     }
