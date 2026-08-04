@@ -123,6 +123,16 @@ const green  = prism.rgb(0, 255, 0)('Green text');
 const blue   = prism.hsl(200, 100, 50)('Blue text');
 ```
 
+Every component draws its colours from one theme of seven roles — accent,
+activity, success, warning, error, info, muted — so restyling the kit is one
+call:
+
+```typescript
+import { prism, updateSettings } from '@xec-sh/kit';
+
+updateSettings({ theme: { accent: prism.green, activity: prism.cyan } });
+```
+
 ## Exports
 
 | Export | Description |
@@ -142,7 +152,8 @@ const blue   = prism.hsl(200, 100, 50)('Blue text');
 | `prism` | Color builder: hex/rgb/hsl/css names, 16/256/truecolor |
 | `isCancel` | Detect Ctrl-C cancellation of any prompt |
 | `stream` | Streamed output helpers |
-| `settings` / `updateSettings` | Global prompt appearance settings (e.g. `withGuide`) |
+| `settings` / `updateSettings` | Global prompt appearance settings (e.g. `withGuide`, `theme`) |
+| `multiline` | Multi-line text input; Enter is a newline, Enter twice submits |
 
 ## License
 
