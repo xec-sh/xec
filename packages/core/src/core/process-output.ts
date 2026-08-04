@@ -79,7 +79,7 @@ export class ProcessOutput extends Error {
       return JSON.parse(text);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to parse JSON: ${message}\nOutput: ${text}`);
+      throw new Error(`Failed to parse JSON: ${message}\nOutput: ${text}`, { cause: err });
     }
   }
 

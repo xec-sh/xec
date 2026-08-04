@@ -656,7 +656,7 @@ export class VariableInterpolator {
       } catch (error) {
         const message = `Failed to retrieve secret '${key}': ${error instanceof Error ? error.message : 'Unknown error'}`;
         if (opts.onUndefined === 'error' && !opts.lenientTypes.includes('secret')) {
-          throw new Error(message);
+          throw new Error(message, { cause: error });
         }
         console.warn(message);
       }

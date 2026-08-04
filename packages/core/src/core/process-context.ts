@@ -461,7 +461,7 @@ export class ProcessPromiseBuilder {
       return JSON.parse(text);
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to parse JSON: ${error}\nOutput: ${text}`);
+      throw new Error(`Failed to parse JSON: ${error}\nOutput: ${text}`, { cause: error });
     }
   }
 

@@ -122,7 +122,7 @@ echo '${escapedPassword}'
     } catch (error) {
       // Clean up stored password on error
       this.encryptedPasswords.delete(scriptId);
-      throw new Error(`Failed to create askpass script: ${error}`);
+      throw new Error(`Failed to create askpass script: ${error}`, { cause: error });
     }
   }
   

@@ -52,45 +52,27 @@ export class TempFile {
   }
 
   async create(content?: string): Promise<void> {
-    try {
-      if (content !== undefined) {
-        await fs.writeFile(this._path, content, 'utf8');
-      } else {
-        // Create empty file
-        await fs.writeFile(this._path, '', 'utf8');
-      }
-      
-      // Emit temp:create event
-      this.emitEvent('temp:create', {
-        path: this._path,
-        type: 'file'
-      });
-
-    } catch (error) {
-      throw error;
+    if (content !== undefined) {
+      await fs.writeFile(this._path, content, 'utf8');
+    } else {
+      // Create empty file
+      await fs.writeFile(this._path, '', 'utf8');
     }
+    
+    // Emit temp:create event
+    this.emitEvent('temp:create', {
+      path: this._path,
+      type: 'file'
+    });
+
   }
 
   async write(content: string): Promise<void> {
-    try {
-      await fs.writeFile(this._path, content, 'utf8');
-      
-
-    } catch (error) {
-
-      throw error;
-    }
+    await fs.writeFile(this._path, content, 'utf8');
   }
 
   async append(content: string): Promise<void> {
-    try {
-      await fs.appendFile(this._path, content, 'utf8');
-      
-
-    } catch (error) {
-
-      throw error;
-    }
+    await fs.appendFile(this._path, content, 'utf8');
   }
 
   async read(): Promise<string> {
@@ -162,18 +144,14 @@ export class TempDir {
   }
 
   async create(): Promise<void> {
-    try {
-      await fs.mkdir(this._path, { recursive: true });
-      
-      // Emit temp:create event
-      this.emitEvent('temp:create', {
-        path: this._path,
-        type: 'directory'
-      });
+    await fs.mkdir(this._path, { recursive: true });
+    
+    // Emit temp:create event
+    this.emitEvent('temp:create', {
+      path: this._path,
+      type: 'directory'
+    });
 
-    } catch (error) {
-      throw error;
-    }
   }
 
   async exists(): Promise<boolean> {
