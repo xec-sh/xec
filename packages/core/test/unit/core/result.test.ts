@@ -226,7 +226,9 @@ describe('ExecutionResult', () => {
         stdout: 'output',
         stderr: 'error',
         exitCode: 0,
-        signal: 'SIGTERM',
+        // No signal: exit 0 together with a terminating signal is a
+        // contradiction, and treating that pair as success is exactly the
+        // defect where an OOM-killed command looked green.
         command: 'test',
         adapter: 'local',
         host: 'server',
@@ -246,8 +248,9 @@ describe('ExecutionResult', () => {
       expect(result).toHaveProperty('host');
       expect(result).toHaveProperty('container');
       expect(result).toHaveProperty('ok');
-      // cause is undefined for successful execution (exitCode 0)
+      // cause is undefined for successful execution (exitCode 0, no signal)
       expect(result.cause).toBeUndefined();
+      expect(result.ok).toBe(true);
 
       // Test methods
       expect(typeof result.toMetadata).toBe('function');

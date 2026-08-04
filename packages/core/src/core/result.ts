@@ -21,7 +21,11 @@ export class ExecutionResultImpl implements ExecutionResult {
     public host?: string,
     public container?: string
   ) {
-    this.ok = exitCode === 0;
+    // A process killed by a signal reports no exit code, and coalescing that
+    // to 0 made an OOM kill or an orchestrator SIGTERM indistinguishable from
+    // success. A signal is never success.
+    this.ok = exitCode === 0 && !signal;
+
     if (!this.ok) {
       this.cause = signal ? `signal: ${signal}` : `exitCode: ${exitCode}`;
     }

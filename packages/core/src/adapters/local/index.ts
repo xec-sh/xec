@@ -6,6 +6,7 @@ import { constants, accessSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
 import { Command } from '../../types/command.js';
+import { resolveExitCode } from '../../core/failure-kind.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { RuntimeDetector } from './runtime-detect.js';
 import { ExecutionResult } from '../../core/result.js';
@@ -62,7 +63,7 @@ export class LocalAdapter extends BaseAdapter {
         return await this.createResultNoThrow(
           result.stdout,
           result.stderr,
-          result.exitCode ?? 0,
+          resolveExitCode(result.exitCode, result.signal),
           result.signal ?? undefined,
           this.buildCommandString(mergedCommand),
           startTime,
@@ -73,7 +74,7 @@ export class LocalAdapter extends BaseAdapter {
         return await this.createResult(
           result.stdout,
           result.stderr,
-          result.exitCode ?? 0,
+          resolveExitCode(result.exitCode, result.signal),
           result.signal ?? undefined,
           this.buildCommandString(mergedCommand),
           startTime,
@@ -131,7 +132,7 @@ export class LocalAdapter extends BaseAdapter {
         return this.createResultNoThrowSync(
           result.stdout,
           result.stderr,
-          result.exitCode ?? 0,
+          resolveExitCode(result.exitCode, result.signal),
           result.signal ?? undefined,
           this.buildCommandString(mergedCommand),
           startTime,
@@ -142,7 +143,7 @@ export class LocalAdapter extends BaseAdapter {
         return this.createResultSync(
           result.stdout,
           result.stderr,
-          result.exitCode ?? 0,
+          resolveExitCode(result.exitCode, result.signal),
           result.signal ?? undefined,
           this.buildCommandString(mergedCommand),
           startTime,

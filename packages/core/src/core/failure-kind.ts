@@ -175,3 +175,45 @@ const RECOVERABLE_LOOKUP: Readonly<Record<FailureKind, true>> = {
   'host-key-mismatch': true,
   unknown: true,
 };
+
+/**
+ * Map a process outcome to an exit code, following the shell convention.
+ *
+ * A process killed by a signal reports no exit code. Coalescing that to 0
+ * made a SIGKILL — an OOM kill, an orchestrator stopping a pod — read as
+ * success. Shells report `128 + signum` for this, so callers that only look
+ * at the number still see a failure.
+ *
+ * @param exitCode - The reported exit code, or null/undefined if signalled.
+ * @param signal - The terminating signal name, if any.
+ * @returns The exit code to report.
+ */
+export function resolveExitCode(
+  exitCode: number | null | undefined,
+  signal?: string | null
+): number {
+  if (typeof exitCode === 'number') {
+    return exitCode;
+  }
+
+  if (signal) {
+    return 128 + (SIGNAL_NUMBERS[signal] ?? 0);
+  }
+
+  return 0;
+}
+
+/** Signal numbers needed for the `128 + signum` convention. */
+const SIGNAL_NUMBERS: Readonly<Record<string, number>> = {
+  SIGHUP: 1,
+  SIGINT: 2,
+  SIGQUIT: 3,
+  SIGILL: 4,
+  SIGABRT: 6,
+  SIGFPE: 8,
+  SIGKILL: 9,
+  SIGSEGV: 11,
+  SIGPIPE: 13,
+  SIGALRM: 14,
+  SIGTERM: 15,
+};
