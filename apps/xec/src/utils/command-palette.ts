@@ -7,8 +7,22 @@ const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
   // No-op fallback
   // console.log(`Global shortcut ${shortcut} would be registered`);
 };
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
+
+
+/**
+ * Invoke the xec CLI with an argument vector.
+ *
+ * Names reaching here come from project files and configuration — a task
+ * called `deploy; rm -rf /` used to be interpolated into a shell command and
+ * executed as written. argv has no shell to interpret it.
+ *
+ * @param args - Arguments to pass to the CLI.
+ */
+function runXec(args: string[]): void {
+  execFileSync('xec', args, { stdio: 'inherit' });
+}
 
 export interface CommandPaletteItem {
   id: string;
@@ -101,7 +115,7 @@ export class CommandPalette {
         action: async () => {
           const scriptPath = await this.selectScript();
           if (scriptPath) {
-            execSync(`xec run ${scriptPath}`, { stdio: 'inherit' });
+            runXec(['run', scriptPath]);
           }
         },
       },
@@ -113,7 +127,7 @@ export class CommandPalette {
         group: 'commands',
         shortcut: 'n',
         action: async () => {
-          execSync('xec new', { stdio: 'inherit' });
+          runXec(['new']);
         },
       },
       {
@@ -124,7 +138,7 @@ export class CommandPalette {
         group: 'commands',
         shortcut: 'c',
         action: async () => {
-          execSync('xec config', { stdio: 'inherit' });
+          runXec(['config']);
         },
       },
       {
@@ -135,7 +149,7 @@ export class CommandPalette {
         group: 'commands',
         shortcut: 's',
         action: async () => {
-          execSync('xec secrets', { stdio: 'inherit' });
+          runXec(['secrets']);
         },
       },
       {
@@ -146,7 +160,7 @@ export class CommandPalette {
         group: 'commands',
         shortcut: 'i',
         action: async () => {
-          execSync('xec inspect', { stdio: 'inherit' });
+          runXec(['inspect']);
         },
       },
       {
@@ -156,7 +170,7 @@ export class CommandPalette {
         icon: '📋',
         group: 'commands',
         action: async () => {
-          execSync('xec copy --interactive', { stdio: 'inherit' });
+          runXec(['copy', '--interactive']);
         },
       },
       {
@@ -166,7 +180,7 @@ export class CommandPalette {
         icon: '🔌',
         group: 'commands',
         action: async () => {
-          execSync('xec forward', { stdio: 'inherit' });
+          runXec(['forward']);
         },
       },
       {
@@ -176,7 +190,7 @@ export class CommandPalette {
         icon: '📜',
         group: 'commands',
         action: async () => {
-          execSync('xec logs', { stdio: 'inherit' });
+          runXec(['logs']);
         },
       },
       {
@@ -186,7 +200,7 @@ export class CommandPalette {
         icon: '👁️',
         group: 'commands',
         action: async () => {
-          execSync('xec watch', { stdio: 'inherit' });
+          runXec(['watch']);
         },
       }
     );
@@ -202,7 +216,7 @@ export class CommandPalette {
           icon: '⚡',
           group: 'tasks',
           action: async () => {
-            execSync(`xec run ${task.name}`, { stdio: 'inherit' });
+            runXec(['run', task.name]);
           },
         });
       }
@@ -219,7 +233,7 @@ export class CommandPalette {
         icon: '📄',
         group: 'files',
         action: async () => {
-          execSync(`xec run ${file}`, { stdio: 'inherit' });
+          runXec(['run', file]);
         },
       });
     }
@@ -233,7 +247,7 @@ export class CommandPalette {
         icon: '🎯',
         group: 'targets',
         action: async () => {
-          execSync(`xec in ${target}`, { stdio: 'inherit' });
+          runXec(['in', target]);
         },
       });
     }
@@ -299,7 +313,7 @@ export class CommandPalette {
 
     if (selected && !isCancel(selected)) {
       this.trackFile(selected);
-      execSync(`xec run ${selected}`, { stdio: 'inherit' });
+      runXec(['run', selected]);
     }
   }
 
@@ -326,7 +340,7 @@ export class CommandPalette {
     });
 
     if (selected && !isCancel(selected)) {
-      execSync(`xec run ${selected}`, { stdio: 'inherit' });
+      runXec(['run', selected]);
     }
   }
 
