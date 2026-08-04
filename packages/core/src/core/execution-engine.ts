@@ -274,10 +274,15 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       };
     }
 
-    // Merge defaultEnv from config if not already in the command
+    // defaultEnv and defaultCwd are both engine-level, so both are resolved
+    // here. Leaving the directory to the adapter used to lose it: `with()`
+    // reuses the parent's adapters to keep connection pools alive, and each
+    // adapter holds the `defaultCwd` it was constructed with — so a directory
+    // set on the new engine never reached the command.
     const finalCommand = {
       ...this.currentConfig,
       ...contextCommand,
+      cwd: contextCommand.cwd ?? this.currentConfig.cwd ?? this._config.defaultCwd,
       env: {
         ...(this._config.defaultEnv || {}),
         ...(contextCommand.env || {})
