@@ -6,6 +6,8 @@ import type { PipeTarget, PipeOptions, ProcessPromise } from '../types/process.j
 import { promisify } from 'node:util';
 import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
+import { PIPE_TARGET, type ProcessContext } from './process-context.js';
+
 export type { PipeTarget, PipeOptions } from '../types/process.js';
 
 const pipelineAsync = promisify(pipeline);
@@ -42,7 +44,7 @@ export async function executePipe(
     const command = interpolateTemplate(target as TemplateStringsArray, ...templateArgs);
     return engine.execute({
       command,
-      stdin: sourceResult.stdout,
+      stdin: pipedInput(sourceResult),
       shell: true
     });
   }
@@ -51,7 +53,7 @@ export async function executePipe(
   if (typeof target === 'string') {
     return engine.execute({
       command: target,
-      stdin: sourceResult.stdout,
+      stdin: pipedInput(sourceResult),
       shell: true
     });
   }
@@ -60,18 +62,38 @@ export async function executePipe(
   if (isCommand(target)) {
     return engine.execute({
       ...target,
-      stdin: sourceResult.stdout
+      stdin: pipedInput(sourceResult)
     });
   }
 
   // 4. Another ProcessPromise
   if (isProcessPromise(target)) {
-    // Chain the promises
+    // `$`a`.pipe($`b`)` is the first thing anyone writes, and it used to fail
+    // with a command error that had nothing to do with the data: reading the
+    // target through `.then()` starts it, and a command started this way has
+    // no stdin, so `grep` saw EOF and exited 1.
+    //
+    // A ProcessPromise is lazy, so the target has not run yet. Take its
+    // context, resolve the command it would have run, and run that with the
+    // source's output as its input.
+    const context = (target as unknown as Record<symbol, ProcessContext | undefined>)[PIPE_TARGET];
+
+    if (context) {
+      const parts = await Promise.resolve(context.resolveCommand());
+
+      return context.engine.execute({
+        ...parts,
+        stdin: pipedInput(sourceResult)
+      });
+    }
+
+    // A promise from somewhere else that merely looks like one: fall back to
+    // awaiting it, which is the old behaviour and the best available.
     return target.then(async (targetCmd: any) => {
       if (typeof targetCmd === 'object' && targetCmd.command) {
         return engine.execute({
           ...targetCmd,
-          stdin: sourceResult.stdout
+          stdin: pipedInput(sourceResult)
         });
       }
       throw new Error('Invalid ProcessPromise target');
@@ -102,8 +124,8 @@ export async function executePipe(
       if (testResult && (typeof testResult === 'string' || isCommand(testResult))) {
         // It's a conditional function that returned a command
         const nextCommand = typeof testResult === 'string'
-          ? { command: testResult, shell: true, stdin: sourceResult.stdout }
-          : { ...testResult, stdin: sourceResult.stdout };
+          ? { command: testResult, shell: true, stdin: pipedInput(sourceResult) }
+          : { ...testResult, stdin: pipedInput(sourceResult) };
 
         return engine.execute(nextCommand);
       }
@@ -117,6 +139,18 @@ export async function executePipe(
   }
 
   throw new Error(`Unsupported pipe target type: ${typeof target}`);
+}
+
+/**
+ * What to feed the next command's stdin.
+ *
+ * The raw bytes where the adapter captured them, so a tarball or a certificate
+ * survives a pipe. Passing `result.stdout` handed on a string that had already
+ * been decoded as UTF-8, which turns every byte that is not valid UTF-8 into a
+ * replacement character — `cat cert.p12 | openssl` received corruption.
+ */
+function pipedInput(result: ExecutionResult): string | Buffer {
+  return typeof result.buffer === 'function' ? result.buffer() : result.stdout;
 }
 
 /**

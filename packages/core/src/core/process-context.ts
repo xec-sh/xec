@@ -5,7 +5,7 @@ import type { Command, StreamOption } from '../types/command.js';
 import type { CacheTarget, CacheOptions } from '../utils/cache.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
 
-import { PassThrough } from 'node:stream';
+import { Writable, PassThrough } from 'node:stream';
 
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
@@ -32,6 +32,37 @@ function throwingDisabled(engine: { _config?: { throwOnNonZeroExit?: boolean }; 
 }
 
 const TRANSFORM_HANDLER = Symbol.for('xec:transform');
+
+/**
+ * Carries the unstarted context of a ProcessPromise to `.pipe()`.
+ *
+ * @see ProcessPromise
+ */
+export const PIPE_TARGET = Symbol.for('xec:pipe-target');
+
+/**
+ * Accept a callback where a stream is expected.
+ *
+ * `.stdout(chunk => ...)` is the obvious way to ask for output as it arrives,
+ * and it used to be accepted and dropped: the option is typed
+ * `'pipe' | 'ignore' | 'inherit' | Writable`, so TypeScript rejected it, but
+ * nothing at runtime did. A JavaScript caller got a command that ran perfectly
+ * while their handler was never called.
+ */
+function asStreamOption(value: StreamOption | ((chunk: string) => void)): StreamOption {
+  if (typeof value !== 'function') return value;
+
+  return new Writable({
+    write(chunk, _encoding, done) {
+      try {
+        value(String(chunk));
+        done();
+      } catch (error) {
+        done(error as Error);
+      }
+    }
+  });
+}
 
 export type { ProcessPromise } from '../types/process.js';
 
@@ -87,6 +118,18 @@ export class ProcessContext {
     public readonly engine: any, // ExecutionEngine type
     protected readonly commandResolver: () => Promise<Partial<Command>> | Partial<Command>
   ) { }
+
+  /**
+   * Build the command this context would run, without running it.
+   *
+   * Used by `.pipe()`, which has to run the target with the source's output as
+   * its stdin. Awaiting the target instead would start it with no stdin at
+   * all — `grep` sees EOF, exits 1, and the pipe reports a failure that has
+   * nothing to do with the data.
+   */
+  async resolveCommand(): Promise<Command> {
+    return this.buildCommand(await Promise.resolve(this.commandResolver()));
+  }
 
   /**
    * Execute with async flow and early returns
@@ -173,6 +216,20 @@ export class ProcessContext {
 
   // ===== Chainable methods with immutable state =====
 
+  /**
+   * An empty context of the same kind, for configuration to be applied to.
+   *
+   * Overridden by contexts that run something other than a plain command.
+   * Producing a base ProcessContext here dropped a pipe: `.pipe(x).nothrow()`
+   * came back as a context whose command resolved to `{}`, so the engine tried
+   * to spawn nothing and reported `The "file" argument must be of type string`
+   * — a message about an internal argument, for a chain the caller wrote
+   * correctly.
+   */
+  protected cloneContext(): ProcessContext {
+    return new ProcessContext(this.engine, this.commandResolver);
+  }
+
   private mutate(changes: (state: typeof this.state) => void): ProcessPromise {
     // Configuration is immutable: each call returns a *new* command. Doing
     // that to an already-running one would silently discard the running
@@ -185,7 +242,7 @@ export class ProcessContext {
     }
 
     // Create new context with cloned state for immutability
-    const newContext = new ProcessContext(this.engine, this.commandResolver);
+    const newContext = this.cloneContext();
     // Deep clone the state
     newContext.state = {
       modifications: { ...this.state.modifications },
@@ -240,11 +297,11 @@ export class ProcessContext {
   withShell = (shell: string | boolean): ProcessPromise =>
     this.mutate(s => { s.modifications.shell = shell; });
 
-  withStdout = (stream: StreamOption): ProcessPromise =>
-    this.mutate(s => { s.modifications.stdout = stream; });
+  withStdout = (stream: StreamOption | ((chunk: string) => void)): ProcessPromise =>
+    this.mutate(s => { s.modifications.stdout = asStreamOption(stream); });
 
-  withStderr = (stream: StreamOption): ProcessPromise =>
-    this.mutate(s => { s.modifications.stderr = stream; });
+  withStderr = (stream: StreamOption | ((chunk: string) => void)): ProcessPromise =>
+    this.mutate(s => { s.modifications.stderr = asStreamOption(stream); });
 
   withCache = (options?: CacheOptions): ProcessPromise =>
     this.mutate(s => { s.cacheOptions = options || {}; });
@@ -536,6 +593,18 @@ export class PipedProcessContext extends ProcessContext {
     super(engine, () => ({})); // No async needed for empty object
   }
 
+  /** Keep the pipe when configuration is chained after it. */
+  protected override cloneContext(): ProcessContext {
+    return new PipedProcessContext(
+      this.engine,
+      this.sourceExecutor,
+      this.target,
+      this.pipeOptions,
+      this.templateArgs,
+      this.sourceNothrow
+    );
+  }
+
   override async execute(): Promise<ExecutionResult> {
     return executePipe(
       this.sourceExecutor(), // No need for Promise.resolve
@@ -618,6 +687,17 @@ export class ProcessPromiseBuilder {
     };
 
     const lazyPromise = {
+      /**
+       * The command this promise would run, for a consumer that needs to run
+       * it differently.
+       *
+       * `.pipe($`grep x`)` is the case: the target has to run with the
+       * source's output as its stdin, and reading it through `.then()` starts
+       * it first — with no stdin at all. Exposed under a symbol because it is
+       * an internal seam, not part of the API.
+       */
+      [PIPE_TARGET]: context,
+
       /**
        * Start the command without awaiting it.
        *

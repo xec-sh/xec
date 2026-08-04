@@ -114,8 +114,15 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
   
   // Stream configuration methods
   interactive(): ProcessPromise;
-  stdout(stream: StreamOption): ProcessPromise;
-  stderr(stream: StreamOption): ProcessPromise;
+  /**
+   * Where stdout goes.
+   *
+   * A callback is accepted and invoked per chunk; it used to be silently
+   * dropped, so a caller got a command that ran perfectly while their handler
+   * was never called.
+   */
+  stdout(stream: StreamOption | ((chunk: string) => void)): ProcessPromise;
+  stderr(stream: StreamOption | ((chunk: string) => void)): ProcessPromise;
   
   // Convenience methods
   text(): Promise<string>;
