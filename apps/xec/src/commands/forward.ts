@@ -272,9 +272,28 @@ export class ForwardCommand extends ConfigAwareCommand {
     const engine = $.ssh(sshOptions);
 
     if (options.reverse) {
-      // Reverse tunnel: remote port -> local port
-      // Note: Reverse tunnels may require different handling
-      throw new Error('Reverse tunneling is not yet implemented in this version');
+      // Reverse tunnel (ssh -R): the remote host listens, and each connection
+      // is forwarded to the local port. The mapping reads the same way as a
+      // forward tunnel — local:remote — with the direction inverted.
+      await engine`echo "Establishing connection for tunnel"`.quiet();
+
+      const tunnel = await engine.reverseTunnel({
+        remotePort: mapping.remote,
+        remoteHost: options.bind,
+        localHost: 'localhost',
+        localPort: mapping.local
+      });
+
+      return {
+        target,
+        mapping,
+        process: tunnel,
+        cleanup: async () => {
+          if (tunnel && typeof tunnel.close === 'function') {
+            await tunnel.close();
+          }
+        },
+      };
     } else {
       // First, establish a connection by executing a simple command
       // This is required before creating a tunnel

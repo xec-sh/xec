@@ -2,6 +2,7 @@
 import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
+import { connect as netConnect } from 'node:net';
 import { createHash, randomBytes } from 'node:crypto';
 
 import { escapeArg, quoteForShell } from '../../utils/shell-escape.js';
@@ -1216,6 +1217,129 @@ export class SSHAdapter extends BaseAdapter {
       remoteHost: options.remoteHost,
       remotePort: options.remotePort,
       type: 'ssh'
+    });
+
+    return tunnel;
+  }
+
+  /**
+   * Open a reverse tunnel: the remote host listens, and each connection is
+   * forwarded to a local address.
+   *
+   * This is `ssh -R`. The CLI advertised a `--reverse` flag for it while the
+   * implementation threw 'not yet implemented', so the option existed only as
+   * a promise.
+   *
+   * @param options - Remote listening address and the local destination.
+   *   A `remotePort` of 0 asks the server to choose a free port, which is
+   *   returned in the result.
+   * @returns The bound remote port and a `close` that unbinds it.
+   * @throws {AdapterError} If no SSH connection has been established yet.
+   *
+   * @example
+   * ```typescript
+   * const tunnel = await adapter.reverseTunnel({
+   *   remotePort: 8080,
+   *   localHost: 'localhost',
+   *   localPort: 3000,
+   * });
+   * // Traffic to the server's :8080 now reaches localhost:3000.
+   * await tunnel.close();
+   * ```
+   */
+  async reverseTunnel(options: {
+    remotePort: number;
+    remoteHost?: string;
+    localHost?: string;
+    localPort: number;
+  }): Promise<{
+    remotePort: number;
+    remoteHost: string;
+    localHost: string;
+    localPort: number;
+    isOpen: boolean;
+    close: () => Promise<void>;
+  }> {
+    const sshOptions = this.lastUsedSSHOptions;
+
+    if (!sshOptions) {
+      throw new AdapterError(
+        this.adapterName,
+        'reverseTunnel',
+        new Error('No SSH connection available. Execute a command first or provide connection options.')
+      );
+    }
+
+    const connection = await this.getConnection(sshOptions);
+    // Bind on loopback by default: binding a remote listener to all
+    // interfaces exposes the local service to that host's whole network,
+    // which should be an explicit choice rather than a default.
+    const remoteHost = options.remoteHost ?? '127.0.0.1';
+    const localHost = options.localHost ?? 'localhost';
+
+    const forwarded = await connection.ssh.forwardIn(
+      remoteHost,
+      options.remotePort,
+      (_details, accept, reject) => {
+        const channel = accept();
+        const local = netConnect(options.localPort, localHost);
+
+        local.on('connect', () => {
+          channel.pipe(local).pipe(channel);
+        });
+
+        // If the local service is unreachable, close the channel rather than
+        // leaving the remote caller hanging on a half-open connection.
+        local.on('error', () => {
+          channel.close();
+        });
+
+        channel.on('error', () => {
+          local.destroy();
+        });
+
+        channel.on('close', () => {
+          local.destroy();
+        });
+
+        void reject;
+      }
+    );
+
+    const tunnelId = `reverse:${remoteHost}:${forwarded.port}`;
+    let isOpen = true;
+
+    const tunnel = {
+      remotePort: forwarded.port,
+      remoteHost,
+      localHost,
+      localPort: options.localPort,
+      get isOpen() {
+        return isOpen;
+      },
+      close: async () => {
+        if (!isOpen) {
+          return;
+        }
+
+        isOpen = false;
+        await forwarded.dispose();
+        this.activeTunnels.delete(tunnelId);
+
+        this.emitAdapterEvent('ssh:tunnel-closed', {
+          localPort: options.localPort,
+          remoteHost,
+          remotePort: forwarded.port
+        });
+      }
+    };
+
+    this.activeTunnels.set(tunnelId, tunnel);
+
+    this.emitAdapterEvent('ssh:tunnel-created', {
+      localPort: options.localPort,
+      remoteHost,
+      remotePort: forwarded.port
     });
 
     return tunnel;
