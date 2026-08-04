@@ -29,6 +29,16 @@ const secret = await password({ message: 'Enter token:' });
 ```
 
 ```typescript
+import { multiline } from '@xec-sh/kit';
+
+// Enter inserts a newline; Enter twice at the end submits.
+const description = await multiline({
+  message: 'Describe the change',
+  placeholder: 'What, and why',
+});
+```
+
+```typescript
 import { multiselect, autocomplete, selectKey, groupMultiselect, date } from '@xec-sh/kit';
 
 const tools = await multiselect({
