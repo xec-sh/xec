@@ -1,9 +1,24 @@
 {
-  "extends": "@docusaurus/tsconfig",
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "baseUrl": ".",
-    "types": ["@docusaurus/module-type-aliases"],
+    // Inlined from @docusaurus/tsconfig rather than extended: that config still
+    // sets `baseUrl`, which TypeScript 7 removed, and an inherited option
+    // cannot be unset. Everything below matches it except that the `@site/*`
+    // alias is expressed as a plain relative path instead of a baseUrl-relative
+    // one. Re-check this against the shipped config when Docusaurus updates.
+    "allowJs": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "esnext",
     "moduleResolution": "bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@site/*": ["./*"]
+    },
+    "types": ["@docusaurus/module-type-aliases"],
     "allowImportingTsExtensions": true
   }
 }

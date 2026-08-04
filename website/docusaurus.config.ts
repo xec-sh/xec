@@ -6,6 +6,22 @@ import { themes as prismThemes } from 'prism-react-renderer';
 const config: Config = {
   title: 'Xec',
   tagline: 'One $ for every environment',
+
+  // Rspack instead of Webpack, SWC instead of Babel and Terser, Lightning CSS
+  // for minification. `v4` stays off — it is a separate opt-in and changes
+  // routing behaviour; `ssgWorkerThreads` is the one sub-flag that needs it.
+  future: {
+    faster: {
+      rspackBundler: true,
+      rspackPersistentCache: true,
+      swcJsLoader: true,
+      swcJsMinimizer: true,
+      swcHtmlMinimizer: true,
+      lightningCssMinimizer: true,
+      mdxCrossCompilerCache: true,
+      ssgWorkerThreads: false,
+    },
+  },
   favicon: 'img/favicon.svg',
 
   headTags: [
@@ -119,6 +135,13 @@ const config: Config = {
 
   markdown: {
     mermaid: true,
+    // `.md` is parsed as CommonMark, `.mdx` as MDX. Under the default, every
+    // `${...}` in a documentation page is a JSX expression waiting to be
+    // evaluated — and this is a shell-execution project, so template literals
+    // are everywhere. One page with `` .pipe`${dynamicPart}` `` in it failed
+    // the whole build with "dynamicPart is not defined". No page here uses
+    // MDX features, so nothing is given up.
+    format: 'detect',
     hooks: {
       onBrokenMarkdownLinks: 'warn',
     },
