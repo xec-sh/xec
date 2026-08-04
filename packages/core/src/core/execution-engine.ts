@@ -40,8 +40,8 @@ import {
   isTemplateStringsArray,
 } from '../utils/shell-escape.js';
 
-export { ProcessPromise } from '../types/process.js';
-export { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
+export type { ProcessPromise } from '../types/process.js';
+export type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
 
 /**
  * Redact credentials from a string before it is published to event listeners.

@@ -6,7 +6,7 @@ import type { PipeTarget, PipeOptions, ProcessPromise } from '../types/process.j
 import { promisify } from 'node:util';
 import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
-export { PipeTarget, PipeOptions } from '../types/process.js';
+export type { PipeTarget, PipeOptions } from '../types/process.js';
 
 const pipelineAsync = promisify(pipeline);
 

@@ -231,40 +231,19 @@ function registerCleanupHandlers(): void {
   };
   process.on('exit', cleanupHandlers.exit);
 
+  // Release connections and temp files on a termination signal, but do not
+  // exit: whether the process should stop is the application's decision, and
+  // an embedded library calling process.exit() takes that away.
   cleanupHandlers.sigint = async () => {
     try { await cleanupEngine(); } catch { /* ignore */ }
-    finally {
-      if (process.env['NODE_ENV'] !== 'test') process.exit(0);
-    }
   };
   process.on('SIGINT', cleanupHandlers.sigint);
 
   cleanupHandlers.sigterm = async () => {
     try { await cleanupEngine(); } catch { /* ignore */ }
-    finally {
-      if (process.env['NODE_ENV'] !== 'test') process.exit(0);
-    }
   };
   process.on('SIGTERM', cleanupHandlers.sigterm);
 
-  // Skip in test environments
-  if (process.env['NODE_ENV'] !== 'test' && !process.env['VITEST_WORKER_ID']) {
-    cleanupHandlers.uncaughtException = async () => {
-      try { await cleanupEngine(); } catch { /* ignore */ }
-      finally { process.exit(1); }
-    };
-    process.on('uncaughtException', cleanupHandlers.uncaughtException);
-
-    cleanupHandlers.unhandledRejection = async (reason: unknown, promise: Promise<unknown>) => {
-      // Use branded symbol instead of fragile string-based type checking
-      if (isXecPromise(promise)) return;
-
-      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-      try { await cleanupEngine(); } catch { /* ignore */ }
-      finally { process.exit(1); }
-    };
-    process.on('unhandledRejection', cleanupHandlers.unhandledRejection);
-  }
 }
 
 /** Remove all registered cleanup handlers (for tests and dispose) */
@@ -277,7 +256,32 @@ function removeCleanupHandlers(): void {
   cleanupRegistered = false;
 }
 
-registerCleanupHandlers();
+/**
+ * Register best-effort cleanup of engine resources on process termination.
+ *
+ * Not called on import. A library that installs process-global handlers takes
+ * over decisions that belong to the application: this module previously
+ * handled `unhandledRejection` and called `process.exit(1)`, so importing it
+ * killed the host process on a rejection that had nothing to do with xec.
+ *
+ * Call this from an application entry point — the xec CLI does — when you want
+ * connections and temp files released on SIGINT/SIGTERM.
+ *
+ * @example
+ * ```typescript
+ * import { installCleanupHandlers } from '@xec-sh/core';
+ *
+ * installCleanupHandlers();
+ * ```
+ */
+export function installCleanupHandlers(): void {
+  registerCleanupHandlers();
+}
+
+/** Remove handlers installed by {@link installCleanupHandlers}. */
+export function uninstallCleanupHandlers(): void {
+  removeCleanupHandlers();
+}
 
 export { RuntimeDetector } from './adapters/local/runtime-detect.js';
 

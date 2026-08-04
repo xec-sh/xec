@@ -2,7 +2,7 @@ import type { ExecutionResult } from '../types/result.js';
 
 import { CommandError } from './error.js';
 
-export { ExecutionResult } from '../types/result.js';
+export type { ExecutionResult } from '../types/result.js';
 
 export class ExecutionResultImpl implements ExecutionResult {
   public readonly ok: boolean;

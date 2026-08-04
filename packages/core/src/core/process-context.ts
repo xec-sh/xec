@@ -14,7 +14,7 @@ const XEC_PROMISE_BRAND = Symbol.for('xec:promise');
 /** Marker for transform handlers (text/json/lines/buffer) to distinguish from direct await */
 const TRANSFORM_HANDLER = Symbol.for('xec:transform');
 
-export { ProcessPromise } from '../types/process.js';
+export type { ProcessPromise } from '../types/process.js';
 
 /**
  * Process context with minimal state and maximum performance

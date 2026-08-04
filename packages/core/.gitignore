@@ -32,4 +32,6 @@ pnpm-debug.log*
 *.tmp
 *.temp
 tmp/
+
 temp/
+.tmp-hijack-*

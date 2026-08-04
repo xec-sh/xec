@@ -1,6 +1,7 @@
 import fs from 'fs';
 import process from 'process';
 import { Command } from 'commander';
+import { installCleanupHandlers } from '@xec-sh/core';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { checkForCommandTypo } from '@xec-sh/core';
@@ -12,6 +13,10 @@ import { saveCommandHistory, initializeCommandPalette } from './utils/command-pa
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// A CLI owns its process, so it is the right place to release connections and
+// temp files on SIGINT/SIGTERM. The library no longer does this on import.
+installCleanupHandlers();
 
 export function createProgram(): Command {
   const program = new Command();
