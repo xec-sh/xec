@@ -132,6 +132,44 @@ async function parseChangesFile(): Promise<string | null> {
 
 const REPO_URL = 'https://github.com/xec-sh/xec';
 
+/**
+ * Publish one package, surviving a registry that is briefly unwell.
+ *
+ * A release that dies halfway leaves some packages published and some not, and
+ * that cannot be undone — npm will not let a version be republished. So a 503,
+ * a reset connection or a rate-limit has to be waited out rather than aborted
+ * on. A version that is already published is a different thing entirely: it
+ * means this release has run before, and retrying cannot help.
+ *
+ * The timeout matters as much as the retry. Without one, a publish that hangs
+ * on a half-open socket hangs the release, and the operator finds out by
+ * noticing that nothing has happened for an hour.
+ */
+async function publishToNpm(pkg: { name: string; path: string }): Promise<void> {
+  await retry(
+    async () => {
+      const result = await $`pnpm --filter ${pkg.name} publish --access public --no-git-checks`
+        .timeout('5m')
+        .nothrow();
+
+      if (!result.ok) {
+        // stdall keeps npm's diagnostics in the order they were printed;
+        // stdout and stderr separately would scramble the explanation.
+        throw new Error(`${pkg.name}: ${result.stdall.trim() || `exit ${result.exitCode}`}`);
+      }
+    },
+    {
+      maxAttempts: 3,
+      initialDelay: 5_000,
+      multiplier: 2,
+      retryOn: error => !/EPUBLISHCONFLICT|previously published|cannot publish over/i.test(error.message),
+      onRetry: (attempt, _error, delay) => {
+        kit.log.warn(`${pkg.name}: attempt ${attempt} failed, retrying in ${Math.round(delay / 1000)}s`);
+      },
+    }
+  );
+}
+
 interface ParsedCommit {
   hash: string;
   /** The original subject, kept so it can be matched against CHANGELOG.md. */
@@ -572,6 +610,13 @@ export function command(program: Command): void {
 
         rollbackState.tagName = `v${config.version}`;
 
+        // A dry run's whole purpose is to show what would happen, so echo
+        // every command as it is built. Secrets are masked before they reach
+        // the echo, so a token passed on the command line does not appear.
+        if (config.dryRun) {
+          $.verbose = true;
+        }
+
         // Show release plan
         const planContent = [
           `Version: ${prism.green(currentVersion)} → ${prism.green(newVersion)}`,
@@ -855,31 +900,27 @@ export function command(program: Command): void {
                 const corePackages = config.packages.filter(p => p.name === '@xec-sh/core');
                 const otherPackages = config.packages.filter(p => p.name !== '@xec-sh/core');
 
-                // Publish core first (dependency for others)
-                if (corePackages.length > 0) {
-                  s.start(`Publishing ${corePackages[0]?.name}...`);
-                  await $`pnpm --filter ${corePackages[0]?.name} publish --access public --no-git-checks`;
+                // Core first: the others depend on it, and npm has to have
+                // the packument before a dependant referencing it can go up.
+                if (corePackages[0]) {
+                  s.start(`Publishing ${corePackages[0].name}...`);
+                  await publishToNpm(corePackages[0]);
 
-                  // Wait a bit for NPM to process the package
                   s.start('Waiting for NPM to process the package...');
-                  await new Promise(resolve => setTimeout(resolve, 5000));
+                  await sleep(5_000);
                 }
 
-                // Publish others sequentially to avoid "Failed to save packument" error
+                // Sequential on purpose: publishing these concurrently makes
+                // npm reject some with "Failed to save packument".
                 for (let i = 0; i < otherPackages.length; i++) {
                   const pkg = otherPackages[i];
-                  s.start(`Publishing ${pkg?.name}... (${i + 1}/${otherPackages.length})`);
+                  if (!pkg) continue;
 
-                  try {
-                    await $`pnpm --filter ${pkg?.name} publish --access public --no-git-checks`;
+                  s.start(`Publishing ${pkg.name}... (${i + 1}/${otherPackages.length})`);
+                  await publishToNpm(pkg);
 
-                    // Wait between publishes to avoid NPM rate limiting
-                    if (i < otherPackages.length - 1) {
-                      await new Promise(resolve => setTimeout(resolve, 3000));
-                    }
-                  } catch (error) {
-                    throw new Error(`Failed to publish ${pkg?.name}: ${error}`);
-                  }
+                  // Space the requests out; npm rate-limits a burst.
+                  if (i < otherPackages.length - 1) await sleep(3_000);
                 }
 
                 s.stop(`✅ Published ${config.packages.length} packages to NPM`);
@@ -954,20 +995,39 @@ export function command(program: Command): void {
               const pkg = jsrPackages[i];
               s.start(`Publishing ${pkg?.name} to JSR.io... (${i + 1}/${jsrPackages.length})`);
 
-              try {
-                if (config.jsrToken) {
-                  await $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg?.path ?? '')`deno publish --token $JSR_TOKEN`;
-                } else {
-                  await $.cd(pkg?.path ?? '')`deno publish`;
-                }
+              // The same reasoning as npm: a registry hiccup mid-release
+              // cannot be rolled back, so it is waited out rather than fatal.
+              const jsr = config.jsrToken
+                ? $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg?.path ?? '')
+                : $.cd(pkg?.path ?? '');
 
-                // Wait between publishes to avoid rate limiting
-                if (i < jsrPackages.length - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 3000));
+              await retry(
+                async () => {
+                  const result = config.jsrToken
+                    ? await jsr`deno publish --token $JSR_TOKEN`.timeout('5m').nothrow()
+                    : await jsr`deno publish`.timeout('5m').nothrow();
+
+                  if (!result.ok) {
+                    throw new Error(
+                      `${pkg?.name}: ${result.stdall.trim() || `exit ${result.exitCode}`}`
+                    );
+                  }
+                },
+                {
+                  maxAttempts: 3,
+                  initialDelay: 5_000,
+                  multiplier: 2,
+                  retryOn: error => !/already exists|version.*published/i.test(error.message),
+                  onRetry: (attempt, _error, delay) => {
+                    kit.log.warn(
+                      `${pkg?.name}: JSR attempt ${attempt} failed, retrying in ${Math.round(delay / 1000)}s`
+                    );
+                  },
                 }
-              } catch (error) {
-                throw new Error(`Failed to publish ${pkg?.name} to JSR.io: ${error}`);
-              }
+              );
+
+              // Space the requests out; JSR rate-limits a burst.
+              if (i < jsrPackages.length - 1) await sleep(3_000);
             }
 
             s.stop(`✅ Published ${jsrPackages.length} packages to JSR.io`);
