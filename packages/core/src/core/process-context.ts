@@ -1,8 +1,11 @@
 import type { ExecutionResult } from './result.js';
 import type { CacheOptions } from '../utils/cache.js';
 import type { ProcessPromise } from '../types/process.js';
+import type { ProcessHandle } from '../types/process-handle.js';
 import type { Command, StreamOption } from '../types/command.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
+
+import { PassThrough } from 'node:stream';
 
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
@@ -26,8 +29,40 @@ export class ProcessContext {
     modifications: {} as Partial<Command>,
     cacheOptions: null as CacheOptions | null,
     abortController: null as AbortController | null,
-    isQuiet: false
+    handle: null as ProcessHandle | null,
+    started: false,
+    isQuiet: false,
+
+    /**
+     * Buffers anything written to `.stdin` before the process exists.
+     *
+     * Spawning cannot be synchronous here — adapter selection is async, and
+     * for SSH the "process" needs a connection first — so a caller writing
+     * `p.stdin.write(...)` on the next line would otherwise hit `null`. The
+     * bridge accepts writes immediately and is piped into the real stdin the
+     * moment there is one. zx does the same with its own stream.
+     */
+    stdinBridge: null as PassThrough | null,
+
+    /** Resolves once the command is live; see `ProcessPromise.spawned`. */
+    spawnDeferred: null as { promise: Promise<ProcessHandle>; resolve: (h: ProcessHandle) => void } | null
   };
+
+  /** The stdin bridge, created on first use. */
+  getStdinBridge(): PassThrough {
+    this.state.stdinBridge ??= new PassThrough();
+    return this.state.stdinBridge;
+  }
+
+  /** A promise for the live handle, created on first use. */
+  getSpawnDeferred(): { promise: Promise<ProcessHandle>; resolve: (h: ProcessHandle) => void } {
+    if (!this.state.spawnDeferred) {
+      let resolve!: (h: ProcessHandle) => void;
+      const promise = new Promise<ProcessHandle>(r => { resolve = r; });
+      this.state.spawnDeferred = { promise, resolve };
+    }
+    return this.state.spawnDeferred;
+  }
 
   constructor(
     public readonly engine: any, // ExecutionEngine type
@@ -120,6 +155,16 @@ export class ProcessContext {
   // ===== Chainable methods with immutable state =====
 
   private mutate(changes: (state: typeof this.state) => void): ProcessPromise {
+    // Configuration is immutable: each call returns a *new* command. Doing
+    // that to an already-running one would silently discard the running
+    // process and hand back an unstarted twin — `p.start().signal(ac.signal)`
+    // would abort nothing at all. Failing here names the mistake instead.
+    if (this.state.started) {
+      throw new Error(
+        'Cannot configure a command that is already running. Apply configuration before start(), await or any live accessor.'
+      );
+    }
+
     // Create new context with cloned state for immutability
     const newContext = new ProcessContext(this.engine, this.commandResolver);
     // Deep clone the state
@@ -127,7 +172,13 @@ export class ProcessContext {
       modifications: { ...this.state.modifications },
       cacheOptions: this.state.cacheOptions,
       abortController: this.state.abortController,
-      isQuiet: this.state.isQuiet
+      // Deliberately not carried over: the handle belongs to a running
+      // command, and this context describes a new one.
+      handle: null,
+      started: false,
+      isQuiet: this.state.isQuiet,
+      stdinBridge: this.state.stdinBridge,
+      spawnDeferred: null
     };
     // Apply changes to the new state
     changes(newContext.state);
@@ -217,8 +268,17 @@ export class ProcessContext {
   /**
    * Kill with direct access
    */
-  kill = (signal = 'SIGTERM'): void => {
-    const { abortController, modifications } = this.state;
+  kill = (signal: NodeJS.Signals = 'SIGTERM'): void => {
+    const { abortController, modifications, handle } = this.state;
+
+    // Signal the process itself when it is running: the adapter's handle
+    // takes down the whole process tree, whereas aborting only unblocks the
+    // caller and leaves whatever the command spawned still running. The
+    // abort still follows, so the promise settles.
+    if (handle) {
+      handle.kill(signal);
+    }
+
     if (abortController && !abortController.signal.aborted) {
       abortController.abort();
     } else if (modifications.signal && typeof modifications.signal.dispatchEvent === 'function') {
@@ -242,6 +302,18 @@ export class ProcessContext {
         nothrow: modifications.nothrow ??
           commandParts.nothrow ??
           (globalNothrow || undefined),
+        // The adapter publishes the live process here; everything the caller
+        // can reach while a command runs — `.child`, `.pid`, `.stdin`,
+        // `.stdout`, `.stderr`, a targeted `.kill()` — flows from it.
+        onSpawn: (handle: ProcessHandle) => {
+          this.state.handle = handle;
+          this.state.spawnDeferred?.resolve(handle);
+        },
+        // A caller who touched `.stdin` gets their writes forwarded; an
+        // explicitly supplied stdin still wins.
+        ...(this.state.stdinBridge && !modifications.stdin && !commandParts.stdin
+          ? { stdin: this.state.stdinBridge }
+          : {}),
         // Mark this command as coming from ProcessPromise
         __fromProcessPromise: true
       }
@@ -317,26 +389,51 @@ export class ProcessPromiseBuilder {
     let executionStarted = false;
     let executionPromise: Promise<ExecutionResult> | null = null;
 
+    /**
+     * Begin execution, once.
+     *
+     * Commands are lazy so that the whole chain — `.timeout()`, `.env()`,
+     * `.nothrow()` — is applied before anything runs. That leaves one gap:
+     * a long-running command you intend to kill later never started, because
+     * nothing had awaited it yet. `start()` closes it explicitly, and every
+     * live accessor (`.child`, `.pid`, `.stdin`) calls it, so reaching for
+     * the process is itself enough to launch it.
+     */
+    const ensureStarted = (): void => {
+      if (executionStarted) return;
+      executionStarted = true;
+      context.state.started = true;
+      executionPromise = context.execute();
+
+      // Track active process
+      const processes = context.engine._activeProcesses;
+      if (processes) {
+        processes.add(lazyPromise);
+        // Untrack on both outcomes rather than with `.finally()`. That
+        // returns a second promise which rejects with the same reason and
+        // which nothing handles, so every failed command emitted an
+        // unhandled rejection alongside the one the caller caught — enough
+        // to kill a host application that treats them as fatal.
+        const untrack = (): void => {
+          processes.delete(lazyPromise);
+        };
+        executionPromise.then(untrack, untrack);
+      }
+    };
+
     const lazyPromise = {
+      /**
+       * Start the command without awaiting it.
+       *
+       * @returns The same promise, now running.
+       */
+      start() {
+        ensureStarted();
+        return lazyPromise as unknown as ProcessPromise;
+      },
+
       then(onfulfilled?: any, onrejected?: any) {
-        if (!executionStarted) {
-          executionStarted = true;
-          executionPromise = context.execute();
-          // Track active process
-          const processes = context.engine._activeProcesses;
-          if (processes) {
-            processes.add(lazyPromise);
-            // Untrack on both outcomes rather than with `.finally()`. That
-            // returns a second promise which rejects with the same reason and
-            // which nothing handles, so every failed command emitted an
-            // unhandled rejection alongside the one the caller caught — enough
-            // to kill a host application that treats them as fatal.
-            const untrack = (): void => {
-              processes.delete(lazyPromise);
-            };
-            executionPromise.then(untrack, untrack);
-          }
-        }
+        ensureStarted();
         // Check if we're being awaited directly (not through .text(), .json(), etc)
         // We can detect this by checking if onfulfilled is the internal handler from .text()/.json()
         // or if it's a user-provided handler
@@ -412,9 +509,6 @@ export class ProcessPromiseBuilder {
    */
   private attachProcessMethods(promise: ProcessPromise, context: ProcessContext): void {
     Object.assign(promise, {
-      stdin: null,
-      child: undefined,
-
       // Method wrappers with proper binding
       signal: (signal: AbortSignal) => context.withSignal(signal),
       timeout: (ms: number, timeoutSignal?: string) => context.withTimeout(ms, timeoutSignal),
@@ -428,7 +522,7 @@ export class ProcessPromiseBuilder {
       stderr: (stream: StreamOption) => context.withStderr(stream),
       cache: (options?: CacheOptions) => context.withCache(options),
       pipe: (target: PipeTarget, ...args: any[]) => context.pipe(target, ...args),
-      kill: (signal?: string) => context.kill(signal),
+      kill: (signal?: NodeJS.Signals) => context.kill(signal),
 
       // Transformations — use shared handler creator to deduplicate error-check logic
       text: () => promise.then(this.createTransformHandler(context, r => r.stdout.trim())),
@@ -457,6 +551,49 @@ export class ProcessPromiseBuilder {
 
     Object.defineProperty(promise, 'exitCode', {
       get: () => promise.then(r => r.exitCode),
+      configurable: true
+    });
+
+    // Live access to the running command. These were `undefined` and `null`
+    // constants: the type advertised the process and delivered nothing, so
+    // answering a prompt or reading output as it arrived was impossible.
+    // Reading any of them starts the command, which is what makes
+    // `p.stdin.write(...)` work without a separate start step.
+    const liveHandle = (): ProcessHandle | null => {
+      promise.start();
+      return context.state.handle;
+    };
+
+    // `stdout`/`stderr` stay configurators (`.stdout('inherit')`); the live
+    // streams are reached through `.child`, which is uniform across
+    // environments where a raw ChildProcess would not be.
+    for (const [name, read] of [
+      ['child', (h: ProcessHandle | null) => h],
+      ['pid', (h: ProcessHandle | null) => h?.pid],
+    ] as const) {
+      Object.defineProperty(promise, name, {
+        get: () => read(liveHandle()),
+        configurable: true
+      });
+    }
+
+    // stdin is writable *before* the process exists: writes buffer and are
+    // forwarded on spawn. Touching it therefore must not start the command,
+    // or `p.stdin.write(x); p.stdin.end(); await p` would race the spawn.
+    Object.defineProperty(promise, 'stdin', {
+      get: () => context.getStdinBridge(),
+      configurable: true
+    });
+
+    // The honest answer to "when does the process exist?". Spawning is async
+    // by construction — adapter selection is async and SSH needs a connection
+    // — so a synchronous `.pid` right after start() cannot be guaranteed.
+    Object.defineProperty(promise, 'spawned', {
+      get: () => {
+        const deferred = context.getSpawnDeferred();
+        promise.start();
+        return deferred.promise;
+      },
       configurable: true
     });
   }

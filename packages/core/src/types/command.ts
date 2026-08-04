@@ -1,4 +1,5 @@
 import type { Readable, Writable } from 'node:stream';
+import type { ProcessHandle } from './process-handle.js';
 import type { RetryOptions } from '../utils/retry-adapter.js';
 
 /**
@@ -106,6 +107,15 @@ export interface Command {
   detached?: boolean;                   // Detached process
   signal?: AbortSignal;                 // Abort signal
   nothrow?: boolean;                    // Don't throw exceptions on non-zero exit code
+
+  /**
+   * Called once the command is live, with a handle to it.
+   *
+   * This is how `ProcessPromise.child`, `.pid`, `.stdin`, `.stdout` and
+   * `.stderr` get their values: the adapter owns the process, the caller
+   * needs to reach it, and this is the seam between them.
+   */
+  onSpawn?: (handle: ProcessHandle) => void;
 
   // Retry configuration
   retry?: RetryOptions;                 // Retry options

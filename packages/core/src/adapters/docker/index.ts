@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 
 import { findDockerPath } from './docker-utils.js';
 import { StreamHandler } from '../../utils/stream.js';
+import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
@@ -556,6 +557,23 @@ export class DockerAdapter extends BaseAdapter {
     return { timeout: this.dockerConfig.transferTimeout ?? DEFAULT_TRANSFER_TIMEOUT };
   }
 
+  /**
+   * Terminate the docker CLI and anything it spawned.
+   *
+   * @param child - The CLI process.
+   * @param signal - Signal to deliver.
+   */
+  private terminateTree(
+    child: { pid?: number; kill: (s?: NodeJS.Signals) => boolean },
+    signal: NodeJS.Signals = 'SIGTERM'
+  ): void {
+    if (child.pid) {
+      killProcessTree(child.pid, signal);
+    } else {
+      child.kill(signal);
+    }
+  }
+
   protected async executeDockerCommand(
     args: string[],
     command: Partial<Command>
@@ -605,7 +623,17 @@ export class DockerAdapter extends BaseAdapter {
       stdio: useInheritStdin ? ['inherit', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
     });
 
-    killOnOverflow = () => child.kill('SIGTERM');
+    killOnOverflow = () => this.terminateTree(child);
+
+    // The docker CLI process is what the caller can reach: its stdin is the
+    // container's stdin, its stdout the container's output.
+    command.onSpawn?.({
+      pid: child.pid,
+      stdin: child.stdin,
+      stdout: child.stdout,
+      stderr: child.stderr,
+      kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminateTree(child, signal),
+    });
 
     // An abort kills the local docker CLI, which ends the exec session.
     const clearAbort = this.setupAbortSignal(command.signal, () => {

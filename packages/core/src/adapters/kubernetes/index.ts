@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
 import { findKubectlPath } from './kubernetes-utils.js';
+import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import { quoteForShell, validateEnvName } from '../../utils/shell-escape.js';
@@ -159,7 +160,16 @@ export class KubernetesAdapter extends BaseAdapter {
         }, mergedCommand.timeout);
       }
 
-      killOnOverflow = () => proc.kill('SIGTERM');
+      killOnOverflow = () => this.terminateTree(proc);
+
+      // The kubectl process is the reachable end of the pod's streams.
+      mergedCommand.onSpawn?.({
+        pid: proc.pid,
+        stdin: proc.stdin,
+        stdout: proc.stdout,
+        stderr: proc.stderr,
+        kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminateTree(proc, signal),
+      });
 
       // An abort kills the local kubectl, which tears down the exec session.
       const clearAbort = this.setupAbortSignal(mergedCommand.signal, () => {
@@ -235,6 +245,23 @@ export class KubernetesAdapter extends BaseAdapter {
         }
       });
     });
+  }
+
+  /**
+   * Terminate the kubectl process and anything it spawned.
+   *
+   * @param proc - The kubectl process.
+   * @param signal - Signal to deliver.
+   */
+  private terminateTree(
+    proc: { pid?: number; kill: (s?: NodeJS.Signals) => boolean },
+    signal: NodeJS.Signals = 'SIGTERM'
+  ): void {
+    if (proc.pid) {
+      killProcessTree(proc.pid, signal);
+    } else {
+      proc.kill(signal);
+    }
   }
 
   private async buildKubectlExecArgs(command: Command): Promise<string[]> {

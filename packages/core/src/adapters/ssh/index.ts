@@ -646,6 +646,20 @@ export class SSHAdapter extends BaseAdapter {
       execOptions: {},
       onChannel: (ch: { signal(name: string): void; close(): void }) => {
         channel = ch;
+
+        // The exec channel is the reachable end of the remote process. No
+        // pid: the remote id is not knowable from here, and reporting a
+        // local one would invite signalling the wrong machine.
+        const duplex = ch as unknown as {
+          write?: unknown;
+          stderr?: NodeJS.ReadableStream;
+        };
+        options.onSpawn?.({
+          stdin: (typeof duplex.write === 'function' ? ch : null) as never,
+          stdout: (typeof duplex.write === 'function' ? ch : null) as never,
+          stderr: (duplex.stderr ?? null) as never,
+          kill: () => terminate(),
+        });
       }
     };
 

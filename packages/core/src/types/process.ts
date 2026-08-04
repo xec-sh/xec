@@ -1,6 +1,7 @@
 import type { ExecutionResult } from './result.js';
 import type { CacheOptions } from '../utils/cache.js';
 import type { Writable, Transform } from 'node:stream';
+import type { ProcessHandle } from './process-handle.js';
 import type { Command, StreamOption } from './command.js';
 
 /**
@@ -63,13 +64,41 @@ export interface PipeOptions {
  * Promise-like interface for process execution with additional methods
  */
 export interface ProcessPromise extends Promise<ExecutionResult> {
-  stdin: NodeJS.WritableStream;
+  /**
+   * Begin execution without awaiting the result.
+   *
+   * Commands are lazy so the whole chain is applied before anything runs;
+   * this starts one you intend to interact with or kill later.
+   *
+   * @returns The same promise, now running.
+   */
+  start(): ProcessPromise;
+
+  /**
+   * Input stream. Writable before the process exists: writes are buffered
+   * and forwarded on spawn, so `p.stdin.write(x)` needs no start step.
+   */
+  readonly stdin: NodeJS.WritableStream;
+
+  /** Process id, once the command is running; see {@link spawned}. */
+  readonly pid?: number;
+
+  /**
+   * Resolves with the live handle once the command is running.
+   *
+   * Spawning is asynchronous by construction — adapter selection is async,
+   * and an SSH "process" needs a connection first — so this is the reliable
+   * way to reach the process, rather than a synchronous read that may be
+   * a tick early.
+   */
+  readonly spawned: Promise<ProcessHandle>;
+
   pipe(target: PipeTarget | TemplateStringsArray, ...args: any[]): ProcessPromise;
   signal(signal: AbortSignal): ProcessPromise;
   timeout(ms: number, timeoutSignal?: string): ProcessPromise;
   quiet(): ProcessPromise;
   nothrow(): ProcessPromise;
-  kill(signal?: string): void;
+  kill(signal?: NodeJS.Signals): void;
   
   // Configuration methods
   cwd(dir: string): ProcessPromise;
@@ -93,7 +122,10 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
   // Async iteration over output lines: for await (const line of $`cmd`) { ... }
   [Symbol.asyncIterator](): AsyncIterableIterator<string>;
 
-  // Process-related properties
-  child?: import('node:child_process').ChildProcess;
+  /**
+   * Live handle to the running command: pid, streams and a tree-aware kill.
+   * Uniform across local, docker, kubernetes and ssh.
+   */
+  readonly child?: ProcessHandle;
   exitCode: Promise<number | null>;
 }

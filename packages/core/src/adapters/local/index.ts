@@ -8,6 +8,7 @@ import { StreamHandler } from '../../utils/stream.js';
 import { RuntimeDetector } from './runtime-detect.js';
 import { ExecutionResult } from '../../core/result.js';
 import { resolveExitCode } from '../../core/failure-kind.js';
+import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { CommandError, AdapterError, MaxBufferExceededError } from '../../core/error.js';
 
@@ -198,6 +199,20 @@ export class LocalAdapter extends BaseAdapter {
     return 'node';
   }
 
+  /**
+   * Terminate a spawned command and everything it forked.
+   *
+   * @param child - The direct child process.
+   * @param signal - Signal to deliver.
+   */
+  private terminate(child: { pid?: number; kill: (s?: NodeJS.Signals) => boolean }, signal: NodeJS.Signals): void {
+    if (child.pid) {
+      killProcessTree(child.pid, signal);
+    } else {
+      child.kill(signal);
+    }
+  }
+
   private async executeNode(command: Command): Promise<ProcessResult> {
     if (!('stdout' in command) || command.stdout == null) command.stdout = 'pipe';
     if (!('stderr' in command) || command.stderr == null) command.stderr = 'pipe';
@@ -248,7 +263,18 @@ export class LocalAdapter extends BaseAdapter {
       child = spawn(command.command, command.args || [], spawnOptions);
     }
 
-    killOnOverflow = () => child.kill(this.localConfig.killSignal as NodeJS.Signals);
+    killOnOverflow = () => this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals);
+
+    // Publish the live process. `.child`, `.pid`, `.stdin` and the output
+    // streams on ProcessPromise were hardcoded placeholders before this hook
+    // existed — the type promised access and delivered nothing.
+    command.onSpawn?.({
+      pid: child.pid,
+      stdin: child.stdin,
+      stdout: child.stdout,
+      stderr: child.stderr,
+      kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminate(child, signal),
+    });
 
     // Handle stdin
     if (command.stdin) {
@@ -262,7 +288,7 @@ export class LocalAdapter extends BaseAdapter {
 
     // Handle abort signal
     if (command.signal) {
-      const cleanup = () => child.kill(this.localConfig.killSignal as any);
+      const cleanup = () => this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals);
       await this.handleAbortSignal(command.signal, cleanup);
     }
 
@@ -406,7 +432,7 @@ export class LocalAdapter extends BaseAdapter {
       processPromise,
       timeout,
       this.buildCommandString(command),
-      () => child.kill(this.localConfig.killSignal as any)
+      () => this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals)
     );
 
     return result;
@@ -497,7 +523,12 @@ export class LocalAdapter extends BaseAdapter {
     const options: any = {
       cwd: command.cwd,
       env: this.createCombinedEnv(this.config.defaultEnv, command.env),
-      detached: command.detached,
+      // A detached child leads its own process group, which is what makes
+      // kill/abort/timeout able to take down the *whole* command —
+      // `sh -c 'node server.js'` is a tree, and signalling only the shell
+      // orphaned the server. zx ships the same default. Explicit
+      // `detached: false` opts back into the parent's group.
+      detached: command.detached ?? platform() !== 'win32',
       windowsHide: true
     };
 
