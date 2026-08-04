@@ -1,13 +1,35 @@
-import { promisify } from 'util';
 import {
   scrypt,
   createHash,
   randomBytes,
   createCipheriv,
-  createDecipheriv
+  createDecipheriv,
+  type ScryptOptions
 } from 'crypto';
 
-const scryptAsync = promisify(scrypt);
+/**
+ * Promise wrapper for {@link scrypt} that keeps the options argument.
+ *
+ * `promisify` resolves to the three-argument overload, which is why the cost
+ * parameters below could not be passed and were silently left at Node's
+ * defaults.
+ */
+function deriveScrypt(
+  secret: string,
+  salt: Buffer,
+  keyLength: number,
+  options: ScryptOptions
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(secret, salt, keyLength, options, (error, key) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(key);
+    });
+  });
+}
 
 /**
  * Encryption configuration
@@ -34,9 +56,14 @@ export async function deriveKey(
   // Combine machine ID with optional passphrase
   const secret = passphrase ? `${machineId}:${passphrase}` : machineId;
   
-  // Use scrypt for key derivation (resistant to GPU attacks)
-  const key = await scryptAsync(secret, salt, KEY_LENGTH) as Buffer;
-  return key;
+  // Use scrypt for key derivation (resistant to GPU attacks).
+  //
+  // The cost parameters are passed explicitly rather than left to Node's
+  // defaults. They currently coincide, so stored secrets are unaffected, but
+  // a default that shifted under a future runtime would silently change the
+  // strength of every key derived here — and, because the derivation is not
+  // versioned, would also make existing secrets undecryptable.
+  return deriveScrypt(secret, salt, KEY_LENGTH, SCRYPT_OPTIONS);
 }
 
 /**
@@ -93,6 +120,15 @@ export async function decrypt(
   // Derive key
   const key = await deriveKey(machineId, salt, passphrase);
   
+  // GCM accepts a truncated authentication tag, and a shorter tag is
+  // proportionally easier to forge. Node validates only that the length is one
+  // it recognises, so the full length is required here instead.
+  if (authTag.length !== TAG_LENGTH) {
+    throw new Error(
+      `Invalid authentication tag: expected ${TAG_LENGTH} bytes, got ${authTag.length}`
+    );
+  }
+
   // Create decipher
   const decipher = createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);

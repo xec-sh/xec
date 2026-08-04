@@ -7,8 +7,21 @@ export interface QuestionOptions {
   defaultValue?: string;
   choices?: string[];
   validate?: (input: string) => boolean | string;
+  /** Suppress echo while the answer is typed, for secrets. */
   mask?: boolean;
+  /** Keep reading lines until a blank one; the answer is the lines joined. */
   multiline?: boolean;
+}
+
+/**
+ * The readline internals used to suppress echo.
+ *
+ * `_writeToOutput` is not part of the public readline typings, but overriding
+ * it is the only way to stop a typed secret from being echoed.
+ */
+interface MutableInterface {
+  _writeToOutput?: (chunk: string) => void;
+  output?: { write(chunk: string): void };
 }
 
 export interface PromptOptions {
@@ -53,8 +66,12 @@ export class InteractiveSession {
 
     return new Promise((resolve, reject) => {
       const askQuestion = () => {
-        this.rl.question(displayPrompt, async (answer: string) => {
-          answer = answer.trim() || defaultValue || '';
+        this.ask(displayPrompt, mask === true, async (raw: string) => {
+          let answer = raw.trim() || defaultValue || '';
+
+          if (multiline) {
+            answer = await this.readRemainingLines(answer, mask === true);
+          }
 
           if (choices && choices.length > 0) {
             const choiceIndex = parseInt(answer) - 1;
@@ -82,6 +99,102 @@ export class InteractiveSession {
       };
 
       askQuestion();
+    });
+  }
+
+  /**
+   * Ask one line, optionally without echoing what is typed.
+   *
+   * The prompt itself must still be visible, so echo is suppressed only after
+   * readline has written it, and the original writer is always restored — a
+   * session that stayed muted would swallow every later prompt.
+   *
+   * @param displayPrompt - Text shown before the cursor.
+   * @param mask - Suppress echo of the typed answer.
+   * @param onAnswer - Receives the raw line.
+   */
+  private ask(displayPrompt: string, mask: boolean, onAnswer: (answer: string) => void): void {
+    if (!mask) {
+      this.rl.question(displayPrompt, onAnswer);
+      return;
+    }
+
+    const echo = this.suppressEcho();
+
+    this.rl.question(displayPrompt, (answer: string) => {
+      echo.stop();
+      // The newline the user typed was swallowed with the rest of the echo.
+      (this.rl as MutableInterface).output?.write('\n');
+      onAnswer(answer);
+    });
+
+    // Started only now: readline writes the prompt from inside question(), and
+    // the prompt is the one thing that must stay visible.
+    echo.start();
+  }
+
+  /**
+   * Install an echo suppressor on the session's readline interface.
+   *
+   * @returns Handles to begin suppressing and to restore the original writer.
+   */
+  private suppressEcho(): { start: () => void; stop: () => void } {
+    const rl = this.rl as MutableInterface;
+    const original = rl._writeToOutput?.bind(this.rl);
+    let muted = false;
+
+    rl._writeToOutput = (chunk: string): void => {
+      if (!muted) {
+        original?.(chunk);
+      }
+    };
+
+    return {
+      start: () => {
+        muted = true;
+      },
+      stop: () => {
+        muted = false;
+        if (original) {
+          rl._writeToOutput = original;
+        } else {
+          delete rl._writeToOutput;
+        }
+      },
+    };
+  }
+
+  /**
+   * Collect further lines until a blank one, starting from `first`.
+   *
+   * Listens for `line` rather than issuing another `question()` per line.
+   * Piped input arrives as one chunk and readline emits every line from it
+   * synchronously, so a re-issued question — which can only be registered a
+   * microtask later — misses all but the next line and then waits forever.
+   *
+   * @param first - The line already read.
+   * @param mask - Suppress echo of each additional line.
+   * @returns Every non-empty line, joined by newlines.
+   */
+  private readRemainingLines(first: string, mask: boolean): Promise<string> {
+    const lines = first ? [first] : [];
+    const echo = mask ? this.suppressEcho() : null;
+
+    echo?.start();
+
+    return new Promise<string>(resolve => {
+      const onLine = (line: string): void => {
+        if (!line.trim()) {
+          this.rl.off('line', onLine);
+          echo?.stop();
+          resolve(lines.join('\n'));
+          return;
+        }
+
+        lines.push(line);
+      };
+
+      this.rl.on('line', onLine);
     });
   }
 
@@ -113,25 +226,13 @@ export class InteractiveSession {
   }
 
   async password(prompt: string): Promise<string> {
-    return new Promise((resolve) => {
-      const rl = createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: true
-      });
-
-      (rl as any).stdoutMuted = true;
-      rl.question(prompt + ': ', (password: string) => {
-        rl.close();
-        console.log();
-        resolve(password);
-      });
-
-      (rl as any)._writeToOutput = function (char: string) {
-        if (!(rl as any).stdoutMuted) {
-          (rl as any).output.write(char);
-        }
-      };
+    // Shares the session's readline and its configured streams, so a session
+    // built on a non-tty input still reads from where the caller asked. The
+    // previous implementation opened a second interface on process.stdin and
+    // relied on installing the echo override *after* rl.question() so the
+    // prompt would still print — correct only by accident of ordering.
+    return new Promise(resolve => {
+      this.ask(`${prompt}: `, true, resolve);
     });
   }
 

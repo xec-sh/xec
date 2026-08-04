@@ -149,7 +149,21 @@ export default [
       'import/no-unresolved': 0,
     },
   },
-  { ignores: ['!apps/*/src/**/*', '!packages/*/src/**/*', 'eslint.config.*', '**/dist/**', '**/coverage/**', '**/node_modules/**', '**/*.d.ts'] },
+  {
+    ignores: [
+      '!apps/*/src/**/*',
+      '!packages/*/src/**/*',
+      'eslint.config.*',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      '**/*.d.ts',
+      // Scripts the CLI compiles at run time. They are generated, gitignored
+      // and outside every tsconfig, so the type-aware parser only reported
+      // them as unreadable.
+      '**/.xec/.tmp/**',
+    ],
+  },
   {
     languageOptions: {
       parser: eslintTs.parser,
@@ -158,6 +172,18 @@ export default [
         tsconfigRootDir: import.meta.dirname,
       },
       globals: { ...globals.browser, ...globals.node },
+    },
+  },
+  {
+    // Plain JavaScript fixtures and examples are deliberately outside the
+    // TypeScript project. Type-aware parsing cannot read them, so lint them
+    // syntactically instead of leaving them unparsed.
+    files: ['**/*.{js,jsx,mjs,cjs}'],
+    languageOptions: {
+      parserOptions: {
+        project: null,
+        projectService: false,
+      },
     },
   },
   eslintJs.configs.recommended,

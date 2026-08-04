@@ -1,13 +1,12 @@
-import { createServer } from 'node:http';
-
 import type { AddressInfo } from 'node:net';
 import type { ServerResponse } from 'node:http';
 
-import { ModuleFetcher } from '../src/module/module-fetcher.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import { createServer } from 'node:http';
 
+import { ModuleFetcher } from '../src/module/module-fetcher.js';
 import {
   IntegrityError,
   computeIntegrity,

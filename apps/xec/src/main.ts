@@ -1,10 +1,9 @@
 import fs from 'fs';
 import process from 'process';
 import { Command } from 'commander';
-import { installCleanupHandlers } from '@xec-sh/core';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
-import { checkForCommandTypo } from '@xec-sh/core';
+import { checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
 import { handleError , TaskManager, isDirectCommand , ConfigurationManager, executeDirectCommand } from '@xec-sh/ops';
 
 import { customizeHelp } from './utils/help-customizer.js';

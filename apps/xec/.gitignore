@@ -23,3 +23,5 @@ unit_time
 *.heapprofile
 a.out
 .xec/.tmp/
+
+dist-audit/

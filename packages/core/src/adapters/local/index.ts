@@ -6,10 +6,10 @@ import { constants, accessSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 
 import { Command } from '../../types/command.js';
-import { resolveExitCode } from '../../core/failure-kind.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { RuntimeDetector } from './runtime-detect.js';
 import { ExecutionResult } from '../../core/result.js';
+import { resolveExitCode } from '../../core/failure-kind.js';
 import { CommandError, AdapterError } from '../../core/error.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 
