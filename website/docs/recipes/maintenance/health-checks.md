@@ -33,8 +33,12 @@ Xec provides a unified approach to health monitoring by executing health checks 
 // health-check.ts
 import { $ } from '@xec-sh/core';
 
-// Check health across all production servers
-const results = await $.ssh('prod-*')`curl -f http://localhost:3000/health`;
+// Check health across all production servers — $.ssh() targets one host,
+// so fan out explicitly and use .nothrow() to see every result
+const servers = ['prod-1', 'prod-2', 'prod-3'];
+const results = await Promise.all(
+  servers.map(server => $.ssh(server)`curl -f http://localhost:3000/health`.nothrow())
+);
 
 // Check all results
 const allHealthy = results.every(r => r.exitCode === 0);
@@ -47,8 +51,7 @@ console.log(allHealthy ? '✅ All services healthy' : '❌ Some services unhealt
 
 ```typescript
 // health-monitor.ts
-import { $, on, docker, k8s } from '@xec-sh/core';
-import { parallel } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 
 interface HealthCheckResult {
   target: string;
@@ -66,7 +69,7 @@ class HealthMonitor {
     const start = Date.now();
     
     try {
-      const result = await on(target)`
+      const result = await $.ssh(target)`
         curl -s -f -w '%{http_code}' -o /dev/null ${url}
       `;
       
@@ -92,7 +95,7 @@ class HealthMonitor {
   async checkProcessHealth(target: string, processName: string): Promise<HealthCheckResult> {
     const start = Date.now();
     
-    const result = await on(target)`
+    const result = await $.ssh(target)`
       pgrep -f ${processName} > /dev/null && echo "running" || echo "stopped"
     `;
     
@@ -108,7 +111,7 @@ class HealthMonitor {
   async checkPortHealth(target: string, port: number): Promise<HealthCheckResult> {
     const start = Date.now();
     
-    const result = await on(target)`
+    const result = await $.ssh(target)`
       nc -z localhost ${port} && echo "open" || echo "closed"
     `;
     
@@ -140,7 +143,7 @@ class HealthMonitor {
         break;
     }
     
-    const result = await on(target)`${command}`;
+    const result = await $.ssh(target)`${command}`;
     
     return {
       target,
@@ -254,7 +257,7 @@ console.log(monitor.generateReport());
 
 ```typescript
 // docker-health.ts
-import { docker } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 
 interface DockerHealth {
   container: string;
@@ -266,7 +269,7 @@ interface DockerHealth {
 
 async function checkDockerHealth(): Promise<DockerHealth[]> {
   // Get all running containers with health status
-  const result = await docker()`
+  const result = await $`
     docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Health}}" --no-trunc
   `;
   
@@ -277,7 +280,7 @@ async function checkDockerHealth(): Promise<DockerHealth[]> {
     const [container, status, healthStatus] = line.split('\t');
     
     // Get detailed container info
-    const inspect = await docker()`
+    const inspect = await $`
       docker inspect ${container} --format '{{.RestartCount}},{{.State.Health.Status}}'
     `;
     
@@ -304,14 +307,14 @@ async function maintainContainerHealth() {
       console.log(`⚠️ Container ${container.container} is unhealthy`);
       
       // Restart unhealthy container
-      await docker()`docker restart ${container.container}`;
+      await $`docker restart ${container.container}`;
       console.log(`🔄 Restarted ${container.container}`);
       
       // Wait for container to be healthy
       await new Promise(resolve => setTimeout(resolve, 5000));
       
       // Verify health after restart
-      const newHealth = await docker()`
+      const newHealth = await $`
         docker inspect ${container.container} --format '{{.State.Health.Status}}'
       `;
       
@@ -329,7 +332,7 @@ async function maintainContainerHealth() {
 
 ```typescript
 // k8s-health.ts
-import { k8s } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 
 interface PodHealth {
   namespace: string;
@@ -341,7 +344,7 @@ interface PodHealth {
 
 async function checkK8sHealth(namespace: string = 'default'): Promise<PodHealth[]> {
   // Get pod health status
-  const result = await k8s()`
+  const result = await $`
     kubectl get pods -n ${namespace} -o json
   `;
   
@@ -363,7 +366,7 @@ async function checkK8sHealth(namespace: string = 'default'): Promise<PodHealth[
     
     // Check pod events for issues
     if (!ready || restarts > 0) {
-      const events = await k8s()`
+      const events = await $`
         kubectl get events -n ${namespace} --field-selector involvedObject.name=${pod.metadata.name} --sort-by='.lastTimestamp' | tail -5
       `;
       console.log(`Events for ${pod.metadata.name}:\n${events.stdout}`);
@@ -382,11 +385,11 @@ async function recoverUnhealthyPods(namespace: string = 'default') {
       console.log(`⚠️ Pod ${pod.name} is unhealthy`);
       
       // Delete pod to trigger recreation
-      await k8s()`kubectl delete pod ${pod.name} -n ${namespace}`;
+      await $`kubectl delete pod ${pod.name} -n ${namespace}`;
       console.log(`🔄 Deleted pod ${pod.name} for recreation`);
       
       // Wait for new pod to be ready
-      await k8s()`
+      await $`
         kubectl wait --for=condition=ready pod -l app=${pod.name.split('-')[0]} -n ${namespace} --timeout=60s
       `;
       console.log(`✅ New pod ready for ${pod.name}`);

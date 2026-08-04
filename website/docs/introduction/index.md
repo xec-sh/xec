@@ -104,9 +104,15 @@ await Promise.all([
 
 Manage your entire infrastructure stack from one place:
 ```typescript
-// Health check across all environments
-const results = await $.all(targets)`health-check.sh`;
-console.log('Health Status:', results);
+import { $, parallel } from '@xec-sh/core';
+
+const outcome = await parallel(
+  [$.ssh('deploy@web-1'), $.docker('api'), $.k8s('prod/api-pod')]
+    .map(target => target`./health-check.sh`.nothrow()),
+  { maxConcurrent: 3 }
+);
+
+console.log(`${outcome.succeeded.length} healthy, ${outcome.failed.length} not`);
 ```
 
 ### **CI/CD Pipelines**

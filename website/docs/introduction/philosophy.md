@@ -215,27 +215,29 @@ await $.docker({ image: 'alpine', autoRemove: true })`echo test`;
 
 **Principle**: The system should be extensible without modification.
 
-**Implementation**:
-- Adapter pattern for new environments
-- Plugin architecture
-- Event system for monitoring
-- Custom command support
+**Implementation**: `$` is a function and `$.with()` returns another `$`, so the
+ways you already compose functions in TypeScript are the ways you extend Xec.
+There is no plugin system to learn, and nothing you build can be broken by a
+change to a plugin contract.
+
+A step is a function that takes an engine. It does not know, and does not need
+to know, which environment it was handed:
 
 ```typescript
-// Custom adapter implementation
-import { BaseAdapter } from '@xec-sh/core';
+import type { ExecutionEngine } from '@xec-sh/core';
 
-class CustomAdapter extends BaseAdapter {
-  async execute(command: Command): Promise<ExecutionResult> {
-    // Custom execution logic
-    return this.createResult({
-      stdout: 'output',
-      stderr: '',
-      exitCode: 0
-    });
-  }
+export async function restart(target: ExecutionEngine, service: string) {
+  await target`systemctl restart ${service}`;
+  return (await target`systemctl is-active ${service}`.nothrow()).stdout.trim();
 }
+
+await restart($.ssh('deploy@web-1'), 'api');
+await restart($.docker('api'), 'nginx');
 ```
+
+New *environments* are a different matter: an adapter is part of the core
+contract, `BaseAdapter` is not exported, and adding one should be reviewed
+rather than worked around. See [Extending Xec](../core/execution-engine/api/extensions.md).
 
 ### 10. Performance Consciousness
 

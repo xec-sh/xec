@@ -92,7 +92,7 @@ tasks:
 
 ```typescript
 // scripts/backup.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { createHash } from 'crypto';
 import { readFile, writeFile } from 'fs/promises';
@@ -548,8 +548,10 @@ async function restoreFileSystem(component: any) {
 // Restore workflow
 async function runRestore() {
   try {
-    // Download from remote if not local
-    if (!await $`test -d /backup/${backupId}`.nothrow().ok) {
+    // Download from remote if not local — parens matter: without them,
+    // .ok is read off the pending ProcessPromise (always undefined) rather
+    // than the awaited result
+    if (!(await $`test -d /backup/${backupId}`.nothrow()).ok) {
       console.log(chalk.gray('Downloading backup from remote storage...'));
       await $`
         aws s3 sync s3://company-backups/${backupId}/ /backup/${backupId}/

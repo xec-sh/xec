@@ -54,7 +54,6 @@ console.log('✅ Certificates renewed and services reloaded');
 ```typescript
 // cert-manager.ts
 import { $ } from '@xec-sh/core';
-import { parallel } from '@xec-sh/core';
 
 class CertificateManager {
   constructor(

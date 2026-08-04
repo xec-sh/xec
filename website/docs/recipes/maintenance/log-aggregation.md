@@ -73,7 +73,7 @@ tasks:
 
 ```typescript
 // scripts/aggregate-logs.ts
-import { $, $$ } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
@@ -212,7 +212,8 @@ async function aggregateLogs() {
     console.log(chalk.gray('Collecting SSH server logs...'));
     
     for (const target of logSources.nginx.targets) {
-      const stream = $$`ssh ${target} tail -f ${logSources.nginx.logPath}`;
+      const command = $`ssh ${target} tail -f ${logSources.nginx.logPath}`.nothrow().start();
+      const stream = await command.spawned;
       const processor = new LogProcessor(logSources.nginx.parser, target);
       
       pipeline(stream.stdout, processor, outputStream).catch(console.error);
@@ -220,7 +221,8 @@ async function aggregateLogs() {
     }
     
     for (const target of logSources.application.targets) {
-      const stream = $$`ssh ${target} tail -f ${logSources.application.logPath}`;
+      const command = $`ssh ${target} tail -f ${logSources.application.logPath}`.nothrow().start();
+      const stream = await command.spawned;
       const processor = new LogProcessor(logSources.application.parser, target);
       
       pipeline(stream.stdout, processor, outputStream).catch(console.error);
@@ -233,7 +235,8 @@ async function aggregateLogs() {
     console.log(chalk.gray('Collecting Docker container logs...'));
     
     for (const container of logSources.docker.containers) {
-      const stream = $$`docker logs -f ${container} --tail=100`;
+      const command = $`docker logs -f ${container} --tail=100`.nothrow().start();
+      const stream = await command.spawned;
       const processor = new LogProcessor(logSources.docker.parser, container);
       
       pipeline(stream.stdout, processor, outputStream).catch(console.error);
@@ -254,7 +257,8 @@ async function aggregateLogs() {
     
     for (const pod of pods.split(' ')) {
       if (pod) {
-        const stream = $$`kubectl logs -f ${pod} -n ${logSources.kubernetes.namespace} --tail=100`;
+        const command = $`kubectl logs -f ${pod} -n ${logSources.kubernetes.namespace} --tail=100`.nothrow().start();
+      const stream = await command.spawned;
         const processor = new LogProcessor(logSources.kubernetes.parser, pod);
         
         pipeline(stream.stdout, processor, outputStream).catch(console.error);
