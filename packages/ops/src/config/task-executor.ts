@@ -223,7 +223,13 @@ export class TaskExecutor extends EventEmitter {
     const engine = target ? await this.createTargetEngine(target) : $;
 
     const execEnv = await this.buildExecutionEnv(context, task.env, options.env);
-    const cwd = options.cwd || task.workdir || process.cwd();
+    // Only a directory someone actually asked for. Defaulting to
+    // `process.cwd()` stamped the operator's local path onto every target:
+    // harmless while adapters ignored cwd for containers and pods, and an
+    // immediate `docker exec -w /Users/...` failure once they honoured it.
+    // Local execution already inherits this process's directory without
+    // being told.
+    const cwd = options.cwd || task.workdir;
     const timeout = this.getTimeout(task.timeout, options.timeout) || 60000;
 
     // Execute command
@@ -231,7 +237,10 @@ export class TaskExecutor extends EventEmitter {
     if (Object.keys(execEnv).length > 0) {
       proc = proc.env(execEnv);
     }
-    const result = await proc.cwd(cwd).timeout(timeout).nothrow();
+    if (cwd) {
+      proc = proc.cwd(cwd);
+    }
+    const result = await proc.timeout(timeout).nothrow();
 
     if (!options.quiet) {
       if (result.stdout) console.log(result.stdout);
@@ -575,7 +584,11 @@ export class TaskExecutor extends EventEmitter {
     if (Object.keys(execEnv).length > 0) {
       proc = proc.env(execEnv);
     }
-    return proc.cwd(options.cwd || process.cwd()).timeout(options.timeout || 60000).nothrow();
+    // Same rule: a cwd only when one was asked for. See executeStepCommand.
+    if (options.cwd) {
+      proc = proc.cwd(options.cwd);
+    }
+    return proc.timeout(options.timeout || 60000).nothrow();
   }
 
   /**

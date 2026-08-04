@@ -22,6 +22,15 @@ interface K8sCondition { type: string; status: string; }
 interface K8sNode { status: { conditions: K8sCondition[] } }
 interface K8sNodeList { items: K8sNode[] }
 
+/**
+ * Images the fixtures deploy, preloaded so no test waits on a registry pull.
+ *
+ * Keep in step with the pod specs below: an image missing here is pulled
+ * inside the cluster on first use, which regularly exceeded the test timeout
+ * and surfaced as a product failure rather than a fixture one.
+ */
+const PRELOADED_IMAGES = ['alpine:3.18', 'nginx:alpine'];
+
 export class KindClusterManager {
   private clusterName: string;
   private kubeConfigPath: string;
@@ -155,14 +164,18 @@ nodes:
       // Wait for cluster to be ready
       await this.waitForCluster(config.waitTimeout || 60);
       
-      // Preload alpine image to avoid pull delays
-      console.log('Preloading alpine image...');
-      try {
-        this.exec(`docker pull alpine:3.18`, { silent: true, skipKubeconfig: true });
-        this.exec(`kind load docker-image alpine:3.18 --name ${this.clusterName}`, { silent: true, skipKubeconfig: true });
-        console.log('Alpine image loaded into cluster');
-      } catch (e) {
-        console.warn('Failed to preload alpine image:', e);
+      // Preload every image the fixtures use. A kind cluster starts with an
+      // empty image store, so anything not loaded here is pulled from the
+      // registry the first time a pod needs it — which routinely took longer
+      // than the test's own timeout and looked like a product failure.
+      for (const image of PRELOADED_IMAGES) {
+        console.log(`Preloading ${image}...`);
+        try {
+          this.exec(`docker pull ${image}`, { silent: true, skipKubeconfig: true });
+          this.exec(`kind load docker-image ${image} --name ${this.clusterName}`, { silent: true, skipKubeconfig: true });
+        } catch (e) {
+          console.warn(`Failed to preload ${image}:`, e);
+        }
       }
     } catch (error) {
       console.error('Failed to create cluster:', error);
