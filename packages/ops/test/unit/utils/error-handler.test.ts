@@ -363,7 +363,10 @@ describe('error-handler', () => {
   });
   
   describe('Error Suggestions', () => {
-    it.skip('should provide suggestions for validation errors', () => {
+    // Was skipped while the suggestion helpers sat unreferenced: every
+    // validation failure came out as "An unexpected error occurred", so
+    // there was nothing specific to assert.
+    it('should provide suggestions for validation errors', () => {
       const validationErrors = [
         { field: 'filePath', expectedSuggestion: 'file path is correct' },
         { field: 'directoryPath', expectedSuggestion: 'directory path is correct' },
@@ -373,35 +376,37 @@ describe('error-handler', () => {
         { field: 'hostPattern', expectedSuggestion: 'valid hostname' },
         { field: 'tagPattern', expectedSuggestion: 'alphanumeric characters' },
       ];
-      
+
       validationErrors.forEach(({ field, expectedSuggestion }) => {
         vi.clearAllMocks();
         const error = new ValidationError(`Invalid ${field}`, field);
         expect(() => handleError(error, defaultOptions)).toThrow();
-        
-        const errorOutput = mockConsoleError.mock.calls
+
+        // The headline goes to the kit logger and the rest to console.error,
+        // so both sinks make up what the user actually sees.
+        const errorOutput = [...mockKitError.mock.calls, ...mockConsoleError.mock.calls]
           .flat()
           .filter(arg => typeof arg === 'string')
           .join('\n');
-        
-        // The enhanceError function transforms these, so check the error message at least
+
         expect(errorOutput).toContain(`Invalid ${field}`);
+        expect(errorOutput).toContain(expectedSuggestion);
       });
     });
     
     it('should provide suggestions for system errors', () => {
       const systemErrors = [
-        { code: 'ENOENT', suggestion: 'ENOENT' },
-        { code: 'EACCES', suggestion: 'EACCES' },
-        { code: 'ENOTDIR', suggestion: 'ENOTDIR' },
-        { code: 'EISDIR', suggestion: 'EISDIR' },
-        { code: 'EMFILE', suggestion: 'EMFILE' },
-        { code: 'ENOMEM', suggestion: 'ENOMEM' },
-        { code: 'ENOSPC', suggestion: 'ENOSPC' },
-        { code: 'ETIMEDOUT', suggestion: 'ETIMEDOUT' },
-        { code: 'ECONNREFUSED', suggestion: 'ECONNREFUSED' },
-        { code: 'EHOSTUNREACH', suggestion: 'EHOSTUNREACH' },
-        { code: 'EADDRINUSE', suggestion: 'EADDRINUSE' },
+        { code: 'ENOENT', suggestion: 'file or directory exists' },
+        { code: 'EACCES', suggestion: 'Check file permissions' },
+        { code: 'ENOTDIR', suggestion: 'should point to a directory' },
+        { code: 'EISDIR', suggestion: 'directory but a file was expected' },
+        { code: 'EMFILE', suggestion: 'Too many open files' },
+        { code: 'ENOMEM', suggestion: 'Insufficient memory' },
+        { code: 'ENOSPC', suggestion: 'Insufficient disk space' },
+        { code: 'ETIMEDOUT', suggestion: 'Operation timed out' },
+        { code: 'ECONNREFUSED', suggestion: 'Connection refused' },
+        { code: 'EHOSTUNREACH', suggestion: 'Host unreachable' },
+        { code: 'EADDRINUSE', suggestion: 'Address already in use' },
       ];
       
       systemErrors.forEach(({ code, suggestion }) => {
@@ -416,8 +421,9 @@ describe('error-handler', () => {
           .filter(arg => typeof arg === 'string')
           .join('\n');
         
-        // Check that the error code is at least shown
+        // Not just the code: the actionable advice must reach the user.
         expect(errorOutput).toContain('Code:');
+        expect(errorOutput).toContain(suggestion);
       });
     });
   });

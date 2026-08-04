@@ -460,8 +460,11 @@ export class ProcessPromiseBuilder {
     try {
       return JSON.parse(text);
     } catch (e) {
-      const error = e instanceof Error ? e.message : String(e);
-      throw new Error(`Failed to parse JSON: ${error}\nOutput: ${text}`, { cause: error });
+      const reason = e instanceof Error ? e.message : String(e);
+      // The cause must be the caught error, not its message: passing the
+      // string discarded the original stack, which is the only thing that
+      // says where in the output the parse failed.
+      throw new Error(`Failed to parse JSON: ${reason}\nOutput: ${text}`, { cause: e });
     }
   }
 

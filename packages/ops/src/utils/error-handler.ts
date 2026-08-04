@@ -2,7 +2,7 @@ import jsYaml from 'js-yaml';
 import { log, prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
-import { enhanceError, type ErrorContext, type EnhancedExecutionError } from './enhanced-error.js';
+import { enhanceError, EnhancedExecutionError, type ErrorContext } from './enhanced-error.js';
 
 /** Options relevant to error handling (subset of CLI command options) */
 export interface CommandOptions {
@@ -147,6 +147,23 @@ function enhanceErrorWithContext(error: any, options: CommandOptions): EnhancedE
     return error;
   }
 
+  // enhanceError() only recognises command, connection and timeout errors; a
+  // validation failure or a bare errno falls through to its generic branch and
+  // is reported as "An unexpected error occurred". Those are the CLI's most
+  // common failures — a missing file, a permission denial, a refused
+  // connection — so answer them specifically before handing over.
+  if (error instanceof ValidationError) {
+    return new EnhancedExecutionError(error.message, error.code || 'VALIDATION_ERROR', context, [
+      { message: getValidationSuggestion(error) },
+    ]);
+  }
+
+  if (typeof error.code === 'string' && SYSTEM_ERROR_CODES.has(error.code)) {
+    return new EnhancedExecutionError(error.message, error.code, context, [
+      { message: getSystemErrorSuggestion(error) },
+    ]);
+  }
+
   // Enhance the error with core system
   return enhanceError(error, context) as EnhancedExecutionError;
 }
@@ -257,6 +274,27 @@ function getValidationSuggestion(error: ValidationError): string {
 
   return 'Check the documentation for valid input formats';
 }
+
+/**
+ * The errno codes {@link getSystemErrorSuggestion} answers specifically.
+ *
+ * Kept next to the switch so the two cannot drift: a code listed here without
+ * a case would fall back to the generic advice, and a case missing from here
+ * would never be reached.
+ */
+const SYSTEM_ERROR_CODES = new Set([
+  'ENOENT',
+  'EACCES',
+  'ENOTDIR',
+  'EISDIR',
+  'EMFILE',
+  'ENOMEM',
+  'ENOSPC',
+  'ETIMEDOUT',
+  'ECONNREFUSED',
+  'EHOSTUNREACH',
+  'EADDRINUSE',
+]);
 
 /**
  * Get suggestion for system errors

@@ -137,7 +137,7 @@ export class OutputFormatter {
     if (this.quiet) return;
 
     switch (this.format) {
-      case 'json':
+      case 'json': {
         const jsonData = data.rows.map(row => {
           const obj: any = {};
           data.columns.forEach((col, index) => {
@@ -147,7 +147,8 @@ export class OutputFormatter {
         });
         console.log(JSON.stringify(jsonData, null, 2));
         break;
-      case 'yaml':
+      }
+      case 'yaml': {
         const yamlData = data.rows.map(row => {
           const obj: any = {};
           data.columns.forEach((col, index) => {
@@ -157,6 +158,7 @@ export class OutputFormatter {
         });
         console.log(jsYaml.dump(yamlData, { lineWidth: -1, noRefs: true }));
         break;
+      }
       case 'csv':
         this.outputCsv([data.columns.map(col => col.header), ...data.rows]);
         break;
@@ -183,10 +185,11 @@ export class OutputFormatter {
       case 'yaml':
         console.log(jsYaml.dump(data, { lineWidth: -1, noRefs: true }));
         break;
-      case 'csv':
+      case 'csv': {
         const csvRows = Object.entries(data).map(([key, value]) => [key, String(value)]);
         this.outputCsv([['Key', 'Value'], ...csvRows]);
         break;
+      }
       default:
         this.outputKeyValue(data);
     }

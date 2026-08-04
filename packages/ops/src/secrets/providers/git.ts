@@ -1298,7 +1298,10 @@ export class GitSecretProvider implements SecretProvider {
         encoding: 'utf8'
       }).trim();
       auditEntry.gitCommit = gitCommit;
-    } catch { }
+    } catch {
+      // A repository with no commits yet has no HEAD. The audit entry is
+      // still worth recording, just without a commit reference.
+    }
 
     // Save audit log
     await this.saveAuditLog(auditEntry);
@@ -1355,7 +1358,11 @@ export class GitSecretProvider implements SecretProvider {
           if (action && log.action !== action) continue;
 
           logs.push(log);
-        } catch { }
+        } catch {
+          // A malformed line is skipped rather than failing the whole query:
+          // an audit log that cannot be read at all is worse than one with a
+          // corrupt entry, and the remaining entries are still evidence.
+        }
       }
     }
 
