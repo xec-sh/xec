@@ -23,12 +23,13 @@ export const asyncLocalStorage = new AsyncLocalStorage<Partial<ExecutionConfig>>
  * @returns Whatever `fn` returns.
  */
 export async function within<T>(fn: () => T | Promise<T>): Promise<T>;
+export async function within<T>(cwd: string, fn: () => T | Promise<T>): Promise<T>;
 export async function within<T>(
   config: Partial<ExecutionConfig>,
   fn: () => T | Promise<T>
 ): Promise<T>;
 export async function within<T>(
-  configOrFn: Partial<ExecutionConfig> | (() => T | Promise<T>),
+  configOrFn: string | Partial<ExecutionConfig> | (() => T | Promise<T>),
   maybeFn?: () => T | Promise<T>
 ): Promise<T> {
   const [config, fn] = normalizeWithinArgs(configOrFn, maybeFn);
@@ -36,9 +37,10 @@ export async function within<T>(
 }
 
 export function withinSync<T>(fn: () => T): T;
+export function withinSync<T>(cwd: string, fn: () => T): T;
 export function withinSync<T>(config: Partial<ExecutionConfig>, fn: () => T): T;
 export function withinSync<T>(
-  configOrFn: Partial<ExecutionConfig> | (() => T),
+  configOrFn: string | Partial<ExecutionConfig> | (() => T),
   maybeFn?: () => T
 ): T {
   const [config, fn] = normalizeWithinArgs<T>(configOrFn, maybeFn);
@@ -55,7 +57,7 @@ export function withinSync<T>(
  *   than surfacing as an internal AsyncLocalStorage failure.
  */
 function normalizeWithinArgs<T>(
-  configOrFn: Partial<ExecutionConfig> | (() => T | Promise<T>),
+  configOrFn: string | Partial<ExecutionConfig> | (() => T | Promise<T>),
   maybeFn?: () => T | Promise<T>
 ): [Partial<ExecutionConfig>, () => T | Promise<T>] {
   if (typeof configOrFn === 'function') {
@@ -65,7 +67,17 @@ function normalizeWithinArgs<T>(
   }
 
   if (typeof maybeFn !== 'function') {
-    throw new TypeError('within() requires a function: within(fn) or within(config, fn)');
+    throw new TypeError(
+      'within() requires a function: within(fn), within(cwd, fn) or within(config, fn)'
+    );
+  }
+
+  // A bare directory is the common case and the form the documentation
+  // shows. It used to be stored as the scope itself — a string where an
+  // object was expected — so every property read came back undefined and the
+  // scope silently did nothing.
+  if (typeof configOrFn === 'string') {
+    return [{ ...asyncLocalStorage.getStore(), cwd: configOrFn }, maybeFn];
   }
 
   return [configOrFn, maybeFn];

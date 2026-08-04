@@ -255,9 +255,18 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     if (localContext) {
       // Handle defaultEnv from within() context
       const { defaultEnv, ...otherContext } = localContext;
+
+      // Spreading the command wholesale let an explicitly-undefined key win:
+      // a command object carrying `cwd: undefined` — which is what building
+      // one from optional fields produces — clobbered the scope's directory,
+      // so `within('/tmp', …)` set a cwd that was immediately erased.
+      const explicit = Object.fromEntries(
+        Object.entries(command).filter(([, value]) => value !== undefined)
+      ) as typeof command;
+
       contextCommand = {
         ...otherContext,
-        ...command,
+        ...explicit,
         env: {
           ...(defaultEnv || {}),
           ...(command.env || {})

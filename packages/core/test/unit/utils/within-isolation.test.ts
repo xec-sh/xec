@@ -73,6 +73,21 @@ describe('within accepts both call shapes', () => {
     expect(result).toBe('ran');
   });
 
+  it('takes a bare directory, as the docs show', async () => {
+    // Stored as the scope itself — a string where an object was expected —
+    // every property read came back undefined and the scope did nothing.
+    const seen = await within('/tmp', async () => (await $`pwd`).stdout.trim());
+
+    expect(['/tmp', '/private/tmp']).toContain(seen);
+  }, 30_000);
+
+  it('restores the directory afterwards', async () => {
+    const before = (await $`pwd`).stdout.trim();
+    await within('/tmp', async () => $`pwd`);
+
+    expect((await $`pwd`).stdout.trim()).toBe(before);
+  }, 30_000);
+
   it('takes an explicit configuration', async () => {
     const result = await within({ defaultEnv: { XEC_SEEDED_PROBE: 'seeded' } }, async () =>
       (await $.exec("sh -c 'echo $XEC_SEEDED_PROBE'")).stdout.trim()
@@ -83,6 +98,7 @@ describe('within accepts both call shapes', () => {
 
   it('works synchronously in both shapes', () => {
     expect(withinSync(() => 'bare')).toBe('bare');
+    expect(withinSync('/tmp', () => 'cwd')).toBe('cwd');
     expect(withinSync({ defaultEnv: {} }, () => 'configured')).toBe('configured');
   });
 
