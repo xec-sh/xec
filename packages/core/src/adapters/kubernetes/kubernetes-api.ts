@@ -117,6 +117,17 @@ export interface K8sExecutionContext {
    * Execute raw command
    */
   raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
+
+  /**
+   * The same chaining surface every environment offers: each call returns a
+   * new context with the setting applied to subsequent commands, so a pod
+   * target composes exactly like an SSH host or a container.
+   */
+  env(env: Record<string, string>): K8sExecutionContext;
+  cd(dir: string): K8sExecutionContext;
+  timeout(ms: number): K8sExecutionContext;
+  shell(shell: string | boolean): K8sExecutionContext;
+  retry(options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): K8sExecutionContext;
 }
 
 /**
@@ -260,20 +271,27 @@ function createK8sPod(
  */
 export function createK8sExecutionContext(
   engine: ExecutionEngine,
-  k8sOptions: Partial<Omit<KubernetesAdapterOptions, 'type'>>
+  k8sOptions: Partial<Omit<KubernetesAdapterOptions, 'type'>>,
+  commandConfig: {
+    env?: Record<string, string>;
+    cwd?: string;
+    timeout?: number;
+    shell?: string | boolean;
+    retry?: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number };
+  } = {}
 ): K8sExecutionContext {
   const adapter = engine.getAdapter('kubernetes') as KubernetesAdapter;
   if (!adapter) {
     throw new Error('Kubernetes adapter not available');
   }
 
-  // For backwards compatibility - execute in specified pod
-  const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
+  /** Engine pre-configured for this pod and the accumulated settings. */
+  const configuredEngine = (): ExecutionEngine => {
     if (!k8sOptions.pod) {
       throw new Error('Pod must be specified for direct execution');
     }
 
-    const k8sEngine = engine.with({
+    return engine.with({
       adapter: 'kubernetes',
       adapterOptions: {
         type: 'kubernetes',
@@ -283,30 +301,20 @@ export function createK8sExecutionContext(
         ...(k8sOptions.execFlags && { execFlags: k8sOptions.execFlags }),
         ...(k8sOptions.tty !== undefined && { tty: k8sOptions.tty }),
         ...(k8sOptions.stdin !== undefined && { stdin: k8sOptions.stdin })
-      }
+      },
+      ...(commandConfig.env && { env: commandConfig.env }),
+      ...(commandConfig.cwd && { cwd: commandConfig.cwd }),
+      ...(commandConfig.timeout !== undefined && { timeout: commandConfig.timeout }),
+      ...(commandConfig.shell !== undefined && { shell: commandConfig.shell }),
+      ...(commandConfig.retry && { retry: commandConfig.retry })
     });
-    return k8sEngine.run(strings, ...values);
   };
 
-  const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise => {
-    if (!k8sOptions.pod) {
-      throw new Error('Pod must be specified for direct execution');
-    }
+  const exec = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise =>
+    configuredEngine().run(strings, ...values);
 
-    const k8sEngine = engine.with({
-      adapter: 'kubernetes',
-      adapterOptions: {
-        type: 'kubernetes',
-        pod: k8sOptions.pod,
-        ...(k8sOptions.namespace && { namespace: k8sOptions.namespace }),
-        ...(k8sOptions.container && { container: k8sOptions.container }),
-        ...(k8sOptions.execFlags && { execFlags: k8sOptions.execFlags }),
-        ...(k8sOptions.tty !== undefined && { tty: k8sOptions.tty }),
-        ...(k8sOptions.stdin !== undefined && { stdin: k8sOptions.stdin })
-      }
-    });
-    return k8sEngine.raw(strings, ...values);
-  };
+  const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise =>
+    configuredEngine().raw(strings, ...values);
 
   const context = Object.assign(exec, {
     exec,
@@ -315,7 +323,25 @@ export function createK8sExecutionContext(
     pod(name: string): K8sPod {
       const namespace = k8sOptions.namespace || 'default';
       return createK8sPod(engine, adapter, name, namespace, k8sOptions);
-    }
+    },
+
+    env: (env: Record<string, string>): K8sExecutionContext =>
+      createK8sExecutionContext(engine, k8sOptions, {
+        ...commandConfig,
+        env: { ...commandConfig.env, ...env }
+      }),
+
+    cd: (dir: string): K8sExecutionContext =>
+      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, cwd: dir }),
+
+    timeout: (ms: number): K8sExecutionContext =>
+      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, timeout: ms }),
+
+    shell: (shell: string | boolean): K8sExecutionContext =>
+      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, shell }),
+
+    retry: (options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): K8sExecutionContext =>
+      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, retry: options })
   });
 
   return context;

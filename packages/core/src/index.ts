@@ -55,9 +55,17 @@ export function createCallableEngine(engine: ExecutionEngine): CallableExecution
           };
         }
 
+        // k8s returns a K8sExecutionContext — a callable context like ssh's,
+        // not an ExecutionEngine. Wrapping it in createCallableEngine gave a
+        // proxy whose apply() called context.run(), which does not exist, so
+        // `$.k8s(target)\`cmd\`` threw instead of executing.
+        if (prop === 'k8s') {
+          return value.bind(engine);
+        }
+
         // Methods that return a new engine instance
         const chainableMethods = [
-          'with', 'k8s',
+          'with',
           'local', 'cd', 'env', 'timeout', 'shell', 'retry', 'defaults', 'raw'
         ];
 
