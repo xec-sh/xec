@@ -765,16 +765,24 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   }
 
   // Overloaded signatures for fluent API and adapter configuration
+  docker(container: string): ExecutionEngine;
   docker(options: DockerOptions): ExecutionEngine;
   docker(options: Omit<DockerAdapterOptions, 'type'>): ExecutionEngine;
   docker(): DockerFluentAPI;
-  docker(options?: DockerOptions | Omit<DockerAdapterOptions, 'type'>): ExecutionEngine | DockerFluentAPI {
+  docker(options?: string | DockerOptions | Omit<DockerAdapterOptions, 'type'>): ExecutionEngine | DockerFluentAPI {
     // If no options provided, return fluent API
     if (!options) {
       if (!this._dockerFluentAPI) {
         this._dockerFluentAPI = new DockerFluentAPI(this);
       }
       return this._dockerFluentAPI;
+    }
+
+    // `$.docker('my-container')`, symmetric with `$.ssh('user@host')` and
+    // `$.k8s('ns/pod')`. This form was documented and crashed with a
+    // TypeError, because the object branches probed it with `in`.
+    if (typeof options === 'string') {
+      options = { container: options };
     }
 
     if ('image' in options) {

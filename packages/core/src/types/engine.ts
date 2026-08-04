@@ -26,6 +26,8 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
 
   /** Target an SSH host by `[user@]host[:port]` shorthand or full options. */
   ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext;
+  /** Target a container by name, symmetric with `ssh('user@host')`. */
+  docker(container: string): CallableExecutionEngine;
   docker(options: DockerOptions): CallableExecutionEngine;
   docker(options: Omit<DockerAdapterOptions, 'type'>): CallableExecutionEngine;
   docker(): DockerFluentAPI;

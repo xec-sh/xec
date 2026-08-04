@@ -1,122 +1,129 @@
 # @xec-sh/core
 
-Universal shell execution engine with adapters for local, SSH, Docker, and Kubernetes environments.
-
-## Install
+**One TypeScript API for commands, wherever they run** — local shell, SSH host, Docker container, Kubernetes pod.
 
 ```bash
-pnpm add @xec-sh/core
+npm install @xec-sh/core
 ```
 
-## Quick Start
+## The idea
 
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Local execution with template literals
-await $`echo "Hello, World!"`;
-
-// Variables are automatically escaped
-const file = 'my file.txt';
-await $`cat ${file}`;
-
-// SSH execution with connection pooling
-const ssh = $.ssh({ host: 'server.com', username: 'deploy' });
-await ssh`uptime`;
-
-// Docker container execution
-await $.docker('my-container')`ps aux`;
-
-// Kubernetes pod execution
-const k8s = $.k8s({ namespace: 'production' });
-await k8s.pod('app-pod')`hostname`;
+await $`pnpm build`;                                    // this machine
+await $.ssh('deploy@prod-1')`systemctl restart app`;    // an SSH host
+await $.docker('postgres-main')`pg_dump mydb`;          // a container
+await $.k8s('production/api')`cat /var/log/app.log`;    // a pod
 ```
 
+Four environments, one `$`. Every target accepts the same template-literal
+syntax, the same chaining methods, and returns the same result shape. zx,
+execa, dax and Bun Shell stop at the local machine; this is the same
+ergonomics across the seam.
+
+## Safe by default
+
 ```typescript
-// ProcessPromise methods
-const result = await $`grep pattern file.txt`
-  .nothrow()   // don't throw on non-zero exit
-  .quiet()     // suppress output
-  .timeout(5000);
+const file = 'my file; rm -rf /';
+await $`cat ${file}`;        // runs `cat 'my file; rm -rf /'` — quoted, inert
 
-// Consume output
-const text = await $`cat file.txt`.text();
-const data = await $`cat data.json`.json();
-const lines = await $`ls`.lines();
-const buf = await $`cat image.png`.buffer();
+const flags = ['-l', '-a'];
+await $`ls ${flags} src/`;   // arrays expand to escaped arguments
 
-// Pipe commands
-await $`cat access.log`.pipe($`grep 404`).pipe($`wc -l`);
+await $.raw`echo $HOME`;     // raw interpolation, when you actually mean it
 ```
 
+## Results you can use directly
+
 ```typescript
-import { parallel, within, withTempFile } from '@xec-sh/core';
+const branch = await $`git branch --show-current`;
+console.log(`Branch: ${branch}`);            // "Branch: main" — like $(...) in a shell
 
-// Parallel execution with concurrency limit
-const results = await parallel([
-  $`test-1.sh`, $`test-2.sh`, $`test-3.sh`
-], { maxConcurrent: 2 });
+const result = await $`grep TODO src/ -r`.nothrow();
+result.ok          // exit 0 and not signalled
+result.stdout      // string
+result.exitCode    // 128+signum for signalled processes — a kill is never "success"
+result.cause       // why not ok
 
-// Scoped execution context
+const pkg   = await $`cat package.json`.json<{ version: string }>();
+const files = await $`ls -1`.lines();
+const image = await $`cat logo.png`.buffer();
+
+for await (const line of $`journalctl -f`) { /* stream lines */ }
+```
+
+Failures explain themselves — the error message carries the exit code *and*
+the head of stderr, so `catch (e)` logs are diagnostic without extra work.
+
+## Every environment is a chain
+
+```typescript
+const staging = $.ssh('deploy@staging')
+  .cd('/srv/app')                 // on the host
+  .env({ NODE_ENV: 'staging' })   // on the host
+  .timeout(60_000)
+  .retry({ maxRetries: 3 });
+
+await staging`pnpm migrate`;
+
+// The identical chain on a pod — .cd()/.env() apply inside the pod,
+// never to your local kubectl process:
+await $.k8s('staging/api').cd('/srv/app').env({ DEBUG: '1' })`node check.js`;
+
+// And in a container — .cd() maps to `docker exec -w`:
+await $.docker('builder').cd('/workspace')`make all`;
+```
+
+Environment-specific power stays available where it belongs:
+
+```typescript
+const ssh = $.ssh('deploy@prod');
+await ssh.uploadFile('./dist.tar.gz', '/srv/app/dist.tar.gz');
+const tunnel = await ssh.tunnel({ localPort: 5432, remoteHost: 'db', remotePort: 5432 });
+
+const pod = $.k8s('production/api').pod('api-7f9d');
+await pod.portForward(8080, 80);
+await pod.follow(line => audit(line));           // streaming logs
+await pod.copyFrom('/var/log/app.log', './app.log');
+```
+
+## The contract
+
+Enforced by tests, not aspirational:
+
+- An option either takes effect in its environment or fails loudly — nothing
+  is accepted and silently dropped. `AbortSignal` cancels on every adapter.
+- Output over `maxBuffer` kills the producer and fails with the truncated
+  head preserved — never an empty result with exit code 0.
+- Secrets are masked in command echoes, events and error messages: tokens,
+  API keys, URL credentials, PEM blocks.
+- SSH connections are pooled, self-heal on drop, and are released by
+  `dispose()`. The library installs no global process handlers unless you
+  opt in with `installCleanupHandlers()`.
+
+## Utilities
+
+```typescript
+import { parallel, within, withTempDir, sleep, glob } from '@xec-sh/core';
+
+await parallel(['build A', 'build B'].map(t => $`run ${t}`), { maxConcurrent: 2 });
+
 await within(async () => {
   $.defaults({ cwd: '/tmp', env: { NODE_ENV: 'test' } });
-  await $`npm test`;
+  await $`npm test`;                 // scoped configuration
 });
 
-// Helpers
-import { echo, sleep, glob, kill, parseDuration, expBackoff } from '@xec-sh/core';
+await withTempDir(async dir => { /* auto-cleaned */ });
 
-await sleep(1000);
-echo('output');
-const files = await glob('**/*.ts');
-const ms = parseDuration('5m');
+$.verbose = true;                    // echo each command (redacted) to stderr
 ```
 
-## API
+## Dependencies
 
-| Export | Description |
-|--------|-------------|
-| `$` | Default callable execution engine (template literal tag) |
-| `configure` | Configure the global engine |
-| `dispose` | Clean up the global engine |
-| `ExecutionEngine` | Core engine class |
-| `createCallableEngine` | Wrap an engine as a callable |
-| `LocalAdapter` | Local process adapter |
-| `SSHAdapter` | SSH adapter with connection pooling |
-| `DockerAdapter` | Docker container adapter |
-| `KubernetesAdapter` | Kubernetes pod adapter |
-| `DockerFluentAPI` | Fluent API for Docker lifecycle |
-| `DockerContainer` | Docker container management |
-| `parallel` / `ParallelEngine` | Parallel execution utilities |
-| `within` / `withinSync` | Scoped execution context |
-| `withTempDir` / `withTempFile` | Temporary file helpers |
-| `echo` / `sleep` / `glob` / `kill` | Shell-like helpers |
-| `parseDuration` / `expBackoff` | Duration and backoff utilities |
-| `retry` / `RetryError` | Retry with backoff |
-| `RuntimeDetector` | Detect Node.js, Bun, or Deno |
-| `SSHKeyValidator` | Validate SSH keys |
-| `SecurePasswordHandler` | Secure password handling |
-| `EnhancedEventEmitter` | Typed event emitter |
-| `pipeUtils` | Pipe composition utilities |
-
-## Features
-
-- Template literal syntax `$\`cmd\`` with automatic shell escaping
-- Adapters: local, SSH, Docker, Kubernetes, mock, remote Docker
-- SSH connection pooling and keep-alive
-- ProcessPromise with `.text()`, `.json()`, `.lines()`, `.buffer()`, `.nothrow()`, `.quiet()`, `.timeout()`, `.signal()`, `.kill()`, `.pipe()`
-- Pipe chaining between commands and adapters
-- Parallel execution with concurrency control
-- Automatic retry with exponential backoff
-- Streaming output and async iteration
-- `within`/`withinSync` for scoped configuration
-- Temp file and directory helpers
-- Shell helpers: `echo`, `sleep`, `glob`, `kill`, `parseDuration`, `expBackoff`
-- `$.prefix` / `$.postfix` / `$.preferLocal` configuration
-- `$.defaults()` for global configuration
-- Chainable methods: `.cd()`, `.env()`, `.timeout()`, `.shell()`, `.retry()`
-- Zero external runtime dependencies
-- Works on Node.js, Bun, and Deno
+`ssh2`, `js-yaml`, `zod` — nothing else. Docker and Kubernetes adapters speak
+the `docker`/`kubectl` CLIs, so behaviour matches what you would get by hand,
+and both load lazily. Works on Node.js 20+, Bun and Deno.
 
 ## License
 
