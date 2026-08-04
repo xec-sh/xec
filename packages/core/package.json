@@ -54,9 +54,7 @@
     "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "js-yaml": "^4.1.1",
-    "ssh2": "^1.17.0",
-    "zod": "^4.3.6"
+    "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@types/dockerode": "^4.0.1",

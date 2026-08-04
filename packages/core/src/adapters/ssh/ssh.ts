@@ -1,11 +1,7 @@
-import fsPath from 'path'
-import stream from 'stream'
-import fs from 'fs/promises'
-import { constants as fsConstants } from 'fs'
-import invariant, { AssertionError } from 'assert'
-import SSH2, {
+import type {
   Stats,
   Prompt,
+  Client,
   Channel,
   ExecOptions,
   SFTPWrapper,
@@ -19,6 +15,31 @@ import SSH2, {
   TcpConnectionDetails,
   UNIXConnectionDetails,
 } from 'ssh2'
+
+import fsPath from 'path'
+import stream from 'stream'
+import fs from 'fs/promises'
+import { createRequire } from 'module'
+import { constants as fsConstants } from 'fs'
+import invariant, { AssertionError } from 'assert'
+
+/**
+ * Load ssh2 on first connection instead of at import time.
+ *
+ * `import '@xec-sh/core'` used to pull the whole ssh2 implementation through
+ * this module's static import even when every command ran locally. For a tool
+ * that executes infrastructure commands, the amount of third-party code on the
+ * critical path is an attack-surface question, not a styling one: the local
+ * path now loads zero external modules, and ssh2 enters the process only when
+ * an SSH target is actually used. ssh2 is CommonJS, so a require gives us the
+ * synchronous load its callers expect.
+ */
+const requireModule = createRequire(import.meta.url)
+let ssh2Module: { Client: typeof Client } | null = null
+const loadSSH2 = (): { Client: typeof Client } => {
+  ssh2Module ??= requireModule('ssh2') as { Client: typeof Client }
+  return ssh2Module
+}
 
 import { escapeUnix } from '../../utils/shell-escape.js'
 import { KnownHostsVerifier, type HostKeyChecking } from './known-hosts.js'
@@ -234,9 +255,9 @@ async function makeDirectoryWithSftp(path: string, sftp: SFTPWrapper) {
 }
 
 export class NodeSSH {
-  connection: SSH2.Client | null = null
+  connection: Client | null = null
 
-  private getConnection(): SSH2.Client {
+  private getConnection(): Client {
     const { connection } = this
     if (connection == null) {
       throw new Error('Not connected to server')
@@ -314,7 +335,7 @@ export class NodeSSH {
       }
     }
 
-    const connection = new SSH2.Client()
+    const connection = new (loadSSH2().Client)()
     this.connection = connection
 
     // Verify the server's host key. Without this ssh2 accepts whatever key is

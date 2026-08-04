@@ -296,11 +296,6 @@ export async function xfetch(
   return fetch(url, init);
 }
 
-// ─── YAML ───────────────────────────────────────────────────────────
-
-// Re-export js-yaml which is already a dependency
-export { load as yamlParse, dump as yamlStringify } from 'js-yaml';
-
 // ─── Stdin ──────────────────────────────────────────────────────────
 
 /**

@@ -339,6 +339,18 @@ export type {
   DockerAdapterOptions,
   KubernetesAdapterOptions
 } from './types/command.js';
+// Core helpers — zx-compatible utilities
+export {
+  echo,
+  glob,
+  kill,
+  sleep,
+  xfetch,
+  readStdin,
+  expBackoff,
+  parseDuration,
+  type Duration,
+} from './utils/helpers.js';
 export {
   DockerFluentAPI,
   DockerFluentBuildAPI,
@@ -354,20 +366,6 @@ export {
   ConnectionError,
   KubernetesError
 } from './core/error.js';
-// Core helpers — zx-compatible utilities
-export {
-  echo,
-  glob,
-  kill,
-  sleep,
-  xfetch,
-  readStdin,
-  yamlParse,
-  expBackoff,
-  yamlStringify,
-  parseDuration,
-  type Duration,
-} from './utils/helpers.js';
 /**
  * Event types.
  *
