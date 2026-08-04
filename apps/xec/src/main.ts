@@ -16,6 +16,7 @@ const loadOps = () => import('@xec-sh/ops');
 
 import { customizeHelp } from './utils/help-customizer.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
+import { findCommand, COMMAND_MANIFEST, type CommandManifestEntry } from './utils/command-manifest.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -52,22 +53,78 @@ export function createProgram(): Command {
   return program;
 }
 
-export async function loadCommands(program: Command): Promise<string[]> {
+/**
+ * Register built-in commands, importing only what this invocation needs.
+ *
+ * Importing all twelve modules to discover their names cost ~140ms on every
+ * run — each one statically imports `@xec-sh/ops`. Listing them in `--help`
+ * needs a name and a description, which the manifest already has; the
+ * implementation is only needed for the command actually being run.
+ *
+ * @param program - The commander program to register onto.
+ * @param requested - The command the user typed, if any.
+ */
+async function registerBuiltInCommands(program: Command, requested?: string): Promise<void> {
   const commandsDir = join(__dirname, './commands');
+  if (!fs.existsSync(commandsDir)) return;
 
-  // Load built-in commands
-  if (fs.existsSync(commandsDir)) {
-    const files = fs.readdirSync(commandsDir);
-    for (const file of files) {
-      if (file.endsWith('.js')) {
-        const commandPath = join(commandsDir, file);
-        const module = await import(commandPath);
-        if (module.default && typeof module.default === 'function') {
-          module.default(program);
-        }
-      }
+  const wanted = findCommand(requested);
+
+  /** Import a module and let it register itself fully. */
+  const loadModule = async (moduleName: string): Promise<void> => {
+    const module = await import(join(commandsDir, `${moduleName}.js`));
+    if (typeof module.default === 'function') {
+      module.default(program);
     }
+  };
+
+  if (wanted) {
+    await loadModule(wanted.module);
+    // The rest are described from the manifest, so `xec run --help` still
+    // lists its siblings without paying to load them.
+    for (const entry of COMMAND_MANIFEST) {
+      if (entry.module === wanted.module) continue;
+      describeCommand(program, entry);
+    }
+    return;
   }
+
+  for (const entry of COMMAND_MANIFEST) {
+    describeCommand(program, entry);
+  }
+}
+
+/**
+ * Add a command that exists only to be listed and, if invoked, to load itself.
+ *
+ * @param program - The commander program.
+ * @param entry - Manifest entry describing the command.
+ */
+function describeCommand(program: Command, entry: CommandManifestEntry): void {
+  const stub = program
+    .command(entry.name)
+    .description(entry.description)
+    .allowUnknownOption()
+    .allowExcessArguments();
+
+  for (const alias of entry.aliases) {
+    stub.alias(alias);
+  }
+
+  // Reached only if argv did not name this command up front — for instance
+  // `xec --some-flag config …`. Load the real one and re-run the parse.
+  stub.action(async () => {
+    const module = await import(join(__dirname, './commands', `${entry.module}.js`));
+    const fresh = createProgram();
+    if (typeof module.default === 'function') {
+      module.default(fresh);
+    }
+    await fresh.parseAsync(process.argv);
+  });
+}
+
+export async function loadCommands(program: Command, requested?: string): Promise<string[]> {
+  await registerBuiltInCommands(program, requested);
 
   // Load dynamic commands using the new loader
   const dynamicCommandNames = await loadDynamicCommands(program);
@@ -105,7 +162,9 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   // Module loader is initialized lazily when needed by commands
 
   // Load all commands first (built-in and dynamic) BEFORE processing arguments
-  const dynamicCommandNames = await loadCommands(program);
+  // The first non-flag argument tells us which command to actually load.
+  const requestedCommand = argv.slice(2).find(arg => !arg.startsWith('-'));
+  const dynamicCommandNames = await loadCommands(program, requestedCommand);
 
   // Customize help output with dynamic commands info
   customizeHelp(program, dynamicCommandNames);
