@@ -148,13 +148,17 @@ async function executeOnTarget(
           privateKey: sshConfig.privateKey || sshConfig.key || sshConfig.identityFile,
           password: sshConfig.password,
           passphrase: sshConfig.passphrase,
+          // Host-key policy is security configuration; dropping it here made
+          // this path verify differently from every other one.
+          hostKeyChecking: sshConfig.hostKeyChecking,
+          knownHostsPath: sshConfig.knownHostsPath,
         });
         break;
       }
 
     case 'docker':
       {
-        const containerName = target.config?.name || target.name;
+        const containerName = target.config?.container || target.config?.name || target.name;
         engine = $.docker({ container: containerName });
         break;
       }
@@ -163,9 +167,14 @@ async function executeOnTarget(
       {
         const podConfig = target.config || {};
         engine = $.k8s({
-          pod: podConfig.name || target.name,
+          pod: podConfig.pod || podConfig.name || target.name,
           namespace: podConfig.namespace || 'default',
           container: podConfig.container,
+          // A target names its own cluster. Dropping these ran the command
+          // against whatever `kubectl config current-context` pointed at —
+          // production commands landing in staging, or the reverse.
+          context: podConfig.context,
+          kubeconfig: podConfig.kubeconfig,
         });
         break;
       }
@@ -315,7 +324,11 @@ export async function createTargetEngine(target: any, options: any = {}): Promis
     case 'docker':
       return $.docker({
         container: config.container || target.name,
-        image: config.image || 'alpine:latest',
+        // No default image. The engine reads `image` as "run a fresh
+        // ephemeral container", so defaulting it sent every command into a
+        // brand-new alpine instead of the container the target names —
+        // verified: two different hostnames for the same target.
+        ...(config.image ? { image: config.image } : {}),
         user: config.user,
         workingDir: config.workdir,
         tty: config.tty,

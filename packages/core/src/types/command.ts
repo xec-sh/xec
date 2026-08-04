@@ -72,6 +72,19 @@ export interface KubernetesAdapterOptions {
   execFlags?: string[];
   tty?: boolean;
   stdin?: boolean;
+
+  /**
+   * Which cluster this target lives in.
+   *
+   * Without it a target belongs to whatever `kubectl config current-context`
+   * happens to be — so a target that says `production` runs against staging,
+   * or the reverse, silently and with the operator's full credentials.
+   * A target names its own cluster; it does not inherit one.
+   */
+  context?: string;
+
+  /** Kubeconfig this target is described by; defaults to the ambient one. */
+  kubeconfig?: string;
 }
 
 /**

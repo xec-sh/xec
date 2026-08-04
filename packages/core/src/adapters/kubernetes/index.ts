@@ -269,18 +269,37 @@ export class KubernetesAdapter extends BaseAdapter {
     }
   }
 
+  /**
+   * Cluster-selection flags for a kubectl invocation.
+   *
+   * Per-target values win over the adapter's defaults: a target that names
+   * `production` must reach production regardless of what the operator's
+   * current context happens to be. These used to be read only from the
+   * adapter config, so a per-target context was accepted and dropped, and
+   * the command went wherever `kubectl config current-context` pointed.
+   *
+   * @param options - The target's adapter options, when there are any.
+   * @returns `--kubeconfig` / `--context` flags, in kubectl's expected order.
+   */
+  private clusterFlags(options?: Partial<KubernetesAdapterOptions>): string[] {
+    const flags: string[] = [];
+
+    const kubeconfig = options?.kubeconfig ?? this.k8sConfig.kubeconfig;
+    if (kubeconfig) {
+      flags.push('--kubeconfig', kubeconfig);
+    }
+
+    const context = options?.context ?? this.k8sConfig.context;
+    if (context) {
+      flags.push('--context', context);
+    }
+
+    return flags;
+  }
+
   private async buildKubectlExecArgs(command: Command): Promise<string[]> {
     const k8sOptions = command.adapterOptions as KubernetesAdapterOptions;
-    const args: string[] = [];
-
-    // Global options
-    if (this.k8sConfig.kubeconfig) {
-      args.push('--kubeconfig', this.k8sConfig.kubeconfig);
-    }
-
-    if (this.k8sConfig.context) {
-      args.push('--context', this.k8sConfig.context);
-    }
+    const args: string[] = [...this.clusterFlags(k8sOptions)];
 
     // Command
     args.push('exec');
@@ -393,13 +412,7 @@ export class KubernetesAdapter extends BaseAdapter {
       const fullArgs: string[] = [];
 
       // Add global options first
-      if (this.k8sConfig.kubeconfig) {
-        fullArgs.push('--kubeconfig', this.k8sConfig.kubeconfig);
-      }
-
-      if (this.k8sConfig.context) {
-        fullArgs.push('--context', this.k8sConfig.context);
-      }
+      fullArgs.push(...this.clusterFlags());
 
       // Add the actual command args
       fullArgs.push(...args);
@@ -643,13 +656,7 @@ export class KubernetesAdapter extends BaseAdapter {
   private buildGlobalOptions(): string[] {
     const options: string[] = [];
 
-    if (this.k8sConfig.kubeconfig) {
-      options.push('--kubeconfig', this.k8sConfig.kubeconfig);
-    }
-
-    if (this.k8sConfig.context) {
-      options.push('--context', this.k8sConfig.context);
-    }
+    options.push(...this.clusterFlags());
 
     return options;
   }

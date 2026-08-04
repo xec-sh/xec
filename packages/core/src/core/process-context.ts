@@ -2,11 +2,12 @@ import type { ExecutionResult } from './result.js';
 import type { ProcessPromise } from '../types/process.js';
 import type { ProcessHandle } from '../types/process-handle.js';
 import type { Command, StreamOption } from '../types/command.js';
+import type { CacheTarget, CacheOptions } from '../utils/cache.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
-import type { globalCache , CacheOptions, type CacheTarget } from '../utils/cache.js';
 
 import { PassThrough } from 'node:stream';
 
+import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
 import { executePipe } from './pipe-implementation.js';
 import { captureCallSite } from '../utils/call-site.js';

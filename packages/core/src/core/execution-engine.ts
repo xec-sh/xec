@@ -786,7 +786,13 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       options = { container: options };
     }
 
-    if ('image' in options) {
+    // Test the *value*, not the key. `'image' in options` was true for
+    // `{ container: 'api', image: undefined }` — the shape every caller
+    // produces when it forwards an optional config field — which routed the
+    // command into the ephemeral-container branch and then crashed on
+    // `image.split(':')`. Callers should not have to strip undefined keys to
+    // avoid running somewhere else entirely.
+    if (typeof (options as { image?: unknown }).image === 'string') {
       // Ephemeral container flow
       const ephemeralOptions = options as DockerEphemeralOptions;
       const containerName = this.generateEphemeralContainerName(ephemeralOptions.image);
