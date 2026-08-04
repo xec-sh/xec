@@ -1,6 +1,7 @@
 import type { EnhancedEventEmitter } from './event-emitter.js';
 
-import { ExecutionResult } from '../core/result.js';
+import { CommandError } from '../core/error.js';
+import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
 
 export interface RetryOptions {
   /**
@@ -45,11 +46,39 @@ export class RetryError extends Error {
     message: string,
     public readonly attempts: number,
     public readonly lastResult: ExecutionResult,
-    public readonly results: ExecutionResult[]
+    public readonly results: ExecutionResult[],
+    /** The error the last attempt threw, when it threw one. */
+    cause?: unknown
   ) {
-    super(message);
+    super(message, cause === undefined ? undefined : { cause });
     this.name = 'RetryError';
   }
+}
+
+/**
+ * Rebuild the result of an attempt that threw.
+ *
+ * A CommandError already carries everything a result holds, so a thrown
+ * failure can be judged by the same `isRetryable` predicate as a returned one.
+ */
+function commandErrorToResult(error: CommandError): ExecutionResult {
+  const finishedAt = new Date();
+
+  return new ExecutionResultImpl(
+    error.stdout,
+    error.stderr,
+    error.exitCode,
+    error.signal,
+    error.command,
+    error.duration,
+    new Date(finishedAt.getTime() - error.duration),
+    finishedAt,
+    'unknown',
+    undefined,
+    undefined,
+    undefined,
+    error.callSite
+  );
 }
 
 
@@ -73,11 +102,27 @@ export async function withExecutionRetry(
   
   const results: ExecutionResult[] = [];
   const startTime = Date.now();
-  
+  /** The CommandError of the most recent attempt, when the command threw. */
+  let thrown: CommandError | undefined;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const result = await fn();
+    // A command throws on failure by default, so a retry that only inspected
+    // exitCode saw the first attempt escape and never ran a second. Callers
+    // wrote the obvious `retry(() => $`flaky`)` and got no retries at all.
+    // A CommandError carries the whole result, so it is a failed attempt like
+    // any other; anything else is a bug in the caller's callback and must
+    // surface immediately rather than be retried.
+    let result: ExecutionResult;
+    try {
+      result = await fn();
+      thrown = undefined;
+    } catch (error) {
+      if (!(error instanceof CommandError)) throw error;
+      thrown = error;
+      result = commandErrorToResult(error);
+    }
     results.push(result);
-    
+
     // If command succeeded, return result
     if (result.exitCode === 0) {
       if (attempt > 0 && eventEmitter) {
@@ -106,7 +151,8 @@ export async function withExecutionRetry(
         `Failed after ${maxRetries + 1} attempts: ${result.command}`,
         maxRetries + 1,
         result,
-        results
+        results,
+        thrown
       );
     }
     
@@ -125,7 +171,8 @@ export async function withExecutionRetry(
         `Command failed and is not retryable: ${result.command}`,
         attempt + 1,
         result,
-        results
+        results,
+        thrown
       );
     }
     

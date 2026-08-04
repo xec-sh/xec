@@ -635,7 +635,7 @@ MIIEpAIBAAKCAQEA1234567890abcdef
       expect(handler.createTransform).toBeDefined();
     });
 
-    test('should mask data in stream handler callback', (done) => {
+    test('should mask data in stream handler callback', async () => {
       const adapter = new TestAdapter();
       let capturedData = '';
 
@@ -651,11 +651,10 @@ MIIEpAIBAAKCAQEA1234567890abcdef
       transform.write(Buffer.from('password=secret123\n'));
 
       // Give it time to process
-      setTimeout(() => {
-        expect(capturedData).toContain('password=[REDACTED]');
-        expect(capturedData).not.toContain('secret123');
-        done();
-      }, 50);
+      await new Promise(resolve => { setTimeout(resolve, 50); });
+
+      expect(capturedData).toContain('password=[REDACTED]');
+      expect(capturedData).not.toContain('secret123');
     });
   });
 
