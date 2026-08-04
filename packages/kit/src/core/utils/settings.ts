@@ -6,6 +6,8 @@
  * package for the full attribution and license text.
  */
 
+import { DEFAULT_THEME, type KitTheme } from './theme.js';
+
 const actions = ['up', 'down', 'left', 'right', 'space', 'enter', 'cancel'] as const;
 export type Action = (typeof actions)[number];
 
@@ -33,6 +35,7 @@ interface InternalClackSettings {
     error: string;
   };
   withGuide: boolean;
+  theme: KitTheme;
   date: {
     monthNames: string[];
     messages: {
@@ -61,6 +64,7 @@ export const settings: InternalClackSettings = {
     error: 'Something went wrong',
   },
   withGuide: true,
+  theme: { ...DEFAULT_THEME },
   date: {
     monthNames: [...DEFAULT_MONTH_NAMES],
     messages: {
@@ -103,6 +107,13 @@ export interface ClackSettings {
    * @default true
    */
   withGuide?: boolean;
+
+  /**
+   * Colour roles for every component.
+   *
+   * Partial: name only the roles you restyle. See {@link KitTheme}.
+   */
+  theme?: Partial<KitTheme>;
 
   /**
    * Date prompt localization
@@ -151,6 +162,11 @@ export function updateSettings(updates: ClackSettings) {
 
   if (updates.withGuide !== undefined) {
     settings.withGuide = updates.withGuide !== false;
+  }
+
+  if (updates.theme !== undefined) {
+    // Merge per role: naming one role must not reset the other six.
+    Object.assign(settings.theme, updates.theme);
   }
 
   if (updates.date !== undefined) {

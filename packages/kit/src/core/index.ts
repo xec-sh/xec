@@ -14,6 +14,7 @@ export { default as TextPrompt } from './prompts/text.js';
 export { default as DatePrompt } from './prompts/date.js';
 export { default as SelectPrompt } from './prompts/select.js';
 export { settings, updateSettings } from './utils/settings.js';
+export { DEFAULT_THEME, type KitTheme } from './utils/theme.js';
 export { default as ConfirmPrompt } from './prompts/confirm.js';
 export { default as PasswordPrompt } from './prompts/password.js';
 export { default as SelectKeyPrompt } from './prompts/select-key.js';

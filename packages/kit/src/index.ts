@@ -37,6 +37,8 @@ export {
   settings,
   getColumns,
   findCursor,
+  DEFAULT_THEME,
+  type KitTheme,
   updateSettings,
   type DateParts,
   type ClackSettings,

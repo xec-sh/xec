@@ -17,6 +17,7 @@ import { stdin, stdout } from 'node:process';
 import { wrapAnsi } from './wrap-ansi.js';
 import { isActionKey } from './settings.js';
 
+export * from './theme.js';
 export * from './string.js';
 export * from './cursor.js';
 export * from './settings.js';
