@@ -901,8 +901,13 @@ export class NodeSSH {
         const dispose = (): Promise<void> => new Promise((_resolve, _reject) => {
           connection.off('tcp connection', handler)
           connection.unforwardIn(remoteAddr, port, (_error) => {
+            // Reject with the *unforward* error. Rejecting with the outer
+            // `error` reported `undefined`, since that variable is guaranteed
+            // falsy here — and without the return the promise then resolved
+            // as well, hiding the failure entirely.
             if (_error) {
-              _reject(error)
+              _reject(_error)
+              return
             }
 
             _resolve()
@@ -957,6 +962,7 @@ export class NodeSSH {
           connection.openssh_unforwardInStreamLocal(socketPath, (_error) => {
             if (_error) {
               _reject(_error)
+              return
             }
 
             _resolve()

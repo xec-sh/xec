@@ -586,9 +586,9 @@ export class SSHAdapter extends BaseAdapter {
     // pool keys, log lines or metrics labels.
     const credentialFingerprint = createHash('sha256')
       .update(typeof options.privateKey === 'string' ? options.privateKey : (options.privateKey ?? ''))
-      .update(' ')
+      .update('\0')
       .update(options.passphrase ?? '')
-      .update(' ')
+      .update('\0')
       .update(options.password ?? '')
       .digest('hex')
       .slice(0, 16);
