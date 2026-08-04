@@ -1,7 +1,8 @@
 import type { Writable } from 'node:stream';
 
-import { getColumns } from '../core/index.js';
+import prism from '../prism/index.js';
 import { wrapAnsi } from '../core/utils/wrap-ansi.js';
+import { settings, getColumns } from '../core/index.js';
 import stringWidth from '../core/utils/string-width.js';
 import {
   S_BAR,
@@ -36,7 +37,6 @@ export interface BoxOptions extends CommonOptions {
   titlePadding?: number;
   contentPadding?: number;
   rounded?: boolean;
-  includePrefix?: boolean;
   formatBorder?: (text: string) => string;
 }
 
@@ -68,7 +68,10 @@ export const box = (message = '', title = '', opts?: BoxOptions) => {
   const titlePadding = opts?.titlePadding ?? 1;
   const contentPadding = opts?.contentPadding ?? 2;
   const width = opts?.width === undefined || opts.width === 'auto' ? 1 : Math.min(1, opts.width);
-  const linePrefix = opts?.includePrefix ? `${S_BAR} ` : '';
+  // The guide column follows the global setting like every other component
+  // (the old `includePrefix` flag was box-private and defaulted the bar off).
+  const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
+  const linePrefix = hasGuide ? `${prism.gray(S_BAR)} ` : '';
   const formatBorder = opts?.formatBorder ?? defaultFormatBorder;
   const symbols = (opts?.rounded ? roundedSymbols : squareSymbols).map(formatBorder);
   const hSymbol = formatBorder(S_BAR_H);

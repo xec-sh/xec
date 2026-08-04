@@ -5,30 +5,30 @@ exports[`note (isCI = false) > don't overflow 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>title</> <dim>───────────────────────────────────────────────────────────────╮</fg>
 <dim>│</fg>                                                                       <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string </bold>              <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string </bold>              <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string </bold>              <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string</bold>               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
 <dim>│</fg>                                                                       <dim>│</fg>
 <dim>├───────────────────────────────────────────────────────────────────────╯</fg>
 ",
@@ -107,16 +107,16 @@ exports[`note (isCI = false) > handle wide characters 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>这是标题</> <dim>─╮</fg>
 <dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  <dim>이게</bold>      <dim>│</fg>
-<dim>│</fg>  <dim> 첫 </bold>      <dim>│</fg>
-<dim>│</fg>  <dim>번째</bold>      <dim>│</fg>
-<dim>│</fg>  <dim> </bold>         <dim>│</fg>
-<dim>│</fg>  <dim>줄이</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>에요</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>これ</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>は次</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>の行</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>です</bold>      <dim>│</fg>
+<dim>│</fg>  이게      <dim>│</fg>
+<dim>│</fg>   첫       <dim>│</fg>
+<dim>│</fg>  번째      <dim>│</fg>
+<dim>│</fg>            <dim>│</fg>
+<dim>│</fg>  줄이      <dim>│</fg>
+<dim>│</fg>  에요      <dim>│</fg>
+<dim>│</fg>  これ      <dim>│</fg>
+<dim>│</fg>  は次      <dim>│</fg>
+<dim>│</fg>  の行      <dim>│</fg>
+<dim>│</fg>  です      <dim>│</fg>
 <dim>│</fg>            <dim>│</fg>
 <dim>├────────────╯</fg>
 ",
@@ -161,8 +161,8 @@ exports[`note (isCI = false) > renders as wide as longest line 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>title</> <dim>───────────────────────────╮</fg>
 <dim>│</fg>                                   <dim>│</fg>
-<dim>│</fg>  <dim>short</bold>                            <dim>│</fg>
-<dim>│</fg>  <dim>somewhat questionably long line</bold>  <dim>│</fg>
+<dim>│</fg>  short                            <dim>│</fg>
+<dim>│</fg>  somewhat questionably long line  <dim>│</fg>
 <dim>│</fg>                                   <dim>│</fg>
 <dim>├───────────────────────────────────╯</fg>
 ",
@@ -174,7 +174,7 @@ exports[`note (isCI = false) > renders message with title 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>title</> <dim>───╮</fg>
 <dim>│</fg>           <dim>│</fg>
-<dim>│</fg>  <dim>message</bold>  <dim>│</fg>
+<dim>│</fg>  message  <dim>│</fg>
 <dim>│</fg>           <dim>│</fg>
 <dim>├───────────╯</fg>
 ",
@@ -186,30 +186,30 @@ exports[`note (isCI = true) > don't overflow 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>title</> <dim>───────────────────────────────────────────────────────────────╮</fg>
 <dim>│</fg>                                                                       <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string </bold>              <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string </bold>              <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string </bold>              <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string test string </bold>  <dim>│</fg>
-<dim>│</fg>  <dim>test string test string test string test string test string test </bold>    <dim>│</fg>
-<dim>│</fg>  <dim>string test string test string test string test string</bold>               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
+<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
+<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
 <dim>│</fg>                                                                       <dim>│</fg>
 <dim>├───────────────────────────────────────────────────────────────────────╯</fg>
 ",
@@ -288,16 +288,16 @@ exports[`note (isCI = true) > handle wide characters 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>这是标题</> <dim>─╮</fg>
 <dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  <dim>이게</bold>      <dim>│</fg>
-<dim>│</fg>  <dim> 첫 </bold>      <dim>│</fg>
-<dim>│</fg>  <dim>번째</bold>      <dim>│</fg>
-<dim>│</fg>  <dim> </bold>         <dim>│</fg>
-<dim>│</fg>  <dim>줄이</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>에요</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>これ</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>は次</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>の行</bold>      <dim>│</fg>
-<dim>│</fg>  <dim>です</bold>      <dim>│</fg>
+<dim>│</fg>  이게      <dim>│</fg>
+<dim>│</fg>   첫       <dim>│</fg>
+<dim>│</fg>  번째      <dim>│</fg>
+<dim>│</fg>            <dim>│</fg>
+<dim>│</fg>  줄이      <dim>│</fg>
+<dim>│</fg>  에요      <dim>│</fg>
+<dim>│</fg>  これ      <dim>│</fg>
+<dim>│</fg>  は次      <dim>│</fg>
+<dim>│</fg>  の行      <dim>│</fg>
+<dim>│</fg>  です      <dim>│</fg>
 <dim>│</fg>            <dim>│</fg>
 <dim>├────────────╯</fg>
 ",
@@ -342,8 +342,8 @@ exports[`note (isCI = true) > renders as wide as longest line 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>title</> <dim>───────────────────────────╮</fg>
 <dim>│</fg>                                   <dim>│</fg>
-<dim>│</fg>  <dim>short</bold>                            <dim>│</fg>
-<dim>│</fg>  <dim>somewhat questionably long line</bold>  <dim>│</fg>
+<dim>│</fg>  short                            <dim>│</fg>
+<dim>│</fg>  somewhat questionably long line  <dim>│</fg>
 <dim>│</fg>                                   <dim>│</fg>
 <dim>├───────────────────────────────────╯</fg>
 ",
@@ -355,7 +355,7 @@ exports[`note (isCI = true) > renders message with title 1`] = `
   "<dim>│</fg>
 <green>◇</fg>  </>title</> <dim>───╮</fg>
 <dim>│</fg>           <dim>│</fg>
-<dim>│</fg>  <dim>message</bold>  <dim>│</fg>
+<dim>│</fg>  message  <dim>│</fg>
 <dim>│</fg>           <dim>│</fg>
 <dim>├───────────╯</fg>
 ",

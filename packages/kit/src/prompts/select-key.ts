@@ -1,7 +1,7 @@
 import type { Option } from './select.js';
 
 import prism from '../prism/index.js';
-import { settings, SelectKeyPrompt } from '../core/index.js';
+import { settings, SelectKeyPrompt, wrapTextWithPrefix } from '../core/index.js';
 import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export interface SelectKeyOptions<Value extends string> extends CommonOptions {
@@ -13,9 +13,12 @@ export interface SelectKeyOptions<Value extends string> extends CommonOptions {
 
 export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) => {
   const opt = (
-    option: Option<Value>,
+    option: Option<Value> | undefined,
     state: 'inactive' | 'active' | 'selected' | 'cancelled' = 'inactive'
   ) => {
+    if (option === undefined) {
+      return '';
+    }
     const label = option.label ?? String(option.value);
     if (state === 'selected') {
       return `${prism.dim(label)}`;
@@ -25,11 +28,11 @@ export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) =
     }
     if (state === 'active') {
       return `${prism.bgCyan(prism.gray(` ${option.value} `))} ${label} ${
-        option.hint ? prism.dim(`(${option.hint})`) : ''
+        option.hint ? settings.theme.muted(`(${option.hint})`) : ''
       }`;
     }
     return `${prism.gray(prism.bgWhite(prism.inverse(` ${option.value} `)))} ${label} ${
-      option.hint ? prism.dim(`(${option.hint})`) : ''
+      option.hint ? settings.theme.muted(`(${option.hint})`) : ''
     }`;
   };
 
@@ -47,24 +50,34 @@ export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) =
 
       switch (this.state) {
         case 'submit': {
+          const submitPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
           const selectedOption =
             this.options.find((option) => option.value === this.value) ?? opts.options[0];
-          if (!selectedOption) return title;
-          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${submitPrefix}  ${opt(selectedOption, 'selected')}`;
+          const wrapped = wrapTextWithPrefix(
+            opts.output,
+            opt(selectedOption, 'selected'),
+            submitPrefix
+          );
+          return `${title}${wrapped}`;
         }
         case 'cancel': {
-          const firstOption = this.options[0];
-          if (!firstOption) return title;
-          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${cancelPrefix}  ${opt(firstOption, 'cancelled')}\n${cancelPrefix}`;
+          const cancelPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
+          const wrapped = wrapTextWithPrefix(opts.output, opt(this.options[0], 'cancelled'), cancelPrefix);
+          return `${title}${wrapped}${hasGuide ? `\n${prism.gray(S_BAR)}` : ''}`;
         }
         default: {
-          const barChar = hasGuide ? prism.cyan(S_BAR) : '';
-          const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
-          return `${title}${barChar}  ${this.options
-            .map((option, i) => opt(option, i === this.cursor ? 'active' : 'inactive'))
-            .join(`\n${barChar}  `)}\n${barEnd}\n`;
+          const defaultPrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
+          const defaultPrefixEnd = hasGuide ? settings.theme.accent(S_BAR_END) : '';
+          const wrapped = this.options
+            .map((option, i) =>
+              wrapTextWithPrefix(
+                opts.output,
+                opt(option, i === this.cursor ? 'active' : 'inactive'),
+                defaultPrefix
+              )
+            )
+            .join('\n');
+          return `${title}${wrapped}\n${defaultPrefixEnd}\n`;
         }
       }
     },

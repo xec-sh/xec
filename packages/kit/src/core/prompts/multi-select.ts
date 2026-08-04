@@ -18,9 +18,7 @@ export default class MultiSelectPrompt<T extends OptionLike> extends Prompt<T['v
   cursor = 0;
 
   private get _value(): T['value'] {
-    const option = this.options[this.cursor];
-    if (!option) throw new Error('No option at cursor position');
-    return option.value;
+    return this.options[this.cursor]?.value;
   }
 
   private get _enabledOptions(): T[] {
@@ -62,11 +60,13 @@ export default class MultiSelectPrompt<T extends OptionLike> extends Prompt<T['v
       0
     );
     this.cursor = this.options[cursor]?.disabled ? findCursor<T>(cursor, 1, this.options) : cursor;
-    this.on('key', (char) => {
-      if (char === 'a') {
+    // Match on key.name, not the char: the key event no longer lowercases
+    // (upstream #534), and key.name is already case-insensitive for letters.
+    this.on('key', (_char, key) => {
+      if (key.name === 'a') {
         this.toggleAll();
       }
-      if (char === 'i') {
+      if (key.name === 'i') {
         this.toggleInvert();
       }
     });

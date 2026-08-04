@@ -132,4 +132,69 @@ describe('MultiSelectPrompt', () => {
       expect(instance.value).toEqual(['foo']);
     });
   });
+
+  describe('toggleAll', () => {
+    test('selects all enabled options', () => {
+      const instance = new MultiSelectPrompt({
+        input,
+        output,
+        render: () => 'foo',
+        options: [{ value: 'foo' }, { value: 'bar', disabled: true }, { value: 'baz' }],
+      });
+      instance.prompt();
+
+      input.emit('keypress', 'a', { name: 'a' });
+      expect(instance.value).toEqual(['foo', 'baz']);
+    });
+
+    test('unselects all enabled options if all selected', () => {
+      const instance = new MultiSelectPrompt({
+        input,
+        output,
+        render: () => 'foo',
+        options: [{ value: 'foo' }, { value: 'bar', disabled: true }, { value: 'baz' }],
+        initialValues: ['foo', 'baz'],
+      });
+      instance.prompt();
+
+      input.emit('keypress', 'a', { name: 'a' });
+      expect(instance.value).toEqual([]);
+    });
+
+    // The toggle matches on key.name, so it keeps working when Shift or Caps
+    // Lock delivers an uppercase char (the key event no longer lowercases).
+    test('uppercase "A" still toggles all', () => {
+      const instance = new MultiSelectPrompt({
+        input,
+        output,
+        render: () => 'foo',
+        options: [{ value: 'foo' }, { value: 'bar' }],
+      });
+      instance.prompt();
+
+      input.emit('keypress', 'A', { name: 'a', shift: true });
+      expect(instance.value).toEqual(['foo', 'bar']);
+    });
+  });
+
+  describe('toggleInvert', () => {
+    test('inverts selection of enabled options', () => {
+      const instance = new MultiSelectPrompt({
+        input,
+        output,
+        render: () => 'foo',
+        options: [
+          { value: 'foo' },
+          { value: 'bar', disabled: true },
+          { value: 'baz' },
+          { value: 'qux' },
+        ],
+        initialValues: ['foo', 'baz'],
+      });
+      instance.prompt();
+
+      input.emit('keypress', 'i', { name: 'i' });
+      expect(instance.value).toEqual(['qux']);
+    });
+  });
 });

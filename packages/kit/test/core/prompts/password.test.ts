@@ -30,6 +30,20 @@ describe('PasswordPrompt', () => {
     expect(output.buffer).to.deep.equal([cursor.hide, 'foo']);
   });
 
+  // Behavioural change (upstream parity): submitting without typing resolves
+  // to '' — the declared Promise<string | symbol> used to leak undefined.
+  test('returns empty string on empty submit', async () => {
+    const instance = new PasswordPrompt({
+      input,
+      output,
+      render: () => 'foo',
+    });
+    const resultPromise = instance.prompt();
+    input.emit('keypress', '', { name: 'return' });
+    const result = await resultPromise;
+    expect(result).to.equal('');
+  });
+
   describe('cursor', () => {
     test('can get cursor', () => {
       const instance = new PasswordPrompt({

@@ -56,6 +56,62 @@ describe('autocomplete', () => {
     expect(output.buffer).toMatchSnapshot();
   });
 
+  // Upstream #485: Tab copies the placeholder into the empty input so Enter
+  // can confirm the suggested value.
+  test('Tab with placeholder fills input and Enter submits matching option', async () => {
+    const result = autocomplete({
+      message: 'Select a fruit',
+      placeholder: 'banana',
+      options: testOptions,
+      input,
+      output,
+    });
+
+    input.emit('keypress', '\t', { name: 'tab' });
+    input.emit('keypress', '', { name: 'return' });
+    const value = await result;
+    expect(value).toBe('banana');
+  });
+
+  test('Tab with non-matching placeholder does not fill input', async () => {
+    const result = autocomplete({
+      message: 'Select a fruit',
+      placeholder: 'Type to search...',
+      options: testOptions,
+      input,
+      output,
+    });
+
+    input.emit('keypress', '\t', { name: 'tab' });
+    input.emit('keypress', '', { name: 'return' });
+    const value = await result;
+    // Tab did not fill input with placeholder (no option matches), so Enter submits first option
+    expect(value).toBe('apple');
+  });
+
+  // Upstream #496: a dynamic options() getter searches by itself; the default
+  // filter must not run on top and hide what the getter returned.
+  test('does not apply the default filter to dynamic options getters', async () => {
+    const result = autocomplete({
+      message: 'Select a fruit',
+      options() {
+        // Ignores the input entirely: always exactly one option whose label
+        // does not contain the typed text.
+        return [{ value: 'fixed', label: 'Fixed' }];
+      },
+      input,
+      output,
+    });
+
+    input.emit('keypress', 'z', { name: 'z' });
+    input.emit('keypress', '', { name: 'return' });
+    const value = await result;
+
+    // With the default filter forced on, 'Fixed' would not match 'z' and the
+    // prompt would have nothing to submit.
+    expect(value).toBe('fixed');
+  });
+
   test('shows no matches message when search has no results', async () => {
     const result = autocomplete({
       message: 'Select a fruit',

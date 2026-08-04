@@ -1,8 +1,9 @@
 import prism from '../prism/index.js';
-import { settings, ConfirmPrompt } from '../core/index.js';
+import { settings, ConfirmPrompt, wrapTextWithPrefix } from '../core/index.js';
 import {
   S_BAR,
   symbol,
+  symbolBar,
   S_BAR_END,
   S_RADIO_ACTIVE,
   S_RADIO_INACTIVE,
@@ -28,36 +29,49 @@ export const confirm = (opts: ConfirmOptions) => {
     initialValue: opts.initialValue ?? true,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
-      const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
-      const title = `${titlePrefix}${opts.message}\n`;
+      const titlePrefix = `${symbol(this.state)}  `;
+      const titlePrefixBar = `${symbolBar(this.state)}  `;
+      const messageLines = wrapTextWithPrefix(
+        opts.output,
+        opts.message,
+        titlePrefixBar,
+        titlePrefix
+      );
+      const title = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${messageLines}\n`;
       const value = this.value ? active : inactive;
 
       switch (this.state) {
         case 'submit': {
-          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${submitPrefix}  ${prism.dim(value)}`;
+          const submitPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
+          const wrappedValue = wrapTextWithPrefix(opts.output, prism.dim(value), submitPrefix);
+          return `${title}${wrappedValue}`;
         }
         case 'cancel': {
-          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${cancelPrefix}  ${prism.strikethrough(
-            prism.dim(value)
-          )}\n${cancelPrefix}`;
+          const cancelPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
+          const wrappedValue = wrapTextWithPrefix(
+            opts.output,
+            prism.strikethrough(prism.dim(value)),
+            cancelPrefix
+          );
+          return `${title}${wrappedValue}${hasGuide ? `\n${prism.gray(S_BAR)}` : ''}`;
         }
         default: {
-          const barChar = hasGuide ? prism.cyan(S_BAR) : '';
-          const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+          const barChar = hasGuide ? settings.theme.accent(S_BAR) : '';
+          const barEnd = hasGuide ? settings.theme.accent(S_BAR_END) : '';
           const separator = opts.vertical
-            ? (hasGuide ? `\n${barChar}  ` : '\n')
+            ? hasGuide
+              ? `\n${barChar}  `
+              : '\n'
             : ` ${prism.dim('/')} `;
 
           const activeOption = this.value
-            ? `${prism.green(S_RADIO_ACTIVE)} ${active}`
+            ? `${settings.theme.success(S_RADIO_ACTIVE)} ${active}`
             : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(active)}`;
           const inactiveOption = !this.value
-            ? `${prism.green(S_RADIO_ACTIVE)} ${inactive}`
+            ? `${settings.theme.success(S_RADIO_ACTIVE)} ${inactive}`
             : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(inactive)}`;
 
-          return `${title}${barChar}  ${activeOption}${separator}${inactiveOption}\n${barEnd}\n`;
+          return `${title}${barChar}${hasGuide ? '  ' : ''}${activeOption}${separator}${inactiveOption}\n${barEnd}\n`;
         }
       }
     },

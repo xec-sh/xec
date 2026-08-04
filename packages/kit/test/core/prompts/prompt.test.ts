@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { cursor } from 'sisteransi';
 import { vi, test, expect, describe, afterEach, beforeEach } from 'vitest';
 
@@ -311,5 +312,76 @@ describe('Prompt', () => {
 
     expect(instance.state).to.equal('submit');
     expect(instance.error).to.equal('');
+  });
+
+  // validate also accepts any Standard Schema (upstream #543); zod implements
+  // the spec, so a zod schema drops in directly.
+  describe('standard schema', () => {
+    const schema = z.string().refine((value) => value === 'valid', 'must be valid');
+
+    test('accepts invalid initial value', () => {
+      const instance = new Prompt<string>({
+        input,
+        output,
+        render: () => 'foo',
+        initialValue: 'invalid',
+        validate: schema,
+      });
+      instance.prompt();
+
+      expect(instance.state).to.equal('active');
+      expect(instance.error).to.equal('');
+    });
+
+    test('validates value on return', () => {
+      const instance = new Prompt<string>({
+        input,
+        output,
+        render: () => 'foo',
+        validate: schema,
+      });
+      instance.prompt();
+
+      instance.value = 'invalid';
+      input.emit('keypress', '', { name: 'return' });
+
+      expect(instance.state).to.equal('error');
+      expect(instance.error).to.equal('must be valid');
+    });
+
+    test('accepts valid value on return', async () => {
+      const instance = new Prompt<string>({
+        input,
+        output,
+        render: () => 'foo',
+        validate: schema,
+      });
+      const result = instance.prompt();
+
+      instance.value = 'valid';
+      input.emit('keypress', '', { name: 'return' });
+
+      expect(instance.state).to.equal('submit');
+      expect(await result).to.equal('valid');
+    });
+
+    test('async schema surfaces the synchronous-only error', () => {
+      const asyncSchema = z.string().refine(async () => true);
+      const instance = new Prompt<string>({
+        input,
+        output,
+        render: () => 'foo',
+        validate: asyncSchema,
+      });
+      instance.prompt();
+
+      instance.value = 'anything';
+      input.emit('keypress', '', { name: 'return' });
+
+      // The prompt catches the TypeError and shows it as a validation error
+      // instead of crashing the keypress handler.
+      expect(instance.state).to.equal('error');
+      expect(instance.error).to.match(/synchronous/);
+    });
   });
 });

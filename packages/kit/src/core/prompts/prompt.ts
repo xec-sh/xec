@@ -7,13 +7,19 @@ import { stdin, stdout } from 'node:process';
 import readline, { type Key, type ReadLine } from 'node:readline';
 
 import { wrapAnsi } from '../utils/wrap-ansi.js';
+import { runValidation, type Validate } from '../utils/validation.js';
 import { getRows, settings, diffLines, getColumns, setRawMode, isActionKey, CANCEL_SYMBOL } from '../utils/index.js';
 
 export interface PromptOptions<TValue, Self extends Prompt<TValue>> {
   render(this: Omit<Self, 'prompt'>): string | undefined;
   initialValue?: TValue;
   initialUserInput?: string;
-  validate?: ((value: TValue | undefined) => string | Error | undefined) | undefined;
+  /**
+   * A function or a [Standard Schema](https://github.com/standard-schema/standard-schema)
+   * that validates user input. If a custom function is given, you should return a `string`
+   * or `Error` to show as a validation error, or `undefined` to accept the result.
+   */
+  validate?: Validate<TValue> | undefined;
   input?: Readable;
   output?: Writable;
   debug?: boolean;
@@ -227,13 +233,15 @@ export default class Prompt<TValue> {
       this.emit('confirm', char.toLowerCase() === 'y');
     }
 
-    // Call the key event handler and emit the key event
-    this.emit('key', char?.toLowerCase(), key);
+    // Call the key event handler and emit the key event.
+    // The char keeps its original casing (upstream #534): consumers that need
+    // case-insensitive matching lowercase it themselves.
+    this.emit('key', char, key);
 
     if (key?.name === 'return' && this._shouldSubmit(char, key)) {
       if (this.opts.validate) {
         try {
-          const problem = this.opts.validate(this.value);
+          const problem = runValidation(this.opts.validate, this.value);
           if (problem) {
             this.error = problem instanceof Error ? problem.message : problem;
             this.state = 'error';

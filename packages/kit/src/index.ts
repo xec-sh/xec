@@ -38,12 +38,16 @@ export {
   settings,
   getColumns,
   findCursor,
+  CANCEL_SYMBOL,
+  runValidation,
   DEFAULT_THEME,
+  type Validate,
   type KitTheme,
   updateSettings,
   type DateParts,
   type ClackSettings,
   type DateFormatConfig,
+  type StandardSchemaV1,
 } from './core/index.js';
 
 // Export table types

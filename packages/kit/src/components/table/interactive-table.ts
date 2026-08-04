@@ -153,8 +153,9 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
       // Filter mode - handle text input
       if (this.tableState.isFiltering) {
         const prevQuery = this.tableState.filterQuery;
-        if (key?.ctrl && char === 'u') {
-          // Ctrl+U - clear filter input
+        if (key?.ctrl && key.name === 'u') {
+          // Ctrl+U - clear filter input (control chars arrive as raw
+          // sequences in `char`, so match on key.name)
           this.tableState = clearFilterInput(this.tableState, this.tableOptions);
         } else if (key?.name === 'backspace') {
           this.tableState = handleFilterBackspace(this.tableState, this.tableOptions);
@@ -170,8 +171,10 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
         return;
       }
 
-      // Normal mode - handle commands
-      switch (char) {
+      // Normal mode - handle commands. Letter commands match on key.name,
+      // which stays lowercase regardless of Shift/Caps Lock — the key event's
+      // char keeps its original casing (upstream #534).
+      switch (key?.name) {
         case 'a':
           // Select all (if Ctrl+A)
           if (key?.ctrl && this.tableOptions.selectable === 'multiple') {
@@ -192,15 +195,9 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
             this.tableState = enterFilterMode(this.tableState);
           }
           break;
-        case '/':
-          // Enter filter mode (/)
-          if (this.tableOptions.filterable) {
-            this.tableState = enterFilterMode(this.tableState);
-          }
-          break;
         case 's':
           // Sort current column
-          if (this.tableOptions.sortable && this.tableState.data.length > 0) {
+          if (!key?.ctrl && this.tableOptions.sortable && this.tableState.data.length > 0) {
             const firstColumn = this.tableOptions.columns[0];
             if (firstColumn) {
               this.tableState = toggleSort(this.tableState, String(firstColumn.key), this.tableOptions);
@@ -212,6 +209,10 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
           }
           break;
         // no default
+      }
+      if (char === '/' && this.tableOptions.filterable) {
+        // Enter filter mode (/)
+        this.tableState = enterFilterMode(this.tableState);
       }
 
       // Page navigation

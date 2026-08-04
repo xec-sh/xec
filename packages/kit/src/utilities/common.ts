@@ -46,11 +46,11 @@ export const symbol = (state: State) => {
     case 'active':
       return settings.theme.accent(S_STEP_ACTIVE);
     case 'cancel':
-      return prism.red(S_STEP_CANCEL);
+      return settings.theme.error(S_STEP_CANCEL);
     case 'error':
-      return prism.yellow(S_STEP_ERROR);
+      return settings.theme.warning(S_STEP_ERROR);
     case 'submit':
-      return prism.green(S_STEP_SUBMIT);
+      return settings.theme.success(S_STEP_SUBMIT);
     default:
       return prism.gray(S_STEP_ACTIVE);
   }
@@ -62,11 +62,11 @@ export const symbolBar = (state: State) => {
     case 'active':
       return settings.theme.accent(S_BAR);
     case 'cancel':
-      return prism.red(S_BAR);
+      return settings.theme.error(S_BAR);
     case 'error':
-      return prism.yellow(S_BAR);
+      return settings.theme.warning(S_BAR);
     case 'submit':
-      return prism.green(S_BAR);
+      return settings.theme.success(S_BAR);
     default:
       return prism.gray(S_BAR);
   }
@@ -87,4 +87,20 @@ export interface CommonOptions {
   output?: Writable;
   signal?: AbortSignal;
   withGuide?: boolean;
+}
+
+/**
+ * Renders the key-hint row shown below an option list, plus the closing bar
+ * when the guide is on.
+ *
+ * The instruction strings stay plain; the muted role is applied here, at
+ * render time, so a theme swapped via `updateSettings` reaches every frame.
+ */
+export function formatInstructionFooter(instructions: string[], hasGuide: boolean): string[] {
+  const guidePrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
+  const footerLines = [`${guidePrefix}${settings.theme.muted(instructions.join(' • '))}`];
+  if (hasGuide) {
+    footerLines.push(settings.theme.accent(S_BAR_END));
+  }
+  return footerLines;
 }

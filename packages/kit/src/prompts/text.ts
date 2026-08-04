@@ -1,5 +1,5 @@
 import prism from '../prism/index.js';
-import { settings, TextPrompt } from '../core/index.js';
+import { settings, TextPrompt, type Validate } from '../core/index.js';
 import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export interface TextOptions extends CommonOptions {
@@ -7,7 +7,12 @@ export interface TextOptions extends CommonOptions {
   placeholder?: string;
   defaultValue?: string;
   initialValue?: string;
-  validate?: (value: string | undefined) => string | Error | undefined;
+  /**
+   * A function or a [Standard Schema](https://github.com/standard-schema/standard-schema)
+   * that validates user input. If a custom function is given, you should return a `string`
+   * or `Error` to show as a validation error, or `undefined` to accept the result.
+   */
+  validate?: Validate<string>;
 }
 
 export const text = (opts: TextOptions) =>
@@ -31,9 +36,9 @@ export const text = (opts: TextOptions) =>
 
       switch (this.state) {
         case 'error': {
-          const errorText = this.error ? `  ${prism.yellow(this.error)}` : '';
-          const errorPrefix = hasGuide ? `${prism.yellow(S_BAR)}  ` : '';
-          const errorPrefixEnd = hasGuide ? prism.yellow(S_BAR_END) : '';
+          const errorText = this.error ? `  ${settings.theme.warning(this.error)}` : '';
+          const errorPrefix = hasGuide ? `${settings.theme.warning(S_BAR)}  ` : '';
+          const errorPrefixEnd = hasGuide ? settings.theme.warning(S_BAR_END) : '';
           return `${title.trim()}\n${errorPrefix}${userInput}\n${errorPrefixEnd}${errorText}\n`;
         }
         case 'submit': {
@@ -47,8 +52,8 @@ export const text = (opts: TextOptions) =>
           return `${title}${cancelPrefix}${valueText}${value.trim() ? `\n${cancelPrefix}` : ''}`;
         }
         default: {
-          const defaultPrefix = hasGuide ? `${prism.cyan(S_BAR)}  ` : '';
-          const defaultPrefixEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+          const defaultPrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
+          const defaultPrefixEnd = hasGuide ? settings.theme.accent(S_BAR_END) : '';
           return `${title}${defaultPrefix}${userInput}\n${defaultPrefixEnd}\n`;
         }
       }

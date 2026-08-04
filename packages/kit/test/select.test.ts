@@ -146,4 +146,41 @@ describe.each(['true', 'false'])('select (isCI = %s)', (isCI) => {
     expect(prompts.isCancel(value)).toBe(true);
     expect(output.buffer).toMatchSnapshot();
   });
+
+  test('maxItems accounts for instruction footer', async () => {
+    const result = prompts.select({
+      message: 'foo',
+      options: [...Array(12).keys()].map((k) => ({
+        value: `opt${k}`,
+      })),
+      maxItems: 6,
+      input,
+      output,
+    });
+
+    for (let i = 0; i < 6; i++) {
+      input.emit('keypress', '', { name: 'down' });
+    }
+    input.emit('keypress', '', { name: 'return' });
+
+    const value = await result;
+
+    expect(value).toEqual('opt6');
+    expect(output.buffer).toMatchSnapshot();
+  });
+
+  test('showInstructions: false hides instruction footer', async () => {
+    const result = prompts.select({
+      message: 'foo',
+      options: [{ value: 'opt0' }, { value: 'opt1' }],
+      showInstructions: false,
+      input,
+      output,
+    });
+
+    input.emit('keypress', '', { name: 'return' });
+
+    await result;
+    expect(output.buffer).toMatchSnapshot();
+  });
 });

@@ -368,4 +368,94 @@ describe.each(['true', 'false'])('groupMultiselect (isCI = %s)', (isCI) => {
     expect(prompts.isCancel(value)).toBe(true);
     expect(output.buffer).toMatchSnapshot();
   });
+
+  // Long lists used to render unbounded and corrupt the screen (upstream
+  // #528); maxItems now drives a sliding window like every other list prompt.
+  test('maxItems renders a sliding window', async () => {
+    const result = prompts.groupMultiselect({
+      message: 'foo',
+      input,
+      output,
+      options: {
+        group1: [...Array(6).keys()].map((k) => ({ value: `group1value${k}` })),
+        group2: [...Array(6).keys()].map((k) => ({ value: `group2value${k}` })),
+      },
+      maxItems: 6,
+    });
+
+    for (let i = 0; i < 6; i++) {
+      input.emit('keypress', '', { name: 'down' });
+    }
+    input.emit('keypress', '', { name: 'space' });
+    input.emit('keypress', '', { name: 'return' });
+
+    const value = await result;
+
+    expect(value).toEqual(['group1value5']);
+    expect(output.buffer).toMatchSnapshot();
+  });
+
+  test('sliding window loops upwards', async () => {
+    const result = prompts.groupMultiselect({
+      message: 'foo',
+      input,
+      output,
+      options: {
+        group1: [...Array(6).keys()].map((k) => ({ value: `group1value${k}` })),
+        group2: [...Array(6).keys()].map((k) => ({ value: `group2value${k}` })),
+      },
+      maxItems: 6,
+    });
+
+    input.emit('keypress', '', { name: 'up' });
+    input.emit('keypress', '', { name: 'space' });
+    input.emit('keypress', '', { name: 'return' });
+
+    const value = await result;
+
+    expect(value).toEqual(['group2value5']);
+    expect(output.buffer).toMatchSnapshot();
+  });
+
+  test('sliding window loops downwards', async () => {
+    const result = prompts.groupMultiselect({
+      message: 'foo',
+      input,
+      output,
+      options: {
+        group1: [...Array(6).keys()].map((k) => ({ value: `group1value${k}` })),
+        group2: [...Array(6).keys()].map((k) => ({ value: `group2value${k}` })),
+      },
+      maxItems: 6,
+    });
+
+    for (let i = 0; i < 15; i++) {
+      input.emit('keypress', '', { name: 'down' });
+    }
+    input.emit('keypress', '', { name: 'space' });
+    input.emit('keypress', '', { name: 'return' });
+
+    const value = await result;
+
+    expect(value).toEqual(['group1value0']);
+    expect(output.buffer).toMatchSnapshot();
+  });
+
+  test('showInstructions: false hides instruction footer', async () => {
+    const result = prompts.groupMultiselect({
+      message: 'foo',
+      input,
+      output,
+      showInstructions: false,
+      required: false,
+      options: {
+        group1: [{ value: 'group1value0' }, { value: 'group1value1' }],
+      },
+    });
+
+    input.emit('keypress', '', { name: 'return' });
+
+    await result;
+    expect(output.buffer).toMatchSnapshot();
+  });
 });

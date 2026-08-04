@@ -198,4 +198,86 @@ describe('AutocompletePrompt', () => {
     expect(instance.selectedValues).to.deep.equal([]);
     expect(result).to.deep.equal([]);
   });
+
+  // Upstream #496: a dynamic options() getter searches by itself — the default
+  // substring filter must not run on top of what the getter returned.
+  test('does not force the default filter onto dynamic options getters', () => {
+    const instance = new AutocompletePrompt({
+      input,
+      output,
+      render: () => 'foo',
+      // A getter that ignores the input entirely and always returns one
+      // fixed option whose label does not contain the typed text.
+      options: () => [{ value: 'fixed', label: 'Fixed' }],
+    });
+
+    instance.prompt();
+
+    input.emit('keypress', 'z', { name: 'z' });
+
+    // With the default filter forced on, 'Fixed' would not match 'z' and the
+    // list would go empty; the getter's results must survive as-is.
+    expect(instance.filteredOptions).toEqual([{ value: 'fixed', label: 'Fixed' }]);
+  });
+
+  // Focus must never land on a disabled option after filtering: Enter would
+  // submit an unselectable value.
+  test('clears focus when filtering leaves a disabled option first', () => {
+    const instance = new AutocompletePrompt({
+      input,
+      output,
+      render: () => 'foo',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'zebra', label: 'Zebra', disabled: true },
+      ],
+    });
+
+    instance.prompt();
+
+    input.emit('keypress', 'z', { name: 'z' });
+
+    expect(instance.filteredOptions).toEqual([{ value: 'zebra', label: 'Zebra', disabled: true }]);
+    expect(instance.focusedValue).toBeUndefined();
+    expect(instance.selectedValues).toEqual([]);
+  });
+
+  // Upstream #485: Tab with an empty input copies the placeholder into the
+  // input so Enter can confirm it.
+  describe('placeholder', () => {
+    test('Tab fills input with a matching placeholder', async () => {
+      const instance = new AutocompletePrompt({
+        input,
+        output,
+        render: () => 'foo',
+        options: testOptions,
+        placeholder: 'banana',
+      });
+
+      const promise = instance.prompt();
+      input.emit('keypress', '\t', { name: 'tab' });
+      input.emit('keypress', '', { name: 'return' });
+      const result = await promise;
+
+      expect(result).to.equal('banana');
+    });
+
+    test('Tab ignores a placeholder that matches no option', async () => {
+      const instance = new AutocompletePrompt({
+        input,
+        output,
+        render: () => 'foo',
+        options: testOptions,
+        placeholder: 'Type to search...',
+      });
+
+      const promise = instance.prompt();
+      input.emit('keypress', '\t', { name: 'tab' });
+      input.emit('keypress', '', { name: 'return' });
+      const result = await promise;
+
+      // Input stayed empty, so Enter submits the first option.
+      expect(result).to.equal('apple');
+    });
+  });
 });

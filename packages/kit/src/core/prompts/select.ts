@@ -13,13 +13,12 @@ export default class SelectPrompt<T extends { value: any; disabled?: boolean }> 
   cursor = 0;
 
   private get _selectedValue() {
-    const option = this.options[this.cursor];
-    if (!option) throw new Error('No option at cursor position');
-    return option;
+    return this.options[this.cursor];
   }
 
   private changeValue() {
-    this.value = this._selectedValue.value;
+    const selectedValue = this._selectedValue;
+    this.value = selectedValue === undefined ? undefined : selectedValue.value;
   }
 
   constructor(opts: SelectOptions<T>) {

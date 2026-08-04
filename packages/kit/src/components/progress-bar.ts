@@ -11,14 +11,12 @@ const S_PROGRESS_CHAR: Record<NonNullable<ProgressOptions['style']>, string> = {
   block: unicodeOr('█', '#'),
 };
 
-export interface ProgressOptions {
-  message?: string;
+// `style` names the bar characters here; the spinner's own frame preset of the
+// same name is excluded — its frames/delay/styleFrame pass-throughs cover it.
+export interface ProgressOptions extends Omit<SpinnerOptions, 'style'> {
   style?: 'light' | 'heavy' | 'block';
   max?: number;
   size?: number;
-  input?: SpinnerOptions['input'];
-  output?: SpinnerOptions['output'];
-  signal?: SpinnerOptions['signal'];
 }
 
 export interface ProgressResult extends SpinnerResult {
@@ -26,15 +24,12 @@ export interface ProgressResult extends SpinnerResult {
 }
 
 export function progress({
-  message,
   style = 'heavy',
   max: userMax = 100,
   size: userSize = 40,
-  input,
-  output,
-  signal,
+  ...spinnerOptions
 }: ProgressOptions = {}): ProgressResult {
-  const spin = spinner({ input, output, signal });
+  const spin = spinner(spinnerOptions);
   let value = 0;
   let previousMessage = '';
 
@@ -48,9 +43,9 @@ export function progress({
         return settings.theme.activity;
       case 'error':
       case 'cancel':
-        return prism.red;
+        return settings.theme.error;
       case 'submit':
-        return prism.green;
+        return settings.theme.success;
       default:
         return settings.theme.activity;
     }

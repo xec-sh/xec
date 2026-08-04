@@ -97,11 +97,15 @@ describe.each(['true', 'false'])('box (isCI = %s)', (isCI) => {
     expect(output.buffer).toMatchSnapshot();
   });
 
-  test('renders with prefix when includePrefix is true', () => {
+  // Behavioural change: box follows settings.withGuide like every other
+  // component (upstream parity), so the guide bar renders by default and the
+  // box-private `includePrefix` flag is gone. The bar-less look that used to
+  // be the default is now `withGuide: false`.
+  test('renders without guide bar when withGuide is false', () => {
     prompts.box('message', 'title', {
       input,
       output,
-      includePrefix: true,
+      withGuide: false,
       width: 'auto',
     });
 

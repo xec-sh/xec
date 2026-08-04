@@ -29,6 +29,19 @@ describe('SelectPrompt', () => {
     expect(output.buffer).to.deep.equal([cursor.hide, 'foo']);
   });
 
+  // Behavioural change (upstream parity): an empty options list resolves the
+  // value to undefined instead of throwing out of the render loop.
+  test('does not throw if empty options are provided', () => {
+    const instance = new SelectPrompt({
+      input,
+      output,
+      render: () => 'foo',
+      options: [],
+    });
+    expect(() => instance.prompt()).not.toThrow();
+    expect(instance.value).toBeUndefined();
+  });
+
   describe('cursor', () => {
     test('cursor is index of selected item', () => {
       const instance = new SelectPrompt({

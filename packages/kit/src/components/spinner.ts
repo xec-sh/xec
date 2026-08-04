@@ -101,6 +101,7 @@ export const spinner = ({
   style = 'braille',
   signal,
   styleFrame,
+  withGuide,
 }: SpinnerOptions = {}): SpinnerResult => {
   // Use built-in style if no custom frames provided
   if (!frames) {
@@ -116,6 +117,7 @@ export const spinner = ({
 
   const defaultStyleFrame = styleFrame ?? ((frame: string) => settings.theme.activity(frame));
   const isCI = isCIFn();
+  const hasGuide = (withGuide ?? settings.withGuide) !== false;
 
   let unblock: () => void;
   let loop: NodeJS.Timeout;
@@ -202,7 +204,9 @@ export const spinner = ({
     } else {
       unblock = block({ output });
       registerHooks();
-      output.write(`${prism.gray(S_BAR)}\n`);
+      if (hasGuide) {
+        output.write(`${prism.gray(S_BAR)}\n`);
+      }
     }
     isSpinnerActive = true;
     _message = removeTrailingDots(msg);
@@ -247,10 +251,10 @@ export const spinner = ({
     if (!silent) {
       const step =
         code === 0
-          ? prism.green(S_STEP_SUBMIT)
+          ? settings.theme.success(S_STEP_SUBMIT)
           : code === 1
-            ? prism.red(S_STEP_CANCEL)
-            : prism.red(S_STEP_ERROR);
+            ? settings.theme.error(S_STEP_CANCEL)
+            : settings.theme.error(S_STEP_ERROR);
       _message = msg ?? _message;
       if (indicator === 'timer') {
         output.write(`${step}  ${_message} ${formatTimer(_origin)}\n`);

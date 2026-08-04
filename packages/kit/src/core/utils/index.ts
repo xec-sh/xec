@@ -21,6 +21,8 @@ export * from './theme.js';
 export * from './string.js';
 export * from './cursor.js';
 export * from './settings.js';
+export * from './validation.js';
+export type { StandardSchemaV1 } from './standard-schema.js';
 
 const isWindows = globalThis.process.platform.startsWith('win');
 

@@ -169,17 +169,16 @@ export default class MultiLinePrompt extends Prompt<string> {
         }
         return;
       }
-      // The base prompt lowercases the char it emits with the key event, so
-      // recover the raw text from the keypress sequence when one is present.
-      // `char` is only defined for text-producing keypresses; navigation and
-      // function keys carry escape sequences that must never be inserted.
-      const text = char === undefined ? undefined : (key?.sequence ?? char);
-      if (text) {
+      // The key event delivers the char with its original casing (upstream
+      // #534), so it can be inserted directly. `char` is only defined for
+      // text-producing keypresses; navigation and function keys carry escape
+      // sequences in key.sequence that must never be inserted.
+      if (char) {
         if (this.#showSubmit && this.focused === 'submit') {
           this.focused = 'editor';
         }
-        this.#insertAtCursor(text);
-        this._cursor += text.length;
+        this.#insertAtCursor(char);
+        this._cursor += char.length;
       }
     });
 

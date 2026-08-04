@@ -5,11 +5,25 @@ import { vi, test, expect, describe, afterEach } from 'vitest';
 
 import { MockReadable } from './mock-readable.js';
 import { MockWritable } from './mock-writable.js';
-import { block } from '../../src/core/utils/index.js';
+import { block, isCancel, CANCEL_SYMBOL } from '../../src/core/utils/index.js';
 
 describe('utils', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  // CANCEL_SYMBOL is public (upstream #592) so consumers can resolve or
+  // compare the sentinel directly instead of only via isCancel.
+  describe('CANCEL_SYMBOL', () => {
+    test('is exported and recognised by isCancel', async () => {
+      expect(typeof CANCEL_SYMBOL).toBe('symbol');
+      expect(isCancel(CANCEL_SYMBOL)).toBe(true);
+
+      const index = await import('../../src/index.js');
+      const coreIndex = await import('../../src/core/index.js');
+      expect(index.CANCEL_SYMBOL).toBe(CANCEL_SYMBOL);
+      expect(coreIndex.CANCEL_SYMBOL).toBe(CANCEL_SYMBOL);
+    });
   });
 
   describe('block', () => {

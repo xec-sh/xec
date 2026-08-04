@@ -10,7 +10,11 @@ import {
   S_RADIO_ACTIVE,
   S_RADIO_INACTIVE,
   type CommonOptions,
+  formatInstructionFooter,
 } from '../utilities/common.js';
+
+/** Key hints shown below the option list; styled by {@link formatInstructionFooter}. */
+export const SELECT_INSTRUCTIONS = ['↑/↓ to navigate', 'Enter: confirm'];
 
 type Primitive = Readonly<string | boolean | number>;
 
@@ -33,29 +37,41 @@ export interface SelectOptions<Value> extends CommonOptions {
   options: Option<Value>[];
   initialValue?: Value;
   maxItems?: number;
+  /**
+   * Show keyboard instructions below the option list.
+   * @default true
+   */
+  showInstructions?: boolean;
 }
 
 export const select = <Value>(opts: SelectOptions<Value>) => {
   const opt = (
-    option: Option<Value>,
+    option: Option<Value> | undefined,
     state: 'inactive' | 'active' | 'selected' | 'cancelled' | 'disabled'
   ) => {
+    if (option === undefined) {
+      return '';
+    }
     const label = option.label ?? String(option.value);
     switch (state) {
       case 'selected':
         return `${computeLabel(label, prism.dim)}`;
       case 'active':
-        return `${prism.green(S_RADIO_ACTIVE)} ${label}${
-          option.hint ? ` ${prism.dim(`(${option.hint})`)}` : ''
+        return `${settings.theme.success(S_RADIO_ACTIVE)} ${label}${
+          option.hint ? ` ${settings.theme.muted(`(${option.hint})`)}` : ''
         }`;
       case 'cancelled':
         return `${computeLabel(label, (str) => prism.strikethrough(prism.dim(str)))}`;
       case 'disabled':
-        return `${prism.dim(S_RADIO_INACTIVE)} ${computeLabel(label, (str) => prism.strikethrough(prism.dim(str)))}`;
+        return `${settings.theme.muted(S_RADIO_INACTIVE)} ${computeLabel(label, (str) =>
+          prism.strikethrough(settings.theme.muted(str))
+        )}`;
       default:
         return `${prism.dim(S_RADIO_INACTIVE)} ${computeLabel(label, prism.dim)}`;
     }
   };
+
+  const showInstructions = opts.showInstructions ?? true;
 
   return new SelectPrompt({
     options: opts.options,
@@ -77,26 +93,33 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
 
       switch (this.state) {
         case 'submit': {
-          const selectedOption = this.options[this.cursor];
-          if (!selectedOption) return title;
-          const submitPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${submitPrefix}  ${opt(selectedOption, 'selected')}`;
+          const submitPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
+          const wrappedLines = wrapTextWithPrefix(
+            opts.output,
+            opt(this.options[this.cursor], 'selected'),
+            submitPrefix
+          );
+          return `${title}${wrappedLines}`;
         }
         case 'cancel': {
-          const selectedOption = this.options[this.cursor];
-          if (!selectedOption) return title;
-          const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${cancelPrefix}  ${opt(
-            selectedOption,
-            'cancelled'
-          )}\n${cancelPrefix}`;
+          const cancelPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
+          const wrappedLines = wrapTextWithPrefix(
+            opts.output,
+            opt(this.options[this.cursor], 'cancelled'),
+            cancelPrefix
+          );
+          return `${title}${wrappedLines}${hasGuide ? `\n${prism.gray(S_BAR)}` : ''}`;
         }
         default: {
-          const barChar = hasGuide ? prism.cyan(S_BAR) : '';
-          const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
-          const prefix = `${barChar}  `;
+          const prefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
           const titleLineCount = title.split('\n').length;
-          const footerLineCount = 2;
+          const footerLines = showInstructions
+            ? formatInstructionFooter(SELECT_INSTRUCTIONS, hasGuide)
+            : hasGuide
+              ? [settings.theme.accent(S_BAR_END)]
+              : [];
+          const footerText = footerLines.join('\n');
+          const footerLineCount = footerLines.length + 1;
           return `${title}${prefix}${limitOptions({
             output: opts.output,
             cursor: this.cursor,
@@ -105,8 +128,8 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
             columnPadding: prefix.length,
             rowPadding: titleLineCount + footerLineCount,
             style: (item, active) =>
-              item.disabled ? opt(item, 'disabled') : opt(item, active ? 'active' : 'inactive'),
-          }).join(`\n${prefix}`)}\n${barEnd}\n`;
+              opt(item, item.disabled ? 'disabled' : active ? 'active' : 'inactive'),
+          }).join(`\n${prefix}`)}\n${footerText}\n`;
         }
       }
     },

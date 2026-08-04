@@ -13,6 +13,7 @@ import {
   S_CONNECT_LEFT,
   type CommonOptions,
   S_CORNER_TOP_RIGHT,
+  S_CORNER_BOTTOM_LEFT,
   S_CORNER_BOTTOM_RIGHT,
 } from '../utilities/common.js';
 
@@ -21,7 +22,9 @@ export interface NoteOptions extends CommonOptions {
   format?: FormatFn;
 }
 
-const defaultNoteFormatter = (line: string): string => prism.dim(line);
+// Content renders untouched (upstream #568): a note is body text, not a hint —
+// dimming it made the box read as disabled.
+const defaultNoteFormatter = (line: string): string => line;
 
 const wrapWithFormat = (message: string, width: number, format: FormatFn): string => {
   const opts: WrapAnsiOptions = {
@@ -56,9 +59,12 @@ export const note = (message = '', title = '', opts?: NoteOptions) => {
       (ln) => `${prism.gray(S_BAR)}  ${ln}${' '.repeat(len - stringWidth(ln))}${prism.gray(S_BAR)}`
     )
     .join('\n');
+  // Without a guide there is no vertical bar to connect to, so the bottom
+  // border closes with a corner instead of a tee.
+  const bottomLeft = hasGuide ? S_CONNECT_LEFT : S_CORNER_BOTTOM_LEFT;
   output.write(
-    `${leadingBorder}${prism.green(S_STEP_SUBMIT)}  ${prism.reset(title)} ${prism.gray(
+    `${leadingBorder}${settings.theme.success(S_STEP_SUBMIT)}  ${prism.reset(title)} ${prism.gray(
       S_BAR_H.repeat(Math.max(len - titleLen - 1, 1)) + S_CORNER_TOP_RIGHT
-    )}\n${msg}\n${prism.gray(S_CONNECT_LEFT + S_BAR_H.repeat(len + 2) + S_CORNER_BOTTOM_RIGHT)}\n`
+    )}\n${msg}\n${prism.gray(bottomLeft + S_BAR_H.repeat(len + 2) + S_CORNER_BOTTOM_RIGHT)}\n`
   );
 };

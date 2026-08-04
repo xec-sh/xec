@@ -2,407 +2,505 @@
 
 exports[`box (isCI = false) > cannot have width larger than 100% 1`] = `
 [
-  "┌─title────────────────────────────────────────────────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────────────────────────────────────────────┐
 ",
-  "│  message                                                                     │
+  "<dim>│</fg> │  message                                                                   │
 ",
-  "└──────────────────────────────────────────────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────────────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders as specified width 1`] = `
 [
-  "┌─title────────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────┐
 ",
-  "│  short                               │
+  "<dim>│</fg> │  short                             │
 ",
-  "│  somewhat questionably long line     │
+  "<dim>│</fg> │  somewhat questionably long line   │
 ",
-  "└──────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders as wide as longest line with width: auto 1`] = `
 [
-  "┌─title──────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────┐
 ",
-  "│  short                             │
+  "<dim>│</fg> │  short                             │
 ",
-  "│  somewhat questionably long line   │
+  "<dim>│</fg> │  somewhat questionably long line   │
 ",
-  "└────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders auto width with content longer than title 1`] = `
 [
-  "┌─title──────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────┐
 ",
-  "│  messagemessagemessagemessage  │
+  "<dim>│</fg> │  messagemessagemessagemessage  │
 ",
-  "└────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders auto width with title longer than content 1`] = `
 [
-  "┌─titletitletitletitle─┐
+  "<dim>│</fg> ┌─titletitletitletitle─┐
 ",
-  "│  message             │
+  "<dim>│</fg> │  message             │
 ",
-  "└──────────────────────┘
+  "<dim>│</fg> └──────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders center aligned content 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders center aligned title 1`] = `
 [
-  "┌───title────┐
+  "<dim>│</fg> ┌───title────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders left aligned content 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders left aligned title 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders message 1`] = `
 [
-  "┌──────────────────────────────────────────────────────────────────────────────┐
+  "<dim>│</fg> ┌────────────────────────────────────────────────────────────────────────────┐
 ",
-  "│  message                                                                     │
+  "<dim>│</fg> │  message                                                                   │
 ",
-  "└──────────────────────────────────────────────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────────────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders message with title 1`] = `
 [
-  "┌─some title───────────────────────────────────────────────────────────────────┐
+  "<dim>│</fg> ┌─some title─────────────────────────────────────────────────────────────────┐
 ",
-  "│  message                                                                     │
+  "<dim>│</fg> │  message                                                                   │
 ",
-  "└──────────────────────────────────────────────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────────────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders right aligned content 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│   message  │
+  "<dim>│</fg> │   message  │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders right aligned title 1`] = `
 [
-  "┌──────title─┐
+  "<dim>│</fg> ┌──────title─┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders rounded corners when rounded is true 1`] = `
 [
-  "╭─title──────╮
+  "<dim>│</fg> ╭─title──────╮
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "╰────────────╯
+  "<dim>│</fg> ╰────────────╯
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders specified contentPadding 1`] = `
 [
-  "┌─title──────────────┐
+  "<dim>│</fg> ┌─title──────────────┐
 ",
-  "│      message       │
+  "<dim>│</fg> │      message       │
 ",
-  "└────────────────────┘
+  "<dim>│</fg> └────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders specified titlePadding 1`] = `
 [
-  "┌──────title───────┐
+  "<dim>│</fg> ┌──────title───────┐
 ",
-  "│  message         │
+  "<dim>│</fg> │  message         │
 ",
-  "└──────────────────┘
+  "<dim>│</fg> └──────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders truncated long titles 1`] = `
 [
-  "┌─foofoofoo...─┐
+  "<dim>│</fg> ┌─foofoof...─┐
 ",
-  "│  message     │
+  "<dim>│</fg> │  message   │
 ",
-  "└──────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders wide characters with auto width 1`] = `
 [
-  "┌─这是标题─────────────────┐
+  "<dim>│</fg> ┌─这是标题─────────────────┐
 ",
-  "│  이게 첫 번째 줄이에요   │
+  "<dim>│</fg> │  이게 첫 번째 줄이에요   │
 ",
-  "│  これは次の行です        │
+  "<dim>│</fg> │  これは次の行です        │
 ",
-  "└──────────────────────────┘
+  "<dim>│</fg> └──────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders wide characters with specified width 1`] = `
 [
-  "┌─这是标题─────┐
+  "<dim>│</fg> ┌─这是标题───┐
 ",
-  "│  이게 첫     │
+  "<dim>│</fg> │  이게 첫   │
 ",
-  "│  번째        │
+  "<dim>│</fg> │  번째      │
 ",
-  "│  줄이에요    │
+  "<dim>│</fg> │  줄이에요  │
 ",
-  "│  これは次の  │
+  "<dim>│</fg> │  これは次  │
 ",
-  "│  行です      │
+  "<dim>│</fg> │  の行です  │
 ",
-  "└──────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > renders with formatBorder formatting 1`] = `
 [
-  "<red>┌ 0 ┌,┐,└,┘</fg><red>─</fg>title<red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┐ 1 ┌,┐,└,┘</fg>
+  "<dim>│</fg> <red>┌ 0 ┌,┐,└,┘</fg><red>─</fg>title<red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┐ 1 ┌,┐,└,┘</fg>
 ",
-  "<red>│</fg>  message   <red>│</fg>
+  "<dim>│</fg> <red>│</fg>  message   <red>│</fg>
 ",
-  "<red>└ 2 ┌,┐,└,┘</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┘ 3 ┌,┐,└,┘</fg>
+  "<dim>│</fg> <red>└ 2 ┌,┐,└,┘</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┘ 3 ┌,┐,└,┘</fg>
 ",
 ]
 `;
 
-exports[`box (isCI = false) > renders with prefix when includePrefix is true 1`] = `
+exports[`box (isCI = false) > renders without guide bar when withGuide is false 1`] = `
 [
-  "│ ┌─title──────┐
+  "┌─title──────┐
 ",
-  "│ │  message   │
+  "│  message   │
 ",
-  "│ └────────────┘
+  "└────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = false) > wraps content to fit within specified width 1`] = `
 [
-  "┌─title────────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────┐
 ",
-  "│  foo barfoo barfoo barfoo barfoo     │
+  "<dim>│</fg> │  foo barfoo barfoo barfoo barfoo   │
 ",
-  "│  barfoo barfoo barfoo barfoo barfoo  │
+  "<dim>│</fg> │  barfoo barfoo barfoo barfoo       │
 ",
-  "│   barfoo barfoo barfoo barfoo        │
+  "<dim>│</fg> │  barfoo barfoo barfoo barfoo       │
 ",
-  "│  barfoo barfoo barfoo barfoo barfoo  │
+  "<dim>│</fg> │  barfoo barfoo barfoo barfoo       │
 ",
-  "│   barfoo bar                         │
+  "<dim>│</fg> │  barfoo barfoo barfoo bar          │
 ",
-  "└──────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > cannot have width larger than 100% 1`] = `
 [
-  "┌─title────────────────────────────────────────────────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────────────────────────────────────────────┐
 ",
-  "│  message                                                                     │
+  "<dim>│</fg> │  message                                                                   │
 ",
-  "└──────────────────────────────────────────────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────────────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders as specified width 1`] = `
 [
-  "┌─title────────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────┐
 ",
-  "│  short                               │
+  "<dim>│</fg> │  short                             │
 ",
-  "│  somewhat questionably long line     │
+  "<dim>│</fg> │  somewhat questionably long line   │
 ",
-  "└──────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders as wide as longest line with width: auto 1`] = `
 [
-  "┌─title──────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────┐
 ",
-  "│  short                             │
+  "<dim>│</fg> │  short                             │
 ",
-  "│  somewhat questionably long line   │
+  "<dim>│</fg> │  somewhat questionably long line   │
 ",
-  "└────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders auto width with content longer than title 1`] = `
 [
-  "┌─title──────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────┐
 ",
-  "│  messagemessagemessagemessage  │
+  "<dim>│</fg> │  messagemessagemessagemessage  │
 ",
-  "└────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders auto width with title longer than content 1`] = `
 [
-  "┌─titletitletitletitle─┐
+  "<dim>│</fg> ┌─titletitletitletitle─┐
 ",
-  "│  message             │
+  "<dim>│</fg> │  message             │
 ",
-  "└──────────────────────┘
+  "<dim>│</fg> └──────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders center aligned content 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders center aligned title 1`] = `
 [
-  "┌───title────┐
+  "<dim>│</fg> ┌───title────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders left aligned content 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders left aligned title 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│  message   │
+  "<dim>│</fg> │  message   │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders message 1`] = `
 [
-  "┌──────────────────────────────────────────────────────────────────────────────┐
+  "<dim>│</fg> ┌────────────────────────────────────────────────────────────────────────────┐
 ",
-  "│  message                                                                     │
+  "<dim>│</fg> │  message                                                                   │
 ",
-  "└──────────────────────────────────────────────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────────────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders message with title 1`] = `
 [
-  "┌─some title───────────────────────────────────────────────────────────────────┐
+  "<dim>│</fg> ┌─some title─────────────────────────────────────────────────────────────────┐
 ",
-  "│  message                                                                     │
+  "<dim>│</fg> │  message                                                                   │
 ",
-  "└──────────────────────────────────────────────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────────────────────────────────────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders right aligned content 1`] = `
 [
-  "┌─title──────┐
+  "<dim>│</fg> ┌─title──────┐
 ",
-  "│   message  │
+  "<dim>│</fg> │   message  │
 ",
-  "└────────────┘
+  "<dim>│</fg> └────────────┘
 ",
 ]
 `;
 
 exports[`box (isCI = true) > renders right aligned title 1`] = `
 [
-  "┌──────title─┐
+  "<dim>│</fg> ┌──────title─┐
+",
+  "<dim>│</fg> │  message   │
+",
+  "<dim>│</fg> └────────────┘
+",
+]
+`;
+
+exports[`box (isCI = true) > renders rounded corners when rounded is true 1`] = `
+[
+  "<dim>│</fg> ╭─title──────╮
+",
+  "<dim>│</fg> │  message   │
+",
+  "<dim>│</fg> ╰────────────╯
+",
+]
+`;
+
+exports[`box (isCI = true) > renders specified contentPadding 1`] = `
+[
+  "<dim>│</fg> ┌─title──────────────┐
+",
+  "<dim>│</fg> │      message       │
+",
+  "<dim>│</fg> └────────────────────┘
+",
+]
+`;
+
+exports[`box (isCI = true) > renders specified titlePadding 1`] = `
+[
+  "<dim>│</fg> ┌──────title───────┐
+",
+  "<dim>│</fg> │  message         │
+",
+  "<dim>│</fg> └──────────────────┘
+",
+]
+`;
+
+exports[`box (isCI = true) > renders truncated long titles 1`] = `
+[
+  "<dim>│</fg> ┌─foofoof...─┐
+",
+  "<dim>│</fg> │  message   │
+",
+  "<dim>│</fg> └────────────┘
+",
+]
+`;
+
+exports[`box (isCI = true) > renders wide characters with auto width 1`] = `
+[
+  "<dim>│</fg> ┌─这是标题─────────────────┐
+",
+  "<dim>│</fg> │  이게 첫 번째 줄이에요   │
+",
+  "<dim>│</fg> │  これは次の行です        │
+",
+  "<dim>│</fg> └──────────────────────────┘
+",
+]
+`;
+
+exports[`box (isCI = true) > renders wide characters with specified width 1`] = `
+[
+  "<dim>│</fg> ┌─这是标题───┐
+",
+  "<dim>│</fg> │  이게 첫   │
+",
+  "<dim>│</fg> │  번째      │
+",
+  "<dim>│</fg> │  줄이에요  │
+",
+  "<dim>│</fg> │  これは次  │
+",
+  "<dim>│</fg> │  の行です  │
+",
+  "<dim>│</fg> └────────────┘
+",
+]
+`;
+
+exports[`box (isCI = true) > renders with formatBorder formatting 1`] = `
+[
+  "<dim>│</fg> <red>┌ 0 ┌,┐,└,┘</fg><red>─</fg>title<red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┐ 1 ┌,┐,└,┘</fg>
+",
+  "<dim>│</fg> <red>│</fg>  message   <red>│</fg>
+",
+  "<dim>│</fg> <red>└ 2 ┌,┐,└,┘</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┘ 3 ┌,┐,└,┘</fg>
+",
+]
+`;
+
+exports[`box (isCI = true) > renders without guide bar when withGuide is false 1`] = `
+[
+  "┌─title──────┐
 ",
   "│  message   │
 ",
@@ -411,119 +509,21 @@ exports[`box (isCI = true) > renders right aligned title 1`] = `
 ]
 `;
 
-exports[`box (isCI = true) > renders rounded corners when rounded is true 1`] = `
-[
-  "╭─title──────╮
-",
-  "│  message   │
-",
-  "╰────────────╯
-",
-]
-`;
-
-exports[`box (isCI = true) > renders specified contentPadding 1`] = `
-[
-  "┌─title──────────────┐
-",
-  "│      message       │
-",
-  "└────────────────────┘
-",
-]
-`;
-
-exports[`box (isCI = true) > renders specified titlePadding 1`] = `
-[
-  "┌──────title───────┐
-",
-  "│  message         │
-",
-  "└──────────────────┘
-",
-]
-`;
-
-exports[`box (isCI = true) > renders truncated long titles 1`] = `
-[
-  "┌─foofoofoo...─┐
-",
-  "│  message     │
-",
-  "└──────────────┘
-",
-]
-`;
-
-exports[`box (isCI = true) > renders wide characters with auto width 1`] = `
-[
-  "┌─这是标题─────────────────┐
-",
-  "│  이게 첫 번째 줄이에요   │
-",
-  "│  これは次の行です        │
-",
-  "└──────────────────────────┘
-",
-]
-`;
-
-exports[`box (isCI = true) > renders wide characters with specified width 1`] = `
-[
-  "┌─这是标题─────┐
-",
-  "│  이게 첫     │
-",
-  "│  번째        │
-",
-  "│  줄이에요    │
-",
-  "│  これは次の  │
-",
-  "│  行です      │
-",
-  "└──────────────┘
-",
-]
-`;
-
-exports[`box (isCI = true) > renders with formatBorder formatting 1`] = `
-[
-  "<red>┌ 0 ┌,┐,└,┘</fg><red>─</fg>title<red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┐ 1 ┌,┐,└,┘</fg>
-",
-  "<red>│</fg>  message   <red>│</fg>
-",
-  "<red>└ 2 ┌,┐,└,┘</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>─</fg><red>┘ 3 ┌,┐,└,┘</fg>
-",
-]
-`;
-
-exports[`box (isCI = true) > renders with prefix when includePrefix is true 1`] = `
-[
-  "│ ┌─title──────┐
-",
-  "│ │  message   │
-",
-  "│ └────────────┘
-",
-]
-`;
-
 exports[`box (isCI = true) > wraps content to fit within specified width 1`] = `
 [
-  "┌─title────────────────────────────────┐
+  "<dim>│</fg> ┌─title──────────────────────────────┐
 ",
-  "│  foo barfoo barfoo barfoo barfoo     │
+  "<dim>│</fg> │  foo barfoo barfoo barfoo barfoo   │
 ",
-  "│  barfoo barfoo barfoo barfoo barfoo  │
+  "<dim>│</fg> │  barfoo barfoo barfoo barfoo       │
 ",
-  "│   barfoo barfoo barfoo barfoo        │
+  "<dim>│</fg> │  barfoo barfoo barfoo barfoo       │
 ",
-  "│  barfoo barfoo barfoo barfoo barfoo  │
+  "<dim>│</fg> │  barfoo barfoo barfoo barfoo       │
 ",
-  "│   barfoo bar                         │
+  "<dim>│</fg> │  barfoo barfoo barfoo bar          │
 ",
-  "└──────────────────────────────────────┘
+  "<dim>│</fg> └────────────────────────────────────┘
 ",
 ]
 `;

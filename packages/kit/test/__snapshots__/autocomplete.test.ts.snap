@@ -12,7 +12,7 @@ exports[`autocomplete > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "
 ",
@@ -33,7 +33,7 @@ exports[`autocomplete > limits displayed options when maxItems is set 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Option 3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Option 4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=1>",
@@ -58,7 +58,7 @@ exports[`autocomplete > renders initial UI with message and instructions 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
@@ -83,7 +83,7 @@ exports[`autocomplete > renders placeholder if set 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
@@ -109,7 +109,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=3>",
@@ -121,7 +121,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=5>",
@@ -131,7 +131,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=6>",
@@ -140,7 +140,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <green>●</fg> Grape
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=7>",
@@ -148,14 +148,14 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
   "<cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <green>●</fg> Orange
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=8>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <green>●</fg> Kiwi<dim> (New Zealand)</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <green>●</fg> Kiwi<dim> (New Zealand)</fg>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=1>",
@@ -180,14 +180,14 @@ exports[`autocomplete > shows no matches message when search has no results 1`] 
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> z█<dim> (0 matches)</bold>
 <cyan>│</fg>  <yellow>No matches found</fg>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -212,7 +212,7 @@ exports[`autocomplete > shows selected value in submit state 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=3>",
@@ -223,7 +223,7 @@ exports[`autocomplete > shows selected value in submit state 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
@@ -248,7 +248,7 @@ exports[`autocomplete > shows strikethrough in cancel state 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
@@ -273,7 +273,7 @@ exports[`autocomplete > supports initialValue 1`] = `
 <cyan>│</fg>  <green>●</fg> Cherry
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
@@ -298,7 +298,7 @@ exports[`autocompleteMultiselect > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "
 ",
@@ -318,7 +318,7 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=3>",
@@ -329,7 +329,7 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Space/Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Space/Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=5>",
@@ -343,7 +343,7 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
 <cyan>│</fg>  <dim>◻</bold> Cherry
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Space/Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Space/Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=6>",
@@ -373,7 +373,7 @@ exports[`autocompleteMultiselect > renders error when empty selection & required
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
@@ -387,7 +387,7 @@ exports[`autocompleteMultiselect > renders error when empty selection & required
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=1>",
@@ -400,7 +400,7 @@ exports[`autocompleteMultiselect > renders error when empty selection & required
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim><dim>↑/↓</bold><dim> to navigate • <dim>Tab:</bold><dim> select • <dim>Enter:</bold><dim> confirm • <dim>Type:</bold><dim> to search</bold>
+<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",

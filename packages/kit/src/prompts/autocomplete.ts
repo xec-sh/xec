@@ -2,16 +2,16 @@ import type { Option } from './select.js';
 
 import prism from '../prism/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
-import { settings, AutocompletePrompt } from '../core/index.js';
+import { settings, type Validate, AutocompletePrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,
-  S_BAR_END,
   S_RADIO_ACTIVE,
   S_RADIO_INACTIVE,
   type CommonOptions,
   S_CHECKBOX_INACTIVE,
   S_CHECKBOX_SELECTED,
+  formatInstructionFooter,
 } from '../utilities/common.js';
 
 function getLabel<T>(option: Option<T>) {
@@ -42,6 +42,20 @@ function getSelectedOptions<T>(values: T[], options: Option<T>[]): Option<T>[] {
   return results;
 }
 
+/**
+ * A dynamic options() getter does its own searching, so it gets no default
+ * filter forced on top of its results (upstream #496); array options keep the
+ * label/hint/value substring default.
+ */
+function resolveFilter<Value>(
+  opts: AutocompleteSharedOptions<Value>
+): ((search: string, option: Option<Value>) => boolean) | undefined {
+  if (typeof opts.options === 'function') {
+    return opts.filter;
+  }
+  return opts.filter ?? ((search: string, opt: Option<Value>) => getFilteredOption(search, opt));
+}
+
 interface AutocompleteSharedOptions<Value> extends CommonOptions {
   /**
    * The message to display to the user.
@@ -56,7 +70,8 @@ interface AutocompleteSharedOptions<Value> extends CommonOptions {
    */
   maxItems?: number;
   /**
-   * Placeholder text to display when no input is provided.
+   * Placeholder text displayed when the search field is empty. When set,
+   * pressing Tab copies the placeholder into the input.
    */
   placeholder?: string;
   /**
@@ -64,9 +79,11 @@ interface AutocompleteSharedOptions<Value> extends CommonOptions {
    */
   filter?: (search: string, option: Option<Value>) => boolean;
   /**
-   * Validates the value
+   * A function or a [Standard Schema](https://github.com/standard-schema/standard-schema)
+   * that validates user input. If a custom function is given, you should return a `string`
+   * or `Error` to show as a validation error, or `undefined` to accept the result.
    */
-  validate?: (value: Value | Value[] | undefined) => string | Error | undefined;
+  validate?: Validate<Value | Value[]>;
 }
 
 export interface AutocompleteOptions<Value> extends AutocompleteSharedOptions<Value> {
@@ -81,12 +98,12 @@ export interface AutocompleteOptions<Value> extends AutocompleteSharedOptions<Va
 }
 
 export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
-  const filterFn = opts.filter ?? ((search: string, opt: Option<Value>) => getFilteredOption(search, opt));
   const prompt = new AutocompletePrompt({
     options: opts.options,
     initialValue: opts.initialValue ? [opts.initialValue] : undefined,
     initialUserInput: opts.initialUserInput,
-    filter: filterFn,
+    placeholder: opts.placeholder,
+    filter: resolveFilter(opts),
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
@@ -94,15 +111,16 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
       // Title and message display
-      const headings = hasGuide ? [`${prism.gray(S_BAR)}`, `${symbol(this.state)}  ${opts.message}`] : [`${symbol(this.state)}  ${opts.message}`];
+      const headings = hasGuide
+        ? [`${prism.gray(S_BAR)}`, `${symbol(this.state)}  ${opts.message}`]
+        : [`${symbol(this.state)}  ${opts.message}`];
       const userInput = this.userInput;
       const options = this.options;
       const placeholder = opts.placeholder;
       const showPlaceholder = userInput === '' && placeholder !== undefined;
 
-      const barCyan = hasGuide ? prism.cyan(S_BAR) : '';
+      const guidePrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
       const barGray = hasGuide ? prism.gray(S_BAR) : '';
-      const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
 
       // Handle different states
       switch (this.state) {
@@ -140,31 +158,27 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           // No matches message
           const noResults =
             this.filteredOptions.length === 0 && userInput
-              ? [`${barCyan}  ${prism.yellow('No matches found')}`]
+              ? [`${guidePrefix}${settings.theme.warning('No matches found')}`]
               : [];
 
-          const errorBar = hasGuide ? prism.yellow(S_BAR) : '';
+          const errorPrefix = hasGuide ? `${settings.theme.warning(S_BAR)}  ` : '';
           const validationError =
-            this.state === 'error' ? [`${errorBar}  ${prism.yellow(this.error)}`] : [];
+            this.state === 'error'
+              ? [`${errorPrefix}${settings.theme.warning(this.error)}`]
+              : [];
 
+          if (hasGuide) {
+            headings.push(guidePrefix.trimEnd());
+          }
           headings.push(
-            `${barCyan}`,
-            `${barCyan}  ${prism.dim('Search:')}${searchText}${matches}`,
+            `${guidePrefix}${prism.dim('Search:')}${searchText}${matches}`,
             ...noResults,
             ...validationError
           );
 
           // Show instructions
-          const instructions = [
-            `${prism.dim('↑/↓')} to select`,
-            `${prism.dim('Enter:')} confirm`,
-            `${prism.dim('Type:')} to search`,
-          ];
-
-          const footers = [
-            `${barCyan}  ${prism.dim(instructions.join(' • '))}`,
-            `${barEnd}`,
-          ];
+          const instructions = ['↑/↓ to select', 'Enter: confirm', 'Type: to search'];
+          const footers = formatInstructionFooter(instructions, hasGuide);
 
           // Render options with selection
           const displayOptions =
@@ -173,20 +187,20 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
               : limitOptions({
                 cursor: this.cursor,
                 options: this.filteredOptions,
-                columnPadding: 3, // for `|  `
+                columnPadding: hasGuide ? 3 : 0, // for `|  ` when the guide is shown
                 rowPadding: headings.length + footers.length,
                 style: (option, active) => {
                   const label = getLabel(option);
                   const hint =
                     option.hint && option.value === this.focusedValue
-                      ? prism.dim(` (${option.hint})`)
+                      ? settings.theme.muted(` (${option.hint})`)
                       : '';
 
                   if (option.disabled) {
-                    return `${prism.dim(S_RADIO_INACTIVE)} ${prism.strikethrough(prism.dim(label))}`;
+                    return `${settings.theme.muted(S_RADIO_INACTIVE)} ${prism.strikethrough(settings.theme.muted(label))}`;
                   }
                   return active
-                    ? `${prism.green(S_RADIO_ACTIVE)} ${label}${hint}`
+                    ? `${settings.theme.success(S_RADIO_ACTIVE)} ${label}${hint}`
                     : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}${hint}`;
                 },
                 maxItems: opts.maxItems,
@@ -196,7 +210,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           // Return the formatted prompt
           return [
             ...headings,
-            ...displayOptions.map((option) => `${barCyan}  ${option}`),
+            ...displayOptions.map((option) => `${guidePrefix}${option}`),
             ...footers,
           ].join('\n');
         }
@@ -234,9 +248,11 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
     const label = option.label ?? String(option.value ?? '');
     const hint =
       option.hint && focusedValue !== undefined && option.value === focusedValue
-        ? prism.dim(` (${option.hint})`)
+        ? settings.theme.muted(` (${option.hint})`)
         : '';
-    const checkbox = isSelected ? prism.green(S_CHECKBOX_SELECTED) : prism.dim(S_CHECKBOX_INACTIVE);
+    const checkbox = isSelected
+      ? settings.theme.success(S_CHECKBOX_SELECTED)
+      : prism.dim(S_CHECKBOX_INACTIVE);
 
     if (active) {
       return `${checkbox} ${label}${hint}`;
@@ -244,12 +260,12 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
     return `${checkbox} ${prism.dim(label)}`;
   };
 
-  const filterFn = opts.filter ?? ((search: string, opt: Option<Value>) => getFilteredOption(search, opt));
   // Create text prompt which we'll use as foundation
   const prompt = new AutocompletePrompt<Option<Value>>({
     options: opts.options,
     multiple: true,
-    filter: filterFn,
+    placeholder: opts.placeholder,
+    filter: resolveFilter(opts),
     validate: () => {
       if (opts.required && prompt.selectedValues.length === 0) {
         return 'Please select at least one item';
@@ -286,35 +302,36 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
           )
           : '';
 
-      const barCyan = hasGuide ? prism.cyan(S_BAR) : '';
-      const barGray = hasGuide ? prism.gray(S_BAR) : '';
-      const barEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
+      const guidePrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
+      const grayPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
 
       // Render prompt state
       switch (this.state) {
         case 'submit': {
-          return `${title}${barGray}  ${prism.dim(`${this.selectedValues.length} items selected`)}`;
+          return `${title}${grayPrefix}${prism.dim(`${this.selectedValues.length} items selected`)}`;
         }
         case 'cancel': {
-          return `${title}${barGray}  ${prism.strikethrough(prism.dim(userInput))}`;
+          return `${title}${grayPrefix}${prism.strikethrough(prism.dim(userInput))}`;
         }
         default: {
           // Instructions
           const instructions = [
-            `${prism.dim('↑/↓')} to navigate`,
-            `${prism.dim(this.isNavigating ? 'Space/Tab:' : 'Tab:')} select`,
-            `${prism.dim('Enter:')} confirm`,
-            `${prism.dim('Type:')} to search`,
+            '↑/↓ to navigate',
+            `${this.isNavigating ? 'Space/Tab:' : 'Tab:'} select`,
+            'Enter: confirm',
+            'Type: to search',
           ];
 
           // No results message
           const noResults =
             this.filteredOptions.length === 0 && userInput
-              ? [`${barCyan}  ${prism.yellow('No matches found')}`]
+              ? [`${guidePrefix}${settings.theme.warning('No matches found')}`]
               : [];
 
           const errorMessage =
-            this.state === 'error' ? [`${barCyan}  ${prism.yellow(this.error)}`] : [];
+            this.state === 'error'
+              ? [`${guidePrefix}${settings.theme.warning(this.error)}`]
+              : [];
 
           // Get limited options for display
           const displayOptions = limitOptions({
@@ -329,12 +346,11 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
           // Build the prompt display
           return [
             title,
-            `${barCyan}  ${prism.dim('Search:')} ${searchText}${matches}`,
+            `${guidePrefix}${prism.dim('Search:')} ${searchText}${matches}`,
             ...noResults,
             ...errorMessage,
-            ...displayOptions.map((option) => `${barCyan}  ${option}`),
-            `${barCyan}  ${prism.dim(instructions.join(' • '))}`,
-            `${barEnd}`,
+            ...displayOptions.map((option) => `${guidePrefix}${option}`),
+            ...formatInstructionFooter(instructions, hasGuide),
           ].join('\n');
         }
       }

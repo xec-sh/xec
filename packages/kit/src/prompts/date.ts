@@ -1,7 +1,7 @@
-import type { DateParts, DateFormatConfig } from '../core/index.js';
+import type { Validate, DateParts, DateFormatConfig } from '../core/index.js';
 
 import prism from '../prism/index.js';
-import { settings, DatePrompt } from '../core/index.js';
+import { settings, DatePrompt, runValidation } from '../core/index.js';
 import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export type DateFormat = 'YYYY/MM/DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY';
@@ -119,7 +119,12 @@ export interface DateOptions extends CommonOptions {
   initialValue?: Date;
   minDate?: Date;
   maxDate?: Date;
-  validate?: (value: Date | undefined) => string | Error | undefined;
+  /**
+   * A function or a [Standard Schema](https://github.com/standard-schema/standard-schema)
+   * that validates user input. If a custom function is given, you should return a `string`
+   * or `Error` to show as a validation error, or `undefined` to accept the result.
+   */
+  validate?: Validate<Date>;
 }
 
 export const date = (opts: DateOptions) => {
@@ -134,7 +139,7 @@ export const date = (opts: DateOptions) => {
     validate(value: Date | undefined) {
       if (value === undefined) {
         if (opts.defaultValue !== undefined) return undefined;
-        if (validate) return validate(value);
+        if (validate) return runValidation(validate, value);
         return 'Please enter a valid date';
       }
       const dateOnly = (d: Date) => d.toISOString().slice(0, 10);
@@ -144,7 +149,7 @@ export const date = (opts: DateOptions) => {
       if (opts.maxDate && dateOnly(value) > dateOnly(opts.maxDate)) {
         return settings.date.messages.beforeMax(opts.maxDate);
       }
-      if (validate) return validate(value);
+      if (validate) return runValidation(validate, value);
       return undefined;
     },
     signal: opts.signal,
@@ -180,9 +185,9 @@ export const date = (opts: DateOptions) => {
 
       switch (this.state) {
         case 'error': {
-          const errorText = this.error ? `  ${prism.yellow(this.error)}` : '';
-          const errorPrefix = hasGuide ? `${prism.yellow(S_BAR)}  ` : '';
-          const errorPrefixEnd = hasGuide ? prism.yellow(S_BAR_END) : '';
+          const errorText = this.error ? `  ${settings.theme.warning(this.error)}` : '';
+          const errorPrefix = hasGuide ? `${settings.theme.warning(S_BAR)}  ` : '';
+          const errorPrefixEnd = hasGuide ? settings.theme.warning(S_BAR_END) : '';
           return `${title.trim()}\n${errorPrefix}${userInput}\n${errorPrefixEnd}${errorText}\n`;
         }
         case 'submit': {
@@ -196,11 +201,11 @@ export const date = (opts: DateOptions) => {
           return `${title}${cancelPrefix}${valueText}${value.trim() ? `\n${cancelPrefix}` : ''}`;
         }
         default: {
-          const defaultPrefix = hasGuide ? `${prism.cyan(S_BAR)}  ` : '';
-          const defaultPrefixEnd = hasGuide ? prism.cyan(S_BAR_END) : '';
-          const inlineErrorBar = hasGuide ? `${prism.cyan(S_BAR)}  ` : '';
+          const defaultPrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
+          const defaultPrefixEnd = hasGuide ? settings.theme.accent(S_BAR_END) : '';
+          const inlineErrorBar = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
           const inlineError = (this as { inlineError?: string }).inlineError
-            ? `\n${inlineErrorBar}${prism.yellow((this as { inlineError: string }).inlineError)}`
+            ? `\n${inlineErrorBar}${settings.theme.warning((this as { inlineError: string }).inlineError)}`
             : '';
           return `${title}${defaultPrefix}${userInput}${inlineError}\n${defaultPrefixEnd}\n`;
         }

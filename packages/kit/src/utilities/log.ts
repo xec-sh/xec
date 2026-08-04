@@ -29,17 +29,23 @@ export const log = {
   ) => {
     const hasGuide = (withGuide ?? settings.withGuide) !== false;
     const parts: string[] = [];
+    // With the guide off, spacing rows stay blank and no symbol column is
+    // printed — the message starts at column zero (upstream behaviour).
+    const spacingString = hasGuide ? secondarySymbol : '';
+    const prefix = hasGuide ? `${symbol}  ` : '';
     const secondaryPrefix = hasGuide ? `${secondarySymbol}  ` : '';
+
     for (let i = 0; i < spacing; i++) {
-      parts.push(`${secondarySymbol}`);
+      parts.push(spacingString);
     }
+
     const messageParts = Array.isArray(message) ? message : message.split('\n');
     if (messageParts.length > 0) {
       const [firstLine, ...lines] = messageParts;
       if (firstLine && firstLine.length > 0) {
-        parts.push(`${symbol}  ${firstLine}`);
+        parts.push(`${prefix}${firstLine}`);
       } else {
-        parts.push(symbol);
+        parts.push(hasGuide ? symbol : '');
       }
       for (const ln of lines) {
         if (ln.length > 0) {
@@ -55,19 +61,19 @@ export const log = {
     log.message(message, { ...opts, symbol: settings.theme.info(S_INFO) });
   },
   success: (message: string, opts?: LogMessageOptions) => {
-    log.message(message, { ...opts, symbol: prism.green(S_SUCCESS) });
+    log.message(message, { ...opts, symbol: settings.theme.success(S_SUCCESS) });
   },
   step: (message: string, opts?: LogMessageOptions) => {
-    log.message(message, { ...opts, symbol: prism.green(S_STEP_SUBMIT) });
+    log.message(message, { ...opts, symbol: settings.theme.success(S_STEP_SUBMIT) });
   },
   warn: (message: string, opts?: LogMessageOptions) => {
-    log.message(message, { ...opts, symbol: prism.yellow(S_WARN) });
+    log.message(message, { ...opts, symbol: settings.theme.warning(S_WARN) });
   },
   /** alias for `log.warn()`. */
   warning: (message: string, opts?: LogMessageOptions) => {
     log.warn(message, opts);
   },
   error: (message: string, opts?: LogMessageOptions) => {
-    log.message(message, { ...opts, symbol: prism.red(S_ERROR) });
+    log.message(message, { ...opts, symbol: settings.theme.error(S_ERROR) });
   },
 };

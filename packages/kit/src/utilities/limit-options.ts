@@ -1,4 +1,3 @@
-import type { Writable } from 'node:stream';
 import type { CommonOptions } from './common.js';
 
 import prism from '../prism/index.js';
@@ -7,7 +6,11 @@ import { getRows, getColumns } from '../core/index.js';
 
 export interface LimitOptionsParams<TOption> extends CommonOptions {
   options: TOption[];
-  maxItems: number | undefined;
+  /**
+   * Maximum number of options to display at once.
+   * @default Infinity
+   */
+  maxItems?: number | undefined;
   cursor: number;
   style: (option: TOption, active: boolean) => string;
   columnPadding?: number;
@@ -19,46 +22,73 @@ const trimLines = (
   initialLineCount: number,
   startIndex: number,
   endIndex: number,
-  maxLines: number
+  maxLines: number,
+  fromEnd = false
 ) => {
   let lineCount = initialLineCount;
   let removals = 0;
-  for (let i = startIndex; i < endIndex; i++) {
-    const group = groups[i];
-    lineCount = lineCount - group!.length;
-    removals++;
-    if (lineCount <= maxLines) {
-      break;
+  if (fromEnd) {
+    for (let i = endIndex - 1; i >= startIndex; i--) {
+      const group = groups[i];
+      if (group) {
+        lineCount -= group.length;
+      }
+      removals++;
+      if (lineCount <= maxLines) break;
+    }
+  } else {
+    for (let i = startIndex; i < endIndex; i++) {
+      const group = groups[i];
+      if (group) {
+        lineCount -= group.length;
+      }
+      removals++;
+      if (lineCount <= maxLines) break;
     }
   }
   return { lineCount, removals };
 };
 
-export const limitOptions = <TOption>(params: LimitOptionsParams<TOption>): string[] => {
-  const { cursor, options, style } = params;
-  const output: Writable = params.output ?? process.stdout;
+/**
+ * Trims an option list to what fits the terminal, while keeping the active
+ * option (cursor) visible using a sliding window.
+ *
+ * @returns The lines to render.
+ */
+export const limitOptions = <TOption>({
+  cursor,
+  options,
+  style,
+  output = process.stdout,
+  maxItems = Number.POSITIVE_INFINITY,
+  columnPadding = 0,
+  rowPadding = 4,
+}: LimitOptionsParams<TOption>): string[] => {
   const columns = getColumns(output);
-  const columnPadding = params.columnPadding ?? 0;
-  const rowPadding = params.rowPadding ?? 4;
   const maxWidth = columns - columnPadding;
   const rows = getRows(output);
   const overflowFormat = prism.dim('...');
 
-  const paramMaxItems = params.maxItems ?? Number.POSITIVE_INFINITY;
   const outputMaxItems = Math.max(rows - rowPadding, 0);
-  // Use the smaller of user-specified and terminal-computed limits, with minimum 5 for UX
-  const maxItems = Math.min(paramMaxItems, Math.max(outputMaxItems, 5));
+  // We clamp to minimum 5 because anything less doesn't make sense UX wise
+  const computedMaxItems = Math.max(Math.min(maxItems, outputMaxItems), 5);
   let slidingWindowLocation = 0;
 
-  if (cursor >= maxItems - 3) {
-    slidingWindowLocation = Math.max(Math.min(cursor - maxItems + 3, options.length - maxItems), 0);
+  if (cursor >= computedMaxItems - 3) {
+    slidingWindowLocation = Math.max(
+      Math.min(cursor - computedMaxItems + 3, options.length - computedMaxItems),
+      0
+    );
   }
 
-  let shouldRenderTopEllipsis = maxItems < options.length && slidingWindowLocation > 0;
+  let shouldRenderTopEllipsis = computedMaxItems < options.length && slidingWindowLocation > 0;
   let shouldRenderBottomEllipsis =
-    maxItems < options.length && slidingWindowLocation + maxItems < options.length;
+    computedMaxItems < options.length && slidingWindowLocation + computedMaxItems < options.length;
 
-  const slidingWindowLocationEnd = Math.min(slidingWindowLocation + maxItems, options.length);
+  const slidingWindowLocationEnd = Math.min(
+    slidingWindowLocation + computedMaxItems,
+    options.length
+  );
   const lineGroups: Array<string[]> = [];
   let lineCount = 0;
   if (shouldRenderTopEllipsis) {
@@ -74,7 +104,14 @@ export const limitOptions = <TOption>(params: LimitOptionsParams<TOption>): stri
     slidingWindowLocationEnd - (shouldRenderBottomEllipsis ? 1 : 0);
 
   for (let i = slidingWindowLocationWithEllipsis; i < slidingWindowLocationEndWithEllipsis; i++) {
-    const wrappedLines = wrapAnsi(style(options[i]!, i === cursor), maxWidth).split('\n');
+    const option = options[i];
+    const styledOption = option === undefined ? '' : style(option, i === cursor);
+    // The same wrap options the prompt renderer uses — otherwise row counting
+    // here diverges from what actually gets drawn for long unbroken labels.
+    const wrappedLines = wrapAnsi(styledOption, maxWidth, {
+      hard: true,
+      trim: false,
+    }).split('\n');
     lineGroups.push(wrappedLines);
     lineCount += wrappedLines.length;
   }
@@ -84,30 +121,26 @@ export const limitOptions = <TOption>(params: LimitOptionsParams<TOption>): stri
     let followingRemovals = 0;
     let newLineCount = lineCount;
     const cursorGroupIndex = cursor - slidingWindowLocationWithEllipsis;
-    const trimLinesLocal = (startIndex: number, endIndex: number) =>
-      trimLines(lineGroups, newLineCount, startIndex, endIndex, outputMaxItems);
+    // Every removal that introduces a new ellipsis row must also reserve the
+    // row that ellipsis will occupy, or the frame overflows by one line.
+    let adjustedMax = outputMaxItems;
+    const trimPreceding = () =>
+      trimLines(lineGroups, newLineCount, 0, cursorGroupIndex, adjustedMax);
+    const trimFollowing = () =>
+      trimLines(lineGroups, newLineCount, cursorGroupIndex + 1, lineGroups.length, adjustedMax, true);
 
     if (shouldRenderTopEllipsis) {
-      ({ lineCount: newLineCount, removals: precedingRemovals } = trimLinesLocal(
-        0,
-        cursorGroupIndex
-      ));
-      if (newLineCount > outputMaxItems) {
-        ({ lineCount: newLineCount, removals: followingRemovals } = trimLinesLocal(
-          cursorGroupIndex + 1,
-          lineGroups.length
-        ));
+      ({ lineCount: newLineCount, removals: precedingRemovals } = trimPreceding());
+      if (newLineCount > adjustedMax) {
+        if (!shouldRenderBottomEllipsis) adjustedMax -= 1;
+        ({ lineCount: newLineCount, removals: followingRemovals } = trimFollowing());
       }
     } else {
-      ({ lineCount: newLineCount, removals: followingRemovals } = trimLinesLocal(
-        cursorGroupIndex + 1,
-        lineGroups.length
-      ));
-      if (newLineCount > outputMaxItems) {
-        ({ lineCount: newLineCount, removals: precedingRemovals } = trimLinesLocal(
-          0,
-          cursorGroupIndex
-        ));
+      if (!shouldRenderBottomEllipsis) adjustedMax -= 1;
+      ({ lineCount: newLineCount, removals: followingRemovals } = trimFollowing());
+      if (newLineCount > adjustedMax) {
+        adjustedMax -= 1;
+        ({ lineCount: newLineCount, removals: precedingRemovals } = trimPreceding());
       }
     }
 

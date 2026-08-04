@@ -39,6 +39,32 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     expect(api.advance).toBeTypeOf('function');
   });
 
+  // ProgressOptions extends the spinner options (upstream parity), so frame
+  // customization reaches the underlying spinner instead of being dropped.
+  test('passes spinner customization through (frames, delay, styleFrame)', () => {
+    const result = prompts.progress({
+      output,
+      frames: ['+', '-'],
+      delay: 50,
+      styleFrame: (frame) => `[${frame}]`,
+    });
+
+    result.start('foo');
+    vi.advanceTimersByTime(50);
+    // In CI mode the spinner only redraws when the message changes, so change
+    // it to observe the second frame there too.
+    result.message('bar');
+    vi.advanceTimersByTime(50);
+
+    const rendered = output.buffer.join('');
+    expect(rendered).toContain('[+]');
+    expect(rendered).toContain('[-]');
+
+    // Detach the spinner's process hooks; leaked hooks across tests trip the
+    // MaxListenersExceeded warning.
+    result.stop();
+  });
+
   describe('start', () => {
     test('renders frames at interval', () => {
       const result = prompts.progress({ output });
