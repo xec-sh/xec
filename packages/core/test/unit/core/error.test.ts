@@ -37,7 +37,8 @@ describe('Error classes', () => {
         1500
       );
 
-      expect(error.message).toBe('Command failed with exit code 127: echo "failed"');
+      // The head of stderr is part of the message now: it is the diagnosis.
+      expect(error.message).toBe('Command failed with exit code 127: echo "failed"\nerror text');
       expect(error.code).toBe('COMMAND_FAILED');
       expect(error.command).toBe('echo "failed"');
       expect(error.exitCode).toBe(127);
@@ -50,7 +51,12 @@ describe('Error classes', () => {
 
     it('should handle undefined signal', () => {
       const error = new CommandError('', 1, undefined, '', 'error', 100);
-      expect(error.message).toBe('Command failed with exit code 1: ');
+      expect(error.message).toBe('Command failed with exit code 1: \nerror');
+    });
+
+    it('omits the stderr block when stderr is empty', () => {
+      const error = new CommandError('true', 1, undefined, '', '', 100);
+      expect(error.message).toBe('Command failed with exit code 1: true');
     });
   });
 

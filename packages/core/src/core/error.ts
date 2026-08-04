@@ -42,7 +42,15 @@ export class CommandError extends ExecutionError {
   ) {
     // Sanitize command for error message to avoid exposing sensitive paths
     const sanitizedCommand = sanitizeCommandForError(command);
-    super(`Command failed with exit code ${exitCode}: ${sanitizedCommand}`, 'COMMAND_FAILED', {
+
+    // The head of stderr is the diagnosis; without it the message names the
+    // command and the code but not the reason, and the first thing every
+    // caller does is print error.stderr by hand. stderr reaches this point
+    // already masked by the adapter, so no secret enters the message.
+    const stderrHead = stderr.trim().split('\n').slice(0, 5).join('\n');
+    const detail = stderrHead ? `\n${stderrHead}` : '';
+
+    super(`Command failed with exit code ${exitCode}: ${sanitizedCommand}${detail}`, 'COMMAND_FAILED', {
       exitCode,
       signal,
       stdout,

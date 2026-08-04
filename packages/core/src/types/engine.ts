@@ -1,4 +1,5 @@
 import type { DockerOptions } from '../types/execution.js';
+import type { RetryOptions } from '../utils/retry-adapter.js';
 import type { SSHExecutionContext } from '../adapters/ssh/ssh-api.js';
 import type { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
@@ -35,7 +36,7 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   env(env: Record<string, string>): CallableExecutionEngine;
   timeout(ms: number): CallableExecutionEngine;
   shell(shell: string | boolean): CallableExecutionEngine;
-  retry(options: any): CallableExecutionEngine;
+  retry(options: RetryOptions): CallableExecutionEngine;
   defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): CallableExecutionEngine;
 
   // Configuration property

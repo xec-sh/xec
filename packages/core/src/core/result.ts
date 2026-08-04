@@ -32,6 +32,23 @@ export class ExecutionResultImpl implements ExecutionResult {
   }
 
 
+  /**
+   * Interpolating a result yields its stdout, shaped like `$(...)` command
+   * substitution in a shell: one trailing newline removed.
+   *
+   * Without this, `` `Branch: ${await $`git branch --show-current`}` ``
+   * produced `Branch: [object Object]` — the flagship interpolation syntax
+   * yielding garbage for the most common use of a captured result.
+   */
+  toString(): string {
+    return this.stdout.replace(/\r?\n$/, '');
+  }
+
+  /** Fully trimmed stdout, so comparisons like `result == 'value'` behave. */
+  valueOf(): string {
+    return this.stdout.trim();
+  }
+
   toMetadata(): object {
     return {
       stdout: this.stdout,

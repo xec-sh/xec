@@ -1,4 +1,5 @@
 import type { ExecutionResult } from './result.js';
+import type { CacheOptions } from '../utils/cache.js';
 import type { Writable, Transform } from 'node:stream';
 import type { Command, StreamOption } from './command.js';
 
@@ -87,12 +88,12 @@ export interface ProcessPromise extends Promise<ExecutionResult> {
   buffer(): Promise<Buffer>;
   
   // Caching
-  cache(options?: any): ProcessPromise; // CacheOptions
+  cache(options?: CacheOptions): ProcessPromise;
   
   // Async iteration over output lines: for await (const line of $`cmd`) { ... }
   [Symbol.asyncIterator](): AsyncIterableIterator<string>;
 
   // Process-related properties
-  child?: any;
+  child?: import('node:child_process').ChildProcess;
   exitCode: Promise<number | null>;
 }

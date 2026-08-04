@@ -295,6 +295,13 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       throw new AdapterError('unknown', 'execute', new Error('No suitable adapter found'));
     }
 
+    // The zx-style debugging aid: echo each command before it runs. This
+    // config flag existed and was consumed nowhere — a declared option that
+    // silently did nothing. Redacted with the same rules as every event.
+    if (this._config.verbose) {
+      process.stderr.write(`$ ${maskSecrets(mergedCommand.command || '')}\n`);
+    }
+
     // Emit start event. The command is redacted and only environment variable
     // *names* are published — the values routinely hold credentials.
     this.emitEvent('command:start', {

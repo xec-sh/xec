@@ -138,6 +138,22 @@ export const $ = new Proxy(function callableEngineTarget() { } as any, {
     return (defaultEngine as any)[prop];
   },
 
+  // Without a set trap, `$.verbose = true` — zx muscle memory — assigned a
+  // property onto the proxy target and silently did nothing.
+  set(target, prop: string, value) {
+    if (!defaultEngine) {
+      defaultEngineInstance = new ExecutionEngine();
+      defaultEngine = createCallableEngine(defaultEngineInstance);
+    }
+
+    if (prop === 'verbose' || prop === 'quiet') {
+      (defaultEngine as any).config.set({ [prop]: Boolean(value) });
+      return true;
+    }
+
+    return Reflect.set(target, prop, value);
+  },
+
   apply(target, thisArg, args) {
     if (!defaultEngine) {
       defaultEngineInstance = new ExecutionEngine();
