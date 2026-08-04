@@ -1,6 +1,8 @@
 import type { SSHAdapter } from './index.js';
-import type { SSHAdapterOptions } from '../../types/command.js';
+import type { Command, SSHAdapterOptions } from '../../types/command.js';
 import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
+
+import { withEngineSurface } from '../target-surface.js';
 
 // Type for SSH tunnel
 export interface SSHTunnel {
@@ -63,6 +65,8 @@ export interface SSHExecutionContext {
   timeout(ms: number): SSHExecutionContext;
   shell(shell: string | boolean): SSHExecutionContext;
   retry(options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): SSHExecutionContext;
+  with(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): SSHExecutionContext;
+  defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): SSHExecutionContext;
 }
 
 /**
@@ -71,11 +75,7 @@ export interface SSHExecutionContext {
 export function createSSHExecutionContext(
   engine: ExecutionEngine,
   sshOptions: Omit<SSHAdapterOptions, 'type'>,
-  commandConfig: {
-    env?: Record<string, string>;
-    cwd?: string;
-    timeout?: number;
-    shell?: string | boolean;
+  commandConfig: Partial<Command> & {
     retry?: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number };
   } = {}
 ): SSHExecutionContext {
@@ -233,6 +233,26 @@ export function createSSHExecutionContext(
     retry: options
   });
 
+  /**
+   * Derive a configured context that still targets this host.
+   *
+   * Returning a bare engine here would keep the SSH target but lose `tunnel`
+   * and the file-transfer helpers — the reason this target was chosen.
+   */
+  const withConfig = (config: Partial<Command> & {
+    defaultEnv?: Record<string, string>;
+    defaultCwd?: string;
+  }): SSHExecutionContext => {
+    const { defaultEnv, defaultCwd, ...rest } = config;
+
+    return createSSHExecutionContext(engine, sshOptions, {
+      ...commandConfig,
+      ...rest,
+      ...(defaultCwd === undefined ? {} : { cwd: defaultCwd }),
+      env: { ...commandConfig.env, ...defaultEnv, ...rest.env }
+    });
+  };
+
   // Create the callable object
   const context = Object.assign(exec, {
     exec,
@@ -246,8 +266,21 @@ export function createSSHExecutionContext(
     cd,
     timeout,
     shell,
-    retry
+    retry,
+    with: withConfig,
+    defaults: withConfig
   });
 
-  return context;
+  // Everything else — which(), readFile(), batch(), transfer, the event
+  // methods — is delegated to an engine already pointed at this host, so a
+  // step written against one target runs against all of them.
+  return withEngineSurface(context, () => {
+    const targeted = engine.with({
+      adapter: 'ssh',
+      adapterOptions: { type: 'ssh', ...sshOptions },
+      ...commandConfig
+    });
+
+    return commandConfig.retry ? targeted.retry(commandConfig.retry) : targeted;
+  });
 }

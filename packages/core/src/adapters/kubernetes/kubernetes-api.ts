@@ -1,6 +1,8 @@
 import type { KubernetesAdapter } from './index.js';
-import type { KubernetesAdapterOptions } from '../../types/command.js';
+import type { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
+
+import { withEngineSurface } from '../target-surface.js';
 
 /**
  * Kubernetes port forward instance
@@ -128,6 +130,8 @@ export interface K8sExecutionContext {
   timeout(ms: number): K8sExecutionContext;
   shell(shell: string | boolean): K8sExecutionContext;
   retry(options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): K8sExecutionContext;
+  with(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): K8sExecutionContext;
+  defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): K8sExecutionContext;
 }
 
 /**
@@ -272,11 +276,7 @@ function createK8sPod(
 export function createK8sExecutionContext(
   engine: ExecutionEngine,
   k8sOptions: Partial<Omit<KubernetesAdapterOptions, 'type'>>,
-  commandConfig: {
-    env?: Record<string, string>;
-    cwd?: string;
-    timeout?: number;
-    shell?: string | boolean;
+  commandConfig: Partial<Command> & {
     retry?: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number };
   } = {}
 ): K8sExecutionContext {
@@ -316,6 +316,20 @@ export function createK8sExecutionContext(
   const raw = (strings: TemplateStringsArray, ...values: any[]): ProcessPromise =>
     configuredEngine().raw(strings, ...values);
 
+  const withConfig = (config: Partial<Command> & {
+    defaultEnv?: Record<string, string>;
+    defaultCwd?: string;
+  }): K8sExecutionContext => {
+    const { defaultEnv, defaultCwd, ...rest } = config;
+
+    return createK8sExecutionContext(engine, k8sOptions, {
+      ...commandConfig,
+      ...rest,
+      ...(defaultCwd === undefined ? {} : { cwd: defaultCwd }),
+      env: { ...commandConfig.env, ...defaultEnv, ...rest.env }
+    });
+  };
+
   const context = Object.assign(exec, {
     exec,
     raw,
@@ -341,8 +355,20 @@ export function createK8sExecutionContext(
       createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, shell }),
 
     retry: (options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): K8sExecutionContext =>
-      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, retry: options })
+      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, retry: options }),
+
+    /**
+     * Derive a configured context that still targets this pod.
+     *
+     * Returning a bare engine would keep the target but lose `pod()`, which is
+     * the reason this target was chosen.
+     */
+    with: withConfig,
+    defaults: withConfig
   });
 
-  return context;
+  // Everything else — which(), readFile(), batch(), transfer, the event
+  // methods — is delegated to an engine already pointed at this pod, so a step
+  // written against one target runs against all of them.
+  return withEngineSurface(context, configuredEngine);
 }
