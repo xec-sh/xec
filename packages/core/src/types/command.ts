@@ -119,6 +119,19 @@ export interface Command {
   timeout?: Duration;
   timeoutSignal?: string;               // Signal to send on timeout
 
+  /**
+   * Cap on captured output, in bytes.
+   *
+   * Present here, and not only on the adapter, because `$.with()` reuses the
+   * parent's adapters to keep connection pools alive — so a cap set on a
+   * derived engine never reached one, and a memory-safety control silently
+   * did nothing.
+   */
+  maxBuffer?: number;
+
+  /** Whether a non-zero exit throws. `.nothrow()` sets this to false. */
+  throwOnNonZeroExit?: boolean;
+
   // Stream management
   stdin?: string | Buffer | Readable;   // Input data
   stdout?: StreamOption;

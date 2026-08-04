@@ -104,14 +104,14 @@ export class KubernetesAdapter extends BaseAdapter {
     const interleaved: Buffer[] = [];
 
     const stdoutHandler = new StreamHandler({
-      maxBuffer: this.config.maxBuffer,
+      maxBuffer: mergedCommand.maxBuffer ?? this.config.maxBuffer,
       encoding: this.config.encoding,
       streamName: 'stdout',
       interleaved,
       onOverflow: () => killOnOverflow(),
     });
     const stderrHandler = new StreamHandler({
-      maxBuffer: this.config.maxBuffer,
+      maxBuffer: mergedCommand.maxBuffer ?? this.config.maxBuffer,
       encoding: this.config.encoding,
       streamName: 'stderr',
       interleaved,

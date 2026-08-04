@@ -390,7 +390,12 @@ export {
   AdapterError,
   ExecutionError,
   ConnectionError,
-  KubernetesError
+  KubernetesError,
+  explainExitCode,
+  // Thrown when output passes maxBuffer. Exported because the caller has to be
+  // able to tell truncated output from a command that genuinely printed
+  // little, and `instanceof` is how they do it.
+  MaxBufferExceededError
 } from './core/error.js';
 /**
  * Event types.

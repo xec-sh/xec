@@ -144,16 +144,24 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       env: { ...this.config.defaultEnv, ...command.env },
       timeout: timeout === undefined ? undefined : parseDuration(timeout),
       shell: command.shell ?? this.config.defaultShell,
+      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
+      throwOnNonZeroExit: command.throwOnNonZeroExit ?? this.config.throwOnNonZeroExit,
       stdout: command.stdout ?? 'pipe',
       stderr: command.stderr ?? 'pipe'
     };
   }
 
-  protected createStreamHandler(options?: { onData?: (chunk: string) => void }): StreamHandler {
+  protected createStreamHandler(
+    options?: { onData?: (chunk: string) => void; maxBuffer?: number }
+  ): StreamHandler {
+    // A per-command cap wins, so `$.with({ maxBuffer })` reaches an adapter it
+    // shares with its parent engine.
+    const maxBuffer = options?.maxBuffer ?? this.config.maxBuffer;
+
     if (!options?.onData) {
       return new StreamHandler({
         encoding: this.config.encoding,
-        maxBuffer: this.config.maxBuffer
+        maxBuffer
       });
     }
 
@@ -166,7 +174,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
     return new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer,
+      maxBuffer,
       onData: (chunk: string) => {
         const masked = filter.push(chunk);
         if (masked) onData(masked);
@@ -429,6 +437,13 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     // If nothrow is explicitly set on the command, respect it
     if (command.nothrow !== undefined) {
       return !command.nothrow;
+    }
+
+    // Then the engine's own setting, which reaches us on the command because
+    // `$.with()` shares its parent's adapters — reading it from the adapter
+    // config alone meant `$.with({ throwOnNonZeroExit: false })` was ignored.
+    if (command.throwOnNonZeroExit !== undefined) {
+      return command.throwOnNonZeroExit;
     }
 
     // Otherwise, follow the global configuration

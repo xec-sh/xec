@@ -592,7 +592,7 @@ export class DockerAdapter extends BaseAdapter {
 
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer,
+      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
       streamName: 'stdout',
       interleaved,
       onOverflow: () => killOnOverflow()
@@ -600,7 +600,7 @@ export class DockerAdapter extends BaseAdapter {
 
     const stderrHandler = new StreamHandler({
       encoding: this.config.encoding,
-      maxBuffer: this.config.maxBuffer,
+      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
       streamName: 'stderr',
       interleaved,
       onOverflow: () => killOnOverflow()

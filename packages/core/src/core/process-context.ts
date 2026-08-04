@@ -17,6 +17,20 @@ import { parseDuration, type Duration } from '../utils/helpers.js';
 const XEC_PROMISE_BRAND = Symbol.for('xec:promise');
 
 /** Marker for transform handlers (text/json/lines/buffer) to distinguish from direct await */
+/**
+ * Whether this engine has been told not to throw on a non-zero exit.
+ *
+ * Checked in two places because `$.with({ throwOnNonZeroExit: false })` lands
+ * in the engine's per-command config, not its base config — reading only the
+ * base meant a derived engine's setting was silently ignored and the caller
+ * got exceptions they had explicitly opted out of.
+ */
+function throwingDisabled(engine: { _config?: { throwOnNonZeroExit?: boolean }; currentConfig?: { throwOnNonZeroExit?: boolean } }): boolean {
+  return engine.currentConfig?.throwOnNonZeroExit === false
+    || (engine.currentConfig?.throwOnNonZeroExit === undefined
+      && engine._config?.throwOnNonZeroExit === false);
+}
+
 const TRANSFORM_HANDLER = Symbol.for('xec:transform');
 
 export type { ProcessPromise } from '../types/process.js';
@@ -298,7 +312,7 @@ export class ProcessContext {
 
   private buildCommand(commandParts: Partial<Command>): Command {
     const { modifications } = this.state;
-    const globalNothrow = this.engine._config?.throwOnNonZeroExit === false;
+    const globalNothrow = throwingDisabled(this.engine);
 
     // Single object spread for better performance
     return Object.assign(
@@ -636,7 +650,7 @@ export class ProcessPromiseBuilder {
 
         return executionPromise!.then(result => {
           if (result.exitCode !== 0 && !context.state.modifications.nothrow) {
-            const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+            const globalNothrow = throwingDisabled(context.engine);
             if (!globalNothrow) {
               result.throwIfFailed();
             }
@@ -681,7 +695,7 @@ export class ProcessPromiseBuilder {
   ): ((r: ExecutionResult) => T) {
     const handler = (r: ExecutionResult): T => {
       if (r.exitCode !== 0 && !context.state.modifications.nothrow) {
-        const globalNothrow = context.engine._config?.throwOnNonZeroExit === false;
+        const globalNothrow = throwingDisabled(context.engine);
         if (!globalNothrow) {
           r.throwIfFailed();
         }
