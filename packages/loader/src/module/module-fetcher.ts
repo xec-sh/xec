@@ -8,6 +8,9 @@ import type { ModuleIntegrityVerifier } from './module-integrity.js';
 
 import { IntegrityError } from './module-integrity.js';
 
+/** Redirect hops to follow before treating the chain as a loop. */
+const MAX_REDIRECTS = 5;
+
 export interface FetchOptions {
   timeout?: number;
   retries?: number;
@@ -139,14 +142,39 @@ export class ModuleFetcher {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'xec-loader/0.1.0',
-          ...headers,
-        },
-        signal: controller.signal,
-      });
-      return response;
+      // Follow redirects by hand so every hop is checked against the host
+      // allowlist. With the default `redirect: 'follow'` only the first URL
+      // was checked, so an allowlisted CDN redirecting elsewhere — an open
+      // redirect, or a compromised one — delivered code from a host the
+      // policy forbids, and the lockfile pinned it under the allowed URL.
+      let current = url;
+
+      for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+        this.integrity?.assertHostAllowed(current);
+
+        const response = await fetch(current, {
+          headers: {
+            'User-Agent': 'xec-loader/0.1.0',
+            ...headers,
+          },
+          redirect: 'manual',
+          signal: controller.signal,
+        });
+
+        if (response.status < 300 || response.status >= 400) {
+          return response;
+        }
+
+        const location = response.headers.get('location');
+
+        if (!location) {
+          return response;
+        }
+
+        current = new URL(location, current).toString();
+      }
+
+      throw new Error(`Too many redirects (>${MAX_REDIRECTS}) fetching ${url}`);
     } finally {
       clearTimeout(timeoutId);
     }

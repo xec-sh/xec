@@ -1,3 +1,9 @@
+import { createServer } from 'node:http';
+
+import type { AddressInfo } from 'node:net';
+import type { ServerResponse } from 'node:http';
+
+import { ModuleFetcher } from '../src/module/module-fetcher.js';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
@@ -136,4 +142,46 @@ describe('ModuleIntegrityVerifier', () => {
     expect(computeIntegrity('hello')).toBe(computeIntegrity('hello'));
     expect(computeIntegrity('hello')).not.toBe(computeIntegrity('hellp'));
   });
+});
+
+describe('host allowlist across redirects', () => {
+  /** Start a throwaway HTTP server and return its port plus a stop function. */
+  async function serve(handler: (req: unknown, res: ServerResponse) => void) {
+    const server = createServer(handler as never);
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+    return { port: (server.address() as AddressInfo).port, stop: () => server.close() };
+  }
+
+  it('refuses a redirect that leaves the allowlist', async () => {
+    // An allowlisted CDN redirecting elsewhere — an open redirect, or a
+    // compromised one — used to deliver code from a forbidden host, because
+    // only the first URL was checked. The lockfile then pinned that content
+    // under the allowed URL, laundering it.
+    const evil = await serve((_req, res) => res.end('export const OWNED = true;'));
+    const good = await serve((_req, res) => {
+      res.writeHead(302, { location: `http://localhost:${evil.port}/evil.js` });
+      res.end();
+    });
+
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-redirect-'));
+
+    try {
+      const verifier = new ModuleIntegrityVerifier(dir, {
+        mode: 'lockfile',
+        allowedHosts: ['127.0.0.1'],
+      });
+      const fetcher = new ModuleFetcher(
+        { get: async () => undefined, set: async () => {} } as never,
+        verifier
+      );
+
+      await expect(
+        fetcher.fetch(`http://127.0.0.1:${good.port}/mod.js`, { retries: 0 })
+      ).rejects.toThrow(/unlisted host: localhost/);
+    } finally {
+      evil.stop();
+      good.stop();
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

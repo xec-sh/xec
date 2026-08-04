@@ -71,7 +71,13 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   }
 
   /**
-   * Helper method to emit adapter events
+   * Emit an adapter event with its command redacted.
+   *
+   * The engine-level events (`command:start` and friends) already mask, but
+   * adapter events did not, so `ssh:execute`, `docker:exec`, `k8s:exec` and
+   * `command:retry` published the raw command string. Since the obvious
+   * reason to subscribe to these is logging, telemetry or audit, a secret in
+   * a command line went straight to the sink an integrator trusts most.
    */
   protected emitAdapterEvent<K extends keyof UshEventMap>(
     event: K,
@@ -80,8 +86,14 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     // Skip if no listeners (performance optimization)
     if (!this.listenerCount(event)) return;
 
+    const payload = data as { command?: unknown };
+    const masked =
+      typeof payload.command === 'string'
+        ? { ...data, command: this.maskSensitiveData(payload.command) }
+        : data;
+
     this.emit(event, {
-      ...data,
+      ...masked,
       timestamp: new Date(),
       adapter: this.adapterName
     } as UshEventMap[K]);

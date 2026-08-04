@@ -41,6 +41,24 @@ export function createDefaultSensitivePatterns(): RegExp[] {
   /\b([A-Z][A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY|API_KEY)[A-Z0-9_]*)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi,
   // Generic secret patterns
   /\b(secret|client[_-]?secret)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi,
+  // Credentials embedded in a URL: postgres://user:pw@host, redis://, mongodb+srv://…
+  /([a-z][a-z0-9+.-]*:\/\/[^\s:/@]+):([^\s@]+)@/gi,
+  // Provider-issued tokens, matched by their documented prefixes.
+  /\bAIza[0-9A-Za-z_-]{20,}/g,
+  /\bxox[abposr]-[0-9A-Za-z-]{10,}/gi,
+  /\b(?:sk|pk|rk)_(?:live|test)_[0-9A-Za-z]{10,}/g,
+  /\bglpat-[0-9A-Za-z_-]{16,}/g,
+  /\bnpm_[0-9A-Za-z]{30,}/g,
+  /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g,
+  // Deliberately NOT matched: a bare 40-character AWS secret. It has no
+  // prefix to key off, and a pattern broad enough to catch it also redacts
+  // every git SHA in the output — verified. Corrupting real output is worse
+  // than missing a key that only appears without any surrounding context;
+  // assigned to a variable or a URL, it is caught by the rules above.
+  // Basic-auth on a command line: curl -u user:password
+  /(-u|--user)(\s+)([^\s:]+):([^\s]+)/g,
+  // Any PEM private key, not just the four algorithms listed below.
+  /-----BEGIN[^-]*PRIVATE KEY(?: BLOCK)?-----[\s\S]+?-----END[^-]*PRIVATE KEY(?: BLOCK)?-----/gi,
   // Standalone Bearer tokens
   /\b(Bearer)(\s+)([a-zA-Z0-9_\-/.]+)/gi
   ];
