@@ -77,8 +77,9 @@ function assertTaggedTemplate(strings: unknown, method: 'run' | 'raw'): void {
       `not as $.${method}(...). ` +
       (typeof strings === 'string'
         ? `Passing a command string directly interleaves the remaining arguments ` +
-          `between its characters. Use $.execute({ command, ...options }), ` +
-          `$\`\${command}\`, or $.${method}([command]) instead.`
+          `between its characters. Use $.exec(command, options) for a command ` +
+          `you already have as a string, or $\`\${command}\` to interpolate ` +
+          `values safely.`
         : `Received ${Object.prototype.toString.call(strings)}.`)
   );
 }
@@ -387,6 +388,49 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     };
 
     return this.createDeferredProcessPromise(deferredCommand);
+  }
+
+  /**
+   * Run a command that is already a string, with the full chaining API.
+   *
+   * The tagged-template form assumes the command is written as a literal, but
+   * in practice commands arrive as strings — from a config file, a database
+   * row, or an agent. Those callers previously had to choose between
+   * `execute()`, which returns a bare promise and loses `.nothrow()`,
+   * `.quiet()` and `.pipe()`, or smuggling the string through the template
+   * tag. This is the first-class path for that case.
+   *
+   * The string is passed to the shell verbatim — it is the caller's command,
+   * not a template — so build it from trusted input, or interpolate values
+   * with `` $`…` `` which escapes them.
+   *
+   * @param command - The command line to run.
+   * @param options - Per-command overrides such as `cwd`, `env` or `timeout`.
+   * @returns A chainable process promise, exactly as `` $`…` `` returns.
+   *
+   * @example
+   * ```typescript
+   * const command = task.command;            // a string from config
+   * const result = await $.exec(command, { cwd: repo }).nothrow();
+   *
+   * if (!result.ok) {
+   *   console.error(result.stderr);
+   * }
+   * ```
+   */
+  exec(command: string, options: Partial<Command> = {}): ProcessPromise {
+    if (typeof command !== 'string') {
+      throw new TypeError(
+        `$.exec expects a command string; received ${Object.prototype.toString.call(command)}. ` +
+          'To interpolate values safely, use $`command ${value}`.'
+      );
+    }
+
+    return this.createDeferredProcessPromise(async () => ({
+      ...options,
+      command,
+      shell: options.shell ?? this.currentConfig.shell ?? true,
+    }));
   }
 
   // Raw template literal support (no escaping)

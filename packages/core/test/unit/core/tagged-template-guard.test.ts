@@ -34,7 +34,9 @@ describe('tagged-template misuse is rejected', () => {
       message = (error as Error).message;
     }
 
-    expect(message).toContain('$.execute(');
+    // Point at exec(), which keeps the chaining API, rather than execute(),
+    // which returns a bare promise.
+    expect(message).toContain('$.exec(');
     expect(message).toContain('tagged template');
   });
 

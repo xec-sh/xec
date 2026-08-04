@@ -15,6 +15,14 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
 
   // Override methods that return CallableExecutionEngine instead of ExecutionEngine
   with(config: Partial<Command>): CallableExecutionEngine;
+  /**
+   * Run a command that is already a string, with the full chaining API.
+   *
+   * The first-class path for commands that arrive from config, a database or
+   * an agent rather than being written as a template literal.
+   */
+  exec(command: string, options?: Partial<Command>): ProcessPromise;
+
   /** Target an SSH host by `[user@]host[:port]` shorthand or full options. */
   ssh(target: string | Omit<SSHAdapterOptions, 'type'>): SSHExecutionContext;
   docker(options: DockerOptions): CallableExecutionEngine;
