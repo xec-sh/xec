@@ -33,7 +33,6 @@ describe('Configuration Defaults', () => {
         timeout: 60000
       });
       expect(defaults.targets?.defaults?.docker).toMatchObject({
-        workdir: '/app',
         tty: true,
         interactive: true
       });
@@ -176,7 +175,9 @@ describe('Configuration Defaults', () => {
 
       expect(merged.targets.defaults.ssh.port).toBe(2222); // Overridden
       expect(merged.targets.defaults.ssh.keepAlive).toBe(true); // From defaults
-      expect(merged.targets.defaults.docker.workdir).toBe('/app'); // From defaults
+      // No default workdir: `/app` exists in some images and not most, and
+      // it maps to `docker exec -w`, so it broke every container without it.
+      expect(merged.targets.defaults.docker.workdir).toBeUndefined(); // From defaults
     });
 
     it('should preserve arrays from config', () => {
@@ -261,8 +262,9 @@ describe('Configuration Defaults', () => {
     it('should handle nested paths correctly', () => {
       const defaults = getDefaultConfig();
 
-      expect(isDefaultValue('targets.defaults.docker.workdir', '/app', defaults)).toBe(true);
-      expect(isDefaultValue('targets.defaults.docker.workdir', '/custom', defaults)).toBe(false);
+      // There is no default docker workdir, so any value is a user's choice.
+      expect(isDefaultValue('targets.defaults.docker.workdir', '/app', defaults)).toBe(false);
+      expect(isDefaultValue('targets.defaults.docker.tty', true, defaults)).toBe(true);
       expect(isDefaultValue('commands.logs.tail', '50', defaults)).toBe(true);
       expect(isDefaultValue('commands.logs.tail', '100', defaults)).toBe(false);
     });

@@ -85,7 +85,12 @@ export function getDefaultConfig(): DefaultConfig {
           timeout: 60000
         },
         docker: {
-          workdir: '/app',
+          // No default workdir. `/app` is a convention of some images and a
+          // directory that does not exist in most, and the adapter maps it to
+          // `docker exec -w`, so every container without `/app` failed with
+          // "chdir to cwd (\"/app\") failed" — including the documented
+          // `xec in <container> <command>`. A container's own WORKDIR is the
+          // right default, and it is the one Docker already applies.
           tty: true,
           interactive: true
         },

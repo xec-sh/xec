@@ -4,11 +4,19 @@ import { Command } from 'commander';
 import { fileURLToPath } from 'url';
 import { join, dirname } from 'path';
 import { checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
-import { handleError , TaskManager, isDirectCommand , ConfigurationManager, executeDirectCommand } from '@xec-sh/ops';
+/**
+ * Loaded on demand rather than at import time.
+ *
+ * `@xec-sh/ops` pulls in the whole configuration, task and secrets
+ * machinery — measured at 110ms of a 272ms `xec --help`. Printing help or a
+ * version needs none of it, so it is imported at the first point that
+ * genuinely does.
+ */
+const loadOps = () => import('@xec-sh/ops');
 
 import { customizeHelp } from './utils/help-customizer.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
-import { saveCommandHistory, initializeCommandPalette } from './utils/command-palette.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -71,13 +79,28 @@ export async function loadCommands(program: Command): Promise<string[]> {
 export async function run(argv: string[] = process.argv): Promise<void> {
   const program = createProgram();
 
-  // Initialize v2.0 configuration system
-  const configManager = new ConfigurationManager();
-  const taskManager = new TaskManager({ configManager });
-  await taskManager.load();
+  /**
+   * The task manager, built and loaded on first use.
+   *
+   * Constructing it eagerly meant every invocation — including `--help` and
+   * `--version` — paid for the ops import plus a config-file read. Only the
+   * paths that actually consult tasks need it.
+   */
+  let taskManagerPromise: ReturnType<typeof buildTaskManager> | null = null;
+  const buildTaskManager = async () => {
+    const { TaskManager, ConfigurationManager } = await loadOps();
+    const manager = new TaskManager({ configManager: new ConfigurationManager() });
+    await manager.load();
+    return manager;
+  };
+  const tasks = () => (taskManagerPromise ??= buildTaskManager());
 
-  // Initialize command palette
-  await initializeCommandPalette();
+  // The command palette's history is deliberately not loaded here. Nothing
+  // in the CLI displays the palette — `CommandPalette.show()` has no caller —
+  // so reading and writing that history cost every invocation ~50ms (the
+  // module statically imports @xec-sh/ops) to serve a feature that never
+  // renders. The module stays; wire these back in at the point the palette is
+  // actually shown.
 
   // Module loader is initialized lazily when needed by commands
 
@@ -139,7 +162,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     }
 
     // Check if this is a task execution (but not a registered command)
-    if (firstArg && !firstArg.startsWith('-') && !commandNames.includes(firstArg) && await taskManager.exists(firstArg)) {
+    if (firstArg && !firstArg.startsWith('-') && !commandNames.includes(firstArg) && await (await tasks()).exists(firstArg)) {
       // This is a task
       const taskName = firstArg;
       const taskArgs = args.slice(1);
@@ -175,13 +198,14 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
       // Execute the task
       try {
-        const result = await taskManager.run(taskName, params);
+        const result = await (await tasks()).run(taskName, params);
 
         if (!result.success) {
           console.error(`Task '${taskName}' failed`);
           process.exit(1);
         }
       } catch (error) {
+        const { handleError } = await loadOps();
         handleError(error, {
           verbose: args.includes('-v') || args.includes('--verbose'),
           quiet: args.includes('-q') || args.includes('--quiet'),
@@ -193,12 +217,20 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       return;
     }
 
-    // Get task names for command detection
-    const taskList = await taskManager.list();
-    const taskNames = taskList.map((t: any) => t.name);
+    // A bare `--help`, `--version` or a known command needs neither the task
+    // list nor the direct-execution machinery; loading them here made every
+    // invocation pay for both.
+    const mayBeDirect =
+      args.length > 0 &&
+      !args.every(arg => arg.startsWith('-')) &&
+      !commandNames.includes(args[0]!);
 
-    // Check if this is a direct command execution
-    if (args.length > 0 && isDirectCommand(args, commandNames, taskNames)) {
+    if (mayBeDirect) {
+      const taskList = await (await tasks()).list();
+      const taskNames = taskList.map((t: any) => t.name);
+      const { isDirectCommand, executeDirectCommand } = await loadOps();
+
+      if (isDirectCommand(args, commandNames, taskNames)) {
       const options = {
         verbose: args.includes('-v') || args.includes('--verbose'),
         quiet: args.includes('-q') || args.includes('--quiet'),
@@ -219,8 +251,9 @@ export async function run(argv: string[] = process.argv): Promise<void> {
         (arg.startsWith('-') && !['--verbose', '-v', '--quiet', '-q'].includes(arg))
       );
 
-      await executeDirectCommand(cleanArgs, options);
-      return;
+        await executeDirectCommand(cleanArgs, options);
+        return;
+      }
     }
 
     // Commands already loaded above
@@ -251,9 +284,9 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     await program.parseAsync(argv);
 
     // Save command history on exit
-    await saveCommandHistory();
   } catch (error) {
     // Use enhanced error handler
+    const { handleError } = await loadOps();
     handleError(error, {
       verbose: program.opts()['verbose'],
       quiet: program.opts()['quiet'],

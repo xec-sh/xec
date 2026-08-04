@@ -4,10 +4,11 @@ import fs from 'node:fs/promises';
 async function pathExists(p: string): Promise<boolean> {
   try { await fs.access(p); return true; } catch { return false; }
 }
+import type { ScriptLoader } from '@xec-sh/ops';
+
 import { log } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
-import { ScriptLoader, getScriptLoader } from '@xec-sh/ops';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,17 +29,33 @@ export class CliCommandManager {
   private commands: Map<string, CliCommand> = new Map();
   private registry: CommandRegistry = new CommandRegistry();
   private commandDirs: string[] = [];
-  private scriptLoader: ScriptLoader;
+  private scriptLoader: ScriptLoader | null = null;
   private initialized = false;
 
   constructor() {
     this.initializeCommandDirs();
-    // Use singleton ScriptLoader to ensure global context is shared
-    this.scriptLoader = getScriptLoader({
-      verbose: process.env['XEC_DEBUG'] === 'true',
-      preferredCDN: 'esm.sh',
-      cache: true
-    });
+  }
+
+  /**
+   * The shared script loader, built on first use.
+   *
+   * Constructing it in the constructor made `@xec-sh/ops` a static import of
+   * this module, and this module is loaded to register commands — so every
+   * invocation, `xec --help` included, paid ~137ms for machinery only a
+   * dynamic command actually needs.
+   *
+   * @returns The singleton loader, so global script context stays shared.
+   */
+  private async getLoader(): Promise<ScriptLoader> {
+    if (!this.scriptLoader) {
+      const { getScriptLoader } = await import('@xec-sh/ops');
+      this.scriptLoader = getScriptLoader({
+        verbose: process.env['XEC_DEBUG'] === 'true',
+        preferredCDN: 'esm.sh',
+        cache: true
+      });
+    }
+    return this.scriptLoader;
   }
 
   /**
@@ -240,7 +257,7 @@ export class CliCommandManager {
     }
 
     for (const cmd of dynamicCommands) {
-      const result = await this.scriptLoader.loadDynamicCommand(
+      const result = await (await this.getLoader()).loadDynamicCommand(
         cmd.path,
         program,
         cmd.name
