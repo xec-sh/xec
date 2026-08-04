@@ -7,20 +7,22 @@
     </linearGradient>
   </defs>
 
-  <!-- Four paths crossing one point: the X of "Xec", and the four
-       environments reached through a single API. Symmetrical on both axes, so
-       it holds together down to 16px — the previous mark put a 3.4-wide caret
-       against 1.8-wide fan-out strokes, which read as lopsided at any size and
-       collapsed into noise in a favicon. -->
-  <g stroke="url(#xecMark)" fill="none" stroke-width="3.2" stroke-linecap="round">
+  <!-- Four routes crossing one point: the X of "Xec", and the four
+       environments reached through a single API. The terminals are squares
+       turned onto the diagonal, so they sit along the axis of the stroke they
+       end rather than fighting it. Symmetrical on both axes and a single
+       stroke weight, which is what lets it hold at 16px — the previous mark
+       set a 3.4-wide caret against 1.8-wide fan-out strokes and collapsed
+       into a smudge in a favicon. -->
+  <g stroke="url(#xecMark)" fill="none" stroke-width="2.8">
     <path d="M7.5 7.5 L24.5 24.5"/>
     <path d="M24.5 7.5 L7.5 24.5"/>
   </g>
 
   <g fill="url(#xecMark)">
-    <circle cx="7.5" cy="7.5" r="2.7"/>
-    <circle cx="24.5" cy="7.5" r="2.7"/>
-    <circle cx="7.5" cy="24.5" r="2.7"/>
-    <circle cx="24.5" cy="24.5" r="2.7"/>
+    <rect x="4.5" y="4.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 7.5 7.5)"/>
+    <rect x="21.5" y="4.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 24.5 7.5)"/>
+    <rect x="4.5" y="21.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 7.5 24.5)"/>
+    <rect x="21.5" y="21.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 24.5 24.5)"/>
   </g>
 </svg>

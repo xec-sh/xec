@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512" role="img" aria-label="Xec">
   <title>Xec</title>
   <defs>
-    <linearGradient id="xecFaviconMark" x1="7" y1="25" x2="25" y2="7" gradientUnits="userSpaceOnUse">
+    <linearGradient id="xecFaviconMark" x1="6" y1="26" x2="26" y2="6" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#A78BFA"/>
       <stop offset="1" stop-color="#4EE2F5"/>
     </linearGradient>
@@ -11,15 +11,22 @@
        browser chrome, where a transparent glyph would wash out. -->
   <rect width="32" height="32" rx="7.5" fill="#12101C"/>
 
-  <g stroke="url(#xecFaviconMark)" fill="none" stroke-width="3" stroke-linecap="round">
-    <path d="M9.5 9.5 L22.5 22.5"/>
-    <path d="M22.5 9.5 L9.5 22.5"/>
+  <!-- Four routes crossing one point: the X of "Xec", and the four
+       environments reached through a single API. The terminals are squares
+       turned onto the diagonal, so they sit along the axis of the stroke they
+       end rather than fighting it. Symmetrical on both axes and a single
+       stroke weight, which is what lets it hold at 16px — the previous mark
+       set a 3.4-wide caret against 1.8-wide fan-out strokes and collapsed
+       into a smudge in a favicon. -->
+  <g stroke="url(#xecFaviconMark)" fill="none" stroke-width="2.8">
+    <path d="M9.2 9.2 L22.8 22.8"/>
+    <path d="M22.8 9.2 L9.2 22.8"/>
   </g>
 
   <g fill="url(#xecFaviconMark)">
-    <circle cx="9.5" cy="9.5" r="2.5"/>
-    <circle cx="22.5" cy="9.5" r="2.5"/>
-    <circle cx="9.5" cy="22.5" r="2.5"/>
-    <circle cx="22.5" cy="22.5" r="2.5"/>
+    <rect x="6.5" y="6.5" width="5.4" height="5.4" rx="0.8" transform="rotate(45 9.2 9.2)"/>
+    <rect x="20.1" y="6.5" width="5.4" height="5.4" rx="0.8" transform="rotate(45 22.8 9.2)"/>
+    <rect x="6.5" y="20.1" width="5.4" height="5.4" rx="0.8" transform="rotate(45 9.2 22.8)"/>
+    <rect x="20.1" y="20.1" width="5.4" height="5.4" rx="0.8" transform="rotate(45 22.8 22.8)"/>
   </g>
 </svg>
