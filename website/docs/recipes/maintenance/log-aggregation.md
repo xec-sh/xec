@@ -31,11 +31,13 @@ Xec provides unified log management across all execution targets, with built-in 
 // aggregate-logs.ts
 import { $ } from '@xec-sh/core';
 
-// Stream logs from multiple sources
+// Stream logs from multiple sources — `docker logs` / `kubectl logs` are
+// commands you run against the container/pod, not commands run inside it,
+// so these go through the local engine rather than $.docker()/$.k8s()
 await Promise.all([
   $.ssh('web-1')`tail -f /var/log/nginx/access.log`,
-  $.docker({ container: 'app-container' })`logs --follow`,
-  $.k8s('pod/api-server')`logs --follow`
+  $`docker logs -f app-container`,
+  $`kubectl logs -f pod/api-server`
 ]);
 ```
 
