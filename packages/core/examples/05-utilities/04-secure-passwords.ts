@@ -64,7 +64,7 @@ function passwordPrompt(prompt: string): Promise<string> {
 
 // 1. Простой ввод пароля
 console.log('=== Ввод пароля ===');
-const password1 = await passwordPrompt('Enter password: ');
+await passwordPrompt('Enter password: ');
 console.log('Пароль введён (скрыт)');
 
 // 2. Ввод пароля с подтверждением
@@ -117,8 +117,8 @@ console.log('Подключение выполнено с использован
 // 4. Безопасная работа с SSH
 console.log('\n=== SSH с паролем ===');
 
-// В реальном приложении пароль вводится интерактивно
-const sshPassword = 'demo-password'; // await passwordPrompt('SSH Password: ');
+// В реальном приложении пароль вводится интерактивно:
+//   const password = await passwordPrompt('SSH Password: ');
 
 // ВАЖНО: SSH адаптер в @xec-sh/core не поддерживает парольную аутентификацию напрямую
 // Используйте SSH ключи для безопасности
@@ -142,7 +142,7 @@ try {
   const askpassPath = await secureHandler.createAskPassScript(sudoPassword);
   
   // Создаём безопасное окружение
-  const secureEnv = secureHandler.createSecureEnv(askpassPath);
+  secureHandler.createSecureEnv(askpassPath);
   
   // Используем с SSH (если бы sudo был поддержан)
   console.log('Askpass скрипт создан:', askpassPath);

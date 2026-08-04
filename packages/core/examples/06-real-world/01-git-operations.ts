@@ -189,7 +189,7 @@ echo "Все проверки пройдены!"
   const commitMsgHook = `#!/bin/sh
 # Проверка формата сообщения коммита
 
-commit_regex='^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .{1,50}'
+commit_regex='^(feat|fix|docs|style|refactor|test|chore)((.+))?: .{1,50}'
 
 if ! grep -qE "$commit_regex" "$1"; then
   echo "Ошибка: неправильный формат сообщения коммита!"

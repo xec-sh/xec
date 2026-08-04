@@ -318,7 +318,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       const engine = new ExecutionEngine();
       
       // Create multiple temp files
-      const tempFiles = await Promise.all(
+      await Promise.all(
         Array.from({ length: 5 }, () => engine.tempFile())
       );
       
@@ -339,7 +339,7 @@ describe('ExecutionEngine Disposable functionality', () => {
       const engine = new ExecutionEngine();
       
       // Create temp directories
-      const tempDirs = await Promise.all(
+      await Promise.all(
         Array.from({ length: 3 }, () => engine.tempDir())
       );
       
@@ -457,8 +457,6 @@ describe('ExecutionEngine Disposable functionality', () => {
       const engine = new ExecutionEngine();
       
       // Access lazy-loaded utilities to ensure they're created
-      const parallel = engine.parallel;
-      const transfer = engine.transfer;
       
       const enginePrivate = engine as any;
       expect(enginePrivate._parallel).toBeDefined();

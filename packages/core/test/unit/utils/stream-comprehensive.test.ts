@@ -8,8 +8,6 @@ import {
 } from '../../../src/utils/stream.js';
 
 describe('Stream Utilities Comprehensive Tests', () => {
-  let consoleLogSpy: any;
-  let consoleErrorSpy: any;
 
   beforeEach(() => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

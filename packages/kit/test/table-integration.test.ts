@@ -557,7 +557,7 @@ describe('table-integration', () => {
       // Perform operations
       state = updateFilterQuery(state, 'test', options);
       state = toggleSort(state, 'name', options);
-      state = clearSort(state, options);
+      clearSort(state, options);
 
       // Original data should be unchanged
       expect(JSON.stringify(originalData)).toBe(JSON.stringify(originalCopy));

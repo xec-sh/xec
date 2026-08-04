@@ -247,7 +247,7 @@ describe('Progress Utility Comprehensive Tests', () => {
     it('should remove progress bars', () => {
       const multi = new MultiProgress();
       
-      const bar1 = multi.create('bar1', { total: 100 });
+      multi.create('bar1', { total: 100 });
       const bar2 = multi.create('bar2', { total: 100 });
       
       multi.remove('bar1');

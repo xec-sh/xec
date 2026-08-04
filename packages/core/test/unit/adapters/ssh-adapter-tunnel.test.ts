@@ -536,7 +536,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         remotePort: 22
       });
 
-      const tunnel2 = await adapter.tunnel({
+      await adapter.tunnel({
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22

@@ -185,7 +185,6 @@ if (isWatch) {
   console.log('\n👀 Watching for changes...');
 
   const { watch } = await import('fs');
-  const { join } = await import('path');
 
   const srcDir = join(rootDir, 'src');
   const watcher = watch(srcDir, { recursive: true }, (eventType, filename) => {

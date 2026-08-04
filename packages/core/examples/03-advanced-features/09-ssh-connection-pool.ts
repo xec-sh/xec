@@ -39,12 +39,12 @@ if (sshConfig.host === 'example.com') {
 // 1. Connection pooling is enabled by default
 console.log('1. Basic connection pooling:');
 console.time('First SSH command');
-const result1 = await $.ssh(sshConfig)`echo "First command"`;
+await $.ssh(sshConfig)`echo "First command"`;
 console.timeEnd('First SSH command');
 
 // Second command reuses the connection (much faster)
 console.time('Second SSH command (reused connection)');
-const result2 = await $.ssh(sshConfig)`echo "Second command"`;
+await $.ssh(sshConfig)`echo "Second command"`;
 console.timeEnd('Second SSH command (reused connection)');
 
 console.log('Connection was reused for better performance');

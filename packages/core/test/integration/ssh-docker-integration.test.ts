@@ -299,7 +299,6 @@ describeSSH('SSH Docker Integration Tests', () => {
   describe('Retry Mechanism Tests', () => {
     testEachPackageManager('should retry failed commands', async (container) => {
       const $ssh = $.ssh(getSSHConfig(container.name));
-      const attemptCount = 0;
 
       const $retry = $ssh.retry({
         maxRetries: 3,

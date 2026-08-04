@@ -100,7 +100,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
       );
 
       const manager = new ConfigurationManager({ projectRoot: tempDir });
-      const loaded = await manager.load();
+      await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
       await taskManager.load();
@@ -139,7 +139,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
       );
 
       const manager = new ConfigurationManager({ projectRoot: tempDir });
-      const loaded = await manager.load();
+      await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
       await taskManager.load();
@@ -543,7 +543,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
       );
 
       const manager = new ConfigurationManager({ projectRoot: tempDir });
-      const loaded = await manager.load();
+      await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
       await taskManager.load();

@@ -6,7 +6,6 @@ import type { Configuration } from '../../../src/config/types.js';
 
 import * as os from 'os';
 import * as path from 'path';
-import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 
 import { TargetResolver } from '../../../src/config/target-resolver.js';
@@ -1581,7 +1580,6 @@ Host *
         };
 
         // Test the logic when compose returns empty results
-        const originalShell = $.shell;
 
         // Create a test that validates the compose service structure without calling real docker
         class TestResolver extends TargetResolver {

@@ -393,7 +393,6 @@ describe('GitSecretProvider', () => {
     describe('team member management', () => {
       let teamProvider: GitSecretProvider;
       let memberPublicKey: string;
-      let memberPrivateKey: string;
 
       beforeEach(async () => {
         teamProvider = new GitSecretProvider({

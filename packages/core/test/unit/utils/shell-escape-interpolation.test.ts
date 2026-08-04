@@ -68,7 +68,7 @@ describe('shell-escape interpolation', () => {
 
         for (const { input, expected, description } of testCases) {
           const result = interpolate(createTemplateStringsArray(['echo ', '']), input);
-          expect(result).toBe(`echo ${expected}`);
+          expect(result, description).toBe(`echo ${expected}`);
           
           // Verify that [object Object] is never present
           expect(result).not.toContain('[object Object]');
@@ -150,7 +150,7 @@ describe('shell-escape interpolation', () => {
 
         for (const { input, expected, description } of testCases) {
           const result = interpolate(createTemplateStringsArray(['echo ', '']), input);
-          expect(result).toBe(`echo ${expected}`);
+          expect(result, description).toBe(`echo ${expected}`);
           expect(result).not.toContain('[object Object]');
         }
       });

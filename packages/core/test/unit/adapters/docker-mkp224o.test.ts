@@ -11,17 +11,6 @@ const isDockerAvailable = async (): Promise<boolean> => {
   }
 };
 
-// Skip these tests if Docker is not available
-const describeIfDocker = (name: string, fn: () => void) => {
-  isDockerAvailable().then((available) => {
-    if (!available) {
-      describe.skip(name, fn);
-    } else {
-      describe(name, fn);
-    }
-  });
-};
-
 describe('Docker ephemeral container name conflicts', () => {
   const testImage: string = 'alpine:latest';
   let dockerAvailable = false;

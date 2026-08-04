@@ -2,12 +2,11 @@ import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach 
 
 import * as prompts from '../src/index.js';
 import { prism as colors } from '../src/index.js';
-import { MockReadable, MockWritable } from './test-utils.js';
+import { MockWritable } from './test-utils.js';
 
 describe.each(['true', 'false'])('table (isCI = %s)', (isCI) => {
   let originalCI: string | undefined;
   let output: MockWritable;
-  let input: MockReadable;
 
   beforeAll(() => {
     originalCI = process.env['CI'];
@@ -20,7 +19,6 @@ describe.each(['true', 'false'])('table (isCI = %s)', (isCI) => {
 
   beforeEach(() => {
     output = new MockWritable();
-    input = new MockReadable();
   });
 
   afterEach(() => {

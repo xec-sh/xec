@@ -207,7 +207,7 @@ async function main() {
   // Example 7: Full-featured REPL setup
   console.log('Example 7: Full-featured REPL setup');
 
-  const runtime = new ScriptRuntime();
+  new ScriptRuntime();
   const fullCommands = createBuiltinCommands();
 
   // Add domain-specific commands

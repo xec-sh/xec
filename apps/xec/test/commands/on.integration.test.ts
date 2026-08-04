@@ -114,7 +114,7 @@ describe('On Command - Real SSH Integration', () => {
       );
 
       // Create a test file to verify command execution
-      const testFile = path.join(tempDir, 'test-output.txt');
+      path.join(tempDir, 'test-output.txt');
 
       // Execute command that writes to a file
       // Pass arguments in the format expected by execute method

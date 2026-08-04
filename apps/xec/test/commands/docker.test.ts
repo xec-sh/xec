@@ -9,9 +9,7 @@ const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 // Strip ANSI escapes and spinner control characters from CLI output
 function clean(text: string): string {
   return text
-    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
-    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0b-\x1f]/g, '');
 }
 

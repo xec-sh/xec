@@ -17,7 +17,6 @@ describeIfK8s('KubernetesAdapter Enhanced Tests', () => {
   let adapter: KubernetesAdapter;
   let cluster: KindClusterManager;
   let kubeConfigPath: string;
-  let clusterReady = false;
 
   beforeAll(async () => {
     // Create kind cluster with unique name to avoid conflicts
@@ -551,7 +550,7 @@ spec:
   containers:
   - name: main
     image: alpine:3.18
-    command: ['sh', '-c', 'while true; do echo \"${name} is running\"; sleep 10; done']
+    command: ['sh', '-c', 'while true; do echo "${name} is running"; sleep 10; done']
 `;
 
     // Deploy web pods using cluster helper

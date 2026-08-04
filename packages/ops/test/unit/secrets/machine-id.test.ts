@@ -206,17 +206,18 @@ describe('Machine ID Module', () => {
       const start1 = Date.now();
       await getCachedMachineId();
       const firstCallDuration = Date.now() - start1;
-      
+
       // Subsequent calls should be very fast (< 1ms)
       const start2 = Date.now();
       for (let i = 0; i < 100; i++) {
         await getCachedMachineId();
       }
       const cachedCallsDuration = Date.now() - start2;
-      
+
       // 100 cached calls should be much faster than the first call
       // and definitely less than 10ms total
       expect(cachedCallsDuration).toBeLessThan(10);
+      expect(cachedCallsDuration).toBeLessThanOrEqual(Math.max(firstCallDuration, 10));
     });
   });
 
@@ -251,13 +252,11 @@ describe('Machine ID Module', () => {
 
     it('should handle network interface enumeration', async () => {
       const interfaces = os.networkInterfaces();
-      let hasValidInterface = false;
-      
+
       for (const [name, ifaces] of Object.entries(interfaces)) {
         if (name === 'lo') continue;
         for (const iface of ifaces || []) {
           if (iface.mac && iface.mac !== '00:00:00:00:00:00') {
-            hasValidInterface = true;
             expect(iface.mac).toMatch(/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/);
           }
         }
@@ -330,7 +329,7 @@ describe('Machine ID Module', () => {
         { platform: os.platform(), hostname: 'very-long-hostname-with-many-characters' }
       ];
       
-      for (const config of configs) {
+      for (const _config of configs) {
         // Each configuration should produce a valid UUID
         const id = await getMachineId();
         expect(id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-5[a-f0-9]{3}-[a-f0-9]{4}-[a-f0-9]{12}$/);

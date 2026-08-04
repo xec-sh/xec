@@ -381,7 +381,6 @@ describeSSH('SSH Performance and Stress Tests', () => {
       });
 
       try {
-        const attemptCount = 0;
 
         // Create a command that fails first time
         const testFile = `/tmp/recovery-test-${Date.now()}`;

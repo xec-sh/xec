@@ -51,7 +51,7 @@ async function main() {
 
   console.log('   Fetching same module again...');
   const startFetch2 = Date.now();
-  const result2 = await fetcher.fetch('https://esm.sh/nanoid@5.0.0');
+  await fetcher.fetch('https://esm.sh/nanoid@5.0.0');
   const timeFetch2 = Date.now() - startFetch2;
   console.log(`   Second fetch: ${timeFetch2}ms (from cache)`);
   console.log(`   Speed improvement: ${Math.round((timeFetch1 / timeFetch2) * 10) / 10}x faster`);

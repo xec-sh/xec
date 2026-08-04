@@ -156,7 +156,7 @@ describe('Unified Execution Engine - Integration Tests', () => {
   describe('Utility methods', () => {
     it('should check command availability', async () => {
       const engine = new ExecutionEngine();
-      const $ = createCallableEngine(engine);
+      createCallableEngine(engine);
       
       // 'echo' should be available on all platforms
       const isAvailable = await engine.isCommandAvailable('echo');

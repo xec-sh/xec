@@ -76,7 +76,6 @@ describe('Integration: REPL System', () => {
   describe('REPL Commands', () => {
     it('should register and execute custom commands', () => {
       const commands = new REPLCommands();
-      let executed = false;
 
       commands.register('test', 'Test command', function () {
         executed = true;

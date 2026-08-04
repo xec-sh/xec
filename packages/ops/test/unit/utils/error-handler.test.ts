@@ -3,7 +3,6 @@ import * as kit from '@xec-sh/kit';
 import { ValidationError } from '../../../src/utils/validation.js';
 import {
   XecError,
-  CommandOptions,
   TaskError,
   ModuleError,
   RecipeError,
@@ -11,6 +10,7 @@ import {
   NetworkError,
   TimeoutError,
   errorMessages,
+  CommandOptions,
   FileSystemError,
   withErrorHandling,
   ConfigurationError,
@@ -21,8 +21,7 @@ import {
 const mockConsoleError = vi.spyOn(console, 'error').mockImplementation();
 
 // Track process.exit calls without actually exiting
-let processExitCode: number | undefined;
-const mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
+vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
   processExitCode = code;
   // Throw to prevent further execution in tests
   throw new Error(`Process exited with code: ${code}`);

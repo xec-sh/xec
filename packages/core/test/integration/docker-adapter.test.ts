@@ -324,7 +324,6 @@ describeIfDocker('DockerAdapter Integration Tests', () => {
     });
 
     it('should work with retry', async () => {
-      const attempt = 0;
       const $docker = $.docker({ container: TEST_CONTAINER })
         .retry({ maxRetries: 2 });
 

@@ -143,13 +143,14 @@ for (const step of steps) {
     case 'Preparation':
       await $testPod`cd /app && npm ci`;
       break;
-    case 'Tests':
+    case 'Tests': {
       const testResult = await $testPod`cd /app && npm test`.nothrow();
       if (!testResult.ok) {
         console.error('Tests failed!');
         process.exit(1);
       }
       break;
+    }
     case 'Report':
       await $testPod`cd /app && npm run coverage`;
       break;

@@ -146,18 +146,20 @@ async function checkAssertion(assertion: ApiAssertion, response: any): Promise<A
       result.message = `Response time: expected <= ${assertion.expected}ms, got ${result.actual}ms`;
       break;
       
-    case 'jsonPath':
+    case 'jsonPath': {
       const value = getJsonPath(response.body, assertion.path);
       result.actual = value;
       result.passed = deepEqual(value, assertion.expected);
       result.message = `JSON path ${assertion.path}: expected ${JSON.stringify(assertion.expected)}, got ${JSON.stringify(result.actual)}`;
       break;
-      
-    case 'schema':
+    }
+
+    case 'schema': {
       const schemaValid = validateJsonSchema(response.body, assertion.schema);
       result.passed = schemaValid;
       result.message = schemaValid ? 'Schema validation passed' : 'Schema validation failed';
       break;
+    }
   }
   
   return result;
@@ -538,11 +540,11 @@ async function parseOpenApiSpec(specPath: string): Promise<ApiDocumentation> {
   
   const endpoints: ApiEndpointDoc[] = [];
   
-  for (const [path, methods] of Object.entries(spec.paths || {})) {
+  for (const [endpointPath, methods] of Object.entries(spec.paths || {})) {
     for (const [method, operation] of Object.entries(methods as any)) {
       if (['get', 'post', 'put', 'patch', 'delete'].includes(method)) {
         endpoints.push({
-          path,
+          path: endpointPath,
           method: method.toUpperCase(),
           summary: operation.summary || '',
           description: operation.description || '',
@@ -756,7 +758,7 @@ async function testHttps(baseUrl: string): Promise<SecurityTestResult> {
   
   // Проверяем SSL сертификат
   try {
-    const sslCheck = await $`curl -I ${baseUrl} 2>&1 | grep -i "SSL certificate"`;
+    await $`curl -I ${baseUrl} 2>&1 | grep -i "SSL certificate"`;
     result.passed = true;
     result.findings.push('HTTPS включен и работает корректно');
   } catch {
@@ -870,8 +872,8 @@ function generateSecurityReport(results: SecurityTestResult[]) {
 }
 
 // Утилиты
-function getJsonPath(obj: any, path: string): any {
-  const parts = path.split('.');
+function getJsonPath(obj: any, jsonPath: string): any {
+  const parts = jsonPath.split('.');
   let current = obj;
   
   for (const part of parts) {

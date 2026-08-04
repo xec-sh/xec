@@ -136,9 +136,9 @@ describe('SecurePasswordHandler', () => {
       const scriptPath = await handler.createAskPassScript('test-password');
       createdFiles.push(scriptPath);
       
-      // Extract the script ID and delete the password
-      const scriptId = scriptPath.match(/askpass-([a-f0-9]+)\.sh$/)![1];
-      
+      // The script name carries the id the handler looks the password up by.
+      expect(scriptPath).toMatch(/askpass-[a-f0-9]+\.sh$/);
+
       // Create a new handler (simulating lost password scenario)
       const newHandler = new SecurePasswordHandler();
       
@@ -208,7 +208,7 @@ describe('SecurePasswordHandler', () => {
       const password = SecurePasswordHandler.generatePassword();
       
       expect(password).toHaveLength(32);
-      expect(password).toMatch(/[A-Za-z0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/);
+      expect(password).toMatch(/[A-Za-z0-9!@#$%^&*()_+\-=[\]{}|;:,.<>?]/);
     });
     
     test('should generate password of specified length', () => {
@@ -251,7 +251,7 @@ describe('SecurePasswordHandler', () => {
     });
     
     test('should clear temp files set after cleanup', async () => {
-      const scriptPath = await handler.createAskPassScript('password');
+      await handler.createAskPassScript('password');
       
       await handler.cleanup();
       

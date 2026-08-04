@@ -181,7 +181,7 @@ async function conditionalCache(useCache: boolean) {
   return command;
 }
 
-const cached = await conditionalCache(true);
+await conditionalCache(true);
 const notCached1 = await conditionalCache(false);
 const notCached2 = await conditionalCache(false);
 

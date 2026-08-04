@@ -502,7 +502,6 @@ describeSSH('SSH File Transfer Tests', () => {
       const ssh = new SSHAdapter();
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
-      const sshOptions = { type: 'ssh' as const, ...sshConfig };
 
       try {
         await fs.mkdir(localTempDir, { recursive: true });

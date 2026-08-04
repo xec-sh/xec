@@ -75,7 +75,9 @@ tasks: {}
     if (testContainer) {
       try {
         await $`docker rm -f ${testContainer}`.nothrow();
-      } catch { }
+      } catch {
+        // Best effort: the container may already be gone.
+      }
     }
 
     // Clean up kind cluster
@@ -177,7 +179,7 @@ targets:
           done
         `.trim();
 
-        const containerId = await $`docker run -d --name ${containerName} alpine:latest sh -c ${script}`;
+        await $`docker run -d --name ${containerName} alpine:latest sh -c ${script}`;
 
         // Verify container is running
         const isRunning = await $`docker ps --format "{{.Names}}" | grep "^${containerName}$"`.nothrow();
@@ -812,7 +814,9 @@ targets:
             hostKeyChecking: sshConfig.hostKeyChecking,
             password: sshConfig.password
           })`rm -rf ${sshTestDir}`.nothrow();
-        } catch { }
+        } catch {
+        // Best effort: the container may already be gone.
+      }
       }
 
       // Stop container

@@ -193,7 +193,7 @@ describe('Pipe Implementation', () => {
         processedItems.push(item);
       };
 
-      const result = await executePipe(
+      await executePipe(
         Promise.resolve(sourceResult),
         itemProcessor,
         engine,

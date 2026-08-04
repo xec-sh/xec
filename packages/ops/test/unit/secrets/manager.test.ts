@@ -585,7 +585,6 @@ describe('SecretManager', () => {
       expect(await manager.has('api-key')).toBe(false);
       
       // Clean up
-      const fs = await import('fs/promises');
       await fs.rm(tempDir, { recursive: true, force: true });
     });
 

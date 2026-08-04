@@ -149,7 +149,7 @@ function debugEscaping(value: any) {
     console.log('Длина:', value.length);
     console.log('Содержит пробелы:', value.includes(' '));
     console.log('Содержит кавычки:', value.includes('"') || value.includes("'"));
-    console.log('Содержит спецсимволы:', /[$`!*?#&|<>(){}\[\];]/.test(value));
+    console.log('Содержит спецсимволы:', /[$`!*?#&|<>(){}[\];]/.test(value));
   }
   
   if (Array.isArray(value)) {

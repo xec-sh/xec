@@ -36,7 +36,7 @@ if (confirmed) {
 }
 
 // 2. Текстовый ввод с валидацией
-let username = '';
+let username: string;
 while (true) {
   username = await question('Введите имя пользователя: ');
   if (username.length >= 3) {
@@ -51,7 +51,7 @@ console.log(`Привет, ${username}!`);
 // Для настоящего скрытия пароля нужны дополнительные библиотеки
 console.log('Введите пароль: ');
 // В реальном приложении используйте специальные библиотеки для скрытия ввода
-const password = await question('');
+await question('');
 console.log('Пароль введён');
 
 // 4. Выбор из списка
@@ -60,8 +60,8 @@ console.log('1. development');
 console.log('2. staging');
 console.log('3. production');
 
-let environmentChoice = '';
-let environment = '';
+let environmentChoice: string;
+let environment: string;
 while (true) {
   environmentChoice = await question('Выберите (1-3): ');
   const choice = parseInt(environmentChoice);
@@ -96,7 +96,7 @@ console.log('\n=== Информация о проекте ===');
 
 const projectName = await question('Название проекта (my-project): ') || 'my-project';
 
-let projectVersion = '';
+let projectVersion: string;
 while (true) {
   projectVersion = await question('Версия (1.0.0): ') || '1.0.0';
   const semverRegex = /^\d+\.\d+\.\d+$/;
@@ -112,8 +112,8 @@ licenses.forEach((license, i) => {
   console.log(`${i + 1}. ${license}`);
 });
 
-let licenseChoice = '';
-let projectLicense = '';
+let licenseChoice: string;
+let projectLicense: string;
 while (true) {
   licenseChoice = await question('Выберите (1-5): ');
   const choice = parseInt(licenseChoice);
@@ -184,8 +184,8 @@ async function deploymentWizard() {
     console.log(`${i + 1}. ${server.name}`);
   });
   
-  let serverChoice = '';
-  let serverHost = '';
+  let serverChoice: string;
+  let serverHost: string;
   
   while (true) {
     serverChoice = await question('Выберите (1-4): ');
@@ -268,7 +268,7 @@ async function configureProject() {
   
   const appName = await question('Название приложения (MyApp): ') || 'MyApp';
   
-  let port = 3000;
+  let port: number;
   while (true) {
     const portInput = await question('Порт (3000): ') || '3000';
     port = parseInt(portInput);
@@ -285,7 +285,7 @@ async function configureProject() {
     console.log(`${i + 1}. ${db}`);
   });
   
-  let database = '';
+  let database: string;
   while (true) {
     const dbChoice = await question('Выберите (1-4): ');
     const choice = parseInt(dbChoice);

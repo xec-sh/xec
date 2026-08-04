@@ -231,7 +231,7 @@ describe('Comprehensive Retry Functionality Tests', () => {
 
       (engine as any).registerAdapter('local', mockAdapter);
 
-      const result = await engine.execute({
+      await engine.execute({
         command: 'test-command',
         adapter: 'local',
         retry: {

@@ -245,7 +245,7 @@ describe('SecurePasswordHandler - Comprehensive Coverage', () => {
         expect(password).toMatch(/[A-Z]/); // Uppercase
         expect(password).toMatch(/[a-z]/); // Lowercase
         expect(password).toMatch(/[0-9]/); // Numbers
-        expect(password).toMatch(/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/); // Special chars
+        expect(password).toMatch(/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/); // Special chars
       });
 
       it('should generate different passwords each time', () => {

@@ -13,7 +13,6 @@ describe('Copy Command', () => {
   let sourceDir: string;
   let destDir: string;
   let command: CopyCommand;
-  let originalCwd: string;
   let configPath: string;
 
   // Helper function to execute command with config path
@@ -752,7 +751,6 @@ describe('Copy Command', () => {
       await fs.writeFile(sourceFile, 'Windows path test');
 
       // Use Windows-style path (with C: prefix)
-      const windowsPath = 'C:\\temp\\test.txt';
 
       // Execute copy - should recognize this as local path
       await executeCommand([

@@ -1,17 +1,14 @@
 
 // We'll test the KubernetesPortForward class directly
 describe('Kubernetes Port Forward Unit Tests', () => {
-  let mockProcess: any;
-  let KubernetesPortForward: any;
 
   beforeEach(async () => {
     // Dynamically import to ensure fresh module state
     const module = await import('../../../src/adapters/kubernetes/index.js');
-    // Get the KubernetesAdapter class from the module
-    const adapterCode = module.KubernetesAdapter?.toString() || '';
+    expect(module.KubernetesAdapter).toBeDefined();
 
-    // Since KubernetesPortForward is defined inside the module, we need to extract it
-    // For now, we'll test through the adapter's portForward method
+    // KubernetesPortForward is defined inside the module, so it is exercised
+    // through the adapter's portForward method rather than directly.
   });
 
   describe('KubernetesPortForward behavior', () => {
@@ -41,8 +38,8 @@ describe('Kubernetes Port Forward Unit Tests', () => {
 
   describe('Port forward lifecycle', () => {
     it('should track open state correctly', () => {
-      let isOpen = false;
-      
+      let isOpen: boolean;
+
       // Simulate opening
       isOpen = true;
       expect(isOpen).toBe(true);

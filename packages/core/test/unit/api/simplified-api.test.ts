@@ -4,7 +4,6 @@ import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '..
 
 describe('Simplified API', () => {
   // Store original config to restore after each test
-  let originalConfig: any;
   
   beforeEach(async () => {
     // Clean up before each test
@@ -203,14 +202,14 @@ describe('Simplified API', () => {
 
     test('should export adapters for advanced users', async () => {
       const {
-        ExecutionEngine,
+        ExecutionEngine: Engine,
         LocalAdapter,
         SSHAdapter,
         DockerAdapter,
         KubernetesAdapter
       } = await import('../../../src/index.js');
 
-      expect(ExecutionEngine).toBeDefined();
+      expect(Engine).toBeDefined();
       expect(LocalAdapter).toBeDefined();
       expect(SSHAdapter).toBeDefined();
       expect(DockerAdapter).toBeDefined();
@@ -419,17 +418,16 @@ describe('Simplified API', () => {
       const { within } = await import('../../../src/index.js');
       
       let innerEnv = '';
-      let outerEnv = '';
-      
+
       // Test that within changes environment context
       await within({ defaultEnv: { WITHIN_TEST: 'inside' } }, async () => {
         const result = await $`sh -c "echo $WITHIN_TEST"`;
         innerEnv = result.stdout.trim();
       });
-      
+
       // Outside of within, env var should not exist
       const outerResult = await $`sh -c "echo $WITHIN_TEST"`;
-      outerEnv = outerResult.stdout.trim();
+      const outerEnv = outerResult.stdout.trim();
       
       expect(innerEnv).toBe('inside');
       expect(outerEnv).toBe('');

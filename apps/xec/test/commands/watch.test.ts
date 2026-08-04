@@ -68,7 +68,7 @@ describe('Watch Command', () => {
     // Clean up any active sessions
     if (command && command['sessions']) {
       command['running'] = false;
-      for (const [id, session] of command['sessions']) {
+      for (const [, session] of command['sessions']) {
         if (session.debounceTimer) {
           clearTimeout(session.debounceTimer);
         }
@@ -141,7 +141,7 @@ describe('Watch Command', () => {
       const simpleMarkerScript = path.resolve(__dirname, 'helpers', 'simple-marker.cjs');
 
       // Start watching with a very simple command using env var
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
@@ -197,13 +197,13 @@ describe('Watch Command', () => {
 
       const testFile = path.join(watchDir, 'test.txt');
       const logFile = path.join(tempDir, 'changes.log');
-      const appendScript = path.resolve(__dirname, 'helpers', 'test-scripts.cjs');
+      path.resolve(__dirname, 'helpers', 'test-scripts.cjs');
 
       // Initialize log file
       await fs.writeFile(logFile, '');
 
       // Start watching - use a simpler command
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
@@ -284,11 +284,11 @@ describe('Watch Command', () => {
       await fs.mkdir(nodeModulesDir, { recursive: true });
 
       // Start watching with exclude patterns
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
-          command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} append \"${changeLog}\" \"file changed\"`,
+          command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} append "${changeLog}" "file changed"`,
           exclude: ['node_modules', '*.tmp'],
           quiet: true,
           debounce: '100'
@@ -312,7 +312,7 @@ describe('Watch Command', () => {
       await new Promise(resolve => setTimeout(resolve, 300));
 
       // Check what was logged
-      const logExists = await fs.access(changeLog).then(() => true).catch(() => false);
+      await fs.access(changeLog).then(() => true).catch(() => false);
 
       // With exclude patterns working properly via chokidar,
       // we should only see changes from the .js file
@@ -364,10 +364,10 @@ describe('Watch Command', () => {
       await sshEngine`echo "initial" > /tmp/watch-test/watched.txt`;
 
       // Use a simpler approach - use the initial flag to ensure command works
-      const markerFile = path.join(tempDir, 'ssh-watch-executed.txt');
+      path.join(tempDir, 'ssh-watch-executed.txt');
 
       // Start watching on SSH host with initial execution
-      const watchPromise = command.execute([
+      command.execute([
         'hosts.test',
         '/tmp/watch-test',
         {
@@ -465,7 +465,7 @@ describe('Watch Command', () => {
       await fs.writeFile(counterFile, '0\n');
 
       // Start watching with a command that increments a counter using node
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
@@ -514,7 +514,7 @@ describe('Watch Command', () => {
         targets: {},
         tasks: {
           'test-task': {
-            command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} write \"${outputFile}\" \"Task executed\"`
+            command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} write "${outputFile}" "Task executed"`
           }
         }
       };
@@ -527,7 +527,7 @@ describe('Watch Command', () => {
       const testFile = path.join(watchDir, 'trigger.txt');
 
       // Start watching with task
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
@@ -575,11 +575,11 @@ describe('Watch Command', () => {
       const initialFile = path.join(tempDir, 'initial.txt');
 
       // Start watching with initial flag
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
-          command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} write \"${initialFile}\" "Initial run"`,
+          command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} write "${initialFile}" "Initial run"`,
           initial: true,
           quiet: true
         }
@@ -615,7 +615,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         { command: 'echo test', quiet: true }
@@ -631,7 +631,7 @@ describe('Watch Command', () => {
       command['running'] = false;
 
       // Manually clean up sessions
-      for (const [sessionId, session] of command['sessions']) {
+      for (const [, session] of command['sessions']) {
         if (session.debounceTimer) {
           clearTimeout(session.debounceTimer);
         }
@@ -714,7 +714,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching in docker container with a simple command
-      const watchPromise = command.execute([
+      command.execute([
         'containers.test',
         '/app',
         {
@@ -765,7 +765,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching in kubernetes pod
-      const watchPromise = command.execute([
+      command.execute([
         'pods.test',
         '/app',
         {
@@ -808,7 +808,7 @@ describe('Watch Command', () => {
       );
 
       // Start first watch
-      const watchPromise1 = command.execute([
+      command.execute([
         'local',
         watchDir,
         { command: 'echo test', quiet: true }
@@ -852,7 +852,7 @@ describe('Watch Command', () => {
 
       try {
         // Start watching with a command that will fail
-        const watchPromise = command.execute([
+        command.execute([
           'local',
           watchDir,
           {
@@ -952,7 +952,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching with polling enabled
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         watchDir,
         {
@@ -997,7 +997,7 @@ describe('Watch Command', () => {
 
       try {
         // Start watching with verbose mode
-        const watchPromise = command.execute([
+        command.execute([
           'local',
           watchDir,
           {
@@ -1053,7 +1053,7 @@ describe('Watch Command', () => {
 
       try {
         // Start watching with task that will fail
-        const watchPromise = command.execute([
+        command.execute([
           'local',
           watchDir,
           {
@@ -1130,7 +1130,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching without specifying paths (should default to '.')
-      const watchPromise = command.execute([
+      command.execute([
         'local',
         {
           command: 'echo test',

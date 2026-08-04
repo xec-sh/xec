@@ -64,7 +64,6 @@ describe('Retry Mechanism', () => {
     });
 
     test('should respect maxRetries', async () => {
-      let attempts = 0;
       const fn = vi.fn(async () => {
         attempts++;
         return createResult({

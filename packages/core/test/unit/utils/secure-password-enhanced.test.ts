@@ -236,7 +236,7 @@ describe('SecurePasswordHandler Enhanced Security', () => {
       // Should contain numbers
       expect(password).toMatch(/[0-9]/);
       // Should contain special characters
-      expect(password).toMatch(/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/);
+      expect(password).toMatch(/[!@#$%^&*()_+\-=[\]{}|;:,.<>?]/);
     });
 
     it('should generate passwords of requested length', () => {

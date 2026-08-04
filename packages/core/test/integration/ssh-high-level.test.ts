@@ -40,7 +40,7 @@ describeSSH('SSH High-Level Integration Tests', () => {
 
         // 4. Start application in background
         // Some containers might not have nohup, so use alternative approach
-        const startResult = await $ssh`
+        await $ssh`
           cd ${appDir} && 
           (./src/app.sh > /dev/null 2>&1 & echo $! > app.pid) || 
           (sh ./src/app.sh > /dev/null 2>&1 & echo $! > app.pid)
@@ -216,7 +216,7 @@ describeSSH('SSH High-Level Integration Tests', () => {
 
     testEachPackageManager('should handle package manager operations', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      const $ssh = getConfiguredSSH(sshConfig);
+      getConfiguredSSH(sshConfig);
       const ssh = new SSHAdapter();
 
       try {
@@ -259,6 +259,10 @@ describeSSH('SSH High-Level Integration Tests', () => {
             // Skip snap tests as it requires special setup
             console.log(`Skipping package manager test for ${container.name}: snap requires special setup`);
             return;
+          default:
+            // An unknown manager would otherwise run the search with empty
+            // command parts and assert on whatever the shell made of it.
+            throw new Error(`Unknown package manager: ${String(container.packageManager)}`);
         }
 
         // Search for a package
@@ -329,7 +333,6 @@ describeSSH('SSH High-Level Integration Tests', () => {
       const $source = getConfiguredSSH(sourceConfig);
       const $target = getConfiguredSSH(targetConfig);
 
-      const testData = `Test data from ${sourceContainerName} to ${targetContainerName} at ${new Date().toISOString()}`;
       const fileName = `transfer-test-${Date.now()}.txt`;
 
       try {

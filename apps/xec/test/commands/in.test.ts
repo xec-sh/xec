@@ -17,7 +17,6 @@ describe('In Command', () => {
   let tempDir: string;
   let projectDir: string;
   let command: InCommand;
-  let originalCwd: string;
   let dockerManager: DockerContainerManager;
   let originalPath: string | undefined;
   let originalShell: string | undefined;

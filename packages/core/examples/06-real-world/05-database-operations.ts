@@ -194,7 +194,7 @@ async function databaseRestore(config: RestoreConfig) {
   }
   
   // Создаем временную директорию для распаковки
-  return await withTempDir(async (tmpDir) => {
+  await withTempDir(async (tmpDir) => {
     let sqlFile = config.backupFile;
     
     // Распаковываем если нужно
@@ -570,7 +570,7 @@ async function collectPostgreSQLMetrics($db: any, config: DatabaseConfig): Promi
   const connections = await $db`psql -d ${config.database} -t -c "SELECT count(*) FROM pg_stat_activity"`;
   
   // Статистика запросов
-  const stats = await $db`psql -d ${config.database} -t -c "SELECT sum(calls) as total_calls, sum(total_time) as total_time FROM pg_stat_statements"`;
+  await $db`psql -d ${config.database} -t -c "SELECT sum(calls) as total_calls, sum(total_time) as total_time FROM pg_stat_statements"`;
   
   // Блокировки
   const locks = await $db`psql -d ${config.database} -t -c "SELECT count(*) FROM pg_locks WHERE granted = false"`;
@@ -603,7 +603,7 @@ async function collectMySQLMetrics($db: any, config: DatabaseConfig): Promise<Da
   const connections = await $db`mysql ${config.database} -N -e "SHOW STATUS LIKE 'Threads_connected'" | awk '{print $2}'`;
   
   // Запросов в секунду
-  const queries = await $db`mysql ${config.database} -N -e "SHOW STATUS LIKE 'Questions'" | awk '{print $2}'`;
+  await $db`mysql ${config.database} -N -e "SHOW STATUS LIKE 'Questions'" | awk '{print $2}'`;
   
   // Блокировки
   const locks = await $db`mysql ${config.database} -N -e "SELECT COUNT(*) FROM information_schema.INNODB_LOCKS"`;

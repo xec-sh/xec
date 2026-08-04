@@ -16,7 +16,6 @@ describe('Mutable Configuration', () => {
       $.config.set({ defaultTimeout: 120000 });
       
       // Set up event listener to verify engine is not recreated
-      let eventCount = 0;
       $.on('command:start', () => { eventCount++; });
       
       // Initial config

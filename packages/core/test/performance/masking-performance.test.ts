@@ -48,13 +48,11 @@ class TestAdapter extends BaseAdapter {
       }
 
       // Find which pattern matched by checking non-undefined groups
-      let patternIndex = -1;
       let patternGroups: any[] = [];
       
       for (let i = 0; i < this.config.sensitiveDataMasking.patterns.length; i++) {
         const startIdx = i + 1; // First group starts at index 1
         if (args[startIdx - 1] !== undefined) {
-          patternIndex = i;
           // Extract the groups for this pattern
           const pattern = this.config.sensitiveDataMasking.patterns[i];
           const groupCount = pattern ? (pattern.source.match(/\(/g) || []).length : 0;

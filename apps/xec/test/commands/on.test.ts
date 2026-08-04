@@ -67,6 +67,9 @@ class TestableOnCommand extends OnCommand {
   // Override createTargetEngine to capture executions
   protected async createTargetEngine(target: any): Promise<any> {
     if (this.options.mockExecute) {
+      // The exec functions below are `function`s so they receive a template
+      // tag's `this`; the surrounding command is only reachable by alias.
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
       const self = this;
 
       // Create the exec function that handles template literals
@@ -199,7 +202,7 @@ class TestableOnCommand extends OnCommand {
     }
 
     // Call parent execute
-    return super.execute(args);
+    await super.execute(args);
   }
 
   // Helper to resolve targets from pattern for test

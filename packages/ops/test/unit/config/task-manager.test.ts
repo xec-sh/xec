@@ -2,7 +2,7 @@
  * Tests for TaskManager with real implementations
  */
 
-import type { TaskConfig, Configuration } from '../../../src/config/types.js';
+import type { TaskConfig } from '../../../src/config/types.js';
 
 import * as os from 'os';
 import * as path from 'path';
@@ -16,7 +16,6 @@ describe('TaskManager', () => {
   let configManager: ConfigurationManager;
   let testDir: string;
   let configPath: string;
-  let testConfig: Configuration;
 
   beforeEach(async () => {
     // Create a temporary directory for tests

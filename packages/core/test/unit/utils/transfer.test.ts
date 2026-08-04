@@ -11,7 +11,7 @@ describe('Transfer Utils', () => {
       it('should parse local paths', () => {
         const transfer = new TransferEngine($);
 
-        // @ts-ignore - accessing private method for testing
+        // @ts-expect-error - accessing private method for testing
         const env = transfer.parseEnvironment('/home/user/file.txt');
 
         expect(env.type).toBe('local');
@@ -21,7 +21,7 @@ describe('Transfer Utils', () => {
       it('should parse SSH URLs', () => {
         const transfer = new TransferEngine($);
 
-        // @ts-ignore - accessing private method for testing
+        // @ts-expect-error - accessing private method for testing
         const env = transfer.parseEnvironment('ssh://user@host/path/to/file');
 
         expect(env.type).toBe('ssh');
@@ -33,7 +33,7 @@ describe('Transfer Utils', () => {
       it('should parse Docker URLs', () => {
         const transfer = new TransferEngine($);
 
-        // @ts-ignore - accessing private method for testing
+        // @ts-expect-error - accessing private method for testing
         const env = transfer.parseEnvironment('docker://mycontainer:/app/file.txt');
 
         expect(env.type).toBe('docker');
@@ -44,7 +44,7 @@ describe('Transfer Utils', () => {
       it('should handle SSH URLs without user', () => {
         const transfer = new TransferEngine($);
 
-        // @ts-ignore - accessing private method for testing
+        // @ts-expect-error - accessing private method for testing
         const env = transfer.parseEnvironment('ssh://host/path');
 
         expect(env.type).toBe('ssh');
@@ -56,7 +56,7 @@ describe('Transfer Utils', () => {
       it('should handle Docker URLs with root path', () => {
         const transfer = new TransferEngine($);
 
-        // @ts-ignore - accessing private method for testing
+        // @ts-expect-error - accessing private method for testing
         const env = transfer.parseEnvironment('docker://container:/');
 
         expect(env.type).toBe('docker');

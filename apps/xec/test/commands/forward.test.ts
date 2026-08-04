@@ -76,7 +76,7 @@ describe('Forward Command', () => {
 
     // Clean up any active sessions
     if (command && command['sessions']) {
-      for (const [id, session] of command['sessions']) {
+      for (const [, session] of command['sessions']) {
         if (session.cleanup) {
           try {
             await session.cleanup();
@@ -145,7 +145,7 @@ describe('Forward Command', () => {
       );
 
       // Create SSH connection engine
-      const sshEngine = $.ssh({
+      $.ssh({
         host: sshConfig.host,
         port: sshConfig.port,
         username: sshConfig.username,
@@ -342,7 +342,6 @@ describe('Forward Command', () => {
 
   describe('Docker Port Forwarding', () => {
     let dockerManager: DockerContainerManager;
-    let testContainerName: string;
 
     beforeEach(async () => {
       dockerManager = DockerContainerManager.getInstance();
@@ -742,9 +741,9 @@ describe('Forward Command', () => {
 
       // Spy on process.once to verify handlers are set
       const originalOnce = process.once;
-      const handlers: { [key: string]: Function } = {};
+      const handlers: { [key: string]: (...args: unknown[]) => unknown } = {};
 
-      process.once = ((event: string, handler: Function) => {
+      process.once = ((event: string, handler: (...args: unknown[]) => unknown) => {
         handlers[event] = handler;
         return process;
       }) as any;

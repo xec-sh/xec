@@ -876,7 +876,7 @@ EOF`;
 
       try {
         const startTime = Date.now();
-        const result = await ssh.execute({
+        await ssh.execute({
           command: 'sleep 10',
           timeout: 1000, // 1 second timeout
           adapterOptions: { type: 'ssh' as const, ...sshConfig }

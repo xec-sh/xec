@@ -162,6 +162,10 @@ export default [
       // and outside every tsconfig, so the type-aware parser only reported
       // them as unreadable.
       '**/.xec/.tmp/**',
+      // Fixtures are inputs, not code. Several are deliberately malformed —
+      // a module with no export exists precisely to make the loader fail —
+      // so linting them into correctness would destroy what they test.
+      '**/test/fixtures/**',
     ],
   },
   {
@@ -198,6 +202,42 @@ export default [
     files: ['website/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     rules: {
       'import/no-unresolved': 0,
+    },
+  },
+  {
+    // Examples are documentation that happens to compile. A function defined
+    // to show a pattern and never invoked, or a named result that exists so
+    // the reader can see what a call returns, is the point of the file rather
+    // than dead code — and renaming those to `_result` would make the docs
+    // worse. Everything that catches real defects still applies.
+    files: ['**/examples/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 0,
+      'func-names': 0,
+      'default-case': 0,
+      // Every numbered example redeclares `result`, `engine`, `config` in its
+      // own section. Those shadow a sibling section's local, never an import
+      // — the four cases that shadowed a module were fixed rather than
+      // silenced — and renaming them per section would obscure the point.
+      '@typescript-eslint/no-shadow': 0,
+    },
+  },
+  {
+    // Tests exercise the tagged-template API for its effects, and assert on
+    // what it did rather than on its value; `$\`cmd\`` is a call, and the
+    // rule's own option says so. Terminal assertions match ANSI escapes,
+    // which are control characters by definition. Anonymous callbacks are
+    // named by the test title in every reporter.
+    files: ['**/{test,tests,__tests__}/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-expressions': [2, { allowTaggedTemplates: true }],
+      'no-control-regex': 0,
+      'func-names': 0,
+      // Each `it()` declares its own `result`, `adapter`, `manager`. Those
+      // shadow a name in an enclosing `describe`, which is how a test file is
+      // meant to read; the cases that shadowed an imported module were fixed
+      // rather than silenced.
+      '@typescript-eslint/no-shadow': 0,
     },
   },
 ];

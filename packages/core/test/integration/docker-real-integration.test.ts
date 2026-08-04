@@ -264,7 +264,7 @@ describeIfDocker('Docker Adapter Real Integration Tests', () => {
         await $`docker run -d --name ${container2} --network ${network} alpine:latest sleep 300`;
         
         const $docker1 = $.docker({ container: container1 });
-        const $docker2 = $.docker({ container: container2 });
+        $.docker({ container: container2 });
         
         // Alpine has ping built-in (from busybox), no need to install
         // Test connectivity between containers

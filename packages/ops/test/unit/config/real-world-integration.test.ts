@@ -371,6 +371,9 @@ tasks:
               expect(loaded.vars?.debug).toBeUndefined();
               expect(loaded.vars?.prod_mode).toBe("true");
               break;
+
+            default:
+              throw new Error(`Unhandled profile in test: ${profile}`);
           }
         }
       });

@@ -181,7 +181,7 @@ describe('Security Test Suite', () => {
 
       // Test that sensitive options are not logged
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const sshEngine = $.ssh({
+      $.ssh({
         host: 'example.com',
         username: 'user',
         password: 'secret123', // Should not be logged
