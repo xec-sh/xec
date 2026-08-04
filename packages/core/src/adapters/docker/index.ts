@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 
 import { findDockerPath } from './docker-utils.js';
 import { StreamHandler } from '../../utils/stream.js';
+import { parseDuration } from '../../utils/helpers.js';
 import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
@@ -578,7 +579,9 @@ export class DockerAdapter extends BaseAdapter {
     args: string[],
     command: Partial<Command>
   ): Promise<{ stdout: string; stderr: string; stdall: string; exitCode: number; signal: string | null }> {
-    const timeout = command.timeout;
+    // This path drives setTimeout itself rather than going through
+    // handleTimeout, so it has to resolve a duration string the same way.
+    const timeout = command.timeout === undefined ? undefined : parseDuration(command.timeout);
 
     // Kill the docker CLI once either stream blows the cap; the container
     // side of an exec is torn down with it. Filled in after spawn.

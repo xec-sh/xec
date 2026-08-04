@@ -8,6 +8,7 @@ import { ProgressReporter } from '../utils/progress.js';
 import { TimeoutError, AdapterError } from '../core/error.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { MaskingStreamFilter } from '../utils/masking-stream.js';
+import { parseDuration, type Duration } from '../utils/helpers.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
 import { createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
@@ -42,6 +43,15 @@ interface ResolvedBaseAdapterConfig extends Omit<Required<BaseAdapterConfig>, 's
   defaultCwd: string | undefined;
   sensitiveDataMasking: SensitiveDataMaskingConfig;
 }
+
+/**
+ * A command whose duration options have been resolved to milliseconds.
+ *
+ * `Command.timeout` accepts a duration string for the caller's convenience;
+ * everything past {@link BaseAdapter.mergeCommand} works in numbers, and the
+ * type says so rather than leaving each adapter to remember.
+ */
+export type ResolvedCommand = Omit<Command, 'timeout'> & { timeout?: number };
 
 export abstract class BaseAdapter extends EnhancedEventEmitter implements Disposable {
   protected config: ResolvedBaseAdapterConfig;
@@ -117,12 +127,22 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   // Synchronous execution (optional - adapters can implement if they support it)
   executeSync?(command: Command): ExecutionResult;
 
-  protected mergeCommand(command: Command): Command {
+  /**
+   * Fill a command in with this adapter's defaults.
+   *
+   * The timeout is resolved to milliseconds here, so every adapter downstream
+   * can treat it as a number. A duration string that reached setTimeout
+   * unparsed became NaN, which Node clamps to 1ms — every command failed at
+   * once, under a message that claimed the whole duration had elapsed.
+   */
+  protected mergeCommand(command: Command): ResolvedCommand {
+    const timeout = command.timeout ?? this.config.defaultTimeout;
+
     return {
       ...command,
       cwd: command.cwd ?? this.config.defaultCwd,
       env: { ...this.config.defaultEnv, ...command.env },
-      timeout: command.timeout ?? this.config.defaultTimeout,
+      timeout: timeout === undefined ? undefined : parseDuration(timeout),
       shell: command.shell ?? this.config.defaultShell,
       stdout: command.stdout ?? 'pipe',
       stderr: command.stderr ?? 'pipe'
@@ -174,11 +194,17 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
   protected async handleTimeout(
     promise: Promise<any>,
-    timeout: number,
+    duration: Duration | undefined,
     command: string,
     cleanup?: () => void
   ): Promise<any> {
-    if (timeout <= 0) {
+    // Normalized here because adapters reach this helper by several routes,
+    // some of which read command.timeout directly rather than through
+    // mergeCommand. An unparsed string became NaN, and NaN <= 0 is false, so
+    // it fell through to setTimeout and was clamped to 1ms.
+    const timeout = duration === undefined ? 0 : parseDuration(duration);
+
+    if (!(timeout > 0)) {
       return promise;
     }
 

@@ -166,9 +166,15 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   private validateConfig(config: ExecutionEngineConfig): ExecutionEngineConfig {
     const validatedConfig = { ...config };
 
-    // Validate timeout
-    if (config.defaultTimeout !== undefined && config.defaultTimeout < 0) {
-      throw new Error(`Invalid timeout value: ${config.defaultTimeout}`);
+    // Normalize before validating, so a duration string is checked as the
+    // number it means rather than compared against zero as a string.
+    if (config.defaultTimeout !== undefined) {
+      const ms = parseDuration(config.defaultTimeout);
+
+      if (!Number.isFinite(ms) || ms < 0) {
+        throw new Error(`Invalid timeout value: ${config.defaultTimeout}`);
+      }
+      validatedConfig.defaultTimeout = ms;
     }
 
     // Validate encoding
@@ -279,10 +285,17 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     // reuses the parent's adapters to keep connection pools alive, and each
     // adapter holds the `defaultCwd` it was constructed with — so a directory
     // set on the new engine never reached the command.
+    // A duration string reaching setTimeout unparsed became NaN, which Node
+    // clamps to 1ms — so `{ timeout: '5m' }` failed every command instantly
+    // while the message claimed five minutes had passed. Normalized here so
+    // every spelling of the option behaves like `.timeout()`.
+    const requestedTimeout = contextCommand.timeout ?? this.currentConfig.timeout;
+
     const finalCommand = {
       ...this.currentConfig,
       ...contextCommand,
       cwd: contextCommand.cwd ?? this.currentConfig.cwd ?? this._config.defaultCwd,
+      timeout: requestedTimeout === undefined ? undefined : parseDuration(requestedTimeout),
       env: {
         ...(this._config.defaultEnv || {}),
         ...(contextCommand.env || {})

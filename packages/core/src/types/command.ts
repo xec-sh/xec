@@ -1,3 +1,4 @@
+import type { Duration } from '../utils/helpers.js';
 import type { Readable, Writable } from 'node:stream';
 import type { ProcessHandle } from './process-handle.js';
 import type { RetryOptions } from '../utils/retry-adapter.js';
@@ -107,7 +108,15 @@ export interface Command {
   // Execution context
   cwd?: string;                         // Working directory
   env?: Record<string, string>;         // Environment variables
-  timeout?: number;                     // Execution timeout
+  /**
+   * Execution timeout: milliseconds, or a duration string such as `'30s'`.
+   *
+   * Strings used to be accepted only by `.timeout()`; passed as an option they
+   * reached setTimeout unparsed, became NaN and were clamped to 1ms, so every
+   * command failed at once under a message claiming the full duration had
+   * elapsed. Both spellings are normalized now.
+   */
+  timeout?: Duration;
   timeoutSignal?: string;               // Signal to send on timeout
 
   // Stream management

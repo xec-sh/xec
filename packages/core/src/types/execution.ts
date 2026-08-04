@@ -1,4 +1,5 @@
 import type { Command } from './command.js';
+import type { Duration } from '../utils/helpers.js';
 
 /**
  * Configuration for execution with partial command defaults
@@ -84,9 +85,9 @@ export interface ExecutionEngineConfig extends EventConfig {
   shell?: string | boolean;
   defaultShell?: string | boolean;
   
-  // Timeouts
-  timeout?: number;
-  defaultTimeout?: number;
+  // Timeouts: milliseconds, or a duration string such as '30s'.
+  timeout?: Duration;
+  defaultTimeout?: Duration;
   
   // Stream configuration
   encoding?: BufferEncoding;
