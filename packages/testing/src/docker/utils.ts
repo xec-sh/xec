@@ -19,7 +19,7 @@ export async function getContainerInfo(containerName: string): Promise<Container
       image: info.Config.Image,
       state: info.State.Status
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -128,7 +128,7 @@ export async function cleanupTestContainers(prefix: string): Promise<void> {
       try {
         const container = docker.getContainer(containerInfo.Id);
         await container.remove({ force: true });
-      } catch (error) {
+      } catch {
         // Container may already be removed
       }
     }

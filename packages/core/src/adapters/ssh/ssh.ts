@@ -202,7 +202,7 @@ async function makeDirectoryWithSftp(path: string, sftp: SFTPWrapper) {
         }
       })
     })
-  } catch (_) {
+  } catch {
     /* No Op */
   }
   if (stats) {

@@ -650,7 +650,7 @@ export class LogsCommand extends ConfigAwareCommand {
           if (logProcess && typeof logProcess.kill === 'function') {
             logProcess.kill('SIGTERM');
           }
-        } catch (error) {
+        } catch {
           // Ignore cleanup errors
         }
       },
@@ -689,7 +689,7 @@ export class LogsCommand extends ConfigAwareCommand {
           if (options.verbose) {
             console.error(prism.yellow(data.toString().trim()));
           }
-        } catch (error) {
+        } catch {
           // Ignore stderr display errors
         }
       });

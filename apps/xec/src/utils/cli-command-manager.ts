@@ -223,7 +223,7 @@ export class CliCommandManager {
           });
         }
       }
-    } catch (error) {
+    } catch {
       // Silently ignore directory read errors
     }
   }

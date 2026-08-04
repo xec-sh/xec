@@ -450,7 +450,7 @@ export class SSHAdapter extends BaseAdapter {
         if (reconnected) {
           return reconnected;
         }
-      } catch (error) {
+      } catch {
         // Reconnection failed
       }
     }
@@ -969,7 +969,7 @@ export class SSHAdapter extends BaseAdapter {
           cwd: '/',
           execOptions: { pty: false }
         });
-      } catch (error) {
+      } catch {
         // Connection might be dead, will be handled on next use
         connection.errors++;
 

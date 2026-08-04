@@ -473,7 +473,7 @@ export class LocalAdapter extends BaseAdapter {
     if (command.cwd) {
       try {
         accessSync(command.cwd, constants.F_OK);
-      } catch (err) {
+      } catch {
         // This will be caught by spawn and result in an ENOENT error
         // Keep cwd as is - spawn will handle the error appropriately
       }

@@ -135,7 +135,7 @@ export class DockerAdapter extends BaseAdapter {
       // Check if docker CLI is available
       const result = await this.executeDockerCommand(['version', '--format', 'json'], this.managementOptions());
       return result.exitCode === 0;
-    } catch (error) {
+    } catch {
       // If spawn fails (e.g., docker command not found), return false
       return false;
     }
@@ -730,7 +730,7 @@ export class DockerAdapter extends BaseAdapter {
           });
 
           await this.executeDockerCommand(['rm', '-f', container], this.managementOptions());
-        } catch (error) {
+        } catch {
           // Ignore errors during cleanup
         }
       }
@@ -1432,7 +1432,7 @@ export class DockerAdapter extends BaseAdapter {
       try {
         const info = await this.inspectContainer(container);
         health = info.State?.Health?.Status;
-      } catch (error) {
+      } catch {
         // Container might not exist yet — keep polling
       }
 
@@ -1477,7 +1477,7 @@ export class DockerAdapter extends BaseAdapter {
 
     try {
       return JSON.parse(result.stdout);
-    } catch (error) {
+    } catch {
       throw new DockerError(container, 'exec', new Error('Failed to parse JSON output'));
     }
   }

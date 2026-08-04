@@ -157,7 +157,7 @@ export function configure(config: ExecutionEngineConfig): void {
         if (typeof (oldInstance as any).dispose === 'function') {
           await (oldInstance as any).dispose();
         }
-      } catch (error) {
+      } catch {
         // Ignore errors during cleanup
       } finally {
         isConfiguringPromise = null;
@@ -176,7 +176,7 @@ async function cleanupEngine(): Promise<void> {
       if (typeof (defaultEngineInstance as any).dispose === 'function') {
         await (defaultEngineInstance as any).dispose();
       }
-    } catch (error) {
+    } catch {
       // Ignore errors during cleanup
     } finally {
       // Clear references

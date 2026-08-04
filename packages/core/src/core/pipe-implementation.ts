@@ -107,7 +107,7 @@ export async function executePipe(
 
         return engine.execute(nextCommand);
       }
-    } catch (e) {
+    } catch {
       // If it fails, it might be a line processor expecting a string
     }
 

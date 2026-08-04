@@ -118,7 +118,7 @@ export class TempFile {
           type: 'file'
         });
 
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
     }
@@ -217,7 +217,7 @@ export class TempDir {
           type: 'directory'
         });
 
-      } catch (error) {
+      } catch {
         // Ignore cleanup errors
       }
     }

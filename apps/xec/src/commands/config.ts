@@ -1715,7 +1715,7 @@ export class ConfigCommand extends BaseCommand {
               try {
                 JSON.parse(value);
                 return undefined;
-              } catch (error) {
+              } catch {
                 return 'Invalid JSON';
               }
             },

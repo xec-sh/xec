@@ -179,7 +179,7 @@ export class ModuleExecutor {
       // Execute in function scope
       const func = new Function('exports', 'module', 'require', '__dirname', '__filename', content);
       func(moduleExports, moduleObj, requireStub, '/', '/module.js');
-    } catch (error) {
+    } catch {
       // Try simpler version without __dirname/__filename
       const func = new Function('exports', 'module', 'require', content);
       func(moduleExports, moduleObj, requireStub);

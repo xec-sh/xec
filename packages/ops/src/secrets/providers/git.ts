@@ -409,7 +409,7 @@ export class GitSecretProvider implements SecretProvider {
     try {
       const gitRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
       return gitRoot;
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Not in a git repository. Please run this command from within a git repository.',
         'NOT_GIT_REPO'
@@ -420,7 +420,7 @@ export class GitSecretProvider implements SecretProvider {
   private async verifyGitRepository(): Promise<void> {
     try {
       execSync('git status', { cwd: this.repoPath, encoding: 'utf8' });
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Not in a git repository or git is not available',
         'NOT_GIT_REPO'
@@ -476,7 +476,7 @@ export class GitSecretProvider implements SecretProvider {
       // Load existing master key
       try {
         await this.loadMasterKey();
-      } catch (error) {
+      } catch {
         // If we can't load directly, we'll try team key later
         console.debug('Master key direct load failed, will try team key');
       }
@@ -559,7 +559,7 @@ export class GitSecretProvider implements SecretProvider {
 
       const masterKeyData = JSON.parse(decrypted);
       this.encryptionKey = Buffer.from(masterKeyData.key, 'base64');
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Failed to load master key. The key may be corrupted or you may not have access.',
         'NO_MASTER_KEY'
@@ -572,7 +572,7 @@ export class GitSecretProvider implements SecretProvider {
       // Try to load master key directly
       try {
         await this.loadMasterKey();
-      } catch (error) {
+      } catch {
         // If direct load fails, try to decrypt using user's team key (Phase 2)
         const teamKey = await this.decryptMasterKeyWithUserKey();
         if (teamKey) {
@@ -593,7 +593,7 @@ export class GitSecretProvider implements SecretProvider {
   private async verifyAccess(): Promise<void> {
     try {
       await fs.access(this.secretsPath, fs.constants.R_OK | fs.constants.W_OK);
-    } catch (error) {
+    } catch {
       throw new SecretError(
         `Cannot access secret storage directory: ${this.secretsPath}`,
         'ACCESS_DENIED'
@@ -706,7 +706,7 @@ export class GitSecretProvider implements SecretProvider {
     if (secret.compressed) {
       try {
         decrypted = Buffer.from(zlib.gunzipSync(decrypted));
-      } catch (error) {
+      } catch {
         throw new SecretError('Failed to decompress secret', 'DECRYPTION_FAILED');
       }
     }
@@ -736,7 +736,7 @@ export class GitSecretProvider implements SecretProvider {
       }).trim();
 
       return email || 'unknown';
-    } catch (error) {
+    } catch {
       return 'unknown';
     }
   }
@@ -920,7 +920,7 @@ export class GitSecretProvider implements SecretProvider {
       for (const [userId, info] of Object.entries(metadata)) {
         this.teamKeys.set(userId, info as TeamKeyInfo);
       }
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Failed to load team keys',
         'TEAM_MEMBER_NOT_FOUND'
@@ -1237,7 +1237,7 @@ export class GitSecretProvider implements SecretProvider {
       );
 
       return decryptedKey;
-    } catch (error) {
+    } catch {
       throw new SecretError(
         'Failed to decrypt master key with user key',
         'DECRYPTION_FAILED'

@@ -137,7 +137,7 @@ export function validateDirectoryWritable(dirPath: string): void {
 export function validateAndParseJson(jsonString: string): any {
   try {
     return JSON.parse(jsonString);
-  } catch (error) {
+  } catch {
     throw new ValidationError('Invalid JSON format', 'json');
   }
 }
