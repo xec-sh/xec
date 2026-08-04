@@ -475,3 +475,46 @@ describe('CliCommandManager', () => {
     });
   });
 });
+/**
+ * The description parser reads source text, so source text must not fool it.
+ *
+ * The doc-comment pattern used a lazy single-character capture and treated
+ * `/**` anywhere — including inside a glob string like 'dist/**' + '/*' — as a
+ * comment opener. `xec --help` showed a bare quote as the release command's
+ * description. Explicit `.description(...)` declarations now win, and the
+ * doc-comment fallback requires a real block opener on its own line.
+ */
+describe('parseDescription reads what the command declares', () => {
+  const parse = (content: string): string | undefined =>
+    (CliCommandManager.prototype as unknown as {
+      parseDescription(content: string, name: string): string | undefined;
+    }).parseDescription.call(null, content, 'probe');
+
+  it('prefers the explicit .description() call', () => {
+    const src = `
+      /**
+       * Doc comment first line.
+       */
+      export default (p) => p.command('x').description('The declared line');
+    `;
+    expect(parse(src)).toBe('The declared line');
+  });
+
+  it('is not fooled by a glob that contains a comment opener', () => {
+    const src = `
+      const files = ['dist/**/*', 'README.md'];
+      export default (p) => p.command('x').description('Version and publish');
+    `;
+    expect(parse(src)).toBe('Version and publish');
+  });
+
+  it('falls back to the first doc-comment line', () => {
+    const src = `
+      /**
+       * Runs the nightly cleanup.
+       */
+      export default (p) => p.command('x');
+    `;
+    expect(parse(src)).toBe('Runs the nightly cleanup.');
+  });
+});

@@ -338,10 +338,14 @@ export class CliCommandManager {
    * Parse description from file content
    */
   private parseDescription(content: string, commandName: string): string | undefined {
+    // Explicit declarations first: what the command tells commander is the
+    // description, verbatim. The doc-comment fallback comes last and must
+    // open with `/**` on its own line — `'dist/**/*'` in a glob string is
+    // not a comment, and matching it once put a bare quote into --help.
     const patterns = [
-      /\/\*\*[\s\S]*?\*\s*(.+?)[\s\S]*?\*\//,
       /\.description\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/,
       /description\s*:\s*['"`]([^'"`]+)['"`]/,
+      /\/\*\*\s*\n\s*\*\s+([^\n*].*)/,
       /\/\/\s*(?:Command|Description):\s*(.+)/i
     ];
 
