@@ -130,6 +130,18 @@ const customConfig = {
 
 export default [
   { files: ['{apps,packages}/*/*.{js,mjs,cjs,ts,jsx,tsx}'] },
+  {
+    // Docusaurus resolves `@theme/*`, `@site/*` and several `@docusaurus/*`
+    // entries through build-time aliases that no static resolver can follow,
+    // so import resolution is reported per-package rather than by the plugin.
+    // Without this the website is either unlinted or drowned in false
+    // positives — it was previously unlinted, since the repo's lint script
+    // only covered apps/ and packages/.
+    files: ['website/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
+    rules: {
+      'import/no-unresolved': 0,
+    },
+  },
   { ignores: ['!apps/*/src/**/*', '!packages/*/src/**/*', 'eslint.config.*', '**/dist/**', '**/coverage/**', '**/node_modules/**', '**/*.d.ts'] },
   {
     languageOptions: {
@@ -144,4 +156,15 @@ export default [
   eslintJs.configs.recommended,
   ...eslintTs.configs.recommended,
   customConfig,
+  {
+    // Docusaurus resolves `@theme/*`, `@site/*` and several `@docusaurus/*`
+    // entries through build-time aliases that no static resolver can follow.
+    // Without this the website is either unlinted or drowned in false
+    // positives — it was previously unlinted, since the repo's lint script
+    // covered only apps/ and packages/.
+    files: ['website/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
+    rules: {
+      'import/no-unresolved': 0,
+    },
+  },
 ];

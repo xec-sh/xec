@@ -78,5 +78,12 @@
   "bugs": {
     "url": "https://github.com/xec-sh/xec/issues"
   },
-  "homepage": "https://xec.sh"
+  "homepage": "https://xec.sh",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  }
 }
