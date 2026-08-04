@@ -50,6 +50,10 @@ export class StreamHandler {
    * forever.
    */
   createTransform(): Transform {
+    // The transform/flush hooks below must be `function`s: they call
+    // `this.push()`, where `this` is the Transform. That leaves no way to
+    // reach the handler except through an alias.
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
 
     const transform = new Transform({
@@ -236,10 +240,10 @@ export class LineTransform extends Transform {
 }
 
 // Stream conversion utilities
-export async function streamToString(stream: Readable, encoding: BufferEncoding = 'utf8'): Promise<string> {
+export async function streamToString(source: Readable, encoding: BufferEncoding = 'utf8'): Promise<string> {
   const chunks: Buffer[] = [];
 
-  for await (const chunk of stream) {
+  for await (const chunk of source) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
 
@@ -264,16 +268,16 @@ export function combineStreams(stdout: Readable, stderr: Readable): Readable {
     }
   }
 
-  function pipeStream(stream: Readable, prefix: string, onEnd: () => void) {
-    stream.on('data', (chunk) => {
+  function pipeStream(source: Readable, prefix: string, onEnd: () => void) {
+    source.on('data', (chunk) => {
       combined.push(`[${prefix}] ${chunk}`);
     });
 
-    stream.on('error', (error) => {
+    source.on('error', (error) => {
       combined.destroy(error);
     });
 
-    stream.on('end', () => {
+    source.on('end', () => {
       onEnd();
       checkEnd();
     });
@@ -339,10 +343,10 @@ export class StreamingExecution extends EventEmitter {
     });
   }
 
-  private setupLineMode(stream: Readable, type: 'stdout' | 'stderr'): void {
+  private setupLineMode(source: Readable, type: 'stdout' | 'stderr'): void {
     let buffer = '';
 
-    stream.on('data', (chunk: Buffer) => {
+    source.on('data', (chunk: Buffer) => {
       buffer += chunk.toString(this.options.encoding || 'utf8');
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
@@ -352,7 +356,7 @@ export class StreamingExecution extends EventEmitter {
       }
     });
 
-    stream.on('end', () => {
+    source.on('end', () => {
       if (buffer) {
         this.emit('line', buffer, type);
       }
@@ -371,8 +375,8 @@ export class StreamingExecution extends EventEmitter {
     const lines: Array<{ line: string; stream: 'stdout' | 'stderr' }> = [];
     let done = false;
 
-    this.on('line', (line, stream) => {
-      lines.push({ line, stream });
+    this.on('line', (line, origin) => {
+      lines.push({ line, stream: origin });
     });
 
     this.on('exit', () => {

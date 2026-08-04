@@ -164,8 +164,6 @@ export class InteractiveHelpers {
 
     if (this.isCancelled(targetType)) return null;
 
-    if (this.isCancelled(targetType)) return null;
-
     switch (targetType as 'ssh' | 'docker' | 'kubernetes') {
       case 'ssh': {
         const hostInput = await text({
@@ -264,6 +262,11 @@ export class InteractiveHelpers {
           source: 'configured',
         };
       }
+      default:
+        // The select() above offers exactly these three, but the cast means
+        // the compiler cannot prove it; without this the method returned
+        // undefined where its signature promises a target or null.
+        return null;
     }
   }
 

@@ -147,7 +147,8 @@ export class WatchCommand extends ConfigAwareCommand {
 
     // Handle interactive mode
     if (options.interactive) {
-      return await this.runInteractiveMode();
+      await this.runInteractiveMode();
+      return;
     }
 
     if (!targetSpec) {
@@ -975,7 +976,7 @@ export class WatchCommand extends ConfigAwareCommand {
   }
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new WatchCommand();
   program.addCommand(cmd.create());
 }

@@ -241,6 +241,10 @@ export class TaskParser {
           this.addError(`${path}.default`, 'Default must be one of the allowed values');
         }
         break;
+
+      // The parameter type itself is validated separately; an unknown type is
+      // already reported there, so it is not re-reported here.
+      // no default
     }
   }
 

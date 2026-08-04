@@ -1065,10 +1065,10 @@ export class NodeSSH {
               connections.clear();
 
               // Close the server
-              return new Promise<void>((resolve, reject) => {
+              return new Promise<void>((resolveClose, rejectClose) => {
                 server.close((err?: Error) => {
-                  if (err) reject(err);
-                  else resolve();
+                  if (err) rejectClose(err);
+                  else resolveClose();
                 });
               });
             }

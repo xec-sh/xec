@@ -1,5 +1,3 @@
-/// <reference path="../../types/globals.d.ts" />
-
 import { platform } from 'node:os';
 import { Readable } from 'node:stream';
 import { constants, accessSync } from 'node:fs';

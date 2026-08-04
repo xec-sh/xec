@@ -607,6 +607,9 @@ export class TargetResolver {
       case 'local':
         // Local targets only get common defaults
         break;
+
+      // A target type with no defaults section simply gets none.
+      // no default
     }
 
     // Merge all defaults: defaults first, then type-specific, then target config overrides all

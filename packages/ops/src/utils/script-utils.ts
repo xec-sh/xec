@@ -239,7 +239,6 @@ export function kill(pid: number, signal: string = 'SIGTERM'): void {
 
 // Process list using native child_process
 export async function ps(): Promise<{ pid: number; name: string }[]> {
-  const { execSync } = await import('node:child_process');
   try {
     const output = execSync('ps -eo pid,comm --no-headers', { encoding: 'utf-8' });
     return output.trim().split('\n').map(line => {

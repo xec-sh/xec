@@ -663,7 +663,7 @@ export class SecretsCommand extends ConfigAwareCommand {
 }
 
 // Export command registration function
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new SecretsCommand();
   const secretsCmd = cmd.create();
   program.addCommand(secretsCmd);

@@ -82,7 +82,8 @@ export class InteractiveSession {
               }
             } else if (!choices.includes(answer)) {
               console.log('Invalid choice. Please try again.');
-              return askQuestion();
+              askQuestion();
+              return;
             }
           }
 
@@ -90,7 +91,8 @@ export class InteractiveSession {
             const validationResult = validate(answer);
             if (validationResult !== true) {
               console.log(typeof validationResult === 'string' ? validationResult : 'Invalid input');
-              return askQuestion();
+              askQuestion();
+              return;
             }
           }
 

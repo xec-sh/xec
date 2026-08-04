@@ -1707,7 +1707,7 @@ export function inspectProject(type?: string, name?: string, options?: InspectOp
   });
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new InspectCommand();
   program.addCommand(cmd.create());
 }

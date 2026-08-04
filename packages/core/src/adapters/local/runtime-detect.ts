@@ -1,5 +1,3 @@
-/// <reference path="../../types/globals.d.ts" />
-
 export type Runtime = 'node' | 'bun' | 'deno';
 
 export class RuntimeDetector {

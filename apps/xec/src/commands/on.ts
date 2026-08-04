@@ -841,7 +841,7 @@ export class OnCommand extends ConfigAwareCommand {
   }
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new OnCommand();
   program.addCommand(cmd.create());
 }

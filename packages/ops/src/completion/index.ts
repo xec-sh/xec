@@ -48,6 +48,8 @@ export function generateCompletion(shell: Shell, config: CompletionConfig): stri
       return generateZsh(config);
     case 'fish':
       return generateFish(config);
+    default:
+      throw new Error(`Unsupported shell for completion: ${String(shell)}`);
   }
 }
 

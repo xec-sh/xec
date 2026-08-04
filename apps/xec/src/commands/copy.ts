@@ -218,14 +218,14 @@ export class CopyCommand extends ConfigAwareCommand {
     }
 
     const target = spec.substring(0, colonIndex);
-    const path = spec.substring(colonIndex + 1);
+    const remotePath = spec.substring(colonIndex + 1);
 
     // Handle absolute paths on Windows (C:\path)
     if (target.length === 1 && /[a-zA-Z]/.test(target)) {
       return { target: 'local', path: spec };
     }
 
-    return { target, path };
+    return { target, path: remotePath };
   }
 
   private async resolveTargetsFromSpec(targetSpec: string): Promise<ResolvedTarget[]> {
@@ -890,7 +890,7 @@ export class CopyCommand extends ConfigAwareCommand {
   }
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new CopyCommand();
   program.addCommand(cmd.create());
 }

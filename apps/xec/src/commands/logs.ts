@@ -347,10 +347,8 @@ export class LogsCommand extends ConfigAwareCommand {
         await this.streamLogs(target, engine, logCommand, options);
       } else {
         // Batch mode
-        let result;
-
         // Execute the command through shell to handle arguments properly
-        result = await engine.raw`${logCommand}`;
+        const result = await engine.raw`${logCommand}`;
 
         if (!options.quiet) {
           this.stopSpinner();
@@ -628,10 +626,8 @@ export class LogsCommand extends ConfigAwareCommand {
     const sessionId = `${target.id}:logs`;
 
     // Start the log streaming process
-    let logProcess;
-
     // Execute the command through shell to handle arguments properly
-    logProcess = engine.raw`${logCommand}`.nothrow();
+    const logProcess = engine.raw`${logCommand}`.nothrow();
 
     // Add error handling for the child process
     if (logProcess.child) {
@@ -935,6 +931,9 @@ export class LogsCommand extends ConfigAwareCommand {
         case 'syslog':
           targetType = 'all'; // Allow SSH and local
           break;
+
+        // Any other source keeps the broadest target type.
+        // no default
       }
 
       const target = await InteractiveHelpers.selectTarget({
@@ -1150,6 +1149,9 @@ export class LogsCommand extends ConfigAwareCommand {
           case 'json':
             interactiveOptions.json = true;
             break;
+
+          // The list offers only the options handled above.
+          // no default
         }
       }
 
@@ -1221,7 +1223,7 @@ export class LogsCommand extends ConfigAwareCommand {
   }
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new LogsCommand();
   program.addCommand(cmd.create());
 }

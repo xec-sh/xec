@@ -58,6 +58,11 @@ function computeDelay(config: RetryConfig, attempt: number): number {
     case 'exponential':
       delay = config.initialDelay * Math.pow(config.multiplier, attempt - 1);
       break;
+    default:
+      // Reachable: the strategy comes from user configuration. Falling
+      // through left `delay` undefined, so the wait became NaN and every
+      // retry fired immediately.
+      throw new Error(`Unknown retry backoff strategy: ${String(config.backoff)}`);
   }
   delay = Math.min(delay, config.maxDelay);
 

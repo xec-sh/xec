@@ -2373,7 +2373,7 @@ export class ConfigCommand extends BaseCommand {
 /**
  * Export command registration function
  */
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new ConfigCommand();
   program.addCommand(cmd.create());
 }

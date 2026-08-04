@@ -636,28 +636,28 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   }
 
   // File operation helpers with events
-  async readFile(path: string): Promise<string> {
+  async readFile(filePath: string): Promise<string> {
     const result = await this.execute({
       command: 'cat',
-      args: [path],
+      args: [filePath],
       shell: false
     });
 
     if (result.exitCode === 0) {
       // Emit file:read event
       this.emitEvent('file:read', {
-        path
+        path: filePath
       });
       return result.stdout;
     } else {
-      throw new Error(`Failed to read file ${path}: ${result.stderr}`);
+      throw new Error(`Failed to read file ${filePath}: ${result.stderr}`);
     }
   }
 
-  async writeFile(path: string, content: string): Promise<void> {
+  async writeFile(filePath: string, content: string): Promise<void> {
     const result = await this.execute({
       command: 'tee',
-      args: [path],
+      args: [filePath],
       stdin: content,
       shell: false
     });
@@ -665,28 +665,28 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     if (result.exitCode === 0) {
       // Emit file:write event
       this.emitEvent('file:write', {
-        path,
+        path: filePath,
         size: Buffer.byteLength(content, 'utf8')
       });
     } else {
-      throw new Error(`Failed to write file ${path}: ${result.stderr}`);
+      throw new Error(`Failed to write file ${filePath}: ${result.stderr}`);
     }
   }
 
-  async deleteFile(path: string): Promise<void> {
+  async deleteFile(filePath: string): Promise<void> {
     const result = await this.execute({
       command: 'rm',
-      args: ['-f', path],
+      args: ['-f', filePath],
       shell: false
     });
 
     if (result.exitCode === 0) {
       // Emit file:delete event
       this.emitEvent('file:delete', {
-        path
+        path: filePath
       });
     } else {
-      throw new Error(`Failed to delete file ${path}: ${result.stderr}`);
+      throw new Error(`Failed to delete file ${filePath}: ${result.stderr}`);
     }
   }
 
@@ -921,35 +921,32 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
    * without recreating the engine instance
    */
   get config() {
-    const self = this;
     return {
       /**
        * Set configuration values without recreating the engine
        * @example
        * $.config.set({ timeout: 30000, shell: '/bin/bash' });
        */
-      set(updates: Partial<ExecutionEngineConfig>): void {
+      set: (updates: Partial<ExecutionEngineConfig>): void => {
         // Deep merge for certain properties
         if (updates.defaultEnv) {
-          self._config.defaultEnv = { ...self._config.defaultEnv, ...updates.defaultEnv };
+          this._config.defaultEnv = { ...this._config.defaultEnv, ...updates.defaultEnv };
           delete updates.defaultEnv;
         }
 
         // Shallow merge for the rest
-        Object.assign(self._config, updates);
+        Object.assign(this._config, updates);
 
         // Update adapters with new config if needed
         if (updates.adapters) {
-          self.updateAdapterConfigs(updates.adapters);
+          this.updateAdapterConfigs(updates.adapters);
         }
       },
 
       /**
        * Get current configuration
        */
-      get(): Readonly<ExecutionEngineConfig> {
-        return { ...self._config };
-      }
+      get: (): Readonly<ExecutionEngineConfig> => ({ ...this._config })
     };
   }
 
@@ -1005,9 +1002,9 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   async which(command: string): Promise<string | null> {
     try {
       const result = await this.run`which ${command}`.nothrow();
-      const path = result.stdout.trim();
+      const resolved = result.stdout.trim();
       // If which returns empty output or non-zero exit, command not found
-      return (path && result.exitCode === 0) ? path : null;
+      return (resolved && result.exitCode === 0) ? resolved : null;
     } catch {
       return null;
     }

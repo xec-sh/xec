@@ -112,7 +112,7 @@ export class ModuleExecutor {
    */
   private hasCjsSyntax(content: string): boolean {
     // Match module.exports or exports. at start of line
-    const moduleExportsPattern = /(?:^|[;\s])module\.exports\s*[=\[.]/m;
+    const moduleExportsPattern = /(?:^|[;\s])module\.exports\s*[=[.]/m;
     const exportsPattern = /(?:^|[;\s])exports\.\w+\s*=/m;
 
     // Match require() calls (but not import.meta.require or similar)
@@ -207,10 +207,12 @@ export class ModuleExecutor {
     const moduleObj = { exports: moduleExports };
 
     // Create AMD define stub
+    // Dependencies are not resolved: the stub calls the factory with no
+    // arguments, so `define(deps, factory)` is supported only for the
+    // dependency-free form.
     const define = ((deps: any, factory: any) => {
       if (typeof deps === 'function') {
         factory = deps;
-        deps = [];
       }
       if (factory) {
         const result = factory();

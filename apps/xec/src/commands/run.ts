@@ -266,7 +266,8 @@ export class RunCommand extends BaseCommand {
       try {
         await fs.access(taskName);
         // It's a file without extension
-        return await this.runScript(taskName, [], options);
+        await this.runScript(taskName, [], options);
+        return;
       } catch {
         // Not a file either
         log.error(`Task '${taskName}' not found`);
@@ -355,7 +356,7 @@ export async function runTask(taskName: string, options: any) {
   return command['runTask'](taskName, options);
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new RunCommand();
   program.addCommand(cmd.create());
 }

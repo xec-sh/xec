@@ -104,13 +104,13 @@ export function createBuiltinCommands(): REPLCommands {
   const commands = new REPLCommands();
 
   // .clear command
-  commands.register('clear', 'Clear the console', function () {
+  commands.register('clear', 'Clear the console', function clearCommand() {
     console.clear();
     this.displayPrompt();
   });
 
   // .runtime command
-  commands.register('runtime', 'Show current runtime information', function () {
+  commands.register('runtime', 'Show current runtime information', function runtimeCommand() {
     console.log(`Runtime: Node.js ${process.version}`);
     console.log(`Platform: ${process.platform} ${process.arch}`);
     console.log(`Features:`);
@@ -121,7 +121,7 @@ export function createBuiltinCommands(): REPLCommands {
   });
 
   // .help command (override default)
-  commands.register('help', 'Show available commands', function () {
+  commands.register('help', 'Show available commands', function helpCommand() {
     console.log('Available commands:');
     // Get all commands from the REPL server
     const commandNames = Object.keys((this as any).commands);

@@ -274,12 +274,9 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
    * Reset consumer group offset
    */
   async resetConsumerOffset(group: string, topic: string, offset: 'earliest' | 'latest' | number): Promise<void> {
-    let offsetArg = '';
-    if (typeof offset === 'number') {
-      offsetArg = `--to-offset ${offset}`;
-    } else {
-      offsetArg = `--to-${offset}`;
-    }
+    const offsetArg = typeof offset === 'number'
+      ? `--to-offset ${offset}`
+      : `--to-${offset}`;
 
     await this.exec`kafka-consumer-groups --bootstrap-server localhost:9092 --group ${group} --topic ${topic} --reset-offsets ${offsetArg} --execute`;
   }

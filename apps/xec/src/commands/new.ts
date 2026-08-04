@@ -2415,7 +2415,7 @@ export async function createArtifact(type?: string, name?: string, options?: New
   return cmd['execute'](args);
 }
 
-export default function command(program: Command): void {
+export default function registerCommand(program: Command): void {
   const cmd = new NewCommand();
   program.addCommand(cmd.create());
 }

@@ -26,7 +26,7 @@ export { DockerContainer } from './adapters/docker/docker-api.js';
 export { KubernetesAdapter } from './adapters/kubernetes/index.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
-  return new Proxy(function () { } as any, {
+  return new Proxy(function callableEngineTarget() { } as any, {
     // Handle function calls like $`ls`
     apply(target, thisArg, [strings, ...values]) {
       return engine.run(strings, ...values);
@@ -82,7 +82,7 @@ let defaultEngine: CallableExecutionEngine | null = null;
 let defaultEngineInstance: ExecutionEngine | null = null;
 
 // Main export - the $ function
-export const $ = new Proxy(function () { } as any, {
+export const $ = new Proxy(function callableEngineTarget() { } as any, {
   get(target, prop: string) {
     if (!defaultEngine) {
       defaultEngineInstance = new ExecutionEngine();

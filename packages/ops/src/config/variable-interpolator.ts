@@ -482,6 +482,10 @@ export class VariableInterpolator {
       case 'params':
         value = this.getByPath(context.params || {}, parsed.path);
         break;
+
+      // An unrecognised reference stays undefined, which the fallback below
+      // turns into the declared default or an error.
+      // no default
     }
 
     // Use default value if undefined
@@ -524,6 +528,10 @@ export class VariableInterpolator {
       case 'params':
         value = this.getByPath(context.params || {}, parsed.path);
         break;
+
+      // An unrecognised reference stays undefined, which the fallback below
+      // turns into the declared default or an error.
+      // no default
     }
 
     // Use default value if undefined

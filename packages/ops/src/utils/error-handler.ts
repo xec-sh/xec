@@ -2,7 +2,7 @@ import jsYaml from 'js-yaml';
 import { log, prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
-import { enhanceError, EnhancedExecutionError, type ErrorContext } from './enhanced-error.js';
+import { enhanceError, type ErrorContext, EnhancedExecutionError } from './enhanced-error.js';
 
 /** Options relevant to error handling (subset of CLI command options) */
 export interface CommandOptions {

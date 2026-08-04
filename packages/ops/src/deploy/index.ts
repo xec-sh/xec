@@ -137,6 +137,11 @@ export class Deployer {
       case 'blue-green':
         await this.deployBlueGreen(version, results, createContext);
         break;
+      default:
+        // A strategy typo in configuration deployed to nothing, and
+        // `results.every()` over the resulting empty array reported the
+        // deployment as successful.
+        throw new Error(`Unknown deployment strategy: ${String(this.config.strategy)}`);
     }
 
     const result: DeployResult = {
