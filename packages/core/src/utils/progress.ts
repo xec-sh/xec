@@ -177,13 +177,23 @@ export class ProgressReporter {
           console.log(`⏳ ${event.message}`);
         }
         break;
-      case 'complete':
+      case 'complete': {
+        // Braces scope the declaration to this case; without them it is
+        // visible to every other branch, initialised or not.
         const durationStr = event.duration ? ` (${this.formatDuration(event.duration)})` : '';
         console.log(`✅ ${event.message}${durationStr}`);
         break;
+      }
       case 'error':
         console.error(`❌ ${event.message}`);
         break;
+      default: {
+        // Exhaustiveness guard: adding a ProgressEvent type without handling
+        // it here becomes a compile error rather than a silently ignored
+        // event.
+        const unhandled: never = event.type;
+        throw new TypeError(`Unhandled progress event type: ${String(unhandled)}`);
+      }
     }
   }
   

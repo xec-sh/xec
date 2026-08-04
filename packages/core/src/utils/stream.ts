@@ -192,7 +192,7 @@ export class LineTransform extends Transform {
     super();
   }
 
-  override _transform(chunk: Buffer, encoding: string, callback: Function): void {
+  override _transform(chunk: Buffer, encoding: string, callback: (error?: Error | null) => void): void {
     this.buffer += chunk.toString(this.encoding);
     const lines = this.buffer.split('\n');
     this.buffer = lines.pop() || '';
@@ -207,7 +207,7 @@ export class LineTransform extends Transform {
     callback();
   }
 
-  override _flush(callback: Function): void {
+  override _flush(callback: (error?: Error | null) => void): void {
     if (this.buffer) {
       const transformed = this.transform(this.buffer);
       if (transformed !== null) {
@@ -407,7 +407,7 @@ export class StreamCollector extends Transform {
     super();
   }
 
-  override _transform(chunk: Buffer, encoding: string, callback: Function): void {
+  override _transform(chunk: Buffer, encoding: string, callback: (error?: Error | null) => void): void {
     this.chunks.push(chunk);
 
     if (this.maxSize) {
@@ -440,7 +440,7 @@ export class ProgressTracker extends Transform {
     super();
   }
 
-  override _transform(chunk: Buffer, encoding: string, callback: Function): void {
+  override _transform(chunk: Buffer, encoding: string, callback: (error?: Error | null) => void): void {
     this.totalBytes += chunk.length;
     const elapsed = (Date.now() - this.startTime) / 1000;
     const bytesPerSecond = this.totalBytes / elapsed;
