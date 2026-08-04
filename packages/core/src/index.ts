@@ -318,6 +318,41 @@ export {
   KubernetesError
 } from './core/error.js';
 export type { EventFilter } from './types/events.js';
+/**
+ * Event types.
+ *
+ * These were previously internal, which left a consumer no way to type an
+ * event handler — the observed result was `(event: any)` at every call site
+ * in a project that is otherwise strictly typed.
+ */
+export type {
+  UshEvent,
+  UshEventMap,
+  UshEventType,
+  BaseUshEvent,
+  TypedEventEmitter,
+  CommandStartEvent,
+  CommandCompleteEvent,
+  CommandErrorEvent,
+  CommandRetryEvent,
+  SSHConnectEvent,
+  SSHDisconnectEvent,
+  SSHExecuteEvent,
+  SSHReconnectEvent,
+  SSHPoolMetricsEvent,
+  DockerRunEvent,
+  DockerExecEvent,
+  K8sExecEvent,
+  TransferStartEvent,
+  TransferCompleteEvent,
+  TransferErrorEvent,
+  ConnectionOpenEvent,
+  ConnectionCloseEvent,
+  RetryAttemptEvent,
+  RetrySuccessEvent,
+  RetryFailedEvent,
+} from './types/events.js';
+
 export type { PipeTarget } from './types/process.js';
 
 export type { ExecutionResult } from './core/result.js';
