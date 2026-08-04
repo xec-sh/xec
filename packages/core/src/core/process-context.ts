@@ -326,7 +326,15 @@ export class ProcessPromiseBuilder {
           const processes = context.engine._activeProcesses;
           if (processes) {
             processes.add(lazyPromise);
-            executionPromise.finally(() => processes.delete(lazyPromise));
+            // Untrack on both outcomes rather than with `.finally()`. That
+            // returns a second promise which rejects with the same reason and
+            // which nothing handles, so every failed command emitted an
+            // unhandled rejection alongside the one the caller caught — enough
+            // to kill a host application that treats them as fatal.
+            const untrack = (): void => {
+              processes.delete(lazyPromise);
+            };
+            executionPromise.then(untrack, untrack);
           }
         }
         // Check if we're being awaited directly (not through .text(), .json(), etc)

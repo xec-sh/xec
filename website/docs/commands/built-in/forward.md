@@ -34,7 +34,7 @@ Port mappings can be specified as:
 - `-p, --profile <profile>` - Configuration profile to use
 - `-i, --interactive` - Interactive mode for setting up port forwarding
 - `-b, --bind <address>` - Local bind address (default: 127.0.0.1)
-- `-r, --reverse` - Reverse port forwarding (remote to local) - Not yet implemented
+- `-r, --reverse` - Reverse port forwarding (remote to local) - SSH targets only
 - `--background` - Run port forwarding in background
 - `-v, --verbose` - Enable verbose output
 - `-q, --quiet` - Suppress output
@@ -334,7 +334,7 @@ pkill -f "xec forward"
 
 ## Limitations
 
-- Reverse forwarding (`-r`) not yet implemented
+- Reverse forwarding (`-r`) is available for SSH targets only
 - UDP forwarding not supported
 - Dynamic port forwarding (SOCKS) not available
 - Maximum 65535 ports per target

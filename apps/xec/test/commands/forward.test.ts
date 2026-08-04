@@ -783,13 +783,16 @@ describe('Forward Command', () => {
         yaml.dump(config)
       );
 
+      // SSH reverse tunnels are implemented now, so the command gets as far
+      // as opening a connection; this host does not resolve, which is how the
+      // test tells "attempted" from the old "not implemented".
       await expect(
         command.execute([
           'hosts.remote',
           '8080:80',
           { reverse: true, quiet: true }
         ])
-      ).rejects.toThrow('Reverse tunneling is not yet implemented in this version');
+      ).rejects.toThrow(/remote\.example\.com/);
     });
 
     it('should not support reverse forwarding for Docker', async () => {

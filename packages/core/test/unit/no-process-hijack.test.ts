@@ -97,4 +97,30 @@ console.log(JSON.stringify({
     // Even opted in, the library must not police the host's rejections.
     expect(counts.rejection).toBe(0);
   }, 90_000);
+
+  it('emits no unhandled rejection when a command fails', async () => {
+    // Process tracking untracked the promise with `.finally()`, which returns
+    // a second promise rejecting with the same reason and handled by nothing.
+    // A caught failure therefore also reached the host's unhandledRejection
+    // handler — fatal for a host that treats those as fatal, and invisible
+    // from inside a test worker, hence a child process.
+    const { stdout } = await runScript(
+      'no-unhandled',
+      `const { $ } = await import(${JSON.stringify(CORE)});
+
+const unhandled = [];
+process.on('unhandledRejection', reason => unhandled.push(String(reason)));
+
+try { await $\`exit 3\`; } catch { /* the caller handles it */ }
+await $\`exit 7\`.nothrow();
+
+// Rejections surface on a later turn of the loop, so give them one.
+await new Promise(resolve => { setTimeout(resolve, 500); });
+console.log(JSON.stringify({ unhandled }));
+`
+    );
+
+    const { unhandled } = JSON.parse(stdout.trim().split('\n').pop()!);
+    expect(unhandled).toEqual([]);
+  }, 90_000);
 });
