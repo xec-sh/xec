@@ -700,7 +700,13 @@ XECSH_NO_COLOR=true          # Disable colored output
 - User-friendly error messages with suggestions
 - Interactive prompts when appropriate
 - Respect NO_COLOR and CI environment
-- **Fast startup time** (<50ms required, <30ms target)
+- **Fast startup**. Measured 2026-08-04: `xec --help` takes ~400-500 ms, against
+  a ~45 ms floor for an empty `node -e ""` on the same machine. The dominant
+  cost is that `main.ts` eagerly imports `@xec-sh/ops`, pulling the whole
+  config and secrets machinery in just to print help. Target: **under 150 ms**,
+  reached by loading `ops` lazily. The previous target of <50 ms was
+  unreachable by construction — Node itself costs that much before any code
+  of ours runs.
 - Progressive enhancement based on TTY capabilities
 
 ### @xec-sh/testing
@@ -748,7 +754,7 @@ describe('execution performance', () => {
 - **SSH connection**: <100ms (pooled: <10ms)
 - **Docker exec**: <50ms
 - **Memory overhead**: <5MB per command
-- **Startup time**: <50ms
+- **Startup time**: <150ms (Node's own floor is ~45ms; see above)
 
 ### Optimization Guidelines
 
@@ -855,7 +861,7 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 ### Performance Metrics
 - **Operations/second**: >10K for simple commands
 - **Memory overhead**: <5MB per command
-- **Startup time**: <50ms
+- **Startup time**: <150ms (Node's own floor is ~45ms)
 - **Connection pooling efficiency**: >90%
 
 ### Reliability Metrics
