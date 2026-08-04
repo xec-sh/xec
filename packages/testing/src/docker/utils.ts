@@ -1,6 +1,33 @@
-import Docker from 'dockerode';
+import { execFile } from 'node:child_process';
 
-export const docker = new Docker();
+/**
+ * Container helpers built on the docker CLI.
+ *
+ * This file used to be the package's only production dependency: it drove
+ * dockerode for five small operations, while every other package in the
+ * repository shells out to `docker` for the same work. A test-utility package
+ * that promises zero production dependencies should keep that promise, and
+ * the CLI needs no protocol client, no stream demuxing, and no socket
+ * configuration of its own.
+ *
+ * Arguments go through execFile, so nothing here passes through a shell.
+ */
+
+/** Run docker with the given arguments and collect both streams. */
+function runDocker(
+  args: string[]
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  return new Promise(resolve => {
+    execFile('docker', args, { maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
+      // execFile reports a non-zero exit as an error whose `code` is the exit
+      // code; a spawn failure carries a string errno instead.
+      const code = (error as (NodeJS.ErrnoException & { code?: number | string }) | null)?.code;
+      const exitCode = error ? (typeof code === 'number' ? code : 1) : 0;
+
+      resolve({ stdout: String(stdout), stderr: String(stderr), exitCode });
+    });
+  });
+}
 
 export interface ContainerInfo {
   id: string;
@@ -9,128 +36,102 @@ export interface ContainerInfo {
   state: string;
 }
 
+/**
+ * Inspect a container.
+ *
+ * @param containerName - Name or id.
+ * @returns Its identity and state, or null when it does not exist.
+ */
 export async function getContainerInfo(containerName: string): Promise<ContainerInfo | null> {
+  const result = await runDocker(['inspect', '--format', 'json', containerName]);
+  if (result.exitCode !== 0) return null;
+
   try {
-    const container = docker.getContainer(containerName);
-    const info = await container.inspect();
+    const [info] = JSON.parse(result.stdout) as Array<{
+      Id: string;
+      Name: string;
+      Config: { Image: string };
+      State: { Status: string };
+    }>;
+
+    if (!info) return null;
+
     return {
       id: info.Id,
       name: info.Name.replace(/^\//, ''),
       image: info.Config.Image,
-      state: info.State.Status
+      state: info.State.Status,
     };
   } catch {
     return null;
   }
 }
 
+/**
+ * Wait until a container reports `running`.
+ *
+ * @param containerName - Name or id.
+ * @param timeout - How long to keep polling, in ms.
+ * @throws When the container is not running within the timeout.
+ */
 export async function waitForContainer(containerName: string, timeout = 5000): Promise<void> {
   const start = Date.now();
+
   while (Date.now() - start < timeout) {
     const info = await getContainerInfo(containerName);
-    if (info && info.state === 'running') {
-      return;
-    }
+    if (info?.state === 'running') return;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
+
   throw new Error(`Container ${containerName} did not start within ${timeout}ms`);
 }
 
-export async function getContainerLogs(containerName: string): Promise<{ stdout: string; stderr: string }> {
-  const container = docker.getContainer(containerName);
-  const logStream = await container.logs({
-    stdout: true,
-    stderr: true,
-    follow: false
-  });
-  
-  // Check if it's a Buffer or Stream
-  if (Buffer.isBuffer(logStream)) {
-    // If it's a buffer, parse it directly
-    const logs = logStream.toString('utf-8');
-    return {
-      stdout: logs,
-      stderr: ''
-    };
-  }
-  
-  // It's a stream, handle it as before
-  const stream = logStream as NodeJS.ReadableStream;
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  
-  return new Promise((resolve, reject) => {
-    container.modem.demuxStream(stream, 
-      {
-        write: (chunk: Buffer) => stdout.push(chunk.toString())
-      },
-      {
-        write: (chunk: Buffer) => stderr.push(chunk.toString())
-      }
-    );
+/**
+ * A container's collected logs.
+ *
+ * The CLI already demultiplexes the daemon's stream: stdout arrives on
+ * stdout and stderr on stderr, which is the split dockerode needed a modem
+ * helper for.
+ */
+export async function getContainerLogs(
+  containerName: string
+): Promise<{ stdout: string; stderr: string }> {
+  const result = await runDocker(['logs', containerName]);
 
-    stream.on('end', () => {
-      resolve({
-        stdout: stdout.join(''),
-        stderr: stderr.join('')
-      });
-    });
-    
-    stream.on('error', reject);
-  });
+  if (result.exitCode !== 0) {
+    throw new Error(`docker logs ${containerName} failed: ${result.stderr.trim()}`);
+  }
+
+  return { stdout: result.stdout, stderr: result.stderr };
 }
 
+/**
+ * Run a command inside a container and report what it did.
+ *
+ * @param containerName - Name or id.
+ * @param command - Argv, passed as-is; nothing is shell-interpreted.
+ */
 export async function execInContainer(
-  containerName: string, 
+  containerName: string,
   command: string[]
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const container = docker.getContainer(containerName);
-  const exec = await container.exec({
-    Cmd: command,
-    AttachStdout: true,
-    AttachStderr: true
-  });
-  
-  const stream = await exec.start({ hijack: true });
-  
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  
-  return new Promise((resolve, reject) => {
-    container.modem.demuxStream(stream,
-      {
-        write: (chunk: Buffer) => stdout.push(chunk.toString())
-      },
-      {
-        write: (chunk: Buffer) => stderr.push(chunk.toString())
-      }
-    );
-
-    stream.on('end', async () => {
-      const info = await exec.inspect();
-      resolve({
-        stdout: stdout.join(''),
-        stderr: stderr.join(''),
-        exitCode: info.ExitCode || 0
-      });
-    });
-    
-    stream.on('error', reject);
-  });
+  return runDocker(['exec', containerName, ...command]);
 }
 
+/**
+ * Force-remove every container whose name starts with the prefix.
+ *
+ * Test containers are namespaced by prefix, so this is how a suite cleans up
+ * after itself — including containers a crashed run left behind.
+ */
 export async function cleanupTestContainers(prefix: string): Promise<void> {
-  const containers = await docker.listContainers({ all: true });
-  
-  for (const containerInfo of containers) {
-    const name = containerInfo.Names[0]?.replace(/^\//, '');
-    if (name && name.startsWith(prefix)) {
-      try {
-        const container = docker.getContainer(containerInfo.Id);
-        await container.remove({ force: true });
-      } catch {
-        // Container may already be removed
-      }
-    }
-  }
+  const listed = await runDocker(['ps', '-a', '--format', '{{.Names}}']);
+  if (listed.exitCode !== 0) return;
+
+  const names = listed.stdout
+    .split('\n')
+    .map(name => name.trim())
+    .filter(name => name.startsWith(prefix));
+
+  await Promise.all(names.map(name => runDocker(['rm', '-f', name])));
 }

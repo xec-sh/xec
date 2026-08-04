@@ -51,14 +51,6 @@
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
-  "peerDependencies": {
-    "chokidar": "^5.0.0"
-  },
-  "peerDependenciesMeta": {
-    "chokidar": {
-      "optional": true
-    }
-  },
   "keywords": [
     "xec",
     "script",

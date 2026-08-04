@@ -10,9 +10,8 @@ Xec is a modern, type-safe command execution system built with TypeScript. It pr
 - **100% Runtime Compatibility**: All code MUST work identically on Node.js, Bun, and Deno
 - **100% Type Safety**: No `any` types in public APIs, 100% type coverage
 - **Zero Warnings**: No TypeScript warnings, no linter warnings, no deprecation warnings
-- **Minimal Core Dependencies**: Core currently depends on `ssh2`, `js-yaml` and `zod` only.
-  Every addition must be justified in review; `shell-escape` is declared but unused and is
-  scheduled for removal.
+- **Minimal Core Dependencies**: Core depends on `ssh2` only, loaded lazily when an
+  SSH target is used. Every addition must be justified in review.
 - **No "Good Enough"**: If it's not perfect, it's not ready
 - **No Workarounds**: Fix the root cause, not the symptom
 - **No Assumptions**: Test everything, verify everything, prove everything
@@ -687,7 +686,7 @@ XECSH_NO_COLOR=true          # Disable colored output
 ## 📚 Package Guidelines
 
 ### @xec-sh/core
-- **Minimal dependencies** — currently `ssh2`, `js-yaml`, `zod`; additions need review
+- **Minimal dependencies** — currently `ssh2` only, loaded lazily; additions need review
 - **100% ESM modules**
 - **Platform-agnostic code** (Node.js, Deno, Bun)
 - All adapters optional via lazy loading
@@ -764,10 +763,12 @@ the reason, rather than left as an aspiration nobody checks.
 - **SSH connection**: <100ms (pooled: <10ms)
 - **Docker exec**: <50ms
 - **Memory overhead**: <5MB per command
-- **Startup time (`xec --help`)**: ~150ms against a ~20ms floor for an empty
-  `node -e ""` on the same machine. Reached by loading `@xec-sh/ops`, the
-  script loader and each command module only when something needs them; a
-  command manifest supplies the names and descriptions `--help` prints.
+- **Startup time (`xec --help`)**: ~70ms against a ~28ms floor for an empty
+  `node -e ""` on the same machine (2.6x the floor; measured 2026-08-04).
+  Reached by loading `@xec-sh/ops`, the script loader and each command module
+  only when something needs them: a command manifest supplies the names and
+  descriptions `--help` prints, and dynamic commands register as stubs whose
+  action imports the real module.
 
 ### Optimization Guidelines
 
@@ -869,12 +870,12 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 - **Cyclomatic complexity**: <10 per function
 - **Type coverage**: 100%
 - **Bundle size**: <50KB (core)
-- **Dependencies**: 3 (core) — `ssh2`, `js-yaml`, `zod`
+- **Dependencies**: 1 (core) — `ssh2`, loaded only when an SSH target is used
 
 ### Performance Metrics
 - **Operations/second**: >10K for simple commands
 - **Memory overhead**: <5MB per command
-- **Startup time**: ~150ms measured (`xec --help`); Node's own floor is ~20ms
+- **Startup time**: ~70ms measured (`xec --help`); Node's own floor is ~28ms
 - **Connection pooling efficiency**: >90%
 
 ### Reliability Metrics

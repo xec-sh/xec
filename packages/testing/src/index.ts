@@ -14,7 +14,6 @@ export * from './k8s/kind-cluster-manager.js';
 export * from './helpers/ssh-test-helpers.js';
 
 export {
-  docker,
   execInContainer,
   getContainerInfo,
   getContainerLogs,
