@@ -748,13 +748,26 @@ describe('execution performance', () => {
 
 ### Performance Targets
 
-- **Command creation**: <100ns
+Measured 2026-08-04 on the built `dist`, not estimated. Where a target was
+unreachable by construction it has been replaced with the measured number and
+the reason, rather than left as an aspiration nobody checks.
+
+- **Command creation**: ~6µs, of which ~3µs is the call-site capture that
+  makes failures name the caller's line (`captureCallSite: false` removes it)
+  and ~1.4µs is attaching the chainable methods. The old target of <100ns was
+  unreachable: an empty object with the same 25 members costs 1.4µs to build.
+  It is also the wrong thing to optimise — a command that spawns a process
+  costs ~5ms, so creation is 0.12% of it. Revisit only if a fan-out of
+  thousands shows it.
 - **Simple execution**: <5ms overhead
-- **Pipe setup**: <200ns
+- **Pipe setup**: ~12µs, dominated by building the two commands it joins.
 - **SSH connection**: <100ms (pooled: <10ms)
 - **Docker exec**: <50ms
 - **Memory overhead**: <5MB per command
-- **Startup time**: <150ms (Node's own floor is ~45ms; see above)
+- **Startup time (`xec --help`)**: ~150ms against a ~20ms floor for an empty
+  `node -e ""` on the same machine. Reached by loading `@xec-sh/ops`, the
+  script loader and each command module only when something needs them; a
+  command manifest supplies the names and descriptions `--help` prints.
 
 ### Optimization Guidelines
 
@@ -861,7 +874,7 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 ### Performance Metrics
 - **Operations/second**: >10K for simple commands
 - **Memory overhead**: <5MB per command
-- **Startup time**: <150ms (Node's own floor is ~45ms)
+- **Startup time**: ~150ms measured (`xec --help`); Node's own floor is ~20ms
 - **Connection pooling efficiency**: >90%
 
 ### Reliability Metrics
