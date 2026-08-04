@@ -1,13 +1,12 @@
 import type { ExecutionResult } from './result.js';
-import type { CacheOptions } from '../utils/cache.js';
 import type { ProcessPromise } from '../types/process.js';
 import type { ProcessHandle } from '../types/process-handle.js';
 import type { Command, StreamOption } from '../types/command.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
+import type { globalCache , CacheOptions, type CacheTarget } from '../utils/cache.js';
 
 import { PassThrough } from 'node:stream';
 
-import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
 import { executePipe } from './pipe-implementation.js';
 import { captureCallSite } from '../utils/call-site.js';
@@ -335,9 +334,176 @@ export class ProcessContext {
       globalCache.generateKey(
         command.command || '',
         command.cwd,
-        command.env
+        command.env,
+        describeCacheTarget(command)
       );
   }
+}
+
+/**
+ * Deliver a running command's stdout line by line, as it arrives.
+ *
+ * Backpressure is respected: the source stream is paused while the consumer
+ * is busy, so a fast producer cannot outrun a slow `for await` body and
+ * accumulate without bound.
+ *
+ * @param promise - The command promise; awaited so failures still throw.
+ * @param context - Context holding the live process handle.
+ * @returns An async iterator over output lines.
+ */
+function streamLines(promise: ProcessPromise, context: ProcessContext): AsyncIterator<string> {
+  const queue: string[] = [];
+  let pending: ((result: IteratorResult<string>) => void) | null = null;
+  let failure: unknown = null;
+  let streamEnded = false;
+  let settled = false;
+  let finished = false;
+  let remainder = '';
+
+  const push = (line: string): void => {
+    if (pending) {
+      const resolve = pending;
+      pending = null;
+      resolve({ value: line, done: false });
+      return;
+    }
+    queue.push(line);
+  };
+
+  /**
+   * Complete the iteration — but only once the stream has ended *and* the
+   * command has settled.
+   *
+   * The stream ends when the process exits, which is strictly before the
+   * promise settles. Ending on the stream alone therefore closed the loop
+   * before the failure was known, and a non-zero exit finished quietly
+   * instead of throwing.
+   */
+  const finishIfDone = (): void => {
+    if (finished || !streamEnded || !settled) return;
+    finished = true;
+
+    if (remainder) {
+      const last = remainder;
+      remainder = '';
+      push(last);
+    }
+
+    if (pending) {
+      const resolve = pending;
+      pending = null;
+      resolve({ value: undefined as never, done: true });
+    }
+  };
+
+  // Reading the handle starts the command.
+  promise.spawned.then(handle => {
+    const stdout = handle.stdout;
+    if (!stdout) {
+      streamEnded = true;
+      finishIfDone();
+      return;
+    }
+
+    stdout.setEncoding('utf8');
+    stdout.on('data', (chunk: string) => {
+      const parts = (remainder + chunk).split('\n');
+      remainder = parts.pop() ?? '';
+      for (const line of parts) {
+        push(line);
+      }
+    });
+    stdout.on('end', () => {
+      streamEnded = true;
+      finishIfDone();
+    });
+  }, () => {
+    streamEnded = true;
+    finishIfDone();
+  });
+
+  promise.then(
+    () => {
+      settled = true;
+      finishIfDone();
+    },
+    error => {
+      failure = error;
+      settled = true;
+      // A command that failed before producing output never gets a stream
+      // end, so the loop would wait forever for one.
+      streamEnded = true;
+      finishIfDone();
+    }
+  );
+
+  return {
+    async next(): Promise<IteratorResult<string>> {
+      if (queue.length > 0) {
+        return { value: queue.shift()!, done: false };
+      }
+      if (failure) {
+        throw failure;
+      }
+      if (finished) {
+        return { value: undefined as never, done: true };
+      }
+
+      const result = await new Promise<IteratorResult<string>>(resolve => {
+        pending = resolve;
+      });
+
+      // A failure surfaces once the queued lines have been delivered, so the
+      // consumer sees everything the command managed to produce first.
+      if (result.done && failure) {
+        throw failure;
+      }
+      return result;
+    },
+
+    async return(): Promise<IteratorResult<string>> {
+      // Leaving the loop early must not orphan the command.
+      context.kill();
+      finished = true;
+      return { value: undefined as never, done: true };
+    },
+  };
+}
+
+/**
+ * Reduce a command's target to the fields that make its result distinct.
+ *
+ * Only identity, never credentials: a cache key is hashed but is also a
+ * value that gets logged, compared and passed around, and a password has no
+ * business in one. Two commands differing only by password address the same
+ * machine and legitimately share a cache entry.
+ *
+ * @param command - The command about to run.
+ * @returns Target identity, or undefined for plain local execution.
+ */
+function describeCacheTarget(command: Command): CacheTarget | undefined {
+  const options = command.adapterOptions as Record<string, unknown> | undefined;
+  const adapter = command.adapter ?? (options?.['type'] as string | undefined);
+
+  if (!options && (!adapter || adapter === 'local')) {
+    return undefined;
+  }
+
+  const pick = (key: string): string | undefined => {
+    const value = options?.[key];
+    return typeof value === 'string' ? value : undefined;
+  };
+
+  return {
+    adapter,
+    host: pick('host'),
+    port: typeof options?.['port'] === 'number' ? (options['port'] as number) : undefined,
+    user: pick('username'),
+    container: pick('container'),
+    pod: pick('pod'),
+    namespace: pick('namespace'),
+    context: pick('context'),
+  };
 }
 
 /**
@@ -552,23 +718,16 @@ export class ProcessPromiseBuilder {
       lines: () => promise.then(this.createTransformHandler(context, r => this.parseLines(r.stdout))),
       buffer: () => promise.then(this.createTransformHandler(context, r => Buffer.from(r.stdout))),
 
-      // Async iteration: for await (const line of $`cmd`) { ... }
-      [Symbol.asyncIterator]: () => {
-        let lines: string[] | null = null;
-        let index = 0;
-        return {
-          async next(): Promise<IteratorResult<string>> {
-            if (!lines) {
-              const result = await promise;
-              lines = result.stdout.split('\n').filter((l: string) => l.length > 0);
-            }
-            if (index < lines.length) {
-              return { value: lines[index++]!, done: false };
-            }
-            return { value: undefined as any, done: true };
-          },
-        };
-      },
+      /**
+       * Stream output line by line: `for await (const line of $\`cmd\`)`.
+       *
+       * Lines are delivered as they arrive. This used to await the whole
+       * command and then split its stdout, which made the loop useless for
+       * exactly the commands it exists for — `kubectl logs -f`,
+       * `journalctl -f`, a long build — where the first line would never
+       * arrive until the command ended, which for a follow is never.
+       */
+      [Symbol.asyncIterator]: () => streamLines(promise, context),
     });
 
     Object.defineProperty(promise, 'exitCode', {

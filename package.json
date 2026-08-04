@@ -23,7 +23,8 @@
     "docs:build": "cd website && pnpm build",
     "docs:serve": "cd website && pnpm serve",
     "docs:deploy": "cd website && pnpm deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:lockfile": "pnpm install --frozen-lockfile --lockfile-only"
   },
   "devDependencies": {
     "@xec-sh/kit": "workspace:*",

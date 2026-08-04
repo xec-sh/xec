@@ -4,6 +4,23 @@ import crypto from 'crypto';
 
 import { ExecutionResult } from '../core/result.js';
 
+/**
+ * Identity of the machine, container or pod a command ran on.
+ *
+ * Two commands with identical text are different results when they ran in
+ * different places, so this is part of the cache key.
+ */
+export interface CacheTarget {
+  adapter?: string;
+  host?: string;
+  port?: number;
+  user?: string;
+  container?: string;
+  pod?: string;
+  namespace?: string;
+  context?: string;
+}
+
 export interface CacheOptions {
   key?: string;
   ttl?: number; // Time to live in milliseconds
@@ -37,13 +54,36 @@ export class ResultCache {
   /**
    * Generate a cache key from command and options
    */
-  generateKey(command: string, cwd?: string, env?: Record<string, string>): string {
+  /**
+   * Build a cache key that identifies *where* a command ran, not just what it
+   * was.
+   *
+   * The key used to be command + cwd + env only. `hostname` cached against
+   * prod-1 was then served for prod-2, and a container's file listing for a
+   * different container: the tool answered with another machine's data and
+   * looked confident doing it. For anything that acts on the answer —
+   * a health check, a deploy gate — that is a correctness *and* a safety
+   * failure.
+   *
+   * @param command - The command string.
+   * @param cwd - Working directory, when set.
+   * @param env - Environment overrides, when set.
+   * @param target - Which machine, container or pod the command ran on.
+   * @returns A hash covering all of the above.
+   */
+  generateKey(
+    command: string,
+    cwd?: string,
+    env?: Record<string, string>,
+    target?: CacheTarget
+  ): string {
     const data = {
       command,
       cwd: cwd || process.cwd(),
-      env: env || {}
+      env: env || {},
+      target: target ?? null
     };
-    
+
     return crypto
       .createHash('sha256')
       .update(JSON.stringify(data))
