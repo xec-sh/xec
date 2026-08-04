@@ -7,20 +7,21 @@ export { pipeUtils } from './utils/pipe.js';
 export { isDisposable } from './types/disposable.js';
 export type { EventFilter } from './types/events.js';
 export type { PipeTarget } from './types/process.js';
-export { within, withinSync } from './utils/within.js';
+export { ParallelEngine } from './utils/parallel.js';
 import { getLocalContext } from './utils/within.js';
 
+export { within, withinSync } from './utils/within.js';
+export { parallel } from './utils/parallel-default.js';
 export type { ExecutionResult } from './core/result.js';
 export { LocalAdapter } from './adapters/local/index.js';
 export type { ProcessPromise } from './types/process.js';
 export { DockerAdapter } from './adapters/docker/index.js';
-export { withTempDir, withTempFile } from './utils/temp.js';
-export { ExecutionEngine } from './core/execution-engine.js';
 
-export type { RetryOptions } from './utils/retry-adapter.js';
+export { withTempDir, withTempFile } from './utils/temp.js';
 
 export type { ExecutionEngineConfig };
-export { parallel, ParallelEngine } from './utils/parallel.js';
+export { ExecutionEngine } from './core/execution-engine.js';
+export type { RetryOptions } from './utils/retry-adapter.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
 export type { CommandSuggestion } from './utils/suggestions.js';
 export type { CallableExecutionEngine } from './types/engine.js';

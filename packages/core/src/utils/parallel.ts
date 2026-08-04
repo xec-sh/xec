@@ -4,7 +4,21 @@ import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
 
 export interface ParallelOptions {
+  /**
+   * How many commands may run at once.
+   *
+   * For infrastructure work this is a safety control, not a tuning knob:
+   * "roll out to 100 hosts, 5 at a time" is a different operation from
+   * "hit all 100 now". The option was previously spelled only
+   * `maxConcurrency` while every example — including both READMEs — said
+   * `maxConcurrent`, so the documented form was accepted and ignored, and
+   * the limit silently became Infinity. Both spellings work.
+   */
+  maxConcurrent?: number;
+
+  /** Alias of {@link maxConcurrent}. */
   maxConcurrency?: number;
+
   stopOnError?: boolean;
   timeout?: number;
   onProgress?: (completed: number, total: number, succeeded: number, failed: number) => void;
@@ -23,11 +37,12 @@ export async function parallel(
   options: ParallelOptions = {}
 ): Promise<ParallelResult> {
   const {
-    maxConcurrency = Infinity,
     stopOnError = false,
     timeout,
     onProgress
   } = options;
+
+  const maxConcurrency = options.maxConcurrent ?? options.maxConcurrency ?? Infinity;
 
   const startTime = Date.now();
   const results: (ExecutionResult | Error)[] = [];
