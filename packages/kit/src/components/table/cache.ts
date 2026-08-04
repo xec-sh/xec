@@ -62,9 +62,10 @@ export class Cache<K, V> {
       return undefined;
     }
 
-    // Check TTL
+    // Check TTL — must go through delete() so insertionOrder stays in sync,
+    // otherwise evict() later pops a stale key and the cache exceeds maxSize
     if (this.config.ttl && Date.now() - entry.timestamp > this.config.ttl) {
-      this.cache.delete(key);
+      this.delete(key);
       return undefined;
     }
 
@@ -115,9 +116,9 @@ export class Cache<K, V> {
       return false;
     }
 
-    // Check TTL
+    // Check TTL — must go through delete() to keep insertionOrder in sync
     if (this.config.ttl && Date.now() - entry.timestamp > this.config.ttl) {
-      this.cache.delete(key);
+      this.delete(key);
       return false;
     }
 

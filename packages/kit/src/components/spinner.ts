@@ -106,9 +106,12 @@ export const spinner = ({
   if (!frames) {
     const frameSet = SPINNER_FRAMES[style];
     frames = unicode ? frameSet.unicode : frameSet.ascii;
-    if (!delay) {
-      delay = unicode ? frameSet.delay.unicode : frameSet.delay.ascii;
-    }
+  }
+  if (!delay) {
+    // Custom frames without an explicit delay must still get a sane default —
+    // setInterval(fn, undefined) fires every ~1ms and busy-loops the process
+    const frameSet = SPINNER_FRAMES[style];
+    delay = unicode ? frameSet.delay.unicode : frameSet.delay.ascii;
   }
 
   const defaultStyleFrame = styleFrame ?? ((frame: string) => prism.magenta(frame));
@@ -192,14 +195,20 @@ export const spinner = ({
   };
 
   const start = (msg = ''): void => {
+    if (isSpinnerActive) {
+      // Restart in place: clear the previous interval instead of leaking it —
+      // a second start() used to leave the old timer writing forever
+      clearInterval(loop);
+    } else {
+      unblock = block({ output });
+      registerHooks();
+      output.write(`${prism.gray(S_BAR)}\n`);
+    }
     isSpinnerActive = true;
-    unblock = block({ output });
     _message = removeTrailingDots(msg);
     _origin = performance.now();
-    output.write(`${prism.gray(S_BAR)}\n`);
     let frameIndex = 0;
     let indicatorTimer = 0;
-    registerHooks();
     loop = setInterval(() => {
       if (isCI && _message === _prevMessage) {
         return;

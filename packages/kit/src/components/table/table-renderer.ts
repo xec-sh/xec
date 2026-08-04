@@ -20,6 +20,7 @@ function calculateLayout<T>(data: T[], options: TableOptions<T>): TableLayout<T>
   const columns = calculateColumnWidths(data, options.columns, {
     width: options.width,
     output: options.output,
+    borders: options.borders,
   });
 
   const totalWidth = getTotalTableWidth(columns, hasBorders);

@@ -108,6 +108,24 @@ describe('table-state', () => {
       expect(state.sort).toEqual({ key: 'name', direction: 'asc' });
     });
 
+    /**
+     * Regression: initialSort only set the indicator — the rows themselves
+     * stayed in insertion order until the user toggled the sort manually.
+     */
+    it('should apply initialSort to the data, not just the indicator', () => {
+      const data = createTestData();
+      const options = createTestOptions({
+        initialSort: { key: 'name', direction: 'desc' },
+      });
+
+      const state = createTableState(data, options);
+
+      const names = state.data.map((row) => row.name);
+      expect(names).toEqual([...names].sort().reverse());
+      // original order stays untouched
+      expect(state.originalData.map((row) => row.name)).toEqual(data.map((row) => row.name));
+    });
+
     it('should initialize with empty filter query', () => {
       const data = createTestData();
       const options = createTestOptions();

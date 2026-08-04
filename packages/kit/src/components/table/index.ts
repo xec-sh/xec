@@ -5,6 +5,7 @@
 import type { Readable, Writable } from 'node:stream';
 import type { TableOptions, InteractiveTableOptions } from './types.js';
 
+import prism from '../../prism/index.js';
 import { renderTable } from './table-renderer.js';
 import InteractiveTablePrompt from './interactive-table.js';
 import { renderInteractiveTable } from './interactive-renderer.js';
@@ -115,6 +116,8 @@ export function interactiveTable<T = any>(
     throw new TypeError('Table must have at least one column');
   }
 
+  const validate = options.validate;
+
   return new InteractiveTablePrompt({
     data: options.data,
     columns: options.columns,
@@ -128,11 +131,31 @@ export function interactiveTable<T = any>(
     alternateRows: options.alternateRows ?? false,
     width: options.width ?? 'full',
     alignment: options.alignment ?? 'left',
+    message: options.message,
+    navigable: options.navigable,
+    initialSelection: options.initialSelection,
+    initialSort: options.initialSort,
+    filterPlaceholder: options.filterPlaceholder,
+    filterColumns: options.filterColumns,
+    customFilter: options.customFilter,
+    headerStyle: options.headerStyle,
+    cellStyle: options.cellStyle,
+    onSelect: options.onSelect,
+    onNavigate: options.onNavigate,
+    onSort: options.onSort,
+    onFilter: options.onFilter,
+    validate: validate ? (rows) => validate(rows ?? []) : undefined,
     input: options.input,
     output: options.output,
     signal: options.signal,
     render() {
-      return renderInteractiveTable(this.tableState, this.tableOptions);
+      let frame = renderInteractiveTable(this.tableState, this.tableOptions);
+      // Surface validation failures — the prompt stores them on this.error,
+      // which the table renderer knows nothing about
+      if (this.state === 'error' && this.error) {
+        frame += `\n${prism.red(`✖ ${this.error}`)}`;
+      }
+      return frame;
     },
   }).prompt() as Promise<T[] | symbol>;
 }

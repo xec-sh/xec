@@ -12,14 +12,17 @@ export function createTableState<T>(
   options: InteractiveTableOptions<T>
 ): TableState<T> {
   const pageSize = options.pageSize ?? 10;
+  const sort = options.initialSort ?? null;
+  // initialSort must actually order the rows, not just set the indicator
+  const sortedData = sort ? sortData(data, sort) : data;
 
   return {
-    data,
+    data: sortedData,
     originalData: [...data],
     selected: new Set(options.initialSelection ?? []),
     focusedRow: 0,
     focusedColumn: 0,
-    sort: options.initialSort ?? null,
+    sort,
     filterQuery: '',
     isFiltering: false,
     visibleRange: [0, Math.min(pageSize, data.length)],

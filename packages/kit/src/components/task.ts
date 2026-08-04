@@ -27,7 +27,14 @@ export const tasks = async (list: Task[], opts?: CommonOptions) => {
 
     const s = spinner(opts);
     s.start(task.title);
-    const result = await task.task(s.message);
-    s.stop(result || task.title);
+    try {
+      const result = await task.task(s.message);
+      s.stop(result || task.title);
+    } catch (error) {
+      // Stop the spinner before propagating — otherwise its interval and
+      // raw-mode block stay active after the exception leaves this function
+      s.error(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
   }
 };

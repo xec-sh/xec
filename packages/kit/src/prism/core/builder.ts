@@ -36,6 +36,15 @@ const GENERATOR = Symbol('GENERATOR');
 const IS_EMPTY = Symbol('IS_EMPTY');
 
 /**
+ * Clamp a color channel to a valid integer 0-255.
+ * Out-of-range or fractional values would otherwise produce
+ * invalid ANSI sequences (e.g. `38;2;300;-5;12.7`).
+ */
+function clampChannel(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+/**
  * Create style info
  */
 function createStyler(open: string, close: string, parent?: StyleInfo): StyleInfo {
@@ -64,10 +73,10 @@ function createStyler(open: string, close: string, parent?: StyleInfo): StyleInf
  */
 function applyStyle(builder: PrismBuilder, text: string): string {
   const styler = (builder as any)[STYLER];
-  const level = (builder as any)[GENERATOR].level;
+  const { level, enabled } = (builder as any)[GENERATOR] as BuilderOptions;
   const isEmpty = (builder as any)[IS_EMPTY];
 
-  if (level <= 0 || !text) {
+  if (level <= 0 || !enabled || !text) {
     return isEmpty ? '' : text;
   }
 
@@ -376,6 +385,10 @@ export class PrismBuilder {
       return this as unknown as PrismBuilderInstance;
     }
 
+    r = clampChannel(r);
+    g = clampChannel(g);
+    b = clampChannel(b);
+
     const level = this.level;
     let open: string;
     const close = '\x1b[39m';
@@ -409,6 +422,10 @@ export class PrismBuilder {
     if (g === undefined || b === undefined) {
       return this as unknown as PrismBuilderInstance;
     }
+
+    r = clampChannel(r);
+    g = clampChannel(g);
+    b = clampChannel(b);
 
     const level = this.level;
     let open: string;
@@ -481,7 +498,7 @@ export class PrismBuilder {
     if (this.level < ColorLevel.Ansi256) {
       return this as unknown as PrismBuilderInstance;
     }
-    return this.chain(ansi256(code, false), '\x1b[39m');
+    return this.chain(ansi256(clampChannel(code), false), '\x1b[39m');
   }
 
   /**
@@ -491,7 +508,7 @@ export class PrismBuilder {
     if (this.level < ColorLevel.Ansi256) {
       return this as unknown as PrismBuilderInstance;
     }
-    return this.chain(ansi256(code, true), '\x1b[49m');
+    return this.chain(ansi256(clampChannel(code), true), '\x1b[49m');
   }
 
   /**

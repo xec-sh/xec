@@ -434,4 +434,28 @@ describe.each(['true', 'false'])('taskLog (isCI = %s)', (isCI) => {
       expect(output.buffer).toMatchSnapshot();
     });
   });
+
+  describe('non-TTY output', () => {
+    /**
+     * Regression: clear() wrote erase/cursor-movement sequences even when the
+     * output is not a live terminal, polluting CI logs and piped output with
+     * control garbage that erases nothing.
+     */
+    test('never writes erase sequences to a non-TTY stream', () => {
+      const nonTTY = new MockWritable();
+      nonTTY.isTTY = false;
+
+      const log = prompts.taskLog({ title: 'T', input, output: nonTTY });
+      log.message('hello');
+      log.message('world');
+      const group = log.group('G');
+      group.message('grouped');
+      group.success('ok');
+      log.success('done');
+
+      const all = nonTTY.buffer.join('');
+      expect(all).not.toContain('\x1b[2K'); // erase.line
+      expect(all).not.toContain('\x1b[1A'); // cursor.up
+    });
+  });
 });

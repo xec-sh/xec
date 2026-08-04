@@ -11,6 +11,7 @@
 import type { TableColumn } from './types.js';
 
 import { formatCellValue } from './cell-formatter.js';
+import stringWidth from '../../core/utils/string-width.js';
 
 /**
  * Export options
@@ -39,10 +40,19 @@ export interface ExportOptions {
 }
 
 /**
- * Escape CSV value
+ * Escape CSV value.
+ * Quotes when the value contains the active delimiter (not just a comma),
+ * quotes, or line breaks — otherwise custom-delimiter and TSV output
+ * silently corrupts on values containing that delimiter.
  */
-function escapeCSV(value: string, quote: boolean = false): string {
-  if (value.includes('"') || value.includes(',') || value.includes('\n') || quote) {
+function escapeCSV(value: string, quote: boolean = false, delimiter: string = ','): string {
+  if (
+    value.includes('"') ||
+    value.includes(delimiter) ||
+    value.includes('\n') ||
+    value.includes('\r') ||
+    quote
+  ) {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
@@ -84,7 +94,7 @@ export function exportToCSV<T>(
   // Add headers
   if (includeHeaders) {
     const headers = exportColumns
-      .map((col) => escapeCSV(col.header, quoteStrings))
+      .map((col) => escapeCSV(col.header, quoteStrings, delimiter))
       .join(delimiter);
     lines.push(headers);
   }
@@ -94,7 +104,7 @@ export function exportToCSV<T>(
     const values = exportColumns.map((col) => {
       const value = (row as any)[col.key];
       const formatted = formatCellValue(value, row, col);
-      return escapeCSV(formatted, quoteStrings);
+      return escapeCSV(formatted, quoteStrings, delimiter);
     });
     lines.push(values.join(delimiter));
   }
@@ -188,23 +198,27 @@ export function exportToText<T>(
 
   const lines: string[] = [];
 
-  // Calculate column widths
+  // Calculate column widths.
+  // Iterative max (not `Math.max(...data.map())`) — spreading a large dataset
+  // into a call blows the stack. Visual width, not .length, so CJK/emoji align.
   const widths = exportColumns.map((col) => {
-    const headerWidth = col.header.length;
-    const maxContentWidth = Math.max(
-      ...data.map((row) => {
-        const value = (row as any)[col.key];
-        return formatCellValue(value, row, col).length;
-      }),
-      0
-    );
+    const headerWidth = stringWidth(col.header);
+    let maxContentWidth = 0;
+    for (const row of data) {
+      const value = (row as any)[col.key];
+      const contentWidth = stringWidth(formatCellValue(value, row, col));
+      if (contentWidth > maxContentWidth) {
+        maxContentWidth = contentWidth;
+      }
+    }
     return Math.max(headerWidth, maxContentWidth, typeof col.width === 'number' ? col.width : 10);
   });
 
   // Helper to pad text
   const pad = (text: string, width: number, align: 'left' | 'right' | 'center' = 'left'): string => {
-    if (text.length >= width) return text;
-    const padding = width - text.length;
+    const textWidth = stringWidth(text);
+    if (textWidth >= width) return text;
+    const padding = width - textWidth;
 
     if (align === 'right') {
       return ' '.repeat(padding) + text;

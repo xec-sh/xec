@@ -344,5 +344,59 @@ describe('table-exporter', () => {
       expect(csv.split('\n').length).toBe(10001); // Header + 10000 rows
       expect(end - start).toBeLessThan(500); // Should be fast
     });
+
+    /**
+     * Regression: exportToText computed column widths via
+     * `Math.max(...data.map(...))` — spreading a large dataset into a call
+     * overflows the stack (RangeError) at a few hundred thousand rows.
+     */
+    it('exportToText survives very large datasets', () => {
+      const largeData = Array.from({ length: 200000 }, (_, i) => ({ a: String(i) }));
+      const columns: TableColumn<{ a: string }>[] = [{ key: 'a', header: 'A' }];
+
+      expect(() => exportToText(largeData, columns)).not.toThrow();
+    });
+  });
+
+  describe('Delimiter-aware escaping', () => {
+    /**
+     * Regression: escapeCSV only checked for a literal comma, so values
+     * containing the custom delimiter (or a tab in TSV output) were emitted
+     * unquoted and silently corrupted the exported file.
+     */
+    it('quotes values containing a custom delimiter', () => {
+      const data = [{ a: 'x;y', b: 'plain' }];
+      const columns: TableColumn<(typeof data)[0]>[] = [
+        { key: 'a', header: 'A' },
+        { key: 'b', header: 'B' },
+      ];
+
+      const csv = exportToCSV(data, columns, { delimiter: ';', quoteStrings: false });
+      const dataLine = csv.split('\n')[1]!;
+
+      expect(dataLine).toBe('"x;y";plain');
+    });
+
+    it('quotes TSV values containing a tab', () => {
+      const data = [{ a: 'x\ty', b: 'plain' }];
+      const columns: TableColumn<(typeof data)[0]>[] = [
+        { key: 'a', header: 'A' },
+        { key: 'b', header: 'B' },
+      ];
+
+      const tsv = exportToTSV(data, columns);
+      const dataLine = tsv.split('\n')[1]!;
+
+      expect(dataLine).toBe('"x\ty"\tplain');
+    });
+
+    it('quotes values containing a carriage return', () => {
+      const data = [{ a: 'x\ry' }];
+      const columns: TableColumn<(typeof data)[0]>[] = [{ key: 'a', header: 'A' }];
+
+      const csv = exportToCSV(data, columns, { quoteStrings: false });
+
+      expect(csv.split('\n')[1]).toBe('"x\ry"');
+    });
   });
 });

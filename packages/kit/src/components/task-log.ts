@@ -5,6 +5,7 @@ import { erase } from 'sisteransi';
 import prism from '../prism/index.js';
 import { log } from '../utilities/log.js';
 import { getColumns } from '../core/index.js';
+import stringWidth from '../core/utils/string-width.js';
 import {
   S_BAR,
   S_STEP_SUBMIT,
@@ -72,6 +73,11 @@ export const taskLog = (opts: TaskLogOptions) => {
   let lastMessageWasRaw = false;
 
   const clear = (clearTitle: boolean): void => {
+    // Erase sequences are meaningless outside a live terminal and would
+    // pollute CI logs / piped output with control garbage
+    if (!isTTY) {
+      return;
+    }
     if (buffers.length === 0) {
       return;
     }
@@ -98,7 +104,9 @@ export const taskLog = (opts: TaskLogOptions) => {
         if (line === '') {
           return count + 1;
         }
-        return count + Math.ceil((line.length + barSize) / columns);
+        // Visual width, not char count: ANSI codes take no columns and
+        // CJK takes two — .length would erase too many / too few lines
+        return count + Math.ceil((stringWidth(line) + barSize) / columns);
       }, 0);
 
       lines += bufferHeight;

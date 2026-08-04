@@ -387,4 +387,22 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
     expect(output.buffer).toMatchSnapshot();
   });
+
+  /**
+   * Regression: a second start() while active reassigned the interval
+   * handle without clearing the first one, so the orphaned timer kept
+   * writing frames forever — even after stop().
+   */
+  test('start while active does not leak the previous interval', () => {
+    const result = prompts.spinner({ output });
+
+    result.start('one');
+    result.start('two');
+    result.stop('done');
+
+    const countAfterStop = output.buffer.length;
+    vi.advanceTimersByTime(800);
+
+    expect(output.buffer.length).toBe(countAfterStop);
+  });
 });

@@ -2,7 +2,14 @@
  * Interactive Table - Keyboard-navigable table with selection, sorting, and filtering
  */
 
-import type { TableState, SelectionMode, InteractiveTableOptions } from './types.js';
+import type {
+  TableState,
+  SortColumn,
+  TableColumn,
+  SelectionMode,
+  SortDirection,
+  InteractiveTableOptions,
+} from './types.js';
 
 import { toggleSort } from './table-sorter.js';
 import { createTableState } from './table-state.js';
@@ -42,6 +49,19 @@ interface InteractiveTablePromptOptions<T>
   alternateRows?: boolean;
   width?: InteractiveTableOptions<T>['width'];
   alignment?: InteractiveTableOptions<T>['alignment'];
+  message?: string;
+  navigable?: boolean;
+  initialSelection?: T[];
+  initialSort?: SortColumn;
+  filterPlaceholder?: string;
+  filterColumns?: string[];
+  customFilter?: (row: T, query: string) => boolean;
+  headerStyle?: (text: string) => string;
+  cellStyle?: (text: string, row: T, column: TableColumn<T>) => string;
+  onSelect?: (rows: T[]) => void;
+  onNavigate?: (row: T, index: number) => void;
+  onSort?: (column: string, direction: SortDirection) => void;
+  onFilter?: (query: string) => void;
 }
 
 export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
@@ -63,6 +83,19 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
       alternateRows: opts.alternateRows ?? false,
       width: opts.width ?? 'full',
       alignment: opts.alignment ?? 'left',
+      message: opts.message,
+      navigable: opts.navigable,
+      initialSelection: opts.initialSelection,
+      initialSort: opts.initialSort,
+      filterPlaceholder: opts.filterPlaceholder,
+      filterColumns: opts.filterColumns,
+      customFilter: opts.customFilter,
+      headerStyle: opts.headerStyle,
+      cellStyle: opts.cellStyle,
+      onSelect: opts.onSelect,
+      onNavigate: opts.onNavigate,
+      onSort: opts.onSort,
+      onFilter: opts.onFilter,
       output: opts.output,
     };
 
@@ -70,7 +103,8 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
 
     this.tableOptions = tableOptions;
     this.tableState = createTableState(opts.data, tableOptions);
-    this.value = [];
+    // Start from the initial selection so submitting right away returns it
+    this.value = Array.from(this.tableState.selected);
 
     // Register event handlers
     this.registerCursorHandlers();
@@ -84,6 +118,8 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
         // Filter mode handled by key event handlers
         return;
       }
+
+      const prevRow = this.tableState.focusedRow;
 
       // Navigation keys
       switch (key) {
@@ -107,6 +143,8 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
           break;
         // no default
       }
+
+      this.notifyNavigate(prevRow);
     });
   }
 
@@ -114,6 +152,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
     this.on('key', (char, key) => {
       // Filter mode - handle text input
       if (this.tableState.isFiltering) {
+        const prevQuery = this.tableState.filterQuery;
         if (key?.ctrl && char === 'u') {
           // Ctrl+U - clear filter input
           this.tableState = clearFilterInput(this.tableState, this.tableOptions);
@@ -124,6 +163,9 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
         } else if (char && char.length === 1 && !key?.ctrl && !key?.meta) {
           // Regular character input
           this.tableState = handleFilterInput(this.tableState, char, this.tableOptions);
+        }
+        if (this.tableState.filterQuery !== prevQuery && this.tableOptions.onFilter) {
+          this.tableOptions.onFilter(this.tableState.filterQuery);
         }
         return;
       }
@@ -162,6 +204,10 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
             const firstColumn = this.tableOptions.columns[0];
             if (firstColumn) {
               this.tableState = toggleSort(this.tableState, String(firstColumn.key), this.tableOptions);
+              const sort = this.tableState.sort;
+              if (sort && this.tableOptions.onSort) {
+                this.tableOptions.onSort(sort.key, sort.direction);
+              }
             }
           }
           break;
@@ -169,6 +215,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
       }
 
       // Page navigation
+      const prevRow = this.tableState.focusedRow;
       if (key?.name === 'pageup') {
         this.tableState = navigatePageUp(this.tableState);
       } else if (key?.name === 'pagedown') {
@@ -178,11 +225,26 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
       } else if (key?.name === 'end') {
         this.tableState = navigateLast(this.tableState);
       }
+      this.notifyNavigate(prevRow);
     });
+  }
+
+  private notifyNavigate(prevRow: number) {
+    const state = this.tableState;
+    if (state.focusedRow === prevRow || !this.tableOptions.onNavigate) {
+      return;
+    }
+    const row = state.data[state.focusedRow];
+    if (row !== undefined) {
+      this.tableOptions.onNavigate(row, state.focusedRow);
+    }
   }
 
   private updateValue() {
     // Update the prompt value with selected rows
     this.value = Array.from(this.tableState.selected);
+    if (this.tableOptions.onSelect) {
+      this.tableOptions.onSelect(this.value);
+    }
   }
 }

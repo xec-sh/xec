@@ -64,7 +64,9 @@ export function progress({
     spin.start(drawProgress('initial', msg));
   };
   const advance = (step = 1, msg?: string): void => {
-    value = Math.min(max, step + value);
+    // Clamp to [0, max] — a negative running total would make
+    // `repeat(active)` throw RangeError while drawing the bar
+    value = Math.min(max, Math.max(0, step + value));
     spin.message(drawProgress('active', msg ?? previousMessage));
     previousMessage = msg ?? previousMessage;
   };

@@ -24,6 +24,7 @@ function calculateInteractiveLayout<T>(
   const columns = calculateColumnWidths(state.data, options.columns, {
     width: options.width,
     output: options.output,
+    borders: options.borders,
   });
 
   const totalWidth = getTotalTableWidth(columns, hasBorders);
@@ -235,7 +236,11 @@ export function renderInteractiveTable<T>(
 
   // Filter input indicator
   if (state.isFiltering) {
-    parts.push(prism.cyan('> ') + (state.filterQuery || ''));
+    const placeholder =
+      !state.filterQuery && options.filterPlaceholder
+        ? prism.dim(options.filterPlaceholder)
+        : '';
+    parts.push(prism.cyan('> ') + (state.filterQuery || placeholder));
   }
 
   // Error message

@@ -52,10 +52,10 @@ function getColumnContentWidth<T>(
 export function calculateColumnWidths<T>(
   data: T[],
   columns: TableColumn<T>[],
-  options: Pick<TableOptions<T>, 'width' | 'output'>
+  options: Pick<TableOptions<T>, 'width' | 'output' | 'borders'>
 ): ColumnLayout[] {
   const terminalWidth = getColumns(options.output ?? process.stdout);
-  const hasBorders = true; // Will be determined by caller
+  const hasBorders = options.borders !== 'none';
 
   // Calculate border overhead
   const borderOverhead = hasBorders ? (columns.length + 1) + columns.length * 2 : columns.length - 1; // separators + padding
@@ -106,8 +106,10 @@ export function calculateColumnWidths<T>(
     layouts.push(layout);
   }
 
-  // Second pass: distribute remaining width to auto columns
-  if (autoColumns.length > 0 && remainingWidth > 0 && options.width !== 'auto') {
+  // Second pass: distribute remaining width to auto columns.
+  // Runs even when no width is left: auto columns must still get the
+  // minimum width of 3, otherwise they silently render as empty cells.
+  if (autoColumns.length > 0 && options.width !== 'auto') {
     // For 'content' columns, use actual content width if it fits
     const contentColumns = autoColumns.filter((l) => l.column.width === 'content');
     const trueAutoColumns = autoColumns.filter((l) => l.column.width !== 'content');

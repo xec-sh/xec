@@ -302,4 +302,29 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
       }
     );
   });
+
+  describe('advance clamping', () => {
+    /**
+     * Regression: a negative running total made `repeat(active)` throw
+     * RangeError while drawing the bar. The value must clamp to [0, max].
+     */
+    test('negative advance does not throw and clamps at zero', () => {
+      const result = prompts.progress({ output, max: 10, size: 10 });
+
+      result.start('work');
+      expect(() => result.advance(-5)).not.toThrow();
+      expect(() => result.advance(-100)).not.toThrow();
+      expect(() => result.advance(3)).not.toThrow();
+      result.stop();
+    });
+
+    test('advance beyond max stays at max', () => {
+      const result = prompts.progress({ output, max: 10, size: 10 });
+
+      result.start('work');
+      expect(() => result.advance(100)).not.toThrow();
+      expect(() => result.advance(100)).not.toThrow();
+      result.stop();
+    });
+  });
 });

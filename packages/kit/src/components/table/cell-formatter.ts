@@ -36,6 +36,15 @@ export function alignText(text: string, width: number, alignment: Alignment = 'l
 }
 
 /**
+ * Close any ANSI styling left open by a truncation cut.
+ * Slicing styled text drops the closing codes, so without a reset the
+ * style would bleed into the padding, borders and following cells.
+ */
+function sealAnsi(sliced: string): string {
+  return sliced.includes('\x1b[') ? sliced + '\x1b[0m' : sliced;
+}
+
+/**
  * Truncate text to fit within width
  */
 export function truncateText(text: string, width: number, ellipsis = true): string {
@@ -47,12 +56,12 @@ export function truncateText(text: string, width: number, ellipsis = true): stri
 
   if (!ellipsis || width < 3) {
     const result = getStringTruncatedWidth(text, { limit: width });
-    return text.slice(0, result.index);
+    return sealAnsi(text.slice(0, result.index));
   }
 
   // Reserve space for ellipsis
   const result = getStringTruncatedWidth(text, { limit: width - 3 });
-  return text.slice(0, result.index) + '...';
+  return sealAnsi(text.slice(0, result.index)) + '...';
 }
 
 /**

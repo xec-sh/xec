@@ -345,4 +345,82 @@ describe.each(['true', 'false'])('table (isCI = %s)', (isCI) => {
       });
     }).toThrow('Table must have at least one column');
   });
+
+  /**
+   * Regression: truncating a cell whose formatter returned styled (ANSI)
+   * text sliced off the closing codes, so the color bled into the padding,
+   * borders and every following cell on the row.
+   */
+  test('truncated ANSI-styled cell does not leak style into the row', () => {
+    const data = [{ v: 'value', other: 'plain' }];
+
+    prompts.table({
+      data,
+      columns: [
+        {
+          key: 'v',
+          header: 'V',
+          width: 10,
+          format: () => `\x1b[31mlong red text that overflows\x1b[39m`,
+        },
+        { key: 'other', header: 'Other', width: 10 },
+      ],
+      output,
+    });
+
+    const rendered = output.buffer.join('');
+    for (const line of rendered.split('\n')) {
+      const opens = (line.match(/\x1b\[31m/g) ?? []).length;
+      if (opens > 0) {
+        const closes = (line.match(/\x1b\[(?:39|0)m/g) ?? []).length;
+        expect(closes).toBeGreaterThanOrEqual(opens);
+      }
+    }
+  });
+
+  /**
+   * Regression: calculateColumnWidths hard-coded hasBorders=true, so with
+   * borders:'none' the border overhead was still subtracted and full-width
+   * tables came out ~7+ columns narrower than the terminal.
+   */
+  test('borders none with full width uses the whole terminal width', () => {
+    const data = [{ a: 'x', b: 'y' }];
+
+    prompts.table({
+      data,
+      columns: [
+        { key: 'a', header: 'A' },
+        { key: 'b', header: 'B' },
+      ],
+      borders: 'none',
+      width: 'full',
+      output,
+    });
+
+    const header = output.buffer.join('').split('\n')[0]!;
+    // 2 auto columns + single space separator on an 80-column terminal
+    expect(header.length).toBeGreaterThanOrEqual(78);
+  });
+
+  /**
+   * Regression: when fixed columns consumed the entire available width,
+   * remaining auto columns were left at width 0 and silently vanished
+   * from the rendered table.
+   */
+  test('auto column keeps its minimum width when fixed columns fill the terminal', () => {
+    const data = [{ a: 'x', b: 'y' }];
+
+    prompts.table({
+      data,
+      columns: [
+        { key: 'a', header: 'A', width: 73 },
+        { key: 'b', header: 'B' },
+      ],
+      width: 'full',
+      output,
+    });
+
+    const header = output.buffer.join('').split('\n')[1]!;
+    expect(header).toContain('B');
+  });
 });

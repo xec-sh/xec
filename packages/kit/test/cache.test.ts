@@ -201,6 +201,27 @@ describe('cache', () => {
       expect(cache.get('a')).toBe(1);
       expect(cache.has('a')).toBe(true);
     });
+
+    /**
+     * Regression: TTL expiry inside get()/has() deleted straight from the
+     * Map, leaving the key in insertionOrder. A later evict() would pop that
+     * stale key, remove nothing, and the cache silently grew past maxSize.
+     */
+    it('should not exceed maxSize after TTL expirations', async () => {
+      const cache = new Cache<string, number>({ maxSize: 2, ttl: 5, strategy: 'lru' });
+
+      cache.set('a', 1);
+      cache.set('b', 2);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      expect(cache.get('a')).toBeUndefined();
+      expect(cache.get('b')).toBeUndefined();
+
+      cache.set('c', 3);
+      cache.set('d', 4);
+      cache.set('e', 5);
+
+      expect(cache.size).toBeLessThanOrEqual(2);
+    });
   });
 
   describe('Cache - getOrCompute', () => {
