@@ -290,6 +290,7 @@ describe('Utility Exports', () => {
     });
     
     it('should test parallel execution with error handling', async () => {
+      let callCount = 0;
       const mockEngine = {
         execute: vi.fn((cmd: any) => {
           callCount++;
@@ -346,6 +347,7 @@ describe('Utility Exports', () => {
     });
     
     it('should test retry with non-retryable errors', async () => {
+      let attempts = 0;
       const testFunction = vi.fn(async () => {
         attempts++;
         return { exitCode: 255, stdout: '', stderr: 'Fatal error', command: 'test' } as any;

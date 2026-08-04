@@ -456,8 +456,11 @@ describe('ExecutionEngine Disposable functionality', () => {
     it('should dispose parallel and transfer utilities', async () => {
       const engine = new ExecutionEngine();
       
-      // Access lazy-loaded utilities to ensure they're created
-      
+      // Accessing these getters is what creates them; the assertion keeps
+      // that visible instead of leaving a bare property read.
+      expect(engine.parallel).toBeDefined();
+      expect(engine.transfer).toBeDefined();
+
       const enginePrivate = engine as any;
       expect(enginePrivate._parallel).toBeDefined();
       expect(enginePrivate._transfer).toBeDefined();

@@ -26,7 +26,6 @@ describeIfK8s('KubernetesAdapter Enhanced Tests', () => {
     try {
       await cluster.createCluster();
       kubeConfigPath = cluster.getKubeConfigPath();
-      clusterReady = true;
     } catch (error) {
       console.error('Failed to create kind cluster:', error);
       // Try to cleanup any partially created cluster

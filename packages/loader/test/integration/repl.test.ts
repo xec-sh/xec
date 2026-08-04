@@ -78,7 +78,6 @@ describe('Integration: REPL System', () => {
       const commands = new REPLCommands();
 
       commands.register('test', 'Test command', function () {
-        executed = true;
         this.displayPrompt();
       });
 

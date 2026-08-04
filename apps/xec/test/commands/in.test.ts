@@ -22,7 +22,6 @@ describe('In Command', () => {
   let originalShell: string | undefined;
 
   beforeEach(async () => {
-    originalCwd = process.cwd();
     originalPath = process.env.PATH;
     originalShell = process.env.SHELL;
 
