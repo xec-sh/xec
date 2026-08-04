@@ -1,5 +1,5 @@
-import { CommandError, TimeoutError, ConnectionError } from '../../../src/core/error.js';
 import { isRecoverable, classifyFailure } from '../../../src/core/failure-kind.js';
+import { CommandError, TimeoutError, ConnectionError } from '../../../src/core/error.js';
 
 /**
  * Consumers branch on *why* an operation failed — reconnect after a daemon

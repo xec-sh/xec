@@ -3,11 +3,11 @@
  * Handles ${var}, ${env.VAR}, ${cmd:command}, ${secret:key}, ${secrets.key}, ${params.name}
  */
 
+import type { Configuration, VariableContext } from './types.js';
+
 import { $ } from '@xec-sh/core';
 
 import { SecretManager } from '../secrets/index.js';
-
-import type { Configuration, VariableContext } from './types.js';
 
 /**
  * Variable reference types

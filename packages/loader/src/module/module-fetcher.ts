@@ -4,9 +4,9 @@
  */
 
 import type { Cache } from '../types/index.js';
-import { IntegrityError } from './module-integrity.js';
-
 import type { ModuleIntegrityVerifier } from './module-integrity.js';
+
+import { IntegrityError } from './module-integrity.js';
 
 export interface FetchOptions {
   timeout?: number;

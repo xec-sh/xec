@@ -2,14 +2,14 @@
  * Target Resolver tests - using real commands and file operations
  */
 
+import type { Configuration } from '../../../src/config/types.js';
+
 import * as os from 'os';
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 
 import { TargetResolver } from '../../../src/config/target-resolver.js';
-
-import type { Configuration } from '../../../src/config/types.js';
 
 describe('TargetResolver', () => {
   let resolver: TargetResolver;

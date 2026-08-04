@@ -1,12 +1,13 @@
-import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
+import { join, resolve, dirname } from 'node:path';
+
+import { validateShellName } from '../utils/shell-escape.js';
 import {
-  isDockerAvailable as checkDockerAvailable,
   findBinary,
   getExtendedEnv,
+  isDockerAvailable as checkDockerAvailable,
 } from '../utils/binary-detector.js';
-import { validateShellName } from '../utils/shell-escape.js';
 
 export interface ContainerConfig {
   name: string;

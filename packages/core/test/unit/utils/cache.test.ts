@@ -1,8 +1,8 @@
 
+import type { ExecutionResult } from '../../../src/core/result.js';
+
 import { ExecutionResultImpl } from '../../../src/core/result.js';
 import { ResultCache, globalCache } from '../../../src/utils/cache.js';
-
-import type { ExecutionResult } from '../../../src/core/result.js';
 
 // Mock execution result
 function createMockResult(stdout: string, exitCode = 0): ExecutionResult {

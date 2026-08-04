@@ -1,11 +1,10 @@
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { sortConfigKeys , getDefaultConfig, mergeWithDefaults, ConfigurationManager } from '@xec-sh/ops';
 import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { BaseCommand } from '../utils/command-base.js';
-import { ConfigurationManager } from '@xec-sh/ops';
-import { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from '@xec-sh/ops';
 
 
 /**

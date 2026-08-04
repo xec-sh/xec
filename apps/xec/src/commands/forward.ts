@@ -1,14 +1,14 @@
+import type { ResolvedTarget } from '@xec-sh/ops';
+
 import { z } from 'zod';
 import * as net from 'net';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-
 import { validateOptions } from '@xec-sh/ops';
+
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
-
-import type { ResolvedTarget } from '@xec-sh/ops';
 
 interface ForwardOptions extends ConfigAwareOptions, InteractiveOptions {
   bind?: string;

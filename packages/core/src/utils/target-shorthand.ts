@@ -1,6 +1,6 @@
-import { userInfo } from 'node:os';
-
 import type { SSHAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
+
+import { userInfo } from 'node:os';
 
 /**
  * Parse an SSH target shorthand into adapter options.

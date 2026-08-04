@@ -1,6 +1,6 @@
-import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
+import { createServer } from 'node:http';
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';

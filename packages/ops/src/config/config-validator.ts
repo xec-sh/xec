@@ -3,8 +3,6 @@
  * Validates configuration structure and values
  */
 
-import { SUPPORTED_SECRET_PROVIDERS, UNIMPLEMENTED_SECRET_PROVIDERS } from '../secrets/index.js';
-
 import type {
   TaskConfig,
   Configuration,
@@ -13,6 +11,8 @@ import type {
   TaskDefinition,
   ValidationError
 } from './types.js';
+
+import { SUPPORTED_SECRET_PROVIDERS, UNIMPLEMENTED_SECRET_PROVIDERS } from '../secrets/index.js';
 
 /**
  * Configuration validator implementation

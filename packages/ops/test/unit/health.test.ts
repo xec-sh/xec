@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { it, expect, describe } from 'vitest';
+
 import { HealthChecker } from '../../src/health/index.js';
 
 describe('HealthChecker', () => {

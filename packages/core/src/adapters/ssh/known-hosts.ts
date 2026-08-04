@@ -1,7 +1,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createHmac } from 'node:crypto';
-import { readFile, appendFile, mkdir } from 'node:fs/promises';
+import { mkdir, readFile, appendFile } from 'node:fs/promises';
 
 /**
  * How a server's host key is checked before a session is established.

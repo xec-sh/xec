@@ -7,9 +7,8 @@ async function pathExists(p: string): Promise<boolean> {
 import { log } from '@xec-sh/kit';
 import { fileURLToPath } from 'url';
 import { Command } from 'commander';
-import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
-
 import { ScriptLoader, getScriptLoader } from '@xec-sh/ops';
+import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

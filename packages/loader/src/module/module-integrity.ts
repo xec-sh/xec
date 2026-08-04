@@ -3,8 +3,8 @@
  * @module @xec-sh/loader/module/module-integrity
  */
 
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 /**

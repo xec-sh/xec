@@ -6,6 +6,8 @@
 /** CLI program interface (e.g., commander.Command). Library users pass their own. */
 interface CLIProgram { command(name: string, description?: string): unknown; }
 
+import type { ResolvedTarget } from '../config/types.js';
+
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { log, prism } from '@xec-sh/kit';
@@ -18,8 +20,6 @@ import {
   GlobalInjector,
   TypeScriptTransformer,
 } from '@xec-sh/loader';
-
-import type { ResolvedTarget } from '../config/types.js';
 
 export interface ScriptContext {
   args: string[];

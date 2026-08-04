@@ -1,3 +1,8 @@
+import type { UshEventMap } from '../types/events.js';
+import type { Disposable } from '../types/disposable.js';
+import type { ProcessPromise } from '../types/process.js';
+import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
+
 import * as os from 'os';
 import * as path from 'path';
 
@@ -7,39 +12,33 @@ import { ExecutionResult } from './result.js';
 import { TransferEngine } from '../utils/transfer.js';
 import { SSHAdapter } from '../adapters/ssh/index.js';
 import { BaseAdapter } from '../adapters/base-adapter.js';
-import { EnhancedEventEmitter } from '../utils/event-emitter.js';
-import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
-import {
-  dialectFor,
-  interpolateRaw,
-  quoteForShell,
-  interpolateForShell,
-  isTemplateStringsArray,
-} from '../utils/shell-escape.js';
-import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
-import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
-import { createOptimizedMasker } from '../utils/optimized-masker.js';
-import { DEFAULT_REDACTION, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
-import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
-import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
-import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
-
 // Note: Unhandled rejection handling is managed centrally in index.ts
 // using branded symbols (XEC_PROMISE_BRAND) instead of fragile string checks
 import { LocalAdapter } from '../adapters/local/index.js';
 import { DockerAdapter } from '../adapters/docker/index.js';
+import { EnhancedEventEmitter } from '../utils/event-emitter.js';
+import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
 import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
+import { createOptimizedMasker } from '../utils/optimized-masker.js';
+import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
+import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
+import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
+import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
+import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
 import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
+import { DEFAULT_REDACTION, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
 import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
-
-import type { UshEventMap } from '../types/events.js';
-import type { Disposable } from '../types/disposable.js';
-import type { ProcessPromise } from '../types/process.js';
-import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
+import {
+  dialectFor,
+  quoteForShell,
+  interpolateRaw,
+  interpolateForShell,
+  isTemplateStringsArray,
+} from '../utils/shell-escape.js';
 
 export { ProcessPromise } from '../types/process.js';
 export { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';

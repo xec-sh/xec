@@ -1,10 +1,10 @@
-import { dialectFor, quoteForShell } from './shell-escape.js';
-
 import type { Command } from '../types/command.js';
 import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ExecutionEngineConfig } from '../types/execution.js';
 import type { ExecutionEngine } from '../core/execution-engine.js';
+
+import { dialectFor, quoteForShell } from './shell-escape.js';
 
 export interface TemplateOptions extends Partial<ExecutionEngineConfig> {
   validate?: (params: Record<string, any>) => void | Promise<void>;

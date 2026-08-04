@@ -3,12 +3,12 @@
  * @module @xec-sh/loader/module/module-executor
  */
 
+import type { ModuleType, ModuleExports } from '../types/index.js';
+
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-
-import type { ModuleType, ModuleExports } from '../types/index.js';
 
 export interface ModuleExecutionOptions {
   specifier: string;

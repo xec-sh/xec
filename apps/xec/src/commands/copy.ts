@@ -1,3 +1,5 @@
+import type { ResolvedTarget } from '@xec-sh/ops';
+
 import { z } from 'zod';
 import * as os from 'os';
 import * as path from 'path';
@@ -5,12 +7,10 @@ import { $ } from '@xec-sh/core';
 import * as fs from 'fs/promises';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-
 import { validateOptions } from '@xec-sh/ops';
+
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
-
-import type { ResolvedTarget } from '@xec-sh/ops';
 
 interface CopyOptions extends ConfigAwareOptions, InteractiveOptions {
   recursive?: boolean;

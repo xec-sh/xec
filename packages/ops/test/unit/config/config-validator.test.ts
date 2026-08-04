@@ -1,8 +1,8 @@
+import type { Configuration } from '../../../src/config/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import { ConfigValidator } from '../../../src/config/config-validator.js';
-
-import type { Configuration } from '../../../src/config/types.js';
 
 describe('ConfigValidator secrets provider list (defect #8)', () => {
   const validator = new ConfigValidator();

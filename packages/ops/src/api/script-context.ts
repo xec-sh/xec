@@ -19,12 +19,12 @@ function minimatch(filePath: string, pattern: string): boolean {
   return new RegExp(`^${regex}$`).test(filePath);
 }
 
+import type { Target, TargetInfo, ScriptInfo, ScriptGlobals } from './types.js';
+
 import { tasks } from './task-api.js';
 import { config } from './config-api.js';
 import { targets } from './target-api.js';
 import { createTargetEngine } from '../utils/direct-execution.js';
-
-import type { Target, TargetInfo, ScriptInfo, ScriptGlobals } from './types.js';
 
 export class ScriptContext {
   /**

@@ -3,9 +3,9 @@
  */
 
 
-import { TaskParser, TaskParseError } from '../../../src/config/task-parser';
-
 import type { TaskConfig, TaskDefinition } from '../../../src/config/types';
+
+import { TaskParser, TaskParseError } from '../../../src/config/task-parser';
 
 describe('TaskParser', () => {
   let parser: TaskParser;

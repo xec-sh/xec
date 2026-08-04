@@ -1,6 +1,6 @@
-import { ExecutionEngine } from '../../../src/core/execution-engine.js';
-
 import type { UshEventMap } from '../../../src/types/events.js';
+
+import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 /**
  * Events are consumed by loggers and telemetry sinks, so anything they publish

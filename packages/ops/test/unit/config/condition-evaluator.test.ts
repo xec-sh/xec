@@ -1,9 +1,9 @@
+import type { VariableContext } from '../../../src/config/types.js';
+
 import { it, expect, describe } from 'vitest';
 
 import { VariableInterpolator } from '../../../src/config/variable-interpolator.js';
 import { ConditionEvaluator, ConditionEvaluationError } from '../../../src/config/condition-evaluator.js';
-
-import type { VariableContext } from '../../../src/config/types.js';
 
 describe('ConditionEvaluator (defect #2)', () => {
   const interpolator = new VariableInterpolator();

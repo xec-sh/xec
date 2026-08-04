@@ -1,12 +1,12 @@
-import { globalCache } from '../utils/cache.js';
-import { ExecutionResultImpl } from './result.js';
-import { executePipe } from './pipe-implementation.js';
-
 import type { ExecutionResult } from './result.js';
 import type { CacheOptions } from '../utils/cache.js';
 import type { ProcessPromise } from '../types/process.js';
 import type { Command, StreamOption } from '../types/command.js';
 import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
+
+import { globalCache } from '../utils/cache.js';
+import { ExecutionResultImpl } from './result.js';
+import { executePipe } from './pipe-implementation.js';
 
 /** Branded symbol for xec promise identification — shared across modules */
 const XEC_PROMISE_BRAND = Symbol.for('xec:promise');

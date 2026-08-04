@@ -1,4 +1,4 @@
-import { classifyFailure, isRecoverable, type FailureKind } from './failure-kind.js';
+import { isRecoverable, classifyFailure, type FailureKind } from './failure-kind.js';
 
 export class ExecutionError extends Error {
   /**

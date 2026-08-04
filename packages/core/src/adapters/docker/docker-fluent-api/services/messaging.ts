@@ -2,14 +2,14 @@
  * Messaging and Queue Service Presets for Docker Fluent API
  */
 
-import { DockerEphemeralFluentAPI } from '../base.js';
-
 import type { ExecutionEngine } from '../../../../core/execution-engine.js';
 import type {
   ServiceManager,
   KafkaServiceConfig,
   RabbitMQServiceConfig
 } from '../types.js';
+
+import { DockerEphemeralFluentAPI } from '../base.js';
 
 /**
  * Apache Kafka Service Fluent API

@@ -1,8 +1,8 @@
 import * as os from 'os';
 import * as path from 'path';
+import { existsSync } from 'fs';
 import * as crypto from 'crypto';
 import * as fs from 'fs/promises';
-import { existsSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 

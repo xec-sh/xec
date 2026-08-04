@@ -1,8 +1,8 @@
-import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
-import { TimeoutError, ConnectionError } from '../../../src/core/error.js';
-
 import type { Command } from '../../../src/types/command.js';
 import type { ExecutionResult } from '../../../src/core/result.js';
+
+import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
+import { TimeoutError, ConnectionError } from '../../../src/core/error.js';
 
 const OPTIONS = {
   type: 'ssh' as const,

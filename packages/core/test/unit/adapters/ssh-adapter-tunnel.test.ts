@@ -1,8 +1,8 @@
+import type { Command } from '../../../src/types/command.js';
+
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
-
-import type { Command } from '../../../src/types/command.js';
 
 // Test with real SSH connections using Docker containers
 describeSSH('SSH Adapter Tunnel Tests', () => {

@@ -1,5 +1,4 @@
 import type { Readable, Writable } from 'node:stream';
-
 import type { RetryOptions } from '../utils/retry-adapter.js';
 
 /**

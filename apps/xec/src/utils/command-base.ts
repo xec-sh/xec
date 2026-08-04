@@ -1,13 +1,10 @@
+import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
+
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
+import { handleError , TaskManager , TargetResolver, OutputFormatter, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
-
-import { handleError } from '@xec-sh/ops';
-import { OutputFormatter } from '@xec-sh/ops';
-import { TaskManager, TargetResolver, ConfigurationManager } from '@xec-sh/ops';
-
-import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
 
 export interface CommandOptions {
   verbose?: boolean;

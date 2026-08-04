@@ -3,10 +3,11 @@
  * @module @xec-sh/loader/module/module-resolver
  */
 
+import type { CDNProvider, ModuleResolver, ModuleSpecifier, ModuleResolution } from '../types/index.js';
+
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 
-import type { CDNProvider, ModuleResolver, ModuleSpecifier, ModuleResolution } from '../types/index.js';
 import { isNodeBuiltinModule } from '../constants.js';
 
 /**

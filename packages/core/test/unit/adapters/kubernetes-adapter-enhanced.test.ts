@@ -1,16 +1,14 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { Readable } from 'stream';
-import { KindClusterManager, isKindAvailable, isKubectlAvailable, isDockerAvailable } from '@xec-sh/testing';
 import { existsSync, unlinkSync, mkdtempSync, writeFileSync } from 'fs';
+import { isKindAvailable, isDockerAvailable, KindClusterManager, isKubectlAvailable } from '@xec-sh/testing';
 
 import { TimeoutError } from '../../../src/core/error.js';
 import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
 
 // Check for required binaries
-const hasRequiredBinaries = (): boolean => {
-  return isDockerAvailable() && isKindAvailable() && isKubectlAvailable();
-};
+const hasRequiredBinaries = (): boolean => isDockerAvailable() && isKindAvailable() && isKubectlAvailable();
 
 // Skip these tests if required binaries are not available
 const describeIfK8s = hasRequiredBinaries() ? describe : describe.skip;

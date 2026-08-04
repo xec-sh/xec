@@ -1,7 +1,7 @@
 
-import { BaseAdapter } from '../../src/adapters/base-adapter';
-
 import type { Command } from '../../src/types/command';
+
+import { BaseAdapter } from '../../src/adapters/base-adapter';
 
 // Create a test adapter to access protected methods
 class TestAdapter extends BaseAdapter {

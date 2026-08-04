@@ -1,9 +1,9 @@
+import type { UshEventMap, TypedEventEmitter } from '../types/events.js';
+
 import { tmpdir } from 'node:os';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { join, relative, normalize, isAbsolute } from 'node:path';
-
-import type { UshEventMap, TypedEventEmitter } from '../types/events.js';
 
 
 export interface TempOptions {

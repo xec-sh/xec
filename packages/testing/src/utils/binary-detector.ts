@@ -1,6 +1,7 @@
-import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
+import { existsSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+
 import { validateShellName } from './shell-escape.js';
 
 /**

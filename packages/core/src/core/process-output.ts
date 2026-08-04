@@ -1,6 +1,6 @@
-import { TextDecoder } from 'util';
-
 import type { ProcessOutputOptions } from '../types/process.js';
+
+import { TextDecoder } from 'util';
 
 export { ProcessOutputOptions } from '../types/process.js';
 

@@ -20,7 +20,7 @@ const body = source.slice(
   source.indexOf('\n}\n', source.indexOf('function parseLogTimestamp')) + 3
 );
 
-// eslint-disable-next-line no-new-func
+ 
 const parseLogTimestamp = new Function(
   `${body.replace('function parseLogTimestamp(line: string): number | null', 'function parseLogTimestamp(line)')}; return parseLogTimestamp;`
 )() as (line: string) => number | null;

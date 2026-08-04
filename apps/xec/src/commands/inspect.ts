@@ -11,15 +11,10 @@ import { exec } from 'child_process';
 import { createRequire } from 'module';
 import { ModuleLoader } from '@xec-sh/loader';
 import { prism, select, confirm } from '@xec-sh/kit';
+import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
 
-import { formatBytes } from '@xec-sh/ops';
-import { getModuleCacheDir } from '@xec-sh/ops';
-import { TaskManager } from '@xec-sh/ops';
-import { TargetResolver } from '@xec-sh/ops';
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
-import { ConfigurationManager } from '@xec-sh/ops';
-import { VariableInterpolator } from '@xec-sh/ops';
 
 interface InspectOptions extends CommandOptions {
   filter?: string;

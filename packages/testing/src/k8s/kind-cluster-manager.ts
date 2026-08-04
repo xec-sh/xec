@@ -2,13 +2,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { rmSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+
+import { validateShellName } from '../utils/shell-escape.js';
 import {
   getExtendedEnv,
   isKindAvailable,
-  isKubectlAvailable,
   isDockerAvailable,
+  isKubectlAvailable,
 } from '../utils/binary-detector.js';
-import { validateShellName } from '../utils/shell-escape.js';
 
 export interface KindClusterConfig {
   name: string;

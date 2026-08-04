@@ -1,6 +1,6 @@
-import { EventEmitter } from 'events';
-
 import type { UshEventMap, TypedEventEmitter } from '../types/events.js';
+
+import { EventEmitter } from 'events';
 
 /**
  * Event filter options

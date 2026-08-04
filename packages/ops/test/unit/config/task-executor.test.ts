@@ -1,14 +1,14 @@
+import type { Configuration, TaskDefinition } from '../../../src/config/types.js';
+
 import * as os from 'os';
 import * as path from 'path';
-import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
+import * as fs from 'fs/promises';
 import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { TaskExecutor } from '../../../src/config/task-executor.js';
 import { TargetResolver } from '../../../src/config/target-resolver.js';
 import { VariableInterpolator } from '../../../src/config/variable-interpolator.js';
-
-import type { Configuration, TaskDefinition } from '../../../src/config/types.js';
 
 const baseConfig: Configuration = {
   version: '1.0',

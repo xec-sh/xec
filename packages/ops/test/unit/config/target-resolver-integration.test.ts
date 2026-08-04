@@ -3,13 +3,13 @@
  * Tests actual behavior without relying on external commands
  */
 
+import type { Configuration } from '../../../src/config/types.js';
+
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
 import { TargetResolver } from '../../../src/config/target-resolver.js';
-
-import type { Configuration } from '../../../src/config/types.js';
 
 describe('TargetResolver Integration Tests', () => {
   let tempDir: string;

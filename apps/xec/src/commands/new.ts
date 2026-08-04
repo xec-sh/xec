@@ -2,12 +2,11 @@ import path from 'path';
 import fs from 'fs-extra';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
+import { sortConfigKeys , getDefaultConfig, ConfigurationManager } from '@xec-sh/ops';
 import { log, text, prism, intro, outro, select, confirm, spinner } from '@xec-sh/kit';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { BaseCommand, CommandOptions } from '../utils/command-base.js';
-import { sortConfigKeys, getDefaultConfig } from '@xec-sh/ops';
-import { ConfigurationManager } from '@xec-sh/ops';
 
 interface NewOptions extends CommandOptions {
   force?: boolean;

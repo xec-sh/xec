@@ -2,6 +2,16 @@
  * Configuration Manager - handles loading, merging, and managing configurations
  */
 
+import type {
+  ConfigSource,
+  Configuration,
+  ProfileConfig,
+  TargetsConfig,
+  ValidationError,
+  VariableContext,
+  ConfigManagerOptions
+} from './types.js';
+
 import * as path from 'path';
 import jsYaml from 'js-yaml';
 import { existsSync } from 'fs';
@@ -12,16 +22,6 @@ import { TargetResolver } from './target-resolver.js';
 import { ConfigValidator } from './config-validator.js';
 import { deepMerge, getGlobalConfigDir } from './utils.js';
 import { VariableInterpolator, type InterpolateOptions } from './variable-interpolator.js';
-
-import type {
-  ConfigSource,
-  Configuration,
-  ProfileConfig,
-  TargetsConfig,
-  ValidationError,
-  VariableContext,
-  ConfigManagerOptions
-} from './types.js';
 
 /**
  * Default configuration values

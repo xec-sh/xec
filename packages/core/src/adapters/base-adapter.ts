@@ -1,15 +1,15 @@
+import type { UshEventMap } from '../types/events.js';
+import type { Disposable } from '../types/disposable.js';
+
 import { Command } from '../types/command.js';
 import { StreamHandler } from '../utils/stream.js';
 import { ProgressReporter } from '../utils/progress.js';
 import { TimeoutError, AdapterError } from '../core/error.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { MaskingStreamFilter } from '../utils/masking-stream.js';
-import { createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
-
-import type { UshEventMap } from '../types/events.js';
-import type { Disposable } from '../types/disposable.js';
+import { createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 
 export interface SensitiveDataMaskingConfig {
   enabled: boolean;

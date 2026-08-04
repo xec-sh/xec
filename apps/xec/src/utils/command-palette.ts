@@ -8,9 +8,7 @@ const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
   // console.log(`Global shortcut ${shortcut} would be registered`);
 };
 import { execSync } from 'child_process';
-
-import { TaskManager } from '@xec-sh/ops';
-import { ConfigurationManager } from '@xec-sh/ops';
+import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
 
 export interface CommandPaletteItem {
   id: string;

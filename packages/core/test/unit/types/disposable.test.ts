@@ -1,7 +1,7 @@
 
-import { isDisposable } from '../../../src/types/disposable.js';
-
 import type { Disposable, DisposableContainer } from '../../../src/types/disposable.js';
+
+import { isDisposable } from '../../../src/types/disposable.js';
 
 describe('Disposable', () => {
   describe('isDisposable type guard', () => {

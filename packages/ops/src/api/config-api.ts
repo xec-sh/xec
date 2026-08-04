@@ -5,10 +5,10 @@
  * Supports loading, querying, modifying, and saving configurations.
  */
 
+import type { ConfigValue, ConfigurationOptions, InterpolationContext } from './types.js';
+
 import { ConfigurationManager } from '../config/configuration-manager.js';
 import { VariableInterpolator, type InterpolateOptions } from '../config/variable-interpolator.js';
-
-import type { ConfigValue, ConfigurationOptions, InterpolationContext } from './types.js';
 
 export class ConfigAPI {
   private manager: ConfigurationManager;

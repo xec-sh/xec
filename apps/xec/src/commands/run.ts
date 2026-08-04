@@ -3,11 +3,10 @@ import fs from 'fs/promises';
 import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import { log, prism } from '@xec-sh/kit';
-
-import { TaskManager } from '@xec-sh/ops';
-import { ConfigurationManager } from '@xec-sh/ops';
-import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
+import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
 import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops';
+
+import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
 
 interface RunOptions extends ConfigAwareOptions {
   eval?: string;

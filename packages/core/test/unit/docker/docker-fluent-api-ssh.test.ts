@@ -1,7 +1,7 @@
 
-import { SSHFluentAPI, DockerFluentAPI } from '../../../src/adapters/docker/docker-fluent-api/index.js';
-
 import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
+
+import { SSHFluentAPI, DockerFluentAPI } from '../../../src/adapters/docker/docker-fluent-api/index.js';
 
 // Mock ExecutionEngine
 const createMockProcessPromise = (result = { stdout: '', stderr: '', exitCode: 0, ok: true }): any => {

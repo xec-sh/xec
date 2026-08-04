@@ -1,4 +1,13 @@
 import type { ExecutionResult } from '@xec-sh/core';
+import type {
+  TaskStep,
+  TaskResult,
+  StepResult,
+  TaskDefinition,
+  ResolvedTarget,
+  VariableContext,
+  TaskErrorHandler,
+} from './types.js';
 
 import * as path from 'path';
 import { $ } from '@xec-sh/core';
@@ -9,16 +18,6 @@ import { TargetResolver } from './target-resolver.js';
 import { getScriptLoader } from '../adapters/loader-adapter.js';
 import { VariableInterpolator } from './variable-interpolator.js';
 import { ConditionEvaluator, ConditionEvaluationError } from './condition-evaluator.js';
-
-import type {
-  TaskStep,
-  TaskResult,
-  StepResult,
-  TaskDefinition,
-  ResolvedTarget,
-  VariableContext,
-  TaskErrorHandler,
-} from './types.js';
 
 export interface TaskExecutorOptions {
   /** Variable interpolator instance */

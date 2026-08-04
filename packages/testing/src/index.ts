@@ -1,3 +1,6 @@
+// Shell escape utilities
+export * from './utils/shell-escape.js';
+
 // Binary detection utilities
 export * from './utils/binary-detector.js';
 
@@ -18,9 +21,6 @@ export {
   type ContainerInfo,
   cleanupTestContainers
 } from './docker/utils.js';
-
-// Shell escape utilities
-export * from './utils/shell-escape.js';
 
 /** Default test SSH password - used only for test container authentication */
 const TEST_SSH_PASSWORD = 'password';

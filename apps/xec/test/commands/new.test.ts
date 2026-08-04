@@ -1,8 +1,8 @@
+import os from 'os';
 import path from 'path';
 import fs from 'fs-extra';
-import os from 'os';
-import { execSync } from 'child_process';
 import { mkdtempSync } from 'fs';
+import { execSync } from 'child_process';
 
 describe('new command', () => {
   let tempDir: string;

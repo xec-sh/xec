@@ -3,17 +3,17 @@
  * @module @xec-sh/loader/core/script-executor
  */
 
-import * as path from 'node:path';
-import * as fs from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
-
-import { ExecutionContext } from './execution-context.js';
-
 import type {
   ScriptContext,
   ExecutionResult,
   ExecutionOptions,
 } from '../types/index.js';
+
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+
+import { ExecutionContext } from './execution-context.js';
 
 /**
  * ScriptExecutor executes script files with context injection

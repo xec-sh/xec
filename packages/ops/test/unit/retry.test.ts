@@ -1,4 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
+import { it, vi, expect, describe } from 'vitest';
+
 import { retry, RetryPolicy } from '../../src/retry/index.js';
 
 describe('retry', () => {

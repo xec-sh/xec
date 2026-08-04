@@ -5,15 +5,15 @@
  * Supports listing, executing, and creating tasks.
  */
 
-import { TaskManager } from '../config/task-manager.js';
-import { TargetResolver } from '../config/target-resolver.js';
-import { ConfigurationManager } from '../config/configuration-manager.js';
-
 import type { 
   TaskResult, 
   TaskDefinition, 
   TaskExecutionOptions 
 } from './types.js';
+
+import { TaskManager } from '../config/task-manager.js';
+import { TargetResolver } from '../config/target-resolver.js';
+import { ConfigurationManager } from '../config/configuration-manager.js';
 
 export class TaskAPI {
   private manager?: TaskManager;

@@ -1,4 +1,4 @@
-import { afterAll, describe, beforeAll, it } from 'vitest';
+import { it, afterAll, describe, beforeAll } from 'vitest';
 
 import { dockerManager, ContainerConfig, DOCKER_CONTAINERS } from '../docker/container-manager.js';
 

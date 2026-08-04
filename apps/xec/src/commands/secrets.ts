@@ -1,7 +1,7 @@
 import { Command } from 'commander';
+import { SecretManager } from '@xec-sh/ops';
 import { log, text, prism, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
-import { SecretManager } from '@xec-sh/ops';
 import { ConfigAwareCommand } from '../utils/command-base.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 

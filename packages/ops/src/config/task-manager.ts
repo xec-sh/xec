@@ -3,14 +3,6 @@
  * Main API for task management and execution
  */
 
-import { EventEmitter } from 'events';
-
-import { TaskParser } from './task-parser.js';
-import { TargetResolver } from './target-resolver.js';
-import { ConfigurationManager } from './configuration-manager.js';
-import { VariableInterpolator } from './variable-interpolator.js';
-import { TaskExecutor, TaskExecutionOptions } from './task-executor.js';
-
 import type {
   TaskConfig,
   TaskResult,
@@ -18,6 +10,14 @@ import type {
   Configuration,
   TaskDefinition,
 } from './types.js';
+
+import { EventEmitter } from 'events';
+
+import { TaskParser } from './task-parser.js';
+import { TargetResolver } from './target-resolver.js';
+import { ConfigurationManager } from './configuration-manager.js';
+import { VariableInterpolator } from './variable-interpolator.js';
+import { TaskExecutor, TaskExecutionOptions } from './task-executor.js';
 
 export interface TaskManagerOptions {
   /** Configuration manager instance */

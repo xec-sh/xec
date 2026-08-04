@@ -1,5 +1,3 @@
-import { ExecutionEngine, isRecoverable, classifyFailure } from '../../src/index.js';
-
 import type {
   FailureKind,
   UshEventMap,
@@ -7,6 +5,8 @@ import type {
   CommandStartEvent,
   CallableExecutionEngine,
 } from '../../src/index.js';
+
+import { isRecoverable, ExecutionEngine, classifyFailure } from '../../src/index.js';
 
 /**
  * The types a consumer needs must be reachable from the package root.

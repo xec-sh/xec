@@ -1,3 +1,5 @@
+import type { Configuration, VariableContext } from '../../../src/config/types.js';
+
 import { tmpdir } from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -5,8 +7,6 @@ import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { SecretManager } from '../../../src/secrets/manager.js';
 import { VariableInterpolator } from '../../../src/config/variable-interpolator.js';
-
-import type { Configuration, VariableContext } from '../../../src/config/types.js';
 
 describe('VariableInterpolator', () => {
   let interpolator: VariableInterpolator;

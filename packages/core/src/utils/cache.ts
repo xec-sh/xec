@@ -1,8 +1,8 @@
+import type { EnhancedEventEmitter } from './event-emitter.js';
+
 import crypto from 'crypto';
 
 import { ExecutionResult } from '../core/result.js';
-
-import type { EnhancedEventEmitter } from './event-emitter.js';
 
 export interface CacheOptions {
   key?: string;
