@@ -27,7 +27,7 @@ Create a unified container management script:
 ```javascript
 #!/usr/bin/env xec
 
-import { $ } from '@xec-sh/core';
+import { $, sleep } from '@xec-sh/core';
 
 // Docker engine with connection reuse
 const docker = $.docker();
@@ -58,7 +58,7 @@ class ContainerManager {
 
   async exists() {
     try {
-      await docker`inspect ${this.name}`;
+      await docker.run`inspect ${this.name}`;
       return true;
     } catch {
       return false;
@@ -83,22 +83,22 @@ class ContainerManager {
     
     cmd.push(this.image);
     
-    await docker`${cmd.join(' ')}`;
+    await docker.run`${cmd.join(' ')}`;
     console.log(`Created container ${this.name}`);
   }
 
   async start() {
-    await docker`start ${this.name}`;
+    await docker.run`start ${this.name}`;
     console.log(`Started container ${this.name}`);
   }
 
   async stop() {
-    await docker`stop ${this.name}`;
+    await docker.run`stop ${this.name}`;
     console.log(`Stopped container ${this.name}`);
   }
 
   async remove() {
-    await docker`rm ${this.name}`;
+    await docker.run`rm ${this.name}`;
     console.log(`Removed container ${this.name}`);
   }
 
@@ -107,14 +107,14 @@ class ContainerManager {
     let retries = 0;
     
     while (retries < maxRetries) {
-      const health = await docker`inspect ${this.name} --format='{{.State.Health.Status}}'`.nothrow();
+      const health = await docker.run`inspect ${this.name} --format='{{.State.Health.Status}}'`.nothrow();
       
       if (health.stdout?.includes('healthy')) {
         console.log(`Container ${this.name} is healthy`);
         return true;
       }
       
-      await $.sleep(1000);
+      await sleep(1000);
       retries++;
     }
     
@@ -139,30 +139,27 @@ Manage multi-container applications:
 ```javascript
 #!/usr/bin/env xec
 
-import { $ } from '@xec-sh/core';
+import { $, sleep } from '@xec-sh/core';
 
 // Docker Compose manager
-const compose = $.docker.compose({
-  file: 'docker-compose.yaml',
-  project: 'myproject'
-});
+const compose = $.docker().compose('docker-compose.yaml').withProject('myproject');
 
 // Service orchestration
 async function deployStack() {
   console.log('Deploying application stack...');
   
   // Build images
-  await compose`build --parallel`;
+  await compose.build();
   
   // Start services in dependency order
-  await compose`up -d --remove-orphans`;
+  await compose.up();
   
   // Wait for services
   await waitForServices();
   
   // Run migrations
-  await compose`exec -T database psql -U postgres -c "SELECT 1"`;
-  await compose`exec -T app npm run migrate`;
+  await compose.exec('database', 'psql -U postgres -c "SELECT 1"');
+  await compose.exec('app', 'npm run migrate');
   
   // Health checks
   await verifyDeployment();
@@ -178,13 +175,13 @@ async function waitForServices() {
     let attempts = 0;
     
     while (!ready && attempts < 30) {
-      const state = await compose`ps --services --filter status=running`.nothrow();
+      const state = await compose.ps();
       
-      if (state.stdout?.includes(service)) {
+      if (state.includes(service)) {
         ready = true;
         console.log(`✓ ${service} is running`);
       } else {
-        await $.sleep(1000);
+        await sleep(1000);
         attempts++;
       }
     }
@@ -196,11 +193,12 @@ async function waitForServices() {
 }
 
 async function verifyDeployment() {
-  // Check all services are healthy
-  const unhealthy = await compose`ps --services --filter health=unhealthy`.nothrow();
+  // docker compose ps marks services with a failing healthcheck as
+  // "unhealthy" in its output
+  const status = await compose.ps();
   
-  if (unhealthy.stdout?.trim()) {
-    throw new Error(`Unhealthy services: ${unhealthy.stdout}`);
+  if (status.includes('unhealthy')) {
+    throw new Error(`Unhealthy services detected:\n${status}`);
   }
   
   console.log('✅ All services deployed successfully');
@@ -214,12 +212,11 @@ async function blueGreenDeploy() {
   console.log(`Deploying ${newColor} environment...`);
   
   // Deploy new version
-  const newCompose = $.docker.compose({
-    file: `docker-compose.${newColor}.yaml`,
-    project: `myproject-${newColor}`
-  });
+  const newCompose = $.docker()
+    .compose(`docker-compose.${newColor}.yaml`)
+    .withProject(`myproject-${newColor}`);
   
-  await newCompose`up -d --build`;
+  await newCompose.up(true, true);
   
   // Health check new deployment
   await verifyNewDeployment(newColor);
@@ -228,12 +225,11 @@ async function blueGreenDeploy() {
   await switchTraffic(newColor);
   
   // Stop old version
-  const oldCompose = $.docker.compose({
-    file: `docker-compose.${currentColor}.yaml`,
-    project: `myproject-${currentColor}`
-  });
+  const oldCompose = $.docker()
+    .compose(`docker-compose.${currentColor}.yaml`)
+    .withProject(`myproject-${currentColor}`);
   
-  await oldCompose`down`;
+  await oldCompose.down();
   
   console.log(`✅ Switched from ${currentColor} to ${newColor}`);
 }
@@ -249,20 +245,24 @@ Manage Kubernetes applications:
 ```javascript
 #!/usr/bin/env xec
 
-import { $ } from '@xec-sh/core';
+import { $, sleep } from '@xec-sh/core';
 
 // Kubernetes deployment manager
+//
+// `$.k8s()` targets a specific pod for `kubectl exec` — it has no general
+// cluster operations (apply, get, scale, rollout, ...). Those are plain
+// kubectl subcommands, so this class runs them with `$` like any other
+// local command and passes `-n <namespace>` itself.
 class K8sDeployment {
   constructor(namespace = 'default') {
     this.namespace = namespace;
-    this.k8s = $.k8s({ namespace });
   }
 
   async deploy(manifest) {
     console.log(`Deploying to namespace ${this.namespace}...`);
     
     // Apply manifest
-    await this.k8s`apply -f ${manifest}`;
+    await $`kubectl apply -f ${manifest} -n ${this.namespace}`;
     
     // Wait for rollout
     await this.waitForRollout();
@@ -272,18 +272,18 @@ class K8sDeployment {
   }
 
   async waitForRollout() {
-    const deployments = await this.k8s`get deployments -o json`;
+    const deployments = await $`kubectl get deployments -n ${this.namespace} -o json`;
     const names = JSON.parse(deployments.stdout).items.map(d => d.metadata.name);
     
     for (const name of names) {
       console.log(`Waiting for deployment ${name}...`);
-      await this.k8s`rollout status deployment/${name} --timeout=300s`;
+      await $`kubectl rollout status deployment/${name} -n ${this.namespace} --timeout=300s`;
       console.log(`✓ Deployment ${name} ready`);
     }
   }
 
   async verifyPods() {
-    const pods = await this.k8s`get pods -o json`;
+    const pods = await $`kubectl get pods -n ${this.namespace} -o json`;
     const podList = JSON.parse(pods.stdout).items;
     
     const notReady = podList.filter(pod => {
@@ -302,28 +302,28 @@ class K8sDeployment {
 
   async scale(deployment, replicas) {
     console.log(`Scaling ${deployment} to ${replicas} replicas...`);
-    await this.k8s`scale deployment/${deployment} --replicas=${replicas}`;
-    await this.k8s`rollout status deployment/${deployment}`;
+    await $`kubectl scale deployment/${deployment} -n ${this.namespace} --replicas=${replicas}`;
+    await $`kubectl rollout status deployment/${deployment} -n ${this.namespace}`;
   }
 
   async rollback(deployment) {
     console.log(`Rolling back ${deployment}...`);
-    await this.k8s`rollout undo deployment/${deployment}`;
-    await this.k8s`rollout status deployment/${deployment}`;
+    await $`kubectl rollout undo deployment/${deployment} -n ${this.namespace}`;
+    await $`kubectl rollout status deployment/${deployment} -n ${this.namespace}`;
   }
 
   async canaryDeploy(deployment, image, percentage = 10) {
     console.log(`Starting canary deployment (${percentage}%)...`);
     
     // Get current replicas
-    const current = await this.k8s`get deployment ${deployment} -o jsonpath='{.spec.replicas}'`;
+    const current = await $`kubectl get deployment ${deployment} -n ${this.namespace} -o jsonpath='{.spec.replicas}'`;
     const totalReplicas = parseInt(current.stdout);
     const canaryReplicas = Math.ceil(totalReplicas * percentage / 100);
     const stableReplicas = totalReplicas - canaryReplicas;
     
     // Create canary deployment
     const canaryName = `${deployment}-canary`;
-    await this.k8s`create deployment ${canaryName} --image=${image} --replicas=${canaryReplicas}`;
+    await $`kubectl create deployment ${canaryName} -n ${this.namespace} --image=${image} --replicas=${canaryReplicas}`;
     
     // Scale down stable deployment
     await this.scale(deployment, stableReplicas);
@@ -346,18 +346,18 @@ class K8sDeployment {
     
     // Check metrics (simplified example)
     for (let i = 0; i < 5; i++) {
-      const pods = await this.k8s`get pods -l app=${deployment} -o json`;
+      const pods = await $`kubectl get pods -n ${this.namespace} -l app=${deployment} -o json`;
       const podList = JSON.parse(pods.stdout).items;
       
       for (const pod of podList) {
-        const logs = await this.k8s`logs ${pod.metadata.name} --tail=10`.nothrow();
+        const logs = await $`kubectl logs ${pod.metadata.name} -n ${this.namespace} --tail=10`.nothrow();
         if (logs.stderr || logs.stdout?.includes('ERROR')) {
           console.error(`Errors detected in ${pod.metadata.name}`);
           return false;
         }
       }
       
-      await $.sleep(10000); // Wait 10 seconds between checks
+      await sleep(10000); // Wait 10 seconds between checks
     }
     
     return true;
@@ -373,11 +373,11 @@ class K8sDeployment {
     console.log('Promoting canary to production...');
     
     // Update main deployment
-    await this.k8s`set image deployment/${deployment} *=${image}`;
+    await $`kubectl set image deployment/${deployment} -n ${this.namespace} *=${image}`;
     await this.waitForRollout();
     
     // Delete canary
-    await this.k8s`delete deployment ${canaryName}`;
+    await $`kubectl delete deployment ${canaryName} -n ${this.namespace}`;
     
     console.log('✅ Canary promoted successfully');
   }
@@ -389,7 +389,7 @@ class K8sDeployment {
     await this.scale(deployment, originalReplicas);
     
     // Delete canary
-    await this.k8s`delete deployment ${canaryName}`;
+    await $`kubectl delete deployment ${canaryName} -n ${this.namespace}`;
     
     console.log('⚠️ Canary rolled back');
   }
@@ -414,7 +414,6 @@ class HybridOrchestrator {
   constructor(config) {
     this.config = config;
     this.docker = $.docker();
-    this.k8s = $.k8s({ namespace: config.k8sNamespace });
   }
 
   async deploy(environment) {
@@ -439,20 +438,18 @@ class HybridOrchestrator {
     console.log('Deploying to local Docker...');
     
     // Build image
-    await this.docker`build -t ${this.config.image} .`;
+    await this.docker.run`build -t ${this.config.image} .`;
     
     // Run container
-    await this.docker`run -d --name ${this.config.name} -p ${this.config.port}:80 ${this.config.image}`;
+    await this.docker.run`run -d --name ${this.config.name} -p ${this.config.port}:80 ${this.config.image}`;
   }
 
   async deployDockerCompose() {
     console.log('Deploying with Docker Compose...');
     
-    const compose = $.docker.compose({
-      file: 'docker-compose.staging.yaml'
-    });
+    const compose = $.docker().compose('docker-compose.staging.yaml');
     
-    await compose`up -d --build`;
+    await compose.up(true, true);
   }
 
   async deployKubernetes() {
@@ -461,20 +458,21 @@ class HybridOrchestrator {
     // Build and push image
     await this.buildAndPush();
     
-    // Deploy to K8s
-    await this.k8s`apply -f k8s/production/`;
-    await this.k8s`rollout status deployment/${this.config.name}`;
+    // Deploy to K8s — `$.k8s()` targets a pod for exec, so cluster-level
+    // operations like apply/rollout go through kubectl directly
+    await $`kubectl apply -f k8s/production/ -n ${this.config.k8sNamespace}`;
+    await $`kubectl rollout status deployment/${this.config.name} -n ${this.config.k8sNamespace}`;
   }
 
   async buildAndPush() {
     const registry = this.config.registry;
     const tag = `${registry}/${this.config.image}:${await this.getVersion()}`;
     
-    await this.docker`build -t ${tag} .`;
-    await this.docker`push ${tag}`;
+    await this.docker.run`build -t ${tag} .`;
+    await this.docker.run`push ${tag}`;
     
     // Update K8s deployment
-    await this.k8s`set image deployment/${this.config.name} app=${tag}`;
+    await $`kubectl set image deployment/${this.config.name} -n ${this.config.k8sNamespace} app=${tag}`;
   }
 
   async getVersion() {
@@ -513,23 +511,23 @@ class RegistryManager {
   }
 
   async login(username, password) {
-    await this.docker`login ${this.registry} -u ${username} -p ${password}`;
+    await this.docker.run`login ${this.registry} -u ${username} -p ${password}`;
   }
 
   async tag(image, version) {
     const fullTag = `${this.registry}/${image}:${version}`;
-    await this.docker`tag ${image}:latest ${fullTag}`;
+    await this.docker.run`tag ${image}:latest ${fullTag}`;
     return fullTag;
   }
 
   async push(tag) {
     console.log(`Pushing ${tag}...`);
-    await this.docker`push ${tag}`;
+    await this.docker.run`push ${tag}`;
   }
 
   async pull(tag) {
     console.log(`Pulling ${tag}...`);
-    await this.docker`pull ${tag}`;
+    await this.docker.run`pull ${tag}`;
   }
 
   async scan(image) {
@@ -549,10 +547,10 @@ class RegistryManager {
     console.log('Cleaning up unused images...');
     
     // Remove dangling images
-    await this.docker`image prune -f`;
+    await this.docker.run`image prune -f`;
     
     // Remove old versions
-    const images = await this.docker`images --format "{{.Repository}}:{{.Tag}}" | grep ${this.registry}`;
+    const images = await this.docker.run`images --format "{{.Repository}}:{{.Tag}}" | grep ${this.registry}`;
     const imageList = images.stdout.split('\n').filter(Boolean);
     
     // Keep only last 5 versions
@@ -567,7 +565,7 @@ class RegistryManager {
       if (versions.length > 5) {
         const toDelete = versions.slice(5);
         for (const img of toDelete) {
-          await this.docker`rmi ${img}`.nothrow();
+          await this.docker.run`rmi ${img}`.nothrow();
         }
       }
     }
@@ -643,9 +641,9 @@ await registry.cleanup();
 ### Issue: Container Fails to Start
 ```javascript
 // Debug container startup
-await docker`logs ${containerName} --tail 50`;
-await docker`inspect ${containerName}`;
-await docker`exec ${containerName} env`;
+await docker.run`logs ${containerName} --tail 50`;
+await docker.run`inspect ${containerName}`;
+await docker.run`exec ${containerName} env`;
 ```
 
 ### Issue: Pod Stuck in Pending
@@ -663,13 +661,13 @@ kubectl get pvc
 ### Issue: Image Pull Errors
 ```javascript
 // Verify registry credentials
-await docker`login ${registry}`;
+await docker.run`login ${registry}`;
 
 // Check image exists
-await docker`pull ${image}`;
+await docker.run`pull ${image}`;
 
 // Verify K8s secret
-await k8s`get secret docker-registry -o yaml`;
+await $`kubectl get secret docker-registry -o yaml`;
 ```
 
 ### Issue: Service Discovery Failing

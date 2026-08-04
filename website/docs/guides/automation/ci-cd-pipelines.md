@@ -423,9 +423,10 @@ async function dockerCI() {
   
   // Run tests in container
   console.log('\n🧪 Running tests in container...');
+  // Ephemeral (image-based) containers are always removed once the
+  // command finishes, so there's no separate flag for it
   const testContainer = $.docker({
     image: `${imageName}:test-${version}`,
-    rm: true,
     env: {
       NODE_ENV: 'test',
       CI: 'true'
@@ -644,7 +645,6 @@ async function matrixTest() {
       // Run in Docker container
       const testEnv = $.docker({
         image: `node:${combo.node}`,
-        rm: true,
         env: {
           DATABASE: combo.database,
           OS: combo.os
@@ -945,11 +945,12 @@ async function secureDeploy() {
     throw new Error('Required secrets not found');
   }
   
-  // Use secrets safely
+  // Use secrets safely — .quiet() suppresses the echo, not the capture,
+  // so it goes after the command, not on the engine config before it
   await $.env({
     API_KEY: apiKey,
     DB_PASSWORD: dbPassword
-  }).quiet()`deploy-script`;
+  })`deploy-script`.quiet();
   
   // Never log secrets
   console.log('Deployment completed (secrets hidden)');
@@ -1005,7 +1006,9 @@ async function manageArtifacts() {
 2. **Network Timeouts**
    ```typescript
    // Add timeout and retry logic
-   const result = await $`npm install`.timeout(300000).retry(3);
+   import { $, retry } from '@xec-sh/core';
+   
+   const result = await retry(() => $`npm install`.timeout(300000), { maxRetries: 3 });
    ```
 
 3. **Resource Cleanup**

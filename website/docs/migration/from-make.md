@@ -272,8 +272,8 @@ await Promise.all(
   )
 );
 
-// Compress files
-const filesToCompress = await glob('dist/*', { nodir: true });
+// Compress files (glob only ever returns files, never directories)
+const filesToCompress = await glob('dist/*');
 await Promise.all(
   filesToCompress.map(file =>
     $`gzip -c ${file} > ${file}.gz`
@@ -491,12 +491,13 @@ tasks:
     
   watch:
     description: Watch and rebuild on changes
-    command: xec watch --pattern "src/**/*.cpp" --exec "xec build"
+    command: xec watch local "src/**/*.cpp" --command "xec build"
 ```
 
 ```typescript
 // scripts/build.ts
-import { $, glob, fs } from '@xec-sh/core';
+import { $, glob } from '@xec-sh/core';
+import * as fs from 'node:fs/promises';
 import path from 'path';
 
 const CXX = process.env.CXX || 'g++';
@@ -643,10 +644,10 @@ DEPS = $(OBJECTS:.o=.d)
 -include $(DEPS)
 ```
 
-**Xec with File Watching:**
+**Xec with Incremental Rebuilds:**
 ```typescript
 // scripts/build-incremental.ts
-import { $, watch } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
 
@@ -692,7 +693,7 @@ for (const source of sources) {
 npm install -g @xec-sh/cli
 
 # Initialize configuration
-xec new config
+xec new project
 
 # Create scripts directory
 mkdir -p scripts

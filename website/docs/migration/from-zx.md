@@ -68,29 +68,28 @@ shell.cp('-R', 'src/', 'dist/');
 
 ```typescript
 // scripts/deploy.ts
-import { $, on, glob } from '@xec-sh/core';
+import { $, glob } from '@xec-sh/core';
 
 // Multi-environment execution
 await $`npm install`;                           // Local
-await on('server', 'npm install');              // SSH
-await $.docker({ container: 'container' })`npm install`;       // Docker
-await $.k8s('pod')`npm install`;               // Kubernetes
+await $.ssh('server')`npm install`;              // SSH
+await $.docker('container')`npm install`;        // Docker
+await $.k8s('pod')`npm install`;                 // Kubernetes
 
 // Better TypeScript support with types
 const result: ProcessPromise = $`git status`;
 const files: string[] = await glob('**/*.ts');
 
 // Advanced parallel execution
-await $.parallel([
+await $.parallel.all([
   $`npm run build`,
-  on('server1', 'npm test'),
-  $.docker({ container: 'container' })`npm lint`
+  $.ssh('server1')`npm test`,
+  $.docker('container')`npm lint`
 ]);
 
-// Enterprise features
+// Enterprise features (SSH connections are pooled automatically)
 await $.ssh('server')
-  .withPool({ max: 10 })
-  .withRetry({ attempts: 3 })`deploy.sh`;
+  .retry({ maxRetries: 3 })`deploy.sh`;
 ```
 
 **Benefits over zx/shelljs:**
@@ -108,26 +107,28 @@ await $.ssh('server')
 | zx Feature | Xec Equivalent | Notes |
 |------------|----------------|-------|
 | `$\`command\`` | `$\`command\`` | Same syntax, more features |
-| `cd()` | `cd()` or `process.chdir()` | Same behavior |
+| `cd()` | `$.cd()` or `process.chdir()` | Not global: `$.cd()` returns a new, scoped engine rather than mutating `$` |
 | `fetch()` | `fetch()` | Same (native fetch) |
-| `question()` | `question()` | Enhanced prompts |
+| `question()` | `question()` from `@xec-sh/kit` | Not part of `@xec-sh/core` |
 | `sleep()` | `sleep()` | Same behavior |
 | `glob()` | `glob()` | Same behavior |
-| `fs` | `fs` | Same (from 'fs/promises') |
-| `chalk` | `chalk` | Same package |
+| `fs` | `node:fs/promises` | Not re-exported; import Node's own module |
+| `chalk` | `chalk` | Not re-exported; install and import it directly |
 | `argv` | `process.argv` | Standard Node.js |
 | `$.verbose` | `$.verbose` | Same behavior |
-| `$.shell` | `$.shell` | Enhanced shell selection |
+| `$.shell` | `$.shell()` | A method, not an assignable property |
 | `nothrow()` | `nothrow()` | Returns Result type |
 | `pipe()` | `pipe()` | Enhanced piping |
 | `quiet()` | `quiet()` | Same behavior |
 
 ### shelljs → Xec
 
+`fs` below is Node's own `node:fs/promises`; Xec does not re-export a filesystem module.
+
 | shelljs Method | Xec Equivalent | Example |
 |----------------|----------------|---------|
 | `shell.exec()` | `$\`\`` | `await $\`command\`` |
-| `shell.cd()` | `cd()` | `cd('/path')` |
+| `shell.cd()` | `$.cd()` | `$.cd('/path')` |
 | `shell.pwd()` | `process.cwd()` | `process.cwd()` |
 | `shell.ls()` | `$\`ls\`` or `fs.readdir()` | `await fs.readdir('.')` |
 | `shell.cp()` | `$\`cp\`` or `fs.cp()` | `await fs.cp(src, dest)` |
@@ -183,8 +184,8 @@ const verbose = await $`ls -la`;
 const quiet = await $`npm install`.quiet();
 
 // Xec additions: multi-environment
-const remoteBranch = await on('server', 'git branch --show-current');
-const containerFiles = await $.docker({ container: 'app' })`ls -la`;
+const remoteBranch = await $.ssh('server')`git branch --show-current`;
+const containerFiles = await $.docker('app')`ls -la`;
 ```
 
 ### 2. Error Handling
@@ -232,7 +233,7 @@ try {
 // Result pattern (preferred)
 const result = await $`might-fail`.nothrow();
 if (!result.ok) {
-  console.log('Command failed:', result.error);
+  console.log('Command failed:', result.cause);
   // Access to structured error information
   console.log('Exit code:', result.exitCode);
   console.log('Stderr:', result.stderr);
@@ -240,9 +241,9 @@ if (!result.ok) {
 
 // Multi-environment error handling
 const results = await Promise.allSettled([
-  on('server1', 'deploy.sh'),
-  on('server2', 'deploy.sh'),
-  on('server3', 'deploy.sh')
+  $.ssh('server1')`deploy.sh`,
+  $.ssh('server2')`deploy.sh`,
+  $.ssh('server3')`deploy.sh`
 ]);
 
 const failed = results.filter(r => r.status === 'rejected');
@@ -272,7 +273,8 @@ const configs = shell.ls('**/*.json');
 
 **Xec:**
 ```typescript
-import { fs, glob } from '@xec-sh/core';
+import { glob } from '@xec-sh/core';
+import * as fs from 'node:fs/promises';
 
 const files = await fs.readdir('.');
 await fs.writeFile('output.txt', 'content');
@@ -282,10 +284,10 @@ const configs = await glob('**/*.json');
 
 // Xec additions: remote file operations
 await $`xec copy local.txt server:/remote/`;
-await on('server', 'cat /remote/local.txt');
+await $.ssh('server')`cat /remote/local.txt`;
 
 // Docker file operations
-await $.docker('container').copy('local.txt', '/app/');
+await $.transfer.copy('local.txt', 'docker://container:/app/local.txt');
 ```
 
 ### 4. Working Directory
@@ -318,21 +320,21 @@ shell.popd();
 
 **Xec:**
 ```typescript
-import { $ } from '@xec-sh/core';
+import { $, within } from '@xec-sh/core';
 
-const cwd = process.cwd();
-cd('/tmp');
-await $`pwd`; // /tmp
-cd(cwd);
+// $.cd() returns a new, scoped engine rather than mutating $ in place
+const tmp = $.cd('/tmp');
+await tmp`pwd`; // /tmp
+await $`pwd`; // unaffected — the original $ never changed
 
 // Scoped directory change
-await $.within('/tmp', async () => {
+await within('/tmp', async () => {
   await $`pwd`; // /tmp
 });
 await $`pwd`; // back to original
 
 // Remote directory context
-await on('server', 'cd /app && npm install');
+await $.ssh('server')`cd /app && npm install`;
 ```
 
 ### 5. Environment Variables
@@ -363,7 +365,7 @@ await $`echo $NODE_ENV`;
 await $.env({ NODE_ENV: 'production' })`npm run build`;
 
 // Remote environment
-await on('server').env({ NODE_ENV: 'production' })`npm run build`;
+await $.ssh('server').env({ NODE_ENV: 'production' })`npm run build`;
 
 // Docker environment
 await $.docker('container')
@@ -400,13 +402,14 @@ const proc2 = $`cat`;
 await proc1.pipe(proc2);
 
 // Advanced streaming
-const stream = $`tail -f /var/log/app.log`.stream();
-stream.on('data', (chunk) => {
-  console.log(chunk.toString());
-});
+for await (const line of $`tail -f /var/log/app.log`) {
+  console.log(line);
+}
 
 // Remote streaming
-const remoteLog = on('server', 'tail -f /var/log/app.log').stream();
+for await (const line of $.ssh('server')`tail -f /var/log/app.log`) {
+  console.log(line);
+}
 ```
 
 ## Advanced Migration Patterns
@@ -440,16 +443,16 @@ const limit = pLimit(2);
 
 await Promise.all(
   servers.map(server => 
-    limit(() => on(server, 'deploy.sh'))
+    limit(() => $.ssh(server)`deploy.sh`)
   )
 );
 
 // Built-in parallel execution
-await $.parallel([
+await $.parallel.all([
   $`npm run build`,
-  on('server', 'npm test'),
-  $.docker({ container: 'container' })`npm lint`
-], { concurrency: 2 });
+  $.ssh('server')`npm test`,
+  $.docker('container')`npm lint`
+], { maxConcurrent: 2 });
 ```
 
 ### 2. Remote Execution
@@ -469,19 +472,21 @@ for (const server of servers) {
 **Xec:**
 ```typescript
 // Native SSH support
-await on('server', 'cd /app && npm install');
+await $.ssh('server')`cd /app && npm install`;
 await $`xec copy local.txt server:/remote/`;
 
-// Connection pooling
-const pool = $.pool({ max: 5 });
+// Connection pooling is on by default; tune it once, up front, if needed
+import { configure } from '@xec-sh/core';
+configure({ adapters: { ssh: { connectionPool: { maxConnections: 5 } } } });
+
 await Promise.all(
   servers.map(server => 
-    pool.on(server, 'deploy.sh')
+    $.ssh(server)`deploy.sh`
   )
 );
 
 // Docker execution
-await $.docker({ container: 'container' })`npm install`;
+await $.docker('container')`npm install`;
 
 // Kubernetes execution
 await $.k8s('pod-name')`kubectl get pods`;
@@ -530,20 +535,7 @@ tasks:
         when: ${params.env} == 'prod'
 ```
 
-```typescript
-// Or programmatically
-import { defineTask } from '@xec-sh/core';
-
-defineTask('deploy', {
-  needs: ['build', 'test'],
-  async execute() {
-    await on('staging', 'deploy.sh');
-    if (process.env.ENV === 'prod') {
-      await on('production', 'deploy.sh');
-    }
-  }
-});
-```
+Programmatic task definition (as opposed to the YAML form above) is provided by `@xec-sh/ops`, not `@xec-sh/core`.
 
 ## Complex Script Migration
 
@@ -656,7 +648,9 @@ await main();
 
 ```typescript
 // scripts/deploy.ts
-import { $, on, glob, sleep, chalk, spinner } from '@xec-sh/core';
+import { $, glob, sleep } from '@xec-sh/core';
+import chalk from 'chalk';
+import * as fs from 'node:fs/promises';
 
 // Type-safe configuration
 interface DeployConfig {
@@ -675,9 +669,9 @@ const config: DeployConfig = {
   rollbackOnFailure: true
 };
 
-// Enhanced server check with connection pooling
+// Enhanced server check — SSH connections are pooled automatically
 async function checkServer(server: string): Promise<boolean> {
-  const result = await on(server, 'echo "Server accessible"')
+  const result = await $.ssh(server)`echo "Server accessible"`
     .timeout(5000)
     .nothrow();
   
@@ -691,68 +685,60 @@ async function checkServer(server: string): Promise<boolean> {
 
 // Build with progress tracking
 async function buildApp(): Promise<void> {
-  const spin = spinner('Building application...').start();
-  
-  try {
+  await $.withSpinner('Building application...', async () => {
     await fs.rm(config.buildDir, { recursive: true, force: true });
     await $`npm run build`;
-    
+
     const files = await glob(`${config.buildDir}/**/*`);
-    spin.succeed(`Built ${files.length} files`);
-  } catch (error) {
-    spin.fail('Build failed');
-    throw error;
-  }
+    console.log(chalk.green(`Built ${files.length} files`));
+  });
 }
 
 // Deploy with enhanced error handling and rollback
 async function deployToServer(server: string): Promise<void> {
-  const spin = spinner(`Deploying to ${server}...`).start();
-  
   try {
-    // Create backup with timestamp
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupDir = `${config.deployDir}.backup-${timestamp}`;
-    
-    await on(server, `cp -r ${config.deployDir} ${backupDir}`);
-    
-    // Copy files with progress
-    await $`xec copy ${config.buildDir}/ ${server}:${config.deployDir}/`;
-    
-    // Graceful restart
-    await on(server, 'systemctl reload app || systemctl restart app');
-    
-    // Enhanced health check
-    spin.text = `Health check for ${server}...`;
-    await sleep(2000);
-    
-    const healthCheck = await fetch(`http://${server}${config.healthCheckUrl}`)
-      .timeout(10000)
-      .retry(3);
-    
-    if (!healthCheck.ok) {
-      throw new Error(`Health check failed: ${healthCheck.status}`);
-    }
-    
-    // Clean old backups (keep last 3)
-    await on(server, `
-      ls -dt ${config.deployDir}.backup-* | 
-      tail -n +4 | 
-      xargs rm -rf
-    `).nothrow();
-    
-    spin.succeed(`Successfully deployed to ${server}`);
+    await $.withSpinner(`Deploying to ${server}...`, async () => {
+      // Create backup with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const backupDir = `${config.deployDir}.backup-${timestamp}`;
+
+      await $.ssh(server)`cp -r ${config.deployDir} ${backupDir}`;
+
+      // Copy files with progress
+      await $`xec copy ${config.buildDir}/ ${server}:${config.deployDir}/`;
+
+      // Graceful restart
+      await $.ssh(server)`systemctl reload app || systemctl restart app`;
+
+      // Health check, capped at 10s
+      await sleep(2000);
+
+      const healthCheck = await fetch(`http://${server}${config.healthCheckUrl}`, {
+        signal: AbortSignal.timeout(10000)
+      });
+
+      if (!healthCheck.ok) {
+        throw new Error(`Health check failed: ${healthCheck.status}`);
+      }
+
+      // Clean old backups (keep last 3)
+      await $.ssh(server)`
+        ls -dt ${config.deployDir}.backup-* | 
+        tail -n +4 | 
+        xargs rm -rf
+      `.nothrow();
+    });
+
+    console.log(chalk.green(`Successfully deployed to ${server}`));
   } catch (error) {
-    spin.fail(`Deployment failed for ${server}`);
-    
     if (config.rollbackOnFailure) {
       console.log(chalk.yellow(`Rolling back ${server}...`));
       
-      await on(server, `
+      await $.ssh(server)`
         rm -rf ${config.deployDir} &&
         mv ${config.deployDir}.backup-* ${config.deployDir} &&
         systemctl restart app
-      `);
+      `;
       
       console.log(chalk.green(`Rolled back ${server}`));
     }
@@ -765,10 +751,9 @@ async function deployToServer(server: string): Promise<void> {
 async function main(): Promise<void> {
   const start = performance.now();
   
-  // Parallel server checks with connection pool
+  // Parallel server checks — SSH connections are pooled automatically
   console.log(chalk.blue('Checking servers...'));
   
-  const pool = $.pool({ max: 10, idleTimeout: 30000 });
   const serverStatus = await Promise.all(
     config.servers.map(server => checkServer(server))
   );
@@ -815,8 +800,8 @@ async function main(): Promise<void> {
   const duration = (performance.now() - start) / 1000;
   console.log(chalk.cyan(`✨ Deployment completed in ${duration.toFixed(2)}s`));
   
-  // Cleanup connection pool
-  await pool.destroy();
+  // Close pooled SSH connections
+  await $.dispose();
 }
 
 // Error handling and execution
@@ -844,15 +829,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 | Feature | Description | Example |
 |---------|-------------|---------|
-| SSH Execution | Native SSH with pooling | `on('server', 'command')` |
+| SSH Execution | Native SSH with pooling | `$.ssh('server')\`command\`` |
 | Docker Support | Container execution | `$.docker('name')\`cmd\`` |
 | Kubernetes | Pod execution | `$.k8s('pod')\`cmd\`` |
-| Connection Pooling | Reuse connections | `$.pool({ max: 10 })` |
-| Retry Logic | Automatic retries | `.retry({ attempts: 3 })` |
+| Connection Pooling | Reuse connections, on by default | `configure({ adapters: { ssh: { connectionPool: { maxConnections: 10 } } } })` |
+| Retry Logic | Automatic retries | `$.ssh('server').retry({ maxRetries: 3 })` |
 | Timeout Control | Command timeouts | `.timeout(5000)` |
-| Result Types | Structured errors | `result.ok, result.error` |
+| Result Types | Structured errors | `result.ok, result.cause` |
 | Task System | Configuration-based | `.xec/config.yaml` |
-| Multi-target | Execute on multiple | `on(['s1', 's2'], 'cmd')` |
+| Multi-target | Execute on multiple | `Promise.all(hosts.map(h => $.ssh(h)\`cmd\`))` |
 | File Transfer | Cross-environment | `xec copy src dst` |
 
 ## Migration Strategy
@@ -872,13 +857,13 @@ npm install zx
 ```typescript
 // hybrid-script.ts
 import { $ as zx$ } from 'zx';
-import { $ as xec$, on } from '@xec-sh/core';
+import { $ as xec$ } from '@xec-sh/core';
 
 // Use zx for local operations
 await zx$`npm install`;
 
 // Use Xec for remote operations
-await on('server', 'npm install');
+await xec$.ssh('server')`npm install`;
 
 // Gradually replace zx calls with Xec
 ```

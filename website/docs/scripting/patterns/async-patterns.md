@@ -217,6 +217,23 @@ async function deployToManyServers(servers) {
 }
 ```
 
+A hand-rolled limiter like this is useful when the work being limited isn't
+commands, or needs custom queuing behavior. For plain command concurrency,
+the built-in `parallel()` does the same job without the class:
+
+```javascript
+import { $, parallel } from '@xec-sh/core';
+
+const { succeeded, failed } = await parallel(
+  servers.map(server => $`ssh ${server} "cd /app && git pull && npm install"`.nothrow()),
+  { maxConcurrent: 3 }
+);
+```
+
+`succeeded` and `failed` are sorted by exit code — a `.nothrow()`'d command
+that failed lands in `failed` as a result you can inspect, not a rejection
+you have to catch.
+
 ### Batch Processing
 
 ```javascript
@@ -248,6 +265,20 @@ await processBatches(files, 5, async (file) => {
   return await $`gzip ${file}`;
 });
 ```
+
+This version adds progress logging and an inter-batch delay, which is why
+it's worth writing by hand. Without those, `$.batch()` covers the same
+concurrency-capped batching directly:
+
+```javascript
+const results = await $.batch(
+  files.map(file => `gzip ${file}`),
+  { concurrency: 5 }
+);
+```
+
+`$.batch()` defaults `concurrency` to 5 and returns the same
+`{ succeeded, failed, results, duration }` shape as `parallel()`.
 
 ## Async Iterators and Generators
 

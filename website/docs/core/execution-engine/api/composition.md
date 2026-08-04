@@ -4,7 +4,9 @@ Composition enables building complex execution workflows by combining simple, re
 
 ## Overview
 
-Composition support (`packages/core/src/core/composition.ts`) provides:
+`@xec-sh/core` does not ship a dedicated composition API. The patterns below
+are plain TypeScript built on top of the engine's real chainable methods and
+`ProcessPromise` — useful conventions, not a subsystem you import:
 
 - **Function composition** for reusable logic
 - **Pipeline composition** for data flow
@@ -18,16 +20,19 @@ Composition support (`packages/core/src/core/composition.ts`) provides:
 ### Basic Composition
 
 ```typescript
-import { $ } from '@xec-sh/core';
+import { $, type CallableExecutionEngine } from '@xec-sh/core';
 
-// Compose simple functions
-const withProduction = (cmd: any) => cmd.env({ NODE_ENV: 'production' });
-const withTimeout = (cmd: any) => cmd.timeout(10000);
-const withRetry = (cmd: any) => cmd.retry(3);
+// Compose functions that configure an engine, then invoke the result as a
+// template tag. `.retry()` wraps `execute()` so it can retry the whole
+// command, which is why it configures the engine rather than decorating an
+// already-created ProcessPromise the way `.env()` or `.timeout()` could.
+const withProduction = (engine: CallableExecutionEngine) => engine.env({ NODE_ENV: 'production' });
+const withTimeout = (engine: CallableExecutionEngine) => engine.timeout(10000);
+const withRetry = (engine: CallableExecutionEngine) => engine.retry({ maxRetries: 3 });
 
 // Apply compositions
-const command = withRetry(withTimeout(withProduction($`npm start`)));
-await command;
+const configured = withRetry(withTimeout(withProduction($)));
+await configured`npm start`;
 
 // Using compose utility
 function compose(...fns: Function[]) {
@@ -35,7 +40,7 @@ function compose(...fns: Function[]) {
 }
 
 const enhance = compose(withRetry, withTimeout, withProduction);
-await enhance($`npm start`);
+await enhance($)`npm start`;
 ```
 
 ### Command Factories
@@ -553,11 +558,12 @@ await compose(cmd1, cmd2, cmd3);  // No error handling
 
 ## Implementation Details
 
-Composition is implemented in:
-- `packages/core/src/core/composition.ts` - Composition utilities
-- `packages/core/src/utils/functional.ts` - Functional helpers
-- `packages/core/src/patterns/workflow.ts` - Workflow patterns
-- `packages/core/src/patterns/pipeline.ts` - Pipeline composition
+`@xec-sh/core` has no dedicated composition module — everything on this page
+is plain TypeScript applied to the engine's real chainable methods
+(`.env()`, `.timeout()`, `.retry()`, `.pipe()`, and so on) and to
+`ProcessPromise`. The `compose`, `Workflow`, `SequentialWorkflow` and
+`Result` helpers shown above are examples you write yourself, not exports of
+the package.
 
 ## See Also
 

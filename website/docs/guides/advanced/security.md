@@ -29,6 +29,7 @@ Implement secure handling of sensitive data:
 
 import { $ } from '@xec-sh/core';
 import crypto from 'crypto';
+import fs from 'node:fs/promises';
 
 class SecretManager {
   constructor(options = {}) {
@@ -108,7 +109,7 @@ class SecretManager {
     // Local encrypted keyring
     const encryptedFile = `${this.keyring}/${name}.enc`;
     
-    if (!await $.exists(encryptedFile)) {
+    if (!await fs.access(encryptedFile).then(() => true).catch(() => false)) {
       throw new Error(`Secret ${name} not found in keyring`);
     }
 
@@ -121,7 +122,7 @@ class SecretManager {
 
   async store(name, value) {
     // Store in keyring (encrypted)
-    await $.mkdir(this.keyring, { recursive: true });
+    await fs.mkdir(this.keyring, { recursive: true });
     
     const key = await this.getSystemKey();
     const encrypted = this.encrypt(value, key);
@@ -191,7 +192,7 @@ Prevent command injection and validate inputs:
 ```javascript
 #!/usr/bin/env xec
 
-import { $ } from '@xec-sh/core';
+import { $, quoteForShell, dialectFor } from '@xec-sh/core';
 
 class InputValidator {
   // Validate and sanitize user input
@@ -238,7 +239,7 @@ class InputValidator {
 
   static sanitizeShellArg(arg) {
     // Use Xec's built-in escaping
-    return $.quote(arg);
+    return quoteForShell(arg, dialectFor(true));
   }
 
   static validateEmail(email) {
@@ -374,24 +375,14 @@ class SecureSSH {
     // Verify host key
     await this.verifyHostKey(host);
     
-    // Use secure options
-    const secureOptions = {
+    // Force secure defaults: refuse an unrecognized or changed host key,
+    // and authenticate with a key rather than a password
+    return $.ssh({
       ...options,
-      // Force secure defaults
-      strictHostKeyChecking: 'yes',
-      passwordAuthentication: 'no',
-      preferredAuthentications: 'publickey',
-      compression: 'yes',
-      serverAliveInterval: 60,
-      serverAliveCountMax: 3,
-      // Limit forwarding
-      forwardAgent: false,
-      forwardX11: false,
-      // Use specific key
-      identityFile: options.privateKey || `${this.keyPath}/id_ed25519`
-    };
-    
-    return $.ssh(secureOptions);
+      host,
+      hostKeyChecking: 'strict',
+      privateKey: options.privateKey || `${this.keyPath}/id_ed25519`
+    });
   }
 
   async verifyHostKey(host) {
@@ -419,7 +410,7 @@ class SecureSSH {
     const publicPath = `${privatePath}.pub`;
     
     // Check if key exists
-    if (await $.exists(privatePath)) {
+    if (await fs.access(privatePath).then(() => true).catch(() => false)) {
       throw new Error('Key already exists');
     }
     
@@ -532,6 +523,7 @@ Handle files securely:
 import { $ } from '@xec-sh/core';
 import crypto from 'crypto';
 import path from 'path';
+import fs from 'node:fs/promises';
 
 class SecureFileHandler {
   constructor(options = {}) {
@@ -588,8 +580,8 @@ class SecureFileHandler {
     const size = stats.size;
     
     for (let i = 0; i < this.shredPasses; i++) {
-      // Overwrite with random data
-      const randomData = crypto.randomBytes(size);
+      // Overwrite with random data ($.writeFile takes a string, not a Buffer)
+      const randomData = crypto.randomBytes(size).toString('hex');
       await $.writeFile(safePath, randomData);
       
       // Sync to disk

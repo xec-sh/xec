@@ -22,11 +22,11 @@ xec run component.tsx
 Xec provides comprehensive type definitions through the `@xec-sh/core` package:
 
 ```typescript
-import { $, ProcessPromise, ProcessOutput } from '@xec-sh/core';
-import type { ExecutionEngine, ExecutionOptions } from '@xec-sh/core';
+import { $, ProcessPromise } from '@xec-sh/core';
+import type { ExecutionResult, ExecutionEngine } from '@xec-sh/core';
 
 // Fully typed command execution
-const result: ProcessOutput = await $`ls -la`;
+const result: ExecutionResult = await $`ls -la`;
 const promise: ProcessPromise = $`echo "test"`;
 ```
 
@@ -67,7 +67,7 @@ npm install @xec-sh/core
 ```typescript
 // deploy.ts
 import { $ } from '@xec-sh/core';
-import type { ProcessOutput } from '@xec-sh/core';
+import type { ExecutionResult } from '@xec-sh/core';
 
 interface DeployConfig {
   environment: 'dev' | 'staging' | 'prod';
@@ -83,7 +83,7 @@ async function deploy(config: DeployConfig): Promise<void> {
     return;
   }
   
-  const result: ProcessOutput = await $`git tag v${version}`;
+  const result: ExecutionResult = await $`git tag v${version}`;
   console.log(`Tagged version: v${version}`);
   
   await $`npm run deploy:${environment}`;
@@ -102,66 +102,44 @@ await deploy(config);
 
 ## Type Definitions for Global Context
 
-Xec injects global variables that TypeScript needs to know about:
+`xec run` injects a handful of globals into every script. Get IntelliSense
+for them by importing the types package once, rather than hand-writing the
+declarations yourself:
 
-### Global Type Declarations
+```typescript
+import '@xec-sh/cli/globals';
+```
 
-Create `xec.d.ts` in your project root:
+This pulls in a `declare global` block that covers:
+
+- `$` — the same `@xec-sh/core` execution engine used everywhere else.
+- `use(specifier)` and `x(specifier)` — the module loader's dynamic-import
+  helpers (see [Module Imports and NPM Packages](#module-imports-and-npm-packages) below).
+- `args: string[]` and `argv: string[]` — the script's own command-line
+  arguments (`argv` also includes the interpreter and script path, shell
+  convention), plus the standard `__filename`/`__dirname`.
+- A set of scripting utilities re-exported from `@xec-sh/ops`: `cd`, `ps`,
+  `fs`, `os`, `pwd`, `env`, `csv`, `kit`, `log`, `exit`, `kill`, `echo`,
+  `diff`, `glob`, `path`, `yaml`, `sleep`, `quote`, `which`, `fetch`,
+  `prism`, `setEnv`, `within`, `tmpdir`, `loadEnv`, `tmpfile`, `spinner`,
+  `template`, `parseArgs`.
+- A `Xec` namespace re-exporting every type from `@xec-sh/core` (`Xec.Core.*`)
+  plus the CLI's own configuration types (`TargetType`, `TargetConfig`,
+  `Configuration`, `CommandConfig`, `ResolvedTarget`).
+
+If you'd rather declare only what a specific script uses, write your own
+`xec.d.ts`:
 
 ```typescript
 // xec.d.ts
-import type { ExecutionEngine } from '@xec-sh/core';
+import type { ExecutionResult } from '@xec-sh/core';
 
 declare global {
-  // Script execution context
-  const $target: ExecutionEngine;
-  const $targetInfo: {
-    type: 'local' | 'ssh' | 'docker' | 'k8s';
-    name?: string;
-    host?: string;
-    container?: string;
-    pod?: string;
-    namespace?: string;
-    config: any;
-  } | undefined;
-  
-  // Script metadata
+  const $: typeof import('@xec-sh/core').$;
   const args: string[];
   const argv: string[];
-  const params: Record<string, any>;
   const __filename: string;
   const __dirname: string;
-  const __script: {
-    path: string;
-    args: string[];
-    target?: any;
-  };
-  
-  // Configuration access
-  const config: {
-    get(path?: string): any;
-    reload(): Promise<void>;
-  };
-  
-  const vars: Record<string, any>;
-  
-  // Task and target APIs
-  const tasks: {
-    run(name: string, params?: Record<string, any>): Promise<any>;
-    list(): Promise<string[]>;
-    exists(name: string): Promise<boolean>;
-  };
-  
-  const targets: {
-    list(type?: string): Promise<string[]>;
-    get(name: string): Promise<any>;
-    execute(name: string, command: string): Promise<any>;
-  };
-  
-  // Utilities
-  const chalk: any;
-  function glob(pattern: string): Promise<string[]>;
-  function minimatch(path: string, pattern: string): boolean;
 }
 
 export {};
@@ -173,6 +151,7 @@ export {};
 
 ```typescript
 import { $, ProcessPromise } from '@xec-sh/core';
+import type { ExecutionResult } from '@xec-sh/core';
 
 class CommandBuilder {
   private options: {
@@ -196,8 +175,11 @@ class CommandBuilder {
     return this;
   }
   
-  async execute(command: string): Promise<ProcessOutput> {
-    let promise: ProcessPromise = $`${command}`;
+  async execute(command: string): Promise<ExecutionResult> {
+    // $.exec() runs a command that already exists as a string, verbatim —
+    // interpolating it into a template tag instead would quote the whole
+    // string as a single argument and fail with "command not found".
+    let promise: ProcessPromise = $.exec(command);
     
     if (this.options.cwd) {
       promise = promise.cwd(this.options.cwd);
@@ -228,22 +210,22 @@ await builder.execute('npm install');
 
 ```typescript
 import { $ } from '@xec-sh/core';
-import type { ProcessOutput } from '@xec-sh/core';
+import type { ExecutionResult } from '@xec-sh/core';
 
-interface SuccessResult extends ProcessOutput {
+interface SuccessResult extends ExecutionResult {
   exitCode: 0;
 }
 
-interface ErrorResult extends ProcessOutput {
+interface ErrorResult extends ExecutionResult {
   exitCode: number;
   stderr: string;
 }
 
-function isSuccess(result: ProcessOutput): result is SuccessResult {
+function isSuccess(result: ExecutionResult): result is SuccessResult {
   return result.exitCode === 0;
 }
 
-function isError(result: ProcessOutput): result is ErrorResult {
+function isError(result: ExecutionResult): result is ErrorResult {
   return result.exitCode !== 0;
 }
 
@@ -580,7 +562,7 @@ describe('Deployment', () => {
    const result = await $`ls`;
    
    // Instead of
-   const result: ProcessOutput = await $`ls`;
+   const result: ExecutionResult = await $`ls`;
    ```
 
 5. **Use const assertions for literals**:
@@ -597,7 +579,7 @@ Here's a comprehensive TypeScript script showcasing best practices:
 
 ```typescript
 // release.ts - Complete release automation script
-import { $, ProcessOutput } from '@xec-sh/core';
+import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import * as semver from 'semver';
 

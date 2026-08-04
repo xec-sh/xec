@@ -103,6 +103,7 @@ Create development scripts in `.xec/scripts/dev-setup.js`:
 #!/usr/bin/env xec
 
 import { $ } from '@xec-sh/core';
+import { existsSync } from 'node:fs';
 
 // Check required tools
 async function checkRequirements() {
@@ -127,7 +128,7 @@ async function checkRequirements() {
 async function setupEnv() {
   const envFile = '.env.local';
   
-  if (!await $.exists(envFile)) {
+  if (!existsSync(envFile)) {
     console.log('Creating .env.local from template...');
     await $`cp .env.example ${envFile}`;
     
@@ -238,16 +239,13 @@ Use with Xec:
 
 import { $ } from '@xec-sh/core';
 
-const compose = $.docker.compose({
-  file: 'docker-compose.xec.yaml',
-  project: 'myapp-dev'
-});
+const compose = $.docker().compose('docker-compose.xec.yaml').withProject('myapp-dev');
 
 // Start development environment
-await compose`up -d`;
+await compose.up();
 
 // Follow logs
-await compose`logs -f app`;
+await compose.logs('app', true);
 ```
 
 ### Step 5: Hot Reload and File Watching
@@ -259,28 +257,43 @@ Set up automatic reload on file changes:
 #!/usr/bin/env xec
 
 import { $ } from '@xec-sh/core';
-import { watch } from 'fs/promises';
+import { watch } from 'node:fs/promises';
 
+// Xec has no built-in file watcher; node:fs/promises already provides one,
+// so filtering by extension and debouncing are the only things left to do.
 const watchers = [
   {
     path: './src',
-    pattern: '**/*.{js,ts,jsx,tsx}',
+    extensions: ['.js', '.ts', '.jsx', '.tsx'],
     command: 'npm run lint',
     debounce: 1000
   },
   {
     path: './tests',
-    pattern: '**/*.test.{js,ts}',
+    extensions: ['.test.js', '.test.ts'],
     command: 'npm test',
     debounce: 2000
   }
 ];
 
+async function watchAndRun({ path, extensions, command, debounce }) {
+  let timer;
+
+  for await (const event of watch(path, { recursive: true })) {
+    if (!event.filename || !extensions.some(ext => event.filename.endsWith(ext))) {
+      continue;
+    }
+
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      console.log(`File changed: ${event.filename}`);
+      await $`${command}`.nothrow();
+    }, debounce);
+  }
+}
+
 for (const watcher of watchers) {
-  $.watch(watcher.path, watcher.pattern, async (event, filename) => {
-    console.log(`File changed: ${filename}`);
-    await $`${watcher.command}`.nothrow();
-  }, { debounce: watcher.debounce });
+  watchAndRun(watcher);
 }
 
 console.log('Watching for changes... Press Ctrl+C to stop');

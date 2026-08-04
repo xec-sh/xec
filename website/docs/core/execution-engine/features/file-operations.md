@@ -1,17 +1,16 @@
 # File Operations
 
-The Xec execution engine provides unified file operations across all environments - local, SSH, Docker, and Kubernetes - with consistent APIs for copying, transferring, and managing files.
+The Xec execution engine provides file operations across local, SSH, and Docker environments, plus pod-scoped file copy for Kubernetes, all built on the same shell-command foundation as everything else in the engine.
 
 ## Overview
 
-File operations (`packages/core/src/operations/file.ts`) provide:
+File operations (`packages/core/src/utils/transfer.ts`) provide:
 
-- **Cross-environment file transfer** between any adapters
-- **Recursive directory operations** with filtering
-- **Progress tracking** for large transfers
-- **Compression support** for efficient transfers
-- **Permission preservation** across systems
-- **Atomic operations** with rollback support
+- **Cross-environment file transfer** between local, SSH and Docker (any combination, including remote-to-remote)
+- **Recursive directory transfer**
+- **SSH-specific upload/download** helpers
+- **Pod-scoped copy** for Kubernetes, via a specific pod handle
+- **Plain read/write/delete** for simple local file access, without shelling out yourself
 
 ## Local File Operations
 
@@ -20,11 +19,13 @@ File operations (`packages/core/src/operations/file.ts`) provide:
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Read file
-const content = await $`cat config.yaml`;
+// Read a file — either the dedicated method or a shell command
+const content = await $.readFile('config.yaml');
+const catOutput = await $`cat config.yaml`;
 
-// Write file
-await $`echo "${content}" > backup.yaml`;
+// Write a file — again, either form
+await $.writeFile('backup.yaml', content);
+await $`cp config.yaml backup.yaml`;
 
 // Copy file
 await $`cp source.txt dest.txt`;
@@ -33,8 +34,17 @@ await $`cp source.txt dest.txt`;
 await $`mv old.txt new.txt`;
 
 // Delete file
+await $.deleteFile('unnecessary.txt');
 await $`rm unnecessary.txt`;
 ```
+
+`$.readFile`, `$.writeFile` and `$.deleteFile` are engine methods, not a
+filesystem library — they shell out (`cat`, and `rm -f` for delete) rather
+than using `node:fs` directly, so they run against whatever `$` is currently
+targeting. For anything beyond read/write/delete (checking existence,
+creating directories, stat), there is no Xec wrapper; use plain
+`node:fs/promises` for local paths, or a shell command through `$` for a
+remote target.
 
 ### Directory Operations
 
@@ -62,103 +72,66 @@ await $`tar czf archive.tar.gz directory/`;
 ```typescript
 const remote = $.ssh({ host: 'server.com', username: 'user' });
 
-// Upload single file
+// Upload a single file
 await remote.uploadFile('/local/file.txt', '/remote/file.txt');
 
-// Upload with progress
-await remote.uploadFile('/local/large.zip', '/remote/large.zip', {
-  onProgress: (progress) => {
-    const percent = (progress.transferred / progress.total * 100).toFixed(2);
-    console.log(`Uploading: ${percent}%`);
-  }
-});
-
-// Upload directory
-await remote.uploadDirectory('/local/project', '/remote/project', {
-  recursive: true,
-  filter: (file) => !file.includes('node_modules')
-});
+// Upload a directory (always recursive — there is no filter option)
+await remote.uploadDirectory('/local/project', '/remote/project');
 ```
+
+`uploadFile` and `uploadDirectory` each take exactly the local and remote
+path — there is no third options argument, so there is no built-in progress
+callback or path filtering on these two calls. For filtering out something
+like `node_modules`, stage a filtered copy locally first (or use `rsync`
+through `$`, see [File Synchronization](#file-synchronization) below).
 
 ### Download Files
 
 ```typescript
-// Download single file
+// Download a single file
 await remote.downloadFile('/remote/data.csv', '/local/data.csv');
+```
 
-// Download directory
-await remote.downloadDirectory('/remote/logs', '/local/logs', {
+There is no `downloadDirectory` — to pull down a whole remote directory, use
+[`$.transfer`](#cross-environment-transfer):
+
+```typescript
+await $.transfer.copy('ssh://user@server.com/remote/logs', '/local/logs', {
   recursive: true,
-  compress: true  // Compress during transfer
-});
-
-// Download with filtering
-await remote.downloadDirectory('/remote/app', '/local/backup', {
-  filter: (file) => file.endsWith('.log') || file.endsWith('.txt')
 });
 ```
 
-### SFTP Operations
+SFTP itself is used internally to implement these calls, but no SFTP client
+(directory listing, stat, mkdir, unlink) is exposed publicly — use a shell
+command through the SSH context for anything beyond upload/download:
 
 ```typescript
-// Use SFTP client directly
-const sftp = await remote.sftp();
-
-// List remote directory
-const files = await sftp.list('/remote/path');
-files.forEach(file => {
-  console.log(`${file.name} - ${file.size} bytes`);
-});
-
-// Check file existence
-const exists = await sftp.exists('/remote/file.txt');
-
-// Get file stats
-const stats = await sftp.stat('/remote/file.txt');
-console.log('Size:', stats.size);
-console.log('Modified:', stats.modifyTime);
-
-// Create remote directory
-await sftp.mkdir('/remote/new-dir', true);  // recursive
-
-// Remove remote file
-await sftp.unlink('/remote/old-file.txt');
+const files = await remote`ls -la /remote/path`;
+const exists = (await remote`test -f /remote/file.txt`.nothrow()).ok;
 ```
 
 ## Docker File Operations
 
-### Copy to Container
+Docker file transfer goes through [`$.transfer`](#cross-environment-transfer),
+the same as SSH:
 
 ```typescript
-const container = $.docker({ container: 'my-app' });
+// Copy a file to a container
+await $.transfer.copy('/local/config.json', 'docker://my-app:/app/config.json');
 
-// Copy file to container
-await container.copyTo('/local/config.json', '/app/config.json');
+// Copy a directory to a container
+await $.transfer.copy('/local/assets', 'docker://my-app:/app/public/assets', {
+  recursive: true,
+});
 
-// Copy directory to container
-await container.copyToDir('/local/assets', '/app/public/assets');
-
-// Copy with tar archive
-await container.copyArchive('/local/build.tar', '/app');
-```
-
-### Copy from Container
-
-```typescript
-// Copy file from container
-await container.copyFrom('/app/output.log', '/local/logs/output.log');
-
-// Copy directory from container
-await container.copyFromDir('/app/data', '/local/backup/data');
-
-// Export container filesystem
-await container.export('/local/container-backup.tar');
+// Copy a file out of a container
+await $.transfer.copy('docker://my-app:/app/output.log', '/local/logs/output.log');
 ```
 
 ### Volume Operations
 
 ```typescript
-// Mount volume for file sharing
+// Mount a volume for file sharing with an ephemeral container
 const withVolume = $.docker({
   image: 'processor:latest',
   volumes: [
@@ -167,115 +140,100 @@ const withVolume = $.docker({
   ]
 });
 
-// Process files through volume
+// Process files through the volume
 await withVolume`process-files.sh`;
+```
 
-// Backup volume
-await $.docker.backupVolume('data-volume', '/local/volume-backup.tar');
+There is no dedicated volume backup/restore call — a plain container run
+does the same thing a purpose-built helper would:
 
-// Restore volume
-await $.docker.restoreVolume('data-volume', '/local/volume-backup.tar');
+```typescript
+await $`docker run --rm -v data-volume:/data -v /local/volume-backup:/backup busybox \
+  tar czf /backup/volume-backup.tar.gz -C /data .`;
 ```
 
 ## Kubernetes File Operations
 
 ### Pod File Transfer
 
-```typescript
-const pod = $.k8s({ pod: 'app-pod', namespace: 'production' });
+File copy is a method on a specific pod handle, reached through `.pod(name)`:
 
-// Copy to pod
+```typescript
+const pod = $.k8s('production').pod('app-pod');
+
+// Copy to the pod
 await pod.copyTo('/local/config.yaml', '/app/config.yaml');
 
-// Copy from pod
+// Copy from the pod
 await pod.copyFrom('/app/logs', '/local/pod-logs');
 
-// Copy to specific container
-await pod.copyTo('/local/nginx.conf', '/etc/nginx/nginx.conf', {
-  container: 'nginx'
-});
+// Copy into a specific container in a multi-container pod
+await pod.copyTo('/local/nginx.conf', '/etc/nginx/nginx.conf', 'nginx');
 ```
 
-### ConfigMap as Files
+Both methods only move files between the local machine and the pod — there
+is no direct pod-to-pod or pod-to-`$.transfer` path; go through a local
+intermediate if you need one.
+
+Creating ConfigMaps or PersistentVolumeClaims from local files is not a Xec
+feature — run `kubectl` directly for that:
 
 ```typescript
-// Create ConfigMap from files
-await $.k8s.createConfigMapFromFiles('app-config', {
-  namespace: 'production',
-  files: {
-    'config.yaml': '/local/config.yaml',
-    'settings.json': '/local/settings.json'
-  }
-});
-
-// Mount ConfigMap as files
-const podWithConfig = $.k8s({
-  image: 'app:latest',
-  volumes: [{
-    name: 'config',
-    configMap: 'app-config',
-    mountPath: '/etc/config'
-  }]
-});
-```
-
-### PersistentVolume Operations
-
-```typescript
-// Create PersistentVolumeClaim
-await $.k8s.createPVC('data-storage', {
-  namespace: 'production',
-  size: '10Gi',
-  accessMode: 'ReadWriteOnce'
-});
-
-// Mount PersistentVolume
-const podWithPV = $.k8s({
-  image: 'database:latest',
-  volumes: [{
-    name: 'data',
-    persistentVolumeClaim: 'data-storage',
-    mountPath: '/var/lib/data'
-  }]
-});
+await $`kubectl create configmap app-config -n production \
+  --from-file=config.yaml=/local/config.yaml \
+  --from-file=settings.json=/local/settings.json`;
 ```
 
 ## Cross-Environment Transfer
+
+`$.transfer` is a getter, not a method — access it as a property, then call
+`.copy()`, `.move()` or `.sync()` (sync is copy with extra files at the
+destination removed). Source and destination are plain paths for local
+files, or use a small URL grammar for a remote endpoint:
+`ssh://[user@]host/path` or `docker://container:/path`. Every combination of
+local, SSH and Docker is supported, including host-to-host and
+container-to-container — there is no Kubernetes leg.
 
 ### Local to Remote
 
 ```typescript
 // Local to SSH
-const remote = $.ssh({ host: 'server.com', username: 'user' });
-await $.copyFiles('/local/files', remote, '/remote/files');
+await $.transfer.copy('/local/files', 'ssh://user@server.com/remote/files');
 
 // Local to Docker
-const container = $.docker({ container: 'app' });
-await $.copyFiles('/local/data', container, '/app/data');
-
-// Local to Kubernetes
-const pod = $.k8s({ pod: 'worker', namespace: 'batch' });
-await $.copyFiles('/local/input', pod, '/data/input');
+await $.transfer.copy('/local/data', 'docker://app:/app/data');
 ```
 
 ### Remote to Remote
 
 ```typescript
-// SSH to SSH
-const source = $.ssh({ host: 'source.com', username: 'user' });
-const dest = $.ssh({ host: 'dest.com', username: 'user' });
-await $.copyFiles(source, '/remote/data', dest, '/backup/data');
+// SSH to SSH — routed through a local temp file when the hosts differ
+await $.transfer.copy(
+  'ssh://user@source.com/remote/data',
+  'ssh://user@dest.com/backup/data'
+);
 
-// Docker to Kubernetes
-const docker = $.docker({ container: 'exporter' });
-const k8s = $.k8s({ pod: 'importer', namespace: 'data' });
-await $.copyFiles(docker, '/export', k8s, '/import');
-
-// Kubernetes to SSH
-const pod = $.k8s({ pod: 'app', namespace: 'prod' });
-const backup = $.ssh({ host: 'backup.com', username: 'backup' });
-await $.copyFiles(pod, '/app/data', backup, '/backups/daily');
+// Docker to Docker — routed through a local temp file when the containers differ
+await $.transfer.copy('docker://exporter:/export', 'docker://importer:/import');
 ```
+
+`.move()` has the same shape as `.copy()`, and additionally deletes the
+source once the transfer succeeds. Both resolve to a `TransferResult`:
+
+```typescript
+interface TransferResult {
+  success: boolean;
+  filesTransferred: number;
+  bytesTransferred: number;
+  errors?: Error[];
+  duration: number;
+}
+```
+
+The `recursive` and `overwrite` options apply everywhere. `onProgress`,
+`compress`, `include`/`exclude` and `chunkSize`/`concurrent` are declared on
+`TransferOptions` but are not currently wired up for any transfer direction
+— passing them has no effect, so don't rely on them yet.
 
 ## Advanced Operations
 
@@ -288,7 +246,7 @@ async function atomicReplace(file: string, content: string) {
   
   try {
     // Write to temporary file
-    await $`echo "${content}" > ${temp}`;
+    await $.writeFile(temp, content);
     
     // Validate temporary file
     await $`test -f ${temp}`;
@@ -362,12 +320,11 @@ await $`chmod -R 644 /path/to/files`;
 await $`chown user:group file.txt`;
 await $`chown -R www-data:www-data /var/www`;
 
-// Preserve permissions during copy
+// Preserve permissions after an upload — uploadFile() itself takes no
+// options, so apply them as a follow-up command
 const remote = $.ssh({ host: 'server.com', username: 'user' });
-await remote.uploadFile('/local/script.sh', '/remote/script.sh', {
-  preservePermissions: true,
-  preserveOwnership: true
-});
+await remote.uploadFile('/local/script.sh', '/remote/script.sh');
+await remote`chmod 755 /remote/script.sh`;
 ```
 
 ### ACL Management
@@ -399,12 +356,12 @@ if (await $`test -f file.txt`.nothrow().then(r => r.ok)) {
 }
 
 // Retry file operations
-await $`cp large-file.dat /network/mount/`
-  .retry({
-    attempts: 3,
-    delay: 1000,
-    shouldRetry: (error) => error.message.includes('Input/output error')
-  });
+import { retry } from '@xec-sh/core';
+
+await retry(() => $`cp large-file.dat /network/mount/`, {
+  maxRetries: 3,
+  isRetryable: (result) => result.stderr.includes('Input/output error'),
+});
 ```
 
 ### Recovery Strategies
@@ -419,9 +376,9 @@ async function safeModify(file: string, modifier: (content: string) => string) {
     await $`cp ${file} ${backup}`;
     
     // Read, modify, write
-    const content = await $`cat ${file}`;
-    const modified = modifier(content.stdout);
-    await $`echo "${modified}" > ${file}`;
+    const content = await $.readFile(file);
+    const modified = modifier(content);
+    await $.writeFile(file, modified);
     
     // Remove backup on success
     await $`rm ${backup}`;
@@ -439,17 +396,18 @@ async function safeModify(file: string, modifier: (content: string) => string) {
 
 ```typescript
 // ✅ Use appropriate transfer methods
-await remote.uploadFile(source, dest);  // For SSH
-await container.copyTo(source, dest);   // For Docker
+await remote.uploadFile(source, dest);                         // For SSH
+await $.transfer.copy(source, `docker://${container}:${dest}`); // For Docker
 
 // ✅ Handle large files with streaming
 await $`cat large.txt`.pipe($`gzip`).stdout(output);
 
 // ✅ Validate transfers
 const checksum = await $`md5sum file.txt`;
-await remote`md5sum file.txt`.then(r => {
-  assert(r.stdout === checksum.stdout);
-});
+const remoteChecksum = await remote`md5sum file.txt`;
+if (remoteChecksum.stdout !== checksum.stdout) {
+  throw new Error('Transfer verification failed');
+}
 
 // ✅ Clean up temporary files
 const temp = await $`mktemp`;
@@ -476,15 +434,23 @@ const content = await $`cat huge-file.bin`;  // May OOM
 // ❌ Don't skip validation
 await remote.uploadFile(source, dest);
 // Should verify the transfer succeeded
+
+// ❌ Don't hand-quote a value that's already being interpolated
+const content = 'some text';
+await $`echo "${content}" > ${file}`;  // Xec already quotes ${content} —
+                                        // wrapping it in manual quotes too
+                                        // corrupts the command instead of
+                                        // being redundant
+await $`echo ${content} > ${file}`;    // Correct
 ```
 
 ## Implementation Details
 
 File operations are implemented in:
-- `packages/core/src/operations/file.ts` - File operation utilities
-- `packages/core/src/ssh/sftp-client.ts` - SSH file transfer
-- `packages/core/src/docker/file-ops.ts` - Docker file operations
-- `packages/core/src/k8s/file-transfer.ts` - Kubernetes file transfer
+- `packages/core/src/utils/transfer.ts` - `$.transfer` (copy/move/sync across local, SSH and Docker)
+- `packages/core/src/adapters/ssh/index.ts` - SSH `uploadFile`/`downloadFile`/`uploadDirectory`
+- `packages/core/src/adapters/kubernetes/kubernetes-api.ts` - Kubernetes `K8sPod.copyTo`/`copyFrom`
+- `packages/core/src/core/execution-engine.ts` - `$.readFile`/`$.writeFile`/`$.deleteFile`
 
 ## See Also
 

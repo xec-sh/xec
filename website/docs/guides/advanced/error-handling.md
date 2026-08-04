@@ -728,6 +728,43 @@ console.log('Error Report:', JSON.stringify(report, null, 2));
 
 ## Troubleshooting
 
+### Issue: Restating What the Error Already Says
+```javascript
+try {
+  await $`deploy.sh`;
+} catch (error) {
+  // error.message is already formatted: "Command failed with exit code
+  // N: <command>", followed by the first few lines of stderr and the
+  // call site of the command that failed. error.stderr holds the full
+  // text; error.message only carries a short head of it.
+  console.error(error.message);
+
+  // Reach for the individual fields when deciding what to do next,
+  // not when deciding what to print
+  if (error.exitCode > 1) {
+    // ...
+  }
+}
+```
+
+### Issue: Hand-Rolled Concurrency for Simple Fan-Out
+```javascript
+import { parallel } from '@xec-sh/core';
+
+// For a straightforward "run these, tell me what succeeded" without
+// per-target retry or backoff, parallel() covers what RemoteExecutor
+// above builds by hand. succeeded/failed are decided by exit code, so a
+// .nothrow() command that exits non-zero still lands in failed.
+const { succeeded, failed } = await parallel(
+  ['systemctl restart app', 'systemctl status app'],
+  { maxConcurrent: 5 }
+);
+
+if (failed.length > 0) {
+  console.error(`${failed.length} command(s) failed`);
+}
+```
+
 ### Issue: Errors Without Context
 ```javascript
 // Add global error handlers

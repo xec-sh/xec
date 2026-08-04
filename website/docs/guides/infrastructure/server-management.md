@@ -252,37 +252,22 @@ class SSHTunnelManager {
     
     if (this.tunnels.has(key)) {
       console.log(`♻️ Tunnel already exists: ${key}`);
-      return this.tunnels.get(key);
+      return this.tunnels.get(key)!;
     }
     
     console.log(`🚇 Creating SSH tunnel: ${key}`);
     
-    // Create tunnel through jump host
-    const tunnel = $.spawn`ssh -N -L ${config.localPort}:${config.targetHost}:${config.remotePort} ${config.jumpHost}`;
+    // Open a tunnel through the jump host to the target. This resolves
+    // once the tunnel is actually listening — no separate readiness poll.
+    const tunnel = await $.ssh({ host: config.jumpHost, username: 'admin' }).tunnel({
+      localPort: config.localPort,
+      remoteHost: config.targetHost,
+      remotePort: config.remotePort
+    });
     
     this.tunnels.set(key, tunnel);
     
-    // Wait for tunnel to be ready
-    await this.waitForTunnel(config.localPort);
-    
     return tunnel;
-  }
-  
-  private async waitForTunnel(port: number) {
-    const maxAttempts = 30;
-    
-    for (let i = 0; i < maxAttempts; i++) {
-      const result = await $`nc -z localhost ${port}`.nothrow();
-      
-      if (result.ok) {
-        console.log(`✅ Tunnel ready on port ${port}`);
-        return;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    throw new Error(`Tunnel failed to start on port ${port}`);
   }
   
   async accessThroughTunnel() {
@@ -302,7 +287,7 @@ class SSHTunnelManager {
   async closeAll() {
     for (const [key, tunnel] of this.tunnels) {
       console.log(`🔌 Closing tunnel: ${key}`);
-      tunnel.kill();
+      await tunnel.close();
       this.tunnels.delete(key);
     }
   }
@@ -725,23 +710,25 @@ class LogManager {
   async tailLogs(service: string) {
     console.log(`👀 Tailing logs for ${service}...`);
     
-    // Create parallel tail sessions
-    const sessions = this.servers.map(host => {
+    // Start a parallel tail session per server. `.start()` launches the
+    // command without awaiting it; `.spawned` resolves once it is actually
+    // running, with the live stdout stream.
+    const sessions = await Promise.all(this.servers.map(async host => {
       const server = $.ssh({
         host,
         username: 'admin',
         privateKey: '~/.ssh/id_rsa'
       });
       
-      return {
-        host,
-        process: $.spawn(server`journalctl -u ${service} -f`)
-      };
-    });
+      const proc = server`journalctl -u ${service} -f`.start();
+      const handle = await proc.spawned;
+      
+      return { host, proc, handle };
+    }));
     
     // Prefix output with hostname
-    for (const { host, process } of sessions) {
-      process.stdout.on('data', (data: Buffer) => {
+    for (const { host, handle } of sessions) {
+      handle.stdout?.on('data', (data: Buffer) => {
         const lines = data.toString().split('\n');
         lines.forEach(line => {
           if (line) console.log(`[${host}] ${line}`);
@@ -751,7 +738,7 @@ class LogManager {
     
     // Wait for interrupt
     process.on('SIGINT', () => {
-      sessions.forEach(s => s.process.kill());
+      sessions.forEach(s => s.proc.kill());
       process.exit(0);
     });
   }
@@ -1295,13 +1282,15 @@ async function executeOnServers(servers: string[], command: string) {
 
 1. **Connection Timeout**
    ```typescript
-   // Increase timeout for slow connections
+   // SSHAdapterOptions has no separate connect-timeout field; bound the
+   // whole command instead, generously enough to cover a slow handshake
    const server = $.ssh({
      host: 'server.example.com',
      username: 'admin',
-     privateKey: '~/.ssh/id_rsa',
-     connectTimeout: 30000
+     privateKey: '~/.ssh/id_rsa'
    });
+   
+   await server`uptime`.timeout('30s');
    ```
 
 2. **Permission Denied**

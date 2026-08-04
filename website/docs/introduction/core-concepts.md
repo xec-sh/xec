@@ -535,22 +535,21 @@ process(result.stdout);  // May cause OOM
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────┐
-│            User Scripts                 │
-├─────────────────────────────────────────┤
-│         Xec Template Literals           │
-│              $`command`                 │
-├─────────────────────────────────────────┤
-│          Execution Engine               │
-│    (Command Builder, Process Manager)   │
-├─────────────────────────────────────────┤
-│           Adapter Layer                 │
-├────┬────┬────┬────┬────────────────────┤
-│Local│SSH │Docker│K8s│     Future...     │
-├────┴────┴────┴────┴────────────────────┤
-│      Operating System / Network         │
-└─────────────────────────────────────────┘
+A command written as a template literal passes through the execution engine to an adapter, which runs it on the target environment:
+
+```mermaid
+flowchart TD
+    subgraph AD["Adapter layer"]
+        L["Local"]
+        S["SSH"]
+        D["Docker"]
+        K["Kubernetes"]
+        M["Mock"]
+    end
+    U["User scripts"] --> T["Xec template literals ($)"]
+    T --> E["Execution engine<br/>command builder, process manager"]
+    E --> AD
+    AD --> OS["Operating system / network"]
 ```
 
 ## Summary

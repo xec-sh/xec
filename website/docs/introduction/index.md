@@ -291,20 +291,19 @@ Natural command syntax using JavaScript's template literal feature for intuitive
 
 ## 🛠 Architecture
 
-```
-┌─────────────────┐
-│  Your Scripts   │
-└────────┬────────┘
-         │
-┌────────▼────────┐
-│  @xec-sh/core   │  Universal Execution API
-└────────┬────────┘
-         │
-┌────────▼───────────────────────────┐
-│         Adapter Layer              │
-├──────┬──────┬──────┬──────┬────────┤
-│Local │ SSH  │Docker│ K8s  │ Remote │
-└──────┴──────┴──────┴──────┴────────┘
+Your scripts call one execution API; an adapter translates each command for the environment it runs in:
+
+```mermaid
+flowchart TD
+    subgraph AD["Adapter layer"]
+        L["Local"]
+        SSH["SSH"]
+        D["Docker"]
+        K["Kubernetes"]
+        R["Remote Docker"]
+    end
+    S["Your scripts"] --> CORE["@xec-sh/core<br/>Universal execution API"]
+    CORE --> AD
 ```
 
 ## 🔗 Next Steps

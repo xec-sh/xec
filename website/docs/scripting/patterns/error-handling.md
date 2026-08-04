@@ -35,9 +35,13 @@ if (result.exitCode !== 0) {
 
 // Using the ok property
 if (!result.ok) {
-  console.error('Command failed:', result.error);
+  console.error('Command failed:', result.cause);
 }
 ```
+
+`result.ok` is `true` only when the command exited zero and was not killed by
+a signal; when it's `false`, `result.cause` gives the short reason
+(`exitCode: 1` or `signal: SIGTERM`).
 
 ## Error Recovery Patterns
 
@@ -70,6 +74,30 @@ const result = await retryWithBackoff(
   () => $`curl https://flaky-api.example.com`
 );
 ```
+
+`@xec-sh/core` exports a `retry()` with exponential backoff and jitter built
+in, for cases that don't need a fully custom strategy:
+
+```javascript
+import { $, retry, RetryError } from '@xec-sh/core';
+
+try {
+  const result = await retry(
+    () => $`curl https://flaky-api.example.com`,
+    { maxRetries: 3, initialDelay: 1000 }
+  );
+} catch (error) {
+  if (error instanceof RetryError) {
+    // error.attempts, error.lastResult and error.results (one per attempt)
+    console.error(`Gave up after ${error.attempts} attempts`);
+  }
+}
+```
+
+`retry()` retries a command that throws — which a command does by default on
+a non-zero exit — not only one that resolves with a failing exit code. A
+thrown value that isn't the command's own failure propagates immediately
+instead of being retried.
 
 ### Circuit Breaker Pattern
 
@@ -163,11 +191,18 @@ const data = await withFallback(
 
 ### Custom Error Classes
 
+`@xec-sh/core` already exports a `CommandError` with this shape (plus a
+captured call site and a sanitized command in its message) — a script that
+just needs to catch and inspect a failed command's exit code and stderr
+should use that instead of rolling its own. The class below is named
+differently to avoid shadowing it, for scripts that want additional
+domain-specific fields:
+
 ```javascript
-class CommandError extends Error {
+class DeployCommandError extends Error {
   constructor(message, command, exitCode, stderr) {
     super(message);
-    this.name = 'CommandError';
+    this.name = 'DeployCommandError';
     this.command = command;
     this.exitCode = exitCode;
     this.stderr = stderr;
@@ -202,7 +237,7 @@ async function deployService(name, version) {
   // Command execution
   const result = await $`docker pull ${name}:${version}`.nothrow();
   if (result.exitCode !== 0) {
-    throw new CommandError(
+    throw new DeployCommandError(
       `Failed to pull image ${name}:${version}`,
       `docker pull ${name}:${version}`,
       result.exitCode,
@@ -746,7 +781,7 @@ class DeploymentManager {
       async () => {
         const result = await $`npm run build`.nothrow();
         if (result.exitCode !== 0) {
-          throw new CommandError(
+          throw new DeployCommandError(
             'Build failed',
             'npm run build',
             result.exitCode,

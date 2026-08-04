@@ -39,17 +39,18 @@ const result = await $`ls -la`;
 // With target — string shorthands
 const sshResult = await $.ssh('deploy@host:2222')`uptime`;
 const k8sResult = await $.k8s('prod/api-pod:sidecar')`ls /app`;
+const dockerResult = await $.docker('my-app')`ps aux`;
 
 // With target — full options
-const dockerResult = await $.docker({ container: 'my-app' })`ps aux`;
+const dockerResult2 = await $.docker({ container: 'my-app' })`ps aux`;
 ```
 
 `$.ssh()` accepts either a `[user@]host[:port]` string or an options object
 (`Omit<SSHAdapterOptions, 'type'>`). `$.k8s()` accepts either a
 `[namespace/]pod[:container]` string or an options object
-(`Omit<KubernetesAdapterOptions, 'type'>`). `$.docker()` requires an options
-object (or no arguments, which returns the fluent Docker API) — there is no
-string shorthand for Docker.
+(`Omit<KubernetesAdapterOptions, 'type'>`). `$.docker()` accepts a container
+name string, an options object, or no arguments at all, which returns the
+fluent Docker API instead of a target-bound engine.
 
 ### Programmatic Execution
 
@@ -101,7 +102,7 @@ import type {
 | `` $`command` `` | Template literal execution | `ProcessPromise` |
 | `$.execute(command)` | Execute a `Command` object | `Promise<ExecutionResult>` |
 | `$.ssh(target)` | SSH execution context (string shorthand or options) | `SSHExecutionContext` |
-| `$.docker(options)` | Docker execution context (options object) | `ExecutionEngine` |
+| `$.docker(container)` | Docker execution context (container name string or options object) | `ExecutionEngine` |
 | `$.docker()` | Fluent Docker API | `DockerFluentAPI` |
 | `$.k8s(target?)` | Kubernetes execution context (string shorthand, options, or empty) | `K8sExecutionContext` |
 | `$.local()` | Local execution context | `ExecutionEngine` |
@@ -126,10 +127,15 @@ import type {
 | `.text()` | Get trimmed text output | `Promise<string>` |
 | `.json()` | Parse JSON output | `Promise<T>` |
 | `.lines()` | Get output lines | `Promise<string[]>` |
-| `.buffer()` | Get raw output | `Promise<Buffer>` |
+| `.buffer()` | Get output as a `Buffer`, re-encoded from text | `Promise<Buffer>` |
 
 `stdin` is a property (`NodeJS.WritableStream`), not a method. A
-`ProcessPromise` is also async-iterable: `for await (const line of $`cmd`)`.
+`ProcessPromise` is also async-iterable, streaming lines as they arrive
+rather than waiting for the command to finish: `for await (const line of $`cmd`)`.
+`ProcessPromise.buffer()` re-encodes the already-decoded `stdout` string, so
+it is not safe for binary output; call `.buffer()` on the awaited
+`ExecutionResult` instead (`(await $`cmd`).buffer()`) to get the exact bytes
+the command wrote.
 
 ### Adapter Option Types
 
@@ -186,8 +192,9 @@ interface Command {
   args?: string[];                      // Command arguments
   cwd?: string;                         // Working directory
   env?: Record<string, string>;         // Environment variables
-  timeout?: number;                     // Execution timeout (ms)
+  timeout?: number | string;            // Execution timeout: ms, or a duration string like '30s'
   timeoutSignal?: string;               // Signal to send on timeout
+  maxBuffer?: number;                   // Cap on captured output, in bytes
   stdin?: string | Buffer | Readable;   // Input data
   stdout?: StreamOption;                // Output handling
   stderr?: StreamOption;                // Error output handling
@@ -250,9 +257,11 @@ try {
 
 `kind` is one of `command-failed`, `timeout`, `connection-lost`,
 `connection-refused`, `authentication`, `not-found`, `permission-denied`,
-`invalid-usage` or `unknown`. Only `connection-lost` and `connection-refused`
-are reported as `recoverable` — retrying rejected credentials or a missing
-container only multiplies the error.
+`invalid-usage`, `host-key-mismatch` or `unknown`. Only `connection-lost` and
+`connection-refused` are reported as `recoverable` — retrying rejected
+credentials or a missing container only multiplies the error, and a host key
+that no longer matches the recorded one must never be retried automatically,
+since the peer may be an impostor.
 
 `classifyFailure(error)` applies the same rules to any thrown value, including
 a raw stderr string from a tool you shelled out to yourself.
@@ -312,6 +321,20 @@ const results = await Promise.all(
 results.forEach((result, i) => {
   console.log(`${targets[i]}: ${result.stdout}`);
 });
+```
+
+`Promise.all` runs every command at once. `parallel()` adds a concurrency
+cap and sorts commands into `succeeded` and `failed` by exit code, so a
+`.nothrow()`'d failure lands in `failed` as an `ExecutionResult` rather than
+rejecting the whole batch:
+
+```typescript
+import { $, parallel } from '@xec-sh/core';
+
+const { succeeded, failed } = await parallel(
+  targets.map(host => $.ssh(host)`uptime`.nothrow()),
+  { maxConcurrent: 5 }
+);
 ```
 
 ## Related Documentation

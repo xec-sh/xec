@@ -175,7 +175,6 @@ async function dockerWorkflow() {
   console.log('Running tests in container...');
   const testContainer = $.docker({
     image: 'myapp:latest',
-    rm: true,
     env: { NODE_ENV: 'test' }
   });
   
@@ -295,16 +294,12 @@ tasks:
 ```typescript
 // config-based-automation.ts
 import { $ } from '@xec-sh/core';
-import { loadConfig } from '@xec-sh/cli';
 
 async function runConfiguredTask() {
-  const config = await loadConfig();
-  
-  // Run build task
-  await $.task('build');
-  
-  // Deploy to staging only
-  await $.task('deploy', { targets: ['staging'] });
+  // Tasks defined in .xec/config.yaml are run through the CLI —
+  // @xec-sh/core has no task runner of its own
+  await $`xec run build`;
+  await $`xec run deploy`;
   
   console.log('✅ Deployment completed!');
 }
@@ -347,8 +342,8 @@ if (!apiKey) {
 
 await $.env({ API_KEY: apiKey })`deploy-script`;
 
-// Never log sensitive data
-await $.quiet()`echo "API_KEY=${apiKey}" > .env`;
+// Never log sensitive data — .quiet() suppresses the echo of the command
+await $`echo "API_KEY=${apiKey}" > .env`.quiet();
 ```
 
 ### 3. Provide Progress Feedback

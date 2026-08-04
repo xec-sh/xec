@@ -186,7 +186,7 @@ class APITestRunner {
     console.log('🚀 Starting test server...');
     
     // Start in background
-    $.spawn`npm run start:test`;
+    $`npm run start:test`.start();
     
     // Wait for server to be ready
     await this.waitForServer();
@@ -420,7 +420,7 @@ class E2ETestRunner {
     console.log('🚀 Starting application...');
     
     // Start in test mode
-    $.spawn`npm run start:e2e`;
+    $`npm run start:e2e`.start();
     
     // Wait for app to be ready
     const maxAttempts = 30;
@@ -503,7 +503,7 @@ class MobileTestRunner {
   private async startAppium() {
     console.log('🚀 Starting Appium server...');
     
-    $.spawn`appium --port 4723`;
+    $`appium --port 4723`.start();
     
     // Wait for Appium to be ready
     await new Promise(resolve => setTimeout(resolve, 5000));
@@ -996,11 +996,11 @@ class TestWatcher {
   }
   
   private watchFiles() {
-    $.spawn`nodemon \
+    $`nodemon \
       --watch src \
       --watch test \
       --ext ts,js \
-      --exec "npm test"`;
+      --exec "npm test"`.start();
   }
   
   private async runTests() {
@@ -1284,8 +1284,9 @@ async function isolatedTest() {
   await $`mkdir -p ${testDir}`;
   
   try {
-    // Run tests in isolation
-    await $.cwd(testDir)`npm test`;
+    // Run tests in isolation — .cwd() scopes the directory to this one
+    // command, leaving $'s own working directory untouched
+    await $`npm test`.cwd(testDir);
   } finally {
     // Cleanup
     await $`rm -rf ${testDir}`;

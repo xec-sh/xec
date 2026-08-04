@@ -50,8 +50,10 @@ const engine = new ExecutionEngine({
   }
 });
 
-// Use instance
-await engine`command`;
+// A raw ExecutionEngine instance isn't callable as a template tag itself —
+// only $ and the contexts it returns (from .local(), .ssh(), ...) are.
+// Use .run() directly:
+await engine.run`command`;
 ```
 
 ### Adapter Selection
@@ -59,7 +61,7 @@ await engine`command`;
 ```typescript
 // Local execution (default)
 await $`local-command`;
-await $.local`explicit-local`;
+await $.local()`explicit-local`;
 
 // SSH execution
 await $.ssh({ host: 'server', username: 'user' })`remote-command`;
@@ -83,23 +85,36 @@ await $`echo ${userInput}`;  // Automatically escaped
 // Array expansion
 const files = ['file1.txt', 'file2.txt', 'file3.txt'];
 await $`cat ${files}`;  // Expands to: cat file1.txt file2.txt file3.txt
+```
 
-// Object interpolation
+There is no object-to-flags conversion — interpolating an object stringifies
+it as JSON, which is rarely what you want. Build the flag list yourself:
+
+```typescript
 const options = { verbose: true, recursive: true };
-await $`rsync ${options} source/ dest/`;  // Converts to flags
+const flags = [
+  options.verbose && '--verbose',
+  options.recursive && '--recursive',
+].filter(Boolean);
+await $`rsync ${flags} source/ dest/`;
 ```
 
 ### Command Options
 
+There is no single `.options()` call — each option is its own chainable
+method on `ProcessPromise`, or, for options that aren't exposed as a method
+(like `maxBuffer`), a field passed to `.with()` on the engine before the
+template tag runs:
+
 ```typescript
-// Configure execution options
-const result = await $`command`.options({
-  timeout: 5000,
-  maxBuffer: 10 * 1024 * 1024,  // 10MB
-  encoding: 'utf8',
-  shell: '/bin/bash',
-  env: { CUSTOM_VAR: 'value' }
-});
+// Chainable per-command options
+const result = await $`command`
+  .timeout(5000)
+  .shell('/bin/bash')
+  .env({ CUSTOM_VAR: 'value' });
+
+// maxBuffer is set on the engine, not on the ProcessPromise
+const result2 = await $.with({ maxBuffer: 10 * 1024 * 1024 })`command`;  // 10MB
 ```
 
 ## Environment Configuration
@@ -116,10 +131,17 @@ await project`npm install`;
 await project`npm test`;
 
 // Temporary directory change
-await $.within('/tmp', async () => {
+import { within } from '@xec-sh/core';
+
+await within('/tmp', async () => {
   await $`create-temp-files`;
 });  // Returns to original directory
 ```
+
+`within` is a standalone function, not an engine method — there is no
+`$.within`. It also accepts a full config object instead of a bare `cwd`
+string (`within({ cwd: '/tmp', env: {...} }, fn)`), and a synchronous
+counterpart, `withinSync`, for non-async callbacks.
 
 ### Environment Variables
 
@@ -133,10 +155,11 @@ await $`node script.js`.env({
 // Merge with existing
 const production = $.env({ NODE_ENV: 'production' });
 await production`npm start`;
-
-// Clear environment
-await $`printenv`.env({}, { replace: true });  // Empty environment
 ```
+
+`.env()` only merges into the inherited environment — it takes a single
+`Record<string, string>` argument, with no second options argument and no
+way to fully replace or clear it.
 
 ### Shell Configuration
 
@@ -146,13 +169,11 @@ await $`echo $0`.shell('/bin/zsh');
 
 // Disable shell (direct execution)
 await $`ls`.shell(false);
-
-// Custom shell with options
-await $`complex-script`.shell({
-  path: '/bin/bash',
-  args: ['-e', '-o', 'pipefail']
-});
 ```
+
+`.shell()` only accepts a string (a shell path or name) or a boolean — there
+is no object form for passing extra shell flags. Put them in the command
+itself instead: `` await $`set -eo pipefail; complex-script` ``.
 
 ## Process Control
 
@@ -194,35 +215,39 @@ try {
 }
 ```
 
-### Process Priority
-
-```typescript
-// Set process priority
-await $`cpu-intensive-task`.nice(10);  // Lower priority
-
-// Set I/O priority
-await $`disk-intensive-task`.ionice({
-  class: 'idle',
-  level: 7
-});
-```
-
 ## Input/Output Control
 
 ### Standard Input
 
+`stdin` is a property — a live, writable stream — not a method. There are
+two ways to feed a command input, depending on whether you already have the
+data or want to stream it.
+
+Pass it as part of the command config, before the template tag runs, when
+you already have the data:
+
 ```typescript
 // String input
-await $`cat`.stdin('Hello, World!');
+await $.with({ stdin: 'Hello, World!' })`cat`;
 
 // Buffer input
 const data = Buffer.from([0x00, 0x01, 0x02]);
-await $`process-binary`.stdin(data);
+await $.with({ stdin: data })`process-binary`;
 
-// Stream input
+// Readable stream input
 import { createReadStream } from 'fs';
-const input = createReadStream('input.txt');
-await $`sort`.stdin(input);
+await $.with({ stdin: createReadStream('input.txt') })`sort`;
+```
+
+Or write to `.stdin` directly — writes are buffered and forwarded once the
+command starts, so no separate start step is needed:
+
+```typescript
+const proc = $`cat`;
+proc.stdin.write('Hello, ');
+proc.stdin.write('World!');
+proc.stdin.end();
+await proc;
 
 // Pipe from another command
 await $`generate-data`.pipe($`process-data`);
@@ -240,11 +265,10 @@ import { createWriteStream } from 'fs';
 const output = createWriteStream('output.txt');
 await $`ls -la`.stdout(output);
 
-// Inherit parent process streams
-await $`interactive-command`
-  .stdout('inherit')
-  .stderr('inherit')
-  .stdin('inherit');
+// Inherit parent process streams — .interactive() sets stdout, stderr and
+// stdin to 'inherit' together; stdin specifically isn't settable through
+// .stdout()/.stderr()-style chaining since it's a property, not a method
+await $`interactive-command`.interactive();
 
 // Ignore output
 await $`noisy-command`
@@ -261,12 +285,24 @@ console.log('Errors:', result.stderr);
 
 // Redirect stderr to stdout
 await $`command 2>&1`.stdout(process.stdout);
-
-// Separate handling
-await $`test-command`
-  .stdout((line) => console.log('OUT:', line))
-  .stderr((line) => console.error('ERR:', line));
 ```
+
+`.stdout()`/`.stderr()` accept `'pipe' | 'ignore' | 'inherit'` or a
+`Writable` — not a per-line callback function. To handle stdout and stderr
+separately as lines arrive, read the live streams off the running process
+handle:
+
+```typescript
+const proc = $`test-command`;
+const handle = await proc.spawned;
+handle.stdout?.on('data', (chunk) => console.log('OUT:', chunk.toString()));
+handle.stderr?.on('data', (chunk) => console.error('ERR:', chunk.toString()));
+await proc;
+```
+
+For stdout alone, the simpler option is the async iterator:
+`for await (const line of $\`test-command\`)` — it streams lines as they
+arrive, though it only covers stdout.
 
 ## Result Handling
 
@@ -277,21 +313,38 @@ await $`test-command`
 interface ExecutionResult {
   stdout: string;
   stderr: string;
+  stdall: string;       // stdout and stderr merged in arrival order
   exitCode: number;
   signal?: string;
+  ok: boolean;          // exitCode === 0 && !signal
+  cause?: string;        // set when !ok: 'signal: SIGTERM' or 'exitCode: 1'
   command: string;
   duration: number;
-  killed: boolean;
+  startedAt: Date;
+  finishedAt: Date;
+  adapter: string;
+  host?: string;         // set for SSH
+  container?: string;    // set for Docker/Kubernetes
+  text(): string;
+  json<T = any>(): T;
+  lines(): string[];
+  buffer(): Buffer;      // exact bytes, binary-safe
+  toMetadata(): object;
+  throwIfFailed(): void;
 }
 
 const result = await $`echo "test"`;
 console.log({
   output: result.stdout,
   errors: result.stderr,
-  success: result.exitCode === 0,
+  success: result.ok,
   time: result.duration
 });
 ```
+
+There is no `killed` field — a signalled process is distinguishable through
+`signal` and `ok` (`ok` is `false` whenever a signal fired, even if
+`exitCode` happens to read `0`).
 
 ### Error Handling
 
@@ -327,8 +380,8 @@ switch (result.exitCode) {
 const $ = new ExecutionEngine();
 
 // Listen for execution events
-$.on('command:start', ({ command, adapter, id }) => {
-  console.log(`[${id}] Starting: ${command} (${adapter})`);
+$.on('command:start', ({ command, adapter }) => {
+  console.log(`Starting: ${command} (${adapter})`);
 });
 
 $.on('command:complete', ({ command, exitCode, duration }) => {
@@ -338,13 +391,12 @@ $.on('command:complete', ({ command, exitCode, duration }) => {
 $.on('command:error', ({ command, error }) => {
   console.error(`Failed: ${command}`, error);
 });
-
-$.on('command:output', ({ stream, data }) => {
-  if (stream === 'stdout') {
-    process.stdout.write(data);
-  }
-});
 ```
+
+There is no `command:output` event, and `command:start` carries no `id` —
+only `command`, `args`, `cwd`, `shell`, `envKeys` (environment variable
+*names* only, never values) alongside the `timestamp`/`adapter` every event
+carries.
 
 ### Custom Events
 
@@ -388,35 +440,21 @@ console.log(json.key);  // "value"
 
 ### Boolean Checks
 
+There is no `.succeeds()`/`.fails()` — use `.nothrow()` and check `.ok`:
+
 ```typescript
 // Check if command succeeds
-if (await $`test -f file.txt`.succeeds()) {
+if ((await $`test -f file.txt`.nothrow()).ok) {
   console.log('File exists');
 }
 
 // Check if command fails
-if (await $`test -f missing.txt`.fails()) {
+if (!(await $`test -f missing.txt`.nothrow()).ok) {
   console.log('File does not exist');
 }
 
 // Silent check (no output)
-const exists = await $`which node`.quiet().succeeds();
-```
-
-### Command Inspection
-
-```typescript
-// Dry run (show command without executing)
-const command = $`rm -rf /`.dryRun();
-console.log('Would execute:', command.toString());
-
-// Get command string
-const cmd = $`echo ${variable}`;
-console.log('Command:', cmd.command());
-
-// Get full configuration
-const config = cmd.inspect();
-console.log('Configuration:', config);
+const exists = (await $`which node`.quiet().nothrow()).ok;
 ```
 
 ## Performance Options
@@ -427,27 +465,30 @@ console.log('Configuration:', config);
 // Simple timeout
 await $`slow-command`.timeout(5000);  // 5 seconds
 
+// Duration strings work too
+await $`slow-command`.timeout('5s');
+
 // Timeout with custom signal
 await $`server`.timeout(10000, 'SIGTERM');
-
-// Timeout with kill delay
-await $`graceful-shutdown`.timeout({
-  timeout: 10000,
-  killSignal: 'SIGTERM',
-  killDelay: 5000  // Wait 5s before SIGKILL
-});
 ```
+
+`.timeout()` takes a duration (milliseconds or a string like `'30s'`) and an
+optional signal — there is no object form. The same duration strings work as
+a plain `timeout` option wherever `Command` config is accepted, not only
+through `.timeout()`: `` $.with({ timeout: '30s' })`server` ``.
 
 ### Buffer Limits
 
+`maxBuffer` is a `Command` config field, not a `ProcessPromise` method — set
+it through `.with()` before the template tag runs. Exceeding it throws
+`MaxBufferExceededError` rather than silently truncating output.
+
 ```typescript
 // Set max buffer size
-await $`generate-output`.maxBuffer(100 * 1024 * 1024);  // 100MB
+await $.with({ maxBuffer: 100 * 1024 * 1024 })`generate-output`;  // 100MB
 
-// Streaming for unlimited output
-await $`infinite-output`
-  .stdout(process.stdout)  // Stream instead of buffer
-  .maxBuffer(Infinity);
+// Streaming avoids buffering altogether
+await $`infinite-output`.stdout(process.stdout);
 ```
 
 ### Parallel Execution
@@ -460,14 +501,12 @@ const results = await Promise.all([
   $`command3`
 ]);
 
-// With concurrency limit
-import pLimit from 'p-limit';
-const limit = pLimit(2);
+// With a concurrency limit — parallel() is exported by @xec-sh/core, no
+// extra dependency needed
+import { parallel } from '@xec-sh/core';
 
 const commands = ['cmd1', 'cmd2', 'cmd3', 'cmd4'];
-const results = await Promise.all(
-  commands.map(cmd => limit(() => $`${cmd}`))
-);
+const { succeeded, failed } = await parallel(commands, { maxConcurrent: 2 });
 ```
 
 ## Best Practices
@@ -495,9 +534,8 @@ $.on('command:error', (e) => logger.error(e));
 ### Don'ts ❌
 
 ```typescript
-// ❌ Don't use string concatenation
-const cmd = 'echo ' + userInput;  // Dangerous
-await $.raw(cmd);
+// ❌ Don't interpolate through $.raw, which skips escaping
+await $.raw`echo ${userInput}`;  // Dangerous — userInput reaches the shell unescaped
 
 // ❌ Don't ignore errors
 await $`failing-command`;  // Will throw
@@ -513,10 +551,10 @@ const proc = $`long-running`;
 ## Implementation Details
 
 The Execution API is implemented in:
-- `packages/core/src/core/execution-engine.ts` - Main engine
-- `packages/core/src/core/command-builder.ts` - Command construction
-- `packages/core/src/core/execution-context.ts` - Context management
-- `packages/core/src/core/template-tag.ts` - Template literal processing
+- `packages/core/src/core/execution-engine.ts` - Main engine, adapter selection, chaining methods
+- `packages/core/src/core/process-context.ts` - `ProcessPromise` construction and its chainable methods
+- `packages/core/src/core/result.ts` - `ExecutionResult`
+- `packages/core/src/utils/shell-escape.ts` - Template literal interpolation and escaping
 
 ## See Also
 

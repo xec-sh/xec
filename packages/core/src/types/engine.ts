@@ -1,3 +1,4 @@
+import type { Duration } from '../utils/helpers.js';
 import type { DockerOptions } from '../types/execution.js';
 import type { RetryOptions } from '../utils/retry-adapter.js';
 import type { SSHExecutionContext } from '../adapters/ssh/ssh-api.js';
@@ -36,7 +37,7 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   local(): CallableExecutionEngine;
   cd(dir: string): CallableExecutionEngine;
   env(env: Record<string, string>): CallableExecutionEngine;
-  timeout(ms: number): CallableExecutionEngine;
+  timeout(duration: Duration): CallableExecutionEngine;
   shell(shell: string | boolean): CallableExecutionEngine;
   retry(options: RetryOptions): CallableExecutionEngine;
   defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): CallableExecutionEngine;

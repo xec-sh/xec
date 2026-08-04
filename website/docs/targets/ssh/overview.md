@@ -64,7 +64,18 @@ await web.timeout(60_000)`./long-script.sh`;
 await web`sudo systemctl restart nginx`.nothrow(); // fails without NOPASSWD; see sudo-security.md
 ```
 
-Available chain methods: `.env(vars)`, `.cd(dir)`, `.timeout(ms)`, `.shell(shellOrFalse)`, `.retry({ maxRetries, initialDelay, maxDelay })`. Each returns a new context, so they compose: `$.ssh(target).cd('/app').timeout(30_000)`.
+Each of these returns a new context, so they compose: `$.ssh(target).cd('/app').timeout('30s')`. A timeout takes milliseconds or a duration string.
+
+An SSH target carries the same surface as every other target, so anything you can do with `$` you can do with `$.ssh(host)` — `.with()`, `.which()`, `.readFile()`, `.batch()`, the event methods, and the rest. That is what lets a step written as a function of an engine run anywhere:
+
+```typescript
+const restart = (target, service) => target`systemctl restart ${service}`;
+
+await restart($.ssh('deploy@web-1'), 'api');
+await restart($.docker('api'), 'nginx');
+```
+
+On top of that, an SSH context adds what only SSH can offer: `.tunnel()`, `.reverseTunnel()`, `.uploadFile()`, `.downloadFile()` and `.uploadDirectory()`. Those survive `.with()`, so configuring a target does not cost you the reason you chose it.
 
 ### Streaming
 

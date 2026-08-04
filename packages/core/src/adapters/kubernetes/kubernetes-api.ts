@@ -1,4 +1,5 @@
 import type { KubernetesAdapter } from './index.js';
+import type { Duration } from '../../utils/helpers.js';
 import type { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
 
@@ -127,7 +128,7 @@ export interface K8sExecutionContext {
    */
   env(env: Record<string, string>): K8sExecutionContext;
   cd(dir: string): K8sExecutionContext;
-  timeout(ms: number): K8sExecutionContext;
+  timeout(duration: Duration): K8sExecutionContext;
   shell(shell: string | boolean): K8sExecutionContext;
   retry(options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): K8sExecutionContext;
   with(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): K8sExecutionContext;
@@ -348,8 +349,8 @@ export function createK8sExecutionContext(
     cd: (dir: string): K8sExecutionContext =>
       createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, cwd: dir }),
 
-    timeout: (ms: number): K8sExecutionContext =>
-      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, timeout: ms }),
+    timeout: (duration: Duration): K8sExecutionContext =>
+      createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, timeout: duration }),
 
     shell: (shell: string | boolean): K8sExecutionContext =>
       createK8sExecutionContext(engine, k8sOptions, { ...commandConfig, shell }),

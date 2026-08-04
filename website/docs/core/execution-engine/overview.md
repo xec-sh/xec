@@ -41,25 +41,23 @@ await $.k8s().pod('my-pod').exec`ls -la`;
 
 ### Engine Architecture
 
-```
-┌─────────────────────────────────────────┐
-│           ExecutionEngine               │
-├─────────────────────────────────────────┤
-│  • Template literal API                 │
-│  • Command building & escaping          │
-│  • Configuration management             │
-│  • Event emission                       │
-└──────────────┬──────────────────────────┘
-               │
-        ┌──────▼──────┐
-        │  Adapters   │
-        └──────┬──────┘
-               │
-    ┌──────────┼──────────┬──────────┬──────────┐
-    ▼          ▼          ▼          ▼          ▼
-┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-│ Local  │ │  SSH   │ │ Docker │ │  K8s   │ │ Remote │
-└────────┘ └────────┘ └────────┘ └────────┘ └────────┘
+The engine parses the template literal, builds and escapes the command, then routes it to the adapter for the target environment:
+
+```mermaid
+flowchart TD
+    Engine["ExecutionEngine<br/>template literal API · escaping ·<br/>configuration · events"]
+
+    subgraph Adapters["Adapters"]
+        Local["Local"]
+        SSH["SSH"]
+        Docker["Docker"]
+        K8s["Kubernetes"]
+    end
+
+    Engine --> Local
+    Engine --> SSH
+    Engine --> Docker
+    Engine --> K8s
 ```
 
 ## Command Lifecycle
@@ -72,9 +70,9 @@ Commands are built through template literals with automatic escaping:
 const file = "file with spaces.txt";
 const dangerous = "'; rm -rf /";
 
-// Safe escaping
-await $`cat ${file}`;        // cat "file with spaces.txt"
-await $`echo ${dangerous}`;  // echo "'; rm -rf /"
+// Safe escaping — each value becomes one POSIX-quoted argument
+await $`cat ${file}`;        // cat 'file with spaces.txt'
+await $`echo ${dangerous}`;  // echo ''\''; rm -rf /'
 ```
 
 ### 2. Context Configuration
@@ -102,13 +100,13 @@ The engine automatically selects the appropriate adapter:
 
 ```typescript
 // Explicit selection via method
-const ssh = $.ssh({ host: 'server' });
+const ssh = $.ssh({ host: 'server', username: 'deploy' });
 
-// Automatic selection via options
+// Automatic selection via options — adapterOptions.type must match adapter
 await $.execute({
   command: 'ls',
   adapter: 'docker',
-  adapterOptions: { container: 'app' }
+  adapterOptions: { type: 'docker', container: 'app' }
 });
 ```
 
@@ -281,9 +279,16 @@ await context`npm install`;
 await context`npm build`;
 await context`npm test`;
 
-// Nested contexts
-await $.within(async () => {
-  $.cd('/project');
+// Nested contexts — within() is a standalone import, not a $ method
+import { within } from '@xec-sh/core';
+
+await within(async () => {
+  // $.defaults() inside a within() scope writes to the scope instead of
+  // the process-wide engine, so this cwd change doesn't leak outside the
+  // callback. $.cd('/project') would not do this — it returns a new
+  // engine rather than mutating $, so a bare $.cd(...) statement with a
+  // discarded return value has no effect.
+  $.defaults({ cwd: '/project' });
   await $`npm install`;
   await $`npm test`;
 });
@@ -345,20 +350,19 @@ await $.transfer.sync('/source', 'docker://app:/dest', {
 
 ### Interactive Prompts
 
+Interactive prompts are not part of `@xec-sh/core` — they live in `@xec-sh/kit`,
+the separate TUI/CLI components package:
+
 ```typescript
-// Text input
-const name = await $.question('Enter name: ');
+import { text, confirm, select, password } from '@xec-sh/kit';
 
-// Confirmation
-const proceed = await $.confirm('Continue?');
-
-// Selection
-const option = await $.select('Choose:', {
-  choices: ['dev', 'staging', 'prod']
+const name = await text({ message: 'Enter name:' });
+const proceed = await confirm({ message: 'Continue?' });
+const option = await select({
+  message: 'Choose:',
+  options: [{ value: 'dev' }, { value: 'staging' }, { value: 'prod' }],
 });
-
-// Password input
-const password = await $.password('Password: ');
+const secret = await password({ message: 'Password:' });
 ```
 
 ## Error Handling
@@ -387,7 +391,7 @@ if (!result.ok) {
 SSH and other adapters automatically manage connection pools:
 
 ```typescript
-const ssh = $.ssh({ host: 'server' });
+const ssh = $.ssh({ host: 'server', username: 'deploy' });
 
 // Uses single connection
 for (const file of files) {
@@ -417,13 +421,22 @@ for await (const line of $`generate-huge-output`) {
 
 ### Automatic Escaping
 
-All template literal values are automatically escaped:
+All template literal values are automatically escaped — each interpolated
+value becomes exactly one shell argument:
 
 ```typescript
 const userInput = "'; DROP TABLE users; --";
-await $`mysql -e "SELECT * FROM data WHERE name = ${userInput}"`;
-// Safe! Injection is impossible
+const sql = `SELECT * FROM data WHERE name = ${userInput}`; // plain JS string
+await $`mysql -e ${sql}`;
+// Safe: the whole -e argument is one escaped token
 ```
+
+Do not wrap an interpolation in your own quotes inside the template
+(`` $`mysql -e "... ${userInput} ..."` ``). Xec escapes each value for a
+position with no surrounding quotes; splicing that escaped value inside
+quotes you wrote yourself is no longer the position it was escaped for, and
+a value containing a `"` can close your quotes early and reach the shell —
+build the whole argument as one interpolated value instead, as above.
 
 ### Sensitive Data Masking
 
@@ -473,14 +486,13 @@ const fastest = await Promise.race([
 
 ### Registering Adapters
 
-```typescript
-import { CustomAdapter } from './custom-adapter';
-
-const $ = new ExecutionEngine();
-$.registerAdapter('custom', new CustomAdapter());
-
-await $.with({ adapter: 'custom' })`custom-command`;
-```
+`$.registerAdapter(name, adapter)` is real, but writing the adapter itself
+currently is not: every adapter extends the abstract `BaseAdapter` class,
+which is not exported from `@xec-sh/core` and depends on several other
+internal-only classes (`StreamHandler`, `ProgressReporter`, the masking
+stream filter). There is no supported way to implement a custom adapter
+outside the package today — `registerAdapter` exists for the four built-in
+adapters to register themselves, not as a public extension point.
 
 ### Event Listeners
 
@@ -534,7 +546,7 @@ async function processLogs() {
   const [app1, app2, db] = await $.parallel.all([
     $.docker({ container: 'app1' })`tail -n 1000 /logs/app.log`,
     $.docker({ container: 'app2' })`tail -n 1000 /logs/app.log`,
-    $.ssh({ host: 'db-server' })`tail -n 1000 /var/log/mysql/error.log`
+    $.ssh({ host: 'db-server', username: 'deploy' })`tail -n 1000 /var/log/mysql/error.log`
   ]);
   
   // Process and aggregate
@@ -549,21 +561,30 @@ async function processLogs() {
 
 ### System Monitoring
 
+`$.parallel.map()` builds one command per item and runs them with a
+concurrency cap — its callback must return a `string`, `Command` or
+`ProcessPromise`, not an arbitrary computed value, and the method itself
+resolves a `ParallelResult` rather than an array of your callback's return
+values. Gathering several distinct metrics per server and combining them
+into one object per server is a plain concurrent-map problem instead:
+
 ```typescript
 async function monitorSystem() {
   const servers = ['web1', 'web2', 'db1'];
-  
+
   while (true) {
-    const metrics = await $.parallel.map(servers, async (server) => {
-      const ssh = $.ssh({ host: `${server}.local` });
-      
-      const cpu = await ssh`top -bn1 | grep "Cpu(s)"`.text();
-      const memory = await ssh`free -m | grep "Mem:"`.text();
-      const disk = await ssh`df -h | grep "/dev/sda1"`.text();
-      
-      return { server, cpu, memory, disk };
-    });
-    
+    const metrics = await Promise.all(
+      servers.map(async (server) => {
+        const ssh = $.ssh({ host: `${server}.local`, username: 'monitor' });
+
+        const cpu = await ssh`top -bn1 | grep "Cpu(s)"`.text();
+        const memory = await ssh`free -m | grep "Mem:"`.text();
+        const disk = await ssh`df -h | grep "/dev/sda1"`.text();
+
+        return { server, cpu, memory, disk };
+      })
+    );
+
     console.table(metrics);
     await new Promise(resolve => setTimeout(resolve, 5000));
   }

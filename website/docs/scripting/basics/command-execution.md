@@ -34,13 +34,14 @@ const promise = $`ls -la`;
 // ProcessPromise methods (chainable)
 promise
   .quiet()        // Suppress stdout/stderr
-  .verbose()      // Show command being executed
   .nothrow()      // Don't throw on non-zero exit
   .timeout(5000)  // Set timeout in milliseconds
   .cwd('/tmp')    // Set working directory
   .env({KEY: 'value'}) // Set environment variables
-  .stdin('input') // Provide stdin
   .pipe(stream)   // Pipe output to stream
+
+// stdin is a property, not a method — write to it directly
+promise.stdin.end('input');
 
 // Await for result
 const result = await promise;
@@ -60,7 +61,7 @@ const result = await $`echo "test"`;
 console.log(result.stdout);    // 'test\n'
 console.log(result.stderr);    // ''
 console.log(result.exitCode);  // 0
-console.log(result.signal);    // null
+console.log(result.signal);    // undefined
 console.log(result.duration);  // execution time in ms
 ```
 
@@ -87,13 +88,14 @@ await $`npm build`
 // Quiet mode - suppress all output
 await $`npm install`.quiet();
 
-// Verbose mode - show command being executed
-await $`rm -rf node_modules`.verbose();
+// Verbose mode - show each command before it runs. Unlike `.quiet()`, this
+// is a setting on the engine, not something chained onto one command.
+$.verbose = true;
+await $`rm -rf node_modules`;
 // Output: $ rm -rf node_modules
 
-// Combine modes
-await $`npm test`.quiet().verbose();
-// Shows command but not output
+// Combine with quiet to see the command but not its output
+await $`npm test`.quiet();
 ```
 
 ## Error Handling
@@ -125,9 +127,9 @@ if (result.exitCode !== 0) {
   console.log('Command succeeded');
 }
 
-// Or use the ok property
+// Or use the ok property (true only when exitCode is 0 and no signal fired)
 if (!result.ok) {
-  console.error('Failed:', result.error);
+  console.error('Failed:', result.cause);
 }
 ```
 
@@ -188,17 +190,24 @@ await $`npm test`.cwd(projectDir);
 
 ### Providing Input
 
+`stdin` is a property — a writable stream — not a method. It can be written
+to before the command has started: writes are buffered and forwarded once
+the process spawns.
+
 ```javascript
-// Provide stdin as string
-await $`cat`.stdin('Hello from stdin\n');
+// Provide stdin as a string
+const cat = $`cat`;
+cat.stdin.end('Hello from stdin\n');
+await cat;
 
-// Pipe from file
+// Pipe from a file
 import { createReadStream } from 'fs';
-const input = createReadStream('input.txt');
-await $`sort`.stdin(input);
+const sort = $`sort`;
+createReadStream('input.txt').pipe(sort.stdin);
+await sort;
 
-// Interactive input
-await $`npm init`.stdin(process.stdin);
+// Interactive input — inherit the parent's stdio wholesale
+await $`npm init`.interactive();
 ```
 
 ### Output Redirection
@@ -336,7 +345,9 @@ server.kill('SIGTERM');
 ### Process Groups
 
 ```javascript
-// Execute multiple commands in sequence
+// Execute multiple commands in sequence, echoing each one first
+$.verbose = true;
+
 async function buildProject() {
   const steps = [
     $`npm install`,
@@ -346,7 +357,7 @@ async function buildProject() {
   ];
   
   for (const step of steps) {
-    await step.verbose();
+    await step;
   }
 }
 
@@ -386,13 +397,12 @@ await $`node -e "console.log(os.homedir())"`; // Instead of echo $HOME
 ### Shell Selection
 
 ```javascript
-// Xec automatically detects the shell
-// On Unix: /bin/sh
-// On Windows: cmd.exe or PowerShell
+// Xec defaults to /bin/sh on Unix and cmd.exe on Windows — the same default
+// Node's child_process.spawn({ shell: true }) uses. Setting process.env.SHELL
+// has no effect on which shell actually runs the command.
 
-// Force specific shell (advanced)
-process.env.SHELL = '/bin/bash';
-await $`echo $BASH_VERSION`;
+// Force a specific shell (advanced)
+await $`echo $BASH_VERSION`.shell('/bin/bash');
 ```
 
 ## Performance Optimization
@@ -443,18 +453,34 @@ for await (const line of rl) {
 
 ### Command Injection Prevention
 
+Template interpolation escapes every value it's given, so it's the safe
+default — no extra escaping library is needed:
+
 ```javascript
-// DANGEROUS - command injection vulnerability
+// SAFE - interpolated values are quoted as a single argument, not parsed
+// by the shell. This prints the literal string "; rm -rf /"; it does not
+// run it.
 const userInput = '; rm -rf /';
-await $`echo ${userInput}`;  // DON'T DO THIS
+await $`echo ${userInput}`;
+```
 
-// SAFE - proper escaping
-import { quote } from 'shell-quote';
-const safeInput = quote([userInput]);
-await $`echo ${safeInput}`;
+An array passed to `` $`...` `` or `$.run(...)` is a way to supply a whole
+command as pre-built segments, not an escaping mechanism — its elements are
+spliced into the command line unescaped. Interpolating untrusted input into
+one is exactly as dangerous as building the string by hand:
 
-// Or use arrays (safest)
-await $(['echo', userInput]);
+```javascript
+// DANGEROUS - array elements are not escaped; this actually runs `echo`
+// AND the injected `rm -rf /`
+await $(['echo', userInput]);  // DON'T DO THIS
+```
+
+For argv assembled entirely from untrusted parts, bypass the shell instead
+of relying on quoting at all:
+
+```javascript
+// SAFE - no shell is involved, so there is nothing to inject into
+await $.execute({ command: 'echo', args: [userInput], shell: false });
 ```
 
 ### Sensitive Data
@@ -507,8 +533,8 @@ async function deploy() {
   
   // Copy files
   console.log(chalk.yellow('Copying files...'));
-  await $`sudo rsync -av --delete dist/ ${deployDir}/`
-    .verbose();
+  $.verbose = true;
+  await $`sudo rsync -av --delete dist/ ${deployDir}/`;
   
   // Restart service
   console.log(chalk.yellow('Restarting service...'));

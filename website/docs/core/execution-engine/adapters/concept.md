@@ -10,38 +10,32 @@ Adapters are a key component of the Xec architecture, providing command executio
 
 ## Adapter System Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│              ExecutionEngine                │
-│                                             │
-│  • Adapter management                       │
-│  • Command routing                          │
-│  • Configuration and context                │
-└──────────────────┬──────────────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────┐
-│              BaseAdapter                    │
-│                                             │
-│  • Base functionality                       │
-│  • Stream processing                        │
-│  • Data masking                             │
-│  • Error handling                           │
-└──────┬──────┬──────┬───────┬───────┬────────┘
-       │      │      │       │       │
-       ▼      ▼      ▼       ▼       ▼
-   ┌──────┐┌──────┐┌──────┐┌──────┐┌──────┐
-   │Local ││ SSH  ││Docker││ K8s  ││Remote│
-   └──────┘└──────┘└──────┘└──────┘└──────┘
+The engine routes each command through the `BaseAdapter` interface to one of the five concrete adapters — four environment adapters plus a mock used in tests:
+
+```mermaid
+flowchart TD
+    Engine["ExecutionEngine<br/>adapter management · command routing ·<br/>configuration and context"]
+    Base["BaseAdapter (internal)<br/>stream processing · data masking ·<br/>error handling"]
+
+    Engine --> Base
+    Base --> Local["LocalAdapter"]
+    Base --> SSH["SSHAdapter"]
+    Base --> Docker["DockerAdapter"]
+    Base --> K8s["KubernetesAdapter"]
+    Base --> Mock["MockAdapter<br/>(tests)"]
 ```
 
 ## Base Adapter Class
 
-All adapters inherit from `BaseAdapter`:
+All adapters inherit from `BaseAdapter`. It is real — every adapter you read
+about below is built on it — but it is an internal class, not exported from
+`@xec-sh/core`. The sections on this page describe it to explain how the
+adapters behave, not as an API you can import; see [Creating Your Own
+Adapter](#creating-your-own-adapter) below for what that means in practice.
 
 ```typescript
-export abstract class BaseAdapter extends EnhancedEventEmitter {
-  protected config: BaseAdapterConfig;
+abstract class BaseAdapter extends EnhancedEventEmitter implements Disposable {
+  protected config: ResolvedBaseAdapterConfig; // BaseAdapterConfig with defaults filled in
   protected abstract readonly adapterName: string;
   
   // Main execution method
@@ -53,7 +47,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter {
   // Resource cleanup
   abstract dispose(): Promise<void>;
   
-  // Optional synchronous version
+  // Optional synchronous version — LocalAdapter implements this; others don't
   executeSync?(command: Command): ExecutionResult;
 }
 ```
@@ -62,17 +56,17 @@ export abstract class BaseAdapter extends EnhancedEventEmitter {
 
 ```typescript
 interface BaseAdapterConfig {
-  defaultTimeout?: number;        // Default timeout
+  defaultTimeout?: number;        // Default timeout, in ms (default: 120000)
   defaultCwd?: string;            // Working directory
   defaultEnv?: Record<string, string>; // Environment variables
   defaultShell?: string | boolean;    // Shell for execution
   encoding?: BufferEncoding;      // Output encoding
-  maxBuffer?: number;             // Maximum buffer size
-  throwOnNonZeroExit?: boolean;  // Throw exception on error
-  sensitiveDataMasking?: {        // Data masking
-    enabled: boolean;
-    patterns: RegExp[];
-    replacement: string;
+  maxBuffer?: number;             // Maximum buffer size, in bytes (default: 10MB)
+  throwOnNonZeroExit?: boolean;  // Throw exception on error (default: true)
+  sensitiveDataMasking?: {        // Data masking (all fields optional; defaults on)
+    enabled?: boolean;
+    patterns?: RegExp[];
+    replacement?: string;
   };
 }
 ```
@@ -97,15 +91,23 @@ await $`ls`;  // Uses LocalAdapter
 
 ### 2. Command Preparation
 
+Every adapter fills a command in with its own defaults before running it.
+`timeout` accepts either milliseconds or a duration string (`'30s'`); this is
+where it gets resolved to a number, so nothing downstream has to parse it
+again:
+
 ```typescript
-// Adapter merges settings
-protected mergeCommand(command: Command): Command {
+protected mergeCommand(command: Command): ResolvedCommand {
+  const timeout = command.timeout ?? this.config.defaultTimeout;
+
   return {
     ...command,
     cwd: command.cwd ?? this.config.defaultCwd,
     env: { ...this.config.defaultEnv, ...command.env },
-    timeout: command.timeout ?? this.config.defaultTimeout,
-    shell: command.shell ?? this.config.defaultShell
+    timeout: timeout === undefined ? undefined : parseDuration(timeout),
+    shell: command.shell ?? this.config.defaultShell,
+    maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
+    throwOnNonZeroExit: command.throwOnNonZeroExit ?? this.config.throwOnNonZeroExit
   };
 }
 ```
@@ -116,35 +118,53 @@ protected mergeCommand(command: Command): Command {
 // Each adapter implements its own logic
 async execute(command: Command): Promise<ExecutionResult> {
   const merged = this.mergeCommand(command);
-  
+  const startTime = Date.now();
+
   // Adapter-specific implementation
   const result = await this.runInEnvironment(merged);
-  
-  // Creating unified result
+
+  // Creating the unified result — masks sensitive data in stdout/stderr/command,
+  // and throws automatically when the command failed and nothing downstream
+  // (like ProcessPromise) is going to make that decision instead.
   return this.createResult(
     result.stdout,
     result.stderr,
     result.exitCode,
     result.signal,
-    merged
+    this.buildCommandString(merged),
+    startTime,
+    Date.now()
   );
 }
 ```
 
 ### 4. Result Processing
 
+The result every adapter produces is the same `ExecutionResult` a caller sees
+after `await $\`cmd\``:
+
 ```typescript
 interface ExecutionResult {
-  stdout: string;         // Standard output
-  stderr: string;         // Error output
-  exitCode: number;       // Exit code
-  signal?: string;        // Termination signal
-  duration: number;       // Execution time
-  startTime: Date;        // Start time
-  endTime: Date;          // End time
-  adapter: string;        // Used adapter
-  host?: string;          // Host (for SSH)
-  container?: string;     // Container (for Docker)
+  stdout: string;          // Standard output
+  stderr: string;          // Error output
+  stdall: string;           // stdout and stderr merged in arrival order
+  exitCode: number;        // Exit code
+  signal?: string;         // Termination signal
+  ok: boolean;              // exitCode === 0 && !signal
+  cause?: string;            // Why it failed, when not ok
+  duration: number;        // Execution time (ms)
+  startedAt: Date;         // Start time
+  finishedAt: Date;        // Finish time
+  adapter: string;         // Used adapter
+  host?: string;           // Host (for SSH)
+  container?: string;      // Container (for Docker)
+
+  toMetadata(): object;
+  throwIfFailed(): void;
+  text(): string;
+  json<T = any>(): T;
+  lines(): string[];
+  buffer(): Buffer;        // Exact bytes, binary-safe
 }
 ```
 
@@ -306,115 +326,37 @@ protected async handleTimeout(
 
 ```typescript
 // Each adapter can generate events
-adapter.on('connection:established', ({ host }) => {
-  console.log(`Connected to ${host}`);
+$.on('connection:open', ({ host, type }) => {
+  console.log(`Connected to ${host} (${type})`);
 });
 
-adapter.on('transfer:progress', ({ bytes, total }) => {
-  console.log(`Transfer: ${bytes}/${total}`);
+$.on('transfer:complete', ({ source, destination, bytesTransferred }) => {
+  console.log(`Transferred ${bytesTransferred} bytes: ${source} -> ${destination}`);
 });
 
-adapter.on('container:created', ({ id, name }) => {
-  console.log(`Container ${name} created: ${id}`);
+$.on('docker:run', ({ image, container }) => {
+  console.log(`Container ${container} started from ${image}`);
 });
 ```
 
 ## Creating Your Own Adapter
 
-### Step 1: Inherit from BaseAdapter
+`BaseAdapter` is not exported from `@xec-sh/core`, so a custom adapter cannot
+currently be written outside the package — there is no base class to extend
+it from. `ExecutionEngine.registerAdapter(name, adapter: BaseAdapter)` is
+real, but its parameter type is `BaseAdapter` itself, which is both
+unimported and abstract with protected members, so nothing built outside the
+package can satisfy it without an unsafe cast — and even then, the object
+would still need to correctly implement everything `BaseAdapter` gives an
+in-package adapter for free (timeout/cwd/env defaulting, sensitive-data
+masking, buffered streaming with a size cap, retry, and the call-site capture
+that names a failure's location) by hand.
 
-```typescript
-import { BaseAdapter, BaseAdapterConfig } from '@xec-sh/core';
-
-interface CustomAdapterConfig extends BaseAdapterConfig {
-  customOption?: string;
-}
-
-export class CustomAdapter extends BaseAdapter {
-  protected readonly adapterName = 'custom';
-  private customConfig: CustomAdapterConfig;
-  
-  constructor(config: CustomAdapterConfig = {}) {
-    super(config);
-    this.name = this.adapterName;
-    this.customConfig = config;
-  }
-}
-```
-
-### Step 2: Implement execute
-
-```typescript
-async execute(command: Command): Promise<ExecutionResult> {
-  const merged = this.mergeCommand(command);
-  const startTime = Date.now();
-  
-  try {
-    // Your execution logic
-    const result = await this.runCustomCommand(merged);
-    
-    return this.createResult(
-      result.stdout,
-      result.stderr,
-      result.exitCode,
-      result.signal,
-      this.buildCommandString(merged),
-      startTime,
-      Date.now()
-    );
-  } catch (error) {
-    throw new AdapterError(
-      this.adapterName,
-      'execute',
-      error instanceof Error ? error : new Error(String(error))
-    );
-  }
-}
-```
-
-### Step 3: Availability Check
-
-```typescript
-async isAvailable(): Promise<boolean> {
-  try {
-    // Check that environment is available
-    await this.checkEnvironment();
-    return true;
-  } catch {
-    return false;
-  }
-}
-```
-
-### Step 4: Resource Cleanup
-
-```typescript
-async dispose(): Promise<void> {
-  // Close connections
-  await this.closeConnections();
-  
-  // Clean up temporary files
-  await this.cleanupTemp();
-  
-  // Remove event listeners
-  this.removeAllListeners();
-}
-```
-
-### Step 5: Register the Adapter
-
-```typescript
-import { ExecutionEngine } from '@xec-sh/core';
-import { CustomAdapter } from './custom-adapter';
-
-const $ = new ExecutionEngine();
-$.registerAdapter('custom', new CustomAdapter({
-  customOption: 'value'
-}));
-
-// Usage
-await $.with({ adapter: 'custom' })`custom-command`;
-```
+If you need an environment none of `local`, `ssh`, `docker` or `kubernetes`
+cover, the supported path today is composition: shell out to whatever CLI or
+API reaches that environment from inside a command run through an existing
+adapter, the way [Remote Docker](#remote-docker-via-ssh-composition) above
+composes SSH and Docker.
 
 ## Resource Management
 
@@ -473,39 +415,38 @@ class ExecutionEngine {
 
 ### Error Types
 
+`AdapterError`, `CommandError` and `TimeoutError` are real, exported error
+classes, all extending `ExecutionError` (which carries a machine-readable
+`kind` and a `recoverable` flag — see the [API reference](/docs/api#why-a-failure-failed)
+for the full classification). The fields relevant to a `catch` block:
+
 ```typescript
-// Adapter error
-class AdapterError extends Error {
-  constructor(
-    public adapter: string,
-    public operation: string,
-    public cause: Error
-  ) {
-    super(`${adapter} adapter failed during ${operation}: ${cause.message}`);
-  }
+class CommandError extends ExecutionError {
+  readonly command: string;
+  readonly exitCode: number;
+  readonly signal: string | undefined;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly duration: number;
+  readonly callSite: string;  // where the caller wrote this command, when captured
 }
 
-// Command error
-class CommandError extends Error {
-  constructor(
-    public command: string,
-    public exitCode: number,
-    public stderr: string
-  ) {
-    super(`Command failed with exit code ${exitCode}: ${stderr}`);
-  }
+class TimeoutError extends ExecutionError {
+  readonly command: string;
+  readonly timeout: number;
 }
 
-// Timeout error
-class TimeoutError extends Error {
-  constructor(
-    public command: string,
-    public timeout: number
-  ) {
-    super(`Command timed out after ${timeout}ms: ${command}`);
-  }
+class AdapterError extends ExecutionError {
+  readonly adapter: string;
+  readonly operation: string;
+  readonly originalError?: Error;
 }
 ```
+
+A `CommandError`'s message already includes the sanitized command, what the
+exit code usually means (`explainExitCode`), the first few lines of stderr
+and the call site — the fields above are for programmatic handling, not for
+reconstructing the message yourself.
 
 ### Handling Strategies
 

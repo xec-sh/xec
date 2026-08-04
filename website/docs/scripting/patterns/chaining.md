@@ -22,18 +22,26 @@ await $`build.sh`
   .env({ NODE_ENV: 'production' })
   .cwd('./project')
   .timeout(60000)
-  .verbose()
   .pipe(process.stdout);
+```
+
+There's no per-command `.verbose()`. Echoing each command line before it runs
+is a property of the engine, not an individual `ProcessPromise`: `$.verbose =
+true` (a setter, present only on the default `$`) or `.config.set({ verbose:
+true })` on any engine instance:
+
+```javascript
+$.verbose = true;
+await $`build.sh`.cwd('./project'); // echoes "$ build.sh" to stderr first
 ```
 
 ### Conditional Chaining
 
 ```javascript
 async function runCommand(cmd, options = {}) {
-  let promise = $(cmd);
+  let promise = $.exec(cmd);
   
   if (options.quiet) promise = promise.quiet();
-  if (options.verbose) promise = promise.verbose();
   if (options.timeout) promise = promise.timeout(options.timeout);
   if (options.cwd) promise = promise.cwd(options.cwd);
   if (options.env) promise = promise.env(options.env);
@@ -46,8 +54,10 @@ async function runCommand(cmd, options = {}) {
 const isDebug = process.env.DEBUG === 'true';
 const isCI = process.env.CI === 'true';
 
+if (isDebug) $.verbose = true;
+
 await $`npm test`
-  [isDebug ? 'verbose' : 'quiet']()
+  [isDebug ? 'nothrow' : 'quiet']()
   .timeout(isCI ? 120000 : 30000)
   .env({ DEBUG: isDebug ? 'true' : 'false' });
 ```
@@ -112,11 +122,10 @@ class CommandChain {
     
     while (attempt < maxAttempts) {
       try {
-        let promise = $(this.command);
+        let promise = $.exec(this.command);
         
         // Apply options
         if (this.options.quiet) promise = promise.quiet();
-        if (this.options.verbose) promise = promise.verbose();
         if (this.options.timeout) promise = promise.timeout(this.options.timeout);
         if (this.options.cwd) promise = promise.cwd(this.options.cwd);
         if (this.options.env) promise = promise.env(this.options.env);
@@ -179,11 +188,6 @@ class PipelineBuilder {
     return this;
   }
   
-  verbose() {
-    this.lastStep().modifiers.push('verbose');
-    return this;
-  }
-  
   timeout(ms) {
     this.lastStep().modifiers.push({ timeout: ms });
     return this;
@@ -235,7 +239,7 @@ class PipelineBuilder {
         if (step.parallel) {
           // Execute parallel commands
           const promises = step.commands.map(cmd => {
-            let promise = $(cmd);
+            let promise = $.exec(cmd);
             this.applyModifiers(promise, step.modifiers);
             return promise;
           });
@@ -243,7 +247,7 @@ class PipelineBuilder {
           result = await Promise.all(promises);
         } else {
           // Execute single command
-          let promise = $(step.command);
+          let promise = $.exec(step.command);
           this.applyModifiers(promise, step.modifiers);
           result = await promise;
         }
@@ -300,7 +304,6 @@ const pipeline = new PipelineBuilder()
   )
   .add('build', 'npm run build')
     .env({ NODE_ENV: 'production' })
-    .verbose()
   .add('package', 'npm pack')
     .onSuccess(result => {
       console.log('Package created:', result.stdout);
@@ -350,7 +353,7 @@ class ChainableCommand {
   }
   
   async execute() {
-    let promise = $(this.command);
+    let promise = $.exec(this.command);
     
     // Apply middlewares in order
     for (const middleware of this.middlewares) {
@@ -416,7 +419,7 @@ class BranchingChain {
   }
   
   async execute() {
-    let promise = $(this.command);
+    let promise = $.exec(this.command);
     
     // Find matching branch
     const branch = this.branches.find(b => {
@@ -445,7 +448,7 @@ const result = await new BranchingChain('npm test')
   )
   .when(
     process.env.DEBUG === 'true',
-    p => p.verbose().env({ DEBUG: '*' })
+    p => p.env({ DEBUG: '*' })
   )
   .otherwise(
     p => p.quiet().timeout(30000)
@@ -490,7 +493,7 @@ class ChainRouter {
     }
     
     if (!handler) {
-      handler = (cmd) => $(cmd); // Default handler
+      handler = (cmd) => $.exec(cmd); // Default handler
     }
     
     // Create promise with handler
@@ -507,12 +510,12 @@ class ChainRouter {
 
 // Usage
 const router = new ChainRouter()
-  .route('npm', cmd => $(cmd).timeout(60000))
-  .route('docker', cmd => $(cmd).quiet())
-  .route(/^git/, cmd => $(cmd).cwd(process.env.GIT_REPO || '.'))
+  .route('npm', cmd => $.exec(cmd).timeout(60000))
+  .route('docker', cmd => $.exec(cmd).quiet())
+  .route(/^git/, cmd => $.exec(cmd).cwd(process.env.GIT_REPO || '.'))
   .route(
     cmd => cmd.includes('test'),
-    cmd => $(cmd).env({ NODE_ENV: 'test' }).verbose()
+    cmd => $.exec(cmd).env({ NODE_ENV: 'test' })
   )
   .use(promise => {
     console.log('Executing command...');
@@ -543,7 +546,7 @@ class SequentialChain {
     const results = [];
     
     for (const { command, modifiers } of this.commands) {
-      let promise = $(command);
+      let promise = $.exec(command);
       
       // Apply modifiers
       Object.entries(modifiers).forEach(([key, value]) => {
@@ -570,7 +573,7 @@ class SequentialChain {
 const chain = new SequentialChain()
   .add('git rev-parse HEAD', { quiet: true, passOutput: true })
   .add('git show $INPUT --stat', { quiet: false })
-  .add('echo "Deployment complete"', { verbose: true });
+  .add('echo "Deployment complete"', { nothrow: true });
 
 await chain.execute();
 ```
@@ -626,7 +629,7 @@ class ParallelChain {
       
       // Execute commands in parallel
       const promises = group.commands.map(cmd => {
-        let promise = $(cmd);
+        let promise = $.exec(cmd);
         
         // Apply group modifiers
         Object.entries(group.modifiers).forEach(([key, value]) => {
@@ -669,7 +672,7 @@ parallel.group('build')
   .add('npm run build')
   .add('python setup.py build')
   .dependsOn('prepare')
-  .withModifiers({ verbose: true });
+  .withModifiers({ nothrow: true });
 
 parallel.group('test')
   .add('npm test')
@@ -733,7 +736,7 @@ class TransformChain {
   }
   
   async execute() {
-    const result = await $(this.command);
+    const result = await $.exec(this.command);
     let data = result.stdout;
     
     for (const transformer of this.transformers) {
@@ -861,7 +864,7 @@ class DeploymentChain {
             )
             .when(
               this.config.verbose,
-              p => p.verbose().pipe(process.stdout)
+              p => p.pipe(process.stdout)
             )
             .otherwise(
               p => p.quiet()
@@ -884,9 +887,9 @@ class DeploymentChain {
         console.log(chalk.blue('Deploying to servers...'));
         
         const router = new ChainRouter()
-          .route('ssh', cmd => $(cmd).timeout(30000).quiet())
-          .route('docker', cmd => $(cmd).verbose())
-          .route('kubectl', cmd => $(cmd).env({ KUBECONFIG: this.config.kubeconfig }));
+          .route('ssh', cmd => $.exec(cmd).timeout(30000).quiet())
+          .route('docker', cmd => $.exec(cmd).pipe(process.stdout))
+          .route('kubectl', cmd => $.exec(cmd).env({ KUBECONFIG: this.config.kubeconfig }));
         
         const deployments = [];
         

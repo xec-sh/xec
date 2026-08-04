@@ -34,12 +34,18 @@ xec/
 
 ### Package Dependencies
 
-```
-@xec-sh/cli ──→ @xec-sh/ops ──→ @xec-sh/core
-     │               │                │
-     └──→ @xec-sh/kit ←── @xec-sh/loader
-                                       │
-                            @xec-sh/testing
+Arrows point from each package to the packages it imports at runtime. `@xec-sh/testing` is not shown — it has no runtime edges and is consumed only by test suites.
+
+```mermaid
+flowchart TD
+    CLI["@xec-sh/cli"] --> OPS["@xec-sh/ops"]
+    CLI --> CORE["@xec-sh/core"]
+    CLI --> KIT["@xec-sh/kit"]
+    CLI --> LOADER["@xec-sh/loader"]
+    OPS --> CORE
+    OPS --> KIT
+    OPS --> LOADER
+    LOADER --> KIT
 ```
 
 ## Core Components
@@ -164,7 +170,9 @@ async function main() {
 
 ### Command Execution Flow
 
-```
+A command travels from the CLI through the engine to the selected adapter, and the result flows back the same way:
+
+```mermaid
 sequenceDiagram
     participant User
     participant CLI
@@ -184,13 +192,15 @@ sequenceDiagram
 
 ### Configuration Loading
 
-```
-graph LR
-    A[CLI Args] --> D[Config Resolver]
-    B[Config File] --> D
-    C[Env Vars] --> D
-    D --> E[Merged Config]
-    E --> F[Execution Context]
+Configuration is merged from three sources before execution starts:
+
+```mermaid
+flowchart LR
+    A["CLI args"] --> D["Config resolver"]
+    B["Config file"] --> D
+    C["Env vars"] --> D
+    D --> E["Merged config"]
+    E --> F["Execution context"]
 ```
 
 ## Template Literal Processing
@@ -225,35 +235,37 @@ graph LR
 
 ### Error Hierarchy
 
+All failures are typed subclasses of `ExecutionError` (`packages/core/src/core/error.ts`):
+
 ```typescript
-class XecError extends Error {
+class ExecutionError extends Error {
   constructor(
     message: string,
-    public code: string,
-    public exitCode: number
+    public readonly code: string,
+    public readonly details?: Record<string, any>
   ) {
     super(message);
   }
 }
 
-class ValidationError extends XecError {}
-class ExecutionError extends XecError {}
-class ConnectionError extends XecError {}
-class TimeoutError extends XecError {}
+class CommandError extends ExecutionError {}     // non-zero exit code
+class ConnectionError extends ExecutionError {}  // transport failure
+class TimeoutError extends ExecutionError {}     // deadline exceeded
+class DockerError extends ExecutionError {}
+class KubernetesError extends ExecutionError {}
 ```
 
 ### Error Flow
 
-```
-graph TD
-    A[Command Execution] --> B{Success?}
-    B -->|Yes| C[Return Result]
-    B -->|No| D[Catch Error]
-    D --> E{Error Type}
-    E -->|Validation| F[Exit 1]
-    E -->|Connection| G[Exit 4]
-    E -->|Execution| H[Exit 5]
-    E -->|Timeout| I[Exit 10]
+A failed execution surfaces as the subclass matching what went wrong:
+
+```mermaid
+flowchart TD
+    A["Command execution"] --> B{"Succeeded?"}
+    B -->|"exit code 0"| C["ExecutionResult"]
+    B -->|"non-zero exit"| D["CommandError"]
+    B -->|"timeout"| E["TimeoutError"]
+    B -->|"connection failure"| F["ConnectionError"]
 ```
 
 ## Performance Optimizations
@@ -468,14 +480,13 @@ describe('SSH Integration', () => {
 
 ### Package Publishing
 
-```
-graph LR
-    A[Git Push] --> B[CI/CD Pipeline]
-    B --> C[Build & Test]
-    C --> D[npm Publish]
-    D --> E[@xec-sh/core]
-    D --> F[@xec-sh/cli]
-    D --> G[@xec-sh/testing]
+Releases are cut from the monorepo with `pnpm release`, which builds, tests, and publishes every public package to npm:
+
+```mermaid
+flowchart LR
+    A["pnpm release"] --> B["Build + test"]
+    B --> C["npm publish"]
+    C --> D["@xec-sh/* packages"]
 ```
 
 ### Distribution Channels
@@ -494,16 +505,6 @@ graph LR
 3. **DAG Execution**: Complex workflow orchestration
 4. **Cloud Functions**: Serverless execution
 5. **GUI Application**: Visual command builder
-
-### Extensibility Roadmap
-
-```
-graph TD
-    A[Current] --> B[Plugin System]
-    B --> C[Marketplace]
-    C --> D[Community Adapters]
-    D --> E[Enterprise Features]
-```
 
 ## Summary
 

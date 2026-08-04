@@ -55,31 +55,39 @@ Debug individual commands with verbose output:
 ```javascript
 #!/usr/bin/env xec
 
-import { $ } from '@xec-sh/core';
+import { $, quoteForShell, dialectFor } from '@xec-sh/core';
 
 // Enable verbose mode for specific commands
 $.verbose = true;
 
-// Trace command execution
-const result = await $`ls -la`.trace();
+// The result already carries the command, timing and output — no separate
+// trace call needed
+const result = await $`ls -la`;
 console.log('Command:', result.command);
 console.log('Exit code:', result.exitCode);
 console.log('Duration:', result.duration, 'ms');
 console.log('Output:', result.stdout);
 
+// stdout and stderr interleaved in the order they actually arrived
+console.log('Interleaved:', result.stdall);
+
+// The exact bytes written, for output that isn't text
+const raw = result.buffer();
+
 // Debug command construction
 const cmd = 'git';
 const args = ['status', '--short'];
-console.log('Executing:', $.quote([cmd, ...args]));
+const dialect = dialectFor(true);
+console.log('Executing:', [cmd, ...args].map(part => quoteForShell(part, dialect)).join(' '));
 await $`${cmd} ${args}`;
 
-// Inspect command pipeline
+// Build a command pipeline
 const pipeline = $`cat file.txt`
-  .pipe($`grep pattern`)
-  .pipe($`wc -l`);
+  .pipe('grep pattern')
+  .pipe('wc -l');
 
-console.log('Pipeline steps:', pipeline.inspect());
-await pipeline;
+const lineCount = await pipeline;
+console.log('Line count:', lineCount.stdout.trim());
 ```
 
 ### Step 3: Remote Debugging
@@ -92,10 +100,11 @@ Debug scripts running on remote targets:
 import { $ } from '@xec-sh/core';
 
 // Debug SSH execution
+$.verbose = true; // echo each command as it runs, on this host or any other
+
 const ssh = $.ssh({
   host: 'server.example.com',
-  username: 'deploy',
-  debug: true  // Enable SSH debug output
+  username: 'deploy'
 });
 
 // Add debugging commands
@@ -117,14 +126,13 @@ try {
     stdout: error.stdout,
     stderr: error.stderr,
     duration: error.duration,
-    target: error.target
+    callSite: error.callSite
   });
 }
 
 // Debug Docker execution
 const docker = $.docker({
-  container: 'myapp',
-  debug: true
+  container: 'myapp'
 });
 
 // Inspect container state
@@ -313,11 +321,11 @@ class ErrorReporter {
       info.memory = process.memoryUsage();
       info.uptime = process.uptime();
       
-      if ($.which('docker')) {
+      if (await $.isCommandAvailable('docker')) {
         info.docker = (await $`docker version --format json`).stdout;
       }
       
-      if ($.which('kubectl')) {
+      if (await $.isCommandAvailable('kubectl')) {
         info.kubectl = (await $`kubectl version --output json`).stdout;
       }
     } catch (e) {
@@ -458,6 +466,28 @@ process.on('uncaughtException', (error) => {
   reporter.capture(error, { type: 'uncaughtException' });
   process.exit(1);
 });
+```
+
+### Issue: Hung or Runaway Commands
+
+A command with no output for a while might just be slow, or it might be stuck waiting on input it will never get. Two independent defenses:
+
+```javascript
+// Give it a deadline — duration strings and milliseconds both work,
+// whether set per-command or as shared config
+const result = await $`some-slow-tool`.timeout('30s').nothrow();
+if (!result.ok) {
+  console.log('Did not finish in time');
+}
+
+const patient = $.with({ timeout: '2m' });
+await patient`another-slow-tool`.nothrow();
+
+// Or kill it directly. This kills the whole process tree — a hung
+// command that spawned children of its own (a shell wrapper, a
+// language runtime) can't leave orphans behind.
+const proc = $`some-slow-tool`.start();
+setTimeout(() => proc.kill(), 30000);
 ```
 
 ### Issue: Remote Debug Connection Failed

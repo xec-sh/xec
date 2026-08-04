@@ -75,13 +75,18 @@ If a variable you expect isn't set, check that it survives shell startup — see
 
 ## Buffer and encoding
 
-`maxBuffer` and `encoding` are engine-level settings, not per-command options — there's no `.with({ maxBuffer })` or `.encoding()` chain method. Set them once:
+Set `maxBuffer` process-wide, or on a derived engine for the commands that need a different cap:
 
 ```typescript
-import { configure } from '@xec-sh/core';
+import { $, configure } from '@xec-sh/core';
 
-configure({ maxBuffer: 100 * 1024 * 1024, encoding: 'utf8' }); // every command after this
+configure({ maxBuffer: 100 * 1024 * 1024 });   // every command after this
+
+const generous = $.with({ maxBuffer: 500 * 1024 * 1024 });
+await generous`pg_dump mydb`;                   // only this one
 ```
+
+`encoding` remains engine-level: set it through `configure()`.
 
 Exceeding `maxBuffer` (default 10MB) kills the process and rejects with `MaxBufferExceededError`, carrying whatever was collected before the cut-off:
 

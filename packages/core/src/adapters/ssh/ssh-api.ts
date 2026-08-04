@@ -1,4 +1,5 @@
 import type { SSHAdapter } from './index.js';
+import type { Duration } from '../../utils/helpers.js';
 import type { Command, SSHAdapterOptions } from '../../types/command.js';
 import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
 
@@ -62,7 +63,7 @@ export interface SSHExecutionContext {
   // Chainable configuration methods
   env(env: Record<string, string>): SSHExecutionContext;
   cd(dir: string): SSHExecutionContext;
-  timeout(ms: number): SSHExecutionContext;
+  timeout(duration: Duration): SSHExecutionContext;
   shell(shell: string | boolean): SSHExecutionContext;
   retry(options: { maxRetries?: number; initialDelay?: number; maxDelay?: number; factor?: number }): SSHExecutionContext;
   with(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): SSHExecutionContext;
@@ -218,9 +219,9 @@ export function createSSHExecutionContext(
     cwd: dir
   });
 
-  const timeout = (ms: number): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
+  const timeout = (duration: Duration): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {
     ...commandConfig,
-    timeout: ms
+    timeout: duration
   });
 
   const shell = (shellValue: string | boolean): SSHExecutionContext => createSSHExecutionContext(engine, sshOptions, {

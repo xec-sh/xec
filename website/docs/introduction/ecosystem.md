@@ -11,30 +11,21 @@ Xec is an ecosystem of 6 packages providing a complete DevOps automation platfor
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│  @xec-sh/cli   — Thin CLI wrapper           │
-│  (commands: run, on, in, deploy, watch...)   │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────┐
-│  @xec-sh/ops   — DevOps Operations Library   │
-│  deploy, health, pipeline, workflow,         │
-│  discovery, retry, config, secrets, api      │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────┐
-│  @xec-sh/core  — Shell Execution Engine      │
-│  $`cmd`, SSH, Docker, K8s adapters,          │
-│  connection pooling, streaming, retry        │
-└──────────────────┬──────────────────────────┘
-                   │
-┌──────────┬───────▼────────┬─────────────────┐
-│ @xec-sh/ │   @xec-sh/    │   @xec-sh/      │
-│   kit    │    loader      │    testing       │
-│ TUI/CLI  │ Script loading │ Test utilities   │
-│components│ Module system  │ Docker helpers   │
-└──────────┴────────────────┴─────────────────┘
+The packages form layers: a thin CLI on top of the operations library, which builds on the execution engine and the other foundation packages. Arrows point from each package to what it depends on; `@xec-sh/testing` stands alone — it is used only by test suites.
+
+```mermaid
+flowchart TD
+    subgraph FOUNDATION["Foundation packages"]
+        CORE["@xec-sh/core<br/>Shell execution engine"]
+        LOADER["@xec-sh/loader<br/>Script loading, modules"]
+        KIT["@xec-sh/kit<br/>TUI/CLI components"]
+        TESTING["@xec-sh/testing<br/>Test utilities"]
+    end
+    CLI["@xec-sh/cli<br/>Thin CLI wrapper"] --> OPS["@xec-sh/ops<br/>DevOps operations library"]
+    OPS --> CORE
+    OPS --> LOADER
+    OPS --> KIT
+    LOADER --> KIT
 ```
 
 ## Packages

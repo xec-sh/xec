@@ -2,6 +2,51 @@
 
 Xec provides powerful streaming capabilities for handling large outputs, real-time data, and efficient I/O operations. This guide covers stream processing patterns for command execution.
 
+## How `.pipe()` Actually Behaves
+
+`` $`cmd` ``'s `.pipe(target)` waits for the command to finish, then writes its
+complete output to `target` in one shot — it is not a live pipe. That makes it
+the right tool for redirecting or transforming a *finished* command's output
+(`$\`npm run build\`.pipe(logFile)`), but it means `.pipe()` will hang forever
+on a command that doesn't terminate on its own — `tail -f`, `journalctl -f`,
+`docker logs -f`, a dev server — because it is still waiting for the command
+to exit before it delivers anything.
+
+For real-time output, read the live process handle instead, which exposes a
+genuine Node `Readable`:
+
+```javascript
+const proc = $`tail -f /var/log/app.log`;
+const handle = await proc.spawned; // resolves once the command is running
+handle.stdout.pipe(process.stdout); // a real, live Node stream pipe
+```
+
+or, for line-by-line processing, the async iterator streams lines as they
+arrive:
+
+```javascript
+for await (const line of $`tail -f /var/log/app.log`) {
+  console.log(line);
+}
+```
+
+A `ProcessPromise` is not itself a Node stream — it has no `.on('data', ...)`.
+Reach the live stream through `.spawned` (or the synchronous `.child` once
+the command is confirmed running) as shown above.
+
+Also, chain configuration methods (`.stdout()`, `.stderr()`, `.cwd()`,
+`.env()`, `.timeout()`, `.shell()`, etc.) *before* `.pipe()`, not after —
+`.pipe()` changes what the promise resolves to, and a configuration method
+called on the result of `.pipe()` throws rather than being silently ignored.
+
+```javascript
+// Correct: configure first, pipe last
+await $`cmd`.stderr(process.stderr).pipe(process.stdout);
+
+// Throws: .pipe() already changed what the chain resolves to
+await $`cmd`.pipe(process.stdout).stderr(process.stderr);
+```
+
 ## Basic Output Streaming
 
 ### Streaming to Console
@@ -12,10 +57,10 @@ import { $ } from '@xec-sh/core';
 // Stream output directly to console
 await $`npm install`.pipe(process.stdout);
 
-// Stream both stdout and stderr
+// Stream both stdout and stderr — configure stderr before piping stdout
 await $`npm test`
-  .pipe(process.stdout)
-  .stderr(process.stderr);
+  .stderr(process.stderr)
+  .pipe(process.stdout);
 
 // Stream with prefix
 import { Transform } from 'stream';
@@ -28,8 +73,13 @@ const prefixer = new Transform({
   }
 });
 
-await $`npm run dev`.pipe(prefixer).pipe(process.stdout);
+await $`npm run build`.pipe(prefixer).pipe(process.stdout);
 ```
+
+`npm run build` finishes on its own, so its buffered output flows through
+`prefixer` correctly. A command that doesn't terminate by itself — `npm run
+dev`, a dev server — would never reach this point; see the live-streaming
+pattern above for those.
 
 ### Streaming to Files
 
@@ -127,7 +177,13 @@ const parser = new LogParser({
   formatter: log => `${log.timestamp || new Date().toISOString()} - ${log.message}`
 });
 
-await $`tail -f /var/log/app.log`
+// tail -f never exits, so ProcessPromise.pipe() — which waits for the
+// command to finish — would never deliver anything. Read the live stdout
+// stream instead and pipe that, with Node's own stream .pipe(), into the
+// rest of the pipeline.
+const tailProc = $`tail -f /var/log/app.log`;
+const tailHandle = await tailProc.spawned;
+tailHandle.stdout
   .pipe(parser)
   .pipe(process.stdout);
 ```
@@ -172,10 +228,16 @@ class LogAggregator extends Transform {
 // Usage
 const aggregator = new LogAggregator();
 
-// Add multiple log sources
-aggregator.addSource('app', $`tail -f /var/log/app.log`);
-aggregator.addSource('nginx', $`tail -f /var/log/nginx/access.log`);
-aggregator.addSource('system', $`journalctl -f`);
+// addSource() expects a real Readable, not a ProcessPromise — a
+// ProcessPromise has no .on('data', ...). Read each command's live handle
+// first and pass its .stdout.
+const appLog = await $`tail -f /var/log/app.log`.spawned;
+const nginxLog = await $`tail -f /var/log/nginx/access.log`.spawned;
+const systemLog = await $`journalctl -f`.spawned;
+
+aggregator.addSource('app', appLog.stdout);
+aggregator.addSource('nginx', nginxLog.stdout);
+aggregator.addSource('system', systemLog.stdout);
 
 // Output aggregated logs
 aggregator.pipe(process.stdout);
@@ -327,7 +389,10 @@ const processor = new JSONStreamProcessor(log => ({
   timestamp: new Date().toISOString()
 }));
 
-await $`docker logs -f container_name`
+// -f follows the log and never exits, so again read the live handle
+// rather than using ProcessPromise.pipe().
+const dockerLogs = await $`docker logs -f container_name`.spawned;
+dockerLogs.stdout
   .pipe(processor)
   .pipe(process.stdout);
 ```
@@ -400,9 +465,15 @@ const progress = new ProgressStream({
   total: 100
 });
 
-await $`npm run build:verbose`
+// A progress bar is only useful live, so read the build's output as it
+// arrives rather than through ProcessPromise.pipe(), which would deliver
+// nothing until the build had already finished.
+const build = $`npm run build:verbose`;
+const buildHandle = await build.spawned;
+buildHandle.stdout
   .pipe(progress)
   .pipe(createWriteStream('build.log'));
+await build;
 ```
 
 ## Parallel Stream Processing
@@ -463,8 +534,13 @@ class ParallelStreamProcessor {
 // Usage
 const parallelProcessor = new ParallelStreamProcessor(4);
 
+// process() expects a real Readable (it calls .on('data'/'end'/'error')),
+// not a ProcessPromise — read the live handle's stdout instead.
+const findProc = $`find . -name "*.log"`;
+const findHandle = await findProc.spawned;
+
 await parallelProcessor.process(
-  $`find . -name "*.log"`,
+  findHandle.stdout,
   async (filename) => {
     const result = await $`wc -l ${filename.trim()}`.nothrow();
     return result.stdout;
@@ -538,7 +614,10 @@ const batcher = new BatchStream({
   }
 });
 
-await $`tail -f /var/log/app.log`
+// Batching only makes sense against a live stream — read the handle
+// directly rather than through ProcessPromise.pipe().
+const tailForBatch = await $`tail -f /var/log/app.log`.spawned;
+tailForBatch.stdout
   .pipe(new Transform({
     transform(chunk, encoding, callback) {
       const lines = chunk.toString().split('\n');
@@ -643,7 +722,7 @@ class LogProcessingPipeline {
     console.log(chalk.blue('Starting log processing pipeline...'));
     
     // Create pipeline stages
-    const source = this.createSource();
+    const source = await this.createSource();
     const parser = this.createParser();
     const filter = this.createFilter();
     const enricher = this.createEnricher();
@@ -670,12 +749,17 @@ class LogProcessingPipeline {
     });
   }
   
-  createSource() {
-    if (this.config.follow) {
-      return $`tail -f ${this.config.logFile}`;
-    } else {
-      return $`cat ${this.config.logFile}`;
-    }
+  async createSource() {
+    // ProcessPromise.pipe() waits for the command to finish before writing
+    // anything, so a following `tail -f` would never reach the rest of the
+    // pipeline. Reading the live handle's stdout works for both the
+    // following and non-following case, so the rest of the pipeline can
+    // stay a plain Node stream chain either way.
+    const proc = this.config.follow
+      ? $`tail -f ${this.config.logFile}`
+      : $`cat ${this.config.logFile}`;
+    const handle = await proc.spawned;
+    return handle.stdout;
   }
   
   createParser() {
