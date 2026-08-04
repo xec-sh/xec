@@ -25,7 +25,7 @@ export interface CommandManifestEntry {
 export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
   { name: 'config', description: "Manage Xec configuration", aliases: ['conf', 'cfg'], module: 'config' },
   { name: 'copy', description: "Copy files between targets", aliases: ['cp'], module: 'copy' },
-  { name: 'docker', description: "🐳 Comprehensive Docker management using fluent API", aliases: ['d'], module: 'docker' },
+  { name: 'docker', description: "Manage Docker containers, images, networks and volumes", aliases: ['d'], module: 'docker' },
   { name: 'forward', description: "Forward ports from remote systems", aliases: ['fwd'], module: 'forward' },
   { name: 'in', description: "Execute commands in containers or Kubernetes pods", aliases: [], module: 'in' },
   { name: 'inspect', description: "Inspect and analyze xec project configuration, tasks, and resources", aliases: ['i'], module: 'inspect' },

@@ -117,7 +117,7 @@ export class DockerCommand extends SubcommandBase {
     super({
       name: 'docker',
       aliases: ['d'],
-      description: '🐳 Comprehensive Docker management using fluent API',
+      description: 'Manage Docker containers, images, networks and volumes',
       validateOptions: (options) => {
         const schema = z.object({
           profile: z.string().optional(),
@@ -1364,7 +1364,7 @@ Connect with:
       { name: 'ssh', description: '🔐 SSH - SSH server container' }
     ];
 
-    intro(prism.blue('🐳 Available Docker Services'));
+    intro(prism.blue('Available Docker services'));
 
     for (const service of services) {
       console.log(`  ${prism.cyan(service.name.padEnd(15))} ${service.description}`);
@@ -1625,7 +1625,7 @@ Connect with:
   private async quickStart(options: ConfigAwareOptions): Promise<void> {
     await this.initializeConfig(options);
 
-    intro(prism.blue('🐳 Docker Quick Start'));
+    intro(prism.blue('Docker quick start'));
 
     const serviceType = await select({
       message: 'What service would you like to start?',

@@ -48,7 +48,7 @@ interface RollbackState {
 
 // Helper to handle user cancellation
 function handleCancel(): never {
-  kit.outro(prism.yellow('✋ Release cancelled by user'));
+  kit.outro(prism.yellow('Release cancelled'));
   process.exit(0);
 }
 
@@ -421,7 +421,7 @@ async function performRollback(state: RollbackState, config: ReleaseConfig): Pro
 export function command(program: Command): void {
   program
     .command('release [version]')
-    .description('🚀 Release Xec packages with style')
+    .description('Version, publish and tag the xec packages')
     .option('-d, --dry-run', 'Perform a dry run without making changes')
     .option('--skip-git', 'Skip git operations (commit, tag, push)')
     .option('--skip-github', 'Skip GitHub release creation')
@@ -448,7 +448,7 @@ export function command(program: Command): void {
       };
       let usedChangesFile = false;
 
-      kit.intro(prism.bgMagenta(prism.black(' 🚀 Xec Release Manager ')));
+      kit.intro(prism.bgMagenta(prism.black(' xec release ')));
       kit.log.info(prism.dim('Press ESC at any prompt to cancel safely'));
 
       let config: ReleaseConfig = {
@@ -695,7 +695,7 @@ export function command(program: Command): void {
         }
 
         // Now apply all changes after collecting parameters
-        kit.log.info(prism.bold('\n🚀 Starting Release Process\n'));
+        kit.log.info(prism.bold('\nStarting the release\n'));
 
         // Step 3: Update versions
         s.start('Updating package versions...');
@@ -1094,17 +1094,17 @@ export function command(program: Command): void {
               const changelog = await generateChangelog(config.previousVersion, config.version);
 
               const releaseNotes = `
-# 🚀 Xec v${config.version}
+# Xec v${config.version}
 
 ${isPrerelease ? '**This is a pre-release version.**\n' : ''}
 
-## 📦 Packages
+## Packages
 
 - **@xec-sh/core**: v${config.version}
 - **@xec-sh/cli**: v${config.version}
 - **@xec-sh/testing**: v${config.version}
 
-## 📥 Installation
+## Installation
 
 \`\`\`bash
 # NPM
@@ -1209,7 +1209,7 @@ Created with ❤️ by Xec Release Manager
         kit.outro(prism.green(`
 ✨ Release v${config.version} completed successfully!
 
-📦 Published packages:
+Published packages:
 ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
 
 🔗 Links:
