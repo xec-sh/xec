@@ -154,7 +154,7 @@ export class DockerAdapter extends BaseAdapter {
     let containerName = dockerOptions.container;
 
     try {
-      let result: { stdout: string; stderr: string; exitCode: number; signal: string | null };
+      let result: { stdout: string; stderr: string; stdall: string; exitCode: number; signal: string | null };
 
       // Auto-detect runMode based on presence of image
       const effectiveRunMode = this.determineRunMode(dockerOptions);
@@ -238,7 +238,7 @@ export class DockerAdapter extends BaseAdapter {
         this.buildCommandString(mergedCommand),
         startTime,
         endTime,
-        { container: containerName, originalCommand: mergedCommand }
+        { container: containerName, originalCommand: mergedCommand, stdall: result.stdall }
       );
     } catch (error) {
       // Standardize timeout handling across adapters
@@ -577,17 +577,21 @@ export class DockerAdapter extends BaseAdapter {
   protected async executeDockerCommand(
     args: string[],
     command: Partial<Command>
-  ): Promise<{ stdout: string; stderr: string; exitCode: number; signal: string | null }> {
+  ): Promise<{ stdout: string; stderr: string; stdall: string; exitCode: number; signal: string | null }> {
     const timeout = command.timeout;
 
     // Kill the docker CLI once either stream blows the cap; the container
     // side of an exec is torn down with it. Filled in after spawn.
     let killOnOverflow: () => void = () => {};
 
+    // Shared sink: records both streams in observed arrival order.
+    const interleaved: Buffer[] = [];
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer,
       streamName: 'stdout',
+      interleaved,
       onOverflow: () => killOnOverflow()
     });
 
@@ -595,6 +599,7 @@ export class DockerAdapter extends BaseAdapter {
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer,
       streamName: 'stderr',
+      interleaved,
       onOverflow: () => killOnOverflow()
     });
 
@@ -700,6 +705,7 @@ export class DockerAdapter extends BaseAdapter {
           settle(resolve, {
             stdout: stdoutHandler.getContent(),
             stderr: stderrHandler.getContent(),
+            stdall: Buffer.concat(interleaved).toString(this.config.encoding),
             exitCode: exitCode ?? 0,
             signal: exitSignal
           });
@@ -754,7 +760,7 @@ export class DockerAdapter extends BaseAdapter {
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
   ): Promise<ExecutionResult> {
     // Don't call super.createResult as it will throw CommandError
     // Instead, create the result directly
@@ -773,7 +779,8 @@ export class DockerAdapter extends BaseAdapter {
       new Date(endTime),
       this.adapterName,
       context?.host,
-      context?.container
+      context?.container,
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
     );
 
     // Use originalCommand if available, otherwise fall back to command string

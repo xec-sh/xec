@@ -23,6 +23,8 @@ export interface LocalAdapterConfig extends BaseAdapterConfig {
 interface ProcessResult {
   stdout: string;
   stderr: string;
+  /** stdout and stderr in arrival order, where the runtime can observe it. */
+  stdall?: string;
   exitCode: number | null;
   signal: string | null;
 }
@@ -58,6 +60,8 @@ export class LocalAdapter extends BaseAdapter {
       const endTime = Date.now();
 
       // Use createResultNoThrow if nothrow is set, otherwise use createResult which respects throwOnNonZeroExit
+      const resultContext = { originalCommand: mergedCommand, stdall: result.stdall };
+
       if (mergedCommand.nothrow) {
         return await this.createResultNoThrow(
           result.stdout,
@@ -67,7 +71,7 @@ export class LocalAdapter extends BaseAdapter {
           this.buildCommandString(mergedCommand),
           startTime,
           endTime,
-          { originalCommand: mergedCommand }
+          resultContext
         );
       } else {
         return await this.createResult(
@@ -78,7 +82,7 @@ export class LocalAdapter extends BaseAdapter {
           this.buildCommandString(mergedCommand),
           startTime,
           endTime,
-          { originalCommand: mergedCommand }
+          resultContext
         );
       }
     } catch (error) {
@@ -226,10 +230,15 @@ export class LocalAdapter extends BaseAdapter {
     // goes through a holder that spawn() fills in below.
     let killOnOverflow: () => void = () => {};
 
+    // One sink shared by both streams records the true arrival order, which
+    // separate stdout/stderr strings cannot express.
+    const interleaved: Buffer[] = [];
+
     const stdoutHandler = new StreamHandler({
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer,
       streamName: 'stdout',
+      interleaved,
       onOverflow: () => killOnOverflow(),
       onData: progressReporter ? (data) => progressReporter.reportOutput(data) : undefined
     });
@@ -238,6 +247,7 @@ export class LocalAdapter extends BaseAdapter {
       encoding: this.config.encoding,
       maxBuffer: this.config.maxBuffer,
       streamName: 'stderr',
+      interleaved,
       onOverflow: () => killOnOverflow()
     });
 
@@ -354,6 +364,7 @@ export class LocalAdapter extends BaseAdapter {
           resolve({
             stdout: stdoutHandler.getContent(),
             stderr: stderrHandler.getContent(),
+            stdall: Buffer.concat(interleaved).toString(this.config.encoding),
             exitCode,
             signal: exitSignal
           });

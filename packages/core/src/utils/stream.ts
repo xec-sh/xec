@@ -26,6 +26,16 @@ export interface StreamHandlerOptions {
   onOverflow?: (error: MaxBufferExceededError) => void;
   /** Which stream this handler collects; names the overflow error. */
   streamName?: 'stdout' | 'stderr';
+
+  /**
+   * Shared buffer that records chunks from stdout *and* stderr in the order
+   * they actually arrived.
+   *
+   * Separate stdout/stderr strings lose that order, and for a build log or a
+   * deploy the interleaving is the story: which step was running when the
+   * error appeared. Both handlers of one command are given the same array.
+   */
+  interleaved?: Buffer[];
 }
 
 export class StreamHandler {
@@ -39,6 +49,7 @@ export class StreamHandler {
   private readonly onEnd?: () => void;
   private readonly onOverflow?: (error: MaxBufferExceededError) => void;
   private readonly streamName: 'stdout' | 'stderr';
+  private readonly interleaved?: Buffer[];
   private overflow: MaxBufferExceededError | null = null;
   private disposed = false;
 
@@ -51,6 +62,7 @@ export class StreamHandler {
     this.onEnd = options.onEnd;
     this.onOverflow = options.onOverflow;
     this.streamName = options.streamName ?? 'stdout';
+    this.interleaved = options.interleaved;
   }
 
   /**
@@ -114,6 +126,7 @@ export class StreamHandler {
 
           self.buffer.push(chunk);
           self.totalLength += chunk.length;
+          self.interleaved?.push(chunk);
 
           const str = self.decoder.write(chunk);
           if (self.onData && str) {

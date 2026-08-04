@@ -100,16 +100,21 @@ export class KubernetesAdapter extends BaseAdapter {
     // letting the pod keep streaming into a void. Filled in after spawn.
     let killOnOverflow: () => void = () => {};
 
+    // Shared sink: records both streams in observed arrival order.
+    const interleaved: Buffer[] = [];
+
     const stdoutHandler = new StreamHandler({
       maxBuffer: this.config.maxBuffer,
       encoding: this.config.encoding,
       streamName: 'stdout',
+      interleaved,
       onOverflow: () => killOnOverflow(),
     });
     const stderrHandler = new StreamHandler({
       maxBuffer: this.config.maxBuffer,
       encoding: this.config.encoding,
       streamName: 'stderr',
+      interleaved,
       onOverflow: () => killOnOverflow(),
     });
 
@@ -230,7 +235,7 @@ export class KubernetesAdapter extends BaseAdapter {
           mergedCommand.command,
           startTime,
           endTime,
-          { originalCommand: mergedCommand }
+          { originalCommand: mergedCommand, stdall: Buffer.concat(interleaved).toString(this.config.encoding) }
         );
         this.config.throwOnNonZeroExit = originalThrowOnNonZeroExit;
 

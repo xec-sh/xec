@@ -7,6 +7,7 @@ export type { ExecutionResult } from '../types/result.js';
 export class ExecutionResultImpl implements ExecutionResult {
   public readonly ok: boolean;
   public readonly cause?: string;
+  public readonly stdall: string;
 
   constructor(
     public stdout: string,
@@ -19,12 +20,20 @@ export class ExecutionResultImpl implements ExecutionResult {
     public finishedAt: Date,
     public adapter: string,
     public host?: string,
-    public container?: string
+    public container?: string,
+    /**
+     * stdout and stderr in the order they actually arrived.
+     *
+     * Falls back to stdout + stderr where the adapter cannot observe the
+     * interleaving, so the field is always usable.
+     */
+    stdall?: string
   ) {
     // A process killed by a signal reports no exit code, and coalescing that
     // to 0 made an OOM kill or an orchestrator SIGTERM indistinguishable from
     // success. A signal is never success.
     this.ok = exitCode === 0 && !signal;
+    this.stdall = stdall ?? stdout + stderr;
 
     if (!this.ok) {
       this.cause = signal ? `signal: ${signal}` : `exitCode: ${exitCode}`;

@@ -214,7 +214,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
   ): ExecutionResult {
     // Apply sensitive data masking
     const maskedStdout = this.maskSensitiveData(stdout);
@@ -232,7 +232,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       new Date(endTime),
       this.adapterName,
       context?.host,
-      context?.container
+      context?.container,
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
     );
 
 
@@ -262,7 +263,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
   ): Promise<ExecutionResult> {
     // Apply sensitive data masking
     const maskedStdout = this.maskSensitiveData(stdout);
@@ -280,7 +281,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       new Date(endTime),
       this.adapterName,
       context?.host,
-      context?.container
+      context?.container,
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
     );
 
 
@@ -315,7 +317,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
   ): Promise<ExecutionResult> {
     const maskedStdout = this.maskSensitiveData(stdout);
     const maskedStderr = this.maskSensitiveData(stderr);
@@ -332,7 +334,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       new Date(endTime),
       this.adapterName,
       context?.host,
-      context?.container
+      context?.container,
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
     );
   }
 
@@ -347,7 +350,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
     command: string,
     startTime: number,
     endTime: number,
-    context?: { host?: string; container?: string; originalCommand?: Command }
+    context?: { host?: string; container?: string; originalCommand?: Command; stdall?: string }
   ): ExecutionResult {
     const maskedStdout = this.maskSensitiveData(stdout);
     const maskedStderr = this.maskSensitiveData(stderr);
@@ -364,7 +367,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       new Date(endTime),
       this.adapterName,
       context?.host,
-      context?.container
+      context?.container,
+      context?.stdall !== undefined ? this.maskSensitiveData(context.stdall) : undefined
     );
   }
 
