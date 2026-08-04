@@ -132,6 +132,29 @@ interface CacheEntry {
  * Phase 2: Multi-user key management, team member management, key rotation, audit logging
  * Phase 3: Environment management, migration tools, backup/restore, performance optimization
  */
+
+/**
+ * Turn a member's email into a safe file name.
+ *
+ * `email.replace('@', '_at_')` left path separators intact, so an address of
+ * `../../../../tmp/EVIL` escaped the key directory and wrote an
+ * attacker-controlled file anywhere the process could reach — and removal
+ * unlinked it.
+ *
+ * @param email - The member's email address.
+ * @returns A file-name-safe encoding of it.
+ * @throws {Error} If the address cannot be encoded safely.
+ */
+function teamKeyFileName(email: string): string {
+  const encoded = email.replace(/@/g, '_at_').replace(/[^A-Za-z0-9._-]/g, '_');
+
+  if (encoded.length === 0 || encoded === '.' || encoded === '..') {
+    throw new Error(`Invalid team member email: ${JSON.stringify(email)}`);
+  }
+
+  return encoded;
+}
+
 export class GitSecretProvider implements SecretProvider {
   private repoPath: string;
   private secretsPath: string;
@@ -983,11 +1006,11 @@ export class GitSecretProvider implements SecretProvider {
     this.teamKeys.set(email, teamMember);
 
     // 5. Save public key
-    const teamKeyPath = path.join(this.keyPath, 'team', `${email.replace('@', '_at_')}.pub`);
+    const teamKeyPath = path.join(this.keyPath, 'team', `${teamKeyFileName(email)}.pub`);
     await fs.writeFile(teamKeyPath, publicKeyPem, { mode: 0o644 });
 
     // 6. Save encrypted master key
-    const encKeyPath = path.join(this.keyPath, 'team', `${email.replace('@', '_at_')}.key.enc`);
+    const encKeyPath = path.join(this.keyPath, 'team', `${teamKeyFileName(email)}.key.enc`);
     await fs.writeFile(encKeyPath, encryptedMasterKey.toString('base64'), { mode: 0o644 });
 
     // 7. Update metadata
@@ -1019,8 +1042,8 @@ export class GitSecretProvider implements SecretProvider {
     this.teamKeys.delete(email);
 
     // 2. Remove key files
-    const teamKeyPath = path.join(this.keyPath, 'team', `${email.replace('@', '_at_')}.pub`);
-    const encKeyPath = path.join(this.keyPath, 'team', `${email.replace('@', '_at_')}.key.enc`);
+    const teamKeyPath = path.join(this.keyPath, 'team', `${teamKeyFileName(email)}.pub`);
+    const encKeyPath = path.join(this.keyPath, 'team', `${teamKeyFileName(email)}.key.enc`);
 
     if (existsSync(teamKeyPath)) {
       await fs.unlink(teamKeyPath);

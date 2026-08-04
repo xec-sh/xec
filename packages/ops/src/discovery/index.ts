@@ -22,7 +22,7 @@
  * @module @xec-sh/ops/discovery
  */
 
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 export interface DiscoveredTarget {
   id: string;
@@ -75,15 +75,22 @@ export class Discovery {
     this.sources.push({
       type: 'docker',
       scan: async () => {
-        const filters: string[] = [];
-        if (opts.label) filters.push(`--filter label=${opts.label}`);
-        if (opts.name) filters.push(`--filter name=${opts.name}`);
-        if (opts.status && opts.status !== 'all') filters.push(`--filter status=${opts.status}`);
-        if (opts.network) filters.push(`--filter network=${opts.network}`);
+        // argv, never a shell string: these options come from config or CI
+        // variables, and interpolating them into a command line let
+        // `label: "x; touch OWNED; echo"` execute.
+        const args: string[] = ['ps'];
+        if (opts.status === 'all') args.push('-a');
+        if (opts.label) args.push('--filter', `label=${opts.label}`);
+        if (opts.name) args.push('--filter', `name=${opts.name}`);
+        if (opts.status && opts.status !== 'all') args.push('--filter', `status=${opts.status}`);
+        if (opts.network) args.push('--filter', `network=${opts.network}`);
+        args.push('--format', '{{json .}}');
 
         try {
-          const cmd = `docker ps ${opts.status === 'all' ? '-a' : ''} ${filters.join(' ')} --format '{{json .}}'`;
-          const output = execSync(cmd, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const output = execFileSync('docker', args, {
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
 
           return output
             .trim()
@@ -120,7 +127,7 @@ export class Discovery {
         if (opts.context) args.push(`--context=${opts.context}`);
 
         try {
-          const output = execSync(`kubectl ${args.join(' ')}`, {
+          const output = execFileSync('kubectl', args, {
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe'],
           });
