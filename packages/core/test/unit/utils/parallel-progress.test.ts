@@ -540,8 +540,10 @@ describe('Parallel Execution with Progress', () => {
         { stopOnError: false }
       );
 
-      expect(result.succeeded.length).toBe(2);
-      expect(result.failed.length).toBe(0);
+      // Both commands ran and both exited 1, so both are failures. They were
+      // previously counted as successes because their promises resolved.
+      expect(result.succeeded.length).toBe(0);
+      expect(result.failed.length).toBe(2);
       result.results.forEach(r => {
         expect((r as ExecutionResult).exitCode).toBe(1);
       });

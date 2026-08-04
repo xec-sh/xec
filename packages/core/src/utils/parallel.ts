@@ -3,6 +3,8 @@ import type { ExecutionResult } from '../core/result.js';
 import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ProcessPromise, ExecutionEngine } from '../core/execution-engine.js';
 
+import { CommandError } from '../core/error.js';
+
 export interface ParallelOptions {
   /**
    * How many commands may run at once.
@@ -26,8 +28,17 @@ export interface ParallelOptions {
 
 export interface ParallelResult {
   results: (ExecutionResult | Error)[];
+  /** Commands that ran and exited zero. */
   succeeded: ExecutionResult[];
-  failed: Error[];
+  /**
+   * Commands that did not.
+   *
+   * Holds an ExecutionResult for a command that ran and exited non-zero, and
+   * an Error for one that could not run at all. Sorting by whether the promise
+   * settled instead put every `.nothrow()` failure in `succeeded` — and
+   * `.nothrow()` is exactly what you use to reach every host in a rollout.
+   */
+  failed: (ExecutionResult | Error)[];
   duration: number;
 }
 
@@ -47,7 +58,21 @@ export async function parallel(
   const startTime = Date.now();
   const results: (ExecutionResult | Error)[] = [];
   const succeeded: ExecutionResult[] = [];
-  const failed: Error[] = [];
+  const failed: (ExecutionResult | Error)[] = [];
+
+  /**
+   * A command counts as succeeded only if it exited zero and was not signalled.
+   *
+   * `ok` is computed by the result implementation, but a custom engine may
+   * return a plain object without it, so fall back to the same rule rather
+   * than reading `undefined` as failure.
+   */
+  const record = (result: ExecutionResult): boolean => {
+    const ok = result.ok ?? (result.exitCode === 0 && !result.signal);
+
+    (ok ? succeeded : failed).push(result);
+    return ok;
+  };
 
   // Helper to check if an object is a ProcessPromise
   const isProcessPromise = (obj: any): obj is ProcessPromise =>
@@ -73,7 +98,7 @@ export async function parallel(
 
       if (result && result.status === 'fulfilled') {
         results.push(result.value);
-        succeeded.push(result.value);
+        if (!record(result.value) && stopOnError) break;
       } else if (result && result.status === 'rejected') {
         results.push(result.reason);
         failed.push(result.reason);
@@ -110,7 +135,9 @@ export async function parallel(
           result = await executeWithTimeout(engine, normalizedCmd, timeout);
         }
         results[currentIndex] = result;
-        succeeded.push(result);
+        if (!record(result) && stopOnError) {
+          shouldStop = true;
+        }
       } catch (error) {
         results[currentIndex] = error as Error;
         failed.push(error as Error);
@@ -172,7 +199,21 @@ export class ParallelEngine {
     const result = await parallel(commands, this.engine, { ...options, stopOnError: true });
 
     if (result.failed.length > 0) {
-      throw result.failed[0];
+      const first = result.failed[0]!;
+
+      // `failed` now also holds results of commands that ran and exited
+      // non-zero, and throwing one of those would hand the caller a value
+      // that is not an Error.
+      throw first instanceof Error
+        ? first
+        : new CommandError(
+          first.command,
+          first.exitCode,
+          first.signal,
+          first.stdout,
+          first.stderr,
+          first.duration
+        );
     }
 
     return result.succeeded;

@@ -209,11 +209,12 @@ describe('Parallel Utils', () => {
           failPromise
         ]);
 
-        // Both should succeed because nothrow() prevents throwing
-        expect(result.succeeded).toHaveLength(2);
-        expect(result.failed).toHaveLength(0);
+        // nothrow() stops the failure from throwing, not from being a failure:
+        // both commands run, and the one that exited 1 is still a failure.
+        expect(result.succeeded).toHaveLength(1);
+        expect(result.failed).toHaveLength(1);
         expect(result.succeeded[0]?.stdout).toBe('ok');
-        expect(result.succeeded[1]?.exitCode).toBe(1);
+        expect(result.failed[0]).toMatchObject({ exitCode: 1 });
       });
 
       it('should handle ProcessPromise in race()', async () => {
