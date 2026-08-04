@@ -36,6 +36,19 @@ export class StreamHandler {
     this.onEnd = options.onEnd;
   }
 
+  /**
+   * Build a Transform that collects everything written to it.
+   *
+   * The collected bytes are kept internally and read back with
+   * {@link getContent}; the readable side exists only so the stream can also
+   * be piped onward. Nothing in the codebase consumes it, so it is drained
+   * below — otherwise it fills to its high-water mark, back-pressures the
+   * child's stdout into the 64 KB OS pipe, and the process deadlocks.
+   *
+   * That was not a theoretical risk: any command emitting more than 64 KB
+   * returned an EMPTY stdout with exit code 0, and beyond ~128 KB hung
+   * forever.
+   */
   createTransform(): Transform {
     const self = this;
 
@@ -116,6 +129,10 @@ export class StreamHandler {
         self.reset();
       }
     });
+
+    // Discard the readable side: this stream is a collector, and an
+    // unconsumed readable buffer is what caused the deadlock described above.
+    transform.resume();
 
     return transform;
   }
