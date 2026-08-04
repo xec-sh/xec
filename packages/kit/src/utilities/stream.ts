@@ -2,6 +2,7 @@ import type { LogMessageOptions } from './log.js';
 
 import { stripVTControlCharacters as strip } from 'node:util';
 
+import { settings } from '../core/index.js';
 import prism from '../prism/index.js';
 import { S_BAR, S_INFO, S_WARN, S_ERROR, S_SUCCESS, S_STEP_SUBMIT } from './common.js';
 
@@ -36,7 +37,7 @@ export const stream = {
     process.stdout.write('\n');
   },
   info: (iterable: Iterable<string> | AsyncIterable<string>) =>
-    stream.message(iterable, { symbol: prism.blue(S_INFO) }),
+    stream.message(iterable, { symbol: settings.theme.info(S_INFO) }),
   success: (iterable: Iterable<string> | AsyncIterable<string>) =>
     stream.message(iterable, { symbol: prism.green(S_SUCCESS) }),
   step: (iterable: Iterable<string> | AsyncIterable<string>) =>

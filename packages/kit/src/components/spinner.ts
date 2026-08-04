@@ -114,7 +114,7 @@ export const spinner = ({
     delay = unicode ? frameSet.delay.unicode : frameSet.delay.ascii;
   }
 
-  const defaultStyleFrame = styleFrame ?? ((frame: string) => prism.magenta(frame));
+  const defaultStyleFrame = styleFrame ?? ((frame: string) => settings.theme.activity(frame));
   const isCI = isCIFn();
 
   let unblock: () => void;

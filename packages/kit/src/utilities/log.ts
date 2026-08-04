@@ -52,7 +52,7 @@ export const log = {
     output.write(`${parts.join('\n')}\n`);
   },
   info: (message: string, opts?: LogMessageOptions) => {
-    log.message(message, { ...opts, symbol: prism.blue(S_INFO) });
+    log.message(message, { ...opts, symbol: settings.theme.info(S_INFO) });
   },
   success: (message: string, opts?: LogMessageOptions) => {
     log.message(message, { ...opts, symbol: prism.green(S_SUCCESS) });

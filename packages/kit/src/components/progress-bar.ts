@@ -1,5 +1,6 @@
 import type { State } from '../core/index.js';
 
+import { settings } from '../core/index.js';
 import prism from '../prism/index.js';
 import { unicodeOr } from '../utilities/common.js';
 import { spinner, type SpinnerResult, type SpinnerOptions } from './spinner.js';
@@ -44,14 +45,14 @@ export function progress({
     switch (state) {
       case 'initial':
       case 'active':
-        return prism.magenta;
+        return settings.theme.activity;
       case 'error':
       case 'cancel':
         return prism.red;
       case 'submit':
         return prism.green;
       default:
-        return prism.magenta;
+        return settings.theme.activity;
     }
   };
   const drawProgress = (state: State, msg: string) => {

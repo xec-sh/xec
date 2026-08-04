@@ -1,6 +1,7 @@
 import type { State } from '../core/index.js';
 import type { Readable, Writable } from 'node:stream';
 
+import { settings } from '../core/index.js';
 import prism from '../prism/index.js';
 import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
 
@@ -43,7 +44,7 @@ export const symbol = (state: State) => {
   switch (state) {
     case 'initial':
     case 'active':
-      return prism.cyan(S_STEP_ACTIVE);
+      return settings.theme.accent(S_STEP_ACTIVE);
     case 'cancel':
       return prism.red(S_STEP_CANCEL);
     case 'error':
@@ -59,7 +60,7 @@ export const symbolBar = (state: State) => {
   switch (state) {
     case 'initial':
     case 'active':
-      return prism.cyan(S_BAR);
+      return settings.theme.accent(S_BAR);
     case 'cancel':
       return prism.red(S_BAR);
     case 'error':
