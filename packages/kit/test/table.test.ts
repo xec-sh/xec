@@ -1,8 +1,8 @@
 import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach } from 'vitest';
 
 import * as prompts from '../src/index.js';
-import { prism as colors } from '../src/index.js';
 import { MockWritable } from './test-utils.js';
+import { prism as colors } from '../src/index.js';
 
 describe.each(['true', 'false'])('table (isCI = %s)', (isCI) => {
   let originalCI: string | undefined;
