@@ -362,7 +362,18 @@ async function runScriptDirectly(scriptPath: string, args: string[], options: an
 
 async function evalCodeDirectly(code: string, args: string[], options: any) {
   const { evaluateCode } = await import('@xec-sh/ops');
-  await evaluateCode(code, { ...options, context: { args } });
+
+  // evaluateCode reports failure in its return value rather than throwing, and
+  // ignoring that made `xec -e` exit 0 whatever the code did — so in CI a
+  // failed step was a green step and the pipeline went on to deploy.
+  // `xec run script.ts` already exited 1 on the same failure; the two ways of
+  // running code disagreed about what failure means.
+  const result = await evaluateCode(code, { ...options, context: { args } }) as
+    { success?: boolean; error?: unknown } | undefined;
+
+  if (result?.success === false) {
+    throw result.error ?? new Error('Evaluation failed');
+  }
 }
 
 async function startReplDirectly(options: any) {
