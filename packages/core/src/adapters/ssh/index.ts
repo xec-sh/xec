@@ -10,6 +10,7 @@ import { SecurePasswordHandler } from './secure-password.js';
 import { Command, SSHAdapterOptions } from '../../types/command.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { NodeSSH, Config as SSH2Config, SSHExecCommandResponse } from './ssh.js';
+import { classifyFailure } from '../../core/failure-kind.js';
 import { AdapterError, TimeoutError, ConnectionError } from '../../core/error.js';
 import { PooledConnectionMetrics, ConnectionPoolMetricsCollector } from './connection-pool-metrics.js';
 
@@ -201,7 +202,59 @@ export class SSHAdapter extends BaseAdapter {
     }
   }
 
+  /**
+   * Execute a command, recovering once from a transport that died in flight.
+   *
+   * A pooled connection is validated when it is handed out, but it can still
+   * go away mid-command — the server restarts sshd, a NAT table drops the
+   * flow, the network blips. Previously that surfaced as a plain failure and
+   * every caller had to detect it and retry, which one production consumer
+   * did by regex-matching error text. Doing it here means the pool owns its
+   * own liveness.
+   *
+   * Only transport failures are retried, and only once: re-running a command
+   * that already reached the server risks executing it twice.
+   */
   async execute(command: Command): Promise<ExecutionResult> {
+    try {
+      return await this.executeOnce(command);
+    } catch (error) {
+      const sshOptions = this.extractSSHOptions(this.mergeCommand(command));
+
+      if (!sshOptions || !this.shouldRetryOnFreshConnection(error)) {
+        throw error;
+      }
+
+      // Drop the dead connection so the retry cannot be handed the same one.
+      this.removeFromPool(this.getConnectionKey(sshOptions));
+
+      this.emitAdapterEvent('ssh:reconnect', {
+        host: sshOptions.host,
+        attempts: 1
+      });
+
+      return this.executeOnce(command);
+    }
+  }
+
+  /**
+   * Decide whether a failure is worth one retry on a fresh connection.
+   *
+   * Deliberately narrow: a command that failed on its own merits, a rejected
+   * credential or a mismatched host key must not be retried.
+   */
+  private shouldRetryOnFreshConnection(error: unknown): boolean {
+    if (error instanceof TimeoutError) {
+      // The command may still be running remotely; re-issuing it could run it
+      // a second time.
+      return false;
+    }
+
+    const cause = error instanceof ConnectionError ? error.originalError : error;
+    return classifyFailure(cause) === 'connection-lost';
+  }
+
+  private async executeOnce(command: Command): Promise<ExecutionResult> {
     const mergedCommand = this.mergeCommand(command);
     const sshOptions = this.extractSSHOptions(mergedCommand);
 
