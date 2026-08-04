@@ -1150,8 +1150,6 @@ exports[`taskLog (isCI = true) > error > clears output if showLog = false 1`] = 
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  some error!
 ",
@@ -1166,8 +1164,6 @@ exports[`taskLog (isCI = true) > error > renders output with message 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  some error!
 ",
@@ -1186,15 +1182,6 @@ exports[`taskLog (isCI = true) > group > applies limit per group 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1206,13 +1193,6 @@ exports[`taskLog (isCI = true) > group > can render multiple groups of different
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1224,15 +1204,6 @@ exports[`taskLog (isCI = true) > group > can render multiple groups of equal siz
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1255,7 +1226,6 @@ exports[`taskLog (isCI = true) > group > renders error state 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1267,7 +1237,6 @@ exports[`taskLog (isCI = true) > group > renders group error state 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1279,7 +1248,6 @@ exports[`taskLog (isCI = true) > group > renders group success state 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1291,7 +1259,6 @@ exports[`taskLog (isCI = true) > group > renders success state 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1303,16 +1270,6 @@ exports[`taskLog (isCI = true) > group > showLog shows all groups in order 1`] =
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  overall error
 ",
@@ -1343,7 +1300,6 @@ exports[`taskLog (isCI = true) > message > can write line by line 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1366,8 +1322,6 @@ exports[`taskLog (isCI = true) > message > enforces limit if set 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1379,8 +1333,6 @@ exports[`taskLog (isCI = true) > message > prints empty lines 1`] = `
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1392,8 +1344,6 @@ exports[`taskLog (isCI = true) > message > raw = true appends message text until
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1405,8 +1355,6 @@ exports[`taskLog (isCI = true) > message > raw = true works when mixed with non-
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1418,8 +1366,6 @@ exports[`taskLog (isCI = true) > message > raw = true works when started with no
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
 ]
 `;
 
@@ -1431,10 +1377,6 @@ exports[`taskLog (isCI = true) > retainLog > error > outputs limited log with li
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  woo!
 ",
@@ -1453,10 +1395,6 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = false outputs f
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  woo!
 ",
@@ -1477,10 +1415,6 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = false outputs l
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  woo!
 ",
@@ -1499,10 +1433,6 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = true outputs fu
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  woo!
 ",
@@ -1523,10 +1453,6 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = true outputs fu
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <red>■</fg>  woo!
 ",
@@ -1547,10 +1473,6 @@ exports[`taskLog (isCI = true) > retainLog > success > outputs limited log with 
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  woo!
 ",
@@ -1569,10 +1491,6 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = false outputs
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  woo!
 ",
@@ -1593,10 +1511,6 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = false outputs
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  woo!
 ",
@@ -1615,10 +1529,6 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = true outputs 
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  woo!
 ",
@@ -1639,10 +1549,6 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = true outputs 
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  woo!
 ",
@@ -1663,8 +1569,6 @@ exports[`taskLog (isCI = true) > success > clears output and renders message 1`]
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  success!
 ",
@@ -1679,8 +1583,6 @@ exports[`taskLog (isCI = true) > success > renders output if showLog = true 1`] 
 ",
   "<dim>│</fg>
 ",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<dim>│</fg>
 <green>◆</fg>  success!
 ",

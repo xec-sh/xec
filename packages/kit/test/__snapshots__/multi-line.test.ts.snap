@@ -1,0 +1,1071 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`multiline (isCI = false) > CJK and emoji input keeps characters intact 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你😀█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你[7m😀[27m",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你😀█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  你😀
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>你😀</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > can be aborted by a signal 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > can cancel 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > cursor moves between lines while editing 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  a█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  ab█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  ab
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  c█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  a[7mb[27m
+<cyan>│</fg>  c
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  az[7mb[27m",
+  "<cursor.down count=3>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  azb
+<cyan>│</fg>  c█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.down>",
+  "<cyan>│</fg>  c
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>azb</bold>
+<dim>│</fg>  <dim>c</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > defaultValue sets the value but does not render 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>bar</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > empty string when no value and no default 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > enter inserts a newline and double enter submits 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  y█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.down>",
+  "<cyan>│</fg>  y
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>x</bold>
+<dim>│</fg>  <dim>y</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > initialValue renders and submits unchanged 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  hello
+<cyan>│</fg>  world█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.down>",
+  "<cyan>│</fg>  world
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>hello</bold>
+<dim>│</fg>  <dim>world</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > placeholder is not used as value when pressing enter 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m [27m<dim> (hit Enter to use default)</bold>
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>default-value</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > renders cancelled multi-line value if one set 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  y█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<dim>│</fg>  [9m<dim>x</bold>[29m
+<dim>│</fg>  [9m<dim>y</bold>[29m
+<dim>│</fg>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > renders message 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > renders placeholder if set 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7mb[27m<dim>ar</bold>
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > showSubmit submits through the button with tab 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+  <dim>[ submit ]</bold>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=3>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+  <dim>[ submit ]</bold>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  y█",
+  "<cursor.down count=3>",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=5>",
+  "<erase.line><cursor.left count=1>",
+  "  <cyan>[ submit ]</fg>",
+  "<cursor.down count=1>",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>x</bold>
+<dim>│</fg>  <dim>y</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > validation errors render and clear (using Error) 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<yellow>▲</fg>  foo
+<yellow>│</fg>  x█
+<yellow>└</fg>  <yellow>should be xy</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<cyan>◆</fg>  foo
+<cyan>│</fg>  xy█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  xy
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>xy</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = false) > validation errors render and clear 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<yellow>▲</fg>  foo
+<yellow>│</fg>  x█
+<yellow>└</fg>  <yellow>should be xy</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<cyan>◆</fg>  foo
+<cyan>│</fg>  xy█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  xy
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>xy</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > CJK and emoji input keeps characters intact 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你😀█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你[7m😀[27m",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  你😀█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  你😀
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>你😀</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > can be aborted by a signal 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > can cancel 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > cursor moves between lines while editing 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  a█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  ab█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  ab
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  c█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  a[7mb[27m
+<cyan>│</fg>  c
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  az[7mb[27m",
+  "<cursor.down count=3>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  azb
+<cyan>│</fg>  c█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.down>",
+  "<cyan>│</fg>  c
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>azb</bold>
+<dim>│</fg>  <dim>c</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > defaultValue sets the value but does not render 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>bar</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > empty string when no value and no default 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > enter inserts a newline and double enter submits 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  y█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.down>",
+  "<cyan>│</fg>  y
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>x</bold>
+<dim>│</fg>  <dim>y</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > initialValue renders and submits unchanged 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  hello
+<cyan>│</fg>  world█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.down>",
+  "<cyan>│</fg>  world
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>hello</bold>
+<dim>│</fg>  <dim>world</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > placeholder is not used as value when pressing enter 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m [27m<dim> (hit Enter to use default)</bold>
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>default-value</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > renders cancelled multi-line value if one set 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  y█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<dim>│</fg>  [9m<dim>x</bold>[29m
+<dim>│</fg>  [9m<dim>y</bold>[29m
+<dim>│</fg>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > renders message 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > renders placeholder if set 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7mb[27m<dim>ar</bold>
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  ",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > showSubmit submits through the button with tab 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+  <dim>[ submit ]</bold>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=3>",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+  <dim>[ submit ]</bold>
+",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=3>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  y█",
+  "<cursor.down count=3>",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=5>",
+  "<erase.line><cursor.left count=1>",
+  "  <cyan>[ submit ]</fg>",
+  "<cursor.down count=1>",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>x</bold>
+<dim>│</fg>  <dim>y</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > validation errors render and clear (using Error) 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<yellow>▲</fg>  foo
+<yellow>│</fg>  x█
+<yellow>└</fg>  <yellow>should be xy</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<cyan>◆</fg>  foo
+<cyan>│</fg>  xy█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  xy
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>xy</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;
+
+exports[`multiline (isCI = true) > validation errors render and clear 1`] = `
+[
+  "<cursor.hide>",
+  "<dim>│</fg>
+<cyan>◆</fg>  foo
+<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.line><cursor.left count=1>",
+  "<cyan>│</fg>  x█",
+  "<cursor.down count=2>",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  x
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<yellow>▲</fg>  foo
+<yellow>│</fg>  x█
+<yellow>└</fg>  <yellow>should be xy</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<cyan>◆</fg>  foo
+<cyan>│</fg>  xy█
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=2>",
+  "<erase.down>",
+  "<cyan>│</fg>  xy
+<cyan>│</fg>  █
+<cyan>└</fg>
+",
+  "<cursor.backward count=999><cursor.up count=5>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<green>◇</fg>  foo
+<dim>│</fg>  <dim>xy</bold>",
+  "
+",
+  "<cursor.show>",
+]
+`;

@@ -19,6 +19,7 @@ export { default as ConfirmPrompt } from './prompts/confirm.js';
 export { default as PasswordPrompt } from './prompts/password.js';
 export { default as SelectKeyPrompt } from './prompts/select-key.js';
 export type { DateParts, DateFormatConfig } from './prompts/date.js';
+export { default as MultiLinePrompt } from './prompts/multi-line.js';
 export { default as MultiSelectPrompt } from './prompts/multi-select.js';
 export { default as AutocompletePrompt } from './prompts/autocomplete.js';
 export { default as GroupMultiSelectPrompt } from './prompts/group-multiselect.js';

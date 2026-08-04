@@ -20,8 +20,9 @@ export * from './utilities/stream.js';
 export * from './prompts/select-key.js';
 export * from './components/spinner.js';
 export * from './utilities/messages.js';
-export * from './components/task-log.js';
+export * from './prompts/multi-line.js';
 
+export * from './components/task-log.js';
 export * from './prompts/multi-select.js';
 export * from './prompts/autocomplete.js';
 export * from './components/progress-bar.js';
