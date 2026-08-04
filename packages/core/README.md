@@ -6,6 +6,8 @@
 npm install @xec-sh/core
 ```
 
+Status: alpha. The API may change between minor versions until 1.0.
+
 ## The idea
 
 ```typescript
@@ -105,7 +107,7 @@ Enforced by tests, not aspirational:
 ## Utilities
 
 ```typescript
-import { parallel, within, withTempDir, sleep, glob } from '@xec-sh/core';
+import { parallel, within, sleep, glob } from '@xec-sh/core';
 
 await parallel(['build A', 'build B'].map(t => $`run ${t}`), { maxConcurrent: 2 });
 
@@ -114,16 +116,19 @@ await within(async () => {
   await $`npm test`;                 // scoped configuration
 });
 
-await withTempDir(async dir => { /* auto-cleaned */ });
+await $.withTempDir(async dir => {
+  await $`unzip release.zip -d ${dir}`;   // dir is a path; removed afterwards
+});
 
 $.verbose = true;                    // echo each command (redacted) to stderr
 ```
 
 ## Dependencies
 
-`ssh2`, `js-yaml`, `zod` — nothing else. Docker and Kubernetes adapters speak
-the `docker`/`kubectl` CLIs, so behaviour matches what you would get by hand,
-and both load lazily. Works on Node.js 20+, Bun and Deno.
+One runtime dependency: `ssh2`, and it is not loaded until an SSH target is
+first used — importing the package pulls in Node builtins only. Docker and
+Kubernetes adapters speak the `docker`/`kubectl` CLIs, so behaviour matches
+what you would get by hand, and both load lazily. Works on Node.js 20+ and Bun.
 
 ## License
 

@@ -1,17 +1,19 @@
 # @xec-sh/loader
 
-Script loading and module system with TypeScript transformation, CDN module loading, and REPL support.
-
-## Install
+Script loading for Xec: run TypeScript files with esbuild transformation,
+evaluate inline code with top-level await, load modules from CDNs with
+integrity checking, and host a REPL.
 
 ```bash
-pnpm add @xec-sh/loader
+npm install @xec-sh/loader
 ```
 
-## Quick Start
+Status: alpha. The API may change between minor versions until 1.0.
+
+## Executing scripts and code
 
 ```typescript
-import { ScriptExecutor, CodeEvaluator, ModuleLoader } from '@xec-sh/loader';
+import { ScriptExecutor, CodeEvaluator } from '@xec-sh/loader';
 
 // Execute a TypeScript file
 const executor = new ScriptExecutor();
@@ -25,97 +27,109 @@ await evaluator.evaluateCode(`
   const res = await fetch('https://api.example.com/data');
   console.log(await res.json());
 `);
+```
 
-// Load modules from CDNs
+## CDN modules
+
+```typescript
+import { ModuleLoader } from '@xec-sh/loader';
+
 const loader = new ModuleLoader({ preferredCDN: 'esm.sh' });
 const lodash = await loader.import('npm:lodash@4.17.21');
 const std = await loader.import('jsr:@std/path@1.0.0');
 ```
 
+Specifier prefixes: `npm:`, `jsr:`, `esm:`, `unpkg:`, `skypack:`, `jsdelivr:`,
+plus direct `https:` URLs. Fetched modules are cached on disk and verified
+against a lockfile of content hashes by default, so a CDN serving different
+bytes for the same URL fails loudly instead of executing. The policy is
+configurable via the loader's `integrity` option (`lockfile` | `strict` | `off`,
+plus an allowed-host list).
+
+## Streaming execution
+
 ```typescript
-import { REPLServer, FileWatcher, PluginManager } from '@xec-sh/loader';
+import { streamExecute, streamLines } from '@xec-sh/loader';
+
+// Callback form: resolves with { exitCode, signal, duration }
+const { exitCode } = await streamExecute('./long-task.ts', {
+  onStdout: (line) => process.stdout.write(line + '\n'),
+  onStderr: (line) => process.stderr.write(line + '\n'),
+});
+
+// Async-iterator form: events of { type: 'stdout' | 'stderr', line, timestamp }
+for await (const event of streamLines('./script.ts')) {
+  if (event.type === 'stdout') console.log(event.line);
+}
+```
+
+## Watching, REPL, globals
+
+```typescript
+import { watchFiles, FileWatcher, REPLServer, GlobalInjector } from '@xec-sh/loader';
+
+// One-call watcher; returns a stop function
+const stop = watchFiles('./src', (event) => {
+  console.log(`${event.type}: ${event.path}`);   // 'add' | 'change' | 'unlink'
+}, { debounce: 300, extensions: ['.ts'] });
+
+// Or the class form, an EventEmitter over node:fs watchers
+const watcher = new FileWatcher('./src', { debounce: 300 });
+watcher.on('change', (event) => console.log(event.relativePath));
+watcher.start();
 
 // Interactive REPL
 const repl = new REPLServer({ prompt: 'xec> ', includeBuiltins: true });
 repl.start();
 
-// File watching with debounce
-const watcher = new FileWatcher();
-watcher.watch('./src', { debounce: 300 }, (event) => {
-  console.log(`${event.type}: ${event.path}`);
+// Inject globals for a function call, restore them afterwards
+const injector = new GlobalInjector({ globals: { VERSION: '1.0.0' } });
+await injector.execute(async () => {
+  console.log(globalThis.VERSION);   // '1.0.0'
 });
+// VERSION is removed again here
+```
 
-// Plugin system with lifecycle hooks
+## Plugins
+
+```typescript
+import { PluginManager } from '@xec-sh/loader';
+
 const plugins = new PluginManager();
 plugins.register({
   name: 'my-plugin',
-  setup: async (ctx) => { /* initialize */ },
+  setup: async () => { /* initialize */ },
   teardown: async () => { /* cleanup */ },
   resolveSpecifier: (spec) => spec.replace('@my/', 'https://cdn.my.dev/'),
-  transformCode: (code) => code,
-  beforeExecute: async (ctx) => { /* pre-exec */ },
-  afterExecute: async (ctx, result) => { /* post-exec */ },
-  onError: async (error) => { /* handle error */ },
+  transformCode: (code, filename) => code,
+  beforeExecute: async (scriptPath) => true,          // false skips execution
+  afterExecute: async (scriptPath, success) => { },
+  onError: async (error, scriptPath) => error,        // may replace the error
 });
 ```
 
-```typescript
-import { streamExecute, streamLines, GlobalInjector } from '@xec-sh/loader';
-
-// Streaming execution
-for await (const event of streamExecute('./long-task.ts')) {
-  if (event.type === 'stdout') process.stdout.write(event.data);
-}
-
-// Stream lines from execution
-for await (const line of streamLines('./script.ts')) {
-  console.log(line);
-}
-
-// Global injection with automatic cleanup
-const injector = new GlobalInjector({ globals: { VERSION: '1.0.0' } });
-await injector.execute(async () => {
-  console.log(globalThis.VERSION); // '1.0.0'
-});
-// globals are restored after execution
-```
-
-## API
+## Exports
 
 | Export | Description |
 |--------|-------------|
 | `ScriptExecutor` | Execute TypeScript/JavaScript files with context injection |
-| `CodeEvaluator` | Evaluate inline code with TypeScript support |
-| `ModuleLoader` | Load modules from CDN, local, or node_modules |
-| `REPLServer` / `REPLCommands` | Interactive REPL with extensible commands |
-| `FileWatcher` / `watchFiles` | Native fs.watch file watcher with debounce |
-| `PluginManager` | Plugin system with lifecycle hooks |
-| `streamExecute` / `streamLines` | Streaming script execution |
-| `GlobalInjector` / `createInjector` | Safe global variable injection and restoration |
-| `ScriptRuntime` / `createRuntime` | Runtime utilities (cd, pwd, env, retry, within) |
-| `TypeScriptTransformer` | TypeScript-to-JS transformation via esbuild |
+| `CodeEvaluator` | Evaluate inline code with top-level await |
+| `ModuleLoader` | Load modules from CDN, local files, or node_modules; integrity-checked |
+| `REPLServer` / `REPLCommands` | REPL with extensible commands |
+| `FileWatcher` / `watchFiles` | Debounced watcher over `node:fs` `watch` |
+| `PluginManager` | Lifecycle hooks around resolution, transform, and execution |
+| `streamExecute` / `streamLines` | Line-streamed script execution |
+| `GlobalInjector` / `createInjector` | Scoped global injection with restoration |
+| `ScriptRuntime` / `createRuntime` | Runtime helpers for scripts (`cd`, `pwd`, `env`, `retry`, `within`) |
+| `TypeScriptTransformer` | esbuild-based TS-to-JS transformation |
 | `ImportTransformer` | Import path rewriting for ESM compatibility |
-| `CDNModuleResolver` | Resolve modules from esm.sh, jsr.io, unpkg, skypack, jsdelivr |
-| `NodeModuleResolver` / `LocalModuleResolver` | Resolve from node_modules or local files |
-| `MemoryCache` | In-memory LRU cache with TTL |
-| `FileSystemCache` | Persistent disk cache with TTL |
-| `HybridCache` | Combined memory + filesystem caching |
-| `ExecutionContext` | Execution context for scripts |
+| `CDNModuleResolver` / `NodeModuleResolver` / `LocalModuleResolver` | Resolution strategies (esm.sh, jsr.io, unpkg, skypack, jsdelivr) |
+| `MemoryCache` / `FileSystemCache` / `HybridCache` | Module caches: LRU in memory, TTL on disk, or both |
+| `ExecutionContext` | Execution context passed to scripts |
 
-## Features
+## Dependencies
 
-- Execute TypeScript and JavaScript files with automatic esbuild transformation
-- Evaluate inline code with top-level await support
-- CDN module loading from esm.sh, jsr.io, unpkg, skypack, and jsdelivr
-- Module specifiers: `npm:`, `esm:`, `jsr:`, `unpkg:`, `skypack:`, `jsdelivr:`, direct URLs
-- Caching: MemoryCache (LRU), FileSystemCache (TTL), HybridCache (combined)
-- Interactive REPL with extensible command system and built-in commands
-- FileWatcher using native fs.watch with configurable debounce
-- Plugin system with hooks: setup, teardown, resolver, transformCode, resolveSpecifier, beforeExecute, afterExecute, onError
-- Streaming execution with `streamExecute` and `streamLines`
-- GlobalInjector for safe global variable injection with automatic restoration
-- Import path transformation for ESM compatibility
-- Local and node_modules module resolution
+`@xec-sh/kit` and `esbuild`.
 
 ## License
 

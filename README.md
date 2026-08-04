@@ -5,6 +5,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/npm/l/@xec-sh/core.svg)](https://github.com/xec-sh/xec/blob/main/LICENSE)
 
+Status: alpha. The API may change between minor versions until 1.0.
+
 ```typescript
 import { $ } from '@xec-sh/core';
 
@@ -39,7 +41,7 @@ machine. **Xec is the same `$` across all four.**
 
 ## The contract
 
-These are not aspirations; each is enforced by tests in this repository.
+Each of these is enforced by a test in this repository.
 
 - **Interpolation is safe by default.** `` $`rm ${userInput}` `` quotes the value;
   it cannot alter the structure of the command. `$.raw` exists for when you mean it.
@@ -96,7 +98,7 @@ await $.k8s('production/api').pod('api-7f9d').follow(line => audit(line));
 
 | Package | What it is |
 |---------|------------|
-| **[@xec-sh/core](packages/core)** | The execution engine: `$`, adapters, pooling, masking. Depends on `ssh2`, `js-yaml`, `zod` — nothing else. |
+| **[@xec-sh/core](packages/core)** | The execution engine: `$`, adapters, pooling, masking. One runtime dependency (`ssh2`), loaded only when an SSH target is used. |
 | **[@xec-sh/cli](apps/xec)** | `xec` command: run scripts and tasks against configured targets. |
 | **[@xec-sh/ops](packages/ops)** | Deploy strategies, pipelines, health checks, secrets, discovery. |
 | **[@xec-sh/kit](packages/kit)** | Terminal UI: prompts, spinners, tables, colors. |
@@ -112,8 +114,8 @@ pnpm add -g @xec-sh/cli   # the CLI
 
 ```bash
 xec on deploy@prod-1 'systemctl restart app'   # SSH
-xec in postgres-main 'pg_dump mydb'            # Docker
-xec in production/api-7f9d 'cat app.log'       # Kubernetes
+xec in postgres-main 'pg_dump mydb'            # Docker container by name
+xec in pods.api 'cat /var/log/app.log'         # Kubernetes pod from config
 xec run script.ts                              # TypeScript script with $ in scope
 xec forward hosts.prod 8080:80                 # port forwarding, incl. reverse (-r)
 ```

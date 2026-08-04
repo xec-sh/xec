@@ -3,6 +3,8 @@ import type { ExecutionEngine } from '../core/execution-engine.js';
 import { createInterface } from 'node:readline';
 import { Readable, Writable } from 'node:stream';
 
+import { unrefTimer } from './unref-timer.js';
+
 export interface QuestionOptions {
   defaultValue?: string;
   choices?: string[];
@@ -313,7 +315,7 @@ export class Spinner {
     }, 80);
     // Don't keep the process alive just for the spinner animation
     if (this.interval && typeof this.interval.unref === 'function') {
-      this.interval.unref();
+      unrefTimer(this.interval);
     }
   }
 

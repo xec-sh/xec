@@ -16,12 +16,12 @@ import type {
   UNIXConnectionDetails,
 } from 'ssh2'
 
-import fsPath from 'path'
-import stream from 'stream'
-import fs from 'fs/promises'
-import { createRequire } from 'module'
-import { constants as fsConstants } from 'fs'
-import invariant, { AssertionError } from 'assert'
+import fsPath from 'node:path'
+import stream from 'node:stream'
+import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { constants as fsConstants } from 'node:fs'
+import invariant, { AssertionError } from 'node:assert'
 
 /**
  * Load ssh2 on first connection instead of at import time.
@@ -1037,7 +1037,7 @@ export class NodeSSH {
     const localPort = options.localPort || 0; // 0 = dynamic port
 
     // Use dynamic import for ES modules
-    const net = await import('net');
+    const net = await import('node:net');
 
     return new Promise((resolve, reject) => {
       const server = net.createServer();

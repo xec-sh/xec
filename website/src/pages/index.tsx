@@ -183,7 +183,7 @@ const CONTRACT = [
   {
     title: 'A cached result belongs to its target',
     body:
-      'Cache keys carry the host, container, pod, namespace and cluster. One machine’s answer is never served for another — the failure mode that a health check would act on.',
+      'Cache keys carry the host, container, pod, namespace and cluster. One machine’s answer is never served for another, so a health check cannot report on the wrong box.',
   },
 ] as const;
 
@@ -196,9 +196,9 @@ function Contract(): React.ReactNode {
         </h2>
         <p className={styles.sectionLead}>
           <Translate id="homepage.contract.lead">
-            These are not aspirations. Each one exists in the repository as a test, because
-            a tool that runs commands on production infrastructure earns trust by being
-            specific about what it will not do to you.
+            Each of these is enforced by a test in this repository. They are written as
+            promises about what will not happen to you, because that is what you need to
+            know before running something against a production host.
           </Translate>
         </p>
 
@@ -281,7 +281,7 @@ xec forward hosts.prod 8080:80`}</code>
   );
 }
 
-/** Honest scope. Saying what a tool is not is a trust signal, not a weakness. */
+/** What the tool does not do, so nobody adopts it expecting an orchestrator. */
 function Scope(): React.ReactNode {
   return (
     <section className={styles.sectionAlt}>
@@ -324,8 +324,8 @@ function Scope(): React.ReactNode {
               </strong>{' '}
               <Translate id="homepage.scope.depsBody">
                 The execution core declares one runtime dependency, ssh2, and loads it only
-                when an SSH target is used. Local execution loads no third-party code at
-                all — measured, not assumed.
+                when an SSH target is used. Running a command locally loads no third-party
+                code at all.
               </Translate>
             </li>
           </ul>

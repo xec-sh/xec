@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/loader",
   "version": "0.9.0",
-  "description": "Universal script loader and module system for Xec",
+  "description": "TypeScript script execution, CDN module loading with integrity checks, and REPL for Xec",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

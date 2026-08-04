@@ -1,4 +1,4 @@
-import { spawn, SpawnOptions } from 'child_process';
+import { spawn, SpawnOptions } from 'node:child_process';
 
 export interface InteractiveOptions {
   cwd?: string;

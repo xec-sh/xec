@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/kit",
   "version": "0.9.0",
-  "description": "TypeScript library for building beautiful command-line interfaces",
+  "description": "Terminal prompts, spinners, tables, and colors for command-line applications",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

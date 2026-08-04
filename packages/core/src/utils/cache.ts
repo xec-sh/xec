@@ -1,7 +1,8 @@
 import type { EnhancedEventEmitter } from './event-emitter.js';
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
+import { unrefTimer } from './unref-timer.js';
 import { ExecutionResult } from '../core/result.js';
 
 /**
@@ -48,7 +49,7 @@ export class ResultCache {
     }, cleanupIntervalMs);
     
     // Don't keep process alive
-    this.cleanupInterval.unref();
+    unrefTimer(this.cleanupInterval);
   }
 
   /**

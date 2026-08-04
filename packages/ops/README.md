@@ -1,109 +1,120 @@
 # @xec-sh/ops
 
-DevOps operations library for deployments, pipelines, health checks, discovery, and configuration management.
-
-## Install
+Operations library on top of [@xec-sh/core](../core): deployments, pipelines,
+workflows, health checks, target discovery, configuration and secrets. This is
+the layer the `xec` CLI is built on; everything it does is available
+programmatically.
 
 ```bash
-pnpm add @xec-sh/ops
+npm install @xec-sh/ops
 ```
 
-## Quick Start
+Status: alpha. The API may change between minor versions until 1.0.
+
+## Deployments
 
 ```typescript
-import { Deployer, HealthChecker, Pipeline } from '@xec-sh/ops';
+import { Deployer } from '@xec-sh/ops';
 
-// Rolling deployment with health checks
-const deployer = new Deployer({
-  strategy: 'rolling',
+const deployer = Deployer.create({
+  name: 'web',
+  strategy: 'rolling',            // 'rolling' | 'blue-green' | 'canary' | 'all-at-once'
   targets: ['web-1', 'web-2', 'web-3'],
-  healthCheck: { type: 'http', url: '/health', interval: 5000 },
+  healthCheck: { url: 'http://localhost:8080/health', retries: 5, interval: 5000 },
   hooks: {
-    beforeDeploy: async (ctx) => console.log(`Deploying to ${ctx.target}`),
-    afterDeploy: async (ctx) => console.log(`Done: ${ctx.target}`),
+    deploy: async (ctx) => {
+      await ctx.exec`./deploy.sh ${ctx.target} ${ctx.version}`;
+    },
+    verify: async (ctx) => ctx.healthCheck(),
+    rollback: async (ctx) => {
+      await ctx.exec`./rollback.sh ${ctx.target} ${ctx.previousVersion}`;
+    },
   },
 });
-const result = await deployer.deploy();
+
+const result = await deployer.deploy('v1.4.2');
+// result.success, result.targets per host, result.summary
 ```
 
-```typescript
-// Pipeline with DAG dependencies and matrix builds
-const pipeline = new Pipeline({
-  steps: [
-    { name: 'lint', command: 'npm run lint' },
-    { name: 'test', command: 'npm test', dependsOn: ['lint'], retry: 2 },
-    { name: 'build', command: 'npm run build', dependsOn: ['test'],
-      matrix: { node: ['18', '20'] },
-      condition: () => process.env.CI === 'true',
-      continueOnError: false },
-  ],
-});
-const pipelineResult = await pipeline.run();
-```
+## Pipelines and workflows
 
 ```typescript
-import { Workflow, Discovery, ConfigurationManager, SecretManager } from '@xec-sh/ops';
+import { Pipeline, Workflow } from '@xec-sh/ops';
 
-// Workflow with data passing between tasks
-const workflow = new Workflow();
-workflow.task('fetch', async (ctx) => {
-  ctx.set('data', await fetchData());
-});
-workflow.task('process', async (ctx) => {
-  const data = ctx.get('data');
-  return transform(data);
-}, { dependsOn: ['fetch'], onFailure: 'skip' });
+// DAG pipeline: dependencies, retry, matrix, conditions
+const pipeline = Pipeline.create('ci')
+  .step('lint', { run: 'npm run lint' })
+  .step('test', { run: 'npm test', dependsOn: ['lint'], retry: { maxAttempts: 2 } })
+  .step('build', {
+    run: 'npm run build',
+    dependsOn: ['test'],
+    matrix: { node: ['20', '22'] },
+    condition: (ctx) => ctx.env.CI === 'true',
+  });
+const { success, steps, summary } = await pipeline.run();
+
+// Workflow: tasks passing data through a shared context
+const workflow = Workflow.create('etl')
+  .task('fetch', async (ctx) => fetchData())
+  .task('process', async (ctx) => {
+    return transform(ctx.taskOutput('fetch'));
+  }, { dependsOn: ['fetch'], continueOnError: true })
+  .onFailure(async (ctx, error) => ctx.log(`failed: ${error.message}`));
 await workflow.run();
+```
 
-// Service discovery across Docker, K8s, and SSH
-const discovery = new Discovery();
-const targets = await discovery.discover({ source: 'docker', filter: { label: 'app=web' } });
+## Discovery, configuration, secrets
 
-// Configuration with profiles and variable interpolation
-const config = new ConfigurationManager({ paths: ['.xec/config.yaml'] });
-const value = config.get('database.host');
+```typescript
+import { Discovery, ConfigurationManager, SecretManager } from '@xec-sh/ops';
 
-// Secret management
+// Find targets: Docker containers, K8s pods, SSH hosts, custom sources
+const discovery = Discovery.create()
+  .docker({ label: 'app=web', status: 'running' })
+  .kubernetes({ namespace: 'production', label: 'app=web' });
+const targets = await discovery.scan();
+// [{ id: 'docker:web-1', type: 'docker', container: 'web-1', ... }, ...]
+
+// Configuration from .xec/config.yaml with profiles and interpolation
+const config = new ConfigurationManager();
+await config.load();
+const host = config.get('database.host');
+
+// Secrets, encrypted at rest (AES-256-GCM) by the default local provider
 const secrets = new SecretManager();
 await secrets.set('API_KEY', 'secret-value');
 const key = await secrets.get('API_KEY');
 ```
 
-## API
+## Exports
 
 | Export | Description |
 |--------|-------------|
 | `Deployer` | Rolling, blue-green, canary, and all-at-once deployments |
 | `Pipeline` | DAG-based pipeline with matrix builds and conditions |
 | `Workflow` | Task workflow with data passing and failure handlers |
-| `HealthChecker` | HTTP, TCP, command, and custom health checks |
-| `Discovery` | Target discovery from Docker, K8s, SSH, custom sources |
+| `HealthChecker` | HTTP, TCP, command, and custom checks with `waitUntilHealthy` |
+| `Discovery` | Target discovery from Docker, K8s, SSH, and custom sources |
 | `RetryPolicy` / `retry` | Exponential, linear, and fixed backoff with jitter |
 | `ConfigurationManager` | Config files, profiles, variable interpolation |
-| `ConfigValidator` | Configuration validation |
-| `VariableInterpolator` | Variable interpolation in config values |
+| `ConfigValidator` / `VariableInterpolator` | Validation and interpolation used by the above |
 | `TaskManager` / `TaskExecutor` | Task definitions and execution |
-| `TargetResolver` | Resolve target configurations |
-| `SecretManager` | Secret storage and retrieval |
+| `TargetResolver` | Resolve target references (`hosts.web-1`, `containers.app`, wildcards) |
+| `SecretManager` | Secret storage with pluggable providers |
 | `generateSecret` / `encrypt` / `decrypt` | Cryptographic utilities |
 | `generateCompletion` | Shell completion generator (bash/zsh/fish) |
-| `OutputFormatter` | Formatted CLI output |
-| `FileHelpers` | File selection and discovery utilities |
-| `executeScript` / `evaluateCode` / `startRepl` | Script execution wrappers |
+| `OutputFormatter` / `FileHelpers` | CLI output and file selection helpers |
+| `executeScript` / `evaluateCode` / `startRepl` | Script execution wrappers around @xec-sh/loader |
 
-## Features
+Script-facing re-exports for code run by the CLI: `$`, `cd`, `pwd`, `env`,
+`echo`, `sleep`, `glob`, `fs`, `os`, `path`, `yaml`, `csv`, `diff`, `template`,
+`parseArgs`, `loadEnv`, `ps`, `which`, `fetch`, `quote`, `within`, `tmpdir`,
+`tmpfile`, `kit`, `log`, `prism`, `spinner`.
 
-- Deployer with rolling, blue-green, canary, and all-at-once strategies
-- Deploy hooks (before/after), health checks, and automatic rollback
-- Pipeline with DAG dependencies, matrix builds, conditions, retry, and continueOnError
-- Workflow with data passing between tasks, parallel execution, and failure handlers
-- HealthChecker supporting HTTP, TCP, command, and custom checks with `waitUntilHealthy`
-- Discovery of targets from Docker, Kubernetes, SSH, and custom sources
-- RetryPolicy with exponential, linear, and fixed backoff plus jitter
-- ConfigurationManager with customizable paths, profiles, variable interpolation, and secrets
-- SecretManager for secure secret storage
-- Shell completion generator for bash, zsh, and fish
-- Script utilities: `$`, `cd`, `pwd`, `env`, `echo`, `sleep`, `glob`, `fs`, `os`, `path`, `yaml`, `csv`, `diff`, `template`, `parseArgs`, `loadEnv`, `ps`, `which`, `fetch`, `quote`, `within`, `tmpdir`, `tmpfile`, `kit`, `log`, `prism`, `spinner`
+## Dependencies
+
+`@xec-sh/core`, `@xec-sh/kit`, `@xec-sh/loader`, plus `dotenv`, `fs-extra`,
+`glob`, `js-yaml`, `zod`.
 
 ## License
 

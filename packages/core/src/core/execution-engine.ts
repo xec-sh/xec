@@ -3,8 +3,8 @@ import type { Disposable } from '../types/disposable.js';
 import type { ProcessPromise } from '../types/process.js';
 import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, DockerPersistentOptions } from '../types/execution.js';
 
-import * as os from 'os';
-import * as path from 'path';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 import { AdapterError } from './error.js';
 import { stream } from '../utils/stream.js';

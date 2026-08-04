@@ -1,102 +1,109 @@
 # @xec-sh/testing
 
-Test utilities for xec packages, providing Docker container management, SSH test helpers, Kubernetes cluster management, and binary detection.
-
-## Install
+Test infrastructure for the Xec packages: managed SSH test containers, kind
+cluster management for Kubernetes tests, binary detection, and conditional
+test helpers. Used by the integration suites in this repository; published so
+the suites can run from an installed package as well.
 
 ```bash
-pnpm add -D @xec-sh/testing
+npm install -D @xec-sh/testing
 ```
 
-## Quick Start
+## SSH test containers
+
+The package manages a fixed fleet of seven SSH containers, one per package
+manager, defined in `DOCKER_CONTAINERS`: `ubuntu-apt`, `centos7-yum`,
+`fedora-dnf`, `alpine-apk`, `manjaro-pacman`, `ubuntu-brew`, `ubuntu-snap`
+(ports 2201-2207).
 
 ```typescript
-import {
-  DockerContainerManager,
-  isDockerAvailable,
-  findBinary,
-} from '@xec-sh/testing';
+import { $ } from '@xec-sh/core';
+import { dockerManager, getSSHConfigByName, describeSSH } from '@xec-sh/testing';
 
-// Manage Docker containers for integration tests
-const manager = new DockerContainerManager();
-const container = await manager.start({
-  image: 'node:20-alpine',
-  name: 'test-node',
-});
-// ... run tests against container ...
-await manager.stop('test-node');
-await manager.cleanup();
-```
+// Start fixtures (or run `pnpm --filter @xec-sh/core docker:start` once)
+await dockerManager.startContainer('ubuntu-apt');   // or startAllContainers()
+dockerManager.getStatus();
 
-```typescript
-import {
-  describeSSH,
-  getSSHConfigByName,
-  SSH_TEST_CONFIGS,
-} from '@xec-sh/testing';
+// Connection details for a test
+const config = getSSHConfigByName('ubuntu-apt');
+// { host: 'localhost', port: 2201, username: 'user', password: 'password', ... }
 
-// SSH integration tests (auto-skipped when SSH containers unavailable)
+// describeSSH auto-skips the block when the containers are not running
 describeSSH('SSH operations', () => {
-  it('should execute remote command', async () => {
-    const config = getSSHConfigByName('ubuntu-apt');
-    // config.host, config.port, config.username, config.password
-    const result = await sshExec(config, 'echo hello');
+  it('executes a remote command', async () => {
+    const ssh = $.ssh({
+      host: config.host,
+      port: config.port,
+      username: config.username,
+      password: config.password,
+    });
+    const result = await ssh`echo hello`;
     expect(result.stdout).toBe('hello\n');
   });
 });
 
-// Test across multiple package managers
-// SSH_TEST_CONFIGS includes: ubuntu-apt, centos7-yum, fedora-dnf,
-//   alpine-apk, manjaro-pacman, ubuntu-brew, ubuntu-snap
+await dockerManager.stopAllContainers();
 ```
+
+`DockerContainerManager` is a singleton — use the exported `dockerManager`
+instance or `DockerContainerManager.getInstance()`. It manages the predefined
+fixture containers only; it is not a general-purpose container runner.
+
+## Kubernetes via kind
 
 ```typescript
 import { KindClusterManager, isKindAvailable } from '@xec-sh/testing';
-import { validateShellName } from '@xec-sh/testing';
 
-// Kubernetes testing with kind
-if (await isKindAvailable()) {
-  const kind = new KindClusterManager();
-  await kind.create('test-cluster');
-  // ... run k8s tests ...
-  await kind.delete('test-cluster');
+if (isKindAvailable()) {
+  const kind = new KindClusterManager({ name: 'xec-test' });
+  await kind.createCluster();
+  await kind.deployTestPod('test-pod');
+  // ... run tests with kind.kubectl(...) ...
+  await kind.deleteCluster();
 }
-
-// Binary detection
-const docker = await findBinary('docker');
-const available = await isDockerAvailable();
-
-// Shell argument validation
-validateShellName('bash');  // ok
-validateShellName('rm -rf'); // throws
 ```
 
-## API
+## Detection and guards
+
+```typescript
+import {
+  findBinary,
+  isDockerAvailable,
+  isKindAvailable,
+  isKubectlAvailable,
+  validateShellName,
+  skipInCI,
+} from '@xec-sh/testing';
+
+findBinary('docker');       // '/usr/local/bin/docker' or null — synchronous
+isDockerAvailable();        // boolean
+validateShellName('bash');  // ok
+validateShellName('rm -rf');// throws
+
+skipInCI(() => { /* block that must not run in CI */ });
+```
+
+## Exports
 
 | Export | Description |
 |--------|-------------|
-| `DockerContainerManager` | Start, stop, and manage Docker containers for tests |
-| `docker` / `execInContainer` / `getContainerInfo` / `getContainerLogs` | Docker utility functions |
-| `cleanupTestContainers` | Remove all xec test containers |
-| `KindClusterManager` | Create and manage kind clusters for K8s testing |
-| `describeSSH` | Conditional describe block for SSH tests |
-| `getSSHConfigByName` | Get SSH config for a named test container |
-| `SSH_TEST_CONFIGS` | Array of SSH connection configs for all test containers |
-| `findBinary` | Locate a binary on the system PATH |
-| `isDockerAvailable` | Check if Docker daemon is running |
-| `isKindAvailable` | Check if kind is installed |
-| `validateShellName` | Validate a shell name is safe |
+| `dockerManager` / `DockerContainerManager` | Start/stop the predefined SSH fixture containers, wait for SSH readiness |
+| `DOCKER_CONTAINERS` | The seven container definitions (name, port, package manager) |
+| `describeSSH` | `describe` that auto-skips when fixtures are unavailable |
+| `getSSHConfig` / `getSSHConfigByName` / `SSH_TEST_CONFIGS` | Connection configs for the fixture containers |
+| `testEachPackageManager` / `testPackageManagers` | Parameterised tests across the container fleet |
+| `KindClusterManager` / `setupKindCluster` / `teardownKindCluster` | kind cluster lifecycle for K8s tests |
+| `docker` / `execInContainer` / `getContainerInfo` / `getContainerLogs` / `waitForContainer` | Docker helpers for arbitrary containers |
+| `cleanupTestContainers` | Remove xec test containers |
+| `findBinary` / `isBinaryAvailable` / `clearBinaryCache` | Locate binaries on PATH (synchronous, cached) |
+| `isDockerAvailable` / `isKindAvailable` / `isKubectlAvailable` / `isSshpassAvailable` | Environment checks |
+| `validateShellName` / `shellEscape` | Shell-argument safety helpers |
+| `skipInCI` | Skip a block when running in CI |
 
-## Features
+## Dependencies
 
-- DockerContainerManager for lifecycle management of test containers
-- SSH test helpers with `describeSSH` (auto-skips when containers unavailable)
-- Pre-configured SSH test containers: Ubuntu (apt), CentOS (yum), Fedora (dnf), Alpine (apk), Manjaro (pacman), Ubuntu (brew), Ubuntu (snap)
-- KindClusterManager for Kubernetes integration testing
-- Binary detection with `findBinary`, `isDockerAvailable`, `isKindAvailable`
-- Shell argument validation with `validateShellName`
-- `TEST_SSH_PASSWORD` constant for test container authentication
-- Docker utility functions: exec, logs, info, cleanup
+One production dependency: `dockerode`, used by the Docker helper functions.
+Container lifecycle for the SSH fixtures shells out to the `docker` CLI.
 
 ## License
 

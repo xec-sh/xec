@@ -6,6 +6,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
+import { unrefTimer } from '../../utils/unref-timer.js';
 import { SSHKeyValidator } from './ssh-key-validator.js';
 import { SecurePasswordHandler } from './secure-password.js';
 import { classifyFailure } from '../../core/failure-kind.js';
@@ -907,7 +908,7 @@ export class SSHAdapter extends BaseAdapter {
     }, 60000); // Check every minute
 
     // Unref the interval so it doesn't keep the process alive
-    this.poolCleanupInterval.unref();
+    unrefTimer(this.poolCleanupInterval);
   }
 
   private removeFromPool(key: string): void {
@@ -1047,7 +1048,7 @@ export class SSHAdapter extends BaseAdapter {
     connection.keepAliveTimer = setInterval(keepAliveFunction, interval);
 
     // Unref the timer so it doesn't keep the process alive
-    connection.keepAliveTimer.unref();
+    unrefTimer(connection.keepAliveTimer);
   }
 
   private removeOldestIdleConnection(): void {

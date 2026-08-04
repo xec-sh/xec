@@ -1,3 +1,5 @@
+import { unrefTimer } from './unref-timer.js';
+
 export interface ProgressEvent {
   type: 'start' | 'progress' | 'complete' | 'error';
   message?: string;
@@ -356,7 +358,7 @@ export class Spinner {
     }, this.options.interval || 80);
     // Don't keep the process alive just for the progress animation
     if (this.intervalId && typeof this.intervalId.unref === 'function') {
-      this.intervalId.unref();
+      unrefTimer(this.intervalId);
     }
   }
   

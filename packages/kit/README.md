@@ -1,22 +1,20 @@
 # @xec-sh/kit
 
-TUI components for building interactive command-line applications.
-
-## Install
+Terminal prompts, spinners, tables and colors for command-line applications.
+One runtime dependency (`sisteransi`). Node.js 18+ and Bun.
 
 ```bash
-pnpm add @xec-sh/kit
+npm install @xec-sh/kit
 ```
 
-## Quick Start
+## Prompts
 
 ```typescript
-import { text, select, confirm, spinner, log, table } from '@xec-sh/kit';
+import { text, select, confirm, password, isCancel } from '@xec-sh/kit';
 
-// Text input
 const name = await text({ message: 'What is your name?' });
+if (isCancel(name)) process.exit(0);   // every prompt returns a cancel symbol on Ctrl-C
 
-// Select with options
 const color = await select({
   message: 'Pick a color',
   options: [
@@ -26,47 +24,36 @@ const color = await select({
   ],
 });
 
-// Confirmation
 const ok = await confirm({ message: 'Continue?' });
-
-// Spinner
-const s = spinner();
-s.start('Loading...');
-await doWork();
-s.stop('Done!');
+const secret = await password({ message: 'Enter token:' });
 ```
 
 ```typescript
-import { multiselect, password, autocomplete, selectKey, groupMultiselect, date } from '@xec-sh/kit';
+import { multiselect, autocomplete, selectKey, groupMultiselect, date } from '@xec-sh/kit';
 
-// Multi-select
 const tools = await multiselect({
   message: 'Select tools',
   options: [{ value: 'git' }, { value: 'docker' }, { value: 'k8s' }],
 });
 
-// Password input
-const secret = await password({ message: 'Enter token:' });
-
-// Autocomplete with async search
+// Autocomplete filters a fixed option list as the user types
 const pkg = await autocomplete({
   message: 'Search packages',
-  source: async (input) => searchNpm(input),
+  options: [{ value: 'react' }, { value: 'vue' }, { value: 'svelte' }],
+  filter: (search, option) => option.value.includes(search),   // optional; label/hint/value by default
 });
 
-// Date picker
 const when = await date({ message: 'Pick a date' });
 
-// Key-based select
+// Answer with a single keypress: the value is the key
 const action = await selectKey({
   message: 'Action?',
   options: [
-    { key: 'd', label: 'Deploy' },
-    { key: 'r', label: 'Rollback' },
+    { value: 'd', label: 'Deploy' },
+    { value: 'r', label: 'Rollback' },
   ],
 });
 
-// Grouped multi-select
 const features = await groupMultiselect({
   message: 'Enable features',
   options: {
@@ -76,80 +63,76 @@ const features = await groupMultiselect({
 });
 ```
 
-```typescript
-import { note, box, progress, table, interactiveTable, log, isCancel } from '@xec-sh/kit';
-import { prism } from '@xec-sh/kit';
+## Output
 
-// Logging
+```typescript
+import { log, note, box, spinner, progress, table, interactiveTable, prism } from '@xec-sh/kit';
+
 log.info('Processing...');
-log.success('Complete!');
+log.success('Complete');
 log.warn('Caution');
 log.error('Failed');
 log.step('Step 1');
 
-// Note and box
 note('Remember to commit', 'Reminder');
 box('Boxed content');
 
-// Static table
-table({ columns: ['Name', 'Status'], rows: [['api', 'running'], ['web', 'stopped']] });
+const s = spinner();
+s.start('Loading...');
+await doWork();
+s.stop('Done');
 
-// Interactive table with sort, filter, and selection
-await interactiveTable({ columns: [...], rows: [...], selectionMode: 'multi' });
+const bar = progress({ max: 100 });
+bar.start('Downloading');
+bar.advance(30);
+bar.stop('Downloaded');
 
-// Progress bar
-const bar = progress({ total: 100 });
-bar.update(50);
+// Tables take row objects plus column definitions
+table({
+  data: [
+    { name: 'api', status: 'running' },
+    { name: 'web', status: 'stopped' },
+  ],
+  columns: [
+    { key: 'name', header: 'Name' },
+    { key: 'status', header: 'Status' },
+  ],
+});
 
-// Prism color system (16/256/truecolor)
+// Interactive: navigation, sorting, row selection
+const picked = await interactiveTable({
+  data: rows,
+  columns,
+  selectable: 'multiple',   // 'none' | 'single' | 'multiple'
+  sortable: true,
+});
+
+// Colors: 16/256/truecolor with automatic terminal detection
 const styled = prism.hex('#ff0000').bold('Error!');
-const rgb = prism.rgb(0, 255, 0)('Green text');
-const hsl = prism.hsl(200, 100, 50)('Blue text');
-
-// Cancel detection
-const input = await text({ message: 'Name?' });
-if (isCancel(input)) process.exit(0);
+const green  = prism.rgb(0, 255, 0)('Green text');
+const blue   = prism.hsl(200, 100, 50)('Blue text');
 ```
 
-## API
+## Exports
 
 | Export | Description |
 |--------|-------------|
-| `text` | Text input prompt |
-| `select` | Single-select prompt |
-| `multiselect` | Multi-select prompt |
-| `confirm` | Yes/no confirmation |
-| `password` | Masked password input |
-| `date` | Date picker prompt |
-| `autocomplete` | Autocomplete search prompt |
-| `selectKey` | Key-based selection |
-| `groupMultiselect` | Grouped multi-select |
-| `spinner` | Animated spinner (5 styles, cancel/error/clear/styleFrame) |
-| `progress` | Progress bar component |
-| `note` | Styled note box |
-| `box` | Box drawing component |
-| `table` / `interactiveTable` | Static and interactive tables (sort/filter/selection) |
-| `log` | Logging (info/success/warn/error/step) |
-| `stream` | Stream output utilities |
-| `prism` | Color system (16/256/truecolor, hex/rgb/hsl/css) |
-| `isCancel` | Check if prompt was cancelled |
-| `block` / `settings` / `updateSettings` | Core prompt primitives |
-
-## Features
-
-- Prompts: text, select, multiselect, confirm, password, date, autocomplete, selectKey, groupMultiselect
-- `withGuide` option and `computeLabel` for multiline labels on prompts
-- Disabled options support across all select prompts
-- Spinner with 5 animation styles and cancel/error/clear/styleFrame methods
-- Progress bar with customizable format
-- Note and box display components
-- Static table and interactive table with sort, filter, row selection, and cell editing
-- Table export to CSV, TSV, JSON, HTML, Markdown, and text
-- Log utilities: info, success, warn, error, step
-- Stream output handling
-- Path autocomplete utility
-- Prism color system supporting 16-color, 256-color, and truecolor terminals
-- Prism supports hex, rgb, hsl, and CSS named colors
+| `text` / `confirm` / `password` | Basic input prompts |
+| `select` / `multiselect` / `groupMultiselect` | List selection; options support `label`, `hint`, `disabled` |
+| `autocomplete` / `autocompleteMultiselect` | Type-to-filter selection over an option list |
+| `selectKey` | Single-keypress selection |
+| `date` | Date picker |
+| `spinner` | Spinner with styles: braille, circle, dots, line, arrow, binary, moon |
+| `progress` | Progress bar (`max`, `advance(step)`, spinner-style start/stop) |
+| `note` / `box` | Bordered message blocks |
+| `table` / `interactiveTable` | Static render and interactive navigation/sort/selection |
+| `exportToCSV` / `exportToTSV` / `exportToJSON` / `exportToHTML` / `exportToMarkdown` / `exportToText` | Table data export |
+| `log` | Leveled output: info, success, warn, error, step |
+| `taskLog` / `tasks` / `group` / `intro` / `outro` / `cancel` | Flow helpers for multi-step CLIs |
+| `prism` | Color builder: hex/rgb/hsl/css names, 16/256/truecolor |
+| `isCancel` | Detect Ctrl-C cancellation of any prompt |
+| `stream` | Streamed output helpers |
+| `settings` / `updateSettings` | Global prompt appearance settings (e.g. `withGuide`) |
 
 ## License
 
