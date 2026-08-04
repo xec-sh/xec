@@ -1100,9 +1100,7 @@ ${isPrerelease ? '**This is a pre-release version.**\n' : ''}
 
 ## Packages
 
-- **@xec-sh/core**: v${config.version}
-- **@xec-sh/cli**: v${config.version}
-- **@xec-sh/testing**: v${config.version}
+${config.packages.map(pkg => `- **${pkg.name}**: v${config.version}`).join('\n')}
 
 ## Installation
 
