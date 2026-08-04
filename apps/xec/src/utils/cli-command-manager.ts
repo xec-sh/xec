@@ -248,12 +248,24 @@ export class CliCommandManager {
       logger.info(`Loading ${dynamicCommands.length} dynamic commands`);
     }
 
-    // Register a stub per command and load the real one only when it is
-    // invoked. Loading them all up front meant every `xec --help` transformed
-    // and executed every `.xec/commands/*.ts` in the project — the script
-    // loader, esbuild and whatever the command imports at module scope, to
-    // print one line of description each.
+    // Whichever command was actually asked for is loaded in full, so its own
+    // options and `--help` are real. Everything else gets a stub carrying just
+    // the name and description, because loading them all meant every
+    // `xec --help` transformed and executed every `.xec/commands/*.ts` in the
+    // project — the script loader, esbuild and whatever those files import at
+    // module scope — to print one line each.
+    const requested = process.argv.slice(2).find(arg => !arg.startsWith('-'));
+
     for (const cmd of dynamicCommands) {
+      const wanted = cmd.name === requested || (cmd.aliases ?? []).includes(requested ?? '');
+
+      if (wanted) {
+        const result = await (await this.getLoader()).loadDynamicCommand(cmd.path, program, cmd.name);
+        cmd.loaded = result.success;
+        if (!result.success) cmd.error = result.error;
+        continue;
+      }
+
       const stub = program
         .command(cmd.name)
         .description(cmd.description ?? '')
@@ -264,9 +276,9 @@ export class CliCommandManager {
         stub.alias(alias);
       }
 
+      // Reachable when a command is invoked by a name this pass did not
+      // recognise as the request — an alias resolved late, say.
       stub.action(async () => {
-        // A fresh program, so the real command registers its own options and
-        // arguments over the stub's permissive ones.
         const fresh = new Command();
         const result = await (await this.getLoader()).loadDynamicCommand(cmd.path, fresh, cmd.name);
 

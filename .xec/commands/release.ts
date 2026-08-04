@@ -130,35 +130,208 @@ async function parseChangesFile(): Promise<string | null> {
 //   writeFileSync(changelogPath, updatedChangelog);
 // }
 
-// Helper to generate changelog from git commits - optimized
-async function generateChangelog(fromVersion: string, toVersion: string): Promise<string> {
-  const result = await $`git log v${fromVersion}..HEAD --pretty=format:"%h - %s (%an)" --no-merges`.nothrow();
+const REPO_URL = 'https://github.com/xec-sh/xec';
 
-  if (result.exitCode !== 0 || !result.stdout.trim()) {
-    return '- Various improvements and bug fixes\n';
+interface ParsedCommit {
+  hash: string;
+  /** The original subject, kept so it can be matched against CHANGELOG.md. */
+  rawSubject: string;
+  /** Conventional type, or 'other' when the subject does not follow it. */
+  type: string;
+  scope: string | null;
+  subject: string;
+  breaking: boolean;
+  /** The text after a `BREAKING CHANGE:` footer, when there is one. */
+  breakingNote: string | null;
+}
+
+const CONVENTIONAL_COMMIT = /^(\w+)(?:\(([^)]*)\))?(!)?:\s*(.+)$/;
+
+const KNOWN_TYPES = new Set([
+  'feat', 'fix', 'perf', 'refactor', 'docs',
+  'test', 'build', 'ci', 'chore', 'style', 'revert',
+]);
+
+const SECTIONS: readonly { types: readonly string[]; title: string }[] = [
+  { types: ['feat'], title: '### Features' },
+  { types: ['fix'], title: '### Bug Fixes' },
+  { types: ['perf'], title: '### Performance' },
+  { types: ['refactor'], title: '### Refactoring' },
+  { types: ['docs'], title: '### Documentation' },
+  { types: ['test'], title: '### Tests' },
+  { types: ['build', 'ci', 'chore', 'style', 'revert'], title: '### Maintenance' },
+  { types: ['other'], title: '### Other Changes' },
+];
+
+/**
+ * The tag the notes should be written against.
+ *
+ * Takes the highest `v*` tag by semver rather than asking git. `git describe`
+ * walks back from HEAD and returns whichever tag is nearest in topology, which
+ * silently produces the wrong range the moment a tag lands on an unexpected
+ * commit. Releasing a stable version skips prerelease tags, so the notes cover
+ * the whole rc period rather than only the part after the last rc.
+ */
+async function findBaseTag(newVersion: string): Promise<string | null> {
+  const listed = await $`git tag --list v*`.nothrow();
+  if (!listed.ok) return null;
+
+  const wantStable = !newVersion.includes('-');
+  const parse = (tag: string) => semver.valid(tag.slice(1));
+
+  const candidates = listed.stdout
+    .split('\n')
+    .map(line => line.trim())
+    .filter(tag => parse(tag) !== null)
+    .filter(tag => (wantStable ? !semver.prerelease(tag.slice(1)) : true))
+    .filter(tag => semver.lt(tag.slice(1), newVersion));
+
+  if (candidates.length === 0) return null;
+
+  return candidates.sort((a, b) => semver.rcompare(a.slice(1), b.slice(1)))[0] ?? null;
+}
+
+/**
+ * Every commit since the base tag, parsed.
+ *
+ * Fields are separated by unit and record separators rather than newlines,
+ * because a commit body is multi-line and a line-oriented format silently
+ * drops it — which is where `BREAKING CHANGE:` lives.
+ */
+async function readCommitsSince(baseTag: string | null): Promise<ParsedCommit[]> {
+  const range = baseTag ? `${baseTag}..HEAD` : 'HEAD';
+  const log = await $`git log ${range} --format=%H%x1f%s%x1f%b%x1e`.nothrow();
+
+  if (!log.ok) return [];
+
+  const commits: ParsedCommit[] = [];
+
+  for (const record of log.stdout.split('\x1e')) {
+    const [rawHash = '', rawSubjectField = '', body = ''] = record.split('\x1f');
+    const hash = rawHash.trim();
+    const rawSubject = rawSubjectField.trim();
+
+    if (!hash || !rawSubject) continue;
+    // A merge says nothing a reader wants, and the release commit itself
+    // would reappear in the next release's notes.
+    if (rawSubject.startsWith('Merge ')) continue;
+    if (rawSubject.startsWith('chore(release)')) continue;
+
+    const match = CONVENTIONAL_COMMIT.exec(rawSubject);
+
+    let type = 'other';
+    let scope: string | null = null;
+    let subject = rawSubject;
+
+    if (match) {
+      const parsedType = (match[1] ?? '').toLowerCase();
+      if (KNOWN_TYPES.has(parsedType)) type = parsedType;
+
+      const parsedScope = (match[2] ?? '').trim();
+      scope = parsedScope === '' ? null : parsedScope;
+
+      const parsedSubject = (match[4] ?? '').trim();
+      subject = parsedSubject === '' ? rawSubject : parsedSubject;
+    }
+
+    const footer = /^BREAKING[ -]CHANGES?:?[ \t]*(.*)$/m.exec(body);
+    const note = (footer?.[1] ?? '').trim();
+
+    commits.push({
+      hash,
+      rawSubject,
+      type,
+      scope,
+      subject,
+      breaking: Boolean(match?.[3]) || footer !== null,
+      breakingNote: note === '' ? null : note,
+    });
   }
 
-  // Parse commits efficiently
-  const lines = result.stdout.trim().split('\n');
-  const categorized = lines.reduce((acc, line) => {
-    if (line.includes('feat:') || line.includes('feature:')) {
-      acc.features.push(line);
-    } else if (line.includes('fix:') || line.includes('bug:')) {
-      acc.fixes.push(line);
-    } else {
-      acc.other.push(line);
+  return commits;
+}
+
+/** Packages whose files changed in the range, so the notes say what moved. */
+async function collectAffectedPackages(baseTag: string | null): Promise<string[]> {
+  if (!baseTag) return [];
+
+  const diff = await $`git diff --name-only ${baseTag}..HEAD`.nothrow();
+  if (!diff.ok) return [];
+
+  const files = diff.stdout.split('\n').filter(Boolean);
+
+  return PACKAGES
+    .filter(pkg => files.some(file => file.startsWith(`${pkg.path}/`)))
+    .map(pkg => pkg.name)
+    .sort();
+}
+
+function formatCommit(commit: ParsedCommit): string {
+  const scope = commit.scope ? `**${commit.scope}:** ` : '';
+  return `- ${scope}${commit.subject} (${commit.hash.slice(0, 7)})`;
+}
+
+/** Cluster entries by scope; unscoped ones go last. */
+function byScope(commits: ParsedCommit[]): ParsedCommit[] {
+  return [...commits].sort((a, b) => {
+    if (a.scope === b.scope) return 0;
+    if (a.scope === null) return 1;
+    if (b.scope === null) return -1;
+    return a.scope.localeCompare(b.scope);
+  });
+}
+
+/**
+ * Release notes built from the commits themselves.
+ *
+ * The previous version matched `line.includes('feat:')`, so a commit whose
+ * subject merely mentioned another type landed in the wrong section, scopes
+ * were dropped, breaking changes were invisible, and an empty range produced
+ * "Various improvements and bug fixes" — a sentence that tells a reader
+ * deciding whether to upgrade precisely nothing.
+ */
+async function generateChangelog(fromVersion: string, toVersion: string): Promise<string> {
+  const baseTag = await findBaseTag(toVersion) ?? (fromVersion ? `v${fromVersion}` : null);
+
+  // Anything already written up is a tag that landed on the wrong commit
+  // resurfacing released work; drop it rather than repeat it.
+  const released = existsSync('CHANGELOG.md') ? readFileSync('CHANGELOG.md', 'utf8') : '';
+  const commits = (await readCommitsSince(baseTag))
+    .filter(commit => !released.includes(commit.rawSubject));
+
+  const affected = await collectAffectedPackages(baseTag);
+
+  let notes = '';
+
+  const header: string[] = [];
+  if (affected.length > 0) header.push(`Packages: ${affected.join(', ')}`);
+  if (baseTag) {
+    header.push(`[${baseTag}...v${toVersion}](${REPO_URL}/compare/${baseTag}...v${toVersion})`);
+  }
+  if (header.length > 0) notes += `_${header.join(' · ')}_\n\n`;
+
+  const breaking = commits.filter(commit => commit.breaking);
+  if (breaking.length > 0) {
+    notes += '### BREAKING CHANGES\n\n';
+    for (const commit of byScope(breaking)) {
+      notes += `${formatCommit(commit)}\n`;
+      if (commit.breakingNote) notes += `  - ${commit.breakingNote}\n`;
     }
-    return acc;
-  }, { features: [] as string[], fixes: [] as string[], other: [] as string[] });
+    notes += '\n';
+  }
 
-  // Build changelog sections
-  const sections = [
-    categorized.features.length && `### 🚀 Features\n${categorized.features.map(f => `- ${f}`).join('\n')}`,
-    categorized.fixes.length && `### 🐛 Bug Fixes\n${categorized.fixes.map(f => `- ${f}`).join('\n')}`,
-    categorized.other.length && `### 📝 Other Changes\n${categorized.other.map(f => `- ${f}`).join('\n')}`
-  ].filter(Boolean).join('\n\n');
+  for (const section of SECTIONS) {
+    const items = commits.filter(commit => section.types.includes(commit.type));
+    if (items.length === 0) continue;
 
-  return sections ? sections + '\n\n' : '- Various improvements and bug fixes\n';
+    notes += `${section.title}\n\n`;
+    for (const commit of byScope(items)) notes += `${formatCommit(commit)}\n`;
+    notes += '\n';
+  }
+
+  if (commits.length === 0) notes += '- No user-facing changes recorded.\n';
+
+  return `${notes.trimEnd()}\n`;
 }
 
 
