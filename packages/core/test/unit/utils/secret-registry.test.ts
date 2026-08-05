@@ -157,4 +157,69 @@ describe('secrets known by value', () => {
     expect(Object.keys({ registerSecret, isRegisteredSecret, registeredSecretCount }))
       .not.toContain('registeredSecrets');
   });
+
+  describe('the edges the registry is decided on', () => {
+    it('refuses a value that is not a string at all', () => {
+      // Reachable from JavaScript, and from a secret store that answered
+      // with a number or a null it had parsed out of JSON.
+      expect(registerSecret(undefined as unknown as string)).toBe(false);
+      expect(registerSecret(42 as unknown as string)).toBe(false);
+      expect(registeredSecretCount()).toBe(0);
+    });
+
+    it('registers a single-line value once, not once per line', () => {
+      registerSecret('one-single-line-value');
+
+      expect(registeredSecretCount()).toBe(1);
+    });
+
+    it('does not also register a single-line value trimmed', () => {
+      // Line splitting is for values that span lines. Applying it to every
+      // value would register the trimmed form too, so a stream containing
+      // the value without its trailing spaces would be redacted — text the
+      // secret does not actually appear in.
+      registerSecret('a-value-with-trailing-space   ');
+
+      expect(isRegisteredSecret('a-value-with-trailing-space   ')).toBe(true);
+      expect(isRegisteredSecret('a-value-with-trailing-space')).toBe(false);
+      expect(registeredSecretCount()).toBe(1);
+    });
+
+    it('accepts a line of exactly the minimum length', () => {
+      // The boundary itself: `>=` and `>` differ only here, and a
+      // four-character line is the shortest thing worth protecting.
+      registerSecret('a-long-first-line\nabcd\nanother-long-line');
+
+      expect(isRegisteredSecret('abcd')).toBe(true);
+    });
+
+    it('strips only trailing whitespace from a line', () => {
+      // A masked stream is cut at newlines, and the text before the cut
+      // keeps its leading indentation but loses nothing else.
+      registerSecret('first-long-line\n  indented-line   \nlast-long-line');
+
+      expect(isRegisteredSecret('  indented-line')).toBe(true);
+      expect(isRegisteredSecret('indented-line')).toBe(false);
+    });
+
+    it('reorders when a longer secret arrives after a shorter one', () => {
+      // The order is rebuilt only when something was added. Registering
+      // the longer value second is the case where skipping that rebuild
+      // leaks the remainder.
+      registerSecret('hunter2');
+      registerSecret('hunter2-with-a-suffix');
+
+      expect(mask('x hunter2-with-a-suffix y')).toBe(`x ${DEFAULT_REDACTION} y`);
+    });
+
+    it('does not reorder when nothing was added', () => {
+      registerSecret('already-registered-value');
+      const before = registeredSecretCount();
+
+      registerSecret('already-registered-value');
+
+      expect(registeredSecretCount()).toBe(before);
+      expect(mask('already-registered-value')).toBe(DEFAULT_REDACTION);
+    });
+  });
 });
