@@ -1247,9 +1247,9 @@ Created with ❤️ by Xec Release Manager
                   // Create release
                   try {
                     if (config.githubToken) {
-                      await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                      await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? ['--prerelease'] : []}`;
                     } else {
-                      await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                      await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? ['--prerelease'] : []}`;
                     }
                   } catch (error) {
                     kit.log.error('Failed to create GitHub release');
@@ -1260,9 +1260,9 @@ Created with ❤️ by Xec Release Manager
                 // Create release
                 try {
                   if (config.githubToken) {
-                    await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                    await $.env({ GH_TOKEN: config.githubToken })`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? ['--prerelease'] : []}`;
                   } else {
-                    await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? '--prerelease' : ''}`;
+                    await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? ['--prerelease'] : []}`;
                   }
                 } catch (error) {
                   kit.log.error('Failed to create GitHub release');
