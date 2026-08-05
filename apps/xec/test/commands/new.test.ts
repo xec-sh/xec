@@ -61,9 +61,10 @@ describe('new command', () => {
       expect(await fs.pathExists(path.join(projectDir, '.xec/config.yaml'))).toBe(true);
       expect(await fs.pathExists(path.join(projectDir, '.xec/.gitignore'))).toBe(true);
       
-      // Verify config content
+      // Verify config content. The version must be what the validator
+      // accepts (major.minor) — 1.0.0 warned on every invocation.
       const config = await fs.readFile(path.join(projectDir, '.xec/config.yaml'), 'utf-8');
-      expect(config).toContain('version: 1.0.0');
+      expect(config).toContain(`version: '1.0'`);
       expect(config).toContain('name: test-project');
       expect(config).toContain('description: Test project');
 
@@ -85,11 +86,17 @@ describe('new command', () => {
 
       // Verify config content
       const config = await fs.readFile(path.join(projectDir, '.xec/config.yaml'), 'utf-8');
-      expect(config).toContain('version: 1.0.0');
+      expect(config).toContain(`version: '1.0'`);
       expect(config).toContain('name: test-project');
       expect(config).toContain('vars:');
       expect(config).toContain('targets:');
       expect(config).toContain('tasks:');
+
+      // The example targets are real YAML comments, not mangled keys, and
+      // nothing in them leaks out as live configuration.
+      expect(config).toContain('  # hosts:');
+      expect(config).not.toContain("'#");
+      expect(config).not.toMatch(/^\s+- \.\/:\/app/m);
     });
 
     it('should create project with custom description', async () => {

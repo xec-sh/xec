@@ -1345,6 +1345,9 @@ async function createProject(name: string, options: NewOptions) {
   const defaultConfig = getDefaultConfig();
   const config = {
     ...defaultConfig,
+    // The defaults say 1.0.0 while the validator demands major.minor, so a
+    // fresh project warned about its own version on every invocation.
+    version: '1.0',
     name: projectName,
     description: projectDescription || 'An Xec automation project'
   };
@@ -1446,50 +1449,39 @@ tar -czf /backup/files-$(date +%Y%m%d).tar.gz /app/uploads`
       }
     };
 
-    // Add example comments in the hosts section
-    if (!config.targets) config.targets = {};
-    config.targets.hosts = {
-      '# staging': {
-        '#   host': 'staging.example.com',
-        '#   user': 'deploy',
-        '#   privateKey': '~/.ssh/id_rsa'
-      },
-      '# production': {
-        '#   host': 'prod.example.com',
-        '#   user': 'deploy',
-        '#   privateKey': '~/.ssh/id_rsa'
-      }
-    };
-
-    if (!config.targets) config.targets = {};
-    config.targets.containers = {
-      '# app': {
-        '#   image': 'node:18',
-        '#   volumes': ['./:/app'],
-        '#   workdir': '/app'
-      }
-    };
-
-    if (!config.targets) config.targets = {};
-    config.targets.pods = {
-      '# web': {
-        '#   namespace': 'default',
-        '#   selector': 'app=web'
-      }
-    };
-
     // Sort and save config
     const sortedConfig = sortConfigKeys(config);
     const configPath = path.join(xecDir, 'config.yaml');
     await fs.ensureDir(path.dirname(configPath));
 
-    // Convert to YAML and add comments manually
     let yamlContent = yaml.dump(sortedConfig, { indent: 2, lineWidth: -1 });
 
-    // Fix comment formatting
-    yamlContent = yamlContent.replace(/ {2}'# /g, '  # ');
-    yamlContent = yamlContent.replace(/'# {3}/g, '  #   ');
-    yamlContent = yamlContent.replace(/: {}/g, '');
+    // Example targets ride along as real YAML comments under the targets
+    // key, uncommentable in place. The previous approach encoded comments
+    // as mapping keys ('# staging') and post-processed the dump with
+    // regexes; the closing quotes survived (`# staging':`) and the volumes
+    // list escaped commenting entirely, leaving a live `- ./:/app` entry
+    // that made targets.containers a list — a warning on every invocation
+    // of a freshly scaffolded project.
+    const targetExamples = [
+      '  # Declare remote targets here and reach them with on/in/copy/logs:',
+      '  # hosts:',
+      '  #   staging:',
+      '  #     host: staging.example.com',
+      '  #     username: deploy',
+      '  #     privateKey: ~/.ssh/id_rsa',
+      '  # containers:',
+      '  #   app:',
+      '  #     image: node:22',
+      '  #     volumes:',
+      '  #       - ./:/app',
+      '  #     workdir: /app',
+      '  # pods:',
+      '  #   web:',
+      '  #     namespace: default',
+      '  #     selector: app=web',
+    ].join('\n');
+    yamlContent = yamlContent.replace(/^targets:$/m, `targets:\n${targetExamples}`);
 
     await fs.writeFile(configPath, yamlContent);
   }
@@ -1699,7 +1691,7 @@ For more information, see [Xec Documentation](https://xec.sh/docs).
   if (!options.minimal) {
     log.info(`  ${prism.cyan('xec')} scripts/example.ts`);
     log.info(`  ${prism.cyan('xec')} hello World`);
-    log.info(`  ${prism.cyan('xec')} tasks:run hello`);
+    log.info(`  ${prism.cyan('xec')} run hello`);
   }
   log.info(`  ${prism.cyan('xec')} new script my-script`);
   log.info(`  ${prism.cyan('xec')} new task deploy`);
@@ -1949,9 +1941,9 @@ async function createTask(name: string, options: NewOptions) {
 
   // Show usage
   log.info('\nUsage:');
-  log.info(`  ${prism.cyan('xec')} tasks:run ${name}`);
+  log.info(`  ${prism.cyan('xec')} run ${name}`);
   if (complexity !== 'simple') {
-    log.info(`  ${prism.cyan('xec')} tasks:run ${name} --help`);
+    log.info(`  ${prism.cyan('xec')} run ${name} --help`);
   }
 }
 
@@ -2273,7 +2265,7 @@ export class NewCommand extends BaseCommand {
           description: 'Create an advanced command'
         },
         {
-          command: 'xec new task build --description "Build the application"',
+          command: 'xec new task build --desc "Build the application"',
           description: 'Create a new task with description'
         }
       ]
