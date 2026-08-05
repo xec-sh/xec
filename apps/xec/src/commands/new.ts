@@ -22,6 +22,17 @@ interface NewOptions extends CommandOptions {
   interactive?: boolean;
 }
 
+/**
+ * Whether scaffolding may stop and ask a question.
+ *
+ * CI and XEC_NO_INTERACTIVE stay honoured for callers that set them, but the
+ * absence of a terminal is the signal that actually decides it: a pipeline that
+ * never sets CI still has nobody to answer a prompt.
+ */
+function isNonInteractive(): boolean {
+  return Boolean(process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) || !process.stdin.isTTY;
+}
+
 // Artifact types
 type ArtifactType = 'project' | 'script' | 'command' | 'task' | 'profile' | 'extension';
 
@@ -1260,7 +1271,7 @@ async function createProject(name: string, options: NewOptions) {
     const xecDir = path.join(targetDir, '.xec');
     if (fs.existsSync(xecDir) && !options.force) {
       // In non-interactive mode, fail
-      if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      if (isNonInteractive()) {
         throw new Error('Xec is already initialized in this directory. Use --force to reinitialize.');
       }
 
@@ -1284,7 +1295,7 @@ async function createProject(name: string, options: NewOptions) {
       const files = await fs.readdir(targetDir);
       if (files.length > 0) {
         // In non-interactive mode, fail
-        if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+        if (isNonInteractive()) {
           throw new Error(`Directory ${name} is not empty. Use --force to overwrite.`);
         }
 
@@ -1305,7 +1316,7 @@ async function createProject(name: string, options: NewOptions) {
 
     if (!projectDescription) {
       // In non-interactive mode (CI), use default
-      if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+      if (isNonInteractive()) {
         projectDescription = 'An Xec automation project';
       } else {
         const result = await text({
@@ -1651,7 +1662,7 @@ For more information, see [Xec Documentation](https://xec.sh/docs).
     // In non-interactive mode, skip git init unless explicitly enabled
     let shouldInitGit = false;
 
-    if (!(process.env['CI'] || process.env['XEC_NO_INTERACTIVE'])) {
+    if (!(isNonInteractive())) {
       const result = await confirm({
         message: 'Initialize git repository?',
         initialValue: true
@@ -1713,7 +1724,7 @@ async function createScript(name: string, options: NewOptions) {
   // Check if file exists
   if (fs.existsSync(filePath) && !options.force) {
     // In non-interactive mode, fail
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       throw new Error(`Script ${fileName} already exists. Use --force to overwrite.`);
     }
 
@@ -1733,7 +1744,7 @@ async function createScript(name: string, options: NewOptions) {
 
   if (!scriptDescription) {
     // In non-interactive mode (CI), use default
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       scriptDescription = `Custom script ${name}`;
     } else {
       const result = await text({
@@ -1795,7 +1806,7 @@ async function createCommand(name: string, options: NewOptions) {
   // Check if file exists
   if (fs.existsSync(filePath) && !options.force) {
     // In non-interactive mode, fail
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       throw new Error(`Command ${fileName} already exists. Use --force to overwrite.`);
     }
 
@@ -1815,7 +1826,7 @@ async function createCommand(name: string, options: NewOptions) {
 
   if (!commandDescription) {
     // In non-interactive mode (CI), use default
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       commandDescription = `Custom command ${name}`;
     } else {
       const result = await text({
@@ -1876,7 +1887,7 @@ async function createTask(name: string, options: NewOptions) {
 
   if (!taskDescription) {
     // In non-interactive mode (CI), use default
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       taskDescription = `Task ${name}`;
     } else {
       const result = await text({
@@ -1897,7 +1908,7 @@ async function createTask(name: string, options: NewOptions) {
 
   if (options.advanced) {
     complexity = 'advanced';
-  } else if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+  } else if (isNonInteractive()) {
     // Default to simple in non-interactive mode
     complexity = 'simple';
   } else {
@@ -1961,7 +1972,7 @@ async function createProfile(name: string, options: NewOptions) {
 
   if (!profileDescription) {
     // In non-interactive mode (CI), use default
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       profileDescription = `${name} environment profile`;
     } else {
       const result = await text({
@@ -2010,7 +2021,7 @@ async function createExtension(name: string, options: NewOptions) {
   // Check if directory exists
   if (fs.existsSync(targetDir) && !options.force) {
     // In non-interactive mode, fail
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       throw new Error(`Directory ${name} already exists. Use --force to overwrite.`);
     }
 
@@ -2030,7 +2041,7 @@ async function createExtension(name: string, options: NewOptions) {
 
   if (!extensionDescription) {
     // In non-interactive mode (CI), use default
-    if (process.env['CI'] || process.env['XEC_NO_INTERACTIVE']) {
+    if (isNonInteractive()) {
       extensionDescription = `Xec extension ${name}`;
     } else {
       const result = await text({
