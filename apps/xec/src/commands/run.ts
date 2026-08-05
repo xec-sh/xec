@@ -261,7 +261,9 @@ export class RunCommand extends BaseCommand {
     const taskManager = new TaskManager({
       configManager,
       debug: this.options.verbose || process.env['XEC_DEBUG'] === 'true',
-      dryRun: false,
+      // `options` carries the flag on the direct-call path (the exported
+      // runTask wrapper never runs the action handler that fills this.options).
+      dryRun: options.dryRun ?? this.options.dryRun ?? false,
     });
 
     // Load tasks
