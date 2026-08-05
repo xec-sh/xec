@@ -808,10 +808,12 @@ export class SSHAdapter extends BaseAdapter {
           return `printf '%s\n' ${quoteForShell(sudoConfig.password, 'posix')} | ${sudoCmd} -S ${command}`;
 
         case 'askpass':
-          // For askpass, we need to set up a temporary askpass script
-          // This is more complex and would require additional setup
-          return `SUDO_ASKPASS=/tmp/askpass_$$ ${sudoCmd} -A ${command}`;
-
+          // Falls through to the secure construction below. The old branch
+          // emitted `SUDO_ASKPASS=/tmp/askpass_$$` and never created that
+          // file, so the method could not deliver a password at all — and
+          // the PID-predictable path invited a local user on the remote to
+          // plant one. There is exactly one correct askpass construction;
+          // every spelling of the option gets it.
         case 'secure':
         case 'secure-askpass': {
           // Build an askpass script on the remote host so the password never
