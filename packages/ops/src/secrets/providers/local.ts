@@ -63,6 +63,8 @@ export class LocalSecretProvider implements SecretProvider {
     // Create storage directory if it doesn't exist
     await fs.mkdir(this.storageDir, { recursive: true, mode: 0o700 });
 
+    await this.excludeFromVersionControl();
+
     // Create index file if it doesn't exist
     const indexPath = this.getIndexPath();
     if (!existsSync(indexPath)) {
@@ -80,6 +82,35 @@ export class LocalSecretProvider implements SecretProvider {
     }
 
     this.initialized = true;
+  }
+
+  /**
+   * Make the store ignore itself.
+   *
+   * Secrets are stored per project, which puts them inside the working
+   * tree, one `git add -A` away from being published. Relying on the
+   * project's own `.gitignore` means relying on somebody having thought of
+   * it before the first `git commit` — and a credential in a repository's
+   * history is not removed by deleting the file.
+   *
+   * A `.gitignore` inside the store answers for itself, on the first run,
+   * without needing the surrounding repository to cooperate. It is written
+   * only when absent, so an operator who edited it keeps their version.
+   */
+  private async excludeFromVersionControl(): Promise<void> {
+    const ignorePath = path.join(this.storageDir, '.gitignore');
+    if (existsSync(ignorePath)) return;
+
+    try {
+      await fs.writeFile(
+        ignorePath,
+        '# Secrets. Never commit this directory.\n*\n',
+        { mode: 0o600 }
+      );
+    } catch {
+      // A read-only store is unusual but not a reason to refuse to run;
+      // the access check below reports it in terms the operator can act on.
+    }
   }
 
   async get(key: string): Promise<string | null> {

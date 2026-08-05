@@ -26,6 +26,9 @@ vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
   throw new Error(`Process exited with code: ${code}`);
 }) as any;
 
+// kit's logger writes to stdout; diagnostics must not. The handler prints
+// through console.error, and this spy is what proves it stays there — an
+// assertion on kit.log.error would pass again the moment that regressed.
 const mockKitError = vi.spyOn(kit.log, 'error').mockImplementation();
 
 describe('error-handler', () => {
@@ -125,7 +128,8 @@ describe('error-handler', () => {
       const error = new XecError('Test error', 'TEST_CODE');
       
       expect(() => handleError(error, defaultOptions)).toThrow('Process exited with code: 1');
-      expect(mockKitError).toHaveBeenCalled();
+      expect(mockConsoleError).toHaveBeenCalled();
+      expect(mockKitError).not.toHaveBeenCalled();
     });
     
     it('should handle ValidationError with exit code 2', () => {
@@ -155,7 +159,8 @@ describe('error-handler', () => {
       const options = { ...defaultOptions, quiet: true };
       
       expect(() => handleError(error, options)).toThrow('Process exited with code: 2');
-      expect(mockKitError).toHaveBeenCalled();
+      expect(mockConsoleError).toHaveBeenCalled();
+      expect(mockKitError).not.toHaveBeenCalled();
     });
     
     it('should output JSON format', () => {
@@ -244,7 +249,8 @@ describe('error-handler', () => {
       const wrapped = withErrorHandling(asyncFn, defaultOptions);
       
       await expect(wrapped()).rejects.toThrow('Process exited with code: 1');
-      expect(mockKitError).toHaveBeenCalled();
+      expect(mockConsoleError).toHaveBeenCalled();
+      expect(mockKitError).not.toHaveBeenCalled();
     });
     
     it('should pass through successful results', async () => {

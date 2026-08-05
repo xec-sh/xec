@@ -3,8 +3,8 @@
  */
 
 import path from "node:path";
-import { existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { existsSync } from "node:fs";
 
 /**
  * Deep merge objects

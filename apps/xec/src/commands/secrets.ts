@@ -1,12 +1,11 @@
 import { Command } from 'commander';
-import { SecretManager } from '@xec-sh/ops';
+import { existsSync, readdirSync } from 'node:fs';
+import { SecretManager , getSecretsDir } from '@xec-sh/ops';
 import { log, text, prism, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { ConfigAwareCommand } from '../utils/command-base.js';
 import { canPrompt, isPlainOutput } from '../utils/plain-mode.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
-import { existsSync, readdirSync } from 'node:fs';
-import { getSecretsDir } from '@xec-sh/ops';
 
 /**
  * Secrets management command

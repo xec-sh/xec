@@ -30,6 +30,50 @@ export class XecError extends Error {
   }
 }
 
+/**
+ * A failure the user caused and the message fully explains.
+ *
+ * Most errors reach the handler as something the CLI did not anticipate, so
+ * it wraps them: a code, a context block, a suggestion, a pointer to the
+ * troubleshooting page. That machinery is what makes an unfamiliar failure
+ * approachable — and what makes an anticipated one absurd. Naming a secret
+ * that does not exist produced a message that said exactly what was wrong
+ * and how to fix it, followed by `Code: UNKNOWN_ERROR` and the suggestion
+ * "An unexpected error occurred", which is the tool contradicting itself in
+ * consecutive lines.
+ *
+ * Throwing this says: the message is the whole story, print it and stop.
+ */
+export class UserError extends XecError {
+  /**
+   * Marks the class where `instanceof` cannot reach.
+   *
+   * The CLI resolves `@xec-sh/ops` to `dist` while its tests resolve `src`,
+   * so the same class can exist twice in one process and `instanceof` then
+   * answers false for a genuine instance.
+   */
+  readonly isUserError = true;
+
+  /** The process exit code, when the failure implies a specific one. */
+  readonly exitCode: number;
+
+  constructor(message: string, options?: { exitCode?: number }) {
+    super(message, 'USER_ERROR');
+    this.name = 'UserError';
+    this.exitCode = options?.exitCode ?? 1;
+  }
+}
+
+/** Whether a failure explains itself. */
+export function isUserError(error: unknown): error is UserError {
+  return (
+    error instanceof UserError ||
+    (typeof error === 'object' &&
+      error !== null &&
+      (error as { isUserError?: unknown }).isUserError === true)
+  );
+}
+
 export class ConfigurationError extends XecError {
   constructor(message: string, field?: string, suggestion?: string) {
     super(message, 'CONFIG_ERROR', { field, suggestion });
@@ -83,6 +127,14 @@ export class TimeoutError extends XecError {
  * Handle errors and provide user-friendly messages
  */
 export function handleError(error: any, options: CommandOptions): void {
+  // A failure that explains itself is printed as written. Wrapping it in a
+  // code, a context block and a generic suggestion buries the sentence the
+  // reader needs under three the tool does not mean.
+  if (isUserError(error)) {
+    displayUserError(error, options);
+    process.exit(getExitCode(error));
+  }
+
   // Don't show errors in quiet mode unless it's critical
   if (options.quiet && !isCriticalError(error)) {
     process.exit(1);
@@ -166,6 +218,35 @@ function enhanceErrorWithContext(error: any, options: CommandOptions): EnhancedE
 
   // Enhance the error with core system
   return enhanceError(error, context) as EnhancedExecutionError;
+}
+
+/**
+ * Print a failure that explains itself.
+ *
+ * The first line is the failure; anything after it is guidance the thrower
+ * wrote, and it is indented already. Machine formats still get a document,
+ * because a caller asking for JSON needs one whether the run succeeded or
+ * not.
+ *
+ * @param error - The failure.
+ * @param options - Output format and verbosity, as the command received them.
+ */
+function displayUserError(error: UserError, options: CommandOptions): void {
+  if (options.output === 'json') {
+    console.error(JSON.stringify({ error: true, message: error.message, code: 'USER_ERROR' }, null, 2));
+    return;
+  }
+
+  if (options.output === 'yaml') {
+    console.error(jsYaml.dump({ error: true, message: error.message, code: 'USER_ERROR' }));
+    return;
+  }
+
+  const [first, ...rest] = error.message.split('\n');
+  console.error(`${prism.red('✗')} ${first}`);
+  for (const line of rest) {
+    console.error(prism.dim(line));
+  }
 }
 
 /**

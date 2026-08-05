@@ -293,8 +293,10 @@ describe('Enhanced Error System', () => {
       );
       
       const suggestions = error.suggestions;
-      expect(suggestions.some(s => s.message.includes('Increase timeout'))).toBe(true);
-      expect(suggestions.some(s => s.command?.includes('--timeout 60000ms'))).toBe(true);
+      expect(suggestions.some(s => s.message.includes('Increase the timeout'))).toBe(true);
+      // `-t`, not `--timeout`: the latter never existed, and advice naming a
+      // flag the CLI rejects sends the reader to debug their own typing.
+      expect(suggestions.some(s => s.command?.includes('-t 60000ms'))).toBe(true);
     });
     
     it('should suggest background execution for long tasks', () => {

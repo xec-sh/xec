@@ -687,4 +687,35 @@ describe('LocalSecretProvider durability', () => {
     expect(await reader.get('alpha')).toBe('value-alpha');
     expect(await reader.get('gamma')).toBe('value-gamma');
   });
+  describe('keeping itself out of version control', () => {
+    it('writes a .gitignore covering the whole store', async () => {
+      // Secrets live inside the working tree, one `git add -A` away from
+      // being published — and a credential in a repository's history is
+      // not removed by deleting the file afterwards.
+      const provider = new LocalSecretProvider({ storageDir: testDir });
+      await provider.set('pg', 'a-long-enough-secret');
+
+      const ignore = await fs.readFile(path.join(testDir, '.gitignore'), 'utf-8');
+
+      expect(ignore).toContain('*');
+    });
+
+    it('does not need the surrounding repository to cooperate', async () => {
+      // The point of putting it inside the store: it works whether or not
+      // anyone remembered to add a rule before the first commit.
+      const provider = new LocalSecretProvider({ storageDir: testDir });
+      await provider.initialize();
+
+      expect(existsSync(path.join(testDir, '.gitignore'))).toBe(true);
+    });
+
+    it('leaves an existing one alone', async () => {
+      await fs.writeFile(path.join(testDir, '.gitignore'), '# mine\n*\n');
+
+      const provider = new LocalSecretProvider({ storageDir: testDir });
+      await provider.initialize();
+
+      expect(await fs.readFile(path.join(testDir, '.gitignore'), 'utf-8')).toContain('# mine');
+    });
+  });
 });
