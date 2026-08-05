@@ -34,7 +34,7 @@ export function expectCommandToMatch(command: Command, expected: Partial<Command
 
 export function expectTimeoutError(error: any, commandName?: string, timeout?: number) {
   expect(error.name).toBe('TimeoutError');
-  expect(error.code).toBe('TIMEOUT');
+  expect(error.code).toBe('TIMEOUT_ERROR');
   
   if (commandName) {
     expect(error.command).toBe(commandName);

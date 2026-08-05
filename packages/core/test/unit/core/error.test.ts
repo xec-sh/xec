@@ -86,7 +86,7 @@ describe('Error classes', () => {
       const error = new TimeoutError('node script.js', 5000);
 
       expect(error.message).toBe('Command timed out after 5000ms: node script.js');
-      expect(error.code).toBe('TIMEOUT');
+      expect(error.code).toBe('TIMEOUT_ERROR');
       expect(error.command).toBe('node script.js');
       expect(error.timeout).toBe(5000);
       expect(error.name).toBe('TimeoutError');

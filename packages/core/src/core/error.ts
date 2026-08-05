@@ -158,7 +158,7 @@ export class TimeoutError extends ExecutionError {
     // message, stack traces and any logger that captures them.
     const safeCommand = sanitizeCommandForError(command);
 
-    super(`Command timed out after ${timeout}ms: ${safeCommand}`, 'TIMEOUT', {
+    super(`Command timed out after ${timeout}ms: ${safeCommand}`, 'TIMEOUT_ERROR', {
       command: safeCommand,
       timeout
     }, 'timeout');

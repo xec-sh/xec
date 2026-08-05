@@ -39,17 +39,18 @@ export { VariableInterpolator } from './config/variable-interpolator.js';
 export { ScriptLoader, getScriptLoader } from './adapters/loader-adapter.js';
 export { UserError, isUserError, handleError } from './utils/error-handler.js';
 export { enhanceError, EnhancedExecutionError } from './utils/enhanced-error.js';
+export { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from './config/defaults.js';
 
 // ─── Scripting API ──────────────────────────────────────────────────
 
-export { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from './config/defaults.js';
+export { retry, RetryPolicy, type RetryConfig, type BackoffStrategy } from './retry/index.js';
 
 // ─── Script Loader ──────────────────────────────────────────────────
 
 import { getScriptLoader as _getScriptLoader } from './adapters/loader-adapter.js';
 
-export { retry, RetryPolicy, type RetryConfig, type BackoffStrategy } from './retry/index.js';
 export { type Shell, generateCompletion, type CompletionConfig } from './completion/index.js';
+export { findFiles, FileHelpers, selectFiles, selectDirectory } from './utils/file-helpers.js';
 
 /** Execute a script file — convenience wrapper */
 export async function executeScript(path: string, options?: Record<string, unknown>): Promise<unknown> {
@@ -68,9 +69,14 @@ export async function startRepl(options?: Record<string, unknown>): Promise<void
 
 // ─── Utilities ──────────────────────────────────────────────────────
 
-export { findFiles, FileHelpers, selectFiles, selectDirectory } from './utils/file-helpers.js';
 export { isDirectCommand, createTargetEngine, executeDirectCommand } from './utils/direct-execution.js';
 export { getSecretsDir, findProjectRoot, getModuleCacheDir, getGlobalSecretsDir } from './config/utils.js';
+export {
+  isXecErrorCode,
+  XEC_ERROR_CODES,
+  type XecErrorCode,
+  XEC_ERROR_MEANINGS,
+} from './utils/error-codes.js';
 export { Pipeline, type StepConfig, type StepResult, type PipelineResult, type PipelineContext } from './pipeline/index.js';
 export { Discovery, type DiscoveredTarget, type K8sDiscoveryOptions, type SshDiscoveryOptions, type DockerDiscoveryOptions } from './discovery/index.js';
 export { HealthChecker, type CheckResult, type HealthReport, type TcpCheckOptions, type HttpCheckOptions, type CommandCheckOptions } from './health/index.js';

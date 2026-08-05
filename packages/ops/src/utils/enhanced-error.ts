@@ -194,7 +194,7 @@ export class EnhancedTimeoutError extends EnhancedExecutionError {
 
     super(
       `Command timed out after ${timeout}ms: ${command}`,
-      'TIMEOUT',
+      'TIMEOUT_ERROR',
       context,
       suggestions
     );

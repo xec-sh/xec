@@ -111,6 +111,7 @@ const sidebars: SidebarsConfig = {
       },
       items: [
         'commands/cli-reference',
+        'commands/error-codes',
         {
           type: 'category',
           label: 'Built-in Commands',
