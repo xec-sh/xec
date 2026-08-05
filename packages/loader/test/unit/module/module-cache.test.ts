@@ -149,6 +149,64 @@ describe('FileSystemCache', () => {
   });
 });
 
+describe('FileSystemCache: durability', () => {
+  let cache: FileSystemCache;
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-loader-durab-'));
+    cache = new FileSystemCache({ cacheDir: tempDir, ttl: 60 });
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  async function entryFiles(): Promise<string[]> {
+    const names = await fs.readdir(tempDir, { recursive: true });
+    return names.map(String).filter(n => n.endsWith('.json')).map(n => path.join(tempDir, n));
+  }
+
+  it.skipIf(process.platform === 'win32')('writes cache entries owner-only (0600)', async () => {
+    await cache.set('module-source', 'export const token = 1;');
+
+    const [file] = await entryFiles();
+    expect(file).toBeDefined();
+    expect((await fs.stat(file!)).mode & 0o777).toBe(0o600);
+  });
+
+  it('leaves no temp file behind after a write', async () => {
+    await cache.set('k', 'v');
+
+    const names = (await fs.readdir(tempDir, { recursive: true })).map(String);
+    expect(names.some(n => n.endsWith('.tmp'))).toBe(false);
+  });
+
+  it('self-heals a corrupt entry: reports a miss and removes the file', async () => {
+    await cache.set('k', 'v');
+    const [file] = await entryFiles();
+    await fs.writeFile(file!, '{ this is not valid json', 'utf-8');
+
+    // A torn or truncated write must read as a miss, never throw...
+    expect(await cache.get('k')).toBeNull();
+    // ...and must not keep shadowing the key on every later read.
+    expect(await entryFiles()).toEqual([]);
+  });
+
+  it('a concurrent write of the same key leaves one intact entry', async () => {
+    const key = 'contended';
+    await Promise.all([
+      cache.set(key, 'A'.repeat(5000)),
+      cache.set(key, 'B'.repeat(5000)),
+    ]);
+
+    // The atomic rename means the reader sees one whole write, not a splice.
+    const value = await cache.get(key);
+    expect(value).not.toBeNull();
+    expect(['A'.repeat(5000), 'B'.repeat(5000)]).toContain(value);
+  });
+});
+
 describe('HybridCache', () => {
   let cache: HybridCache;
   let tempDir: string;

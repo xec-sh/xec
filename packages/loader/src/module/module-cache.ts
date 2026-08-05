@@ -99,20 +99,30 @@ export class FileSystemCache implements Cache<string> {
   async get(key: string): Promise<string | null> {
     const filePath = this.getCachePath(key);
 
+    let content: string;
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
-      const entry: CacheEntry<string> = JSON.parse(content);
-
-      // Check if expired
-      if (Date.now() - entry.timestamp > this.ttl) {
-        await fs.unlink(filePath).catch(() => {});
-        return null;
-      }
-
-      return entry.content;
+      content = await fs.readFile(filePath, 'utf-8');
     } catch {
+      return null; // Absent or unreadable is a plain miss.
+    }
+
+    let entry: CacheEntry<string>;
+    try {
+      entry = JSON.parse(content);
+    } catch {
+      // A truncated or interleaved write left an unparseable file. Remove it so
+      // it stops shadowing the key on every future read, and report a miss.
+      await fs.unlink(filePath).catch(() => {});
       return null;
     }
+
+    // Check if expired
+    if (Date.now() - entry.timestamp > this.ttl) {
+      await fs.unlink(filePath).catch(() => {});
+      return null;
+    }
+
+    return entry.content;
   }
 
   async set(key: string, value: string, _ttl?: number): Promise<void> {
@@ -123,7 +133,21 @@ export class FileSystemCache implements Cache<string> {
     };
 
     await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, JSON.stringify(entry), 'utf-8');
+
+    // Write to a unique temp file, then rename onto the final path. Rename is
+    // atomic within a filesystem, so a concurrent reader sees either the old
+    // entry or the whole new one — never a half-written file — and two
+    // processes racing the same key end with one intact entry rather than an
+    // interleaved, unparseable one. 0600 because an entry may hold source from
+    // a private registry.
+    const tempPath = `${filePath}.${crypto.randomBytes(6).toString('hex')}.tmp`;
+    try {
+      await fs.writeFile(tempPath, JSON.stringify(entry), { mode: 0o600 });
+      await fs.rename(tempPath, filePath);
+    } catch (error) {
+      await fs.unlink(tempPath).catch(() => {});
+      throw error;
+    }
   }
 
   async has(key: string): Promise<boolean> {
