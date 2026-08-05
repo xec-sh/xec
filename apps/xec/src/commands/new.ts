@@ -1,5 +1,5 @@
-import path from 'path';
 import fs from 'fs-extra';
+import path from 'node:path';
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { sortConfigKeys , getDefaultConfig, ConfigurationManager } from '@xec-sh/ops';

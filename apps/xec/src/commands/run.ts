@@ -1,6 +1,6 @@
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
 import { $ } from '@xec-sh/core';
+import fs from 'node:fs/promises';
 import { Command } from 'commander';
 import { log, prism } from '@xec-sh/kit';
 import { TaskManager , ConfigurationManager } from '@xec-sh/ops';

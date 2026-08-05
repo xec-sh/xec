@@ -1,12 +1,12 @@
 import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import * as os from 'os';
-import * as path from 'path';
+import * as os from 'node:os';
 import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
+import * as path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
+import * as fs from 'node:fs/promises';
 import { validateOptions } from '@xec-sh/ops';
 
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';

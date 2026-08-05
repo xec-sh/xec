@@ -612,7 +612,7 @@ export class SecretsCommand extends ConfigAwareCommand {
     let content: string;
 
     if (options.file) {
-      const fs = await import('fs/promises');
+      const fs = await import('node:fs/promises');
       content = await fs.readFile(options.file, 'utf-8');
     } else {
       // Read from stdin

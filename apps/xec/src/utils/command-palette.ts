@@ -1,5 +1,5 @@
-import path from 'path';
-import fs from 'fs/promises';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { log, select, isCancel } from '@xec-sh/kit';
 
 // Fallback: registerGlobalShortcut not available in packages/kit
@@ -7,7 +7,7 @@ const registerGlobalShortcut = (shortcut: string, callback: () => void) => {
   // No-op fallback
   // console.log(`Global shortcut ${shortcut} would be registered`);
 };
-import { execFileSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
 import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
 
 

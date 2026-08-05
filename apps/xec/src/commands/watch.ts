@@ -1,9 +1,9 @@
 import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
 import { $ } from '@xec-sh/core';
+import * as path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { FileWatcher } from '@xec-sh/loader';

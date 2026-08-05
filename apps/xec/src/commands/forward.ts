@@ -1,7 +1,7 @@
 import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import * as net from 'net';
+import * as net from 'node:net';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';

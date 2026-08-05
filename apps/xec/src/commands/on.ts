@@ -1,7 +1,7 @@
 import type { ResolvedTarget, ExecutionOptions } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import path from 'path';
+import path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { ScriptLoader , parseTimeout , validateOptions } from '@xec-sh/ops';

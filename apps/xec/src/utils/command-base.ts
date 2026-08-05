@@ -1,7 +1,7 @@
 import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
 
-import * as path from 'path';
 import { $ } from '@xec-sh/core';
+import * as path from 'node:path';
 import { Command } from 'commander';
 import { handleError , TaskManager , TargetResolver, OutputFormatter, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';

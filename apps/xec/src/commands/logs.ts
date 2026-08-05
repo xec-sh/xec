@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import * as readline from 'readline';
+import * as readline from 'node:readline';
 import { validateOptions } from '@xec-sh/ops';
 
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';

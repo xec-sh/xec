@@ -1,14 +1,14 @@
-import os from 'os';
-import path from 'path';
+import os from 'node:os';
 import fs from 'fs-extra';
 import { glob } from 'glob';
-// table rendering handled by output-formatter
-import { promisify } from 'util';
+import path from 'node:path';
 import { $ } from '@xec-sh/core';
-import { fileURLToPath } from 'url';
 import { Command } from 'commander';
-import { exec } from 'child_process';
-import { createRequire } from 'module';
+// table rendering handled by output-formatter
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
+import { exec } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { ModuleLoader } from '@xec-sh/loader';
 import { prism, select, confirm } from '@xec-sh/kit';
 import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
@@ -482,8 +482,8 @@ class ProjectInspector {
 
       // Get CLI version
       try {
-        const { readFileSync } = await import('fs');
-        const { join } = await import('path');
+        const { readFileSync } = await import('node:fs');
+        const { join } = await import('node:path');
         const cliPkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8'));
         runtimeData.xec.cli = cliPkg.version;
         runtimeData.xec.name = cliPkg.name;
