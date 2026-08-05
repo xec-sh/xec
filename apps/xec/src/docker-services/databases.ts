@@ -15,6 +15,8 @@ import type {
 
 import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
+import { dataVolumeFor } from './types.js';
+
 /**
  * PostgreSQL Service Fluent API
  */
@@ -57,8 +59,9 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
     }
 
     // Data persistence
-    if (this.pgConfig.persistent && this.pgConfig.dataPath) {
-      this.volume(this.pgConfig.dataPath, '/var/lib/postgresql/data');
+    const pgVolume = dataVolumeFor(this.pgConfig, 'xec-postgres');
+    if (pgVolume) {
+      this.volume(pgVolume, '/var/lib/postgresql/data');
     }
 
     // Environment variables
@@ -211,8 +214,9 @@ export class MySQLFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
     }
 
     // Data persistence
-    if (this.mysqlConfig.persistent && this.mysqlConfig.dataPath) {
-      this.volume(this.mysqlConfig.dataPath, '/var/lib/mysql');
+    const mysqlVolume = dataVolumeFor(this.mysqlConfig, 'xec-mysql');
+    if (mysqlVolume) {
+      this.volume(mysqlVolume, '/var/lib/mysql');
     }
 
     // Environment variables
@@ -378,8 +382,9 @@ export class MongoDBFluentAPI extends DockerEphemeralFluentAPI implements Servic
     }
 
     // Data persistence
-    if (this.mongoConfig.persistent && this.mongoConfig.dataPath) {
-      this.volume(this.mongoConfig.dataPath, '/data/db');
+    const mongoVolume = dataVolumeFor(this.mongoConfig, 'xec-mongodb');
+    if (mongoVolume) {
+      this.volume(mongoVolume, '/data/db');
     }
 
     // Environment variables

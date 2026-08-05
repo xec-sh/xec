@@ -207,3 +207,36 @@ export type ServiceFactory<T extends ServicePresetConfig> = (
   engine: ExecutionEngine,
   config?: Partial<T>
 ) => ServiceManager;
+
+/**
+ * Where a service's data should live, given what was asked for.
+ *
+ * `--persistent` without `--data-path` used to mount nothing at all: the
+ * service started, reported itself persistent, and lost everything when
+ * the container was removed. That is the worst possible answer to a
+ * request for durability — it is indistinguishable from success until the
+ * data is already gone.
+ *
+ * A named docker volume needs no path from the operator and outlives the
+ * container, which is what persistence means. An explicit path still wins
+ * when one is given.
+ *
+ * @param config - The service configuration.
+ * @param fallbackName - Container name to derive a volume name from.
+ * @param suffix - Distinguishes several volumes of one service, e.g. `zk`.
+ * @returns The mount source, or undefined when persistence was not asked for.
+ */
+export function dataVolumeFor(
+  config: { persistent?: boolean; dataPath?: string; name?: string },
+  fallbackName: string,
+  suffix?: string
+): string | undefined {
+  if (!config.persistent) return undefined;
+
+  if (config.dataPath) {
+    return suffix ? `${config.dataPath}-${suffix}` : config.dataPath;
+  }
+
+  const base = config.name || fallbackName;
+  return suffix ? `${base}-${suffix}-data` : `${base}-data`;
+}

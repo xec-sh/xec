@@ -2,11 +2,11 @@ import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
 import * as fs from 'node:fs';
-import { $ } from '@xec-sh/core';
 import * as path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { FileWatcher } from '@xec-sh/loader';
+import { $, quoteForShell } from '@xec-sh/core';
 import { validateOptions , getScriptLoader } from '@xec-sh/ops';
 
 import { variadicParts, positionalString } from '../utils/variadic.js';
@@ -447,27 +447,52 @@ export class WatchCommand extends ConfigAwareCommand {
     };
   }
 
+  /**
+   * The shell program that reports changes from the far side.
+   *
+   * Every value the operator supplied is quoted. It was spliced in raw, so
+   * a path or pattern containing a quote or a `;` ran whatever followed it
+   * — on the *remote* host, with whatever credentials the target carries.
+   *
+   * @param paths - Directories to watch.
+   * @param options - Patterns, exclusions and the poll interval.
+   * @returns A single shell command to run on the target.
+   */
   private buildRemoteWatchCommand(paths: string[], options: WatchOptions): string {
-    // Build inotifywait command for remote systems
     const events = 'modify,create,delete,move';
-    const excludePatterns = options.exclude?.map(p => `--exclude '${p}'`).join(' ') || '';
-    const pathsStr = paths.join(' ');
+    // 'posix': the far side of ssh, docker exec and kubectl exec is a
+    // POSIX shell in every case this command supports.
+    const quote = (value: string): string => quoteForShell(value, 'posix');
+    const quoted = paths.map(quote).join(' ');
+    const excludePatterns = options.exclude?.map(p => `--exclude ${quote(p)}`).join(' ') || '';
 
-    // First try inotifywait, then fallback to a simple watch loop
+    // The interval the operator asked for, in whole seconds; `sleep` is not
+    // required to accept a fraction. It was hardcoded to 1, so --interval
+    // was accepted by the parser and had no effect on a remote target.
+    const intervalMs = Math.max(100, parseInt(options.interval || '1000', 10) || 1000);
+    const sleepSeconds = Math.max(1, Math.round(intervalMs / 1000));
+
     const inotifyCommand = options.pattern && options.pattern.length > 0
-      ? `while true; do find ${pathsStr} \\( ${options.pattern.map(p => `-name "${p}"`).join(' -o ')} \\) -print0 | xargs -0 inotifywait -e ${events} ${excludePatterns} --format '%w%f' 2>/dev/null || sleep 1; done`
-      : `inotifywait -mr -e ${events} ${excludePatterns} --format '%w%f' ${pathsStr} 2>/dev/null`;
+      ? `while true; do find ${quoted} \\( ${options.pattern.map(p => `-name ${quote(p)}`).join(' -o ')} \\) -print0 | xargs -0 inotifywait -e ${events} ${excludePatterns} --format '%w%f' 2>/dev/null || sleep ${sleepSeconds}; done`
+      : `inotifywait -mr -e ${events} ${excludePatterns} --format '%w%f' ${quoted} 2>/dev/null`;
 
-    // Fallback watch loop using stat
+    // Fallback for a host without inotify-tools. `stat -c '%Y'` is GNU
+    // only: on BSD and macOS it is `stat -f %m`, and the GNU form fails
+    // silently there, so the loop compared two empty strings forever and
+    // the watch never fired. Try both, in one subshell per file.
+    const mtime = `stat -c '%Y' "$f" 2>/dev/null || stat -f '%m' "$f" 2>/dev/null`;
+    // The echo below passes the quoted tokens as separate words rather than
+    // inside a double-quoted string: the latter printed the quotes
+    // themselves, so a change was reported in a file named `'/srv/app'`.
     const fallbackCommand = `
       last_mtime=""
       while true; do
-        current_mtime=$(find ${pathsStr} -type f -exec stat -c '%Y' {} \\; 2>/dev/null | sort -n | tail -1)
+        current_mtime=$(find ${quoted} -type f 2>/dev/null | while IFS= read -r f; do ${mtime}; done | sort -n | tail -1)
         if [ ! -z "$current_mtime" ] && [ "$current_mtime" != "$last_mtime" ]; then
-          echo "${pathsStr} MODIFY"
+          echo ${quoted} MODIFY
           last_mtime="$current_mtime"
         fi
-        sleep 1
+        sleep ${sleepSeconds}
       done
     `.trim().replace(/\n\s*/g, ' ');
 

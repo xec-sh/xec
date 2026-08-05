@@ -2,10 +2,11 @@ import type { CommandConfig, DockerDefaults } from '@xec-sh/ops';
 
 import { z } from 'zod';
 import { Command } from 'commander';
-import { validateOptions } from '@xec-sh/ops';
 import { $, ExecutionEngine } from '@xec-sh/core';
+import { UserError, validateOptions } from '@xec-sh/ops';
 import { log, note, text, intro, outro, prism, select, cancel, spinner, isCancel } from '@xec-sh/kit';
 
+import { dataVolumeFor } from '../docker-services/types.js';
 import { SubcommandBase, ConfigAwareOptions } from '../utils/command-base.js';
 import {
   SSHFluentAPI,
@@ -48,6 +49,7 @@ interface ServiceOptions extends ConfigAwareOptions {
   database?: string;
   version?: string;
   persistent?: boolean;
+  singleNode?: boolean;
   dataPath?: string;
   configPath?: string;
   network?: string;
@@ -1307,6 +1309,18 @@ Password: ${mergedOptions.password || 'admin'}
         return;
       }
 
+      // `--no-single-node` was accepted and then ignored: discovery.type was
+      // hardcoded, so the flag described a mode the command could not enter.
+      // One container cannot form a cluster — it needs seed hosts and peers —
+      // so say that instead of starting a single node and calling it one.
+      if (options.singleNode === false) {
+        throw new UserError(
+          'This command starts one Elasticsearch container, which can only run as a ' +
+          'single node.\n  For a real cluster, describe the nodes in a compose file ' +
+          'or run them as separate targets.'
+        );
+      }
+
       // Elasticsearch is not yet implemented as a fluent API service
       // Using ephemeral container directly
       const elasticsearch = $.docker().ephemeral(`elasticsearch:${options.version || '8.11.0'}`)
@@ -1319,8 +1333,9 @@ Password: ${mergedOptions.password || 'admin'}
           'ES_JAVA_OPTS': '-Xms512m -Xmx512m'
         });
 
-      if (options.persistent && options.dataPath) {
-        elasticsearch.volume(options.dataPath, '/usr/share/elasticsearch/data');
+      const esVolume = dataVolumeFor(options, 'xec-elasticsearch');
+      if (esVolume) {
+        elasticsearch.volume(esVolume, '/usr/share/elasticsearch/data');
       }
 
       await elasticsearch.start();

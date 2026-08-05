@@ -14,6 +14,8 @@ import type {
 
 import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
+import { dataVolumeFor } from './types.js';
+
 /**
  * Redis Single Instance Fluent API
  */
@@ -67,8 +69,9 @@ export class RedisFluentAPI extends DockerEphemeralFluentAPI {
     }
 
     // Data persistence
-    if (this.redisConfig.persistent && this.redisConfig.dataPath) {
-      this.volume(this.redisConfig.dataPath, '/data');
+    const dataVolume = dataVolumeFor(this.redisConfig, 'xec-redis');
+    if (dataVolume) {
+      this.volume(dataVolume, '/data');
     }
 
     // Config file

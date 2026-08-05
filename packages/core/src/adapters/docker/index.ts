@@ -406,6 +406,22 @@ export class DockerAdapter extends BaseAdapter {
   ): string[] {
     const args = ['exec'];
 
+    // `docker exec` runs inside a container that already exists, and mounts
+    // are fixed when a container is created. Accepting `volumes` here and
+    // quietly not mounting them meant the command ran against a filesystem
+    // the caller believed was somewhere else.
+    if (dockerOptions.volumes && dockerOptions.volumes.length > 0) {
+      throw new DockerError(
+        container,
+        'exec',
+        new Error(
+          'volumes are set when a container is created, and this command runs in an ' +
+          'existing one. Give an `image` (or runMode: "run") to create a container ' +
+          'with these mounts, or mount them on the container itself.'
+        )
+      );
+    }
+
     // Get optimal TTY settings
     const ttySettings = this.getTTYSettings(dockerOptions, command);
 
@@ -515,13 +531,22 @@ export class DockerAdapter extends BaseAdapter {
       }
     }
 
-    // Add environment variables
-    if (command.env) {
-      for (const [key, value] of Object.entries(command.env)) {
-        if (key && value !== undefined) {
-          args.push('-e', `${key}=${value}`);
-        }
+    // Environment: the engine's defaults first, then what this command
+    // asked for. Only `command.env` was applied here, so `defaultEnv` —
+    // set once on the engine and relied on everywhere — silently vanished
+    // for any target that happened to run in `run` mode rather than
+    // `exec`, which is a difference the caller never asked about.
+    const envToSet = { ...this.config.defaultEnv, ...command.env };
+    for (const [key, value] of Object.entries(envToSet)) {
+      if (key && value !== undefined) {
+        args.push('-e', `${key}=${value}`);
       }
+    }
+
+    // Privileged, for the same reason: it was honoured in `exec` and
+    // dropped here, so one target configuration meant two things.
+    if (this.dockerConfig.defaultExecOptions?.Privileged) {
+      args.push('--privileged');
     }
 
     // Add container name if specified

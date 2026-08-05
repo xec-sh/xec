@@ -7,6 +7,8 @@ import type { KafkaServiceConfig, RabbitMQServiceConfig } from './types.js';
 
 import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
+import { dataVolumeFor } from './types.js';
+
 /**
  * Apache Kafka Service Fluent API
  */
@@ -55,8 +57,9 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
     }
 
     // Data persistence
-    if (this.kafkaConfig.persistent && this.kafkaConfig.dataPath) {
-      this.volume(this.kafkaConfig.dataPath, '/var/lib/kafka/data');
+    const kafkaVolume = dataVolumeFor(this.kafkaConfig, 'xec-kafka');
+    if (kafkaVolume) {
+      this.volume(kafkaVolume, '/var/lib/kafka/data');
     }
 
     // Environment variables
@@ -133,8 +136,11 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
       this.zookeeperContainer.network(this.kafkaConfig.network);
     }
 
-    if (this.kafkaConfig.persistent) {
-      this.zookeeperContainer.volume(`${this.kafkaConfig.dataPath}-zk`, '/var/lib/zookeeper/data');
+    // Without a dataPath this mounted the literal string `undefined-zk`,
+    // creating a junk volume by that name on every start.
+    const zkVolume = dataVolumeFor(this.kafkaConfig, 'xec-kafka', 'zk');
+    if (zkVolume) {
+      this.zookeeperContainer.volume(zkVolume, '/var/lib/zookeeper/data');
     }
 
     await this.zookeeperContainer.start();
@@ -345,8 +351,9 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
     }
 
     // Data persistence
-    if (this.rabbitConfig.persistent && this.rabbitConfig.dataPath) {
-      this.volume(this.rabbitConfig.dataPath, '/var/lib/rabbitmq');
+    const rabbitVolume = dataVolumeFor(this.rabbitConfig, 'xec-rabbitmq');
+    if (rabbitVolume) {
+      this.volume(rabbitVolume, '/var/lib/rabbitmq');
     }
 
     // Environment variables

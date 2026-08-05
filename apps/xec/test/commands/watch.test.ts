@@ -422,9 +422,14 @@ describe('Watch Command', () => {
         { pattern: ['*.js', '*.ts'], exclude: ['node_modules'] }
       );
       expect(cmd2).toContain('find /src');
-      expect(cmd2).toContain('-name "*.js"');
-      expect(cmd2).toContain('-name "*.ts"');
-      expect(cmd2).toContain("--exclude 'node_modules'");
+      // Quoted, because a glob reaching the remote shell unquoted expands
+      // there — against the wrong directory — before `find` ever sees it.
+      expect(cmd2).toContain("-name '*.js'");
+      expect(cmd2).toContain("-name '*.ts'");
+      // A plain word needs no quotes; what matters is that it arrives as
+      // one argument, which the injection tests in
+      // watch-remote-command.test.ts pin for the values that do.
+      expect(cmd2).toContain('--exclude node_modules');
     });
 
     it('should parse watch output correctly', () => {
