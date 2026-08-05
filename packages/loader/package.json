@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/loader",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "TypeScript script execution, CDN module loading with integrity checks, and REPL for Xec",
   "type": "module",
   "main": "./dist/index.js",
@@ -41,7 +41,7 @@
     "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@xec-sh/kit": "workspace:*",
+    "@xec-sh/kit": "^0.10.0",
     "esbuild": "^0.27.4"
   },
   "devDependencies": {

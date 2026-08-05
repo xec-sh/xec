@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/ops",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "DevOps operations library — deploy, health checks, pipelines, discovery, workflows",
   "type": "module",
   "main": "./dist/index.js",
@@ -71,9 +71,9 @@
     "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@xec-sh/core": "workspace:*",
-    "@xec-sh/kit": "workspace:*",
-    "@xec-sh/loader": "workspace:*",
+    "@xec-sh/core": "^0.10.0",
+    "@xec-sh/kit": "^0.10.0",
+    "@xec-sh/loader": "^0.10.0",
     "dotenv": "^17.2.3",
     "fs-extra": "^11.3.3",
     "glob": "^13.0.0",

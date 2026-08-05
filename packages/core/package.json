@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/core",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "One TypeScript API for commands across local shells, SSH hosts, Docker containers, and Kubernetes pods",
   "author": "LuxQuant",
   "license": "MIT",
