@@ -14,9 +14,10 @@ import { prism, select, confirm } from '@xec-sh/kit';
 import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
 
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
-import { BaseCommand, CommandOptions } from '../utils/command-base.js';
+import { serializeOutput, BaseCommand, CommandOptions } from '../utils/command-base.js';
 
 interface InspectOptions extends CommandOptions {
+  config?: string;
   filter?: string;
   format?: 'table' | 'json' | 'yaml' | 'tree';
   resolve?: boolean;
@@ -114,6 +115,13 @@ export class InspectCommand extends BaseCommand {
       profile: optionsArg?.profile,
       verbose: this.options.verbose,
       quiet: this.options.quiet,
+      // The inspector runs outside the command class, so anything the
+      // contract depends on has to travel: the output format, and the
+      // configuration file the caller named. Neither did, which is why
+      // `-o json` printed a table and `-c` was answered from the
+      // conventional location.
+      output: this.options.output,
+      config: (this.options as { config?: string }).config,
     };
 
     try {
@@ -150,6 +158,7 @@ class ProjectInspector {
     // Initialize configuration with profile if specified
     this.configManager = new ConfigurationManager({
       projectRoot: process.cwd(),
+      configFilePath: this.options.config,
       profile: this.options.profile,
     });
 
@@ -858,6 +867,21 @@ class ProjectInspector {
   }
 
   private displayResults(results: InspectionResult[], type: string): void {
+    // The machine contract comes first, and it answers even for an empty
+    // result set: a script asking for JSON gets `[]`, not the sentence
+    // "No items found." on stdout. `--format json|yaml` predates the
+    // global -o and stays as an alias of it.
+    const aliased = this.options.format;
+    if ((aliased === 'json' || aliased === 'yaml') && this.options.output === 'text') {
+      this.options.output = aliased;
+    }
+
+    const machine = this.options.output;
+    if (machine === 'json' || machine === 'yaml' || machine === 'csv') {
+      process.stdout.write(`${serializeOutput(results, machine)}\n`);
+      return;
+    }
+
     if (results.length === 0) {
       console.log(prism.yellow('No items found.'));
       return;
