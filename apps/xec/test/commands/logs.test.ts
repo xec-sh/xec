@@ -308,9 +308,11 @@ targets:
       // Should have captured some output
       const output = capturedOutput.join('\n');
 
-      // The output should contain the streaming message
-      expect(output).toContain('Streaming logs from');
-      expect(output).toContain('Press Ctrl+C to stop');
+      // The lines themselves are the contract: a follow into a pipe used
+      // to deliver nothing for seconds while `docker logs` showed the line
+      // immediately. The banner and the Ctrl+C hint are for a terminal and
+      // are correctly absent here — this test runs without one.
+      expect(output).toContain('Database connected');
 
       // Debug output to understand what we're getting
       if (capturedOutput.length < 5) {
