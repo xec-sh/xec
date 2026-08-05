@@ -772,31 +772,29 @@ export function command(program: Command): void {
         //   s.stop('✅ CHANGELOG.md update skipped (dry run)');
         // }
 
-        // Step 4: Build packages
-        // s.start('Building packages...');
+        // Step 4: Build everything that is about to be published.
+        //
+        // Publishing dist as it happens to lie on disk ships whatever the
+        // last manual build produced — stale artifacts shaped exactly like a
+        // release. Versions were just written into package.json (step 3), so
+        // this build also bakes the new version into the tarballs. The build
+        // runs tsc, so it is the typecheck gate too. Dry runs build as well:
+        // a dry run that skips the step it exists to rehearse proves nothing.
+        s.start('Building packages...');
 
-        // if (!config.dryRun) {
-        //   // Use $.batch for cleaner API with concurrency control
-        //   const buildResult = await $.batch(
-        //     config.packages.map(pkg => `cd ${pkg.path} && yarn build`),
-        //     {
-        //       concurrency: 3, // Optimal for most systems
-        //       onProgress: (done, total, succeeded, failed) => {
-        //         s.start(`Building packages: ${done}/${total} (✓ ${succeeded}, ✗ ${failed})`);
-        //       }
-        //     }
-        //   );
+        const buildResult = await $`pnpm build`.timeout('10m').nothrow();
 
-        //   if (buildResult.failed.length > 0) {
-        //     s.stop('❌ Build failed');
-        //     await performRollback(rollbackState, config);
-        //     throw new Error(`Build failed for ${buildResult.failed.length} packages`);
-        //   }
+        if (!buildResult.ok) {
+          s.stop('❌ Build failed');
+          const tail = buildResult.stdall.trim().split('\n').slice(-15).join('\n');
+          kit.log.error(tail);
+          if (!config.dryRun) {
+            await performRollback(rollbackState, config);
+          }
+          throw new Error('Build failed; nothing was published');
+        }
 
-        //   s.stop(`✅ Built ${buildResult.succeeded.length} packages successfully`);
-        // } else {
-        //   s.stop('✅ Package build skipped (dry run)');
-        // }
+        s.stop('✅ Packages built');
 
         // Step 5: Git operations
         if (!config.skipGit && !config.dryRun) {
