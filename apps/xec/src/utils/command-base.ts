@@ -693,7 +693,39 @@ export abstract class SubcommandBase extends BaseCommand {
   override create(): Command {
     const command = super.create();
     this.setupSubcommands(command);
+    SubcommandBase.inheritCommonOptions(command);
     return command;
+  }
+
+  /**
+   * Give every leaf subcommand the options its parent advertises.
+   *
+   * A subcommand is built by hand and starts with nothing, so
+   * `xec docker service postgres --dry-run` — the natural spelling, and
+   * the one the parent's help implies — was rejected as an unknown option
+   * while `xec docker --dry-run service postgres` worked. The flags are
+   * copied onto the leaves, skipping any the leaf defines itself.
+   */
+  private static inheritCommonOptions(command: Command): void {
+    const inheritable = command.options.filter(option =>
+      ['--dry-run', '--output', '--config', '--verbose', '--quiet'].includes(option.long ?? '')
+    );
+
+    const apply = (target: Command): void => {
+      if (target.commands.length > 0) {
+        for (const child of target.commands) apply(child);
+        return;
+      }
+
+      for (const option of inheritable) {
+        const taken = target.options.some(
+          existing => existing.long === option.long || (option.short && existing.short === option.short)
+        );
+        if (!taken) target.addOption(option);
+      }
+    };
+
+    for (const child of command.commands) apply(child);
   }
 
   override async execute(args: any[]): Promise<void> {
