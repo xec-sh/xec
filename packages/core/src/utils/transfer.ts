@@ -2,10 +2,25 @@ import type { CallableExecutionEngine } from '../types/engine.js';
 import type { ExecutionEngine } from '../core/execution-engine.js';
 import type { UshEventMap, TypedEventEmitter } from '../types/events.js';
 
-import { stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { rm, stat } from 'node:fs/promises';
 import { join, dirname, relative, isAbsolute } from 'node:path';
 
 import { escapeArg } from './shell-escape.js';
+
+/**
+ * A local path to stage a transfer through.
+ *
+ * `/tmp` was written literally, which on Windows is `C:\tmp` — a directory
+ * that usually does not exist, so every transfer between two remote
+ * environments failed there. `os.tmpdir()` is the same directory on Unix
+ * and the right one everywhere else.
+ *
+ * @returns A path in this machine's temporary directory.
+ */
+function localStagingPath(): string {
+  return join(tmpdir(), `xec-transfer-${Date.now()}`);
+}
 
 export interface TransferOptions {
   // Common options
@@ -461,7 +476,7 @@ export class TransferEngine {
       await $ssh`${command}`;
     } else {
       // Different hosts, use intermediate transfer
-      const tempPath = `/tmp/xec-transfer-${Date.now()}`;
+      const tempPath = localStagingPath();
 
       // Copy from source to local temp
       await this.sshToLocal(source, { type: 'local', path: tempPath, raw: tempPath }, 'copy', options);
@@ -470,7 +485,7 @@ export class TransferEngine {
       await this.localToSsh({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
       // Clean up temp
-      await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+      await rm(tempPath, { recursive: true, force: true });
 
       // If move operation, delete source
       if (operation === 'move') {
@@ -496,13 +511,13 @@ export class TransferEngine {
     options: TransferOptions
   ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
     // Use intermediate local transfer
-    const tempPath = `/tmp/xec-transfer-${Date.now()}`;
+    const tempPath = localStagingPath();
 
     await this.sshToLocal(source, { type: 'local', path: tempPath, raw: tempPath }, 'copy', options);
     await this.localToDocker({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
     // Clean up
-    await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+    await rm(tempPath, { recursive: true, force: true });
 
     if (operation === 'move') {
       const $ssh = (this.control() as any).ssh({
@@ -553,13 +568,13 @@ export class TransferEngine {
     options: TransferOptions
   ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
     // Use intermediate local transfer
-    const tempPath = `/tmp/xec-transfer-${Date.now()}`;
+    const tempPath = localStagingPath();
 
     await this.dockerToLocal(source, { type: 'local', path: tempPath, raw: tempPath }, 'copy', options);
     await this.localToSsh({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
     // Clean up
-    await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+    await rm(tempPath, { recursive: true, force: true });
 
     if (operation === 'move') {
       await this.control().execute({
@@ -596,7 +611,7 @@ export class TransferEngine {
       await this.localToDocker({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
       // Clean up
-      await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+      await rm(tempPath, { recursive: true, force: true });
 
       if (operation === 'move') {
         await this.control().execute({

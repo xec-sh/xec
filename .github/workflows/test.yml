@@ -99,3 +99,49 @@ jobs:
       # script globals. Runs last: it proves the artifact, not the sources.
       - name: runtime smoke
         run: pnpm --filter @xec-sh/cli test test/runtime-smoke.test.ts
+
+  # Windows is not a platform this project has ever tested, and it is one
+  # the code claims: core picks `cmd` quoting from `platform() === 'win32'`,
+  # kills process trees with taskkill, and spells paths through node:path
+  # throughout. A claim nothing exercises is a claim that is true by
+  # accident until somebody depends on it.
+  #
+  # Narrower than the Linux job on purpose. Docker fixtures, kind and the
+  # Deno/Bun smoke are not the question here; whether the escaping, the
+  # path handling and the CLI's own startup survive a different platform
+  # is.
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      SKIP_SSH_DOCKER_TESTS: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # `build:full` includes kit, which builds with bun. Building the three
+      # packages this job actually exercises keeps it from depending on a
+      # runtime it does not test.
+      - name: build
+        run: pnpm --filter @xec-sh/core --filter @xec-sh/ops --filter @xec-sh/cli build
+
+      - name: core unit
+        run: pnpm --filter @xec-sh/core test:unit
+
+      - name: core property
+        run: pnpm --filter @xec-sh/core test:property
+
+      - name: cli unit
+        run: >
+          pnpm --filter @xec-sh/cli test
+          test/utils
+          test/command-manifest.test.ts
+          test/startup-budget.test.ts

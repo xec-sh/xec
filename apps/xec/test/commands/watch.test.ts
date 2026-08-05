@@ -873,12 +873,13 @@ describe('Watch Command', () => {
         // Trigger a change
         await fs.writeFile(testFile, 'trigger error');
 
-        // Wait for error to occur
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Should have logged error but continue watching
-        const errorLog = logOutput.join('\n');
-        expect(errorLog).toContain('Execution failed');
+        // Wait for the error, not for a duration: under a full suite the
+        // watcher and the debounce take longer than any number chosen here,
+        // and a fixed sleep turns that into a failure that looks like a bug.
+        await vi.waitFor(
+          () => expect(logOutput.join('\n')).toContain('Execution failed'),
+          { timeout: 15_000, interval: 50 }
+        );
 
         // Session should still be active
         expect(command['sessions'].size).toBe(1);
@@ -917,10 +918,10 @@ describe('Watch Command', () => {
           session.watcher.emit('error', new Error('Test watcher error'));
         }
 
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // Should have logged the error
-        expect(logOutput.some(log => log.includes('Watch error'))).toBe(true);
+        await vi.waitFor(
+          () => expect(logOutput.some(log => log.includes('Watch error'))).toBe(true),
+          { timeout: 15_000, interval: 50 }
+        );
       } finally {
         kit.log.error = originalError;
       }
@@ -1019,11 +1020,10 @@ describe('Watch Command', () => {
         // Trigger a change
         await fs.writeFile(testFile, 'trigger verbose');
 
-        // Wait for execution
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Should have logged verbose output
-        expect(logOutput.some(log => log.includes('Verbose output test'))).toBe(true);
+        await vi.waitFor(
+          () => expect(logOutput.some(log => log.includes('Verbose output test'))).toBe(true),
+          { timeout: 15_000, interval: 50 }
+        );
       } finally {
         console.log = originalLog;
         command['running'] = false;
@@ -1074,12 +1074,10 @@ describe('Watch Command', () => {
         // Trigger a change
         await fs.writeFile(testFile, 'trigger task');
 
-        // Wait for task execution
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Should have logged error
-        const errorLog = logOutput.join('\n');
-        expect(errorLog).toContain('Execution failed');
+        await vi.waitFor(
+          () => expect(logOutput.join('\n')).toContain('Execution failed'),
+          { timeout: 15_000, interval: 50 }
+        );
       } finally {
         kit.log.error = originalError;
         command['running'] = false;

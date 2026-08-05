@@ -1,3 +1,4 @@
+import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { log, select, isCancel } from '@xec-sh/kit';
@@ -518,7 +519,7 @@ export class CommandPalette {
   static async initialize(): Promise<void> {
     // Load saved history
     try {
-      const historyPath = path.join(process.env['HOME'] || '.', '.xec-command-history.json');
+      const historyPath = path.join(os.homedir(), '.xec-command-history.json');
       const data = await fs.readFile(historyPath, 'utf-8');
       const history = JSON.parse(data);
 
@@ -542,7 +543,7 @@ export class CommandPalette {
    */
   static async saveHistory(): Promise<void> {
     try {
-      const historyPath = path.join(process.env['HOME'] || '.', '.xec-command-history.json');
+      const historyPath = path.join(os.homedir(), '.xec-command-history.json');
       const history = {
         recentCommands: this.recentCommands,
         recentFiles: this.recentFiles,
