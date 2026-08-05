@@ -21,6 +21,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./globals": {
+      "types": "./globals.d.ts",
+      "import": "./dist/globals.js"
+    },
     "./package.json": "./package.json"
   },
   "keywords": [

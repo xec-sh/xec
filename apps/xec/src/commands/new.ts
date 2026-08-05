@@ -60,20 +60,22 @@ log.success(result.stdout);
 const files = await glob('**/*.js');
 log.step(\`Found \${files.length} JavaScript files\`);
 
-// Example: Interactive prompt
-const answer = await question({
-  message: 'Continue with the operation?',
-  defaultValue: 'yes'
-});
+// Example: an interactive prompt, asked only where it can be answered.
+// A prompt drawn into a pipe waits forever for keys that cannot arrive,
+// so a script meant to run in CI as well as in a terminal checks first.
+if (process.stdin.isTTY) {
+  const answer = await kit.confirm({
+    message: 'Continue with the operation?',
+    initialValue: true
+  });
 
-if (answer.toLowerCase() === 'yes') {
-  log.success('Operation completed successfully!');
-} else {
-  log.info('Operation cancelled');
+  log.info(answer === true ? 'Continuing' : 'Stopping here');
 }
+
+log.success('Done');
 `,
       ts: `#!/usr/bin/env xec
-/// <reference path="{globalsPath}" />
+/// <reference types="{globalsPath}" />
 
 /**
  * {description}
@@ -90,10 +92,9 @@ const files = await glob('**/*.ts');
 log.step(\`Found \${files.length} TypeScript files\`);
 
 // Interactive prompts with type inference
-const qName = await question({
-  message: 'What is your name?',
-  defaultValue: 'Developer'
-});
+const qName = process.stdin.isTTY
+  ? await kit.text({ message: 'What is your name?', defaultValue: 'Developer' })
+  : 'Developer';
 
 // Use chalk for colored output
 log.info(prism.blue(\`Hello, \${qName}!\`));
@@ -217,7 +218,7 @@ async function cleanup() {
 }
 `,
       ts: `#!/usr/bin/env xec
-/// <reference path="{globalsPath}" />
+/// <reference types="{globalsPath}" />
 
 /**
  * {description}
@@ -430,7 +431,7 @@ export function command(program) {
     });
 }
 `,
-      ts: `/// <reference path="{globalsPath}" />
+      ts: `/// <reference types="{globalsPath}" />
 
 /**
  * {description}
@@ -622,7 +623,7 @@ async function deleteItem(name) {
   await $\`echo "Deleting item: \${name}"\`;
 }
 `,
-      ts: `/// <reference path="{globalsPath}" />
+      ts: `/// <reference types="{globalsPath}" />
 
 /**
  * {description}
@@ -1339,7 +1340,11 @@ async function createProject(name: string, options: NewOptions) {
   s.start('Creating project structure...');
 
   // Get absolute path to globals.d.ts
-  const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
+  // The types come from the installed package by name, not by the path
+  // this machine happened to have them at: the previous form wrote the
+  // absolute path of whoever ran the generator into every file, so the
+  // project stopped type-checking the moment it was cloned.
+  const globalsPath = '@xec-sh/cli/globals';
 
   // Generate configuration from defaults
   const defaultConfig = getDefaultConfig();
@@ -1503,7 +1508,7 @@ secrets/
     await fs.ensureDir(scriptsDir);
 
     const exampleScript = `#!/usr/bin/env xec
-/// <reference path="${globalsPath}" />
+/// <reference types="@xec-sh/cli/globals" />
 
 /**
  * Example Xec script
@@ -1514,12 +1519,16 @@ secrets/
 const result = await $\`echo "Hello from Xec!"\`;
 log.success(result.stdout);
 
-// Interactive prompts
-const name = await prompt('What is your name?');
+// Interactive prompts — kit is a global; nothing to import
+const name = process.stdin.isTTY
+  ? await kit.text({ message: 'What is your name?' })
+  : 'world';
 log.info(\`Hello, \${name}!\`);
 
-// Work with targets
-const hosts = config.targets.hosts || {};
+// Work with targets: the configuration comes from @xec-sh/ops
+const { config } = await import('@xec-sh/ops');
+await config.load();
+const hosts = config.get('targets.hosts') ?? {};
 log.info(\`Found \${Object.keys(hosts).length} hosts\`);
 
 // Use helper functions
@@ -1757,7 +1766,11 @@ async function createScript(name: string, options: NewOptions) {
   const template = TEMPLATES.script[templateKey][isJs ? 'js' : 'ts'];
 
   // Get absolute path to globals.d.ts
-  const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
+  // The types come from the installed package by name, not by the path
+  // this machine happened to have them at: the previous form wrote the
+  // absolute path of whoever ran the generator into every file, so the
+  // project stopped type-checking the moment it was cloned.
+  const globalsPath = '@xec-sh/cli/globals';
 
   // Process template
   const content = template
@@ -1839,7 +1852,11 @@ async function createCommand(name: string, options: NewOptions) {
   const template = TEMPLATES.command[templateKey][isJs ? 'js' : 'ts'];
 
   // Get absolute path to globals.d.ts
-  const globalsPath = path.resolve(import.meta.dirname, '../../globals.d.ts');
+  // The types come from the installed package by name, not by the path
+  // this machine happened to have them at: the previous form wrote the
+  // absolute path of whoever ran the generator into every file, so the
+  // project stopped type-checking the moment it was cloned.
+  const globalsPath = '@xec-sh/cli/globals';
 
   // Process template
   const content = template
@@ -2072,7 +2089,7 @@ async function createExtension(name: string, options: NewOptions) {
     await fs.writeFile(
       mainScriptPath,
       `#!/usr/bin/env node
-/// <reference path="${path.resolve(import.meta.dirname, '../../../globals.d.ts')}" />
+/// <reference types="@xec-sh/cli/globals" />
 
 // Main script for ${name} extension
 
@@ -2086,7 +2103,7 @@ console.log(\`Running ${name} in \${mode} mode...\`);
 
     await fs.writeFile(
       path.join(targetDir, 'scripts', `${name}-utils.ts`),
-      `/// <reference path="${path.resolve(import.meta.dirname, '../../../globals.d.ts')}" />
+      `/// <reference types="@xec-sh/cli/globals" />
 
 // Utility functions for ${name} extension
 

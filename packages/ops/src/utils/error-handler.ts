@@ -221,11 +221,11 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
     console.error(prism.dim('Run with --verbose for more details'));
   }
 
-  // Show help command for context
-  if (error.context?.command) {
-    const baseCommand = error.context.command.split(' ')[0];
-    console.error(prism.dim(`Run 'xec ${baseCommand} --help' for usage information`));
-  }
+  // No help pointer here. `error.context.command` is the command that
+  // failed on the far side — `sleep 30`, `psql`, `systemctl` — and taking
+  // its first word as a xec command produced advice like "Run 'xec docker
+  // --help'" for a timeout in `xec in`, sending the reader to the wrong
+  // manual. A wrong pointer costs more than no pointer.
 }
 
 /**

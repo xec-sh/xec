@@ -383,9 +383,12 @@ function generateTimeoutErrorSuggestions(
 ): ErrorSuggestion[] {
   const suggestions: ErrorSuggestion[] = [];
 
+  // `--timeout` belongs to the commands that run something — on, in, copy —
+  // and never existed at the root. Suggesting a flag the CLI rejects sends
+  // an operator to debug their own typing while the real problem waits.
   suggestions.push({
-    message: `Increase timeout (current: ${timeout}ms)`,
-    command: `xec --timeout ${timeout * 2}ms "${command}"`
+    message: `Increase the timeout (current: ${timeout}ms) with -t on the command that runs it`,
+    command: `xec on <target> -t ${timeout * 2}ms "${command}"`
   });
 
   if (command.includes('install') || command.includes('download')) {
