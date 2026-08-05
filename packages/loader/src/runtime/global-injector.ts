@@ -26,7 +26,16 @@ export interface GlobalInjectorOptions {
 }
 
 /**
- * GlobalInjector provides safe injection and restoration of global variables
+ * GlobalInjector provides safe injection and restoration of global variables.
+ *
+ * Scope of the guarantee: `restore()` puts back exactly the keys this injector
+ * set — the prior value where one existed, otherwise deleting the key. It does
+ * **not** sandbox the executed code. A global the code assigns for itself
+ * (`globalThis.foo = 1`) is left in place, because deleting every key that
+ * appeared during execution would also strip legitimate registrations such as
+ * a polyfill installing itself. True isolation between runs needs a fresh realm
+ * (a Worker or `vm` context), which this class deliberately does not attempt.
+ * The injected globals themselves never leak between runs.
  */
 export class GlobalInjector {
   private injectedGlobals = new Map<string, unknown>();

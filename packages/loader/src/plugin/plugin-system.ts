@@ -12,6 +12,13 @@ import type { ModuleResolver, ModuleSpecifier } from '../types/index.js';
 /**
  * Lifecycle hooks that plugins can implement.
  * All hooks are optional — implement only what you need.
+ *
+ * Trust model: a plugin is fully trusted code. `transformCode` rewrites the
+ * source of every script before it runs, `resolveSpecifier` and `resolver`
+ * redirect where imports come from, and the lifecycle hooks run in this
+ * process with its privileges. Registering a plugin is therefore equivalent to
+ * running its author's code — treat plugin sources exactly as you treat the
+ * scripts they will transform, and load them only from origins you control.
  */
 export interface LoaderPlugin {
   /** Unique plugin name for identification and error messages */
