@@ -44,6 +44,20 @@ describe('LocalModuleResolver', () => {
     expect(result.type).toBe('esm');
   });
 
+  it('decodes percent-encoding in a file:// URL back to the real path', async () => {
+    // A space becomes %20 in the URL. Resolving via `.pathname` left it encoded
+    // (and prefixed a slash before a Windows drive), so the file never opened;
+    // fileURLToPath restores the actual path.
+    const spaced = path.join(tempDir, 'a b.js');
+    await fs.writeFile(spaced, 'export default 1;');
+
+    const fileUrl = pathToFileURL(spaced).href;
+    expect(fileUrl).toContain('%20');
+
+    const result = await resolver.resolve(fileUrl);
+    expect(result.resolved).toBe(spaced);
+  });
+
   it('should throw for non-existent file:// URLs', async () => {
     const nonExistentUrl = 'file:///non/existent/path/test.js';
     expect(resolver.canResolve(nonExistentUrl)).toBe(true);

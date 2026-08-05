@@ -7,6 +7,7 @@ import type { CDNProvider, ModuleResolver, ModuleSpecifier, ModuleResolution } f
 
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 import { isNodeBuiltinModule } from '../constants.js';
 
@@ -43,9 +44,11 @@ export class LocalModuleResolver implements ModuleResolver {
   async resolve(specifier: ModuleSpecifier): Promise<ModuleResolution> {
     let resolved: string;
 
-    // Handle file:// URLs
+    // Handle file:// URLs. fileURLToPath, not `.pathname`: the latter yields
+    // `/C:/x` on Windows and leaves percent-encoding (`%20`) undecoded, so the
+    // path failed to open. fileURLToPath is correct on every platform.
     if (specifier.startsWith('file://')) {
-      resolved = new URL(specifier).pathname;
+      resolved = fileURLToPath(specifier);
     } else {
       // Resolve relative or absolute paths
       resolved = path.resolve(specifier);
