@@ -71,7 +71,7 @@ describe('running one command across a fleet', () => {
 
     expect(result.total).toBe(2);
     expect(result.succeeded).toBe(1);
-    expect(result.entries.find(entry => entry.name === 'a.example.com')?.error)
+    expect(result.entries.find(entry => entry.name === 'a')?.error)
       .toBe('connection refused');
   });
 
@@ -184,6 +184,28 @@ describe('running one command across a fleet', () => {
 
       expect(result.total).toBe(2);
     });
+  });
+
+  it('names a target the way the operator named it', async () => {
+    // `describeTarget` answers with the address — right for core, where a
+    // target may have no other name; wrong in a report about `hosts.web-*`,
+    // where the reader is looking for `web-1`.
+    const { result } = await runFleet([host('web-1')], 'uptime', async () => ok());
+
+    expect(result.entries[0]!.name).toBe('web-1');
+  });
+
+  it('falls back to the address when there is no name', async () => {
+    const anonymous: ResolvedTarget = {
+      id: 'ssh:direct',
+      type: 'ssh',
+      config: { type: 'ssh', host: 'direct.example.com' } as never,
+      source: 'created',
+    };
+
+    const { result } = await runFleet([anonymous], 'uptime', async () => ok());
+
+    expect(result.entries[0]!.name).toBe('direct.example.com');
   });
 
   it('does not call an empty fleet a success', async () => {

@@ -218,28 +218,81 @@ Status messages go to stderr. Anything that would prompt — `delete` and
 Secrets are encrypted using industry-standard encryption:
 
 - **Algorithm**: AES-256-GCM
-- **Key derivation**: PBKDF2 with 100,000 iterations
-- **Salt**: Unique per secret store
+- **Key derivation**: scrypt, which is memory-hard and so resists the
+  GPU attacks PBKDF2 does not
+- **Salt**: Unique per secret
 - **IV**: Unique per secret
 
 ### Storage Location
 
-Secrets are stored in the user's home directory:
+Secrets belong to the project they are used from. The store lives beside
+the configuration:
 
 ```
-~/.xec/secrets/
-├── keyring.enc      # Encrypted secret store
-├── salt             # Cryptographic salt
-└── config           # Storage configuration
+<project>/.xec/secrets/
+├── .gitignore        # Written on first use; excludes the whole directory
+├── .index.json       # Which keys exist, not their values
+└── <sha256>.secret   # One encrypted record per key, mode 0600
+```
+
+The `.gitignore` is inside the store deliberately. Secrets sit in the
+working tree, one `git add -A` from being published, and a credential in
+a repository's history is not removed by deleting the file afterwards —
+so the store excludes itself rather than relying on anyone having thought
+of it before the first commit. If you edit that file, yours is kept.
+
+A store under `~/.xec/secrets/` from an earlier version is not read or
+moved. `xec secrets` says so once, with the command to copy what you
+want:
+
+```bash
+cp -R ~/.xec/secrets/. .xec/secrets/
 ```
 
 ### Provider Support
 
-The secrets system supports multiple storage providers:
+Three providers are implemented:
 
-- **File** (default): Encrypted files in `~/.xec/secrets/`
-- **System Keyring**: OS-native keyring (macOS Keychain, Windows Credential Store, Linux Secret Service)
-- **External**: HashiCorp Vault, AWS Secrets Manager, etc.
+- **local** (default): encrypted files, as above
+- **env**: reads from the process environment; useful in CI, where the
+  platform already holds the secrets
+- **git**: encrypted records committed alongside the code, for teams that
+  share them that way
+
+`vault`, `1password`, `aws-secrets` and `dotenv` are recognised names but
+not implemented. Configuring one is an error rather than a silent
+fallback to `local` — a fallback would leave you believing your values
+live somewhere they do not.
+
+## Using Secrets
+
+### On the command line
+
+`secret://name` in `--env` reads the value here and delivers it through
+the environment of the remote process:
+
+```bash
+xec secrets set pgpw
+xec on hosts.db "psql -c '\\dt'" -e PGPASSWORD=secret://pgpw
+xec in containers.app "./migrate.sh" -e PGPASSWORD=secret://pgpw
+```
+
+Written literally — `-e PGPASSWORD=hunter2` — the value is in your shell
+history, in any log that echoes the invocation, and in `ps` on the far
+side. A reference never becomes part of a command line at all: SSH,
+docker and kubectl each transmit the environment out of band.
+
+The value is also registered with the masker before it travels, so it is
+redacted in command echoes, streamed output, events and error messages
+even if the command prints it:
+
+```console
+$ xec in app 'echo "connecting with $PGPASSWORD"' -e PGPASSWORD=secret://pgpw
+connecting with [REDACTED]
+```
+
+A reference to a key nothing holds fails before anything runs anywhere,
+naming the key.
 
 ## Using Secrets in Configuration
 

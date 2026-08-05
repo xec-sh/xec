@@ -48,6 +48,9 @@ The `in` command executes commands, scripts, or tasks inside Docker containers a
 - `-d, --cwd <path>` - Working directory in container
 - `-u, --user <user>` - User to run command as
 - `--parallel` - Execute on multiple targets in parallel
+- `--max-concurrent <n>` - Maximum concurrent executions (default: 10)
+- `--fail-fast` - Stop on first failure in parallel mode
+- `--max-failures <n>` - Stop after `n` failures, or a share of the fleet (`20%`)
 - `-v, --verbose` - Enable verbose output
 - `-q, --quiet` - Suppress output
 - `--dry-run` - Preview execution without running
@@ -161,7 +164,28 @@ xec in pods.worker -e DB_HOST=localhost -e DB_PORT=5432 "./run.sh"
 
 # Override container defaults
 xec in containers.test -e DEBUG=true "pytest"
+
+# Forward a variable from this environment, the way `docker run -e` does
+xec in containers.app -e AWS_REGION "aws s3 ls"
 ```
+
+#### Values from the secret store
+
+`secret://name` reads the value from this machine's store and delivers it
+through the environment of the remote process:
+
+```bash
+xec secrets set pgpw            # prompts, or reads stdin when piped
+xec in containers.app -e PGPASSWORD=secret://pgpw "psql -c '\\dt'"
+```
+
+The value never becomes part of a command line — not in shell history,
+not in a log that echoes the invocation, not in `ps` on either machine —
+and it is registered with the masker before it travels, so it is redacted
+in output, events and error messages even if the command prints it.
+
+A reference to a key nothing holds fails before anything runs anywhere,
+naming the key, rather than halfway through a deployment.
 
 ### Working Directory
 
@@ -445,11 +469,22 @@ xec in containers.app "whoami"
 - [run](run.md) - Run scripts and tasks
 - [logs](logs.md) - View container/pod logs
 
+## Output
+
+stdout carries the answer; stderr carries everything said about producing
+it. With one target, its stdout is passed through byte for byte, so
+`xec in app "cat /etc/hosts" > hosts` writes the file and nothing else.
+With several, identical output is grouped so the one that disagrees is
+visible. A command's own stderr always reaches stderr, without needing
+`--verbose`.
+
+`-o json` replaces all of it with one document — the same shape [on](on.md)
+produces, so a script that reads one reads the other.
+
 ## Exit Codes
 
-- `0` - Success
-- `1` - General error
-- `2` - Invalid arguments
-- `3` - Target not found
-- `4` - Command execution failed
-- `124` - Timeout exceeded
+- `0` - Every target succeeded
+- The command's own exit code, when exactly one target ran and exited
+  non-zero — so `xec in app "test -f /etc/passwd"` can be used in an `if`
+- `1` - Anything else: a target that could not be reached, a pattern that
+  matched nothing, several targets failing with no single code to report

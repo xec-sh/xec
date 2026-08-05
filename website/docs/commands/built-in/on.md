@@ -52,6 +52,7 @@ Hosts can be specified as:
 - `--parallel` - Execute on multiple hosts in parallel
 - `--max-concurrent <n>` - Maximum concurrent executions (default: 10)
 - `--fail-fast` - Stop on first failure in parallel mode
+- `--max-failures <n>` - Stop after `n` failures, or a share of the fleet (`20%`)
 - `-v, --verbose` - Enable verbose output
 - `-q, --quiet` - Suppress output
 - `--dry-run` - Preview execution without running
@@ -89,7 +90,26 @@ xec on hosts.app-* "./deploy.sh" --parallel --max-concurrent 5
 
 # Stop on first failure
 xec on hosts.* "npm test" --parallel --fail-fast
+
+# Or tolerate a few: stop once a fifth of the fleet has failed
+xec on hosts.* "./deploy.sh" --parallel --max-failures 20%
 ```
+
+Identical output is grouped, so the machine that disagrees is the one you
+see rather than the one you have to find:
+
+```console
+$ xec on hosts.web-* "cat /etc/os-release | head -1" --parallel
+web-1, web-2, web-4, web-5
+  PRETTY_NAME="Ubuntu 24.04.1 LTS"
+web-3
+  PRETTY_NAME="Ubuntu 22.04.5 LTS"
+✓ 5/5 in 1.2s
+```
+
+Both limits stop new hosts from *starting*. Hosts already running are
+allowed to finish, so their results are reported rather than discarded,
+and any host that never started is named.
 
 ### Script Execution
 
@@ -421,12 +441,44 @@ ping hostname
 - [run](run.md) - Run scripts and tasks
 - [forward](forward.md) - SSH port forwarding
 
+## Output
+
+stdout carries the answer; stderr carries everything said about producing
+it. Progress, warnings, per-host failures and the final tally are all
+diagnostics, so `xec on web-1 "cat /etc/hosts" > hosts` writes the file
+and nothing else.
+
+With one host, its stdout is passed through byte for byte — no trimming,
+no prefix. With several, output is grouped as shown above, and the
+grouped report is itself the answer, so it goes to stdout.
+
+A command's own stderr always reaches stderr. It does not need
+`--verbose`.
+
+`-o json` replaces all of it with one document:
+
+```json
+{
+  "command": "uptime",
+  "ok": false,
+  "total": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "durationMs": 812,
+  "targets": [
+    { "target": "web-1", "ok": true, "exitCode": 0, "stdout": "…", "stderr": "", "durationMs": 210 }
+  ],
+  "skipped": []
+}
+```
+
+Every field is always present, including the empty ones.
+
 ## Exit Codes
 
-- `0` - Success
-- `1` - General error
-- `2` - Invalid arguments
-- `3` - Host not found
-- `4` - SSH connection failed
-- `5` - Command execution failed
-- `124` - Timeout exceeded
+- `0` - Every host succeeded
+- The command's own exit code, when exactly one host ran and exited
+  non-zero — so `xec on web-1 "test -f /etc/nginx.conf"` can be used in
+  an `if`
+- `1` - Anything else: a host that could not be reached, a pattern that
+  matched nothing, several hosts failing with no single code to report

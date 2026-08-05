@@ -147,16 +147,20 @@ export async function runFleet(
       };
     }
 
-    entries.push(
-      fleetEntry(toCoreTarget(target), {
-        ok: outcome.exitCode === 0 && outcome.error === undefined,
-        exitCode: outcome.exitCode,
-        stdout: outcome.stdout,
-        stderr: outcome.stderr,
-        durationMs: Date.now() - target0,
-        ...(outcome.error !== undefined ? { error: outcome.error } : {}),
-      })
-    );
+    const entry = fleetEntry(toCoreTarget(target), {
+      ok: outcome.exitCode === 0 && outcome.error === undefined,
+      exitCode: outcome.exitCode,
+      stdout: outcome.stdout,
+      stderr: outcome.stderr,
+      durationMs: Date.now() - target0,
+      ...(outcome.error !== undefined ? { error: outcome.error } : {}),
+    });
+
+    // Named the way the operator named it. `describeTarget` answers with
+    // the address — `admin@web-1.example.com` — which is right for core,
+    // where a target may have no other name, and wrong in a report about
+    // `hosts.web-*`, where the reader is looking for `web-1`.
+    entries.push(target.name ? { ...entry, name: target.name } : entry);
 
     if (outcome.exitCode !== 0 || outcome.error !== undefined) {
       failed++;

@@ -496,6 +496,41 @@ const $ = new ExecutionEngine({
 });
 ```
 
+#### Values you already know
+
+A pattern recognises a credential by its shape. That is the best
+available guess when nothing is known about the text, and like any guess
+it misses: a password on its own line, with no key beside it, looks
+exactly like ordinary output.
+
+When you have the value itself — read from a secret store, prompted for,
+decrypted — `registerSecret` records it, and every masker in the process
+redacts it by identity from that moment on:
+
+```typescript
+import { $, registerSecret } from '@xec-sh/core';
+
+const password = await store.get('pg');
+
+if (!registerSecret(password)) {
+  console.warn('too short to redact safely; it may appear in output');
+}
+
+const result = await $`psql -c '\\dt'`.env({ PGPASSWORD: password });
+// result.stdout, result.command, any error thrown: all redacted
+```
+
+The registry is process-wide and append-only. The guarantee is that the
+string does not appear in anything this process emits — including a
+message thrown deep in an adapter that has never heard of secret stores —
+and nothing is removed, because a window in which a value stops being
+redacted is a window in which it leaks.
+
+Values under four characters are refused, and `registerSecret` returns
+`false` so you can say so: redaction is literal replacement, and
+registering `"ok"` would rewrite every `ok` in every stream. With no
+secret registered, the check costs one property read.
+
 ## Integration with async/await
 
 The engine is fully compatible with async/await and Promise APIs:
