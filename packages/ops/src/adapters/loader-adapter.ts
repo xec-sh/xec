@@ -256,8 +256,11 @@ export class ScriptLoader {
         });
       }
 
-      // Evaluate code
+      // Evaluate code. The invocation context travels too — this call used
+      // to drop it on the floor, so the evaluator fell back to its default
+      // and `xec -e` reported empty args no matter what followed the code.
       const result = await this.evaluator.evaluateCode(evaluated, {
+        context: options.context,
         customGlobals,
         verbose: this.options.verbose,
         quiet: this.options.quiet,

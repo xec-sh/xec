@@ -198,7 +198,15 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     const args = argv.slice(2);
     const firstArg = args[0];
 
-    // Check for special flags first
+    // Check for special flags first.
+    //
+    // Every shorthand routes through the run command rather than through a
+    // private twin of it. The twins built a partial context ({ args } and
+    // nothing else), which the loader half-injected — a direct
+    // `xec script.ts one two` left argv undefined, the script threw on its
+    // first line, and the failure was swallowed with exit 0. Root -e lost
+    // its arguments entirely on the same road. One path, one context, one
+    // failure contract.
     if (args.includes('-e') || args.includes('--eval')) {
       const evalIndex = args.indexOf('-e') !== -1 ? args.indexOf('-e') : args.indexOf('--eval');
       const code = args[evalIndex + 1];
@@ -206,12 +214,12 @@ export async function run(argv: string[] = process.argv): Promise<void> {
         throw new Error('Code is required for eval');
       }
       const scriptArgs = args.slice(evalIndex + 2);
-      await evalCodeDirectly(code, scriptArgs, {});
+      await runViaRunCommand([undefined, scriptArgs], { eval: code });
       return;
     }
 
     if (args.includes('--repl')) {
-      await startReplDirectly({});
+      await runViaRunCommand([undefined, []], { repl: true });
       return;
     }
 
@@ -219,21 +227,12 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     if (firstArg && !firstArg.startsWith('-') && firstArg !== 'help') {
       // Check if first argument is a file
       const potentialFile = firstArg;
-      if (potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') || potentialFile.endsWith('.mjs')) {
-        // Run as script
-        const scriptArgs = args.slice(1);
-        await runScriptDirectly(potentialFile, scriptArgs, {});
+      const looksLikeScript = potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') || potentialFile.endsWith('.mjs');
+      const isExistingFile = !looksLikeScript && fs.existsSync(potentialFile) && fs.statSync(potentialFile).isFile();
+
+      if (looksLikeScript || isExistingFile) {
+        await runViaRunCommand([potentialFile, args.slice(1)], {});
         return;
-      }
-      // Also check if it's an existing file (not a directory)
-      if (fs.existsSync(potentialFile)) {
-        const stats = fs.statSync(potentialFile);
-        if (stats.isFile()) {
-          // Run as script
-          const scriptArgs = args.slice(1);
-          await runScriptDirectly(potentialFile, scriptArgs, {});
-          return;
-        }
       }
     }
 
@@ -371,31 +370,33 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   }
 }
 
-// Helper functions for direct script execution
-async function runScriptDirectly(scriptPath: string, args: string[], options: any) {
-  const { executeScript } = await import('@xec-sh/ops');
-  await executeScript(scriptPath, { ...options, context: { args } });
-}
+/**
+ * Route a root-level shorthand (`xec file.ts`, `xec -e`, `xec --repl`)
+ * through the run command it abbreviates.
+ *
+ * The command is executed directly rather than re-parsed: its options are
+ * set the way its own action handler would, so the shorthand and
+ * `xec run ...` are the same code path with the same context, the same
+ * local target, and the same exit-on-failure behaviour.
+ */
+async function runViaRunCommand(
+  positionals: [string | undefined, string[]],
+  options: Record<string, unknown>
+): Promise<void> {
+  const { RunCommand } = await import('./commands/run.js');
+  const command = new RunCommand() as unknown as {
+    options: Record<string, unknown>;
+    execute(args: unknown[]): Promise<void>;
+  };
 
-async function evalCodeDirectly(code: string, args: string[], options: any) {
-  const { evaluateCode } = await import('@xec-sh/ops');
+  const fullOptions = {
+    verbose: process.argv.includes('-v') || process.argv.includes('--verbose'),
+    quiet: process.argv.includes('-q') || process.argv.includes('--quiet'),
+    ...options,
+  };
 
-  // evaluateCode reports failure in its return value rather than throwing, and
-  // ignoring that made `xec -e` exit 0 whatever the code did — so in CI a
-  // failed step was a green step and the pipeline went on to deploy.
-  // `xec run script.ts` already exited 1 on the same failure; the two ways of
-  // running code disagreed about what failure means.
-  const result = await evaluateCode(code, { ...options, context: { args } }) as
-    { success?: boolean; error?: unknown } | undefined;
-
-  if (result?.success === false) {
-    throw result.error ?? new Error('Evaluation failed');
-  }
-}
-
-async function startReplDirectly(options: any) {
-  const { startRepl } = await import('@xec-sh/ops');
-  await startRepl(options);
+  command.options = fullOptions;
+  await command.execute([...positionals, fullOptions]);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

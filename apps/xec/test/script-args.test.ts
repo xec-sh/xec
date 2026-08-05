@@ -86,4 +86,42 @@ describe('scripts receive their arguments', () => {
     expect(ctx.args).toEqual([]);
     expect(ctx.tail).toEqual(['xec', '<eval>']);
   }, 60_000);
+
+  it('eval receives the arguments that follow the code', async () => {
+    // These were dropped in the ops relay: the evaluator never saw the
+    // context and silently substituted its empty default.
+    const { output } = await run(['-e', "console.log('CTX', JSON.stringify({ args, tail: argv }))", 'one', 'two']);
+
+    const line = output.split('\n').find(l => l.startsWith('CTX '));
+    expect(line, output).toBeDefined();
+    const ctx = JSON.parse(line!.slice(4)) as { args: string[]; tail: string[] };
+    expect(ctx.args).toEqual(['one', 'two']);
+    expect(ctx.tail).toEqual(['xec', '<eval>', 'one', 'two']);
+  }, 60_000);
+
+  /**
+   * `xec script.ts` — no `run` — is the shorthand people type most. It used
+   * to travel a private twin of the run command that built a partial
+   * context: argv arrived undefined, the script threw on its first line,
+   * and the failure was swallowed with exit 0. Both halves are pinned here.
+   */
+  describe('the direct shorthand is the run command', () => {
+    it('delivers the full context', async () => {
+      const { code, output } = await run(['echo-args.ts', 'alpha', 'beta']);
+
+      const ctx = parse(output);
+      expect(ctx.args).toEqual(['alpha', 'beta']);
+      expect(ctx.tail[0]!.endsWith('echo-args.ts')).toBe(true);
+      expect(code).toBe(0);
+    }, 60_000);
+
+    it('a failing script exits non-zero', async () => {
+      await fs.writeFile(path.join(dir, 'boom.ts'), "throw new Error('boom');\n");
+
+      const { code, output } = await run(['boom.ts']);
+
+      expect(code).not.toBe(0);
+      expect(output).toContain('boom');
+    }, 60_000);
+  });
 });
