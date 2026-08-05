@@ -10,6 +10,8 @@ import type { ResolvedTarget } from '../config/types.js';
 
 import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
+import { pathToFileURL } from 'node:url';
+import { randomBytes } from 'node:crypto';
 import { log, prism } from '@xec-sh/kit';
 import {
   REPLServer,
@@ -60,6 +62,19 @@ export interface ScriptExecutionResult {
 }
 
 /**
+ * Build the URL a command module is imported by.
+ *
+ * String-built `file://${p}` URLs corrupt any path containing '#', '%' or
+ * spaces — everything after '#' parses as a fragment — and Windows paths
+ * never start with '/', so they used to be passed to import() as bare
+ * specifiers. Relative paths resolve against the working directory, matching
+ * how command paths are configured.
+ */
+export function commandFileUrl(filePath: string): string {
+  return pathToFileURL(path.resolve(filePath)).href;
+}
+
+/**
  * ScriptLoader adapter - wraps @xec-sh/loader with CLI-specific functionality
  */
 export class ScriptLoader {
@@ -82,6 +97,8 @@ export class ScriptLoader {
     this.evaluator = new CodeEvaluator();
     this.moduleLoader = new ModuleLoader({
       preferredCDN: this.options.preferredCDN,
+      cache: this.options.cache,
+      verbose: this.options.verbose,
     });
   }
 
@@ -186,8 +203,8 @@ export class ScriptLoader {
     await runAndLog();
 
     // Watch for changes using @xec-sh/loader's FileWatcher
-    const dir = await import('node:path').then(p => p.dirname(scriptPath));
-    const ext = await import('node:path').then(p => p.extname(scriptPath));
+    const dir = path.dirname(scriptPath);
+    const ext = path.extname(scriptPath);
     const watcher = new FileWatcher(dir, { extensions: [ext || '.ts', '.js'], debounce: 300 });
     watcher.on('change', async () => {
       console.clear();
@@ -230,8 +247,17 @@ export class ScriptLoader {
         customGlobals['$targetInfo'] = targetInfo;
       }
 
+      // The evaluator imports the code as a data: URL, which no runtime
+      // type-strips, so TypeScript syntax has to be compiled away here.
+      let evaluated = code;
+      if (options.typescript ?? this.options.typescript) {
+        evaluated = await this.tsTransformer.transformWithOptions(code, 'xec-eval.ts', {
+          platform: 'node',
+        });
+      }
+
       // Evaluate code
-      const result = await this.evaluator.evaluateCode(code, {
+      const result = await this.evaluator.evaluateCode(evaluated, {
         customGlobals,
         verbose: this.options.verbose,
         quiet: this.options.quiet,
@@ -344,7 +370,6 @@ export class ScriptLoader {
       if (this.tsTransformer.needsTransformation(filePath)) {
         // TypeScript files: use TypeScriptTransformer from @xec-sh/loader
         const fs = await import('node:fs');
-        const nodePath = await import('node:path');
 
         const code = await fs.promises.readFile(filePath, 'utf-8');
 
@@ -356,14 +381,17 @@ export class ScriptLoader {
         // Apply CLI-specific post-processing
         const fullCode = this.applyCliTransformations(transformedCode);
 
-        const tmpDir = nodePath.join(process.cwd(), '.xec', '.tmp');
+        const tmpDir = path.join(process.cwd(), '.xec', '.tmp');
         await fs.promises.mkdir(tmpDir, { recursive: true });
-        const tmpFile = nodePath.join(tmpDir, `xec-cmd-${Date.now()}.js`);
+        // The name must be unique per load: ESM caches by URL, so a reused
+        // name would hand a second command the first one's exports — and a
+        // predictable name in a shared directory is writable by others.
+        const tmpFile = path.join(tmpDir, `xec-cmd-${randomBytes(8).toString('hex')}.js`);
 
         await fs.promises.writeFile(tmpFile, fullCode);
 
         try {
-          const fileUrl = new URL(`file://${tmpFile}`).href;
+          const fileUrl = commandFileUrl(tmpFile);
 
           if (process.env['XEC_DEBUG']) {
             console.log(`[loadDynamicCommand] Importing URL: ${fileUrl}`);
@@ -378,12 +406,11 @@ export class ScriptLoader {
         }
       } else {
         // JavaScript files: use direct import
-        const fileUrl = filePath.startsWith('/') ? `file://${filePath}` : filePath;
-        moduleExports = await import(fileUrl);
+        moduleExports = await import(commandFileUrl(filePath));
       }
 
       // Check if the module exports a default function, setup, or command function
-      const setupFn = moduleExports.default || moduleExports.setup || moduleExports.command;
+      const setupFn = moduleExports['default'] || moduleExports['setup'] || moduleExports['command'];
       if (typeof setupFn === 'function') {
         await setupFn(program);
         return { success: true };
@@ -509,13 +536,29 @@ export class ScriptLoader {
 }
 
 /**
- * Get a singleton ScriptLoader instance
+ * Get a shared ScriptLoader instance.
+ *
+ * Instances are cached per option set. A single cached instance would hand
+ * every later caller the first caller's options — `xec watch --quiet` stayed
+ * loud because the command manager had already created the loader without
+ * `quiet`. Callers passing identical options still share one instance, which
+ * is what keeps the injected global context and module cache shared.
  */
-let cachedLoader: ScriptLoader | null = null;
+const cachedLoaders = new Map<string, ScriptLoader>();
 
 export function getScriptLoader(options: LoaderOptions = {}): ScriptLoader {
-  if (!cachedLoader) {
-    cachedLoader = new ScriptLoader(options);
+  const key = JSON.stringify([
+    options.verbose ?? null,
+    options.cache ?? null,
+    options.preferredCDN ?? null,
+    options.quiet ?? null,
+    options.typescript ?? null,
+  ]);
+
+  let loader = cachedLoaders.get(key);
+  if (!loader) {
+    loader = new ScriptLoader(options);
+    cachedLoaders.set(key, loader);
   }
-  return cachedLoader;
+  return loader;
 }
