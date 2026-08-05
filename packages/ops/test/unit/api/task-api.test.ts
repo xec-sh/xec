@@ -410,30 +410,35 @@ describe('Task API', () => {
 
   describe('runParallel()', () => {
     it('should run tasks in parallel', async () => {
-      const startTime = Date.now();
-      
+      // Each task announces itself, then waits to see all three announcements.
+      // The rendezvous only completes if the tasks overlap in time: run
+      // sequentially, task1 exhausts its polling budget before task2 ever
+      // starts, and exits 1. This pins concurrency structurally — the
+      // wall-clock version of this test convicted the CI scheduler, not the
+      // code, whenever the box was busy.
+      const barrier = (n: number) => {
+        const started = path.join(tempDir, `started-${n}`);
+        const all = [1, 2, 3].map(i => path.join(tempDir, `started-${i}`));
+        const seen = all.map(f => `[ -f ${f} ]`).join(' && ');
+        return `touch ${started}; for i in $(seq 1 100); do if ${seen}; then exit 0; fi; sleep 0.05; done; exit 1`;
+      };
+
       const config = {
         version: '2.0',
         tasks: {
-          // Each task sleeps for 100ms
-          task1: 'sleep 0.1',
-          task2: 'sleep 0.1',
-          task3: 'sleep 0.1'
+          task1: barrier(1),
+          task2: barrier(2),
+          task3: barrier(3)
         }
       };
-      
+
       await fs.writeFile(configPath, yaml.dump(config));
-      
+
       const results = await api.runParallel(['task1', 'task2', 'task3']);
-      
-      const duration = Date.now() - startTime;
-      
+
       expect(results).toHaveLength(3);
       expect(results.every(r => r.success)).toBe(true);
-      
-      // Should take ~100ms if parallel, would take ~300ms if sequential
-      expect(duration).toBeLessThan(200);
-    });
+    }, 20_000);
   });
 
   describe('dryRun()', () => {

@@ -617,7 +617,7 @@ services:
       const result = await runXecCommand(['docker', '--help']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.output).toContain('Docker management');
+      expect(result.output).toContain('Manage Docker containers, images, networks and volumes');
       expect(result.output).toContain('container');
       expect(result.output).toContain('image');
       expect(result.output).toContain('service');
