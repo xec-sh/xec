@@ -13,6 +13,7 @@ import { $ } from '@xec-sh/core';
 import { pathToFileURL } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { log, prism } from '@xec-sh/kit';
+import { spawn } from 'node:child_process';
 import {
   REPLServer,
   ModuleLoader,
@@ -74,6 +75,20 @@ export function commandFileUrl(filePath: string): string {
   return pathToFileURL(path.resolve(filePath)).href;
 }
 
+/** Environment flag marking a process spawned as a watch reload. */
+const WATCH_RELOAD_ENV = 'XEC_WATCH_RELOAD';
+
+/**
+ * Whether this process is a watch reload spawned by {@link ScriptLoader}.
+ *
+ * A reload child re-runs the original argv, which still carries `--watch`, so
+ * without this flag it would start its own watcher and fork endlessly. Set, it
+ * runs the script once and exits, freeing its module registry.
+ */
+function isWatchReloadChild(): boolean {
+  return process.env[WATCH_RELOAD_ENV] === '1';
+}
+
 /**
  * ScriptLoader adapter - wraps @xec-sh/loader with CLI-specific functionality
  */
@@ -110,8 +125,9 @@ export class ScriptLoader {
     options: ExecutionOptions = {}
   ): Promise<ScriptExecutionResult> {
     try {
-      // Handle watch mode
-      if (options.watch) {
+      // Handle watch mode — but never in a reload child, which re-runs the
+      // original argv (still carrying --watch) once and exits.
+      if (options.watch && !isWatchReloadChild()) {
         return await this.executeWithWatch(scriptPath, options);
       }
 
@@ -185,32 +201,26 @@ export class ScriptLoader {
   ): Promise<ScriptExecutionResult> {
     const { FileWatcher } = await import('@xec-sh/loader');
 
-    const runAndLog = async () => {
-      try {
-        if (!this.options.quiet) {
-          log.info(prism.dim(`Running ${scriptPath}...`));
-        }
-        const result = await this.executeScriptInternal(scriptPath, options);
-        if (!result.success && result.error) {
-          console.error(result.error);
-        }
-      } catch (error) {
-        console.error(error);
+    // The first run stays in this process for a fast start; every reload runs
+    // in a child (see onWatchChange), so a long watch session does not grow by
+    // one never-evicted module set per file change.
+    if (!this.options.quiet) {
+      log.info(prism.dim(`Running ${scriptPath}...`));
+    }
+    try {
+      const result = await this.executeScriptInternal(scriptPath, options);
+      if (!result.success && result.error) {
+        console.error(result.error);
       }
-    };
-
-    // Run initially
-    await runAndLog();
+    } catch (error) {
+      console.error(error);
+    }
 
     // Watch for changes using @xec-sh/loader's FileWatcher
     const dir = path.dirname(scriptPath);
     const ext = path.extname(scriptPath);
     const watcher = new FileWatcher(dir, { extensions: [ext || '.ts', '.js'], debounce: 300 });
-    watcher.on('change', async () => {
-      console.clear();
-      log.info(prism.dim('File changed, rerunning...'));
-      await runAndLog();
-    });
+    watcher.on('change', () => { void this.onWatchChange(); });
     watcher.start();
 
     // Keep process alive
@@ -219,6 +229,42 @@ export class ScriptLoader {
     return {
       success: true,
     };
+  }
+
+  /**
+   * Re-run on a watched-file change, in a child process.
+   *
+   * Extracted from the watcher wiring so the reload path is testable without
+   * driving the OS file watcher, which is unreliable under some sandboxes.
+   */
+  private async onWatchChange(): Promise<void> {
+    console.clear();
+    log.info(prism.dim('File changed, rerunning...'));
+    await this.runReloadChild();
+  }
+
+  /**
+   * Re-run this process's own invocation in a child process.
+   *
+   * A reload must re-execute the script, but Node never evicts a module from
+   * its ESM registry, so re-importing in this process would leak one module set
+   * per reload for the life of a watch session. A child gets a fresh registry
+   * and frees all of it on exit. It re-runs this process's argv unchanged —
+   * same script, target and flags — with the reload flag set so it runs once
+   * instead of starting its own watcher.
+   */
+  private runReloadChild(): Promise<void> {
+    return new Promise((resolve) => {
+      const child = spawn(process.execPath, process.argv.slice(1), {
+        stdio: 'inherit',
+        env: { ...process.env, [WATCH_RELOAD_ENV]: '1' },
+      });
+      child.on('exit', () => resolve());
+      child.on('error', (error) => {
+        console.error(error);
+        resolve();
+      });
+    });
   }
 
   /**
