@@ -1,5 +1,5 @@
 import * as jsYaml from 'js-yaml';
-import { log, prism } from '@xec-sh/kit';
+import { prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
 import { enhanceError, type ErrorContext, EnhancedExecutionError } from './enhanced-error.js';
@@ -193,13 +193,17 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
 
   // Split by lines and apply CLI coloring
   const lines = formatted.split('\n');
-  const logger = log;
 
   lines.forEach(line => {
     if (!line) return; // Skip empty lines
 
+    // Every line goes to stderr, including the message itself. It used to
+    // go through kit's logger, which writes to stdout — so a diagnostic
+    // arrived torn in half across two streams, and `xec ... -o json > out`
+    // wrote the error text into the data file while its code and
+    // suggestions went to the terminal.
     if (line.startsWith('Error:')) {
-      logger.error(prism.bold(line));
+      console.error(prism.bold(prism.red(line)));
     } else if (line.includes('Context:') || line.includes('Suggestions:')) {
       console.error(prism.yellow(line));
     } else if (line.includes('Try:') || line.includes('See:')) {
