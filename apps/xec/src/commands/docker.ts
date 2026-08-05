@@ -32,6 +32,8 @@ interface ContainerOptions extends ConfigAwareOptions {
   interactive?: boolean;
   tty?: boolean;
   restart?: string;
+  /** Commander's key for `--label`; `labels` is the historical spelling. */
+  label?: string[];
   labels?: string[];
   command?: string;
   entrypoint?: string;
@@ -694,10 +696,24 @@ export class DockerCommand extends SubcommandBase {
         container = container.env(envObj);
       }
 
-      // Add labels
-      if (mergedOptions.labels) {
-        const labelObj = parseKeyValuePairs(mergedOptions.labels);
-        container = container.labels(labelObj);
+      // Add labels. Commander names this option after the flag — `--label`
+      // becomes `label` — and the code read `labels`, so every label was
+      // parsed and thrown away.
+      const labels = mergedOptions.label ?? mergedOptions.labels;
+      if (labels) {
+        container = container.labels(parseKeyValuePairs(labels));
+      }
+
+      // Declared in the options, accepted by the parser, and previously
+      // read by nobody: the container started with docker's defaults while
+      // the operator believed otherwise.
+      if (mergedOptions.restart) {
+        container = container.restartPolicy(
+          mergedOptions.restart as 'no' | 'always' | 'unless-stopped' | 'on-failure'
+        );
+      }
+      if (mergedOptions.entrypoint) {
+        container = container.entrypoint(mergedOptions.entrypoint);
       }
 
       if (mergedOptions.dryRun) {
