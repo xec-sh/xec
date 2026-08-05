@@ -257,6 +257,18 @@ async function makeDirectoryWithSftp(path: string, sftp: SFTPWrapper) {
 export class NodeSSH {
   connection: Client | null = null
 
+  /**
+   * Session channels in flight over this connection.
+   *
+   * sshd grants at most MaxSessions concurrent sessions per connection —
+   * 10 by default — and refuses the rest with a hard "Channel open
+   * failure". A parallel fan-out through one pooled connection hit that
+   * ceiling as an ordinary race. Callers queue here instead: eight keeps
+   * two grants in hand for anything else the connection carries (an SFTP
+   * subsystem is a session too).
+   */
+  private channelQueue = new PromiseQueue({ concurrency: 8 })
+
   private getConnection(): Client {
     const { connection } = this
     if (connection == null) {
@@ -494,6 +506,28 @@ export class NodeSSH {
     }
     const connection = this.getConnection()
 
+    // The slot is held from channel open to channel close — the server
+    // counts live sessions, not open attempts. On top of the queue, a
+    // refusal is retried a few times with a pause: a server configured
+    // below our own cap (MaxSessions 2 exists in the wild) refuses even
+    // queued openings, and those grants free up as siblings close.
+    const attemptExec = (attempt: number): Promise<SSHExecCommandResponse> =>
+      this.channelQueue.add(() => this.execOnChannel(connection, command, options)).catch(err => {
+        const refused = err instanceof Error && /channel open failure/i.test(err.message)
+        if (refused && attempt < 3) {
+          return new Promise(resolve => setTimeout(resolve, 50 * 2 ** attempt)).then(() => attemptExec(attempt + 1))
+        }
+        throw err
+      })
+
+    return attemptExec(0)
+  }
+
+  private execOnChannel(
+    connection: Client,
+    command: string,
+    options: SSHExecCommandOptions,
+  ): Promise<SSHExecCommandResponse> {
     const output: { stdout: string[]; stderr: string[] } = { stdout: [], stderr: [] }
 
     return new Promise((resolve, reject) => {
