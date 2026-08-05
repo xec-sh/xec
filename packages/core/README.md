@@ -97,7 +97,9 @@ Enforced by tests, not aspirational:
 - Output over `maxBuffer` kills the producer and fails with the truncated
   head preserved — never an empty result with exit code 0.
 - Secrets are masked in command echoes, events and error messages: tokens,
-  API keys, URL credentials, PEM blocks.
+  API keys, URL credentials, PEM blocks. Masking is pattern-based, so a value
+  passed as a bare argument (`mysql -pP4ss`, `redis-cli -a P4ss`) can still slip
+  through — pass credentials by environment or stdin, not on the command line.
 - SSH connections are pooled, self-heal on drop, and are released by
   `dispose()`. The library installs no global process handlers unless you
   opt in with `installCleanupHandlers()`.
