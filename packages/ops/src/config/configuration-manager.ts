@@ -13,7 +13,7 @@ import type {
 } from './types.js';
 
 import * as path from 'node:path';
-import jsYaml from 'js-yaml';
+import * as jsYaml from 'js-yaml';
 import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 

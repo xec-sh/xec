@@ -1,4 +1,4 @@
-import jsYaml from 'js-yaml';
+import * as jsYaml from 'js-yaml';
 import { prism } from '@xec-sh/kit';
 
 // Simple table renderer — replaces external 'table' package

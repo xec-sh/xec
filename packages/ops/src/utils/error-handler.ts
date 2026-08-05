@@ -1,4 +1,4 @@
-import jsYaml from 'js-yaml';
+import * as jsYaml from 'js-yaml';
 import { log, prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';

@@ -1,7 +1,7 @@
 import os from 'node:os';
-import path from 'node:path';
 import fs from 'fs-extra';
 import { glob } from 'glob';
+import path from 'node:path';
 import * as kit from '@xec-sh/kit';
 import { $ as xecDollar } from '@xec-sh/core';
 import { createRuntime } from '@xec-sh/loader';
@@ -159,10 +159,12 @@ export function tmpfile(prefix: string = 'xec-', suffix: string = ''): string {
 
 // YAML utilities
 export async function yaml() {
+  // js-yaml 4.3 dropped its ESM default export; named exports hold on
+  // every version this repo has met.
   const jsYaml = await import('js-yaml');
   return {
-    parse: jsYaml.default.load,
-    stringify: jsYaml.default.dump,
+    parse: jsYaml.load,
+    stringify: jsYaml.dump,
   };
 }
 
