@@ -710,7 +710,9 @@ export class CopyCommand extends ConfigAwareCommand {
   }
 
   private buildSshTarget(config: any): string {
-    return `${config.user || process.env['USER'] || 'root'}@${config.host}`;
+    // Accept both spellings, as every other command does: a target declaring
+    // `username:` was copied as the local $USER and failed authentication.
+    return `${config.user || config.username || process.env['USER'] || 'root'}@${config.host}`;
   }
 
   private formatCopyPath(target: ResolvedTarget, filePath: string): string {
