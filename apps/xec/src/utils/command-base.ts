@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import { access } from 'node:fs/promises';
 import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOptions, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
+
 import { isPlainOutput } from './plain-mode.js';
 
 export const OUTPUT_FORMATS = ['text', 'json', 'yaml', 'csv'] as const;
@@ -24,6 +25,11 @@ export function serializeOutput(data: unknown, format: Exclude<OutputFormat, 'te
       return jsYaml.dump(data, { lineWidth: -1, noRefs: true }).trimEnd();
     case 'csv':
       return toCsv(data);
+    default:
+      // Unreachable: the parameter type excludes 'text' and the parser
+      // rejects anything else. Present so the function has one exit for
+      // every path a future format could take.
+      throw new Error(`Unsupported output format: ${String(format)}`);
   }
 }
 

@@ -14,8 +14,8 @@ import { dispose, checkForCommandTypo , installCleanupHandlers } from '@xec-sh/c
  */
 const loadOps = () => import('@xec-sh/ops');
 
-import { customizeHelp } from './utils/help-customizer.js';
 import { parseTaskArgs } from './utils/task-params.js';
+import { customizeHelp } from './utils/help-customizer.js';
 import { registerSelfResolution } from './utils/self-resolution.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { findCommand, COMMAND_MANIFEST, type CommandManifestEntry } from './utils/command-manifest.js';

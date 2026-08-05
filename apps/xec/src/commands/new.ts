@@ -1340,12 +1340,6 @@ async function createProject(name: string, options: NewOptions) {
   s.start('Creating project structure...');
 
   // Get absolute path to globals.d.ts
-  // The types come from the installed package by name, not by the path
-  // this machine happened to have them at: the previous form wrote the
-  // absolute path of whoever ran the generator into every file, so the
-  // project stopped type-checking the moment it was cloned.
-  const globalsPath = '@xec-sh/cli/globals';
-
   // Generate configuration from defaults
   const defaultConfig = getDefaultConfig();
   const config = {
@@ -1766,18 +1760,12 @@ async function createScript(name: string, options: NewOptions) {
   const template = TEMPLATES.script[templateKey][isJs ? 'js' : 'ts'];
 
   // Get absolute path to globals.d.ts
-  // The types come from the installed package by name, not by the path
-  // this machine happened to have them at: the previous form wrote the
-  // absolute path of whoever ran the generator into every file, so the
-  // project stopped type-checking the moment it was cloned.
-  const globalsPath = '@xec-sh/cli/globals';
-
   // Process template
   const content = template
     .replace(/{name}/g, path.basename(name, ext))
     .replace(/{description}/g, String(scriptDescription || ''))
     .replace(/{filepath}/g, path.relative(process.cwd(), filePath))
-    .replace(/{globalsPath}/g, globalsPath);
+    .replace(/{globalsPath}/g, '@xec-sh/cli/globals');
 
   // Write file
   await fs.ensureDir(path.dirname(filePath));
@@ -1852,17 +1840,11 @@ async function createCommand(name: string, options: NewOptions) {
   const template = TEMPLATES.command[templateKey][isJs ? 'js' : 'ts'];
 
   // Get absolute path to globals.d.ts
-  // The types come from the installed package by name, not by the path
-  // this machine happened to have them at: the previous form wrote the
-  // absolute path of whoever ran the generator into every file, so the
-  // project stopped type-checking the moment it was cloned.
-  const globalsPath = '@xec-sh/cli/globals';
-
   // Process template
   const content = template
     .replace(/{name}/g, name)
     .replace(/{description}/g, String(commandDescription || ''))
-    .replace(/{globalsPath}/g, globalsPath);
+    .replace(/{globalsPath}/g, '@xec-sh/cli/globals');
 
   // Write file
   await fs.ensureDir(path.dirname(filePath));

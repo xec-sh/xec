@@ -233,7 +233,7 @@ export class OnCommand extends ConfigAwareCommand {
     // what the operator wrote down; a guess never outranks it.
     else {
       const targetSpec = hostPattern.startsWith('hosts.') ? hostPattern : `hosts.${hostPattern}`;
-      let resolved: ResolvedTarget | null = null;
+      let resolved: ResolvedTarget | null;
       try {
         resolved = await this.resolveTarget(targetSpec);
       } catch {

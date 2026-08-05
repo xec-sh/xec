@@ -9,9 +9,9 @@ import { Command } from 'commander';
 import { FileWatcher } from '@xec-sh/loader';
 import { validateOptions , getScriptLoader } from '@xec-sh/ops';
 
+import { variadicParts, positionalString } from '../utils/variadic.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
-import { variadicParts, positionalString } from '../utils/variadic.js';
 
 interface WatchOptions extends ConfigAwareOptions, InteractiveOptions {
   pattern?: string[];

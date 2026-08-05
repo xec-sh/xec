@@ -11,9 +11,9 @@
  */
 
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { $ } from '@xec-sh/core';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { fileURLToPath } from 'url';
+import { it, expect, afterAll, describe, beforeAll } from 'vitest';
 
 const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/main.js');
 const NAME = 'xec-dxflags-probe';

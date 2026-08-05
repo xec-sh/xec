@@ -14,7 +14,7 @@ import { prism, select, confirm } from '@xec-sh/kit';
 import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
 
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
-import { serializeOutput, BaseCommand, CommandOptions, type ConfigAwareOptions } from '../utils/command-base.js';
+import { BaseCommand, CommandOptions, serializeOutput, type ConfigAwareOptions } from '../utils/command-base.js';
 
 interface InspectOptions extends CommandOptions {
   config?: string;

@@ -1,6 +1,6 @@
-import { $ } from '../../src/index.js';
-
 import type { CallableExecutionEngine } from '../../src/index.js';
+
+import { $ } from '../../src/index.js';
 
 /**
  * `$.verbose = true` is zx muscle memory and the release command's dry-run

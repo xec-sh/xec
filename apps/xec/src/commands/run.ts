@@ -6,8 +6,8 @@ import { log, prism } from '@xec-sh/kit';
 import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
 import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops';
 
-import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { parseTaskArgs, coerceParamValue } from '../utils/task-params.js';
+import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
 
 interface RunOptions extends ConfigAwareOptions {
   eval?: string;

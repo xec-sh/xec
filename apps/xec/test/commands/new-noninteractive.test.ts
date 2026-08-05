@@ -13,7 +13,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { createArtifact } from '../../src/commands/new.js';
 

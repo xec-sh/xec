@@ -1,6 +1,6 @@
 import * as os from 'node:os';
-import * as path from 'node:path';
 import * as yaml from 'js-yaml';
+import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
