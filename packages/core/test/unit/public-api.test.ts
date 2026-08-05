@@ -73,6 +73,11 @@ const PUBLIC_API = [
   'coalesceOutput',
   'exceedsFailureLimit',
 
+  // Secrets known by value rather than by shape
+  'registerSecret',
+  'isRegisteredSecret',
+  'registeredSecretCount',
+
   // Scripting utilities
   'echo',
   'glob',

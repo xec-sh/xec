@@ -2,6 +2,8 @@
  * Truly optimized masking implementation that compiles patterns once
  */
 
+import { redactRegisteredSecrets } from './secret-registry.js';
+
 interface CompiledPattern {
   regex: RegExp;
   replacer: (match: string, ...args: any[]) => string;
@@ -100,9 +102,13 @@ export class OptimizedMasker {
   
   mask(text: string): string {
     if (!text) return text;
-    
-    let maskedText = text;
-    
+
+    // Known values before pattern guesses. A registered secret is an exact
+    // string this process was handed, so it is redacted by identity; the
+    // patterns below then work on text a credential has already left,
+    // rather than on text where one is still hiding between two rules.
+    let maskedText = redactRegisteredSecrets(text, this.replacement);
+
     // Apply each compiled pattern
     for (const { regex, replacer } of this.compiledPatterns) {
       maskedText = maskedText.replace(regex, replacer);

@@ -1,4 +1,4 @@
-import { describeTarget, type Target } from './target.js';
+import { type Target, describeTarget } from './target.js';
 
 /**
  * The result of running one command across many targets.

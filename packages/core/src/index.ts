@@ -6,56 +6,32 @@ import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-en
 export { pipeUtils } from './utils/pipe.js';
 export { isDisposable } from './types/disposable.js';
 
-// Where a command runs, as a value: one parser, one shape, one place to be
-// right. See types/target.ts for the class of bug this replaces.
-export {
-  parseTarget,
-  formatTarget,
-  parseTargetUri,
-  describeTarget,
-  isConfigReference,
-} from './types/target.js';
-// The result of running one command across many targets — the shape a
-// fan-out has and a loop does not.
-export {
-  fleetEntry,
-  fleetResult,
-  failedTargets,
-  coalesceOutput,
-  exceedsFailureLimit,
-} from './types/fleet.js';
-export type { FleetEntry, FleetResult, FleetAgreement } from './types/fleet.js';
-export type {
-  Target,
-  TargetKind,
-  TargetParse,
-  SshTarget,
-  LocalTarget,
-  DockerTarget,
-  KubernetesTarget,
-} from './types/target.js';
 export type { EventFilter } from './types/events.js';
 export type { PipeTarget } from './types/process.js';
 export { ParallelEngine } from './utils/parallel.js';
-import { getLocalContext } from './utils/within.js';
-
 export { within, withinSync } from './utils/within.js';
 export { parallel } from './utils/parallel-default.js';
 export type { ExecutionResult } from './core/result.js';
 export { LocalAdapter } from './adapters/local/index.js';
+import { getLocalContext } from './utils/within.js';
+
 export type { ProcessPromise } from './types/process.js';
 export { DockerAdapter } from './adapters/docker/index.js';
-
 export { withTempDir, withTempFile } from './utils/temp.js';
-
-export type { ExecutionEngineConfig };
 export { ExecutionEngine } from './core/execution-engine.js';
 export type { RetryOptions } from './utils/retry-adapter.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
+
 export type { CommandSuggestion } from './utils/suggestions.js';
+
+export type { ExecutionEngineConfig };
 export type { CallableExecutionEngine } from './types/engine.js';
 export { DockerContainer } from './adapters/docker/docker-api.js';
 export { KubernetesAdapter } from './adapters/kubernetes/index.js';
+export { RuntimeDetector } from './adapters/local/runtime-detect.js';
+export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
+export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
+export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
   return new Proxy(function callableEngineTarget() { } as any, {
@@ -370,36 +346,55 @@ export function uninstallCleanupHandlers(): void {
   removeCleanupHandlers();
 }
 
-export { RuntimeDetector } from './adapters/local/runtime-detect.js';
-
-export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
-export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
-
-export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
-
 export { parseK8sTarget, parseSSHTarget } from './utils/target-shorthand.js';
+
 export type { Disposable, DisposableContainer } from './types/disposable.js';
+export type { FleetEntry, FleetResult, FleetAgreement } from './types/fleet.js';
+
 export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';
+
 export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
-
 export { dialectFor, quoteForShell, type ShellDialect } from './utils/shell-escape.js';
-
 export { isRecoverable, classifyFailure, type FailureKind } from './core/failure-kind.js';
-
 export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
+
 export type {
   ErrorContext,
   ErrorSuggestion,
   EnhancedErrorDetails
 } from './types/error.js';
 
-export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
-export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './adapters/kubernetes/kubernetes-api.js';
+// A value learned at runtime is redacted by identity, where the patterns can
+// only redact by resemblance. See utils/secret-registry.ts.
+export { registerSecret, isRegisteredSecret, registeredSecretCount } from './utils/secret-registry.js';
 
+export type { DockerOptions, DockerEphemeralOptions, DockerPersistentOptions } from './types/execution.js';
+
+export type { K8sPod, K8sLogStream, K8sPortForward, K8sExecutionContext } from './adapters/kubernetes/kubernetes-api.js';
+// The result of running one command across many targets — the shape a
+// fan-out has and a loop does not.
+export {
+  fleetEntry,
+  fleetResult,
+  failedTargets,
+  coalesceOutput,
+  exceedsFailureLimit,
+} from './types/fleet.js';
+
+// Where a command runs, as a value: one parser, one shape, one place to be
+// right. See types/target.ts for the class of bug this replaces.
+export {
+  parseTarget,
+  formatTarget,
+  parseTargetUri,
+  describeTarget,
+  isConfigReference,
+} from './types/target.js';
 export { findSimilar, CommandRegistry, checkForCommandTypo, getCommandCompletions, defaultCommandRegistry } from './utils/suggestions.js';
+
 export type {
   Command,
   AdapterType,
@@ -419,6 +414,15 @@ export {
   parseDuration,
   type Duration,
 } from './utils/helpers.js';
+export type {
+  Target,
+  SshTarget,
+  TargetKind,
+  TargetParse,
+  LocalTarget,
+  DockerTarget,
+  KubernetesTarget,
+} from './types/target.js';
 // The Docker fluent surface. `DockerEphemeralFluentAPI` and the service
 // types are exported by name because the CLI's service presets (moved out of
 // core in 0.10) extend the ephemeral builder — they were already reachable

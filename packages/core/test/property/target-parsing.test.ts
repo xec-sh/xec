@@ -1,10 +1,10 @@
 import {
   parseTarget,
+  type Target,
   formatTarget,
   parseTargetUri,
   describeTarget,
   isConfigReference,
-  type Target,
 } from '../../src/types/target.js';
 
 /**

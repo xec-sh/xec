@@ -1,11 +1,11 @@
 import {
   fleetEntry,
   fleetResult,
+  type Target,
   failedTargets,
   coalesceOutput,
-  exceedsFailureLimit,
-  type Target,
   type FleetEntry,
+  exceedsFailureLimit,
 } from '../../../src/index.js';
 
 /**
