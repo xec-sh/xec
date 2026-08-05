@@ -7,14 +7,13 @@ import { TaskManager , ConfigurationManager } from '@xec-sh/ops';
 import { ScriptLoader, type ExecutionOptions } from '@xec-sh/ops';
 
 import { BaseCommand, ConfigAwareOptions } from '../utils/command-base.js';
+import { parseTaskArgs, coerceParamValue } from '../utils/task-params.js';
 
 interface RunOptions extends ConfigAwareOptions {
   eval?: string;
   repl?: boolean;
   typescript?: boolean;
   watch?: boolean;
-  runtime?: string;
-  universal?: boolean;
   param?: string[];
 }
 
@@ -43,14 +42,6 @@ export class RunCommand extends BaseCommand {
         {
           flags: '--watch',
           description: 'Watch for file changes'
-        },
-        {
-          flags: '--runtime <runtime>',
-          description: 'Specify runtime: auto, node, bun, deno (default: auto)'
-        },
-        {
-          flags: '--no-universal',
-          description: 'Disable universal loader (legacy mode)'
         }
       ],
       examples: [
@@ -63,7 +54,7 @@ export class RunCommand extends BaseCommand {
           description: 'Run a TypeScript file'
         },
         {
-          command: 'xec run deploy.ts staging --dry-run',
+          command: 'xec run deploy.ts staging --tag v2',
           description: 'Run a script with arguments (visible as `args` in the script)'
         },
         {
@@ -137,7 +128,7 @@ export class RunCommand extends BaseCommand {
         await this.runScript(fileOrTask, scriptArgs, options);
       } else {
         // Try to run as task
-        await this.runTask(fileOrTask, options);
+        await this.runTask(fileOrTask, options, scriptArgs);
       }
     } else {
       log.error('No script file or task specified');
@@ -178,18 +169,7 @@ export class RunCommand extends BaseCommand {
     const result = await this.scriptLoader.executeScript(scriptPath, execOptions);
 
     if (!result.success && result.error) {
-      // If runtime not available, provide helpful message
-      if (result.error.message.includes('runtime requested but not available')) {
-        log.error(result.error.message);
-
-        const runtime = options.runtime || 'auto';
-        if (runtime !== 'auto') {
-          log.info('\nTo use a specific runtime, ensure it is installed and run xec with it:');
-          log.info(`  ${prism.cyan(`${runtime} xec run ${scriptPath}`)}`);
-        }
-      } else {
-        throw result.error;
-      }
+      throw result.error;
     }
   }
 
@@ -251,7 +231,7 @@ export class RunCommand extends BaseCommand {
   /**
    * Run a task from configuration
    */
-  private async runTask(taskName: string, options: RunOptions): Promise<void> {
+  private async runTask(taskName: string, options: RunOptions, taskArgs: string[] = []): Promise<void> {
     // Initialize configuration
     const configManager = new ConfigurationManager({
       projectRoot: process.cwd(),
@@ -275,7 +255,7 @@ export class RunCommand extends BaseCommand {
       try {
         await fs.access(taskName);
         // It's a file without extension
-        await this.runScript(taskName, [], options);
+        await this.runScript(taskName, taskArgs, options);
         return;
       } catch {
         // Not a file either
@@ -285,34 +265,25 @@ export class RunCommand extends BaseCommand {
       }
     }
 
-    // Parse parameters
-    const params: Record<string, any> = {};
-    if (options.param) {
-      for (const param of options.param) {
-        const [key, ...valueParts] = param.split('=');
-        const value = valueParts.join('=');
-
-        if (!key || !value) {
-          log.error(`Invalid parameter format: ${param}`);
-          log.info(prism.dim('Use --param key=value'));
-          throw new Error(`Invalid parameter format: ${param}`);
-        }
-
-        // Try to parse value
-        let parsedValue: any = value;
-        if (value === 'true') parsedValue = true;
-        else if (value === 'false') parsedValue = false;
-        else if (!isNaN(Number(value))) parsedValue = Number(value);
-        else if (value.startsWith('[') || value.startsWith('{')) {
-          try {
-            parsedValue = JSON.parse(value);
-          } catch {
-            // Keep as string
-          }
-        }
-
-        params[key] = parsedValue;
+    // Parse parameters: the tokens after the task name first (--key value,
+    // --key=value, --key), then explicit -p pairs on top. One grammar with
+    // the root dispatcher, so `xec run deploy --env prod` and
+    // `xec deploy --env prod` name the same parameter.
+    const { params, rest } = parseTaskArgs(taskArgs);
+    if (rest.length > 0) {
+      throw new Error(
+        `Unexpected argument${rest.length > 1 ? 's' : ''} for task '${taskName}': ${rest.join(' ')}\n` +
+        `Task parameters are named: use --key value or -p key=value`
+      );
+    }
+    for (const param of options.param ?? []) {
+      const eq = param.indexOf('=');
+      if (eq <= 0 || eq === param.length - 1) {
+        log.error(`Invalid parameter format: ${param}`);
+        log.info(prism.dim('Use --param key=value'));
+        throw new Error(`Invalid parameter format: ${param}`);
       }
+      params[param.slice(0, eq)] = coerceParamValue(param.slice(eq + 1));
     }
 
     // Display task info

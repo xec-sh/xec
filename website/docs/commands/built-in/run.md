@@ -71,17 +71,10 @@ The `run` command is a versatile executor that can run JavaScript/TypeScript fil
   - Launches via `ScriptRunner.startRepl()`
   - Pre-imports Xec core (`$`, `$$`, types)
   - Supports multi-line input
-- `--typescript` - Enable TypeScript support
-  - Uses `tsx` or `ts-node` for compilation
-  - Automatic for `.ts` files
+- `--typescript` - Treat inline code (`-e`) as TypeScript
+  - `.ts` files are always transpiled; the flag exists for eval and REPL input
 - `--watch` - Watch for file changes and re-execute
-  - Uses `chokidar` for file watching
-  - Debounced re-execution
-- `--runtime <runtime>` - Specify runtime: auto, node, bun, deno
-  - Default: auto (detects from environment)
-  - Runtime detection order: Bun → Deno → Node.js
-- `--no-universal` - Disable universal loader (legacy mode)
-  - Falls back to direct require/import
+  - Re-runs the script in a fresh process on each change
 
 ### Task Options
 
@@ -103,9 +96,6 @@ xec run script.ts
 
 # Run script with arguments
 xec run deploy.js production --force
-
-# Run script with specific runtime
-xec run --runtime bun script.js
 
 # Enable watch mode for development
 xec run --watch build.js
@@ -151,9 +141,6 @@ xec run --repl
 
 # Start TypeScript REPL
 xec run --repl --typescript
-
-# Start REPL with specific runtime
-xec run --repl --runtime bun
 ```
 
 ## Script Execution
@@ -167,26 +154,21 @@ The run command automatically detects and executes (detected in `ScriptRunner`):
 - **JSON** (`.json`) - Loaded as modules
 - **Any executable** - Falls back to direct execution with shebang support
 
-### Runtime Detection
+### Runtime
 
-The command automatically selects the best available runtime (implemented in `ScriptRunner.detectRuntime()`):
-
-1. **Auto mode** (default): Detects available runtimes in order:
-   - Checks for Bun (`process.versions.bun`)
-   - Checks for Deno (`Deno` global)
-   - Falls back to Node.js
-2. **Node.js**: Standard JavaScript runtime (always available)
-3. **Bun**: Fast all-in-one JavaScript runtime (if installed)
-4. **Deno**: Secure TypeScript/JavaScript runtime (if installed)
+Scripts execute on the runtime that is running the CLI itself. Installed via
+npm, that is Node.js. To run a script under Bun or Deno, start the CLI with
+that runtime:
 
 ```bash
-# Auto-detect runtime
+# Node (default)
 xec run script.ts
 
-# Force specific runtime
-xec run --runtime node script.ts
-xec run --runtime bun script.ts
-xec run --runtime deno script.ts
+# Bun
+bun $(which xec) run script.ts
+
+# Deno
+deno run -A $(which xec) run script.ts
 ```
 
 ### Script Environment
@@ -424,9 +406,6 @@ Use watch mode for rapid development:
 # Watch TypeScript file for changes
 xec run --watch build.ts
 
-# Watch with specific runtime
-xec run --watch --runtime bun script.ts
-
 # Combine with evaluation
 xec run --watch -e "
   console.log('Build started at:', new Date());
@@ -441,44 +420,6 @@ xec run --watch -e "
 - **Auto-restart**: Automatically re-executes on file modification
 - **Error isolation**: Errors don't stop watching
 - **Graceful shutdown**: Ctrl+C stops watching cleanly
-
-## Runtime Comparison
-
-### Node.js
-
-```bash
-xec run --runtime node script.js
-```
-
-**Features:**
-- Mature ecosystem
-- NPM package support
-- CommonJS and ES modules
-- Built-in debugging tools
-
-### Bun
-
-```bash
-xec run --runtime bun script.js
-```
-
-**Features:**
-- Fast startup and execution
-- Built-in TypeScript support
-- NPM compatibility
-- Integrated bundler and test runner
-
-### Deno
-
-```bash
-xec run --runtime deno script.ts
-```
-
-**Features:**
-- Secure by default
-- Native TypeScript support
-- URL-based imports
-- Built-in utilities (test, fmt, lint)
 
 ## Error Handling
 
