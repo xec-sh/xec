@@ -1,10 +1,11 @@
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { sortConfigKeys , getDefaultConfig, mergeWithDefaults, ConfigurationManager } from '@xec-sh/ops';
+import { sortConfigKeys, getDefaultConfig, mergeWithDefaults, ConfigurationManager } from '@xec-sh/ops';
 import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { BaseCommand } from '../utils/command-base.js';
+import { ConfigFileEditor } from '../utils/config-file-editor.js';
 
 
 /**
@@ -12,6 +13,16 @@ import { BaseCommand } from '../utils/command-base.js';
  */
 export class ConfigCommand extends BaseCommand {
   protected override configManager!: ConfigurationManager;
+
+  /**
+   * Editing state for the project configuration file. The snapshot is what
+   * the file said when editing began; the working copy is what the
+   * interactive flows mutate. saveConfig() writes only their difference.
+   */
+  private fileEditor?: ConfigFileEditor;
+  private fileSnapshot?: Record<string, unknown>;
+  private fileWorking?: Record<string, unknown>;
+  private groupCommand?: Command;
 
   constructor() {
     super({
@@ -25,31 +36,37 @@ export class ConfigCommand extends BaseCommand {
    * Create command with subcommands
    */
   override create(): Command {
-    const cmd = new Command(this.config.name)
-      .description(this.config.description);
-
-    // Add aliases
-    if (this.config.aliases) {
-      this.config.aliases.forEach(alias => cmd.alias(alias));
-    }
-
-    // Set up action for when no subcommand is provided
-    cmd.action(async () => {
-      await this.execute([]);
-    });
-
-    // Set up subcommands
+    // The base class supplies the standard flags every command advertises;
+    // the old hand-rolled Command dropped them, so `config set --dry-run`
+    // answered "unknown option" while eight sibling commands accepted it.
+    const cmd = super.create();
+    this.groupCommand = cmd;
     this.setupSubcommands(cmd);
+
+    // Standard flags may ride on the group (`config --dry-run set …`) or on
+    // the leaf (`config set … --dry-run`); either placement must reach the
+    // handlers before they run.
+    cmd.hook('preAction', (_group, invoked) => {
+      const opts = invoked.optsWithGlobals();
+      this.options.dryRun = Boolean(opts['dryRun']) || this.options.dryRun;
+      this.options.verbose = Boolean(opts['verbose']) || this.options.verbose;
+      this.options.quiet = Boolean(opts['quiet']) || this.options.quiet;
+    });
 
     return cmd;
   }
 
-  override async execute(args: string[]): Promise<void> {
+  override async execute(args: any[]): Promise<void> {
     await this.ensureInitialized();
 
-    // If no subcommand specified, show interactive mode
+    // If no subcommand specified, show interactive mode. Where no terminal
+    // exists there is nobody to drive a menu: print the usage and fail,
+    // instead of the old silent success that did nothing.
     if (process.stdin.isTTY) {
       await this.interactiveMode();
+    } else {
+      this.groupCommand?.outputHelp();
+      process.exitCode = 1;
     }
   }
 
@@ -76,6 +93,7 @@ export class ConfigCommand extends BaseCommand {
     cmd
       .command('set <key> <value>')
       .description('Set configuration value (use dot notation for nested values)')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .option('--json', 'Parse value as JSON')
       .action(async (key, value, options) => {
         await this.ensureInitialized();
@@ -86,6 +104,7 @@ export class ConfigCommand extends BaseCommand {
     cmd
       .command('unset <key>')
       .description('Remove configuration value')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (key) => {
         await this.ensureInitialized();
         await this.unsetConfigValue(key);
@@ -116,6 +135,7 @@ export class ConfigCommand extends BaseCommand {
     cmd
       .command('doctor')
       .description('Check and fix configuration issues')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .option('--defaults', 'Show all possible configuration options with default values')
       .action(async (options) => {
         await this.ensureInitialized();
@@ -160,6 +180,7 @@ export class ConfigCommand extends BaseCommand {
     targets
       .command('add')
       .description('Add new target')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.addTarget();
@@ -168,6 +189,7 @@ export class ConfigCommand extends BaseCommand {
     targets
       .command('edit <name>')
       .description('Edit target')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (name) => {
         await this.ensureInitialized();
         await this.editTargetWithName(name);
@@ -176,6 +198,7 @@ export class ConfigCommand extends BaseCommand {
     targets
       .command('delete <name>')
       .description('Delete target')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (name) => {
         await this.ensureInitialized();
         await this.deleteTargetWithName(name);
@@ -198,6 +221,7 @@ export class ConfigCommand extends BaseCommand {
     vars
       .command('set <key> [value]')
       .description('Set variable')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (key, value) => {
         await this.ensureInitialized();
         await this.setVarWithKeyValue(key, value);
@@ -206,6 +230,7 @@ export class ConfigCommand extends BaseCommand {
     vars
       .command('delete <key>')
       .description('Delete variable')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (key) => {
         await this.ensureInitialized();
         await this.deleteVarWithKey(key);
@@ -214,6 +239,7 @@ export class ConfigCommand extends BaseCommand {
     vars
       .command('import <file>')
       .description('Import variables from file')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (file) => {
         await this.ensureInitialized();
         await this.importVarsFromFile(file);
@@ -252,6 +278,7 @@ export class ConfigCommand extends BaseCommand {
     tasks
       .command('create')
       .description('Create new task')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.createTask();
@@ -260,6 +287,7 @@ export class ConfigCommand extends BaseCommand {
     tasks
       .command('delete <name>')
       .description('Delete task')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async (name) => {
         await this.ensureInitialized();
         await this.deleteTaskWithName(name);
@@ -290,6 +318,7 @@ export class ConfigCommand extends BaseCommand {
     defaults
       .command('ssh')
       .description('Set SSH defaults')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.setSSHDefaults();
@@ -298,6 +327,7 @@ export class ConfigCommand extends BaseCommand {
     defaults
       .command('docker')
       .description('Set Docker defaults')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.setDockerDefaults();
@@ -306,6 +336,7 @@ export class ConfigCommand extends BaseCommand {
     defaults
       .command('k8s')
       .description('Set Kubernetes defaults')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.setK8sDefaults();
@@ -314,6 +345,7 @@ export class ConfigCommand extends BaseCommand {
     defaults
       .command('commands')
       .description('Set command defaults')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.setCommandDefaults();
@@ -322,6 +354,7 @@ export class ConfigCommand extends BaseCommand {
     defaults
       .command('reset')
       .description('Reset to system defaults')
+      .option('--dry-run', 'Preview the change without writing the configuration file')
       .action(async () => {
         await this.ensureInitialized();
         await this.resetDefaults();
@@ -472,7 +505,7 @@ export class ConfigCommand extends BaseCommand {
         value = value[k];
       } else {
         log.error(`Configuration key '${key}' not found`);
-        return;
+        process.exit(1);
       }
     }
 
@@ -487,8 +520,6 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async setConfigValue(key: string, value: string, options: { json?: boolean }): Promise<void> {
-    const config = await this.configManager.load();
-
     // Parse value if JSON flag is set
     let parsedValue: any = value;
     if (options.json) {
@@ -496,7 +527,7 @@ export class ConfigCommand extends BaseCommand {
         parsedValue = JSON.parse(value);
       } catch (error) {
         log.error(`Invalid JSON value: ${error}`);
-        return;
+        process.exit(1);
       }
     } else {
       // Try to parse as number or boolean
@@ -505,50 +536,23 @@ export class ConfigCommand extends BaseCommand {
       else if (!isNaN(Number(value)) && value !== '') parsedValue = Number(value);
     }
 
-    // Navigate through nested properties using dot notation
-    const keys = key.split('.');
-    const lastKey = keys.pop()!;
-    let target: any = config;
-
-    // Create nested structure if needed
-    for (const k of keys) {
-      if (!target[k] || typeof target[k] !== 'object') {
-        target[k] = {};
-      }
-      target = target[k];
-    }
-
-    // Set the value
-    target[lastKey] = parsedValue;
-
-    await this.saveConfig(config);
-    log.success(`Configuration value '${key}' set successfully`);
+    const editor = await this.openEditor();
+    editor.set(key.split('.'), parsedValue);
+    await this.commit(`Configuration value '${key}' set`);
   }
 
   private async unsetConfigValue(key: string): Promise<void> {
-    const config = await this.configManager.load();
+    const editor = await this.openEditor();
 
-    // Navigate through nested properties using dot notation
-    const keys = key.split('.');
-    const lastKey = keys.pop()!;
-    let target: any = config;
-
-    for (const k of keys) {
-      if (target && typeof target === 'object' && k in target) {
-        target = target[k];
-      } else {
-        log.error(`Configuration key '${key}' not found`);
-        return;
-      }
+    // Only what the project file defines can be unset. A key visible in the
+    // merged view but absent here comes from defaults or the global config,
+    // and "removing" it by rewriting the project file would be a lie.
+    if (!editor.delete(key.split('.'))) {
+      log.error(`Configuration key '${key}' not found in ${editor.filePath}`);
+      process.exit(1);
     }
 
-    if (target && typeof target === 'object' && lastKey in target) {
-      delete target[lastKey];
-      await this.saveConfig(config);
-      log.success(`Configuration value '${key}' removed successfully`);
-    } else {
-      log.error(`Configuration key '${key}' not found`);
-    }
+    await this.commit(`Configuration value '${key}' removed`);
   }
 
   private async listConfig(options: { json?: boolean; path?: string }): Promise<void> {
@@ -712,7 +716,7 @@ export class ConfigCommand extends BaseCommand {
     if (!targetConfig) return;
 
     // Load current config
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
 
     // Ensure targets structure exists
     if (!config.targets) config.targets = {};
@@ -735,8 +739,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     // Save config
-    await this.saveConfig(config);
-    log.success(`Target '${name}' added successfully`);
+    await this.commit(`Target '${name}' added`);
   }
 
   private async promptSSHConfig(currentConfig?: any): Promise<any> {
@@ -907,7 +910,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async editTarget(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     const allTargets: string[] = [];
 
     // Collect all targets
@@ -1004,12 +1007,11 @@ export class ConfigCommand extends BaseCommand {
       }
     }
 
-    await this.saveConfig(config);
-    log.success(`Target '${target}' updated successfully`);
+    await this.commit(`Target '${target}' updated`);
   }
 
   private async deleteTarget(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     const allTargets: string[] = [];
 
     // Collect all targets
@@ -1068,8 +1070,7 @@ export class ConfigCommand extends BaseCommand {
       default:
     }
 
-    await this.saveConfig(config);
-    log.success(`Target '${target}' deleted successfully`);
+    await this.commit(`Target '${target}' deleted`);
   }
 
   private async manageVars(): Promise<void> {
@@ -1172,16 +1173,15 @@ export class ConfigCommand extends BaseCommand {
 
     if (isCancel(value)) return;
 
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.vars) config.vars = {};
     config.vars[name] = value;
 
-    await this.saveConfig(config);
-    log.success(`Variable '${name}' set successfully`);
+    await this.commit(`Variable '${name}' set`);
   }
 
   private async deleteVar(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     const vars = config.vars || {};
 
     if (Object.keys(vars).length === 0) {
@@ -1203,22 +1203,28 @@ export class ConfigCommand extends BaseCommand {
     if (!confirmResult || isCancel(confirmResult)) return;
 
     delete config.vars![name];
-    await this.saveConfig(config);
-    log.success(`Variable '${name}' deleted successfully`);
+    await this.commit(`Variable '${name}' deleted`);
   }
 
-  private async importVars(): Promise<void> {
-    const envFile = await text({
-      message: 'Path to .env file',
-      placeholder: '.env',
-      defaultValue: '.env',
-    }) as string;
-
-    if (isCancel(envFile)) return;
+  private async importVars(file?: string): Promise<void> {
+    let envFile = file;
+    if (!envFile) {
+      if (!process.stdin.isTTY) {
+        log.error('No file given and no terminal to ask for one');
+        process.exit(1);
+      }
+      const answer = await text({
+        message: 'Path to .env file',
+        placeholder: '.env',
+        defaultValue: '.env',
+      }) as string;
+      if (isCancel(answer)) return;
+      envFile = answer;
+    }
 
     if (!existsSync(envFile)) {
       log.error(`File not found: ${envFile}`);
-      return;
+      process.exit(1);
     }
 
     const content = readFileSync(envFile, 'utf-8');
@@ -1241,15 +1247,14 @@ export class ConfigCommand extends BaseCommand {
       return;
     }
 
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.vars) config.vars = {};
 
     for (const [key, value] of Object.entries(vars)) {
       config.vars[key] = value;
     }
 
-    await this.saveConfig(config);
-    log.success(`Imported ${Object.keys(vars).length} variables from ${envFile}`);
+    await this.commit(`Imported ${Object.keys(vars).length} variables from ${envFile}`);
   }
 
   private async exportVars(): Promise<void> {
@@ -1406,7 +1411,7 @@ export class ConfigCommand extends BaseCommand {
 
     if (isCancel(taskType)) return;
 
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.tasks) config.tasks = {};
 
     const task: any = {
@@ -1449,8 +1454,7 @@ export class ConfigCommand extends BaseCommand {
     }
 
     config.tasks[name] = task;
-    await this.saveConfig(config);
-    log.success(`Task '${name}' created successfully`);
+    await this.commit(`Task '${name}' created`);
   }
 
   private async editTask(): Promise<void> {
@@ -1460,7 +1464,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async deleteTask(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     const tasks = config.tasks || {};
 
     if (Object.keys(tasks).length === 0) {
@@ -1482,8 +1486,7 @@ export class ConfigCommand extends BaseCommand {
     if (!confirmResult || isCancel(confirmResult)) return;
 
     delete config.tasks![name];
-    await this.saveConfig(config);
-    log.success(`Task '${name}' deleted successfully`);
+    await this.commit(`Task '${name}' deleted`);
   }
 
   private async validateTasks(): Promise<void> {
@@ -1499,28 +1502,47 @@ export class ConfigCommand extends BaseCommand {
 
     let hasErrors = false;
     for (const [name, task] of Object.entries(tasks)) {
-      const taskConfig = task as any;
-
-      // Check for required fields
-      if (!taskConfig.steps || !Array.isArray(taskConfig.steps)) {
-        log.error(`Task '${name}': Missing or invalid 'steps' field`);
+      for (const problem of ConfigCommand.taskFormErrors(name, task)) {
+        log.error(problem);
         hasErrors = true;
-        continue;
-      }
-
-      // Validate each step
-      for (let i = 0; i < taskConfig.steps.length; i++) {
-        const step = taskConfig.steps[i];
-        if (!step.command && !step.script && !step.task) {
-          log.error(`Task '${name}', step ${i + 1}: Must have either 'command', 'script', or 'task'`);
-          hasErrors = true;
-        }
       }
     }
 
     if (!hasErrors) {
       log.success('All tasks are valid');
     }
+  }
+
+  /**
+   * The task forms the executor actually runs: a bare command string, or an
+   * object carrying `command`, `script` or `steps` (each step in turn one of
+   * command / script / task). Anything else never executes, and both
+   * validation paths must agree on that — they had drifted, one rejecting
+   * every form but `steps`.
+   */
+  private static taskFormErrors(name: string, task: unknown): string[] {
+    if (typeof task === 'string') return [];
+    const t = task as Record<string, any> | null;
+    if (!t || typeof t !== 'object') {
+      return [`Task '${name}': must be a command string or a task object`];
+    }
+    if (t['steps'] !== undefined) {
+      if (!Array.isArray(t['steps'])) {
+        return [`Task '${name}': 'steps' must be a list`];
+      }
+      const errors: string[] = [];
+      for (let i = 0; i < t['steps'].length; i++) {
+        const step = t['steps'][i];
+        if (!step || (!step.command && !step.script && !step.task)) {
+          errors.push(`Task '${name}', step ${i + 1}: must have either 'command', 'script', or 'task'`);
+        }
+      }
+      return errors;
+    }
+    if (!t['command'] && !t['script']) {
+      return [`Task '${name}': must have 'command', 'script' or 'steps'`];
+    }
+    return [];
   }
 
   private async manageDefaults(): Promise<void> {
@@ -1725,7 +1747,7 @@ export class ConfigCommand extends BaseCommand {
         }
     }
 
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
 
     // Navigate through nested properties using dot notation
     const keys = key.split('.');
@@ -1743,8 +1765,7 @@ export class ConfigCommand extends BaseCommand {
     // Set the value
     target[lastKey] = parsedValue;
 
-    await this.saveConfig(config);
-    log.success(`Custom parameter '${key}' set successfully`);
+    await this.commit(`Custom parameter '${key}' set`);
   }
 
   private async getCustomParameter(): Promise<void> {
@@ -1883,7 +1904,7 @@ export class ConfigCommand extends BaseCommand {
   }
 
   private async setSSHDefaults(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.targets) config.targets = {};
     if (!config.targets.defaults) config.targets.defaults = {};
     if (!config.targets.defaults.ssh) config.targets.defaults.ssh = {};
@@ -1919,12 +1940,11 @@ export class ConfigCommand extends BaseCommand {
       config.targets.defaults.ssh.keepAliveInterval = parseInt(keepAliveInterval);
     }
 
-    await this.saveConfig(config);
-    log.success('SSH defaults updated');
+    await this.commit('SSH defaults updated');
   }
 
   private async setDockerDefaults(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.targets) config.targets = {};
     if (!config.targets.defaults) config.targets.defaults = {};
     if (!config.targets.defaults.docker) config.targets.defaults.docker = {};
@@ -1947,12 +1967,11 @@ export class ConfigCommand extends BaseCommand {
       config.targets.defaults.docker.user = user;
     }
 
-    await this.saveConfig(config);
-    log.success('Docker defaults updated');
+    await this.commit('Docker defaults updated');
   }
 
   private async setK8sDefaults(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.targets) config.targets = {};
     if (!config.targets.defaults) config.targets.defaults = {};
     if (!config.targets.defaults.kubernetes) config.targets.defaults.kubernetes = {};
@@ -1976,12 +1995,11 @@ export class ConfigCommand extends BaseCommand {
       // Note: context is not part of KubernetesDefaults
     }
 
-    await this.saveConfig(config);
-    log.success('Kubernetes defaults updated');
+    await this.commit('Kubernetes defaults updated');
   }
 
   private async setCommandDefaults(): Promise<void> {
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (!config.commands) config.commands = {};
 
     const cmd = await select({
@@ -2053,8 +2071,7 @@ export class ConfigCommand extends BaseCommand {
         }
     }
 
-    await this.saveConfig(config);
-    log.success(`Defaults for '${cmd}' command updated`);
+    await this.commit(`Defaults for '${cmd}' command updated`);
   }
 
   private async resetDefaults(): Promise<void> {
@@ -2064,7 +2081,7 @@ export class ConfigCommand extends BaseCommand {
 
     if (!confirmResult || isCancel(confirmResult)) return;
 
-    const config = await this.configManager.load();
+    const config = await this.editableConfig();
     if (config.targets?.defaults) {
       delete config.targets.defaults;
     }
@@ -2072,102 +2089,77 @@ export class ConfigCommand extends BaseCommand {
       delete config.commands;
     }
 
-    await this.saveConfig(config);
-    log.success('Defaults reset to system values');
+    await this.commit('Defaults reset to system values');
   }
 
   private async runDoctor(options?: { defaults?: boolean }): Promise<void> {
     const s = spinner();
     s.start('🏥 Running configuration doctor...');
 
-    let config = await this.configManager.load();
+    let config = await this.editableConfig();
     const recommendations: string[] = [];
     const defaultConfig = getDefaultConfig();
+    const interactive = process.stdin.isTTY;
 
-    // Check for basic configuration
-    if (!config.name) {
-      recommendations.push('Set project name');
-      config.name = await text({
-        message: 'Project name',
-        placeholder: defaultConfig.name || 'my-project',
-      }) as string;
-      if (isCancel(config.name)) return;
+    // The doctor fixes what it diagnoses. Warning about the version format
+    // on every invocation while "✅ Added defaults" left it untouched was
+    // the worst of both: noise plus a false claim of health.
+    if (!config.version) {
+      config.version = '1.0';
+      recommendations.push("Set version to '1.0'");
+    } else if (!/^\d+\.\d+$/.test(String(config.version))) {
+      const match = String(config.version).match(/^(\d+)\.(\d+)/);
+      const normalized = match ? `${match[1]}.${match[2]}` : '1.0';
+      recommendations.push(`Normalized version '${config.version}' to '${normalized}'`);
+      config.version = normalized;
     }
 
-    if (!config.description) {
-      recommendations.push('Add project description');
-      config.description = await text({
+    if (!config.name) {
+      if (interactive) {
+        const answer = await text({
+          message: 'Project name',
+          placeholder: defaultConfig.name || 'my-project',
+        });
+        if (isCancel(answer)) return;
+        config.name = answer as string;
+        recommendations.push(`Set project name '${config.name}'`);
+      } else {
+        recommendations.push("Missing project name — set it with: xec config set name <name>");
+      }
+    }
+
+    if (!config.description && interactive) {
+      const answer = await text({
         message: 'Project description',
         placeholder: defaultConfig.description || 'Describe your project',
-      }) as string;
-      if (isCancel(config.description)) delete config.description;
+      });
+      if (!isCancel(answer) && answer) {
+        config.description = answer as string;
+        recommendations.push('Added project description');
+      }
     }
 
-    // Ensure all default sections exist
-    if (!config.targets) config.targets = {};
-    if (!config.targets.defaults) config.targets.defaults = {};
-
-    // Add SSH defaults from defaultConfig
-    if (!config.targets.defaults.ssh) {
-      config.targets.defaults.ssh = defaultConfig.targets?.defaults?.ssh;
-      recommendations.push('Added SSH defaults');
-    }
-
-    // Add Docker defaults from defaultConfig
-    if (!config.targets.defaults.docker) {
-      config.targets.defaults.docker = defaultConfig.targets?.defaults?.docker;
-      recommendations.push('Added Docker defaults');
-    }
-
-    // Add K8s defaults from defaultConfig
-    if (!config.targets.defaults.kubernetes) {
-      config.targets.defaults.kubernetes = defaultConfig.targets?.defaults?.kubernetes;
-      recommendations.push('Added Kubernetes defaults');
-    }
-
-    // Add command defaults from defaultConfig
-    if (!config.commands) config.commands = {};
-
-    if (!config.commands['exec']) {
-      config.commands['exec'] = defaultConfig.commands?.exec || {};
-      recommendations.push('Added exec command defaults');
-    }
-
-    if (!config.commands['logs']) {
-      config.commands['logs'] = defaultConfig.commands?.logs || {};
-      recommendations.push('Added logs command defaults');
-    }
-
-    if (!config.commands['cp']) {
-      config.commands['cp'] = defaultConfig.commands?.cp || {};
-      recommendations.push('Added cp command defaults');
-    }
-
-    if (!config.commands['sync']) {
-      config.commands['sync'] = defaultConfig.commands?.sync || {};
-      recommendations.push('Added sync command defaults');
-    }
-
-    // Add secrets configuration if missing
-    if (!config.secrets && defaultConfig.secrets) {
-      config.secrets = {
-        provider: defaultConfig.secrets.provider as 'local' | 'vault' | '1password' | 'aws-secrets' | 'env' | 'dotenv',
-        config: defaultConfig.secrets.path ? { path: defaultConfig.secrets.path } : undefined
-      };
-      recommendations.push('Added secrets configuration');
-    }
-
+    // Runtime defaults (SSH keep-alives, command timeouts, …) exist whether
+    // or not the file spells them out; injecting them uninvited buried the
+    // user's few real settings under dozens of restated defaults. They are
+    // written only when explicitly requested:
     if (options?.defaults) {
-      // Write all default values to the configuration file
       log.info('📋 Adding all default values to configuration...');
       config = mergeWithDefaults(config, defaultConfig);
     }
 
-    // Sort configuration keys before saving
-    config = sortConfigKeys(config);
-
-    // Save updated configuration
-    await this.saveConfig(config);
+    // Persist exactly the diagnosed changes. An untouched file is not
+    // rewritten: a serializer round-trip would drop the user's comments
+    // and reorder their keys for no gain.
+    const editor = this.fileEditor!;
+    editor.apply(this.fileSnapshot!, config);
+    if (editor.dirty) {
+      if (this.isDryRun()) {
+        log.info(`Dry run: would update ${editor.filePath}`);
+      } else {
+        await editor.save();
+      }
+    }
 
     // Stop spinner
     s.stop('Configuration check complete');
@@ -2182,17 +2174,20 @@ export class ConfigCommand extends BaseCommand {
         rounded: true,
         formatBorder: (text_) => prism.green(text_)
       });
-    } else {
+    }
+
+    // Validate before declaring health — the old order printed
+    // "Configuration is healthy!" and a box of errors on the same screen.
+    const valid = await this.validateConfig();
+
+    if (recommendations.length === 0 && valid) {
       note('Configuration is healthy! No changes needed.', '🏥 Doctor', {
         format: (line) => prism.green(line)
       });
     }
-
-    // Validate configuration
-    await this.validateConfig();
   }
 
-  private async validateConfig(): Promise<void> {
+  private async validateConfig(): Promise<boolean> {
     const s = spinner();
     s.start('Validating configuration...');
 
@@ -2247,20 +2242,10 @@ export class ConfigCommand extends BaseCommand {
         }
       }
 
-      // Validate tasks
+      // Validate tasks against the forms the executor actually runs.
       if (config.tasks) {
         for (const [name, task] of Object.entries(config.tasks)) {
-          const t = task as any;
-          if (!t.steps || !Array.isArray(t.steps)) {
-            errors.push(`Task '${name}': missing or invalid 'steps' field`);
-          } else {
-            for (let i = 0; i < t.steps.length; i++) {
-              const step = t.steps[i];
-              if (!step.command && !step.script && !step.task) {
-                errors.push(`Task '${name}', step ${i + 1}: must have either 'command', 'script', or 'task'`);
-              }
-            }
-          }
+          errors.push(...ConfigCommand.taskFormErrors(name, task));
         }
       }
 
@@ -2293,27 +2278,84 @@ export class ConfigCommand extends BaseCommand {
           format: (line) => prism.green(line)
         });
       }
+
+      // A validation that reports errors and exits 0 cannot gate anything.
+      if (errors.length > 0) {
+        process.exitCode = 1;
+        return false;
+      }
+      return true;
     } catch (error) {
       s.stop('Validation failed');
       log.error(`Failed to validate configuration: ${error}`);
+      process.exitCode = 1;
+      return false;
     }
   }
 
 
-  private async saveConfig(config: any): Promise<void> {
-    // Use ConfigurationManager's save method which properly finds the root
-    // First, we need to update the configuration in the manager
-    // We do this by setting the merged config directly
-    (this.configManager as any).merged = config;
-
-    // Now save using the ConfigurationManager which will find the proper location
-    await this.configManager.save();
-
-    // Log where config was saved
+  /**
+   * Open the project's configuration file for editing.
+   *
+   * Two earlier generations of this path lost data. Mutating the resolved
+   * view returned by load() never reached the file — save() writes a
+   * different copy — so every edit rewrote the configuration without the
+   * change in it while reporting success. Persisting the manager's raw
+   * merged form kept the change but baked builtin defaults and the global
+   * config into the project file, dropped every comment and reordered the
+   * keys. Editing the file's own document is the only shape under which
+   * "set one key" means exactly that.
+   */
+  private async openEditor(): Promise<ConfigFileEditor> {
     const configPath = await this.configManager.getConfigPath();
-    if (process.env['XEC_DEBUG']) {
-      log.info(`Configuration saved to: ${configPath}`);
+    this.fileEditor = await ConfigFileEditor.open(configPath);
+    this.fileSnapshot = undefined;
+    this.fileWorking = undefined;
+    return this.fileEditor;
+  }
+
+  /**
+   * Plain-object working copy of the project file for interactive flows to
+   * mutate. saveConfig() persists the difference against the snapshot taken
+   * here — untouched keys, comments and ordering survive as written.
+   */
+  private async editableConfig(): Promise<any> {
+    const editor = await this.openEditor();
+    this.fileSnapshot = editor.workingCopy();
+    this.fileWorking = editor.workingCopy();
+    return this.fileWorking;
+  }
+
+  /**
+   * Persist pending edits and report the outcome. Under --dry-run nothing
+   * is written; the message states what would have happened instead of
+   * claiming success for work that was skipped.
+   */
+  private async commit(sentence: string, finalState?: Record<string, unknown>): Promise<void> {
+    const editor = this.fileEditor;
+    if (!editor) {
+      throw new Error('commit() called with no configuration open for editing');
     }
+
+    const after = finalState ?? this.fileWorking;
+    if (this.fileSnapshot && after) {
+      editor.apply(this.fileSnapshot, after);
+    }
+
+    // A later commit in the same flow must not replay this diff again.
+    this.fileSnapshot = after ? editor.workingCopy() : this.fileSnapshot;
+
+    if (this.isDryRun()) {
+      const change = editor.dirty ? 'would update' : 'would not change';
+      log.info(`Dry run: ${change} ${editor.filePath} — ${sentence}`);
+      return;
+    }
+
+    await editor.save();
+    if (process.env['XEC_DEBUG']) {
+      log.info(`Configuration saved to: ${editor.filePath}`);
+    }
+    log.success(sentence);
   }
   // Wrapper methods for CLI commands with parameters
   private async editTargetWithName(name: string): Promise<void> {
