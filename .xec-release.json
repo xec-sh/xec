@@ -3,16 +3,6 @@
   "skipTests": false,
   "skipJsr": false,
   "defaultBranch": "main",
-  "packages": [
-    {
-      "name": "@xec-sh/core",
-      "path": "packages/core"
-    },
-    {
-      "name": "@xec-sh/cli",
-      "path": "apps/xec"
-    }
-  ],
   "npm": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"

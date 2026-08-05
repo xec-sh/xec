@@ -1,8 +1,8 @@
 /// <reference path="../../apps/xec/globals.d.ts" />
 
 import type { Command } from 'commander';
-import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Note: prism is available globally in xec scripts (from script context)
 // If not available, fallback to kit.prism
@@ -11,14 +11,75 @@ const prism = (globalThis as any).prism || kit.prism;
 // Dynamic imports - defer loading until command execution
 let semver: any;
 
-// Package configurations
-const PACKAGES = [
-  { name: '@xec-sh/core', path: 'packages/core' },
-  { name: '@xec-sh/cli', path: 'apps/xec' },
-  { name: '@xec-sh/kit', path: 'packages/kit' },
-  { name: '@xec-sh/loader', path: 'packages/loader' },
-  { name: '@xec-sh/testing', path: 'packages/testing' },
-];
+/**
+ * Publishable packages, discovered from the workspace and ordered so every
+ * package publishes after its workspace dependencies.
+ *
+ * This used to be a hand-typed list of five. The workspace had six: it
+ * predated @xec-sh/ops and nobody remembered the copy when the package was
+ * born. A release from that list publishes a CLI whose `workspace:*`
+ * dependency rewrites to an ops version that never reaches the registry —
+ * every `npm install -g @xec-sh/cli` then fails with E404. The workspace
+ * manifest is the one list that cannot forget a package, because adding a
+ * package IS editing it.
+ */
+function discoverPackages(): Array<{ name: string; path: string }> {
+  const globs = readFileSync('pnpm-workspace.yaml', 'utf8')
+    .split('\n')
+    .map(line => line.match(/^\s*-\s*["']?([^"'#\s]+)["']?\s*$/)?.[1])
+    .filter((entry): entry is string => Boolean(entry));
+
+  const dirs = globs.flatMap(pattern => {
+    if (pattern.endsWith('/*')) {
+      const parent = pattern.slice(0, -2);
+      if (!existsSync(parent)) return [];
+      return readdirSync(parent, { withFileTypes: true })
+        .filter(entry => entry.isDirectory())
+        .map(entry => `${parent}/${entry.name}`);
+    }
+    return [pattern];
+  });
+
+  const packages = dirs.flatMap(dir => {
+    const manifestPath = join(dir, 'package.json');
+    if (!existsSync(manifestPath)) return [];
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    if (manifest.private === true || !manifest.name) return [];
+    return [{
+      name: manifest.name as string,
+      path: dir,
+      deps: Object.keys({
+        ...manifest.dependencies,
+        ...manifest.optionalDependencies,
+        ...manifest.peerDependencies,
+      }),
+    }];
+  });
+
+  // Dependencies publish first: were the CLI to land before ops, an install
+  // in the minutes between would 404 exactly like the missing-package case.
+  const names = new Set(packages.map(pkg => pkg.name));
+  const ordered: Array<{ name: string; path: string }> = [];
+  const placed = new Set<string>();
+
+  while (ordered.length < packages.length) {
+    const ready = packages.filter(pkg =>
+      !placed.has(pkg.name) &&
+      pkg.deps.every(dep => !names.has(dep) || placed.has(dep))
+    );
+    if (ready.length === 0) {
+      throw new Error('Dependency cycle among workspace packages; cannot order the publish');
+    }
+    for (const pkg of ready.sort((a, b) => a.name.localeCompare(b.name))) {
+      ordered.push({ name: pkg.name, path: pkg.path });
+      placed.add(pkg.name);
+    }
+  }
+
+  return ordered;
+}
+
+const PACKAGES = discoverPackages();
 
 // Release configuration
 interface ReleaseConfig {
