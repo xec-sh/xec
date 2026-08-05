@@ -197,7 +197,9 @@ destination removed). Source and destination are plain paths for local
 files, or use a small URL grammar for a remote endpoint:
 `ssh://[user@]host/path` or `docker://container:/path`. Every combination of
 local, SSH and Docker is supported, including host-to-host and
-container-to-container — there is no Kubernetes leg.
+container-to-container. The URL grammar has no Kubernetes leg; to transfer
+against the engine's own target — including a Kubernetes pod — without
+restating it as a URL, use [`upload`/`download`](#target-bound-upload-and-download).
 
 ### Local to Remote
 
@@ -221,6 +223,30 @@ await $.transfer.copy(
 // Docker to Docker — routed through a local temp file when the containers differ
 await $.transfer.copy('docker://exporter:/export', 'docker://importer:/import');
 ```
+
+### Target-Bound Upload and Download
+
+`copy()` reads the environment only from the URL, so on a targeted engine two
+flat paths both look local and the transfer stays on the operator's machine.
+`upload` and `download` read the target from the engine instead, so the target
+you already chose is the remote side — no URL to restate the host, container or
+pod in:
+
+```typescript
+// Send a local build to wherever this engine points
+await $.ssh('deploy@web-1').transfer.upload('dist/', '/srv/app/', { recursive: true });
+await $.docker('api').transfer.upload('/local/config.json', '/app/config.json');
+await $.k8s('prod/web-0').transfer.upload('/local/x', '/etc/x');
+
+// Pull back the other way
+await $.ssh('deploy@web-1').transfer.download('/var/log/app.log', './app.log');
+await $.k8s('prod/web-0').transfer.download('/etc/x', './x');
+```
+
+`upload`'s source and `download`'s destination must be local paths — the other
+side comes from the engine's target. A bare `$` has no target, so both throw
+there; use `copy()` with a URL for that case. Kubernetes transfers run through
+`kubectl cp`, carrying the target's namespace, container and cluster context.
 
 `.move()` has the same shape as `.copy()`, and additionally deletes the
 source once the transfer succeeds. Both resolve to a `TransferResult`:
@@ -451,7 +477,7 @@ await $`echo ${content} > ${file}`;    // Correct
 ## Implementation Details
 
 File operations are implemented in:
-- `packages/core/src/utils/transfer.ts` - `$.transfer` (copy/move/sync across local, SSH and Docker)
+- `packages/core/src/utils/transfer.ts` - `$.transfer` (copy/move/sync across local, SSH and Docker by URL; target-bound upload/download for SSH, Docker and Kubernetes)
 - `packages/core/src/adapters/ssh/index.ts` - SSH `uploadFile`/`downloadFile`/`uploadDirectory`
 - `packages/core/src/adapters/kubernetes/kubernetes-api.ts` - Kubernetes `K8sPod.copyTo`/`copyFrom`
 - `packages/core/src/core/execution-engine.ts` - `$.readFile`/`$.writeFile`/`$.deleteFile`

@@ -440,22 +440,15 @@ Xec provides unified file operations across environments.
 // xec copy local-file.txt server:/remote/path/
 // xec copy server:/remote/file.txt local-path/
 
-// Or use the transfer engine from code
+// Or use the transfer engine from code. `upload`/`download` resolve the remote
+// side from the engine's own target, so there is no URL to restate the host in.
 const ssh = $.ssh({ host: 'server' });
 
-// Upload file to remote
-await $.transfer.upload(
-  'local-file.txt',
-  ssh,
-  '/remote/path/'
-);
+// Upload a local file to the target
+await ssh.transfer.upload('local-file.txt', '/remote/path/');
 
-// Download file from remote
-await $.transfer.download(
-  ssh,
-  '/remote/file.txt',
-  'local-path/'
-);
+// Download from the target to a local path
+await ssh.transfer.download('/remote/file.txt', 'local-path/');
 ```
 
 ## Module System

@@ -112,8 +112,9 @@ export function command(program: any) {
       const s = kit.spinner();
       s.start(`Deploying to ${host}`);
 
-      // Transfer addresses environments by URL — local path to ssh:// path
-      await $.transfer.copy('dist/', `ssh://${host}/srv/app/`);
+      // `upload` sends a local path to the engine's own target — no URL to
+      // restate the host in.
+      await remote.transfer.upload('dist/', '/srv/app/', { recursive: true });
       await remote`systemctl restart myapp`;
 
       s.stop(`Deployed to ${host}`);

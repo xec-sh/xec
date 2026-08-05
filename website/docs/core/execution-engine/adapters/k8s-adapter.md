@@ -214,9 +214,12 @@ await pod.copyTo('/local/nginx.conf', '/etc/nginx/nginx.conf', 'nginx');
 ```
 
 There is no compression option — `copyTo`/`copyFrom` run `kubectl cp`
-exactly as it behaves on the command line. `$.transfer` does not have a
-Kubernetes leg (it only handles local/SSH/Docker paths); pod file transfer
-goes through `copyTo`/`copyFrom` above instead.
+exactly as it behaves on the command line. These are the pod-native calls;
+the uniform cross-target surface reaches the same `kubectl cp` through
+`$.k8s(pod).transfer.upload(local, remote)` and `.download(remote, local)`,
+which carry the target's namespace, container and cluster context. Only the
+URL grammar of `$.transfer.copy()` has no Kubernetes leg — it handles
+local/SSH/Docker paths.
 
 ## Multi-Container Pods
 
