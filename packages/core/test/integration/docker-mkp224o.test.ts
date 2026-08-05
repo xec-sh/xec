@@ -1,5 +1,5 @@
 
-import { $, withTempDir } from '../../../src/index.js';
+import { $, withTempDir } from '../../src/index.js';
 
 // Check if Docker is available
 const isDockerAvailable = async (): Promise<boolean> => {
