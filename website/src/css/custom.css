@@ -275,3 +275,8 @@ div[class^='announcementBar_'] {
   background: #d64545;
   border-color: #d64545;
 }
+
+/* Text selection carries the brand: violet field, readable text, both themes. */
+::selection {
+  background: color-mix(in srgb, var(--xec-accent) 28%, transparent);
+}

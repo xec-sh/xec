@@ -6,6 +6,40 @@ import Link from '@docusaurus/Link';
 import Translate, { translate } from '@docusaurus/Translate';
 
 /**
+ * The install line with a copy affordance.
+ *
+ * The clipboard is the whole purpose of showing an install command; making
+ * the reader select-and-copy a one-liner is friction at the exact moment
+ * they decided to try the tool. Feedback is a brief state change on the
+ * button itself — no toast, nothing moves.
+ */
+function InstallLine({ command }: { readonly command: string }): React.ReactNode {
+  const [copied, setCopied] = React.useState(false);
+
+  const copy = React.useCallback(() => {
+    navigator.clipboard?.writeText(command).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    });
+  }, [command]);
+
+  return (
+    <p className={styles.installLine}>
+      <code>{command}</code>
+      <button
+        type="button"
+        className={styles.copyButton}
+        onClick={copy}
+        data-copied={copied || undefined}
+        aria-label={translate({ id: 'homepage.copyInstall', message: 'Copy install command' })}
+      >
+        {copied ? '✓' : '⧉'}
+      </button>
+    </p>
+  );
+}
+
+/**
  * A line of the hero demo.
  *
  * The demo is the product: the same command shape running in four places. It
@@ -40,6 +74,8 @@ const DEMO: readonly DemoLine[] = [
       ['`./healthcheck.sh`', 'str'], [';', 'punc'],
     ],
   },
+  {},
+  { comment: '// node · bun · deno — same output, byte for byte' },
 ];
 
 function Terminal(): React.ReactNode {
@@ -391,7 +427,8 @@ function Packages(): React.ReactNode {
 const FACTS = [
   { value: '1', label: 'runtime dependency', note: 'ssh2 — loaded only when an SSH target is used' },
   { value: '4', label: 'environments, one API', note: 'local, SSH, Docker, Kubernetes' },
-  { value: '4,500+', label: 'tests', note: 'across the engine, CLI, loader and UI kit' },
+  { value: '3', label: 'runtimes', note: 'Node, Bun, Deno — byte-identical results, pinned by a parity test' },
+  { value: '4,900+', label: 'tests', note: 'across the engine, CLI, loader and UI kit' },
   { value: '~70ms', label: 'CLI startup', note: 'against a ~28ms floor for an empty Node process' },
 ] as const;
 
@@ -439,9 +476,7 @@ function Hero(): React.ReactNode {
             </Link>
           </div>
 
-          <p className={styles.installLine}>
-            <code>npm i @xec-sh/core</code>
-          </p>
+          <InstallLine command="npm i @xec-sh/core" />
         </div>
 
         <div className={styles.heroDemo}>
