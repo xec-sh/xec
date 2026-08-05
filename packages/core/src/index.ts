@@ -105,6 +105,12 @@ export const $ = new Proxy(function callableEngineTarget() { } as any, {
       defaultEngine = createCallableEngine(defaultEngineInstance);
     }
 
+    // The read half of `$.verbose = true`: a set that cannot be read back
+    // looks exactly like the silent no-op it replaced.
+    if (prop === 'verbose' || prop === 'quiet') {
+      return Boolean((defaultEngine as any).config.get()[prop]);
+    }
+
     // Special handling for defaults() on global $ to mutate instead of create new instance
     if (prop === 'defaults') {
       return (config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }) => {
@@ -170,7 +176,9 @@ export const $ = new Proxy(function callableEngineTarget() { } as any, {
   },
 
   // Without a set trap, `$.verbose = true` — zx muscle memory — assigned a
-  // property onto the proxy target and silently did nothing.
+  // property onto the proxy target and silently did nothing. The get half
+  // lives in the main trap above: a set that cannot be read back looks
+  // exactly like the bug it replaced.
   set(target, prop: string, value) {
     if (!defaultEngine) {
       defaultEngineInstance = new ExecutionEngine();

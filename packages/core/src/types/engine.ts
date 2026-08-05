@@ -8,7 +8,7 @@ import type { K8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.
 import type { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
 
 // Callable ExecutionEngine interface
-export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'k8s' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'retry' | 'defaults'> {
+export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 'ssh' | 'docker' | 'k8s' | 'local' | 'cd' | 'env' | 'timeout' | 'shell' | 'retry' | 'defaults' | 'interactive'> {
   // Make it callable
   (strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
 
@@ -40,6 +40,15 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   timeout(duration: Duration): CallableExecutionEngine;
   shell(shell: string | boolean): CallableExecutionEngine;
   retry(options: RetryOptions): CallableExecutionEngine;
+  interactive(): CallableExecutionEngine;
+
+  /**
+   * Echo every command before it runs (`$.verbose = true`) or silence the
+   * echo (`$.quiet = true`) — zx muscle memory, applied to the default
+   * engine's configuration. Reads report the current setting.
+   */
+  verbose: boolean;
+  quiet: boolean;
   defaults(config: Partial<Command> & { defaultEnv?: Record<string, string>; defaultCwd?: string }): CallableExecutionEngine;
 
   // Configuration property
