@@ -80,6 +80,12 @@ export interface CommandConfig {
     flags: string;
     description: string;
     defaultValue?: any;
+    /**
+     * Commander parse callback. Required for options that repeat: without
+     * it commander keeps only the last value, which then fails schemas
+     * that validate an array. Pair with `collect` and a [] default.
+     */
+    parser?: (value: string, previous: any) => any;
   }>;
   examples?: Array<{
     command: string;
@@ -90,6 +96,8 @@ export interface CommandConfig {
 
 export interface ConfigAwareOptions {
   profile?: string;
+  /** Where -c/--config lands after commander parsing. */
+  config?: string;
   configPath?: string;
   verbose?: boolean;
   quiet?: boolean;
@@ -150,7 +158,11 @@ export abstract class BaseCommand {
     // Add custom options
     if (this.config.options) {
       this.config.options.forEach(opt => {
-        command.option(opt.flags, opt.description, opt.defaultValue);
+        if (opt.parser) {
+          command.option(opt.flags, opt.description, opt.parser, opt.defaultValue);
+        } else {
+          command.option(opt.flags, opt.description, opt.defaultValue);
+        }
       });
     }
 
@@ -197,6 +209,10 @@ export abstract class BaseCommand {
           dryRun: options.dryRun || false,
         };
 
+        // -o is a contract: an unknown format must refuse loudly (exit 2),
+        // not fall through to text as if nothing had been typed.
+        BaseCommand.assertOutputFormat(this.options.output);
+
         // Validate options
         if (this.config.validateOptions) {
           this.config.validateOptions(options);
@@ -230,13 +246,71 @@ export abstract class BaseCommand {
     return this.config.name;
   }
 
+  private static assertOutputFormat(format: unknown): void {
+    validateOptions(
+      { output: format },
+      z.object({
+        output: z.custom<OutputFormat>(
+          value => typeof value === 'string' && (OUTPUT_FORMATS as readonly string[]).includes(value),
+          { message: `unknown format '${String(format)}'. Valid formats: ${OUTPUT_FORMATS.join(', ')}` }
+        ),
+      })
+    );
+  }
+
+  /**
+   * The machine format in effect, or null in text mode. In json/yaml/csv
+   * mode stdout carries exactly one serialized document: chatter moves to
+   * stderr, spinners and prompts are suppressed, emitResult is the only
+   * stdout writer.
+   */
+  protected machineFormat(): Exclude<OutputFormat, 'text'> | null {
+    const format = this.options.output;
+    return format !== undefined && format !== 'text' ? format : null;
+  }
+
+  /**
+   * Emit a command's result under the output contract: text mode renders
+   * for humans, machine mode serializes the data. Deliberately not gated on
+   * --quiet — quiet silences chatter, and the data is not chatter.
+   */
+  protected emitResult(data: unknown, renderText: () => void): void {
+    const format = this.machineFormat();
+    if (format === null) {
+      renderText();
+      return;
+    }
+    process.stdout.write(`${serializeOutput(data, format)}\n`);
+  }
+
+  /**
+   * Resolve the file named by -c/--config (older callers pass configPath).
+   * A named file that does not exist is refused here: proceeding into
+   * discovery would answer from a configuration the caller never meant.
+   */
+  protected async requireConfigFile(options: ConfigAwareOptions): Promise<string | undefined> {
+    const configFilePath = options.config ?? options.configPath;
+    if (configFilePath === undefined) return undefined;
+    try {
+      await access(configFilePath);
+    } catch (error) {
+      (error as Error).message = `Config file not found: ${configFilePath}`;
+      throw error;
+    }
+    return configFilePath;
+  }
+
   /**
    * Initialize configuration for the command
    */
   protected async initializeConfig(options: ConfigAwareOptions): Promise<void> {
-    // Create configuration manager
+    // -c was parsed into options.config but read as options.configPath, so
+    // the flag was dead in every config-aware command. An explicit file
+    // replaces discovery entirely (ConfigurationManager's contract).
+    const configFilePath = await this.requireConfigFile(options);
     this.configManager = new ConfigurationManager({
-      projectRoot: options.configPath ? path.dirname(path.dirname(options.configPath)) : process.cwd(),
+      projectRoot: process.cwd(),
+      configFilePath,
       profile: options.profile,
     });
 
