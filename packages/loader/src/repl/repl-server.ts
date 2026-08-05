@@ -126,7 +126,11 @@ export class REPLServer {
       this.showWelcome();
     }
 
-    // Create REPL server
+    // Node's REPL evaluates each line in a single persistent vm context, not by
+    // importing a fresh module per line — so a session does not accumulate
+    // modules in the ESM registry the way script reloads do. Keep it that way:
+    // routing lines through CodeEvaluator (which imports a transient file each
+    // time) would leak one registry entry per line entered.
     this.server = repl.start({
       prompt: this.options.prompt,
       useGlobal: this.options.useGlobal,
