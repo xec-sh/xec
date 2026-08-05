@@ -42,7 +42,7 @@ const config: Config = {
   scripts: [{ src: 'https://analytics.ry.ht/script.js', defer: true, 'data-website-id': 'f53a4e1e-5727-410b-b9ce-8baf228f0128' }],
 
   // GitHub pages deployment config
-  organizationName: 'xec-js',
+  organizationName: 'xec-sh',
   projectName: 'xec',
 
   onBrokenLinks: 'warn',
@@ -68,7 +68,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/xec-sh/xec/tree/main/docs/',
+          editUrl: 'https://github.com/xec-sh/xec/tree/main/website/docs/',
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,
           versions: {
@@ -158,8 +158,6 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
 
-    // Announcement bar
-
     // Meta tags
     metadata: [
       { name: 'keywords', content: 'xec, universal execution, typescript, ssh, docker, kubernetes, command execution, automation, devops' },
@@ -236,15 +234,11 @@ const config: Config = {
           ],
         },
         {
-          title: 'Community',
+          title: 'Project',
           items: [
             {
               label: 'GitHub',
               href: 'https://github.com/xec-sh/xec',
-            },
-            {
-              label: 'Discussions',
-              href: 'https://github.com/xec-sh/xec/discussions',
             },
             {
               label: 'Issues',
@@ -253,15 +247,6 @@ const config: Config = {
             {
               label: 'Contributing',
               href: 'https://github.com/xec-sh/xec/blob/main/CONTRIBUTING.md',
-            },
-          ],
-        },
-        {
-          title: 'Project',
-          items: [
-            {
-              label: 'Roadmap',
-              href: 'https://github.com/xec-sh/xec/projects',
             },
             {
               label: 'Changelog',

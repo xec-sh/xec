@@ -392,7 +392,7 @@ const FACTS = [
   { value: '1', label: 'runtime dependency', note: 'ssh2 — loaded only when an SSH target is used' },
   { value: '4', label: 'environments, one API', note: 'local, SSH, Docker, Kubernetes' },
   { value: '4,500+', label: 'tests', note: 'across the engine, CLI, loader and UI kit' },
-  { value: '~150ms', label: 'CLI startup', note: 'against a ~20ms floor for an empty Node process' },
+  { value: '~70ms', label: 'CLI startup', note: 'against a ~28ms floor for an empty Node process' },
 ] as const;
 
 function Facts(): React.ReactNode {

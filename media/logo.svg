@@ -1,1 +1,28 @@
-<svg id="Layer_2" height="512" viewBox="0 0 32 32" width="512" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><linearGradient id="GRADIENT" gradientUnits="userSpaceOnUse" x1="8.501" x2="23.499" y1="28.988" y2="3.012"><stop offset="0" stop-color="#3cacb6"/><stop offset="1" stop-color="#8ccead"/></linearGradient><path d="m16 1c-8.271 0-15 6.729-15 15s6.729 15 15 15 15-6.729 15-15-6.729-15-15-15zm0 28c-7.168 0-13-5.832-13-13s5.832-13 13-13 13 5.832 13 13-5.832 13-13 13zm-3.293-13.707c.391.391.391 1.023 0 1.414l-4 4c-.195.195-.451.293-.707.293s-.512-.098-.707-.293c-.391-.391-.391-1.023 0-1.414l3.293-3.293-3.293-3.293c-.391-.391-.391-1.023 0-1.414s1.023-.391 1.414 0zm12.293 4.707c0 .552-.447 1-1 1h-9c-.553 0-1-.448-1-1s.447-1 1-1h9c.553 0 1 .448 1 1z" fill="url(#GRADIENT)"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512" role="img" aria-label="Xec">
+  <title>Xec</title>
+  <defs>
+    <linearGradient id="xecMark" x1="6" y1="26" x2="26" y2="6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6D3BF5"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Four routes crossing one point: the X of "Xec", and the four
+       environments reached through a single API. The terminals are squares
+       turned onto the diagonal, so they sit along the axis of the stroke they
+       end rather than fighting it. Symmetrical on both axes and a single
+       stroke weight, which is what lets it hold at 16px — the previous mark
+       set a 3.4-wide caret against 1.8-wide fan-out strokes and collapsed
+       into a smudge in a favicon. -->
+  <g stroke="url(#xecMark)" fill="none" stroke-width="2.8">
+    <path d="M7.5 7.5 L24.5 24.5"/>
+    <path d="M24.5 7.5 L7.5 24.5"/>
+  </g>
+
+  <g fill="url(#xecMark)">
+    <rect x="4.5" y="4.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 7.5 7.5)"/>
+    <rect x="21.5" y="4.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 24.5 7.5)"/>
+    <rect x="4.5" y="21.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 7.5 24.5)"/>
+    <rect x="21.5" y="21.5" width="6.0" height="6.0" rx="0.9" transform="rotate(45 24.5 24.5)"/>
+  </g>
+</svg>
