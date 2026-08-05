@@ -11,7 +11,7 @@ import type {
   TaskDefinition,
 } from './types.js';
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 import { TaskParser } from './task-parser.js';
 import { TargetResolver } from './target-resolver.js';

@@ -1,7 +1,7 @@
-import * as os from 'os';
-import { createHash } from 'crypto';
-import { execSync } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
+import * as os from 'node:os';
+import { createHash } from 'node:crypto';
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 
 /**
  * Get a unique machine identifier across different platforms

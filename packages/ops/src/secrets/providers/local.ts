@@ -1,6 +1,6 @@
-import * as path from 'path';
-import { existsSync } from 'fs';
-import * as fs from 'fs/promises';
+import * as path from 'node:path';
+import { existsSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 
 import { getCachedMachineId } from '../machine-id.js';
 import { getSecretsDir } from '../../config/utils.js';

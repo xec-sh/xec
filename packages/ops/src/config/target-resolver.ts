@@ -12,10 +12,10 @@ import type {
   ContainerConfig
 } from './types.js';
 
-import * as path from 'path';
-import { homedir } from 'os';
+import * as path from 'node:path';
+import { homedir } from 'node:os';
 import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 
 import { deepMerge, matchPattern, expandBraces, parseTargetReference } from './utils.js';
 

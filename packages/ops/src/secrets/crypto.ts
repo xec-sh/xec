@@ -6,7 +6,7 @@ import {
   timingSafeEqual,
   createDecipheriv,
   type ScryptOptions
-} from 'crypto';
+} from 'node:crypto';
 
 /**
  * Promise wrapper for {@link scrypt} that keeps the options argument.

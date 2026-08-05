@@ -6,7 +6,7 @@
  */
 
 import { glob } from 'glob';
-import * as path from 'path';
+import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 // Simple minimatch replacement — supports * and ** patterns

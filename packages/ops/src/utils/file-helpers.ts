@@ -1,6 +1,6 @@
-import path from 'path';
+import path from 'node:path';
 import { glob } from 'glob';
-import fs from 'fs/promises';
+import fs from 'node:fs/promises';
 import { log, text, prism, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
 
 export interface FileSelectOptions {
@@ -244,7 +244,7 @@ export class FileHelpers {
    * Edit a file (opens in default editor)
    */
   private static async editFile(filePath: string): Promise<void> {
-    const { spawn } = await import('child_process');
+    const { spawn } = await import('node:child_process');
     const editor = process.env['EDITOR'] || process.env['VISUAL'] || 'vi';
 
     const child = spawn(editor, [filePath], {

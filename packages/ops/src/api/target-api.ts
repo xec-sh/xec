@@ -19,7 +19,7 @@ import type {
 } from './types.js';
 
 import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 
 import { TargetResolver } from '../config/target-resolver.js';
 import { createTargetEngine } from '../utils/direct-execution.js';

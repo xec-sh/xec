@@ -9,10 +9,10 @@ import type {
   TaskErrorHandler,
 } from './types.js';
 
-import * as path from 'path';
+import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
-import * as fs from 'fs/promises';
-import { EventEmitter } from 'events';
+import * as fs from 'node:fs/promises';
+import { EventEmitter } from 'node:events';
 
 import { TargetResolver } from './target-resolver.js';
 import { getScriptLoader } from '../adapters/loader-adapter.js';

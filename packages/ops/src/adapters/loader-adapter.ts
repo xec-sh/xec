@@ -8,7 +8,7 @@ interface CLIProgram { command(name: string, description?: string): unknown; }
 
 import type { ResolvedTarget } from '../config/types.js';
 
-import * as path from 'path';
+import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
 import { log, prism } from '@xec-sh/kit';
 import {
@@ -343,8 +343,8 @@ export class ScriptLoader {
       let moduleExports;
       if (this.tsTransformer.needsTransformation(filePath)) {
         // TypeScript files: use TypeScriptTransformer from @xec-sh/loader
-        const fs = await import('fs');
-        const nodePath = await import('path');
+        const fs = await import('node:fs');
+        const nodePath = await import('node:path');
 
         const code = await fs.promises.readFile(filePath, 'utf-8');
 

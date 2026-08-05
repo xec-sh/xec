@@ -12,10 +12,10 @@ import type {
   ConfigManagerOptions
 } from './types.js';
 
-import * as path from 'path';
+import * as path from 'node:path';
 import jsYaml from 'js-yaml';
-import { existsSync } from 'fs';
-import * as fs from 'fs/promises';
+import { existsSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 
 import { SecretManager } from '../secrets/index.js';
 import { TargetResolver } from './target-resolver.js';

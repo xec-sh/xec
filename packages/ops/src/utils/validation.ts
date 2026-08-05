@@ -1,6 +1,6 @@
-import fs from 'fs';
+import fs from 'node:fs';
 import { z } from 'zod';
-import path from 'path';
+import path from 'node:path';
 
 export class ValidationError extends Error {
   constructor(message: string, public field?: string, public code?: string) {
