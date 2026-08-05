@@ -47,3 +47,6 @@ CHANGES.md
 .xec/logs
 .xec-temp
 *.tsbuildinfo
+
+# Transformed dynamic-command modules (kept only under XEC_DEBUG)
+.xec/.tmp/
