@@ -528,3 +528,85 @@ describe('Task API', () => {
     });
   });
 });
+describe('TaskAPI orchestration options', () => {
+  let orchDir: string;
+  let api: TaskAPI;
+
+  beforeEach(async () => {
+    orchDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-task-orch-'));
+    await fs.mkdir(path.join(orchDir, '.xec'), { recursive: true });
+    process.chdir(orchDir);
+    api = new TaskAPI();
+  });
+
+  afterEach(async () => {
+    process.chdir(os.tmpdir());
+    await fs.rm(orchDir, { recursive: true, force: true });
+  });
+
+  function writeTasks(tasks: Record<string, unknown>): Promise<void> {
+    return fs.writeFile(
+      path.join(orchDir, '.xec', 'config.yaml'),
+      yaml.dump({ version: '2.0', tasks })
+    );
+  }
+
+  it('runSequence stops at the first failure by default', async () => {
+    const marker = path.join(orchDir, 'after-failure.txt');
+    await writeTasks({
+      failing: 'exit 1',
+      after: `sh -c 'echo ran > ${marker}'`,
+    });
+
+    const results = await api.runSequence(['failing', 'after']);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.success).toBe(false);
+    await expect(fs.access(marker)).rejects.toThrow();
+  });
+
+  it('runSequence continues past failures with continueOnError', async () => {
+    const marker = path.join(orchDir, 'after-failure.txt');
+    await writeTasks({
+      failing: 'exit 1',
+      after: `sh -c 'echo ran > ${marker}'`,
+    });
+
+    const results = await api.runSequence(['failing', 'after'], {}, { continueOnError: true });
+
+    expect(results).toHaveLength(2);
+    expect(results[0]!.success).toBe(false);
+    expect(results[1]!.success).toBe(true);
+    expect((await fs.readFile(marker, 'utf8')).trim()).toBe('ran');
+  });
+
+  it('runParallel with maxConcurrent: 1 finishes a task before starting the next', async () => {
+    // The second task records whether the first one's artifact already
+    // exists when it starts. Serialized execution guarantees it does;
+    // unbounded execution starts both at once (maxConcurrent was ignored).
+    const artifact = path.join(orchDir, 'first-done.txt');
+    const observed = path.join(orchDir, 'second-saw.txt');
+    await writeTasks({
+      first: `sh -c 'echo done > ${artifact}'`,
+      second: `sh -c 'if [ -f ${artifact} ]; then echo present > ${observed}; else echo absent > ${observed}; fi'`,
+    });
+
+    const results = await api.runParallel(['first', 'second'], {}, { maxConcurrent: 1 });
+
+    expect(results).toHaveLength(2);
+    expect(results.every((r) => r.success)).toBe(true);
+    expect((await fs.readFile(observed, 'utf8')).trim()).toBe('present');
+  });
+
+  it('runParallel preserves result order', async () => {
+    await writeTasks({
+      'ok-task': 'echo fine',
+      'bad-task': 'exit 3',
+    });
+
+    const results = await api.runParallel(['ok-task', 'bad-task'], {}, { maxConcurrent: 1 });
+
+    expect(results[0]!.success).toBe(true);
+    expect(results[1]!.success).toBe(false);
+  });
+});

@@ -57,8 +57,12 @@ export interface TaskExecutionOptions {
   target?: string;
   timeout?: number;
   env?: Record<string, string>;
+  cwd?: string;
+  quiet?: boolean;
   parallel?: boolean;
   maxConcurrent?: number;
+  /** runSequence(): keep executing after a failed task */
+  continueOnError?: boolean;
 }
 
 // Target API Types

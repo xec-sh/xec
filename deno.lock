@@ -39,190 +39,32 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
-        "npm:@changesets/cli@^2.29.5",
+        "npm:@eslint/js@^10.0.1",
         "npm:@types/add@^2.0.3",
         "npm:@types/debug@4",
-        "npm:@types/node@^24.0.13",
-        "npm:@typescript-eslint/eslint-plugin@^8.36.0",
-        "npm:@typescript-eslint/parser@8.36.0",
+        "npm:@types/node@^25.5.0",
+        "npm:@types/semver@^7.7.1",
+        "npm:@typescript-eslint/eslint-plugin@8.57.0",
+        "npm:@typescript-eslint/parser@8.57.0",
         "npm:add@^2.0.6",
-        "npm:debug@^4.4.1",
+        "npm:debug@^4.4.3",
         "npm:eslint-import-resolver-typescript@^4.4.4",
         "npm:eslint-plugin-import@^2.32.0",
-        "npm:eslint-plugin-perfectionist@^4.15.0",
-        "npm:eslint-plugin-unused-imports@^4.1.4",
-        "npm:eslint@^9.31.0",
-        "npm:inquirer@^12.7.0",
-        "npm:prettier@^3.6.2",
-        "npm:ts-loader@^9.5.2",
+        "npm:eslint-plugin-perfectionist@^5.6.0",
+        "npm:eslint-plugin-unused-imports@4.4.1",
+        "npm:eslint@10.0.3",
+        "npm:glob@^13.0.6",
+        "npm:globals@^17.4.0",
+        "npm:prettier@^3.8.1",
+        "npm:semver@^7.7.4",
+        "npm:ts-loader@9.5.4",
         "npm:ts-node@^10.9.2",
         "npm:tsconfig-paths@^4.2.0",
-        "npm:turbo@^2.5.5",
-        "npm:typescript-eslint@8.36.0",
-        "npm:typescript@^5.9.2"
+        "npm:tsx@^4.21.0",
+        "npm:turbo@^2.8.17",
+        "npm:typescript-eslint@8.57.0",
+        "npm:typescript@^5.9.3"
       ]
-    },
-    "members": {
-      "apps/xec": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@jest/globals@^30.0.4",
-            "npm:@types/fs-extra@^11.0.4",
-            "npm:@types/jest@30",
-            "npm:@types/js-yaml@^4.0.9",
-            "npm:@types/minimist@^1.2.5",
-            "npm:@types/mustache@^4.2.6",
-            "npm:@types/node@^24.0.13",
-            "npm:@types/ssh2@^1.15.5",
-            "npm:@types/which@^3.0.4",
-            "npm:chalk@^5.4.1",
-            "npm:chokidar@^4.0.3",
-            "npm:commander@14",
-            "npm:csv-parse@^6.1.0",
-            "npm:csv-stringify@^6.6.0",
-            "npm:date-fns@4.1.0",
-            "npm:diff@^8.0.2",
-            "npm:dotenv@^17.2.1",
-            "npm:es-toolkit@^1.39.8",
-            "npm:esbuild@~0.25.8",
-            "npm:fs-extra@11.3.0",
-            "npm:glob@^11.0.3",
-            "npm:handlebars@^4.7.8",
-            "npm:jest@^30.0.4",
-            "npm:js-yaml@^4.1.0",
-            "npm:minimatch@^10.0.3",
-            "npm:minimist@^1.2.8",
-            "npm:node-fetch@^3.3.2",
-            "npm:ps-list@^8.1.1",
-            "npm:source-map-support@~0.5.21",
-            "npm:table@^6.9.0",
-            "npm:tempy@^3.1.0",
-            "npm:ts-jest@^29.4.0",
-            "npm:ts-loader@^9.5.2",
-            "npm:ts-node@^10.9.2",
-            "npm:tsconfig-paths@^4.2.0",
-            "npm:typescript@^5.9.2",
-            "npm:which@5",
-            "npm:zod@^4.0.15"
-          ]
-        }
-      },
-      "docs": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@docusaurus/core@3.8.1",
-            "npm:@docusaurus/module-type-aliases@3.8.1",
-            "npm:@docusaurus/plugin-ideal-image@3.8.1",
-            "npm:@docusaurus/plugin-sitemap@3.8.1",
-            "npm:@docusaurus/preset-classic@3.8.1",
-            "npm:@docusaurus/theme-mermaid@3.8.1",
-            "npm:@docusaurus/tsconfig@3.8.1",
-            "npm:@docusaurus/types@3.8.1",
-            "npm:@easyops-cn/docusaurus-search-local@~0.52.1",
-            "npm:@mdx-js/react@3.1.0",
-            "npm:@types/react@18.3.23",
-            "npm:clsx@2.1.1",
-            "npm:prism-react-renderer@2.4.1",
-            "npm:react-dom@18.3.1",
-            "npm:react@18",
-            "npm:rehype-katex@7.0.1",
-            "npm:remark-math@6",
-            "npm:typescript@5.8.3"
-          ]
-        }
-      },
-      "packages/aura": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/node@24.2.1",
-            "npm:@vitest/coverage-v8@3.2.4",
-            "npm:@vitest/ui@3.2.4",
-            "npm:rimraf@6.0.1",
-            "npm:typescript@5.9.2",
-            "npm:vitest@3.2.4"
-          ]
-        }
-      },
-      "packages/core": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/dockerode@^3.3.42",
-            "npm:@types/jest@30",
-            "npm:@types/js-yaml@^4.0.9",
-            "npm:@types/node@^24.0.13",
-            "npm:@types/ssh2-streams@~0.1.12",
-            "npm:@types/ssh2@^1.15.5",
-            "npm:dockerode@^4.0.7",
-            "npm:is-stream@4.0.1",
-            "npm:jest@^30.0.4",
-            "npm:js-yaml@^4.1.0",
-            "npm:node-pty@1",
-            "npm:sb-promise-queue@^2.1.1",
-            "npm:sb-scandir@^3.1.1",
-            "npm:shell-escape@0.2",
-            "npm:ssh2-streams@~0.4.10",
-            "npm:ssh2@^1.16.0",
-            "npm:ts-jest@^29.4.0",
-            "npm:typescript@^5.9.2",
-            "npm:zod@4.0.14"
-          ]
-        }
-      },
-      "packages/kit": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/node@^24.2.0",
-            "npm:@vitest/coverage-v8@^3.2.4",
-            "npm:esbuild@~0.25.8",
-            "npm:eslint@^9.32.0",
-            "npm:picocolors@^1.1.1",
-            "npm:sisteransi@^1.0.5",
-            "npm:systeminformation@^5.27.7",
-            "npm:tsup@^8.5.0",
-            "npm:tsx@^4.20.3",
-            "npm:typescript@^5.9.2",
-            "npm:vitest@^3.2.4"
-          ]
-        }
-      },
-      "packages/test-utils": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/dockerode@3.3.42",
-            "npm:@types/jest@30.0.0",
-            "npm:@types/node@24.1.0",
-            "npm:dockerode@4.0.7",
-            "npm:jest@30.0.5",
-            "npm:ts-jest@29.4.0",
-            "npm:typescript@5.8.3"
-          ]
-        }
-      },
-      "packages/trm": {
-        "dependencies": [
-          "npm:vitest@3.2.4"
-        ],
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/node@24.2.1",
-            "npm:strip-ansi@^7.1.0",
-            "npm:tsup@8.5.0",
-            "npm:typescript@5.9.2",
-            "npm:vitest@3.2.4"
-          ]
-        }
-      },
-      "packages/tui-tester": {
-        "packageJson": {
-          "dependencies": [
-            "npm:@types/node@24.2.1",
-            "npm:strip-ansi@^7.1.0",
-            "npm:tsup@8.5.0",
-            "npm:typescript@5.9.2",
-            "npm:vitest@3.2.4"
-          ]
-        }
-      }
     }
   }
 }

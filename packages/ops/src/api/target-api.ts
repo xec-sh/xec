@@ -147,9 +147,11 @@ export class TargetAPI {
     
     // Create execution engine for target
     const engine = await createTargetEngine(target, options);
-    
-    // Execute command
-    const result = await engine`${command}`;
+
+    // The command arrives as one full shell line; plain interpolation would
+    // escape it into a single argument ("echo hi" becomes a program named
+    // "echo hi").
+    const result = await engine.raw`${command}`;
     
     return {
       ...result,
@@ -302,11 +304,12 @@ export class TargetAPI {
       source: 'created'
     };
     
-    // Validate the target can be created, then release it again. Keeping the
-    // engine was pointless — nothing here returns it — and it holds an adapter
-    // with its connection pool, so every create() leaked one.
-    const engine = await createTargetEngine(target);
-    await engine.dispose?.();
+    // Validate the target can be created. The engine must NOT be disposed:
+    // engines derived via with() share the root $'s adapter map, so
+    // disposing one tears down every adapter for the whole process — after
+    // one create(), no command executed anywhere ("No suitable adapter
+    // found"). Nothing leaks by dropping it: the adapters belong to $.
+    await createTargetEngine(target);
 
     return target;
   }
@@ -362,16 +365,18 @@ export class TargetAPI {
     const config = target.config as HostConfig;
     const { host, user, port = 22, privateKey } = config;
     const sshDest = `${user}@${host}:`;
-    
+
+    // Arguments go in as an array so each one is escaped on its own; a
+    // pre-joined string would be escaped into a single argument.
     const scpArgs = [
-      port !== 22 ? `-P ${port}` : null,
-      privateKey ? `-i ${privateKey}` : null,
-      options.recursive === true ? '-r' : null,
-      options.compress === true ? '-C' : null,
+      ...(port !== 22 ? ['-P', String(port)] : []),
+      ...(privateKey ? ['-i', privateKey] : []),
+      ...(options.recursive === true ? ['-r'] : []),
+      ...(options.compress === true ? ['-C'] : []),
       isUpload ? source : `${sshDest}${source}`,
       isUpload ? `${sshDest}${dest}` : dest
-    ].filter((arg): arg is string => arg !== null).join(' ');
-    
+    ];
+
     await $`scp ${scpArgs}`;
   }
 
@@ -401,12 +406,15 @@ export class TargetAPI {
   ): Promise<void> {
     const config = target.config as PodConfig;
     const { namespace = 'default', pod, container } = config;
-    const containerFlag = container ? `-c ${container}` : '';
-    
+    // As an array the flag arrives as two arguments and vanishes entirely
+    // when no container is set; the old single string was passed as one
+    // argument ("-c app"), or as an empty argument when unset.
+    const containerArgs = container ? ['-c', container] : [];
+
     if (isUpload) {
-      await $`kubectl cp ${source} ${namespace}/${pod}:${dest} ${containerFlag}`;
+      await $`kubectl cp ${source} ${namespace}/${pod}:${dest} ${containerArgs}`;
     } else {
-      await $`kubectl cp ${namespace}/${pod}:${source} ${dest} ${containerFlag}`;
+      await $`kubectl cp ${namespace}/${pod}:${source} ${dest} ${containerArgs}`;
     }
   }
 
@@ -417,15 +425,15 @@ export class TargetAPI {
   ): Promise<any> {
     const config = target.config as HostConfig;
     const { host, user, port = 22, privateKey } = config;
-    
+
     const sshArgs = [
       '-N',
       '-L', `${localPort}:localhost:${remotePort}`,
-      port !== 22 ? `-p ${port}` : null,
-      privateKey ? `-i ${privateKey}` : null,
+      ...(port !== 22 ? ['-p', String(port)] : []),
+      ...(privateKey ? ['-i', privateKey] : []),
       `${user}@${host}`
-    ].filter((arg): arg is string => arg !== null).join(' ');
-    
+    ];
+
     return $`ssh ${sshArgs}`.nothrow();
   }
 
@@ -441,8 +449,23 @@ export class TargetAPI {
   }
 
   private async findAvailablePort(): Promise<number> {
-    // Simple implementation - in production would use proper port scanning
-    return Math.floor(Math.random() * (65535 - 30000) + 30000);
+    // Bind to port 0 and let the OS hand out a free port; a random number
+    // in the ephemeral range can collide with a port already in use.
+    const { createServer } = await import('node:net');
+    return new Promise((resolve, reject) => {
+      const server = createServer();
+      server.unref();
+      server.on('error', reject);
+      server.listen(0, () => {
+        const address = server.address();
+        if (address === null || typeof address === 'string') {
+          server.close();
+          reject(new Error('Could not determine a free port'));
+          return;
+        }
+        server.close(() => resolve(address.port));
+      });
+    });
   }
 }
 

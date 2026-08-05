@@ -108,12 +108,16 @@ export class TaskAPI {
       throw new Error(`Task '${name}' not found`);
     }
 
-    // Run the task
-    const result = await this.manager!.run(name, params, {
-      target: options.target,
-      timeout: options.timeout,
-      env: options.env
-    });
+    // Run the task. Everything except the orchestration flags (which only
+    // steer runSequence/runParallel) goes to the executor — hand-picking
+    // fields here is how cwd and quiet were silently dropped.
+    const {
+      parallel: _parallel,
+      maxConcurrent: _maxConcurrent,
+      continueOnError: _continueOnError,
+      ...executorOptions
+    } = options;
+    const result = await this.manager!.run(name, params, executorOptions);
 
     // Convert to API result format
     return {
@@ -234,17 +238,18 @@ export class TaskAPI {
     options: TaskExecutionOptions = {}
   ): Promise<TaskResult[]> {
     const results: TaskResult[] = [];
-    
+
     for (const taskName of taskNames) {
       const result = await this.run(taskName, params, options);
       results.push(result);
-      
-      // Stop on failure unless explicitly told to continue
-      if (!result.success && !options.parallel) {
+
+      // Stop on failure unless explicitly told to continue. This used to
+      // test the parallel flag, which steers a different method entirely.
+      if (!result.success && !options.continueOnError) {
         break;
       }
     }
-    
+
     return results;
   }
 
@@ -255,15 +260,27 @@ export class TaskAPI {
    * @param options - Execution options
    */
   async runParallel(
-    taskNames: string[], 
+    taskNames: string[],
     params: Record<string, any> = {},
     options: TaskExecutionOptions = {}
   ): Promise<TaskResult[]> {
-    const promises = taskNames.map(taskName => 
-      this.run(taskName, params, { ...options, parallel: true })
-    );
-    
-    return Promise.all(promises);
+    // maxConcurrent was declared and ignored — every task launched at once.
+    const limit = options.maxConcurrent && options.maxConcurrent > 0
+      ? Math.min(options.maxConcurrent, taskNames.length)
+      : taskNames.length;
+
+    const results: TaskResult[] = new Array(taskNames.length);
+    let nextIndex = 0;
+
+    const worker = async (): Promise<void> => {
+      while (nextIndex < taskNames.length) {
+        const index = nextIndex++;
+        results[index] = await this.run(taskNames[index]!, params, { ...options, parallel: true });
+      }
+    };
+
+    await Promise.all(Array.from({ length: limit }, worker));
+    return results;
   }
 
   /**

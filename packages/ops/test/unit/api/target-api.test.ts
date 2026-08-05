@@ -395,3 +395,60 @@ describe('Target API', () => {
     });
   });
 });
+describe('TargetAPI exec argument handling', () => {
+  let execDir: string;
+  let api: TargetAPI;
+
+  beforeEach(async () => {
+    execDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-target-exec-'));
+    await fs.mkdir(path.join(execDir, '.xec'), { recursive: true });
+    await fs.writeFile(
+      path.join(execDir, '.xec', 'config.yaml'),
+      yaml.dump({ version: '2.0' })
+    );
+    process.chdir(execDir);
+    api = new TargetAPI();
+  });
+
+  afterEach(async () => {
+    process.chdir(os.tmpdir());
+    await fs.rm(execDir, { recursive: true, force: true });
+  });
+
+  it('runs a command with arguments on the local target', async () => {
+    // The command used to be escaped into a single argument, so anything
+    // beyond a bare program name failed with "command not found".
+    const result = await api.exec('local', 'echo probe-e51f arg2');
+
+    expect(result.ok).toBe(true);
+    expect(result.stdout.trim()).toBe('probe-e51f arg2');
+  });
+
+  it('runs a command with shell operators on the local target', async () => {
+    const marker = path.join(execDir, 'exec-marker.txt');
+    const result = await api.exec('local', `printf from-exec > ${marker}`);
+
+    expect(result.ok).toBe(true);
+    expect(await fs.readFile(marker, 'utf8')).toBe('from-exec');
+  });
+
+  it('test() reports local connectivity', async () => {
+    expect(await api.test('local')).toBe(true);
+  });
+
+  it('create() leaves the process able to execute commands', async () => {
+    // create() used to dispose the engine it built for validation; engines
+    // derived via with() share the root $'s adapters, so that dispose tore
+    // down every adapter in the process and all later executions failed
+    // with "No suitable adapter found".
+    await api.create({
+      type: 'ssh',
+      name: 'poison-probe',
+      config: { host: 'probe.invalid', user: 'nobody' },
+    });
+
+    const result = await api.exec('local', 'echo still-alive');
+    expect(result.ok).toBe(true);
+    expect(result.stdout.trim()).toBe('still-alive');
+  });
+});
