@@ -47,6 +47,7 @@
     "test:docker": "vitest run test/integration/docker-",
     "test:k8s": "vitest run test/integration/kubernetes-",
     "test:e2e": "vitest run test/e2e/",
+    "test:property": "vitest run test/property/",
     "docker:start": "../testing/docker-ssh-manager.sh start",
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
