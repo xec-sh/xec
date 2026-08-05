@@ -243,21 +243,15 @@ describe('inspect command', () => {
       await program.parseAsync(['node', 'xec', 'inspect', 'vars', '--format', 'yaml']);
 
       expect(consoleLogSpy).toHaveBeenCalled();
-      const rawOutput = getConsoleOutput();
-      const output = rawOutput.replace(/\x1b\[[0-9;]*m/g, ''); // Remove ANSI codes
+      const output = getConsoleOutput().replace(/\x1b\[[0-9;]*m/g, '');
 
-      // If it's still a table, format option isn't working
-      if (output.includes('┌') || output.includes('│')) {
-        // Format option might not be working, but check for values in table
-        expect(output).toMatch(/app_name.*test-app/);
-        expect(output).toMatch(/version.*1\.0\.0/);
-      } else {
-        // Check YAML-like output
-        expect(output).toMatch(/app_name:/);
-        expect(output).toMatch(/test-app/);
-        expect(output).toMatch(/version:/);
-        expect(output).toMatch(/1\.0\.0/);
-      }
+      // Real YAML of the same document json emits, rather than the
+      // bespoke `name:`-keyed rendering this used to print — a consumer
+      // switching -o json for -o yaml must get the same shape.
+      const data = yaml.load(output) as Array<{ name: string; data: unknown }>;
+      expect(Array.isArray(data)).toBe(true);
+      expect(data.map(item => item.name)).toContain('app_name');
+      expect(data.find(item => item.name === 'app_name')?.data).toBe('test-app');
     });
 
     it('should output tree format', async () => {

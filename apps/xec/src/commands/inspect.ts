@@ -878,7 +878,7 @@ class ProjectInspector {
 
     const machine = this.options.output;
     if (machine === 'json' || machine === 'yaml' || machine === 'csv') {
-      process.stdout.write(`${serializeOutput(results, machine)}\n`);
+      console.log(serializeOutput(results, machine));
       return;
     }
 
