@@ -50,40 +50,37 @@ export function createPrismStderr(options: PrismOptions = {}): PrismBuilderInsta
 }
 
 /**
+ * Utilities attached to the default Prism instance
+ */
+export interface PrismUtilities {
+  /** Create a new Prism instance with custom options */
+  create: typeof createPrism;
+  /** Prism instance bound to stderr */
+  stderr: PrismBuilderInstance;
+  /** Strip ANSI codes from a string */
+  strip: (str: string) => string;
+  /** Get the visible length of a string (ignoring ANSI codes) */
+  stringLength: (str: string) => number;
+  /** Check if colors are supported on stdout */
+  supportsColor: () => boolean;
+  /** Get the detected stdout color level */
+  colorLevel: () => ColorLevel;
+}
+
+/**
+ * The default Prism instance: a builder plus the attached utilities
+ */
+export type PrismInstance = PrismBuilderInstance & PrismUtilities;
+
+/**
  * Default Prism instance
  */
-const prism = createPrism();
-
-// Export utility functions on the default instance
-Object.assign(prism, {
-  /**
-   * Create a new Prism instance with custom options
-   */
+const prism: PrismInstance = Object.assign(createPrism(), {
   create: createPrism,
-
-  /**
-   * Create a Prism instance for stderr
-   */
   stderr: createPrismStderr(),
-
-  /**
-   * Strip ANSI codes from a string
-   */
   strip: stripAnsi,
-
-  /**
-   * Get the visible length of a string (ignoring ANSI codes)
-   */
   stringLength,
-
-  /**
-   * Check if colors are supported
-   */
   supportsColor: () => stdoutColor().level > 0,
-
-  /**
-   * Get the current color level
-   */
   colorLevel: () => stdoutColor().level,
 });
 

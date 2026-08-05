@@ -1,551 +1,257 @@
-# Prism Color System Specification
+# Prism
 
-## Overview
+Prism is the terminal color system of `@xec-sh/kit`: a chainable builder for
+ANSI styling in the chalk tradition, with color transforms, terminal
+capability detection and zero dependencies. It ships inside the kit package;
+it is not published separately.
 
-Prism is an advanced terminal color system for Node.js that provides a comprehensive, intuitive API for styling terminal output. It builds upon the foundation of chalk while introducing powerful new features like gradients, animations, themes, and accessibility tools.
+This document describes what is implemented. The examples run as written;
+the color-math examples are asserted byte-for-byte in `test/prism.test.ts`
+("spec examples").
 
-## Core Philosophy
+## Import
 
-1. **Intuitive API**: Chainable, readable, and predictable
-2. **Performance**: Efficient caching and lazy evaluation
-3. **Accessibility**: Built-in contrast checking and color blindness simulation
-4. **Extensibility**: Plugin system for custom color spaces and effects
-5. **Type Safety**: Full TypeScript support with intelligent autocompletion
-6. **Zero Dependencies**: Self-contained implementation
+```typescript
+import { prism, createPrism, ColorLevel } from '@xec-sh/kit';
 
-## Architecture
+prism.red('Error');
+prism.green.bold('Success');
+prism.bgBlue.white('Info');
+prism.bold.italic.underline.red('Important');
+```
 
-### Module Structure
+`prism` is a ready instance bound to stdout capabilities. `createPrism`
+builds instances with explicit options (see "Instances").
+
+## Module layout
 
 ```
 packages/kit/src/prism/
 ├── core/
-│   ├── prism.ts           # Main Prism class and factory
-│   ├── builder.ts          # Style builder and chaining logic
-│   ├── renderer.ts         # ANSI sequence generation
-│   └── cache.ts            # Performance optimization cache
+│   ├── prism.ts      # createPrism factory, default instance
+│   └── builder.ts    # chainable style builder
 ├── color/
-│   ├── spaces.ts           # Color space conversions (RGB, HSL, HSV, LAB, etc)
-│   ├── parser.ts           # Parse color strings (hex, rgb(), hsl(), etc)
-│   ├── palette.ts          # Palette generation algorithms
-│   └── distance.ts         # Color distance calculations
-├── effects/
-│   ├── gradient.ts         # Gradient generation
-│   ├── animation.ts        # Animation support
-│   ├── patterns.ts         # Pattern effects (rainbow, etc)
-│   └── transforms.ts       # Color transformations
-├── accessibility/
-│   ├── contrast.ts         # WCAG contrast checking
-│   ├── colorblind.ts       # Color blindness simulation
-│   └── readable.ts         # Automatic readable color selection
-├── themes/
-│   ├── theme.ts            # Theme system
-│   ├── presets.ts          # Built-in themes
-│   └── generator.ts        # Theme generation from colors
+│   ├── spaces.ts     # RGB/HSL/HSV/LAB/LCH/XYZ conversions
+│   └── parser.ts     # color string parsing (hex, CSS names, rgb(), hsl())
 ├── utils/
-│   ├── ansi.ts            # ANSI escape sequences
-│   ├── supports.ts        # Terminal capability detection
-│   └── strip.ts           # Remove ANSI codes
-└── index.ts               # Public API exports
+│   ├── ansi.ts       # ANSI sequences, strip, string length
+│   └── supports.ts   # terminal capability detection
+└── index.ts          # public exports
 ```
 
-## API Design
+## The builder
 
-### Basic Usage
+Every chain link is itself callable. Calling it styles the text and returns
+a plain string; several arguments are joined with a single space. Styling an
+empty string returns an empty string. A style function never throws at
+render time: invalid input degrades to a no-op, never to an exception.
 
 ```typescript
-import prism from '@kit/prism';
-
-// Simple colors
-prism.red('Error message');
-prism.green.bold('Success!');
-prism.bgBlue.white('Info');
-
-// Chaining
-prism.bold.italic.underline.red('Important');
-
-// Template literals
-prism`
-  {red Error:} Something went wrong
-  {green.bold Success:} Operation completed
-  {rgb(255,128,0) Warning:} Check this out
-`;
+prism.red('one');
+prism.red('one', 'two'); // same as prism.red('one two')
 ```
 
-### Color Spaces
+### Modifiers
+
+`reset`, `bold`, `dim`, `italic`, `underline`, `overline`, `inverse`,
+`hidden`, `strikethrough` — standard SGR attributes, chainable in any order.
+
+`visible` renders its text only when colors are enabled: with colors
+disabled (level 0 or `enabled: false`) the styled text becomes an empty
+string instead of passing through unstyled.
+
+### Named colors
+
+Foreground: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`,
+`white`, plus `Bright` variants (`redBright`, ...) and the aliases `gray`,
+`grey` (both map to `blackBright`).
+
+Background: the same set prefixed with `bg` (`bgRed`, `bgCyanBright`,
+`bgGray`, ...).
+
+Named colors emit 4-bit codes; the terminal's own palette decides how they
+actually look. For that reason they carry no RGB value and color transforms
+do not apply to them (see below).
+
+### Colors by value
+
+| Method                            | Input                          | Notes                                                      |
+| --------------------------------- | ------------------------------ | ---------------------------------------------------------- |
+| `rgb(r, g, b)` / `bgRgb(r, g, b)` | channels 0-255                 | out-of-range and fractional values clamp to 0-255 integers |
+| `rgb(str)` / `bgRgb(str)`         | any parseable color string     | hex, CSS name, `rgb()`/`rgba()`, `hsl()`/`hsla()`          |
+| `hex(str)` / `bgHex(str)`         | `#rgb`, `#rrggbb`, `#rrggbbaa` | alpha digits are ignored                                   |
+| `hsl(h, s, l)` / `bgHsl(h, s, l)` | h 0-360, s/l 0-100             | converted to RGB                                           |
+| `hsv(h, s, v)` / `bgHsv(h, s, v)` | h 0-360, s/v 0-100             | converted to RGB                                           |
+| `css(name)` / `bgCss(name)`       | CSS color name                 | same as `rgb(name)`                                        |
+| `ansi256(n)` / `bgAnsi256(n)`     | palette code 0-255             | clamped; no-op below level 2                               |
+
+An unparseable string is a no-op: the chain is returned unchanged and the
+text renders with whatever styles were already applied.
 
 ```typescript
-// RGB
-prism.rgb(255, 128, 0)('Orange text');
-prism.rgb('#FF8000')('Hex orange');
-prism.rgb('rgb(255, 128, 0)')('CSS RGB');
-
-// HSL
-prism.hsl(30, 100, 50)('HSL orange');
-prism.hsl('hsl(30, 100%, 50%)')('CSS HSL');
-
-// HSV/HSB
-prism.hsv(30, 100, 100)('HSV orange');
-
-// LAB (perceptually uniform)
-prism.lab(65, 28, 67)('LAB orange');
-
-// LCH (cylindrical LAB)
-prism.lch(65, 73, 67)('LCH orange');
-
-// Named CSS colors
-prism.css('dodgerblue')('CSS color');
-prism.css('rebeccapurple')('Another CSS color');
+prism.rgb(255, 128, 0)('Orange');
+prism.rgb('#ff8000')('Orange');
+prism.rgb('rgb(255, 128, 0)')('Orange');
+prism.hex('#ff8000')('Orange');
+prism.hsl(30, 100, 50)('Orange');
+prism.hsv(30, 100, 100)('Orange');
+prism.css('dodgerblue')('Blue');
+prism.ansi256(208)('Orange');
+prism.bgHex('#003366').whiteBright('Label');
 ```
 
-### Gradients
+### Color transforms
+
+Transforms derive a new foreground color from the current one and replace
+it in the chain. They apply to the most recent foreground color whose RGB
+Prism knows — one set through `rgb`, `hex`, `hsl`, `hsv`, `css` or
+`ansi256`. When there is no such color (nothing set yet, a modifier-only
+chain, or a named 16-color / `reset` applied last), a transform is a no-op
+returning the chain unchanged. Backgrounds are never transformed.
+
+All results clamp to valid ranges; non-finite arguments (`NaN`,
+`Infinity`) are no-ops. The transformed color is re-encoded for the active
+color level, following the same truecolor → 256 → 16 downgrade path as any
+directly set color.
+
+| Transform                 | Meaning                                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `mix(color, ratio = 0.5)` | blend toward `color` (any parseable string or `[r, g, b]` tuple); ratio clamps to 0-1: 0 keeps the current color, 1 replaces it |
+| `lighten(amount)`         | HSL lightness +amount, on a 0-1 scale                                                                                           |
+| `darken(amount)`          | HSL lightness −amount                                                                                                           |
+| `saturate(amount)`        | HSL saturation +amount, on a 0-1 scale                                                                                          |
+| `desaturate(amount)`      | HSL saturation −amount                                                                                                          |
+| `rotate(degrees)`         | hue rotation, wraps around the 0-360 circle                                                                                     |
+| `invert()`                | channel-wise inversion (255 − value)                                                                                            |
+| `grayscale()`             | luminance-weighted gray (0.299 R + 0.587 G + 0.114 B)                                                                           |
 
 ```typescript
-// Linear gradient
-prism.gradient(['red', 'yellow', 'green'])('Rainbow text');
-prism.gradient(['#FF0000', '#00FF00'])('Red to green');
+const p = createPrism({ level: ColorLevel.TrueColor });
 
-// Multi-stop gradient
-prism.gradient([
-  { color: 'red', position: 0 },
-  { color: 'yellow', position: 0.5 },
-  { color: 'green', position: 1 },
-])('Controlled gradient');
-
-// Gradient modes
-prism.gradient(['blue', 'purple'], {
-  mode: 'hsl', // Interpolate through HSL space
-  easing: 'easeInOut', // Apply easing function
-})('Smooth gradient');
+p.hex('#ff0000').lighten(0.2)('text'); // rgb(255, 102, 102)
+p.hex('#ff0000').darken(0.2)('text'); // rgb(153, 0, 0)
+p.rgb(191, 64, 64).saturate(0.5)('text'); // rgb(255, 0, 0)
+p.rgb(191, 64, 64).desaturate(0.5)('text'); // rgb(128, 128, 128)
+p.hex('#ff0000').rotate(120)('text'); // rgb(0, 255, 0)
+p.hex('#0000ff').invert()('text'); // rgb(255, 255, 0)
+p.hex('#ff0000').grayscale()('text'); // rgb(76, 76, 76)
+p.hex('#ff0000').mix('#0000ff')('text'); // rgb(128, 0, 128)
+p.hex('#ff0000').mix([0, 0, 255], 0.25)('text'); // rgb(191, 0, 64)
+p.hex('#ff0000').lighten(0.2).bold('text'); // lightened, then bold
 ```
 
-### Themes
+Transforms track the full-precision RGB value, not the emitted escape
+sequence: at a 16-color level `p.hex('#ff0000').lighten(0.2)` computes
+rgb(255, 102, 102) first and only then downgrades it to the nearest 4-bit
+code.
 
-```typescript
-// Define a theme
-const myTheme = prism.defineTheme({
-  error: 'red',
-  warning: 'yellow',
-  success: 'green',
-  info: 'blue',
-  primary: '#007ACC',
-  secondary: '#6C757D',
-
-  // Semantic styles
-  heading: ['bold', 'underline'],
-  code: ['dim', 'italic'],
-
-  // Complex styles
-  important: {
-    color: 'red',
-    background: 'yellow',
-    modifiers: ['bold', 'underline'],
-  },
-});
-
-// Use theme
-prism.theme(myTheme);
-prism.error('Error message');
-prism.success('Success message');
-prism.heading('Main Title');
-
-// Inline theme usage
-prism.useTheme(myTheme).error('Themed error');
-```
-
-### Animations
-
-```typescript
-// Pulse effect
-prism.animate.pulse('red')('Pulsing text');
-
-// Rainbow animation
-prism.animate.rainbow()('Rainbow text', {
-  speed: 100, // ms per frame
-  cycles: 5, // Number of cycles
-});
-
-// Custom animation
-prism.animate.custom((frame, text) => {
-  const intensity = Math.sin(frame * 0.1) * 0.5 + 0.5;
-  return prism.rgb(255 * intensity, 0, 0)(text);
-})('Custom animation');
-
-// Gradient animation
-prism.animate.gradient(['red', 'blue', 'green'], {
-  direction: 'horizontal',
-  speed: 50,
-})('Animated gradient');
-```
-
-### Color Transformations
-
-```typescript
-// Lighten/Darken
-prism.red.lighten(0.2)('Lighter red');
-prism.blue.darken(0.3)('Darker blue');
-
-// Saturation
-prism.red.saturate(0.5)('More saturated');
-prism.green.desaturate(0.5)('Less saturated');
-
-// Rotation (hue shift)
-prism.red.rotate(120)('Red rotated to green');
-
-// Opacity (for terminals that support it)
-prism.red.alpha(0.5)('Semi-transparent red');
-
-// Mix colors
-prism.mix('red', 'blue', 0.5)('Purple');
-prism.red.mix('blue', 0.3)('Red with 30% blue');
-
-// Invert
-prism.blue.invert()('Inverted blue');
-
-// Grayscale
-prism.red.grayscale()('Grayscale red');
-```
-
-### Accessibility Features
-
-```typescript
-// Contrast checking
-prism.contrast('white', 'blue'); // Returns WCAG contrast ratio
-prism.readable('blue'); // Returns 'white' or 'black' for best readability
-
-// Auto-contrast
-prism.autoContrast('blue')('Auto readable text'); // Automatically picks white or black
-
-// Color blindness simulation
-prism.colorblind.protanopia('red')('How protanopes see red');
-prism.colorblind.deuteranopia('green')('How deuteranopes see green');
-prism.colorblind.tritanopia('blue')('How tritanopes see blue');
-
-// Ensure minimum contrast
-prism.ensureContrast(4.5, 'blue', 'white')('Guaranteed readable');
-```
-
-### Palette Generation
-
-```typescript
-// Generate complementary colors
-const palette = prism.palette.complementary('#FF0000');
-// Returns: ['#FF0000', '#00FFFF']
-
-// Generate triadic colors
-const triadic = prism.palette.triadic('#FF0000');
-// Returns: ['#FF0000', '#00FF00', '#0000FF']
-
-// Generate analogous colors
-const analogous = prism.palette.analogous('#FF0000', 5);
-// Returns 5 analogous colors
-
-// Generate monochromatic palette
-const mono = prism.palette.monochromatic('#FF0000', 5);
-// Returns 5 shades of red
-
-// Generate from image/theme
-const themePalette = prism.palette.fromTheme('ocean');
-```
-
-### Advanced Features
-
-```typescript
-// Conditional styling
-prism.if(process.env.DEBUG, 'yellow')('Debug message');
-prism.when(isError).red.bold('Error message');
-
-// Level-based styling (respects color support)
-prism.level(3).truecolor(255, 128, 64)('Truecolor');
-prism.level(2).ansi256(214)('256 colors');
-prism.level(1).yellow('16 colors');
-
-// Nested styles
-prism.red(`Red text with ${prism.blue('blue')} inside`);
-
-// Strip ANSI codes
-prism.strip(prism.red('text')); // Returns: 'text'
-
-// Get string length (ignoring ANSI codes)
-prism.stringLength(prism.red('text')); // Returns: 4
-
-// Clone with different options
-const customPrism = prism.create({ level: 2 });
-
-// Format with placeholders
-prism.format('Error: {red %s} at {yellow %s}', 'Failed', 'line 10');
-
-// Table coloring
-prism.table(
-  [
-    ['Name', 'Age', 'City'],
-    ['John', '25', 'NYC'],
-    ['Jane', '30', 'LA'],
-  ],
-  {
-    header: 'bold.underline',
-    evenRows: 'dim',
-  }
-);
-```
-
-### Template Literal API
-
-```typescript
-// Tagged template literals
-prism`
-  {red Error:} {bold ${errorMessage}}
-  {dim at ${timestamp}}
-`;
-
-// Nested templates
-prism`
-  {green Success!}
-  ${details && prism`{dim Details: ${details}}`}
-`;
-
-// Complex formatting
-prism`
-  {gradient(['red', 'yellow']) WARNING}
-  {rgb(128,128,128) [${timestamp}]}
-  
-  {bold Message:} ${message}
-  
-  {dim Stack trace:}
-  ${prism.dim(stackTrace)}
-`;
-```
-
-### Performance Optimizations
-
-```typescript
-// Caching
-const redBold = prism.red.bold;
-redBold('Cached style'); // Reuses computed style
-
-// Lazy evaluation
-const style = prism.red.bold.underline;
-// ANSI codes only generated when applied to text
-
-// Batch operations
-prism.batch([
-  ['red', 'Error'],
-  ['yellow', 'Warning'],
-  ['green', 'Success'],
-]);
-
-// Compile for performance
-const compiled = prism.compile('red.bold.underline');
-compiled('Fast styled text');
-```
-
-### Configuration
-
-```typescript
-// Global configuration
-prism.configure({
-  level: 3, // Force color level
-  enabled: true, // Enable/disable globally
-  theme: 'dark', // Default theme
-  cache: true, // Enable caching
-  respectNoColor: true, // Respect NO_COLOR env var
-  respectTerminal: true, // Auto-detect terminal capabilities
-});
-
-// Instance configuration
-const myPrism = prism.create({
-  level: 2,
-  theme: customTheme,
-});
-
-// Environment detection
-prism.supportsColor(); // Returns color support level
-prism.isColorEnabled(); // Returns true/false
-prism.getColorSpace(); // Returns supported color space
-```
-
-## Implementation Details
-
-### Color Level Detection
+## Color levels
 
 ```typescript
 enum ColorLevel {
-  None = 0, // No colors
+  None = 0, // no colors
   Basic = 1, // 16 colors
   Ansi256 = 2, // 256 colors
-  TrueColor = 3, // 16.7 million colors
+  TrueColor = 3, // 24-bit
 }
 ```
 
-### ANSI Escape Sequences
+RGB-valued colors degrade to the active level: truecolor sequences at level
+3, the nearest 256-color code at level 2, the nearest 4-bit code at level 1,
+and nothing at level 0. `ansi256()` emits its code at levels 2-3 and is a
+no-op below. At level 0, or when the instance is disabled, text passes
+through unstyled.
+
+`level` is readable and writable on an instance (`p.level = 2`); the value
+is shared by all chains derived from that instance. `enabled` is read-only
+on the builder and reflects `enabled && level > 0`.
+
+Colors are encoded at the moment they are added to a chain. Lowering the
+level afterwards does not re-encode chains that were already built; level 0
+still suppresses all output at render time.
+
+## Environment detection
+
+`detectColorSupport(stream)` decides the level, in order:
+
+1. `NO_COLOR` set, or `FORCE_COLOR` = `0`/`false` → None.
+2. `FORCE_COLOR` = `1`/`true` → Basic, `2` → Ansi256, `3` → TrueColor.
+3. Not a TTY → None, except recognized CI environments (Travis, CircleCI,
+   AppVeyor, GitLab CI, GitHub Actions, Buildkite, Drone) → Basic.
+4. Windows → Basic (TrueColor when `OS_RELEASE` reports build 14931+).
+5. `TERM` heuristics: `*-256color` → Ansi256, upgraded to TrueColor when
+   `COLORTERM` is `truecolor`/`24bit` or `TERM_PROGRAM` is iTerm/Hyper/
+   vscode; `color|ansi|cygwin|linux` → Basic; `dumb` or unset → None;
+   anything else → Basic.
+
+Results are cached per stream (`stdoutColor()`, `stderrColor()`);
+`clearColorCache()` resets the cache, which matters in tests that change
+the environment.
+
+## Instances
 
 ```typescript
-// Modifiers
-const modifiers = {
-  reset: [0, 0],
-  bold: [1, 22],
-  dim: [2, 22],
-  italic: [3, 23],
-  underline: [4, 24],
-  overline: [53, 55],
-  inverse: [7, 27],
-  hidden: [8, 28],
-  strikethrough: [9, 29],
-};
-
-// 16 colors
-const colors = {
-  black: [30, 39],
-  red: [31, 39],
-  green: [32, 39],
-  yellow: [33, 39],
-  blue: [34, 39],
-  magenta: [35, 39],
-  cyan: [36, 39],
-  white: [37, 39],
-  // Bright variants
-  blackBright: [90, 39],
-  redBright: [91, 39],
-  // ... etc
-};
-
-// 256 colors
-`\x1b[38;5;${n}m` // Foreground
-`\x1b[48;5;${n}m` // Background
-// TrueColor
-`\x1b[38;2;${r};${g};${b}m` // Foreground
-`\x1b[48;2;${r};${g};${b}m`; // Background
+const p = createPrism({ level: ColorLevel.Ansi256, enabled: true });
+const perr = createPrismStderr();
 ```
 
-### Performance Strategies
+`createPrism(options)` — level defaults to the detected stdout level,
+`enabled` defaults to true; `NO_COLOR` or `FORCE_COLOR=0|false` in the
+environment force `enabled: false`. `createPrismStderr(options)` detects
+from stderr.
 
-1. **Style Caching**: Cache computed ANSI sequences
-2. **Lazy Evaluation**: Only compute when text is provided
-3. **String Building**: Use efficient string concatenation
-4. **Prototype Chain**: Optimize property lookup
-5. **Minimal Allocations**: Reuse objects where possible
-
-### Error Handling
+The default `prism` instance additionally carries:
 
 ```typescript
-// Invalid colors
-prism.rgb(300, 0, 0); // Clamps to 255
-prism.hsl(400, 100, 50); // Wraps hue to 0-360
-
-// Fallbacks
-prism.truecolor(255, 128, 0).fallback('yellow')('Orange or yellow');
-
-// Graceful degradation
-prism.auto('rgb(255, 128, 0)')('Best available orange');
+prism.create(options); // alias of createPrism
+prism.stderr; // instance bound to stderr
+prism.strip('\x1b[31mred\x1b[39m'); // 'red'
+prism.stringLength(prism.red('red')); // 3 — visible length
+prism.supportsColor(); // boolean, from stdout detection
+prism.colorLevel(); // detected ColorLevel
 ```
 
-## Migration from picocolors
+## Nesting and line breaks
+
+Styled strings nest: after an inner style closes, the outer style is
+re-opened, including a transformed foreground color. Multiline text is
+re-styled per line so the styling survives line-based processing.
 
 ```typescript
-// picocolors
-import pc from 'picocolors';
-pc.red('text');
-
-// Prism (drop-in replacement)
-import prism from '@kit/prism';
-prism.red('text');
-
-// Enhanced usage
-prism.red.bold('text');
-prism.rgb(255, 0, 0)('text');
-prism.gradient(['red', 'blue'])('text');
+prism.red(`outer ${prism.blue('inner')} outer again`);
+createPrism({ level: 1 }).red('a\nb'); // '\x1b[31ma\x1b[39m\n\x1b[31mb\x1b[39m'
 ```
 
-## Testing Strategy
+## Module exports
 
-1. **Unit Tests**: Each module tested independently
-2. **Integration Tests**: Full styling chains
-3. **Visual Tests**: Snapshot testing of ANSI output
-4. **Performance Tests**: Benchmark against chalk/picocolors
-5. **Compatibility Tests**: Various terminal emulators
+Builder and instances: `prism` (default and named), `createPrism`,
+`createPrismStderr`, `PrismBuilder`.
 
-## Future Enhancements
+Detection: `ColorLevel`, `stdoutColor`, `stderrColor`, `isColorEnabled`,
+`getBestColorMethod`.
 
-1. **Terminal UI Integration**: Direct integration with Terex components
-2. **Color Schemes**: Import/export popular terminal color schemes
-3. **Smart Wrapping**: Preserve styling across line breaks
-4. **Emoji Support**: Colored emoji where supported
-5. **Web Terminal Support**: Browser-based terminal compatibility
-6. **Color Oracle**: AI-powered color suggestions
-7. **Streaming Support**: Efficient coloring of streams
-8. **Parallel Processing**: Multi-threaded gradient generation
+String utilities: `strip`, `stringLength`, `hasAnsi`.
 
-## Examples
+Parsing: `parseColor`, `isValidColor`, `getCssColor`, `getCssColorNames`.
 
-### Error Reporter
+Conversions (plain functions over `{ r, g, b }`-style objects): `mixRgb`,
+`rgbToHsl`, `hslToRgb`, `rgbToHsv`, `hsvToRgb`, `rgbToLab`, `labToRgb`,
+`rgbToLch`, `lchToRgb`, `hexToRgb`, `rgbToHex`, `luminance`,
+`contrastRatio`.
 
-```typescript
-function reportError(error: Error) {
-  prism`
-    {red.bold ✗ Error:} ${error.message}
-    
-    {dim Stack trace:}
-    ${prism.dim(error.stack)}
-    
-    {yellow Tip:} Try running with {cyan --verbose} flag
-  `;
-}
-```
+Types: `PrismOptions`, `PrismInstance`, `PrismUtilities`, `RGB`, `HSL`,
+`HSV`, `LAB`, `LCH`.
 
-### Progress Bar
+## Non-goals and open questions
 
-```typescript
-function progressBar(progress: number, width = 40) {
-  const filled = Math.round(width * progress);
-  const empty = width - filled;
+None of the following exists. The list records direction that has been
+discussed, not a commitment; nothing here should be read as a promise.
 
-  return prism`
-    {green ${'█'.repeat(filled)}}{dim ${'░'.repeat(empty)}} {bold ${Math.round(progress * 100)}%}
-  `;
-}
-```
-
-### Syntax Highlighter
-
-```typescript
-function highlight(code: string, lang: string) {
-  const tokens = tokenize(code, lang);
-
-  return tokens
-    .map((token) => {
-      switch (token.type) {
-        case 'keyword':
-          return prism.magenta(token.value);
-        case 'string':
-          return prism.green(token.value);
-        case 'number':
-          return prism.cyan(token.value);
-        case 'comment':
-          return prism.dim(token.value);
-        default:
-          return token.value;
-      }
-    })
-    .join('');
-}
-```
-
-## Performance Benchmarks
-
-Target performance (ops/sec):
-
-- Simple color: > 5,000,000
-- Chained styles: > 2,000,000
-- Gradient (10 chars): > 500,000
-- Template literal: > 1,000,000
-- Theme lookup: > 3,000,000
-
-Memory usage:
-
-- Base library: < 1MB
-- With cache (1000 styles): < 5MB
-- Full theme loaded: < 2MB
-
-## License
-
-MIT
+- Gradients, animations, rainbow/pattern effects.
+- A theme system (`defineTheme`, semantic styles).
+- A tagged template literal API (`` prism`{red Error}` ``).
+- Palette generation (complementary/triadic/analogous).
+- Color-blindness simulation and automatic contrast selection; the
+  `luminance` and `contrastRatio` primitives exist for building such tools.
+- `lab()`/`lch()` builder methods; the conversions exist as functions.
+- `format`/`batch`/`compile` helpers and a global `configure()`.

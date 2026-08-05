@@ -9,11 +9,12 @@ import prismDefault, { createPrism, createPrismStderr } from './core/prism.js';
 
 export { ColorLevel } from './utils/supports.js';
 // Re-export types
-export type { PrismOptions } from './core/prism.js';
 export type { RGB, HSL, HSV, LAB, LCH } from './color/spaces.js';
 
 // Re-export utilities
 export { hasAnsi, stringLength, stripAnsi as strip } from './utils/ansi.js';
+
+export type { PrismOptions, PrismInstance, PrismUtilities } from './core/prism.js';
 
 export { parseColor, getCssColor, isValidColor, getCssColorNames } from './color/parser.js';
 

@@ -132,6 +132,62 @@ export function rgbToAnsi256(r: number, g: number, b: number): number {
 }
 
 /**
+ * Canonical xterm RGB values for ANSI codes 0-15. Real terminals may theme
+ * these, but the canonical palette is the best available approximation when
+ * a concrete RGB value is required.
+ */
+const ANSI16_PALETTE: ReadonlyArray<readonly [number, number, number]> = [
+  [0, 0, 0],
+  [128, 0, 0],
+  [0, 128, 0],
+  [128, 128, 0],
+  [0, 0, 128],
+  [128, 0, 128],
+  [0, 128, 128],
+  [192, 192, 192],
+  [128, 128, 128],
+  [255, 0, 0],
+  [0, 255, 0],
+  [255, 255, 0],
+  [0, 0, 255],
+  [255, 0, 255],
+  [0, 255, 255],
+  [255, 255, 255],
+];
+
+/**
+ * Channel values of the 6x6x6 color cube (codes 16-231).
+ */
+const CUBE_STEPS = [0, 95, 135, 175, 215, 255] as const;
+
+/**
+ * Convert an ANSI 256 color code to RGB (standard xterm palette).
+ */
+export function ansi256ToRgb(code: number): { r: number; g: number; b: number } {
+  const n = Math.max(0, Math.min(255, Math.round(code)));
+
+  // 0-15: named colors
+  if (n < 16) {
+    const entry = ANSI16_PALETTE[n] ?? [0, 0, 0];
+    return { r: entry[0], g: entry[1], b: entry[2] };
+  }
+
+  // 232-255: grayscale ramp
+  if (n >= 232) {
+    const value = 8 + (n - 232) * 10;
+    return { r: value, g: value, b: value };
+  }
+
+  // 16-231: 6x6x6 color cube
+  const index = n - 16;
+  return {
+    r: CUBE_STEPS[Math.floor(index / 36)] ?? 0,
+    g: CUBE_STEPS[Math.floor(index / 6) % 6] ?? 0,
+    b: CUBE_STEPS[index % 6] ?? 0,
+  };
+}
+
+/**
  * Convert RGB to basic 16 color
  */
 export function rgbToAnsi16(r: number, g: number, b: number): number {
