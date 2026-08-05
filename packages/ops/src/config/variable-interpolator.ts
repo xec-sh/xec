@@ -397,9 +397,15 @@ export class VariableInterpolator {
           defaultValue: undefined
         };
       } else {
-        // Otherwise, it's a default value
+        // Otherwise, it's a default value. Both spellings are accepted:
+        // `${var:default}`, which this project documented, and
+        // `${var:-default}`, which is what every shell uses and therefore
+        // what people write without thinking. Reading the second as the
+        // first produced the value "-default" — a plausible-looking string
+        // that reached the command and did the wrong thing quietly.
         path = prefix;
-        defaultValue = reference.substring(colonIndex + 1);
+        const rest = reference.substring(colonIndex + 1);
+        defaultValue = rest.startsWith('-') ? rest.slice(1) : rest;
       }
     }
 
