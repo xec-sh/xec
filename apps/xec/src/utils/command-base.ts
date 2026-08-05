@@ -1,15 +1,72 @@
 import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
 
+import { z } from 'zod';
 import { $ } from '@xec-sh/core';
-import * as path from 'node:path';
+import * as jsYaml from 'js-yaml';
 import { Command } from 'commander';
-import { handleError , TaskManager , TargetResolver, OutputFormatter, ConfigurationManager } from '@xec-sh/ops';
+import { access } from 'node:fs/promises';
+import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOptions, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
+
+export const OUTPUT_FORMATS = ['text', 'json', 'yaml', 'csv'] as const;
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
+
+/**
+ * Serialize data for machine consumption. One document, nothing else:
+ * consumers run JSON.parse / yaml.load over the whole stdout.
+ */
+export function serializeOutput(data: unknown, format: Exclude<OutputFormat, 'text'>): string {
+  switch (format) {
+    case 'json':
+      return JSON.stringify(data, null, 2);
+    case 'yaml':
+      return jsYaml.dump(data, { lineWidth: -1, noRefs: true }).trimEnd();
+    case 'csv':
+      return toCsv(data);
+  }
+}
+
+// RFC 4180: quote a cell only when it needs it; nested structures become
+// JSON inside their cell rather than exploding the column set.
+function toCsv(data: unknown): string {
+  const rows: Array<Record<string, unknown>> = Array.isArray(data)
+    ? data.map(item =>
+        item !== null && typeof item === 'object' && !Array.isArray(item)
+          ? (item as Record<string, unknown>)
+          : { value: item }
+      )
+    : data !== null && typeof data === 'object'
+      ? [data as Record<string, unknown>]
+      : [{ value: data }];
+
+  const columns: string[] = [];
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      if (!columns.includes(key)) columns.push(key);
+    }
+  }
+
+  const cell = (value: unknown): string => {
+    if (value === null || value === undefined) return '';
+    const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  };
+
+  return [
+    columns.map(column => cell(column)).join(','),
+    ...rows.map(row => columns.map(column => cell(row[column])).join(',')),
+  ].join('\n');
+}
+
+/** Commander parse callback for options that may repeat: `-e A=1 -e B=2`. */
+export function collect(value: string, previous: string[] = []): string[] {
+  return [...previous, value];
+}
 
 export interface CommandOptions {
   verbose?: boolean;
   quiet?: boolean;
-  output?: 'text' | 'json' | 'yaml' | 'csv';
+  output?: OutputFormat;
   config?: string;
   dryRun?: boolean;
 }
@@ -67,8 +124,15 @@ export abstract class BaseCommand {
 
     command
       .description(this.config.description)
-      // Don't add verbose/quiet options as they conflict with parent program options
-      // These are inherited from the parent command
+      // Options bind positionally: what follows a subcommand name belongs to
+      // that subcommand, so `secrets set KEY -v VALUE` reaches set's --value
+      // instead of being swallowed as --verbose one level up.
+      .enablePositionalOptions()
+      // Long forms only: short -v/-q are left free for command-specific
+      // meanings (logs uses -v for --invert). The root's -v/-q still apply
+      // when given before the command word.
+      .option('--verbose', 'Enable verbose output')
+      .option('--quiet', 'Suppress non-essential output')
       .option('-o, --output <format>', 'Output format (text|json|yaml|csv)', 'text')
       .option('-c, --config <path>', 'Path to configuration file')
       .option('--dry-run', 'Perform a dry run without making changes');
@@ -241,7 +305,14 @@ export abstract class BaseCommand {
       case 'ssh':
         {
           if (this.options?.verbose) {
-            console.log('SSH target config:', JSON.stringify(config, null, 2));
+            // Never print credential material, even under --verbose/XEC_DEBUG:
+            // debug logs get pasted into issues and CI output is retained.
+            console.log('SSH target config:', JSON.stringify({
+              ...config,
+              password: config.password && '[REDACTED]',
+              passphrase: config.passphrase && '[REDACTED]',
+              privateKey: config.privateKey && '[REDACTED]',
+            }, null, 2));
           }
 
           const sshEngine = $.ssh({
@@ -273,7 +344,13 @@ export abstract class BaseCommand {
             user: config.user,
             workingDir: config.workdir,
             tty: config.tty,
-            ...config
+            ...config,
+            // The adapter treats a present image as "run an ephemeral
+            // container" even when a container name is configured. A target
+            // that names a container means that container; image stays as
+            // metadata (e.g. for auto-create), not as an instruction to spin
+            // up a throwaway copy.
+            runMode: config.runMode ?? (config.container ? 'exec' : 'run')
           };
 
           // Remove undefined values

@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import process from 'node:process';
 import { Command } from 'commander';
 import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
-import { checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
+import { join, dirname, delimiter } from 'node:path';
+import { dispose, checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
 /**
  * Loaded on demand rather than at import time.
  *
@@ -15,6 +15,7 @@ import { checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
 const loadOps = () => import('@xec-sh/ops');
 
 import { customizeHelp } from './utils/help-customizer.js';
+import { parseTaskArgs } from './utils/task-params.js';
 import { registerSelfResolution } from './utils/self-resolution.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { findCommand, COMMAND_MANIFEST, type CommandManifestEntry } from './utils/command-manifest.js';
@@ -35,6 +36,12 @@ export function createProgram(): Command {
     .name('xec')
     .description('Xec - universal execution shell')
     .version(pkg.version)
+    // Root options bind only before the command word. Without this, the
+    // root's -v/-q/-e swallowed identically spelled flags that belong to a
+    // subcommand: `xec secrets set KEY -v VALUE` parsed -v as --verbose and
+    // died on arity, and every documented `-e <key=value>` of on/in was
+    // unreachable.
+    .enablePositionalOptions()
     .option('-v, --verbose', 'Enable verbose output')
     .option('-q, --quiet', 'Suppress output')
     .option('--cwd <path>', 'Set current working directory')
@@ -134,7 +141,63 @@ export async function loadCommands(program: Command, requested?: string): Promis
   return dynamicCommandNames;
 }
 
+/** Root flags that take no value. */
+const ROOT_BOOLEAN_FLAGS = new Set(['-v', '--verbose', '-q', '--quiet', '--no-color', '--repl', '-V', '--version']);
+/** Root flags whose next token is their value. */
+const ROOT_VALUE_FLAGS = new Set(['--cwd', '-e', '--eval']);
+
+/**
+ * Index of the command word: the first token that is neither a root-level
+ * flag nor the value of one. Root shorthands (-e, --repl) only act as such
+ * before this point — after it, the same spelling belongs to the command,
+ * so `xec on host cmd -e KEY=VALUE` reaches on's --env instead of the
+ * root eval.
+ */
+function findCommandWordIndex(args: string[]): number {
+  let i = 0;
+  while (i < args.length) {
+    const token = args[i]!;
+    if (token === '--') return i;
+    if (!token.startsWith('-')) return i;
+    if (ROOT_VALUE_FLAGS.has(token)) {
+      i += 2;
+      continue;
+    }
+    const eq = token.indexOf('=');
+    const name = eq === -1 ? token : token.slice(0, eq);
+    if (ROOT_VALUE_FLAGS.has(name) || ROOT_BOOLEAN_FLAGS.has(name)) {
+      i += 1;
+      continue;
+    }
+    // An unrecognised flag is left for commander to judge.
+    return i;
+  }
+  return args.length;
+}
+
+/** Whether an executable of this name is reachable, so a typo of a built-in
+ * command is suggested instead of handed to the shell for an opaque 127. */
+function commandExistsOnPath(name: string): boolean {
+  if (name.includes('/')) return fs.existsSync(name);
+  for (const dir of (process.env['PATH'] ?? '').split(delimiter)) {
+    if (!dir) continue;
+    try {
+      fs.accessSync(join(dir, name), fs.constants.X_OK);
+      return true;
+    } catch {
+      // keep looking
+    }
+  }
+  return false;
+}
+
 export async function run(argv: string[] = process.argv): Promise<void> {
+  // `xec help <cmd>` reads as a request for that command's help. Left alone
+  // it fell through to the shell, which ran the literal command `help on`.
+  if (argv[2] === 'help') {
+    argv = argv[3] ? [...argv.slice(0, 2), argv[3], '--help'] : [...argv.slice(0, 2), '--help'];
+  }
+
   const program = createProgram();
 
   /**
@@ -179,8 +242,14 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   registerSelfResolution();
 
   // Load all commands first (built-in and dynamic) BEFORE processing arguments
-  // The first non-flag argument tells us which command to actually load.
-  const requestedCommand = argv.slice(2).find(arg => !arg.startsWith('-'));
+  // The command word tells us which command to actually load. Scanning past
+  // root flags and their values matters: `xec --cwd /x config get k` names
+  // config, not /x.
+  const argsForScan = argv.slice(2);
+  const scanIndex = findCommandWordIndex(argsForScan);
+  const scannedToken = argsForScan[scanIndex];
+  const requestedCommand =
+    scannedToken === '--' || scannedToken?.startsWith('-') ? undefined : scannedToken;
   const dynamicCommandNames = await loadCommands(program, requestedCommand);
 
   // Customize help output with dynamic commands info
@@ -196,7 +265,42 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   try {
     // Check if this is a script execution
     const args = argv.slice(2);
-    const firstArg = args[0];
+    // Root shorthands live strictly before the command word; the same
+    // spelling after it belongs to the command being run. Without this
+    // boundary, `xec on host cmd -e KEY=VALUE` was evaluated as JavaScript
+    // and `xec on host --repl` opened the local REPL without its target.
+    const commandWordIndex = findCommandWordIndex(args);
+    const rootRegion = args.slice(0, commandWordIndex);
+    const commandWordToken = args[commandWordIndex];
+    const commandWord =
+      commandWordToken === '--' || commandWordToken?.startsWith('-') ? undefined : commandWordToken;
+
+    // Root options act on every path from here on. The commander path
+    // re-applies --cwd and --no-color in its preAction hook, which is
+    // idempotent; before this block, an eval, a task or a direct command
+    // silently kept the old directory and its colors.
+    const rootOptions = {
+      verbose: rootRegion.includes('-v') || rootRegion.includes('--verbose'),
+      quiet: rootRegion.includes('-q') || rootRegion.includes('--quiet'),
+      cwd: undefined as string | undefined,
+    };
+    const cwdFlagIndex = rootRegion.indexOf('--cwd');
+    if (cwdFlagIndex !== -1) {
+      rootOptions.cwd = rootRegion[cwdFlagIndex + 1];
+    } else {
+      const cwdInline = rootRegion.find(a => a.startsWith('--cwd='));
+      if (cwdInline) rootOptions.cwd = cwdInline.slice('--cwd='.length);
+    }
+    if (rootOptions.cwd) {
+      try {
+        process.chdir(rootOptions.cwd);
+      } catch {
+        throw new Error(`Cannot change directory to '${rootOptions.cwd}': no such directory`);
+      }
+    }
+    if (rootRegion.includes('--no-color')) {
+      process.env['NO_COLOR'] = '1';
+    }
 
     // Check for special flags first.
     //
@@ -207,72 +311,66 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     // first line, and the failure was swallowed with exit 0. Root -e lost
     // its arguments entirely on the same road. One path, one context, one
     // failure contract.
-    if (args.includes('-e') || args.includes('--eval')) {
-      const evalIndex = args.indexOf('-e') !== -1 ? args.indexOf('-e') : args.indexOf('--eval');
-      const code = args[evalIndex + 1];
+    const evalIndex = rootRegion.findIndex(a => a === '-e' || a === '--eval' || a.startsWith('--eval='));
+    if (evalIndex !== -1) {
+      const inline = args[evalIndex]!.startsWith('--eval=');
+      const code = inline ? args[evalIndex]!.slice('--eval='.length) : args[evalIndex + 1];
       if (!code) {
         throw new Error('Code is required for eval');
       }
-      const scriptArgs = args.slice(evalIndex + 2);
-      await runViaRunCommand([undefined, scriptArgs], { eval: code });
+      const scriptArgs = args.slice(evalIndex + (inline ? 1 : 2));
+      await runViaRunCommand([undefined, scriptArgs], { eval: code }, rootOptions);
       return;
     }
 
-    if (args.includes('--repl')) {
-      await runViaRunCommand([undefined, []], { repl: true });
+    if (rootRegion.includes('--repl')) {
+      await runViaRunCommand([undefined, []], { repl: true }, rootOptions);
       return;
     }
 
     // Check if running a script file
-    if (firstArg && !firstArg.startsWith('-') && firstArg !== 'help') {
+    if (commandWord) {
       // Check if first argument is a file
-      const potentialFile = firstArg;
+      const potentialFile = commandWord;
       const looksLikeScript = potentialFile.endsWith('.js') || potentialFile.endsWith('.ts') || potentialFile.endsWith('.mjs');
       const isExistingFile = !looksLikeScript && fs.existsSync(potentialFile) && fs.statSync(potentialFile).isFile();
 
       if (looksLikeScript || isExistingFile) {
-        await runViaRunCommand([potentialFile, args.slice(1)], {});
+        await runViaRunCommand([potentialFile, args.slice(commandWordIndex + 1)], {}, rootOptions);
+        return;
+      }
+    }
+
+    // A leading `--` is the explicit escape hatch: everything after it is a
+    // shell command, never a task or a subcommand. `xec -- echo hello` used
+    // to die on "Unknown command 'echo'".
+    if (args[commandWordIndex] === '--') {
+      const command = args.slice(commandWordIndex + 1);
+      if (command.length > 0) {
+        const { executeDirectCommand } = await loadOps();
+        await executeDirectCommand(command, rootOptions);
         return;
       }
     }
 
     // Check if this is a task execution (but not a registered command)
-    if (firstArg && !firstArg.startsWith('-') && !commandNames.includes(firstArg) && await (await tasks()).exists(firstArg)) {
+    if (commandWord && !commandNames.includes(commandWord) && await (await tasks()).exists(commandWord)) {
       // This is a task
-      const taskName = firstArg;
-      const taskArgs = args.slice(1);
-
-      // Parse task parameters from arguments
-      const params: Record<string, any> = {};
-      const remainingArgs: string[] = [];
-
-      for (let i = 0; i < taskArgs.length; i++) {
-        const arg = taskArgs[i];
-        if (!arg) continue;
-
-        if (arg.startsWith('--') && arg.includes('=')) {
-          // --param=value format
-          const [key, value] = arg.substring(2).split('=', 2);
-          if (key) {
-            params[key] = value || '';
-          }
-        } else if (arg.startsWith('--') && i + 1 < taskArgs.length) {
-          const nextArg = taskArgs[i + 1];
-          if (nextArg && !nextArg.startsWith('-')) {
-            // --param value format
-            const key = arg.substring(2);
-            params[key] = nextArg;
-            i++;
-          } else {
-            remainingArgs.push(arg);
-          }
-        } else {
-          remainingArgs.push(arg);
-        }
-      }
+      const taskName = commandWord;
+      const taskArgs = args.slice(commandWordIndex + 1);
 
       // Execute the task
       try {
+        // One grammar with `xec run <task>`: --key=value, --key value,
+        // --key as a switch, -p key=value. The old inline loop cut values
+        // at their second '=' and silently discarded valueless flags.
+        const { params, rest } = parseTaskArgs(taskArgs);
+        if (rest.length > 0) {
+          throw new Error(
+            `Unexpected argument${rest.length > 1 ? 's' : ''} for task '${taskName}': ${rest.join(' ')}\n` +
+            `Task parameters are named: use --key value or -p key=value`
+          );
+        }
         const result = await (await tasks()).run(taskName, params);
 
         if (!result.success) {
@@ -282,8 +380,8 @@ export async function run(argv: string[] = process.argv): Promise<void> {
       } catch (error) {
         const { handleError } = await loadOps();
         handleError(error, {
-          verbose: args.includes('-v') || args.includes('--verbose'),
-          quiet: args.includes('-q') || args.includes('--quiet'),
+          verbose: rootOptions.verbose,
+          quiet: rootOptions.quiet,
           output: 'text'
         });
         process.exit(1);
@@ -295,38 +393,37 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     // A bare `--help`, `--version` or a known command needs neither the task
     // list nor the direct-execution machinery; loading them here made every
     // invocation pay for both.
-    const mayBeDirect =
-      args.length > 0 &&
-      !args.every(arg => arg.startsWith('-')) &&
-      !commandNames.includes(args[0]!);
+    const mayBeDirect = commandWord !== undefined && !commandNames.includes(commandWord);
 
     if (mayBeDirect) {
       const taskList = await (await tasks()).list();
       const taskNames = taskList.map((t: any) => t.name);
       const { isDirectCommand, executeDirectCommand } = await loadOps();
 
-      if (isDirectCommand(args, commandNames, taskNames)) {
-      const options = {
-        verbose: args.includes('-v') || args.includes('--verbose'),
-        quiet: args.includes('-q') || args.includes('--quiet'),
-        cwd: undefined as string | undefined,
-      };
+      // The command is everything from the command word on. The old code
+      // filtered -v/-q out of the whole argv, which silently rewrote user
+      // commands: `xec grep -v pattern file` ran `grep pattern file` — an
+      // inverted match presented as a successful one.
+      const command = args.slice(commandWordIndex);
 
-      // Extract --cwd if present
-      const cwdIndex = args.indexOf('--cwd');
-      if (cwdIndex !== -1 && args[cwdIndex + 1]) {
-        options.cwd = args[cwdIndex + 1];
-        // Remove --cwd and its value from args
-        args.splice(cwdIndex, 2);
-      }
+      if (isDirectCommand(command, commandNames, taskNames)) {
+        // A name that is not on PATH but is one edit away from a built-in
+        // reads as a typo of that built-in, not as a shell command: running
+        // it anyway buried `xec confg` under a shell 127 with the advice to
+        // check whether confg is installed.
+        if (!commandExistsOnPath(commandWord)) {
+          const suggestion = checkForCommandTypo(commandWord, commandRegistry);
+          if (suggestion) {
+            console.error(`✖ Unknown command '${commandWord}'`);
+            console.error('');
+            console.error(suggestion);
+            console.error('');
+            console.error(`Run 'xec --help' for a list of available commands`);
+            process.exit(127);
+          }
+        }
 
-      // Remove other flags from args
-      const cleanArgs = args.filter(arg =>
-        !arg.startsWith('-') ||
-        (arg.startsWith('-') && !['--verbose', '-v', '--quiet', '-q'].includes(arg))
-      );
-
-        await executeDirectCommand(cleanArgs, options);
+        await executeDirectCommand(command, rootOptions);
         return;
       }
     }
@@ -381,7 +478,8 @@ export async function run(argv: string[] = process.argv): Promise<void> {
  */
 async function runViaRunCommand(
   positionals: [string | undefined, string[]],
-  options: Record<string, unknown>
+  options: Record<string, unknown>,
+  rootOptions: { verbose: boolean; quiet: boolean }
 ): Promise<void> {
   const { RunCommand } = await import('./commands/run.js');
   const command = new RunCommand() as unknown as {
@@ -389,9 +487,12 @@ async function runViaRunCommand(
     execute(args: unknown[]): Promise<void>;
   };
 
+  // Only flags before the command word are the root's. Scanning the whole
+  // argv here made `xec script.mjs -q` silence the run command because the
+  // script's own -q argument was mistaken for the root flag.
   const fullOptions = {
-    verbose: process.argv.includes('-v') || process.argv.includes('--verbose'),
-    quiet: process.argv.includes('-q') || process.argv.includes('--quiet'),
+    verbose: rootOptions.verbose,
+    quiet: rootOptions.quiet,
     ...options,
   };
 
@@ -399,6 +500,36 @@ async function runViaRunCommand(
   await command.execute([...positionals, fullOptions]);
 }
 
+/** Upper bound on how long releasing resources may delay the exit. */
+const FORCED_SHUTDOWN_AFTER_MS = 2000;
+
+/**
+ * Exit deliberately once the work is done.
+ *
+ * Pooled SSH connections and keep-alive timers hold the event loop open, so
+ * a completed `xec on host cmd` never exited on its own; and because the
+ * library's signal handlers release resources without exiting, the process
+ * survived SIGTERM and Ctrl+C too — only SIGKILL removed it. Dispose the
+ * engine, then end the process; the timer caps a dispose that itself hangs.
+ */
+function shutdown(code: number): void {
+  setTimeout(() => process.exit(code), FORCED_SHUTDOWN_AFTER_MS).unref();
+  void dispose()
+    .catch(() => undefined)
+    .then(() => process.exit(code));
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  run();
+  process.once('SIGINT', () => shutdown(130));
+  process.once('SIGTERM', () => shutdown(143));
+
+  // A REPL keeps serving after run() resolves — it is the one path where
+  // returning from run() must not end the process.
+  const wantsRepl = process.argv.includes('--repl');
+  run().then(
+    () => {
+      if (!wantsRepl) shutdown(Number(process.exitCode ?? 0));
+    },
+    () => shutdown(1),
+  );
 }
