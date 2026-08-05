@@ -403,6 +403,12 @@ export class TaskExecutor extends EventEmitter {
       if (step.command) {
         const output = await this.executeStepCommand(step, context, options, taskEnv);
         result.output = output.stdout;
+        // Same contract as a single-command task: the command's output belongs
+        // to the user. Captured-only, a multi-step task ran silently.
+        if (!options.quiet) {
+          if (output.stdout) console.log(output.stdout);
+          if (output.stderr) console.error(output.stderr);
+        }
         if (!output.ok) {
           throw new Error(`Step command failed with exit code ${output.exitCode}`);
         }
