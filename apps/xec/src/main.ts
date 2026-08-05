@@ -1,8 +1,8 @@
-import fs from 'fs';
-import process from 'process';
+import fs from 'node:fs';
+import process from 'node:process';
 import { Command } from 'commander';
-import { fileURLToPath } from 'url';
-import { join, dirname } from 'path';
+import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 import { checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
 /**
  * Loaded on demand rather than at import time.
@@ -15,6 +15,7 @@ import { checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
 const loadOps = () => import('@xec-sh/ops');
 
 import { customizeHelp } from './utils/help-customizer.js';
+import { registerSelfResolution } from './utils/self-resolution.js';
 import { loadDynamicCommands, registerCliCommands } from './utils/cli-command-manager.js';
 import { findCommand, COMMAND_MANIFEST, type CommandManifestEntry } from './utils/command-manifest.js';
 
@@ -171,6 +172,11 @@ export async function run(argv: string[] = process.argv): Promise<void> {
     process.stdout.write(`${program.version()}\n`);
     return;
   }
+
+  // From here on, user code may load — dynamic commands, scripts, eval,
+  // REPL — and user code may import '@xec-sh/core' in a project that never
+  // installed it. Registered once, before the first such import.
+  registerSelfResolution();
 
   // Load all commands first (built-in and dynamic) BEFORE processing arguments
   // The first non-flag argument tells us which command to actually load.
