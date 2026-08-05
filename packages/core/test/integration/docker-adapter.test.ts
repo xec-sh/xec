@@ -199,16 +199,20 @@ describeIfDocker('DockerAdapter Integration Tests', () => {
         image: TEST_IMAGE
       });
 
-      // Verify it exists
-      const containers = await adapter.listContainers(true);
-      expect(containers).toContain(tempContainer);
+      // A failing assertion between here and the removal used to leave the
+      // container behind for good: enough of them and every later docker
+      // test fails for reasons that have nothing to do with the code.
+      try {
+        const containers = await adapter.listContainers(true);
+        expect(containers).toContain(tempContainer);
 
-      // Remove it
-      await adapter.removeContainer(tempContainer);
+        await adapter.removeContainer(tempContainer);
 
-      // Verify it's gone
-      const containersAfter = await adapter.listContainers(true);
-      expect(containersAfter).not.toContain(tempContainer);
+        const containersAfter = await adapter.listContainers(true);
+        expect(containersAfter).not.toContain(tempContainer);
+      } finally {
+        await $`docker rm -f ${tempContainer}`.nothrow();
+      }
     });
 
     it('should start and stop container', async () => {

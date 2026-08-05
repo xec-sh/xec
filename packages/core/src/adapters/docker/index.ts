@@ -360,6 +360,14 @@ export class DockerAdapter extends BaseAdapter {
 
     createArgs.push(this.dockerConfig.autoCreate!.image, 'sh');
 
+    // Tracked before it is asked for, not after it is running. `docker
+    // create` can succeed and still leave the name unreachable — the reply
+    // is lost, the process is interrupted — and a container recorded only
+    // on the happy path is one nothing will ever remove. Removing a name
+    // that was never created is free; the reverse is a container sitting in
+    // `Created` until somebody notices.
+    this.tempContainers.add(containerName);
+
     const createResult = await this.executeDockerCommand(createArgs, this.managementOptions());
     if (createResult.exitCode !== 0) {
       throw new DockerError(containerName, 'create', new Error(createResult.stderr));
@@ -369,10 +377,10 @@ export class DockerAdapter extends BaseAdapter {
     const startResult = await this.executeDockerCommand(['start', containerName], this.managementOptions());
     if (startResult.exitCode !== 0) {
       await this.executeDockerCommand(['rm', '-f', containerName], this.managementOptions());
+      this.tempContainers.delete(containerName);
       throw new DockerError(containerName, 'start', new Error(startResult.stderr));
     }
 
-    this.tempContainers.add(containerName);
     return containerName;
   }
 

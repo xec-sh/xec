@@ -118,6 +118,14 @@ export class KindClusterManager {
     };
   }
 
+  /**
+   * Whether kind knows about this cluster.
+   *
+   * Knowing about it is not the same as it working: `kind get clusters`
+   * lists a cluster whose control-plane container has been stopped or
+   * pruned, which is exactly the state a machine ends up in after a
+   * reboot or a `docker system prune`.
+   */
   async isClusterRunning(): Promise<boolean> {
     try {
       const clusters = this.exec('kind get clusters', { silent: true, skipKubeconfig: true });
@@ -134,11 +142,22 @@ export class KindClusterManager {
       try {
         this.exec(`kind export kubeconfig --name ${this.clusterName} --kubeconfig ${this.kubeConfigPath}`, { silent: true, skipKubeconfig: true });
         console.log(`Exported kubeconfig for existing cluster to ${this.kubeConfigPath}`);
+        return;
       } catch (error) {
-        console.error('Failed to export kubeconfig for existing cluster:', error);
-        throw error;
+        // A registered but dead cluster is worse than none: every later run
+        // reuses the wreck, fails to reach it, and reports "kind not
+        // available" — so the suite silently skips on a machine where kind
+        // works perfectly well. Clear it and build a new one.
+        console.warn(
+          `Cluster ${this.clusterName} is registered but unreachable; recreating it. ` +
+          `(${error instanceof Error ? error.message.split('\n')[0] : String(error)})`
+        );
+        try {
+          this.exec(`kind delete cluster --name ${this.clusterName}`, { silent: true, skipKubeconfig: true });
+        } catch {
+          // If it cannot even be deleted, the create below reports why.
+        }
       }
-      return;
     }
 
     console.log(`Creating kind cluster: ${this.clusterName}`);
