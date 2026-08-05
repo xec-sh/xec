@@ -232,6 +232,14 @@ function displayEnhancedError(error: EnhancedExecutionError, options: CommandOpt
  * Get exit code based on error type
  */
 function getExitCode(error: any): number {
+  // A command that chose its own exit code keeps it. `exit 3` inside a
+  // task means something to whoever wrote the task, and answering 1 for
+  // every failure tells a caller only that something went wrong.
+  if (typeof error?.exitCode === 'number' && Number.isInteger(error.exitCode) &&
+      error.exitCode > 0 && error.exitCode < 256) {
+    return error.exitCode;
+  }
+
   if (error instanceof ValidationError) return 2;
   if (error instanceof ConfigurationError) return 3;
   if (error instanceof ModuleError) return 4;

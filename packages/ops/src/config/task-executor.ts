@@ -248,7 +248,13 @@ export class TaskExecutor extends EventEmitter {
     }
 
     if (!result.ok) {
-      throw new Error(`Command failed with exit code ${result.exitCode}`);
+      // The code travels with the error. A task that exits 3 means
+      // something specific to whoever wrote it, and collapsing every
+      // failure to 1 throws that away before a script can read it.
+      const failure = new Error(`Command failed with exit code ${result.exitCode}`) as
+        Error & { exitCode?: number };
+      failure.exitCode = result.exitCode;
+      throw failure;
     }
 
     return result;

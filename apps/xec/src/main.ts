@@ -375,7 +375,11 @@ export async function run(argv: string[] = process.argv): Promise<void> {
 
         if (!result.success) {
           console.error(`Task '${taskName}' failed`);
-          process.exit(1);
+          // The task's own code, when it chose one: `xec deploy` and
+          // `xec run deploy` must answer a caller identically, and a
+          // hardcoded 1 here made the shorthand the lossy spelling.
+          const chosen = (result.error as { exitCode?: number } | undefined)?.exitCode;
+          process.exit(typeof chosen === 'number' && chosen > 0 && chosen < 256 ? chosen : 1);
         }
       } catch (error) {
         const { handleError } = await loadOps();

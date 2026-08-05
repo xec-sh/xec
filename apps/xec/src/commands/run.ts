@@ -311,7 +311,10 @@ export class RunCommand extends BaseCommand {
       if (result.error) {
         log.error(result.error.message);
       }
-      throw new Error(`Task '${taskName}' failed`);
+      // Rethrowing the original preserves the exit code the task chose;
+      // a fresh error here collapsed every failure to 1, so a script
+      // could tell that a task failed but never why.
+      throw result.error ?? new Error(`Task '${taskName}' failed`);
     }
 
     if (!this.options.quiet) {
