@@ -15,6 +15,16 @@ export {
   describeTarget,
   isConfigReference,
 } from './types/target.js';
+// The result of running one command across many targets — the shape a
+// fan-out has and a loop does not.
+export {
+  fleetEntry,
+  fleetResult,
+  failedTargets,
+  coalesceOutput,
+  exceedsFailureLimit,
+} from './types/fleet.js';
+export type { FleetEntry, FleetResult, FleetAgreement } from './types/fleet.js';
 export type {
   Target,
   TargetKind,
