@@ -92,33 +92,55 @@ export interface DeployResult {
 }
 
 export class Deployer {
+  /** Last version that deployed successfully. */
+  private currentVersion?: string;
+  /** The successful version before that — what rollback() returns to. */
   private previousVersion?: string;
   private lastResult?: DeployResult;
 
   private constructor(private config: DeployConfig) {}
 
   static create(config: DeployConfig): Deployer {
+    if (!config.targets || config.targets.length === 0) {
+      // deploy() over zero targets produces zero results, and
+      // `results.every()` over an empty array would report success.
+      throw new Error('Deployment needs at least one target');
+    }
+    if (typeof config.hooks?.deploy !== 'function') {
+      throw new Error('Deployment needs a deploy hook');
+    }
     return new Deployer(config);
   }
 
   async deploy(version: string): Promise<DeployResult> {
     const startTime = Date.now();
     const results: DeployTargetResult[] = [];
+    const replacing = this.currentVersion;
 
     const createContext = (target: string, attempt: number): DeployContext => ({
       target,
       version,
-      previousVersion: this.previousVersion,
+      previousVersion: replacing,
       attempt,
       exec: async (strings, ...values) => {
         const cmd = String.raw(strings, ...values);
-        const { execSync } = await import('node:child_process');
-        try {
-          const stdout = execSync(cmd, { encoding: 'utf-8', timeout: this.config.timeout ?? 300_000 });
-          return { stdout, exitCode: 0 };
-        } catch (err: unknown) {
-          return { stdout: '', exitCode: (err as { status?: number }).status ?? 1 };
-        }
+        // exec must be async: hooks run concurrently under all-at-once and
+        // rolling with maxConcurrent > 1, and a synchronous child process
+        // would block the event loop and serialize them all.
+        const { exec } = await import('node:child_process');
+        return new Promise((resolve) => {
+          exec(
+            cmd,
+            { encoding: 'utf-8', timeout: this.config.timeout ?? 300_000 },
+            (error, stdout) => {
+              if (error) {
+                resolve({ stdout, exitCode: typeof error.code === 'number' ? error.code : 1 });
+              } else {
+                resolve({ stdout, exitCode: 0 });
+              }
+            }
+          );
+        });
       },
       healthCheck: () => this.checkHealth(target),
       log: (msg) => console.log(`[${this.config.name}][${target}] ${msg}`),
@@ -158,20 +180,33 @@ export class Deployer {
       },
     };
 
-    this.previousVersion = version;
+    // Version bookkeeping happens only on success: a failed deploy must not
+    // become "the previous version", or rollback() would re-deploy the very
+    // version that just failed.
+    if (result.success) {
+      this.previousVersion = replacing;
+      this.currentVersion = version;
+    }
     this.lastResult = result;
     return result;
   }
 
   async rollback(): Promise<DeployResult> {
-    if (!this.lastResult || !this.previousVersion) {
+    if (!this.lastResult) {
       throw new Error('No previous deployment to rollback');
     }
     if (!this.config.hooks.rollback) {
       throw new Error('No rollback hook configured');
     }
 
-    return this.deploy(this.previousVersion);
+    // After a failure the last known-good version is still currentVersion;
+    // after a regretted success it is the version before it.
+    const targetVersion = this.lastResult.success ? this.previousVersion : this.currentVersion;
+    if (!targetVersion) {
+      throw new Error('No known-good version to roll back to');
+    }
+
+    return this.deploy(targetVersion);
   }
 
   private async deployAllAtOnce(
@@ -302,19 +337,29 @@ export class Deployer {
     for (let i = 0; i < retries; i++) {
       try {
         if (hc.url) {
-          const url = hc.url.replace('{{target}}', target);
+          const url = hc.url.replaceAll('{{target}}', target);
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), hc.timeout ?? 10_000);
-          const resp = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeout);
-          if (resp.ok) return true;
+          try {
+            const resp = await fetch(url, { signal: controller.signal });
+            if (resp.ok) return true;
+            // A non-2xx answer is a failed attempt like any other; falling
+            // through without it skipped the retry pause.
+            throw new Error(`Health endpoint answered ${resp.status}`);
+          } finally {
+            clearTimeout(timeout);
+          }
         }
 
         if (hc.command) {
-          const { execSync } = await import('node:child_process');
-          execSync(hc.command.replace('{{target}}', target), {
-            timeout: hc.timeout ?? 10_000,
-            stdio: 'pipe',
+          const { execFile } = await import('node:child_process');
+          await new Promise<void>((resolve, reject) => {
+            execFile(
+              'sh',
+              ['-c', hc.command!.replaceAll('{{target}}', target)],
+              { timeout: hc.timeout ?? 10_000 },
+              (error) => (error ? reject(error) : resolve())
+            );
           });
           return true;
         }
