@@ -142,7 +142,11 @@ export class WatchCommand extends ConfigAwareCommand {
   }
 
   override async execute(args: any[]): Promise<void> {
-    const [targetSpec, ...paths] = args.slice(0, -1);
+    // The variadic positional arrives as one array, not spread — see on.ts.
+    // Destructuring with rest handed FileWatcher an array nested in an array,
+    // and every `watch <target> <path>` died on "paths[0] must be a string".
+    const targetSpec = args[0];
+    const paths: string[] = Array.isArray(args[1]) ? args[1] : [];
     const options = args[args.length - 1] as WatchOptions;
 
     // Handle interactive mode
@@ -268,21 +272,43 @@ export class WatchCommand extends ConfigAwareCommand {
     paths: string[],
     options: WatchOptions
   ): Promise<WatchSession> {
+    // fs.watch takes directories and files, not globs: handed "src/*.ts"
+    // verbatim it dies on ENOENT while the success banner still prints. A
+    // glob is split into its base directory (watched) and its final segment
+    // (matched against basenames by shouldIgnoreFile, which already filters
+    // that way for --pattern).
+    const watchRoots: string[] = [];
+    const globPatterns: string[] = [];
+    for (const p of paths) {
+      const magic = p.search(/[*?{[]/);
+      if (magic === -1) {
+        watchRoots.push(p);
+        continue;
+      }
+      const lastSep = p.lastIndexOf('/', magic);
+      watchRoots.push(lastSep === -1 ? '.' : p.slice(0, lastSep) || '/');
+      const lastSegment = p.slice(p.lastIndexOf('/') + 1);
+      if (lastSegment) globPatterns.push(lastSegment);
+    }
+    const localOptions: WatchOptions = globPatterns.length > 0
+      ? { ...options, pattern: [...(options.pattern ?? []), ...globPatterns] }
+      : options;
+
     // Create watcher using @xec-sh/loader's FileWatcher.
     // Watch all file types — pattern/exclude filtering is applied by
     // shouldIgnoreFile, not by the watcher's extension filter.
-    const watcher = new FileWatcher(paths, {
-      debounce: parseInt(options.interval || '200', 10),
+    const watcher = new FileWatcher([...new Set(watchRoots)], {
+      debounce: parseInt(options.debounce || '300', 10),
       ignore: options.exclude || [],
       recursive: true,
       extensions: [],
     });
 
     watcher.on('change', (event) => {
-      if (this.shouldIgnoreFile(event.path, options)) {
+      if (this.shouldIgnoreFile(event.path, localOptions)) {
         return;
       }
-      this.scheduleExecution(target, event.path, options);
+      this.scheduleExecution(target, event.path, localOptions);
     });
 
     watcher.on('error', (error) => {
