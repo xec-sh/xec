@@ -608,7 +608,24 @@ export class RedisClusterFluentAPI implements ServiceManager {
     // Initialize cluster
     await this.initializeCluster();
 
+    // Marked running before the wait, not after: `exec` refuses to talk to
+    // a cluster that is not running, and `waitForReady` asks it for
+    // CLUSTER INFO — so waiting first meant every poll threw into an empty
+    // catch and the loop ran its whole timeout learning nothing.
     this.running = true;
+
+    // `redis-cli --cluster create` returns as soon as the nodes have been
+    // told about each other; agreement takes longer. Returning from start()
+    // there meant `await cluster.start()` handed back a cluster answering
+    // `cluster_state:fail` to the first command sent to it — a race whose
+    // outcome depended on how loaded the machine was.
+    try {
+      await this.waitForReady();
+    } catch (error) {
+      this.running = false;
+      throw error;
+    }
+
     console.log('[xec] Redis cluster started successfully');
   }
 
