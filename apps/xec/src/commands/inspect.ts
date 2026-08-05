@@ -288,6 +288,28 @@ class ProjectInspector {
     for (const [targetType, targetList] of Object.entries(targets)) {
       if (targetType === 'defaults') continue;
 
+      // `targets.local` (and any entry carrying its own `type`) is a single
+      // target definition, not a collection — iterating its fields produced
+      // a phantom row named "local.type".
+      if (typeof (targetList as any)?.type === 'string') {
+        if (!name || targetType === name) {
+          results.push({
+            type: 'target',
+            name: targetType,
+            data: {
+              type: (targetList as any).type,
+              name: targetType,
+              config: targetList,
+            },
+            metadata: {
+              targetType: (targetList as any).type,
+              hasDefaults: !!targets.defaults,
+            },
+          });
+        }
+        continue;
+      }
+
       for (const [targetName, targetConfig] of Object.entries(targetList as any)) {
         const fullName = `${targetType}.${targetName}`;
         if (name && fullName !== name && targetName !== name) continue;
@@ -873,6 +895,20 @@ class ProjectInspector {
 
       default:
         this.displayTable(results, type);
+
+        // --explain computes an execution plan into metadata; a table that
+        // never shows it made the flag a no-op in the default format.
+        if (this.options.explain) {
+          for (const result of results) {
+            const explanation = result.metadata?.['explanation'];
+            if (Array.isArray(explanation) && explanation.length > 0) {
+              console.log(prism.bold(`\n${result.name}`));
+              for (const line of explanation) {
+                console.log(`  ${line}`);
+              }
+            }
+          }
+        }
     }
   }
 
