@@ -139,13 +139,17 @@ export class PluginManager {
    */
   async setup(): Promise<void> {
     if (this.initialized) return;
-    this.initialized = true;
 
     for (const plugin of this.plugins) {
       if (plugin.setup) {
         await plugin.setup();
       }
     }
+
+    // Only after every setup succeeded: a throwing plugin used to leave the
+    // manager marked initialized with half its plugins un-set-up, and a
+    // retry then silently skipped the rest forever.
+    this.initialized = true;
   }
 
   /**
