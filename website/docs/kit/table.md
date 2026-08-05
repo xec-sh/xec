@@ -129,6 +129,49 @@ exportToMarkdown(rows, columns);                     // | ID | Name | ...
 
 Available: `exportToCSV`, `exportToTSV`, `exportToJSON`, `exportToHTML`, `exportToMarkdown`, `exportToText`. Text formats apply column `format` functions; JSON exports raw values. `options.columns` restricts export to a subset of column keys.
 
+## Editing
+
+`editable: true` opens a cell editor in place. `editableColumns` restricts which
+columns accept edits, `validateEdit` rejects a value with a message rendered
+like any prompt error, and `onEdit` fires when a change commits:
+
+```typescript
+const rows = await interactiveTable({
+  data,
+  columns,
+  editable: true,
+  editableColumns: ['name'],
+  validateEdit: (value, row, column) =>
+    String(value).trim() === '' ? 'Cannot be empty' : undefined,
+  onEdit: (row, column, value) => audit.push({ row, column, value }),
+});
+```
+
+Escape leaves the editor without committing; Enter commits.
+
+## Large data
+
+The renderer draws only the visible window, so render cost follows the
+viewport, not the data. For data that arrives in batches, `loadMore` is called
+as navigation nears the end of what is loaded while `hasMore` is true; the row
+counter shows `N+` while more may exist:
+
+```typescript
+await interactiveTable({
+  data: firstPage,
+  columns,
+  hasMore: () => cursor.hasNext,
+  loadMore: async () => fetchNextPage(),
+});
+```
+
+## Export safety
+
+CSV and TSV export accept `escapeFormulas: true`, which prefixes values
+starting with `=`, `+`, `-` or `@` so a spreadsheet will not execute them.
+It is off by default — an exporter must not alter data silently — and worth
+turning on whenever the rows contain untrusted input.
+
 ## See Also
 
 - [Components](./components.md)
