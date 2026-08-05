@@ -67,8 +67,13 @@ export function createCallableEngine(engine: ExecutionEngine): CallableExecution
         }
 
         // Methods that return a new engine instance
+        // interactive() belongs here for the same reason with() does: it
+        // returns a configured engine, and every engine reachable from $ must
+        // be usable as a template tag. Left out, `$.interactive()`cmd``
+        // threw "not a function" — found when the release command handed the
+        // terminal to `npm login` this way.
         const chainableMethods = [
-          'with',
+          'with', 'interactive',
           'local', 'cd', 'env', 'timeout', 'shell', 'retry', 'defaults', 'raw'
         ];
 

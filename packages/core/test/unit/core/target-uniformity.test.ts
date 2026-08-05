@@ -82,3 +82,21 @@ describe('every target exposes the same engine surface', () => {
     expect(await step($.local().with({ defaultCwd: '/tmp' }))).toBe('uniform');
   }, 20_000);
 });
+
+describe('every configured engine is callable as a tag', () => {
+  /**
+   * interactive() returns a configured engine exactly as with() does, but it
+   * was missing from the callable wrapper's chainable set — so
+   * `$.interactive()`cmd`` threw "not a function". The release command hit
+   * this handing the terminal to `npm login`.
+   */
+  it('$.interactive() takes a template literal', async () => {
+    const engine = $.interactive();
+
+    expect(typeof engine).toBe('function');
+  });
+
+  it('chains onward like any other configured engine', () => {
+    expect(typeof $.interactive().timeout(0)).toBe('function');
+  });
+});

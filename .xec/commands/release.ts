@@ -170,6 +170,99 @@ async function publishToNpm(pkg: { name: string; path: string }): Promise<void> 
   );
 }
 
+/**
+ * Make sure npm publishing can succeed before anything is mutated.
+ *
+ * The check used to live inside the publish step — after versions were
+ * written, packages built and the release commit tagged — and the login it
+ * offered ran through the engine's default piped stdio with a 30-second
+ * timeout. `npm login` is a conversation with a human and a browser: it got
+ * no terminal, timed out, and took the half-made release down with it.
+ *
+ * Interactive commands run through $.interactive(), which inherits the real
+ * stdin/stdout, and with no timeout — a human flow takes as long as the
+ * human takes. The spinner stops first: its repaints fight the login prompt
+ * for the same terminal.
+ */
+async function ensureNpmAuth(config: ReleaseConfig, s: any): Promise<void> {
+  if (config.skipNpm || config.dryRun || config.npmToken) return;
+
+  const whoami = await $`npm whoami`.nothrow();
+  if (whoami.ok) {
+    kit.log.info(`NPM: authenticated as ${whoami.stdout.trim()}`);
+    return;
+  }
+
+  const authMethod = await promptWithCancel(() => kit.select({
+    message: 'Not authenticated to NPM. How would you like to authenticate?',
+    options: [
+      { value: 'browser', label: 'Run npm login (interactive)' },
+      { value: 'token', label: 'Enter NPM token' },
+      { value: 'skip', label: 'Skip NPM publishing' }
+    ]
+  }));
+
+  if (authMethod === 'browser') {
+    s.stop('Handing the terminal to npm login…');
+    const login = await $.interactive()`npm login`.timeout(0).nothrow();
+
+    if (!login.ok) {
+      throw new Error('npm login failed; nothing has been changed yet');
+    }
+
+    const verify = await $`npm whoami`.nothrow();
+    if (!verify.ok) {
+      throw new Error('npm login reported success but npm whoami still fails');
+    }
+    kit.log.success(`NPM: authenticated as ${verify.stdout.trim()}`);
+  } else if (authMethod === 'token') {
+    config.npmToken = await promptWithCancel(() => kit.password({
+      message: 'Enter NPM authentication token:'
+    }));
+  } else {
+    config.skipNpm = true;
+  }
+}
+
+/** The same contract for GitHub: verified before anything is mutated. */
+async function ensureGithubAuth(config: ReleaseConfig, s: any): Promise<void> {
+  if (config.skipGithub || config.dryRun || config.githubToken) return;
+
+  const ghExists = await $`which gh`.nothrow();
+  if (!ghExists.ok) {
+    kit.log.warn('gh CLI not installed — GitHub release will be skipped. https://cli.github.com');
+    config.skipGithub = true;
+    return;
+  }
+
+  const status = await $`gh auth status`.nothrow();
+  if (status.ok) return;
+
+  const authMethod = await promptWithCancel(() => kit.select({
+    message: 'Not authenticated to GitHub. How would you like to authenticate?',
+    options: [
+      { value: 'browser', label: 'Run gh auth login (interactive)' },
+      { value: 'token', label: 'Enter GitHub token' },
+      { value: 'skip', label: 'Skip GitHub release' }
+    ]
+  }));
+
+  if (authMethod === 'browser') {
+    s.stop('Handing the terminal to gh auth login…');
+    const login = await $.interactive()`gh auth login`.timeout(0).nothrow();
+
+    if (!login.ok) {
+      throw new Error('gh auth login failed; nothing has been changed yet');
+    }
+  } else if (authMethod === 'token') {
+    config.githubToken = await promptWithCancel(() => kit.password({
+      message: 'Enter GitHub personal access token:'
+    }));
+  } else {
+    config.skipGithub = true;
+  }
+}
+
 interface ParsedCommit {
   hash: string;
   /** The original subject, kept so it can be matched against CHANGELOG.md. */
@@ -398,15 +491,25 @@ async function performRollback(state: RollbackState, config: ReleaseConfig): Pro
     // Execute file restores in parallel
     await Promise.all(fileOps);
 
-    // Remove created files and git operations in parallel
+    // The release commit goes first, and it goes hard. This line used to be
+    // commented out, so a "successful" rollback deleted the tag and restored
+    // the files while the release commit stayed in history — half a rollback
+    // reported as a whole one. --hard, because the commit contains exactly
+    // the version changes this rollback exists to undo; a --soft reset would
+    // leave them staged over the restored files.
+    if (state.gitCommitCreated && !config.skipGit) {
+      const reset = await $`git reset --hard HEAD~1`.nothrow();
+      if (!reset.ok) {
+        throw new Error(`git reset failed: ${reset.stderr.trim()}`);
+      }
+    }
+
+    // Remove created files and the tag in parallel
     const cleanupOps = [
-      // Remove created files
       ...state.createdFiles.map(file =>
         $`test -f ${file} && rm -f ${file} || true`.nothrow()
       ),
-      // Git operations
       ...(state.gitTagCreated && state.tagName ? [$`git tag -d ${state.tagName}`.nothrow()] : []),
-      // ...(state.gitCommitCreated && !config.skipGit ? [$`git reset --soft HEAD~1`.nothrow()] : [])
     ];
 
     await $.parallel.settled(cleanupOps, { maxConcurrency: 5 });
@@ -694,6 +797,12 @@ export function command(program: Command): void {
           }
         }
 
+        // Credentials are proven before the first mutation. Discovering a
+        // dead login after versions are written and the tag is cut is how the
+        // previous release died mid-flight.
+        await ensureNpmAuth(config, s);
+        await ensureGithubAuth(config, s);
+
         // Now apply all changes after collecting parameters
         kit.log.info(prism.bold('\nStarting the release\n'));
 
@@ -848,30 +957,14 @@ export function command(program: Command): void {
         if (!config.skipNpm && !config.dryRun) {
           s.start('Publishing to NPM...');
 
-          // Check NPM authentication
-          const npmWhoami = await $`npm whoami`.nothrow();
-          if (npmWhoami.exitCode !== 0 && !config.npmToken) {
-            s.stop('⚠️  Not authenticated to NPM');
-
-            const authMethod = await promptWithCancel(() => kit.select({
-              message: 'How would you like to authenticate to NPM?',
-              options: [
-                { value: 'browser', label: 'Open browser to login' },
-                { value: 'token', label: 'Enter NPM token' },
-                { value: 'skip', label: 'Skip NPM publishing' }
-              ]
-            }));
-
-            if (authMethod === 'browser') {
-              s.start('Opening NPM login...');
-              await $`npm login`;
-              s.stop('✅ NPM authentication complete');
-            } else if (authMethod === 'token') {
-              config.npmToken = await promptWithCancel(() => kit.password({
-                message: 'Enter NPM authentication token:'
-              }));
-            } else {
-              config.skipNpm = true;
+          // Authentication was proven in preflight, before any mutation.
+          // A cheap re-verify guards the window between the two; failing hard
+          // here is right, because prompting for a login mid-mutation is how
+          // the previous release wedged.
+          if (!config.npmToken) {
+            const npmWhoami = await $`npm whoami`.nothrow();
+            if (!npmWhoami.ok) {
+              throw new Error('NPM authentication was lost after preflight; aborting before publish');
             }
           }
 
@@ -1059,31 +1152,12 @@ export function command(program: Command): void {
             s.stop('⚠️  GitHub CLI not installed');
             kit.log.warn('Install gh CLI to create GitHub releases: https://cli.github.com');
           } else {
-            // Check GitHub authentication
+            // Proven in preflight; re-verify and fail hard, as with npm.
+            // Prompting for a login mid-mutation is how the previous release
+            // wedged.
             const ghAuth = await $`gh auth status`.nothrow();
-            if (ghAuth.exitCode !== 0 && !config.githubToken) {
-              s.stop('⚠️  Not authenticated to GitHub');
-
-              const authMethod = await promptWithCancel(() => kit.select({
-                message: 'How would you like to authenticate to GitHub?',
-                options: [
-                  { value: 'browser', label: 'Open browser to login' },
-                  { value: 'token', label: 'Enter GitHub token' },
-                  { value: 'skip', label: 'Skip GitHub release' }
-                ]
-              }));
-
-              if (authMethod === 'browser') {
-                s.start('Opening GitHub login...');
-                await $`gh auth login`;
-                s.stop('✅ GitHub authentication complete');
-              } else if (authMethod === 'token') {
-                config.githubToken = await promptWithCancel(() => kit.password({
-                  message: 'Enter GitHub personal access token:'
-                }));
-              } else {
-                config.skipGithub = true;
-              }
+            if (!ghAuth.ok && !config.githubToken) {
+              throw new Error('GitHub authentication was lost after preflight; aborting before the GitHub release');
             }
 
             if (!config.skipGithub) {
