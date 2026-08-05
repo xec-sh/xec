@@ -1,6 +1,6 @@
 {
   "name": "@xec-sh/loader",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "TypeScript script execution, CDN module loading with integrity checks, and REPL for Xec",
   "type": "module",
   "main": "./dist/index.js",
