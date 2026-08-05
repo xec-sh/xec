@@ -88,20 +88,12 @@ export class LocalModuleResolver implements ModuleResolver {
       }
     }
 
-    // Check for suspicious patterns that might indicate traversal attempts
-    // even if they resolve to a valid path
-    const suspiciousPatterns = [
-      /\.\.[/\\]/, // ../ or ..\
-      /\/\.\.\//,  // /../
-      /\\\.\.\\/,  // \..\
-    ];
-
-    // Only warn for relative paths that contain traversal
-    if (!path.isAbsolute(original) && suspiciousPatterns.some(p => p.test(original))) {
-      // Log warning but allow if the resolved path is valid
-      // This allows legitimate uses like './foo/../bar' while flagging
-      // potentially malicious patterns
-    }
+    // The null-byte check above and the base-dir escape check are the whole
+    // guard. A pattern check on `..` segments used to sit here with an empty
+    // body — code that looked like a defence and defended nothing. `../` in
+    // a specifier is legitimate; what must hold is the resolved path staying
+    // inside allowedBaseDir when one is configured, and that is checked on
+    // the *resolved* path, which no spelling of the specifier can dodge.
   }
 }
 
