@@ -113,8 +113,15 @@ echo '${escapedPassword}'
 `;
     
     try {
-      // Write script with restricted permissions
-      await writeFile(scriptPath, scriptContent);
+      // Create the file owner-only in one step. Writing with the default mode
+      // and narrowing with a later chmod left the plaintext password in a
+      // world-readable file for the window between the two syscalls — the SSH
+      // adapter's remote askpass closes the same window with `umask 077`. `wx`
+      // (O_EXCL) additionally refuses to write through a file or symlink
+      // already sitting at this path. The chmod that follows guarantees the
+      // execute bit sudo needs even under an unusual umask, and is now only
+      // ever narrowing an already-private file.
+      await writeFile(scriptPath, scriptContent, { mode: 0o700, flag: 'wx' });
       await chmod(scriptPath, 0o700);
       this.tempFiles.add(scriptPath);
       
