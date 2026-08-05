@@ -27,7 +27,6 @@
     "dist",
     "!dist/**/*.map",
     "src",
-    "CHANGELOG.md",
     "LICENSE",
     "NOTICE"
   ],

@@ -39,5 +39,10 @@
     "!dist/**/*.map",
     "docker",
     "docker-ssh-manager.sh"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xec-sh/xec.git",
+    "directory": "packages/testing"
+  }
 }
