@@ -17,11 +17,37 @@ describe('a signalled process reports failure', () => {
     const result = await $.exec(`sh -c 'kill -${signal.replace('SIG', '')} $$'`).nothrow();
 
     expect(result.ok).toBe(false);
-    expect(result.signal).toBe(signal);
     // Shells report 128 + signum; a caller that only reads the number still
     // sees a failure.
     expect(result.exitCode).toBe(expected);
+
+    // Whether `signal` is populated here is a shell accident, not the
+    // contract: macOS bash exec-replaces itself with the sole command, so
+    // the kill lands on our direct child and Node reports the signal; dash
+    // on Linux keeps the wrapper alive, absorbs the child's death and exits
+    // 137 — a normal exit, no signal to report. Both are truthful. When the
+    // field is present it must not lie; direct delivery is pinned below.
+    if (result.signal !== undefined) {
+      expect(result.signal).toBe(signal);
+    }
   }, 20_000);
+
+  it.each(['SIGKILL', 'SIGTERM'] as const)(
+    'reports %s when the signal lands on our own child',
+    async signal => {
+      // Killing through the handle hits the process we spawned, on every
+      // platform — this is where the `signal` field is a promise, not a
+      // shell detail.
+      const running = $.exec('sleep 5').nothrow();
+      setTimeout(() => running.kill(signal), 150);
+
+      const result = await running;
+
+      expect(result.ok).toBe(false);
+      expect(result.signal).toBe(signal);
+    },
+    20_000
+  );
 
   it('leaves ordinary exit codes untouched', async () => {
     for (const code of [0, 1, 3, 42]) {

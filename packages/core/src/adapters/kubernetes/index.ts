@@ -224,10 +224,14 @@ export class KubernetesAdapter extends BaseAdapter {
           return;
         }
 
-        // Create result without throwing on non-zero exit (we handle it below)
-        const originalThrowOnNonZeroExit = this.config.throwOnNonZeroExit;
-        this.config.throwOnNonZeroExit = false;
-        const result = this.createResult(
+        // The throw decision is made here, once. The previous construction
+        // built the result via createResult with this.config.throwOnNonZeroExit
+        // toggled off around the call — but the command's own setting
+        // outranks the config, so a command carrying throwOnNonZeroExit made
+        // the async createResult return an already-rejected promise that
+        // nothing awaited. The rejection surfaced as an unhandled error in
+        // the exit handler and took down whole test files in CI.
+        const result = this.createResultNoThrow(
           stdout,
           stderr,
           code ?? -1,
@@ -237,7 +241,6 @@ export class KubernetesAdapter extends BaseAdapter {
           endTime,
           { originalCommand: mergedCommand, stdall: Buffer.concat(interleaved).toString(this.config.encoding) }
         );
-        this.config.throwOnNonZeroExit = originalThrowOnNonZeroExit;
 
         if (this.shouldThrowOnNonZeroExit(mergedCommand, code ?? -1)) {
           reject(new ExecutionError(

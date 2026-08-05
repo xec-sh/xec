@@ -4,8 +4,8 @@ import { Readable } from 'stream';
 import { existsSync, unlinkSync, mkdtempSync, writeFileSync } from 'fs';
 import { isKindAvailable, isDockerAvailable, KindClusterManager, isKubectlAvailable } from '@xec-sh/testing';
 
-import { TimeoutError } from '../../../src/core/error.js';
-import { KubernetesAdapter } from '../../../src/adapters/kubernetes/index.js';
+import { TimeoutError } from '../../src/core/error.js';
+import { KubernetesAdapter } from '../../src/adapters/kubernetes/index.js';
 
 // Check for required binaries
 const hasRequiredBinaries = (): boolean => isDockerAvailable() && isKindAvailable() && isKubectlAvailable();

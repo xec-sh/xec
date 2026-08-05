@@ -31,6 +31,12 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      # The runner has Docker, so the SSH fixture gate would otherwise try to
+      # build and boot the fixture containers inside the unit tier — minutes
+      # of image builds, and a beforeAll failure when they don't come up.
+      # Fixture-backed suites belong to the future integration job.
+      SKIP_SSH_DOCKER_TESTS: 'true'
     steps:
       - uses: actions/checkout@v4
 
