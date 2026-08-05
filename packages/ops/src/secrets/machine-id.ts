@@ -129,12 +129,15 @@ export async function getMachineId(): Promise<string> {
 
     return uuid;
   } catch {
-    // Last resort: Use hostname + CPU info + memory
+    // Last resort: derive from stable host facts. The result feeds key
+    // derivation for stored secrets, so it must be identical on every run —
+    // this used to mix in Date.now(), which made each process derive a
+    // different "machine ID" and left every secret written under it
+    // permanently undecryptable in the next process.
     const fallbackId = [
       os.hostname(),
       os.cpus()[0]?.model || 'unknown',
-      os.totalmem().toString(),
-      Date.now().toString()
+      os.totalmem().toString()
     ].join(':');
     
     const hash = createHash('sha256').update(fallbackId).digest('hex');

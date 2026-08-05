@@ -878,3 +878,69 @@ describe('GitSecretProvider', () => {
     });
   });
 });
+describe('GitSecretProvider custom environments and durability', () => {
+  let repoDir: string;
+
+  beforeEach(async () => {
+    repoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-git-secrets-env-'));
+    execFileSync('git', ['init', '-q'], { cwd: repoDir });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: repoDir });
+    execFileSync('git', ['config', 'user.name', 'Test User'], { cwd: repoDir });
+  });
+
+  afterEach(async () => {
+    await fs.rm(repoDir, { recursive: true, force: true });
+  });
+
+  function makeProvider(environment: string): GitSecretProvider {
+    return new GitSecretProvider({
+      repoPath: repoDir,
+      environment,
+      autoCommit: false,
+      keySize: 2048,
+    });
+  }
+
+  it('rotateMasterKey re-encrypts secrets of a custom environment', async () => {
+    // Rotation used to iterate a hard-coded development/staging/production
+    // list: any other environment kept ciphertext under the discarded key,
+    // so every read after rotation failed authentication.
+    const provider = makeProvider('qa');
+    await provider.set('db-pass', 'qa-value-1');
+
+    await provider.rotateMasterKey();
+    provider.clearCache();
+
+    expect(await provider.get('db-pass')).toBe('qa-value-1');
+  });
+
+  it('backup covers custom environments and writes the file 0600', async () => {
+    const provider = makeProvider('qa');
+    await provider.set('db-pass', 'qa-value-2');
+
+    const outputPath = path.join(repoDir, 'secrets-backup.json');
+    const backup = await provider.backup(outputPath);
+
+    expect(Object.keys(backup.environments)).toContain('qa');
+    expect(backup.environments['qa']!.secrets['db-pass']).toBe('qa-value-2');
+
+    if (process.platform !== 'win32') {
+      const stat = await fs.stat(outputPath);
+      // The backup holds every secret in plaintext.
+      expect(stat.mode & 0o777).toBe(0o600);
+    }
+  });
+
+  it('keeps all keys when setBulk and set run concurrently', async () => {
+    const provider = makeProvider('development');
+    await provider.initialize();
+
+    await Promise.all([
+      provider.setBulk({ 'bulk-a': '1', 'bulk-b': '2', 'bulk-c': '3' }),
+      provider.set('solo', '4'),
+    ]);
+
+    const listed = await provider.list();
+    expect(listed.sort()).toEqual(['bulk-a', 'bulk-b', 'bulk-c', 'solo']);
+  });
+});

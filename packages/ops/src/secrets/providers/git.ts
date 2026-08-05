@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { execSync, execFileSync } from 'node:child_process';
 
 import { getCachedMachineId } from '../machine-id.js';
+import { atomicWriteFile } from '../atomic-write.js';
 import {
   encode,
   decode,
@@ -179,6 +180,7 @@ export class GitSecretProvider implements SecretProvider {
   // Mutations are read-modify-write cycles on a shared encrypted file;
   // without serialization concurrent calls drop each other's writes.
   private mutationLock: Promise<unknown> = Promise.resolve();
+  private initializing: Promise<void> | null = null;
 
   constructor(config?: SecretProviderConfig['config']) {
     this.config = config || {};
@@ -193,6 +195,20 @@ export class GitSecretProvider implements SecretProvider {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    // Concurrent first calls must share one initialization: a second run
+    // would generate a second master key and RSA key pair and overwrite the
+    // first one's files while secrets may already be encrypted under them.
+    this.initializing ??= this.initializeInternal();
+    try {
+      await this.initializing;
+    } finally {
+      if (!this.initialized) {
+        this.initializing = null;
+      }
+    }
+  }
+
+  private async initializeInternal(): Promise<void> {
     // 1. Check for git repository
     await this.verifyGitRepository();
 
@@ -552,11 +568,7 @@ export class GitSecretProvider implements SecretProvider {
     };
 
     const masterKeyPath = path.join(this.keyPath, 'master.key');
-    await fs.writeFile(
-      masterKeyPath,
-      JSON.stringify(encryptedMasterKey, null, 2),
-      { mode: 0o600 }
-    );
+    await atomicWriteFile(masterKeyPath, JSON.stringify(encryptedMasterKey, null, 2));
 
     this.encryptionKey = key;
   }
@@ -624,6 +636,29 @@ export class GitSecretProvider implements SecretProvider {
     }
   }
 
+  /**
+   * Environments that actually have a secrets file on disk.
+   *
+   * Rotation and backup used to iterate a hard-coded
+   * development/staging/production list: a custom environment name meant
+   * rotation re-encrypted nothing for it — its secrets stayed under the
+   * discarded key — and backups silently omitted it.
+   */
+  private async listEnvironments(): Promise<string[]> {
+    const dataDir = path.join(this.secretsPath, 'data');
+    try {
+      const files = await fs.readdir(dataDir);
+      return files
+        .filter((file) => file.endsWith('.enc'))
+        .map((file) => file.slice(0, -'.enc'.length));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
   private async loadEncryptedSecrets(): Promise<EncryptedGitSecret | null> {
     const secretsFilePath = path.join(this.secretsPath, 'data', `${this.environment}.enc`);
 
@@ -670,11 +705,7 @@ export class GitSecretProvider implements SecretProvider {
 
     const secretsFilePath = path.join(this.secretsPath, 'data', `${this.environment}.enc`);
 
-    await fs.writeFile(
-      secretsFilePath,
-      JSON.stringify(data, null, 2),
-      { mode: 0o600 }
-    );
+    await atomicWriteFile(secretsFilePath, JSON.stringify(data, null, 2));
   }
 
   private async loadEnvironmentSecrets(): Promise<void> {
@@ -899,7 +930,7 @@ export class GitSecretProvider implements SecretProvider {
 
       // Add self to team if not exists
       if (!this.teamKeys.has(userEmail)) {
-        await this.addTeamMember(userEmail, userPubKeyPath, 'admin');
+        await this.addTeamMemberInternal(userEmail, userPubKeyPath, 'admin');
       }
     } else {
       // Load existing keys
@@ -963,11 +994,7 @@ export class GitSecretProvider implements SecretProvider {
       metadata[userId] = info;
     }
 
-    await fs.writeFile(
-      metadataPath,
-      JSON.stringify(metadata, null, 2),
-      { mode: 0o600 }
-    );
+    await atomicWriteFile(metadataPath, JSON.stringify(metadata, null, 2));
   }
 
   /**
@@ -975,7 +1002,15 @@ export class GitSecretProvider implements SecretProvider {
    */
   async addTeamMember(email: string, publicKeyPath: string, permissions: 'read' | 'read-write' | 'admin' = 'read-write'): Promise<void> {
     await this.ensureInitialized();
+    await this.addTeamMemberInternal(email, publicKeyPath, permissions);
+  }
 
+  /**
+   * setupUserKey() runs inside initialize() and adds the current user to the
+   * team; going through the public method would await the very
+   * initialization that is in flight.
+   */
+  private async addTeamMemberInternal(email: string, publicKeyPath: string, permissions: 'read' | 'read-write' | 'admin'): Promise<void> {
     // 1. Read and validate public key
     const publicKeyPem = await fs.readFile(publicKeyPath, 'utf8');
     const publicKey = crypto.createPublicKey(publicKeyPem);
@@ -1085,9 +1120,13 @@ export class GitSecretProvider implements SecretProvider {
     const newMasterKey = crypto.randomBytes(32);
     const newSalt = crypto.randomBytes(32);
 
+    // The old key may not be in memory yet (team members hold it only in
+    // encrypted form until getMasterKey resolves it).
+    const oldKey = await this.getMasterKey();
+
     // 2. Decrypt all secrets with old key
     const allSecrets: Record<string, Record<string, string>> = {};
-    const environments = ['development', 'staging', 'production'];
+    const environments = await this.listEnvironments();
 
     for (const env of environments) {
       const currentEnv = this.environment;
@@ -1097,7 +1136,7 @@ export class GitSecretProvider implements SecretProvider {
       if (data) {
         allSecrets[env] = {};
         for (const [key, secret] of Object.entries(data.secrets)) {
-          allSecrets[env][key] = this.decryptValue(secret, this.encryptionKey!);
+          allSecrets[env][key] = this.decryptValue(secret, oldKey);
         }
       }
 
@@ -1105,7 +1144,7 @@ export class GitSecretProvider implements SecretProvider {
     }
 
     // 3. Backup old key (encrypted)
-    await this.backupOldKey(this.encryptionKey!);
+    await this.backupOldKey(oldKey);
 
     // 4. Update master key. The plaintext was already collected above, so the
     // old key is not needed past this point and is not kept in memory.
@@ -1182,11 +1221,7 @@ export class GitSecretProvider implements SecretProvider {
     };
 
     const masterKeyPath = path.join(this.keyPath, 'master.key');
-    await fs.writeFile(
-      masterKeyPath,
-      JSON.stringify(encryptedMasterKey, null, 2),
-      { mode: 0o600 }
-    );
+    await atomicWriteFile(masterKeyPath, JSON.stringify(encryptedMasterKey, null, 2));
 
     // 9. Commit rotation
     if (this.autoCommit) {
@@ -1223,11 +1258,7 @@ export class GitSecretProvider implements SecretProvider {
       backedUpBy: await this.getGitUser()
     };
 
-    await fs.writeFile(
-      backupPath,
-      JSON.stringify(backupData, null, 2),
-      { mode: 0o600 }
-    );
+    await atomicWriteFile(backupPath, JSON.stringify(backupData, null, 2));
   }
 
   /**
@@ -1377,7 +1408,7 @@ export class GitSecretProvider implements SecretProvider {
   async backup(outputPath?: string): Promise<SecretsBackup> {
     await this.ensureInitialized();
 
-    const environments = ['development', 'staging', 'production'];
+    const environments = await this.listEnvironments();
     const backup: SecretsBackup = {
       version: 1,
       format: 'git-secrets-backup',
@@ -1423,17 +1454,14 @@ export class GitSecretProvider implements SecretProvider {
       // Calculate checksum
       backup.checksum = this.calculateChecksum(backup as any);
 
-      // Save to file if path provided
+      // Save to file if path provided. The file holds every secret in
+      // plaintext; 0600 keeps it out of other local users' reach.
       if (outputPath) {
         const backupData = backup.compressed
           ? await gzipAsync(JSON.stringify(backup))
           : JSON.stringify(backup, null, 2);
 
-        await fs.writeFile(
-          outputPath,
-          backupData,
-          backup.compressed ? undefined : 'utf8'
-        );
+        await fs.writeFile(outputPath, backupData, { mode: 0o600 });
       }
 
       // Log audit event
@@ -1489,21 +1517,25 @@ export class GitSecretProvider implements SecretProvider {
     const currentEnv = this.environment;
 
     try {
-      // Restore each environment
+      // Restore each environment. The whole clear-and-rewrite runs under
+      // the mutation lock; calling the public set() here would wait on the
+      // same lock and deadlock.
       for (const [env, envData] of Object.entries(backupData.environments)) {
-        this.environment = env;
+        await this.withMutationLock(async () => {
+          this.environment = env;
 
-        // Clear existing secrets (optional - could be configurable)
-        const existingData = await this.loadEncryptedSecrets();
-        if (existingData) {
-          existingData.secrets = {};
-          await this.saveEncryptedSecrets(existingData);
-        }
+          // Clear existing secrets (optional - could be configurable)
+          const existingData = await this.loadEncryptedSecrets();
+          if (existingData) {
+            existingData.secrets = {};
+            await this.saveEncryptedSecrets(existingData);
+          }
 
-        // Restore secrets
-        for (const [key, value] of Object.entries(envData.secrets)) {
-          await this.set(key, value);
-        }
+          // Restore secrets
+          for (const [key, value] of Object.entries(envData.secrets)) {
+            await this.setLocked(key, value);
+          }
+        });
       }
 
       // Commit the restore
@@ -1533,7 +1565,10 @@ export class GitSecretProvider implements SecretProvider {
    */
   async setBulk(secrets: Record<string, string>): Promise<void> {
     await this.ensureInitialized();
+    await this.withMutationLock(() => this.setBulkLocked(secrets));
+  }
 
+  private async setBulkLocked(secrets: Record<string, string>): Promise<void> {
     try {
       // Load current secrets once
       const data = await this.loadOrCreateSecrets();

@@ -1,6 +1,7 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'crypto';
 import { execSync } from 'child_process';
 
 import { getGlobalConfigDir } from '../../../src/config/utils.js';
@@ -342,5 +343,60 @@ describe('Machine ID Module', () => {
         expect(id).toMatch(/^[a-f0-9-]+$/);
       }
     });
+  });
+});
+describe('getMachineId fallback determinism', () => {
+  // The ID seeds key derivation for stored secrets: if the last-resort path
+  // produces a different value on each run (it used to mix in Date.now()),
+  // a secret written by one process is undecryptable by the next.
+  it('derives the last-resort ID only from stable host facts', async () => {
+    vi.resetModules();
+    vi.doMock('node:os', () => ({
+      platform: () => 'darwin',
+      hostname: () => 'probe-host',
+      cpus: () => [{ model: 'Probe CPU' }],
+      totalmem: () => 8_589_934_592,
+      networkInterfaces: () => ({}),
+    }));
+    vi.doMock('node:child_process', () => ({
+      execSync: () => {
+        throw new Error('no platform tooling in this environment');
+      },
+    }));
+    vi.doMock('node:fs', () => ({
+      existsSync: () => false,
+      readFileSync: () => {
+        throw new Error('unreadable');
+      },
+    }));
+
+    try {
+      const { getMachineId } = await import('../../../src/secrets/machine-id.js');
+
+      const first = await getMachineId();
+      const second = await getMachineId();
+      expect(first).toBe(second);
+
+      // Pin the exact derivation: sha256 over hostname:cpu:totalmem shaped
+      // into the UUID layout. Changing this formula orphans every secret
+      // already encrypted under it, so a change must be a conscious one.
+      const digest = createHash('sha256')
+        .update('probe-host:Probe CPU:8589934592')
+        .digest('hex');
+      const expected = [
+        digest.substring(0, 8),
+        digest.substring(8, 12),
+        '5' + digest.substring(13, 16),
+        digest.substring(16, 20),
+        digest.substring(20, 32),
+      ].join('-');
+
+      expect(first).toBe(expected);
+    } finally {
+      vi.doUnmock('node:os');
+      vi.doUnmock('node:child_process');
+      vi.doUnmock('node:fs');
+      vi.resetModules();
+    }
   });
 });

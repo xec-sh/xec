@@ -2,6 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { existsSync } from 'fs';
 import * as fs from 'fs/promises';
+import { createHash, randomBytes } from 'crypto';
 
 import { SecretError } from '../../../src/secrets/types.js';
 import { LocalSecretProvider } from '../../../src/secrets/providers/local.js';
@@ -568,5 +569,122 @@ describe('LocalSecretProvider', () => {
       
       await expect(provider4.get('protected-key')).rejects.toThrow();
     });
+  });
+});
+describe('LocalSecretProvider durability', () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = path.join(
+      os.tmpdir(),
+      `xec-test-secrets-dur-${randomBytes(6).toString('hex')}`
+    );
+    await fs.mkdir(testDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
+
+  /** On-disk record path for a key, as the provider names it. */
+  function recordPath(key: string): string {
+    const hashed = createHash('sha256').update(key).digest('hex');
+    return path.join(testDir, `${hashed}.secret`);
+  }
+
+  it('keeps every key in the index under parallel writes', async () => {
+    // Index updates are read-modify-write on one file; unserialized writers
+    // (SecretManager.setMany fans out with Promise.all) read the same
+    // snapshot and drop each other's entries.
+    const provider = new LocalSecretProvider({ storageDir: testDir });
+    const keys = Array.from({ length: 10 }, (_, i) => `parallel-${i}`);
+
+    await Promise.all(keys.map((key) => provider.set(key, `value of ${key}`)));
+
+    const listed = await provider.list();
+    expect(listed.sort()).toEqual([...keys].sort());
+
+    for (const key of keys) {
+      expect(await provider.get(key)).toBe(`value of ${key}`);
+    }
+  });
+
+  it('restores 0600 on records it rewrites', async () => {
+    if (process.platform === 'win32') return;
+
+    // writeFile applies its mode only when creating the file, so a record
+    // that ever became group-readable stayed that way through every rewrite.
+    const provider = new LocalSecretProvider({ storageDir: testDir });
+    await provider.set('perm-key', 'first');
+
+    await fs.chmod(recordPath('perm-key'), 0o644);
+    await provider.set('perm-key', 'second');
+
+    const stat = await fs.stat(recordPath('perm-key'));
+    expect(stat.mode & 0o777).toBe(0o600);
+    expect(await provider.get('perm-key')).toBe('second');
+  });
+
+  it('leaves no temp files behind', async () => {
+    const provider = new LocalSecretProvider({ storageDir: testDir });
+    await provider.set('a', '1');
+    await provider.set('b', '2');
+    await provider.delete('a');
+
+    const entries = await fs.readdir(testDir);
+    expect(entries.filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('refuses records from a newer storage format by name', async () => {
+    const provider = new LocalSecretProvider({ storageDir: testDir });
+    await provider.set('future-key', 'value');
+
+    const record = JSON.parse(await fs.readFile(recordPath('future-key'), 'utf8'));
+    record.version = 2;
+    await fs.writeFile(recordPath('future-key'), JSON.stringify(record), { mode: 0o600 });
+
+    try {
+      await provider.get('future-key');
+      expect.unreachable('a version-2 record must not be accepted');
+    } catch (error) {
+      expect(error).toBeInstanceOf(SecretError);
+      expect((error as SecretError).code).toBe('UNSUPPORTED_VERSION');
+      expect((error as SecretError).message).toContain('version 2');
+    }
+  });
+
+  it('refuses records encrypted with an undeclared algorithm', async () => {
+    const provider = new LocalSecretProvider({ storageDir: testDir });
+    await provider.set('alg-key', 'value');
+
+    const record = JSON.parse(await fs.readFile(recordPath('alg-key'), 'utf8'));
+    record.algorithm = 'aes-128-cbc';
+    await fs.writeFile(recordPath('alg-key'), JSON.stringify(record), { mode: 0o600 });
+
+    try {
+      await provider.get('alg-key');
+      expect.unreachable('a foreign-algorithm record must not be decrypted as GCM');
+    } catch (error) {
+      expect(error).toBeInstanceOf(SecretError);
+      expect((error as SecretError).code).toBe('UNSUPPORTED_ALGORITHM');
+    }
+  });
+
+  it('leaves every secret readable with the old passphrase when a change fails part-way', async () => {
+    const provider = new LocalSecretProvider({ storageDir: testDir, passphrase: 'pass-a' });
+    await provider.set('alpha', 'value-alpha');
+    await provider.set('beta', 'value-beta');
+    await provider.set('gamma', 'value-gamma');
+
+    // Corrupt the middle record so the change fails after the first key.
+    // Re-encrypting while reading left alpha under the new passphrase and
+    // gamma under the old one, with nothing recording which was which.
+    await fs.writeFile(recordPath('beta'), 'not json', { mode: 0o600 });
+
+    await expect(provider.changePassphrase('pass-a', 'pass-b')).rejects.toThrow();
+
+    const reader = new LocalSecretProvider({ storageDir: testDir, passphrase: 'pass-a' });
+    expect(await reader.get('alpha')).toBe('value-alpha');
+    expect(await reader.get('gamma')).toBe('value-gamma');
   });
 });

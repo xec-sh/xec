@@ -641,3 +641,89 @@ describe('SecretManager', () => {
     });
   });
 });
+describe('SecretManager initialization and error pass-through', () => {
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = path.join(
+      os.tmpdir(),
+      `xec-test-manager-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
+    await fs.mkdir(testDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
+
+  function countingProvider(behaviour?: { failFirst?: boolean }) {
+    let initCount = 0;
+    let failed = false;
+    const provider: SecretProvider = {
+      initialize: async () => {
+        initCount += 1;
+        if (behaviour?.failFirst && !failed) {
+          failed = true;
+          throw new Error('first init fails');
+        }
+      },
+      get: async () => null,
+      set: async () => {},
+      delete: async () => {},
+      list: async () => [],
+      has: async () => false,
+    };
+    return { provider, initCount: () => initCount };
+  }
+
+  it('initializes the provider exactly once under concurrent first use', async () => {
+    // getMany/setMany fan out with Promise.all, so the first awaits reach
+    // ensureInitialized before any of them has completed it.
+    const { provider, initCount } = countingProvider();
+    const manager = new SecretManager({ type: 'local' });
+    (manager as unknown as { provider: SecretProvider }).provider = provider;
+
+    await Promise.all([manager.get('a'), manager.get('b'), manager.get('c')]);
+
+    expect(initCount()).toBe(1);
+  });
+
+  it('retries initialization after a failure instead of replaying it', async () => {
+    const { provider, initCount } = countingProvider({ failFirst: true });
+    const manager = new SecretManager({ type: 'local' });
+    (manager as unknown as { provider: SecretProvider }).provider = provider;
+
+    await expect(manager.get('a')).rejects.toThrow('first init fails');
+    expect(await manager.get('a')).toBeNull();
+    expect(initCount()).toBe(2);
+  });
+
+  it('passes a provider SecretError through with its code and message intact', async () => {
+    const manager = new SecretManager({
+      type: 'local',
+      config: { storageDir: testDir },
+    });
+    await manager.set('k', 'v');
+
+    // Forge a record from a future storage format; the provider refuses it
+    // with a specific code the manager must not replace with GET_ERROR.
+    const files = await fs.readdir(testDir);
+    const recordFile = files.find((name) => name.endsWith('.secret'));
+    expect(recordFile).toBeDefined();
+    const recordPath = path.join(testDir, recordFile!);
+    const record = JSON.parse(await fs.readFile(recordPath, 'utf8'));
+    record.version = 2;
+    await fs.writeFile(recordPath, JSON.stringify(record), { mode: 0o600 });
+
+    try {
+      await manager.get('k');
+      expect.unreachable('a version-2 record must not be accepted');
+    } catch (error) {
+      expect(error).toBeInstanceOf(SecretError);
+      expect((error as SecretError).code).toBe('UNSUPPORTED_VERSION');
+      expect((error as SecretError).message).not.toContain(
+        'Failed to get secret: Failed to get secret'
+      );
+    }
+  });
+});

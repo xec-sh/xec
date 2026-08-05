@@ -24,6 +24,7 @@ export class SecretManager {
   private provider?: SecretProvider;
   private config: SecretProviderConfig;
   private initialized = false;
+  private initializing: Promise<void> | null = null;
 
   constructor(config?: SecretProviderConfig) {
     // Provider creation is deferred to initialize() so that constructing a
@@ -44,11 +45,27 @@ export class SecretManager {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    if (!this.provider) {
-      this.provider = this.createProvider();
+
+    // Batch operations (getMany, setMany) fan out with Promise.all, so the
+    // first awaits land here concurrently; without memoization each of them
+    // ran provider.initialize() again.
+    this.initializing ??= (async () => {
+      if (!this.provider) {
+        this.provider = this.createProvider();
+      }
+      await this.provider.initialize();
+      this.initialized = true;
+    })();
+
+    try {
+      await this.initializing;
+    } finally {
+      if (!this.initialized) {
+        // Initialization failed; let the next call retry instead of
+        // replaying the same rejection forever.
+        this.initializing = null;
+      }
     }
-    await this.provider.initialize();
-    this.initialized = true;
   }
 
   /**
@@ -82,6 +99,12 @@ export class SecretManager {
     try {
       return await this.requireProvider().get(key);
     } catch (error) {
+      // Providers already raise SecretError with the failing key and a
+      // specific code; re-wrapping stacked "Failed to get secret:" prefixes
+      // and replaced the code with the generic one.
+      if (error instanceof SecretError) {
+        throw error;
+      }
       throw new SecretError(
         `Failed to get secret: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'GET_ERROR',
@@ -115,6 +138,9 @@ export class SecretManager {
     try {
       return await this.requireProvider().set(key, value);
     } catch (error) {
+      if (error instanceof SecretError) {
+        throw error;
+      }
       throw new SecretError(
         `Failed to set secret: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'SET_ERROR',
@@ -204,6 +230,7 @@ export class SecretManager {
     this.config = config;
     this.provider = undefined;
     this.initialized = false;
+    this.initializing = null;
     await this.initialize();
   }
 

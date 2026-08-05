@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 
 import { getCachedMachineId } from '../machine-id.js';
+import { atomicWriteFile } from '../atomic-write.js';
 import { getSecretsDir } from '../../config/utils.js';
 import {
   encode,
@@ -28,6 +29,13 @@ export class LocalSecretProvider implements SecretProvider {
   private initialized = false;
   private passphrase?: string;
 
+  // Index updates are read-modify-write cycles on one file. Without this
+  // serialization, parallel set/delete calls (SecretManager.setMany fans
+  // out with Promise.all) read the same snapshot and each write drops the
+  // others' entries.
+  private indexLock: Promise<unknown> = Promise.resolve();
+  private initializing: Promise<void> | null = null;
+
   constructor(config?: SecretProviderConfig['config']) {
     // Default storage location
     const baseDir = config?.['storageDir'] || getSecretsDir();
@@ -38,6 +46,20 @@ export class LocalSecretProvider implements SecretProvider {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
+    // Concurrent first calls (Promise.all over set/get) must share one
+    // initialization: a second run could re-create the empty index after
+    // the first writer already added entries to it.
+    this.initializing ??= this.initializeInternal();
+    try {
+      await this.initializing;
+    } finally {
+      if (!this.initialized) {
+        this.initializing = null;
+      }
+    }
+  }
+
+  private async initializeInternal(): Promise<void> {
     // Create storage directory if it doesn't exist
     await fs.mkdir(this.storageDir, { recursive: true, mode: 0o700 });
 
@@ -72,20 +94,35 @@ export class LocalSecretProvider implements SecretProvider {
       }
 
       const data = await fs.readFile(secretPath, 'utf8');
-      const encryptedSecret: EncryptedSecret = JSON.parse(data);
+      const record = JSON.parse(data) as EncryptedSecret & { salt: string };
+
+      // A record written by a newer format would decrypt into garbage or
+      // fail with an unrelated authentication error; refuse it by name
+      // before touching the ciphertext.
+      if (record.version !== 1) {
+        throw new SecretError(
+          `Secret '${key}' uses storage format version ${record.version}; this build reads version 1`,
+          'UNSUPPORTED_VERSION',
+          key
+        );
+      }
+      if (record.algorithm !== 'aes-256-gcm') {
+        throw new SecretError(
+          `Secret '${key}' is encrypted with '${record.algorithm}'; this build supports aes-256-gcm`,
+          'UNSUPPORTED_ALGORITHM',
+          key
+        );
+      }
 
       // Get machine ID
       const machineId = await getCachedMachineId();
 
-      // Get salt from stored data
-      const dataWithSalt = JSON.parse(data) as any;
-
       // Decrypt the secret
       const decrypted = await decrypt(
-        decode(encryptedSecret.encrypted),
-        decode(dataWithSalt.salt),
-        decode(encryptedSecret.iv),
-        decode(encryptedSecret.authTag),
+        decode(record.encrypted),
+        decode(record.salt),
+        decode(record.iv),
+        decode(record.authTag),
         machineId,
         this.passphrase
       );
@@ -94,6 +131,9 @@ export class LocalSecretProvider implements SecretProvider {
     } catch (error) {
       if ((error as any).code === 'ENOENT') {
         return null;
+      }
+      if (error instanceof SecretError) {
+        throw error;
       }
 
       throw new SecretError(
@@ -140,11 +180,7 @@ export class LocalSecretProvider implements SecretProvider {
 
       // Write to disk
       const secretPath = this.getSecretPath(key);
-      await fs.writeFile(
-        secretPath,
-        JSON.stringify(dataWithSalt, null, 2),
-        { mode: 0o600 }
-      );
+      await atomicWriteFile(secretPath, JSON.stringify(dataWithSalt, null, 2));
 
       // Update index
       await this.updateIndex(key, {
@@ -220,13 +256,27 @@ export class LocalSecretProvider implements SecretProvider {
       passphrase: oldPassphrase
     });
 
-    // Re-encrypt all secrets with new passphrase
+    // Decrypt everything before writing anything. Re-encrypting as we read
+    // meant a failure on secret N (wrong passphrase, one corrupt file) left
+    // secrets 1..N-1 under the new passphrase and the rest under the old,
+    // with nothing recording which was which.
+    const plaintexts = new Map<string, string>();
     for (const key of keys) {
       const value = await tempProvider.get(key);
       if (value !== null) {
-        this.passphrase = newPassphrase;
+        plaintexts.set(key, value);
+      }
+    }
+
+    const previous = this.passphrase;
+    this.passphrase = newPassphrase;
+    try {
+      for (const [key, value] of plaintexts) {
         await this.set(key, value);
       }
+    } catch (error) {
+      this.passphrase = previous;
+      throw error;
     }
   }
 
@@ -289,22 +339,28 @@ export class LocalSecretProvider implements SecretProvider {
   }
 
   private async writeIndex(index: Record<string, any>): Promise<void> {
-    await fs.writeFile(
-      this.getIndexPath(),
-      JSON.stringify(index, null, 2),
-      { mode: 0o600 }
-    );
+    await atomicWriteFile(this.getIndexPath(), JSON.stringify(index, null, 2));
+  }
+
+  private withIndexLock<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.indexLock.then(fn, fn);
+    this.indexLock = run.catch(() => undefined);
+    return run;
   }
 
   private async updateIndex(key: string, metadata: any): Promise<void> {
-    const index = await this.readIndex();
-    index[key] = metadata;
-    await this.writeIndex(index);
+    await this.withIndexLock(async () => {
+      const index = await this.readIndex();
+      index[key] = metadata;
+      await this.writeIndex(index);
+    });
   }
 
   private async removeFromIndex(key: string): Promise<void> {
-    const index = await this.readIndex();
-    delete index[key];
-    await this.writeIndex(index);
+    await this.withIndexLock(async () => {
+      const index = await this.readIndex();
+      delete index[key];
+      await this.writeIndex(index);
+    });
   }
 }
