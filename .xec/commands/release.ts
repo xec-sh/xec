@@ -145,29 +145,72 @@ const REPO_URL = 'https://github.com/xec-sh/xec';
  * on a half-open socket hangs the release, and the operator finds out by
  * noticing that nothing has happened for an hour.
  */
-async function publishToNpm(pkg: { name: string; path: string }): Promise<void> {
-  await retry(
-    async () => {
-      const result = await $`pnpm --filter ${pkg.name} publish --access public --no-git-checks`
-        .timeout('5m')
-        .nothrow();
+/**
+ * The one-time password for this release, shared across its packages.
+ *
+ * An account whose 2FA covers publishes rejects every publish that lacks an
+ * OTP. Codes rotate every ~30 seconds and each is single-use, so one code
+ * may cover the next package or may not — the flow below asks again exactly
+ * when npm says so, rather than predicting.
+ */
+let npmOtp: string | null = null;
 
-      if (!result.ok) {
-        // stdall keeps npm's diagnostics in the order they were printed;
-        // stdout and stderr separately would scramble the explanation.
-        throw new Error(`${pkg.name}: ${result.stdall.trim() || `exit ${result.exitCode}`}`);
+const NPM_OTP_ERROR = /EOTP|one-time password/i;
+const NPM_CONFLICT = /EPUBLISHCONFLICT|previously published|cannot publish over/i;
+
+async function publishToNpm(pkg: { name: string; path: string }, s: any): Promise<void> {
+  // Two loops with different audiences. The inner retry waits out a registry
+  // that is briefly unwell — a 503 or a reset connection. The outer loop
+  // talks to the human: an OTP rejection is not transient and no amount of
+  // backoff produces a fresh code, so it is excluded from the retry and
+  // answered with a prompt instead. The previous run burned all three
+  // attempts on EOTP and then died.
+  for (let otpRound = 0; ; otpRound++) {
+    try {
+      await retry(
+        async () => {
+          const command = npmOtp
+            ? $`pnpm --filter ${pkg.name} publish --access public --no-git-checks --otp ${npmOtp}`
+            : $`pnpm --filter ${pkg.name} publish --access public --no-git-checks`;
+
+          const result = await command.timeout('5m').nothrow();
+
+          if (!result.ok) {
+            // stdall keeps npm's diagnostics in the order they were printed;
+            // stdout and stderr separately would scramble the explanation.
+            throw new Error(`${pkg.name}: ${result.stdall.trim() || `exit ${result.exitCode}`}`);
+          }
+        },
+        {
+          maxAttempts: 3,
+          initialDelay: 5_000,
+          multiplier: 2,
+          retryOn: error => !NPM_CONFLICT.test(error.message) && !NPM_OTP_ERROR.test(error.message),
+          onRetry: (attempt, _error, delay) => {
+            kit.log.warn(`${pkg.name}: attempt ${attempt} failed, retrying in ${Math.round(delay / 1000)}s`);
+          },
+        }
+      );
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      if (NPM_OTP_ERROR.test(message) && otpRound < 3) {
+        s.stop(npmOtp
+          ? '⚠️  The one-time password was rejected (used or expired)'
+          : '⚠️  NPM requires a one-time password for publishing');
+
+        npmOtp = await promptWithCancel(() => kit.password({
+          message: `One-time password from your authenticator (${pkg.name}):`,
+        }));
+
+        s.start(`Publishing ${pkg.name}...`);
+        continue;
       }
-    },
-    {
-      maxAttempts: 3,
-      initialDelay: 5_000,
-      multiplier: 2,
-      retryOn: error => !/EPUBLISHCONFLICT|previously published|cannot publish over/i.test(error.message),
-      onRetry: (attempt, _error, delay) => {
-        kit.log.warn(`${pkg.name}: attempt ${attempt} failed, retrying in ${Math.round(delay / 1000)}s`);
-      },
+
+      throw error;
     }
-  );
+  }
 }
 
 /**
@@ -190,6 +233,18 @@ async function ensureNpmAuth(config: ReleaseConfig, s: any): Promise<void> {
   const whoami = await $`npm whoami`.nothrow();
   if (whoami.ok) {
     kit.log.info(`NPM: authenticated as ${whoami.stdout.trim()}`);
+
+    // Say up front when 2FA covers publishes: every package will ask for a
+    // one-time password, and an automation token (--npm-token) skips that.
+    const profile = await $`npm profile get --json`.timeout('30s').nothrow();
+    if (profile.ok) {
+      try {
+        const tfa = String(JSON.parse(profile.stdout)['two-factor auth'] ?? '');
+        if (/writes/i.test(tfa)) {
+          kit.log.info('NPM 2FA covers publishes: have your authenticator ready — each package may ask for a one-time password. An automation token (--npm-token) avoids this.');
+        }
+      } catch { /* profile output is informational only */ }
+    }
     return;
   }
 
@@ -995,7 +1050,7 @@ export function command(program: Command): void {
                 // the packument before a dependant referencing it can go up.
                 if (corePackages[0]) {
                   s.start(`Publishing ${corePackages[0].name}...`);
-                  await publishToNpm(corePackages[0]);
+                  await publishToNpm(corePackages[0], s);
 
                   s.start('Waiting for NPM to process the package...');
                   await sleep(5_000);
@@ -1008,7 +1063,7 @@ export function command(program: Command): void {
                   if (!pkg) continue;
 
                   s.start(`Publishing ${pkg.name}... (${i + 1}/${otherPackages.length})`);
-                  await publishToNpm(pkg);
+                  await publishToNpm(pkg, s);
 
                   // Space the requests out; npm rate-limits a burst.
                   if (i < otherPackages.length - 1) await sleep(3_000);
@@ -1032,10 +1087,13 @@ export function command(program: Command): void {
                 }
               }
             } else {
-              // Publish without token - use sequential for auth prompts
+              // No token: the login session publishes, and when the account's
+              // 2FA covers writes, publishToNpm collects the one-time password
+              // at the moment npm demands it. Bare piped publishes died here —
+              // npm's OTP prompt never reached a terminal.
               for (const pkg of config.packages) {
-                kit.log.step(`Publishing ${pkg.name}...`);
-                await $`pnpm --filter ${pkg.name} publish --access public --no-git-checks`;
+                s.start(`Publishing ${pkg.name}...`);
+                await publishToNpm(pkg, s);
               }
             }
 
