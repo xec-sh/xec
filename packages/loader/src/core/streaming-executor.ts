@@ -193,6 +193,7 @@ export async function* streamLines(
 
   const events: StreamEvent[] = [];
   let done = false;
+  let spawnError: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
   const pushEvent = (event: StreamEvent) => {
@@ -223,7 +224,11 @@ export async function* streamLines(
     }
   });
 
-  child.on('error', () => {
+  child.on('error', (error) => {
+    // A failure to spawn (missing runtime, permission denied) must not look
+    // like a script that produced no output and exited cleanly. Capture it and
+    // rethrow once buffered events have drained.
+    spawnError = error instanceof Error ? error : new Error(String(error));
     done = true;
     if (resolveWait) {
       resolveWait();
@@ -237,6 +242,10 @@ export async function* streamLines(
     } else if (!done) {
       await new Promise<void>((r) => { resolveWait = r; });
     }
+  }
+
+  if (spawnError) {
+    throw spawnError;
   }
 }
 
