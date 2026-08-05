@@ -232,9 +232,15 @@ export class RunCommand extends BaseCommand {
    * Run a task from configuration
    */
   private async runTask(taskName: string, options: RunOptions, taskArgs: string[] = []): Promise<void> {
-    // Initialize configuration
+    // Initialize configuration. The file named by -c replaces discovery
+    // entirely: reading tasks from the conventional location while the
+    // caller pointed at another file answers from a configuration they
+    // never meant. A named file that does not exist is refused rather than
+    // shrugged at, for the same reason.
+    const configFilePath = await this.requireConfigFile(options as ConfigAwareOptions);
     const configManager = new ConfigurationManager({
       projectRoot: process.cwd(),
+      configFilePath,
     });
 
     // Initialize task manager

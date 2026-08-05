@@ -14,7 +14,7 @@ import { prism, select, confirm } from '@xec-sh/kit';
 import { formatBytes , TaskManager , TargetResolver , getModuleCacheDir , ConfigurationManager , VariableInterpolator } from '@xec-sh/ops';
 
 import { discoverAllCommands } from '../utils/cli-command-manager.js';
-import { serializeOutput, BaseCommand, CommandOptions } from '../utils/command-base.js';
+import { serializeOutput, BaseCommand, CommandOptions, type ConfigAwareOptions } from '../utils/command-base.js';
 
 interface InspectOptions extends CommandOptions {
   config?: string;
@@ -123,6 +123,11 @@ export class InspectCommand extends BaseCommand {
       output: this.options.output,
       config: (this.options as { config?: string }).config,
     };
+
+    // A named file that is not there is an error. Falling through to
+    // discovery answers from a configuration the caller never named, and
+    // the answer looks entirely legitimate — which is the dangerous part.
+    await this.requireConfigFile(options as ConfigAwareOptions);
 
     try {
       const inspector = new ProjectInspector(options);
