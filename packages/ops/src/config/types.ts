@@ -628,6 +628,13 @@ export interface ConfigManagerOptions {
   configDirName?: string;
 
   /**
+   * Explicit project config file. When set, project-config discovery is
+   * skipped and this file is used instead; a missing file is an error in
+   * strict mode and a warning otherwise.
+   */
+  configFilePath?: string;
+
+  /**
    * Config file names to search for, in priority order.
    * Default: ['config.yaml', 'config.yml']
    */

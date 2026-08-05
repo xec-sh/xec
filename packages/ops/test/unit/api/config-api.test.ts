@@ -453,3 +453,60 @@ describe('Configuration API', () => {
     });
   });
 });
+describe('ConfigAPI constructor options', () => {
+  let optDir: string;
+  let previousHome: string | undefined;
+  let previousCwd: string;
+
+  beforeEach(async () => {
+    optDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-config-api-opt-'));
+    previousCwd = process.cwd();
+    // Keep the user's real ~/.xec and any project config out of the merge.
+    previousHome = process.env['XEC_HOME_DIR'];
+    process.env['XEC_HOME_DIR'] = path.join(optDir, 'home');
+    process.chdir(optDir);
+  });
+
+  afterEach(async () => {
+    try {
+      process.chdir(previousCwd);
+    } catch {
+      // Earlier describes in this file delete the directory they chdir'd
+      // into; fall back to a directory that exists.
+      process.chdir(os.tmpdir());
+    }
+    if (previousHome === undefined) {
+      delete process.env['XEC_HOME_DIR'];
+    } else {
+      process.env['XEC_HOME_DIR'] = previousHome;
+    }
+    await fs.rm(optDir, { recursive: true, force: true });
+  });
+
+  it('honours the path option from the first load()', async () => {
+    // The options used to reach the manager only through reload(), so a
+    // freshly constructed API silently ignored them.
+    const explicit = path.join(optDir, 'named-config.yaml');
+    await fs.writeFile(explicit, yaml.dump({ vars: { probe: 'from-named-file' } }));
+
+    const api = new ConfigAPI({ path: explicit });
+    await api.load();
+
+    expect(api.get('vars.probe')).toBe('from-named-file');
+  });
+
+  it('prefers the named file over a discoverable project config', async () => {
+    await fs.mkdir(path.join(optDir, '.xec'), { recursive: true });
+    await fs.writeFile(
+      path.join(optDir, '.xec', 'config.yaml'),
+      yaml.dump({ vars: { probe: 'from-discovery' } })
+    );
+    const explicit = path.join(optDir, 'named-config.yaml');
+    await fs.writeFile(explicit, yaml.dump({ vars: { probe: 'from-named-file' } }));
+
+    const api = new ConfigAPI({ path: explicit });
+    await api.load();
+
+    expect(api.get('vars.probe')).toBe('from-named-file');
+  });
+});

@@ -16,8 +16,18 @@ export class ConfigAPI {
   private loaded = false;
 
   constructor(private options: ConfigurationOptions = {}) {
-    this.manager = new ConfigurationManager();
+    // The options must reach the manager at construction; they used to be
+    // applied only by reload(), so `path` and `profile` were silently
+    // ignored until the caller happened to reload.
+    this.manager = new ConfigurationManager(this.managerOptions());
     this.interpolator = new VariableInterpolator();
+  }
+
+  private managerOptions() {
+    return {
+      profile: this.options.profile,
+      configFilePath: this.options.path,
+    };
   }
 
   /**
@@ -212,7 +222,7 @@ export class ConfigAPI {
     this.loaded = false;
     // Create new manager to pick up current working directory
     this.manager = new ConfigurationManager({
-      ...this.options,
+      ...this.managerOptions(),
       projectRoot: process.cwd()
     });
     await this.load();

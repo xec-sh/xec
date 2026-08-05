@@ -833,3 +833,102 @@ vars:
     });
   });
 });
+describe('ConfigurationManager option wiring', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-config-wire-'));
+    await fs.mkdir(path.join(tmpDir, '.xec'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  function writeProjectConfig(content: string): Promise<void> {
+    return fs.writeFile(path.join(tmpDir, '.xec', 'config.yaml'), content);
+  }
+
+  function makeManager(extra: Record<string, unknown> = {}) {
+    return new ConfigurationManager({
+      projectRoot: tmpDir,
+      globalHomeDir: path.join(tmpDir, 'no-global-config'),
+      ...extra,
+    });
+  }
+
+  it('cache: true makes load() return the merged result without re-reading', async () => {
+    // Re-loading also re-runs ${cmd:...} interpolation, which executes
+    // commands, so an enabled cache must actually short-circuit.
+    await writeProjectConfig('vars:\n  probe: first\n');
+    const manager = makeManager({ cache: true });
+
+    expect((await manager.load()).vars?.['probe']).toBe('first');
+
+    await writeProjectConfig('vars:\n  probe: second\n');
+    expect((await manager.load()).vars?.['probe']).toBe('first');
+  });
+
+  it('load() re-reads by default', async () => {
+    await writeProjectConfig('vars:\n  probe: first\n');
+    const manager = makeManager();
+
+    expect((await manager.load()).vars?.['probe']).toBe('first');
+
+    await writeProjectConfig('vars:\n  probe: second\n');
+    expect((await manager.load()).vars?.['probe']).toBe('second');
+  });
+
+  it('useProfile() bypasses the cache', async () => {
+    await writeProjectConfig('vars:\n  probe: base\n');
+    await fs.mkdir(path.join(tmpDir, '.xec', 'profiles'), { recursive: true });
+    await fs.writeFile(
+      path.join(tmpDir, '.xec', 'profiles', 'qa.yaml'),
+      'vars:\n  probe: from-qa\n'
+    );
+
+    const manager = makeManager({ cache: true });
+    await manager.load();
+
+    await manager.useProfile('qa');
+    expect(manager.get('vars.probe')).toBe('from-qa');
+  });
+
+  it('configFilePath replaces project-config discovery', async () => {
+    // The conventional file exists and must lose to the named one.
+    await writeProjectConfig('vars:\n  probe: from-discovery\n');
+    const explicit = path.join(tmpDir, 'elsewhere.yaml');
+    await fs.writeFile(explicit, 'vars:\n  probe: from-explicit\n');
+
+    const manager = makeManager({ configFilePath: explicit });
+    const config = await manager.load();
+
+    expect(config.vars?.['probe']).toBe('from-explicit');
+  });
+
+  it('a missing configFilePath fails loudly in strict mode', async () => {
+    const manager = makeManager({
+      configFilePath: path.join(tmpDir, 'absent.yaml'),
+      strict: true,
+    });
+
+    await expect(manager.load()).rejects.toThrow('absent.yaml');
+  });
+
+  it('does not mutate the options object it was given', () => {
+    const options = { projectRoot: tmpDir };
+    void new ConfigurationManager(options);
+    expect(Object.keys(options)).toEqual(['projectRoot']);
+  });
+
+  it('reports missing load() without naming internals', () => {
+    const manager = makeManager();
+    try {
+      manager.get('vars.probe');
+      expect.unreachable('get() before load() must throw');
+    } catch (error) {
+      expect((error as Error).message).toContain('Call load() first');
+      expect((error as Error).message).not.toContain('jsYaml');
+    }
+  });
+});

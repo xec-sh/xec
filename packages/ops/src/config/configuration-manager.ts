@@ -76,7 +76,13 @@ export class ConfigurationManager {
   private rootConfigFileNames: string[];
   private profilesDirName: string;
 
-  constructor(private options: ConfigManagerOptions = {}) {
+  private options: ConfigManagerOptions;
+
+  constructor(options: ConfigManagerOptions = {}) {
+    // Copy before applying defaults: the caller's object must not grow
+    // fields behind its back, and two managers sharing one options object
+    // must not see each other's defaults.
+    this.options = { ...options };
     this.options.projectRoot = this.options.projectRoot || process.cwd();
     this.options.globalHomeDir = this.options.globalHomeDir || getGlobalConfigDir();
     this.options.envPrefix = this.options.envPrefix || 'XEC_';
@@ -97,6 +103,13 @@ export class ConfigurationManager {
    * Load configuration from all sources
    */
   async load(): Promise<Configuration> {
+    // With caching enabled, a repeated load() returns the merged result
+    // instead of re-reading every source — re-loading also re-runs
+    // ${cmd:...} interpolations, which execute commands.
+    if (this.options.cache && this.merged) {
+      return this.merged;
+    }
+
     // Clear previous state
     this.sources = [];
     this.merged = undefined;
@@ -182,7 +195,7 @@ export class ConfigurationManager {
    */
   get<T = any>(p: string): T | undefined {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
+      throw new Error('Configuration not loaded. Call load() first.');
     }
 
     return this.getByPath(this.merged, p) as T;
@@ -195,7 +208,7 @@ export class ConfigurationManager {
    */
   set(p: string, value: any): void {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
+      throw new Error('Configuration not loaded. Call load() first.');
     }
 
     this.setByPath(this.merged, p, value);
@@ -241,6 +254,8 @@ export class ConfigurationManager {
    */
   async useProfile(profileName: string): Promise<void> {
     this.options.profile = profileName;
+    // The profile changes what load() produces; a cached result is stale.
+    this.merged = undefined;
     await this.load();
   }
 
@@ -272,7 +287,7 @@ export class ConfigurationManager {
    */
   getConfig(): Configuration {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
+      throw new Error('Configuration not loaded. Call load() first.');
     }
     return this.merged;
   }
@@ -300,7 +315,7 @@ export class ConfigurationManager {
    */
   getTargetResolver(): TargetResolver {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
+      throw new Error('Configuration not loaded. Call load() first.');
     }
     return new TargetResolver(this.merged);
   }
@@ -310,7 +325,7 @@ export class ConfigurationManager {
    */
   async validate(): Promise<ValidationError[]> {
     if (!this.merged) {
-      throw new Error('Configuration not loaded. Call jsYaml.load() first.');
+      throw new Error('Configuration not loaded. Call load() first.');
     }
     return this.validator.validate(this.merged);
   }
@@ -532,6 +547,27 @@ export class ConfigurationManager {
   }
 
   private async loadProjectConfig(): Promise<void> {
+    // An explicit config file replaces discovery entirely: a caller that
+    // names a file means that file, not "that file unless the conventional
+    // one exists".
+    if (this.options.configFilePath) {
+      const explicit = path.resolve(this.options.configFilePath);
+      const config = await this.tryLoadConfigFile(explicit);
+      if (config) {
+        this.sources.push({
+          type: 'project',
+          path: explicit,
+          priority: 20,
+          config
+        });
+      } else if (this.options.strict) {
+        throw new Error(`Config file not found: ${explicit}`);
+      } else {
+        console.warn(`Config warning: config file not found: ${explicit}`);
+      }
+      return;
+    }
+
     // First, try to find the project root (monorepo or regular project)
     const projectRoot = await this.findProjectRoot(this.options.projectRoot!);
 
