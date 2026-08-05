@@ -108,6 +108,10 @@ pnpm add @xec-sh/core     # the engine
 pnpm add -g @xec-sh/cli   # the CLI
 ```
 
+Runs on Node 22.18+, Bun, and Deno — the same commands, byte-identical
+results, pinned by a cross-runtime parity test. The libraries alone need
+only Node 20.
+
 ## The CLI
 
 ```bash
