@@ -584,21 +584,40 @@ export abstract class BaseCommand {
     }
   }
 
+  /**
+   * Say something about the work, on the channel meant for saying things.
+   *
+   * stdout carries the answer; stderr carries everything said about
+   * producing it. Every one of these levels is narration — "Executing on
+   * web-1...", "Change detected", a warning, a failure — and none of them
+   * is what `xec ... > file` was meant to capture. Writing them to stdout
+   * put progress lines into redirected output and, under `-o json`, in
+   * front of the document a parser was waiting for: a failed run wrote a
+   * banner to stdout and its JSON error to stderr, so the file the caller
+   * kept was neither valid JSON nor empty.
+   *
+   * The answer itself goes through {@link output} and `emitResult`.
+   *
+   * @param message - What to say.
+   * @param level - Which symbol to say it with.
+   */
   protected log(message: string, level: 'info' | 'success' | 'warn' | 'error' = 'info'): void {
     if (this.options.quiet) return;
 
+    const opts = { output: process.stderr };
+
     switch (level) {
       case 'success':
-        log.success(message);
+        log.success(message, opts);
         break;
       case 'warn':
-        log.warning(message);
+        log.warning(message, opts);
         break;
       case 'error':
-        log.error(message);
+        log.error(message, opts);
         break;
       default:
-        log.info(message);
+        log.info(message, opts);
     }
   }
 

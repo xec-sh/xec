@@ -1,3 +1,4 @@
+import type { TargetOutcome } from '../utils/fleet-run.js';
 import type { ResolvedTarget, ExecutionOptions } from '@xec-sh/ops';
 
 import { z } from 'zod';
@@ -8,8 +9,11 @@ import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { ScriptLoader, parseTimeout, validateOptions } from '@xec-sh/ops';
 
+import { runFleet } from '../utils/fleet-run.js';
+import { resolveEnvPairs } from '../utils/secret-env.js';
 import { variadicParts, positionalString } from '../utils/variadic.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
+import { reportFleet, fleetFailure, fleetDocument } from '../utils/fleet-report.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
 interface InOptions extends ConfigAwareOptions, InteractiveOptions {
@@ -20,6 +24,9 @@ interface InOptions extends ConfigAwareOptions, InteractiveOptions {
   cwd?: string;
   user?: string;
   parallel?: boolean;
+  maxConcurrent?: number;
+  failFast?: boolean;
+  maxFailures?: string;
 }
 
 export class InCommand extends ConfigAwareCommand {
@@ -61,6 +68,19 @@ export class InCommand extends ConfigAwareCommand {
           flags: '--parallel',
           description: 'Execute on multiple targets in parallel',
         },
+        {
+          flags: '--max-concurrent <n>',
+          description: 'Maximum concurrent executions',
+          defaultValue: '10',
+        },
+        {
+          flags: '--fail-fast',
+          description: 'Stop on first failure in parallel mode',
+        },
+        {
+          flags: '--max-failures <n>',
+          description: 'Stop after n failures, or a share of the fleet (e.g. 3, 20%)',
+        },
       ],
       examples: [
         {
@@ -95,6 +115,9 @@ export class InCommand extends ConfigAwareCommand {
           user: z.string().optional(),
           interactive: z.boolean().optional(),
           parallel: z.boolean().optional(),
+          maxConcurrent: z.string().optional(),
+          failFast: z.boolean().optional(),
+          maxFailures: z.string().optional(),
           verbose: z.boolean().optional(),
           quiet: z.boolean().optional(),
           dryRun: z.boolean().optional(),
@@ -235,53 +258,77 @@ export class InCommand extends ConfigAwareCommand {
           dryRun: true,
         })),
         () => {
+          // The plan is the answer here, so it shares a channel with its
+          // json form — see the same note in `on`.
           for (const target of targets) {
-            this.log(`[DRY RUN] Would execute in ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}`, 'info');
+            process.stdout.write(
+              `[DRY RUN] Would execute in ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}\n`
+            );
           }
         }
       );
       return;
     }
 
-    if (options.parallel && targets.length > 1) {
-      await this.executeParallel(targets, command, options);
-    } else {
-      for (const target of targets) {
-        await this.executeSingle(target, command, options);
+    const { result, skipped } = await runFleet(
+      targets,
+      command,
+      target => this.runOnTarget(target, command, options),
+      {
+        parallel: options.parallel,
+        maxConcurrent: Number(options.maxConcurrent ?? 10),
+        failFast: options.failFast,
+        maxFailures: options.maxFailures,
       }
+    );
+
+    const skippedNames = skipped.map(target => this.formatTargetDisplay(target));
+
+    this.emitResult(fleetDocument(result, skippedNames), () => {
+      if (!options.quiet) reportFleet(result, skippedNames);
+    });
+
+    if (!result.ok) {
+      throw fleetFailure(result);
     }
   }
 
-  private async executeSingle(
+  /**
+   * Run the command in one target, reporting failure as a value.
+   *
+   * @param target - Where to run.
+   * @param command - What to run.
+   * @param options - Environment, working directory and timeout.
+   * @returns What the target produced.
+   */
+  private async runOnTarget(
     target: ResolvedTarget,
     command: string,
     options: InOptions
-  ): Promise<void> {
-    const targetDisplay = this.formatTargetDisplay(target);
-
-    if (!options.quiet) {
-      this.startSpinner(`Executing in ${targetDisplay}...`);
-    }
-
+  ): Promise<TargetOutcome> {
     try {
       const engine = await this.createTargetEngine(target);
 
       if (options.verbose) {
-        console.log(`[DEBUG] Created engine for target type: ${target.type}`);
+        console.error(`[DEBUG] Created engine for target type: ${target.type}`);
       }
 
       // Apply options
       let execEngine = engine;
 
       if (options.env && options.env.length > 0) {
-        const envVars: Record<string, string> = {};
-        for (const envVar of options.env) {
-          const [key, value] = envVar.split('=');
-          if (key && value !== undefined) {
-            envVars[key] = value;
-          }
+        const resolved = await resolveEnvPairs(options.env, () =>
+          Promise.resolve(this.configManager.getSecretManager())
+        );
+
+        for (const key of resolved.unprotected) {
+          this.log(
+            `${key} holds a value too short to redact; it will appear in output if the command prints it`,
+            'warn'
+          );
         }
-        execEngine = execEngine.env(envVars);
+
+        execEngine = execEngine.env(resolved.env);
       }
 
       if (options.cwd) {
@@ -295,69 +342,38 @@ export class InCommand extends ConfigAwareCommand {
 
       // Execute command using raw template literal (no escaping)
       if (options.verbose) {
-        console.log(`[DEBUG] Executing command: "${command}"`);
+        console.error(`[DEBUG] Executing command: "${command}"`);
       }
+
       const result = await execEngine.raw`${command}`;
 
-      if (!options.quiet) {
-        this.stopSpinner();
-        this.log(`${prism.green('✓')} ${targetDisplay}`, 'success');
-
-        if (result.stdout) {
-          console.log(result.stdout.trim());
-        }
-
-        if (result.stderr && options.verbose) {
-          console.error(prism.yellow(result.stderr.trim()));
-        }
-      }
+      return {
+        exitCode: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
     } catch (error) {
-      if (!options.quiet) {
-        this.stopSpinner();
+      // A command that ran and exited non-zero carries its code and both
+      // streams on the error. That is one target's answer, not the
+      // fan-out's failure: letting it propagate cost the results of every
+      // target that had already succeeded.
+      const failure = error as { exitCode?: unknown; stdout?: unknown; stderr?: unknown };
+      if (typeof failure.exitCode === 'number' && failure.exitCode !== 0) {
+        return {
+          exitCode: failure.exitCode,
+          stdout: typeof failure.stdout === 'string' ? failure.stdout : '',
+          stderr: typeof failure.stderr === 'string' ? failure.stderr : '',
+        };
       }
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${prism.red('✗')} ${targetDisplay}: ${errorMessage}`, 'error');
-      throw error;
-    }
-  }
-
-  private async executeParallel(
-    targets: ResolvedTarget[],
-    command: string,
-    options: InOptions
-  ): Promise<void> {
-    this.log(`Executing on ${targets.length} targets in parallel...`, 'info');
-
-    const promises = targets.map(async (target) => {
-      try {
-        await this.executeSingle(target, command, { ...options, quiet: true });
-        return { target, success: true, error: null };
-      } catch (error) {
-        return { target, success: false, error };
-      }
-    });
-
-    const results = await Promise.all(promises);
-
-    // Display results
-    const successful = results.filter(r => r.success);
-    const failed = results.filter(r => !r.success);
-
-    if (successful.length > 0) {
-      this.log(`${prism.green('✓')} Succeeded on ${successful.length} targets:`, 'success');
-      for (const result of successful) {
-        this.log(`  - ${this.formatTargetDisplay(result.target)}`, 'info');
-      }
-    }
-
-    if (failed.length > 0) {
-      this.log(`${prism.red('✗')} Failed on ${failed.length} targets:`, 'error');
-      for (const result of failed) {
-        const errorMessage = result.error instanceof Error ? result.error.message : String(result.error);
-        this.log(`  - ${this.formatTargetDisplay(result.target)}: ${errorMessage}`, 'error');
-      }
-      throw new Error(`Command failed on ${failed.length} targets`);
+      // Reaching here means the command never ran: no such container, a
+      // pod that is not running, a daemon that is not there.
+      return {
+        exitCode: -1,
+        stdout: '',
+        stderr: '',
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -484,6 +500,19 @@ export class InCommand extends ConfigAwareCommand {
     try {
       let command: string[];
 
+      // Resolved once, ahead of building the command line, so that a
+      // `secret://` reference to a key nothing holds fails before a terminal
+      // is handed over to a child process.
+      const env = options.env?.length
+        ? await resolveEnvPairs(options.env, () =>
+            Promise.resolve(this.configManager.getSecretManager())
+          )
+        : { env: {}, unprotected: [] as readonly string[] };
+
+      for (const key of env.unprotected) {
+        this.log(`${key} holds a value too short to redact`, 'warn');
+      }
+
       if (target.type === 'docker') {
         const config = target.config as any;
         command = ['docker', 'exec', '-it'];
@@ -496,10 +525,12 @@ export class InCommand extends ConfigAwareCommand {
           command.push('-w', options.cwd || config.workdir);
         }
 
-        if (options.env) {
-          for (const envVar of options.env) {
-            command.push('-e', envVar);
-          }
+        // `-e KEY` without a value tells docker to take it from the client's
+        // own environment, so the value never appears in this machine's
+        // process list. Passing `-e KEY=value` — the previous behaviour —
+        // published every credential to anyone who can run `ps`.
+        for (const key of Object.keys(env.env)) {
+          command.push('-e', key);
         }
 
         command.push(config.container || target.name || '');
@@ -516,13 +547,31 @@ export class InCommand extends ConfigAwareCommand {
 
         command.push(config.pod || target.name || '');
         command.push('--');
+
+        // kubectl has no equivalent of docker's out-of-band `-e KEY`, so the
+        // values have to travel in the argument vector. They were silently
+        // dropped before, which was not better — it was the same exposure
+        // plus a broken session. Say what the cost is instead of hiding it.
+        const keys = Object.keys(env.env);
+        if (keys.length > 0) {
+          this.log(
+            `kubectl carries environment values in its arguments; ` +
+            `${keys.join(', ')} will be visible in this machine's process list`,
+            'warn'
+          );
+          command.push('env', ...keys.map(key => `${key}=${env.env[key]}`));
+        }
+
         command.push(config.shell || '/bin/sh');
       } else {
         throw new Error(`Interactive mode not supported for target type: ${target.type}`);
       }
 
-      // Use local execution for interactive mode
-      const result = await $.local().raw`${command.join(' ')}`.interactive();
+      // Interpolated as an array, not joined into a raw string: `raw` leaves
+      // the shell to re-split the result, so a container name or workdir
+      // holding a space broke the session and one holding `;` ran whatever
+      // followed it.
+      const result = await $.local().env(env.env)`${command}`.interactive();
 
       if (result.exitCode !== 0 && result.exitCode !== 130) { // 130 is Ctrl+C
         throw new Error(`Interactive session ended with exit code ${result.exitCode}`);

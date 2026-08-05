@@ -145,10 +145,27 @@ export class ForwardCommand extends ConfigAwareCommand {
     const mappings = this.parsePortMappings(portSpec);
 
     if (mergedOptions.dryRun) {
-      this.log('[DRY RUN] Would forward ports:', 'info');
-      for (const mapping of mappings) {
-        this.log(`  ${mergedOptions.bind}:${mapping.local} -> ${this.formatTargetDisplay(target)}:${mapping.remote}`, 'info');
-      }
+      // A rehearsal is a plan, and a plan is data — the same shape `on`
+      // and `in` produce, so a script that reads one reads them all. It
+      // was text only, so `--dry-run -o json` answered with nothing a
+      // parser could use.
+      this.emitResult(
+        mappings.map(mapping => ({
+          target: target.id ?? target.name,
+          bind: mergedOptions.bind,
+          local: mapping.local,
+          remote: mapping.remote,
+          dryRun: true,
+        })),
+        () => {
+          process.stdout.write('[DRY RUN] Would forward ports:\n');
+          for (const mapping of mappings) {
+            process.stdout.write(
+              `  ${mergedOptions.bind}:${mapping.local} -> ${this.formatTargetDisplay(target)}:${mapping.remote}\n`
+            );
+          }
+        }
+      );
       return;
     }
 

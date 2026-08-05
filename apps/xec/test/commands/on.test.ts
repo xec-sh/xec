@@ -10,6 +10,22 @@ import * as fs from 'fs/promises';
 import { OnCommand } from '../../src/commands/on.js';
 
 // Test helper that extends OnCommand to override methods for testing
+/** Run something and return whatever it wrote to stdout. */
+async function captureStdout(fn: () => Promise<unknown>): Promise<string> {
+  const chunks: string[] = [];
+  const real = process.stdout.write.bind(process.stdout);
+  (process.stdout as { write: unknown }).write = (chunk: string) => {
+    chunks.push(String(chunk));
+    return true;
+  };
+  try {
+    await fn();
+  } finally {
+    (process.stdout as { write: unknown }).write = real;
+  }
+  return chunks.join('');
+}
+
 class TestableOnCommand extends OnCommand {
   public executeCalls: any[] = [];
   public scriptCalls: any[] = [];
@@ -795,7 +811,10 @@ describe('On Command', () => {
           'test-command',
           { parallel: true, failFast: true, quiet: true }
         ])
-      ).rejects.toThrow('Command failed on');
+      // With a pool wide enough for all three, every target is already
+      // running before the first failure lands: --fail-fast stops work
+      // from *starting*, and there is none left to stop.
+      ).rejects.toThrow(/targets failed/);
     });
   });
 
@@ -1143,11 +1162,25 @@ describe('On Command', () => {
         yaml.dump(config)
       );
 
-      await command.execute(['hosts.verbose-host', 'test-command', { verbose: true, quiet: false }]);
+      const out: string[] = [];
+      const err: string[] = [];
+      const realOut = process.stdout.write.bind(process.stdout);
+      const realErr = process.stderr.write.bind(process.stderr);
+      (process.stdout as { write: unknown }).write = (chunk: string) => { out.push(String(chunk)); return true; };
+      (process.stderr as { write: unknown }).write = (chunk: string) => { err.push(String(chunk)); return true; };
 
-      // Should log both stdout and stderr in verbose mode
-      const output = command.outputLines.join('\n');
-      expect(output).toContain('✓');
+      try {
+        await command.execute(['hosts.verbose-host', 'test-command', { verbose: true, quiet: false }]);
+      } finally {
+        (process.stdout as { write: unknown }).write = realOut;
+        (process.stderr as { write: unknown }).write = realErr;
+      }
+
+      // The command's own streams, each on its own channel. stderr used to
+      // require --verbose to appear at all, so a warning from a command
+      // that still exited 0 was thrown away.
+      expect(out.join('')).toBe('Command output\n');
+      expect(err.join('')).toContain('Warning message');
     });
 
     it('should handle empty targets gracefully', async () => {
@@ -1188,18 +1221,17 @@ describe('On Command', () => {
         yaml.dump(config)
       );
 
-      await command.execute([
+      const plan = await captureStdout(() => command.execute([
         'hosts.dry-run-test',
         'rm -rf /important',
         { dryRun: true, quiet: false }
-      ]);
+      ]));
 
-      // In dry run mode, it should log but not execute
-      expect(command.outputLines.some(line =>
-        line.includes('[DRY RUN]') &&
-        line.includes('Would execute') &&
-        line.includes('rm -rf /important')
-      )).toBe(true);
+      // The plan is what a dry run produces, so it arrives on stdout —
+      // the same channel its `-o json` form uses.
+      expect(plan).toContain('[DRY RUN]');
+      expect(plan).toContain('Would execute');
+      expect(plan).toContain('rm -rf /important');
     });
 
     it('should handle dry run with multiple hosts', async () => {
@@ -1220,14 +1252,13 @@ describe('On Command', () => {
         yaml.dump(config)
       );
 
-      await command.execute([
+      const plan = await captureStdout(() => command.execute([
         'hosts.server-*',
         'deploy.sh',
         { dryRun: true, quiet: false }
-      ]);
+      ]));
 
-      // Should show dry run for both hosts
-      const dryRunLines = command.outputLines.filter(line => line.includes('[DRY RUN]'));
+      const dryRunLines = plan.split('\n').filter(line => line.includes('[DRY RUN]'));
       expect(dryRunLines).toHaveLength(2);
       expect(dryRunLines[0]).toContain('server-1');
       expect(dryRunLines[1]).toContain('server-2');
