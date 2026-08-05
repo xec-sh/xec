@@ -84,5 +84,8 @@
       "import": "./dist/index.js"
     },
     "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

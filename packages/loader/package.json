@@ -65,5 +65,8 @@
     "type": "git",
     "url": "https://github.com/xec-sh/xec.git",
     "directory": "packages/loader"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

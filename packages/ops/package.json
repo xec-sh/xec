@@ -105,5 +105,8 @@
     "type": "git",
     "url": "git+https://github.com/xec-sh/xec.git",
     "directory": "packages/ops"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

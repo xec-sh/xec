@@ -660,7 +660,10 @@ All code MUST pass these gates before commit:
 ## 🛠 Tools & Environment
 
 ### Required Tools
-- Node.js 20+ (with corepack)
+- Node.js 22.18+ for the CLI: its TS scripts ride Node's own type stripping,
+  default-on since 22.18, and self-resolution needs `module.registerHooks`
+  (22.15+). The libraries alone run on Node 20+; each built dist imports and
+  executes through core on 20, 22 and 24.
 - pnpm (via corepack)
 - Docker (for integration tests)
 - kubectl (for Kubernetes tests)

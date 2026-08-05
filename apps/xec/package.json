@@ -73,5 +73,8 @@
   "bugs": {
     "url": "https://github.com/xec-sh/xec/issues"
   },
-  "homepage": "https://xec.sh"
+  "homepage": "https://xec.sh",
+  "engines": {
+    "node": ">=22.18.0"
+  }
 }

@@ -10,7 +10,10 @@ keywords: [install, setup, npm, pnpm, global, local]
 
 Before installing Xec, ensure your system meets these requirements:
 
-- **Node.js**: Version 22.0.0 or higher
+- **Node.js**: Version 22.18.0 or higher — the CLI runs TypeScript files
+  through Node's own type stripping, on by default since 22.18. The
+  libraries (`@xec-sh/core` and friends) used programmatically need only
+  Node 20.
 - **Operating System**: macOS, Linux, or Windows (with WSL recommended)
 - **Package Manager**: npm (included with Node.js) or pnpm
 

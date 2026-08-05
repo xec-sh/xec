@@ -44,5 +44,8 @@
     "type": "git",
     "url": "git+https://github.com/xec-sh/xec.git",
     "directory": "packages/testing"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
