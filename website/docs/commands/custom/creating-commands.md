@@ -5,548 +5,260 @@ description: Adding project-specific commands under .xec/commands
 
 # Creating Custom Commands
 
-Extend Xec's functionality by creating custom commands that integrate seamlessly with the built-in command system.
-
-## Overview
-
-Xec supports dynamic command loading from `.xec/commands/` directories. Custom commands are JavaScript or TypeScript files that export command definitions compatible with the Commander.js framework used internally by Xec.
+A file in `.xec/commands/` becomes a command of your CLI. `xec deploy` can be
+yours — with its own options, `--help`, and everything a script can reach:
+targets, prompts, the full execution engine.
 
 ## Command Structure
 
-Custom commands must follow this basic structure:
+A command file exports a function that receives the CLI's
+[Commander](https://github.com/tj/commander.js) program and registers itself:
 
-```javascript
-/**
- * Command description (optional)
- * This will be available as: xec my-command [args...]
- */
-
-export default function command(program) {
+```typescript
+// .xec/commands/greet.ts
+export function command(program: any) {
   program
-    .command('my-command [args...]')
-    .description('A custom command')
-    .option('-v, --verbose', 'Enable verbose output')
-    .action(async (args, options) => {
-      // Your command logic here
+    .command('greet [name]')
+    .description('Greet someone properly')
+    .option('-u, --uppercase', 'Shout it')
+    .action(async (name = 'World', options: { uppercase?: boolean }) => {
+      const greeting = `Hello, ${name}!`;
+      log.success(options.uppercase ? greeting.toUpperCase() : greeting);
     });
 }
 ```
 
-## Loading Mechanism
+```bash
+xec greet Alice --uppercase
+# HELLO, ALICE!
+```
 
-### Discovery Process
+The export may be named `command`, `setup`, or be the default export — the
+loader accepts all three. TypeScript needs no build step: the file is
+transformed on load.
 
-Xec discovers commands using the following search pattern:
+## What a Command Can Use
 
-1. **Primary locations** (in order):
-   - `.xec/commands/` in current directory
-   - `.xec/cli/` in current directory
-   - Parent directories (up to 3 levels)
+### Script globals — no imports
 
-2. **Environment paths**:
-   - Additional paths from `XEC_COMMANDS_PATH` environment variable (colon-separated)
+Every global available to `xec run` scripts is available inside a command:
+`$`, `kit`, `log`, `prism`, `glob`, `fs`, `retry`, `sleep`, `within`, `yaml`,
+and the rest. See [Execution Context](../../scripting/basics/execution-context.md)
+for the full list.
 
-3. **File patterns**:
-   - `.js`, `.mjs`, `.ts`, `.tsx` extensions
-   - Excludes test files (`.test.js`, `.spec.ts`, etc.)
-   - Excludes hidden files and type definition files
-
-### Command Registration
-
-Commands are loaded in this order:
-1. Built-in commands (from Xec core)
-2. Dynamic commands (from directories above)
-3. Dynamic commands override built-in commands if they share the same name
-
-## Command Development
-
-### Basic Command Template
-
-Create a new command file (e.g., `.xec/commands/hello.js`):
-
-```javascript
-/**
- * A simple hello world command
- */
-
-export default function command(program) {
+```typescript
+export function command(program: any) {
   program
-    .command('hello [name]')
-    .description('Say hello to someone')
-    .option('-u, --uppercase', 'Convert to uppercase')
-    .option('-c, --count <n>', 'Repeat greeting', '1')
-    .action(async (name = 'World', options) => {
-      const { log } = await import('@clack/prompts');
-      
-      let greeting = `Hello, ${name}!`;
-      
-      if (options.uppercase) {
-        greeting = greeting.toUpperCase();
+    .command('clean')
+    .description('Remove build artifacts')
+    .action(async () => {
+      const files = await glob(['dist/**', '**/*.tsbuildinfo']);
+      if (files.length === 0) {
+        log.info('Nothing to clean');
+        return;
       }
-      
-      const count = parseInt(options.count);
-      for (let i = 0; i < count; i++) {
-        log.success(greeting);
-      }
+
+      const yes = await kit.confirm({ message: `Delete ${files.length} paths?` });
+      if (yes !== true) return; // Ctrl+C yields a cancel symbol, not false
+
+      await $`rm -rf ${files}`;
+      log.success(`Removed ${files.length} paths`);
     });
 }
 ```
 
-### Advanced Command with Xec Integration
+### Typed imports — even in a bare project
 
-```javascript
-/**
- * Deploy application to multiple targets
- */
+For IntelliSense and explicit dependencies, import the packages statically.
+The CLI carries `@xec-sh/core`, `@xec-sh/ops`, `@xec-sh/kit` and
+`@xec-sh/loader` as its own dependencies and supplies them to your command
+when the project has not installed them. A project that *has* installed one —
+to pin a version — keeps its own copy: ordinary resolution always wins.
 
-export default function command(program) {
+```typescript
+import { $ } from '@xec-sh/core';
+import type { ExecutionResult } from '@xec-sh/core';
+
+export function command(program: any) {
   program
-    .command('deploy [targets...]')
-    .description('Deploy application to specified targets')
-    .option('-e, --env <environment>', 'Deployment environment', 'production')
-    .option('--dry-run', 'Show what would be deployed without executing')
-    .option('-p, --parallel', 'Deploy to all targets in parallel')
-    .action(async (targets = [], options) => {
-      const { $, on, copy } = await import('@xec-sh/core');
-      const { log, spinner } = await import('@clack/prompts');
-      
-      if (targets.length === 0) {
-        log.error('No targets specified');
-        process.exit(1);
+    .command('status')
+    .description('Show git status, typed')
+    .action(async () => {
+      const result: ExecutionResult = await $`git status --short`;
+      log.info(`${result.lines().length} changed files`);
+    });
+}
+```
+
+### Targets
+
+The engine reaches every environment from anywhere:
+
+```typescript
+export function command(program: any) {
+  program
+    .command('deploy <host>')
+    .description('Deploy the current build to a host')
+    .option('--dry-run', 'Print what would happen')
+    .action(async (host: string, options: { dryRun?: boolean }) => {
+      await $`npm run build`;
+
+      if (options.dryRun) {
+        log.info(`Would sync dist/ to ${host} and restart`);
+        return;
       }
-      
-      const s = spinner();
-      s.start('Preparing deployment...');
-      
-      try {
-        // Build application
-        await $`npm run build`;
-        
-        if (options.dryRun) {
-          log.info('Dry run mode - would deploy to:', targets);
-          return;
-        }
-        
-        // Deploy to each target
-        const deployments = targets.map(async (target) => {
-          s.message(`Deploying to ${target}...`);
-          
-          // Copy files
-          await copy('dist/*', `${target}:/app/`);
-          
-          // Restart service
-          await on(target, 'systemctl restart myapp');
-          
-          return target;
-        });
-        
-        if (options.parallel) {
-          await Promise.all(deployments);
-        } else {
-          for (const deployment of deployments) {
-            await deployment;
-          }
-        }
-        
-        s.stop('Deployment completed successfully');
-        log.success(`Deployed to ${targets.length} target(s)`);
-        
-      } catch (error) {
-        s.stop('Deployment failed');
-        log.error(error.message);
-        process.exit(1);
+
+      const remote = $.ssh(host);
+      const s = kit.spinner();
+      s.start(`Deploying to ${host}`);
+
+      // Transfer addresses environments by URL — local path to ssh:// path
+      await $.transfer.copy('dist/', `ssh://${host}/srv/app/`);
+      await remote`systemctl restart myapp`;
+
+      s.stop(`Deployed to ${host}`);
+    });
+}
+```
+
+### Project configuration
+
+The configuration the rest of the CLI uses is one import away:
+
+```typescript
+import { config } from '@xec-sh/ops';
+
+export function command(program: any) {
+  program
+    .command('hosts')
+    .description('List configured SSH targets')
+    .action(async () => {
+      await config.load();
+      const hosts = config.get('targets.hosts') ?? {};
+      for (const name of Object.keys(hosts)) {
+        log.info(name);
       }
     });
 }
 ```
 
-### Nested Commands
+## Discovery
 
-Create hierarchical command structures using subdirectories:
+Xec looks for command files in:
+
+1. `.xec/commands/` and `.xec/cli/` in the current directory
+2. `.xec/commands/` in parent directories, up to three levels
+3. Any directories in `XEC_COMMANDS_PATH` (colon-separated)
+
+Files with `.js`, `.mjs`, `.ts`, `.tsx` extensions register; `.test.*`,
+`.spec.*` and dot-files are skipped. A dynamic command with the same name as
+a built-in replaces it.
+
+### Nested commands
+
+Subdirectories become colon-separated names:
 
 ```
 .xec/commands/
-├── database/
-│   ├── migrate.js     # xec database:migrate
-│   ├── backup.js      # xec database:backup
-│   └── restore.js     # xec database:restore
+├── db/
+│   ├── migrate.ts     # xec db:migrate
+│   └── backup.ts      # xec db:backup
 └── cache/
-    ├── clear.js       # xec cache:clear
-    └── warm.js        # xec cache:warm
+    └── clear.ts       # xec cache:clear
 ```
 
-## Command Metadata
+## Descriptions and Aliases Without Execution
 
-### Export Metadata
+`xec --help` must print one line per command without executing every command
+file — loading them all would run a TypeScript transform and whatever each
+file imports, to print a sentence. So discovery *reads* the file and takes:
 
-Provide rich command information by exporting metadata:
+1. The first literal `.description('...')` argument, or a literal
+   `description: '...'` property
+2. Failing that, the first line of a `/** ... */` comment that opens the file
+3. Failing that, a `// Description: ...` line comment
 
-```javascript
-export const metadata = {
-  description: 'Advanced deployment command',
-  aliases: ['dep'],
-  usage: 'deploy <targets...> [options]'
-};
+Aliases work the same way: literal `.alias('...')` and `.aliases([...])`
+strings are honoured before the file ever loads, so `xec dep` finds your
+`deploy` command. A description or alias *computed* at run time is invisible
+until the command is actually invoked — keep them literal.
 
-export default function command(program) {
-  // Command implementation
-}
-```
-
-### JSDoc Comments
-
-Commands can be documented using JSDoc-style comments:
-
-```javascript
-/**
- * Command: Deploy application
- * Description: Deploy application to multiple targets with rollback support
- * Aliases: dep, deploy-app
- */
-
-export default function command(program) {
-  // Implementation
-}
-```
-
-## Integration Features
-
-### Xec Core Integration
-
-Access Xec's execution engine and utilities:
-
-```javascript
-export default function command(program) {
-  program
-    .command('my-command')
-    .action(async () => {
-      // Import Xec core features
-      const { 
-        $,           // Template literal execution
-        on,          // SSH execution
-        copy,        // File copying
-        forward,     // Port forwarding
-        logs         // Log streaming
-      } = await import('@xec-sh/core');
-      
-      // Use built-in prompts
-      const { 
-        log, 
-        spinner, 
-        select, 
-        confirm,
-        text
-      } = await import('@clack/prompts');
-      
-      // Execute commands
-      const result = await $`echo "Hello from custom command"`;
-      log.success(result.stdout);
-    });
-}
-```
-
-### Configuration Access
-
-Access project configuration in commands:
-
-```javascript
-export default function command(program) {
+```typescript
+export function command(program: any) {
   program
     .command('deploy')
+    .alias('dep')                       // found without executing the file
+    .description('Deploy the app')      // ditto
+    .action(async () => { /* ... */ });
+}
+```
+
+The command actually invoked is always loaded in full, so its own options
+and `--help` are real.
+
+## Errors and Exit Codes
+
+Throwing from an action is reported and exits non-zero — in CI that is the
+whole contract. Handle only what you can improve:
+
+```typescript
+export function command(program: any) {
+  program
+    .command('migrate')
+    .description('Run database migrations')
     .action(async () => {
-      // Access configuration through global context
-      const config = global.xecConfig || {};
-      
-      const targets = config.targets?.hosts || {};
-      const deployConfig = config.tasks?.deploy || {};
-      
-      // Use configuration in command logic
-    });
-}
-```
+      const result = await $`./bin/migrate`.nothrow();
 
-### Error Handling
-
-Use Xec's error handling patterns:
-
-```javascript
-export default function command(program) {
-  program
-    .command('risky-operation')
-    .action(async (options) => {
-      try {
-        // Command logic that might fail
-        await performRiskyOperation();
-      } catch (error) {
-        const { log } = await import('@clack/prompts');
-        
-        if (options.verbose) {
-          log.error('Detailed error:', error.stack);
-        } else {
-          log.error(error.message);
-        }
-        
-        process.exit(1);
+      if (!result.ok) {
+        log.error(`Migration failed: ${result.stderr.trim()}`);
+        log.info('The database is unchanged; fix the migration and rerun.');
+        process.exitCode = 1;
       }
     });
 }
 ```
 
-## Command Validation
+## Testing Commands
 
-### File Validation
+A command file is a module; test it like one:
 
-Xec validates command files during loading:
-
-- Must export a default function or named `command` function
-- Function must call `program.command()` to register at least one command
-- File must be valid JavaScript/TypeScript
-
-### Runtime Validation
-
-Commands should validate their inputs:
-
-```javascript
-export default function command(program) {
-  program
-    .command('validate-example <required> [optional]')
-    .action(async (required, optional, options) => {
-      const { log } = await import('@clack/prompts');
-      
-      // Validate required parameters
-      if (!required || required.trim() === '') {
-        log.error('Required parameter cannot be empty');
-        process.exit(1);
-      }
-      
-      // Validate options
-      if (options.count && isNaN(parseInt(options.count))) {
-        log.error('Count must be a number');
-        process.exit(1);
-      }
-      
-      // Command logic
-    });
-}
-```
-
-## Best Practices
-
-### Command Design
-
-1. **Single Responsibility**: Each command should do one thing well
-2. **Consistent Interface**: Follow Xec's option and argument patterns
-3. **Error Handling**: Provide clear error messages and appropriate exit codes
-4. **Documentation**: Include description and usage examples
-
-### Performance Considerations
-
-1. **Lazy Imports**: Import heavy modules only when needed
-2. **Async Operations**: Use async/await for I/O operations
-3. **Resource Cleanup**: Properly close connections and clean up resources
-
-### Security
-
-1. **Input Validation**: Validate all user inputs
-2. **Safe Execution**: Be careful with shell command construction
-3. **Secrets**: Never log sensitive information
-
-## Testing Custom Commands
-
-### Unit Testing
-
-Test command logic separately from CLI integration:
-
-```javascript
-// tests/commands/hello.test.js
+```typescript
+// .xec/commands/greet.test.ts — skipped by discovery, run by your test runner
 import { Command } from 'commander';
-import commandSetup from '../../.xec/commands/hello.js';
+import { command } from './greet.js';
 
-describe('hello command', () => {
-  test('registers command correctly', () => {
-    const program = new Command();
-    commandSetup(program);
-    
-    const command = program.commands.find(cmd => cmd.name() === 'hello');
-    expect(command).toBeDefined();
-    expect(command.description()).toBe('Say hello to someone');
-  });
+it('registers with its description', () => {
+  const program = new Command();
+  command(program);
+
+  const greet = program.commands.find(c => c.name() === 'greet');
+  expect(greet?.description()).toBe('Greet someone properly');
 });
 ```
 
-### Integration Testing
-
-Test commands as part of the CLI:
+End to end, the CLI itself is the harness:
 
 ```bash
-# Test command registration
-xec --help | grep "hello"
-
-# Test command execution
-xec hello --dry-run
-
-# Test with different options
-xec hello Alice --uppercase --count 3
-```
-
-## Command Examples
-
-### File Management Command
-
-```javascript
-/**
- * File management utilities
- */
-
-export default function command(program) {
-  program
-    .command('files')
-    .description('File management utilities')
-    .addCommand(
-      new Command('clean')
-        .description('Clean temporary files')
-        .option('-f, --force', 'Force deletion without confirmation')
-        .action(async (options) => {
-          const { $, glob } = await import('@xec-sh/core');
-          const { confirm, log } = await import('@clack/prompts');
-          
-          const files = await glob(['**/*.tmp', '**/*.log']);
-          
-          if (files.length === 0) {
-            log.info('No temporary files found');
-            return;
-          }
-          
-          if (!options.force) {
-            const shouldDelete = await confirm({
-              message: `Delete ${files.length} temporary files?`
-            });
-            
-            if (!shouldDelete) {
-              log.info('Operation cancelled');
-              return;
-            }
-          }
-          
-          await $`rm -f ${files}`;
-          log.success(`Deleted ${files.length} files`);
-        })
-    );
-}
-```
-
-### Environment Command
-
-```javascript
-/**
- * Environment management
- */
-
-export default function command(program) {
-  program
-    .command('env <action>')
-    .description('Manage environment configurations')
-    .option('-e, --environment <name>', 'Environment name')
-    .action(async (action, options) => {
-      const { on, copy } = await import('@xec-sh/core');
-      const { select, log } = await import('@clack/prompts');
-      
-      let environment = options.environment;
-      
-      if (!environment) {
-        environment = await select({
-          message: 'Select environment:',
-          options: [
-            { value: 'development', label: 'Development' },
-            { value: 'staging', label: 'Staging' },
-            { value: 'production', label: 'Production' }
-          ]
-        });
-      }
-      
-      switch (action) {
-        case 'setup':
-          await setupEnvironment(environment);
-          break;
-        case 'deploy':
-          await deployToEnvironment(environment);
-          break;
-        default:
-          log.error(`Unknown action: ${action}`);
-          process.exit(1);
-      }
-    });
-}
-
-async function setupEnvironment(env) {
-  // Environment setup logic
-}
-
-async function deployToEnvironment(env) {
-  // Deployment logic
-}
+xec greet Alice --uppercase
+xec --help | grep greet
 ```
 
 ## Troubleshooting
 
-### Command Not Found
-
-If your command isn't being discovered:
-
-1. Check file location (`.xec/commands/` directory)
-2. Verify file extension (`.js`, `.ts`, etc.)
-3. Ensure export structure is correct
-4. Check for syntax errors
-5. Enable debug mode: `XEC_DEBUG=true xec your-command`
-
-### Loading Errors
-
-Common loading issues:
-
 ```bash
-# Check command discovery
-XEC_DEBUG=true xec --help
+# See discovery: which directories were scanned, what was found, load errors
+XEC_DEBUG=1 xec --help
 
-# Validate command file
-node -c .xec/commands/your-command.js
-
-# Test command registration
-node -e "
-const { Command } = require('commander');
-const cmd = require('./.xec/commands/your-command.js');
-const program = new Command();
-cmd.default(program);
-console.log(program.commands.map(c => c.name()));
-"
+# A command that fails to load reports its real error here too —
+# a syntax error is a syntax error, not "command not found"
+XEC_DEBUG=1 xec your-command
 ```
 
-### Performance Issues
+Transformed TypeScript commands run from `.xec/.tmp/`; with `XEC_DEBUG` set
+the transformed files are kept there for inspection.
 
-If commands load slowly:
+## Sharing Commands
 
-1. Use dynamic imports for heavy dependencies
-2. Avoid synchronous I/O in module scope
-3. Cache expensive computations
-4. Profile loading time with `XEC_DEBUG=true`
-
-## Migration and Maintenance
-
-### Updating Commands
-
-When updating Xec or dependencies:
-
-1. Test command compatibility
-2. Update import statements if needed
-3. Check for deprecated APIs
-4. Update documentation
-
-### Sharing Commands
-
-To share commands across projects:
-
-1. Create a shared commands repository
-2. Use `XEC_COMMANDS_PATH` environment variable
-3. Consider publishing as npm packages
-4. Document dependencies and requirements
-
-Commands provide a powerful way to extend Xec's functionality while maintaining consistency with the built-in command system. Follow these patterns and best practices to create robust, maintainable custom commands that integrate seamlessly with your Xec workflows.
+- `XEC_COMMANDS_PATH=/path/to/shared/commands` adds a directory to discovery
+- A parent directory's `.xec/commands/` serves every project beneath it —
+  a monorepo root is the natural home for shared commands
