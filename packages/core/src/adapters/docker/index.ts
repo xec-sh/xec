@@ -650,6 +650,7 @@ export class DockerAdapter extends BaseAdapter {
 
     // Handle stdin only if not in inherit mode
     if (child.stdin && command.stdin) {
+      this.absorbStdinErrors(child.stdin);
       if (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin)) {
         child.stdin.write(command.stdin);
         child.stdin.end();

@@ -183,6 +183,7 @@ export class KubernetesAdapter extends BaseAdapter {
 
       // Pipe stdin if provided
       if (mergedCommand.stdin) {
+        this.absorbStdinErrors(proc.stdin);
         if (typeof mergedCommand.stdin === 'string' || Buffer.isBuffer(mergedCommand.stdin)) {
           proc.stdin.write(mergedCommand.stdin);
           proc.stdin.end();

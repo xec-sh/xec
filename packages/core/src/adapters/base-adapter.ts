@@ -458,6 +458,27 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   }
 
   /**
+   * Absorb write errors on a child's stdin before feeding it.
+   *
+   * A process is free to exit without reading its input — `head -1`, a
+   * failing pipe target, plain `true`. The OS then closes the pipe and the
+   * pending write surfaces as an asynchronous 'error' event on the stream;
+   * with no listener, that is an uncaught exception that takes down the
+   * whole host process. The race window depends on buffer sizes and
+   * scheduling, which is why it appeared as a once-in-many-runs flake
+   * locally and reliably in CI.
+   *
+   * The command's outcome is the child's exit status and output, already
+   * collected by the exit handler — a stdin delivery failure adds nothing
+   * to it, so every stdin error is absorbed, not just EPIPE: the same race
+   * also surfaces as ERR_STREAM_DESTROYED or write-after-end depending on
+   * timing.
+   */
+  protected absorbStdinErrors(stdin: NodeJS.WritableStream | null | undefined): void {
+    stdin?.on('error', () => {});
+  }
+
+  /**
    * Set up abort signal handling. Returns a cleanup function that MUST be
    * called when the operation completes (in a finally block) to prevent
    * listener accumulation on long-lived AbortSignal instances.
