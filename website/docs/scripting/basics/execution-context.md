@@ -19,13 +19,14 @@ await $target`ls -la`;
 await $`pwd`;
 ```
 
-`$target` and `$targetInfo` exist when the CLI binds the script to a target:
-`xec on <host> script.js` and `xec in <container> script.js` bind them to
-that host or container, and `xec run script.js` binds them to the local
-machine (`$targetInfo.type === 'local'`). Running a file directly —
-`xec script.js` — declares neither variable at all (not even as `undefined`),
-so portable scripts check with `typeof` rather than referencing them
-directly, or fall back to `$`.
+`$target` and `$targetInfo` are bound to whatever the CLI ran the script
+against: `xec on <host> script.js` and `xec in <container> script.js` bind
+them to that host or container, while `xec run script.js` — and its direct
+shorthand `xec script.js` — bind them to the local machine
+(`$targetInfo.type === 'local'`), and `-e` evaluation gets the same
+local binding. Code that may also run outside the CLI — under plain
+`node` — should still check with `typeof`, since there the variables
+aren't declared at all.
 
 ## Global Context Variables
 
@@ -154,9 +155,11 @@ console.log(params._);       // [] — positional arguments land here
 // numbers, JSON, or anything else. Parse those yourself if you need them.
 ```
 
-Note the invocation: arguments are passed by running the file directly
-(`xec deploy.js ...`). The `run` subcommand form (`xec run deploy.js`)
-currently accepts no script arguments.
+The flags `run` owns — `--dry-run`, `--watch`, `-o/--output`,
+`-c/--config`, `--typescript`, `--runtime`, `-p/--param`, the root
+`-v`/`-q` — are consumed by the CLI; everything else passes through. Put an
+owned flag after `--` to reach the script:
+`xec run deploy.js -- --dry-run`.
 
 ## Context Isolation
 

@@ -320,7 +320,7 @@ tasks:
 import { $ } from '@xec-sh/core';
 import { platform } from 'os';
 
-const isDebug = process.argv.includes('--debug');
+const isDebug = args.includes('--debug');
 const isWindows = platform() === 'win32';
 
 // Platform-specific commands

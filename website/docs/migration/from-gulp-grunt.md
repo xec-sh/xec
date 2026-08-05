@@ -157,6 +157,7 @@ gulp.task('styles', () => {
 // scripts/styles.ts
 import { $, glob } from '@xec-sh/core';
 import path from 'path';
+import { pathToFileURL } from 'node:url';
 
 export async function buildStyles() {
   const sassFiles = await glob('src/scss/**/*.scss');
@@ -174,8 +175,10 @@ export async function buildStyles() {
   console.log(`✅ Compiled ${sassFiles.length} style files`);
 }
 
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run when invoked as the entry script (`xec run scripts/styles.ts`),
+// stay quiet when imported. The loader adds a cache-busting query to
+// the entry URL, hence the split.
+if (import.meta.url.split('?')[0] === pathToFileURL(__filename).href) {
   await buildStyles();
 }
 ```
@@ -477,8 +480,10 @@ import { $, glob } from '@xec-sh/core';
 import * as fs from 'node:fs/promises';
 import path from 'path';
 
-const isProduction = process.argv.includes('--production');
-const isWatch = process.argv.includes('--watch');
+// --watch is also a flag of `xec run` itself — pass it to the script
+// as `xec run scripts/build.ts -- --watch`
+const isProduction = args.includes('--production');
+const isWatch = args.includes('--watch');
 
 export async function buildStyles() {
   const sassFiles = await glob('app/scss/**/*.scss');

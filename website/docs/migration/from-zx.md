@@ -114,7 +114,7 @@ await $.ssh('server')
 | `glob()` | `glob()` | Same behavior |
 | `fs` | `node:fs/promises` | Not re-exported; import Node's own module |
 | `chalk` | `chalk` | Not re-exported; install and import it directly |
-| `argv` | `process.argv` | Standard Node.js |
+| `argv` | `argv` / `args` | zx's `argv` is minimist-parsed; Xec's `argv` is the raw array and `args` holds just the script's arguments — use `parseArgs(args)` for flags |
 | `$.verbose` | `$.verbose` | Same behavior |
 | `$.shell` | `$.shell()` | A method, not an assignable property |
 | `nothrow()` | `nothrow()` | Returns Result type |
@@ -507,7 +507,7 @@ const tasks = {
   }
 };
 
-const task = process.argv[2];
+const task = args[0];
 if (tasks[task]) {
   await tasks[task]();
 }
@@ -805,12 +805,10 @@ async function main(): Promise<void> {
 }
 
 // Error handling and execution
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error(chalk.red('Fatal error:'), error);
-    process.exit(1);
-  });
-}
+await main().catch((error) => {
+  console.error(chalk.red('Fatal error:'), error);
+  process.exit(1);
+});
 ```
 
 ## Feature Comparison

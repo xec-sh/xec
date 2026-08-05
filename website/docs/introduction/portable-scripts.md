@@ -193,7 +193,7 @@ await $`rm ${backupFile}`;
 
 ```javascript
 // service-control.js
-const action = process.argv[2] || 'status';
+const action = args[0] || 'status';
 
 const serviceCommands = {
   local: {

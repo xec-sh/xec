@@ -82,7 +82,7 @@ async function deployToServer(env) {
 
 // Main build pipeline
 async function build() {
-  const env = process.argv[2] || 'development';
+  const env = args[0] || 'development';
   
   try {
     await clean();
@@ -121,7 +121,7 @@ build();
 import { $ } from '@xec-sh/core';
 import { rm } from 'fs/promises';
 
-const env = process.argv[2] || 'development';
+const env = args[0] || 'development';
 
 // Clean build directory
 await rm('dist', { recursive: true, force: true });
@@ -254,7 +254,7 @@ const configs: Record<string, BuildConfig> = {
   }
 };
 
-const env = process.argv[2] || 'development';
+const env = args[0] || 'development';
 const config = configs[env];
 
 // Set environment variables for webpack
@@ -545,7 +545,7 @@ async function deploy() {
   );
 }
 
-const command = process.argv[2];
+const command = args[0];
 
 switch (command) {
   case 'dev':
@@ -699,14 +699,14 @@ function generateWebpackConfig(env: WebpackEnv) {
 }
 
 // Generate config based on environment
-const env = process.argv[2] || 'development';
+const env = args[0] || 'development';
 const config = generateWebpackConfig({
   mode: env as any,
   target: 'web',
   features: {
     pwa: env === 'production',
     splitChunks: true,
-    analyzer: process.argv.includes('--analyze')
+    analyzer: args.includes('--analyze')
   }
 });
 

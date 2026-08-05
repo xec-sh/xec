@@ -98,7 +98,7 @@ import { createHash } from 'crypto';
 import { readFile, writeFile } from 'fs/promises';
 import * as path from 'path';
 
-const backupType = process.argv[2] || 'full';
+const backupType = args[0] || 'full';
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const backupDir = `/backup/${timestamp}`;
 
@@ -471,8 +471,8 @@ import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 
-const backupId = process.argv[2];
-const targetComponent = process.argv[3] || 'all';
+const backupId = args[0];
+const targetComponent = args[1] || 'all';
 
 console.log(chalk.blue(`🔄 Starting restore from backup ${backupId}...`));
 

@@ -490,7 +490,7 @@ const orchestrator = new HybridOrchestrator({
 });
 
 // Deploy based on environment
-const env = process.argv[2] || 'local';
+const env = args[0] || 'local';
 await orchestrator.deploy(env);
 ```
 

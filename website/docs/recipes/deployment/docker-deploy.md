@@ -92,8 +92,8 @@ import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 import crypto from 'crypto';
 
-const environment = process.argv[2] || 'staging';
-const version = process.argv[3] || 'latest';
+const environment = args[0] || 'staging';
+const version = args[1] || 'latest';
 
 // Configuration
 const config = {
@@ -420,7 +420,7 @@ EOF
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const newVersion = process.argv[2];
+const newVersion = args[0];
 const currentColor = await getCurrentColor();
 const newColor = currentColor === 'blue' ? 'green' : 'blue';
 

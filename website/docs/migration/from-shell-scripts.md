@@ -67,7 +67,7 @@ echo "Deployment complete"
 import { $ } from '@xec-sh/core';
 import { readFile } from 'fs/promises';
 
-const env = process.argv[2] || 'staging';
+const env = args[0] || 'staging';
 const version = await $`git describe --tags --always`.text();
 
 // Type-safe server configuration
@@ -840,12 +840,10 @@ process.on('unhandledRejection', async (error) => {
 });
 
 // Run main function
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch(async (error) => {
-        await log(`FATAL: ${error}`);
-        process.exit(1);
-    });
-}
+await main().catch(async (error) => {
+    await log(`FATAL: ${error}`);
+    process.exit(1);
+});
 ```
 
 ## Shell-Specific Features

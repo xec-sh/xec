@@ -139,8 +139,8 @@ xec run --typescript -e "
   console.log(\`Found \${files.length} TypeScript files\`);
 "
 
-# Evaluate with arguments
-xec run -e "console.log('Args:', process.argv.slice(2))" arg1 arg2
+# Evaluate with arguments — they arrive as the `args` global
+xec run -e "console.log('Args:', args)" arg1 arg2
 ```
 
 ### REPL Mode
@@ -196,10 +196,11 @@ Scripts executed with `xec run` have access to:
 #### Global Variables
 
 ```javascript
-// Process information
-console.log(process.argv); // Command line arguments
-console.log(__filename);   // Current file path (when available)
-console.log(__dirname);    // Current directory (when available)
+// Script arguments and location
+console.log(args);         // Arguments passed to the script
+console.log(argv);         // [interpreter, scriptPath, ...args]
+console.log(__filename);   // Script file path
+console.log(__dirname);    // Script directory
 
 // Xec context (injected by ScriptRunner)
 console.log($target);      // Current target from config

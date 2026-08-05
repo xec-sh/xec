@@ -888,7 +888,7 @@ async function main() {
   const config = {
     version: process.env.VERSION || '1.0.0',
     servers: (process.env.SERVERS || 'localhost').split(','),
-    force: process.argv.includes('--force')
+    force: args.includes('--force')
   };
   
   const manager = new DeploymentManager(config);

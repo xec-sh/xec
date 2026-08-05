@@ -127,11 +127,11 @@ xec ./path/to/script [args...]
 - `.cjs` - CommonJS modules
 - `.cts` - TypeScript CommonJS
 
-**Execution Environment:** (via `ScriptRunner` class)
-- Xec core modules pre-imported (`$`, `$$`, types)
-- Script arguments available via `process.argv`
+**Execution Environment:**
+- `$` and the scripting utilities injected as globals
+- Script arguments injected as `args` (and `argv`, shell convention)
 - Current working directory preserved
-- TypeScript compilation via `tsx` or `ts-node`
+- TypeScript compiled by the built-in loader — no `tsx`/`ts-node` needed
 
 ### 3. Task Execution
 

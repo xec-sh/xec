@@ -85,7 +85,7 @@ import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
-const platform = process.argv[2] || 'nginx';
+const platform = args[0] || 'nginx';
 const buildDir = './dist';
 
 console.log(chalk.blue(`🚀 Deploying static site to ${platform}...`));
@@ -487,8 +487,8 @@ await $`
 // scripts/ssl-setup.ts
 import { $ } from '@xec-sh/core';
 
-const domain = process.argv[2];
-const email = process.argv[3];
+const domain = args[0];
+const email = args[1];
 
 // Install Certbot
 await $.ssh('web-server')`

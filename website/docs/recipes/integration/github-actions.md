@@ -407,7 +407,7 @@ console.log(chalk.green('✅ Dependencies installed'));
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const tags = process.argv.slice(2).filter(arg => arg.startsWith('--tag=')).map(arg => arg.slice(6));
+const tags = args.filter(arg => arg.startsWith('--tag=')).map(arg => arg.slice(6));
 const registry = process.env.DOCKER_REGISTRY || 'ghcr.io';
 const repo = process.env.GITHUB_REPOSITORY || 'org/repo';
 
@@ -440,8 +440,8 @@ console.log(chalk.green('✅ Docker image built and pushed'));
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const environment = process.argv.find(arg => arg.startsWith('--environment='))?.slice(14);
-const duration = process.argv.find(arg => arg.startsWith('--duration='))?.slice(11) || '5m';
+const environment = args.find(arg => arg.startsWith('--environment='))?.slice(14);
+const duration = args.find(arg => arg.startsWith('--duration='))?.slice(11) || '5m';
 
 console.log(chalk.blue(`📊 Monitoring ${environment} deployment for ${duration}...`));
 

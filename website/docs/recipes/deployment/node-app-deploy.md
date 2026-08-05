@@ -30,8 +30,8 @@ Xec provides a unified approach to Node.js deployment using its execution engine
 // deploy.ts
 import { $ } from '@xec-sh/core';
 
-const target = process.argv[2] || 'staging';
-const version = process.argv[3] || 'latest';
+const target = args[0] || 'staging';
+const version = args[1] || 'latest';
 
 // Deploy to target environment
 await $.ssh(target)`
@@ -96,8 +96,8 @@ import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 import { readFile } from 'fs/promises';
 
-const environment = process.argv[2];
-const version = process.argv[3] || 'main';
+const environment = args[0];
+const version = args[1] || 'main';
 
 // Configuration
 const config = {
@@ -258,7 +258,7 @@ try {
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const environment = process.argv[2];
+const environment = args[0];
 
 console.log(chalk.blue('🔍 Running pre-deployment checks...'));
 
@@ -303,7 +303,7 @@ console.log(chalk.green('✅ All pre-deployment checks passed'));
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const environment = process.argv[2];
+const environment = args[0];
 const endpoints = {
   staging: 'https://staging.example.com',
   production: 'https://example.com'
@@ -366,7 +366,7 @@ await $`
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const environment = process.argv[2];
+const environment = args[0];
 const servers = ['prod-1', 'prod-2', 'prod-3'];
 
 // Remove servers from load balancer one by one
@@ -427,8 +427,8 @@ for (const server of servers) {
 // scripts/docker-deploy.ts
 import { $ } from '@xec-sh/core';
 
-const environment = process.argv[2];
-const image = process.argv[3];
+const environment = args[0];
+const image = args[1];
 
 // Build and push Docker image
 await $`

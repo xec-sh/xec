@@ -95,9 +95,9 @@ import chalk from 'chalk';
 import { readFile, writeFile } from 'fs/promises';
 import * as yaml from 'js-yaml';
 
-const environment = process.argv[2];
-const version = process.argv[3];
-const replicas = parseInt(process.argv[4] || '3');
+const environment = args[0];
+const version = args[1];
+const replicas = parseInt(args[2] || '3');
 
 // Environment configuration
 const config = {
@@ -576,8 +576,8 @@ try {
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const environment = process.argv[2];
-const version = process.argv[3];
+const environment = args[0];
+const version = args[1];
 
 // Helm values for different environments
 const helmValues = {
@@ -660,7 +660,7 @@ console.log(chalk.green(`✅ Helm deployment completed`));
 import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
-const version = process.argv[2];
+const version = args[0];
 
 // Create Canary resource
 const canary = {
@@ -759,8 +759,8 @@ while (!canaryComplete) {
 // scripts/argocd-deploy.ts
 import { $ } from '@xec-sh/core';
 
-const environment = process.argv[2];
-const version = process.argv[3];
+const environment = args[0];
+const version = args[1];
 
 // Update manifest in Git
 await $`

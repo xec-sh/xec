@@ -88,8 +88,8 @@ import { createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Transform } from 'stream';
 
-const sources = process.argv[2] || 'all';
-const outputFile = process.argv[3] || `/tmp/logs-${Date.now()}.log`;
+const sources = args[0] || 'all';
+const outputFile = args[1] || `/tmp/logs-${Date.now()}.log`;
 
 console.log(chalk.blue('📊 Starting log aggregation...'));
 
@@ -698,7 +698,7 @@ datasources:
 }
 
 // Choose stack
-const stack = process.argv[2] || 'elk';
+const stack = args[0] || 'elk';
 
 if (stack === 'elk') {
   await setupELKStack();
@@ -718,7 +718,7 @@ import chalk from 'chalk';
 
 // Analyze logs for patterns
 async function analyzeLogs() {
-  const timeRange = process.argv[2] || '1h';
+  const timeRange = args[0] || '1h';
   
   // Query Elasticsearch for errors
   const errors = await $`

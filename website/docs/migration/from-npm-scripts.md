@@ -247,7 +247,7 @@ tasks:
 // scripts/build.ts
 import { $ } from '@xec-sh/core';
 
-const env = process.argv[2] || 'development';
+const env = args[0] || 'development';
 process.env.NODE_ENV = env;
 
 await $`webpack`;
@@ -373,7 +373,7 @@ import { $ } from '@xec-sh/core';
 import { readConfig } from './utils';
 
 const config = await readConfig();
-const target = process.argv[2] || 'production';
+const target = args[0] || 'production';
 
 // Pre-deployment checks
 console.log('🔍 Running tests...');

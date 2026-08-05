@@ -572,7 +572,7 @@ tasks:
     params:
       - name: output
         default: ./backups
-    command: xec run scripts/db-backup.ts --output ${params.output}
+    command: xec run scripts/db-backup.ts -- --output ${params.output}
     
   db:restore:
     description: Restore databases from backup

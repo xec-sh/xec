@@ -200,7 +200,7 @@ async function loadConfig(env) {
 }
 
 // Main execution
-const env = process.argv[2] || 'development';
+const env = args[0] || 'development';
 await deployStep(env);
 ```
 

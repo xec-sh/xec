@@ -25,6 +25,7 @@ Traditional CI/CD tools often require separate configurations for different envi
 ```typescript
 // pipelines/build.ts
 import { $ } from '@xec-sh/core';
+import { pathToFileURL } from 'node:url';
 
 export async function buildPipeline() {
   const startTime = Date.now();
@@ -57,8 +58,10 @@ export async function buildPipeline() {
   }
 }
 
-// Run if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run if invoked as the entry script (`xec run pipelines/build.ts`),
+// stay quiet when imported by another pipeline. The loader adds a
+// cache-busting query to the entry URL, hence the split.
+if (import.meta.url.split('?')[0] === pathToFileURL(__filename).href) {
   await buildPipeline();
 }
 ```
