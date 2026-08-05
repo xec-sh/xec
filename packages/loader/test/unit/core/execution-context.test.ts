@@ -157,6 +157,22 @@ describe('ExecutionContext', () => {
       expect((globalThis as any).$target).toBeUndefined();
       expect((globalThis as any).$targetInfo).toBeUndefined();
     });
+
+    it('leaves a global the run assigns under a non-injected name (documented boundary)', async () => {
+      context = new ExecutionContext({ customGlobals: { __ecInjected: 'v' } });
+
+      await context.execute(async () => {
+        // A name that was never injected is an ordinary global write.
+        (globalThis as any).__ecForeign = 'kept';
+      });
+
+      // The injected name reverts; the run's own foreign global survives —
+      // only injected names are run-scoped.
+      expect((globalThis as any).__ecInjected).toBeUndefined();
+      expect((globalThis as any).__ecForeign).toBe('kept');
+
+      delete (globalThis as any).__ecForeign;
+    });
   });
 
   describe('execute', () => {

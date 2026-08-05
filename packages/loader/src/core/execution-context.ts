@@ -177,7 +177,15 @@ export class ExecutionContext {
   }
 
   /**
-   * Restore original globals
+   * End this run: drop its store so the injected names resolve to their
+   * pre-existing globals again (or to `undefined`).
+   *
+   * Only injected names are run-scoped. A global the script assigned under a
+   * name that was never injected is an ordinary global and survives the run —
+   * deleting every name that appeared would strip a legitimate self-registration
+   * such as a polyfill, and one whose registering module is already cached would
+   * never be reinstalled on a later run. Full isolation of arbitrary globals is
+   * not a guarantee this class makes; that needs a fresh realm.
    */
   async restoreGlobals(): Promise<void> {
     if (!this.store) return;
