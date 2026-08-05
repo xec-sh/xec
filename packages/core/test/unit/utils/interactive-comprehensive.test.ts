@@ -262,20 +262,22 @@ describe('Interactive Utility Comprehensive Tests', () => {
       const session = createInteractiveSession('sh');
       activeSessions.push(session);
       const stderrData: string[] = [];
-      
+
       session.onStderr((data: string) => {
         stderrData.push(data);
       });
-      
+
       // Send command that writes to stderr
       await session.send('echo error message >&2');
-      
-      // Send another command to stdout to ensure stderr was processed
-      await session.send('echo done');
-      await session.expect('done');
-      
-      expect(stderrData.some(d => d.includes('error message'))).toBe(true);
-      
+
+      // Wait for the stderr delivery itself. The old version waited for a
+      // marker on stdout instead — but nothing orders one stream against the
+      // other, so on a loaded runner stderr regularly arrived after the
+      // marker and the assertion read an empty array.
+      await vi.waitFor(() => {
+        expect(stderrData.some(d => d.includes('error message'))).toBe(true);
+      }, { timeout: 5_000 });
+
       await session.send('exit');
     });
 
