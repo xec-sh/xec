@@ -48,7 +48,7 @@ describe('dynamic commands import freely', () => {
         "import { basename } from 'node:path';",
         '',
         'export function command(program: any) {',
-        "  program.command('hello').action(() => {",
+        "  program.command('hello').alias('hi').action(() => {",
         "    console.log('MARKER', basename(process.cwd()));",
         "    console.log('GLOBALS', typeof retry, typeof sleep, typeof within, typeof glob);",
         '  });',
@@ -77,5 +77,15 @@ describe('dynamic commands import freely', () => {
     const { output } = await run(['hello'], projectDir);
 
     expect(output).toContain('GLOBALS function function function function');
+  }, 60_000);
+
+  it('answers to its alias', async () => {
+    // The metadata type always promised aliases; nothing populated them, so
+    // invoking by alias reported "command not found" unless the command had
+    // already been loaded for its primary name — when nobody needs the alias.
+    const { code, output } = await run(['hi'], projectDir);
+
+    expect(output).toContain('MARKER');
+    expect(code).toBe(0);
   }, 60_000);
 });

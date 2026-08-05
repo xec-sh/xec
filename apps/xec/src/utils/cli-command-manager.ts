@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import fs from 'node:fs/promises';
 
 async function pathExists(p: string): Promise<boolean> {
@@ -7,8 +7,8 @@ async function pathExists(p: string): Promise<boolean> {
 import type { ScriptLoader } from '@xec-sh/ops';
 
 import { log } from '@xec-sh/kit';
-import { fileURLToPath } from 'url';
 import { Command } from 'commander';
+import { fileURLToPath } from 'node:url';
 import { CommandRegistry, type CommandSuggestion } from '@xec-sh/core';
 
 import { COMMAND_MANIFEST } from './command-manifest.js';
@@ -328,10 +328,40 @@ export class CliCommandManager {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
       const description = this.parseDescription(content, commandName);
-      return { description };
+      const aliases = this.parseAliases(content);
+      return { description, aliases };
     } catch {
       return {};
     }
+  }
+
+  /**
+   * Parse alias declarations from file content
+   *
+   * The metadata type always promised `aliases`; nothing filled it. So a
+   * stub never carried its command's aliases, `wanted` never matched one,
+   * and invoking a dynamic command by alias reported "command not found" —
+   * the alias worked only after the command was already loaded for its
+   * primary name, which is exactly when nobody needs it.
+   *
+   * Same contract as descriptions: literal strings only, because discovery
+   * reads the file without running it. An alias computed at run time is
+   * invisible until full load, and that is the documented limitation.
+   */
+  private parseAliases(content: string): string[] | undefined {
+    const aliases: string[] = [];
+
+    for (const single of content.matchAll(/\.alias\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g)) {
+      aliases.push(single[1]!);
+    }
+
+    for (const list of content.matchAll(/\.aliases\s*\(\s*\[([^\]]*)\]\s*\)/g)) {
+      for (const item of list[1]!.matchAll(/['"`]([^'"`]+)['"`]/g)) {
+        aliases.push(item[1]!);
+      }
+    }
+
+    return aliases.length > 0 ? aliases : undefined;
   }
 
   /**
