@@ -37,6 +37,18 @@ export interface WatchOptions {
   recursive?: boolean;
   /** Run handler immediately on start (default: false) */
   runOnStart?: boolean;
+  /**
+   * Poll the filesystem instead of subscribing to it (default: false).
+   *
+   * `fs.watch` subscribes to the operating system, and the operating
+   * system can stop delivering: a wedged fseventsd on macOS leaves every
+   * watcher silent while reporting success, and network filesystems never
+   * deliver at all. Polling costs a stat per file per interval and works
+   * where subscription does not.
+   */
+  poll?: boolean;
+  /** Interval between polls in milliseconds (default: 1000) */
+  pollInterval?: number;
 }
 
 type WatchEventMap = {
@@ -71,6 +83,8 @@ type WatchEventMap = {
  */
 export class FileWatcher extends EventEmitter<WatchEventMap> {
   private watchers: fs.FSWatcher[] = [];
+  private pollTimer: NodeJS.Timeout | null = null;
+  private pollState = new Map<string, number>();
   private debounceTimers = new Map<string, NodeJS.Timeout>();
   private readonly options: Required<WatchOptions>;
   private closed = false;
@@ -86,6 +100,8 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
       ignore: options.ignore ?? ['node_modules', '.git', 'dist', 'coverage', '.turbo'],
       recursive: options.recursive ?? true,
       runOnStart: options.runOnStart ?? false,
+      poll: options.poll ?? false,
+      pollInterval: options.pollInterval ?? 1000,
     };
   }
 
@@ -96,6 +112,12 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
     if (this.closed) throw new Error('Watcher has been closed');
 
     const dirs = Array.isArray(this.directories) ? this.directories : [this.directories];
+
+    if (this.options.poll) {
+      this.startPolling(dirs.map(dir => path.resolve(dir)));
+      this.emit('ready');
+      return;
+    }
 
     for (const dir of dirs) {
       const absoluteDir = path.resolve(dir);
@@ -119,6 +141,73 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
   }
 
   /**
+   * Walk the tree and report files whose modification time moved.
+   *
+   * The first sweep records the state without emitting: a watcher that
+   * announced every existing file as changed the moment it started would
+   * trigger the very rebuild the operator was waiting to avoid.
+   */
+  private startPolling(roots: string[]): void {
+    const sweep = (emit: boolean): void => {
+      const seen = new Set<string>();
+
+      const walk = (dir: string): void => {
+        let entries: fs.Dirent[];
+        try {
+          entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+          return; // A directory that vanished mid-sweep is not an error.
+        }
+
+        for (const entry of entries) {
+          const full = path.join(dir, entry.name);
+          if (this.options.ignore.some(pattern => full.includes(pattern))) continue;
+
+          if (entry.isDirectory()) {
+            if (this.options.recursive) walk(full);
+            continue;
+          }
+          if (!entry.isFile()) continue;
+
+          seen.add(full);
+          let mtime: number;
+          try {
+            mtime = fs.statSync(full).mtimeMs;
+          } catch {
+            continue;
+          }
+
+          const previous = this.pollState.get(full);
+          this.pollState.set(full, mtime);
+          if (!emit) continue;
+          if (previous === undefined) {
+            this.handleChange(path.dirname(full), path.basename(full), 'rename');
+          } else if (previous !== mtime) {
+            this.handleChange(path.dirname(full), path.basename(full), 'change');
+          }
+        }
+      };
+
+      for (const root of roots) walk(root);
+
+      if (emit) {
+        for (const known of [...this.pollState.keys()]) {
+          if (!seen.has(known)) {
+            this.pollState.delete(known);
+            this.handleChange(path.dirname(known), path.basename(known), 'rename');
+          }
+        }
+      }
+    };
+
+    sweep(false);
+    this.pollTimer = setInterval(() => sweep(true), this.options.pollInterval);
+    // A poll loop must not be the reason a program stays alive.
+    const timer = this.pollTimer as NodeJS.Timeout & { unref?: () => void };
+    timer.unref?.();
+  }
+
+  /**
    * Stop watching and clean up all resources.
    */
   close(): void {
@@ -130,6 +219,12 @@ export class FileWatcher extends EventEmitter<WatchEventMap> {
       clearTimeout(timer);
     }
     this.debounceTimers.clear();
+
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    this.pollState.clear();
 
     // Close all watchers
     for (const watcher of this.watchers) {
