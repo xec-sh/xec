@@ -333,9 +333,22 @@ export class OnCommand extends ConfigAwareCommand {
     options: OnOptions
   ): Promise<void> {
     if (options.dryRun) {
-      for (const target of targets) {
-        this.log(`[DRY RUN] Would execute on ${this.formatTargetDisplay(target)}: ${prism.yellow(cmd)}`, 'info');
-      }
+      // A rehearsal is a plan, and a plan is data: a caller asking for
+      // json gets the targets and the command it would have run, which is
+      // what makes a dry run usable from a script rather than only from a
+      // pair of eyes.
+      this.emitResult(
+        targets.map(target => ({
+          target: target.id ?? target.name,
+          command: cmd,
+          dryRun: true,
+        })),
+        () => {
+          for (const target of targets) {
+            this.log(`[DRY RUN] Would execute on ${this.formatTargetDisplay(target)}: ${prism.yellow(cmd)}`, 'info');
+          }
+        }
+      );
       return;
     }
 

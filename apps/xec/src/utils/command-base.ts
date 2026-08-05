@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import { access } from 'node:fs/promises';
 import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOptions, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
+import { isPlainOutput } from './plain-mode.js';
 
 export const OUTPUT_FORMATS = ['text', 'json', 'yaml', 'csv'] as const;
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
@@ -555,10 +556,15 @@ export abstract class BaseCommand {
    * Helper methods for common operations
    */
   protected startSpinner(message: string): void {
-    if (!this.options.quiet) {
-      this.currentSpinner = kitSpinner();
-      this.currentSpinner.start(message);
+    // A spinner is an animation for a person watching. Into a pipe it
+    // writes frames and cursor codes that a parser then has to survive —
+    // and in machine mode it lands on stdout, in front of the document the
+    // caller asked for.
+    if (this.options.quiet || isPlainOutput() || this.machineFormat() !== null) {
+      return;
     }
+    this.currentSpinner = kitSpinner();
+    this.currentSpinner.start(message);
   }
 
   protected stopSpinner(message?: string, code?: number): void {

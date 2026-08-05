@@ -211,11 +211,16 @@ describe('machine output contract (-o)', () => {
       expect(stdout + stderr).toContain('*.ts, *.js');
     }, 60_000);
 
-    it('--poll on a local target is refused, not silently ignored', async () => {
-      const { code, stderr } = await run(['watch', 'local', '.', '--command', 'echo x', '--poll']);
+    it('--poll selects the polling strategy instead of being ignored', async () => {
+      // Refusing the flag was the wrong answer: polling is exactly what a
+      // local path needs when fs.watch is unavailable — a wedged fseventsd
+      // or a network filesystem — so the flag now selects the strategy.
+      const { code, stdout, stderr } = await run([
+        'watch', 'local', '.', '--command', 'echo x', '--poll', '--dry-run',
+      ]);
 
-      expect(code).not.toBe(0);
-      expect(stderr).toContain('remote');
+      expect(stderr + stdout).not.toContain('Validation failed');
+      expect(code).toBe(0);
     }, 60_000);
   });
 

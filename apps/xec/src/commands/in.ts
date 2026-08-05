@@ -226,9 +226,20 @@ export class InCommand extends ConfigAwareCommand {
     options: InOptions
   ): Promise<void> {
     if (options.dryRun) {
-      for (const target of targets) {
-        this.log(`[DRY RUN] Would execute in ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}`, 'info');
-      }
+      // The plan is data, the same as it is for `on`: one shape for both,
+      // so a script that reads one reads the other.
+      this.emitResult(
+        targets.map(target => ({
+          target: target.id ?? target.name,
+          command,
+          dryRun: true,
+        })),
+        () => {
+          for (const target of targets) {
+            this.log(`[DRY RUN] Would execute in ${this.formatTargetDisplay(target)}: ${prism.yellow(command)}`, 'info');
+          }
+        }
+      );
       return;
     }
 

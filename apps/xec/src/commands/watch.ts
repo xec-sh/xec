@@ -48,14 +48,6 @@ export class WatchCommand extends ConfigAwareCommand {
           description: 'Configuration profile to use',
         },
         {
-          flags: '--pattern <pattern>',
-          description: 'File patterns to watch (can be used multiple times)',
-        },
-        {
-          flags: '--exclude <pattern>',
-          description: 'Patterns to exclude (can be used multiple times)',
-        },
-        {
           flags: '--command <command>',
           description: 'Command to execute on change',
         },
@@ -140,6 +132,20 @@ export class WatchCommand extends ConfigAwareCommand {
 
   protected override getCommandConfigKey(): string {
     return 'watch';
+  }
+
+  /**
+   * Repeatable options need an accumulator; the declaration alone gives
+   * commander a single string, which the array schema then rejects. So the
+   * first use of `--pattern` failed validation and the feature was
+   * unreachable — the same shape the `-e` flags had.
+   */
+  override create(): Command {
+    const command = super.create();
+    const collect = (value: string, previous: string[] = []) => [...previous, value];
+    command.option('--pattern <pattern>', 'File patterns to watch (repeatable)', collect, []);
+    command.option('--exclude <pattern>', 'Patterns to exclude (repeatable)', collect, []);
+    return command;
   }
 
   override async execute(args: any[]): Promise<void> {
@@ -298,11 +304,18 @@ export class WatchCommand extends ConfigAwareCommand {
     // Create watcher using @xec-sh/loader's FileWatcher.
     // Watch all file types — pattern/exclude filtering is applied by
     // shouldIgnoreFile, not by the watcher's extension filter.
+    // --poll was declared and consulted by nothing. It matters more than it
+    // looks: fs.watch subscribes to the operating system, and a wedged
+    // fseventsd leaves every watcher silent while still reporting success —
+    // the watch appears to run and never fires. Polling stats instead, and
+    // works on network filesystems too.
     const watcher = new FileWatcher([...new Set(watchRoots)], {
       debounce: parseInt(options.debounce || '300', 10),
       ignore: options.exclude || [],
       recursive: true,
       extensions: [],
+      poll: options.poll === true,
+      pollInterval: parseInt(options.interval || '1000', 10),
     });
 
     watcher.on('change', (event) => {

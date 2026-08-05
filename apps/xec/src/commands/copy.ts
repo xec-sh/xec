@@ -15,7 +15,6 @@ import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-hel
 interface CopyOptions extends ConfigAwareOptions, InteractiveOptions {
   recursive?: boolean;
   preserve?: boolean;
-  force?: boolean;
   parallel?: boolean;
   maxConcurrent?: string;
 }
@@ -52,10 +51,6 @@ export class CopyCommand extends ConfigAwareCommand {
           description: 'Preserve file attributes',
         },
         {
-          flags: '-f, --force',
-          description: 'Force overwrite of existing files',
-        },
-        {
           flags: '--parallel',
           description: 'Copy multiple files in parallel',
         },
@@ -89,7 +84,6 @@ export class CopyCommand extends ConfigAwareCommand {
           interactive: z.boolean().optional(),
           recursive: z.boolean().optional(),
           preserve: z.boolean().optional(),
-          force: z.boolean().optional(),
           parallel: z.boolean().optional(),
           maxConcurrent: z.string().optional(),
           verbose: z.boolean().optional(),
@@ -348,10 +342,21 @@ export class CopyCommand extends ConfigAwareCommand {
         options
       );
 
-      if (!options.quiet) {
-        this.stopSpinner();
-        this.log(`${prism.green('✓')} Copied ${sourceDisplay} to ${destDisplay}`, 'success');
-      }
+      this.stopSpinner();
+      this.emitResult(
+        [{
+          success: true,
+          sourcePath,
+          destinationPath,
+          source: source?.name ?? 'local',
+          destination: destination?.name ?? 'local',
+        }],
+        () => {
+          if (!options.quiet) {
+            this.log(`${prism.green('✓')} Copied ${sourceDisplay} to ${destDisplay}`, 'success');
+          }
+        }
+      );
     } catch (error) {
       if (!options.quiet) {
         this.stopSpinner();
@@ -398,6 +403,28 @@ export class CopyCommand extends ConfigAwareCommand {
     // Display results
     const successful = results.filter(r => r.success);
     const failed = results.filter(r => !r.success);
+
+    // Machine mode reports every operation as data, including the failures:
+    // a caller that asked for JSON gets the record, not a sentence, and
+    // decides for itself what a partial copy means.
+    const machine = this.machineFormat();
+    if (machine !== null) {
+      this.emitResult(
+        results.map(r => ({
+          success: r.success,
+          sourcePath: r.operation.sourcePath,
+          destinationPath: r.operation.destinationPath,
+          source: r.operation.source?.name ?? 'local',
+          destination: r.operation.destination?.name ?? 'local',
+          ...(r.error ? { error: r.error instanceof Error ? r.error.message : String(r.error) } : {}),
+        })),
+        () => {}
+      );
+      if (failed.length > 0) {
+        throw new Error(`Copy failed for ${failed.length} files`);
+      }
+      return;
+    }
 
     if (successful.length > 0) {
       this.log(`${prism.green('✓')} Successfully copied ${successful.length} files`, 'success');
@@ -815,11 +842,6 @@ export class CopyCommand extends ConfigAwareCommand {
         false
       );
 
-      copyOptions.force = await InteractiveHelpers.confirmAction(
-        'Force overwrite existing files?',
-        false
-      );
-
       // For multiple files, ask about parallel copy
       if (sourceType.value === 'pattern') {
         copyOptions.parallel = await InteractiveHelpers.confirmAction(
@@ -863,7 +885,6 @@ export class CopyCommand extends ConfigAwareCommand {
       console.log(`  Destination: ${prism.cyan(destinationSpec)}`);
       if (copyOptions.recursive) console.log(`  Options: ${prism.gray('recursive')}`);
       if (copyOptions.preserve) console.log(`  Options: ${prism.gray('preserve attributes')}`);
-      if (copyOptions.force) console.log(`  Options: ${prism.gray('force overwrite')}`);
       if (copyOptions.parallel) console.log(`  Options: ${prism.gray(`parallel (max ${copyOptions.maxConcurrent || '4'})`)}`);
 
       const confirm = await InteractiveHelpers.confirmAction(
