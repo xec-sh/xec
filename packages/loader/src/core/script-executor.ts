@@ -16,6 +16,28 @@ import { pathToFileURL } from 'node:url';
 import { ExecutionContext } from './execution-context.js';
 
 /**
+ * A process-wide, monotonically increasing token appended to every dynamic
+ * import URL so each load resolves to a fresh module.
+ *
+ * Node's ESM loader caches a module by its exact URL and never re-runs it, so a
+ * stable URL makes a re-run — a watch reload, or the same script fanned out
+ * across targets by `xec on` — silently reuse the first module instead of
+ * executing again. `Date.now()` looks unique but collides when two loads land
+ * in the same millisecond: two targets in a parallel run then shared one module
+ * and one of them never actually ran. A counter cannot collide.
+ *
+ * The retention this creates is inherent, not a bug to fix here: Node keeps
+ * every distinct URL in the registry for the life of the process and exposes no
+ * way to evict it, so a long-lived watcher grows by one module per reload.
+ * {@link streamExecute} runs the script in a child process and is the leak-free
+ * path when a session reloads indefinitely.
+ */
+let loadCounter = 0;
+function freshImportUrl(fileURL: string): string {
+  return `${fileURL}?t=${(loadCounter += 1)}`;
+}
+
+/**
  * ScriptExecutor executes script files with context injection
  *
  * Provides a clean API for executing TypeScript/JavaScript scripts with
@@ -108,9 +130,8 @@ export class ScriptExecutor {
         // Convert path to file URL for import
         const fileURL = pathToFileURL(absolutePath).href;
 
-        // Dynamic import with cache busting
-        const cacheBuster = `?t=${Date.now()}`;
-        await import(fileURL + cacheBuster);
+        // A fresh URL per load, so a reload actually re-executes.
+        await import(freshImportUrl(fileURL));
 
         return {
           success: true,
@@ -145,9 +166,8 @@ export class ScriptExecutor {
     // Convert to file URL
     const fileURL = pathToFileURL(absolutePath).href;
 
-    // Import with cache busting
-    const cacheBuster = `?t=${Date.now()}`;
-    const module = await import(fileURL + cacheBuster);
+    // A fresh URL per load, so reloading a dynamic command re-executes it.
+    const module = await import(freshImportUrl(fileURL));
 
     return module;
   }

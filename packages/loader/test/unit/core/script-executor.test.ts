@@ -5,7 +5,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { it, expect, describe, afterAll, beforeAll } from 'vitest';
+import { vi, it, expect, describe, afterAll, beforeAll } from 'vitest';
 
 import { ScriptExecutor } from '../../../src/core/script-executor.js';
 
@@ -120,6 +120,29 @@ describe('ScriptExecutor', () => {
       await expect(
         executor.loadScript('/non/existent/module.js')
       ).rejects.toThrow('Script file not found');
+    });
+  });
+
+  describe('reload semantics', () => {
+    it('re-executes on every load even when Date.now() does not advance', async () => {
+      // Two loads within the same millisecond used to collide on `?t=<ms>`, so
+      // the second reused the first cached module and never ran — losing a
+      // target in a parallel `xec on` fan-out. The load token is a monotonic
+      // counter now, not the clock, so identical Date.now() must not matter.
+      const scriptPath = path.join(tempDir, 'reload-count.js');
+      await fs.writeFile(scriptPath, `globalThis.__reloadProbe.runs++;`);
+
+      const probe = { runs: 0 };
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+
+      try {
+        await executor.executeScript(scriptPath, { customGlobals: { __reloadProbe: probe } });
+        await executor.executeScript(scriptPath, { customGlobals: { __reloadProbe: probe } });
+      } finally {
+        nowSpy.mockRestore();
+      }
+
+      expect(probe.runs).toBe(2);
     });
   });
 });
