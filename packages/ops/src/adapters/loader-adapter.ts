@@ -269,16 +269,14 @@ export class ScriptLoader {
     // Import utilities
     const scriptRuntime = new ScriptRuntime();
 
-    // Build REPL context
+    // The REPL runs with `useGlobal: false`, so it sees only what this
+    // context carries. It previously carried its own eleven-name subset —
+    // same drift, fourth copy.
     const replContext: any = {
-      $,
-      ...this.getScriptUtilities(),
-      prism,
+      ...(await this.buildDeclaredGlobals()),
       console,
       process,
       $runtime: scriptRuntime,
-      use: (spec: string) => (globalThis as any).use?.(spec),
-      x: (spec: string) => (globalThis as any).x?.(spec),
     };
 
     // Add target context if provided
@@ -351,15 +349,13 @@ export class ScriptLoader {
         const code = await fs.promises.readFile(filePath, 'utf-8');
 
         // Use TypeScriptTransformer with Node.js platform options
-        let transformedCode = await this.tsTransformer.transformWithOptions(code, filePath, {
+        const transformedCode = await this.tsTransformer.transformWithOptions(code, filePath, {
           platform: 'node',
         });
 
         // Apply CLI-specific post-processing
-        transformedCode = this.applyCliTransformations(transformedCode);
+        const fullCode = this.applyCliTransformations(transformedCode);
 
-        // Add preamble with global context and write to temp file
-        const fullCode = this.createGlobalPreamble() + transformedCode;
         const tmpDir = nodePath.join(process.cwd(), '.xec', '.tmp');
         await fs.promises.mkdir(tmpDir, { recursive: true });
         const tmpFile = nodePath.join(tmpDir, `xec-cmd-${Date.now()}.js`);
@@ -416,38 +412,19 @@ export class ScriptLoader {
    * Fixes esbuild quirks and patterns specific to xec commands
    */
   private applyCliTransformations(code: string): string {
-    let result = code;
-
     // Fix esbuild's incorrect .mjs extensions for node: imports
     // esbuild sometimes generates: import process from "node:process.mjs"
     // Node.js expects: import process from "node:process"
-    result = result.replace(/from\s+["']node:([^"']+)\.mjs["']/g, 'from "node:$1"');
-
-    // Replace problematic declarations that conflict with globals
-    result = result.replace(
-      /const prism = globalThis\.prism \|\| kit\.prism;/g,
-      '// prism is available from globalThis'
-    );
-
-    return result;
-  }
-
-  /**
-   * Create preamble with global context for dynamic commands
-   */
-  private createGlobalPreamble(): string {
-    return `
-// Injected global context for dynamic commands
-const process = globalThis.process;
-const $ = globalThis.$;
-const kit = globalThis.kit;
-const prism = globalThis.prism;
-const log = globalThis.log;
-const use = globalThis.use;
-const x = globalThis.x;
-const Import = globalThis.Import;
-
-`;
+    //
+    // This used to also rewrite user code that declared its own `prism`
+    // constant — a workaround for the global preamble this module no longer
+    // emits. The preamble aliased `$`, `kit`, `prism` and friends as module
+    // constants, so any command that imported the same names explicitly —
+    // the documented, typed style — died at parse with "Identifier '$' has
+    // already been declared", which the CLI then reported as "command not
+    // found". Globals are injected on `globalThis` before the module loads;
+    // aliases on top of them bought nothing and broke real commands.
+    return code.replace(/from\s+["']node:([^"']+)\.mjs["']/g, 'from "node:$1"');
   }
 
   /**
@@ -460,25 +437,8 @@ const Import = globalThis.Import;
       return;
     }
 
-    // Import kit for global utilities
-    const kit = await import('@xec-sh/kit');
-
-    // Inject global functions for module loading AND kit utilities
     const injector = new GlobalInjector({
-      globals: {
-        // Core execution function (CRITICAL for commands like release.ts)
-        $,
-
-        // Module loading functions
-        use: async (spec: string) => await this.moduleLoader.import(spec),
-        x: async (spec: string) => await this.moduleLoader.import(spec),
-        Import: async (spec: string) => await this.moduleLoader.import(spec),
-
-        // Kit utilities (needed for dynamic commands like release.ts)
-        kit,
-        prism: kit.prism,
-        log: kit.log,
-      },
+      globals: await this.buildDeclaredGlobals(),
     });
 
     // Execute without restoring (we want these to stay global)
@@ -489,23 +449,47 @@ const Import = globalThis.Import;
   }
 
   /**
-   * Get script utilities (cd, pwd, env, etc.)
+   * Everything globals.d.ts declares, sourced from the same aggregate the
+   * package exports — plus the module-loading pair that only exists here.
+   *
+   * One builder feeds every entry point: script execution, code evaluation,
+   * dynamic commands and the REPL. It replaced three hand-typed lists that
+   * had drifted to different subsets of the declared thirty-two — the widest
+   * held seven names — so retry, sleep, within, glob and the rest were
+   * phantoms: visible to the type checker, undefined at run time. A release
+   * died on `retry is not defined` as the first script ever to reach one.
    */
-  private getScriptUtilities(): Record<string, any> {
-    const runtime = new ScriptRuntime();
-    return {
-      cd: runtime.cd.bind(runtime),
-      pwd: runtime.pwd.bind(runtime),
-      env: runtime.env.bind(runtime),
-      setEnv: runtime.setEnv.bind(runtime),
-      sleep: runtime.sleep.bind(runtime),
-      retry: runtime.retry.bind(runtime),
-      within: runtime.within.bind(runtime),
-      quote: runtime.quote.bind(runtime),
-      tmpdir: runtime.tmpdir.bind(runtime),
-      tmpfile: runtime.tmpfile.bind(runtime),
-      template: runtime.template.bind(runtime),
+  private declaredGlobals: Record<string, unknown> | null = null;
+
+  private async buildDeclaredGlobals(): Promise<Record<string, unknown>> {
+    if (this.declaredGlobals) {
+      return this.declaredGlobals;
+    }
+
+    const { default: scriptUtils } = await import('../utils/script-utils.js');
+    const { retry } = await import('../retry/index.js');
+
+    // The aggregate carries two members the declaration does not: `runtime`
+    // (advanced API, imported explicitly where needed) and `fetch` (already
+    // a platform global). An undeclared global is the same defect mirrored,
+    // so both stay out.
+    const declaredUtils = Object.fromEntries(
+      Object.entries(scriptUtils).filter(([name]) => name !== 'runtime' && name !== 'fetch')
+    );
+
+    this.declaredGlobals = {
+      ...declaredUtils,
+
+      // The declaration binds `retry` to the retry engine, not to the
+      // small script-utils helper the aggregate carries under that name.
+      retry,
+
+      // Module loading — the two names that exist only through the loader.
+      use: async (spec: string) => await this.moduleLoader.import(spec),
+      x: async (spec: string) => await this.moduleLoader.import(spec),
     };
+
+    return this.declaredGlobals;
   }
 
   /**

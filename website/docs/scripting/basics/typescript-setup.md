@@ -125,9 +125,10 @@ This pulls in a `declare global` block that covers:
   convention), plus the standard `__filename`/`__dirname`.
 - A set of scripting utilities re-exported from `@xec-sh/ops`: `cd`, `ps`,
   `fs`, `os`, `pwd`, `env`, `csv`, `kit`, `log`, `exit`, `kill`, `echo`,
-  `diff`, `glob`, `path`, `yaml`, `sleep`, `quote`, `which`, `fetch`,
+  `diff`, `glob`, `path`, `yaml`, `sleep`, `retry`, `quote`, `which`,
   `prism`, `setEnv`, `within`, `tmpdir`, `loadEnv`, `tmpfile`, `spinner`,
-  `template`, `parseArgs`.
+  `template`, `parseArgs`. (`fetch` needs no injection — it is the platform
+  global everywhere Xec runs.)
 - A `Xec` namespace re-exporting every type from `@xec-sh/core` (`Xec.Core.*`)
   plus the CLI's own configuration types (`TargetType`, `TargetConfig`,
   `Configuration`, `CommandConfig`, `ResolvedTarget`).
