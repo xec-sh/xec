@@ -1,6 +1,7 @@
 import type { ResolvedTarget, ExecutionOptions } from '@xec-sh/ops';
 
 import { z } from 'zod';
+import fs from 'node:fs';
 import path from 'node:path';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
@@ -42,10 +43,6 @@ export class InCommand extends ConfigAwareCommand {
         {
           flags: '-t, --timeout <duration>',
           description: 'Command timeout (e.g., 30s, 5m)',
-        },
-        {
-          flags: '-e, --env <key=value>',
-          description: 'Environment variables (can be used multiple times)',
         },
         {
           flags: '-d, --cwd <path>',
@@ -110,8 +107,29 @@ export class InCommand extends ConfigAwareCommand {
     return 'in';
   }
 
+  override create(): Command {
+    const command = super.create();
+
+    // Declared here, not in the config options list: that path cannot carry a
+    // parser, so a repeated -e kept only the last value and a single -e
+    // arrived as a bare string where an array is validated.
+    command.option(
+      '-e, --env <key=value>',
+      'Environment variables (can be used multiple times)',
+      (value, previous: string[] = []) => {
+        previous.push(value);
+        return previous;
+      },
+      []
+    );
+
+    return command;
+  }
+
   override async execute(args: any[]): Promise<void> {
-    const [targetPattern, ...commandParts] = args.slice(0, -1);
+    // The variadic positional arrives as one array, not spread — see on.ts.
+    const targetPattern = args[0];
+    const commandParts: string[] = Array.isArray(args[1]) ? args[1] : [];
     const options = args[args.length - 1] as InOptions;
 
     if (!targetPattern) {
@@ -125,16 +143,45 @@ export class InCommand extends ConfigAwareCommand {
     const defaults = this.getCommandDefaults();
     const mergedOptions = this.applyDefaults(options, defaults);
 
-    // Resolve targets
+    // Resolve targets. A bare name refers to a configured container or pod
+    // first — `on` accepts `web-1` for hosts.web-1, and `in alpine` must
+    // accept containers.alpine the same way instead of failing while the
+    // undeclared raw Docker name works.
+    let pattern = targetPattern;
+    if (!/[.*{@]/.test(pattern)) {
+      const configuredTargets = this.xecConfig?.targets;
+      if (configuredTargets?.containers?.[pattern]) {
+        pattern = `containers.${pattern}`;
+      } else if (configuredTargets?.pods?.[pattern]) {
+        pattern = `pods.${pattern}`;
+      }
+    }
+
     let targets: ResolvedTarget[];
-    if (targetPattern.includes('*') || targetPattern.includes('{')) {
-      targets = await this.findTargets(targetPattern);
+    if (pattern.includes('*') || pattern.includes('{')) {
+      targets = await this.findTargets(pattern);
       if (targets.length === 0) {
-        throw new Error(`No targets found matching pattern: ${targetPattern}`);
+        throw new Error(`No targets found matching pattern: ${pattern}`);
       }
     } else {
-      const target = await this.resolveTarget(targetPattern);
+      const target = await this.resolveTarget(pattern);
       targets = [target];
+    }
+
+    // -u overrides the configured user. Merged into the target itself because
+    // engines are constructed from target config alone. kubectl exec cannot
+    // switch users, so for pods this is a hard error, not a silent default.
+    if (mergedOptions.user) {
+      const podTargets = targets.filter(t => t.type === 'kubernetes');
+      if (podTargets.length > 0) {
+        throw new Error(
+          `--user is not supported for Kubernetes targets (kubectl exec has no user switch): ${podTargets.map(t => t.name).join(', ')}`
+        );
+      }
+      targets = targets.map(t => ({
+        ...t,
+        config: { ...(t.config as any), user: mergedOptions.user }
+      }));
     }
 
     // Handle different execution modes
@@ -149,13 +196,16 @@ export class InCommand extends ConfigAwareCommand {
       }
       await this.startRepl(targets[0]!, mergedOptions);
     } else if (commandParts.length > 0) {
-      const command = commandParts.join(' ');
-
-      // Check if it's a script file
-      if (command.endsWith('.ts') || command.endsWith('.js')) {
-        await this.executeScript(targets, command, mergedOptions);
+      // Same contract as `on`: a script is a local file handed to the loader
+      // with $target bound; anything else is text for the container shell.
+      const first = commandParts[0]!;
+      const isScriptPath = /\.(ts|js|mjs)$/.test(first) && !/[\s*?$|&;<>(){}\\]/.test(first);
+      if (isScriptPath && fs.existsSync(first)) {
+        await this.executeScript(targets, first, commandParts.slice(1), mergedOptions);
+      } else if (isScriptPath) {
+        throw new Error(`Script file not found: ${first}`);
       } else {
-        await this.executeCommand(targets, command, mergedOptions);
+        await this.executeCommand(targets, commandParts.join(' '), mergedOptions);
       }
     } else {
       // No command, default to interactive
@@ -333,6 +383,7 @@ export class InCommand extends ConfigAwareCommand {
   private async executeScript(
     targets: ResolvedTarget[],
     scriptPath: string,
+    scriptArgs: string[],
     options: InOptions
   ): Promise<void> {
     const scriptLoader = new ScriptLoader({
@@ -351,9 +402,12 @@ export class InCommand extends ConfigAwareCommand {
         const execOptions: ExecutionOptions = {
           target,
           targetEngine: engine,
+          // The script's arguments are the tokens after its path — not
+          // process.argv.slice(3), which began with the target pattern and
+          // the script's own name.
           context: {
-            args: process.argv.slice(3),
-            argv: [process.argv[0] || 'node', scriptPath, ...process.argv.slice(3)],
+            args: scriptArgs,
+            argv: [process.argv[0] || 'node', scriptPath, ...scriptArgs],
             __filename: path.resolve(scriptPath),
             __dirname: path.dirname(path.resolve(scriptPath))
           },
