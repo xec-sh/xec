@@ -9,8 +9,6 @@ everything the CLI does is also available programmatically.
 npm install -g @xec-sh/cli
 ```
 
-Status: alpha. The API may change between minor versions until 1.0.
-
 ## Quick start
 
 ```bash
@@ -116,7 +114,9 @@ integrity checking.
 
 Targets, defaults, and tasks are defined in `.xec/config.yaml`. Custom
 commands can be added per-project and appear in `xec --help` alongside the
-built-ins.
+built-ins. Scripts and custom commands may `import { $ } from '@xec-sh/core'`
+even in a project that installed nothing — the CLI supplies its own copies of
+the `@xec-sh/*` packages, and a project-installed version always wins.
 
 ## License
 
