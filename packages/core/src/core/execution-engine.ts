@@ -831,10 +831,27 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     // command into the ephemeral-container branch and then crashed on
     // `image.split(':')`. Callers should not have to strip undefined keys to
     // avoid running somewhere else entirely.
-    if (typeof (options as { image?: unknown }).image === 'string') {
+    //
+    // A named container outranks an image: a caller passing both (the shape
+    // of a configured target that records the image it was created from)
+    // means "exec in that container", not "spin up a throwaway copy". The
+    // image routes to the ephemeral flow only when no container is named, or
+    // when runMode: 'run' asks for it explicitly.
+    const explicitRunMode = (options as { runMode?: 'run' | 'exec' }).runMode;
+    const hasNamedContainer = typeof (options as { container?: unknown }).container === 'string';
+    const wantsEphemeral = explicitRunMode === 'run' ||
+      (explicitRunMode === undefined && !hasNamedContainer &&
+        typeof (options as { image?: unknown }).image === 'string');
+
+    if (wantsEphemeral) {
       // Ephemeral container flow
       const ephemeralOptions = options as DockerEphemeralOptions;
-      const containerName = this.generateEphemeralContainerName(ephemeralOptions.image);
+      if (typeof ephemeralOptions.image !== 'string') {
+        throw new TypeError(`docker(): runMode 'run' requires an image`);
+      }
+      const containerName = hasNamedContainer
+        ? (options as { container: string }).container
+        : this.generateEphemeralContainerName(ephemeralOptions.image);
 
       return this.with({
         adapter: 'docker',
