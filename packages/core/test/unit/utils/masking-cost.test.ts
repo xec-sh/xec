@@ -55,11 +55,19 @@ describe('masking cost on large output', () => {
     const mask = createOptimizedMasker(createDefaultSensitivePatterns(), DEFAULT_REDACTION);
     const measure = (length: number): number => {
       const text = 'a'.repeat(length);
-      // Warm the JIT so the first measurement is not the slow one.
+      // Warm the JIT so the first measurement is not the slow one, then take
+      // the minimum of several runs: a busy box can deschedule any single
+      // run, but the fastest of five is the code's own speed. The one flake
+      // this test ever produced was the small measurement drawing the short
+      // straw under a parallel build.
       mask(text);
-      const started = process.hrtime.bigint();
-      mask(text);
-      return Number(process.hrtime.bigint() - started) / 1e6;
+      let best = Infinity;
+      for (let run = 0; run < 5; run++) {
+        const started = process.hrtime.bigint();
+        mask(text);
+        best = Math.min(best, Number(process.hrtime.bigint() - started) / 1e6);
+      }
+      return best;
     };
 
     const small = measure(200_000);
