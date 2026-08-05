@@ -41,6 +41,57 @@ describe('secrets that must be masked', () => {
   });
 });
 
+describe('masking preserves the shape around the secret', () => {
+  // The redaction must leave the reader able to tell *which* credential was
+  // masked: key names, header names and flag names stay, values go.
+  it.each([
+    ['a JSON credential value', '"password": "secret123"', '"password": [REDACTED]'],
+    ['a Bearer authorization header', 'Authorization: Bearer abc.def-123', 'Authorization: Bearer [REDACTED]'],
+    ['a Basic authorization header', 'Authorization: Basic dXNlcjpwYXNz', 'Authorization: Basic [REDACTED]'],
+    ['an unquoted assignment', 'api_key=topsecret', 'api_key=[REDACTED]'],
+    ['a double-quoted assignment', 'api_key: "quoted secret"', 'api_key: [REDACTED]'],
+    ['a single-quoted assignment', "token='single quoted'", 'token=[REDACTED]'],
+    ['a --password flag', '--password hunter2', '--password [REDACTED]'],
+    ['a --secret flag', '--secret shh', '--secret [REDACTED]'],
+    ['a template variable value', 'password=${TEMPLATE}', 'password=[REDACTED]'],
+    ['an env-style assignment', 'MY_API_KEY=abc123', 'MY_API_KEY=[REDACTED]'],
+    ['an AWS env assignment', 'AWS_SECRET_ACCESS_KEY=aws1', 'AWS_SECRET_ACCESS_KEY=[REDACTED]'],
+    ['a github token assignment', 'github_token=ghx', 'github_token=[REDACTED]'],
+    ['a standalone Bearer token', 'Bearer standalone.token-1', 'Bearer [REDACTED]'],
+    ['a whole GitHub token', 'ghp_abcdefghij0123456789', '[REDACTED]'],
+  ])('masks %s in place', (_label, input, expected) => {
+    expect(mask(input)).toBe(expected);
+  });
+
+  it('keeps the username while masking basic-auth on a command line', () => {
+    expect(mask('curl -u admin:hunter2 https://x')).toBe('curl -u admin: [REDACTED] https://x');
+  });
+
+  it('keeps the username while masking credentials in a URL', () => {
+    expect(mask('postgres://admin:pw@db:5432/app')).toBe('postgres://admin[REDACTED]db:5432/app');
+  });
+
+  it('masks every occurrence, not just the first', () => {
+    expect(mask('password: mypw then password=other')).toBe(
+      'password: [REDACTED] then password=[REDACTED]'
+    );
+  });
+
+  it('returns empty input unchanged', () => {
+    expect(mask('')).toBe('');
+  });
+});
+
+describe('createOptimizedMasker', () => {
+  it('applies caller-supplied patterns globally even without the g flag', () => {
+    // A shared pattern set may arrive without /g; masking only the first
+    // occurrence would leak every later one.
+    const maskOnce = createOptimizedMasker([/secret-\d+/], '[X]');
+
+    expect(maskOnce('secret-1 and secret-2')).toBe('[X] and [X]');
+  });
+});
+
 describe('output that must survive untouched', () => {
   it.each([
     ['a git commit SHA', 'da39a3ee5e6b4b0d3255bfef95601890afd80709'],

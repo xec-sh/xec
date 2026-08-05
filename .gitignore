@@ -50,3 +50,7 @@ CHANGES.md
 
 # Transformed dynamic-command modules (kept only under XEC_DEBUG)
 .xec/.tmp/
+
+# Stryker mutation-testing artifacts
+.stryker-tmp/
+reports/mutation/

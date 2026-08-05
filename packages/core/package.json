@@ -48,6 +48,7 @@
     "test:k8s": "vitest run test/integration/kubernetes-",
     "test:e2e": "vitest run test/e2e/",
     "test:property": "vitest run test/property/",
+    "test:mutation": "stryker run",
     "docker:start": "../testing/docker-ssh-manager.sh start",
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
@@ -58,15 +59,17 @@
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@types/dockerode": "^4.0.1",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.5.0",
     "@types/ssh2": "^1.15.5",
+    "@types/ssh2-streams": "^0.1.12",
     "@xec-sh/testing": "workspace:*",
     "dockerode": "^4.0.9",
     "node-pty": "^1.0.0",
     "ssh2-streams": "^0.4.10",
-    "@types/ssh2-streams": "^0.1.12",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   },
