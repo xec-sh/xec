@@ -366,7 +366,9 @@ describe('In Command', () => {
           delete process.env.KUBECONFIG;
         }
       }
-    });
+      // Passes alone in ~45s; the default 30s budget only ever expired when
+      // the full suite ran beside the kind cluster it spins up.
+    }, 120_000);
   });
 
   // SSH tests using real containers
