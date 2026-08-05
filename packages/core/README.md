@@ -121,6 +121,10 @@ await $.withTempDir(async dir => {
 });
 
 $.verbose = true;                    // echo each command (redacted) to stderr
+
+// A command that owns the terminal — npm login, vim, ssh — runs attached to
+// it; output goes to the user, not into result.stdout
+await $.interactive()`npm login`.timeout(0);
 ```
 
 ## Dependencies

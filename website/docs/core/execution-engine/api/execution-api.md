@@ -275,6 +275,12 @@ await $`ls -la`.stdout(output);
 // .stdout()/.stderr()-style chaining since it's a property, not a method
 await $`interactive-command`.interactive();
 
+// The same as an engine: $.interactive() returns a configured engine, so a
+// command that owns the terminal — npm login, vim, an ssh session — runs
+// attached to it. Output goes to the user, not into result.stdout, and a
+// human flow deserves no deadline:
+await $.interactive()`npm login`.timeout(0);
+
 // Ignore output
 await $`noisy-command`
   .stdout('ignore')
