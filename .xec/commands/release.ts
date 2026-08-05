@@ -911,19 +911,16 @@ export function command(program: Command): void {
         s.start('Updating package versions...');
 
         if (!config.dryRun) {
+          // Only the version moves. Internal dependencies stay on
+          // `workspace:*` — pnpm publish rewrites them to the real version in
+          // the tarball, which is the only place the number belongs. The old
+          // rewrite baked `^x.y.z` into the source tree: every frozen-lockfile
+          // install then failed with ERR_PNPM_OUTDATED_LOCKFILE, and local
+          // development quietly resolved sibling packages from the registry
+          // instead of the workspace.
           for (const pkg of config.packages) {
             const packageJson = readPackageJson(pkg.path);
             packageJson.version = config.version;
-
-            // Update dependencies to use new versions
-            if (packageJson.dependencies) {
-              for (const depPkg of config.packages) {
-                if (packageJson.dependencies[depPkg.name]) {
-                  packageJson.dependencies[depPkg.name] = `^${config.version}`;
-                }
-              }
-            }
-
             writePackageJson(pkg.path, packageJson);
           }
         }

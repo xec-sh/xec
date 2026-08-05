@@ -46,10 +46,10 @@
     "xec": "bin/xec"
   },
   "dependencies": {
-    "@xec-sh/core": "^0.10.0",
-    "@xec-sh/kit": "^0.10.0",
-    "@xec-sh/loader": "^0.10.0",
-    "@xec-sh/ops": "^0.10.0",
+    "@xec-sh/core": "workspace:*",
+    "@xec-sh/kit": "workspace:*",
+    "@xec-sh/loader": "workspace:*",
+    "@xec-sh/ops": "workspace:*",
     "commander": "^14.0.2",
     "fs-extra": "^11.3.3",
     "glob": "^13.0.0",
