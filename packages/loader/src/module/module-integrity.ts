@@ -88,6 +88,17 @@ export function computeIntegrity(content: string): string {
 }
 
 /**
+ * Whether a hostname refers to the local machine.
+ *
+ * Loopback traffic never leaves the host, so http to it carries no
+ * machine-in-the-middle risk and a local module registry may use it.
+ */
+function isLoopbackHost(host: string): boolean {
+  const bare = host.replace(/^\[|\]$/g, '');
+  return bare === 'localhost' || bare === '::1' || /^127\./.test(bare);
+}
+
+/**
  * Verifies remote module content against a persisted lockfile.
  *
  * Remote modules are executed with full process privileges on machines that
@@ -126,12 +137,27 @@ export class ModuleIntegrityVerifier {
       return;
     }
 
-    let host: string;
+    let parsed: URL;
 
     try {
-      host = new URL(url).hostname;
+      parsed = new URL(url);
     } catch {
       throw new IntegrityError(`Module URL is not a valid URL: ${url}`, url);
+    }
+
+    const host = parsed.hostname;
+
+    // Remote code must not arrive over cleartext. A plaintext hop is the
+    // machine-in-the-middle position that turns a module fetch into arbitrary
+    // code execution, and pinning a digest afterwards only locks in whatever
+    // the attacker substituted. Loopback is exempt so a registry served over
+    // http on the local machine keeps working.
+    if (parsed.protocol !== 'https:' && !isLoopbackHost(host)) {
+      throw new IntegrityError(
+        `Refusing to load a module over ${parsed.protocol}// from ${host}: ${url}. ` +
+          `Remote modules must be served over https; only loopback hosts may use http.`,
+        url
+      );
     }
 
     if (!this.allowedHosts.has(host)) {
