@@ -513,7 +513,17 @@ const FORCED_SHUTDOWN_AFTER_MS = 2000;
  * engine, then end the process; the timer caps a dispose that itself hangs.
  */
 function shutdown(code: number): void {
-  setTimeout(() => process.exit(code), FORCED_SHUTDOWN_AFTER_MS).unref();
+  // `.unref()` on the returned timer is Node's spelling; Deno returns a
+  // plain number and throws on it — the class of defect core already
+  // solved for itself. The guard is inline because the shutdown path must
+  // not depend on an import resolving.
+  const forced = setTimeout(() => process.exit(code), FORCED_SHUTDOWN_AFTER_MS) as
+    NodeJS.Timeout & { unref?: () => void };
+  if (typeof forced.unref === 'function') {
+    forced.unref();
+  } else if (typeof (globalThis as { Deno?: { unrefTimer?: (id: number) => void } }).Deno?.unrefTimer === 'function') {
+    (globalThis as unknown as { Deno: { unrefTimer: (id: number) => void } }).Deno.unrefTimer(forced as unknown as number);
+  }
   void dispose()
     .catch(() => undefined)
     .then(() => process.exit(code));
