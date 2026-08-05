@@ -23,7 +23,11 @@ import { deepMerge, matchPattern, expandBraces, parseTargetReference } from './u
  * Target resolver implementation
  */
 export class TargetResolver {
-  private targetsCache: Map<string, ResolvedTarget> = new Map();
+  // Expiry is checked on read rather than scheduled with setTimeout: a live
+  // timer per cached target is a referenced handle, and one 60s timer kept
+  // every CLI invocation that resolved a target alive for a minute after its
+  // work was done.
+  private targetsCache: Map<string, { target: ResolvedTarget; expiresAt?: number }> = new Map();
 
   constructor(
     private config: Configuration,
@@ -43,7 +47,10 @@ export class TargetResolver {
     // Check cache first
     const cached = this.targetsCache.get(reference);
     if (cached) {
-      return cached;
+      if (cached.expiresAt === undefined || Date.now() < cached.expiresAt) {
+        return cached.target;
+      }
+      this.targetsCache.delete(reference);
     }
 
     // Parse reference
@@ -70,12 +77,10 @@ export class TargetResolver {
     }
 
     // Cache result
-    this.targetsCache.set(reference, resolved);
-
-    // Clear cache after timeout
-    setTimeout(() => {
-      this.targetsCache.delete(reference);
-    }, this.options.cacheTimeout!);
+    this.targetsCache.set(reference, {
+      target: resolved,
+      expiresAt: Date.now() + this.options.cacheTimeout!
+    });
 
     return resolved;
   }
@@ -184,8 +189,8 @@ export class TargetResolver {
       source: 'created'
     };
 
-    // Cache it
-    this.targetsCache.set(id, resolved);
+    // Cache it; created targets have no config to go stale against, so no expiry
+    this.targetsCache.set(id, { target: resolved });
 
     return resolved;
   }
