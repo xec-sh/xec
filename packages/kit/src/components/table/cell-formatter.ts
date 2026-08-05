@@ -4,6 +4,7 @@
 
 import type { Alignment, TableColumn } from './types.js';
 
+import { wrapAnsi } from '../../core/utils/wrap-ansi.js';
 import stringWidth from '../../core/utils/string-width.js';
 import getStringTruncatedWidth from '../../core/utils/string-truncated-width.js';
 
@@ -62,6 +63,28 @@ export function truncateText(text: string, width: number, ellipsis = true): stri
   // Reserve space for ellipsis
   const result = getStringTruncatedWidth(text, { limit: width - 3 });
   return sealAnsi(text.slice(0, result.index)) + '...';
+}
+
+/**
+ * Keep the tail of a string within a given visual width.
+ *
+ * Used for the inline edit buffer: the caret sits at the end, so when the
+ * typed value outgrows the cell it is the end that must stay visible, not
+ * the start that `truncateText` keeps.
+ */
+export function truncateTextStart(text: string, width: number): string {
+  if (stringWidth(text) <= width) {
+    return text;
+  }
+  // Walk code points from the end until the width budget is spent.
+  const chars = Array.from(text);
+  let used = 0;
+  let start = chars.length;
+  while (start > 0 && used + stringWidth(chars[start - 1]!) <= width) {
+    used += stringWidth(chars[start - 1]!);
+    start--;
+  }
+  return chars.slice(start).join('');
 }
 
 /**
@@ -132,6 +155,41 @@ export function formatCell<T>(
   formatted = applyCellStyle(formatted, value, row, column, defaultStyle);
 
   return formatted;
+}
+
+/**
+ * Format a cell into wrapped lines for `wordWrap: 'wrap'`.
+ *
+ * Instead of truncating, the value is broken at the column width and every
+ * physical line is aligned and styled on its own — styling per line keeps
+ * ANSI sequences from leaking across the border characters that the row
+ * renderer interleaves between cells.
+ */
+export function formatCellLines<T>(
+  value: any,
+  row: T,
+  column: TableColumn<T>,
+  width: number,
+  defaultAlignment: Alignment = 'left',
+  defaultStyle?: (text: string, row: T, column: TableColumn<T>) => string
+): string[] {
+  const formatted = formatCellValue(value, row, column);
+  const alignment = column.align ?? defaultAlignment;
+
+  const wrapped = stringWidth(formatted) > width
+    ? wrapAnsi(formatted, width, { hard: true, trim: false })
+    : formatted;
+
+  return wrapped.split('\n').map((line, index) => {
+    // The space a line broke at would otherwise lead the continuation line;
+    // the first line keeps the value's own leading whitespace.
+    const content = index > 0 ? line.replace(/^ +/, '') : line;
+    // A word longer than the column wraps hard, but pathological cases
+    // (width < 1) still need the truncation guard.
+    const fitted = stringWidth(content) > width ? truncateText(content, width, false) : content;
+    const aligned = alignText(fitted, width, alignment);
+    return applyCellStyle(aligned, value, row, column, defaultStyle);
+  });
 }
 
 /**

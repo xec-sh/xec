@@ -29,6 +29,8 @@ export function createTableState<T>(
     pageSize,
     isEditing: false,
     editValue: '',
+    isLoading: false,
+    hasMore: false,
   };
 }
 

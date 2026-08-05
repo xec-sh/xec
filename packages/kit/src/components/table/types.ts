@@ -2,7 +2,6 @@
  * Table component types and interfaces
  */
 
-import type { CacheConfig, CacheStrategy } from './cache.js';
 import type { CommonOptions } from '../../utilities/common.js';
 
 /**
@@ -21,7 +20,11 @@ export type Alignment = 'left' | 'center' | 'right';
 export type ColumnWidth = number | 'auto' | 'content';
 
 /**
- * Word wrap strategy
+ * Word wrap strategy.
+ *
+ * `'truncate'` (default) cuts overflowing cells with an ellipsis;
+ * `'wrap'` breaks them across as many physical lines as needed.
+ * The booleans are shorthands: `true` = `'wrap'`, `false` = `'truncate'`.
  */
 export type WordWrap = boolean | 'truncate' | 'wrap';
 
@@ -81,7 +84,12 @@ export interface TableOptions<T = any> extends CommonOptions {
   /** Border style */
   borders?: BorderStyle;
 
-  /** Compact mode (less vertical spacing) */
+  /**
+   * Compact mode: drop the one-space padding inside bordered cells, so the
+   * table fits narrow terminals. With `borders: 'none'` there is no padding
+   * to drop and the option has no effect. (Was declared and silently
+   * ignored before v0.10.)
+   */
   compact?: boolean;
 
   /** Header style function */
@@ -93,25 +101,51 @@ export interface TableOptions<T = any> extends CommonOptions {
   /** Table width ('auto' fits content, 'full' uses terminal width, number is percentage) */
   width?: number | 'auto' | 'full';
 
-  /** Maximum table height in rows */
+  /**
+   * Cap the number of rendered body rows. When data overflows, the last
+   * visible line becomes a muted `… N more rows` indicator, so the cap is
+   * honest about what it hides. On the interactive table this clamps the
+   * scrolling window (`pageSize`) instead. (Was declared and silently
+   * ignored before v0.10.)
+   */
   maxHeight?: number;
 
-  /** Word wrap strategy */
+  /**
+   * Word wrap strategy for overflowing cells. `'wrap'` renders multi-line
+   * rows in the static table; the interactive table always truncates —
+   * keyboard navigation needs one row per line to keep the focus math and
+   * the scroll window stable. (Only `'truncate'` worked before v0.10.)
+   */
   wordWrap?: WordWrap;
 
   /** Default text alignment */
   alignment?: Alignment;
 
-  /** Show row numbers */
+  /**
+   * Prepend a right-aligned `#` column with 1-based row numbers. Numbers are
+   * computed at render time — the data rows are never copied or mutated, so
+   * row identity (selection sets, callbacks) is preserved. (Was declared and
+   * silently ignored before v0.10.)
+   */
   showRowNumbers?: boolean;
 
   /** Show table header */
   showHeader?: boolean;
 
-  /** Alternate row colors */
+  /**
+   * Render odd rows in the theme's muted role so wide tables stay scannable.
+   * Only applies on a TTY outside CI — piped output stays clean. (Ignored by
+   * the interactive table before v0.10.)
+   */
   alternateRows?: boolean;
 
-  /** Table footer */
+  /**
+   * Table footer. A plain string (or `TableFooter.text`) renders below the
+   * bottom border; `TableFooter.columns` renders an extra aligned row inside
+   * the table — e.g. per-column totals. (`columns` was declared and silently
+   * ignored before v0.10, and the interactive table dropped the option
+   * entirely.)
+   */
   footer?: string | TableFooter<T>;
 }
 
@@ -267,67 +301,62 @@ export interface InteractiveTableOptions<T = any> extends TableOptions<T> {
   /** Validation function */
   validate?: (rows: T[]) => string | undefined;
 
-  /** Enable inline cell editing (Phase 3) */
+  /**
+   * Enable inline cell editing: `e` opens the focused cell, typed input
+   * replaces its value, `Enter` commits, `Esc` cancels. `←`/`→` move the
+   * focused column. Edits infer the type from the old value (number and
+   * boolean cells stay numbers and booleans). (Declared but never wired
+   * before v0.10 — the key did nothing.)
+   */
   editable?: boolean;
 
-  /** Edit validation function (Phase 3) */
+  /**
+   * Validate a pending edit before it is committed. Return an error message
+   * to reject — it is rendered like the prompt's own validation errors and
+   * the cell stays in edit mode; return `undefined` to accept.
+   */
   validateEdit?: (row: T, column: string, newValue: any) => string | undefined;
 
-  /** Edit callback (Phase 3) */
+  /** Called after an edit is committed, with the updated row. */
   onEdit?: (row: T, column: string, oldValue: any, newValue: any) => void;
 
-  /** Editable columns (if undefined, all columns are editable) (Phase 3) */
+  /** Editable columns (if undefined, all columns are editable) */
   editableColumns?: string[];
 }
 
 /**
- * Virtual scrolling configuration
- */
-export interface VirtualConfig {
-  /** Whether virtualization is enabled */
-  enabled: boolean;
-
-  /** Threshold (minimum rows) before enabling virtualization */
-  threshold: number;
-
-  /** Virtualization mode */
-  mode: 'vertical' | 'horizontal' | 'both';
-}
-
-// Re-export cache types from cache.js
-export type { CacheConfig, CacheStrategy };
-
-/**
- * Virtual table options (Phase 3)
- * Extends InteractiveTableOptions with virtualization and lazy loading
+ * Interactive table options with incremental data loading.
+ *
+ * A terminal table is inherently virtualized: the interactive renderer only
+ * ever draws the `pageSize`-row scroll window, whatever the dataset size, and
+ * the scroll position stays stable as data grows. What this type adds is the
+ * incremental half: `loadMore`/`hasMore` fetch further batches as navigation
+ * approaches the end of the loaded rows.
+ *
+ * The pre-v0.10 surface also declared browser virtual-scrolling knobs —
+ * `virtual`, `itemHeight`, `bufferSize`, `debounceScroll`, `renderBatchSize`,
+ * `cache` — none of which was implemented, and none of which has a terminal
+ * meaning (a row is one line; there are no pixel heights, scroll events or
+ * paint batches). They were removed rather than implemented.
  */
 export interface VirtualTableOptions<T = any> extends InteractiveTableOptions<T> {
-  /** Virtualization configuration */
-  virtual?: boolean | VirtualConfig;
-
-  /** Height of each row item (for virtual scrolling) */
-  itemHeight?: number;
-
-  /** Buffer size for virtual scrolling (rows to render outside visible area) */
-  bufferSize?: number;
-
-  /** Load more data callback */
+  /**
+   * Fetch the next batch of rows. Invoked when navigation moves within one
+   * page of the end of the loaded data while `hasMore` is true; resolved
+   * rows are appended (filter and sort are re-applied). Resolving to an
+   * empty batch marks the dataset complete. A rejection is shown as a table
+   * error and loading is retried on the next navigation.
+   */
   loadMore?: () => Promise<T[]>;
 
-  /** Whether more data is available */
+  /**
+   * Whether more data is available beyond the initial `data`. While true,
+   * the row counter shows `N+` and `loadMore` fires near the end.
+   */
   hasMore?: boolean;
 
-  /** Loading indicator text or function */
+  /** Loading indicator text or function (default: `Loading…`). */
   loadingIndicator?: string | (() => string);
-
-  /** Caching configuration */
-  cache?: boolean | CacheConfig;
-
-  /** Debounce scroll events (milliseconds) */
-  debounceScroll?: number;
-
-  /** Number of rows to render in a batch */
-  renderBatchSize?: number;
 }
 
 /**
@@ -367,9 +396,15 @@ export interface TableState<T = any> {
   /** Error message */
   error?: string;
 
-  /** Is editing (Phase 3) */
+  /** Whether the focused cell is being edited */
   isEditing: boolean;
 
-  /** Edit value (Phase 3) */
+  /** Edit buffer for the cell being edited */
   editValue: string;
+
+  /** Whether a `loadMore` batch is in flight */
+  isLoading: boolean;
+
+  /** Whether more rows can be fetched via `loadMore` */
+  hasMore: boolean;
 }

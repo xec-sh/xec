@@ -1,8 +1,8 @@
 /**
  * 14 - Static Table
  *
- * Render tabular data with column formatting, alignment,
- * compact mode, and border styles.
+ * Render tabular data with column formatting, alignment, compact mode,
+ * row numbers, footers, word wrap, capped height and border styles.
  */
 import { table, prism } from '../src/index.js';
 
@@ -55,4 +55,49 @@ table({
     { key: 'role', header: 'Role' },
   ],
   compact: true,
+});
+
+console.log('\n--- Row Numbers + Footer ---');
+table({
+  data: employees,
+  columns: [
+    { key: 'name', header: 'Name', width: 18 },
+    {
+      key: 'salary',
+      header: 'Salary',
+      width: 12,
+      align: 'right',
+      format: (val: number) => `$${val.toLocaleString()}`,
+    },
+  ],
+  showRowNumbers: true,
+  footer: {
+    columns: {
+      salary: (data) => `$${data.reduce((sum, e) => sum + e.salary, 0).toLocaleString()}`,
+    },
+    text: (data) => `${data.length} employees`,
+  },
+});
+
+console.log('\n--- Word Wrap (multi-line cells) ---');
+table({
+  data: [
+    { name: 'Alice Johnson', bio: 'Leads the platform team and owns the deployment pipeline end to end' },
+    { name: 'Bob Smith', bio: 'Designs the component library' },
+  ],
+  columns: [
+    { key: 'name', header: 'Name', width: 14 },
+    { key: 'bio', header: 'Bio', width: 28 },
+  ],
+  wordWrap: 'wrap',
+});
+
+console.log('\n--- Capped Height (maxHeight) ---');
+table({
+  data: employees,
+  columns: [
+    { key: 'name', header: 'Name', width: 18 },
+    { key: 'role', header: 'Role', width: 18 },
+  ],
+  maxHeight: 4,
 });

@@ -30,6 +30,8 @@ function createTestState(focusedRow: number, dataLength: number, pageSize = 10):
     pageSize,
     isEditing: false,
     editValue: '',
+    isLoading: false,
+    hasMore: false,
   };
 }
 

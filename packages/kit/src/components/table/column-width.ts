@@ -52,13 +52,16 @@ function getColumnContentWidth<T>(
 export function calculateColumnWidths<T>(
   data: T[],
   columns: TableColumn<T>[],
-  options: Pick<TableOptions<T>, 'width' | 'output' | 'borders'>
+  options: Pick<TableOptions<T>, 'width' | 'output' | 'borders' | 'compact'>
 ): ColumnLayout[] {
   const terminalWidth = getColumns(options.output ?? process.stdout);
   const hasBorders = options.borders !== 'none';
+  const padding = options.compact ? 0 : 1;
 
-  // Calculate border overhead
-  const borderOverhead = hasBorders ? (columns.length + 1) + columns.length * 2 : columns.length - 1; // separators + padding
+  // Calculate border overhead: separators + per-cell padding
+  const borderOverhead = hasBorders
+    ? (columns.length + 1) + columns.length * padding * 2
+    : columns.length - 1;
 
   // Determine available width
   let availableWidth: number;
@@ -175,11 +178,16 @@ export function calculateColumnWidths<T>(
 
 /**
  * Get total table width including borders
+ * @param padding - Cell padding (0 in compact mode)
  */
-export function getTotalTableWidth(layouts: ColumnLayout[], hasBorders: boolean): number {
+export function getTotalTableWidth(
+  layouts: ColumnLayout[],
+  hasBorders: boolean,
+  padding = 1
+): number {
   const contentWidth = layouts.reduce((sum, l) => sum + l.width, 0);
   if (!hasBorders) {
     return contentWidth + (layouts.length - 1); // Just separators
   }
-  return contentWidth + (layouts.length + 1) + layouts.length * 2; // borders + padding
+  return contentWidth + (layouts.length + 1) + layouts.length * padding * 2; // borders + padding
 }

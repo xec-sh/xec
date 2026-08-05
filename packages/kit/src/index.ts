@@ -56,15 +56,12 @@ export type {
   Alignment,
   TableState,
   TableColumn,
-  CacheConfig,
   BorderStyle,
   TableOptions,
   ExportOptions,
   StreamOptions,
-  CacheStrategy,
   SelectionMode,
   SortDirection,
-  VirtualConfig,
   StreamProgress,
   TableErrorCode,
   TableErrorHandler,
@@ -72,12 +69,9 @@ export type {
   InteractiveTableOptions,
 } from './components/table/index.js';
 
-// Export table optimization utilities (Phase 4)
+// Export table error utilities (Phase 4)
 export {
-  Cache,
-  memoize,
   TableError,
-  TableCache,
   safeExecute,
   formatError,
   isTableError,
@@ -86,10 +80,8 @@ export {
   createRenderError,
   createStreamError,
   isRecoverableError,
-  getGlobalTableCache,
   createValidationError,
   createEditFailedError,
-  resetGlobalTableCache,
   createInvalidDataError,
   createExportFailedError,
   createColumnNotFoundError,

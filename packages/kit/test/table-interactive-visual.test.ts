@@ -449,6 +449,9 @@ describe('table-interactive-visual', () => {
 
       const output = renderInteractiveTable(state, options);
 
+      // compact drops the cell padding: cells sit flush against the borders
+      // (row 2 — row 1 is interleaved with focus-inverse codes)
+      expect(output).toContain('│2    │Bob');
       expect(output).toMatchSnapshot();
     });
   });
@@ -460,6 +463,78 @@ describe('table-interactive-visual', () => {
 
       const output = renderInteractiveTable(state, options);
 
+      // odd rows carry the muted role (default: gray)
+      expect(output).toContain('[90m');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Inline editing', () => {
+    it('should render the edit buffer in place of the focused cell', () => {
+      const options = createTestOptions({ editable: true });
+      let state = createTableState(createTestData(), options);
+      state = { ...state, focusedColumn: 1, isEditing: true, editValue: 'Alicia' };
+
+      const output = renderInteractiveTable(state, options);
+
+      // buffer + caret in the accent role, edit-mode hints below
+      expect(output).toContain('Alicia▌');
+      expect(output).toContain('Enter: save');
+      expect(output).toMatchSnapshot();
+    });
+
+    it('should render a validation error like prompt errors', () => {
+      const options = createTestOptions({ editable: true });
+      let state = createTableState(createTestData(), options);
+      state = { ...state, isEditing: true, editValue: 'x', error: 'Must be a number' };
+
+      const output = renderInteractiveTable(state, options);
+
+      expect(output).toContain('✖ Must be a number');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Row numbers', () => {
+    it('should render the # column with muted 1-based numbers', () => {
+      const options = createTestOptions({ showRowNumbers: true });
+      const state = createTableState(createTestData(), options);
+
+      const output = renderInteractiveTable(state, options);
+
+      expect(output).toContain('#');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Footer', () => {
+    it('should render per-column footers inside the frame', () => {
+      const options = createTestOptions({
+        footer: {
+          columns: { name: (data: unknown[]) => `${data.length} people` },
+          text: 'end of report',
+        },
+      });
+      const state = createTableState(createTestData(), options);
+
+      const output = renderInteractiveTable(state, options);
+
+      expect(output).toContain('5 people');
+      expect(output).toContain('end of report');
+      expect(output).toMatchSnapshot();
+    });
+  });
+
+  describe('Incremental loading', () => {
+    it('should render the loading indicator and the open-ended row count', () => {
+      const options = createTestOptions();
+      let state = createTableState(createTestData(), options);
+      state = { ...state, isLoading: true, hasMore: true };
+
+      const output = renderInteractiveTable(state, options);
+
+      expect(output).toContain('Row 1/5+');
+      expect(output).toContain('Loading…');
       expect(output).toMatchSnapshot();
     });
   });

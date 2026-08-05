@@ -158,7 +158,9 @@ describe('table-performance', () => {
         state = toggleSort(state, 'name', options);
       });
 
-      expect(time).toBeLessThan(100);
+      // Generous bound: localeCompare over 10k rows jitters past a tight
+      // 100ms on a loaded machine; an algorithmic regression overshoots 10x.
+      expect(time).toBeLessThan(250);
     });
 
     it('should handle multiple sort operations', () => {
@@ -303,33 +305,32 @@ describe('table-performance', () => {
   });
 
   describe('Virtualization efficiency', () => {
-    it('should only render visible rows regardless of total count', () => {
-      // Test with different dataset sizes
-      const sizes = [100, 1000, 10000, 100000];
-      const renderTimes: number[] = [];
+    it('renders a bounded window over 100k rows — output and time do not scale with the dataset', () => {
+      // The terminal table is honestly virtualized: whatever the dataset
+      // size, the frame holds one pageSize window plus fixed chrome. The
+      // structural assertion (line count) is the real proof; the wall-clock
+      // bound is deliberately generous — a scaling bug would blow it by
+      // orders of magnitude, machine jitter will not.
+      const data = generateTestData(100_000);
+      const options: InteractiveTableOptions<any> = {
+        data,
+        columns: [
+          { key: 'id', header: 'ID' },
+          { key: 'name', header: 'Name' },
+        ],
+        pageSize: 10,
+      };
+      const state = createTableState(data, options);
 
-      for (const size of sizes) {
-        const data = generateTestData(size);
-        const options: InteractiveTableOptions<any> = {
-          data,
-          columns: [
-            { key: 'id', header: 'ID' },
-            { key: 'name', header: 'Name' },
-          ],
-        };
-        const state = createTableState(data, options);
+      const start = performance.now();
+      const frame = renderInteractiveTable(state, options);
+      const elapsed = performance.now() - start;
 
-        const time = measureTime(() => {
-          renderInteractiveTable(state, options);
-        });
-
-        renderTimes.push(time);
-      }
-
-      // Render times should not scale linearly with data size
-      // (indicating virtualization is working)
-      const ratio = renderTimes[3]! / renderTimes[0]!;
-      expect(ratio).toBeLessThan(10); // Should not be 1000x slower for 1000x data
+      // 10 data rows + header block + borders + status/hints — nowhere near 100k
+      const lineCount = frame.split('\n').length;
+      expect(lineCount).toBeLessThan(25);
+      expect(frame).toContain('Row 1/100000');
+      expect(elapsed).toBeLessThan(250);
     });
 
     it('should maintain stable visible range during navigation', () => {

@@ -121,41 +121,28 @@ interface EditableConfig<T> {
 }
 ```
 
-### 3. Virtual Table (`virtualTable`)
-Optimized for large datasets with virtualization.
+### 3. Incremental Loading (`VirtualTableOptions`)
+
+The interactive table is inherently virtualized: whatever the dataset size,
+only the `pageSize` scroll window is rendered, and the scroll position stays
+stable as data grows. `VirtualTableOptions` adds the incremental half —
+fetching further batches as navigation approaches the end of the loaded rows.
 
 ```typescript
 interface VirtualTableOptions<T> extends InteractiveTableOptions<T> {
-  // Virtualization
-  virtual?: boolean | VirtualConfig;
-  itemHeight?: number;
-  bufferSize?: number;
-
-  // Data Loading
+  // Fetch the next batch when navigation moves within one page of the end
+  // while hasMore is true; an empty batch marks the dataset complete
   loadMore?: () => Promise<T[]>;
   hasMore?: boolean;
   loadingIndicator?: string | (() => string);
-
-  // Caching
-  cache?: boolean | CacheConfig;
-
-  // Performance
-  debounceScroll?: number;
-  renderBatchSize?: number;
-}
-
-interface VirtualConfig {
-  enabled: boolean;
-  threshold: number;
-  mode: 'vertical' | 'horizontal' | 'both';
-}
-
-interface CacheConfig {
-  maxSize: number;
-  ttl?: number;
-  strategy: 'lru' | 'lfu' | 'fifo';
 }
 ```
+
+The earlier draft also declared browser virtual-scrolling knobs — `virtual`,
+`itemHeight`, `bufferSize`, `debounceScroll`, `renderBatchSize`, `cache` —
+none of which was ever implemented, and none of which has a terminal meaning
+(a row is one line; there are no pixel heights, scroll events or paint
+batches). They were removed rather than implemented.
 
 ## Border Styles
 
@@ -801,7 +788,7 @@ src/components/table/
 - ✅ Large dataset example (virtualization-demo.ts)
 
 **Files:**
-- `src/components/table/types.ts` - VirtualTableOptions, VirtualConfig, CacheConfig
+- `src/components/table/types.ts` - VirtualTableOptions (loadMore/hasMore/loadingIndicator)
 - `test/table-performance.test.ts` - 18 performance tests
 - `examples/basic/virtualization-demo.ts` - 10K row demo
 
@@ -862,8 +849,12 @@ src/components/table/
 
 **Deferred to Future:**
 - [ ] Context menus (requires complex terminal UI integration)
-- [ ] Full inline editing integration with event loop
-- [ ] Advanced caching strategies
+
+**Since completed:**
+- [x] Full inline editing integration with the event loop (`e` opens the
+      focused cell, `←`/`→` pick the column, Enter commits via
+      `validateEdit`, Esc cancels)
+- [x] Incremental loading (`loadMore`/`hasMore`) wired into navigation
 
 ### Phase 4: Optimizations (Week 7-8) - 🚧 IN PROGRESS
 
@@ -875,12 +866,14 @@ src/components/table/
   - Error recovery utilities (retry, withFallback, swallow)
   - Error identification and formatting utilities
 
-- ✅ **Caching layer** (33 tests)
-  - Generic `Cache<K, V>` class with LRU/LFU/FIFO strategies
-  - TTL support for automatic expiration
-  - `TableCache` for table-specific caching (column widths, formatted cells, sort comparators)
-  - `memoize` decorator for function result caching
-  - Global cache management utilities
+- ❌ **Caching layer — removed after measurement.** It was never wired to
+  the renderer, and measuring the intended wiring showed why it never could
+  be: an interactive sort-toggle re-render over 10k rows costs ~0.7ms with
+  no cache (the renderer only formats the visible window), while warm cache
+  reads were 200–400x *slower* than bare formatting (`JSON.stringify` keys
+  plus O(n) LRU bookkeeping per access), and the rowIndex-keyed cell cache
+  would serve stale cells after any sort. `Cache`, `TableCache`, `memoize`
+  and the global cache utilities were deleted.
 
 **Test Results:**
 - ✅ **837 tests passing** (777 previous + 60 Phase 4)

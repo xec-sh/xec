@@ -37,6 +37,8 @@ function createTestState(dataLength: number): TableState<any> {
     pageSize: 10,
     isEditing: false,
     editValue: '',
+    isLoading: false,
+    hasMore: false,
   };
 }
 

@@ -29,6 +29,8 @@ function createTestState(focusedRow: number, dataLength: number): TableState<any
     pageSize: 10,
     isEditing: false,
     editValue: '',
+    isLoading: false,
+    hasMore: false,
   };
 }
 
@@ -310,6 +312,8 @@ describe('table-selector', () => {
         pageSize: 10,
         isEditing: false,
         editValue: '',
+        isLoading: false,
+        hasMore: false,
       };
 
       const newState = toggleSelection(state, 'multiple');

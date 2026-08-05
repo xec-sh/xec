@@ -37,6 +37,28 @@ export interface ExportOptions {
 
   /** Columns to export (defaults to all) */
   columns?: string[];
+
+  /**
+   * Neutralize spreadsheet formula injection (CSV/TSV only): values starting
+   * with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'`,
+   * per the OWASP CSV-injection guidance, so Excel & co. treat them as text
+   * instead of executing them.
+   *
+   * Off by default — an exporter must not silently alter data, and the
+   * prefix is visible to any non-spreadsheet consumer. **Enable it whenever
+   * the exported values can contain untrusted input** (user-supplied names,
+   * descriptions, anything from the network) and the file may be opened in
+   * a spreadsheet.
+   */
+  escapeFormulas?: boolean;
+}
+
+/**
+ * Prefix values a spreadsheet would interpret as formulas, per OWASP:
+ * a leading `=`, `+`, `-`, `@`, tab (0x09) or carriage return (0x0D).
+ */
+function escapeFormulaValue(value: string): string {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
 
 /**
@@ -77,6 +99,7 @@ export function exportToCSV<T>(
     lineEnding = '\n',
     delimiter = ',',
     quoteStrings = true,
+    escapeFormulas = false,
     columns: columnKeys,
   } = options;
 
@@ -89,12 +112,17 @@ export function exportToCSV<T>(
     throw new Error('No columns to export');
   }
 
+  // Formula escaping runs before CSV quoting so the guard prefix itself is
+  // covered by the quoting rules. Headers are escaped too — in dynamic
+  // tables they can carry untrusted input just like the cells.
+  const guard = escapeFormulas ? escapeFormulaValue : (value: string) => value;
+
   const lines: string[] = [];
 
   // Add headers
   if (includeHeaders) {
     const headers = exportColumns
-      .map((col) => escapeCSV(col.header, quoteStrings, delimiter))
+      .map((col) => escapeCSV(guard(col.header), quoteStrings, delimiter))
       .join(delimiter);
     lines.push(headers);
   }
@@ -104,7 +132,7 @@ export function exportToCSV<T>(
     const values = exportColumns.map((col) => {
       const value = (row as any)[col.key];
       const formatted = formatCellValue(value, row, col);
-      return escapeCSV(formatted, quoteStrings, delimiter);
+      return escapeCSV(guard(formatted), quoteStrings, delimiter);
     });
     lines.push(values.join(delimiter));
   }

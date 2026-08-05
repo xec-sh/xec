@@ -399,4 +399,81 @@ describe('table-exporter', () => {
       expect(csv.split('\n')[1]).toBe('"x\ry"');
     });
   });
+
+  describe('Formula escaping (escapeFormulas)', () => {
+    /**
+     * CSV injection: a cell beginning with =, +, -, @, tab or CR executes as
+     * a formula when the file is opened in a spreadsheet. With
+     * `escapeFormulas: true` such values get the OWASP-recommended `'`
+     * prefix; the default stays off because an exporter must not silently
+     * alter data.
+     */
+    const columns: TableColumn<{ a: string }>[] = [{ key: 'a', header: 'A' }];
+
+    it.each([
+      ['=SUM(A1:B1)', "'=SUM(A1:B1)"],
+      ['+1234', "'+1234"],
+      ['-1234', "'-1234"],
+      ['@cmd', "'@cmd"],
+      ['\tleading tab', "'\tleading tab"],
+      ['\rleading cr', "'\rleading cr"],
+    ])('prefixes %j when enabled', (value, escaped) => {
+      const csv = exportToCSV([{ a: value }], columns, {
+        quoteStrings: false,
+        escapeFormulas: true,
+        includeHeaders: false,
+      });
+
+      // tab/CR values additionally get quoted by the delimiter-aware rules
+      const line = csv.split('\n')[0]!;
+      expect(line.replace(/^"|"$/g, '')).toBe(escaped);
+    });
+
+    it('leaves data untouched by default', () => {
+      const csv = exportToCSV([{ a: '=SUM(A1:B1)' }], columns, {
+        quoteStrings: false,
+        includeHeaders: false,
+      });
+
+      expect(csv).toBe('=SUM(A1:B1)');
+    });
+
+    it('does not touch values that merely contain the characters', () => {
+      const csv = exportToCSV([{ a: 'a=b+c@d' }], columns, {
+        quoteStrings: false,
+        escapeFormulas: true,
+        includeHeaders: false,
+      });
+
+      expect(csv).toBe('a=b+c@d');
+    });
+
+    it('escapes headers too — dynamic tables can carry untrusted headers', () => {
+      const csv = exportToCSV([{ a: 'x' }], [{ key: 'a', header: '=evil()' }], {
+        quoteStrings: false,
+        escapeFormulas: true,
+      });
+
+      expect(csv.split('\n')[0]).toBe("'=evil()");
+    });
+
+    it('applies inside quoted values', () => {
+      const csv = exportToCSV([{ a: '=SUM(A1,B1)' }], columns, {
+        escapeFormulas: true,
+        includeHeaders: false,
+      });
+
+      // quoting wraps the guarded value, so the prefix survives the parse
+      expect(csv).toBe('"\'=SUM(A1,B1)"');
+    });
+
+    it('flows through to TSV, where the prefix is the only guard', () => {
+      const tsv = exportToTSV([{ a: '=2+5' }], columns, {
+        escapeFormulas: true,
+        includeHeaders: false,
+      });
+
+      expect(tsv).toBe("'=2+5");
+    });
+  });
 });

@@ -3,9 +3,9 @@
  */
 
 import type { Readable, Writable } from 'node:stream';
-import type { TableOptions, InteractiveTableOptions } from './types.js';
+import type { TableOptions, VirtualTableOptions } from './types.js';
 
-import prism from '../../prism/index.js';
+import { settings } from '../../core/index.js';
 import { renderTable } from './table-renderer.js';
 import InteractiveTablePrompt from './interactive-table.js';
 import { renderInteractiveTable } from './interactive-renderer.js';
@@ -101,7 +101,7 @@ export function table<T = any>(options: TableOptions<T>): void {
  * ```
  */
 export function interactiveTable<T = any>(
-  options: Omit<InteractiveTableOptions<T>, 'output'> & {
+  options: Omit<VirtualTableOptions<T>, 'output'> & {
     input?: Readable;
     output?: Writable;
     signal?: AbortSignal;
@@ -128,8 +128,10 @@ export function interactiveTable<T = any>(
     borders: options.borders ?? 'single',
     compact: options.compact ?? false,
     showHeader: options.showHeader ?? true,
+    showRowNumbers: options.showRowNumbers ?? false,
     alternateRows: options.alternateRows ?? false,
     width: options.width ?? 'full',
+    maxHeight: options.maxHeight,
     alignment: options.alignment ?? 'left',
     message: options.message,
     navigable: options.navigable,
@@ -140,10 +142,18 @@ export function interactiveTable<T = any>(
     customFilter: options.customFilter,
     headerStyle: options.headerStyle,
     cellStyle: options.cellStyle,
+    footer: options.footer,
     onSelect: options.onSelect,
     onNavigate: options.onNavigate,
     onSort: options.onSort,
     onFilter: options.onFilter,
+    editable: options.editable ?? false,
+    validateEdit: options.validateEdit,
+    onEdit: options.onEdit,
+    editableColumns: options.editableColumns,
+    loadMore: options.loadMore,
+    hasMore: options.hasMore ?? false,
+    loadingIndicator: options.loadingIndicator,
     validate: validate ? (rows) => validate(rows ?? []) : undefined,
     input: options.input,
     output: options.output,
@@ -153,7 +163,7 @@ export function interactiveTable<T = any>(
       // Surface validation failures — the prompt stores them on this.error,
       // which the table renderer knows nothing about
       if (this.state === 'error' && this.error) {
-        frame += `\n${prism.red(`✖ ${this.error}`)}`;
+        frame += `\n${settings.theme.error(`✖ ${this.error}`)}`;
       }
       return frame;
     },
@@ -161,19 +171,9 @@ export function interactiveTable<T = any>(
 }
 
 export type { ExportOptions } from './table-exporter.js';
-export type { CacheConfig, CacheStrategy } from './cache.js';
 
 export type { StreamOptions, StreamProgress } from './streaming.js';
 export type { TableErrorCode, TableErrorHandler } from './errors.js';
-
-// Export caching utilities (Phase 4)
-export {
-  Cache,
-  memoize,
-  TableCache,
-  getGlobalTableCache,
-  resetGlobalTableCache,
-} from './cache.js';
 
 // Export table utilities (Phase 3)
 export {
@@ -240,8 +240,7 @@ export type {
   ColumnLayout,
   SelectionMode,
   SortDirection,
-  VirtualConfig,
-  // Virtual table types (Phase 3)
+  // Incremental loading types
   VirtualTableOptions,
   // Interactive table types
   InteractiveTableOptions,

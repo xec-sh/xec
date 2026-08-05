@@ -111,19 +111,21 @@ export function getBorderChars(style: BorderStyle = 'single'): BorderChars {
  * @param join - Join character between columns
  * @param right - Right border character
  * @param horizontal - Horizontal line character
+ * @param padding - Cell padding the border must span (0 in compact mode)
  */
 export function renderHorizontalBorder(
   widths: number[],
   left: string,
   join: string,
   right: string,
-  horizontal: string
+  horizontal: string,
+  padding = 1
 ): string {
   if (!left && !join && !right && !horizontal) {
     return '';
   }
 
-  const segments = widths.map((width) => horizontal.repeat(width + 2)); // +2 for padding
+  const segments = widths.map((width) => horizontal.repeat(width + padding * 2));
   return left + segments.join(join) + right;
 }
 
@@ -131,11 +133,15 @@ export function renderHorizontalBorder(
  * Render a row with borders
  * @param cells - Array of cell contents (already formatted and padded)
  * @param borders - Border characters
+ * @param padding - Spaces inside each bordered cell (0 in compact mode).
+ *   Without borders the single-space separator stays — dropping it would
+ *   visually merge adjacent columns.
  */
-export function renderRow(cells: string[], borders: BorderChars): string {
+export function renderRow(cells: string[], borders: BorderChars, padding = 1): string {
   if (!borders.left && !borders.right) {
     return cells.join(' ');
   }
 
-  return borders.left + ' ' + cells.join(` ${borders.left} `) + ' ' + borders.right;
+  const pad = ' '.repeat(padding);
+  return borders.left + pad + cells.join(`${pad}${borders.left}${pad}`) + pad + borders.right;
 }

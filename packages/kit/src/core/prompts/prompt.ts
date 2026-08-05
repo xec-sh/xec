@@ -190,6 +190,16 @@ export default class Prompt<TValue> {
     return true;
   }
 
+  /**
+   * Decide whether a cancel keypress (Escape, Ctrl+C) should cancel the
+   * prompt. Subclasses with modal sub-states override this to make Escape
+   * leave the sub-state (e.g. the interactive table's filter or cell-edit
+   * mode) instead of tearing down the whole prompt.
+   */
+  protected _shouldCancel(_char: string | undefined, _key: Key): boolean {
+    return true;
+  }
+
   protected _setValue(value: TValue | undefined): void {
     this.value = value;
     this.emit('value', this.value);
@@ -258,7 +268,7 @@ export default class Prompt<TValue> {
       }
     }
 
-    if (isActionKey([char, key?.name, key?.sequence], 'cancel')) {
+    if (isActionKey([char, key?.name, key?.sequence], 'cancel') && this._shouldCancel(char, key)) {
       this.state = 'cancel';
     }
 
@@ -289,7 +299,10 @@ export default class Prompt<TValue> {
     this.output.write(cursor.move(-999, lines * -1));
   }
 
-  private render() {
+  // Protected, not private: prompts whose frame changes without a keypress
+  // (async data arriving, e.g. the interactive table's `loadMore`) must be
+  // able to request a repaint — keypresses are the only other render trigger.
+  protected render() {
     // Width comes from the stream being written to, not the global stdout:
     // with an injected output the global is another terminal entirely, and
     // behind a pipe or in CI it is undefined. getColumns falls back to 80.

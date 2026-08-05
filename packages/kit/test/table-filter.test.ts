@@ -44,6 +44,8 @@ function createTestState(): TableState<any> {
     pageSize: 10,
     isEditing: false,
     editValue: '',
+    isLoading: false,
+    hasMore: false,
   };
 }
 
@@ -529,6 +531,8 @@ describe('table-filter', () => {
         pageSize: 10,
         isEditing: false,
         editValue: '',
+        isLoading: false,
+        hasMore: false,
       };
 
       const options: InteractiveTableOptions<any> = {

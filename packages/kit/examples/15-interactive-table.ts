@@ -26,7 +26,7 @@ const tasks: Task[] = [
 ];
 
 async function main() {
-  console.log('\n--- Navigation + Sorting + Filtering ---');
+  console.log('\n--- Navigation + Sorting + Filtering + Editing ---');
   const result = await interactiveTable<Task>({
     data: tasks,
     columns: [
@@ -37,8 +37,22 @@ async function main() {
       { key: 'assignee', header: 'Assignee', width: 10, sortable: true },
     ],
     selectable: 'multiple',
+    sortable: true,
     filterable: true,
-    message: 'Task Board - Use arrows to navigate, Space to select, / to filter, s to sort',
+    editable: true,
+    editableColumns: ['title', 'priority', 'status', 'assignee'],
+    validateEdit: (_task, column, newValue) => {
+      if (column === 'priority' && !['High', 'Medium', 'Low'].includes(String(newValue))) {
+        return 'Priority must be High, Medium or Low';
+      }
+      return undefined;
+    },
+    onEdit: (task, column) => {
+      // Persist the change here (API call, file write, …)
+      void task;
+      void column;
+    },
+    message: 'Task Board',
   });
 
   if (isCancel(result)) {
@@ -53,6 +67,42 @@ async function main() {
     } else {
       log.info('No tasks selected');
     }
+  }
+
+  // Incremental loading: rows are fetched as navigation nears the end.
+  console.log('\n--- Incremental loading (loadMore) ---');
+  let nextId = tasks.length + 1;
+  const page = await interactiveTable<Task>({
+    data: tasks.slice(0, 3),
+    columns: [
+      { key: 'id', header: 'ID', width: 4 },
+      { key: 'title', header: 'Task', width: 24 },
+      { key: 'assignee', header: 'Assignee', width: 10 },
+    ],
+    selectable: 'single',
+    pageSize: 3,
+    hasMore: true,
+    loadMore: async () => {
+      // Simulate a paginated API: two more pages, then done
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (nextId > 14) return [];
+      const batch = Array.from({ length: 3 }, (_, i) => ({
+        id: nextId + i,
+        title: `Generated task ${nextId + i}`,
+        priority: 'Low',
+        status: 'Todo',
+        assignee: 'Bot',
+      }));
+      nextId += batch.length;
+      return batch;
+    },
+    message: 'Scroll down — more rows load as you approach the end',
+  });
+
+  if (isCancel(page)) {
+    log.warn('Cancelled');
+  } else {
+    log.info(`Picked ${(page as Task[]).length} row(s)`);
   }
 }
 
