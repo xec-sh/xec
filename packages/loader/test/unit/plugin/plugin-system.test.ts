@@ -177,4 +177,29 @@ describe('PluginManager', () => {
       expect(manager.getResolvers()[0]).toBe(resolver);
     });
   });
+
+  describe('resolveSpecifier ordering', () => {
+    it('returns the first non-undefined result in registration order', async () => {
+      manager.register({ name: 'first', resolveSpecifier: (s) => (s === 'x' ? 'from-first' : undefined) });
+      manager.register({ name: 'second', resolveSpecifier: (s) => (s === 'x' ? 'from-second' : undefined) });
+
+      expect(await manager.resolveSpecifier('x')).toBe('from-first');
+    });
+
+    it('falls through plugins that return undefined, and stops at the first hit', async () => {
+      const calls: string[] = [];
+      manager.register({ name: 'a', resolveSpecifier: () => { calls.push('a'); return undefined; } });
+      manager.register({ name: 'b', resolveSpecifier: () => { calls.push('b'); return 'b-result'; } });
+      manager.register({ name: 'c', resolveSpecifier: () => { calls.push('c'); return 'c-result'; } });
+
+      expect(await manager.resolveSpecifier('x')).toBe('b-result');
+      expect(calls).toEqual(['a', 'b']); // 'c' is never consulted
+    });
+
+    it('returns the original specifier when no plugin resolves it', async () => {
+      manager.register({ name: 'noop', resolveSpecifier: () => undefined });
+
+      expect(await manager.resolveSpecifier('untouched')).toBe('untouched');
+    });
+  });
 });

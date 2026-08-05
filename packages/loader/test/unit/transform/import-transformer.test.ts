@@ -312,4 +312,30 @@ describe('ImportTransformer', () => {
       expect(options.transformNodeImports).toBe(false);
     });
   });
+
+  describe('robustness', () => {
+    it('does not catastrophically backtrack on large hostile input', () => {
+      const transformer = new ImportTransformer({ baseUrl: 'https://esm.sh' });
+      // Shapes that stress the import/from/export patterns: tens of thousands of
+      // near-matches and unterminated quotes, then a long plain run. A ReDoS
+      // would hang here and trip the test timeout; completing is the assertion.
+      const hostile =
+        'from "/'.repeat(20000) +
+        '\nexport * from {'.repeat(20000) +
+        '\n' + 'x'.repeat(200000);
+
+      const out = transformer.transform(hostile, 'https://esm.sh');
+      expect(typeof out).toBe('string');
+    });
+
+    it('is a textual transform: rewrites import-like text inside string literals', () => {
+      const transformer = new ImportTransformer();
+      // Documented limitation: the transform is regex-on-source, not AST-aware,
+      // so a string that merely looks like an import is rewritten. It is safe in
+      // practice — it only reshapes trusted-CDN module source and integrity
+      // re-checks the result — but pinned so the behaviour is deliberate.
+      const out = transformer.transform(`const s = 'import "/local"';`, 'https://esm.sh');
+      expect(out).toContain('https://esm.sh/local');
+    });
+  });
 });

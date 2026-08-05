@@ -320,4 +320,37 @@ describe('GlobalInjector', () => {
       expect(injector.isActive).toBe(false);
     });
   });
+
+  describe('restore boundary', () => {
+    it('restores injected keys but leaves globals the executed code created', () => {
+      const injector = new GlobalInjector({ globals: { __gInjected: 'v' } });
+
+      injector.executeSync(() => {
+        // The run installs its own global, as a polyfill or self-registration might.
+        (globalThis as any).__gSelfInstalled = 'kept';
+      });
+
+      // The injected key is gone; the code's own global is deliberately left —
+      // deleting every new key would strip legitimate registrations too.
+      expect('__gInjected' in globalThis).toBe(false);
+      expect((globalThis as any).__gSelfInstalled).toBe('kept');
+
+      delete (globalThis as any).__gSelfInstalled;
+    });
+
+    it('restores a pre-existing global to its original value', () => {
+      (globalThis as any).__gPre = 'original';
+
+      try {
+        const injector = new GlobalInjector({ globals: { __gPre: 'injected' } });
+        let seen: unknown;
+        injector.executeSync(() => { seen = (globalThis as any).__gPre; });
+
+        expect(seen).toBe('injected');
+        expect((globalThis as any).__gPre).toBe('original');
+      } finally {
+        delete (globalThis as any).__gPre;
+      }
+    });
+  });
 });
