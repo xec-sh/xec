@@ -1,0 +1,225 @@
+# Integration tier: the suites test.yml deliberately leaves out.
+#
+# Tiers:
+#   unit (test.yml)    — every push and PR; no external infrastructure.
+#   integration (this) — SSH fixture containers, Docker churn, kind clusters.
+#                        Tens of minutes and real infrastructure, so it runs
+#                        when asked (workflow_dispatch) and once a week as a
+#                        drift alarm — not on every push.
+#
+# The weekly slot, Sunday 03:47 UTC: off-peak, and an odd minute dodges the
+# top-of-hour stampede that delays scheduled runs; the report is waiting
+# before the work week starts.
+
+name: integration
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '47 3 * * 0'
+
+permissions:
+  contents: read
+
+# One live integration run per ref is enough; a superseded run has no audience.
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-ssh:
+    # A schedule firing in a fork burns minutes proving nothing; a manual
+    # dispatch anywhere is deliberate and welcome.
+    if: github.event_name == 'workflow_dispatch' || github.repository == 'xec-sh/xec'
+    runs-on: ubuntu-latest
+    # Building the seven fixture images dominates; the suites themselves are
+    # minutes. A hang must not hold the runner for the six-hour default.
+    timeout-minutes: 45
+    env:
+      # docker-ssh-manager.sh defaults DOCKER_CMD to /usr/local/bin/docker — a
+      # macOS path. The runner has docker on PATH.
+      DOCKER_CMD: docker
+    defaults:
+      run:
+        # bash -o pipefail, so `suite | tee log` fails when the suite fails,
+        # not when tee does.
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm before setup-node: the store cache needs the binary on PATH.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      # Bun is a build dependency: @xec-sh/kit builds with `bun scripts/build.ts`.
+      # No Deno here — test.yml carries it for the runtime smoke, which is
+      # unit-tier.
+      - uses: oven-sh/setup-bun@v2
+
+      # @xec-sh/testing probes fixture sshds with sshpass; without it the
+      # readiness check degrades to a blind five-second sleep.
+      - name: install sshpass
+        run: command -v sshpass >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq sshpass; }
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:full
+
+      # Builds and boots the seven SSH fixture containers (ports 2201–2207).
+      # The suites are parametrised over all seven distros; describeSSH boots
+      # only ubuntu-apt on its own, the rest must already be up.
+      - name: start SSH fixtures
+        run: pnpm --filter @xec-sh/core docker:start
+
+      # The manager script returns when containers are created, not when the
+      # sshd inside answers — ubuntu-snap boots a full systemd before its sshd
+      # exists.
+      - name: wait for sshd
+        run: |
+          for port in 2201 2202 2203 2204 2205 2206 2207; do
+            ok=false
+            for _ in $(seq 1 45); do
+              if sshpass -p password ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=2 -p "$port" user@localhost exit 2>/dev/null; then
+                ok=true; break
+              fi
+              sleep 2
+            done
+            if [ "$ok" = true ]; then echo "port $port: sshd ready"; else echo "port $port: no sshd after 90s"; exit 1; fi
+          done
+
+      # Serial files: one docker daemon and seven sshds; parallel test files
+      # compete for both and time out spuriously. apps/xec pins
+      # fileParallelism: false in its vitest config for the same reason.
+      - name: core ssh suite
+        run: pnpm --filter @xec-sh/core test:ssh --fileParallelism=false 2>&1 | tee "$RUNNER_TEMP/vitest-ssh.log"
+
+      - name: core docker suite
+        run: pnpm --filter @xec-sh/core test:docker --fileParallelism=false 2>&1 | tee "$RUNNER_TEMP/vitest-docker.log"
+
+      # The CLI command tests mix SSH, Docker and kind blocks in one file;
+      # -t selects only the describeSSH blocks (kind is not installed here,
+      # and hooks of unmatched suites do not run).
+      - name: cli ssh-gated command tests
+        run: >
+          pnpm --filter @xec-sh/cli test
+          test/commands/copy.test.ts
+          test/commands/forward.test.ts
+          test/commands/in.test.ts
+          test/commands/watch.test.ts
+          -t 'SSH Host Copy|SSH Port Forwarding|SSH Host Execution|Remote Target Watching'
+          2>&1 | tee "$RUNNER_TEMP/vitest-cli-ssh.log"
+
+      - name: collect fixture logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/fixture-logs"
+          docker ps -a > "$RUNNER_TEMP/fixture-logs/docker-ps.txt"
+          for c in ubuntu-apt centos7-yum fedora-dnf alpine-apk manjaro-pacman ubuntu-brew ubuntu-snap; do
+            docker logs "$c" > "$RUNNER_TEMP/fixture-logs/$c.log" 2>&1 || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-ssh-failure-logs
+          path: |
+            ${{ runner.temp }}/vitest-*.log
+            ${{ runner.temp }}/fixture-logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: stop SSH fixtures
+        if: always()
+        run: pnpm --filter @xec-sh/core docker:stop || true
+
+  kubernetes:
+    if: github.event_name == 'workflow_dispatch' || github.repository == 'xec-sh/xec'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # kubernetes-port-forward.test.ts opts in via this flag and uses the
+      # ambient kubectl context; the adapter suites build their own throwaway
+      # clusters (unique names) and delete them in afterAll.
+      KUBECTL_AVAILABLE: 'true'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v2
+
+      # Pinned to the version the suites are exercised against on the dev
+      # machine. kubectl ships with the runner image.
+      - name: install kind
+        run: |
+          curl -fsSLo ./kind "https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-$(dpkg --print-architecture)"
+          sudo install -m 0755 ./kind /usr/local/bin/kind && rm ./kind
+          kind version
+          kubectl version --client
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:full
+
+      # Only the port-forward suite uses this ambient cluster; see the
+      # KUBECTL_AVAILABLE note above.
+      - name: create ambient cluster
+        run: kind create cluster --name xec-ci --wait 120s
+
+      # The port-forward suite does `kubectl run --image=nginx:alpine` and
+      # waits 30s for Ready; an in-cluster registry pull regularly exceeds
+      # that. Same reasoning as PRELOADED_IMAGES in KindClusterManager.
+      - name: preload nginx image
+        run: |
+          docker pull nginx:alpine
+          kind load docker-image nginx:alpine --name xec-ci
+
+      # Serial files: two of the suites boot a kind control plane each;
+      # running files concurrently puts three control planes plus the tests
+      # on one runner.
+      - name: core kubernetes suite
+        run: pnpm --filter @xec-sh/core test:k8s --fileParallelism=false 2>&1 | tee "$RUNNER_TEMP/vitest-k8s.log"
+
+      # Before teardown, which would delete the evidence.
+      - name: collect cluster logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/kind-logs"
+          docker ps -a > "$RUNNER_TEMP/kind-logs/docker-ps.txt"
+          kind get clusters > "$RUNNER_TEMP/kind-logs/clusters.txt" 2>&1 || true
+          for c in $(kind get clusters 2>/dev/null); do
+            kind export logs "$RUNNER_TEMP/kind-logs/$c" --name "$c" || true
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: kubernetes-failure-logs
+          path: |
+            ${{ runner.temp }}/vitest-k8s.log
+            ${{ runner.temp }}/kind-logs/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # The runner is ephemeral, but a crashed suite would leave control
+      # planes eating the rest of the job on a rerun or a self-hosted runner;
+      # delete whatever exists, the ambient cluster included.
+      - name: delete kind clusters
+        if: always()
+        run: |
+          command -v kind >/dev/null || exit 0
+          for c in $(kind get clusters 2>/dev/null); do
+            kind delete cluster --name "$c" || true
+          done
