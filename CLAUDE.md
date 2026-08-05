@@ -637,7 +637,7 @@ All code MUST pass these gates before commit:
 - ✅ **Unit tests**: `pnpm test` (100% passing)
 - ✅ **Coverage**: `pnpm test:coverage` (>95% for new code)
 - ✅ **Integration tests**: `pnpm test:integration` (100% passing)
-- ✅ **Mutation tests**: `pnpm test:mutation` (>95% killed)
+- ✅ **Mutation tests**: `pnpm test:mutation` (>95% killed; 72.2% measured — see Metrics)
 - ✅ **Performance**: `pnpm bench` (no regressions)
 - ✅ **Security**: `pnpm audit` (ZERO vulnerabilities)
 - ✅ **Docs**: Update `/docs` if API changed
@@ -869,7 +869,28 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 
 ### Code Quality Metrics
 - **Test coverage**: >95% (100% for critical paths)
-- **Mutation score**: >95%
+- **Mutation score**: **72.2% measured** (2026-08-06, first run in the
+  project's history: 1338 mutants over the eight files in
+  `packages/core/stryker.config.json`, 29 minutes). >95% remains the
+  target; the gap is where the work is, per file:
+
+  | file | score | survived |
+  |---|---|---|
+  | `utils/sensitive-patterns.ts` | 42.0% | 120 |
+  | `core/error.ts` | 55.3% | 29 |
+  | `utils/optimized-masker.ts` | 61.2% | 44 |
+  | `utils/helpers.ts` | 78.4% | 25 |
+  | `core/failure-kind.ts` | 80.4% | 22 |
+  | `utils/parallel.ts` | 83.4% | 30 |
+  | `utils/shell-escape.ts` | 84.2% | 40 |
+  | `core/result.ts` | 93.5% | 3 |
+
+  The two weakest are the redaction machinery — the code that decides
+  whether a credential reaches a log — which makes them the first to fix
+  rather than the last. Note also that a share of any file's survivors are
+  equivalent mutants: on `utils/secret-registry.ts`, seven of fifty-two
+  cannot be killed by any test because they change a fast path, not
+  behaviour. 100% is not the goal; knowing which survivors are which is.
 - **Cyclomatic complexity**: <10 per function
 - **Type coverage**: 100%
 - **Bundle size**: <50KB (core)
