@@ -90,10 +90,8 @@ interface ReleaseConfig {
   skipGit: boolean;
   skipGithub: boolean;
   skipNpm: boolean;
-  skipJsr: boolean;
   githubToken?: string;
   npmToken?: string;
-  jsrToken?: string;
 }
 
 // Rollback state to track changes
@@ -129,19 +127,6 @@ function readPackageJson(path: string): any {
 // Helper to write package.json
 function writePackageJson(path: string, data: any): void {
   writeFileSync(join(path, 'package.json'), JSON.stringify(data, null, 2) + '\n');
-}
-
-// Helper to create JSR configuration
-function createJsrJson(packageJson: any): any {
-  return {
-    name: packageJson.name.replace(/^@/, '').replace('/', '-'),
-    version: packageJson.version,
-    exports: packageJson.main || './dist/index.js',
-    publish: {
-      include: ['dist/**/*', 'README.md', 'LICENSE'],
-      exclude: ['**/*.test.js', '**/*.test.d.ts']
-    }
-  };
 }
 
 // Helper to parse CHANGES.md and return its content as is
@@ -645,10 +630,8 @@ export function command(program: Command): void {
     .option('--skip-git', 'Skip git operations (commit, tag, push)')
     .option('--skip-github', 'Skip GitHub release creation')
     .option('--skip-npm', 'Skip NPM publishing')
-    .option('--skip-jsr', 'Skip JSR.io publishing')
     .option('--npm-token <token>', 'NPM authentication token')
     .option('--github-token <token>', 'GitHub authentication token')
-    .option('--jsr-token <token>', 'JSR.io authentication token')
     .option('--prerelease <tag>', 'Create a prerelease version (alpha, beta, rc)')
     .option('--config <path>', 'Path to release configuration file')
     .action(async (version: string | undefined, options: any) => {
@@ -678,10 +661,8 @@ export function command(program: Command): void {
         skipGit: false,
         skipGithub: false,
         skipNpm: false,
-        skipJsr: false,
         githubToken: '',
         npmToken: '',
-        jsrToken: '',
       };
 
       try {
@@ -821,10 +802,8 @@ export function command(program: Command): void {
           skipGit: options.skipGit,
           skipGithub: options.skipGithub,
           skipNpm: options.skipNpm,
-          skipJsr: options.skipJsr,
           githubToken: options.githubToken,
           npmToken: options.npmToken,
-          jsrToken: options.jsrToken,
         };
 
         rollbackState.tagName = `v${config.version}`;
@@ -869,13 +848,6 @@ export function command(program: Command): void {
             'NPM:',
             '  - Publish all packages',
             ''
-          );
-        }
-
-        if (!config.skipJsr) {
-          planContent.push(
-            'JSR.io:',
-            '  - Publish @xec-sh/core and @xec-sh/cli'
           );
         }
 
@@ -1162,89 +1134,7 @@ export function command(program: Command): void {
           }
         }
 
-        // Step 7: JSR.io publishing
-        if (!config.skipJsr && !config.dryRun) {
-          s.start('Publishing to JSR.io...');
-
-          // Only publish core and cli to JSR
-          const jsrPackages = config.packages.filter(p =>
-            p.name === '@xec-sh/core' || p.name === '@xec-sh/cli'
-          );
-
-          // Check deno once for all packages
-          const denoExists = await $`which deno`.nothrow().then(r => r.exitCode === 0);
-
-          if (!denoExists) {
-            s.stop('⚠️  Deno not installed');
-            const installDeno = await promptWithCancel(() => kit.confirm({
-              message: 'Deno is required for JSR publishing. Install it now?',
-              initialValue: true
-            }));
-
-            if (installDeno) {
-              s.start('Installing Deno...');
-              await $`curl -fsSL https://deno.land/install.sh | sh`;
-              s.stop('✅ Deno installed');
-            } else {
-              config.skipJsr = true;
-            }
-          }
-
-          if (!config.skipJsr) {
-            // Create all jsr.json files in parallel
-            await Promise.all(jsrPackages.map(pkg => {
-              const packageJson = readPackageJson(pkg.path);
-              const jsrJson = createJsrJson(packageJson);
-              const jsrJsonPath = join(pkg.path, 'jsr.json');
-              writeFileSync(jsrJsonPath, JSON.stringify(jsrJson, null, 2) + '\n');
-              rollbackState.createdFiles.push(jsrJsonPath);
-            }));
-
-            // Publish packages sequentially with delays
-            for (let i = 0; i < jsrPackages.length; i++) {
-              const pkg = jsrPackages[i];
-              s.start(`Publishing ${pkg?.name} to JSR.io... (${i + 1}/${jsrPackages.length})`);
-
-              // The same reasoning as npm: a registry hiccup mid-release
-              // cannot be rolled back, so it is waited out rather than fatal.
-              const jsr = config.jsrToken
-                ? $.env({ JSR_TOKEN: config.jsrToken }).cd(pkg?.path ?? '')
-                : $.cd(pkg?.path ?? '');
-
-              await retry(
-                async () => {
-                  const result = config.jsrToken
-                    ? await jsr`deno publish --token $JSR_TOKEN`.timeout('5m').nothrow()
-                    : await jsr`deno publish`.timeout('5m').nothrow();
-
-                  if (!result.ok) {
-                    throw new Error(
-                      `${pkg?.name}: ${result.stdall.trim() || `exit ${result.exitCode}`}`
-                    );
-                  }
-                },
-                {
-                  maxAttempts: 3,
-                  initialDelay: 5_000,
-                  multiplier: 2,
-                  retryOn: error => !/already exists|version.*published/i.test(error.message),
-                  onRetry: (attempt, _error, delay) => {
-                    kit.log.warn(
-                      `${pkg?.name}: JSR attempt ${attempt} failed, retrying in ${Math.round(delay / 1000)}s`
-                    );
-                  },
-                }
-              );
-
-              // Space the requests out; JSR rate-limits a burst.
-              if (i < jsrPackages.length - 1) await sleep(3_000);
-            }
-
-            s.stop(`✅ Published ${jsrPackages.length} packages to JSR.io`);
-          }
-        }
-
-        // Step 8: Push to GitHub
+        // Step 7: Push to GitHub
         if (!config.skipGit && !config.dryRun) {
           s.start('Pushing to GitHub...');
 
@@ -1261,7 +1151,7 @@ export function command(program: Command): void {
           s.stop('✅ Pushed to GitHub');
         }
 
-        // Step 9: Create GitHub release
+        // Step 8: Create GitHub release
         if (!config.skipGithub && !config.dryRun) {
           s.start('Creating GitHub release...');
 
@@ -1304,9 +1194,8 @@ npm install @xec-sh/core
 pnpm add -g @xec-sh/cli
 pnpm add @xec-sh/core
 
-# JSR.io  
-deno add @xec/core
-deno add @xec/cli
+# Deno
+deno add npm:@xec-sh/core
 \`\`\`
 
 ## 🔄 What's Changed
@@ -1403,7 +1292,6 @@ ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
 
 🔗 Links:
   - NPM: https://www.npmjs.com/package/@xec-sh/core
-  - JSR: https://jsr.io/@xec/core
   - GitHub: https://github.com/xec-sh/xec/releases/tag/v${config.version}
 
 🎉 Happy coding with Xec!

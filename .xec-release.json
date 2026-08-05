@@ -1,7 +1,6 @@
 {
   "skipDepCheck": false,
   "skipTests": false,
-  "skipJsr": false,
   "defaultBranch": "main",
   "npm": {
     "access": "public",
