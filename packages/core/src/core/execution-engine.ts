@@ -102,6 +102,18 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     }
     return this._transfer;
   }
+
+  /**
+   * The target this engine is pointed at, or `undefined` when it runs on the
+   * local machine.
+   *
+   * Read by {@link TransferEngine} so `upload`/`download` know where "the
+   * target" is — `$.ssh(host).transfer.upload('dist/', '/srv/app')` sends to
+   * `host` — without the caller restating the target as a URL.
+   */
+  public get targetInfo(): Command['adapterOptions'] {
+    return this.currentConfig.adapterOptions;
+  }
   public readonly question = question;
   public readonly prompt = question; // Alias for question
   public readonly password = password;

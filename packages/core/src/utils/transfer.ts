@@ -51,10 +51,14 @@ export interface TransferResult {
 }
 
 export interface Environment {
-  type: 'local' | 'ssh' | 'docker';
+  type: 'local' | 'ssh' | 'docker' | 'kubernetes';
   host?: string;
   user?: string;
   container?: string;
+  pod?: string;
+  namespace?: string;
+  context?: string;
+  kubeconfig?: string;
   path: string;
   raw: string;
 }
@@ -76,110 +80,181 @@ export class TransferEngine {
   }
 
   async copy(source: string, dest: string, options: TransferOptions = {}): Promise<TransferResult> {
-    const startTime = Date.now();
-    const sourceEnv = this.parseEnvironment(source);
-    const destEnv = this.parseEnvironment(dest);
-
-    // Emit transfer:start event
-    this.emitEvent('transfer:start', {
-      source: sourceEnv.raw,
-      destination: destEnv.raw,
-      direction: sourceEnv.type === 'local' ? 'upload' : 'download'
-    });
-
-    try {
-      const result = await this.executeTransfer(sourceEnv, destEnv, 'copy', options);
-      const finalResult = {
-        ...result,
-        success: true,
-        duration: Date.now() - startTime
-      };
-
-      // Emit transfer:complete event
-      this.emitEvent('transfer:complete', {
-        source: sourceEnv.raw,
-        destination: destEnv.raw,
-        direction: sourceEnv.type === 'local' ? 'upload' : 'download',
-        bytesTransferred: finalResult.bytesTransferred,
-        duration: finalResult.duration
-      });
-
-      return finalResult;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      // Emit transfer:error event
-      this.emitEvent('transfer:error', {
-        source: sourceEnv.raw,
-        destination: destEnv.raw,
-        direction: sourceEnv.type === 'local' ? 'upload' : 'download',
-        error: error instanceof Error ? error.message : String(error)
-      });
-
-      return {
-        success: false,
-        filesTransferred: 0,
-        bytesTransferred: 0,
-        errors: [error as Error],
-        duration
-      };
-    }
+    return this.perform(this.parseEnvironment(source), this.parseEnvironment(dest), 'copy', options);
   }
 
   async move(source: string, dest: string, options: TransferOptions = {}): Promise<TransferResult> {
-    const startTime = Date.now();
-    const sourceEnv = this.parseEnvironment(source);
-    const destEnv = this.parseEnvironment(dest);
-
-    // Emit transfer:start event
-    this.emitEvent('transfer:start', {
-      source: sourceEnv.raw,
-      destination: destEnv.raw,
-      direction: sourceEnv.type === 'local' ? 'upload' : 'download'
-    });
-
-    try {
-      const result = await this.executeTransfer(sourceEnv, destEnv, 'move', options);
-      const finalResult = {
-        ...result,
-        success: true,
-        duration: Date.now() - startTime
-      };
-
-      // Emit transfer:complete event
-      this.emitEvent('transfer:complete', {
-        source: sourceEnv.raw,
-        destination: destEnv.raw,
-        direction: sourceEnv.type === 'local' ? 'upload' : 'download',
-        bytesTransferred: finalResult.bytesTransferred,
-        duration: finalResult.duration
-      });
-
-      return finalResult;
-    } catch (error) {
-      const duration = Date.now() - startTime;
-
-      // Emit transfer:error event
-      this.emitEvent('transfer:error', {
-        source: sourceEnv.raw,
-        destination: destEnv.raw,
-        direction: sourceEnv.type === 'local' ? 'upload' : 'download',
-        error: error instanceof Error ? error.message : String(error)
-      });
-
-      return {
-        success: false,
-        filesTransferred: 0,
-        bytesTransferred: 0,
-        errors: [error as Error],
-        duration
-      };
-    }
+    return this.perform(this.parseEnvironment(source), this.parseEnvironment(dest), 'move', options);
   }
 
   async sync(source: string, dest: string, options: TransferOptions = {}): Promise<TransferResult> {
     // Sync is like copy but with deleteExtra option
     return this.copy(source, dest, { ...options, deleteExtra: true });
+  }
+
+  /**
+   * Send a local path to this engine's target.
+   *
+   * The destination is resolved against the target the engine was pointed at —
+   * `$.ssh(host).transfer.upload('dist/', '/srv/app')` uploads to `host`,
+   * `$.docker(c)` to the container, `$.k8s(pod)` to the pod. `copy` with two
+   * flat paths cannot do this: it reads the environment only from `ssh://` /
+   * `docker://` URLs, so on a target engine both flat paths look local and the
+   * transfer silently stays on the operator's machine. This method reads the
+   * target from the engine instead.
+   *
+   * @param localSource - A local file or directory.
+   * @param targetDest - The destination path on the engine's target.
+   * @throws When the engine has no target (a bare `$`), with a message pointing
+   *   at `copy()` with a URL.
+   */
+  async upload(localSource: string, targetDest: string, options: TransferOptions = {}): Promise<TransferResult> {
+    const dest = this.targetEnvironment(targetDest, 'upload');
+    const source = this.parseEnvironment(localSource);
+
+    if (source.type !== 'local') {
+      throw new Error(
+        `upload() takes a local source path, received '${localSource}'. ` +
+          `To move between two remotes, use copy() with ssh://, docker:// URLs.`
+      );
+    }
+
+    return this.perform(source, dest, 'copy', options);
+  }
+
+  /**
+   * Fetch a path from this engine's target down to a local path.
+   *
+   * The source is resolved against the target the engine was pointed at — see
+   * {@link upload} for why `copy()` with flat paths cannot express this.
+   *
+   * @param targetSource - The source path on the engine's target.
+   * @param localDest - A local destination path.
+   * @throws When the engine has no target (a bare `$`).
+   */
+  async download(targetSource: string, localDest: string, options: TransferOptions = {}): Promise<TransferResult> {
+    const source = this.targetEnvironment(targetSource, 'download');
+    const dest = this.parseEnvironment(localDest);
+
+    if (dest.type !== 'local') {
+      throw new Error(
+        `download() takes a local destination path, received '${localDest}'. ` +
+          `To move between two remotes, use copy() with ssh://, docker:// URLs.`
+      );
+    }
+
+    return this.perform(source, dest, 'copy', options);
+  }
+
+  /**
+   * Build the {@link Environment} for the engine's own target at `path`.
+   *
+   * @throws When the engine is local / untargeted, so `upload`/`download` fail
+   *   loudly rather than silently transferring on the local machine.
+   */
+  private targetEnvironment(path: string, verb: 'upload' | 'download'): Environment {
+    const target = (this.engine as ExecutionEngine).targetInfo;
+
+    if (!target || target.type === 'local') {
+      throw new Error(
+        `${verb}() needs an engine bound to a target — $.ssh(host), $.docker(container) ` +
+          `or $.k8s(pod). A bare $ has no target; use copy() with an ssh:// or docker:// URL.`
+      );
+    }
+
+    switch (target.type) {
+      case 'ssh':
+        return {
+          type: 'ssh',
+          host: target.host,
+          user: target.username,
+          path,
+          raw: `ssh://${target.username}@${target.host}${path.startsWith('/') ? '' : '/'}${path}`
+        };
+      case 'docker':
+        return { type: 'docker', container: target.container, path, raw: `docker://${target.container}:${path}` };
+      case 'kubernetes':
+        return {
+          type: 'kubernetes',
+          pod: target.pod,
+          namespace: target.namespace,
+          container: target.container,
+          context: target.context,
+          kubeconfig: target.kubeconfig,
+          path,
+          raw: `k8s://${target.namespace ?? 'default'}/${target.pod}:${path}`
+        };
+    }
+  }
+
+  /**
+   * A local engine for orchestration commands.
+   *
+   * `docker cp`, `kubectl cp` and the local `cp`/`rm` steps run on the operator's
+   * machine, not inside the target. Running them through `this.engine` when it
+   * is bound to a container or pod would execute `docker cp` *inside* that
+   * container. SFTP-based SSH helpers connect out regardless, so they are
+   * unaffected.
+   */
+  private _control?: ExecutionEngine;
+  private control(): ExecutionEngine | CallableExecutionEngine {
+    if (!this._control) {
+      const engine = this.engine as ExecutionEngine;
+      this._control = typeof engine.local === 'function' ? engine.local() : engine;
+    }
+    return this._control;
+  }
+
+  private async perform(
+    sourceEnv: Environment,
+    destEnv: Environment,
+    operation: 'copy' | 'move',
+    options: TransferOptions
+  ): Promise<TransferResult> {
+    const startTime = Date.now();
+    const direction = sourceEnv.type === 'local' ? 'upload' : 'download';
+
+    this.emitEvent('transfer:start', {
+      source: sourceEnv.raw,
+      destination: destEnv.raw,
+      direction
+    });
+
+    try {
+      const result = await this.executeTransfer(sourceEnv, destEnv, operation, options);
+      const finalResult = {
+        ...result,
+        success: true,
+        duration: Date.now() - startTime
+      };
+
+      this.emitEvent('transfer:complete', {
+        source: sourceEnv.raw,
+        destination: destEnv.raw,
+        direction,
+        bytesTransferred: finalResult.bytesTransferred,
+        duration: finalResult.duration
+      });
+
+      return finalResult;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+
+      this.emitEvent('transfer:error', {
+        source: sourceEnv.raw,
+        destination: destEnv.raw,
+        direction,
+        error: error instanceof Error ? error.message : String(error)
+      });
+
+      return {
+        success: false,
+        filesTransferred: 0,
+        bytesTransferred: 0,
+        errors: [error as Error],
+        duration
+      };
+    }
   }
 
   private parseEnvironment(path: string): Environment {
@@ -241,6 +316,10 @@ export class TransferEngine {
         return this.dockerToSsh(source, dest, operation, options);
       case 'docker-docker':
         return this.dockerToDocker(source, dest, operation, options);
+      case 'local-kubernetes':
+        return this.localToKubernetes(source, dest, operation, options);
+      case 'kubernetes-local':
+        return this.kubernetesToLocal(source, dest, operation, options);
       default:
         throw new Error(`Unsupported transfer: ${source.type} to ${dest.type}`);
     }
@@ -263,7 +342,7 @@ export class TransferEngine {
       command = `mv ${options.overwrite ? '-f' : '-n'} ${sourcePath} ${destPath}`;
     }
 
-    await this.engine.execute({ command, shell: true });
+    await this.control().execute({ command, shell: true });
 
     // Get transfer stats
     const stats = await this.getTransferStats(source.path, options);
@@ -277,7 +356,7 @@ export class TransferEngine {
     options: TransferOptions
   ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
     // Get SSH execution context
-    const $ssh = (this.engine as any).ssh({
+    const $ssh = (this.control() as any).ssh({
       host: dest.host!,
       username: dest.user || 'root'
     });
@@ -292,7 +371,7 @@ export class TransferEngine {
 
     // If move operation, delete source
     if (operation === 'move') {
-      await this.engine.execute({ command: `rm -rf ${escapeArg(source.path)}`, shell: true });
+      await this.control().execute({ command: `rm -rf ${escapeArg(source.path)}`, shell: true });
     }
 
     const stats = await this.getTransferStats(source.path, options);
@@ -309,11 +388,11 @@ export class TransferEngine {
     const containerPath = `${dest.container}:${dest.path}`;
 
     const command = `docker cp ${sourcePath} ${containerPath}`;
-    await this.engine.execute({ command, shell: true });
+    await this.control().execute({ command, shell: true });
 
     // If move operation, delete source
     if (operation === 'move') {
-      await this.engine.execute({ command: `rm -rf ${sourcePath}`, shell: true });
+      await this.control().execute({ command: `rm -rf ${sourcePath}`, shell: true });
     }
 
     const stats = await this.getTransferStats(source.path, options);
@@ -327,7 +406,7 @@ export class TransferEngine {
     options: TransferOptions
   ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
     // Get SSH execution context
-    const $ssh = (this.engine as any).ssh({
+    const $ssh = (this.control() as any).ssh({
       host: source.host!,
       username: source.user || 'root'
     });
@@ -339,7 +418,7 @@ export class TransferEngine {
       const localPath = dest.path;
       
       // Create local directory
-      await this.engine.execute({ command: `mkdir -p ${escapeArg(localPath)}`, shell: true });
+      await this.control().execute({ command: `mkdir -p ${escapeArg(localPath)}`, shell: true });
       
       // Use tar over SSH for directory transfer
       await $ssh`tar -cf - -C ${dirname(remotePath)} ${relative(dirname(remotePath), remotePath)} | tar -xf - -C ${localPath}`;
@@ -366,7 +445,7 @@ export class TransferEngine {
   ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
     if (source.host === dest.host) {
       // Same host, use remote cp/mv
-      const $ssh = (this.engine as any).ssh({
+      const $ssh = (this.control() as any).ssh({
         host: source.host!,
         username: source.user || 'root'
       });
@@ -387,11 +466,11 @@ export class TransferEngine {
       await this.localToSsh({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
       // Clean up temp
-      await this.engine.execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+      await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
 
       // If move operation, delete source
       if (operation === 'move') {
-        const $sshSource = (this.engine as any).ssh({
+        const $sshSource = (this.control() as any).ssh({
           host: source.host!,
           username: source.user || 'root'
         });
@@ -419,10 +498,10 @@ export class TransferEngine {
     await this.localToDocker({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
     // Clean up
-    await this.engine.execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+    await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
 
     if (operation === 'move') {
-      const $ssh = (this.engine as any).ssh({
+      const $ssh = (this.control() as any).ssh({
         host: source.host!,
         username: source.user || 'root'
       });
@@ -446,11 +525,11 @@ export class TransferEngine {
     const destPath = escapeArg(dest.path);
 
     const command = `docker cp ${containerPath} ${destPath}`;
-    await this.engine.execute({ command, shell: true });
+    await this.control().execute({ command, shell: true });
 
     // Docker doesn't support move, so we need to delete manually
     if (operation === 'move') {
-      await this.engine.execute({
+      await this.control().execute({
         command: `docker exec ${source.container} rm -rf ${escapeArg(source.path)}`,
         shell: true
       });
@@ -476,10 +555,10 @@ export class TransferEngine {
     await this.localToSsh({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
     // Clean up
-    await this.engine.execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+    await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
 
     if (operation === 'move') {
-      await this.engine.execute({
+      await this.control().execute({
         command: `docker exec ${source.container} rm -rf ${escapeArg(source.path)}`,
         shell: true
       });
@@ -504,7 +583,7 @@ export class TransferEngine {
         ? `docker exec ${source.container} cp ${this.buildCpFlags(options)} ${escapeArg(source.path)} ${escapeArg(dest.path)}`
         : `docker exec ${source.container} mv ${options.overwrite ? '-f' : '-n'} ${escapeArg(source.path)} ${escapeArg(dest.path)}`;
 
-      await this.engine.execute({ command, shell: true });
+      await this.control().execute({ command, shell: true });
     } else {
       // Different containers, use intermediate
       const tempPath = `/tmp/ush-transfer-${Date.now()}`;
@@ -513,10 +592,10 @@ export class TransferEngine {
       await this.localToDocker({ type: 'local', path: tempPath, raw: tempPath }, dest, 'copy', options);
 
       // Clean up
-      await this.engine.execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
+      await this.control().execute({ command: `rm -rf ${escapeArg(tempPath)}`, shell: true });
 
       if (operation === 'move') {
-        await this.engine.execute({
+        await this.control().execute({
           command: `docker exec ${source.container} rm -rf ${escapeArg(source.path)}`,
           shell: true
         });
@@ -528,6 +607,79 @@ export class TransferEngine {
       bytesTransferred: 0,
       errors: []
     };
+  }
+
+  private async localToKubernetes(
+    source: Environment,
+    dest: Environment,
+    operation: 'copy' | 'move',
+    options: TransferOptions
+  ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
+    const command = this.joinArgs([
+      'kubectl', 'cp', escapeArg(source.path), this.podSpec(dest), this.k8sFlags(dest)
+    ]);
+    await this.control().execute({ command, shell: true });
+
+    // A move deletes the *local* source once the copy up has landed.
+    if (operation === 'move') {
+      await this.control().execute({ command: `rm -rf ${escapeArg(source.path)}`, shell: true });
+    }
+
+    return this.getTransferStats(source.path, options);
+  }
+
+  private async kubernetesToLocal(
+    source: Environment,
+    dest: Environment,
+    operation: 'copy' | 'move',
+    options: TransferOptions
+  ): Promise<Omit<TransferResult, 'success' | 'duration'>> {
+    const command = this.joinArgs([
+      'kubectl', 'cp', this.podSpec(source), escapeArg(dest.path), this.k8sFlags(source)
+    ]);
+    await this.control().execute({ command, shell: true });
+
+    // A move deletes the source inside the pod. `kubectl exec` runs locally but
+    // acts on the pod, matching how dockerToLocal deletes with `docker exec`.
+    if (operation === 'move') {
+      const del = this.joinArgs([
+        'kubectl', 'exec', this.k8sFlags(source), escapeArg(source.pod!), '--', 'rm', '-rf', escapeArg(source.path)
+      ]);
+      await this.control().execute({ command: del, shell: true });
+    }
+
+    return this.getTransferStats(dest.path, options);
+  }
+
+  /**
+   * Render `kubectl cp`'s `pod:path` peer.
+   *
+   * The pod name and the path are escaped separately so a space in the path is
+   * quoted while the `:` kubectl parses on stays literal — the shell joins the
+   * adjacent tokens into one word (`pod:'/a b'` → `pod:/a b`), which is the one
+   * argv element kubectl expects.
+   */
+  private podSpec(env: Environment): string {
+    return `${escapeArg(env.pod!)}:${escapeArg(env.path)}`;
+  }
+
+  /** Cluster/namespace/container flags a `kubectl` invocation must carry. */
+  private k8sFlags(env: Environment): string {
+    const flags: string[] = [];
+
+    if (env.namespace) flags.push('-n', escapeArg(env.namespace));
+    if (env.container) flags.push('-c', escapeArg(env.container));
+    // A target names its own cluster; without these it would run against
+    // whatever `kubectl config current-context` happens to be.
+    if (env.context) flags.push('--context', escapeArg(env.context));
+    if (env.kubeconfig) flags.push('--kubeconfig', escapeArg(env.kubeconfig));
+
+    return flags.join(' ');
+  }
+
+  /** Join argv pieces, dropping the empty strings the flag builders may return. */
+  private joinArgs(parts: string[]): string {
+    return parts.filter(part => part.length > 0).join(' ');
   }
 
   private buildCpFlags(options: TransferOptions): string {
