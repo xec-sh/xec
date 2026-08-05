@@ -115,8 +115,11 @@ const sidebars: SidebarsConfig = {
           type: 'category',
           label: 'Built-in Commands',
           items: [
+            'commands/built-in/completion',
+            'commands/built-in/config',
             'commands/built-in/copy',
             'commands/built-in/docker',
+            'commands/built-in/doctor',
             'commands/built-in/forward',
             'commands/built-in/in',
             'commands/built-in/on',
@@ -126,7 +129,6 @@ const sidebars: SidebarsConfig = {
             'commands/built-in/run',
             'commands/built-in/secrets',
             'commands/built-in/inspect',
-            'commands/built-in/config',
           ],
         },
         {

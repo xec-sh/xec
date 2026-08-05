@@ -23,8 +23,10 @@ export interface CommandManifestEntry {
 }
 
 export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
+  { name: 'completion', description: "Print a shell completion script", aliases: [], module: 'completion' },
   { name: 'config', description: "Manage Xec configuration", aliases: ['conf', 'cfg'], module: 'config' },
   { name: 'copy', description: "Copy files between targets", aliases: ['cp'], module: 'copy' },
+  { name: 'doctor', description: "Check the environment xec runs in", aliases: [], module: 'doctor' },
   { name: 'docker', description: "Manage Docker containers, images, networks and volumes", aliases: ['d'], module: 'docker' },
   { name: 'forward', description: "Forward ports from remote systems", aliases: ['fwd'], module: 'forward' },
   { name: 'in', description: "Execute commands in containers or Kubernetes pods", aliases: [], module: 'in' },
