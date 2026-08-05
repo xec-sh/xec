@@ -793,6 +793,19 @@ export function command(program: Command): void {
           process.exit(1);
         }
 
+        // Equal is allowed on purpose: every step downstream is idempotent
+        // (no-change commit is skipped, an existing tag is reused, an
+        // already-published npm version counts as success), so re-running
+        // the same version resumes a release that died mid-flight instead
+        // of forcing manual surgery. Backwards is never allowed.
+        if (semver.lt(newVersion!, currentVersion)) {
+          kit.note(prism.red(`Version ${newVersion} is below the current ${currentVersion}`));
+          process.exit(1);
+        }
+        if (semver.eq(newVersion!, currentVersion)) {
+          kit.log.info(`Version ${newVersion} is already current — completing an unfinished release.`);
+        }
+
         // Create release config
         config = {
           version: newVersion!,
