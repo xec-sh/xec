@@ -3,14 +3,14 @@
  * @module @xec-sh/loader/core/execution-context
  */
 
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import type {
   TargetInfo,
   ScriptContext,
   ExecutionEngine,
   ExecutionContextOptions,
 } from '../types/index.js';
+
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
  * Per-run values, resolved through the async execution chain.

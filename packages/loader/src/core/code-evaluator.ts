@@ -3,16 +3,16 @@
  * @module @xec-sh/loader/core/code-evaluator
  */
 
-import * as path from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { promises as fs } from 'node:fs';
-import { randomBytes } from 'node:crypto';
-
 import type {
   ScriptContext,
   ExecutionResult,
   EvaluationOptions,
 } from '../types/index.js';
+
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { promises as fs } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 
 import { ExecutionContext } from './execution-context.js';
 
@@ -39,21 +39,19 @@ export class CodeEvaluator {
   private async importTransient<T>(code: string, use: (module: any) => Promise<T> | T): Promise<T> {
     const file = path.join(process.cwd(), `.xec-eval-${randomBytes(8).toString('hex')}.mjs`);
 
-    let written = false;
     try {
       await fs.writeFile(file, code, { mode: 0o600, flag: 'wx' });
-      written = true;
     } catch {
       const dataUrl = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
       return use(await import(dataUrl));
     }
 
+    // Reaching here means the write succeeded, so the finally always has a
+    // file to remove.
     try {
       return await use(await import(pathToFileURL(file).href));
     } finally {
-      if (written) {
-        await fs.unlink(file).catch(() => {});
-      }
+      await fs.unlink(file).catch(() => {});
     }
   }
 

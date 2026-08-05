@@ -156,6 +156,9 @@ export default [
       'eslint.config.*',
       '**/dist/**',
       '**/coverage/**',
+      // Stryker clones the package into a sandbox mid-run; those copies are
+      // outside every tsconfig and vanish when the run ends.
+      '**/.stryker-tmp/**',
       '**/node_modules/**',
       '**/*.d.ts',
       // Scripts the CLI compiles at run time. They are generated, gitignored

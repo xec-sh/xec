@@ -184,6 +184,10 @@ export class TransferEngine {
           path,
           raw: `k8s://${target.namespace ?? 'default'}/${target.pod}:${path}`
         };
+      default:
+        // targetInfo.type is adapter-defined; a value outside the known set
+        // means a new adapter arrived without a transfer leg.
+        throw new Error(`${verb}() has no transfer route for target type '${(target as { type: string }).type}'`);
     }
   }
 

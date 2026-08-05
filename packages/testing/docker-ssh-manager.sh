@@ -6,7 +6,7 @@
 # Configuration
 # Script is in packages/testing/, docker images are in packages/testing/docker/
 DOCKER_DIR="${DOCKER_DIR:-$(dirname "$0")/docker}"
-DOCKER_CMD="${DOCKER_CMD:-/usr/local/bin/docker}"
+DOCKER_CMD="${DOCKER_CMD:-docker}"
 
 # Container configurations - using separate arrays for compatibility
 CONTAINER_NAMES=(

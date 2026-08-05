@@ -814,6 +814,7 @@ export class SSHAdapter extends BaseAdapter {
           // the PID-predictable path invited a local user on the remote to
           // plant one. There is exactly one correct askpass construction;
           // every spelling of the option gets it.
+          // falls through
         case 'secure':
         case 'secure-askpass': {
           // Build an askpass script on the remote host so the password never

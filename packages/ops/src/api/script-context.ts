@@ -6,8 +6,8 @@
  */
 
 import { glob } from 'glob';
-import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
+import * as path from 'node:path';
 import { prism } from '@xec-sh/kit';
 // Simple minimatch replacement — supports * and ** patterns
 function minimatch(filePath: string, pattern: string): boolean {

@@ -1,7 +1,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { EventEmitter } from 'node:events';
 import { promises as fs } from 'node:fs';
+import { EventEmitter } from 'node:events';
 
 /**
  * Watch reloads run in a child process so a long session does not accumulate

@@ -1,5 +1,5 @@
-import path from 'node:path';
 import { glob } from 'glob';
+import path from 'node:path';
 import fs from 'node:fs/promises';
 import { log, text, prism, select, confirm, isCancel, multiselect } from '@xec-sh/kit';
 

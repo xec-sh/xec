@@ -26,7 +26,7 @@ describe('streaming-executor: error surfacing', () => {
 
   it('streamLines throws when the runtime cannot be spawned', async () => {
     const drain = async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+       
       for await (const _ of streamLines(script, { runtime: '/no/such/runtime-xyz' })) {
         // no events are expected; the spawn fails
       }

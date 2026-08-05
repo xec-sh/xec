@@ -404,7 +404,7 @@ describe('GitSecretProvider', () => {
         await teamProvider.initialize();
 
         // Generate a test RSA key pair for team member
-        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+        const { publicKey, privateKey: _privateKey } = crypto.generateKeyPairSync('rsa', {
           modulusLength: 2048,
           publicKeyEncoding: {
             type: 'spki',

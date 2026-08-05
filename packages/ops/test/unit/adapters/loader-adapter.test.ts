@@ -1,3 +1,5 @@
+import type { ResolvedTarget } from '../../../src/config/types.js';
+
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { existsSync } from 'node:fs';
@@ -9,8 +11,6 @@ import {
   commandFileUrl,
   getScriptLoader,
 } from '../../../src/adapters/loader-adapter.js';
-
-import type { ResolvedTarget } from '../../../src/config/types.js';
 
 /**
  * The loader executes scripts by importing real files, so every test works

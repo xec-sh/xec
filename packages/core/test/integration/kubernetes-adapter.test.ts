@@ -1,5 +1,5 @@
 import { unlinkSync, writeFileSync } from 'fs';
-import { KindClusterManager } from '@xec-sh/testing';
+import { isKindAvailable, isDockerAvailable, KindClusterManager, isKubectlAvailable } from '@xec-sh/testing';
 
 import { KubernetesAdapter } from '../../src/adapters/kubernetes/index.js';
 
@@ -8,7 +8,12 @@ import { KubernetesAdapter } from '../../src/adapters/kubernetes/index.js';
  * These tests focus on real cluster interactions and multi-container pod scenarios.
  * Basic functionality tests are covered in kubernetes-adapter-enhanced.test.ts
  */
-describe('KubernetesAdapter Integration Tests', () => {
+// A cluster-building suite must skip, not fail, where the binaries are
+// absent — the sibling enhanced suite already held this rule.
+const describeIfK8s =
+  isDockerAvailable() && isKindAvailable() && isKubectlAvailable() ? describe : describe.skip;
+
+describeIfK8s('KubernetesAdapter Integration Tests', () => {
   let adapter: KubernetesAdapter;
   let cluster: KindClusterManager;
 

@@ -2,8 +2,8 @@ import * as path from 'node:path';
 import { existsSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 
-import { getCachedMachineId } from '../machine-id.js';
 import { atomicWriteFile } from '../atomic-write.js';
+import { getCachedMachineId } from '../machine-id.js';
 import { getSecretsDir } from '../../config/utils.js';
 import {
   encode,

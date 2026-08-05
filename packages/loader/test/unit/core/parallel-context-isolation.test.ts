@@ -1,11 +1,11 @@
+import type { TargetInfo } from '../../../src/types/index.js';
+
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
 
 import { ScriptExecutor } from '../../../src/core/script-executor.js';
 import { ExecutionContext } from '../../../src/core/execution-context.js';
-
-import type { TargetInfo } from '../../../src/types/index.js';
 
 /**
  * One script, many targets, started together — the fan-out that

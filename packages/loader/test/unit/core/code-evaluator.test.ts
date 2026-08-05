@@ -1,6 +1,6 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { promises as fs, existsSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
+import { mkdirSync, existsSync, unlinkSync, writeFileSync, promises as fs } from 'node:fs';
 
 import { CodeEvaluator } from '../../../src/core/code-evaluator.js';
 

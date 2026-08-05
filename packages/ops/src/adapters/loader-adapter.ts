@@ -8,11 +8,11 @@ interface CLIProgram { command(name: string, description?: string): unknown; }
 
 import type { ResolvedTarget } from '../config/types.js';
 
-import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
+import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { randomBytes } from 'node:crypto';
 import { log, prism } from '@xec-sh/kit';
+import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import {
   REPLServer,

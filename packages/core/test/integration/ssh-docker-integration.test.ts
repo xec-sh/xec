@@ -5,7 +5,8 @@ import { $ } from '../../src/index';
 import { TimeoutError } from '../../src/core/error.js';
 
 describeSSH('SSH Docker Integration Tests', () => {
-  vi.setTimeout(60000); // 60 seconds timeout for SSH operations
+  // vitest 4 has no vi.setTimeout; this is the supported spelling.
+  vi.setConfig({ testTimeout: 60_000 });
 
   describe('Basic Connectivity Tests', () => {
     testEachPackageManager('should connect to container', async (container) => {

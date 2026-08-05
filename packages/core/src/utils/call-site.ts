@@ -12,11 +12,44 @@
  * it is not free, hence {@link ExecutionEngineConfig.captureCallSite}.
  */
 
-/** Frames inside the library itself; never the answer the reader wants. */
+import { fileURLToPath } from 'node:url';
+
+/**
+ * Frames inside the library itself; never the answer the reader wants.
+ *
+ * The path shapes this package ships in. A shape test alone is not enough:
+ * the library does not choose where it runs from — a relocated checkout or a
+ * mutation-testing sandbox puts the same code under a path this regex has
+ * never heard of, and the filter silently stops filtering.
+ */
 const INTERNAL_FRAME = /[/\\](?:packages[/\\]core[/\\](?:src|dist)|node_modules[/\\]@xec-sh[/\\]core)[/\\]/;
+
+/**
+ * The directory this module was loaded from, in both spellings a stack frame
+ * can use. It follows the code wherever it is relocated, so frames from the
+ * library's own copy are recognised without knowing the deployment layout.
+ */
+const LIBRARY_DIR_MARKERS: readonly string[] = (() => {
+  try {
+    const dir = new URL('../', import.meta.url);
+    return dir.protocol === 'file:' ? [dir.href, fileURLToPath(dir)] : [dir.href];
+  } catch {
+    // No usable module URL (an exotic bundler): the shape test above remains.
+    return [];
+  }
+})();
 
 /** Node's own internals, which are equally never the answer. */
 const NODE_INTERNAL_FRAME = /\((?:node:|internal[/\\])/;
+
+/** A frame that belongs to the library or the runtime, not to the caller. */
+function isInternalFrame(frame: string): boolean {
+  return (
+    INTERNAL_FRAME.test(frame) ||
+    NODE_INTERNAL_FRAME.test(frame) ||
+    LIBRARY_DIR_MARKERS.some((marker) => frame.includes(marker))
+  );
+}
 
 /**
  * Capture the current stack, cheaply.
@@ -47,7 +80,7 @@ export function resolveCallSite(holder: { stack?: string } | null | undefined): 
   for (const line of stack.split('\n').slice(1)) {
     const frame = line.trim();
     if (!frame.startsWith('at ')) continue;
-    if (INTERNAL_FRAME.test(frame) || NODE_INTERNAL_FRAME.test(frame)) continue;
+    if (isInternalFrame(frame)) continue;
 
     // Prefer the parenthesised location — `at fn (file:1:2)` — falling back
     // to the bare form used for top-level frames.

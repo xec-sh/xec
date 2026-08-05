@@ -9,8 +9,8 @@ import type {
   TaskErrorHandler,
 } from './types.js';
 
-import * as path from 'node:path';
 import { $ } from '@xec-sh/core';
+import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 

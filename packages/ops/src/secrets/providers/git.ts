@@ -6,8 +6,8 @@ import { existsSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { execSync, execFileSync } from 'node:child_process';
 
-import { getCachedMachineId } from '../machine-id.js';
 import { atomicWriteFile } from '../atomic-write.js';
+import { getCachedMachineId } from '../machine-id.js';
 import {
   encode,
   decode,
