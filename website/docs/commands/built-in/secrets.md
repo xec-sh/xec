@@ -23,25 +23,29 @@ The `secrets` command provides secure storage and management of sensitive data l
 
 ### set
 
-Set a secret value.
+Set a secret value. On a terminal the value is asked for with a masked
+prompt; when stdin is piped, the piped input becomes the value (minus one
+trailing newline).
 
 ```bash
 xec secrets set <key> [options]
 ```
 
 **Options:**
-- `-v, --value <value>` - Secret value (prompts securely if not provided)
+- `--value <value>` - Secret value. Visible in the process list while the
+  command runs — prefer the prompt or stdin.
 
 **Examples:**
 ```bash
 # Interactive mode (recommended - secure prompt)
 xec secrets set DATABASE_PASSWORD
 
-# Set with value (not recommended - visible in shell history)
-xec secrets set API_KEY -v "sk-1234567890abcdef"
+# Piped stdin (recommended for scripts and CI)
+printf '%s' "$DB_PASS" | xec secrets set DATABASE_PASSWORD
+xec secrets set JWT_PRIVATE_KEY < private.key
 
-# Set complex secret
-xec secrets set JWT_PRIVATE_KEY -v "$(cat private.key)"
+# --value works, but the value is visible in `ps` and shell history
+xec secrets set API_KEY --value "sk-1234567890abcdef"
 ```
 
 ### get
@@ -189,7 +193,23 @@ When called without arguments, the secrets command enters interactive mode:
 xec secrets
 ```
 
-Interactive mode provides a menu-driven interface for all secret operations with enhanced security prompts and validation.
+Interactive mode provides a menu-driven interface for all secret operations with enhanced security prompts and validation. It needs a terminal; in a pipe or CI it exits with an error naming the subcommands to use instead.
+
+## Non-Interactive Use
+
+When stdout is not a terminal (a pipe, CI, `NO_COLOR`), output is plain lines
+only — no spinners, frames or colour — so command substitution captures clean
+values:
+
+```bash
+VAL=$(xec secrets get API_KEY)       # the value, nothing else
+xec secrets list | xargs -n1 echo    # bare keys, one per line
+TOKEN=$(xec secrets generate token)  # generated value alone on stdout
+```
+
+Status messages go to stderr. Anything that would prompt — `delete` and
+`export` confirmations, `generate` over an existing key — refuses without
+`--force` instead of hanging.
 
 ## Secret Storage
 
@@ -358,8 +378,11 @@ xec secrets import -f .env --format env
 # Good: Interactive input
 xec secrets set DATABASE_PASSWORD
 
-# Bad: Visible in shell history
-xec secrets set DATABASE_PASSWORD -v "secret123"
+# Good: Piped stdin in scripts
+printf '%s' "$GENERATED" | xec secrets set DATABASE_PASSWORD
+
+# Bad: Visible in shell history and the process list
+xec secrets set DATABASE_PASSWORD --value "secret123"
 ```
 
 ### Secret Usage

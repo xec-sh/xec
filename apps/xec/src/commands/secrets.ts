@@ -3,6 +3,7 @@ import { SecretManager } from '@xec-sh/ops';
 import { log, text, prism, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
 
 import { ConfigAwareCommand } from '../utils/command-base.js';
+import { canPrompt, isPlainOutput } from '../utils/plain-mode.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 
 /**
@@ -48,8 +49,8 @@ export class SecretsCommand extends ConfigAwareCommand {
     // Set a secret
     cmd
       .command('set <key>')
-      .description('Set a secret value')
-      .option('-v, --value <value>', 'Secret value (prompt if not provided)')
+      .description('Set a secret value (prompts on a terminal, reads stdin when piped)')
+      .option('--value <value>', 'Secret value (visible in the process list while running — prefer piping to stdin)')
       .action(async (key: string, options: any) => {
         await this.handleSubcommand(async () => {
           await this.setSecret(key, options);
@@ -138,6 +139,12 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Run interactive mode for secrets management
    */
   private async runInteractiveMode(): Promise<void> {
+    if (!canPrompt()) {
+      console.error('xec secrets without a subcommand is interactive and needs a terminal.');
+      console.error('In scripts, use: secrets set/get/list/delete/generate/export/import.');
+      process.exit(1);
+    }
+
     InteractiveHelpers.startInteractiveMode('🔐 Secrets Manager');
 
     try {
@@ -381,13 +388,29 @@ export class SecretsCommand extends ConfigAwareCommand {
     try {
       await fn();
     } catch (error) {
-      if (error instanceof Error) {
-        log.error(error.message);
+      const message = error instanceof Error ? error.message : 'An unknown error occurred';
+      if (isPlainOutput()) {
+        console.error(message);
       } else {
-        log.error('An unknown error occurred');
+        log.error(message);
       }
       process.exit(1);
     }
+  }
+
+  /**
+   * Read all of stdin, for values piped in non-interactively.
+   */
+  private readStdin(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      let data = '';
+      process.stdin.setEncoding('utf-8');
+      process.stdin.on('data', (chunk) => {
+        data += chunk;
+      });
+      process.stdin.on('end', () => resolve(data));
+      process.stdin.on('error', reject);
+    });
   }
 
   private async getSecretManager(): Promise<SecretManager> {
@@ -413,23 +436,41 @@ export class SecretsCommand extends ConfigAwareCommand {
     let value = options.value;
 
     if (value === undefined) {
-      // Prompt for value if not provided
-      const input = await password({
-        message: `Enter value for secret '${key}':`,
-        validate: (input_) => {
-          if (!input_ || input_.length === 0) {
-            return 'Secret value cannot be empty';
+      if (process.stdin.isTTY) {
+        // Prompt for value if not provided
+        const input = await password({
+          message: `Enter value for secret '${key}':`,
+          validate: (input_) => {
+            if (!input_ || input_.length === 0) {
+              return 'Secret value cannot be empty';
+            }
+            return undefined;
           }
-          return undefined;
+        });
+
+        if (isCancel(input)) {
+          cancel('Operation cancelled');
+          process.exit(1);
         }
-      });
 
-      if (isCancel(input)) {
-        cancel('Operation cancelled');
-        process.exit(1);
+        value = input;
+      } else {
+        // Piped stdin is the scripted form: the value is the input itself,
+        // minus the trailing newline `echo` adds. A masked prompt here would
+        // consume the pipe and store nothing while still exiting 0 — for a
+        // secret store the worst possible failure.
+        value = (await this.readStdin()).replace(/\r?\n$/, '');
+
+        if (value.length === 0) {
+          throw new Error(`No value for secret '${key}': stdin was empty. Pipe the value or pass --value.`);
+        }
       }
+    }
 
-      value = input;
+    if (isPlainOutput()) {
+      await manager.set(key, value);
+      console.error(`Secret '${key}' set`);
+      return;
     }
 
     const s = spinner();
@@ -448,35 +489,45 @@ export class SecretsCommand extends ConfigAwareCommand {
   private async getSecret(key: string): Promise<void> {
     const manager = await this.getSecretManager();
 
-    const s = spinner();
-    s.start(`Retrieving secret '${key}'`);
+    // In a pipe the value must arrive alone: `VAL=$(xec secrets get key)`
+    // captures every byte written to stdout, spinner frames included.
+    const s = isPlainOutput() ? null : spinner();
+    s?.start(`Retrieving secret '${key}'`);
 
     try {
       const value = await manager.get(key);
-      s.stop();
+      s?.stop();
 
       if (value === null) {
-        log.error(`Secret '${key}' not found`);
-        process.exit(1);
+        throw new Error(`Secret '${key}' not found`);
       }
 
       // Output the value directly for scripting
       console.log(value);
     } catch (error) {
-      s.stop('Failed to get secret');
+      s?.stop('Failed to get secret');
       throw error;
     }
   }
 
   private async listSecrets(): Promise<void> {
     const manager = await this.getSecretManager();
+    const plain = isPlainOutput();
 
-    const s = spinner();
-    s.start('Loading secrets');
+    const s = plain ? null : spinner();
+    s?.start('Loading secrets');
 
     try {
       const keys = await manager.list();
-      s.stop(keys.length === 0 ? 'No secrets found' : undefined);
+      s?.stop(keys.length === 0 ? 'No secrets found' : undefined);
+
+      if (plain) {
+        // Bare keys, one per line — the form loops and xargs can consume.
+        for (const key of keys.sort()) {
+          console.log(key);
+        }
+        return;
+      }
 
       if (keys.length === 0) {
         return;
@@ -488,7 +539,7 @@ export class SecretsCommand extends ConfigAwareCommand {
         console.log(`  ${prism.cyan('•')} ${key}`);
       }
     } catch (error) {
-      s.stop('Failed to list secrets');
+      s?.stop('Failed to list secrets');
       throw error;
     }
   }
@@ -497,6 +548,10 @@ export class SecretsCommand extends ConfigAwareCommand {
     const manager = await this.getSecretManager();
 
     if (!options.force) {
+      if (!canPrompt()) {
+        throw new Error(`Deleting '${key}' needs confirmation: pass --force when running non-interactively.`);
+      }
+
       const confirmResult = await confirm({
         message: `Are you sure you want to delete secret '${key}'?`
       });
@@ -505,6 +560,12 @@ export class SecretsCommand extends ConfigAwareCommand {
         cancel('Operation cancelled');
         process.exit(1);
       }
+    }
+
+    if (isPlainOutput()) {
+      await manager.delete(key);
+      console.error(`Secret '${key}' deleted`);
+      return;
     }
 
     const s = spinner();
@@ -525,12 +586,15 @@ export class SecretsCommand extends ConfigAwareCommand {
     const length = parseInt(options.length, 10);
 
     if (isNaN(length) || length < 1 || length > 256) {
-      log.error('Invalid length. Must be between 1 and 256.');
-      process.exit(1);
+      throw new Error('Invalid length. Must be between 1 and 256.');
     }
 
     // Check if secret already exists
     if (await manager.has(key) && !options.force) {
+      if (!canPrompt()) {
+        throw new Error(`Secret '${key}' already exists: pass --force to overwrite non-interactively.`);
+      }
+
       const confirmResult = await confirm({
         message: `Secret '${key}' already exists. Overwrite?`
       });
@@ -539,6 +603,17 @@ export class SecretsCommand extends ConfigAwareCommand {
         cancel('Operation cancelled');
         process.exit(1);
       }
+    }
+
+    if (isPlainOutput()) {
+      const { generateSecret } = await import('@xec-sh/ops');
+      const value = generateSecret(length);
+
+      await manager.set(key, value);
+      // The value alone on stdout, so `TOKEN=$(xec secrets generate t)` works.
+      console.log(value);
+      console.error(`Secret '${key}' generated (${length} characters)`);
+      return;
     }
 
     const s = spinner();
@@ -564,6 +639,10 @@ export class SecretsCommand extends ConfigAwareCommand {
     const manager = await this.getSecretManager();
 
     if (!options.force) {
+      if (!canPrompt()) {
+        throw new Error('Export prints every secret in plain text: pass --force to confirm non-interactively.');
+      }
+
       const confirmResult = await confirm({
         message: prism.yellow('WARNING: This will output all secrets in plain text. Continue?')
       });
@@ -574,8 +653,8 @@ export class SecretsCommand extends ConfigAwareCommand {
       }
     }
 
-    const s = spinner();
-    s.start('Exporting secrets');
+    const s = isPlainOutput() ? null : spinner();
+    s?.start('Exporting secrets');
 
     try {
       const keys = await manager.list();
@@ -588,7 +667,7 @@ export class SecretsCommand extends ConfigAwareCommand {
         }
       }
 
-      s.stop();
+      s?.stop();
 
       if (options.format === 'env') {
         // Export as environment variables
@@ -601,7 +680,7 @@ export class SecretsCommand extends ConfigAwareCommand {
         console.log(JSON.stringify(secrets, null, 2));
       }
     } catch (error) {
-      s.stop('Failed to export secrets');
+      s?.stop('Failed to export secrets');
       throw error;
     }
   }
@@ -615,17 +694,11 @@ export class SecretsCommand extends ConfigAwareCommand {
       const fs = await import('node:fs/promises');
       content = await fs.readFile(options.file, 'utf-8');
     } else {
-      // Read from stdin
-      content = await new Promise<string>((resolve) => {
-        let data = '';
-        process.stdin.setEncoding('utf-8');
-        process.stdin.on('data', (chunk) => data += chunk);
-        process.stdin.on('end', () => resolve(data));
-      });
+      content = await this.readStdin();
     }
 
-    const s = spinner();
-    s.start('Importing secrets');
+    const s = isPlainOutput() ? null : spinner();
+    s?.start('Importing secrets');
 
     try {
       let secrets: Record<string, string> = {};
@@ -653,10 +726,14 @@ export class SecretsCommand extends ConfigAwareCommand {
         imported++;
       }
 
-      s.stop(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
-      outro(prism.green('✓') + ' Secrets imported successfully');
+      if (s) {
+        s.stop(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
+        outro(prism.green('✓') + ' Secrets imported successfully');
+      } else {
+        console.error(`Imported ${imported} secret${imported === 1 ? '' : 's'}`);
+      }
     } catch (error) {
-      s.stop('Failed to import secrets');
+      s?.stop('Failed to import secrets');
       throw error;
     }
   }

@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import * as readline from 'node:readline';
 import { validateOptions } from '@xec-sh/ops';
 
+import { isPlainOutput } from '../utils/plain-mode.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 
@@ -318,15 +318,20 @@ export class LogsCommand extends ConfigAwareCommand {
       this.setupCleanupHandlers();
     }
 
+    const plain = isPlainOutput();
+
     try {
-      // Always show streaming message for follow mode, regardless of quiet setting
+      // The follow banner is orientation for a person watching; in a pipe it
+      // would sit in front of the data, and "Press Ctrl+C" addresses nobody.
       if (options.follow) {
-        console.log(`Streaming logs from ${targetDisplay}${logPath ? `:${logPath}` : ''}...`);
-        if (options.grep) {
-          console.log(`Filter: ${options.grep}${options.invert ? ' (inverted)' : ''}`);
+        if (!plain) {
+          console.log(`Streaming logs from ${targetDisplay}${logPath ? `:${logPath}` : ''}...`);
+          if (options.grep) {
+            console.log(`Filter: ${options.grep}${options.invert ? ' (inverted)' : ''}`);
+          }
+          console.log('Press Ctrl+C to stop\n');
         }
-        console.log('Press Ctrl+C to stop\n');
-      } else if (!options.quiet) {
+      } else if (!options.quiet && !plain) {
         this.startSpinner(`Fetching logs from ${targetDisplay}...`);
       }
 
@@ -350,7 +355,7 @@ export class LogsCommand extends ConfigAwareCommand {
         // Execute the command through shell to handle arguments properly
         const result = await engine.raw`${logCommand}`;
 
-        if (!options.quiet) {
+        if (!options.quiet && !plain) {
           this.stopSpinner();
         }
 
@@ -361,7 +366,7 @@ export class LogsCommand extends ConfigAwareCommand {
         }
       }
     } catch (error) {
-      if (!options.quiet) {
+      if (!options.quiet && !plain) {
         this.stopSpinner();
       }
 
@@ -494,9 +499,10 @@ export class LogsCommand extends ConfigAwareCommand {
     // that equal timestamps preserve each target's original order.
     entries.sort((a, b) => (a.at === b.at ? a.seq - b.seq : a.at - b.at));
 
+    const plain = isPlainOutput();
     for (const entry of entries) {
-      const prefix = prism.dim(`[${this.formatTargetDisplay(entry.target)}]`);
-      console.log(`${prefix} ${entry.line}`);
+      const label = `[${this.formatTargetDisplay(entry.target)}]`;
+      console.log(`${plain ? label : prism.dim(label)} ${entry.line}`);
     }
 
     if (entries.length === 0) {
@@ -533,7 +539,9 @@ export class LogsCommand extends ConfigAwareCommand {
           if (options.before) parts.push('-B', options.before);
           if (options.after) parts.push('-A', options.after);
           if (options.context) parts.push('-C', options.context);
-          if (options.color !== false && !options.json) parts.push('--color=always');
+          // --color=always injects ANSI into the data itself; only ask grep
+          // for it when a person on a terminal will read the result.
+          if (options.color !== false && !options.json && !isPlainOutput()) parts.push('--color=always');
           // Escape the grep pattern for shell
           parts.push(`'${options.grep.replace(/'/g, "'\\''")}'`);
         }
@@ -567,7 +575,7 @@ export class LogsCommand extends ConfigAwareCommand {
           if (options.before) parts.push('-B', options.before);
           if (options.after) parts.push('-A', options.after);
           if (options.context) parts.push('-C', options.context);
-          if (options.color !== false && !options.json) parts.push('--color=always');
+          if (options.color !== false && !options.json && !isPlainOutput()) parts.push('--color=always');
           // Escape the grep pattern for shell
           parts.push(`'${options.grep.replace(/'/g, "'\\''")}'`);
         }
@@ -602,7 +610,7 @@ export class LogsCommand extends ConfigAwareCommand {
           if (options.before) parts.push('-B', options.before);
           if (options.after) parts.push('-A', options.after);
           if (options.context) parts.push('-C', options.context);
-          if (options.color !== false && !options.json) parts.push('--color=always');
+          if (options.color !== false && !options.json && !isPlainOutput()) parts.push('--color=always');
           // Escape the grep pattern for shell
           parts.push(`'${options.grep.replace(/'/g, "'\\''")}'`);
         }
@@ -629,14 +637,6 @@ export class LogsCommand extends ConfigAwareCommand {
     // Execute the command through shell to handle arguments properly
     const logProcess = engine.raw`${logCommand}`.nothrow();
 
-    // Add error handling for the child process
-    if (logProcess.child) {
-      logProcess.child.on('error', (error: Error) => {
-        console.error(`Child process error for ${sessionId}:`, error);
-        this.streams.delete(sessionId);
-      });
-    }
-
     // Store session for cleanup
     this.streams.set(sessionId, {
       target,
@@ -652,61 +652,42 @@ export class LogsCommand extends ConfigAwareCommand {
       },
     });
 
-    // Process output line by line
-    if (logProcess.child?.stdout) {
-      const rl = readline.createInterface({
-        input: logProcess.child.stdout,
-        crlfDelay: Infinity,
-      });
+    // Spawning is asynchronous, so the live process — and its stderr — does
+    // not exist yet; reading `.child` here would find null and silently
+    // deliver nothing, which is exactly how follow mode used to lose every
+    // line. Diagnostics attach once the process exists.
+    if (options.verbose) {
+      logProcess.spawned
+        .then((handle: { stderr: NodeJS.ReadableStream | null }) => {
+          handle.stderr?.on('data', (data: Buffer) => {
+            console.error(prism.yellow(data.toString().trim()));
+          });
+        })
+        .catch(() => {
+          // A process that failed to spawn surfaces through the iterator below.
+        });
+    }
 
-      rl.on('line', (line: string) => {
+    // The async iterator delivers stdout line by line as it arrives — it is
+    // the engine's follow-mode seam, built for exactly `tail -f` and
+    // `docker logs --follow`.
+    try {
+      for await (const line of logProcess) {
         try {
           this.displayLogLine(line, target, options);
         } catch (error) {
           // Log display error but continue processing
           console.error('Error displaying log line:', error);
         }
-      });
-
-      rl.on('close', () => {
-        this.streams.delete(sessionId);
-      });
-
-      rl.on('error', (error) => {
-        console.error('Readline error:', error);
-        this.streams.delete(sessionId);
-      });
-    }
-
-    // Handle stderr
-    if (logProcess.child?.stderr) {
-      logProcess.child.stderr.on('data', (data: Buffer) => {
-        try {
-          if (options.verbose) {
-            console.error(prism.yellow(data.toString().trim()));
-          }
-        } catch {
-          // Ignore stderr display errors
-        }
-      });
-
-      logProcess.child.stderr.on('error', (error: Error) => {
-        // Log stderr stream errors but don't throw
-        if (options.verbose) {
-          console.error('Stderr stream error:', error);
-        }
-      });
-    }
-
-    // Wait for process to complete
-    try {
-      await logProcess;
+      }
     } catch (error) {
       // Process was likely killed by signal, which is expected
       if (!this.running) {
         return;
       }
       throw error;
+    } finally {
+      this.streams.delete(sessionId);
     }
   }
 
@@ -734,7 +715,7 @@ export class LogsCommand extends ConfigAwareCommand {
       this.displayLogLine(line, target, options);
     }
 
-    if (!options.quiet && !options.follow) {
+    if (!options.quiet && !options.follow && !isPlainOutput()) {
       this.log(prism.gray(`\nDisplayed ${lines.length} log lines`), 'info');
     }
   }
@@ -742,18 +723,19 @@ export class LogsCommand extends ConfigAwareCommand {
   private displayLogLine(line: string, target: ResolvedTarget, options: LogsOptions): void {
     if (!line.trim()) return;
 
+    const plain = isPlainOutput();
     let output = line;
 
     // Add prefix if requested
     if (options.prefix) {
-      const prefix = prism.cyan(`[${this.formatTargetDisplay(target)}]`);
-      output = `${prefix} ${output}`;
+      const label = `[${this.formatTargetDisplay(target)}]`;
+      output = `${plain ? label : prism.cyan(label)} ${output}`;
     }
 
     // Add timestamp if requested and not already present
     if (options.timestamps && !this.hasTimestamp(line)) {
-      const timestamp = prism.gray(new Date().toISOString());
-      output = `${timestamp} ${output}`;
+      const stamp = new Date().toISOString();
+      output = `${plain ? stamp : prism.gray(stamp)} ${output}`;
     }
 
     // Format as JSON if requested
@@ -779,7 +761,7 @@ export class LogsCommand extends ConfigAwareCommand {
     }
 
     // Apply color highlighting for common patterns
-    if (options.color !== false) {
+    if (options.color !== false && !plain) {
       output = this.colorizeLogLine(output);
     }
 
@@ -1179,18 +1161,26 @@ export class LogsCommand extends ConfigAwareCommand {
 
   private setupCleanupHandlers(): void {
     const cleanup = async () => {
+      // In a pipe the shutdown notices would land after the data and inside
+      // whatever consumes it; only failures stay visible, as plain lines.
+      const plain = isPlainOutput();
+
       try {
         this.running = false;
-        this.log('\nStopping log streams...', 'info');
+        if (!plain) this.log('\nStopping log streams...', 'info');
 
         for (const [sessionId, stream] of this.streams) {
           try {
             if (stream.cleanup) {
               await stream.cleanup();
             }
-            this.log(`Stopped stream for ${sessionId}`, 'info');
+            if (!plain) this.log(`Stopped stream for ${sessionId}`, 'info');
           } catch (error) {
-            this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
+            if (plain) {
+              console.error(`Failed to cleanup ${sessionId}: ${error}`);
+            } else {
+              this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
+            }
           }
         }
 

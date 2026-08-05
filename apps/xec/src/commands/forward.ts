@@ -7,6 +7,7 @@ import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { validateOptions } from '@xec-sh/ops';
 
+import { isPlainOutput } from '../utils/plain-mode.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
@@ -161,7 +162,9 @@ export class ForwardCommand extends ConfigAwareCommand {
 
     // If not running in background, wait for interrupt
     if (!mergedOptions.background) {
-      this.log('Press Ctrl+C to stop port forwarding...', 'info');
+      if (!isPlainOutput()) {
+        this.log('Press Ctrl+C to stop port forwarding...', 'info');
+      }
       await new Promise(() => { }); // Wait indefinitely
     }
   }
@@ -208,8 +211,9 @@ export class ForwardCommand extends ConfigAwareCommand {
     }
 
     const targetDisplay = this.formatTargetDisplay(target);
+    const plain = isPlainOutput();
 
-    if (!options.quiet) {
+    if (!options.quiet && !plain) {
       this.startSpinner(`Setting up port forward ${options.bind}:${localPort} -> ${targetDisplay}:${mapping.remote}...`);
     }
 
@@ -233,18 +237,28 @@ export class ForwardCommand extends ConfigAwareCommand {
       this.sessions.set(sessionId, session);
 
       if (!options.quiet) {
-        this.stopSpinner();
-        this.log(
-          `${prism.green('✓')} Forwarding ${prism.cyan(`${options.bind}:${localPort}`)} -> ${prism.cyan(`${targetDisplay}:${mapping.remote}`)}`,
-          'success'
-        );
+        if (plain) {
+          // One parseable line per mapping; scripts read the bound address
+          // from here.
+          console.log(`Forwarding ${options.bind}:${localPort} -> ${targetDisplay}:${mapping.remote}`);
+        } else {
+          this.stopSpinner();
+          this.log(
+            `${prism.green('✓')} Forwarding ${prism.cyan(`${options.bind}:${localPort}`)} -> ${prism.cyan(`${targetDisplay}:${mapping.remote}`)}`,
+            'success'
+          );
+        }
       }
     } catch (error) {
-      if (!options.quiet) {
+      if (!options.quiet && !plain) {
         this.stopSpinner();
       }
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.log(`${prism.red('✗')} Failed to forward port: ${errorMessage}`, 'error');
+      if (plain) {
+        console.error(`Failed to forward port: ${errorMessage}`);
+      } else {
+        this.log(`${prism.red('✗')} Failed to forward port: ${errorMessage}`, 'error');
+      }
       throw error;
     }
   }
@@ -457,16 +471,21 @@ export class ForwardCommand extends ConfigAwareCommand {
 
   private setupCleanupHandlers(): void {
     const cleanup = async () => {
-      this.log('\nStopping port forwards...', 'info');
+      const plain = isPlainOutput();
+      if (!plain) this.log('\nStopping port forwards...', 'info');
 
       for (const [sessionId, session] of this.sessions) {
         try {
           if (session.cleanup) {
             await session.cleanup();
           }
-          this.log(`Stopped forwarding for ${sessionId}`, 'info');
+          if (!plain) this.log(`Stopped forwarding for ${sessionId}`, 'info');
         } catch (error) {
-          this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
+          if (plain) {
+            console.error(`Failed to cleanup ${sessionId}: ${error}`);
+          } else {
+            this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
+          }
         }
       }
 

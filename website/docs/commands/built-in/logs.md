@@ -332,6 +332,11 @@ The `--grep` option supports full regex patterns:
 
 ## Output Formats
 
+When stdout is not a terminal (a pipe, CI, `NO_COLOR`), output is the log
+lines alone: no colour, no spinner, no banner, and grep matches are not
+wrapped in ANSI. `--no-color` forces the same on a terminal. Follow mode
+streams lines into the pipe as they arrive.
+
 ### Standard Output
 Default human-readable format with optional colorization:
 
