@@ -1,3 +1,8 @@
+---
+title: File Operations
+description: File transfer and manipulation across execution environments
+---
+
 # File Operations
 
 The Xec execution engine provides file operations across local, SSH, and Docker environments, plus pod-scoped file copy for Kubernetes, all built on the same shell-command foundation as everything else in the engine.

@@ -2,6 +2,7 @@
 sidebar_position: 7
 sidebar_label: Retry
 title: Retry Policies
+description: Retry policies with backoff for flaky operations
 ---
 
 # Retry Policies

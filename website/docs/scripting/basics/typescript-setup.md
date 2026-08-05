@@ -1,3 +1,8 @@
+---
+title: TypeScript Setup
+description: TypeScript configuration for Xec scripts
+---
+
 # TypeScript Configuration for Xec Scripts
 
 Xec provides native TypeScript support with zero configuration required. This guide covers TypeScript setup, type definitions, and best practices for type-safe scripting.

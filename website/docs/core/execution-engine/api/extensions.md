@@ -1,3 +1,8 @@
+---
+title: Extending Xec
+description: Composing and extending the engine without a plugin system
+---
+
 # Extending Xec
 
 Xec has no plugin system, and that is deliberate. `$` is a function and `$.with()`

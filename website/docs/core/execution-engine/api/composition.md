@@ -1,3 +1,8 @@
+---
+title: Composition
+description: Building workflows by composing execution primitives
+---
+
 # Composition
 
 Composition enables building complex execution workflows by combining simple, reusable components into sophisticated automation patterns.

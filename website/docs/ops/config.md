@@ -2,6 +2,7 @@
 sidebar_position: 8
 sidebar_label: Configuration
 title: Configuration Management
+description: Loading, validating and interpolating .xec configuration
 ---
 
 # Configuration Management

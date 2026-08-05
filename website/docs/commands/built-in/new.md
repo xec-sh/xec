@@ -1,3 +1,8 @@
+---
+title: new
+description: Initialize Xec in a project or create new artifacts
+---
+
 # new
 
 Create new Xec artifacts (projects, scripts, commands, tasks, profiles, or extensions).
@@ -20,9 +25,15 @@ The `new` command creates various Xec artifacts with pre-configured templates. I
 
 ## Options
 
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
+- `--dry-run` - Perform a dry run without making changes
+
 ### General Options
 
-- `-d, --description <desc>` - Description for the artifact
+- `-d, --desc <desc>` - Description for the artifact
 - `-f, --force` - Overwrite existing files
 - `-p, --profile <name>` - Apply profile after creation
 - `-i, --interactive` - Enable interactive mode (default for this command)
@@ -63,7 +74,7 @@ xec new project my-app
 xec new project my-app --minimal
 
 # Create project with description
-xec new project my-app --description "My automation project"
+xec new project my-app --desc "My automation project"
 
 # Skip git initialization
 xec new project my-app --skip-git
@@ -82,7 +93,7 @@ xec new script deploy --js
 xec new script deploy --advanced
 
 # Create script with description
-xec new script backup --description "Database backup script"
+xec new script backup --desc "Database backup script"
 ```
 
 ### Command Creation
@@ -105,7 +116,7 @@ xec new command mycmd --js
 xec new task build
 
 # Create task with description
-xec new task deploy --description "Deploy application to production"
+xec new task deploy --desc "Deploy application to production"
 
 # Create advanced multi-step task
 xec new task deploy --advanced
@@ -118,7 +129,7 @@ xec new task deploy --advanced
 xec new profile production
 
 # Create profile with description
-xec new profile staging --description "Staging environment configuration"
+xec new profile staging --desc "Staging environment configuration"
 
 # Create advanced profile with targets
 xec new profile production --advanced
@@ -134,7 +145,7 @@ xec new extension my-extension
 xec new extension my-extension --advanced
 
 # Create extension with description
-xec new extension monitoring --description "System monitoring extension"
+xec new extension monitoring --desc "System monitoring extension"
 ```
 
 ## Artifact Types

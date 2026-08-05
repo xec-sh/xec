@@ -1,3 +1,8 @@
+---
+title: Connection Reuse
+description: Reducing overhead by reusing transport connections
+---
+
 # Connection Reuse
 
 Reducing connection overhead by reusing transport connections across multiple commands.

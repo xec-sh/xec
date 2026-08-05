@@ -1,3 +1,8 @@
+---
+title: Error Handling
+description: Error types, exit code explanation, and failure classification
+---
+
 # Error Handling
 
 The Xec execution engine provides comprehensive error handling with a Result pattern, automatic retries, and detailed error context for robust command execution.

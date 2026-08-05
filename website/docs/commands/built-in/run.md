@@ -55,6 +55,12 @@ The `run` command is a versatile executor that can run JavaScript/TypeScript fil
 
 ## Options
 
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
+- `--dry-run` - Perform a dry run without making changes
+
 ### Execution Options (from `RunCommand` implementation)
 
 - `-e, --eval <code>` - Evaluate inline code

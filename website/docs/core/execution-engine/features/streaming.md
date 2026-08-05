@@ -1,3 +1,8 @@
+---
+title: Streaming
+description: Streaming command output as it arrives
+---
+
 # Streaming
 
 The Xec execution engine streams command output as it arrives rather than

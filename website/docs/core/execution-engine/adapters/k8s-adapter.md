@@ -1,3 +1,8 @@
+---
+title: Kubernetes Adapter
+description: Command execution in Kubernetes pods via kubectl
+---
+
 # Kubernetes Adapter
 
 The Kubernetes adapter enables command execution within existing Kubernetes pods, with port forwarding, log access and file copying built on top of `kubectl`.

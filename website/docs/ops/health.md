@@ -2,6 +2,7 @@
 sidebar_position: 5
 sidebar_label: Health Checks
 title: Health Check Framework
+description: TCP, HTTP and command health checks with HealthChecker
 ---
 
 # Health Check Framework

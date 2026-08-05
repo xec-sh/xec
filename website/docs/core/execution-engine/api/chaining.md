@@ -1,3 +1,8 @@
+---
+title: Chaining
+description: Fluent method chaining on the execution engine
+---
+
 # Chaining
 
 Method chaining enables fluent, readable command composition by linking multiple operations together in a single expression.

@@ -1,3 +1,8 @@
+---
+title: Port Forwarding
+description: Reaching remote services through SSH and Kubernetes port forwarding
+---
+
 # Port Forwarding
 
 Port forwarding makes a remote service reachable as if it were local (SSH

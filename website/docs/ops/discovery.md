@@ -2,6 +2,7 @@
 sidebar_position: 6
 sidebar_label: Discovery
 title: Infrastructure Discovery
+description: Discovering SSH, Docker and Kubernetes targets at runtime
 ---
 
 # Infrastructure Discovery

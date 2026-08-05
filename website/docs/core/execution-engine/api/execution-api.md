@@ -1,3 +1,8 @@
+---
+title: Execution API
+description: The core interface for executing commands
+---
+
 # Execution API
 
 The core execution API provides the fundamental interface for executing commands across all environments with a consistent, powerful syntax.

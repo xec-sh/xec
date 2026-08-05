@@ -331,6 +331,32 @@ await $.withTempFile(async (path) => {
   await $`process-data > ${path}`;
   return $`upload ${path}`;
 });
+
+// Same for a directory
+await $.withTempDir(async (dir) => {
+  await $`git clone ${repo} ${dir}`;
+});
+```
+
+### Helper Functions
+
+Standalone helpers exported from the package:
+
+```typescript
+import { echo, glob, kill, sleep, xfetch, readStdin, expBackoff, parseDuration } from '@xec-sh/core';
+
+echo`Deploying ${target}`;                    // print without spawning a process
+await sleep('2s');                            // duration string or milliseconds
+const files = await glob('src/**/*.ts');      // dependency-free globbing
+await kill(pid, 'SIGTERM');                   // kill a process (and its group on POSIX)
+const resp = await xfetch('https://api.example.com/data.json');  // fetch, cross-runtime
+const input = await readStdin();              // read all of stdin as a string
+
+parseDuration('30s');                          // 30000
+for (const delay of expBackoff(60_000, 50)) {  // infinite series: 50, 100, 200, ... capped at 60000
+  await sleep(delay);
+  if (await tryConnect()) break;
+}
 ```
 
 ### File Transfer
@@ -384,6 +410,16 @@ const result = await $`risky-command`.nothrow();
 if (!result.ok) {
   console.log('Failed with:', result.stderr);
 }
+```
+
+## Runtime Support
+
+`@xec-sh/core` runs on Node.js 20+, Bun and Deno with the same API. The local adapter detects the runtime (`RuntimeDetector`) and uses `Bun.spawn` under Bun for faster process startup; Deno works through its Node compatibility layer. Importing the package pulls in Node builtins only — SSH, Docker and Kubernetes adapters load lazily on first use.
+
+```typescript
+import { RuntimeDetector } from '@xec-sh/core';
+
+RuntimeDetector.detect(); // 'node' | 'bun' | 'deno'
 ```
 
 ## Performance and Optimizations

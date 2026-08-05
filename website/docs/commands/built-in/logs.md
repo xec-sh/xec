@@ -1,3 +1,8 @@
+---
+title: logs
+description: View and stream logs from any target
+---
+
 # logs
 
 View and stream logs from targets across local, SSH hosts, Docker containers, and Kubernetes pods with advanced filtering and analysis capabilities.
@@ -29,10 +34,14 @@ The `logs` command provides unified log viewing and streaming across all target 
 
 ## Options
 
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
+
 ### General Options
 
 - `-p, --profile <profile>` - Configuration profile to use
-- `-i, --interactive` - Interactive mode for selecting targets and options
 - `-v, --verbose` - Enable verbose output with debug information
 - `-q, --quiet` - Suppress progress and metadata output
 - `--dry-run` - Preview log operations without executing
@@ -216,9 +225,6 @@ Use interactive mode for guided log viewing:
 # Start interactive mode
 xec logs
 
-# Interactive with initial options
-xec logs --interactive
-
 # The interactive mode will guide you through:
 # - Selecting log source type (container, pod, file, syslog)
 # - Choosing specific targets
@@ -391,7 +397,6 @@ tasks:
 
 ### Multi-Target Operations
 - `--parallel` improves performance for multiple targets
-- `--max-concurrent` controls resource usage (future feature)
 - Network latency affects SSH target performance
 
 ### Large Log Files

@@ -1,3 +1,8 @@
+---
+title: Streaming Patterns
+description: Stream processing patterns for large and real-time output
+---
+
 # Stream Processing Patterns
 
 Xec streams command output for handling large outputs and real-time data. This guide covers stream processing patterns for command execution.

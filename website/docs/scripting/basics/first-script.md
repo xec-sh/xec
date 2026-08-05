@@ -1,3 +1,8 @@
+---
+title: First Script
+description: Writing and running your first Xec script
+---
+
 # Writing Your First Xec Script
 
 An Xec script is a JavaScript or TypeScript file that executes commands across local and remote environments. This guide walks you through creating your first one.

@@ -1,3 +1,8 @@
+---
+title: in
+description: Execute commands in Docker containers or Kubernetes pods
+---
+
 # in
 
 Execute commands inside Docker containers or Kubernetes pods.
@@ -26,6 +31,11 @@ The `in` command executes commands, scripts, or tasks inside Docker containers a
 - `{containers.web,containers.api}` - Multiple specific targets
 
 ## Options
+
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
 
 ### General Options
 

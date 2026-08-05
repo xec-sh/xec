@@ -1,3 +1,8 @@
+---
+title: Performance Optimization
+description: Caching, resource usage, and execution performance
+---
+
 # Performance Optimization
 
 Optimizing Xec execution performance through caching, efficient resource usage, and strategic command execution patterns.

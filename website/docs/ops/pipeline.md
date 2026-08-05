@@ -2,6 +2,7 @@
 sidebar_position: 3
 sidebar_label: Pipeline
 title: CI/CD Pipeline Engine
+description: Sequential and parallel step execution with the Pipeline class
 ---
 
 # Pipeline Engine

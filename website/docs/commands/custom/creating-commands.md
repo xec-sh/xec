@@ -1,3 +1,8 @@
+---
+title: Creating Custom Commands
+description: Adding project-specific commands under .xec/commands
+---
+
 # Creating Custom Commands
 
 Extend Xec's functionality by creating custom commands that integrate seamlessly with the built-in command system.

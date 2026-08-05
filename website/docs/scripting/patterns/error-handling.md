@@ -1,3 +1,8 @@
+---
+title: Error Handling Patterns
+description: Error handling patterns for production scripts
+---
+
 # Error Handling Patterns
 
 Robust error handling is crucial for production scripts. This guide covers comprehensive error handling patterns for Xec scripts, from basic try-catch to advanced recovery strategies.

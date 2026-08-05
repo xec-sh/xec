@@ -2,6 +2,7 @@
 sidebar_position: 2
 sidebar_label: Deploy
 title: Deployment Engine
+description: Deployment strategies and hooks with the Deployer class
 ---
 
 # Deployment Engine

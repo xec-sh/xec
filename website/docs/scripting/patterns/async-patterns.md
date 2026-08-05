@@ -1,3 +1,8 @@
+---
+title: Async Patterns
+description: Async/await patterns for command execution in scripts
+---
+
 # Async Patterns for Command Execution
 
 Xec scripts are inherently asynchronous, leveraging JavaScript's async/await for elegant control flow. This guide covers advanced async patterns for efficient and scalable command execution.

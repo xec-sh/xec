@@ -1,3 +1,8 @@
+---
+title: Command Execution
+description: Template literal command execution in Xec scripts
+---
+
 # Command Execution with Template Literals
 
 The heart of Xec is its template literal syntax for command execution. This guide covers executing commands using the `$` template literal.

@@ -1,3 +1,8 @@
+---
+title: Connection Pooling
+description: SSH connection pooling and reuse in the execution engine
+---
+
 # Connection Pooling
 
 Connection pooling is a critical performance optimization feature in the Xec execution engine, particularly for SSH connections where establishing new connections is expensive.

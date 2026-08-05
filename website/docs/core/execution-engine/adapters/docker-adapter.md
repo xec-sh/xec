@@ -1,3 +1,8 @@
+---
+title: Docker Adapter
+description: Command execution in Docker containers
+---
+
 # Docker Adapter
 
 The Docker adapter enables command execution within Docker containers with full lifecycle management and advanced features.

@@ -1,3 +1,8 @@
+---
+title: forward
+description: Forward ports from remote targets to the local machine
+---
+
 # forward
 
 Forward ports between local system and remote targets (SSH hosts, Docker containers, Kubernetes pods).
@@ -28,6 +33,11 @@ Port mappings can be specified as:
 - `LOCAL1:REMOTE1,LOCAL2:REMOTE2` - Multiple custom mappings
 
 ## Options
+
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
 
 ### General Options
 

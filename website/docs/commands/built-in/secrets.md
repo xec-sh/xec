@@ -1,3 +1,8 @@
+---
+title: secrets
+description: Manage secrets securely from the CLI
+---
+
 # secrets
 
 Securely manage secrets and sensitive configuration data.

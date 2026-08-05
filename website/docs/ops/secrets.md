@@ -2,6 +2,7 @@
 sidebar_position: 9
 sidebar_label: Secrets
 title: Secret Management
+description: Encrypted secret storage and the SecretManager API
 ---
 
 # Secret Management

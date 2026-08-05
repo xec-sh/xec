@@ -1,3 +1,8 @@
+---
+title: watch
+description: Watch files for changes and run commands, tasks, or scripts
+---
+
 # watch
 
 Watch files for changes and execute commands, tasks, or scripts automatically.
@@ -18,6 +23,12 @@ The `watch` command monitors files and directories for changes and automatically
 - `[paths...]` - Paths to watch (default: current directory)
 
 ## Options
+
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
+- `--dry-run` - Perform a dry run without making changes
 
 ### General Options
 

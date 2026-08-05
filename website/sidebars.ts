@@ -13,8 +13,13 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'introduction/what-is-xec',
+        'introduction/installation',
         'introduction/quick-start',
+        'introduction/core-concepts',
+        'introduction/portable-scripts',
         'introduction/when-to-use',
+        'introduction/comparison',
+        'introduction/architecture',
         'introduction/philosophy',
         'introduction/ecosystem',
       ],
@@ -111,6 +116,7 @@ const sidebars: SidebarsConfig = {
           label: 'Built-in Commands',
           items: [
             'commands/built-in/copy',
+            'commands/built-in/docker',
             'commands/built-in/forward',
             'commands/built-in/in',
             'commands/built-in/on',
@@ -340,6 +346,8 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    'patterns/index',
+    'integrations/index',
     {
       type: 'category',
       label: 'Ops Library',
@@ -360,6 +368,20 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Kit Library',
+      link: {
+        type: 'doc',
+        id: 'kit/index',
+      },
+      items: [
+        'kit/prompts',
+        'kit/components',
+        'kit/table',
+        'kit/theming',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Migration',
       items: [
         'migration/from-npm-scripts',
@@ -368,6 +390,19 @@ const sidebars: SidebarsConfig = {
         'migration/from-shell-scripts',
         'migration/from-zx',
         'migration/from-webpack',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'API Reference',
+      link: {
+        type: 'doc',
+        id: 'api/index',
+      },
+      items: [
+        'api/execution-engine',
+        'api/process-promise',
+        'api/types',
       ],
     },
   ],

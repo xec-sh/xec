@@ -1,3 +1,8 @@
+---
+title: Chaining Patterns
+description: Method chaining patterns for building command pipelines
+---
+
 # Method Chaining Patterns
 
 Xec's fluent API enables elegant method chaining for building complex command pipelines. This guide explores advanced chaining patterns for readable and maintainable scripts.

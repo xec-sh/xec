@@ -1,3 +1,8 @@
+---
+title: Parallel Execution
+description: Running commands concurrently across environments
+---
+
 # Parallel Execution
 
 Execute commands concurrently across multiple environments, maximizing throughput and reducing total execution time.

@@ -1,3 +1,8 @@
+---
+title: SSH Adapter
+description: Command execution on remote hosts over SSH
+---
+
 # SSH Adapter
 
 The SSH adapter enables command execution on remote hosts through secure shell connections with advanced features like connection pooling and tunneling.

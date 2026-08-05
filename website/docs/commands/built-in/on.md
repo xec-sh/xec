@@ -1,3 +1,8 @@
+---
+title: on
+description: Execute commands on SSH hosts
+---
+
 # on
 
 Execute commands on SSH hosts.
@@ -28,6 +33,11 @@ Hosts can be specified as:
 - `hostname` - Direct connection (uses current user)
 
 ## Options
+
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
 
 ### General Options
 

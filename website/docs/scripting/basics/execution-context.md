@@ -1,3 +1,8 @@
+---
+title: Script Execution Context
+description: The globals and context available inside Xec scripts
+---
+
 # Script Execution Context
 
 Every Xec script runs within a rich execution context that provides access to targets, configuration, and utility functions. This guide explains the execution context and how to leverage it effectively.

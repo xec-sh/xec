@@ -2,6 +2,7 @@
 sidebar_position: 4
 sidebar_label: Workflow
 title: DAG Workflow Engine
+description: Task orchestration with dependencies via the Workflow class
 ---
 
 # Workflow Engine

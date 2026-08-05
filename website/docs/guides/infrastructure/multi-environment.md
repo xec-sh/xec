@@ -1,5 +1,6 @@
 ---
 title: Working across environments
+description: Managing dev, staging and production environments from one configuration
 sidebar_position: 3
 ---
 

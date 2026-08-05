@@ -1,3 +1,8 @@
+---
+title: inspect
+description: Inspect project configuration, tasks, and resources
+---
+
 # inspect
 
 Inspect and analyze Xec project configuration, tasks, and resources.
@@ -19,6 +24,12 @@ The `inspect` command provides comprehensive analysis and visualization of your 
 - `[name]` - Specific resource name to inspect
 
 ## Options
+
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
+- `--dry-run` - Perform a dry run without making changes
 
 ### Display Options
 

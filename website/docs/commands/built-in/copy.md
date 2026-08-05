@@ -1,3 +1,8 @@
+---
+title: copy
+description: Copy files and directories between targets
+---
+
 # copy
 
 Copy files and directories between targets (local, SSH hosts, Docker containers, Kubernetes pods).
@@ -28,6 +33,11 @@ Paths can be specified as:
 - `pods.name:path` - Kubernetes pod path
 
 ## Options
+
+### Common Options
+
+- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
+- `-c, --config <path>` - Path to configuration file
 
 ### General Options
 
