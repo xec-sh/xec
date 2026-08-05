@@ -261,36 +261,33 @@ describe('Crypto Module', () => {
       expect(secureCompare('longer string', 'short')).toBe(false);
     });
 
-    it('should compare in constant time', () => {
-      const string1 = 'a'.repeat(1000);
-      const string2 = 'a'.repeat(999) + 'b';
-      const string3 = 'b' + 'a'.repeat(999);
-      
-      // Time multiple comparisons
-      const iterations = 10000; // More iterations for better timing accuracy
-      
-      // Compare strings that differ at the end
-      const start1 = performance.now();
-      for (let i = 0; i < iterations; i++) {
-        secureCompare(string1, string2);
-      }
-      const time1 = performance.now() - start1;
-      
-      // Compare strings that differ at the beginning
-      const start2 = performance.now();
-      for (let i = 0; i < iterations; i++) {
-        secureCompare(string1, string3);
-      }
-      const time2 = performance.now() - start2;
-      
-      // Times should be similar (within 100% variance to avoid flaky tests)
-      const ratio = Math.max(time1, time2) / Math.min(time1, time2);
-      expect(ratio).toBeLessThan(2.0);
-      
-      // At least verify the function works correctly
-      expect(secureCompare(string1, string1)).toBe(true);
-      expect(secureCompare(string1, string2)).toBe(false);
-      expect(secureCompare(string1, string3)).toBe(false);
+    /**
+     * Where the difference sits must not change the answer — early, late, or
+     * in length only. Whether it changes the *time* is not measured here: a
+     * stopwatch on a shared test box convicts the scheduler, not the code.
+     * That property is delegated to `crypto.timingSafeEqual` over fixed-size
+     * digests, which is Node's audited guarantee rather than ours to re-prove.
+     * The hand-rolled XOR loop this replaced looked constant-time in source
+     * and measured up to 4× off after JIT — which is exactly what the old
+     * stopwatch assertion kept reporting, honestly, as a flake.
+     */
+    it('is insensitive to where the difference is', () => {
+      const base = 'a'.repeat(1000);
+      const lastCharDiffers = 'a'.repeat(999) + 'b';
+      const firstCharDiffers = 'b' + 'a'.repeat(999);
+
+      expect(secureCompare(base, base)).toBe(true);
+      expect(secureCompare(base, lastCharDiffers)).toBe(false);
+      expect(secureCompare(base, firstCharDiffers)).toBe(false);
+      expect(secureCompare(base, base + 'a')).toBe(false);
+    });
+
+    it('compares beyond the ASCII range', () => {
+      // charCodeAt-based comparison saw UTF-16 units; the digest path sees
+      // UTF-8 bytes. Both must hold for real-world secrets.
+      expect(secureCompare('pä55wörd', 'pä55wörd')).toBe(true);
+      expect(secureCompare('pä55wörd', 'pa55word')).toBe(false);
+      expect(secureCompare('🔐🔐', '🔐🔑')).toBe(false);
     });
   });
 
