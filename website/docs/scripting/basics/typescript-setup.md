@@ -96,7 +96,7 @@ async function deploy(config: DeployConfig): Promise<void> {
 }
 
 // Type-safe argument parsing — invoked as: xec deploy.ts prod 1.2.0 --dry-run
-const args = process.argv.slice(3); // argv[2] is the script path
+// `args` is a global: exactly what the script was invoked with.
 const config: DeployConfig = {
   environment: (args[0] as DeployConfig['environment']) || 'dev',
   version: args[1] || '1.0.0',
@@ -126,8 +126,11 @@ This pulls in a `declare global` block that covers:
   `diff`, `glob`, `path`, `yaml`, `sleep`, `retry`, `quote`, `which`,
   `prism`, `setEnv`, `within`, `tmpdir`, `loadEnv`, `tmpfile`, `spinner`,
   `template`, `parseArgs`. (`fetch` needs no injection — it is the platform
-  global everywhere Xec runs. Command-line arguments are not injected either:
-  read them from `process.argv`.)
+  global everywhere Xec runs.)
+- `args: string[]` — exactly what the script was invoked with — and
+  `argv: string[]` in the shell convention (interpreter, script path, then
+  the arguments), plus `__filename`/`__dirname` for the script's own
+  location.
 - A `Xec` namespace re-exporting every type from `@xec-sh/core` (`Xec.Core.*`)
   plus the CLI's own configuration types (`TargetType`, `TargetConfig`,
   `Configuration`, `CommandConfig`, `ResolvedTarget`).
@@ -722,7 +725,7 @@ class ReleaseManager {
 
 // Parse command-line arguments
 function parseReleaseArgs(): ReleaseOptions {
-  const args = process.argv.slice(3); // argv[2] is the script path
+  // `args` is a global: what the script was invoked with
   const type = (args[0] as ReleaseOptions['type']) || 'patch';
   
   if (!['major', 'minor', 'patch'].includes(type)) {

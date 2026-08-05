@@ -59,6 +59,17 @@ export class ExecutionContext {
     // Add script context
     if (this.options.context) {
       globalsToInject.set('__xecScriptContext', this.options.context);
+
+      // The context is also the script's working vocabulary: `args` is what
+      // the script was invoked with, `argv` the full shell convention,
+      // `__filename`/`__dirname` its own location. These were promised by
+      // the documentation and existed only inside __xecScriptContext — an
+      // internal carrier nobody was told about — so every script that
+      // followed the docs died on a ReferenceError.
+      globalsToInject.set('args', this.options.context.args);
+      globalsToInject.set('argv', this.options.context.argv);
+      globalsToInject.set('__filename', this.options.context.__filename);
+      globalsToInject.set('__dirname', this.options.context.__dirname);
     }
 
     // Add target context

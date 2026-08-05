@@ -33,15 +33,13 @@ xec run hello.js
 
 ## Script Arguments
 
-Scripts read their command-line arguments from `process.argv`:
+Scripts receive their command-line arguments as the `args` global:
 
 ```javascript
 // greet.js
 import { $ } from '@xec-sh/core';
 
-// Script arguments ride process.argv; argv[2] is the script path,
-// so the script's own arguments start at argv[3]
-const args = process.argv.slice(3);
+// `args` holds exactly what the script was invoked with.
 const name = args[0] || 'World';
 await $`echo "Hello, ${name}!"`;
 
@@ -81,7 +79,7 @@ async function deploy(options: DeployOptions): Promise<void> {
 }
 
 // Parse arguments — invoked as: xec deploy.ts prod 1.2.0
-const args = process.argv.slice(3);
+// `args` is already in scope — a global, like $ itself.
 const options: DeployOptions = {
   environment: (args[0] as DeployOptions['environment']) || 'dev',
   version: args[1] || '1.0.0'
@@ -171,7 +169,7 @@ Beyond `$` and the utility globals, target-bound scripts get `$target` and
 import { $ } from '@xec-sh/core';
 
 // Standard module facilities work as usual
-console.log('Script arguments:', process.argv.slice(3));
+console.log('Script arguments:', args);
 console.log('Script URL:', import.meta.url);
 
 // When running via xec run / xec on / xec in

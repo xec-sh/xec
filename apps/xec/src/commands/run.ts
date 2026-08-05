@@ -25,7 +25,7 @@ export class RunCommand extends BaseCommand {
     super({
       name: 'run',
       description: 'Run an Xec script or task',
-      arguments: '[fileOrTask]',
+      arguments: '[fileOrTask] [args...]',
       aliases: ['r'],
       options: [
         {
@@ -61,6 +61,10 @@ export class RunCommand extends BaseCommand {
         {
           command: 'xec run script.ts',
           description: 'Run a TypeScript file'
+        },
+        {
+          command: 'xec run deploy.ts staging --dry-run',
+          description: 'Run a script with arguments (visible as `args` in the script)'
         },
         {
           command: 'xec run build',
@@ -115,8 +119,11 @@ export class RunCommand extends BaseCommand {
     const fileOrTask = args[0];
     const options = args[args.length - 1] as RunOptions;
 
-    // Get script arguments (everything after the fileOrTask)
-    const scriptArgs = args.slice(1, args.length - 1);
+    // The variadic positional arrives as one array. The old registration
+    // declared no variadic at all, so `xec run script.ts anything` died on
+    // commander's arity check while the usage line printed right below it
+    // promised [args...].
+    const scriptArgs: string[] = Array.isArray(args[1]) ? args[1] : [];
 
     if (options.repl) {
       await this.startRepl(options);

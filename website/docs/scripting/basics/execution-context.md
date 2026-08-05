@@ -38,10 +38,12 @@ $targetInfo // TargetInfo - metadata about that target, present alongside $targe
 $           // CallableExecutionEngine - local command execution, always present
 ```
 
-Script metadata and arguments are not injected as globals — use the module's
-own `import.meta.url` and `process.argv`. In an invocation like
-`xec script.js --env=prod`, the script path is `process.argv[2]` and its
-arguments start at `process.argv[3]`.
+Script arguments and location are globals too: `args` is exactly what the
+script was invoked with, `argv` follows the shell convention (interpreter,
+script path, then the arguments), and `__filename`/`__dirname` name the
+script's own location. `xec run deploy.js staging --force` gives
+`args = ['staging', '--force']` — flags the `run` command owns itself go
+after `--`.
 
 ### Target Information
 
@@ -135,14 +137,14 @@ await $`echo "This always runs on the host"`;
 
 ## Parameter Parsing
 
-Command-line parameters aren't parsed automatically — a script reads its raw
-arguments from `process.argv` and parses them itself. `parseArgs`, one of
+Command-line parameters aren't parsed automatically — a script gets its raw
+arguments as the `args` global and parses them itself. `parseArgs`, one of
 the globals from `@xec-sh/ops` (see [Utility Functions](#utility-functions)
 above), covers the common `--key=value` and `--flag` cases:
 
 ```javascript
 // Script called with: xec deploy.js --env=prod --version=1.2.3 --force
-const params = parseArgs(process.argv.slice(3)); // argv[2] is the script path
+const params = parseArgs(args);
 console.log(params.env);     // 'prod'
 console.log(params.version); // '1.2.3'
 console.log(params.force);   // true
@@ -267,7 +269,7 @@ await $`node script.js`.env({ API_KEY: 'secret' });
    // deploy.js
    // Usage: xec deploy.js --env=<environment> --version=<version>
    
-   const params = parseArgs(process.argv.slice(3));
+   const params = parseArgs(args);
    if (!params.env || !params.version) {
      console.error('Required parameters: --env and --version');
      process.exit(1);

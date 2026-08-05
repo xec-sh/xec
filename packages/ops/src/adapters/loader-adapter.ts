@@ -530,7 +530,10 @@ export class ScriptLoader {
       container: 'container' in target ? (target as any).container : undefined,
       pod: 'pod' in target ? (target as any).pod : undefined,
       namespace: 'namespace' in target ? (target as any).namespace : undefined,
-      config: target,
+      // The target's own configuration — not the whole ResolvedTarget, which
+      // itself has a config field and turned $targetInfo.config into a
+      // matryoshka of {type, name, config: {type, name, config: {}}}.
+      config: target.config,
     };
   }
 }

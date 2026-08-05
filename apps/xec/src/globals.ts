@@ -41,6 +41,13 @@ declare global {
   // Core execution engine from @xec-sh/core
   const $: typeof import('@xec-sh/core').$;
 
+  // Script invocation context. `args` is what the script was invoked with;
+  // `argv` follows the shell convention (interpreter, script path, then the
+  // arguments). `__filename`/`__dirname` are also injected at run time and
+  // are already declared by the Node type definitions.
+  const args: string[];
+  const argv: string[];
+
   // Module loader functions
   const use: (spec: string) => Promise<any>;
   const x: (spec: string) => Promise<any>;
