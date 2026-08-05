@@ -138,10 +138,6 @@ Features:
 ### macOS
 
 ```bash
-# Install via Homebrew (coming soon)
-# brew install xec
-
-# For now, use npm
 npm install -g @xec-sh/cli
 ```
 
@@ -190,11 +186,6 @@ COPY . .
 CMD ["xec", "run", "script.ts"]
 ```
 
-Or use the pre-built image (coming soon):
-
-```bash
-docker run -it xec/cli:latest xec --help
-```
 
 ## Verifying Installation
 
@@ -209,9 +200,6 @@ xec --help
 
 # Test execution
 xec -e "console.log('Hello from Xec!')"
-
-# Check for optional dependencies
-xec doctor
 ```
 
 ## Configuration Setup
@@ -219,37 +207,12 @@ xec doctor
 Initialize Xec in your project:
 
 ```bash
-# Create default configuration
-xec init
+# Scaffold .xec/ in the current project (config, commands, scripts)
+xec new project
 
-# This creates:
-# - .xec/config.yaml (configuration file)
-# - .xec/commands/ (custom commands directory)
-# - .xec/scripts/ (scripts directory)
-```
-
-## Shell Completion
-
-Enable tab completion for your shell:
-
-### Bash
-
-```bash
-xec completion bash > ~/.xec_completion
-echo "source ~/.xec_completion" >> ~/.bashrc
-```
-
-### Zsh
-
-```bash
-xec completion zsh > ~/.xec_completion
-echo "source ~/.xec_completion" >> ~/.zshrc
-```
-
-### Fish
-
-```bash
-xec completion fish > ~/.config/fish/completions/xec.fish
+# Or create individual artifacts
+xec new script deploy
+xec new command greet
 ```
 
 ## Environment Variables
@@ -265,9 +228,6 @@ export XEC_DEBUG=true
 
 # Disable colors
 export NO_COLOR=1
-
-# Set default runtime
-export XEC_RUNTIME=bun
 ```
 
 ## Troubleshooting Installation
@@ -350,5 +310,3 @@ If you encounter issues:
 
 - Check the [Troubleshooting Guide](../configuration/advanced/troubleshooting.md)
 - Visit our [GitHub Issues](https://github.com/xec-sh/xec/issues)
-- Join our [Discord Community](https://discord.gg/xec)
-- Check the [Troubleshooting Guide](../configuration/advanced/troubleshooting.md)
