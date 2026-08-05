@@ -1,15 +1,11 @@
 /**
- * Messaging and Queue Service Presets for Docker Fluent API
+ * Messaging and Queue Service Presets for the Docker Fluent API
  */
 
-import type { ExecutionEngine } from '../../../../core/execution-engine.js';
-import type {
-  ServiceManager,
-  KafkaServiceConfig,
-  RabbitMQServiceConfig
-} from '../types.js';
+import type { ServiceManager, ExecutionEngine } from '@xec-sh/core';
+import type { KafkaServiceConfig, RabbitMQServiceConfig } from './types.js';
 
-import { DockerEphemeralFluentAPI } from '../base.js';
+import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
 /**
  * Apache Kafka Service Fluent API
@@ -142,7 +138,7 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
     }
 
     await this.zookeeperContainer.start();
-    console.log('[xec-core] Zookeeper started');
+    console.log('[xec] Zookeeper started');
   }
 
   /**

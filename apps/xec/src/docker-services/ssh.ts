@@ -5,32 +5,38 @@
  * out of the box, perfect for testing SSH connections and remote execution.
  */
 
-import type { SSHServiceConfig, ContainerRuntimeInfo } from '../types.js';
-import type { ProcessPromise, ExecutionEngine } from '../../../../core/execution-engine.js';
+import type { SSHServiceConfig } from './types.js';
+import type {
+  ProcessPromise,
+  ExecutionEngine,
+  ContainerRuntimeInfo
+} from '@xec-sh/core';
 
-import { DockerEphemeralFluentAPI } from '../base.js';
+import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
 /**
  * SSH Container Fluent API
  *
  * @example
  * // Quick start with defaults
- * const ssh = await docker.ssh().start();
+ * const ssh = new SSHFluentAPI(engine);
+ * await ssh.start();
  *
  * // Custom configuration
- * const ssh = await docker.ssh({
+ * const ssh = new SSHFluentAPI(engine, {
  *   distro: 'alpine',
  *   port: 2323,
  *   user: 'admin',
  *   password: 'secret'
- * }).start();
+ * });
+ * await ssh.start();
  *
  * // Fluent configuration
- * const ssh = await docker.ssh()
+ * const ssh = new SSHFluentAPI(engine)
  *   .withDistro('ubuntu')
  *   .withCredentials('myuser', 'mypass')
- *   .withPort(2222)
- *   .start();
+ *   .withPort(2222);
+ * await ssh.start();
  */
 export class SSHFluentAPI extends DockerEphemeralFluentAPI {
   private sshConfig: SSHServiceConfig;

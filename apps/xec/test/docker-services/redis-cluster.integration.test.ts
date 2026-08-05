@@ -1,8 +1,30 @@
 
-import { ExecutionEngine } from '../../../src/core/execution-engine.js';
-import { DockerRedisClusterAPI } from '../../../src/adapters/docker/docker-fluent-api.js';
+import { ExecutionEngine } from '@xec-sh/core';
 
-describe('Docker Redis Cluster', () => {
+import { DockerRedisClusterAPI } from '../../src/docker-services/index.js';
+
+// Provisioning a full Redis cluster needs a running Docker daemon; follow the
+// same opt-out convention as the docker command tests.
+const SKIP_DOCKER_TESTS = process.env['SKIP_DOCKER_TESTS'] === 'true' || process.env['CI'] === 'true';
+const describeDocker = SKIP_DOCKER_TESTS ? describe.skip : describe;
+
+const TEST_PREFIXES = ['test-redis-cluster', 'test-redis-custom', 'test-redis-conn'];
+
+// A failed run leaves its nodes behind, and `redis-cli --cluster create`
+// refuses nodes that already carry cluster state — every test must start
+// from a clean slate.
+async function cleanupTestClusters(engine: ExecutionEngine): Promise<void> {
+  for (const prefix of TEST_PREFIXES) {
+    const result = await engine.run`docker ps -aq --filter ${`name=${prefix}`}`.nothrow();
+    const ids = result.stdout.trim().split('\n').filter(Boolean);
+    for (const id of ids) {
+      await engine.run`docker rm -f ${id}`.nothrow();
+    }
+  }
+  await engine.run`docker network rm redis-cluster-net`.nothrow();
+}
+
+describeDocker('Docker Redis Cluster', () => {
   let engine: ExecutionEngine;
   let cluster: DockerRedisClusterAPI;
 
@@ -18,11 +40,16 @@ describe('Docker Redis Cluster', () => {
     }
   });
 
+  beforeEach(async () => {
+    await cleanupTestClusters(engine);
+  });
+
   afterAll(async () => {
     // Clean up cluster if it exists
     if (cluster) {
       await cluster.remove();
     }
+    await cleanupTestClusters(engine);
     await engine.dispose();
   });
 
@@ -35,7 +62,7 @@ describe('Docker Redis Cluster', () => {
       return;
     }
 
-    cluster = engine.docker().redisCluster({
+    cluster = new DockerRedisClusterAPI(engine, {
       masters: 3,
       replicas: 1,
       containerPrefix: 'test-redis-cluster'
@@ -44,7 +71,7 @@ describe('Docker Redis Cluster', () => {
     // Start the cluster
     await cluster.start();
 
-    expect(cluster.isRunning()).toBe(true);
+    expect(await cluster.isRunning()).toBe(true);
 
     // Check that we have the expected number of containers
     const containerNames = cluster.getContainerNames();
@@ -57,7 +84,7 @@ describe('Docker Redis Cluster', () => {
     // Test cluster nodes
     const nodes = await cluster.nodes();
     expect(nodes).toContain('master');
-    expect(nodes).toContain('slave');
+    expect(nodes).toContain('replica');
 
     // Test executing Redis commands
     const setResult = await cluster.exec('SET test-key "test-value"');
@@ -68,11 +95,11 @@ describe('Docker Redis Cluster', () => {
 
     // Stop the cluster
     await cluster.stop();
-    expect(cluster.isRunning()).toBe(false);
+    expect(await cluster.isRunning()).toBe(false);
 
     // Clean up
     await cluster.remove();
-  }, 60000); // 60 second timeout for cluster setup
+  }, 120000); // Generous timeout for image pull and cluster setup
 
   test('should handle custom Redis configuration', async () => {
     // Check Docker availability
@@ -83,7 +110,7 @@ describe('Docker Redis Cluster', () => {
       return;
     }
 
-    cluster = engine.docker().redisCluster({
+    cluster = new DockerRedisClusterAPI(engine, {
       masters: 3,
       replicas: 0, // No replicas for faster testing
       containerPrefix: 'test-redis-custom',
@@ -98,13 +125,13 @@ describe('Docker Redis Cluster', () => {
 
     // Verify custom configuration
     const configResult = await engine.run`docker exec test-redis-custom-1 redis-cli CONFIG GET maxmemory`;
-    expect(configResult.stdout).toContain('100mb');
+    expect(configResult.stdout).toContain('104857600');
 
     const policyResult = await engine.run`docker exec test-redis-custom-1 redis-cli CONFIG GET maxmemory-policy`;
     expect(policyResult.stdout).toContain('allkeys-lru');
 
     await cluster.remove();
-  }, 60000);
+  }, 120000);
 
   test('should get connection string', async () => {
     // Check Docker availability
@@ -115,7 +142,7 @@ describe('Docker Redis Cluster', () => {
       return;
     }
 
-    cluster = engine.docker().redisCluster({
+    cluster = new DockerRedisClusterAPI(engine, {
       masters: 3,
       replicas: 0,
       basePort: 9001,
@@ -128,18 +155,18 @@ describe('Docker Redis Cluster', () => {
     expect(connectionString).toBe('localhost:9001,localhost:9002,localhost:9003');
 
     await cluster.remove();
-  }, 60000);
+  }, 120000);
 
   test('should validate minimum nodes requirement', () => {
     expect(() => {
-      engine.docker().redisCluster({
+      new DockerRedisClusterAPI(engine, {
         masters: 2, // Less than minimum
         replicas: 0
       });
     }).toThrow('Redis cluster requires at least 3 master nodes');
 
     expect(() => {
-      engine.docker().redisCluster({
+      new DockerRedisClusterAPI(engine, {
         masters: 1,
         replicas: 1 // Total nodes = 2, less than minimum
       });

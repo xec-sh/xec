@@ -2,28 +2,17 @@
  * Docker Fluent API - Main Entry Point
  */
 
-import type { ServicePresetConfig } from './types.js';
 import type { ExecutionResult } from '../../../types/result.js';
 import type { ProcessPromise, ExecutionEngine } from '../../../core/execution-engine.js';
 
-import { ServiceName } from './types.js';
-import { SSHFluentAPI } from './services/ssh.js';
 import { DockerBuildFluentAPI } from './build.js';
-import { RedisFluentAPI, RedisClusterFluentAPI } from './services/redis.js';
-import { KafkaFluentAPI, RabbitMQFluentAPI } from './services/messaging.js';
 // Import for internal use
 import { DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
-import { MySQLFluentAPI, MongoDBFluentAPI, PostgreSQLFluentAPI } from './services/databases.js';
 
 // Type exports
 export * from './types.js';
-export { SSHFluentAPI } from './services/ssh.js';
 
 export { DockerBuildFluentAPI } from './build.js';
-// Service implementations
-export { RedisFluentAPI, RedisClusterFluentAPI } from './services/redis.js';
-export { KafkaFluentAPI, RabbitMQFluentAPI } from './services/messaging.js';
-export { MySQLFluentAPI, MongoDBFluentAPI, PostgreSQLFluentAPI } from './services/databases.js';
 
 // Re-export for external use
 export { BaseDockerFluentAPI, DockerEphemeralFluentAPI, DockerPersistentFluentAPI } from './base.js';
@@ -54,117 +43,6 @@ export class DockerFluentAPI {
    */
   build(context: string, tag?: string): DockerBuildFluentAPI {
     return new DockerBuildFluentAPI(this.engine, context, tag);
-  }
-
-  /**
-   * Service presets
-   */
-  service(name: ServiceName | string, config?: Partial<ServicePresetConfig>): any {
-    switch (name) {
-      case 'redis':
-      case ServiceName.Redis:
-        return new RedisFluentAPI(this.engine, config);
-
-      case 'redis-cluster':
-        return new RedisClusterFluentAPI(this.engine, config);
-
-      case 'postgresql':
-      case 'postgres':
-      case ServiceName.PostgreSQL:
-        return new PostgreSQLFluentAPI(this.engine, config);
-
-      case 'mysql':
-      case ServiceName.MySQL:
-        return new MySQLFluentAPI(this.engine, config);
-
-      case 'mongodb':
-      case 'mongo':
-      case ServiceName.MongoDB:
-        return new MongoDBFluentAPI(this.engine, config);
-
-      case 'kafka':
-      case ServiceName.Kafka:
-        return new KafkaFluentAPI(this.engine, config);
-
-      case 'rabbitmq':
-      case ServiceName.RabbitMQ:
-        return new RabbitMQFluentAPI(this.engine, config);
-
-      case 'ssh':
-      case ServiceName.SSH:
-        return new SSHFluentAPI(this.engine, config);
-
-      default:
-        throw new Error(`Unknown service: ${name}`);
-    }
-  }
-
-  /**
-   * Redis service shortcut
-   */
-  redis(config?: Partial<import('./types.js').RedisServiceConfig>): import('./services/redis.js').RedisFluentAPI {
-    return this.service('redis', config);
-  }
-
-  /**
-   * Redis cluster shortcut
-   */
-  redisCluster(config?: Partial<import('./types.js').RedisServiceConfig>): import('./services/redis.js').RedisClusterFluentAPI {
-    return this.service('redis-cluster', config);
-  }
-
-  /**
-   * PostgreSQL service shortcut
-   */
-  postgresql(config?: Partial<import('./types.js').PostgresServiceConfig>): import('./services/databases.js').PostgreSQLFluentAPI {
-    return this.service('postgresql', config);
-  }
-
-  /**
-   * MySQL service shortcut
-   */
-  mysql(config?: Partial<import('./types.js').MySQLServiceConfig>): import('./services/databases.js').MySQLFluentAPI {
-    return this.service('mysql', config);
-  }
-
-  /**
-   * MongoDB service shortcut
-   */
-  mongodb(config?: Partial<import('./types.js').MongoServiceConfig>): import('./services/databases.js').MongoDBFluentAPI {
-    return this.service('mongodb', config);
-  }
-
-  /**
-   * Kafka service shortcut
-   */
-  kafka(config?: Partial<import('./types.js').KafkaServiceConfig>): import('./services/messaging.js').KafkaFluentAPI {
-    return this.service('kafka', config);
-  }
-
-  /**
-   * RabbitMQ service shortcut
-   */
-  rabbitmq(config?: Partial<import('./types.js').RabbitMQServiceConfig>): import('./services/messaging.js').RabbitMQFluentAPI {
-    return this.service('rabbitmq', config);
-  }
-
-  /**
-   * SSH service shortcut - create SSH-enabled containers easily
-   *
-   * @example
-   * // Quick start with defaults
-   * const ssh = docker.ssh();
-   * await ssh.start();
-   *
-   * // Custom configuration
-   * const ssh = docker.ssh({ distro: 'alpine', port: 2323 });
-   * await ssh.start();
-   *
-   * // Get connection info
-   * console.log(ssh.getConnectionString());
-   */
-  ssh(config?: Partial<import('./types.js').SSHServiceConfig>): import('./services/ssh.js').SSHFluentAPI {
-    return new SSHFluentAPI(this.engine, config);
   }
 
   /**

@@ -1,7 +1,8 @@
 
-import type { ExecutionEngine } from '../../../src/core/execution-engine.js';
+import type { ExecutionEngine } from '@xec-sh/core';
+import type { SSHServiceConfig } from '../../src/docker-services/index.js';
 
-import { SSHFluentAPI, DockerFluentAPI } from '../../../src/adapters/docker/docker-fluent-api/index.js';
+import { SSHFluentAPI, createDockerService } from '../../src/docker-services/index.js';
 
 // Mock ExecutionEngine
 const createMockProcessPromise = (result = { stdout: '', stderr: '', exitCode: 0, ok: true }): any => {
@@ -49,22 +50,23 @@ const mockEngine = {
   raw: vi.fn(() => createMockProcessPromise())
 } as unknown as ExecutionEngine;
 
-describe('Docker Fluent API - SSH Service', () => {
-  let docker: DockerFluentAPI;
+// The presets moved out of core, so there is no docker.ssh() shortcut here:
+// the CLI constructs the service directly, and so do the tests.
+const sshService = (config?: Partial<SSHServiceConfig>) => new SSHFluentAPI(mockEngine, config);
 
+describe('Docker Service Presets - SSH Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    docker = new DockerFluentAPI(mockEngine);
   });
 
   describe('SSH Service Creation', () => {
     test('should create SSH service with defaults', () => {
-      const ssh = docker.ssh();
+      const ssh = sshService();
       expect(ssh).toBeInstanceOf(SSHFluentAPI);
     });
 
     test('should create SSH service with custom config', () => {
-      const ssh = docker.ssh({
+      const ssh = sshService({
         distro: 'alpine',
         port: 2323,
         user: 'admin',
@@ -73,15 +75,15 @@ describe('Docker Fluent API - SSH Service', () => {
       expect(ssh).toBeInstanceOf(SSHFluentAPI);
     });
 
-    test('should support service method with SSH name', () => {
-      const ssh = docker.service('ssh');
+    test('should support the service factory with SSH name', () => {
+      const ssh = createDockerService(mockEngine, 'ssh');
       expect(ssh).toBeInstanceOf(SSHFluentAPI);
     });
   });
 
   describe('SSH Fluent API Methods', () => {
     test('should support fluent chaining', () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withDistro('ubuntu')
         .withCredentials('myuser', 'mypass')
         .withPort(2222)
@@ -92,13 +94,13 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should get connection string', () => {
-      const ssh = docker.ssh({ port: 2323, user: 'admin' });
+      const ssh = sshService({ port: 2323, user: 'admin' });
       const connectionString = ssh.getConnectionString();
       expect(connectionString).toBe('ssh admin@localhost -p 2323');
     });
 
     test('should get connection config', () => {
-      const ssh = docker.ssh({
+      const ssh = sshService({
         port: 2323,
         user: 'admin',
         password: 'secret'
@@ -115,7 +117,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('SSH Container Configuration', () => {
     test('should configure with Ubuntu distro', async () => {
-      const ssh = docker.ssh({ distro: 'ubuntu' });
+      const ssh = sshService({ distro: 'ubuntu' });
       await ssh.start();
 
       // Check that run was called (used for docker run command)
@@ -123,7 +125,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should configure with Alpine distro', async () => {
-      const ssh = docker.ssh({ distro: 'alpine' });
+      const ssh = sshService({ distro: 'alpine' });
       await ssh.start();
 
       // Check that run was called (used for docker run command)
@@ -131,7 +133,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should configure with custom packages', async () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withPackages('git', 'vim', 'curl')
         .withSetupCommand('echo "Custom setup"');
 
@@ -140,7 +142,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should configure sudo access', async () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withSudo(false); // No password required
 
       await ssh.start();
@@ -150,7 +152,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('SSH Operations', () => {
     test('should execute SSH command', () => {
-      const ssh = docker.ssh({
+      const ssh = sshService({
         user: 'admin',
         password: 'secret',
         port: 2222
@@ -167,7 +169,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should copy file to container via SCP', () => {
-      const ssh = docker.ssh({
+      const ssh = sshService({
         user: 'admin',
         password: 'secret',
         port: 2222
@@ -184,7 +186,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should copy file from container via SCP', () => {
-      const ssh = docker.ssh({
+      const ssh = sshService({
         user: 'admin',
         password: 'secret',
         port: 2222
@@ -201,7 +203,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should stop SSH container', async () => {
-      const ssh = docker.ssh({ name: 'test-ssh' });
+      const ssh = sshService({ name: 'test-ssh' });
 
       // Test that stop() can be called without errors
       await expect(ssh.stop()).resolves.not.toThrow();
@@ -221,7 +223,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
     distros.forEach(distro => {
       test(`should create SSH container with ${distro}`, () => {
-        const ssh = docker.ssh({ distro });
+        const ssh = sshService({ distro });
         expect(ssh).toBeInstanceOf(SSHFluentAPI);
         expect(ssh.getConnectionString()).toContain('ssh user@localhost');
       });
@@ -230,7 +232,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('SSH Setup Script Generation', () => {
     test('should handle Alpine-specific package manager', async () => {
-      const ssh = docker.ssh({ distro: 'alpine' });
+      const ssh = sshService({ distro: 'alpine' });
       await ssh.start();
 
       // Alpine uses apk - check run calls for the docker run command
@@ -256,7 +258,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should handle Debian/Ubuntu package manager', async () => {
-      const ssh = docker.ssh({ distro: 'ubuntu' });
+      const ssh = sshService({ distro: 'ubuntu' });
       await ssh.start();
 
       // Ubuntu uses apt-get - check run calls for the docker run command
@@ -274,7 +276,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should handle Fedora/RHEL package manager', async () => {
-      const ssh = docker.ssh({ distro: 'fedora' });
+      const ssh = sshService({ distro: 'fedora' });
       await ssh.start();
 
       // Fedora uses dnf - check run calls for the docker run command
@@ -294,7 +296,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Container Persistence', () => {
     test('should create ephemeral container by default', async () => {
-      const ssh = docker.ssh();
+      const ssh = sshService();
       await ssh.start();
 
       const runCalls = (mockEngine.run as vi.Mock).mock.calls;
@@ -311,7 +313,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should create persistent container when specified', async () => {
-      const ssh = docker.ssh().persistent(true);
+      const ssh = sshService().persistent(true);
       await ssh.start();
 
       const runCalls = (mockEngine.run as vi.Mock).mock.calls;
@@ -330,19 +332,19 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Port Configuration', () => {
     test('should use default port 2222', () => {
-      const ssh = docker.ssh();
+      const ssh = sshService();
       const config = ssh.getConnectionConfig();
       expect(config.port).toBe(2222);
     });
 
     test('should use custom port', () => {
-      const ssh = docker.ssh({ port: 3333 });
+      const ssh = sshService({ port: 3333 });
       const config = ssh.getConnectionConfig();
       expect(config.port).toBe(3333);
     });
 
     test('should update port with fluent method', () => {
-      const ssh = docker.ssh().withPort(4444);
+      const ssh = sshService().withPort(4444);
       const config = ssh.getConnectionConfig();
       expect(config.port).toBe(4444);
     });
@@ -350,7 +352,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Authentication', () => {
     test('should set user credentials', () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withCredentials('myuser', 'mypassword');
 
       const config = ssh.getConnectionConfig();
@@ -359,7 +361,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should support root password', async () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withRootPassword('rootpass');
 
       await ssh.start();
@@ -367,7 +369,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should add public key authentication', async () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withPubKeyAuth('/home/user/.ssh/id_rsa.pub');
 
       await ssh.start();
@@ -396,7 +398,7 @@ describe('Docker Fluent API - SSH Service', () => {
         return createMockProcessPromise();
       });
 
-      const ssh = docker.ssh();
+      const ssh = sshService();
       // The waitForSSH method retries 30 times with 1s delay, so this will take ~30s
       // We expect it to throw after all retries fail
       await expect(ssh.start()).rejects.toThrow('SSH service did not become ready');
@@ -437,7 +439,7 @@ describe('Docker Fluent API - SSH Service', () => {
         return createMockProcessPromise();
       });
 
-      const ssh = docker.ssh({ name: 'test-ssh', port: 2222 });
+      const ssh = sshService({ name: 'test-ssh', port: 2222 });
       const info = await ssh.info();
 
       expect(info).toBeDefined();
@@ -454,7 +456,7 @@ describe('Docker Fluent API - SSH Service', () => {
         throw new Error('Container not found');
       });
 
-      const ssh = docker.ssh({ name: 'nonexistent' });
+      const ssh = sshService({ name: 'nonexistent' });
       const info = await ssh.info();
 
       expect(info).toBeNull();
@@ -463,7 +465,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Sudo Configuration', () => {
     test('should configure sudo with password required', () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withSudo(true); // Password required
 
       // Check the fluent API returns correct instance
@@ -476,7 +478,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should configure sudo for Alpine with password', () => {
-      const ssh = docker.ssh({ distro: 'alpine' })
+      const ssh = sshService({ distro: 'alpine' })
         .withSudo(true);
 
       // Verify SSH instance is created with correct distro and sudo config
@@ -488,7 +490,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Custom Setup Commands', () => {
     test('should support adding custom setup commands', () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withSetupCommand('echo "Setup 1"')
         .withSetupCommand('echo "Setup 2"')
         .withSetupCommand('echo "Setup 3"');
@@ -498,7 +500,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should support adding custom packages', () => {
-      const ssh = docker.ssh({ distro: 'ubuntu' })
+      const ssh = sshService({ distro: 'ubuntu' })
         .withPackages('git', 'curl', 'vim');
 
       // Verify fluent API works correctly
@@ -508,7 +510,7 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Container Lifecycle', () => {
     test('should support container lifecycle operations', () => {
-      const ssh = docker.ssh({ name: 'test-ssh' });
+      const ssh = sshService({ name: 'test-ssh' });
 
       // Verify instance was created with correct name
       expect(ssh).toBeInstanceOf(SSHFluentAPI);
@@ -516,7 +518,7 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should get connection info before start', () => {
-      const ssh = docker.ssh({
+      const ssh = sshService({
         port: 3333,
         user: 'testuser',
         password: 'testpass'
@@ -532,12 +534,12 @@ describe('Docker Fluent API - SSH Service', () => {
 
   describe('Edge Cases', () => {
     test('should handle distro with default package manager fallback', () => {
-      const ssh = docker.ssh({ distro: 'unknown' as any });
+      const ssh = sshService({ distro: 'unknown' as any });
       expect(ssh).toBeInstanceOf(SSHFluentAPI);
     });
 
     test('should support method chaining with all options', () => {
-      const ssh = docker.ssh()
+      const ssh = sshService()
         .withDistro('ubuntu')
         .withPort(3000)
         .withCredentials('user', 'pass')
@@ -556,8 +558,8 @@ describe('Docker Fluent API - SSH Service', () => {
     });
 
     test('should create unique container names when not specified', () => {
-      const ssh1 = docker.ssh();
-      const ssh2 = docker.ssh();
+      const ssh1 = sshService();
+      const ssh2 = sshService();
 
       // Both should have names (auto-generated)
       expect(ssh1.getConnectionString()).toContain('ssh');

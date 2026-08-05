@@ -1,17 +1,19 @@
 /**
- * Database Service Presets for Docker Fluent API
+ * Database Service Presets for the Docker Fluent API
  */
 
-import type { ExecutionResult } from '../../../../types/result.js';
-import type { ExecutionEngine } from '../../../../core/execution-engine.js';
 import type {
   ServiceManager,
+  ExecutionEngine,
+  ExecutionResult
+} from '@xec-sh/core';
+import type {
   MySQLServiceConfig,
   MongoServiceConfig,
   PostgresServiceConfig
-} from '../types.js';
+} from './types.js';
 
-import { DockerEphemeralFluentAPI } from '../base.js';
+import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
 /**
  * PostgreSQL Service Fluent API

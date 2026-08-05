@@ -49,7 +49,7 @@ const timeoutError: Xec.Core.TimeoutError
 
 // Fluent API types
 const dockerAPI: Xec.Core.DockerFluentAPI
-const redisCluster: Xec.Core.DockerRedisClusterAPI
+const ephemeral: Xec.Core.DockerEphemeralFluentAPI
 
 // Configuration types
 const retryOptions: Xec.Core.RetryOptions
@@ -68,10 +68,9 @@ In `.xec/commands/` files, reference the global types:
 /// <reference path="../../apps/xec/globals.d.ts" />
 
 // Now all Xec types are available
-const options: Xec.Core.RedisClusterOptions = {
-  masters: 3,
-  replicas: 1,
-  basePort: 7001
+const options: Xec.Core.DockerOptions = {
+  container: 'redis',
+  workdir: '/data'
 };
 ```
 
@@ -174,15 +173,15 @@ If you were previously defining types locally in command files:
 
 ```typescript
 // OLD: Local type definition
-interface RedisClusterOptions {
-  masters: number;
-  replicas: number;
+interface DockerOptions {
+  container: string;
+  workdir?: string;
 }
 
 // NEW: Use core types
-const options: Xec.Core.RedisClusterOptions = {
-  masters: 3,
-  replicas: 1
+const options: Xec.Core.DockerOptions = {
+  container: 'redis',
+  workdir: '/data'
 };
 ```
 

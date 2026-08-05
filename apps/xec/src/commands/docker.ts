@@ -1,12 +1,22 @@
 import type { CommandConfig, DockerDefaults } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
 import { validateOptions } from '@xec-sh/ops';
+import { $, ExecutionEngine } from '@xec-sh/core';
 import { log, note, text, intro, outro, prism, select, cancel, spinner, isCancel } from '@xec-sh/kit';
 
 import { SubcommandBase, ConfigAwareOptions } from '../utils/command-base.js';
+import {
+  SSHFluentAPI,
+  RedisFluentAPI,
+  MySQLFluentAPI,
+  KafkaFluentAPI,
+  MongoDBFluentAPI,
+  RabbitMQFluentAPI,
+  PostgreSQLFluentAPI,
+  RedisClusterFluentAPI
+} from '../docker-services/index.js';
 
 interface ContainerOptions extends ConfigAwareOptions {
   name?: string;
@@ -132,6 +142,20 @@ export class DockerCommand extends SubcommandBase {
 
   protected override getCommandConfigKey(): string {
     return 'docker';
+  }
+
+  /**
+   * Engine backing the service presets. The presets take an ExecutionEngine
+   * directly (they live in the CLI since 0.10, on top of core's public Docker
+   * fluent API); created on first use so command registration stays free.
+   */
+  private _serviceEngine?: ExecutionEngine;
+
+  private get serviceEngine(): ExecutionEngine {
+    if (!this._serviceEngine) {
+      this._serviceEngine = new ExecutionEngine();
+    }
+    return this._serviceEngine;
   }
 
   protected setupSubcommands(command: Command): void {
@@ -917,7 +941,7 @@ export class DockerCommand extends SubcommandBase {
         return;
       }
 
-      const redis = $.docker().redis({
+      const redis = new RedisFluentAPI(this.serviceEngine, {
         port: mergedOptions.port,
         name: mergedOptions.name,
         password: mergedOptions.password,
@@ -965,7 +989,7 @@ Connection: ${info['connectionString']}
         return;
       }
 
-      const postgres = $.docker().postgresql({
+      const postgres = new PostgreSQLFluentAPI(this.serviceEngine, {
         port: mergedOptions.port,
         name: mergedOptions.name,
         password: mergedOptions.password,
@@ -1016,7 +1040,7 @@ Connection: ${info['connectionString']}
         return;
       }
 
-      const mysql = $.docker().mysql({
+      const mysql = new MySQLFluentAPI(this.serviceEngine, {
         port: mergedOptions.port,
         name: mergedOptions.name,
         rootPassword: mergedOptions.password,
@@ -1066,7 +1090,7 @@ Connection: ${info['connectionString']}
         return;
       }
 
-      const mongodb = $.docker().mongodb({
+      const mongodb = new MongoDBFluentAPI(this.serviceEngine, {
         port: mergedOptions.port,
         name: mergedOptions.name,
         rootUser: mergedOptions.rootUser,
@@ -1115,7 +1139,7 @@ Connection: ${info['connectionString']}
         return;
       }
 
-      const cluster = $.docker().redisCluster({
+      const cluster = new RedisClusterFluentAPI(this.serviceEngine, {
         cluster: {
           enabled: true,
           masters: parseInt(options.masters || '3'),
@@ -1169,7 +1193,7 @@ Connect with:
         return;
       }
 
-      const kafka = $.docker().kafka({
+      const kafka = new KafkaFluentAPI(this.serviceEngine, {
         port: mergedOptions.port,
         name: mergedOptions.name,
         zookeeper: mergedOptions.zookeeper,
@@ -1220,7 +1244,7 @@ Connect with:
         return;
       }
 
-      const rabbitmq = $.docker().rabbitmq({
+      const rabbitmq = new RabbitMQFluentAPI(this.serviceEngine, {
         port: mergedOptions.port,
         management: true,
         name: mergedOptions.name,
@@ -1322,7 +1346,7 @@ Check health:
         return;
       }
 
-      const ssh = $.docker().ssh({
+      const ssh = new SSHFluentAPI(this.serviceEngine, {
         port: options.port,
         name: options.name,
         user: options.user,

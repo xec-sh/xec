@@ -377,11 +377,18 @@ export {
   parseDuration,
   type Duration,
 } from './utils/helpers.js';
+// The Docker fluent surface. `DockerEphemeralFluentAPI` and the service
+// types are exported by name because the CLI's service presets (moved out of
+// core in 0.10) extend the ephemeral builder — they were already reachable
+// through `DockerFluentAPI.ephemeral()`, this only makes them nameable.
 export {
   DockerFluentAPI,
+  type ServiceStatus,
+  type ServiceManager,
   DockerFluentBuildAPI,
-  DockerRedisClusterAPI,
-  type RedisClusterOptions
+  type ClusterNodeInfo,
+  DockerEphemeralFluentAPI,
+  type ContainerRuntimeInfo
 } from './adapters/docker/docker-fluent-api.js';
 export {
   DockerError,

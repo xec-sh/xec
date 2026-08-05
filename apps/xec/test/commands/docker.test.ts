@@ -1,8 +1,10 @@
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
-import { $ } from '@xec-sh/core';
 import { fileURLToPath } from 'url';
+import { $, ExecutionEngine } from '@xec-sh/core';
+
+import { RedisFluentAPI } from '../../src/docker-services/index.js';
 
 const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/main.js');
 
@@ -677,8 +679,8 @@ describeDocker('Docker Fluent API Integration', () => {
   it('should use fluent API for service shortcuts', async () => {
     const containerName = `${TEST_PREFIX}redis-fluent-${Date.now()}`;
 
-    const docker = $.docker();
-    const redis = docker.redis({
+    // The service presets live in the CLI now and take an engine directly
+    const redis = new RedisFluentAPI(new ExecutionEngine(), {
       name: containerName,
       port: 16380,
       persistent: false

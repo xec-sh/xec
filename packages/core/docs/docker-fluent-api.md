@@ -1,10 +1,23 @@
 # Docker Fluent API
 
-A powerful, type-safe fluent API for Docker operations in the xec execution engine.
+A type-safe fluent API for Docker operations in the xec execution engine.
 
 ## Overview
 
-The Docker Fluent API provides a chainable, intuitive interface for managing Docker containers, images, and services. It's designed to simplify complex Docker operations while maintaining full control and flexibility.
+The Docker Fluent API provides a chainable interface for managing Docker
+containers, images, Compose projects, networks, volumes and Swarm. It wraps
+the `docker` CLI through the execution engine, so everything runs wherever the
+engine runs.
+
+> **Service presets moved to the CLI.** The pre-configured service containers
+> (Redis, Redis Cluster, PostgreSQL, MySQL, MongoDB, Kafka, RabbitMQ, SSH)
+> that used to live here (`$.docker().redis()` and friends) are a CLI
+> convenience, not an execution-engine concern. They now live in
+> `@xec-sh/cli` (`apps/xec/src/docker-services/`) and are reachable as
+> `xec docker service redis`, `xec docker service postgres`, etc. Programmatic
+> consumers who want a preset build it on top of `DockerEphemeralFluentAPI` —
+> see “Custom Service Implementations” below, which is exactly how the CLI
+> does it.
 
 ## Architecture
 
@@ -13,11 +26,7 @@ docker-fluent-api/
 ├── index.ts         # Main entry point and orchestration
 ├── base.ts          # Base classes for container management
 ├── build.ts         # Docker build operations
-├── types.ts         # TypeScript type definitions
-└── services/        # Service-specific implementations
-    ├── redis.ts     # Redis and Redis Cluster
-    ├── databases.ts # PostgreSQL, MySQL, MongoDB
-    └── messaging.ts # Kafka, RabbitMQ
+└── types.ts         # TypeScript type definitions
 ```
 
 ## Quick Start
@@ -38,115 +47,6 @@ await $.docker()
 await $.docker()
   .container('existing-container')
   .exec`ls -la`;
-```
-
-### Service Presets
-
-The API includes optimized presets for popular services:
-
-#### Redis
-
-```typescript
-// Single Redis instance
-const redis = $.docker().redis({
-  port: 6379,
-  password: 'secret',
-  persistent: true,
-  dataPath: '/data/redis'
-});
-
-await redis.start();
-await redis.cli('SET key value');
-const info = await redis.getInfo();
-await redis.stop();
-
-// Redis Cluster
-const cluster = $.docker().redisCluster({
-  cluster: { masters: 3, replicas: 1 },
-  port: 7001,
-  network: 'redis-cluster'
-});
-
-await cluster.start();
-await cluster.exec('CLUSTER INFO');
-```
-
-#### PostgreSQL
-
-```typescript
-const postgres = $.docker().postgresql({
-  database: 'myapp',
-  user: 'admin',
-  password: 'secret',
-  port: 5432,
-  extensions: ['uuid-ossp', 'pgcrypto']
-});
-
-await postgres.start();
-await postgres.createDatabase('test');
-await postgres.query('SELECT * FROM users');
-await postgres.backup('/backup/db.sql');
-```
-
-#### MySQL
-
-```typescript
-const mysql = $.docker().mysql({
-  database: 'myapp',
-  rootPassword: 'root',
-  port: 3306,
-  charset: 'utf8mb4'
-});
-
-await mysql.start();
-await mysql.createUser('app', 'password');
-await mysql.grantPrivileges('app', 'myapp');
-```
-
-#### MongoDB
-
-```typescript
-const mongo = $.docker().mongodb({
-  database: 'myapp',
-  rootUser: 'admin',
-  rootPassword: 'secret',
-  replicaSet: 'rs0'
-});
-
-await mongo.start();
-await mongo.createCollection('myapp', 'users');
-await mongo.insertDocument('myapp', 'users', { name: 'John' });
-```
-
-#### Kafka
-
-```typescript
-const kafka = $.docker().kafka({
-  port: 9092,
-  zookeeper: 'localhost:2181',
-  autoCreateTopics: true
-});
-
-await kafka.startWithZookeeper();
-await kafka.createTopic('events', 3, 2);
-await kafka.produce('events', 'Hello Kafka');
-const messages = await kafka.consume('events', { fromBeginning: true });
-```
-
-#### RabbitMQ
-
-```typescript
-const rabbit = $.docker().rabbitmq({
-  user: 'admin',
-  password: 'secret',
-  management: true,
-  plugins: ['rabbitmq_stream']
-});
-
-await rabbit.start();
-await rabbit.createQueue('tasks', '/', true);
-await rabbit.publishMessage('', 'tasks', 'Process this');
-const messages = await rabbit.getMessages('tasks', 10);
 ```
 
 ### Building Images
@@ -244,21 +144,27 @@ await swarm.deployStack('myapp', 'stack.yml');
 ### Lifecycle Hooks
 
 ```typescript
-const redis = $.docker()
-  .redis({ port: 6379 })
+const app = $.docker()
+  .ephemeral('myapp:latest')
   .lifecycle({
-    beforeStart: async () => console.log('Starting Redis...'),
-    afterStart: async () => console.log('Redis started!'),
+    beforeStart: async () => console.log('Starting...'),
+    afterStart: async () => console.log('Started!'),
     healthCheck: async () => {
-      const result = await redis.ping();
-      return result.stdout === 'PONG';
+      const result = await app.exec('curl -f http://localhost:8080/health');
+      return result.exitCode === 0;
     }
   });
 ```
 
 ### Custom Service Implementations
 
+`DockerEphemeralFluentAPI` is exported from `@xec-sh/core` precisely so that
+service wrappers can be built outside core — the xec CLI's service presets
+extend it this way:
+
 ```typescript
+import { ExecutionEngine, DockerEphemeralFluentAPI } from '@xec-sh/core';
+
 class CustomServiceAPI extends DockerEphemeralFluentAPI {
   constructor(engine: ExecutionEngine) {
     super(engine, 'custom:latest');
@@ -277,59 +183,15 @@ class CustomServiceAPI extends DockerEphemeralFluentAPI {
 }
 ```
 
-### Replication & Clustering
-
-```typescript
-// PostgreSQL with replication
-const master = $.docker().postgresql({
-  name: 'pg-master',
-  replication: { role: 'master' }
-});
-
-const replica = $.docker().postgresql({
-  name: 'pg-replica',
-  replication: {
-    role: 'replica',
-    masterHost: 'pg-master'
-  }
-});
-
-// MongoDB replica set
-const mongo1 = $.docker().mongodb({
-  name: 'mongo1',
-  replicaSet: 'rs0'
-});
-
-await mongo1.start();
-await mongo1.initReplicaSet();
-await mongo1.addReplicaSetMember('mongo2:27017');
-```
-
 ## Type Safety
 
 All APIs are fully typed with TypeScript:
 
 ```typescript
-import type {
-  RedisServiceConfig,
-  PostgresServiceConfig,
-  ServiceManager,
-  ContainerRuntimeInfo
-} from '@xec-sh/core/docker-fluent-api';
+import { $, type ServiceManager, type ContainerRuntimeInfo } from '@xec-sh/core';
 
-// Type-safe configuration
-const config: RedisServiceConfig = {
-  port: 6379,
-  password: 'secret',
-  cluster: {
-    enabled: true,
-    masters: 3,
-    replicas: 1
-  }
-};
-
-// Service manager interface
-const service: ServiceManager = $.docker().redis(config);
+// ServiceManager is the lifecycle interface every container wrapper follows
+const service: ServiceManager = $.docker().ephemeral('nginx:alpine').name('web');
 await service.start();
 const status = await service.status();
 ```
@@ -338,57 +200,27 @@ const status = await service.status();
 
 ```typescript
 try {
-  const postgres = $.docker().postgresql();
-  await postgres.start();
+  await $.docker().ephemeral('postgres:15-alpine').name('db').start();
 } catch (error) {
   if (error.message.includes('port already in use')) {
     // Handle port conflict
   } else if (error.message.includes('image not found')) {
     // Pull image first
-    await $.docker().pull('postgres:latest');
+    await $.docker().pull('postgres:15-alpine');
   }
 }
-```
-
-## Performance Considerations
-
-- **Connection Pooling**: Services automatically manage connection pools
-- **Lazy Loading**: Service implementations are loaded on-demand
-- **Parallel Operations**: Multiple containers can be started in parallel
-- **Resource Limits**: CPU and memory limits can be set per container
-
-```typescript
-const redis = $.docker()
-  .redis()
-  .memory('512m')
-  .cpus('0.5');
-```
-
-## Migration from Legacy API
-
-### Old API
-```typescript
-await $.docker().run`docker run -d --name redis -p 6379:6379 redis:alpine`;
-await $.docker().container('redis').exec`redis-cli ping`;
-```
-
-### New Fluent API
-```typescript
-const redis = $.docker().redis({ name: 'redis', port: 6379 });
-await redis.start();
-await redis.ping();
 ```
 
 ## Best Practices
 
 1. **Always clean up resources**:
 ```typescript
-const redis = $.docker().redis();
+const app = $.docker().ephemeral('myapp').name('app');
 try {
-  await redis.start();
-  // ... use redis
+  await app.start();
+  // ... use the container
 } finally {
-  await redis.remove();
+  await app.remove();
 }
 ```
 
@@ -409,45 +241,9 @@ await service.waitForReady();
 const network = $.docker().network('isolated');
 await network.create({ internal: true });
 
-const db = $.docker().postgresql().network('isolated');
+const db = $.docker().ephemeral('postgres:15-alpine').network('isolated');
 const app = $.docker().ephemeral('app').network('isolated');
 ```
-
-## Testing
-
-The fluent API is extensively tested and used in production:
-
-```typescript
-// Integration test example
-describe('Redis Service', () => {
-  let redis: RedisFluentAPI;
-
-  beforeAll(async () => {
-    redis = $.docker().redis({ port: 6380 });
-    await redis.start();
-  });
-
-  afterAll(async () => {
-    await redis.remove();
-  });
-
-  it('should store and retrieve data', async () => {
-    await redis.cli('SET test value');
-    const result = await redis.cli('GET test');
-    expect(result.stdout).toBe('value');
-  });
-});
-```
-
-## Contributing
-
-When adding new service presets:
-
-1. Create service class extending `DockerEphemeralFluentAPI`
-2. Add configuration interface to `types.ts`
-3. Implement service-specific methods
-4. Add to main `DockerFluentAPI.service()` factory
-5. Write tests and documentation
 
 ## License
 

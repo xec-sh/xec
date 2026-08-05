@@ -2,16 +2,17 @@
  * Redis Docker Service Fluent API
  */
 
-import type { ExecutionResult } from '../../../../types/result.js';
-import type { ProcessPromise, ExecutionEngine } from '../../../../core/execution-engine.js';
+import type { RedisServiceConfig } from './types.js';
 import type {
   ServiceStatus,
+  ProcessPromise,
   ServiceManager,
-  ClusterNodeInfo,
-  RedisServiceConfig
-} from '../types.js';
+  ExecutionEngine,
+  ExecutionResult,
+  ClusterNodeInfo
+} from '@xec-sh/core';
 
-import { DockerEphemeralFluentAPI } from '../base.js';
+import { DockerEphemeralFluentAPI } from '@xec-sh/core';
 
 /**
  * Redis Single Instance Fluent API
@@ -418,6 +419,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
     persistent: boolean;
     dataPath?: string;
     password?: string;
+    config?: Record<string, string>;
   };
   private running = false;
 
@@ -435,17 +437,18 @@ export class RedisClusterFluentAPI implements ServiceManager {
       nodeTimeout: config?.cluster?.nodeTimeout ?? 5000,
       persistent: config?.persistent ?? false,
       dataPath: config?.dataPath,
-      password: config?.password
+      password: config?.password,
+      config: config?.config
     };
 
     // Validate cluster config
     if (this.clusterConfig.masters < 3) {
-      throw new Error('[xec-core] Redis cluster requires at least 3 master nodes');
+      throw new Error('[xec] Redis cluster requires at least 3 master nodes');
     }
 
     const totalNodes = this.getTotalNodes();
     if (totalNodes < 3) {
-      throw new Error('[xec-core] Redis cluster requires at least 3 nodes total');
+      throw new Error('[xec] Redis cluster requires at least 3 nodes total');
     }
   }
 
@@ -470,6 +473,9 @@ export class RedisClusterFluentAPI implements ServiceManager {
         network: this.clusterConfig.network,
         persistent: this.clusterConfig.persistent,
         password: this.clusterConfig.password,
+        // Custom redis settings apply to every node; cluster-mode settings
+        // are merged on top below.
+        config: { ...this.clusterConfig.config },
         cluster: {
           enabled: true,
           nodeTimeout: this.clusterConfig.nodeTimeout
@@ -502,7 +508,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
     try {
       await this.engine.run`docker network inspect ${this.clusterConfig.network}`;
     } catch {
-      console.log(`[xec-core] Creating network ${this.clusterConfig.network}`);
+      console.log(`[xec] Creating network ${this.clusterConfig.network}`);
       await this.engine.run`docker network create ${this.clusterConfig.network}`;
     }
   }
@@ -511,7 +517,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
    * Initialize Redis cluster
    */
   private async initializeCluster(): Promise<void> {
-    console.log('[xec-core] Initializing Redis cluster...');
+    console.log('[xec] Initializing Redis cluster...');
 
     // Wait for all nodes to be ready
     await this.waitForNodes();
@@ -524,7 +530,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
     // Build cluster create command
     const firstNode = this.nodes[0];
     if (!firstNode) {
-      throw new Error('[xec-core] No nodes available for cluster creation');
+      throw new Error('[xec] No nodes available for cluster creation');
     }
 
     const createCmd = [
@@ -542,7 +548,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
     // Execute cluster creation
     await firstNode.exec(createCmd.join(' '));
 
-    console.log('[xec-core] Redis cluster initialized');
+    console.log('[xec] Redis cluster initialized');
   }
 
   /**
@@ -568,7 +574,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
       }
 
       if (!ready) {
-        throw new Error(`[xec-core] Redis node ${node['redisConfig'].name} failed to start`);
+        throw new Error(`[xec] Redis node ${node['redisConfig'].name} failed to start`);
       }
     }
   }
@@ -578,11 +584,11 @@ export class RedisClusterFluentAPI implements ServiceManager {
    */
   async start(): Promise<void> {
     if (this.running) {
-      console.log('[xec-core] Redis cluster is already running');
+      console.log('[xec] Redis cluster is already running');
       return;
     }
 
-    console.log('[xec-core] Starting Redis cluster...');
+    console.log('[xec] Starting Redis cluster...');
 
     // Create network
     await this.createNetwork();
@@ -594,13 +600,13 @@ export class RedisClusterFluentAPI implements ServiceManager {
     const startPromises = this.nodes.map(node => node.start());
     await Promise.all(startPromises);
 
-    console.log(`[xec-core] Started ${this.nodes.length} Redis nodes`);
+    console.log(`[xec] Started ${this.nodes.length} Redis nodes`);
 
     // Initialize cluster
     await this.initializeCluster();
 
     this.running = true;
-    console.log('[xec-core] Redis cluster started successfully');
+    console.log('[xec] Redis cluster started successfully');
   }
 
   /**
@@ -608,18 +614,18 @@ export class RedisClusterFluentAPI implements ServiceManager {
    */
   async stop(): Promise<void> {
     if (!this.running) {
-      console.log('[xec-core] Redis cluster is not running');
+      console.log('[xec] Redis cluster is not running');
       return;
     }
 
-    console.log('[xec-core] Stopping Redis cluster...');
+    console.log('[xec] Stopping Redis cluster...');
 
     // Stop all nodes in parallel
     const stopPromises = this.nodes.map(node => node.stop().catch(() => {}));
     await Promise.all(stopPromises);
 
     this.running = false;
-    console.log('[xec-core] Redis cluster stopped');
+    console.log('[xec] Redis cluster stopped');
   }
 
   /**
@@ -634,7 +640,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
    * Remove the Redis cluster
    */
   async remove(): Promise<void> {
-    console.log('[xec-core] Removing Redis cluster...');
+    console.log('[xec] Removing Redis cluster...');
 
     // Remove all nodes
     const removePromises = this.nodes.map(node => node.remove().catch(() => {}));
@@ -659,7 +665,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
     this.running = false;
     this.nodes = [];
 
-    console.log('[xec-core] Redis cluster removed');
+    console.log('[xec] Redis cluster removed');
   }
 
   /**
@@ -701,12 +707,12 @@ export class RedisClusterFluentAPI implements ServiceManager {
    */
   async exec(command: string): Promise<ExecutionResult> {
     if (!this.running || this.nodes.length === 0) {
-      throw new Error('[xec-core] Redis cluster is not running');
+      throw new Error('[xec] Redis cluster is not running');
     }
 
     const firstNode = this.nodes[0];
     if (!firstNode) {
-      throw new Error('[xec-core] No nodes available in cluster');
+      throw new Error('[xec] No nodes available in cluster');
     }
 
     // Execute on first node with cluster mode
@@ -805,6 +811,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
       network: this.clusterConfig.network,
       persistent: this.clusterConfig.persistent,
       password: this.clusterConfig.password,
+      config: { ...this.clusterConfig.config },
       cluster: {
         enabled: true,
         nodeTimeout: this.clusterConfig.nodeTimeout
@@ -821,7 +828,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
     // Add to cluster
     const firstNode = this.nodes[0];
     if (!firstNode) {
-      throw new Error('[xec-core] No nodes available to add node');
+      throw new Error('[xec] No nodes available to add node');
     }
     const newNodeAddr = `${node['redisConfig'].name}:6379`;
     const masterAddr = `${firstNode['redisConfig'].name}:6379`;
@@ -841,12 +848,12 @@ export class RedisClusterFluentAPI implements ServiceManager {
   async removeNode(nodeId: string): Promise<void> {
     const firstNode = this.nodes[0];
     if (!firstNode) {
-      throw new Error('[xec-core] No nodes available to remove node');
+      throw new Error('[xec] No nodes available to remove node');
     }
     await firstNode.cli(`--cluster del-node ${firstNode['redisConfig'].name}:6379 ${nodeId}`);
 
     // Find and remove the node from our list
-    const nodeIndex = this.nodes.findIndex(n => 
+    const nodeIndex = this.nodes.findIndex(n =>
       // You'd need to track node IDs properly for this
        false // Placeholder
     );
@@ -866,7 +873,7 @@ export class RedisClusterFluentAPI implements ServiceManager {
   async rebalance(): Promise<void> {
     const firstNode = this.nodes[0];
     if (!firstNode) {
-      throw new Error('[xec-core] No nodes available to rebalance');
+      throw new Error('[xec] No nodes available to rebalance');
     }
     await firstNode.cli(`--cluster rebalance ${firstNode['redisConfig'].name}:6379 --cluster-use-empty-masters`);
   }

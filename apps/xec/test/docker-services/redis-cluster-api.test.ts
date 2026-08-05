@@ -1,6 +1,7 @@
 
-import { ExecutionEngine } from '../../../src/core/execution-engine.js';
-import { DockerRedisClusterAPI } from '../../../src/adapters/docker/docker-fluent-api.js';
+import { ExecutionEngine } from '@xec-sh/core';
+
+import { DockerRedisClusterAPI } from '../../src/docker-services/index.js';
 
 describe('Docker Redis Cluster API', () => {
   let engine: ExecutionEngine;
