@@ -9,8 +9,6 @@ programmatically.
 npm install @xec-sh/ops
 ```
 
-Status: alpha. The API may change between minor versions until 1.0.
-
 ## Deployments
 
 ```typescript

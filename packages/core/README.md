@@ -6,8 +6,6 @@
 npm install @xec-sh/core
 ```
 
-Status: alpha. The API may change between minor versions until 1.0.
-
 ## The idea
 
 ```typescript

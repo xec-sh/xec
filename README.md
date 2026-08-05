@@ -5,8 +5,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/npm/l/@xec-sh/core.svg)](https://github.com/xec-sh/xec/blob/main/LICENSE)
 
-Status: alpha. The API may change between minor versions until 1.0.
-
 ```typescript
 import { $ } from '@xec-sh/core';
 

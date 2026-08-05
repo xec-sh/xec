@@ -8,8 +8,6 @@ integrity checking, and host a REPL.
 npm install @xec-sh/loader
 ```
 
-Status: alpha. The API may change between minor versions until 1.0.
-
 ## Executing scripts and code
 
 ```typescript
