@@ -308,10 +308,12 @@ tasks:
 xec run deploy
 
 # With parameters
-xec run scale --replicas 5
+xec run scale -p replicas=5
+# or, invoking the task directly without `run`:
+xec scale --replicas 5
 
 # On specific target
-xec run backup --target hosts.backup-server
+xec on hosts.backup-server --task backup
 ```
 
 ### From Configuration

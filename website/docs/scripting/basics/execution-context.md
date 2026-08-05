@@ -19,31 +19,29 @@ await $target`ls -la`;
 await $`pwd`;
 ```
 
-`$target` only exists when the script was run with `--target`; a plain
-`xec run script.js` never defines it at all (not even as `undefined` — the
-variable itself isn't declared), so check for it with `typeof` rather than
-referencing it directly, or fall back to `$`.
+`$target` and `$targetInfo` exist when the CLI binds the script to a target:
+`xec on <host> script.js` and `xec in <container> script.js` bind them to
+that host or container, and `xec run script.js` binds them to the local
+machine (`$targetInfo.type === 'local'`). Running a file directly —
+`xec script.js` — declares neither variable at all (not even as `undefined`),
+so portable scripts check with `typeof` rather than referencing them
+directly, or fall back to `$`.
 
 ## Global Context Variables
 
-When a script executes, Xec injects several global variables:
-
-### Core Execution Variables
+When a script executes, Xec injects these globals:
 
 ```javascript
 // Primary execution engines
-$target     // CallableExecutionEngine - present only when run with --target
-$targetInfo // TargetInfo - present only alongside $target
-$           // CallableExecutionEngine - local command execution
-
-// Script metadata
-__filename  // string - Absolute path to the script file
-__dirname   // string - Directory containing the script
-
-// Script arguments
-args        // string[] - Arguments passed to the script
-argv        // string[] - [interpreter, scriptPath, ...args]
+$target     // CallableExecutionEngine - bound to the current target (see above)
+$targetInfo // TargetInfo - metadata about that target, present alongside $target
+$           // CallableExecutionEngine - local command execution, always present
 ```
+
+Script metadata and arguments are not injected as globals — use the module's
+own `import.meta.url` and `process.argv`. In an invocation like
+`xec script.js --env=prod`, the script path is `process.argv[2]` and its
+arguments start at `process.argv[3]`.
 
 ### Target Information
 
@@ -64,7 +62,7 @@ interface TargetInfo {
 Example usage:
 
 ```javascript
-if ($targetInfo) {
+if (typeof $targetInfo !== 'undefined') {
   console.log(`Executing on ${$targetInfo.type} target: ${$targetInfo.name}`);
   
   switch ($targetInfo.type) {
@@ -83,8 +81,9 @@ if ($targetInfo) {
 
 ## Utility Functions
 
-`xec run` also makes a set of scripting utilities from `@xec-sh/ops`
-available as globals, without an import — among them `glob`, `which`, `fs`,
+The CLI also makes a set of scripting utilities from `@xec-sh/ops`
+available as globals in every execution path (`xec run`, `xec script.js`,
+`-e`, the REPL), without an import — among them `glob`, `which`, `fs`,
 `os`, `path`, `sleep`, `retry`, `within`, `template`, `parseArgs`, `yaml`,
 `csv`, `diff`, and terminal helpers `log`/`echo`/`prism`/`kit`/`spinner`. See
 [TypeScript Configuration](./typescript-setup.md#type-definitions-for-global-context)
@@ -103,13 +102,13 @@ Scripts can be executed against different targets:
 
 ```bash
 # Execute on SSH target
-xec run script.js --target production
+xec on production script.js
 
 # Execute on Docker container
-xec run script.js --target my-container
+xec in my-container script.js
 
 # Execute on Kubernetes pod
-xec run script.js --target my-pod
+xec in pods.my-pod script.js
 ```
 
 In the script:
@@ -123,8 +122,8 @@ if ($targetInfo?.type === 'ssh') {
   // Docker-specific logic
   await $target`apt-get update && apt-get install -y curl`;
 } else if ($targetInfo?.type === 'kubernetes') {
-  // Kubernetes-specific logic
-  await $target`kubectl get pods`;
+  // Kubernetes-specific logic — runs inside the pod
+  await $target`cat /etc/resolv.conf`;
 } else {
   // Local execution
   await $`echo "Running locally"`;
@@ -136,33 +135,34 @@ await $`echo "This always runs on the host"`;
 
 ## Parameter Parsing
 
-Command-line parameters aren't parsed automatically — a script gets its raw
-`args`/`argv` and parses them itself. `parseArgs`, one of the globals from
-`@xec-sh/ops` (see [Utility Functions](#utility-functions) above), covers
-the common `--key=value` and `--flag` cases:
+Command-line parameters aren't parsed automatically — a script reads its raw
+arguments from `process.argv` and parses them itself. `parseArgs`, one of
+the globals from `@xec-sh/ops` (see [Utility Functions](#utility-functions)
+above), covers the common `--key=value` and `--flag` cases:
 
 ```javascript
-// Script called with: xec run deploy.js --env=prod --version=1.2.3 --force
-const params = parseArgs(args);
+// Script called with: xec deploy.js --env=prod --version=1.2.3 --force
+const params = parseArgs(process.argv.slice(3)); // argv[2] is the script path
 console.log(params.env);     // 'prod'
 console.log(params.version); // '1.2.3'
 console.log(params.force);   // true
+console.log(params._);       // [] — positional arguments land here
 
 // Values are always strings or booleans — parseArgs does not coerce
 // numbers, JSON, or anything else. Parse those yourself if you need them.
 ```
 
+Note the invocation: arguments are passed by running the file directly
+(`xec deploy.js ...`). The `run` subcommand form (`xec run deploy.js`)
+currently accepts no script arguments.
+
 ## Context Isolation
 
-Each script runs in its own context with proper cleanup:
-
-```javascript
-// Variables set in one script don't affect others
-globalThis.myVar = 'test';
-
-// After script execution, global variables are cleaned up
-// This prevents cross-script contamination
-```
+Each CLI invocation is its own process, and the globals Xec injects
+(`$target`, `$targetInfo`, the utility functions) are restored to their
+previous values after the script finishes. Variables your script assigns to
+`globalThis` itself are not tracked — in `--watch` mode, where the file is
+re-run inside the same process, they survive between runs.
 
 ## REPL Context
 
@@ -191,10 +191,10 @@ import { $ } from '@xec-sh/core';
 
 // Add custom utilities to the context
 global.utils = {
-  async deployToAll(targets) {
-    for (const target of targets) {
-      console.log(`Deploying to ${target}...`);
-      await targets.execute(target, 'npm run deploy');
+  async deployToAll(targetNames) {
+    for (const name of targetNames) {
+      console.log(`Deploying to ${name}...`);
+      await $`xec on ${name} "npm run deploy"`;
     }
   },
   
@@ -212,14 +212,16 @@ await utils.deployToAll(['staging', 'production']);
 
 ## Environment Variables
 
-Scripts inherit the process environment with Xec-specific additions:
+Scripts inherit the process environment. Xec itself reads a few variables
+rather than setting them:
 
 ```javascript
-// Xec environment variables
-console.log(process.env.XEC_TARGET);      // Current target name
-console.log(process.env.XEC_TARGET_TYPE); // Target type (ssh, docker, k8s)
-console.log(process.env.XEC_DEBUG);       // Debug mode flag
-console.log(process.env.XEC_CONFIG_PATH); // Path to config file
+// Variables Xec reads
+process.env.XEC_DEBUG    // 'true' enables verbose/debug output
+process.env.XEC_CONFIG   // path to a config file to load
+process.env.XEC_PROFILE  // configuration profile to activate
+// Any other XEC_* variable overrides configuration by path:
+// XEC_VARS_APP_NAME=web  ->  vars.app_name = 'web'
 
 // Pass environment variables to commands
 process.env.API_KEY = 'secret';
@@ -227,29 +229,6 @@ await $`echo $API_KEY`;
 
 // Or use env option
 await $`node script.js`.env({ API_KEY: 'secret' });
-```
-
-## Script Info Object
-
-The `__script` object provides complete script metadata:
-
-```typescript
-interface ScriptInfo {
-  path: string;      // Full path to the script
-  args: string[];    // Script arguments
-  target?: Target;   // Target configuration if specified
-}
-```
-
-Usage example:
-
-```javascript
-console.log('Script:', __script.path);
-console.log('Arguments:', __script.args);
-
-if (__script.target) {
-  console.log('Running on target:', __script.target.name);
-}
 ```
 
 ## Best Practices
@@ -286,8 +265,9 @@ if (__script.target) {
 5. **Document expected parameters**:
    ```javascript
    // deploy.js
-   // Usage: xec run deploy.js --env=<environment> --version=<version>
+   // Usage: xec deploy.js --env=<environment> --version=<version>
    
+   const params = parseArgs(process.argv.slice(3));
    if (!params.env || !params.version) {
      console.error('Required parameters: --env and --version');
      process.exit(1);
@@ -304,8 +284,9 @@ import { $ } from '@xec-sh/core';
 import chalk from 'chalk';
 
 async function main() {
-  // Check if running against a target
-  if ($targetInfo) {
+  // Check if running against a target (typeof guard: the variable is not
+  // declared at all when the file is run directly as `xec script.js`)
+  if (typeof $targetInfo !== 'undefined' && $targetInfo.type !== 'local') {
     console.log(chalk.blue(`Deploying to ${$targetInfo.type} target: ${$targetInfo.name}`));
     
     // Target-specific deployment
@@ -316,14 +297,14 @@ async function main() {
       case 'docker':
         await deployToDocker();
         break;
-      case 'k8s':
+      case 'kubernetes':
         await deployToKubernetes();
         break;
       default:
         await deployLocal();
     }
   } else {
-    // No target specified, deploy locally
+    // Local target (xec run) or direct invocation — deploy locally
     await deployLocal();
   }
   
@@ -380,11 +361,11 @@ Run this script with different targets:
 xec run multi-target-deploy.js
 
 # Deploy to SSH server
-xec run multi-target-deploy.js --target production
+xec on hosts.production multi-target-deploy.js
 
 # Deploy to Docker container
-xec run multi-target-deploy.js --target app-container
+xec in containers.app multi-target-deploy.js
 
 # Deploy to Kubernetes pod
-xec run multi-target-deploy.js --target app-pod
+xec in pods.app multi-target-deploy.js
 ```

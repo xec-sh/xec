@@ -257,8 +257,8 @@ xec completion fish > ~/.config/fish/completions/xec.fish
 Configure Xec behavior with environment variables:
 
 ```bash
-# Set custom config path
-export XEC_CONFIG_PATH=/custom/path/config.yaml
+# Load an additional config file
+export XEC_CONFIG=/custom/path/config.yaml
 
 # Enable debug output
 export XEC_DEBUG=true
@@ -293,7 +293,7 @@ npm install -g @xec-sh/cli
 **Version Conflicts**
 ```bash
 # Check Node.js version
-node --version  # Should be >= 22.0.0
+node --version  # Should be >= 22.18.0
 
 # Update Node.js if needed
 nvm install 22

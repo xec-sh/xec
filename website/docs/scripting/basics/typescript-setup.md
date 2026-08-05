@@ -17,10 +17,10 @@ xec run script.js
 
 # TypeScript files are automatically compiled
 xec run script.ts
-
-# Even TSX files are supported
-xec run component.tsx
 ```
+
+`.ts`, `.mts` and plain JavaScript extensions are supported; `.tsx` is not —
+scripts are not a JSX context.
 
 ## Built-in Type Definitions
 
@@ -95,7 +95,8 @@ async function deploy(config: DeployConfig): Promise<void> {
   console.log(`Deployed to ${environment}`);
 }
 
-// Type-safe argument parsing
+// Type-safe argument parsing — invoked as: xec deploy.ts prod 1.2.0 --dry-run
+const args = process.argv.slice(3); // argv[2] is the script path
 const config: DeployConfig = {
   environment: (args[0] as DeployConfig['environment']) || 'dev',
   version: args[1] || '1.0.0',
@@ -120,15 +121,13 @@ This pulls in a `declare global` block that covers:
 - `$` — the same `@xec-sh/core` execution engine used everywhere else.
 - `use(specifier)` and `x(specifier)` — the module loader's dynamic-import
   helpers (see [Module Imports and NPM Packages](#module-imports-and-npm-packages) below).
-- `args: string[]` and `argv: string[]` — the script's own command-line
-  arguments (`argv` also includes the interpreter and script path, shell
-  convention), plus the standard `__filename`/`__dirname`.
 - A set of scripting utilities re-exported from `@xec-sh/ops`: `cd`, `ps`,
   `fs`, `os`, `pwd`, `env`, `csv`, `kit`, `log`, `exit`, `kill`, `echo`,
   `diff`, `glob`, `path`, `yaml`, `sleep`, `retry`, `quote`, `which`,
   `prism`, `setEnv`, `within`, `tmpdir`, `loadEnv`, `tmpfile`, `spinner`,
   `template`, `parseArgs`. (`fetch` needs no injection — it is the platform
-  global everywhere Xec runs.)
+  global everywhere Xec runs. Command-line arguments are not injected either:
+  read them from `process.argv`.)
 - A `Xec` namespace re-exporting every type from `@xec-sh/core` (`Xec.Core.*`)
   plus the CLI's own configuration types (`TargetType`, `TargetConfig`,
   `Configuration`, `CommandConfig`, `ResolvedTarget`).
@@ -138,14 +137,10 @@ If you'd rather declare only what a specific script uses, write your own
 
 ```typescript
 // xec.d.ts
-import type { ExecutionResult } from '@xec-sh/core';
-
 declare global {
   const $: typeof import('@xec-sh/core').$;
-  const args: string[];
-  const argv: string[];
-  const __filename: string;
-  const __dirname: string;
+  const glob: typeof import('@xec-sh/ops').glob;
+  const parseArgs: typeof import('@xec-sh/ops').parseArgs;
 }
 
 export {};
@@ -353,11 +348,16 @@ async function fetchData(): Promise<ApiResponse> {
 
 ### Typed Configuration Access
 
+The project configuration is not a global — import it from `@xec-sh/ops`
+(the CLI supplies the package, so this works without installing anything):
+
 ```typescript
+import { config } from '@xec-sh/ops';
+
 interface XecConfig {
   targets: {
     [key: string]: {
-      type: 'ssh' | 'docker' | 'k8s';
+      type: 'local' | 'ssh' | 'docker' | 'kubernetes';
       host?: string;
       username?: string;
       container?: string;
@@ -376,17 +376,11 @@ interface XecConfig {
   vars: Record<string, any>;
 }
 
-// Type-safe configuration access
-const config = global.config as {
-  get<K extends keyof XecConfig>(key: K): XecConfig[K];
-  get(path: string): any;
-  reload(): Promise<void>;
-};
-
-const targets = config.get('targets');
+await config.reload();
+const targets = config.get('targets') as XecConfig['targets'];
 const sshTarget = targets['production'];
 
-if (sshTarget.type === 'ssh') {
+if (sshTarget?.type === 'ssh') {
   console.log(`SSH host: ${sshTarget.host}`);
 }
 ```
@@ -727,12 +721,13 @@ class ReleaseManager {
 }
 
 // Parse command-line arguments
-function parseArgs(): ReleaseOptions {
+function parseReleaseArgs(): ReleaseOptions {
+  const args = process.argv.slice(3); // argv[2] is the script path
   const type = (args[0] as ReleaseOptions['type']) || 'patch';
   
   if (!['major', 'minor', 'patch'].includes(type)) {
     console.error(chalk.red(`Invalid release type: ${type}`));
-    console.log('Usage: xec run release.ts [major|minor|patch] [--dry-run] [--skip-tests]');
+    console.log('Usage: xec release.ts [major|minor|patch] [--dry-run] [--skip-tests]');
     process.exit(1);
   }
   
@@ -745,7 +740,7 @@ function parseArgs(): ReleaseOptions {
 }
 
 // Main execution
-const options = parseArgs();
+const options = parseReleaseArgs();
 const manager = new ReleaseManager(options);
 await manager.execute();
 ```

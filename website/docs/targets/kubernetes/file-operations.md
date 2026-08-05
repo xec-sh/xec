@@ -27,6 +27,13 @@ await pod.copyTo('./assets/', '/app/assets/');
 await pod.copyFrom('/app/generated-reports/', './reports/');
 ```
 
+The uniform cross-target surface reaches the same `kubectl cp` without a pod
+handle: `$.k8s(pod).transfer.upload(local, remote)` and
+`.download(remote, local)` carry the target's namespace, container and
+cluster context — the same calls work against `$.ssh(...)` and
+`$.docker(...)` engines. See the
+[K8s adapter](../../core/execution-engine/adapters/k8s-adapter.md) page.
+
 ## Copying to a Specific Container
 
 `copyTo`/`copyFrom` take an optional third `container` argument, but it does not currently reach `kubectl cp` correctly — it gets folded into the path string instead of passed as its own flag, which produces a malformed destination. Until that's fixed, target a container explicitly through the adapter's lower-level `copyFiles`, which takes `container` as a real option:

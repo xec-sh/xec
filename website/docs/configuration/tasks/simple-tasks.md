@@ -321,10 +321,10 @@ tasks:
 xec run hello
 
 # Run on specific target
-xec run backup --target hosts.backup-server
+xec on hosts.backup-server --task backup
 
-# Override timeout
-xec run long-task --timeout 120000
+# With a parameter
+xec run long-task -p timeout=120000
 ```
 
 ### From Scripts

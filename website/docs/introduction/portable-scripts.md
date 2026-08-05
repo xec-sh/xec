@@ -11,19 +11,20 @@ One of Xec's most powerful features is the ability to write scripts that work id
 
 ## The $target Concept
 
-When you execute a script with Xec's CLI commands (`xec run`, `xec on`, `xec in`), the execution engine automatically injects a special `$target` variable into your script's context. This variable represents the current execution environment, allowing you to write truly portable code.
+When you execute a script with Xec's CLI commands (`xec run`, `xec on`, `xec in`), the execution engine injects two globals into your script's context: `$target`, an execution engine bound to the current target — run commands through it and they execute there — and `$targetInfo`, a plain object describing that target. Plain `$` always executes locally, whatever the target.
 
 ### How It Works
 
 ```javascript
 // deploy.js - A universal deployment script
-console.log(`Deploying to: ${$target.type}`);
-console.log(`Target name: ${$target.name}`);
+console.log(`Deploying to: ${$targetInfo.type}`);
+console.log(`Target name: ${$targetInfo.name}`);
 
-// This same code works everywhere:
-await $`npm install`;
-await $`npm run build`;
-await $`pm2 restart app`;
+// This same code works everywhere — $target routes each
+// command to whatever environment the script was launched against:
+await $target`npm install`;
+await $target`npm run build`;
+await $target`pm2 restart app`;
 ```
 
 Run this script in any environment:
@@ -51,8 +52,8 @@ xec in my-pod deploy.js
 When you use CLI commands to execute scripts, Xec:
 
 1. **Creates an execution context** based on the target
-2. **Injects `$target` globally** into your script
-3. **Routes all commands** through the appropriate adapter
+2. **Injects `$target` and `$targetInfo` globally** into your script
+3. **Routes `$target` commands** through the appropriate adapter
 4. **Maintains consistent behavior** across environments
 
 ### Example: Universal Health Check
@@ -61,58 +62,49 @@ When you use CLI commands to execute scripts, Xec:
 // health-check.js
 const checks = {
   local: async () => {
-    const disk = await $`df -h /`.text();
-    const memory = await $`free -m`.text();
+    const disk = await $target`df -h /`.text();
+    const memory = await $target`free -m`.text();
     return { disk, memory };
   },
   
   ssh: async () => {
-    const uptime = await $`uptime`.text();
-    const connections = await $`ss -tun | wc -l`.text();
+    const uptime = await $target`uptime`.text();
+    const connections = await $target`ss -tun | wc -l`.text();
     return { uptime, connections };
   },
   
   docker: async () => {
-    const processes = await $`ps aux`.text();
-    const network = await $`netstat -an`.text();
+    const processes = await $target`ps aux`.text();
+    const network = await $target`netstat -an`.text();
     return { processes, network };
   },
   
   kubernetes: async () => {
-    const pods = await $`kubectl get pods`.text();
-    const services = await $`kubectl get svc`.text();
-    return { pods, services };
+    const pods = await $target`cat /etc/hostname`.text();
+    const memory = await $target`cat /sys/fs/cgroup/memory.max`.text();
+    return { pods, memory };
   }
 };
 
 // Run environment-specific checks
-const results = await checks[$target.type]();
-console.log(`Health check for ${$target.name}:`, results);
+const results = await checks[$targetInfo.type]();
+console.log(`Health check for ${$targetInfo.name}:`, results);
 ```
 
-## $target Properties
+## $targetInfo Properties
 
-The `$target` object contains context-specific information:
+`$target` itself is an execution engine — call it with a template literal. The
+metadata lives on `$targetInfo`:
 
 ```typescript
-interface Target {
-  // Common properties
+interface TargetInfo {
   type: 'local' | 'ssh' | 'docker' | 'kubernetes';
-  name: string;  // Target name from config
-  
-  // SSH-specific
-  host?: string;
-  user?: string;
-  port?: number;
-  
-  // Docker-specific
-  container?: string;
-  image?: string;
-  
-  // Kubernetes-specific
-  pod?: string;
-  namespace?: string;
-  cluster?: string;
+  name?: string;       // Target name from config
+  host?: string;       // SSH targets
+  container?: string;  // Docker targets
+  pod?: string;        // Kubernetes targets
+  namespace?: string;  // Kubernetes targets
+  config: any;         // Full resolved target configuration
 }
 ```
 
@@ -121,17 +113,16 @@ interface Target {
 ```javascript
 // script.js
 console.log('Execution context:');
-console.log(`  Type: ${$target.type}`);
-console.log(`  Name: ${$target.name}`);
+console.log(`  Type: ${$targetInfo.type}`);
+console.log(`  Name: ${$targetInfo.name}`);
 
-if ($target.type === 'ssh') {
-  console.log(`  Host: ${$target.host}`);
-  console.log(`  User: ${$target.user}`);
-} else if ($target.type === 'docker') {
-  console.log(`  Container: ${$target.container}`);
-} else if ($target.type === 'kubernetes') {
-  console.log(`  Pod: ${$target.pod}`);
-  console.log(`  Namespace: ${$target.namespace}`);
+if ($targetInfo.type === 'ssh') {
+  console.log(`  Host: ${$targetInfo.host}`);
+} else if ($targetInfo.type === 'docker') {
+  console.log(`  Container: ${$targetInfo.container}`);
+} else if ($targetInfo.type === 'kubernetes') {
+  console.log(`  Pod: ${$targetInfo.pod}`);
+  console.log(`  Namespace: ${$targetInfo.namespace}`);
 }
 ```
 
@@ -141,27 +132,27 @@ if ($target.type === 'ssh') {
 
 ```javascript
 // build.js
-console.log(`Building on ${$target.type} environment`);
+console.log(`Building on ${$targetInfo.type} environment`);
 
 // Clean previous build
-await $`rm -rf dist`;
+await $target`rm -rf dist`;
 
 // Install dependencies
-await $`npm ci`;
+await $target`npm ci`;
 
 // Run build
-await $`npm run build`;
+await $target`npm run build`;
 
 // Run tests
-const testResult = await $`npm test`.nothrow();
+const testResult = await $target`npm test`.nothrow();
 if (!testResult.ok) {
   console.error('Tests failed!');
   process.exit(1);
 }
 
 // Deploy if tests pass
-if ($target.type === 'ssh' && $target.name.includes('prod')) {
-  await $`pm2 restart app`;
+if ($targetInfo.type === 'ssh' && $targetInfo.name.includes('prod')) {
+  await $target`pm2 restart app`;
   console.log('Production deployment complete');
 } else {
   console.log('Build complete (no deployment for this target)');
@@ -171,9 +162,10 @@ if ($target.type === 'ssh' && $target.name.includes('prod')) {
 ### 2. Multi-Environment Database Backup
 
 ```javascript
-// backup.js
+// backup.js — pg_dump connects over the network, so the commands
+// themselves run locally; the target only selects the connection string.
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const backupFile = `backup-${$target.name}-${timestamp}.sql`;
+const backupFile = `backup-${$targetInfo.name}-${timestamp}.sql`;
 
 // Environment-specific connection strings
 const connections = {
@@ -183,7 +175,7 @@ const connections = {
   'containers.postgres': 'postgresql://postgres/myapp'
 };
 
-const connStr = connections[$target.name] || connections[$target.type];
+const connStr = connections[$targetInfo.name] || connections[$targetInfo.type];
 
 // Perform backup
 await $`pg_dump ${connStr} > ${backupFile}`;
@@ -230,14 +222,16 @@ const serviceCommands = {
   }
 };
 
-const command = serviceCommands[$target.type][action];
+const command = serviceCommands[$targetInfo.type][action];
 if (!command) {
   console.error(`Unknown action: ${action}`);
   process.exit(1);
 }
 
-console.log(`Executing ${action} on ${$target.name}`);
-const output = await $`${command}`.text();
+console.log(`Executing ${action} on ${$targetInfo.name}`);
+// The command already exists as one string — interpolating it into a
+// template tag would escape it into a single argument, so use .exec().
+const output = await $target.exec(command).text();
 console.log(output);
 ```
 
@@ -248,21 +242,21 @@ console.log(output);
 ```javascript
 // deploy.js
 // Skip certain steps based on environment
-if ($target.type !== 'local') {
-  await $`git pull origin main`;
+if ($targetInfo.type !== 'local') {
+  await $target`git pull origin main`;
 }
 
 // Use different package managers
-const installer = $target.type === 'docker' ? 'pnpm' : 'npm';
-await $`${installer} install`;
+const installer = $targetInfo.type === 'docker' ? 'pnpm' : 'npm';
+await $target`${installer} install`;
 
 // Environment-specific optimizations
-if ($target.type === 'kubernetes') {
-  // In K8s, we might want to check other pods
-  await $`kubectl get pods -n ${$target.namespace}`;
-} else if ($target.type === 'ssh') {
+if ($targetInfo.type === 'kubernetes') {
+  // Inspect the cluster from the local machine — kubectl runs here
+  await $`kubectl get pods -n ${$targetInfo.namespace}`;
+} else if ($targetInfo.type === 'ssh') {
   // On SSH, check system resources
-  await $`free -m && df -h`;
+  await $target`free -m && df -h`;
 }
 ```
 
@@ -272,14 +266,14 @@ if ($target.type === 'kubernetes') {
 // logger.js
 class TargetAwareLogger {
   log(message) {
-    const prefix = `[${$target.type}:${$target.name}]`;
+    const prefix = `[${$targetInfo.type}:${$targetInfo.name}]`;
     console.log(`${prefix} ${message}`);
     
-    // Also log to environment-specific location
-    if ($target.type === 'ssh') {
-      $`echo "${prefix} ${message}" >> /var/log/app.log`.nothrow();
-    } else if ($target.type === 'docker') {
-      $`echo "${prefix} ${message}" >> /app/logs/app.log`.nothrow();
+    // Also log to environment-specific location on the target
+    if ($targetInfo.type === 'ssh') {
+      $target`echo "${prefix} ${message}" >> /var/log/app.log`.nothrow();
+    } else if ($targetInfo.type === 'docker') {
+      $target`echo "${prefix} ${message}" >> /app/logs/app.log`.nothrow();
     }
   }
 }
@@ -294,10 +288,10 @@ logger.log('Application started');
 
 ```javascript
 // Good: Works everywhere
-await $`npm test`;
+await $target`npm test`;
 
 // Avoid: Environment-specific paths
-await $`/usr/local/bin/npm test`;  // May not exist everywhere
+await $target`/usr/local/bin/npm test`;  // May not exist everywhere
 ```
 
 ### 2. Handle Target Variations Gracefully
@@ -309,9 +303,9 @@ const logPath = {
   ssh: '/var/log/app',
   docker: '/app/logs',
   kubernetes: '/var/log/pods'
-}[$target.type] || './logs';
+}[$targetInfo.type] || './logs';
 
-await $`mkdir -p ${logPath}`;
+await $target`mkdir -p ${logPath}`;
 ```
 
 ### 3. Use Target Information for Configuration
@@ -319,11 +313,11 @@ await $`mkdir -p ${logPath}`;
 ```javascript
 // Good: Target-aware configuration
 const config = {
-  apiUrl: $target.name.includes('prod') 
+  apiUrl: $targetInfo.name.includes('prod') 
     ? 'https://api.production.com'
     : 'https://api.staging.com',
-  logLevel: $target.type === 'local' ? 'debug' : 'info',
-  workers: $target.type === 'kubernetes' ? 1 : 4  // K8s handles scaling
+  logLevel: $targetInfo.type === 'local' ? 'debug' : 'info',
+  workers: $targetInfo.type === 'kubernetes' ? 1 : 4  // K8s handles scaling
 };
 ```
 
@@ -331,8 +325,8 @@ const config = {
 
 ```javascript
 // Good: Enhanced debugging in development
-if ($target.type === 'local' || $target.name.includes('dev')) {
-  console.log('Debug: Current environment:', $target);
+if ($targetInfo.type === 'local' || $targetInfo.name.includes('dev')) {
+  console.log('Debug: Current environment:', $targetInfo);
   console.log('Debug: Environment variables:', process.env);
 }
 ```
@@ -342,11 +336,9 @@ if ($target.type === 'local' || $target.name.includes('dev')) {
 ### Local Testing
 
 ```bash
-# Test locally first
+# Test locally first — under `xec run` the script gets a local-bound
+# $target, so target-aware code paths are exercised with type 'local'
 xec run my-script.js
-
-# Simulate different targets locally
-XEC_TARGET_TYPE=ssh xec run my-script.js
 ```
 
 ### Multi-Environment Testing
@@ -383,9 +375,9 @@ deploy-k8s.sh
 
 ```javascript
 // deploy.js - Works everywhere
-await $`npm install`;
-await $`npm run build`;
-await $`npm run deploy:${$target.type}`;
+await $target`npm install`;
+await $target`npm run build`;
+await $target`npm run deploy:${$targetInfo.type}`;
 ```
 
 ## Integration with Configuration
@@ -407,7 +399,7 @@ targets:
 ```javascript
 // script.js
 // Access both $target and config
-console.log(`Running on ${$target.name}`);
+console.log(`Running on ${$targetInfo.name}`);
 console.log(`API Key: ${process.env.API_KEY}`);
 ```
 

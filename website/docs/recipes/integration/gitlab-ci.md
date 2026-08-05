@@ -146,7 +146,7 @@ variables:
   before_script:
     - apt-get update && apt-get install -y curl jq
     - npm install -g @xec-sh/cli
-    - echo "XEC_CONFIG_PATH=${XEC_CONFIG}" >> .env
+    - echo "XEC_CONFIG=${XEC_CONFIG}" >> .env
     - |
       cat > .xec/config.yaml << EOF
       targets:

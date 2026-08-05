@@ -233,7 +233,7 @@ pipeline {
     agent any
     
     environment {
-        XEC_CONFIG_PATH = '.xec/config.yaml'
+        XEC_CONFIG = '.xec/config.yaml'
     }
     
     stages {

@@ -33,25 +33,26 @@ xec run hello.js
 
 ## Script Arguments
 
-Scripts can accept command-line arguments through the global `args` array:
+Scripts read their command-line arguments from `process.argv`:
 
 ```javascript
 // greet.js
 import { $ } from '@xec-sh/core';
 
-// Access script arguments
+// Script arguments ride process.argv; argv[2] is the script path,
+// so the script's own arguments start at argv[3]
+const args = process.argv.slice(3);
 const name = args[0] || 'World';
 await $`echo "Hello, ${name}!"`;
 
 // Access all arguments
 console.log('All arguments:', args);
-console.log('Script path:', __filename);
-console.log('Script directory:', __dirname);
+console.log('Script path:', import.meta.url);
 ```
 
 Run with arguments:
 ```bash
-xec run greet.js Alice
+xec greet.js Alice
 # Output: Hello, Alice!
 ```
 
@@ -79,7 +80,8 @@ async function deploy(options: DeployOptions): Promise<void> {
   console.log(`Deployed version ${version} to ${environment}`);
 }
 
-// Parse arguments
+// Parse arguments — invoked as: xec deploy.ts prod 1.2.0
+const args = process.argv.slice(3);
 const options: DeployOptions = {
   environment: (args[0] as DeployOptions['environment']) || 'dev',
   version: args[1] || '1.0.0'
@@ -160,19 +162,19 @@ await $`echo "Verbose output"`.verbose();
 
 ## Script Context Variables
 
-Xec provides several global variables in the script context:
+Beyond `$` and the utility globals, target-bound scripts get `$target` and
+`$targetInfo` (see
+[Script Execution Context](./execution-context.md)):
 
 ```javascript
 // context.js
 import { $ } from '@xec-sh/core';
 
-// Built-in globals
-console.log('Script arguments:', args);
-console.log('Full argv:', argv);
-console.log('Script path:', __filename);
-console.log('Script directory:', __dirname);
+// Standard module facilities work as usual
+console.log('Script arguments:', process.argv.slice(3));
+console.log('Script URL:', import.meta.url);
 
-// When running with a target
+// When running via xec run / xec on / xec in
 if (typeof $target !== 'undefined') {
   console.log('Target info:', $targetInfo);
   

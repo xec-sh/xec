@@ -193,25 +193,20 @@ xec copy --timeout 30s --parallel src/ hosts.web:/app/
 
 ### 2. Environment Variables
 
-Environment variables with `XEC_` prefix:
+Any variable with the `XEC_` prefix overrides configuration by path — the
+rest of the name is lowercased and underscores become dots:
 
 ```bash
-export XEC_TIMEOUT=30s
-export XEC_PARALLEL=true
-export XEC_VERBOSE=true
+export XEC_VARS_APP_NAME=web   # sets vars.app_name
+export XEC_COMMANDS_DEFAULTS_TIMEOUT=30s   # sets commands.defaults.timeout
 ```
 
-**Common Environment Variables:** (checked in various modules)
-- `XEC_CONFIG_PATH` - Path to configuration file (default: `.xec/config.yaml`)
+A few names additionally have dedicated meaning:
+- `XEC_CONFIG` - Path to an additional configuration file to load
+- `XEC_PROFILE` - Configuration profile to activate
 - `XEC_COMMANDS_PATH` - Additional command directories (colon-separated)
 - `XEC_DEBUG` - Enable debug output (`true`/`1`)
-- `XEC_NO_COLOR` - Disable colored output (same as `NO_COLOR`)
-- `XEC_CACHE_DIR` - Custom cache directory
-- `XEC_RUNTIME` - Force specific runtime (`node`, `bun`, `deno`)
-- `XEC_SHELL` - Default shell for command execution
-- `XEC_TIMEOUT` - Default timeout for operations (in ms)
-- `XEC_SSH_KEY` - Default SSH key path
-- `XEC_SSH_CONFIG` - SSH config file path
+- `NO_COLOR` / `FORCE_COLOR=0` - Disable colored output (standard variables)
 
 ### 3. Configuration File
 
@@ -239,26 +234,27 @@ Default values defined in Xec source code.
 
 ## Exit Codes
 
-Xec uses standardized exit codes (defined in `apps/xec/src/utils/error-handler.ts:4-41`):
+Xec uses standardized exit codes (`getExitCode` in
+`packages/ops/src/utils/error-handler.ts`):
 
 ### Success
 - `0` - Success, no errors
 
 ### Error Codes (mapped from error classes)
-- `1` - `ValidationError` - Invalid arguments, options, or input
-- `2` - `ConfigurationError` - Configuration file issues
-- `3` - `TargetNotFoundError` - Target doesn't exist in config
-- `4` - `ConnectionError` - Connection failures (SSH, Docker, K8s)
-- `5` - `ExecutionError` - Command execution failed
-- `6` - `AuthenticationError` - Authentication failed
-- `7` - `FileSystemError` - File operation errors
-- `8` - `DockerError` - Docker-specific errors
-- `9` - `KubernetesError` - Kubernetes-specific errors
-- `10` - `TimeoutError` - Operation timeout
-- `11` - `PermissionError` - Permission denied
-- `12` - `DependencyError` - Missing dependencies
-- `13` - `NetworkError` - Network-related errors
-- `1` - Unknown errors (default for unhandled exceptions)
+- `2` - `ValidationError` - Invalid arguments, options, or input
+- `3` - `ConfigurationError` - Configuration file issues
+- `4` - `ModuleError` - Module loading failures
+- `5` - `TaskError` - Task execution failed
+- `6` - `RecipeError` - Recipe execution failed
+- `7` - `NetworkError` - Network-related errors
+- `8` - `FileSystemError` - File operation errors
+- `9` - `TimeoutError` - Operation timeout
+- `10` - System `ENOENT` - File or command not found
+- `11` - System `EACCES` - Permission denied
+- `12` - System `ENOTDIR` / `13` - `EISDIR` - Path type mismatch
+- `1` - Everything else, including a script that threw
+
+A script that calls `process.exit(n)` keeps its own `n`.
 
 
 ### Usage Examples
@@ -281,10 +277,16 @@ xec build || exit 1
 
 ### Core Variables
 
-**XEC_CONFIG_PATH**
+**XEC_CONFIG**
 ```bash
-export XEC_CONFIG_PATH=/custom/path/to/config.yaml
-xec config get targets  # Uses custom config file
+export XEC_CONFIG=/custom/path/to/config.yaml
+xec config get targets  # Also loads the config file at that path
+```
+
+**XEC_PROFILE**
+```bash
+export XEC_PROFILE=production
+xec inspect  # Runs with the production profile active
 ```
 
 **XEC_COMMANDS_PATH**
@@ -299,32 +301,12 @@ export XEC_DEBUG=true
 xec any-command  # Shows detailed debug information
 ```
 
-**XEC_CACHE_DIR**
-```bash
-export XEC_CACHE_DIR=/tmp/xec-cache
-xec run script.ts  # Uses custom cache directory
-```
-
 ### Output Control
 
-**NO_COLOR / XEC_NO_COLOR**
+**NO_COLOR**
 ```bash
 export NO_COLOR=1
-# or
-export XEC_NO_COLOR=1
-xec status  # Outputs without colors
-```
-
-**XEC_QUIET**
-```bash
-export XEC_QUIET=true
-xec deploy  # Suppresses non-essential output
-```
-
-**XEC_VERBOSE**
-```bash
-export XEC_VERBOSE=true
-xec copy files/ remote:/  # Shows detailed progress
+xec inspect  # Outputs without colors (FORCE_COLOR=0 works too)
 ```
 
 ### Execution Environment

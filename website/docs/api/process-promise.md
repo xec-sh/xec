@@ -45,7 +45,7 @@ interface ProcessPromise {
   readonly pid?: number;                 // reading this starts the command
   readonly spawned: Promise<ProcessHandle>; // resolves once actually running
   readonly child?: ProcessHandle;        // reading this starts the command
-  exitCode: Promise<number | null>;      // null if the process was signalled
+  exitCode: Promise<number | null>;      // 128+n when signal n killed the process
 }
 ```
 

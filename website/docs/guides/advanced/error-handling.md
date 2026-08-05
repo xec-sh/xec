@@ -133,7 +133,7 @@ class ExecutionError extends Error {
       env: {
         NODE_ENV: process.env.NODE_ENV,
         DEBUG: process.env.DEBUG,
-        XEC_TARGET: process.env.XEC_TARGET
+        XEC_PROFILE: process.env.XEC_PROFILE
       }
     };
   }

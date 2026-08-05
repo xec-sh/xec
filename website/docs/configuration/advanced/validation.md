@@ -142,7 +142,7 @@ xec config validate --tasks
 xec config validate --variables
 
 # Validate specific target
-xec config validate --target hosts.production
+xec config validate
 ```
 
 ## Common Validation Errors

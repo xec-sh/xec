@@ -268,19 +268,27 @@ const result = await $`long-running-command`
   .timeout(30000)
   .nothrow();
 
-if (result.signal === 'SIGTERM') {
-  console.log('Command was terminated due to timeout');
+if (!result.ok) {
+  console.log(`Command did not finish: ${result.cause}`);
 }
 ```
+
+A signalled process is never `ok`, and its `exitCode` is 128+n for signal
+number n. `result.signal` is set when the signal lands on the direct child
+process (for example after `.kill('SIGTERM')`); when a wrapper shell absorbs
+the signal instead, `signal` can be absent and only the exit code and `cause`
+tell you what happened — so branch on `.ok`/`.cause`, not on `signal`.
 
 ## Shell Features
 
 ### Variable Expansion
 
 ```javascript
-// Shell variable expansion
+// Shell variable expansion — $HOME passes through to the shell untouched.
+// ${...} inside the template is JavaScript interpolation, not shell syntax,
+// so `echo ${HOME}` would be a ReferenceError unless HOME is a JS variable.
 await $`echo $HOME`;
-await $`echo ${HOME}/Documents`;
+await $`echo $HOME/Documents`;
 
 // JavaScript variable in command
 const dir = '/tmp';
