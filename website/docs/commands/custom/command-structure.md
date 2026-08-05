@@ -1,308 +1,218 @@
 ---
 title: Command Structure
-description: Internal structure and architecture of Xec commands
-keywords: [commands, structure, architecture, BaseCommand, implementation]
+description: How built-in CLI commands are structured and dispatched
+keywords: [commands, structure, architecture, BaseCommand, manifest, commander]
 source_files:
-  - apps/xec/src/commands/base-command.ts
-  - apps/xec/src/commands/index.ts
   - apps/xec/src/main.ts
+  - apps/xec/src/utils/command-base.ts
+  - apps/xec/src/utils/command-manifest.ts
+  - apps/xec/src/utils/cli-command-manager.ts
 key_functions:
-  - BaseCommand.constructor()
+  - BaseCommand.create()
   - BaseCommand.execute()
-  - BaseCommand.parseTargets()
-  - getCommands()
-  - resolveCommand()
-verification_date: 2025-08-03
+  - findCommand()
+  - loadDynamicCommands()
+verification_date: 2026-08-05
 ---
 
 # Command Structure
 
-## Implementation Reference
+How the CLI's built-in commands are put together and how an invocation
+reaches them. This is internals documentation — nothing here is required to
+write your own commands; for that, see
+[Creating Commands](./creating-commands.md).
 
-**Source Files:**
-- `apps/xec/src/commands/base-command.ts` - Base command class implementation
-- `apps/xec/src/commands/index.ts` - Command registry and exports
-- `apps/xec/src/main.ts` - Command resolution and execution
-- `apps/xec/src/utils/error-handler.ts` - Error handling and exit codes
+## Source Layout
 
-**Key Classes:**
-- `BaseCommand` - Abstract base class for all commands
-- `ConfigCommand`, `CopyCommand`, `ForwardCommand`, etc. - Command implementations
+- `apps/xec/src/main.ts` — program setup and invocation routing
+- `apps/xec/src/utils/command-manifest.ts` — names, descriptions and aliases
+  of the built-in commands
+- `apps/xec/src/utils/command-base.ts` — `BaseCommand`, `SubcommandBase`,
+  option plumbing
+- `apps/xec/src/commands/*.ts` — one module per built-in command
+- `apps/xec/src/utils/cli-command-manager.ts` — discovery and loading of
+  dynamic commands from `.xec/commands/`
 
-**Key Functions:**
-- `BaseCommand.execute()` - Abstract method for command execution
-- `BaseCommand.parseTargets()` - Target resolution from arguments
-- `getCommands()` - Returns command registry
-- `resolveCommand()` - Finds command by name or alias
+## The Command Manifest
 
-## Base Command Architecture
-
-### BaseCommand Class
-
-All Xec commands extend the `BaseCommand` abstract class located in `apps/xec/src/commands/base-command.ts`:
+`xec --help` needs a name and one line of description per command — not the
+implementations. Every command module statically imports `@xec-sh/ops`, so
+importing all of them just to list their names cost ~140 ms on every
+invocation. Instead, a manifest carries what help needs, and a command's
+module is imported only when that command is actually invoked:
 
 ```typescript
+// apps/xec/src/utils/command-manifest.ts
+export interface CommandManifestEntry {
+  name: string;         // as typed
+  description: string;  // as shown in `xec --help`
+  aliases: string[];    // alternative names
+  module: string;       // module under ./commands/ that registers it
+}
+
+export const COMMAND_MANIFEST: readonly CommandManifestEntry[] = [
+  { name: 'config', description: 'Manage Xec configuration', aliases: ['conf', 'cfg'], module: 'config' },
+  { name: 'copy',   description: 'Copy files between targets', aliases: ['cp'], module: 'copy' },
+  // ... twelve entries in total
+];
+```
+
+Drift between the manifest and the real modules is caught by
+`apps/xec/test/command-manifest.test.ts`, which loads every module and fails
+if the two disagree.
+
+At startup, `registerBuiltInCommands()` (in `main.ts`) imports the one
+module the first non-flag argument refers to (`findCommand()` resolves
+names and aliases — `xec cfg` loads the `config` module). Every other
+command is registered as a stub with just the manifest's name, description
+and aliases. If a stub is nevertheless invoked — the requested command
+wasn't recognisable up front, for instance `xec --cwd /x config get` where
+the first non-flag token is `/x` — its action imports the real module into
+a fresh program and re-parses `argv`.
+
+Dynamic commands get the same treatment: their name, description and
+literal `.alias()` strings are read out of the source text without
+importing the file, and the module is imported only on invocation. That is
+why a dynamic command's description and aliases appear in `--help` without
+the file ever executing.
+
+## BaseCommand
+
+Every built-in command is a class extending `BaseCommand`
+(`apps/xec/src/utils/command-base.ts`). The constructor takes a declarative
+config; `create()` turns it into a commander `Command`:
+
+```typescript
+export interface CommandConfig {
+  name: string;
+  description: string;
+  aliases?: string[];
+  arguments?: string;              // commander argument spec, e.g. '[fileOrTask]'
+  options?: Array<{
+    flags: string;
+    description: string;
+    defaultValue?: any;
+  }>;
+  examples?: Array<{ command: string; description: string }>;
+  validateOptions?: (options: any) => void;
+}
+
 export abstract class BaseCommand {
-  constructor(
-    protected config: Config,
-    protected configPath: string,
-    protected readonly isVerbose = false,
-    protected readonly isDryRun = false,
-    protected readonly isQuiet = false,
-    protected readonly cwd = process.cwd()
-  ) {}
-
-  abstract execute(args: string[], flags: Record<string, any>): Promise<void>;
-  
-  protected parseTargets(args: string[]): ParsedTargets {
-    // Target resolution logic
-  }
-  
-  protected createSSHTarget(host: string): SSHTarget {
-    // SSH target creation
-  }
-  
-  protected createDockerTarget(container: string): DockerTarget {
-    // Docker target creation
-  }
-  
-  protected createKubernetesTarget(pod: string): KubernetesTarget {
-    // Kubernetes target creation
-  }
+  constructor(protected config: CommandConfig) { /* ... */ }
+  create(): Command { /* build the commander command */ }
+  abstract execute(args: any[]): Promise<void>;
 }
 ```
 
-### Command Properties
+`create()` adds three options to every command — `-o, --output <format>`
+(`text|json|yaml|csv`), `-c, --config <path>` and `--dry-run` — plus the
+declared arguments, aliases and custom options. `-v/--verbose` and
+`-q/--quiet` are root-program options inherited by all commands, not
+re-declared per command. Declared examples are appended to `--help` output.
 
-Each command instance receives:
+### From argv to execute()
 
-| Property | Type | Description | Source |
-|----------|------|-------------|--------|
-| `config` | `Config` | Loaded configuration | `apps/xec/src/config/types.ts` |
-| `configPath` | `string` | Path to config file | Resolved at runtime |
-| `isVerbose` | `boolean` | Verbose output flag | CLI flag `--verbose` |
-| `isDryRun` | `boolean` | Dry run mode flag | CLI flag `--dry-run` |
-| `isQuiet` | `boolean` | Quiet mode flag | CLI flag `--quiet` |
-| `cwd` | `string` | Current working directory | `process.cwd()` |
-
-## Command Registry
-
-### Command Registration
-
-Commands are registered in `apps/xec/src/commands/index.ts`:
+The action handler `create()` installs unpacks commander's
+`(...positionals, options, command)` call shape, merges command options
+with the root program's `verbose`/`quiet`, runs the `validateOptions` hook
+if declared, configures the output formatter, and finally calls:
 
 ```typescript
-export function getCommands(): CommandRegistry {
-  return {
-    config: ConfigCommand,
-    copy: CopyCommand,
-    cp: CopyCommand,  // Alias
-    forward: ForwardCommand,
-    in: InCommand,
-    inspect: InspectCommand,
-    logs: LogsCommand,
-    new: NewCommand,
-    on: OnCommand,
-    run: RunCommand,
-    secrets: SecretsCommand,
-    watch: WatchCommand,
-  };
+await this.execute([...positionalArgs, this.options]);
+```
+
+So inside `execute()` the merged options object is the **last** element and
+positionals come before it — the pattern every command follows:
+
+```typescript
+// apps/xec/src/commands/run.ts
+public async execute(args: any[]): Promise<void> {
+  const fileOrTask = args[0];
+  const options = args[args.length - 1] as RunOptions;
+  // ...
 }
 ```
 
-### Command Resolution
+Anything thrown out of `execute()` is caught by the action handler and
+routed to `handleError()` from `@xec-sh/ops`, which prints the enhanced
+error and exits with the code from its `getExitCode()` mapping — the table
+is in the [CLI reference](../cli-reference.md#exit-codes).
 
-The main CLI (`apps/xec/src/main.ts`) resolves commands:
+### Registration
+
+A command module default-exports a function that registers it:
 
 ```typescript
-const commands = getCommands();
-const CommandClass = commands[commandName];
-
-if (!CommandClass) {
-  // Falls back to dynamic command resolution
-  // or script execution
+// apps/xec/src/commands/run.ts
+export default function registerCommand(program: Command): void {
+  const cmd = new RunCommand();
+  program.addCommand(cmd.create());
 }
 ```
 
-## Command Interface
+### Configuration-aware helpers
 
-### Required Methods
+`BaseCommand` carries the machinery a command needs to work with the
+project configuration; all of it is initialized on demand by
+`initializeConfig()`:
 
-Every command must implement:
+- `initializeConfig(options)` — builds a `ConfigurationManager` (honouring
+  `--config` and profile), a `TargetResolver` and a `TaskManager`.
+- `getCommandDefaults()` — the command's own defaults from the
+  `commands.<name>` section of the configuration; `applyDefaults()` merges
+  them under explicitly passed options.
+- `resolveTarget(spec)` / `findTargets(pattern)` — configured-target lookup
+  (`hosts.web-1`, `containers.*`).
+- `createTargetEngine(target)` — maps a resolved target to an execution
+  engine: `local` returns the global `$`, `ssh`/`docker`/`kubernetes`
+  return `$.ssh(...)`, `$.docker(...)`, `$.k8s(...)` built from the
+  target's config (including SSH host-key policy and per-target `env`).
 
-```typescript
-abstract execute(args: string[], flags: Record<string, any>): Promise<void>;
-```
+### Output and interaction helpers
 
-**Parameters:**
-- `args`: Positional arguments after command name
-- `flags`: Parsed flags and options
+Uniform UX comes from the base class rather than each command:
+`output()`/`table()` go through the `OutputFormatter` and respect
+`-o text|json|yaml|csv`; `startSpinner()`/`stopSpinner()` and `log()` are
+quiet-aware; `confirm()`/`prompt()`/`select()`/`multiselect()` wrap
+`@xec-sh/kit` prompts and short-circuit to their defaults under `--quiet`
+(a cancelled prompt also falls back instead of throwing);
+`isDryRun()`/`isVerbose()`/`isQuiet()` read the merged options.
 
-**Returns:** Promise that resolves when command completes
+### SubcommandBase
 
-**Throws:** Various error types mapped to exit codes
+Commands that are groups of subcommands (`docker` is one) extend
+`SubcommandBase`, implement `setupSubcommands(command)`, and inherit an
+`execute()` that prints help when no subcommand is given.
 
-### Target Resolution
+`ConfigAwareCommand` is a backward-compatibility alias for `BaseCommand` —
+some modules still import it under that name.
 
-Commands that operate on targets use `parseTargets()`:
+## Invocation Routing
 
-```typescript
-protected parseTargets(args: string[]): ParsedTargets {
-  const targets: Target[] = [];
-  const remainingArgs: string[] = [];
-  
-  // Parses:
-  // - SSH: user@host, ssh://user@host
-  // - Docker: docker:container, container (with detection)
-  // - Kubernetes: k8s:pod, pod:container
-  // - Named targets from config
-  
-  return { targets, remainingArgs };
-}
-```
+`run()` in `main.ts` routes an invocation in this order — the first match
+wins, and only the last step involves commander dispatch:
 
-## Error Handling
-
-### Error Classes and Exit Codes
-
-Commands throw specific error types mapped to exit codes in `apps/xec/src/utils/error-handler.ts`:
-
-| Error Class | Exit Code | Description |
-|-------------|-----------|-------------|
-| `ValidationError` | 1 | Invalid arguments or configuration |
-| `ConfigurationError` | 2 | Configuration file issues |
-| `TargetNotFoundError` | 3 | Target doesn't exist |
-| `ConnectionError` | 4 | Connection failures |
-| `ExecutionError` | 5 | Command execution failures |
-| `AuthenticationError` | 6 | Authentication issues |
-| `FileSystemError` | 7 | File operation failures |
-| `DockerError` | 8 | Docker-specific errors |
-| `KubernetesError` | 9 | Kubernetes-specific errors |
-| `TimeoutError` | 10 | Operation timeouts |
-| `PermissionError` | 11 | Permission denied |
-| `DependencyError` | 12 | Missing dependencies |
-| `NetworkError` | 13 | Network-related errors |
-
-### Error Handling Pattern
-
-```typescript
-class MyCommand extends BaseCommand {
-  async execute(args: string[], flags: Record<string, any>): Promise<void> {
-    try {
-      // Command logic
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        // Exits with code 1
-        throw error;
-      }
-      // Wrap unknown errors
-      throw new ExecutionError('Command failed', error);
-    }
-  }
-}
-```
-
-## Command Lifecycle
-
-### Execution Flow
-
-1. **Resolution** - Command name resolved to class
-2. **Instantiation** - Command instance created with config
-3. **Validation** - Arguments and flags validated
-4. **Execution** - `execute()` method called
-5. **Error Handling** - Errors caught and mapped to exit codes
-6. **Cleanup** - Resources released
-
-### Context Access
-
-Commands access execution context through:
-
-```typescript
-// Configuration
-this.config.targets
-this.config.tasks
-this.config.defaults
-
-// Flags
-flags.verbose
-flags['dry-run']
-flags.quiet
-
-// Environment
-this.cwd
-process.env
-```
-
-## Performance Characteristics
-
-### Initialization Performance
-
-- **Config Loading**: ~50-100ms for typical configs
-- **Command Resolution**: &lt;1ms (direct lookup)
-- **Target Parsing**: &lt;5ms for typical arguments
-
-### Memory Usage
-
-- **Base Command**: ~2KB per instance
-- **Config Object**: 10-100KB depending on size
-- **Connection Pools**: Managed by core library
-
-### Optimization Strategies
-
-1. **Lazy Loading** - Commands loaded on demand
-2. **Config Caching** - Configuration parsed once
-3. **Connection Reuse** - SSH/Docker connections pooled
-4. **Stream Processing** - Large outputs streamed
-
-## Best Practices
-
-### Command Design
-
-1. **Single Responsibility** - Each command does one thing
-2. **Consistent Arguments** - Follow established patterns
-3. **Clear Output** - Use quiet/verbose modes appropriately
-4. **Proper Errors** - Throw specific error types
-5. **Resource Cleanup** - Always clean up connections
-
-### Code Organization
-
-```typescript
-export class MyCommand extends BaseCommand {
-  // 1. Static properties
-  static readonly description = 'Command description';
-  static readonly aliases = ['mc'];
-  
-  // 2. Constructor (if needed)
-  constructor(...args) {
-    super(...args);
-    // Custom initialization
-  }
-  
-  // 3. Main execute method
-  async execute(args: string[], flags: Record<string, any>): Promise<void> {
-    // Validation
-    this.validateArgs(args);
-    
-    // Execution
-    await this.doWork(args, flags);
-    
-    // Output
-    this.displayResults();
-  }
-  
-  // 4. Private helper methods
-  private validateArgs(args: string[]): void { }
-  private async doWork(args: string[], flags: any): Promise<void> { }
-  private displayResults(): void { }
-}
-```
-
-## Testing Commands
-
-See [Command Testing](./command-testing.md) for detailed testing guidelines.
+1. A lone `--version`/`-V` prints the version and exits — no command
+   loading, no config read.
+2. `-e <code>` / `--eval <code>` anywhere in argv evaluates the code.
+3. `--repl` anywhere in argv starts the REPL.
+4. A first argument that is a file (by `.js`/`.ts`/`.mjs` extension, or an
+   existing file path) runs as a script.
+5. A first argument matching a configured task (and not a command name)
+   runs that task, with `--key=value` / `--key value` parsed as task
+   parameters.
+6. A first argument that `isDirectCommand()` accepts executes as a direct
+   command (`xec echo hi`, target-prefixed forms).
+7. Everything else goes to commander: built-in and dynamic commands,
+   resolved by name or alias. An unknown command prints a
+   did-you-mean suggestion (`checkForCommandTypo` from `@xec-sh/core`) and
+   exits `1`.
+8. No arguments at all shows help.
 
 ## Related Topics
 
-- [Creating Commands](./creating-commands.md) - Step-by-step guide
-- [Command Testing](./command-testing.md) - Testing strategies
-- [CLI Reference](../cli-reference.md) - Complete command reference
+- [Creating Commands](./creating-commands.md) — writing dynamic commands in
+  `.xec/commands/`
+- [Command Testing](./command-testing.md) — testing strategies
+- [CLI Reference](../cli-reference.md) — flags, environment variables, exit
+  codes
