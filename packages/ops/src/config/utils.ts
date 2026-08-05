@@ -2,8 +2,8 @@
  * Configuration utilities
  */
 
-import path from "path";
-import { homedir } from "os";
+import path from "node:path";
+import { homedir } from "node:os";
 
 /**
  * Deep merge objects
