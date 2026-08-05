@@ -100,6 +100,8 @@ interface RollbackState {
   createdFiles: string[];
   gitCommitCreated: boolean;
   gitTagCreated: boolean;
+  /** At least one package reached the registry; rollback is now a lie. */
+  npmPublished: boolean;
   tagName: string;
   originalChangelog?: string;
   originalChangesFile?: string;
@@ -646,6 +648,7 @@ export function command(program: Command): void {
         createdFiles: [],
         gitCommitCreated: false,
         gitTagCreated: false,
+        npmPublished: false,
         tagName: ''
       };
       let usedChangesFile = false;
@@ -1107,6 +1110,7 @@ export function command(program: Command): void {
 
                   s.start(`Publishing ${pkg.name}... (${i + 1}/${otherPackages.length})`);
                   await publishToNpm(pkg, s);
+                  rollbackState.npmPublished = true;
 
                   // Space the requests out; npm rate-limits a burst.
                   if (i < otherPackages.length - 1) await sleep(3_000);
@@ -1137,6 +1141,7 @@ export function command(program: Command): void {
               for (const pkg of config.packages) {
                 s.start(`Publishing ${pkg.name}...`);
                 await publishToNpm(pkg, s);
+                rollbackState.npmPublished = true;
               }
             }
 
@@ -1314,8 +1319,16 @@ ${config.packages.map(p => `  - ${p.name}@${config.version}`).join('\n')}
         s.stop('❌ Release failed');
         kit.log.error(error.message);
 
-        // Attempt rollback
-        if (!options.dryRun) {
+        // Once anything reached the registry, rollback is a lie: npm cannot
+        // be unpublished, so resetting the commit, tag and versions only
+        // desynchronizes the repository from what users already install.
+        // This happened twice — both times the operator took the offer,
+        // because a prompt after a failure reads as the way out.
+        if (!options.dryRun && rollbackState.npmPublished) {
+          kit.log.warn('npm publish already succeeded — not offering rollback.');
+          kit.log.info(`Complete the remaining steps by re-running: xec release ${config.version}`);
+          kit.log.info('Already-published packages are recognized and skipped.');
+        } else if (!options.dryRun) {
           const rollback = await kit.confirm({
             message: 'Would you like to rollback changes?',
             initialValue: true
