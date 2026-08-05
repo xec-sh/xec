@@ -5,6 +5,25 @@ import { ExecutionEngine, type ExecutionEngineConfig } from './core/execution-en
 
 export { pipeUtils } from './utils/pipe.js';
 export { isDisposable } from './types/disposable.js';
+
+// Where a command runs, as a value: one parser, one shape, one place to be
+// right. See types/target.ts for the class of bug this replaces.
+export {
+  parseTarget,
+  formatTarget,
+  parseTargetUri,
+  describeTarget,
+  isConfigReference,
+} from './types/target.js';
+export type {
+  Target,
+  TargetKind,
+  TargetParse,
+  SshTarget,
+  LocalTarget,
+  DockerTarget,
+  KubernetesTarget,
+} from './types/target.js';
 export type { EventFilter } from './types/events.js';
 export type { PipeTarget } from './types/process.js';
 export { ParallelEngine } from './utils/parallel.js';

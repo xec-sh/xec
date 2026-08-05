@@ -4,6 +4,7 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import path from 'node:path';
 import { prism } from '@xec-sh/kit';
+import { parseTarget } from '@xec-sh/core';
 import { Command } from 'commander';
 import { ScriptLoader, parseTimeout, validateOptions } from '@xec-sh/ops';
 
@@ -28,12 +29,13 @@ interface OnOptions extends ConfigAwareOptions, InteractiveOptions {
  * a bare `::1` does not.
  */
 export function parseHostPort(spec: string): { host: string; port?: number } {
-  const bracketed = spec.match(/^\[([^\]]+)\]:(\d+)$/);
-  if (bracketed) return { host: bracketed[1]!, port: Number(bracketed[2]) };
-  const plain = spec.match(/^([^:]+):(\d+)$/);
-  if (plain) return { host: plain[1]!, port: Number(plain[2]) };
-  const bare = spec.match(/^\[([^\]]+)\]$/);
-  if (bare) return { host: bare[1]! };
+  // Kept for callers elsewhere; the rules now live in core, so "what is a
+  // host and what is a port" is decided in exactly one place.
+  const parsed = parseTarget(spec.includes('@') ? spec : `ssh://${spec}`);
+  if (parsed.ok && parsed.target.kind === 'ssh') {
+    const { host, port } = parsed.target;
+    return port === undefined ? { host } : { host, port };
+  }
   return { host: spec };
 }
 
@@ -242,38 +244,24 @@ export class OnCommand extends ConfigAwareCommand {
 
       if (resolved) {
         targets = [resolved];
-      } else if (hostPattern.includes('@')) {
-        // A direct spec: user@host, optionally with :port. The previous
-        // parse demanded a hostname without dots, which excluded nearly
-        // every real host — the help's own example `deploy@server.com`
-        // resolved to a host literally named "deploy@server.com" reached
-        // as the local user.
-        const at = hostPattern.indexOf('@');
-        const user = hostPattern.slice(0, at);
-        const target = parseHostPort(hostPattern.slice(at + 1));
-        targets = [{
-          id: `ssh:${hostPattern}`,
-          type: 'ssh',
-          name: target.host,
-          config: {
-            type: 'ssh',
-            host: target.host,
-            user,
-            ...(target.port !== undefined ? { port: target.port } : {}),
-          },
-          source: 'detected'
-        }];
       } else {
-        const target = parseHostPort(hostPattern);
+        // Whatever the configuration does not know is read by the one
+        // parser in core: `user@host`, `host:port`, an IPv6 literal in
+        // brackets, or a full ssh:// URI, all under the same rules.
+        const parsed = parseTarget(hostPattern);
+        const spec = parsed.ok && parsed.target.kind === 'ssh'
+          ? parsed.target
+          : ({ host: hostPattern } as { host: string; user?: string; port?: number });
+
         targets = [{
           id: `ssh:${hostPattern}`,
           type: 'ssh',
-          name: target.host,
+          name: spec.host,
           config: {
             type: 'ssh',
-            host: target.host,
-            user: mergedOptions.user || process.env['USER'] || 'root',
-            ...(target.port !== undefined ? { port: target.port } : {}),
+            host: spec.host,
+            user: spec.user ?? mergedOptions.user ?? process.env['USER'] ?? 'root',
+            ...(spec.port !== undefined ? { port: spec.port } : {}),
           },
           source: 'detected'
         }];
