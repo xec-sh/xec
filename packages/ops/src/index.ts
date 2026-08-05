@@ -15,7 +15,7 @@ export * from './secrets/types.js';
 
 export { SecretManager } from './secrets/manager.js';
 
-export { getModuleCacheDir } from './config/utils.js';
+export { getSecretsDir, findProjectRoot, getModuleCacheDir, getGlobalSecretsDir } from './config/utils.js';
 
 export { TaskManager } from './config/task-manager.js';
 

@@ -3,6 +3,7 @@
  */
 
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 
 /**
@@ -392,9 +393,53 @@ export function getModuleCacheDir(): string {
 }
 
 /**
- * Get the secrets storage directory
- * Used for storing encrypted secrets locally
+ * The project a directory belongs to, if any.
+ *
+ * A project is the nearest ancestor holding `.xec/`. Secrets scope to it,
+ * so the answer has to be the same whether the operator ran the command
+ * from the root or from three directories down.
+ *
+ * @param from - Where to start looking. Defaults to the working directory.
+ * @returns The project root, or null outside any project.
  */
-export function getSecretsDir(): string {
+export function findProjectRoot(from: string = process.cwd()): string | null {
+  let current = path.resolve(from);
+
+  for (;;) {
+    if (existsSync(path.join(current, '.xec'))) return current;
+    const parent = path.dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+/** Where the machine-wide secret store lives, for the explicit opt-in. */
+export function getGlobalSecretsDir(): string {
   return path.join(getGlobalConfigDir(), 'secrets');
+}
+
+/**
+ * Get the secrets storage directory.
+ *
+ * Secrets belong to the project that uses them. They used to live in one
+ * machine-wide store, so a brand-new project in an empty directory listed —
+ * and could read — the secrets of every other project on the machine. That
+ * is disclosure by default, and no operator asked for it.
+ *
+ * A project store is used whenever the command runs inside a project. The
+ * machine-wide store remains reachable by explicit request, for the case it
+ * was presumably meant to serve: credentials shared deliberately across
+ * projects.
+ *
+ * @param scope - `'project'` (default) or `'global'`.
+ * @param from - Where to look for the project. Defaults to the working directory.
+ * @returns The directory holding the encrypted secrets.
+ */
+export function getSecretsDir(scope: 'project' | 'global' = 'project', from?: string): string {
+  if (scope === 'global') return getGlobalSecretsDir();
+
+  const projectRoot = findProjectRoot(from);
+  return projectRoot === null
+    ? getGlobalSecretsDir()
+    : path.join(projectRoot, '.xec', 'secrets');
 }

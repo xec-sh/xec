@@ -5,6 +5,8 @@ import { log, text, prism, outro, cancel, select, confirm, spinner, isCancel, pa
 import { ConfigAwareCommand } from '../utils/command-base.js';
 import { canPrompt, isPlainOutput } from '../utils/plain-mode.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
+import { existsSync, readdirSync } from 'node:fs';
+import { getSecretsDir } from '@xec-sh/ops';
 
 /**
  * Secrets management command
@@ -427,8 +429,41 @@ export class SecretsCommand extends ConfigAwareCommand {
       );
     }
 
+    this.reportScopeOnce();
     return this.configManager.getSecretManager();
   }
+
+  /**
+   * Say where the secrets are, once, when the answer just changed.
+   *
+   * Secrets used to live in one machine-wide store, so a new project saw
+   * every other project's keys. Scoping them to the project closes that,
+   * and it also means an operator who had keys yesterday finds an empty
+   * list today. Silence there would look like data loss; this says what
+   * happened and how to bring the values across, and says it once.
+   */
+  private reportScopeOnce(): void {
+    if (SecretsCommand.scopeReported) return;
+
+    const projectStore = getSecretsDir('project');
+    const globalStore = getSecretsDir('global');
+    if (projectStore === globalStore) return;
+
+    const hasGlobal = existsSync(globalStore) &&
+      readdirSync(globalStore).some(name => name.endsWith('.secret'));
+    if (!hasGlobal || existsSync(projectStore)) return;
+
+    SecretsCommand.scopeReported = true;
+    this.log(
+      `Secrets are stored per project since 0.10.2: this project uses ${projectStore}.\n` +
+      `  Earlier keys are still in ${globalStore} and are not read from here.\n` +
+      `  To bring them across: cp -R ${globalStore}/. ${projectStore}/`,
+      'warn'
+    );
+  }
+
+  /** The notice is about the machine's state, not about one invocation. */
+  private static scopeReported = false;
 
   private async setSecret(key: string, options: any): Promise<void> {
     const manager = await this.getSecretManager();
