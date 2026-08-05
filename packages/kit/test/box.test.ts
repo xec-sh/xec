@@ -261,4 +261,24 @@ describe.each(['true', 'false'])('box (isCI = %s)', (isCI) => {
 
     expect(output.buffer).toMatchSnapshot();
   });
+
+  /**
+   * A PTY is allowed to report any width, including zero — script(1) and CI
+   * runners do. The padding arithmetic used to go negative there and
+   * String.repeat threw, which took the release command down while it was
+   * printing its plan. Narrow output may misalign; it must never throw.
+   */
+  test.each([0, 1, 2, 5, 11])('survives a terminal reporting %d columns', (columns) => {
+    (output as unknown as { columns: number }).columns = columns;
+
+    expect(() =>
+      prompts.box('a line comfortably wider than the terminal itself', '📋 Release Plan', {
+        input,
+        output,
+        width: 'auto',
+      })
+    ).not.toThrow();
+
+    expect(output.buffer.length).toBeGreaterThan(0);
+  });
 });

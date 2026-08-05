@@ -53,7 +53,12 @@ function getPaddingForLine(
     leftPadding = innerWidth - lineLength - padding;
   }
 
-  const rightPadding = innerWidth - leftPadding - lineLength;
+  // In a terminal narrower than the content, both paddings go negative and
+  // String.repeat throws — the release command died mid-plan inside a PTY
+  // that reported zero columns. A cramped box misaligns its right border;
+  // it does not take the process down.
+  leftPadding = Math.max(leftPadding, 0);
+  const rightPadding = Math.max(innerWidth - leftPadding - lineLength, 0);
 
   return [leftPadding, rightPadding];
 }
@@ -101,8 +106,10 @@ export const box = (message = '', title = '', opts?: BoxOptions) => {
       boxWidth--;
     }
   }
-  const innerWidth = boxWidth - borderTotalWidth;
-  const maxTitleLength = innerWidth - titlePadding * 2;
+  // Never below one column of interior: a zero-width PTY (CI, script(1))
+  // reports columns the arithmetic below turns negative otherwise.
+  const innerWidth = Math.max(boxWidth - borderTotalWidth, 1);
+  const maxTitleLength = Math.max(innerWidth - titlePadding * 2, 1);
   // For truncation, we need to handle by visual width not character count
   let truncatedTitle = title;
   if (titleWidth > maxTitleLength) {
@@ -124,7 +131,7 @@ export const box = (message = '', title = '', opts?: BoxOptions) => {
     titlePadding,
     opts?.titleAlign
   );
-  const wrappedMessage = wrapAnsi(message, innerWidth - contentPadding * 2, {
+  const wrappedMessage = wrapAnsi(message, Math.max(innerWidth - contentPadding * 2, 1), {
     hard: true,
     trim: false,
   });
