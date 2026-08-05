@@ -1,0 +1,95 @@
+# Unit-tier tests for every package, plus the cross-runtime smoke.
+#
+# Deliberately absent: integration and e2e suites. They need the Docker
+# fixture containers (packages/core/docker) and a kind cluster, which is a
+# separate job with its own budget — not a reason to leave the unit tier
+# unguarded.
+#
+# Extension, not enabled — a Node matrix costs a second full run per version,
+# and that spend is the owner's call:
+#   strategy:
+#     matrix:
+#       node-version: ['22.18', '24']
+# engines declares >=22, so 22.x is the floor worth proving.
+
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A superseded push to a PR has no audience; a run on main always finishes.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm before setup-node: the store cache needs the binary on PATH.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      # Bun is a build dependency, not just a smoke target: @xec-sh/kit
+      # builds with `bun scripts/build.ts`.
+      - uses: oven-sh/setup-bun@v2
+
+      # Deno exists here so the runtime smoke actually runs. Without it the
+      # Deno case skips and the suite goes green having proven nothing.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:full
+
+      - name: core unit
+        run: pnpm --filter @xec-sh/core test:unit
+
+      - name: core property
+        run: pnpm --filter @xec-sh/core test:property
+
+      - name: loader unit
+        run: pnpm --filter @xec-sh/loader test test/unit
+
+      - name: kit
+        run: pnpm --filter @xec-sh/kit test
+
+      - name: ops
+        run: pnpm --filter @xec-sh/ops test
+
+      - name: testing
+        run: pnpm --filter @xec-sh/testing test
+
+      # The CLI's docker-free tier. test/commands and test/docker-services
+      # spawn containers and kind clusters — they belong to the future
+      # integration job.
+      - name: cli unit
+        run: >
+          pnpm --filter @xec-sh/cli test
+          test/utils
+          test/command-manifest.test.ts
+          test/dynamic-command-imports.test.ts
+          test/eval-exit-code.test.ts
+          test/globals-parity.test.ts
+          test/runtime-portability.test.ts
+          test/self-resolution.test.ts
+          test/startup-budget.test.ts
+
+      # The built CLI must start under Node, Bun and Deno and deliver the
+      # script globals. Runs last: it proves the artifact, not the sources.
+      - name: runtime smoke
+        run: pnpm --filter @xec-sh/cli test test/runtime-smoke.test.ts
