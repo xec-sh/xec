@@ -1,11 +1,13 @@
 import type { ResolvedTarget, ExecutionOptions } from '@xec-sh/ops';
 
 import { z } from 'zod';
+import fs from 'node:fs';
 import path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import { ScriptLoader , parseTimeout , validateOptions } from '@xec-sh/ops';
+import { ScriptLoader, parseTimeout, validateOptions } from '@xec-sh/ops';
 
+import { variadicParts, positionalString } from '../utils/variadic.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
@@ -19,6 +21,20 @@ interface OnOptions extends ConfigAwareOptions, InteractiveOptions {
   parallel?: boolean;
   maxConcurrent?: number;
   failFast?: boolean;
+}
+
+/**
+ * Split `host[:port]`, leaving IPv6 forms intact: `[::1]:2222` names a port,
+ * a bare `::1` does not.
+ */
+export function parseHostPort(spec: string): { host: string; port?: number } {
+  const bracketed = spec.match(/^\[([^\]]+)\]:(\d+)$/);
+  if (bracketed) return { host: bracketed[1]!, port: Number(bracketed[2]) };
+  const plain = spec.match(/^([^:]+):(\d+)$/);
+  if (plain) return { host: plain[1]!, port: Number(plain[2]) };
+  const bare = spec.match(/^\[([^\]]+)\]$/);
+  if (bare) return { host: bare[1]! };
+  return { host: spec };
 }
 
 export class OnCommand extends ConfigAwareCommand {
@@ -43,10 +59,6 @@ export class OnCommand extends ConfigAwareCommand {
         {
           flags: '-t, --timeout <duration>',
           description: 'Command timeout (e.g., 30s, 5m)',
-        },
-        {
-          flags: '-e, --env <key=value>',
-          description: 'Environment variables (can be used multiple times)',
         },
         {
           flags: '-d, --cwd <path>',
@@ -126,8 +138,31 @@ export class OnCommand extends ConfigAwareCommand {
     return 'on';
   }
 
+  override create(): Command {
+    const command = super.create();
+
+    // Declared here, not in the config options list: that path cannot carry a
+    // parser, so a repeated -e kept only the last value and a single -e
+    // arrived as a bare string where an array is validated.
+    command.option(
+      '-e, --env <key=value>',
+      'Environment variables (can be used multiple times)',
+      (value, previous: string[] = []) => {
+        previous.push(value);
+        return previous;
+      },
+      []
+    );
+
+    return command;
+  }
+
   override async execute(args: any[]): Promise<void> {
-    let [hostPattern, ...commandParts] = args.slice(0, -1);
+    // The variadic positional arrives as one array, not spread: destructuring
+    // it with rest turned `on host echo hello world` into ["echo hello world"]
+    // nested once more, and the join below produced "echo,hello,world".
+    let hostPattern = positionalString(args[0]);
+    let commandParts: string[] = variadicParts(args[1]);
     const options = args[args.length - 1] as OnOptions;
 
     // Handle interactive mode
@@ -187,36 +222,58 @@ export class OnCommand extends ConfigAwareCommand {
         }
       }
     }
-    // Check if it's a direct SSH spec (user@host)
-    else if (hostPattern.includes('@') && !hostPattern.includes('.')) {
-      const [user, host] = hostPattern.split('@');
-      targets = [{
-        id: `ssh:${hostPattern}`,
-        type: 'ssh',
-        name: host,
-        config: {
-          type: 'ssh',
-          host,
-          user,
-        },
-        source: 'detected'
-      }];
-    } else {
-      // Single host resolution
+    // A single host: what the configuration says, and only failing that,
+    // what the string itself implies.
+    //
+    // The order is the point. Inference used to run first for anything
+    // containing '@', so `hosts.deploy@server.example.com` — an explicit
+    // reference to a configured target — was read as the user
+    // `hosts.deploy` on the host `server.example.com`, quietly ignoring the
+    // port and credentials the configuration held for it. Configuration is
+    // what the operator wrote down; a guess never outranks it.
+    else {
       const targetSpec = hostPattern.startsWith('hosts.') ? hostPattern : `hosts.${hostPattern}`;
+      let resolved: ResolvedTarget | null = null;
       try {
-        const target = await this.resolveTarget(targetSpec);
-        targets = [target];
+        resolved = await this.resolveTarget(targetSpec);
       } catch {
-        // If not found in config, treat as direct host
+        resolved = null;
+      }
+
+      if (resolved) {
+        targets = [resolved];
+      } else if (hostPattern.includes('@')) {
+        // A direct spec: user@host, optionally with :port. The previous
+        // parse demanded a hostname without dots, which excluded nearly
+        // every real host — the help's own example `deploy@server.com`
+        // resolved to a host literally named "deploy@server.com" reached
+        // as the local user.
+        const at = hostPattern.indexOf('@');
+        const user = hostPattern.slice(0, at);
+        const target = parseHostPort(hostPattern.slice(at + 1));
         targets = [{
           id: `ssh:${hostPattern}`,
           type: 'ssh',
-          name: hostPattern,
+          name: target.host,
           config: {
             type: 'ssh',
-            host: hostPattern,
+            host: target.host,
+            user,
+            ...(target.port !== undefined ? { port: target.port } : {}),
+          },
+          source: 'detected'
+        }];
+      } else {
+        const target = parseHostPort(hostPattern);
+        targets = [{
+          id: `ssh:${hostPattern}`,
+          type: 'ssh',
+          name: target.host,
+          config: {
+            type: 'ssh',
+            host: target.host,
             user: mergedOptions.user || process.env['USER'] || 'root',
+            ...(target.port !== undefined ? { port: target.port } : {}),
           },
           source: 'detected'
         }];
@@ -227,6 +284,16 @@ export class OnCommand extends ConfigAwareCommand {
     const nonSshTargets = targets.filter(t => t.type !== 'ssh');
     if (nonSshTargets.length > 0) {
       throw new Error(`'on' command only supports SSH hosts. Found: ${nonSshTargets.map(t => t.type).join(', ')}`);
+    }
+
+    // -u overrides the configured user for every path that builds an engine
+    // from the target (command, task, script, REPL). Merged into the target
+    // itself because engines are constructed from target config alone.
+    if (mergedOptions.user) {
+      targets = targets.map(t => ({
+        ...t,
+        config: { ...(t.config as any), user: mergedOptions.user, username: mergedOptions.user }
+      }));
     }
 
     // Handle different execution modes
@@ -241,13 +308,19 @@ export class OnCommand extends ConfigAwareCommand {
       }
       await this.startRepl(targets[0]!, mergedOptions);
     } else if (commandParts.length > 0) {
-      const cmd = commandParts.join(' ');
-
-      // Check if it's a script file
-      if (cmd.endsWith('.ts') || cmd.endsWith('.js')) {
-        await this.executeScript(targets, cmd, mergedOptions);
+      // A script is a local file handed to the loader with $target bound; a
+      // command is text for the remote shell. The old test was
+      // `cmd.endsWith('.ts')` over the joined string, which sent
+      // `on web "ls *.ts"` to the script loader and made
+      // `on web ./deploy.ts staging` unrecognisable.
+      const first = commandParts[0]!;
+      const isScriptPath = /\.(ts|js|mjs)$/.test(first) && !/[\s*?$|&;<>(){}\\]/.test(first);
+      if (isScriptPath && fs.existsSync(first)) {
+        await this.executeScript(targets, first, commandParts.slice(1), mergedOptions);
+      } else if (isScriptPath) {
+        throw new Error(`Script file not found: ${first}`);
       } else {
-        await this.executeCommand(targets, cmd, mergedOptions);
+        await this.executeCommand(targets, commandParts.join(' '), mergedOptions);
       }
     } else {
       throw new Error('No command, task, or REPL mode specified');
@@ -451,6 +524,7 @@ export class OnCommand extends ConfigAwareCommand {
   private async executeScript(
     targets: ResolvedTarget[],
     scriptPath: string,
+    scriptArgs: string[],
     options: OnOptions
   ): Promise<void> {
     const scriptLoader = new ScriptLoader({
@@ -471,9 +545,12 @@ export class OnCommand extends ConfigAwareCommand {
       const execOptions: ExecutionOptions = {
         target,
         targetEngine: engine,
+        // The script's arguments are the tokens after its path — not
+        // process.argv.slice(3), which began with the host pattern and the
+        // script's own name.
         context: {
-          args: process.argv.slice(3),
-          argv: [process.argv[0] || 'node', scriptPath, ...process.argv.slice(3)],
+          args: scriptArgs,
+          argv: [process.argv[0] || 'node', scriptPath, ...scriptArgs],
           __filename: path.resolve(scriptPath),
           __dirname: path.dirname(path.resolve(scriptPath))
         },

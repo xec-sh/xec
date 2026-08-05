@@ -6,8 +6,9 @@ import path from 'node:path';
 import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
-import { ScriptLoader , parseTimeout , validateOptions } from '@xec-sh/ops';
+import { ScriptLoader, parseTimeout, validateOptions } from '@xec-sh/ops';
 
+import { variadicParts, positionalString } from '../utils/variadic.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
 
@@ -128,8 +129,8 @@ export class InCommand extends ConfigAwareCommand {
 
   override async execute(args: any[]): Promise<void> {
     // The variadic positional arrives as one array, not spread — see on.ts.
-    const targetPattern = args[0];
-    const commandParts: string[] = Array.isArray(args[1]) ? args[1] : [];
+    const targetPattern = positionalString(args[0]);
+    const commandParts: string[] = variadicParts(args[1]);
     const options = args[args.length - 1] as InOptions;
 
     if (!targetPattern) {

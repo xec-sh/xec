@@ -11,6 +11,7 @@ import { validateOptions , getScriptLoader } from '@xec-sh/ops';
 
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
+import { variadicParts, positionalString } from '../utils/variadic.js';
 
 interface WatchOptions extends ConfigAwareOptions, InteractiveOptions {
   pattern?: string[];
@@ -145,8 +146,8 @@ export class WatchCommand extends ConfigAwareCommand {
     // The variadic positional arrives as one array, not spread — see on.ts.
     // Destructuring with rest handed FileWatcher an array nested in an array,
     // and every `watch <target> <path>` died on "paths[0] must be a string".
-    const targetSpec = args[0];
-    const paths: string[] = Array.isArray(args[1]) ? args[1] : [];
+    const targetSpec = positionalString(args[0]);
+    const paths: string[] = variadicParts(args[1]);
     const options = args[args.length - 1] as WatchOptions;
 
     // Handle interactive mode

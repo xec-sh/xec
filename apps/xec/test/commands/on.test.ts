@@ -357,13 +357,16 @@ describe('On Command', () => {
 
       const calls = command.getExecuteCalls();
       expect(calls).toHaveLength(1);
+      // The spec names the user and the host separately; reading the whole
+      // string as a hostname reached a machine that does not exist, as the
+      // local user. This assertion used to pin that.
       expect(calls[0]).toMatchObject({
         target: {
           type: 'ssh',
-          name: 'deploy@server.example.com',
+          name: 'server.example.com',
           config: {
-            host: 'deploy@server.example.com',
-            user: process.env['USER'] || 'root'
+            host: 'server.example.com',
+            user: 'deploy'
           }
         },
         command: 'date'
