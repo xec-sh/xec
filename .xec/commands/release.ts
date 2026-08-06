@@ -295,6 +295,55 @@ async function ensureNpmAuth(config: ReleaseConfig, s: any): Promise<void> {
   }
 }
 
+/**
+ * Say why the release could not be created, not which command failed.
+ *
+ * `Failed to create GitHub release` followed by the command line tells the
+ * reader nothing they did not already know. What `gh` printed — a 403, a
+ * tag that is not pushed, a rate limit — is the whole content of the
+ * failure, and everything before this happened successfully, so the message
+ * also has to say what is already done.
+ */
+function githubReleaseFailure(error: unknown): Error {
+  const reason = error instanceof Error
+    ? ((error as { stderr?: string; stdall?: string }).stderr
+      ?? (error as { stdall?: string }).stdall
+      ?? error.message).trim()
+    : String(error);
+
+  return new Error(
+    `Could not create the GitHub release.\n\n${reason}\n\n` +
+    'The version bump, the tag and the npm publish have already happened — ' +
+    'only the GitHub release is missing. Create it by hand with `gh release create`, ' +
+    'or re-run the release once the cause is fixed.'
+  );
+}
+
+/**
+ * The GitHub accounts `gh` holds for github.com, and which one is active.
+ *
+ * `gh auth status` prints them for a human; this reads the same thing back.
+ * Parsing output is not lovely, but `gh` offers no machine-readable form of
+ * the account list, and guessing would be worse.
+ */
+async function listGithubAccounts(): Promise<Array<{ name: string; active: boolean }>> {
+  const status = await $`gh auth status`.nothrow();
+  if (!status.ok) return [];
+
+  const accounts: Array<{ name: string; active: boolean }> = [];
+  for (const line of status.stdall.split('\n')) {
+    const account = /Logged in to \S+ account (\S+)/.exec(line);
+    if (account?.[1]) {
+      accounts.push({ name: account[1], active: false });
+      continue;
+    }
+    if (/Active account:\s*true/.test(line) && accounts.length > 0) {
+      accounts[accounts.length - 1]!.active = true;
+    }
+  }
+  return accounts;
+}
+
 /** The same contract for GitHub: verified before anything is mutated. */
 async function ensureGithubAuth(config: ReleaseConfig, s: any): Promise<void> {
   if (config.skipGithub || config.dryRun || config.githubToken) return;
@@ -307,7 +356,53 @@ async function ensureGithubAuth(config: ReleaseConfig, s: any): Promise<void> {
   }
 
   const status = await $`gh auth status`.nothrow();
-  if (status.ok) return;
+  if (status.ok) {
+    // Logged in is not the question. `gh` holds one account per host and
+    // several may be stored; the active one is what `gh release create`
+    // will use, and it may have no write access here. Asking now costs one
+    // API call. Asking at the end — which is what happened — means finding
+    // out after the versions are written, the tag pushed and every package
+    // published, with the release the only thing missing.
+    const permitted = await $`gh api repos/{owner}/{repo} --jq .permissions.push`.nothrow();
+
+    if (permitted.ok && permitted.stdout.trim() === 'true') return;
+
+    const accounts = await listGithubAccounts();
+    const active = accounts.find(a => a.active)?.name ?? 'the active account';
+    const others = accounts.filter(a => !a.active).map(a => a.name);
+
+    kit.log.warn(`GitHub: ${active} cannot write to this repository.`);
+
+    if (others.length > 0) {
+      const chosen = await promptWithCancel(() => kit.select({
+        message: 'Which account should create the release?',
+        options: [
+          ...others.map(name => ({ value: name, label: `Switch to ${name}` })),
+          { value: '__skip', label: 'Skip GitHub release' },
+        ],
+      }));
+
+      if (chosen !== '__skip') {
+        const switched = await $`gh auth switch --hostname github.com --user ${chosen}`.nothrow();
+        if (!switched.ok) {
+          throw new Error(`gh auth switch to ${chosen} failed; nothing has been changed yet`);
+        }
+
+        const recheck = await $`gh api repos/{owner}/{repo} --jq .permissions.push`.nothrow();
+        if (recheck.ok && recheck.stdout.trim() === 'true') {
+          kit.log.success(`GitHub: releasing as ${chosen}`);
+          return;
+        }
+        throw new Error(`${chosen} cannot write to this repository either; nothing has been changed yet`);
+      }
+
+      config.skipGithub = true;
+      return;
+    }
+
+    // One account, and it cannot write. A token is the way in.
+    kit.log.warn('Provide a token with `repo` scope, or skip the GitHub release.');
+  }
 
   const authMethod = await promptWithCancel(() => kit.select({
     message: 'Not authenticated to GitHub. How would you like to authenticate?',
@@ -1161,8 +1256,7 @@ Created with ❤️ by Xec Release Manager
                       await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? ['--prerelease'] : []}`;
                     }
                   } catch (error) {
-                    kit.log.error('Failed to create GitHub release');
-                    throw error;
+                    throw githubReleaseFailure(error);
                   }
                 }
               } else {
@@ -1174,8 +1268,7 @@ Created with ❤️ by Xec Release Manager
                     await $`gh release create v${config.version} --title "v${config.version}" --notes ${releaseNotes} ${isPrerelease ? ['--prerelease'] : []}`;
                   }
                 } catch (error) {
-                  kit.log.error('Failed to create GitHub release');
-                  throw error;
+                  throw githubReleaseFailure(error);
                 }
               }
 
