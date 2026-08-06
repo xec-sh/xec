@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const run = promisify(execFile);
 
@@ -38,7 +38,7 @@ describe('dependency surface of the execution core', () => {
 
     const script = `
       import { createRequire } from 'node:module';
-      const { $ } = await import(${JSON.stringify(distEntry)});
+      const { $ } = await import(${JSON.stringify(pathToFileURL(distEntry).href)});
       await $\`echo probe\`;
       const req = createRequire(import.meta.url);
       const external = Object.keys(req.cache ?? {}).filter(k => k.includes('node_modules'));

@@ -1,4 +1,5 @@
 import { $ } from '../../../src/index.js';
+import { emit } from '../../helpers/platform.js';
 
 /**
  * `for await (const line of $\`cmd\`)` must deliver lines as they arrive.
@@ -90,7 +91,7 @@ describe('line splitting edge cases', () => {
 
   it('yields a final line that has no trailing newline', async () => {
     const lines: string[] = [];
-    for await (const line of $`printf 'x'`) lines.push(line);
+    for await (const line of $`node -e ${emit('x')}`) lines.push(line);
 
     expect(lines).toEqual(['x']);
   }, 20_000);
@@ -99,7 +100,8 @@ describe('line splitting edge cases', () => {
     // Written in two writes with a gap, so the line genuinely arrives in
     // two separate chunks.
     const lines: string[] = [];
-    for await (const line of $`sh -c 'printf "half-"; sleep 0.2; printf "whole\n"'`) {
+    const split = 'process.stdout.write("half-");setTimeout(()=>process.stdout.write("whole\\n"),200)';
+    for await (const line of $`node -e ${split}`) {
       lines.push(line);
     }
 

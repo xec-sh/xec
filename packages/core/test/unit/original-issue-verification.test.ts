@@ -1,6 +1,6 @@
 
 import { $ } from '../../src/index.js';
-import { sleepFor, tempRoot } from '../helpers/platform.js';
+import { readEnv , sleepFor, tempRoot } from '../helpers/platform.js';
 
 describe('Original Issue Verification', () => {
   it('should work with original README example: await $`node -e ${sleepFor(10000)}`.timeout(5000)', async () => {
@@ -48,7 +48,7 @@ describe('Original Issue Verification', () => {
     const result3 = await $`echo test`.cwd(tempRoot()).timeout(1000);
     expect(result3.exitCode).toBe(0);
     
-    const result4 = await $`echo $TEST_VAR`.env({ TEST_VAR: 'hello' }).timeout(1000);
+    const result4 = await $`node -e ${readEnv('TEST_VAR')}`.env({ TEST_VAR: 'hello' }).timeout(1000);
     expect(result4.stdout.trim()).toBe('hello');
   });
 

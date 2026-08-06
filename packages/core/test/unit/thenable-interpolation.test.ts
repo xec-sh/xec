@@ -72,13 +72,14 @@ describe('Thenable Interpolation', () => {
     const nullPromise = Promise.resolve(null);
     const undefinedPromise = Promise.resolve(undefined);
     
-    const result = await $`echo start ${nullPromise} middle ${undefinedPromise} end`;
+    const result = await $`node -e 'process.stdout.write(process.argv.slice(1).join("|"))' start ${nullPromise} middle ${undefinedPromise} end`;
     // A nullish value keeps its argument position as an empty token rather
     // than vanishing. Dropping it silently rewrote the command: `chmod 700
     // ${undefined}` became `chmod 700`, which changes meaning instead of
-    // failing. Here that shows up as the empty arguments echo prints between
-    // the words.
-    expect(result.stdout.trim()).toBe('start  middle  end');
+    // failing. Counting the arguments says that plainly — two runs of
+    // whitespace could be one collapsed word, but two empty argv entries
+    // could not.
+    expect(result.stdout.trim()).toBe('start||middle||end');
     expect(result.exitCode).toBe(0);
   });
 
@@ -109,7 +110,7 @@ describe('Thenable Interpolation', () => {
 
   it('should handle complex objects in promises', async () => {
     const objectPromise = Promise.resolve({ foo: 'bar', baz: 123 });
-    const result = await $`echo ${objectPromise}`;
+    const result = await $`node -e 'process.stdout.write(process.argv.slice(1).join("|"))' ${objectPromise}`;
     
     // Objects should be JSON stringified
     expect(result.stdout.trim()).toBe('{"foo":"bar","baz":123}');

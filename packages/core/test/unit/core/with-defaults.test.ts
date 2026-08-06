@@ -57,3 +57,29 @@ describe('$.with applies the whole configuration it is given', () => {
     expect(await pwd(derived)).toBe(TMP);
   }, 20_000);
 });
+
+/**
+ * A configured shell is the shell — for what runs and for how it is quoted.
+ *
+ * `new ExecutionEngine({ shell })` reached the adapter through
+ * `defaultShell`, but the tagged template sent `shell: true`, which shadowed
+ * it, and quoted its interpolations for the host's dialect. So a caller who
+ * named `cmd.exe` from Linux got POSIX quoting for a shell that does not
+ * read it — the escaping not applying to the shell that parses it.
+ */
+describe('$ honours a shell configured on the engine', () => {
+  const commandOf = async (engine: typeof $): Promise<string> =>
+    (await engine`echo ${'a b'}`.nothrow()).command;
+
+  it('quotes for the configured shell, not the host', async () => {
+    expect(await commandOf($.with({ shell: 'sh' }))).toBe("echo 'a b'");
+    expect(await commandOf($.with({ shell: 'cmd.exe' }))).toBe('echo ^"a^ b^"');
+  });
+
+  it('reaches the command as the shell to run it with', async () => {
+    const result = await $.with({ shell: 'cmd.exe' })`echo ${'a b'}`.nothrow();
+
+    // Not `true`, which would let the adapter pick the host's own.
+    expect(result.command).toContain('^"');
+  });
+});

@@ -556,7 +556,7 @@ describe('Security Test Suite', () => {
         
         // Should be able to create files in it
         const testFile = `${dir.path}/test.txt`;
-        await isolated$`echo "secure" > ${testFile}`;
+        await isolated$`echo secure > ${testFile}`;
         
         const content = await isolated$`cat ${testFile}`;
         expect(content.stdout.trim()).toBe('secure');

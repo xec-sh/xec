@@ -6,7 +6,10 @@ import { execFile } from 'node:child_process';
 
 const run = promisify(execFile);
 
-const CORE = fileURLToPath(new URL('../../src/index.ts', import.meta.url));
+// A `file://` URL, not a native path: a dynamic import of `D:\...` is
+// rejected with ERR_UNSUPPORTED_ESM_URL_SCHEME, since `d:` reads as a
+// protocol.
+const CORE = new URL('../../src/index.ts', import.meta.url).href;
 const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 /**
@@ -40,7 +43,13 @@ describe('importing the library does not hijack the host process', () => {
     await fs.writeFile(file, source);
 
     try {
-      const { stdout } = await run('npx', ['tsx', file], { cwd: PACKAGE_ROOT, timeout: 60_000 });
+      // `shell` on Windows, where `npx` is `npx.cmd` and execFile cannot
+      // start a batch file on its own.
+      const { stdout } = await run('npx', ['tsx', file], {
+        cwd: PACKAGE_ROOT,
+        timeout: 60_000,
+        shell: process.platform === 'win32',
+      });
       return { stdout, code: 0 };
     } catch (error) {
       const failure = error as { stdout?: string; code?: number };

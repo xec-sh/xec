@@ -424,6 +424,21 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return results;
   }
 
+  /**
+   * The shell these commands will actually be parsed by.
+   *
+   * `.shell(...)` first, then the engine's own `defaultShell`. Reading only
+   * the former dropped a configured shell twice over: the command went out
+   * as `shell: true` — so the adapter's `command.shell ?? defaultShell`
+   * never saw the setting — and the interpolation was quoted for the host's
+   * dialect instead of the configured one. Running in bash while quoting
+   * for cmd is not a cosmetic mismatch; it is the escaping not applying to
+   * the shell that reads it.
+   */
+  private get effectiveShell(): string | boolean | undefined {
+    return this.currentConfig.shell ?? this._config.defaultShell;
+  }
+
   // Template literal support
   run(strings: TemplateStringsArray, ...values: any[]): ProcessPromise {
     assertTaggedTemplate(strings, 'run');
@@ -434,11 +449,11 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       // Quote for the shell that will actually parse this command, so that
       // `.shell('pwsh')` on Linux or a cmd.exe target get correct escaping.
       const command = interpolateForShell(
-        dialectFor(this.currentConfig.shell),
+        dialectFor(this.effectiveShell),
         strings,
         ...resolvedValues
       );
-      return { command, shell: this.currentConfig.shell ?? true };
+      return { command, shell: this.effectiveShell ?? true };
     };
 
     return this.createDeferredProcessPromise(deferredCommand);
@@ -483,7 +498,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return this.createDeferredProcessPromise(async () => ({
       ...options,
       command,
-      shell: options.shell ?? this.currentConfig.shell ?? true,
+      shell: options.shell ?? this.effectiveShell ?? true,
     }));
   }
 
@@ -495,7 +510,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     const deferredCommand = async () => {
       const resolvedValues = await this.awaitThenables(values);
       const command = interpolateRaw(strings, ...resolvedValues);
-      return { command, shell: this.currentConfig.shell ?? true };
+      return { command, shell: this.effectiveShell ?? true };
     };
 
     return this.createDeferredProcessPromise(deferredCommand);
@@ -529,7 +544,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
           // for `defaults` and dropped for everything else, so a template
           // rendered for `cmd` from a POSIX host got POSIX quoting —
           // which is not quoting at all once it reaches cmd.
-          return quoteForShell(value, dialectFor(options?.shell ?? this.currentConfig.shell));
+          return quoteForShell(value, dialectFor(options?.shell ?? this.effectiveShell));
         }
 
         return String(value);

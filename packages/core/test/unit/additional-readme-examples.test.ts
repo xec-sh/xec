@@ -1,6 +1,6 @@
 
 import { $ } from '../../src/index.js';
-import { readEnv, tempRoot } from '../helpers/platform.js';
+import { argEcho, readEnv, tempRoot } from '../helpers/platform.js';
 
 const emit_cwd = 'process.stdout.write(process.cwd())';
 
@@ -53,9 +53,11 @@ describe('Additional README Examples', () => {
   });
 
   it('should work with string interpolation', async () => {
+    // Read back as an argument: cmd's echo prints the quotes the escaping
+    // had to add, so echo cannot show what arrived.
     const filename = "test file.txt";
-    const result = await $`echo ${filename}`;
-    expect(result.stdout.trim()).toBe('test file.txt');
+
+    expect(await argEcho($, filename)).toBe(filename);
   });
 
   it('should work with array interpolation', async () => {
@@ -66,7 +68,8 @@ describe('Additional README Examples', () => {
 
   it('should work with object interpolation', async () => {
     const config = { name: 'app', port: 3000 };
-    const result = await $`echo ${config}`;
+    const result = await $`node -e 'process.stdout.write(process.argv.slice(1).join("|"))' ${config}`;
+
     expect(result.stdout.trim()).toBe('{"name":"app","port":3000}');
   });
 
@@ -89,7 +92,7 @@ describe('Additional README Examples', () => {
   });
 
   it('should work with complex chaining', async () => {
-    const result = await $.cd(tempRoot()).env({ TEST: 'value' }).timeout(1000)`echo $TEST`;
+    const result = await $.cd(tempRoot()).env({ TEST: 'value' }).timeout(1000)`node -e ${readEnv('TEST')}`;
     expect(result.stdout.trim()).toBe('value');
   });
 

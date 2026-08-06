@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
 import { $ } from '../../../src/index.js';
+import { emit } from '../../helpers/platform.js';
 
 /**
  * `.buffer()` must return what the command wrote.
@@ -40,14 +41,14 @@ describe('binary output survives intact', () => {
 
 describe('text output is unaffected', () => {
   it('keeps multi-byte characters', async () => {
-    const result = await $`printf '%s' 'héllo 🌍 日本'`;
+    const result = await $`node -e ${emit('héllo 🌍 日本')}`;
 
     expect(result.stdout).toBe('héllo 🌍 日本');
     expect(result.buffer().toString('utf8')).toBe('héllo 🌍 日本');
   }, 20_000);
 
   it('gives a buffer for ordinary ASCII', async () => {
-    const result = await $`printf '%s' 'plain'`;
+    const result = await $`node -e ${emit('plain')}`;
 
     expect(result.buffer().toString('utf8')).toBe('plain');
   }, 20_000);

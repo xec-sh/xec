@@ -118,7 +118,10 @@ describe('glob', () => {
   });
 
   it('matches ** across directory levels', async () => {
-    expect(await glob('**/*.ts', { cwd: dir })).toEqual(['a.ts', join('sub', 'c.ts')]);
+    // Forward slashes whatever the platform separates with — the form
+    // every glob library answers, and the one a caller can feed back into
+    // another pattern.
+    expect(await glob('**/*.ts', { cwd: dir })).toEqual(['a.ts', 'sub/c.ts']);
   });
 
   it('expands {a,b} alternatives', async () => {

@@ -1,5 +1,6 @@
 import { Writable, Transform } from 'node:stream';
 
+import { emit } from '../../helpers/platform.js';
 import { ExecutionResultImpl } from '../../../src/core/result.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import { pipeUtils, executePipe } from '../../../src/core/pipe-implementation.js';
@@ -450,7 +451,7 @@ describe('Pipe Implementation', () => {
     });
 
     test('should pipe to function', async () => {
-      const promise = engine.run`printf "line1\nline2\nline3"`;
+      const promise = engine.run`node -e ${emit('line1\nline2\nline3')}`;
       
       const lines: string[] = [];
       await promise.pipe((line: string) => {

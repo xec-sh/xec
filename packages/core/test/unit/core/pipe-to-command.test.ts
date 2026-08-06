@@ -1,6 +1,7 @@
 import { Writable } from 'node:stream';
 
 import { $ } from '../../../src/index.js';
+import { dialectFor, quoteForShell } from '../../../src/utils/shell-escape.js';
 import { emit, emitErr, keepLines, upperCase, passThrough } from '../../helpers/platform.js';
 
 /**
@@ -33,7 +34,12 @@ describe('a command can be piped into another command', () => {
   }, 20_000);
 
   it('accepts a string, as before', async () => {
-    expect((await source().pipe(`node -e ${JSON.stringify(keepLines('beta'))}`)).stdout).toBe('beta\n');
+    // Quoted for the shell that will read it, since a string target is a
+    // command line the caller has already written — JSON's quoting is not
+    // cmd's.
+    const target = `node -e ${quoteForShell(keepLines('beta'), dialectFor(undefined))}`;
+
+    expect((await source().pipe(target)).stdout).toBe('beta\n');
   }, 20_000);
 
   it('chains more than once', async () => {
@@ -61,11 +67,14 @@ describe('a command can be piped into another command', () => {
     const payload = 'alpha; echo INJECTED';
     const result = await source().pipe`node -e ${keepLines('beta')} ${payload}`;
 
+    // The payload never ran, and the command carries it quoted for
+    // whichever shell is in play rather than concatenated raw.
     expect(result.stdout).not.toContain('INJECTED');
-    expect(result.command).toContain('alpha; echo INJECTED');
-    // Quoted, so the shell reads it as one argument rather than as a
-    // separator and a second command.
-    expect(result.command).toMatch(/(['"^]).*alpha; echo INJECTED/);
+    expect(result.command).not.toContain(' alpha; echo INJECTED');
+    expect(result.command).toBe(
+      `node -e ${quoteForShell(keepLines('beta'), dialectFor(undefined))} ` +
+      quoteForShell(payload, dialectFor(undefined))
+    );
   }, 20_000);
 
   it('carries binary data through unchanged', async () => {
