@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 
 import { $ } from '../../src/index.js';
-import { itPosixShell } from '../helpers/platform.js';
+import { nodeCommand, itPosixShell } from '../helpers/platform.js';
 import { listDescendants, killProcessTree } from '../../src/utils/process-tree.js';
 
 /**
@@ -37,7 +37,7 @@ describe('terminating a command terminates its whole tree', () => {
    */
   function startNested(pidFile: string) {
     const grandchild = `process.on('SIGTERM',()=>process.exit(0));require('fs').writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setInterval(()=>{},1000)`;
-    return $.exec(`node -e ${JSON.stringify(grandchild)}`).nothrow().start();
+    return $.exec(nodeCommand(grandchild)).nothrow().start();
   }
 
   async function readPid(pidFile: string, timeoutMs = 5_000): Promise<number> {
@@ -81,7 +81,7 @@ describe('terminating a command terminates its whole tree', () => {
     // Configuration goes before start(): the chain returns a new command,
     // so configuring a running one is rejected rather than silently ignored.
     const grandchild = `process.on('SIGTERM',()=>process.exit(0));require('fs').writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setInterval(()=>{},1000)`;
-    const promise = $.exec(`node -e ${JSON.stringify(grandchild)}`)
+    const promise = $.exec(nodeCommand(grandchild))
       .nothrow()
       .signal(controller.signal)
       .start();
@@ -96,7 +96,7 @@ describe('terminating a command terminates its whole tree', () => {
   it('a timeout reaches the grandchild', async () => {
     const pidFile = path.join(dir, 'pid');
     const grandchild = `require('fs').writeFileSync(${JSON.stringify(pidFile)},String(process.pid));setInterval(()=>{},1000)`;
-    const promise = $.exec(`node -e ${JSON.stringify(grandchild)}`)
+    const promise = $.exec(nodeCommand(grandchild))
       .timeout(1_000)
       .nothrow()
       .start();

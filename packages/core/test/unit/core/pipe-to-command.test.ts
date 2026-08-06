@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 
 import { $ } from '../../../src/index.js';
 import { dialectFor, quoteForShell } from '../../../src/utils/shell-escape.js';
-import { emit, emitErr, keepLines, upperCase, passThrough } from '../../helpers/platform.js';
+import { emit, emitErr, keepLines, upperCase, nodeCommand, passThrough } from '../../helpers/platform.js';
 
 /**
  * `.pipe()` accepted a tagged template and a string, but not the form everyone
@@ -82,7 +82,7 @@ describe('a command can be piped into another command', () => {
     // UTF-8, so every byte that is not valid UTF-8 became a replacement
     // character. `cat cert.p12 | openssl` received corruption.
     const script = 'process.stdout.write(Buffer.from([0xff,0xfe,0x00,0x41,0x80]))';
-    const result = await $.exec(`node -e ${JSON.stringify(script)}`).pipe($`node -e ${passThrough()}`);
+    const result = await $.exec(nodeCommand(script)).pipe($`node -e ${passThrough()}`);
 
     expect([...result.buffer()]).toEqual([0xff, 0xfe, 0x00, 0x41, 0x80]);
   }, 20_000);

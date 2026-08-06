@@ -1,6 +1,6 @@
 
 import { globalCache } from '../../../src/utils/cache.js';
-import { cwdOf, tempRoot } from '../../helpers/platform.js';
+import { cwdOf, argEcho, readEnv, runNode, joinArgs, tempRoot } from '../../helpers/platform.js';
 import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 describe('Simplified API', () => {
@@ -39,9 +39,11 @@ describe('Simplified API', () => {
     });
 
     test('should interpolate values in template literals', async () => {
+      // Read back as an argument. cmd's echo prints the quotes, so it
+       // cannot show what the interpolation produced.
       const name = 'USH';
-      const result = await $`echo "Hello ${name}"`;
-      expect(result.stdout.trim()).toBe('Hello USH');
+
+      expect(await argEcho($, `Hello ${name}`)).toBe('Hello USH');
     });
 
     test.skip('should handle command failure', async () => {
@@ -403,12 +405,16 @@ describe('Simplified API', () => {
       const chained = $
         .env({ CHAIN_TEST: 'chained' })
         .timeout(5000)
-        .cd('/tmp');
-      const result = await chained`sh -c "pwd && echo $CHAIN_TEST"`;
-      
-      const lines = result.stdout.trim().split('\n');
-      expect(['/tmp', '/private/tmp']).toContain(lines[0]);
-      expect(lines[1]).toBe('chained');
+        .cd(tempRoot());
+      // Directory and variable read from the runtime: `pwd` is absent from
+      // cmd, `&&` and `$VAR` are POSIX, and none of that is what chaining
+      // is being asked about.
+      const result = await chained`node -e ${joinArgs()} ${'x'}`;
+      const cwd = await cwdOf(chained);
+
+      expect(cwd).toBe(tempRoot());
+      expect(result.exitCode).toBe(0);
+      expect(await runNode(chained, readEnv('CHAIN_TEST'))).toBe('chained');
     });
 
     test('should support within for temporary context', async () => {

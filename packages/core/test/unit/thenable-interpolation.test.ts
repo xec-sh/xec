@@ -1,6 +1,6 @@
 
 import { $ } from '../../src/index.js';
-import { tempRoot } from '../helpers/platform.js';
+import { tempRoot , joinArgs } from '../helpers/platform.js';
 
 describe('Thenable Interpolation', () => {
   // Add a small delay between tests to allow promise microtasks to settle
@@ -72,7 +72,7 @@ describe('Thenable Interpolation', () => {
     const nullPromise = Promise.resolve(null);
     const undefinedPromise = Promise.resolve(undefined);
     
-    const result = await $`node -e 'process.stdout.write(process.argv.slice(1).join("|"))' start ${nullPromise} middle ${undefinedPromise} end`;
+    const result = await $`node -e ${joinArgs()} start ${nullPromise} middle ${undefinedPromise} end`;
     // A nullish value keeps its argument position as an empty token rather
     // than vanishing. Dropping it silently rewrote the command: `chmod 700
     // ${undefined}` became `chmod 700`, which changes meaning instead of
@@ -110,7 +110,7 @@ describe('Thenable Interpolation', () => {
 
   it('should handle complex objects in promises', async () => {
     const objectPromise = Promise.resolve({ foo: 'bar', baz: 123 });
-    const result = await $`node -e 'process.stdout.write(process.argv.slice(1).join("|"))' ${objectPromise}`;
+    const result = await $`node -e ${joinArgs()} ${objectPromise}`;
     
     // Objects should be JSON stringified
     expect(result.stdout.trim()).toBe('{"foo":"bar","baz":123}');

@@ -1,6 +1,6 @@
 import { $ } from '../../src/index.js';
 import { resolveExitCode } from '../../src/core/failure-kind.js';
-import { exitWith, sleepFor, isWindows, itPosixShell } from '../helpers/platform.js';
+import { exitWith, sleepFor, isWindows, nodeCommand, itPosixShell } from '../helpers/platform.js';
 
 /**
  * A process killed by a signal must never look like a success.
@@ -45,7 +45,7 @@ describe('a signalled process reports failure', () => {
       // detail — where the platform has signals at all. Windows terminates
       // the process instead, and reports no signal; inventing one would be
       // a claim the platform cannot back.
-      const running = $.exec(`node -e ${JSON.stringify(sleepFor(5000))}`).nothrow();
+      const running = $.exec(nodeCommand(sleepFor(5000))).nothrow();
       setTimeout(() => running.kill(signal), 150);
 
       const result = await running;
@@ -62,7 +62,7 @@ describe('a signalled process reports failure', () => {
 
   it('leaves ordinary exit codes untouched', async () => {
     for (const code of [0, 1, 3, 42]) {
-      const result = await $.exec(`node -e ${JSON.stringify(exitWith(code))}`).nothrow();
+      const result = await $.exec(nodeCommand(exitWith(code))).nothrow();
       expect(result.exitCode).toBe(code);
       expect(result.ok).toBe(code === 0);
     }

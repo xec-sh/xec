@@ -1,6 +1,6 @@
 
 import { $ } from '../../src/index.js';
-import { readEnv , sleepFor, tempRoot } from '../helpers/platform.js';
+import { emit, readEnv, sleepFor, tempRoot } from '../helpers/platform.js';
 
 describe('Original Issue Verification', () => {
   it('should work with original README example: await $`node -e ${sleepFor(10000)}`.timeout(5000)', async () => {
@@ -57,10 +57,10 @@ describe('Original Issue Verification', () => {
     const text = await $`echo hello`.timeout(1000).text();
     expect(text).toBe('hello');
     
-    const json = await $`echo '{"test": true}'`.timeout(1000).json();
+    const json = await $`node -e ${emit('{"test": true}')}`.timeout(1000).json();
     expect(json).toEqual({ test: true });
     
-    const lines = await $`printf "a\\nb\\nc"`.timeout(1000).lines();
+    const lines = await $`node -e ${emit('a\nb\nc')}`.timeout(1000).lines();
     expect(lines).toEqual(['a', 'b', 'c']);
     
     const buffer = await $`echo test`.timeout(1000).buffer();

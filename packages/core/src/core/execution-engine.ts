@@ -186,6 +186,14 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   private validateConfig(config: ExecutionEngineConfig): ExecutionEngineConfig {
     const validatedConfig = { ...config };
 
+    // `shell` is the spelling a caller writes; `defaultShell` is the one
+    // every consumer of the config reads. `defaults()` already translated
+    // between them and the constructor did not, so `new ExecutionEngine({
+    // shell })` set a field nothing looked at — accepted, and dropped.
+    if (config.shell !== undefined && config.defaultShell === undefined) {
+      validatedConfig.defaultShell = config.shell;
+    }
+
     // Normalize before validating, so a duration string is checked as the
     // number it means rather than compared against zero as a string.
     if (config.defaultTimeout !== undefined) {

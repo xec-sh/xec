@@ -1,5 +1,5 @@
 import { LocalAdapter } from '../../../src/adapters/local/index.js';
-import { emit, exitWith, outlivingWriter } from '../../helpers/platform.js';
+import { emit, exitWith, nodeCommand, outlivingWriter } from '../../helpers/platform.js';
 
 /**
  * The local adapter ended its collecting transforms from the child's `exit`
@@ -30,7 +30,7 @@ describe('local adapter keeps output that arrives after exit', () => {
     // every runtime — the deterministic form of what Deno's scheduling does
     // to any two concurrent commands.
     const result = await adapter.execute({
-      command: `node -e ${JSON.stringify(outlivingWriter('late\n', 200))}`,
+      command: nodeCommand(outlivingWriter('late\n', 200)),
       shell: true,
       timeout: 10_000,
     });
@@ -42,7 +42,7 @@ describe('local adapter keeps output that arrives after exit', () => {
 
   it('keeps late stderr as well', async () => {
     const result = await adapter.execute({
-      command: `node -e ${JSON.stringify(outlivingWriter('grumble\n', 200, 'stderr'))}`,
+      command: nodeCommand(outlivingWriter('grumble\n', 200, 'stderr')),
       shell: true,
       timeout: 10_000,
     });
@@ -55,8 +55,8 @@ describe('local adapter keeps output that arrives after exit', () => {
     // The reported shape of the defect: on Deno the first command never
     // settled, timed out, and under nothrow both came back as exit 1.
     const [ok, bad] = await Promise.all([
-      adapter.execute({ command: `node -e ${JSON.stringify(emit('2\n'))}`, shell: true, timeout: 10_000 }),
-      adapter.execute({ command: `node -e ${JSON.stringify(exitWith(1))}`, shell: true, nothrow: true, timeout: 10_000 }),
+      adapter.execute({ command: nodeCommand(emit('2\n')), shell: true, timeout: 10_000 }),
+      adapter.execute({ command: nodeCommand(exitWith(1)), shell: true, nothrow: true, timeout: 10_000 }),
     ]);
 
     expect(ok.exitCode).toBe(0);

@@ -1,5 +1,6 @@
 import { $ } from '../../../src/index.js';
 import { cwdOf, tempRoot } from '../../helpers/platform.js';
+import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 
 /**
  * `$.with({ defaultCwd })` promises a configured engine whose commands run in
@@ -81,5 +82,22 @@ describe('$ honours a shell configured on the engine', () => {
 
     // Not `true`, which would let the adapter pick the host's own.
     expect(result.command).toContain('^"');
+  });
+});
+
+describe('the engine config spells the shell either way', () => {
+  it('takes `shell` at construction, as `defaults()` always did', async () => {
+    // `shell` was accepted by the type and read by nothing: every consumer
+    // looks at `defaultShell`, and only `defaults()` translated between
+    // them. So `new ExecutionEngine({ shell })` configured nothing.
+    const engine = new ExecutionEngine({ shell: 'cmd.exe' });
+
+    expect((await engine.tag`echo ${'a b'}`.nothrow()).command).toBe('echo ^"a^ b^"');
+  });
+
+  it('keeps it across with()', async () => {
+    const derived = new ExecutionEngine({ shell: 'cmd.exe' }).with({ timeout: 5000 });
+
+    expect((await derived.tag`echo ${'a b'}`.nothrow()).command).toBe('echo ^"a^ b^"');
   });
 });

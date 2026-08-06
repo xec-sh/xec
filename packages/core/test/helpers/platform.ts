@@ -1,6 +1,8 @@
 import { tmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
 
+import { dialectFor, quoteForShell } from '../../src/utils/shell-escape.js';
+
 /**
  * What differs between platforms, in the places tests actually touch it.
  *
@@ -21,6 +23,18 @@ export const isWindows = process.platform === 'win32';
  * three platforms it runs on.
  */
 export const tempRoot = (): string => realpathSync(tmpdir());
+
+/**
+ * A whole `node -e` command line, quoted for the shell that will read it.
+ *
+ * For the places that need a string rather than a template — `$.exec`, a
+ * pipe target, an adapter call. `JSON.stringify` is not the same thing and
+ * only looks like it: POSIX collapses the doubled backslashes it produces,
+ * so `"a\\nb"` arrives as a newline there and as two literal characters
+ * under cmd.
+ */
+export const nodeCommand = (body: string): string =>
+  `node -e ${quoteForShell(body, dialectFor(undefined))}`;
 
 /**
  * Anything that runs a template, which is every engine shape in this suite.
@@ -90,6 +104,20 @@ export const sleepFor = (ms: number): string => `setTimeout(()=>{},${Math.round(
  */
 export const emit = (text: string): string =>
   `process.stdout.write(${JSON.stringify(text)})`;
+
+/**
+ * A body for `node -e` that joins its arguments with a pipe.
+ *
+ * For asserting what several interpolated values arrived as, including
+ * empty ones — two empty argv entries are evidence a nullish value kept
+ * its position, where two runs of whitespace could be one collapsed word.
+ *
+ * Interpolate it: `` $`node -e ${joinArgs()} ${a} ${b}` ``. Written as
+ * static text in the template its own quotes would reach cmd, which does
+ * not strip them.
+ */
+export const joinArgs = (): string =>
+  'process.stdout.write(process.argv.slice(1).join("|"))';
 
 /** A body for `node -e` that writes `text` to stderr. */
 export const emitErr = (text: string): string =>

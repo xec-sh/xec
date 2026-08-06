@@ -1,6 +1,6 @@
 
 import { $ } from '../../src/index.js';
-import { argEcho, readEnv, tempRoot } from '../helpers/platform.js';
+import { argEcho, readEnv, joinArgs, tempRoot } from '../helpers/platform.js';
 
 const emit_cwd = 'process.stdout.write(process.cwd())';
 
@@ -68,7 +68,7 @@ describe('Additional README Examples', () => {
 
   it('should work with object interpolation', async () => {
     const config = { name: 'app', port: 3000 };
-    const result = await $`node -e 'process.stdout.write(process.argv.slice(1).join("|"))' ${config}`;
+    const result = await $`node -e ${joinArgs()} ${config}`;
 
     expect(result.stdout.trim()).toBe('{"name":"app","port":3000}');
   });

@@ -1,9 +1,11 @@
 import { Server } from 'ssh2';
 import invariant from 'assert';
+import { tmpdir } from 'node:os';
 import { readFileSync } from 'node:fs';
+import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
-import { join, dirname } from 'node:path';
+import { sep, join, dirname } from 'node:path';
 
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import createServer, { hasPosixShell } from './ssh-server.js';
@@ -15,7 +17,10 @@ const __filename = fileURLToPath(import.meta.url);
 let ports = 8876;
 
 function getFixturePath(fixturePath: string): string {
-  return join(__dirname, 'fixtures', fixturePath);
+  // Forward slashes: the path is embedded in a command line the remote
+  // shell parses, and a POSIX shell reads `\a` in `D:\a\xec` as an escape.
+  // Node accepts either spelling on Windows.
+  return join(__dirname, 'fixtures', fixturePath).split(sep).join('/');
 }
 
 function createSSHTest(
@@ -154,11 +159,16 @@ describe('SSH Node Tests', () => {
 
   createSSHTest('throws error when it cant create directories', async (port, client) => {
     await connectWithPassword(port, client);
+    // A directory under a *file*, which is the error being asked about.
+    // `/etc/passwd` supplied one only where it exists.
+    const blocker = join(await fs.mkdtemp(join(tmpdir(), 'xec-ssh-')), 'a-file');
+    await fs.writeFile(blocker, '');
+
     try {
-      await client.mkdir('/etc/passwd/asdasdasd');
+      await client.mkdir(join(blocker, 'asdasdasd'));
       expect(false).toBe(true);
     } catch (_: any) {
-      expect(_.message.indexOf('ENOTDIR: not a directory') !== -1).toBe(true);
+      expect(_.message).toMatch(/ENOTDIR|not a directory/i);
     }
   });
 

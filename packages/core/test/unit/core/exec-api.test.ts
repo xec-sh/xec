@@ -1,4 +1,4 @@
-import { exitWith, tempRoot } from '../../helpers/platform.js';
+import { exitWith, tempRoot, nodeCommand } from '../../helpers/platform.js';
 import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 /**
@@ -36,7 +36,7 @@ describe('$.exec', () => {
     // Asked of the runtime, not of `pwd`: cmd has no such command, and
     // Git Bash answers `/d/tmp` for `D:\tmp` — a third spelling matching
     // neither the request nor the platform.
-    const result = await $.exec(`node -e ${JSON.stringify(emit_cwd)}`, { cwd: tempRoot() });
+    const result = await $.exec(nodeCommand(emit_cwd), { cwd: tempRoot() });
     expect(result.stdout.trim()).toBe(tempRoot());
   });
 
@@ -45,12 +45,12 @@ describe('$.exec', () => {
     // reference is `$VAR` in POSIX and `%VAR%` in cmd, and the question is
     // whether the variable arrives, not how a shell spells it.
     const script = 'process.stdout.write(process.env.XEC_EXEC_TEST ?? "")';
-    const result = await $.exec(`node -e ${JSON.stringify(script)}`, { env: { XEC_EXEC_TEST: 'present' } });
+    const result = await $.exec(nodeCommand(script), { env: { XEC_EXEC_TEST: 'present' } });
     expect(result.stdout.trim()).toBe('present');
   });
 
   it('throws on a non-zero exit by default', async () => {
-    await expect($.exec(`node -e ${JSON.stringify(exitWith(1))}`)).rejects.toThrow();
+    await expect($.exec(nodeCommand(exitWith(1)))).rejects.toThrow();
   });
 
   it('passes the command through verbatim rather than re-quoting it', async () => {

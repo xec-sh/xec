@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
 import { $ } from '../../../src/index.js';
-import { emit } from '../../helpers/platform.js';
+import { emit, nodeCommand } from '../../helpers/platform.js';
 
 /**
  * `.buffer()` must return what the command wrote.
@@ -18,13 +18,13 @@ describe('binary output survives intact', () => {
 
   it('returns the exact bytes the command wrote', async () => {
     const expected = execFileSync('node', ['-e', BINARY_SCRIPT]);
-    const result = await $.exec(`node -e ${JSON.stringify(BINARY_SCRIPT)}`).nothrow();
+    const result = await $.exec(nodeCommand(BINARY_SCRIPT)).nothrow();
 
     expect(Buffer.compare(result.buffer(), expected)).toBe(0);
   }, 20_000);
 
   it('does not silently grow the output', async () => {
-    const result = await $.exec(`node -e ${JSON.stringify(BINARY_SCRIPT)}`).nothrow();
+    const result = await $.exec(nodeCommand(BINARY_SCRIPT)).nothrow();
 
     // The replacement-character round-trip turned 6 bytes into 14.
     expect(result.buffer()).toHaveLength(6);
@@ -33,7 +33,7 @@ describe('binary output survives intact', () => {
   it('round-trips a longer binary payload', async () => {
     const script = 'process.stdout.write(Buffer.from(Array.from({length: 4096}, (_, i) => i % 256)))';
     const expected = execFileSync('node', ['-e', script]);
-    const result = await $.exec(`node -e ${JSON.stringify(script)}`).nothrow();
+    const result = await $.exec(nodeCommand(script)).nothrow();
 
     expect(Buffer.compare(result.buffer(), expected)).toBe(0);
   }, 20_000);

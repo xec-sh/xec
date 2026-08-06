@@ -27,19 +27,24 @@ import { realpathSync } from 'node:fs';
 // and \`echo "x"\` answers differently there — none of which is what this
 // file asks about. The seams it does ask about — spawn, timers, concurrency,
 // stream decoding — are the same everywhere.
-const node = (body) => 'node -e ' + JSON.stringify(body);
+//
+// The body is interpolated so the library quotes it for the shell in play.
+// \`JSON.stringify\` only looks like the same thing: POSIX collapses the
+// doubled backslashes it produces and cmd does not, so \`"a\\\\nb"\` is a
+// newline on one and two literal characters on the other.
+const node = (body) => $\`node -e \${body}\`;
 
 const out = [];
-out.push('exec=' + (await $.exec(node('process.stdout.write("hello")'))).stdout.trim());
+out.push('exec=' + (await node('process.stdout.write("hello")')).stdout.trim());
 out.push('interp=' + (await $\`node -e \${'process.stdout.write(process.argv[1])'} \${'a b;x'}\`).stdout.trim());
-out.push('nothrow=' + (await $.exec(node('process.exit(3)')).nothrow()).exitCode);
-out.push('timeout=' + await $.exec(node('setTimeout(()=>{},5000)')).timeout('150ms').then(() => 'no', () => 'threw'));
+out.push('nothrow=' + (await node('process.exit(3)').nothrow()).exitCode);
+out.push('timeout=' + await node('setTimeout(()=>{},5000)').timeout('150ms').then(() => 'no', () => 'threw'));
 out.push('within=' + await within(realpathSync(tmpdir()), async () =>
-  (await $.exec(node('process.stdout.write(process.cwd())'))).stdout.trim() !== ''));
-const lines = []; for await (const l of $.exec(node('process.stdout.write("x\\\\ny\\\\n")'))) lines.push(l.trim());
+  (await node('process.stdout.write(process.cwd())')).stdout.trim() !== ''));
+const lines = []; for await (const l of node('process.stdout.write("x\\\\ny\\\\n")')) lines.push(l.trim());
 out.push('stream=' + lines.join(','));
-out.push('buffer=' + (await $.exec(node('process.stdout.write("ab")'))).buffer().length);
-const p = await parallel([$.exec(node('process.exit(0)')).nothrow(), $.exec(node('process.exit(1)')).nothrow()], { maxConcurrent: 2 });
+out.push('buffer=' + (await node('process.stdout.write("ab")')).buffer().length);
+const p = await parallel([node('process.exit(0)').nothrow(), node('process.exit(1)').nothrow()], { maxConcurrent: 2 });
 out.push('parallel=' + p.succeeded.length + '/' + p.failed.length);
 console.log(out.join('|'));
 `;
