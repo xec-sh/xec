@@ -31,6 +31,16 @@ interface ProcessResult {
   signal: string | null;
 }
 
+/**
+ * Whether this value is the current process's own standard input.
+ *
+ * `process.stdin` is a Readable like any other, so a structural check is not
+ * enough — identity is the question being asked.
+ */
+function isProcessStdin(stdin: Command['stdin']): boolean {
+  return stdin === process.stdin;
+}
+
 export class LocalAdapter extends BaseAdapter {
   protected readonly adapterName = 'local';
   private localConfig: LocalAdapterConfig;
@@ -292,8 +302,9 @@ export class LocalAdapter extends BaseAdapter {
       kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminate(child, signal),
     });
 
-    // Handle stdin
-    if (command.stdin) {
+    // Handle stdin. Nothing to forward when the descriptor was inherited —
+    // the child is reading it directly, and `child.stdin` is null.
+    if (command.stdin && !isProcessStdin(command.stdin)) {
       this.absorbStdinErrors(child.stdin);
       if (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin)) {
         child.stdin?.write(command.stdin);
@@ -605,7 +616,15 @@ export class LocalAdapter extends BaseAdapter {
 
     // Handle stdio - convert Stream objects to 'pipe' for spawn
     options.stdio = [
-      command.stdin ? 'pipe' : 'ignore',
+      // `process.stdin` means the caller wants the child to have *this*
+      // process's standard input, and the faithful way to give it is to
+      // inherit the descriptor. Piping a copy loses what makes a terminal a
+      // terminal — `isTTY`, raw mode, echo control, the signal keys — so
+      // `.interactive()`, whose whole purpose is handing a command the
+      // terminal, handed it a pipe instead. `npm login` and every other
+      // program that prompts then waited forever on input that a parent
+      // busy with its own prompt was never going to forward.
+      isProcessStdin(command.stdin) ? 'inherit' : command.stdin ? 'pipe' : 'ignore',
       (typeof command.stdout === 'string' ? command.stdout : 'pipe') || 'pipe',
       (typeof command.stderr === 'string' ? command.stderr : 'pipe') || 'pipe'
     ];
@@ -615,6 +634,7 @@ export class LocalAdapter extends BaseAdapter {
 
   private mapBunStdin(stdin: Command['stdin']): any {
     if (!stdin) return 'ignore';
+    if (isProcessStdin(stdin)) return 'inherit';
     if (stdin instanceof Readable) return stdin;
     if (typeof stdin === 'string' || Buffer.isBuffer(stdin)) return 'pipe';
     return 'ignore';

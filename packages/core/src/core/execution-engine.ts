@@ -653,10 +653,30 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   }
 
   // Enhanced retry method
+  /**
+   * A copy of this engine whose behaviour can be overridden.
+   *
+   * The process builder captures the engine it was constructed for, and
+   * `Object.create` inherits the original's — so on a derived engine the
+   * template path runs the *original's* `execute`, and any override or
+   * configuration set on the copy is silently ignored. `retry()` rebound
+   * the builder by hand and worked; `interactive()` did not and did
+   * nothing at all, which is how `$.interactive()` handed `npm login` a
+   * pipe instead of the terminal and hung the release.
+   *
+   * Derivation goes through here so there is nothing left to remember.
+   */
+  private derive(): ExecutionEngine {
+    const derived: ExecutionEngine = Object.create(this);
+    (derived as unknown as { processBuilder: ProcessPromiseBuilder }).processBuilder =
+      new ProcessPromiseBuilder(derived);
+    return derived;
+  }
+
   retry(options: RetryOptions = {}): ExecutionEngine {
     const originalExecute = this.execute.bind(this);
 
-    const newEngine = Object.create(this);
+    const newEngine = this.derive();
     newEngine.execute = async (cmd: Command): Promise<ExecutionResult> => {
       // Merge command retry options with method options
       const retryOptions = { ...options, ...cmd.retry };
@@ -675,10 +695,6 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         throw error;
       }
     };
-
-    // Create a new ProcessPromiseBuilder that references the new engine
-    // This ensures that when template literals are used, they call the modified execute
-    newEngine.processBuilder = new ProcessPromiseBuilder(newEngine);
 
     return newEngine;
   }
@@ -773,17 +789,23 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     }
   }
 
-  // Enhanced interactive method  
+  /**
+   * Hand the command this process's terminal.
+   *
+   * All three streams are inherited, so the child sees a real terminal:
+   * `isTTY`, raw mode, echo control and the signal keys. Anything that
+   * prompts — `npm login`, `ssh` asking for a passphrase, an editor —
+   * needs that, and gets nothing useful from a piped copy.
+   *
+   * Output is therefore not captured: `result.stdout` is empty, because
+   * the bytes went to the terminal.
+   */
   interactive(): ExecutionEngine {
-    const newEngine = Object.create(this);
-    // Apply interactive configuration
-    newEngine.currentConfig = {
-      ...this.currentConfig,
+    return this.with({
       stdout: 'inherit',
       stderr: 'inherit',
-      stdin: process.stdin
-    };
-    return newEngine;
+      stdin: process.stdin,
+    });
   }
 
   // Enhanced spinner method
