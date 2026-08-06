@@ -288,13 +288,21 @@ export class ParallelEngine {
     const isProcessPromise = (obj: any): obj is ProcessPromise =>
       obj && typeof obj.then === 'function' && 'pipe' in obj && 'nothrow' in obj;
 
+    // Success is the same rule the rest of this file uses: a zero exit and
+    // no signal. Treating any resolved execution as success — which is what
+    // this did — answered `true` for a batch where every command had failed,
+    // whenever the engine reports a failure by resolving rather than
+    // throwing: `nothrow`, a mock, an adapter with throwOnNonZeroExit off.
+    const succeeded = (result: ExecutionResult): boolean =>
+      result.ok ?? (result.exitCode === 0 && !result.signal);
+
     const promises = commands.map(cmd => {
       if (isProcessPromise(cmd)) {
-        return cmd.then(() => true).catch(() => false);
+        return cmd.then(succeeded).catch(() => false);
       }
       const normalizedCmd = typeof cmd === 'string' ? { command: cmd } : cmd;
       return this.engine.execute(normalizedCmd)
-        .then(() => true)
+        .then(succeeded)
         .catch(() => false);
     });
 

@@ -38,9 +38,14 @@ const DURATION_UNITS: Record<string, number> = {
 export function parseDuration(duration: Duration): number {
   if (typeof duration === 'number') return duration;
 
-  const match = duration.trim().match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)$/);
+  const trimmed = duration.trim();
+
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)$/);
   if (!match) {
-    const num = Number(duration);
+    // `Number('')` is 0, so an empty string used to mean "no delay" — a
+    // silent zero where the caller had meant to compute something and
+    // produced nothing.
+    const num = trimmed.length > 0 ? Number(trimmed) : Number.NaN;
     if (!Number.isNaN(num)) return num;
     throw new Error(`Invalid duration: "${duration}". Use number (ms) or string like "5s", "100ms", "2m".`);
   }
