@@ -1,20 +1,22 @@
 
 import { $ } from '../../src/index.js';
+import { readEnv, tempRoot } from '../helpers/platform.js';
+
+const emit_cwd = 'process.stdout.write(process.cwd())';
 
 describe('Additional README Examples', () => {
   it('should work with cwd() method', async () => {
-    const result = await $`pwd`.cwd('/tmp');
-    // On macOS, /tmp is a symlink to /private/tmp
-    expect(result.stdout.trim()).toMatch(/\/tmp$/);
+    const result = await $`node -e ${emit_cwd}`.cwd(tempRoot());
+    expect(result.stdout.trim()).toBe(tempRoot());
   });
 
   it('should work with env() method', async () => {
-    const result = await $`echo $TEST_VAR`.env({ TEST_VAR: 'hello' });
+    const result = await $`node -e ${readEnv('TEST_VAR')}`.env({ TEST_VAR: 'hello' });
     expect(result.stdout.trim()).toBe('hello');
   });
 
   it('should work with method chaining cwd and env', async () => {
-    const result = await $`echo $TEST_VAR`.cwd('/tmp').env({ TEST_VAR: 'world' });
+    const result = await $`node -e ${readEnv('TEST_VAR')}`.cwd(tempRoot()).env({ TEST_VAR: 'world' });
     expect(result.stdout.trim()).toBe('world');
   });
 
@@ -69,15 +71,14 @@ describe('Additional README Examples', () => {
   });
 
   it('should work with command chaining on $ object', async () => {
-    const $tmp = $.cd('/tmp');
-    const result = await $tmp`pwd`;
-    // On macOS, /tmp is a symlink to /private/tmp
-    expect(result.stdout.trim()).toMatch(/\/tmp$/);
+    const $tmp = $.cd(tempRoot());
+    const result = await $tmp`node -e ${emit_cwd}`;
+    expect(result.stdout.trim()).toBe(tempRoot());
   });
 
   it('should work with environment variable chaining on $ object', async () => {
     const $prod = $.env({ NODE_ENV: 'production' });
-    const result = await $prod`echo $NODE_ENV`;
+    const result = await $prod`node -e ${readEnv('NODE_ENV')}`;
     expect(result.stdout.trim()).toBe('production');
   });
 
@@ -88,7 +89,7 @@ describe('Additional README Examples', () => {
   });
 
   it('should work with complex chaining', async () => {
-    const result = await $.cd('/tmp').env({ TEST: 'value' }).timeout(1000)`echo $TEST`;
+    const result = await $.cd(tempRoot()).env({ TEST: 'value' }).timeout(1000)`echo $TEST`;
     expect(result.stdout.trim()).toBe('value');
   });
 

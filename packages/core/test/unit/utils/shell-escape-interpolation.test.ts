@@ -1,5 +1,5 @@
 
-import { interpolate, interpolateForShell } from '../../../src/utils/shell-escape.js';
+import { interpolateForShell } from '../../../src/utils/shell-escape.js';
 
 // Helper function to create a TemplateStringsArray
 function createTemplateStringsArray(strings: string[]): TemplateStringsArray {

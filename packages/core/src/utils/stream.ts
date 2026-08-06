@@ -6,8 +6,8 @@ import { createWriteStream } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
 import { Readable, Writable, Transform, PassThrough } from 'node:stream';
 
-import { MaxBufferExceededError } from '../core/error.js';
 import { splitLines } from './line-split.js';
+import { MaxBufferExceededError } from '../core/error.js';
 
 // Core StreamHandler functionality (previously in core/stream-handler.ts)
 export interface StreamHandlerOptions {

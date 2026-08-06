@@ -1,5 +1,5 @@
 
-import { interpolate } from '../../src/utils/shell-escape.js';
+import { interpolateForShell } from '../../src/utils/shell-escape.js';
 
 // Helper function to create a TemplateStringsArray
 function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
@@ -8,11 +8,17 @@ function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
   return template;
 }
 
+/**
+ * The README is written in POSIX spelling, so these pin that dialect. What a
+ * value looks like once quoted is the shell's rule, not the library's, and a
+ * doc example asserted against the host's shell would answer differently on
+ * each platform while the documentation said one thing.
+ */
 describe('README Examples', () => {
   it('should handle the README object example correctly', () => {
     // This is the exact example from the README
     const config = { name: 'app', port: 3000 };
-    const result = interpolate(createTemplateStringsArray(['echo ', ' > config.json']), config);
+    const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', ' > config.json']), config);
     
     // The expected result should be the JSON stringified object
     expect(result).toBe('echo \'{"name":"app","port":3000}\' > config.json');
@@ -21,31 +27,31 @@ describe('README Examples', () => {
   it('should handle various examples from the README', () => {
     // Test filename escaping
     const filename = "my file.txt";
-    const result1 = interpolate(createTemplateStringsArray(['touch ', '']), filename);
+    const result1 = interpolateForShell('posix', createTemplateStringsArray(['touch ', '']), filename);
     expect(result1).toBe('touch \'my file.txt\'');
 
     // Array elements are escaped individually. Plain filenames contain no
     // shell metacharacters, so they are emitted unquoted — quoting them would
     // only make logged commands harder to read.
     const files = ['file1.txt', 'file2.txt', 'file3.txt'];
-    const result2 = interpolate(createTemplateStringsArray(['rm ', '']), files);
+    const result2 = interpolateForShell('posix', createTemplateStringsArray(['rm ', '']), files);
     expect(result2).toBe('rm file1.txt file2.txt file3.txt');
 
     // Anything with a metacharacter still gets quoted.
     const risky = ['a b.txt', '$(id)'];
-    const result2b = interpolate(createTemplateStringsArray(['rm ', '']), risky);
+    const result2b = interpolateForShell('posix', createTemplateStringsArray(['rm ', '']), risky);
     expect(result2b).toBe(`rm 'a b.txt' '$(id)'`);
 
     // Test mixed types
     const mixed = ['hello', 42, true, { key: 'value' }];
-    const result3 = interpolate(createTemplateStringsArray(['echo ', '']), mixed);
+    const result3 = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), mixed);
     expect(result3).toBe('echo hello 42 true \'{"key":"value"}\'');
   });
 
   it('should handle environment variable example', () => {
     // Environment variables are typically strings, but let's test an object
     const env = { NODE_ENV: 'production', PORT: '3000' };
-    const result = interpolate(createTemplateStringsArray(['export CONFIG=', '']), env);
+    const result = interpolateForShell('posix', createTemplateStringsArray(['export CONFIG=', '']), env);
     expect(result).toBe('export CONFIG=\'{"NODE_ENV":"production","PORT":"3000"}\'');
   });
 
@@ -61,7 +67,7 @@ describe('README Examples', () => {
       }
     };
     
-    const result = interpolate(createTemplateStringsArray(['echo ', ' > db-config.json']), dbConfig);
+    const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', ' > db-config.json']), dbConfig);
     const expected = 'echo \'{"host":"localhost","port":5432,"database":"myapp","options":{"ssl":false,"poolSize":10}}\' > db-config.json';
     expect(result).toBe(expected);
   });

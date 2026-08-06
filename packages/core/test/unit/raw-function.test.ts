@@ -1,5 +1,6 @@
 
 import { $ } from '../../src/index.js';
+import { describePosixShell } from '../helpers/platform.js';
 import { interpolateRaw } from '../../src/utils/shell-escape.js';
 
 // Helper function to create a TemplateStringsArray
@@ -127,7 +128,27 @@ describe('Raw function', () => {
     expect(result).toMatch(/echo \[object Object\]/);
   });
 
-  describe('Integration with $.raw', () => {
+  describe('what raw does to the command, on any shell', () => {
+    // The property `.raw` exists for, stated without asking a shell to
+    // demonstrate it: the value reaches the command line untouched, where
+    // the ordinary tag would have quoted it.
+    it('leaves the value exactly as written', async () => {
+      const value = 'a b';
+
+      expect((await $.raw`echo ${value}`.nothrow()).command).toBe('echo a b');
+      expect((await $`echo ${value}`.nothrow()).command).not.toBe('echo a b');
+    });
+
+    it('leaves shell syntax intact', async () => {
+      expect((await $.raw`${'echo hi'}`.nothrow()).command).toBe('echo hi');
+    });
+  });
+
+  // Everything below is about what a POSIX shell then does with that text —
+  // `$HOME` expansion, `&&` chaining, single quotes suppressing expansion,
+  // glob expansion. cmd.exe has none of it, and no amount of escaping on
+  // our side would give it any.
+  describePosixShell('Integration with $.raw', () => {
     it('should not escape special characters in interpolation', async () => {
       // Note: shell will still process glob patterns
       // This test verifies that .raw doesn't add extra escaping

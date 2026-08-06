@@ -4,12 +4,12 @@ import { spawn } from 'node:child_process';
 import { findDockerPath } from './docker-utils.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { parseDuration } from '../../utils/helpers.js';
+import { splitLines } from '../../utils/line-split.js';
 import { killProcessTree } from '../../utils/process-tree.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
 import { DockerError, AdapterError, TimeoutError, sanitizeCommandForError } from '../../core/error.js';
-import { splitLines } from '../../utils/line-split.js';
 
 export interface DockerAutoCreateOptions {
   enabled: boolean;

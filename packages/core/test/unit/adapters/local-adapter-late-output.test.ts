@@ -1,4 +1,5 @@
 import { LocalAdapter } from '../../../src/adapters/local/index.js';
+import { emit, exitWith, outlivingWriter } from '../../helpers/platform.js';
 
 /**
  * The local adapter ended its collecting transforms from the child's `exit`
@@ -24,12 +25,12 @@ describe('local adapter keeps output that arrives after exit', () => {
   });
 
   it('delivers output written by a survivor of the exited shell', async () => {
-    // The shell exits immediately; the backgrounded subshell inherits stdout
-    // and writes 200ms later. `exit` therefore always precedes the data, on
+    // The command exits immediately; a detached child inherits stdout and
+    // writes 200ms later. `exit` therefore always precedes the data, on
     // every runtime — the deterministic form of what Deno's scheduling does
     // to any two concurrent commands.
     const result = await adapter.execute({
-      command: '( sleep 0.2; echo late ) & exit 0',
+      command: `node -e ${JSON.stringify(outlivingWriter('late\n', 200))}`,
       shell: true,
       timeout: 10_000,
     });
@@ -41,7 +42,7 @@ describe('local adapter keeps output that arrives after exit', () => {
 
   it('keeps late stderr as well', async () => {
     const result = await adapter.execute({
-      command: '( sleep 0.2; echo grumble >&2 ) & exit 0',
+      command: `node -e ${JSON.stringify(outlivingWriter('grumble\n', 200, 'stderr'))}`,
       shell: true,
       timeout: 10_000,
     });
@@ -54,8 +55,8 @@ describe('local adapter keeps output that arrives after exit', () => {
     // The reported shape of the defect: on Deno the first command never
     // settled, timed out, and under nothrow both came back as exit 1.
     const [ok, bad] = await Promise.all([
-      adapter.execute({ command: 'echo 2', shell: true, timeout: 10_000 }),
-      adapter.execute({ command: 'exit 1', shell: true, nothrow: true, timeout: 10_000 }),
+      adapter.execute({ command: `node -e ${JSON.stringify(emit('2\n'))}`, shell: true, timeout: 10_000 }),
+      adapter.execute({ command: `node -e ${JSON.stringify(exitWith(1))}`, shell: true, nothrow: true, timeout: 10_000 }),
     ]);
 
     expect(ok.exitCode).toBe(0);

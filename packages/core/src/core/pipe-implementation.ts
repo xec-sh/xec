@@ -6,8 +6,8 @@ import type { PipeTarget, PipeOptions, ProcessPromise } from '../types/process.j
 import { promisify } from 'node:util';
 import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
-import { PIPE_TARGET, type ProcessContext } from './process-context.js';
 import { splitLines } from '../utils/line-split.js';
+import { PIPE_TARGET, type ProcessContext } from './process-context.js';
 import { dialectFor, interpolateForShell } from '../utils/shell-escape.js';
 
 export type { PipeTarget, PipeOptions } from '../types/process.js';

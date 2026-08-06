@@ -1,9 +1,9 @@
 import { rmSync, mkdirSync, existsSync } from 'node:fs';
 
 import { $ } from '../../../src/index.js';
+import { argEcho } from '../../helpers/platform.js';
 import * as shellEscape from '../../../src/utils/shell-escape.js';
 import { withTempDir, withTempFile } from '../../../src/utils/temp.js';
-import { argEcho } from '../../helpers/platform.js';
 
 describe('Security Test Suite', () => {
   beforeEach(() => {

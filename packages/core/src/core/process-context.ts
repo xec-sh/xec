@@ -9,10 +9,10 @@ import { Writable, PassThrough } from 'node:stream';
 
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
+import { splitLines } from '../utils/line-split.js';
 import { executePipe } from './pipe-implementation.js';
 import { captureCallSite } from '../utils/call-site.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
-import { splitLines } from '../utils/line-split.js';
 
 /** Branded symbol for xec promise identification — shared across modules */
 const XEC_PROMISE_BRAND = Symbol.for('xec:promise');

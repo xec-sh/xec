@@ -1,6 +1,6 @@
 import { $ } from '../../src/index.js';
 import { resolveExitCode } from '../../src/core/failure-kind.js';
-import { isWindows, exitWith, sleepFor, itPosixShell } from '../helpers/platform.js';
+import { exitWith, sleepFor, isWindows, itPosixShell } from '../helpers/platform.js';
 
 /**
  * A process killed by a signal must never look like a success.

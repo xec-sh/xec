@@ -4,7 +4,6 @@ import {
   escapeArg,
   dialectFor,
   escapeUnix,
-  interpolate,
   escapeCommand,
   quoteForShell,
   interpolateRaw,

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
-import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
 
 const run = promisify(execFile);
 

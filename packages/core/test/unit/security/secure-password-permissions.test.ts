@@ -1,12 +1,18 @@
 import { stat } from 'node:fs/promises';
 
+import { itPosixShell } from '../../helpers/platform.js';
+
 describe('SecurePasswordHandler askpass script permissions', () => {
   afterEach(() => {
     vi.resetModules();
     vi.doUnmock('node:fs/promises');
   });
 
-  it('creates the password script owner-only rather than chmod-ing it afterwards', async () => {
+  // POSIX mode bits, which Windows does not have: `chmod` there is a no-op
+  // and the mode reads back as whatever the filesystem reports. The window
+  // this guards against — a plaintext password world-readable between two
+  // syscalls — is a POSIX filesystem's window.
+  itPosixShell('creates the password script owner-only rather than chmod-ing it afterwards', async () => {
     // Suppress the real chmod so the assertion sees the mode the askpass file
     // was CREATED with, isolating it from the later chmod that narrows it. The
     // defect was that creation used writeFile's default (world-readable) mode

@@ -19,17 +19,27 @@ const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../d
  */
 const PROBE = `
 import { $, parallel, within } from ${JSON.stringify(DIST)};
+import { tmpdir } from 'node:os';
+import { realpathSync } from 'node:fs';
+
+// Everything here goes through the runtime rather than through a shell's
+// vocabulary. \`sh\`, \`sleep\`, \`printf\` and \`/tmp\` do not exist on Windows,
+// and \`echo "x"\` answers differently there — none of which is what this
+// file asks about. The seams it does ask about — spawn, timers, concurrency,
+// stream decoding — are the same everywhere.
+const node = (body) => 'node -e ' + JSON.stringify(body);
 
 const out = [];
-out.push('exec=' + (await $\`echo hello\`).stdout.trim());
-out.push('interp=' + (await $\`echo \${'a b;x'}\`).stdout.trim());
-out.push('nothrow=' + (await $\`sh -c 'exit 3'\`.nothrow()).exitCode);
-out.push('timeout=' + await $\`sleep 5\`.timeout('150ms').then(() => 'no', () => 'threw'));
-out.push('within=' + await within('/tmp', async () => (await $\`pwd\`).stdout.trim() !== ''));
-const lines = []; for await (const l of $\`printf 'x\\ny\\n'\`) lines.push(l.trim());
+out.push('exec=' + (await $.exec(node('process.stdout.write("hello")'))).stdout.trim());
+out.push('interp=' + (await $\`node -e \${'process.stdout.write(process.argv[1])'} \${'a b;x'}\`).stdout.trim());
+out.push('nothrow=' + (await $.exec(node('process.exit(3)')).nothrow()).exitCode);
+out.push('timeout=' + await $.exec(node('setTimeout(()=>{},5000)')).timeout('150ms').then(() => 'no', () => 'threw'));
+out.push('within=' + await within(realpathSync(tmpdir()), async () =>
+  (await $.exec(node('process.stdout.write(process.cwd())'))).stdout.trim() !== ''));
+const lines = []; for await (const l of $.exec(node('process.stdout.write("x\\\\ny\\\\n")'))) lines.push(l.trim());
 out.push('stream=' + lines.join(','));
-out.push('buffer=' + (await $\`printf 'ab'\`).buffer().length);
-const p = await parallel([$\`echo 1\`.nothrow(), $\`sh -c 'exit 1'\`.nothrow()], { maxConcurrent: 2 });
+out.push('buffer=' + (await $.exec(node('process.stdout.write("ab")'))).buffer().length);
+const p = await parallel([$.exec(node('process.exit(0)')).nothrow(), $.exec(node('process.exit(1)')).nothrow()], { maxConcurrent: 2 });
 out.push('parallel=' + p.succeeded.length + '/' + p.failed.length);
 console.log(out.join('|'));
 `;
@@ -37,7 +47,12 @@ console.log(out.join('|'));
 /** Where each runtime lives, or null when it is not installed here. */
 function find(binary: string): string | null {
   try {
-    return execFileSync('which', [binary], { encoding: 'utf8' }).trim() || null;
+    // `where` on Windows, and only the first line of it: `which` there is
+    // Git Bash's, and answers `/c/Users/...` — a path no native spawn can
+    // use.
+    const finder = process.platform === 'win32' ? 'where' : 'which';
+    const found = execFileSync(finder, [binary], { encoding: 'utf8' }).split(/\r?\n/)[0]?.trim();
+    return found || null;
   } catch {
     return null;
   }

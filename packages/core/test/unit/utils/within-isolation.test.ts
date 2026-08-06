@@ -1,5 +1,5 @@
-import { $, within, withinSync } from '../../../src/index.js';
 import { cwdOf, tempRoot } from '../../helpers/platform.js';
+import { $, within, withinSync } from '../../../src/index.js';
 
 /**
  * `within()` promises that configuration changed inside it stays inside.

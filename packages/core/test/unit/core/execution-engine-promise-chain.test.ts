@@ -8,7 +8,11 @@ describe('ExecutionEngine - Promise Chain Handling', () => {
   function createTestSetup() {
     const engine = new ExecutionEngine({
       defaultTimeout: 5000,
-      throwOnNonZeroExit: true
+      throwOnNonZeroExit: true,
+      // The mock expectations below are written as `sh -c "…"`. Naming the
+      // shell keeps them true wherever this runs; without it the host
+      // decides, and on Windows nothing matches.
+      shell: 'sh'
     });
     const mockAdapter = new MockAdapter();
     mockAdapter.mockDefault({ stdout: '', stderr: '', exitCode: 0 });

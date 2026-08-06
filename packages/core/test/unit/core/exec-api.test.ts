@@ -1,3 +1,4 @@
+import { exitWith, tempRoot } from '../../helpers/platform.js';
 import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 /**
@@ -6,6 +7,8 @@ import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
  * promise with no `.nothrow()`, `.quiet()` or `.pipe()`, and the template tag
  * corrupts a string handed to it directly. `exec()` is the first-class path.
  */
+const emit_cwd = 'process.stdout.write(process.cwd())';
+
 describe('$.exec', () => {
   const engine = new ExecutionEngine();
   const $ = createCallableEngine(engine);
@@ -30,18 +33,24 @@ describe('$.exec', () => {
   });
 
   it('applies per-command options', async () => {
-    const result = await $.exec('pwd', { cwd: '/tmp' });
-    // macOS reports /tmp as a symlink to /private/tmp.
-    expect(result.stdout.trim()).toMatch(/^(\/private)?\/tmp$/);
+    // Asked of the runtime, not of `pwd`: cmd has no such command, and
+    // Git Bash answers `/d/tmp` for `D:\tmp` — a third spelling matching
+    // neither the request nor the platform.
+    const result = await $.exec(`node -e ${JSON.stringify(emit_cwd)}`, { cwd: tempRoot() });
+    expect(result.stdout.trim()).toBe(tempRoot());
   });
 
   it('passes environment variables through', async () => {
-    const result = await $.exec('echo "$XEC_EXEC_TEST"', { env: { XEC_EXEC_TEST: 'present' } });
+    // Read from the environment rather than expanded by the shell: the
+    // reference is `$VAR` in POSIX and `%VAR%` in cmd, and the question is
+    // whether the variable arrives, not how a shell spells it.
+    const script = 'process.stdout.write(process.env.XEC_EXEC_TEST ?? "")';
+    const result = await $.exec(`node -e ${JSON.stringify(script)}`, { env: { XEC_EXEC_TEST: 'present' } });
     expect(result.stdout.trim()).toBe('present');
   });
 
   it('throws on a non-zero exit by default', async () => {
-    await expect($.exec('exit 1')).rejects.toThrow();
+    await expect($.exec(`node -e ${JSON.stringify(exitWith(1))}`)).rejects.toThrow();
   });
 
   it('passes the command through verbatim rather than re-quoting it', async () => {

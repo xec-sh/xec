@@ -113,7 +113,10 @@ describe('ExecutionEngine', () => {
     });
 
     it('should interpolate and escape values correctly', async () => {
-      const testEngine = engine.with({ adapter: 'mock' as any });
+      // The shell is named so the escaping is one dialect's and not the
+      // host's: cmd spells the same protection with carets, and the
+      // substring this asserts would not appear.
+      const testEngine = engine.with({ adapter: 'mock' as any, shell: 'sh' });
       
       const filename = 'my file with spaces.txt';
       const content = 'Hello; rm -rf /';
@@ -129,7 +132,7 @@ describe('ExecutionEngine', () => {
     });
 
     it('should support arrays in interpolation', async () => {
-      const testEngine = engine.with({ adapter: 'mock' as any });
+      const testEngine = engine.with({ adapter: 'mock' as any, shell: 'sh' });
       
       const files = ['file1.txt', 'file2.txt', 'file with spaces.txt'];
       

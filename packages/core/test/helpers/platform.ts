@@ -111,8 +111,46 @@ export const keepLines = (needle: string, invert = false): string =>
 export const upperCase = (): string =>
   `let b='';process.stdin.on('data',c=>b+=c).on('end',()=>process.stdout.write(b.toUpperCase()))`;
 
+/**
+ * A body for `node -e` that exits at once, leaving a detached child to
+ * write `text` to the inherited stream `ms` later.
+ *
+ * The portable spelling of `( sleep 0.2; echo late ) & exit 0` — a shell
+ * exiting before output written on its behalf arrives. cmd has no subshell
+ * or `&` background operator, and the scenario is not POSIX's: it is what
+ * any runtime's scheduling can do to two concurrent commands.
+ */
+export const outlivingWriter = (
+  text: string,
+  ms: number,
+  stream: 'stdout' | 'stderr' = 'stdout'
+): string => {
+  // The inner script travels as base64. Written literally it would need
+  // quotes inside quotes inside a shell argument, and the escaping is the
+  // very thing the suite around this is trying to test.
+  const inner = Buffer.from(
+    `setTimeout(()=>process.${stream}.write(${JSON.stringify(text)}),${ms})`
+  ).toString('base64');
+
+  return (
+    `const c=require("node:child_process").spawn(process.execPath,` +
+    `["-e",Buffer.from("${inner}","base64").toString()],` +
+    `{stdio:"inherit",detached:true});c.unref();process.exit(0)`
+  );
+};
+
 /** A body for `node -e` that copies stdin to stdout unchanged. `cat`. */
 export const passThrough = (): string => 'process.stdin.pipe(process.stdout)';
+
+/**
+ * A body for `node -e` that writes the value of an environment variable.
+ *
+ * The reference is spelled `$NAME` in POSIX and `%NAME%` in cmd. A test
+ * about whether a variable *arrives* should not also be a test of how a
+ * particular shell spells reading it.
+ */
+export const readEnv = (name: string): string =>
+  `process.stdout.write(process.env[${JSON.stringify(name)}] ?? "")`;
 
 /** A body for `node -e` that exits with `code`. */
 export const exitWith = (code: number): string => `process.exit(${code})`;

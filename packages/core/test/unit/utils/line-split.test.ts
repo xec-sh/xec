@@ -1,6 +1,5 @@
-import { splitLines, stripCarriageReturn } from '../../../src/utils/line-split.js';
-
 import { ExecutionResultImpl } from '../../../src/core/result.js';
+import { splitLines, stripCarriageReturn } from '../../../src/utils/line-split.js';
 
 /**
  * Line endings, which are the transport's business and never the caller's.

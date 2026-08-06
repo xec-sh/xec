@@ -1,7 +1,7 @@
 
 import { globalCache } from '../../../src/utils/cache.js';
-import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 import { cwdOf, tempRoot } from '../../helpers/platform.js';
+import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
 describe('Simplified API', () => {
   // Store original config to restore after each test
