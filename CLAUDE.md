@@ -869,34 +869,44 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 
 ### Code Quality Metrics
 - **Test coverage**: >95% (100% for critical paths)
-- **Mutation score**: **86.4% measured** (2026-08-06, over the eight files
-  in `packages/core/stryker.config.json`; 72.2% when first run). >95%
-  remains the target, per file:
+- **Mutation score**: **89.8% measured** (2026-08-06, over the eight files
+  in `packages/core/stryker.config.json`; 72.2% when first run).
 
-  | file | score | survived | was |
-  |---|---|---|---|
-  | `utils/optimized-masker.ts` | 79.2% | 34 | 61.2% |
-  | `utils/sensitive-patterns.ts` | 81.2% | 49 | 42.0% |
-  | `utils/shell-escape.ts` | 85.7% | 39 | 84.2% |
-  | `utils/parallel.ts` | 87.2% | 32 | 83.4% |
-  | `utils/helpers.ts` | 87.3% | 13 | 78.4% |
-  | `core/failure-kind.ts` | 93.8% | 7 | 80.4% |
-  | `core/error.ts` | 96.8% | 3 | 55.3% |
-  | `core/result.ts` | 100% | 0 | 93.5% |
+  | file | score | survived | of which equivalent | was |
+  |---|---|---|---|---|
+  | `utils/optimized-masker.ts` | 79.8% | 33 | 32 | 61.2% |
+  | `utils/shell-escape.ts` | 86.7% | 36 | 36 | 84.2% |
+  | `utils/helpers.ts` | 90.1% | 7 | 7 | 78.4% |
+  | `utils/parallel.ts` | 90.3% | 24 | 24 | 83.4% |
+  | `utils/sensitive-patterns.ts` | 92.7% | 19 | — | 42.0% |
+  | `core/failure-kind.ts` | 93.8% | 7 | 7 | 80.4% |
+  | `core/error.ts` | 96.9% | 3 | — | 55.3% |
+  | `core/result.ts` | 100% | 0 | — | 93.5% |
 
-  Two lessons worth keeping. Rules that overlap hide each other's
-  mutants — `api_key=` is caught by two rules, so one can be entirely
-  broken while every combined test passes; each is now also checked
-  alone. And asking whether a secret survived is too weak: narrow
-  `"([^"]+)"` to `"([^"])"` and the value is still redacted, by a
-  different branch, while the rule has stopped understanding quoting.
-  Assert the exact output.
+  **>95% is not reachable on most of these files, and that is the finding.**
+  The "equivalent" column is measured, not asserted:
+  `scripts/classify-survivors.mjs` applies each survivor to the source and
+  runs a probe over the module; a mutant no input distinguishes cannot be
+  killed by any test, and writing one would mean asserting on a fast path
+  rather than on a promise. On four files every remaining survivor is of
+  that kind.
 
-  Not every survivor is a missing test. All seven remaining on
-  `failure-kind.ts` are equivalent — fast paths that return the same
-  answer either way — as are several on `shell-escape.ts`, which can
-  only be killed on Windows. 100% is not the goal; knowing which
-  survivors are which is.
+  Three things this exercise established, worth more than the number:
+
+  - **A fixture built at module load hides a whole class of defect.** A
+    fault that throws during collection means no test runs, and a test
+    that never runs never fails — reported as "no tests" and read by the
+    survey as harmless. Twenty-two mutants survived on that alone. Maskers
+    are built on first use now, in `error.ts`, the engine and every
+    adapter, which is also why a bad rule no longer makes the package
+    unimportable.
+  - **Overlapping rules hide each other's mutants.** `api_key=` is caught
+    by two rules, so one can be entirely broken while every combined test
+    passes. Each rule is checked alone as well.
+  - **"The secret is gone" is too weak an assertion.** Narrow
+    `"([^"]+)"` to `"([^"])"` and the value is still redacted, by another
+    branch, while the rule has stopped understanding quoting. Assert the
+    exact output.
 - **Cyclomatic complexity**: <10 per function
 - **Type coverage**: 100%
 - **Bundle size**: <50KB (core)
