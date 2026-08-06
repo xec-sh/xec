@@ -19,12 +19,40 @@ The core execution engine providing universal command execution across environme
 - [Process Promise API](./process-promise.md) - Command execution results
 - [Types Reference](./types.md) - TypeScript type definitions
 
+### @xec-sh/ops
+The operations library the CLI is a thin wrapper over — deploys, pipelines,
+workflows, health checks, target discovery and secrets.
+
+- [Operations](../ops/index.md) - overview and entry points
+- [Deploy](../ops/deploy.md), [Pipeline](../ops/pipeline.md), [Workflow](../ops/workflow.md)
+- [Health](../ops/health.md), [Discovery](../ops/discovery.md), [Secrets](../ops/secrets.md)
+
 ### @xec-sh/cli
 The command-line interface for Xec.
 
 - [Command System](../commands/overview.md) - Command system overview
 - [CLI Reference](../commands/cli-reference.md) - Complete CLI reference
 - [Configuration](../configuration/overview.md) - Configuration management
+
+### @xec-sh/loader
+Script loading: the TypeScript transform, the module resolver, the REPL and
+watch mode. Used through `xec run`; also importable directly.
+
+- [First Script](../scripting/basics/first-script.md) - running scripts
+- [TypeScript Setup](../scripting/basics/typescript-setup.md) - types for the globals
+
+### @xec-sh/kit
+Terminal UI: prompts, spinners, tables, progress and colour. Available to
+scripts as the `kit` global.
+
+- [Kit](../kit/index.md) - components and usage
+
+### @xec-sh/testing
+Test utilities — Docker fixture management, kind clusters, SSH helpers. No
+runtime edges; consumed only by test suites.
+
+See [Architecture](../introduction/architecture.md) for how these depend on
+one another.
 
 ## Core Exports
 

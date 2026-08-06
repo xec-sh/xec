@@ -80,6 +80,11 @@ const sortImportsRules = () => {
       {
         order: 'asc',
         type: 'line-length',
+        // A section comment starts a new group. Without this the sort runs
+        // across the whole file, so any heading a reader relies on ends up
+        // describing whatever the sort happened to place under it — which
+        // is exactly what had happened to @xec-sh/ops.
+        partitionByComment: true,
       },
     ],
     'perfectionist/sort-imports': [

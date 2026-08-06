@@ -378,8 +378,13 @@ const PACKAGES = [
     to: '/docs/core/execution-engine/overview',
   },
   {
+    name: '@xec-sh/ops',
+    role: 'Operations — deploys, pipelines, workflows, health checks, discovery.',
+    to: '/docs/ops',
+  },
+  {
     name: '@xec-sh/cli',
-    role: 'Command line — run tasks and commands against any target.',
+    role: 'Command line — a thin wrapper over the two above.',
     to: '/docs/commands/overview',
   },
   {
@@ -428,8 +433,9 @@ const FACTS = [
   { value: '1', label: 'runtime dependency', note: 'ssh2 — loaded only when an SSH target is used' },
   { value: '4', label: 'environments, one API', note: 'local, SSH, Docker, Kubernetes' },
   { value: '3', label: 'runtimes', note: 'Node, Bun, Deno — byte-identical results, pinned by a parity test' },
-  { value: '4,900+', label: 'tests', note: 'across the engine, CLI, loader and UI kit' },
-  { value: '~70ms', label: 'CLI startup', note: 'against a ~28ms floor for an empty Node process' },
+  { value: '3', label: 'platforms', note: 'Linux, macOS, Windows — all three run the suite in CI' },
+  { value: '5,300+', label: 'tests', note: 'across the engine, operations library, CLI, loader and UI kit' },
+  { value: '~70ms', label: 'CLI startup', note: 'against a ~30ms floor for an empty Node process' },
 ] as const;
 
 function Facts(): React.ReactNode {

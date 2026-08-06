@@ -334,7 +334,9 @@
 
 .factsInner {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* Six, divisible by the three and two the breakpoints below fall back
+     to, so no row is ever left with one orphan. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1.75rem;
   padding-top: 2.25rem;
   padding-bottom: 2.25rem;
