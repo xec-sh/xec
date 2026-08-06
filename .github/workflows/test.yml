@@ -125,13 +125,17 @@ jobs:
           node-version: '24'
           cache: pnpm
 
+      # kit builds with bun, and ops needs kit's types to compile, so the
+      # dependency chain cannot be skipped even though this job does not
+      # test bun itself. Building only core/ops/cli failed here on the
+      # first run: `Cannot find module '@xec-sh/kit'`.
+      - uses: oven-sh/setup-bun@v2
+
       - run: pnpm install --frozen-lockfile
 
-      # `build:full` includes kit, which builds with bun. Building the three
-      # packages this job actually exercises keeps it from depending on a
-      # runtime it does not test.
+      # `...` builds the package and everything it depends on.
       - name: build
-        run: pnpm --filter @xec-sh/core --filter @xec-sh/ops --filter @xec-sh/cli build
+        run: pnpm --filter @xec-sh/cli... build
 
       - name: core unit
         run: pnpm --filter @xec-sh/core test:unit
