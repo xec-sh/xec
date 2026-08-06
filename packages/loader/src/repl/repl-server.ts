@@ -9,6 +9,26 @@ import * as repl from 'node:repl';
 
 import { REPLCommands, createBuiltinCommands } from './repl-commands.js';
 
+/** Every listener on `emitter`, by event, as it stands now. */
+function listenerSnapshot(emitter: NodeJS.EventEmitter): Map<string | symbol, Set<unknown>> {
+  return new Map(emitter.eventNames().map(event => [event, new Set(emitter.listeners(event))]));
+}
+
+/** Those listeners on `emitter` that are not in `before`. */
+function listenersAddedSince(
+  emitter: NodeJS.EventEmitter,
+  before: Map<string | symbol, Set<unknown>>
+): Array<[string | symbol, (...args: any[]) => void]> {
+  const added: Array<[string | symbol, (...args: any[]) => void]> = [];
+  for (const event of emitter.eventNames()) {
+    const known = before.get(event);
+    for (const listener of emitter.listeners(event)) {
+      if (!known?.has(listener)) added.push([event, listener as (...args: any[]) => void]);
+    }
+  }
+  return added;
+}
+
 /**
  * REPL server options
  */
@@ -74,6 +94,19 @@ export interface REPLServerOptions {
  */
 export class REPLServer {
   private server?: NodeREPLServer;
+
+  /**
+   * The listeners `repl.start` attached to the input stream.
+   *
+   * Node's `close()` leaves them there: five start/close cycles leave five
+   * `data` listeners on stdin, and the tenth trips
+   * MaxListenersExceededWarning. A host that opens a REPL more than once —
+   * or a test file that does — accumulates them for the life of the
+   * process. Recording exactly what `start` added, rather than diffing at
+   * close time, means a listener the application attached while the REPL
+   * was running is never mistaken for ours.
+   */
+  private attachedToInput: Array<[string | symbol, (...args: any[]) => void]> = [];
   private readonly options: Required<Omit<REPLServerOptions, 'context' | 'commands' | 'replOptions' | 'welcomeMessage' | 'title'>> & {
     context: Record<string, any>;
     commands?: REPLCommands;
@@ -131,6 +164,9 @@ export class REPLServer {
     // modules in the ESM registry the way script reloads do. Keep it that way:
     // routing lines through CodeEvaluator (which imports a transient file each
     // time) would leak one registry entry per line entered.
+    const input = (this.options.replOptions?.input ?? process.stdin) as NodeJS.EventEmitter;
+    const before = listenerSnapshot(input);
+
     this.server = repl.start({
       prompt: this.options.prompt,
       useGlobal: this.options.useGlobal,
@@ -138,6 +174,8 @@ export class REPLServer {
       useColors: this.options.useColors,
       ...this.options.replOptions,
     });
+
+    this.attachedToInput = listenersAddedSince(input, before);
 
     // Apply context
     Object.assign(this.server.context, this.options.context);
@@ -169,7 +207,16 @@ export class REPLServer {
    */
   stop(): void {
     if (this.server) {
+      const input = this.server.input as unknown as NodeJS.EventEmitter;
       this.server.close();
+
+      // `close()` does not do this, so the listeners would outlive every
+      // session. Removing one that is already gone is a no-op, so this
+      // stays correct if a future Node starts cleaning up after itself.
+      for (const [event, listener] of this.attachedToInput) {
+        input.removeListener(event, listener);
+      }
+      this.attachedToInput = [];
       this.server = undefined;
     }
   }

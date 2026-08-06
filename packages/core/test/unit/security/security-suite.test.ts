@@ -171,18 +171,12 @@ describe('Security Test Suite', () => {
 
   describe('SSH Security', () => {
     test('should validate SSH connection options', async () => {
-      const mockClient = {
-        connect: vi.fn(),
-        on: vi.fn(),
-        end: vi.fn(),
-        exec: vi.fn()
-      };
-
-      // Mock SSH2 Client
-      vi.mock('ssh2', () => ({
-        Client: vi.fn(() => mockClient)
-      }));
-
+      // No ssh2 mock here. `$.ssh()` configures an engine and connects
+      // nothing, and the `vi.mock` that used to sit in this block was
+      // hoisted above the `mockClient` it named — so it had never run as
+      // written, and vitest is about to make that an error rather than a
+      // warning.
+      //
       // Test that sensitive options are not logged
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       $.ssh({
