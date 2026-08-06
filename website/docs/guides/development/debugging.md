@@ -169,8 +169,8 @@ Use the Node.js inspector for interactive debugging:
 Debug script with breakpoints:
 
 ```javascript
-// .xec/scripts/debug-me.js
 #!/usr/bin/env xec
+// .xec/scripts/debug-me.js
 
 import { $ } from '@xec-sh/core';
 
@@ -276,8 +276,8 @@ await $$`ls -la`;  // Automatically logged
 Create detailed error reports:
 
 ```javascript
-// .xec/lib/error-reporter.js
 #!/usr/bin/env xec
+// .xec/lib/error-reporter.js
 
 import { $ } from '@xec-sh/core';
 import fs from 'fs/promises';

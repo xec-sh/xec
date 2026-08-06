@@ -96,6 +96,13 @@ jobs:
           test/startup-budget.test.ts
           test/entry-point.test.ts
 
+      # Every code example in the documentation, compiled against the real
+      # published types plus the globals a script receives. An example that
+      # names something the API does not have is a defect the reader hits
+      # and the page never admits to.
+      - name: doc examples
+        run: pnpm docs:check
+
       # The built CLI must start under Node, Bun and Deno and deliver the
       # script globals. Runs last: it proves the artifact, not the sources.
       - name: runtime smoke

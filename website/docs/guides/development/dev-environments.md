@@ -234,8 +234,8 @@ volumes:
 Use with Xec:
 
 ```javascript
-// .xec/scripts/docker-dev.js
 #!/usr/bin/env xec
+// .xec/scripts/docker-dev.js
 
 import { $ } from '@xec-sh/core';
 
@@ -253,8 +253,8 @@ await compose.logs('app', true);
 Set up automatic reload on file changes:
 
 ```javascript
-// .xec/scripts/watch.js
 #!/usr/bin/env xec
+// .xec/scripts/watch.js
 
 import { $ } from '@xec-sh/core';
 import { watch } from 'node:fs/promises';

@@ -19,6 +19,7 @@
     "release": "xec release",
     "link:global": "cd apps/xec && pnpm build && npm link",
     "unlink:global": "cd apps/xec && npm unlink -g @xec-sh/cli",
+    "docs:check": "node scripts/check-doc-examples.mjs",
     "docs:start": "cd website && pnpm start",
     "docs:build": "cd website && pnpm build",
     "docs:serve": "cd website && pnpm serve",

@@ -161,7 +161,9 @@ function Contrast(): React.ReactNode {
               <Translate id="homepage.contrast.after">With xec</Translate>
             </span>
             <pre className={styles.miniCode}>
-              <code>{`const result = await $.ssh(host)\`systemctl status api\`;
+              <code>{`import { $ } from '@xec-sh/core';
+
+const result = await $.ssh('deploy@web-1')\`systemctl status api\`;
 
 result.ok         // exit 0 and not signalled
 result.stdout     // string
@@ -269,7 +271,9 @@ function TwoWaysIn(): React.ReactNode {
               <code>{`npm i @xec-sh/core`}</code>
             </pre>
             <pre className={styles.miniCode}>
-              <code>{`const staging = $.ssh('deploy@staging')
+              <code>{`import { $ } from '@xec-sh/core';
+
+const staging = $.ssh('deploy@staging')
   .cd('/srv/app')
   .env({ NODE_ENV: 'staging' })
   .timeout('60s')
@@ -278,7 +282,7 @@ function TwoWaysIn(): React.ReactNode {
 await staging\`pnpm migrate\`;
 
 for await (const line of staging\`tail -f app.log\`) {
-  if (line.includes('ERROR')) alert(line);
+  if (line.includes('ERROR')) console.error(line);
 }`}</code>
             </pre>
             <p className={styles.wayNote}>
