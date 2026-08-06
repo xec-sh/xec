@@ -252,4 +252,111 @@ describe('what a redaction leaves behind', () => {
       expect(() => mask('x')).toThrow(/shape/);
     });
   });
+  describe('the inference, branch by branch', () => {
+    // Every branch here is reachable only through a caller's own pattern,
+    // where the shape is unknown. They are exercised with patterns built
+    // for the purpose, because hunting for real text that lands on each
+    // arity is how they came to be untested in the first place.
+
+    it('replaces a private key whole, whatever the pattern captured', () => {
+      const mask = inferred(/(-----BEGIN RSA PRIVATE KEY-----[\s\S]*?-----END RSA PRIVATE KEY-----)/g);
+      const block = '-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----';
+
+      expect(mask(block)).toBe(R);
+    });
+
+    it('replaces a github token whole, whatever the pattern captured', () => {
+      const mask = inferred(/(gh[ps]_[a-zA-Z0-9]{16,})(x?)/g);
+
+      expect(mask('ghp_0123456789abcdefghij')).toBe(R);
+    });
+
+    it('replaces the match when every group is optional and matched none', () => {
+      const mask = inferred(/token(a)?(b)?/g);
+
+      expect(mask('token here')).toBe(`${R} here`);
+    });
+
+    it('keeps a json key with two groups', () => {
+      expect(inferred(/"(secret)":\s*"([^"]+)"/g)('{"secret": "s3cr3t"}')).toBe(`{"secret": ${R}}`);
+    });
+
+    it('keeps an authorization scheme with four groups', () => {
+      const mask = inferred(/(Authorization:\s*)(Bearer)(\s+)([a-z0-9]+)/g);
+
+      expect(mask('Authorization: Bearer abc123')).toBe(`Authorization: Bearer ${R}`);
+    });
+
+    it('falls through when four groups are not an authorization header', () => {
+      // The four-group branch is guarded on the first group naming the
+      // header; anything else must not be reshaped as one.
+      const mask = inferred(/(a)(b)(c)(d)/g);
+
+      expect(mask('abcd')).toBe(R);
+    });
+
+    it('keeps key and separator with six groups', () => {
+      const mask = inferred(/\b(apikey)(\s*=\s*)("([^"]+)"|'([^']+)'|([^\s]+))/g);
+
+      expect(mask('apikey = s3cr3t')).toBe(`apikey = ${R}`);
+    });
+
+    it('gives a six-group flag one space', () => {
+      const mask = inferred(/(--password)(\s+)("([^"]+)"|'([^']+)'|([^\s]+))/g);
+
+      expect(mask('--password   s3cr3t')).toBe(`--password ${R}`);
+    });
+
+    it('gives a five-group flag one space', () => {
+      const mask = inferred(/(--secret)(\s+)("([^"]+)"|([^\s]+))/g);
+
+      expect(mask('--secret   s3cr3t')).toBe(`--secret ${R}`);
+    });
+
+    it('leaves five groups that are not a flag to the fallback', () => {
+      const mask = inferred(/(key)(=)((a)(b))/g);
+
+      expect(mask('key=ab')).toBe(`key=${R}`);
+    });
+
+    it('normalises the space after a three-group Bearer', () => {
+      expect(inferred(/(Bearer)(\s+)([a-z0-9]+)/g)('Bearer    abc123')).toBe(`Bearer ${R}`);
+    });
+
+    it('keeps the separator for three groups that are not Bearer', () => {
+      expect(inferred(/(token)(:\s*)([a-z0-9]+)/g)('token: abc123')).toBe(`token: ${R}`);
+    });
+
+    it('keeps the first of two groups', () => {
+      expect(inferred(/(prefix-)([0-9]+)/g)('prefix-42')).toBe(`prefix-${R}`);
+    });
+
+    it('replaces the whole match for a single group', () => {
+      expect(inferred(/(SESSION-[0-9]+)/g)('id SESSION-9 end')).toBe(`id ${R} end`);
+    });
+
+    it('falls back on the equals sign when no arity branch fits', () => {
+      // Seven groups is past every shape the inference knows, so it reads
+      // the structure out of the match itself.
+      const mask = inferred(/(o)(p)(a)(q)(u)(e)(=value)/g);
+
+      expect(mask('opaque=value')).toBe(`opaque=${R}`);
+    });
+
+    it('falls back on the colon when there is no equals sign', () => {
+      const mask = inferred(/(o)(p)(a)(q)(u)(e)(:value)/g);
+
+      expect(mask('opaque:value')).toBe(`opaque: ${R}`);
+    });
+
+    it('replaces everything when there is neither', () => {
+      const mask = inferred(/(o)(p)(a)(q)(u)(e)(x)/g);
+
+      expect(mask('opaquex')).toBe(R);
+    });
+
+    it('replaces everything when the match has no separator at all', () => {
+      expect(inferred(/\bopaque\b/g)('an opaque thing')).toBe(`an ${R} thing`);
+    });
+  });
 });
