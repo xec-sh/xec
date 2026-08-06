@@ -99,6 +99,19 @@ const files = await glob('**/*.js');
 const configs = await glob('config/*.yaml');
 ```
 
+`glob` answers paths relative to `cwd`, separated by `/` on every platform
+— including Windows, where the result can be fed straight back into another
+pattern. A single `*` never crosses a directory boundary; `**` does. Pass
+`{ absolute: true }` for native paths instead, since those go to the
+filesystem.
+
+:::caution Changed in 0.11.0
+On Windows, results previously came back with `\` separators, which also
+meant a single `*` matched across directories there. Both are fixed; code
+that spliced the old separator back together needs no adjustment, but code
+comparing against a `\`-separated literal does.
+:::
+
 ## Working with Multiple Targets
 
 Scripts can be executed against different targets:

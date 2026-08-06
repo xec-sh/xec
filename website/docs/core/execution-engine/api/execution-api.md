@@ -61,6 +61,18 @@ const engine = new ExecutionEngine({
 await engine.run`command`;
 ```
 
+`shell` here decides two things at once: which shell runs the command, and
+which dialect interpolated values are quoted for. Naming `cmd.exe` from
+Linux, or `bash` from Windows, gets escaping that matches the shell that
+will parse it — the two are never allowed to disagree.
+
+:::caution Changed in 0.11.0
+`shell` passed to the constructor previously configured nothing: only
+`$.defaults({ shell })` and the per-command `.shell(...)` took effect. If
+you set it at construction and worked around it elsewhere, remove the
+workaround.
+:::
+
 ### Adapter Selection
 
 ```typescript

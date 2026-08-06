@@ -259,6 +259,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'targets/local/overview',
             'targets/local/shell-config',
+            'targets/local/cross-platform',
             'targets/local/troubleshooting',
           ],
         },

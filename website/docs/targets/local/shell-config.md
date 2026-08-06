@@ -90,12 +90,18 @@ await $.exec('echo ' + safe);
 // Fails under /bin/sh
 await $.shell('/bin/sh')`[[ -f file ]] && echo exists`;
 
-// Works everywhere
+// Works under any POSIX shell
 await $`[ -f file ] && echo exists`;
 await $.shell('/bin/bash')`[[ -f file ]] && echo exists`;
 ```
 
+None of those reach Windows, whose default shell is `cmd.exe` — it has
+neither `[` nor `&&`. See
+[Windows and cross-platform scripts](./cross-platform.md) for what carries
+across operating systems and what does not.
+
 ## Related Documentation
 
 - [Local Overview](./overview.md) - local target fundamentals
+- [Windows and cross-platform scripts](./cross-platform.md) - what behaves identically on every OS
 - [Troubleshooting](./troubleshooting.md) - common shell issues

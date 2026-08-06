@@ -84,6 +84,18 @@ const pattern = 'error';
 await $`journalctl -u app`.pipe`grep ${pattern}`;
 ```
 
+Interpolated values are escaped for the target shell, exactly as in the
+main tag: `pattern` above reaches `grep` as one argument whatever it
+contains. Use a plain string when you mean to hand the shell syntax it
+should interpret.
+
+:::caution Changed in 0.11.0
+Before 0.11.0 the tagged form did **not** escape its interpolations — it
+concatenated them — so a value carrying `;` or `|` was read as shell
+syntax. If you relied on that to build a pipeline, pass the command as a
+string instead.
+:::
+
 ### nothrow()
 
 Prevent throwing on non-zero exit codes.
@@ -352,6 +364,12 @@ lines(): Promise<string[]>
 const lines = await $`ls -la`.lines();
 lines.forEach(line => console.log(line));
 ```
+
+A line ends with `\n` or `\r\n`, and the terminator is never part of the
+line: a command run on Windows, or a Windows tool invoked from anywhere,
+answers the same array as its POSIX equivalent. A lone `\r` is left alone —
+it is what a progress bar writes to return to the start of the line, not a
+line ending.
 
 To process lines as they arrive rather than after the command finishes,
 iterate the `ProcessPromise` itself — see [Async Iteration](#async-iteration) below.

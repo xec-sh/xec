@@ -47,6 +47,20 @@ const dangerous = "'; rm -rf /; echo '";
 await $`echo ${dangerous}`;
 // Executes: echo ''\''; rm -rf /; echo '\'''
 // Output: '; rm -rf /; echo '
+```
+
+The quoting shown here is POSIX, because that is the shell in play. Values
+are always quoted for the shell that will actually parse the command —
+`cmd.exe` gets caret escaping, PowerShell gets its own — so the protection
+and the parser never disagree. Set the shell with
+[`.shell(...)`](../../targets/local/shell-config.md) and the escaping
+follows.
+
+The value arrives intact either way; what a shell then *prints* is its own
+convention, and `echo` differs between them. See
+[Windows and cross-platform scripts](../../targets/local/cross-platform.md).
+
+```typescript
 
 // Command injection attempt
 const userInput = "$(malicious command)";
