@@ -519,11 +519,13 @@ describe('Security Test Suite', () => {
     });
 
     test('fails rather than truncating past the platform limit', async () => {
-      // Every platform has a ceiling — 8191 characters for cmd.exe, ARG_MAX
-      // for exec. Whichever is hit, the command must fail: a truncated
-      // argument that runs is the dangerous outcome, since the caller reads
-      // exit 0 and a command that did something else.
-      const beyond = 'A'.repeat(3_000_000);
+      // Every platform has a ceiling — 8191 characters for cmd.exe, 128 KiB
+      // per argument on Linux, ARG_MAX overall. Whichever is hit, the
+      // command must fail: a truncated argument that runs is the dangerous
+      // outcome, since the caller reads exit 0 and a command that did
+      // something else. Two hundred thousand clears the lowest two without
+      // allocating enough to disturb anything measuring time nearby.
+      const beyond = 'A'.repeat(200_000);
       const result = await $`node -e ${'process.stdout.write(String((process.argv[1] ?? "").length))'} ${beyond}`.nothrow();
 
       if (result.exitCode === 0) {
