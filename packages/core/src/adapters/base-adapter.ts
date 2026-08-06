@@ -63,8 +63,6 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
   constructor(config: BaseAdapterConfig = {}) {
     super();
-    // Shared with the execution engine so every layer redacts identically.
-    const defaultPatterns = createDefaultSensitivePatterns();
 
     this.config = {
       defaultTimeout: config.defaultTimeout ?? 120000, // 2 minutes
@@ -76,7 +74,14 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       throwOnNonZeroExit: config.throwOnNonZeroExit !== undefined ? config.throwOnNonZeroExit : true,
       sensitiveDataMasking: {
         enabled: config.sensitiveDataMasking?.enabled ?? true,
-        patterns: config.sensitiveDataMasking?.patterns ?? defaultPatterns,
+        // A getter, so the defaults are compiled only if something reads
+        // them. Building them here made every adapter construct twenty-odd
+        // expressions to populate a field almost nobody looks at, and put
+        // a fault in the rules into the *constructor* — where the failure
+        // names an adapter rather than a rule.
+        get patterns(): RegExp[] {
+          return config.sensitiveDataMasking?.patterns ?? createDefaultSensitivePatterns();
+        },
         replacement: config.sensitiveDataMasking?.replacement ?? '[REDACTED]'
       }
     };

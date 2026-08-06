@@ -869,7 +869,7 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 
 ### Code Quality Metrics
 - **Test coverage**: >95% (100% for critical paths)
-- **Mutation score**: **89.8% measured** (2026-08-06, over the eight files
+- **Mutation score**: **90.0% measured** (2026-08-06, over the eight files
   in `packages/core/stryker.config.json`; 72.2% when first run).
 
   | file | score | survived | of which equivalent | was |
@@ -878,7 +878,7 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
   | `utils/shell-escape.ts` | 86.7% | 36 | 36 | 84.2% |
   | `utils/helpers.ts` | 90.1% | 7 | 7 | 78.4% |
   | `utils/parallel.ts` | 90.3% | 24 | 24 | 83.4% |
-  | `utils/sensitive-patterns.ts` | 92.7% | 19 | — | 42.0% |
+  | `utils/sensitive-patterns.ts` | 93.8% | 16 | 16 | 42.0% |
   | `core/failure-kind.ts` | 93.8% | 7 | 7 | 80.4% |
   | `core/error.ts` | 96.9% | 3 | — | 55.3% |
   | `core/result.ts` | 100% | 0 | — | 93.5% |
@@ -888,8 +888,8 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
   `scripts/classify-survivors.mjs` applies each survivor to the source and
   runs a probe over the module; a mutant no input distinguishes cannot be
   killed by any test, and writing one would mean asserting on a fast path
-  rather than on a promise. On four files every remaining survivor is of
-  that kind.
+  rather than on a promise. On five of the eight, every remaining survivor
+  is of that kind.
 
   Three things this exercise established, worth more than the number:
 
