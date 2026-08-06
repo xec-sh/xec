@@ -3,9 +3,10 @@
  * @module @xec-sh/loader/module/module-loader
  */
 
+import type { Cache, ModuleExports, ModuleSpecifier, ModuleLoaderOptions } from '../types/index.js';
+
 import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { Cache, ModuleExports, ModuleSpecifier, ModuleLoaderOptions } from '../types/index.js';
 
 import { ModuleFetcher } from './module-fetcher.js';
 import { ModuleExecutor } from './module-executor.js';
