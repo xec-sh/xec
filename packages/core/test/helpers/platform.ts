@@ -82,6 +82,38 @@ export const argEcho = async (engine: Tagged, value: string): Promise<string> =>
  */
 export const sleepFor = (ms: number): string => `setTimeout(()=>{},${Math.round(ms)})`;
 
+/**
+ * A body for `node -e` that writes `text` to stdout, byte for byte.
+ *
+ * `printf 'a\nb\n'` is not portable: cmd treats the single quotes as
+ * literal characters, so printf receives `'a` as its format string.
+ */
+export const emit = (text: string): string =>
+  `process.stdout.write(${JSON.stringify(text)})`;
+
+/** A body for `node -e` that writes `text` to stderr. */
+export const emitErr = (text: string): string =>
+  `process.stderr.write(${JSON.stringify(text)})`;
+
+/**
+ * A body for `node -e` that passes stdin through, keeping only lines that
+ * contain `needle` — and exiting 1 when none did, as grep does.
+ *
+ * Standing in for `grep`, which on Windows exists only when Git Bash
+ * happens to be installed.
+ */
+export const keepLines = (needle: string, invert = false): string =>
+  `let b='';process.stdin.on('data',c=>b+=c).on('end',()=>{` +
+  `const m=b.split('\\n').filter(l=>l.length&&(l.includes(${JSON.stringify(needle)})!==${invert}));` +
+  `process.stdout.write(m.map(l=>l+'\\n').join(''));process.exit(m.length?0:1)})`;
+
+/** A body for `node -e` that upper-cases stdin. Standing in for `tr a-z A-Z`. */
+export const upperCase = (): string =>
+  `let b='';process.stdin.on('data',c=>b+=c).on('end',()=>process.stdout.write(b.toUpperCase()))`;
+
+/** A body for `node -e` that copies stdin to stdout unchanged. `cat`. */
+export const passThrough = (): string => 'process.stdin.pipe(process.stdout)';
+
 /** A body for `node -e` that exits with `code`. */
 export const exitWith = (code: number): string => `process.exit(${code})`;
 

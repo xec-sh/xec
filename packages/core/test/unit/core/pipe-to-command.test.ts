@@ -1,6 +1,7 @@
 import { Writable } from 'node:stream';
 
 import { $ } from '../../../src/index.js';
+import { emit, emitErr, keepLines, upperCase, passThrough } from '../../helpers/platform.js';
 
 /**
  * `.pipe()` accepted a tagged template and a string, but not the form everyone
@@ -15,24 +16,28 @@ import { $ } from '../../../src/index.js';
  * reader tries.
  */
 describe('a command can be piped into another command', () => {
-  const source = () => $`printf 'alpha\nbeta\ngamma\n'`;
+  // Emitted by the runtime rather than by `printf`, and filtered by it
+  // rather than by `grep`: this file is about the pipe, not about which
+  // tools a platform happens to ship.
+  const source = () => $`node -e ${emit('alpha\nbeta\ngamma\n')}`;
+  const keep = (needle: string) => $`node -e ${keepLines(needle)}`;
 
   it('accepts a ProcessPromise as the target', async () => {
-    const result = await source().pipe($`grep beta`);
+    const result = await source().pipe(keep('beta'));
 
     expect(result.stdout).toBe('beta\n');
   }, 20_000);
 
   it('accepts a tagged template, as before', async () => {
-    expect((await source().pipe`grep beta`).stdout).toBe('beta\n');
+    expect((await source().pipe`node -e ${keepLines('beta')}`).stdout).toBe('beta\n');
   }, 20_000);
 
   it('accepts a string, as before', async () => {
-    expect((await source().pipe('grep beta')).stdout).toBe('beta\n');
+    expect((await source().pipe(`node -e ${JSON.stringify(keepLines('beta'))}`)).stdout).toBe('beta\n');
   }, 20_000);
 
   it('chains more than once', async () => {
-    const result = await source().pipe($`grep -v alpha`).pipe($`tr a-z A-Z`);
+    const result = await source().pipe($`node -e ${keepLines('alpha', true)}`).pipe($`node -e ${upperCase()}`);
 
     expect(result.stdout).toBe('BETA\nGAMMA\n');
   }, 20_000);
@@ -40,11 +45,27 @@ describe('a command can be piped into another command', () => {
   it('reports a failure in the target, not a phantom one', async () => {
     // grep exits 1 when it matches nothing. That is a real failure of the
     // target and must surface as one — the bug made every pipe look like this.
-    const error = await source().pipe($`grep nothing-here`)
+    const error = await source().pipe(keep('nothing-here'))
       .then(() => null, (e: unknown) => e as Error);
 
     expect(error).not.toBeNull();
     expect(error!.message).toMatch(/exit code 1/);
+  }, 20_000);
+
+  it('escapes an interpolated value, as the main tag does', async () => {
+    // It did not. The pipe form built its command by concatenating
+    // `String(value)`, so `.pipe`grep ${term}`` handed the shell whatever
+    // the term contained while the identically-written `$`grep ${term}``
+    // quoted it. One documented form, two behaviours, and the unsafe one
+    // silent.
+    const payload = 'alpha; echo INJECTED';
+    const result = await source().pipe`node -e ${keepLines('beta')} ${payload}`;
+
+    expect(result.stdout).not.toContain('INJECTED');
+    expect(result.command).toContain('alpha; echo INJECTED');
+    // Quoted, so the shell reads it as one argument rather than as a
+    // separator and a second command.
+    expect(result.command).toMatch(/(['"^]).*alpha; echo INJECTED/);
   }, 20_000);
 
   it('carries binary data through unchanged', async () => {
@@ -52,7 +73,7 @@ describe('a command can be piped into another command', () => {
     // UTF-8, so every byte that is not valid UTF-8 became a replacement
     // character. `cat cert.p12 | openssl` received corruption.
     const script = 'process.stdout.write(Buffer.from([0xff,0xfe,0x00,0x41,0x80]))';
-    const result = await $.exec(`node -e ${JSON.stringify(script)}`).pipe($`cat`);
+    const result = await $.exec(`node -e ${JSON.stringify(script)}`).pipe($`node -e ${passThrough()}`);
 
     expect([...result.buffer()]).toEqual([0xff, 0xfe, 0x00, 0x41, 0x80]);
   }, 20_000);
@@ -62,10 +83,11 @@ describe('a command can be piped into another command', () => {
     // to `{}`, so the engine tried to spawn nothing and reported
     // `The "file" argument must be of type string` — a message about an
     // internal argument, for a chain the caller wrote correctly.
-    const result = await source().pipe($`grep nothing-here`).nothrow();
+    const result = await source().pipe(keep('nothing-here')).nothrow();
 
     expect(result.exitCode).toBe(1);
-    expect(result.command).toBe('grep nothing-here');
+    // The target's own command, not a phantom or the source's.
+    expect(result.command).toContain('nothing-here');
   }, 20_000);
 
   it('still pipes into a plain Writable', async () => {
@@ -100,7 +122,7 @@ describe('a stream option accepts a callback', () => {
 
   it('invokes the callback with stderr', async () => {
     const seen: string[] = [];
-    await $`sh -c 'echo oops >&2'`.stderr(chunk => { seen.push(chunk); });
+    await $`node -e ${emitErr('oops')}`.stderr(chunk => { seen.push(chunk); });
 
     expect(seen.join('')).toContain('oops');
   }, 20_000);

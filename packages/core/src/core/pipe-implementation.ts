@@ -8,6 +8,7 @@ import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
 import { PIPE_TARGET, type ProcessContext } from './process-context.js';
 import { splitLines } from '../utils/line-split.js';
+import { dialectFor, interpolateForShell } from '../utils/shell-escape.js';
 
 export type { PipeTarget, PipeOptions } from '../types/process.js';
 
@@ -42,7 +43,16 @@ export async function executePipe(
 
   // 1. Template literal
   if (Array.isArray(target) && 'raw' in target) {
-    const command = interpolateTemplate(target as TemplateStringsArray, ...templateArgs);
+    // The same escaping the main tag uses, for the same shell. This built
+    // the command by concatenating `String(value)` — so `.pipe`grep
+    // ${term}`` handed the shell whatever the term contained, while the
+    // identically-written `$`grep ${term}`` quoted it. One documented form,
+    // two behaviours, and the unsafe one silent.
+    const command = interpolateForShell(
+      dialectFor(engine.config.get().shell),
+      target as TemplateStringsArray,
+      ...templateArgs
+    );
     return engine.execute({
       command,
       stdin: pipedInput(sourceResult),
@@ -152,17 +162,6 @@ export async function executePipe(
  */
 function pipedInput(result: ExecutionResult): string | Buffer {
   return typeof result.buffer === 'function' ? result.buffer() : result.stdout;
-}
-
-/**
- * Helper to interpolate template strings
- */
-function interpolateTemplate(strings: TemplateStringsArray, ...values: any[]): string {
-  let result = strings[0] || '';
-  for (let i = 0; i < values.length; i++) {
-    result += String(values[i]) + (strings[i + 1] || '');
-  }
-  return result;
 }
 
 /**
