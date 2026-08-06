@@ -8,6 +8,11 @@ Xec is a modern, type-safe command execution system built with TypeScript. It pr
 **This is a HIGH-RELIABILITY SYSTEM**. Commands executed through Xec may affect critical infrastructure. We DO NOT make assumptions, approximations, or partial implementations:
 
 - **100% Runtime Compatibility**: All code MUST work identically on Node.js, Bun, and Deno
+- **100% Platform Compatibility**: Linux, macOS and Windows. The unit tier runs
+  on all three in CI. Xec's own behaviour is identical everywhere — escaping,
+  path composition, glob separators, line endings, process termination; what a
+  *shell* understands is not, and that limit is documented rather than papered
+  over.
 - **100% Type Safety**: No `any` types in public APIs, 100% type coverage
 - **Zero Warnings**: No TypeScript warnings, no linter warnings, no deprecation warnings
 - **Minimal Core Dependencies**: Core depends on `ssh2` only, loaded lazily when an
@@ -930,6 +935,17 @@ Watch out for these anti-patterns:
 
 - 🚫 **External dependencies in core** - ZERO tolerance
 - 🚫 **Runtime-specific code** - Must work on all runtimes
+- 🚫 **`import()` of a filesystem path** - Always `pathToFileURL(p).href`. An
+  absolute path throws ERR_UNSUPPORTED_ESM_URL_SCHEME on Windows, where `D:`
+  reads as a scheme. Adding the Windows job found this five times, and one of
+  them meant no CLI command loaded there at all.
+- 🚫 **`startsWith('/')` as "is this absolute"** - `isAbsolute`. The POSIX
+  spelling is not the only one.
+- 🚫 **`split('\n')` on command output** - A line ends with `\r\n` too. Use the
+  shared splitter; a stray `\r` is wrong values, not a crash, so it survives.
+- 🚫 **Assuming a POSIX shell in a test** - `echo "x"` keeps its quotes under
+  cmd, `$VAR` is `%VAR%`, and `sh`/`sleep`/`grep` may not exist. Test the
+  library through the runtime; mark what is genuinely POSIX as POSIX.
 - 🚫 **Mutable global state** - All state must be immutable
 - 🚫 **Implicit behavior** - Everything must be explicit
 - 🚫 **Silent failures** - All errors must be handled
@@ -1031,6 +1047,6 @@ Every line of code should embody this philosophy. We're not just building a comm
 - **Performance matters** - Measure, optimize, verify
 - **Security first** - Never compromise on security
 
-**Last Updated**: 2026-08-03
-**Version**: 0.9.0
+**Last Updated**: 2026-08-06
+**Version**: 0.10.1 (0.11.0 in preparation)
 **Status**: Living Document
