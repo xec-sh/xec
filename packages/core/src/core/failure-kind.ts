@@ -86,7 +86,13 @@ const ERRNO_KINDS: Readonly<Record<string, FailureKind>> = {
  * consumer. Order matters: the first match wins.
  */
 const MESSAGE_KINDS: ReadonlyArray<readonly [RegExp, FailureKind]> = [
-  [/host key verification failed|host key .* not match|is not in .* host key checking/i, 'host-key-mismatch'],
+  // `REMOTE HOST IDENTIFICATION HAS CHANGED` is the banner OpenSSH prints
+  // above the explanation, and it is what survives when stderr is
+  // truncated to its first lines. Without it that case classified as
+  // `unknown` — and an unknown connection failure is treated as refused,
+  // which is recoverable, so the retry reconnected through whatever had
+  // changed the key.
+  [/host key verification failed|host key .* not match|is not in .* host key checking|remote host identification has changed/i, 'host-key-mismatch'],
   [/cannot connect to the docker daemon|docker daemon is not running|is the docker daemon running/i, 'connection-refused'],
   [/connection (?:reset|lost|closed)|broken pipe|unexpected eof|eof$/i, 'connection-lost'],
   [/connection refused|could not resolve host|no route to host/i, 'connection-refused'],
@@ -122,7 +128,7 @@ export function classifyFailure(error: unknown): FailureKind {
   const candidate = error as { code?: unknown; errno?: unknown; message?: unknown; kind?: unknown };
 
   // An already-classified error keeps its verdict.
-  if (typeof candidate.kind === 'string' && candidate.kind in RECOVERABLE_LOOKUP) {
+  if (typeof candidate.kind === 'string' && VALID_KINDS.has(candidate.kind)) {
     return candidate.kind as FailureKind;
   }
 
@@ -162,19 +168,26 @@ export function classifyFailure(error: unknown): FailureKind {
   return 'unknown';
 }
 
-/** Every valid {@link FailureKind}, used to validate a pre-set `kind`. */
-const RECOVERABLE_LOOKUP: Readonly<Record<FailureKind, true>> = {
-  'command-failed': true,
-  timeout: true,
-  'connection-lost': true,
-  'connection-refused': true,
-  authentication: true,
-  'not-found': true,
-  'permission-denied': true,
-  'invalid-usage': true,
-  'host-key-mismatch': true,
-  unknown: true,
-};
+/**
+ * Every valid {@link FailureKind}, used to validate a pre-set `kind`.
+ *
+ * A Set rather than a `Record<FailureKind, true>`: the values were never
+ * read — `kind in LOOKUP` does not look at them — so ten `true`s sat there
+ * meaning nothing, and each could be flipped to `false` without changing
+ * behaviour or failing a test. A membership test is what this is.
+ */
+const VALID_KINDS: ReadonlySet<string> = new Set<FailureKind>([
+  'command-failed',
+  'timeout',
+  'connection-lost',
+  'connection-refused',
+  'authentication',
+  'not-found',
+  'permission-denied',
+  'invalid-usage',
+  'host-key-mismatch',
+  'unknown',
+]);
 
 /**
  * Map a process outcome to an exit code, following the shell convention.

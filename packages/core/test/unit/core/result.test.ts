@@ -723,4 +723,59 @@ describe('ExecutionResult', () => {
     });
 
   });
+  describe('the parts nothing was asserting', () => {
+    /** A result with only the fields a case cares about. */
+    const result = (over: Partial<{ stdout: string; stderr: string; stdall: string; callSite: string }> = {}) =>
+      new ExecutionResultImpl(
+        over.stdout ?? 'out',
+        over.stderr ?? 'err',
+        0,
+        undefined,
+        'cmd',
+        1,
+        new Date(),
+        new Date(),
+        'local',
+        undefined,
+        undefined,
+        over.stdall,
+        over.callSite
+      );
+
+    it('builds stdall by joining the two streams in order', () => {
+      // The interleaved form is supplied by adapters that can capture it.
+      // When they cannot, the fallback has to be a concatenation and not
+      // some other combination of the same two values.
+      expect(result({ stdout: 'A', stderr: 'B' }).stdall).toBe('AB');
+    });
+
+    it('prefers the interleaved capture when there is one', () => {
+      expect(result({ stdout: 'A', stderr: 'B', stdall: 'ABAB' }).stdall).toBe('ABAB');
+    });
+
+    it('reports no call site as empty, not undefined', () => {
+      // Callers concatenate this into a message. `undefined` there prints
+      // the word.
+      expect(result().callSite).toBe('');
+    });
+
+    it('keeps the call site it was given', () => {
+      expect(result({ callSite: 'deploy.ts:4:1' }).callSite).toBe('deploy.ts:4:1');
+    });
+
+    it('chains the parse failure it could not recover from', () => {
+      // `cause` is how a caller reaches the original SyntaxError — the one
+      // that says which character position was wrong.
+      const bad = result({ stdout: 'not json at all' });
+
+      try {
+        bad.json();
+        expect.unreachable('parsing succeeded on text that is not json');
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).cause).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain('not json at all');
+      }
+    });
+  });
 });
