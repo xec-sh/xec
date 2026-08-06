@@ -9,5 +9,9 @@ export default defineConfig({
     // SSH servers, kind clusters). Running the files concurrently makes them
     // compete for the Docker daemon and registry, causing spurious timeouts.
     fileParallelism: false,
+    // A net under the tests that provision containers: one that fails
+    // halfway never reaches its own cleanup, and what it leaves behind
+    // breaks the *next* run, which is the hardest kind of failure to read.
+    globalSetup: ['./test/global-teardown.ts'],
   },
 });

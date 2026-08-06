@@ -19,6 +19,7 @@ import { MySQLFluentAPI, MongoDBFluentAPI, PostgreSQLFluentAPI } from './databas
 // Type exports
 export * from './types.js';
 export { SSHFluentAPI } from './ssh.js';
+export { ElasticsearchFluentAPI } from './search.js';
 
 // Service implementations
 export { RedisFluentAPI, RedisClusterFluentAPI } from './redis.js';

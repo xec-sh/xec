@@ -6,7 +6,6 @@ import { $, ExecutionEngine } from '@xec-sh/core';
 import { UserError, validateOptions } from '@xec-sh/ops';
 import { log, note, text, intro, outro, prism, select, cancel, spinner, isCancel } from '@xec-sh/kit';
 
-import { dataVolumeFor } from '../docker-services/types.js';
 import { SubcommandBase, ConfigAwareOptions } from '../utils/command-base.js';
 import {
   SSHFluentAPI,
@@ -16,7 +15,8 @@ import {
   MongoDBFluentAPI,
   RabbitMQFluentAPI,
   PostgreSQLFluentAPI,
-  RedisClusterFluentAPI
+  RedisClusterFluentAPI,
+  ElasticsearchFluentAPI
 } from '../docker-services/index.js';
 
 interface ContainerOptions extends ConfigAwareOptions {
@@ -1309,10 +1309,9 @@ Password: ${mergedOptions.password || 'admin'}
         return;
       }
 
-      // `--no-single-node` was accepted and then ignored: discovery.type was
-      // hardcoded, so the flag described a mode the command could not enter.
-      // One container cannot form a cluster — it needs seed hosts and peers —
-      // so say that instead of starting a single node and calling it one.
+      // `--no-single-node` is a mode this command cannot enter: one
+      // container has nobody to form a cluster with. Say so rather than
+      // starting a single node and calling it what was refused.
       if (options.singleNode === false) {
         throw new UserError(
           'This command starts one Elasticsearch container, which can only run as a ' +
@@ -1321,29 +1320,18 @@ Password: ${mergedOptions.password || 'admin'}
         );
       }
 
-      // Elasticsearch is not yet implemented as a fluent API service
-      // Using ephemeral container directly
-      const elasticsearch = $.docker().ephemeral(`elasticsearch:${options.version || '8.11.0'}`)
-        .name(options.name || 'xec-elasticsearch')
-        .port(parseInt(options.port || '9200'), 9200)
-        .port(9300, 9300)
-        .env({
-          'discovery.type': 'single-node',
-          'xpack.security.enabled': 'false',
-          'ES_JAVA_OPTS': '-Xms512m -Xmx512m'
-        });
-
-      const esVolume = dataVolumeFor(options, 'xec-elasticsearch');
-      if (esVolume) {
-        elasticsearch.volume(esVolume, '/usr/share/elasticsearch/data');
-      }
+      const elasticsearch = new ElasticsearchFluentAPI(this.serviceEngine, {
+        port: options.port ? parseInt(options.port, 10) : undefined,
+        name: options.name,
+        version: options.version,
+        persistent: options.persistent,
+        dataPath: options.dataPath,
+        network: options.network,
+      });
 
       await elasticsearch.start();
 
-      const info = {
-        httpUrl: `http://localhost:${options.port || '9200'}`,
-        clusterName: 'elasticsearch'
-      };
+      const info = elasticsearch.getConnectionInfo();
       s.stop(prism.green('✓ Elasticsearch started'));
 
       note(`
