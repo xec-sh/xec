@@ -78,9 +78,9 @@ describe('Raw function', () => {
   });
 
   it('should handle quotes and apostrophes without escaping', () => {
-    const cmd = `echo "hello" && echo 'world'`;
+    const cmd = `echo hello && echo 'world'`;
     const result = interpolateRaw(createTemplateStringsArray(['', '']), cmd);
-    expect(result).toBe(`echo "hello" && echo 'world'`);
+    expect(result).toBe(`echo hello && echo 'world'`);
   });
 
   it('should handle redirections without escaping', () => {
@@ -204,8 +204,8 @@ describe('Raw function', () => {
 
       // Better example: file paths with special chars
       const path = './test file.txt';
-      const normalResult = await $`ls ${path} 2>&1 || echo "failed"`.nothrow();
-      const rawResult = await $.raw`ls ${path} 2>&1 || echo "failed"`.nothrow();
+      const normalResult = await $`ls ${path} 2>&1 || echo failed`.nothrow();
+      const rawResult = await $.raw`ls ${path} 2>&1 || echo failed`.nothrow();
 
       // Both should handle it, but regular $ quotes the argument
       expect(normalResult.stdout).toBeDefined();

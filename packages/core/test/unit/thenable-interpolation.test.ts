@@ -1,5 +1,6 @@
 
 import { $ } from '../../src/index.js';
+import { tempRoot } from '../helpers/platform.js';
 
 describe('Thenable Interpolation', () => {
   // Add a small delay between tests to allow promise microtasks to settle
@@ -127,7 +128,7 @@ describe('Thenable Interpolation', () => {
   it('should preserve command chaining with thenables', async () => {
     const promise = Promise.resolve('test-dir');
     const result = await $`echo ${promise}`
-      .cwd('/tmp')
+      .cwd(tempRoot())
       .env({ TEST: 'value' })
       .timeout(5000);
     

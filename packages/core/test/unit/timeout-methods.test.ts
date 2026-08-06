@@ -1,10 +1,11 @@
 
 import { $ } from '../../src/index.js';
+import { sleepFor } from '../helpers/platform.js';
 
 describe('Timeout Methods from README', () => {
   it('should have timeout method on ProcessPromise', async () => {
     // This is the exact example from the README
-    const command = $`echo "test"`;
+    const command = $`echo test`;
     
     // Check that timeout method exists
     expect(typeof command.timeout).toBe('function');
@@ -21,7 +22,7 @@ describe('Timeout Methods from README', () => {
 
   it('should work with sleep command and timeout', async () => {
     // This should timeout after 1 second
-    const command = $`sleep 0.5`.timeout(1000);
+    const command = $`node -e ${sleepFor(500)}`.timeout(1000);
     const result = await command;
     expect(result.exitCode).toBe(0);
   });
@@ -37,7 +38,7 @@ describe('Timeout Methods from README', () => {
   });
 
   it('should work with quiet method', async () => {
-    const command = $`echo "test"`.quiet();
+    const command = $`echo test`.quiet();
     
     expect(typeof command.quiet).toBe('function');
     expect(typeof command.timeout).toBe('function');
@@ -54,14 +55,14 @@ describe('Timeout Methods from README', () => {
   });
 
   it('should work with chaining timeout and quiet', async () => {
-    const command = $`echo "test"`.timeout(1000).quiet();
+    const command = $`echo test`.timeout(1000).quiet();
     
     const result = await command;
     expect(result.stdout.trim()).toBe('test');
   });
 
   it('should work with text() method', async () => {
-    const command = $`echo "hello world"`;
+    const command = $`echo hello world`;
     
     expect(typeof command.text).toBe('function');
     
@@ -70,7 +71,7 @@ describe('Timeout Methods from README', () => {
   });
 
   it('should work with json() method', async () => {
-    const command = $`echo '{"key": "value"}'`;
+    const command = $`node -e ${'process.stdout.write(JSON.stringify({key:"value"}))'}`;
     
     expect(typeof command.json).toBe('function');
     
@@ -88,7 +89,7 @@ describe('Timeout Methods from README', () => {
   });
 
   it('should work with buffer() method', async () => {
-    const command = $`echo "test"`;
+    const command = $`echo test`;
     
     expect(typeof command.buffer).toBe('function');
     

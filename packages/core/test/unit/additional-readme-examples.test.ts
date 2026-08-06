@@ -32,7 +32,7 @@ describe('Additional README Examples', () => {
 
   it('should work with shell method', async () => {
     const $bash = $.shell('/bin/bash');
-    const result = await $bash`echo "test"`;
+    const result = await $bash`echo test`;
     expect(result.stdout.trim()).toBe('test');
   });
 
@@ -83,7 +83,7 @@ describe('Additional README Examples', () => {
 
   it('should work with timeout chaining on $ object', async () => {
     const $quick = $.timeout(3000);
-    const result = await $quick`echo "fast"`;
+    const result = await $quick`echo fast`;
     expect(result.stdout.trim()).toBe('fast');
   });
 
@@ -93,7 +93,7 @@ describe('Additional README Examples', () => {
   });
 
   it('should work with complex ProcessPromise chaining', async () => {
-    const result = await $`echo "test"`.timeout(1000).nothrow().quiet();
+    const result = await $`echo test`.timeout(1000).nothrow().quiet();
     expect(result.stdout.trim()).toBe('test');
     expect(result.exitCode).toBe(0);
   });

@@ -1,5 +1,6 @@
 import { $ } from '../../src/index.js';
 import { resolveExitCode } from '../../src/core/failure-kind.js';
+import { isWindows, exitWith, sleepFor, itPosixShell } from '../helpers/platform.js';
 
 /**
  * A process killed by a signal must never look like a success.
@@ -10,7 +11,11 @@ import { resolveExitCode } from '../../src/core/failure-kind.js';
  * deployment as green.
  */
 describe('a signalled process reports failure', () => {
-  it.each([
+  // `kill -9 $$` is POSIX shell syntax and 128 + signum is a POSIX shell
+  // convention. Windows has neither: a terminated process there reports an
+  // ordinary non-zero exit and no signal at all. The property that matters
+  // — a killed process is never a success — is asserted for both below.
+  itPosixShell.each([
     ['SIGKILL', 137],
     ['SIGTERM', 143],
   ])('reports %s as exit %i and not ok', async (signal, expected) => {
@@ -35,23 +40,29 @@ describe('a signalled process reports failure', () => {
   it.each(['SIGKILL', 'SIGTERM'] as const)(
     'reports %s when the signal lands on our own child',
     async signal => {
-      // Killing through the handle hits the process we spawned, on every
-      // platform — this is where the `signal` field is a promise, not a
-      // shell detail.
-      const running = $.exec('sleep 5').nothrow();
+      // Killing through the handle hits the process we spawned rather than
+      // a shell wrapper, so the field is a promise here and not a shell
+      // detail — where the platform has signals at all. Windows terminates
+      // the process instead, and reports no signal; inventing one would be
+      // a claim the platform cannot back.
+      const running = $.exec(`node -e ${JSON.stringify(sleepFor(5000))}`).nothrow();
       setTimeout(() => running.kill(signal), 150);
 
       const result = await running;
 
       expect(result.ok).toBe(false);
-      expect(result.signal).toBe(signal);
+      if (isWindows) {
+        expect(result.exitCode).not.toBe(0);
+      } else {
+        expect(result.signal).toBe(signal);
+      }
     },
     20_000
   );
 
   it('leaves ordinary exit codes untouched', async () => {
     for (const code of [0, 1, 3, 42]) {
-      const result = await $.exec(`exit ${code}`).nothrow();
+      const result = await $.exec(`node -e ${JSON.stringify(exitWith(code))}`).nothrow();
       expect(result.exitCode).toBe(code);
       expect(result.ok).toBe(code === 0);
     }

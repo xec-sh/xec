@@ -21,7 +21,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "hello world"',
+        'echo hello world',
         100,
         new Date(),
         new Date(),
@@ -44,7 +44,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "test data"',
+        'echo test data',
         100,
         new Date(),
         new Date(),
@@ -67,7 +67,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "hello world"',
+        'echo hello world',
         100,
         new Date(),
         new Date(),
@@ -92,7 +92,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "hello world"',
+        'echo hello world',
         100,
         new Date(),
         new Date(),
@@ -121,7 +121,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "test data"',
+        'echo test data',
         100,
         new Date(),
         new Date(),
@@ -152,7 +152,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "lines"',
+        'echo lines',
         100,
         new Date(),
         new Date(),
@@ -181,7 +181,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "items"',
+        'echo items',
         100,
         new Date(),
         new Date(),
@@ -241,7 +241,7 @@ describe('Pipe Implementation', () => {
 
       const result = await executePipe(
         Promise.resolve(sourceResult),
-        'echo "recovered"',
+        'echo recovered',
         engine,
         { throwOnError: false }
       );
@@ -415,7 +415,7 @@ describe('Pipe Implementation', () => {
         '',
         0,
         undefined,
-        'echo "test data"',
+        'echo test data',
         100,
         new Date(),
         new Date(),
@@ -442,7 +442,7 @@ describe('Pipe Implementation', () => {
     });
 
     test('should pipe to Transform stream', async () => {
-      const promise = engine.run`echo "hello world"`;
+      const promise = engine.run`echo hello world`;
       
       const result = await promise.pipe(pipeUtils.toUpperCase());
 
@@ -467,7 +467,7 @@ describe('Pipe Implementation', () => {
     test('should handle pipe errors with nothrow', async () => {
       const promise = engine.run`exit 1`.nothrow();
       
-      const result = await promise.pipe`echo "recovered"`;
+      const result = await promise.pipe`echo recovered`;
 
       expect(result.stdout.trim()).toBe('recovered');
       expect(result.exitCode).toBe(0);

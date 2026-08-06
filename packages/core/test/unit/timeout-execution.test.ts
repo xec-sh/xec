@@ -1,6 +1,7 @@
 
 import { globalCache } from '../../src/utils/cache.js';
 import { $, dispose, configure } from '../../src/index.js';
+import { sleepFor, tempRoot } from '../helpers/platform.js';
 
 describe('Timeout execution test', () => {
   beforeEach(async () => {
@@ -25,7 +26,7 @@ describe('Timeout execution test', () => {
   });
   describe('Basic timeout functionality', () => {
     it('should execute command with timeout successfully', async () => {
-      const result = await $`echo "test"`.timeout(5000);
+      const result = await $`echo test`.timeout(5000);
 
       expect(result.stdout.trim()).toBe('test');
       expect(result.exitCode).toBe(0);
@@ -38,13 +39,15 @@ describe('Timeout execution test', () => {
     });
 
     it('should work with text() method', async () => {
-      const text = await $`echo "hello"`.timeout(1000).text();
+      const text = await $`echo hello`.timeout(1000).text();
 
       expect(text).toBe('hello');
     });
 
     it('should work with json() method', async () => {
-      const json = await $`echo '{"key": "value"}'`.timeout(1000).json();
+      // Emitted by the runtime, not by echo: cmd's echo prints the quotes
+      // it was given, so the POSIX spelling arrives as invalid JSON there.
+      const json = await $`node -e ${'process.stdout.write(JSON.stringify({key:"value"}))'}`.timeout(1000).json();
 
       expect(json).toEqual({ key: 'value' });
     });
@@ -56,14 +59,14 @@ describe('Timeout execution test', () => {
     });
 
     it('should work with buffer() method', async () => {
-      const buffer = await $`echo "test"`.timeout(1000).buffer();
+      const buffer = await $`echo test`.timeout(1000).buffer();
 
       expect(buffer).toBeInstanceOf(Buffer);
       expect(buffer.toString().trim()).toBe('test');
     });
 
     it('should work with method chaining', async () => {
-      const result = await $`echo "test"`.timeout(1000).quiet().nothrow();
+      const result = await $`echo test`.timeout(1000).quiet().nothrow();
 
       expect(result.stdout.trim()).toBe('test');
       expect(result.exitCode).toBe(0);
@@ -72,21 +75,21 @@ describe('Timeout execution test', () => {
 
   describe('Timeout enforcement', () => {
     it('should timeout long-running command with nothrow', async () => {
-      const result = await $`sleep 10`.timeout(100).nothrow();
+      const result = await $`node -e ${sleepFor(10000)}`.timeout(100).nothrow();
 
       expect(result.ok).toBe(false);
       expect(result.exitCode).not.toBe(0);
     }, 5000);
 
     it('should include timeout info in error message with nothrow', async () => {
-      const result = await $`sleep 10`.timeout(100).nothrow();
+      const result = await $`node -e ${sleepFor(10000)}`.timeout(100).nothrow();
 
       expect(result.ok).toBe(false);
       expect(result.stderr).toMatch(/timed? ?out|timeout/i);
     }, 5000);
 
     it('should work with nothrow on timeout', async () => {
-      const result = await $`sleep 10`.timeout(100).nothrow();
+      const result = await $`node -e ${sleepFor(10000)}`.timeout(100).nothrow();
 
       // Command should be interrupted and return non-zero exit code
       expect(result.ok).toBe(false);
@@ -94,7 +97,7 @@ describe('Timeout execution test', () => {
     }, 5000);
 
     it('should not timeout fast commands', async () => {
-      const result = await $`echo "fast"`.timeout(5000);
+      const result = await $`echo fast`.timeout(5000);
 
       expect(result.stdout.trim()).toBe('fast');
       expect(result.exitCode).toBe(0);
@@ -109,13 +112,13 @@ describe('Timeout execution test', () => {
     }, 5000);
 
     it('should timeout with cwd', async () => {
-      const result = await $`sleep 10`.cwd('/tmp').timeout(100).nothrow();
+      const result = await $`node -e ${sleepFor(10000)}`.cwd(tempRoot()).timeout(100).nothrow();
 
       expect(result.ok).toBe(false);
     }, 5000);
 
     it('should work with shell option', async () => {
-      const result = await $`echo "shell test"`.shell('/bin/sh').timeout(1000);
+      const result = await $`echo shell test`.shell('/bin/sh').timeout(1000);
 
       expect(result.stdout.trim()).toBe('shell test');
     });
@@ -124,7 +127,7 @@ describe('Timeout execution test', () => {
   describe('Multiple timeout calls', () => {
     it('should use last timeout value', async () => {
       // First timeout is long, second is short - should use short one
-      const result = await $`sleep 10`.timeout(10000).timeout(100).nothrow();
+      const result = await $`node -e ${sleepFor(10000)}`.timeout(10000).timeout(100).nothrow();
 
       expect(result.ok).toBe(false);
       expect(result.exitCode).not.toBe(0);
@@ -132,7 +135,7 @@ describe('Timeout execution test', () => {
 
     it('should allow overriding timeout', async () => {
       // Both timeouts are generous for this fast command
-      const result = await $`echo "test"`.timeout(1000).timeout(5000);
+      const result = await $`echo test`.timeout(1000).timeout(5000);
 
       expect(result.stdout.trim()).toBe('test');
     });
@@ -141,7 +144,7 @@ describe('Timeout execution test', () => {
   describe('Timeout edge cases', () => {
     it('should handle very small timeout', async () => {
       // Even fast commands might not complete in 1ms
-      const result = await $`echo "test"`.timeout(1).nothrow();
+      const result = await $`echo test`.timeout(1).nothrow();
 
       // Might succeed or timeout depending on system load
       // Just verify it completes without throwing
@@ -154,7 +157,7 @@ describe('Timeout execution test', () => {
     }, 5000);
 
     it('should handle large timeout', async () => {
-      const result = await $`echo "test"`.timeout(60000);
+      const result = await $`echo test`.timeout(60000);
 
       expect(result.stdout.trim()).toBe('test');
     });

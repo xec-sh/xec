@@ -33,7 +33,7 @@ describe('Simplified API', () => {
   });
   describe('$ function', () => {
     test('should execute commands with template literals', async () => {
-      const result = await $`echo "Hello World"`;
+      const result = await $`echo Hello World`;
       expect(result.stdout.trim()).toBe('Hello World');
       expect(result.exitCode).toBe(0);
     });
@@ -261,7 +261,7 @@ describe('Simplified API', () => {
 
     test('should support shell method', async () => {
       // Test shell method with specific shell
-      const result = await $.shell('/bin/sh')`echo "Shell test"`;
+      const result = await $.shell('/bin/sh')`echo Shell test`;
       expect(result.stdout.trim()).toBe('Shell test');
       expect(result.exitCode).toBe(0);
     });
@@ -284,17 +284,17 @@ describe('Simplified API', () => {
 
     test('should support quiet method', async () => {
       // Quiet suppresses output but should still work
-      const result = await $`echo "quiet test"`.quiet();
+      const result = await $`echo quiet test`.quiet();
       expect(result.stdout.trim()).toBe('quiet test');
     });
 
     test('should support pipe method', async () => {
       // ProcessPromise has a pipe method
-      const firstCommand = $`echo "hello world"`;
+      const firstCommand = $`echo hello world`;
       expect(typeof firstCommand.pipe).toBe('function');
       
       // Test actual piping
-      const pipedResult = await $`echo "hello world"`.pipe`grep world`;
+      const pipedResult = await $`echo hello world`.pipe`grep world`;
       expect(pipedResult.stdout.trim()).toBe('hello world');
       expect(pipedResult.exitCode).toBe(0);
     });
@@ -442,7 +442,7 @@ describe('Simplified API', () => {
       const fresh$ = freshModule.$;
       
       // First access should initialize
-      const result = await fresh$`echo "initialized"`;
+      const result = await fresh$`echo initialized`;
       expect(result.stdout.trim()).toBe('initialized');
     });
 

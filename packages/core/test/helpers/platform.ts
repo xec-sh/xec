@@ -72,13 +72,18 @@ export const cwdOf = (engine: Tagged): Promise<string> =>
 export const argEcho = async (engine: Tagged, value: string): Promise<string> =>
   (await engine`node -e ${'process.stdout.write(process.argv[1] ?? "")'} ${value}`).stdout;
 
-/** A command that exits after roughly `ms`, without needing `sleep`. */
-export const sleepFor = (ms: number): string =>
-  `node -e "setTimeout(()=>{},${Math.round(ms)})"`;
+/**
+ * A body for `node -e` that keeps the process alive for roughly `ms`.
+ *
+ * Written as `` $`node -e ${sleepFor(500)}` `` — interpolated, so it is
+ * quoted for whichever shell is in play. `sleep` is not an option: it
+ * exists on Windows only when Git Bash happens to be installed, and a
+ * suite that depends on that looks like it proved more than it did.
+ */
+export const sleepFor = (ms: number): string => `setTimeout(()=>{},${Math.round(ms)})`;
 
-/** A command that exits with `code`, on any shell. */
-export const exitWith = (code: number): string =>
-  `node -e "process.exit(${code})"`;
+/** A body for `node -e` that exits with `code`. */
+export const exitWith = (code: number): string => `process.exit(${code})`;
 
 /**
  * The environment variable reference this platform's default shell expands.
