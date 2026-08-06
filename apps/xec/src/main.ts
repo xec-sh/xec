@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import process from 'node:process';
 import { Command } from 'commander';
-import { fileURLToPath } from 'node:url';
 import { join, dirname, delimiter } from 'node:path';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { dispose, checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
 /**
  * Loaded on demand rather than at import time.
@@ -526,17 +526,41 @@ function shutdown(code: number): void {
     .then(() => process.exit(code));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * The CLI as an application: run it, then end the process.
+ *
+ * Separate from {@link run}, which does the work and returns. This adds
+ * what an entry point owes the operating system — Ctrl+C stops it, and a
+ * completed command exits instead of being held open by a pooled
+ * connection or a keep-alive timer.
+ *
+ * `bin/xec` calls this. It used to call `run` and inherit neither, because
+ * both lived behind a main-module check that a shim can never satisfy: the
+ * process was started as `bin/xec`, so the check compared that against
+ * `dist/main.js` and declined. Ctrl+C did nothing to the shipped binary.
+ */
+export async function main(argv: string[] = process.argv): Promise<void> {
   process.once('SIGINT', () => shutdown(130));
   process.once('SIGTERM', () => shutdown(143));
 
   // A REPL keeps serving after run() resolves — it is the one path where
   // returning from run() must not end the process.
-  const wantsRepl = process.argv.includes('--repl');
-  run().then(
-    () => {
-      if (!wantsRepl) shutdown(Number(process.exitCode ?? 0));
-    },
-    () => shutdown(1),
-  );
+  const wantsRepl = argv.includes('--repl');
+
+  try {
+    await run(argv);
+    if (!wantsRepl) shutdown(Number(process.exitCode ?? 0));
+  } catch {
+    shutdown(1);
+  }
+}
+
+// Run when this file is the program, rather than imported.
+//
+// `file://${process.argv[1]}` was the comparison, and on Windows argv[1] is
+// `D:\a\xec\dist\main.js` while the module URL is
+// `file:///D:/a/xec/dist/main.js` — never equal, so `node dist/main.js`
+// there did nothing at all, silently.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  void main();
 }

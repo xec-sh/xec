@@ -94,6 +94,7 @@ jobs:
           test/runtime-portability.test.ts
           test/self-resolution.test.ts
           test/startup-budget.test.ts
+          test/entry-point.test.ts
 
       # The built CLI must start under Node, Bun and Deno and deliver the
       # script globals. Runs last: it proves the artifact, not the sources.
@@ -149,3 +150,4 @@ jobs:
           test/utils
           test/command-manifest.test.ts
           test/startup-budget.test.ts
+          test/entry-point.test.ts

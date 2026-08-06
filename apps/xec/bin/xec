@@ -66,8 +66,11 @@ try {
 }
 
 // Load and run CLI
+// `main`, not `run`: the entry point owes the operating system a Ctrl+C
+// that works and a process that exits when the command is done. `run`
+// does the work and returns.
 import('../dist/main.js')
-  .then(cli => cli.run())
+  .then(cli => cli.main())
   .catch(err => {
     if (err.code === 'MODULE_NOT_FOUND') {
       console.error('Error: Xec CLI is not built. Please run "pnpm build" first.');
