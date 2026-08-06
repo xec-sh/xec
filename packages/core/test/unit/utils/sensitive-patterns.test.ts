@@ -286,6 +286,25 @@ describe('the redaction rules', () => {
       });
     }
 
+    it('redacts a single-component uppercase name', () => {
+      // `PGPASSWORD` is the most common name for a secret there is, and
+      // `APIKEY` and `GITHUBTOKEN` are not far behind. Requiring a
+      // separator — which is what keeps `monkey` out — loses all three.
+      hides('PGPASSWORD=hunter2xyz', 'hunter2xyz');
+      hides('APIKEY=s3cr3t-value', 's3cr3t-value');
+      hides('GITHUBTOKEN=s3cr3t-value', 's3cr3t-value');
+      hides('DBPASSWORD=s3cr3t-value', 's3cr3t-value');
+      hides('MYSQLPWD=s3cr3t-value', 's3cr3t-value');
+    });
+
+    it('tells an environment variable from a word by its case', () => {
+      // An uppercase identifier ending in PASSWORD is a password. A
+      // lowercase word containing "key" is a word. That is the whole
+      // distinction, and losing it breaks one side or the other.
+      hides('PGPASSWORD=hunter2xyz', 'hunter2xyz');
+      keeps('monkey=banana');
+    });
+
     it('reads the secret word as a component, not as a substring', () => {
       // `monkey`, `donkey`, `whiskey` all contain "key". Matching those had
       // their values replaced with [REDACTED] — output corrupted on every
@@ -542,7 +561,7 @@ describe('the redaction rules', () => {
 
     it('the password rule catches each of its names on its own', () => {
       for (const name of ['password', 'passwd', 'pwd']) {
-        hiddenBy('passwd|pwd', `${name}=s3cr3t-value`, 's3cr3t-value');
+        hiddenBy('\\b(password|passwd|pwd)', `${name}=s3cr3t-value`, 's3cr3t-value');
       }
     });
 
@@ -605,7 +624,7 @@ describe('the redaction rules', () => {
       ['aws[_-]?access', v => `aws_access_key_id=${v}`],
       ['github[_-]?token', v => `github_token=${v}`],
       ['\\b(token)', v => `token=${v}`],
-      ['passwd|pwd', v => `password=${v}`],
+      ['\\b(password|passwd|pwd)', v => `password=${v}`],
       ['\\b(secret|client[_-]?secret)', v => `secret=${v}`],
       ['APIKEY', v => `SERVICE_TOKEN=${v}`],
     ];
@@ -692,7 +711,7 @@ describe('the redaction rules', () => {
     });
 
     it('the password rule does not reach into a json key', () => {
-      exact('passwd|pwd', '{"password": "s3"}', '{"password": "s3"}');
+      exact('\\b(password|passwd|pwd)', '{"password": "s3"}', '{"password": "s3"}');
     });
 
     it('the environment rule does not reach into a json key', () => {
@@ -707,7 +726,7 @@ describe('the redaction rules', () => {
 
     it('each still catches its own form', () => {
       exact('\\b(token)', 'token=s3', `token=${DEFAULT_REDACTION}`);
-      exact('passwd|pwd', 'password=s3', `password=${DEFAULT_REDACTION}`);
+      exact('\\b(password|passwd|pwd)', 'password=s3', `password=${DEFAULT_REDACTION}`);
       exact('\\b(secret|client[_-]?secret)', 'secret=s3', `secret=${DEFAULT_REDACTION}`);
       exact('APIKEY', 'SERVICE_TOKEN=s3', `SERVICE_TOKEN=${DEFAULT_REDACTION}`);
     });

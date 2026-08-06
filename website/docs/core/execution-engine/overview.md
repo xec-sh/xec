@@ -489,11 +489,21 @@ as it was, `postgres://user[REDACTED]host` with the `:` and the `@` eaten.
 Patterns you supply here have no declared shape, so what they keep is
 inferred from the match.
 
-A rule fires on a *component* of a name, not on a substring of one:
-`DB_PASSWORD` and `GOOGLE_API_KEY` are redacted, `monkey=banana` and
-`whiskey=irish` are not. The cost is `hostkey=…`, a name with no
-separator being indistinguishable from `monkey` without reading it —
-this layer prefers missing an unmarked secret to rewriting real output.
+Whether a name reads as a secret is decided by its case. An **uppercase**
+identifier containing `PASSWORD`, `TOKEN`, `KEY`, `SECRET`, `PWD` or
+`APIKEY` anywhere is redacted — `PGPASSWORD`, `APIKEY`, `DB_PASSWORD`,
+`GOOGLE_API_KEY` — because an uppercase identifier is an environment
+variable. A **lowercase** name must be composite: `db_password` and
+`stripe_api_key` are redacted, `monkey=banana` and `whiskey=irish` are
+not, because a lowercase word containing "key" is usually a word.
+
+The cost of the uppercase half is `MONKEY=`, which nobody writes. The
+cost of getting either half wrong is real in both directions: too broad
+rewrites ordinary output on every command that prints it, too narrow
+loses the most common name for a secret there is.
+
+Configuration is read on each use, so changing `sensitiveDataMasking`
+through `updateConfig` takes effect from the next masked string.
 
 ```typescript
 const $ = new ExecutionEngine({

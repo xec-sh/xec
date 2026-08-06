@@ -51,23 +51,23 @@ export function defaultSensitiveRules(): SensitivePattern[] {
   { pattern: /-----BEGIN[^-]{0,64}PRIVATE\s+KEY(?:\s+BLOCK)?-----(?:(?!-----BEGIN)[\s\S]){0,65536}?-----END[^-]{0,64}PRIVATE\s+KEY(?:\s+BLOCK)?-----/gi, shape: 'whole' },
   // Environment variable assignments with secrets (including template variables).
   //
-  // The secret word must be a whole component of the name, not a substring
-  // of one. `[A-Z][A-Z0-9_]*KEY[A-Z0-9_]*` with the `i` flag matched any
-  // word containing "key" anywhere but the first position — so `monkey=banana`,
-  // `donkey=grey` and `whiskey=irish` had their values replaced with
-  // [REDACTED], corrupting ordinary output on every command that happened to
-  // print one. Requiring `_`/`-` on the side that has a neighbour keeps
-  // `DB_PASSWORD` and `GOOGLE_API_KEY` while leaving `monkey` alone.
+  // Case is the signal, and dropping it was the bug. Written `[A-Z]…KEY…`
+  // but compiled with `i`, this matched any word containing "key" past the
+  // first position — `monkey=banana`, `donkey=grey`, `whiskey=irish` all
+  // had their values replaced, corrupting ordinary output on every command
+  // that printed one.
   //
-  // The name must also be composite: a bare `key=value` is the canonical
-  // generic pair, printed by every configuration dump there is, and the
-  // secrets actually spelled that way — `token=`, `secret=`, `password=` —
-  // each have a rule of their own above.
+  // Requiring the secret word to be a whole component fixed that and broke
+  // something worse: `PGPASSWORD` is one component, and it is the most
+  // common name for a secret there is. So are `APIKEY` and `GITHUBTOKEN`.
   //
-  // The cost is `hostkey=…`: a name with no separator, indistinguishable
-  // from `monkey` without reading it. This file already prefers missing an
-  // unmarked secret to rewriting real output — see the AWS note below.
-  { pattern: /\b((?:[A-Z0-9]+[_-])+(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY)(?:[_-][A-Z0-9]+)*|(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY)(?:[_-][A-Z0-9]+)+)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi, shape: 'assignment' },
+  // Two alternatives instead. Uppercase names match anywhere in the name,
+  // because an uppercase identifier is an environment variable and one
+  // ending in PASSWORD is a password; the cost is `MONKEY=`, which nobody
+  // writes. Lowercase names must be composite — `db_password`, not
+  // `monkey` — because a lowercase word containing "key" is usually a word.
+  { pattern: /\b((?:[A-Z0-9_-]*(?:SECRET|TOKEN|KEY|PASSWORD|PASSWD|PWD|APIKEY)[A-Z0-9_-]*)|(?:[a-z0-9]+[_-][a-z0-9_-]*(?:secret|token|key|password|passwd|pwd|apikey)[a-z0-9_-]*))(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/g, shape: 'assignment' },
+
   // Generic secret patterns
   { pattern: /\b(secret|client[_-]?secret)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'assignment' },
   // Credentials embedded in a URL: postgres://user:pw@host, redis://, mongodb+srv://…
