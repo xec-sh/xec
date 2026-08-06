@@ -18,6 +18,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # A run can fail without the code being at fault — GitHub's action
+  # resolution has gone Service Unavailable and killed a job before it
+  # started. Re-running then should not require an empty commit.
+  workflow_dispatch:
 
 permissions:
   contents: read
