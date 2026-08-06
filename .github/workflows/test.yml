@@ -81,6 +81,9 @@ jobs:
       - name: ops
         run: pnpm --filter @xec-sh/ops test
 
+      # The fixture helpers run inside every other package's suite, so a
+      # fault in them fails the wrong tests — or worse, makes one skip and
+      # report green having proven nothing.
       - name: testing
         run: pnpm --filter @xec-sh/testing test
 

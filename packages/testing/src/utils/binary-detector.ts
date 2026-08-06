@@ -1,5 +1,6 @@
 import { platform } from 'node:os';
 import { existsSync } from 'node:fs';
+import { delimiter } from 'node:path';
 import { execSync } from 'node:child_process';
 
 import { validateShellName } from './shell-escape.js';
@@ -48,12 +49,16 @@ const COMMON_BINARY_PATHS: Record<string, string[]> = {
  */
 export const EXTENDED_PATH = [
   process.env['PATH'] || '',
-  '/usr/local/bin',
-  '/opt/homebrew/bin',
-  '/usr/bin',
-  '/bin',
-  '/snap/bin',
-].filter(Boolean).join(':');
+  // Places a package manager puts things that the inherited PATH often
+  // misses — a GUI-launched process, a minimal CI shell. All POSIX, so on
+  // Windows they are simply skipped rather than added as entries that
+  // cannot exist.
+  ...(platform() === 'win32'
+    ? []
+    : ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin', '/bin', '/snap/bin']),
+  // `delimiter`, not ':'. Joining a Windows PATH with a colon produces one
+  // unusable entry, so every lookup that leaned on this found nothing.
+].filter(Boolean).join(delimiter);
 
 /**
  * Cache for discovered binary paths
