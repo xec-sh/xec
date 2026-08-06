@@ -11,7 +11,7 @@ import { MaskingStreamFilter } from '../utils/masking-stream.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
-import { createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
+import { defaultSensitiveRules, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 
 export interface SensitiveDataMaskingConfig {
   enabled: boolean;
@@ -81,8 +81,14 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
 
     // Initialize optimized masker if masking is enabled
     if (this.config.sensitiveDataMasking.enabled) {
+      // The built-ins are handed over as rules, which carry what each
+      // redaction should leave behind. A caller's own patterns arrive as
+      // bare expressions and are inferred, which is all that can be done
+      // with a pattern nothing is known about.
       this.maskSensitiveDataOptimized = createOptimizedMasker(
-        this.config.sensitiveDataMasking.patterns,
+        config.sensitiveDataMasking?.patterns
+          ? this.config.sensitiveDataMasking.patterns
+          : defaultSensitiveRules(),
         this.config.sensitiveDataMasking.replacement
       );
     }

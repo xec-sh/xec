@@ -29,8 +29,8 @@ import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
+import { DEFAULT_REDACTION, defaultSensitiveRules } from '../utils/sensitive-patterns.js';
 import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
-import { DEFAULT_REDACTION, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
 import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
 import {
@@ -50,7 +50,7 @@ export type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, Dock
  * Events reach loggers, telemetry sinks and user code, so anything emitted
  * from them must already be safe to persist.
  */
-const maskSecrets = createOptimizedMasker(createDefaultSensitivePatterns(), DEFAULT_REDACTION);
+const maskSecrets = createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
 
 /**
  * Reject a tagged-template method invoked as an ordinary function.

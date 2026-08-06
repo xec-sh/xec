@@ -1,6 +1,6 @@
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { isRecoverable, classifyFailure, type FailureKind } from './failure-kind.js';
-import { DEFAULT_REDACTION, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
+import { DEFAULT_REDACTION, defaultSensitiveRules } from '../utils/sensitive-patterns.js';
 
 export class ExecutionError extends Error {
   /**
@@ -73,7 +73,7 @@ export class CommandError extends ExecutionError {
 }
 
 /** Redacts credentials using the same rules as output, events and echoes. */
-const maskCommand = createOptimizedMasker(createDefaultSensitivePatterns(), DEFAULT_REDACTION);
+const maskCommand = createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
 
 /**
  * Redact credentials from a command before it appears in an error message.

@@ -342,21 +342,35 @@ export NODE_ENV=production
 
   describe('Performance', () => {
     it('should handle large texts efficiently', () => {
-      // Generate large text with multiple sensitive values
-      const lines = [];
-      for (let i = 0; i < 1000; i++) {
-        lines.push(`Line ${i}: API_KEY=key${i} password: pass${i}`);
-      }
-      const largeText = lines.join('\n');
+      // What this guards is that masking is linear in the input, not that
+      // a particular machine hits a particular millisecond count. A
+      // wall-clock threshold measures the scheduler as much as the code,
+      // and under a full suite it fails for reasons the code has nothing
+      // to do with — which is the worst kind of failing test, because the
+      // first thing it makes you suspect is the thing that is fine.
+      const text = (count: number): string =>
+        Array.from({ length: count }, (_, i) => `Line ${i}: API_KEY=key${i} password: pass${i}`).join('\n');
 
-      const start = Date.now();
-      const masked = adapter.testMaskSensitiveData(largeText);
-      const duration = Date.now() - start;
+      /** Fastest of several runs: the slow ones measured the machine. */
+      const fastest = (input: string): number => {
+        let best = Infinity;
+        for (let run = 0; run < 5; run++) {
+          const started = process.hrtime.bigint();
+          adapter.testMaskSensitiveData(input);
+          best = Math.min(best, Number(process.hrtime.bigint() - started) / 1e6);
+        }
+        return best;
+      };
 
-      // Should complete within reasonable time
-      expect(duration).toBeLessThan(100); // 100ms for 1000 lines
+      const small = fastest(text(500));
+      const large = fastest(text(4000));
 
-      // Should mask all occurrences
+      // Eight times the input, well under eight times the work would be
+      // suspicious in the other direction; what must not happen is the
+      // quadratic blow-up a badly written pattern produces.
+      expect(large / Math.max(small, 0.01)).toBeLessThan(24);
+
+      const masked = adapter.testMaskSensitiveData(text(1000));
       expect(masked).not.toContain('API_KEY=key');
       expect(masked).not.toContain('password: pass');
       expect(masked.match(/\*\*\*REDACTED\*\*\*/g)).toHaveLength(2000);
