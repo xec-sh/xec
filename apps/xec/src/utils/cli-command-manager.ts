@@ -681,9 +681,15 @@ export async function discoverAllCommands(): Promise<CliCommand[]> {
 export async function loadDynamicCommands(program: Command): Promise<string[]> {
   const manager = getCliCommandManager();
   await manager.discoverAndLoad(program);
-  return manager.getDynamicCommands()
-    .filter(cmd => cmd.loaded)
-    .map(cmd => cmd.name);
+
+  // Every discovered project command, not only the ones loaded in full.
+  // Whichever command argv names is loaded; the rest are registered as
+  // stubs so `--help` stays cheap. Filtering on `loaded` therefore made
+  // this empty for a bare `xec`, and the help — which uses it to tell
+  // project commands from built-in ones — listed every project command
+  // under "Built-in Commands". Being loaded is not what makes a command
+  // the project's.
+  return manager.getDynamicCommands().map(cmd => cmd.name);
 }
 
 /**
