@@ -1,6 +1,7 @@
 import { constants } from 'fs';
 import { access, readFile } from 'fs/promises';
 
+import { itPosixShell } from '../../helpers/platform.js';
 import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password.js';
 
 describe('SecurePasswordHandler - Comprehensive Coverage', () => {
@@ -112,7 +113,7 @@ describe('SecurePasswordHandler - Comprehensive Coverage', () => {
       await handler.cleanup();
     });
 
-    it('should set correct permissions on script', async () => {
+    itPosixShell('should set correct permissions on script', async () => {
       const scriptPath = await handler.createAskPassScript('test');
       
       const { mode } = await import('fs').then(fs => 

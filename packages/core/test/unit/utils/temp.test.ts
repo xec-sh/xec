@@ -1,5 +1,5 @@
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { sep, join } from 'node:path';
 import { promises as fs } from 'node:fs';
 
 import { TempDir, TempFile, withTempDir, withTempFile } from '../../../src/utils/temp.js';
@@ -36,7 +36,9 @@ describe('Temp Utilities', () => {
     });
 
     test('should use custom directory', () => {
-      const customDir = '/custom/tmp';
+      // Joined with the platform's separator, so the literal POSIX spelling
+      // never appears on Windows.
+      const customDir = join(sep, 'custom', 'tmp');
       const file = new TempFile({ dir: customDir });
       expect(file.path).toContain(customDir);
     });

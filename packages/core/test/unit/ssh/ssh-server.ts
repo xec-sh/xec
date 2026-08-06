@@ -188,12 +188,36 @@ function handleSession(acceptSession: any) {
   })
   session.on('exec', function (accept: any, reject: any, info: any) {
     const response = accept()
-    const spawnedProcess = ChildProcess.exec(info.command)
+    // A POSIX shell, named. `exec` picks cmd.exe on Windows, and the SSH
+    // adapter builds POSIX command lines by design — a real remote host is
+    // one. Running them through cmd tests neither: not the adapter, whose
+    // quoting is correct for where it is going, and not the server.
+    const spawnedProcess = ChildProcess.exec(info.command, { shell: posixShell() })
     response.pipe(spawnedProcess.stdin)
     spawnedProcess.stdout?.pipe(response.stdout)
     spawnedProcess.stderr?.pipe(response.stderr)
   })
   session.on('sftp', handleSFTP)
+}
+
+/**
+ * Where a POSIX shell lives here, for the fake server to run commands with.
+ *
+ * On Windows this is Git Bash's, which the runner has. `hasPosixShell`
+ * below lets the suite skip rather than fail where it is absent.
+ */
+export function posixShell(): string {
+  return process.platform === 'win32' ? 'bash.exe' : '/bin/sh'
+}
+
+/** Whether a POSIX shell can be found, so the suite can skip without one. */
+export function hasPosixShell(): boolean {
+  try {
+    ChildProcess.execSync(`${posixShell()} -c "exit 0"`, { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
 }
 
 function handleAuthentication(ctx: any) {

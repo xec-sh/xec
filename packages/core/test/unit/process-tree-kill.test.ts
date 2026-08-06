@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 
 import { $ } from '../../src/index.js';
+import { itPosixShell } from '../helpers/platform.js';
 import { listDescendants, killProcessTree } from '../../src/utils/process-tree.js';
 
 /**
@@ -116,7 +117,9 @@ describe('killProcessTree guards', () => {
     expect(() => killProcessTree(1.5 as number)).toThrow('Invalid pid');
   });
 
-  it('lists descendants of the current process', async () => {
+  // `listDescendants` reads `ps`; the Windows path of killProcessTree is
+  // taskkill /t, which walks the tree itself and never calls this.
+  itPosixShell('lists descendants of the current process', async () => {
     const child = await import('node:child_process');
     const proc = child.spawn('sleep', ['30']);
 

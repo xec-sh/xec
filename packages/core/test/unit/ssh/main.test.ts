@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
 import { join, dirname } from 'node:path';
 
-import createServer from './ssh-server.js';
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
+import createServer, { hasPosixShell } from './ssh-server.js';
 import { wait, exists, PRIVATE_KEY_PATH } from './helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -23,7 +23,10 @@ function createSSHTest(
   callback: (port: number, client: NodeSSH, server: Server) => Promise<void>,
   skip = false,
 ): void {
-  const testFunc = skip ? it.skip : it;
+  // The fake server runs the client's commands through a POSIX shell,
+  // because that is what a real remote host is and what the adapter quotes
+  // for. Without one there is nothing here to test.
+  const testFunc = skip || !hasPosixShell() ? it.skip : it;
   testFunc(title, async () => {
     ports += 1;
 

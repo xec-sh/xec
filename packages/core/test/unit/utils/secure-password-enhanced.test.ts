@@ -2,6 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
+import { itPosixShell } from '../../helpers/platform.js';
 import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password.js';
 
 describe('SecurePasswordHandler Enhanced Security', () => {
@@ -121,8 +122,11 @@ describe('SecurePasswordHandler Enhanced Security', () => {
     });
   });
 
+  // Mode bits are a POSIX filesystem's. Windows has no `chmod`, and the
+  // window these guard — a plaintext password readable between two syscalls
+  // — is not one it has.
   describe('Askpass script generation', () => {
-    it('should create askpass script with secure permissions', async () => {
+    itPosixShell('should create askpass script with secure permissions', async () => {
       const password = 'sudo-password';
       const scriptPath = await handler.createAskPassScript(password);
       
@@ -147,7 +151,7 @@ describe('SecurePasswordHandler Enhanced Security', () => {
       expect(retrieved).toBe(password);
     });
 
-    it('should create executable askpass script', async () => {
+    itPosixShell('should create executable askpass script', async () => {
       const scriptPath = await handler.createAskPassScript('test');
       
       const stats = await fs.stat(scriptPath);
