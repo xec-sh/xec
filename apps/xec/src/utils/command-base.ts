@@ -707,21 +707,6 @@ export abstract class BaseCommand {
     return this.options.verbose || false;
   }
 
-  protected isQuiet(): boolean {
-    return this.options.quiet || false;
-  }
-}
-
-export abstract class SubcommandBase extends BaseCommand {
-  protected abstract setupSubcommands(command: Command): void;
-
-  override create(): Command {
-    const command = super.create();
-    this.setupSubcommands(command);
-    SubcommandBase.inheritCommonOptions(command);
-    return command;
-  }
-
   /**
    * Give every leaf subcommand the options its parent advertises.
    *
@@ -730,8 +715,14 @@ export abstract class SubcommandBase extends BaseCommand {
    * the one the parent's help implies — was rejected as an unknown option
    * while `xec docker --dry-run service postgres` worked. The flags are
    * copied onto the leaves, skipping any the leaf defines itself.
+   *
+   * Lives on the base, not on `SubcommandBase`: having subcommands is a
+   * property of a command, not of which class it happens to extend.
+   * `secrets` and `config` build theirs by hand and extend elsewhere, so
+   * `xec secrets list -o json` answered "unknown option" — on a subcommand
+   * whose entire output is a list.
    */
-  private static inheritCommonOptions(command: Command): void {
+  protected inheritCommonOptions(command: Command): void {
     const inheritable = command.options.filter(option =>
       ['--dry-run', '--output', '--config', '--verbose', '--quiet'].includes(option.long ?? '')
     );
@@ -746,12 +737,63 @@ export abstract class SubcommandBase extends BaseCommand {
         const taken = target.options.some(
           existing => existing.long === option.long || (option.short && existing.short === option.short)
         );
-        if (!taken) target.addOption(option);
+        if (taken) continue;
+
+        // A fresh Option without the parent's default. Adding the parent's
+        // instance gave the leaf `--output`'s default of "text", which then
+        // shadowed the value given on the group — so `xec secrets -o json
+        // list` reported "text" and printed prose. The leaf should answer
+        // only when the flag was actually written there.
+        target.option(option.flags, option.description);
       }
     };
 
     for (const child of command.commands) apply(child);
   }
+
+  /**
+   * Take the standard flags from wherever they were written.
+   *
+   * `optsWithGlobals()` lets the group win, so `xec secrets list -o json`
+   * — the flag on the leaf, which is where anyone would put it — was
+   * overridden by the group's absence of one. A flag written on the leaf
+   * is the more specific statement and takes precedence; one written on
+   * the group still applies to every leaf under it.
+   *
+   * @param invoked - The subcommand whose action is about to run.
+   */
+  protected adoptCommonOptions(invoked: Command): void {
+    const merged: Record<string, unknown> = { ...invoked.optsWithGlobals() };
+    for (const [key, value] of Object.entries(invoked.opts())) {
+      if (value !== undefined) merged[key] = value;
+    }
+
+    const output = merged['output'];
+    if (typeof output === 'string') {
+      BaseCommand.assertOutputFormat(output as OutputFormat);
+      this.options.output = output as OutputFormat;
+      this.formatter.setFormat(output as OutputFormat);
+    }
+    this.options.dryRun = Boolean(merged['dryRun']) || this.options.dryRun;
+    this.options.verbose = Boolean(merged['verbose']) || this.options.verbose;
+    this.options.quiet = Boolean(merged['quiet']) || this.options.quiet;
+  }
+
+  protected isQuiet(): boolean {
+    return this.options.quiet || false;
+  }
+}
+
+export abstract class SubcommandBase extends BaseCommand {
+  protected abstract setupSubcommands(command: Command): void;
+
+  override create(): Command {
+    const command = super.create();
+    this.setupSubcommands(command);
+    this.inheritCommonOptions(command);
+    return command;
+  }
+
 
   override async execute(args: any[]): Promise<void> {
     // Base subcommand shows help if no subcommand is provided

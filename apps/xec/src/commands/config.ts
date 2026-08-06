@@ -42,16 +42,12 @@ export class ConfigCommand extends BaseCommand {
     const cmd = super.create();
     this.groupCommand = cmd;
     this.setupSubcommands(cmd);
+    this.inheritCommonOptions(cmd);
 
     // Standard flags may ride on the group (`config --dry-run set …`) or on
     // the leaf (`config set … --dry-run`); either placement must reach the
     // handlers before they run.
-    cmd.hook('preAction', (_group, invoked) => {
-      const opts = invoked.optsWithGlobals();
-      this.options.dryRun = Boolean(opts['dryRun']) || this.options.dryRun;
-      this.options.verbose = Boolean(opts['verbose']) || this.options.verbose;
-      this.options.quiet = Boolean(opts['quiet']) || this.options.quiet;
-    });
+    cmd.hook('preAction', (_group, invoked) => this.adoptCommonOptions(invoked));
 
     return cmd;
   }
@@ -572,20 +568,27 @@ export class ConfigCommand extends BaseCommand {
       }
     }
 
-    // Format output
-    const content = options.json
-      ? JSON.stringify(displayConfig, null, 2)
-      : yaml.dump(displayConfig, { indent: 2, sortKeys: false });
+    // `-o json` and the older `--json` mean the same thing, and both mean
+    // "give me the configuration, not a picture of it". The box drew a
+    // border around the document, so anything reading it got the border
+    // too.
+    this.emitResult(displayConfig, () => {
+      if (options.json) {
+        process.stdout.write(`${JSON.stringify(displayConfig, null, 2)}\n`);
+        return;
+      }
 
-    const title = options.path
-      ? `📋 Configuration at '${options.path}'`
-      : '📋 All Configuration';
+      const content = yaml.dump(displayConfig, { indent: 2, sortKeys: false });
+      const title = options.path
+        ? `📋 Configuration at '${options.path}'`
+        : '📋 All Configuration';
 
-    box(content, title, {
-      contentAlign: 'left',
-      contentPadding: 1,
-      rounded: true,
-      formatBorder: (text_) => prism.blue(text_)
+      box(content, title, {
+        contentAlign: 'left',
+        contentPadding: 1,
+        rounded: true,
+        formatBorder: (text_) => prism.blue(text_)
+      });
     });
   }
 

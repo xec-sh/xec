@@ -76,6 +76,12 @@ export class OnCommand extends ConfigAwareCommand {
           description: 'User to run command as (overrides config)',
         },
         {
+          flags: '-e, --env <key=value>',
+          description: 'Environment variables (can be used multiple times)',
+          defaultValue: [],
+          parser: (value: string, previous: string[] = []) => [...previous, value],
+        },
+        {
           flags: '--parallel',
           description: 'Execute on multiple hosts in parallel',
         },
@@ -148,25 +154,6 @@ export class OnCommand extends ConfigAwareCommand {
 
   protected override getCommandConfigKey(): string {
     return 'on';
-  }
-
-  override create(): Command {
-    const command = super.create();
-
-    // Declared here, not in the config options list: that path cannot carry a
-    // parser, so a repeated -e kept only the last value and a single -e
-    // arrived as a bare string where an array is validated.
-    command.option(
-      '-e, --env <key=value>',
-      'Environment variables (can be used multiple times)',
-      (value, previous: string[] = []) => {
-        previous.push(value);
-        return previous;
-      },
-      []
-    );
-
-    return command;
   }
 
   override async execute(args: any[]): Promise<void> {
@@ -355,10 +342,16 @@ export class OnCommand extends ConfigAwareCommand {
       return;
     }
 
+    // Resolved once, before anything runs anywhere. Inside the per-target
+    // runner a missing `secret://` key was caught as that target failing —
+    // so a typo in a key name read as an unreachable host, and on a fleet
+    // it read as the whole fleet being unreachable.
+    const env = await this.resolveCommandEnv(options);
+
     const { result, skipped } = await runFleet(
       targets,
       cmd,
-      target => this.runOnTarget(target, cmd, options),
+      target => this.runOnTarget(target, cmd, options, env),
       {
         parallel: options.parallel,
         maxConcurrent: Number(options.maxConcurrent ?? 10),
@@ -379,6 +372,35 @@ export class OnCommand extends ConfigAwareCommand {
   }
 
   /**
+   * Read `--env`, resolving any `secret://` reference.
+   *
+   * @param options - The command's options.
+   * @returns The environment, or undefined when none was given.
+   */
+  private async resolveCommandEnv(
+    options: { env?: string[] | string }
+  ): Promise<Record<string, string> | undefined> {
+    // A single `-e` arrives as a bare string when the value comes from
+    // configuration defaults or from a caller invoking the command
+    // directly; the same normalisation the positional arguments get.
+    const pairs = variadicParts(options.env);
+    if (pairs.length === 0) return undefined;
+
+    const resolved = await resolveEnvPairs(pairs, () =>
+      Promise.resolve(this.configManager.getSecretManager())
+    );
+
+    for (const key of resolved.unprotected) {
+      this.log(
+        `${key} holds a value too short to redact; it will appear in output if the command prints it`,
+        'warn'
+      );
+    }
+
+    return resolved.env;
+  }
+
+  /**
    * Run the command on one target, reporting failure as a value.
    *
    * Nothing is printed here: the fan-out decides what is worth showing
@@ -392,7 +414,8 @@ export class OnCommand extends ConfigAwareCommand {
   private async runOnTarget(
     target: ResolvedTarget,
     cmd: string,
-    options: OnOptions
+    options: OnOptions,
+    env?: Record<string, string>
   ): Promise<TargetOutcome> {
     try {
       const engine = await this.createTargetEngine(target);
@@ -400,19 +423,8 @@ export class OnCommand extends ConfigAwareCommand {
       // Apply options
       let execEngine = engine;
 
-      if (options.env && options.env.length > 0) {
-        const resolved = await resolveEnvPairs(options.env, () =>
-          Promise.resolve(this.configManager.getSecretManager())
-        );
-
-        for (const key of resolved.unprotected) {
-          this.log(
-            `${key} holds a value too short to redact; it will appear in output if the command prints it`,
-            'warn'
-          );
-        }
-
-        execEngine = execEngine.env(resolved.env);
+      if (env) {
+        execEngine = execEngine.env(env);
       }
 
       if (options.cwd) {

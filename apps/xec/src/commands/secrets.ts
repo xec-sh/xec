@@ -27,21 +27,22 @@ export class SecretsCommand extends ConfigAwareCommand {
    * Create command with subcommands
    */
   override create(): Command {
-    const cmd = new Command(this.config.name)
-      .description(this.config.description);
+    // The base class supplies the flags every command advertises. Building
+    // a bare `new Command()` here dropped all of them, so `xec secrets list
+    // -o json` answered "unknown option" — on a subcommand whose entire
+    // output is a list, and the one an agent would reach for first.
+    const cmd = super.create();
 
-    // Add aliases
-    if (this.config.aliases) {
-      this.config.aliases.forEach(alias => cmd.alias(alias));
-    }
-
-    // Set up action for when no subcommand is provided
     cmd.action(async () => {
       await this.execute([]);
     });
 
-    // Set up subcommands
     this.setupSubcommands(cmd);
+    this.inheritCommonOptions(cmd);
+
+    // A standard flag may ride on the group (`secrets -o json list`) or on
+    // the leaf (`secrets list -o json`); both must reach the handler.
+    cmd.hook('preAction', (_group, invoked) => this.adoptCommonOptions(invoked));
 
     return cmd;
   }
@@ -552,26 +553,30 @@ export class SecretsCommand extends ConfigAwareCommand {
     s?.start('Loading secrets');
 
     try {
-      const keys = await manager.list();
+      const keys = (await manager.list()).sort();
       s?.stop(keys.length === 0 ? 'No secrets found' : undefined);
 
-      if (plain) {
-        // Bare keys, one per line — the form loops and xargs can consume.
-        for (const key of keys.sort()) {
-          console.log(key);
+      // Names only, never values: this is the one listing a person is
+      // likely to paste into an issue.
+      this.emitResult({ secrets: keys, total: keys.length }, () => {
+        if (plain) {
+          // Bare keys, one per line — the form loops and xargs can consume.
+          for (const key of keys) {
+            process.stdout.write(`${key}\n`);
+          }
+          return;
         }
-        return;
-      }
 
-      if (keys.length === 0) {
-        return;
-      }
+        if (keys.length === 0) {
+          return;
+        }
 
-      log.message(prism.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
+        log.message(prism.bold(`Found ${keys.length} secret${keys.length === 1 ? '' : 's'}:`));
 
-      for (const key of keys.sort()) {
-        console.log(`  ${prism.cyan('•')} ${key}`);
-      }
+        for (const key of keys) {
+          process.stdout.write(`  ${prism.cyan('•')} ${key}\n`);
+        }
+      });
     } catch (error) {
       s?.stop('Failed to list secrets');
       throw error;

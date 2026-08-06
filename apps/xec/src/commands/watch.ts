@@ -78,6 +78,18 @@ export class WatchCommand extends ConfigAwareCommand {
           defaultValue: '1000',
         },
         {
+          flags: '--pattern <pattern>',
+          description: 'File patterns to watch (can be used multiple times)',
+          defaultValue: [],
+          parser: (value: string, previous: string[] = []) => [...previous, value],
+        },
+        {
+          flags: '--exclude <pattern>',
+          description: 'Patterns to exclude (can be used multiple times)',
+          defaultValue: [],
+          parser: (value: string, previous: string[] = []) => [...previous, value],
+        },
+        {
           flags: '-i, --interactive',
           description: 'Interactive mode for configuring watch settings',
         },
@@ -132,20 +144,6 @@ export class WatchCommand extends ConfigAwareCommand {
 
   protected override getCommandConfigKey(): string {
     return 'watch';
-  }
-
-  /**
-   * Repeatable options need an accumulator; the declaration alone gives
-   * commander a single string, which the array schema then rejects. So the
-   * first use of `--pattern` failed validation and the feature was
-   * unreachable — the same shape the `-e` flags had.
-   */
-  override create(): Command {
-    const command = super.create();
-    const collect = (value: string, previous: string[] = []) => [...previous, value];
-    command.option('--pattern <pattern>', 'File patterns to watch (repeatable)', collect, []);
-    command.option('--exclude <pattern>', 'Patterns to exclude (repeatable)', collect, []);
-    return command;
   }
 
   override async execute(args: any[]): Promise<void> {

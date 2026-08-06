@@ -216,13 +216,6 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   };
   const tasks = () => (taskManagerPromise ??= buildTaskManager());
 
-  // The command palette's history is deliberately not loaded here. Nothing
-  // in the CLI displays the palette — `CommandPalette.show()` has no caller —
-  // so reading and writing that history cost every invocation ~50ms (the
-  // module statically imports @xec-sh/ops) to serve a feature that never
-  // renders. The module stays; wire these back in at the point the palette is
-  // actually shown.
-
   // Module loader is initialized lazily when needed by commands
 
   // `--version` prints a string from package.json and needs no command to be

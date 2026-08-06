@@ -19,6 +19,9 @@ describe('Secrets Command (Real Implementation)', () => {
   let originalExit: typeof process.exit;
   let exitCode: number | undefined;
   let consoleLogSpy: vi.SpyInstance;
+  /** What reached stdout, whichever call wrote it. */
+  let stdoutSpy: vi.SpyInstance;
+  let stdoutWrites: string[];
   let consoleErrorSpy: vi.SpyInstance;
   let kitLogErrorSpy: vi.SpyInstance;
 
@@ -59,6 +62,11 @@ describe('Secrets Command (Real Implementation)', () => {
     
     // Spy on console methods
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    stdoutWrites = [];
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: string) => {
+      stdoutWrites.push(String(chunk));
+      return true;
+    }) as never);
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     kitLogErrorSpy = vi.spyOn(kit.log, 'error').mockImplementation(() => {});
   });
@@ -69,6 +77,7 @@ describe('Secrets Command (Real Implementation)', () => {
     
     // Restore console methods
     consoleLogSpy.mockRestore();
+    stdoutSpy.mockRestore();
     consoleErrorSpy.mockRestore();
     kitLogErrorSpy.mockRestore();
     
@@ -138,10 +147,13 @@ describe('Secrets Command (Real Implementation)', () => {
       await program.parseAsync(['node', 'test', 'secrets', 'set', 'key3', '--value', 'value3']);
       
       consoleLogSpy.mockClear();
+      stdoutWrites = [];
       await program.parseAsync(['node', 'test', 'secrets', 'list']);
-      
-      // Check that keys were listed (order may vary)
-      const output = consoleLogSpy.mock.calls.map(call => call[0]).join('\n');
+
+      // Asserted on the stream rather than on `console.log`: the listing
+      // is the command's answer, and which call writes it is an
+      // implementation detail that changed once already.
+      const output = [...stdoutWrites, ...consoleLogSpy.mock.calls.map(call => call[0])].join('\n');
       expect(output).toContain('key1');
       expect(output).toContain('key2');
       expect(output).toContain('key3');
@@ -156,9 +168,10 @@ describe('Secrets Command (Real Implementation)', () => {
       await program.parseAsync(['node', 'test', 'secrets', 'set', 'ls-test', '--value', 'value']);
       
       consoleLogSpy.mockClear();
+      stdoutWrites = [];
       await program.parseAsync(['node', 'test', 'secrets', 'ls']);
-      
-      const output = consoleLogSpy.mock.calls.map(call => call[0]).join('\n');
+
+      const output = [...stdoutWrites, ...consoleLogSpy.mock.calls.map(call => call[0])].join('\n');
       expect(output).toContain('ls-test');
     });
   });
