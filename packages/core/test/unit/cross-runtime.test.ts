@@ -1,9 +1,12 @@
 import * as os from 'node:os';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
+// A `file://` URL for the import: on Windows an absolute path is
+// rejected with ERR_UNSUPPORTED_ESM_URL_SCHEME, since `d:` reads as a
+// protocol.
 const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/index.js');
 
 /**
@@ -18,7 +21,7 @@ const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../d
  * spawn behaviour, timers, concurrency, stream decoding.
  */
 const PROBE = `
-import { $, parallel, within } from ${JSON.stringify(DIST)};
+import { $, parallel, within } from ${JSON.stringify(pathToFileURL(DIST).href)};
 import { tmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
 

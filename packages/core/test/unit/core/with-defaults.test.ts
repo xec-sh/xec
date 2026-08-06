@@ -1,6 +1,8 @@
+import { dirname } from 'node:path';
+
 import { $ } from '../../../src/index.js';
-import { cwdOf, tempRoot } from '../../helpers/platform.js';
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
+import { cwdOf, tempRoot, nodeCommand } from '../../helpers/platform.js';
 
 /**
  * `$.with({ defaultCwd })` promises a configured engine whose commands run in
@@ -16,6 +18,8 @@ import { ExecutionEngine } from '../../../src/core/execution-engine.js';
  * The failure mode is the dangerous one for this project: a preset built for
  * `/srv/app` runs `git clean -fd` wherever the parent happened to be.
  */
+const emit_cwd = 'process.stdout.write(process.cwd())';
+
 describe('$.with applies the whole configuration it is given', () => {
   const pwd = (engine: typeof $): Promise<string> => cwdOf(engine);
 
@@ -47,8 +51,10 @@ describe('$.with applies the whole configuration it is given', () => {
 
   it('lets a per-command cwd win over the engine default', async () => {
     const engine = $.with({ defaultCwd: TMP });
+    const elsewhere = dirname(TMP);
 
-    expect((await engine.exec('pwd', { cwd: '/usr' })).stdout.trim()).toBe('/usr');
+    expect((await engine.exec(nodeCommand(emit_cwd), { cwd: elsewhere })).stdout.trim())
+      .toBe(elsewhere);
   }, 20_000);
 
   it('carries the directory through a derived engine', async () => {

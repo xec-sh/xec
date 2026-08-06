@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os';
 import { readFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { exec } from 'node:child_process';
 import { sep, join, dirname } from 'node:path';
 
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
@@ -17,10 +16,17 @@ const __filename = fileURLToPath(import.meta.url);
 let ports = 8876;
 
 function getFixturePath(fixturePath: string): string {
-  // Forward slashes: the path is embedded in a command line the remote
-  // shell parses, and a POSIX shell reads `\a` in `D:\a\xec` as an escape.
-  // Node accepts either spelling on Windows.
-  return join(__dirname, 'fixtures', fixturePath).split(sep).join('/');
+  return join(__dirname, 'fixtures', fixturePath);
+}
+
+/**
+ * The same path, spelled for a command line rather than for the filesystem.
+ *
+ * The remote shell parses it, and a POSIX shell reads the `\a` in
+ * `D:\a\xec` as an escape. Node accepts either spelling on Windows.
+ */
+function fixtureArg(fixturePath: string): string {
+  return getFixturePath(fixturePath).split(sep).join('/');
 }
 
 function createSSHTest(
@@ -80,33 +86,23 @@ async function connectWithInlinePrivateKey(port: number, client: NodeSSH) {
 }
 
 describe('SSH Node Tests', () => {
-  afterAll(async () => {
-    await new Promise<void>((resolve) => {
-      exec(`rm -rf ${getFixturePath('ignored')}`, (err) => {
-        if (err) console.error('Cleanup error:', err);
-        exec(`rm -rf ${getFixturePath('ignored-2')}`, (err2) => {
-          if (err2) console.error('Cleanup error:', err2);
-          resolve();
-        });
-      });
-    });
-  });
+  // Through the filesystem rather than through `rm -rf` and `mkdir -p`,
+  // neither of which exists in cmd — the fixture directories were simply
+  // never created there, and every transfer test failed on their absence.
+  const resetFixtures = async (): Promise<void> => {
+    for (const name of ['ignored', 'ignored-2']) {
+      await fs.rm(getFixturePath(name), { recursive: true, force: true });
+    }
+  };
+
+  afterAll(resetFixtures);
 
   beforeAll(async () => {
-    // Create the directories if they don't exist
-    await new Promise<void>((resolve) => {
-      exec(`mkdir -p ${getFixturePath('.')}`, () => {
-        exec(`rm -rf ${getFixturePath('ignored')}`, () => {
-          exec(`rm -rf ${getFixturePath('ignored-2')}`, () => {
-            exec(`mkdir -p ${getFixturePath('ignored')}`, () => {
-              exec(`mkdir -p ${getFixturePath('ignored-2')}`, () => {
-                resolve();
-              });
-            });
-          });
-        });
-      });
-    });
+    await fs.mkdir(getFixturePath('.'), { recursive: true });
+    await resetFixtures();
+    for (const name of ['ignored', 'ignored-2']) {
+      await fs.mkdir(getFixturePath(name), { recursive: true });
+    }
   });
 
   createSSHTest('connects to a server with password', async (port, client) => {
@@ -150,7 +146,7 @@ describe('SSH Node Tests', () => {
     await connectWithPassword(port, client);
     // Clean up from previous test
     await new Promise<void>((resolve) => {
-      exec(`rm -rf ${getFixturePath('ignored/a')}`, () => resolve());
+      fs.rm(getFixturePath('ignored/a'), { recursive: true, force: true }).then(() => resolve());
     });
     expect(await exists(getFixturePath('ignored/a/b'))).toBe(false);
     await client.mkdir(getFixturePath('ignored/a/b'), 'exec');
@@ -233,7 +229,7 @@ describe('SSH Node Tests', () => {
     const targetFile = getFixturePath('ignored/test-put');
     // Clean up any existing file
     await new Promise<void>((resolve) => {
-      exec(`rm -f ${targetFile}`, () => resolve());
+      fs.rm(targetFile, { force: true }).then(() => resolve());
     });
     expect(await exists(targetFile)).toBe(false);
     await client.putFile(sourceFile, targetFile);
@@ -333,7 +329,7 @@ describe('SSH Node Tests', () => {
   createSSHTest('allows stream callbacks on exec', async (port, client) => {
     await connectWithPassword(port, client);
     const outputFromCallbacks = { stdout: [] as Buffer[], stderr: [] as Buffer[] };
-    await client.exec('node', [getFixturePath('test-program')], {
+    await client.exec('node', [fixtureArg('test-program')], {
       stream: 'both',
       onStderr(chunk) {
         outputFromCallbacks.stderr.push(chunk);
@@ -352,7 +348,7 @@ describe('SSH Node Tests', () => {
   createSSHTest('allows stream callbacks on execCommand', async (port, client) => {
     await connectWithPassword(port, client);
     const outputFromCallbacks = { stdout: [] as Buffer[], stderr: [] as Buffer[] };
-    await client.execCommand(`node ${getFixturePath('test-program')}`, {
+    await client.execCommand(`node ${fixtureArg('test-program')}`, {
       onStderr(chunk) {
         outputFromCallbacks.stderr.push(chunk);
       },

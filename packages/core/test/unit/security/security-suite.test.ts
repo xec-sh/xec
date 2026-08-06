@@ -1,7 +1,7 @@
 import { rmSync, mkdirSync, existsSync } from 'node:fs';
 
 import { $ } from '../../../src/index.js';
-import { argEcho } from '../../helpers/platform.js';
+import { argEcho, itPosixShell } from '../../helpers/platform.js';
 import * as shellEscape from '../../../src/utils/shell-escape.js';
 import { withTempDir, withTempFile } from '../../../src/utils/temp.js';
 
@@ -325,12 +325,12 @@ describe('Security Test Suite', () => {
     });
 
     test('should handle very long inputs safely', async () => {
+      // Counted by the runtime rather than by `wc`, which cmd does not
+      // have — the question is whether a long argument survives escaping
+      // and reaches the process whole.
       const longString = 'A'.repeat(10000);
-      const result = await $`echo ${longString} | wc -c`;
-      
-      // Should handle long strings without buffer overflow
-      expect(result.exitCode).toBe(0);
-      expect(parseInt(result.stdout.trim())).toBeGreaterThan(9000);
+
+      expect(await argEcho($, longString)).toHaveLength(10000);
     });
   });
 
@@ -510,11 +510,8 @@ describe('Security Test Suite', () => {
     test('should handle very long command lines safely', async () => {
       // Test with a command line that's very long but not too long
       const longArg = 'A'.repeat(1000);
-      const result = await $`echo ${longArg} | wc -c`;
-      
-      expect(result.exitCode).toBe(0);
-      // Should be at least 1000 characters (plus newline)
-      expect(parseInt(result.stdout.trim())).toBeGreaterThanOrEqual(1000);
+
+      expect(await argEcho($, longArg)).toHaveLength(1000);
     });
 
     test('should prevent shell expansion in literals', async () => {
@@ -563,7 +560,7 @@ describe('Security Test Suite', () => {
       });
     });
 
-    test('should handle symlink attacks in temp directories', async () => {
+    itPosixShell('should handle symlink attacks in temp directories', async () => {
       await withTempDir(async (dir) => {
         // Try to create a symlink pointing outside temp dir
         const symlinkPath = `${dir.path}/evil-link`;

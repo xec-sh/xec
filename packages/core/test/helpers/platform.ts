@@ -192,6 +192,15 @@ export const exitWith = (code: number): string => `process.exit(${code})`;
 export const envRef = (name: string): string => (isWindows ? `%${name}%` : `$${name}`);
 
 /**
+ * A POSIX shell that exists on this platform.
+ *
+ * `/bin/sh` is not a path on Windows; Git Bash supplies `bash.exe`, which
+ * the runner has. A test that names a shell explicitly is testing that the
+ * naming works, not that a particular path exists.
+ */
+export const posixShellPath = (): string => (isWindows ? 'bash.exe' : '/bin/sh');
+
+/**
  * Whether the default shell here speaks POSIX.
  *
  * Not "is this Unix": a test may set `.shell('bash')` on Windows, and then

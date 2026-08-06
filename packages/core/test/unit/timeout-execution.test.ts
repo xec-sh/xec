@@ -1,7 +1,7 @@
 
 import { globalCache } from '../../src/utils/cache.js';
 import { $, dispose, configure } from '../../src/index.js';
-import { sleepFor, tempRoot } from '../helpers/platform.js';
+import { sleepFor, tempRoot, posixShellPath } from '../helpers/platform.js';
 
 describe('Timeout execution test', () => {
   beforeEach(async () => {
@@ -118,7 +118,7 @@ describe('Timeout execution test', () => {
     }, 5000);
 
     it('should work with shell option', async () => {
-      const result = await $`echo shell test`.shell('/bin/sh').timeout(1000);
+      const result = await $`echo shell test`.shell(posixShellPath()).timeout(1000);
 
       expect(result.stdout.trim()).toBe('shell test');
     });

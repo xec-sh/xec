@@ -1,6 +1,6 @@
 
 import { $ } from '../../src/index.js';
-import { argEcho, readEnv, joinArgs, tempRoot } from '../helpers/platform.js';
+import { argEcho, readEnv, joinArgs, tempRoot, posixShellPath } from '../helpers/platform.js';
 
 const emit_cwd = 'process.stdout.write(process.cwd())';
 
@@ -33,7 +33,7 @@ describe('Additional README Examples', () => {
   });
 
   it('should work with shell method', async () => {
-    const $bash = $.shell('/bin/bash');
+    const $bash = $.shell(posixShellPath());
     const result = await $bash`echo test`;
     expect(result.stdout.trim()).toBe('test');
   });

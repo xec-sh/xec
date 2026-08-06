@@ -1,7 +1,7 @@
 
 import { globalCache } from '../../../src/utils/cache.js';
-import { cwdOf, argEcho, readEnv, runNode, joinArgs, tempRoot } from '../../helpers/platform.js';
 import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
+import { cwdOf, argEcho, readEnv, runNode, joinArgs, tempRoot, posixShellPath } from '../../helpers/platform.js';
 
 describe('Simplified API', () => {
   // Store original config to restore after each test
@@ -263,7 +263,7 @@ describe('Simplified API', () => {
 
     test('should support shell method', async () => {
       // Test shell method with specific shell
-      const result = await $.shell('/bin/sh')`echo Shell test`;
+      const result = await $.shell(posixShellPath())`echo Shell test`;
       expect(result.stdout.trim()).toBe('Shell test');
       expect(result.exitCode).toBe(0);
     });
