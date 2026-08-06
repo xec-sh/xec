@@ -9,6 +9,15 @@
         "dist/**"
       ]
     },
+    "@xec-sh/website#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "build/**",
+        ".docusaurus/**"
+      ]
+    },
     "dev": {
       "persistent": true,
       "cache": false
