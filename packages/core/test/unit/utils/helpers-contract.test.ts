@@ -173,6 +173,22 @@ describe('matching files', () => {
     expect(await match('*.ts', { dot: true })).toContain('.hidden.ts');
   });
 
+  it('separates path segments with a forward slash', async () => {
+    // Windows `relative()` answers `sub\\c.ts`, and the pattern is compiled
+    // treating `/` as the boundary a single `*` may not cross — so `*.ts`
+    // matched a file one directory down there. Asserting the separator
+    // catches it from any platform.
+    const matches = await match('**/*.ts');
+
+    expect(matches.some(m => m.includes('\\'))).toBe(false);
+    expect(matches).toContain('src/deep/two.ts');
+  });
+
+  it('does not let a single star cross a directory', async () => {
+    expect(await match('*.ts')).toEqual(['a.ts']);
+    expect(await match('*.ts')).not.toContain('src/one.ts');
+  });
+
   it('returns matches in a stable order', async () => {
     // Directory order is filesystem-dependent; a script that diffs two
     // runs should see the difference in the files, not in the ordering.

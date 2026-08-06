@@ -107,7 +107,7 @@ export function echo(first: TemplateStringsArray | string | unknown, ...rest: un
 // ─── Glob ───────────────────────────────────────────────────────────
 
 import { readdir } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { sep, join, relative } from 'node:path';
 
 /**
  * Simple, zero-dependency glob implementation.
@@ -135,7 +135,13 @@ export async function glob(
 
     const files = await walkDir(cwd);
     for (const file of files) {
-      const rel = relative(cwd, file);
+      // Forward slashes, whatever the platform separates with. The pattern
+      // is translated into a regular expression that treats `/` as the
+      // boundary a single `*` may not cross — so on Windows, where
+      // `relative` answers `sub\c.ts`, `*.ts` matched a file one directory
+      // down. It is also the form every glob library returns, and the form
+      // a caller can feed straight back into another pattern.
+      const rel = relative(cwd, file).split(sep).join('/');
       if (regex.test(rel)) {
         if (isNegation) {
           results.delete(options.absolute ? file : rel);
