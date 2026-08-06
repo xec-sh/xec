@@ -14,7 +14,7 @@ Before installing Xec, ensure your system meets these requirements:
   through Node's own type stripping, on by default since 22.18. The
   libraries (`@xec-sh/core` and friends) used programmatically need only
   Node 20.
-- **Operating System**: macOS, Linux, or Windows (with WSL recommended)
+- **Operating System**: macOS, Linux, or Windows — all three run the unit suite in CI
 - **Package Manager**: npm (included with Node.js) or pnpm
 
 ### Optional Dependencies
@@ -160,17 +160,24 @@ npm install -g @xec-sh/cli
 
 ### Windows
 
-For Windows users, we recommend using WSL2:
-
-```bash
-# In WSL2 terminal
-npm install -g @xec-sh/cli
-```
-
-For native Windows (PowerShell):
+Native Windows is supported and tested:
 
 ```powershell
 # Install Node.js from nodejs.org first
+npm install -g @xec-sh/cli
+```
+
+Commands there run through `cmd.exe` by default, and Xec's own behaviour —
+escaping, paths, globs, line endings, timeouts — is identical to the other
+platforms. What differs is what the shell itself understands: `cmd` has no
+`&&`, no `$VAR` expansion and none of the POSIX tools. See
+[Windows and cross-platform scripts](../targets/local/cross-platform.md).
+
+WSL2 is worth having if your scripts are written in POSIX shell syntax and
+you would rather not change them:
+
+```bash
+# In WSL2 terminal
 npm install -g @xec-sh/cli
 ```
 

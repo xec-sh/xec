@@ -103,6 +103,12 @@ Enforced by tests, not aspirational:
 - SSH connections are pooled, self-heal on drop, and are released by
   `dispose()`. The library installs no global process handlers unless you
   opt in with `installCleanupHandlers()`.
+- The same on Linux, macOS and Windows, and the unit suite runs on all three:
+  interpolated values are quoted for the shell that will parse them —
+  `cmd.exe` gets caret escaping — paths compose through `node:path`, `glob`
+  answers `/`-separated results everywhere, a line ends with `\n` or `\r\n`,
+  and a timeout takes down the whole process tree. What a command *means* is
+  still the shell's: `cmd.exe` has no `&&`, no `$VAR` and no `sleep`.
 
 ## Utilities
 

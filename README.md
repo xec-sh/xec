@@ -124,6 +124,12 @@ xec forward hosts.prod 8080:80                 # port forwarding, incl. reverse 
 
 Targets, defaults and tasks live in `.xec/config.yaml`; scripts get the same `$` API.
 
+Linux, macOS and Windows; the unit suite runs on Windows in CI. Escaping,
+path handling, glob separators, line endings and process termination behave
+identically on all three — what a command *means* is still the shell's, and
+`cmd.exe` is the default one on Windows. See
+[Windows and cross-platform scripts](https://xec.sh/docs/targets/local/cross-platform).
+
 ## What Xec is not
 
 - **Not an Ansible replacement.** No inventory graph, no declarative convergence.
