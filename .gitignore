@@ -55,3 +55,7 @@ CHANGES.md
 *.orig
 .stryker-tmp/
 reports/
+
+# Transient files from `xec run -e`, written beside the script for module
+# resolution and removed in a finally — a killed process leaves one.
+.xec-eval-*.mjs
