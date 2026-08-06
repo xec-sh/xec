@@ -328,9 +328,13 @@ describe('Security Test Suite', () => {
       // Counted by the runtime rather than by `wc`, which cmd does not
       // have — the question is whether a long argument survives escaping
       // and reaches the process whole.
-      const longString = 'A'.repeat(10000);
+      //
+      // Four thousand, not ten: cmd.exe caps a command line at 8191
+      // characters, and the point here is that nothing is silently
+      // truncated below the platform's limit, not that we can exceed it.
+      const longString = 'A'.repeat(4000);
 
-      expect(await argEcho($, longString)).toHaveLength(10000);
+      expect(await argEcho($, longString)).toHaveLength(4000);
     });
   });
 
@@ -512,6 +516,21 @@ describe('Security Test Suite', () => {
       const longArg = 'A'.repeat(1000);
 
       expect(await argEcho($, longArg)).toHaveLength(1000);
+    });
+
+    test('fails rather than truncating past the platform limit', async () => {
+      // Every platform has a ceiling — 8191 characters for cmd.exe, ARG_MAX
+      // for exec. Whichever is hit, the command must fail: a truncated
+      // argument that runs is the dangerous outcome, since the caller reads
+      // exit 0 and a command that did something else.
+      const beyond = 'A'.repeat(3_000_000);
+      const result = await $`node -e ${'process.stdout.write(String((process.argv[1] ?? "").length))'} ${beyond}`.nothrow();
+
+      if (result.exitCode === 0) {
+        expect(result.stdout.trim()).toBe(String(beyond.length));
+      } else {
+        expect(result.stdout.trim()).toBe('');
+      }
     });
 
     test('should prevent shell expansion in literals', async () => {
