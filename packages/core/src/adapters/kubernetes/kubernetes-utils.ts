@@ -58,7 +58,7 @@ export function findKubectlPath(): string {
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
-    const kubectlPath = result.split('\n')[0];
+    const kubectlPath = result.split('\n')[0]?.trimEnd();
     if (result && kubectlPath && existsSync(kubectlPath)) {
       cachedKubectlPath = kubectlPath;
       return kubectlPath;
@@ -113,7 +113,7 @@ export function findKindPath(): string {
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
-    const kindPath = result.split('\n')[0];
+    const kindPath = result.split('\n')[0]?.trimEnd();
     if (result && kindPath && existsSync(kindPath)) {
       cachedKindPath = kindPath;
       return kindPath;

@@ -9,6 +9,7 @@ import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
 import { DockerError, AdapterError, TimeoutError, sanitizeCommandForError } from '../../core/error.js';
+import { splitLines } from '../../utils/line-split.js';
 
 export interface DockerAutoCreateOptions {
   enabled: boolean;
@@ -860,7 +861,7 @@ export class DockerAdapter extends BaseAdapter {
     if (result.exitCode !== 0) {
       throw new DockerError('', 'list', new Error(result.stderr));
     }
-    return result.stdout.trim().split('\n').filter(Boolean);
+    return result.stdout.trim() ? splitLines(result.stdout.trim()).filter(Boolean) : [];
   }
 
   async createContainer(options: {
@@ -1112,7 +1113,7 @@ export class DockerAdapter extends BaseAdapter {
     if (result.exitCode !== 0) {
       throw new DockerError('', 'images', new Error(result.stderr));
     }
-    return result.stdout.trim().split('\n').filter(Boolean);
+    return result.stdout.trim() ? splitLines(result.stdout.trim()).filter(Boolean) : [];
   }
 
   /**
@@ -1215,7 +1216,7 @@ export class DockerAdapter extends BaseAdapter {
       const processData = (data: string) => {
         try {
           buffer += data;
-          const lines = buffer.split('\n');
+          const lines = splitLines(buffer);
           // Keep the last incomplete line in the buffer
           buffer = lines.pop() || '';
           // Send complete lines
@@ -1412,7 +1413,7 @@ export class DockerAdapter extends BaseAdapter {
     if (result.exitCode !== 0) {
       throw new DockerError('', 'network ls', new Error(result.stderr));
     }
-    return result.stdout.trim().split('\n').filter(Boolean);
+    return result.stdout.trim() ? splitLines(result.stdout.trim()).filter(Boolean) : [];
   }
 
   /**
@@ -1473,7 +1474,7 @@ export class DockerAdapter extends BaseAdapter {
     if (result.exitCode !== 0) {
       throw new DockerError('', 'volume ls', new Error(result.stderr));
     }
-    return result.stdout.trim().split('\n').filter(Boolean);
+    return result.stdout.trim() ? splitLines(result.stdout.trim()).filter(Boolean) : [];
   }
 
   /**

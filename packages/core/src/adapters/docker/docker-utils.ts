@@ -53,7 +53,7 @@ export function findDockerPath(): string {
       stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
-    const dockerPath = result.split('\n')[0];
+    const dockerPath = result.split('\n')[0]?.trimEnd();
     if (result && dockerPath && existsSync(dockerPath)) {
       cachedDockerPath = dockerPath;
       return dockerPath;

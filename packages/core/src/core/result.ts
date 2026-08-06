@@ -1,6 +1,7 @@
 import type { ExecutionResult } from '../types/result.js';
 
 import { CommandError } from './error.js';
+import { splitLines } from '../utils/line-split.js';
 
 export type { ExecutionResult } from '../types/result.js';
 
@@ -112,7 +113,7 @@ export class ExecutionResultImpl implements ExecutionResult {
   }
 
   lines(): string[] {
-    return this.stdout.split('\n').filter(line => line.length > 0);
+    return splitLines(this.stdout).filter(line => line.length > 0);
   }
 
   buffer(): Buffer {

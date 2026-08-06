@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
 import { PIPE_TARGET, type ProcessContext } from './process-context.js';
+import { splitLines } from '../utils/line-split.js';
 
 export type { PipeTarget, PipeOptions } from '../types/process.js';
 
@@ -274,7 +275,7 @@ export const pipeUtils = {
     return new Transform({
       transform(chunk, encoding, callback) {
         const text = chunk.toString();
-        const lines = text.split('\n');
+        const lines = splitLines(text);
         const filtered = lines.filter((line: string) => line && regex.test(line));
         const result = filtered.length > 0 ? filtered.join('\n') + '\n' : '';
         callback(null, result);

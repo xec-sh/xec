@@ -7,6 +7,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { Readable, Writable, Transform, PassThrough } from 'node:stream';
 
 import { MaxBufferExceededError } from '../core/error.js';
+import { splitLines } from './line-split.js';
 
 // Core StreamHandler functionality (previously in core/stream-handler.ts)
 export interface StreamHandlerOptions {
@@ -256,7 +257,7 @@ export function createLineTransform(onLine: (line: string) => void): Transform {
       const str = chunk.toString();
       buffer += str;
 
-      const lines = buffer.split('\n');
+      const lines = splitLines(buffer);
       buffer = lines.pop() || '';
 
       for (const line of lines) {
@@ -288,7 +289,7 @@ export class LineTransform extends Transform {
 
   override _transform(chunk: Buffer, encoding: string, callback: (error?: Error | null) => void): void {
     this.buffer += chunk.toString(this.encoding);
-    const lines = this.buffer.split('\n');
+    const lines = splitLines(this.buffer);
     this.buffer = lines.pop() || '';
 
     for (const line of lines) {
@@ -421,7 +422,7 @@ export class StreamingExecution extends EventEmitter {
 
     source.on('data', (chunk: Buffer) => {
       buffer += chunk.toString(this.options.encoding || 'utf8');
-      const lines = buffer.split('\n');
+      const lines = splitLines(buffer);
       buffer = lines.pop() || '';
 
       for (const line of lines) {
