@@ -172,12 +172,6 @@ if (existsSync(licensePath)) {
   copyFileSync(licensePath, join(distDir, 'LICENSE'));
 }
 
-// Copy CHANGELOG if exists
-const changelogPath = join(rootDir, 'CHANGELOG.md');
-if (existsSync(changelogPath)) {
-  copyFileSync(changelogPath, join(distDir, 'CHANGELOG.md'));
-}
-
 console.log(`✅ Build complete! Output at: ${distDir}`);
 
 // Watch mode implementation

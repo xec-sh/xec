@@ -103,7 +103,6 @@ interface RollbackState {
   /** At least one package reached the registry; rollback is now a lie. */
   npmPublished: boolean;
   tagName: string;
-  originalChangelog?: string;
   originalChangesFile?: string;
 }
 
@@ -146,37 +145,6 @@ async function parseChangesFile(): Promise<string | null> {
   // Simply return the content as is
   return content.trim();
 }
-
-// // Helper to update CHANGELOG.md with new release
-// async function updateChangelog(version: string, content: string): Promise<void> {
-//   const changelogPath = 'CHANGELOG.md';
-//   const changelog = readFileSync(changelogPath, 'utf8');
-
-//   // Find the marker
-//   const marker = '<!-- CHANGELOG-INSERT-MARKER -->';
-//   const markerIndex = changelog.indexOf(marker);
-
-//   if (markerIndex === -1) {
-//     throw new Error('CHANGELOG.md is missing the insert marker');
-//   }
-
-//   // Find the end of the marker section (next line after marker comments)
-//   const afterMarker = changelog.indexOf('\n\n', markerIndex) + 2;
-
-//   // Format date
-//   const date = new Date().toISOString().split('T')[0];
-
-//   // Create new release entry
-//   const newEntry = `## [${version}] - ${date}\n\n${content}\n\n`;
-
-//   // Insert new entry after marker
-//   const updatedChangelog =
-//     changelog.slice(0, afterMarker) +
-//     newEntry +
-//     changelog.slice(afterMarker);
-
-//   writeFileSync(changelogPath, updatedChangelog);
-// }
 
 const REPO_URL = 'https://github.com/xec-sh/xec';
 
@@ -368,7 +336,7 @@ async function ensureGithubAuth(config: ReleaseConfig, s: any): Promise<void> {
 
 interface ParsedCommit {
   hash: string;
-  /** The original subject, kept so it can be matched against CHANGELOG.md. */
+  /** The subject as written, before the conventional prefix is parsed off. */
   rawSubject: string;
   /** Conventional type, or 'other' when the subject does not follow it. */
   type: string;
@@ -527,11 +495,7 @@ function byScope(commits: ParsedCommit[]): ParsedCommit[] {
 async function generateChangelog(fromVersion: string, toVersion: string): Promise<string> {
   const baseTag = await findBaseTag(toVersion) ?? (fromVersion ? `v${fromVersion}` : null);
 
-  // Anything already written up is a tag that landed on the wrong commit
-  // resurfacing released work; drop it rather than repeat it.
-  const released = existsSync('CHANGELOG.md') ? readFileSync('CHANGELOG.md', 'utf8') : '';
-  const commits = (await readCommitsSince(baseTag))
-    .filter(commit => !released.includes(commit.rawSubject));
+  const commits = await readCommitsSince(baseTag);
 
   const affected = await collectAffectedPackages(baseTag);
 
@@ -584,9 +548,6 @@ async function performRollback(state: RollbackState, config: ReleaseConfig): Pro
     }
 
     // Restore other files
-    if (state.originalChangelog) {
-      fileOps.push((async () => writeFileSync('CHANGELOG.md', state.originalChangelog!))());
-    }
     if (state.originalChangesFile) {
       fileOps.push((async () => writeFileSync('CHANGES.md', state.originalChangesFile!))());
     }
@@ -929,58 +890,6 @@ export function command(program: Command): void {
         }
 
         s.stop('✅ Package versions updated');
-
-        // // Step 3.5: Update CHANGELOG.md from CHANGES.md
-        // s.start('Updating CHANGELOG...');
-
-        // let changelogContent = '';
-
-        // if (!config.dryRun) {
-        //   // Parallel file reads for better performance
-        //   const [changelogExists, changesExists] = await $.parallel.settled([
-        //     `test -f CHANGELOG.md && echo true || echo false`,
-        //     `test -f CHANGES.md && echo true || echo false`
-        //   ]).then(r => r.results.map(res =>
-        //     res instanceof Error ? false : res.stdout.trim() === 'true'
-        //   ));
-
-        //   // Save originals in parallel if they exist
-        //   const backupTasks: (Promise<void>)[] = [];
-        //   if (changelogExists) {
-        //     backupTasks.push((async () => {
-        //       rollbackState.originalChangelog = readFileSync('CHANGELOG.md', 'utf8');
-        //     })());
-        //   }
-        //   if (changesExists) {
-        //     backupTasks.push((async () => {
-        //       rollbackState.originalChangesFile = readFileSync('CHANGES.md', 'utf8');
-        //     })());
-        //   }
-        //   await Promise.all(backupTasks);
-
-        //   // Try CHANGES.md first
-        //   const changesContent = await parseChangesFile();
-        //   if (changesContent) {
-        //     changelogContent = changesContent;
-        //     usedChangesFile = true;
-        //     kit.log.info('Using content from CHANGES.md for changelog');
-        //   } else {
-        //     // Fallback to git commits
-        //     changelogContent = await generateChangelog(config.previousVersion, config.version);
-        //     kit.log.info('Generated changelog from git commits');
-        //   }
-
-        //   // Update CHANGELOG.md
-        //   try {
-        //     await updateChangelog(config.version, changelogContent);
-        //     s.stop('✅ CHANGELOG.md updated');
-        //   } catch (error) {
-        //     s.stop('⚠️  Failed to update CHANGELOG.md');
-        //     kit.log.warn('Could not update CHANGELOG.md: ' + error);
-        //   }
-        // } else {
-        //   s.stop('✅ CHANGELOG.md update skipped (dry run)');
-        // }
 
         // Step 4: Build everything that is about to be published.
         //

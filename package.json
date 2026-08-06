@@ -16,7 +16,7 @@
     "fm:fix": "prettier --write \"{apps,packages}/**/*.{js,jsx,ts,tsx}\"",
     "fix:all": "pnpm run lint:fix && pnpm run fm:fix",
     "cleanup": "find . -name \"node_modules\" -type d -prune -exec rm -rf '{}' +",
-    "release": "tsx scripts/release.ts",
+    "release": "xec release",
     "link:global": "cd apps/xec && pnpm build && npm link",
     "unlink:global": "cd apps/xec && npm unlink -g @xec-sh/cli",
     "docs:start": "cd website && pnpm start",
