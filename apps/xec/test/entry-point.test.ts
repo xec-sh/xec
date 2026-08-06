@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 
@@ -73,6 +74,18 @@ describe('the entry point ends the process', () => {
     expect(code).toBe(0);
     expect(stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   }, 40_000);
+
+  it('loads a built-in command through a URL, not a path', async () => {
+    // Dynamic import was given `join(commandsDir, name + '.js')`, which is a
+    // path. Node accepts one on POSIX and rejects it on Windows, where `D:`
+    // reads as a scheme — so every built-in command failed to load there and
+    // the CLI could do nothing but print help. Reading the source keeps the
+    // rule checkable from any platform.
+    const source = await readFile(path.join(ROOT, 'dist/main.js'), 'utf8');
+
+    expect(source).not.toMatch(/import\(join\(/);
+    expect(source).toMatch(/import\(pathToFileURL\(/);
+  });
 
   it('exits on its own when the command is done', async () => {
     const result = await runUntilExit(BIN, ['run', '-e', 'await $`echo done`']);

@@ -78,9 +78,16 @@ async function registerBuiltInCommands(program: Command, requested?: string): Pr
 
   const wanted = findCommand(requested);
 
-  /** Import a module and let it register itself fully. */
+  /**
+   * Import a module and let it register itself fully.
+   *
+   * Through a `file://` URL, not the path `join` produces: on Windows an
+   * absolute path in a dynamic import is rejected with
+   * ERR_UNSUPPORTED_ESM_URL_SCHEME, because `D:` reads as a scheme. Every
+   * built-in command loads through here, so on Windows none of them did.
+   */
   const loadModule = async (moduleName: string): Promise<void> => {
-    const module = await import(join(commandsDir, `${moduleName}.js`));
+    const module = await import(pathToFileURL(join(commandsDir, `${moduleName}.js`)).href);
     if (typeof module.default === 'function') {
       module.default(program);
     }
@@ -122,7 +129,7 @@ function describeCommand(program: Command, entry: CommandManifestEntry): void {
   // Reached only if argv did not name this command up front — for instance
   // `xec --some-flag config …`. Load the real one and re-run the parse.
   stub.action(async () => {
-    const module = await import(join(__dirname, './commands', `${entry.module}.js`));
+    const module = await import(pathToFileURL(join(__dirname, './commands', `${entry.module}.js`)).href);
     const fresh = createProgram();
     if (typeof module.default === 'function') {
       module.default(fresh);

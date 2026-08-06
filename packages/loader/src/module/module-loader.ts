@@ -3,6 +3,8 @@
  * @module @xec-sh/loader/module/module-loader
  */
 
+import { isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type { Cache, ModuleExports, ModuleSpecifier, ModuleLoaderOptions } from '../types/index.js';
 
 import { ModuleFetcher } from './module-fetcher.js';
@@ -98,12 +100,17 @@ export class ModuleLoader {
     // Check if it's a local file or built-in Node module (but not HTTP URLs)
     if (resolution.resolved.startsWith('http://') || resolution.resolved.startsWith('https://')) {
       // HTTP(S) URLs need to be fetched, not imported directly
-    } else if (resolution.resolved.startsWith('/') ||
-        resolution.resolved.startsWith('file://') ||
+    } else if (resolution.resolved.startsWith('file://') ||
         resolution.resolved.startsWith('node:') ||
         isNodeBuiltinModule(resolution.resolved)) {
-      // Direct import for local files and built-in modules
+      // Direct import for URLs and built-in modules
       return import(resolution.resolved) as Promise<ModuleExports>;
+    } else if (isAbsolute(resolution.resolved)) {
+      // An absolute path is not a URL. `startsWith('/')` recognised only
+      // the POSIX spelling, so a Windows path fell through to the CDN
+      // fetcher; and importing it directly would fail anyway, since `D:`
+      // reads as a scheme.
+      return import(pathToFileURL(resolution.resolved).href) as Promise<ModuleExports>;
     }
 
     // Fetch from CDN or HTTP(S) URL
