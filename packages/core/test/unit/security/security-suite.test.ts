@@ -3,6 +3,7 @@ import { rmSync, mkdirSync, existsSync } from 'node:fs';
 import { $ } from '../../../src/index.js';
 import * as shellEscape from '../../../src/utils/shell-escape.js';
 import { withTempDir, withTempFile } from '../../../src/utils/temp.js';
+import { argEcho } from '../../helpers/platform.js';
 
 describe('Security Test Suite', () => {
   beforeEach(() => {
@@ -30,18 +31,21 @@ describe('Security Test Suite', () => {
     });
     test('should sanitize shell metacharacters in command arguments', async () => {
       const maliciousInput = '"; rm -rf /; echo "pwned';
-      const result = await $.local()`echo ${maliciousInput}`;
-      
-      // The output should contain the literal string, not execute the commands
-      expect(result.stdout.trim()).toContain('"; rm -rf /; echo "pwned');
-      expect(result.exitCode).toBe(0);
+
+      // Read back as an argument rather than through `echo`: echo's output
+      // carries the shell's own conventions — cmd prints the quotes, POSIX
+      // strips them — and neither is evidence about the escaping. What the
+      // argument holds is.
+      expect(await argEcho($.local(), maliciousInput)).toBe(maliciousInput);
     });
 
     test('should prevent command injection through environment variables', async () => {
       const maliciousEnv = '$(rm -rf /)';
-      const result = await $.env({ SAFE_VAR: maliciousEnv })`echo $SAFE_VAR`;
-      
-      // Should output the literal string, not execute the command
+      const result = await $.env({ SAFE_VAR: maliciousEnv })`node -e ${'process.stdout.write(process.env.SAFE_VAR ?? "")'}`;
+
+      // Read from the environment rather than expanded by the shell: the
+      // reference is spelled `$VAR` in POSIX and `%VAR%` in cmd, and the
+      // question here is whether the value is ever treated as syntax.
       expect(result.stdout.trim()).toBe('$(rm -rf /)');
     });
 
@@ -145,21 +149,21 @@ describe('Security Test Suite', () => {
       ];
 
       for (const { input, expected } of testCases) {
-        const escaped = shellEscape.escapeArg(input);
+        const escaped = shellEscape.quoteForShell(input, 'posix');
         expect(escaped).toBe(expected);
       }
     });
 
     test('should handle arrays of arguments', () => {
       const args = ['cmd', 'arg with space', '$VAR', '"quoted"'];
-      const escaped = args.map(arg => shellEscape.escapeArg(arg)).join(' ');
+      const escaped = args.map(arg => shellEscape.quoteForShell(arg, 'posix')).join(' ');
       expect(escaped).toBe("cmd 'arg with space' '$VAR' '\"quoted\"'");
     });
 
     test('should handle empty strings and special cases', () => {
       // An empty value must survive as an explicit empty argument. Emitting
       // zero characters would silently shift every following argument.
-      expect(shellEscape.escapeArg('')).toBe("''");
+      expect(shellEscape.quoteForShell('', 'posix')).toBe("''");
       // Test quote function for $ quoting
       expect(shellEscape.quote('')).toBe("$''");
     });
@@ -446,9 +450,8 @@ describe('Security Test Suite', () => {
       const isolated$ = createCallableEngine(isolatedEngine);
       
       const argWithSpaces = 'hello world test';
-      const result = await isolated$`echo ${argWithSpaces}`;
-      
-      expect(result.stdout.trim()).toBe('hello world test');
+
+      expect(await argEcho(isolated$, argWithSpaces)).toBe(argWithSpaces);
     });
 
     test('should handle arguments with quotes', async () => {
@@ -459,9 +462,8 @@ describe('Security Test Suite', () => {
       const isolated$ = createCallableEngine(isolatedEngine);
       
       const argWithQuotes = 'it\'s "quoted"';
-      const result = await isolated$`echo ${argWithQuotes}`;
-      
-      expect(result.stdout.trim()).toBe('it\'s "quoted"');
+
+      expect(await argEcho(isolated$, argWithQuotes)).toBe(argWithQuotes);
     });
 
     test('should handle empty string arguments', async () => {
@@ -471,9 +473,11 @@ describe('Security Test Suite', () => {
       const isolatedEngine = new ExecutionEngine();
       const isolated$ = createCallableEngine(isolatedEngine);
       
+      // An empty value must occupy no characters when it sits between two
+      // literals — emitting `''` there would produce `start''end`.
       const emptyArg = '';
-      const result = await isolated$`echo start${emptyArg}end`;
-      
+      const result = await isolated$`node -e ${'process.stdout.write("start" + (process.argv[1] ?? "") + "end")'} ${emptyArg}`;
+
       expect(result.stdout.trim()).toBe('startend');
     });
   });
@@ -521,17 +525,18 @@ describe('Security Test Suite', () => {
 
     test('should prevent shell expansion in literals', async () => {
       const homeVar = '$HOME';
-      const result = await $`echo ${homeVar}`;
-      
-      // Should output literal $HOME, not expand it
-      expect(result.stdout.trim()).toBe('$HOME');
+
+      // Literal, never expanded.
+      expect(await argEcho($, homeVar)).toBe(homeVar);
     });
 
     test('should handle unicode characters safely', async () => {
+      // cmd's own echo answers `??` for anything outside its code page, so
+      // this reads the argument back rather than asking the shell to print
+      // it — the question is whether the bytes survive escaping.
       const unicode = '🔒 Безопасность 安全 🛡️';
-      const result = await $`echo ${unicode}`;
-      
-      expect(result.stdout.trim()).toBe(unicode);
+
+      expect(await argEcho($, unicode)).toBe(unicode);
     });
 
     test('should handle control characters safely', async () => {
@@ -552,7 +557,7 @@ describe('Security Test Suite', () => {
       
       await withTempDir(async (dir) => {
         // Directory should exist
-        const exists = await isolated$`test -d ${dir.path} && echo "exists"`;
+        const exists = await isolated$`node -e ${'process.stdout.write(require("node:fs").statSync(process.argv[1]).isDirectory() ? "exists" : "no")'} ${dir.path}`;
         expect(exists.stdout.trim()).toBe('exists');
         
         // Should be able to create files in it

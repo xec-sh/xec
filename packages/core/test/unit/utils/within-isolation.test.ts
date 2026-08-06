@@ -1,4 +1,5 @@
 import { $, within, withinSync } from '../../../src/index.js';
+import { cwdOf, tempRoot } from '../../helpers/platform.js';
 
 /**
  * `within()` promises that configuration changed inside it stays inside.
@@ -76,16 +77,17 @@ describe('within accepts both call shapes', () => {
   it('takes a bare directory, as the docs show', async () => {
     // Stored as the scope itself — a string where an object was expected —
     // every property read came back undefined and the scope did nothing.
-    const seen = await within('/tmp', async () => (await $`pwd`).stdout.trim());
+    const seen = await within(tempRoot(), async () => cwdOf($));
 
-    expect(['/tmp', '/private/tmp']).toContain(seen);
+    expect(seen).toBe(tempRoot());
   }, 30_000);
 
   it('restores the directory afterwards', async () => {
-    const before = (await $`pwd`).stdout.trim();
-    await within('/tmp', async () => $`pwd`);
+    const cwd = (): Promise<string> => cwdOf($);
+    const before = await cwd();
+    await within(tempRoot(), async () => cwd());
 
-    expect((await $`pwd`).stdout.trim()).toBe(before);
+    expect(await cwd()).toBe(before);
   }, 30_000);
 
   it('takes an explicit configuration', async () => {

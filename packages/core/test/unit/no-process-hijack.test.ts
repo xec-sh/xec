@@ -2,11 +2,12 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const run = promisify(execFile);
 
-const CORE = new URL('../../src/index.ts', import.meta.url).pathname;
-const PACKAGE_ROOT = new URL('../..', import.meta.url).pathname;
+const CORE = fileURLToPath(new URL('../../src/index.ts', import.meta.url));
+const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 /**
  * A library must not take over its host's process.

@@ -1,5 +1,5 @@
 
-import { interpolate } from '../../../src/utils/shell-escape.js';
+import { interpolate, interpolateForShell } from '../../../src/utils/shell-escape.js';
 
 // Helper function to create a TemplateStringsArray
 function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
@@ -11,7 +11,7 @@ function createTemplateStringsArray(strings: string[]): TemplateStringsArray {
 describe('shell-escape interpolation', () => {
   describe('interpolate', () => {
     it('should handle basic strings', () => {
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), 'hello');
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), 'hello');
       expect(result).toBe('echo hello');
     });
 
@@ -21,7 +21,7 @@ describe('shell-escape interpolation', () => {
         const config = { name: 'app', port: 3000 };
         
         // Test the interpolation directly
-        const result = interpolate(createTemplateStringsArray(['echo ', ' > config.json']), config);
+        const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', ' > config.json']), config);
         
         // The fix should ensure the object is JSON stringified, NOT [object Object]
         expect(result).toBe('echo \'{"name":"app","port":3000}\' > config.json');
@@ -67,7 +67,7 @@ describe('shell-escape interpolation', () => {
         ];
 
         for (const { input, expected, description } of testCases) {
-          const result = interpolate(createTemplateStringsArray(['echo ', '']), input);
+          const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), input);
           expect(result, description).toBe(`echo ${expected}`);
           
           // Verify that [object Object] is never present
@@ -95,7 +95,7 @@ describe('shell-escape interpolation', () => {
           lastUpdated: new Date('2023-12-01T10:30:00.000Z')
         };
 
-        const result = interpolate(createTemplateStringsArray(['echo ', ' > app-config.json']), complexConfig);
+        const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', ' > app-config.json']), complexConfig);
         
         // Should not contain [object Object]
         expect(result).not.toContain('[object Object]');
@@ -149,7 +149,7 @@ describe('shell-escape interpolation', () => {
         ];
 
         for (const { input, expected, description } of testCases) {
-          const result = interpolate(createTemplateStringsArray(['echo ', '']), input);
+          const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), input);
           expect(result, description).toBe(`echo ${expected}`);
           expect(result).not.toContain('[object Object]');
         }
@@ -157,33 +157,33 @@ describe('shell-escape interpolation', () => {
     });
 
     it('should handle numbers', () => {
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), 42);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), 42);
       expect(result).toBe('echo 42');
     });
 
     it('should handle booleans', () => {
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), true);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), true);
       expect(result).toBe('echo true');
     });
 
     it('should handle arrays', () => {
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), ['hello', 'world']);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), ['hello', 'world']);
       expect(result).toBe('echo hello world');
     });
 
     it('should handle null and undefined', () => {
       // Nullish values keep their argument position as an empty token, so a
       // missing value fails loudly instead of silently shifting argv.
-      const result1 = interpolate(createTemplateStringsArray(['echo ', '']), null);
+      const result1 = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), null);
       expect(result1).toBe("echo ''");
 
-      const result2 = interpolate(createTemplateStringsArray(['echo ', '']), undefined);
+      const result2 = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), undefined);
       expect(result2).toBe("echo ''");
     });
 
     it('should JSON stringify objects', () => {
       const config = { name: 'app', port: 3000 };
-      const result = interpolate(createTemplateStringsArray(['echo ', ' > config.json']), config);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', ' > config.json']), config);
       expect(result).toBe('echo \'{"name":"app","port":3000}\' > config.json');
     });
 
@@ -192,7 +192,7 @@ describe('shell-escape interpolation', () => {
         app: { name: 'test', version: '1.0.0' },
         db: { host: 'localhost', port: 5432 }
       };
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), config);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), config);
       expect(result).toBe('echo \'{"app":{"name":"test","version":"1.0.0"},"db":{"host":"localhost","port":5432}}\'');
     });
 
@@ -201,7 +201,7 @@ describe('shell-escape interpolation', () => {
         message: 'Hello "World"!',
         path: '/home/user/my file.txt'
       };
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), config);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), config);
       expect(result).toBe('echo \'{"message":"Hello \\"World\\"!","path":"/home/user/my file.txt"}\'');
     });
 
@@ -210,19 +210,19 @@ describe('shell-escape interpolation', () => {
         { name: 'Alice', age: 30 },
         { name: 'Bob', age: 25 }
       ];
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), users);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), users);
       expect(result).toBe('echo \'{"name":"Alice","age":30}\' \'{"name":"Bob","age":25}\'');
     });
 
     it('should handle mixed arrays', () => {
       const mixed = ['string', 42, { key: 'value' }, true];
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), mixed);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), mixed);
       expect(result).toBe('echo string 42 \'{"key":"value"}\' true');
     });
 
     it('should handle Date objects', () => {
       const date = new Date('2023-12-01T10:30:00.000Z');
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), date);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), date);
       // An ISO timestamp contains no shell metacharacters, so it needs no quotes.
       expect(result).toBe('echo 2023-12-01T10:30:00.000Z');
     });
@@ -238,7 +238,7 @@ describe('shell-escape interpolation', () => {
           features: ['auth', 'logging']
         }
       };
-      const result = interpolate(createTemplateStringsArray(['echo ', '']), data);
+      const result = interpolateForShell('posix', createTemplateStringsArray(['echo ', '']), data);
       const expected = 'echo \'{"users":[{"id":1,"name":"Alice","settings":{"theme":"dark"}},{"id":2,"name":"Bob","settings":{"theme":"light"}}],"config":{"version":"1.0.0","features":["auth","logging"]}}\'';
       expect(result).toBe(expected);
     });

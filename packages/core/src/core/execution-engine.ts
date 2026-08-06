@@ -524,7 +524,12 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
         // wrapping is not enough here: `$(…)`, backticks and `$VAR` all still
         // expand inside double quotes, which made this an injection point.
         if (typeof value === 'string') {
-          return quoteForShell(value, dialectFor(this.currentConfig.shell));
+          // `options.shell` before the engine's own: the caller naming a
+          // shell for this render meant it. The options object was read
+          // for `defaults` and dropped for everything else, so a template
+          // rendered for `cmd` from a POSIX host got POSIX quoting —
+          // which is not quoting at all once it reaches cmd.
+          return quoteForShell(value, dialectFor(options?.shell ?? this.currentConfig.shell));
         }
 
         return String(value);

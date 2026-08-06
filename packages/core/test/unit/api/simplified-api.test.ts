@@ -1,6 +1,7 @@
 
 import { globalCache } from '../../../src/utils/cache.js';
 import { $, dispose, configure, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
+import { cwdOf, tempRoot } from '../../helpers/platform.js';
 
 describe('Simplified API', () => {
   // Store original config to restore after each test
@@ -99,12 +100,9 @@ describe('Simplified API', () => {
     });
 
     test('should support cd', async () => {
-      const tempDir = '/tmp';
+      const tempDir = tempRoot();
       const cdEngine = $.cd(tempDir);
-      const result = await cdEngine`pwd`;
-      // On macOS, /tmp is a symlink to /private/tmp
-      const expectedPath = result.stdout.trim();
-      expect([tempDir, '/private/tmp']).toContain(expectedPath);
+      expect(await cwdOf(cdEngine)).toBe(tempDir);
     });
   });
 

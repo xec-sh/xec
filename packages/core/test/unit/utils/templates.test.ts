@@ -2,6 +2,9 @@
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 
+/** Escaping is the shell's rule, so these pin one rather than the host's. */
+const POSIX = { shell: 'sh' } as const;
+
 describe('Templates', () => {
   const engine = new ExecutionEngine();
   const $ = createCallableEngine(engine);
@@ -23,7 +26,7 @@ describe('Templates', () => {
 
   describe('templates.create', () => {
     it('should create a command template', async () => {
-      const template = $.templates.create('echo {{message}}');
+      const template = $.templates.create('echo {{message}}', POSIX);
       mock.mockSuccess(`sh -c "echo 'Hello World'"`, 'Hello World');
 
       const result = await template.execute($mock, { message: 'Hello World' });
@@ -32,6 +35,7 @@ describe('Templates', () => {
 
     it('should use default values', async () => {
       const template = $.templates.create('echo {{greeting}} {{name}}', {
+        ...POSIX,
         defaults: { greeting: 'Hello' }
       });
       mock.mockSuccess('sh -c "echo Hello World"', 'Hello World');
@@ -42,6 +46,7 @@ describe('Templates', () => {
 
     it('should validate parameters', async () => {
       const template = $.templates.create('rm {{file}}', {
+        ...POSIX,
         validate: (params) => {
           if (!params['file'].endsWith('.tmp')) {
             throw new Error('Only .tmp files can be deleted');
@@ -56,6 +61,7 @@ describe('Templates', () => {
 
     it('should transform results', async () => {
       const template = $.templates.create('cat {{file}}', {
+        ...POSIX,
         transform: (result) => JSON.parse(result.stdout)
       });
       mock.mockSuccess('sh -c "cat data.json"', '{"value": 42}');
@@ -85,32 +91,43 @@ describe('Templates', () => {
   });
 
   describe('templates.render', () => {
+    it('quotes for the shell it was given, not the engine default', () => {
+      // The options object was read for `defaults` and dropped for
+      // everything else, so a template rendered for cmd from a POSIX host
+      // came back POSIX-quoted — which is not quoting at all once it gets
+      // to cmd.
+      const value = { m: 'a b' };
+
+      expect($.templates.render('echo {{m}}', value, { shell: 'sh' })).toBe("echo 'a b'");
+      expect($.templates.render('echo {{m}}', value, { shell: 'cmd.exe' })).toBe('echo ^"a^ b^"');
+    });
+
     it('should render template string with data', () => {
-      const rendered = $.templates.render('echo {{message}}', { message: 'Hello' });
+      const rendered = $.templates.render('echo {{message}}', { message: 'Hello' }, POSIX);
       expect(rendered).toBe('echo Hello');
     });
 
     it('should escape values with spaces', () => {
-      const rendered = $.templates.render('echo {{message}}', { message: 'Hello World' });
+      const rendered = $.templates.render('echo {{message}}', { message: 'Hello World' }, POSIX);
       expect(rendered).toBe("echo 'Hello World'");
     });
 
     it('should escape quotes in values', () => {
-      const rendered = $.templates.render('echo {{message}}', { message: 'Hello "World"' });
+      const rendered = $.templates.render('echo {{message}}', { message: 'Hello "World"' }, POSIX);
       expect(rendered).toBe(`echo 'Hello "World"'`);
     });
 
     it('should neutralise command substitution in values', () => {
       // Double-quote wrapping used to leave `$(…)`, backticks and `$VAR`
       // expandable, turning every templated parameter into an injection point.
-      expect($.templates.render('echo {{m}}', { m: '$(id)' })).toBe(`echo '$(id)'`);
-      expect($.templates.render('echo {{m}}', { m: '`id`' })).toBe("echo '`id`'");
-      expect($.templates.render('echo {{m}}', { m: '$HOME' })).toBe(`echo '$HOME'`);
-      expect($.templates.render('echo {{m}}', { m: 'a; rm -rf /' })).toBe(`echo 'a; rm -rf /'`);
+      expect($.templates.render('echo {{m}}', { m: '$(id)' }, POSIX)).toBe(`echo '$(id)'`);
+      expect($.templates.render('echo {{m}}', { m: '`id`' }, POSIX)).toBe("echo '`id`'");
+      expect($.templates.render('echo {{m}}', { m: '$HOME' }, POSIX)).toBe(`echo '$HOME'`);
+      expect($.templates.render('echo {{m}}', { m: 'a; rm -rf /' }, POSIX)).toBe(`echo 'a; rm -rf /'`);
     });
 
     it('should not let a quote in a value break out of quoting', () => {
-      const rendered = $.templates.render('echo {{m}}', { m: `'; id; '` });
+      const rendered = $.templates.render('echo {{m}}', { m: `'; id; '` }, POSIX);
       expect(rendered).toBe(`echo ''\\''; id; '\\'''`);
     });
   });
@@ -157,7 +174,7 @@ describe('Templates', () => {
     });
 
     it('should work with different execution engines', async () => {
-      const template = $.templates.create('echo {{message}}');
+      const template = $.templates.create('echo {{message}}', POSIX);
 
       // Test with different configurations
       const $custom = $mock.env({ CUSTOM: 'true' });

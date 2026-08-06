@@ -20,17 +20,21 @@ describe('Directory Operations', () => {
     it('should handle relative paths', () => {
       const basePath = '/home/user';
       const engine = $.cd(basePath).cd('./projects');
-      expect(engine.pwd()).toBe(path.join(basePath, 'projects'));
+      // `resolve`, not `join`: composing a relative segment is exactly what
+      // the engine does, and on Windows resolving a rooted path adds the
+      // current drive. Asserting the operation rather than one platform's
+      // spelling of its answer.
+      expect(engine.pwd()).toBe(path.resolve(basePath, './projects'));
     });
     
     it('should handle parent directory references', () => {
       const engine = $.cd('/home/user/projects').cd('../');
-      expect(engine.pwd()).toBe('/home/user');
+      expect(engine.pwd()).toBe(path.resolve('/home/user/projects', '../'));
     });
     
     it('should handle multiple relative path segments', () => {
       const engine = $.cd('/home/user').cd('./projects/../documents/./files');
-      expect(engine.pwd()).toBe('/home/user/documents/files');
+      expect(engine.pwd()).toBe(path.resolve('/home/user', './projects/../documents/./files'));
     });
     
     it('should expand tilde to home directory', () => {
@@ -48,7 +52,7 @@ describe('Directory Operations', () => {
     it('should handle tilde in middle of path correctly', () => {
       // Tilde expansion only works at the beginning
       const engine = $.cd('/tmp').cd('./~test');
-      expect(engine.pwd()).toBe('/tmp/~test');
+      expect(engine.pwd()).toBe(path.resolve('/tmp', './~test'));
     });
     
     it('should resolve relative paths from current directory', () => {
@@ -58,8 +62,8 @@ describe('Directory Operations', () => {
       const engine3 = engine2.cd('../documents');
       
       expect(engine1.pwd()).toBe('/home/user');
-      expect(engine2.pwd()).toBe('/home/user/projects');
-      expect(engine3.pwd()).toBe('/home/user/documents');
+      expect(engine2.pwd()).toBe(path.resolve('/home/user', 'projects'));
+      expect(engine3.pwd()).toBe(path.resolve('/home/user/projects', '../documents'));
     });
     
     it('should maintain separate directories for different engine instances', () => {
@@ -100,7 +104,7 @@ describe('Directory Operations', () => {
         .timeout(5000)
         .cd('./subdir');
         
-      expect(engine.pwd()).toBe('/tmp/subdir');
+      expect(engine.pwd()).toBe(path.resolve('/tmp', './subdir'));
     });
     
     it('should work with $.with()', () => {
@@ -108,7 +112,7 @@ describe('Directory Operations', () => {
       expect(engine.pwd()).toBe('/home/user');
       
       const engine2 = engine.cd('./documents');
-      expect(engine2.pwd()).toBe('/home/user/documents');
+      expect(engine2.pwd()).toBe(path.resolve('/home/user', './documents'));
     });
     
     it('should handle Windows-style paths on Windows', () => {

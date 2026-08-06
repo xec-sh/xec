@@ -2,10 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const run = promisify(execFile);
 
-const PACKAGE_ROOT = new URL('../..', import.meta.url).pathname;
+const PACKAGE_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 /**
  * For a tool that executes infrastructure commands, third-party code on the

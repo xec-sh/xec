@@ -240,13 +240,13 @@ describe('interpolate', () => {
   it('preserves the argument position of a nullish value as an empty token', () => {
     // "null"/"undefined" as text would silently become a real argument;
     // dropping the token entirely would shift the whole argv.
-    expect(interpolate(tpl(['cp ', ' ', ' /dst']), null, 'src')).toBe("cp '' src /dst");
-    expect(interpolate(tpl(['cp ', ' /dst']), undefined)).toBe("cp '' /dst");
+    expect(interpolateForShell('posix', tpl(['cp ', ' ', ' /dst']), null, 'src')).toBe("cp '' src /dst");
+    expect(interpolateForShell('posix', tpl(['cp ', ' /dst']), undefined)).toBe("cp '' /dst");
   });
 
   it('unwraps an execution result to its trimmed output', () => {
     const resultLike = { stdout: 'main\n', text: () => 'main' };
-    expect(interpolate(tpl(['git checkout ', '']), resultLike)).toBe('git checkout main');
+    expect(interpolateForShell('posix', tpl(['git checkout ', '']), resultLike)).toBe('git checkout main');
   });
 });
 
