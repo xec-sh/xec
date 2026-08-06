@@ -482,6 +482,19 @@ Masking is enabled by default in every adapter: passwords, tokens, and keys
 matching the built-in patterns are replaced with `[REDACTED]` in events and
 error messages. It is configured per adapter:
 
+Each built-in rule declares what a redaction should leave behind, so the
+structure around a credential survives it — `PGPASSWORD=[REDACTED]` and
+`postgres://user:[REDACTED]@host/db` rather than a bare `[REDACTED]` or,
+as it was, `postgres://user[REDACTED]host` with the `:` and the `@` eaten.
+Patterns you supply here have no declared shape, so what they keep is
+inferred from the match.
+
+A rule fires on a *component* of a name, not on a substring of one:
+`DB_PASSWORD` and `GOOGLE_API_KEY` are redacted, `monkey=banana` and
+`whiskey=irish` are not. The cost is `hostkey=…`, a name with no
+separator being indistinguishable from `monkey` without reading it —
+this layer prefers missing an unmarked secret to rewriting real output.
+
 ```typescript
 const $ = new ExecutionEngine({
   adapters: {

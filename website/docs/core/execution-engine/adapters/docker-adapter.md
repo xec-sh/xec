@@ -66,6 +66,19 @@ const asRoot = $.docker({
 });
 ```
 
+### Running in a container that already exists
+
+`$.docker({ container })` runs `docker exec`, so the container's mounts,
+network and lifetime are whatever they already were. `volumes` there is
+refused rather than ignored: mounts are fixed when a container is created,
+and accepting them silently meant the command ran against a filesystem the
+caller believed was somewhere else. Give an `image` (or `runMode: 'run'`)
+to create a container with those mounts.
+
+`Privileged` and the engine's `defaultEnv` apply in both modes. They used
+to reach `exec` and not `run`, so one target configuration meant two
+different things depending on a mode nobody chose explicitly.
+
 ### Creating New Containers
 
 The plain `$.docker({ image, ... })` form only forwards `image`, `volumes`,

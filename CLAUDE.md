@@ -869,33 +869,34 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
 
 ### Code Quality Metrics
 - **Test coverage**: >95% (100% for critical paths)
-- **Mutation score**: **72.2% measured** (2026-08-06, first run in the
-  project's history: 1338 mutants over the eight files in
-  `packages/core/stryker.config.json`, 29 minutes). >95% remains the
-  target; the gap is where the work is, per file:
+- **Mutation score**: **86.4% measured** (2026-08-06, over the eight files
+  in `packages/core/stryker.config.json`; 72.2% when first run). >95%
+  remains the target, per file:
 
-  | file | score | survived | note |
+  | file | score | survived | was |
   |---|---|---|---|
-  | `core/error.ts` | 55.3% | 29 | |
-  | `utils/sensitive-patterns.ts` | **57.3%** | 111 | was 42.0% |
-  | `utils/optimized-masker.ts` | **68.8%** | 42 | was 61.2% |
-  | `utils/helpers.ts` | 78.4% | 25 | |
-  | `core/failure-kind.ts` | 80.4% | 22 | |
-  | `utils/parallel.ts` | 83.4% | 30 | |
-  | `utils/shell-escape.ts` | 84.2% | 40 | |
-  | `utils/secret-registry.ts` | **86.5%** | 7 | all equivalent |
-  | `core/result.ts` | 93.5% | 3 | |
+  | `utils/optimized-masker.ts` | 79.2% | 34 | 61.2% |
+  | `utils/sensitive-patterns.ts` | 81.2% | 49 | 42.0% |
+  | `utils/shell-escape.ts` | 85.7% | 39 | 84.2% |
+  | `utils/parallel.ts` | 87.2% | 32 | 83.4% |
+  | `utils/helpers.ts` | 87.3% | 13 | 78.4% |
+  | `core/failure-kind.ts` | 93.8% | 7 | 80.4% |
+  | `core/error.ts` | 96.8% | 3 | 55.3% |
+  | `core/result.ts` | 100% | 0 | 93.5% |
 
-  The redaction machinery was the weakest and was the first fixed: writing
-  the tests it had never had found a rule that redacted `monkey=banana`
-  and a replacement that turned `postgres://user:pw@host` into something
-  that was no longer a URL. Its remaining survivors are regex mutations —
-  one test per alternation branch — and the mutant count grew with the
-  rules, so the score understates the work already done.
+  Two lessons worth keeping. Rules that overlap hide each other's
+  mutants — `api_key=` is caught by two rules, so one can be entirely
+  broken while every combined test passes; each is now also checked
+  alone. And asking whether a secret survived is too weak: narrow
+  `"([^"]+)"` to `"([^"])"` and the value is still redacted, by a
+  different branch, while the rule has stopped understanding quoting.
+  Assert the exact output.
 
-  Not every survivor is a missing test. All seven on `secret-registry.ts`
-  are equivalent: they change a fast path, not behaviour, and no test can
-  kill them. 100% is not the goal; knowing which survivors are which is.
+  Not every survivor is a missing test. All seven remaining on
+  `failure-kind.ts` are equivalent — fast paths that return the same
+  answer either way — as are several on `shell-escape.ts`, which can
+  only be killed on Windows. 100% is not the goal; knowing which
+  survivors are which is.
 - **Cyclomatic complexity**: <10 per function
 - **Type coverage**: 100%
 - **Bundle size**: <50KB (core)

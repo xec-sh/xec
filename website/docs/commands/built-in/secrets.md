@@ -77,6 +77,12 @@ xec secrets list
 xec secrets ls  # Alias
 ```
 
+`-o json` gives `{ "secrets": [...], "total": n }`, and works written on
+the subcommand or on the group — `secrets list -o json` and
+`secrets -o json list` are the same request. (Every standard flag was
+missing here until 0.10.2: this command built its own parser and answered
+"unknown option" to `-o`.)
+
 **Examples:**
 ```bash
 # List all secrets

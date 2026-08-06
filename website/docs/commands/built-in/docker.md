@@ -64,7 +64,20 @@ xec docker image <cmd>          # alias: i
 xec docker service <cmd>        # alias: s
 ```
 
-One-line development services. Each takes `-p, --port`, `-n, --name`, `--version <tag>`, `--persistent` and `--data-path <path>`; service-specific flags below:
+One-line development services. Each takes `-p, --port`, `-n, --name`,
+`--version <tag>`, `--persistent` and `--data-path <path>`; service-specific
+flags below.
+
+`--persistent` alone is enough: without `--data-path` the data goes to a
+named docker volume derived from the container name, which outlives the
+container. (It used to mount nothing at all unless a path was given — the
+service started, reported itself persistent, and lost everything when the
+container was removed.)
+
+Every service waits until it can answer before `start` returns. A service
+handed back before it is usable is one whose first request fails, and
+whether it does depends on how loaded the machine is.
+
 
 - `redis` - Redis (`--password`, `--config-path`)
 - `postgres` - PostgreSQL (`--password`, `--user`, `--database`)
@@ -73,7 +86,10 @@ One-line development services. Each takes `-p, --port`, `-n, --name`, `--version
 - `redis-cluster` - Redis cluster (`-m, --masters`, `-r, --replicas`, `-p, --base-port`, `--password`, `--network`)
 - `kafka` - Kafka with Zookeeper (`--zookeeper <connection>`, `--broker-id <id>`, `--network`)
 - `rabbitmq` - RabbitMQ (`-m, --management-port`, `--user`, `--password`, `--vhost`)
-- `elasticsearch` - Elasticsearch (`--single-node`)
+- `elasticsearch` - Elasticsearch (`--single-node`). One container can only
+  run as a single node, so `--no-single-node` is refused rather than
+  silently ignored; for a real cluster, describe the nodes in a compose
+  file or as separate targets.
 - `ssh` - SSH server container for testing (`--user`, `--password`, `--pubkey <path>`, `--authorized-keys <path>`)
 - `list` - List available services; alias `ls`
 

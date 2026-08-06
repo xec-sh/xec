@@ -134,7 +134,22 @@ xec watch local src/ --poll --command "npm run build"
 
 ### SSH Hosts
 
-Uses `inotifywait` on remote system or fallback polling:
+Uses `inotifywait` on the remote system, falling back to polling when
+inotify-tools is not installed there.
+
+`--interval` applies to the remote fallback too. It used to be parsed,
+validated and then ignored: the remote loop slept for a hardcoded second
+whatever was asked for. Values below a second round up, because `sleep`
+is not required to accept a fraction.
+
+The fallback reads modification times in both the GNU and the BSD form,
+so it works on macOS and the BSDs. Reading them the GNU way only failed
+silently there — the loop compared two empty strings forever and the
+watch never fired.
+
+Paths and patterns are quoted before they reach the remote shell. Written
+raw, a path containing `;` ran whatever followed it, on the far side,
+with whatever credentials the target carries.
 
 ```bash
 # Watch remote files via SSH

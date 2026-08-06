@@ -461,6 +461,10 @@ export class DockerCommand extends SubcommandBase {
       .option('-n, --name <name>', 'Container name', 'xec-elasticsearch')
       .option('--version <tag>', 'Elasticsearch version', '8.11.0')
       .option('--single-node', 'Single node mode', true)
+      // Declared so the negation is a refusal with a reason rather than
+      // "unknown option". One container has nobody to form a cluster with,
+      // and a flag whose negation does not parse reads as one that works.
+      .option('--no-single-node', 'Refused: one container cannot form a cluster')
       .option('--persistent', 'Enable persistence', false)
       .option('--data-path <path>', 'Data directory')
       .action(async (options: ServiceOptions, cmd: any) => {

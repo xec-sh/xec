@@ -134,7 +134,12 @@ xec config list [options]
 
 **Options:**
 - `--json` - Output as JSON
+- `-o, --output <format>` - `text` (default), `json`, `yaml`, `csv`
 - `--path <path>` - List values under specific path
+
+`--json` and `-o json` mean the same thing. Both emit the configuration
+itself; the decorative box the text form draws is not part of it, and
+anything reading the output used to get the border too.
 
 **Examples:**
 ```bash
