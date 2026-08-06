@@ -72,8 +72,21 @@ export class CommandError extends ExecutionError {
   }
 }
 
-/** Redacts credentials using the same rules as output, events and echoes. */
-const maskCommand = createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
+/**
+ * Redacts credentials using the same rules as output, events and echoes.
+ *
+ * Built on first use rather than at module load. Constructing it eagerly
+ * runs regular-expression compilation as an import side effect, so a fault
+ * in the rules makes the whole package unimportable — every consumer
+ * failing at `import`, with a stack trace that names neither the rule nor
+ * the file the rule lives in.
+ */
+let maskCommandImpl: ((text: string) => string) | undefined;
+
+const maskCommand = (text: string): string => {
+  maskCommandImpl ??= createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
+  return maskCommandImpl(text);
+};
 
 /**
  * Redact credentials from a command before it appears in an error message.

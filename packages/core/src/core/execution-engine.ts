@@ -50,7 +50,15 @@ export type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, Dock
  * Events reach loggers, telemetry sinks and user code, so anything emitted
  * from them must already be safe to persist.
  */
-const maskSecrets = createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
+// Built on first use: see the note in core/error.ts. An import-time
+// construction turns a fault in the rules into a package that cannot be
+// imported at all.
+let maskSecretsImpl: ((text: string) => string) | undefined;
+
+const maskSecrets = (text: string): string => {
+  maskSecretsImpl ??= createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
+  return maskSecretsImpl(text);
+};
 
 /**
  * Reject a tagged-template method invoked as an ordinary function.

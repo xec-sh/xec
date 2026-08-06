@@ -37,6 +37,14 @@ describe('choosing a dialect', () => {
     expect(dialectFor('PowerShell.exe')).toBe('powershell');
   });
 
+  it('strips .exe only at the end', () => {
+    // Unanchored, `.exe` is removed wherever it appears, so `c.exemd`
+    // becomes `cmd` and a file with an unfortunate name selects Windows
+    // quoting on a Unix host.
+    expect(dialectFor('c.exemd')).toBe('posix');
+    expect(dialectFor('power.exeshell')).toBe('posix');
+  });
+
   it('treats an unrecognised shell as posix', () => {
     // The wrong guess in this direction quotes with single quotes on a
     // shell that understands them; the other direction leaves a Windows
@@ -178,6 +186,14 @@ describe('interpolating into a command', () => {
     const result = { stdout: 'web-1\n', text: () => 'web-1' };
 
     expect(tag`echo ${result}`).toBe('echo web-1');
+  });
+
+  it('needs both marks of a result, not either', () => {
+    // A plain object that happens to have `stdout` — a parsed record, a
+    // config — is not an execution result. Calling its absent `text()`
+    // throws where JSON was wanted.
+    expect(tag`send ${{ stdout: 'value' }}`).toBe(`send '{"stdout":"value"}'`);
+    expect(tag`send ${{ text: () => 'value' }}`).toBe('send \'{}\'');
   });
 
   it('serialises a plain object as json', () => {

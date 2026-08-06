@@ -62,6 +62,18 @@ describe('durations', () => {
     expect(() => parseDuration('soon')).toThrow(/duration/i);
     expect(() => parseDuration('')).toThrow(/duration/i);
   });
+
+  it('requires the number at the start', () => {
+    // Without the anchor, `x5s` matches from offset one and reads as five
+    // seconds — a typo that silently becomes a value.
+    expect(() => parseDuration('x5s')).toThrow(/duration/i);
+    expect(() => parseDuration('about 5s')).toThrow(/duration/i);
+  });
+
+  it('requires the unit at the end', () => {
+    expect(() => parseDuration('5s!')).toThrow(/duration/i);
+    expect(() => parseDuration('5s then')).toThrow(/duration/i);
+  });
 });
 
 describe('sleeping', () => {
@@ -175,6 +187,30 @@ describe('matching files', () => {
     expect(await glob(['*.ts', '*.ts', '*.js'], { cwd: root })).toEqual(['a.ts', 'b.js']);
   });
 
+  it('sorts across patterns, not by the order they were given', async () => {
+    // Matches accumulate in a set as each pattern runs, so without the
+    // sort the answer depends on which pattern was written first — a
+    // script that diffs two invocations would see that as a change.
+    expect(await glob(['*.js', '*.ts'], { cwd: root })).toEqual(['a.ts', 'b.js']);
+  });
+
+  it('reads ** in the middle of a pattern', async () => {
+    expect(await match('src/**/*.ts')).toEqual(['src/deep/two.ts', 'src/one.ts']);
+  });
+
+  it('matches a literal brace when it is not an alternation', async () => {
+    // An unclosed brace is a literal `{`, and a file may be named that.
+    await write('a{b.ts');
+
+    expect(await match('a{b.ts')).toEqual(['a{b.ts']);
+  });
+
+  it('matches a literal bracket when it is not a class', async () => {
+    await write('a[b.ts');
+
+    expect(await match('a[b.ts')).toEqual(['a[b.ts']);
+  });
+
   it('escapes a regular-expression character in the pattern', async () => {
     // `notes.md` must not be matched by `notes?md` treating `.` as "any".
     await write('notesXmd');
@@ -204,5 +240,43 @@ describe('killing a process', () => {
     // A process that exited between the decision to kill it and the call
     // is the normal case, not an error to propagate.
     await expect(kill(2_147_483_646)).resolves.toBeUndefined();
+  });
+
+  it('takes the children down with the parent', async () => {
+    // The negative pid is the process *group*. Killing only the parent
+    // leaves whatever it spawned running — the case this function exists
+    // for, since a shell that starts a server and exits leaves the server.
+    const parent = spawn(
+      process.execPath,
+      ['-e', `
+        const { spawn } = require('node:child_process');
+        const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+        process.stdout.write(String(child.pid));
+        setInterval(() => {}, 1000);
+      `],
+      { detached: true, stdio: ['ignore', 'pipe', 'ignore'] }
+    );
+
+    const grandchildPid = Number(
+      await new Promise<string>(resolve => parent.stdout!.once('data', d => resolve(String(d))))
+    );
+
+    await kill(parent.pid, 'SIGKILL');
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const stillRunning = (): boolean => {
+      try {
+        process.kill(grandchildPid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    try {
+      expect(stillRunning()).toBe(false);
+    } finally {
+      try { process.kill(grandchildPid, 'SIGKILL'); } catch { /* already gone */ }
+    }
   });
 });

@@ -52,5 +52,6 @@ CHANGES.md
 .xec/.tmp/
 
 # Stryker mutation-testing artifacts
+*.orig
 .stryker-tmp/
 reports/

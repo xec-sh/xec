@@ -18,7 +18,12 @@ import { DEFAULT_REDACTION, defaultSensitiveRules } from '../../../src/utils/sen
  * broad corrupts ordinary output, which is its own kind of failure.
  */
 describe('the redaction rules', () => {
-  const mask = createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION);
+  // Built per call, not once at module level. A change that breaks rule
+  // construction throws during the import when the masker is built there,
+  // so no test runs — and a test that never runs never fails, which reads
+  // to a mutation survey as the change being harmless.
+  const mask = (text: string): string =>
+    createOptimizedMasker(defaultSensitiveRules(), DEFAULT_REDACTION)(text);
 
   /** The value must not survive anywhere in the output. */
   const hides = (text: string, secret: string): void => {
@@ -644,6 +649,104 @@ describe('the redaction rules', () => {
     it('a basic-auth password is consumed whole', () => {
       expect(only('(-u|--user)')('curl -u alice:s3cr3t-value https://x'))
         .toBe(`curl -u alice:${DEFAULT_REDACTION} https://x`);
+    });
+  });
+
+  describe('the rule set itself', () => {
+    it('is a non-empty list of well-formed rules', () => {
+      // Emptying the function body returns undefined, and every masker
+      // built from it then fails deep inside the constructor rather than
+      // here, where the fault is.
+      const rules = defaultSensitiveRules();
+
+      expect(Array.isArray(rules)).toBe(true);
+      expect(rules.length).toBeGreaterThan(15);
+      for (const rule of rules) {
+        expect(rule.pattern).toBeInstanceOf(RegExp);
+        expect(typeof rule.shape).toBe('string');
+      }
+    });
+
+    it('hands out fresh expressions each time', () => {
+      // The patterns carry `g`, so sharing instances lets one masker's
+      // lastIndex make another skip a match — silently letting a secret
+      // through.
+      const first = defaultSensitiveRules();
+      const second = defaultSensitiveRules();
+
+      expect(first[0]!.pattern).not.toBe(second[0]!.pattern);
+    });
+  });
+
+  describe('a separator is whitespace, not anything', () => {
+    // `(\s*[:=]\s*)` widened to `(\S*[:=]\s*)` lets a rule reach across
+    // the characters before the colon, so the token rule swallows a JSON
+    // pair and the secret rule swallows `secretkey=`. Each rule is asserted
+    // alone, and by its exact output, since the overlap otherwise hides it.
+    const exact = (fragment: string, text: string, expected: string): void => {
+      expect(only(fragment)(text)).toBe(expected);
+    };
+
+    it('the token rule does not reach into a json key', () => {
+      exact('\\b(token)', '{"token": "s3"}', '{"token": "s3"}');
+    });
+
+    it('the password rule does not reach into a json key', () => {
+      exact('passwd|pwd', '{"password": "s3"}', '{"password": "s3"}');
+    });
+
+    it('the environment rule does not reach into a json key', () => {
+      exact('APIKEY', '{"api_key": "s3"}', '{"api_key": "s3"}');
+    });
+
+    it('the secret rule does not swallow a longer name', () => {
+      // `secretkey=` belongs to the key rule, which keeps its own name in
+      // the output; the secret rule must not claim it.
+      exact('\\b(secret|client[_-]?secret)', 'secretkey=s3cr3t', 'secretkey=s3cr3t');
+    });
+
+    it('each still catches its own form', () => {
+      exact('\\b(token)', 'token=s3', `token=${DEFAULT_REDACTION}`);
+      exact('passwd|pwd', 'password=s3', `password=${DEFAULT_REDACTION}`);
+      exact('\\b(secret|client[_-]?secret)', 'secret=s3', `secret=${DEFAULT_REDACTION}`);
+      exact('APIKEY', 'SERVICE_TOKEN=s3', `SERVICE_TOKEN=${DEFAULT_REDACTION}`);
+    });
+  });
+
+  describe('a provider token is recognised by its whole shape', () => {
+    // The length bounds are what separate a token from a word that starts
+    // the same way; without them the prefix alone is enough and the rest of
+    // the value is left in the output.
+    const exact = (fragment: string, text: string, expected: string): void => {
+      expect(only(fragment)(text)).toBe(expected);
+    };
+
+    it('takes a google key whole', () => {
+      exact('AIza', 'AIzaSyD-0123456789abcdefghijklmnop', DEFAULT_REDACTION);
+    });
+
+    it('takes a slack token whole', () => {
+      exact('xox', 'xoxb-1234567890-abcdefghij', DEFAULT_REDACTION);
+    });
+
+    it('takes a stripe key whole', () => {
+      exact('sk|pk|rk', 'sk_live_0123456789abcdef', DEFAULT_REDACTION);
+    });
+
+    it('takes a gitlab token whole', () => {
+      exact('glpat', 'glpat-0123456789abcdefgh', DEFAULT_REDACTION);
+    });
+
+    it('takes an npm token whole', () => {
+      exact('npm_', 'npm_0123456789abcdefghij0123456789abcd', DEFAULT_REDACTION);
+    });
+
+    it('takes an aws key id whole', () => {
+      exact('AKIA|ASIA', 'AKIAIOSFODNN7EXAMPLE', DEFAULT_REDACTION);
+    });
+
+    it('takes a github token whole', () => {
+      exact('gh[ps]_', 'ghp_0123456789abcdefghij', DEFAULT_REDACTION);
     });
   });
 });

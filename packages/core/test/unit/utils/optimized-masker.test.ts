@@ -27,8 +27,15 @@ describe('what a redaction leaves behind', () => {
   const inferred = (...patterns: RegExp[]): ((text: string) => string) =>
     createOptimizedMasker(patterns, R);
 
-  /** The built-in rules, which carry their own shapes. */
-  const builtIn = createOptimizedMasker(defaultSensitiveRules(), R);
+  /**
+   * The built-in rules, which carry their own shapes.
+   *
+   * Built per call: constructed once at module level, a change that breaks
+   * rule construction throws during the import, no test runs, and nothing
+   * fails — which a mutation survey reads as the change being harmless.
+   */
+  const builtIn = (text: string): string =>
+    createOptimizedMasker(defaultSensitiveRules(), R)(text);
 
   describe('patterns that capture nothing', () => {
     it('replaces the whole match', () => {

@@ -58,6 +58,8 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   protected abstract readonly adapterName: string;
   public name: string;
   private maskSensitiveDataOptimized: ((text: string) => string) | null = null;
+  private maskingEnabled = true;
+  private callerSuppliedPatterns: RegExp[] | undefined;
 
   constructor(config: BaseAdapterConfig = {}) {
     super();
@@ -79,19 +81,13 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       }
     };
 
-    // Initialize optimized masker if masking is enabled
-    if (this.config.sensitiveDataMasking.enabled) {
-      // The built-ins are handed over as rules, which carry what each
-      // redaction should leave behind. A caller's own patterns arrive as
-      // bare expressions and are inferred, which is all that can be done
-      // with a pattern nothing is known about.
-      this.maskSensitiveDataOptimized = createOptimizedMasker(
-        config.sensitiveDataMasking?.patterns
-          ? this.config.sensitiveDataMasking.patterns
-          : defaultSensitiveRules(),
-        this.config.sensitiveDataMasking.replacement
-      );
-    }
+    // The masker is built on first use, not here. Compiling twenty-odd
+    // expressions in a constructor makes every adapter — including one
+    // created to run a single `echo` — pay for redaction it may never
+    // perform, and turns any fault in the rules into a failure to
+    // *construct an adapter*, a long way from anything that names a rule.
+    this.maskingEnabled = this.config.sensitiveDataMasking.enabled;
+    this.callerSuppliedPatterns = config.sensitiveDataMasking?.patterns;
 
     // Name will be set by subclasses
     this.name = '';
@@ -240,9 +236,18 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
   }
 
   protected maskSensitiveData(text: string): string {
-    if (!this.maskSensitiveDataOptimized || !text) {
+    if (!this.maskingEnabled || !text) {
       return text;
     }
+
+    // The built-ins are handed over as rules, which carry what each
+    // redaction should leave behind. A caller's own patterns arrive as
+    // bare expressions and are inferred, which is all that can be done
+    // with a pattern nothing is known about.
+    this.maskSensitiveDataOptimized ??= createOptimizedMasker(
+      this.callerSuppliedPatterns ?? defaultSensitiveRules(),
+      this.config.sensitiveDataMasking.replacement
+    );
 
     return this.maskSensitiveDataOptimized(text);
   }
@@ -545,6 +550,14 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
         replacement: config.sensitiveDataMasking.replacement ?? this.config.sensitiveDataMasking.replacement
       }
       : this.config.sensitiveDataMasking;
+
+    // Masking is rebuilt on next use. It was built once in the constructor
+    // and never again, so changing `sensitiveDataMasking` through this
+    // method was accepted and had no effect — new patterns never applied,
+    // and turning masking off left it on.
+    this.maskSensitiveDataOptimized = null;
+    this.maskingEnabled = newSensitiveDataMasking.enabled;
+    this.callerSuppliedPatterns = config.sensitiveDataMasking?.patterns ?? this.callerSuppliedPatterns;
 
     this.config = {
       defaultTimeout: config.defaultTimeout ?? this.config.defaultTimeout,

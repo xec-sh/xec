@@ -4,12 +4,21 @@ import { dockerManager } from '@xec-sh/testing';
 
 import { configure } from './src/index.js';
 
-// Configure the $ instance with all adapters for tests
-configure({
-  adapters: {
-    ssh: {},
-    docker: {},
-  },
+// Configure the `$` instance with all adapters for tests.
+//
+// In `beforeAll`, not at module level. Constructing the engine during
+// collection means any fault in it — an adapter, a masker, a rule — aborts
+// collection before a single test runs, and a test that never runs never
+// fails. The suite then reports "no tests" and a mutation survey reads
+// that as the fault being harmless: a blind spot covering every module the
+// engine touches on the way up.
+beforeAll(() => {
+  configure({
+    adapters: {
+      ssh: {},
+      docker: {},
+    },
+  });
 });
 
 // Store whether we should manage containers globally
