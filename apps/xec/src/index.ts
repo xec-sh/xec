@@ -23,6 +23,11 @@ import './globals.js';
 // ========================================
 // RE-EXPORT EVERYTHING FROM CORE
 // ========================================
+// The one star export left in the workspace, and deliberate: it re-exports
+// another *package*, whose surface is itself explicit and reviewed where it
+// is declared. The rule against `export *` is about not letting your own
+// surface be decided by whatever a neighbouring file happens to declare;
+// enumerating core's exports here would be a copy that drifts.
 export * from '@xec-sh/core';
 
 // ========================================

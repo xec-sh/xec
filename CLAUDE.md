@@ -182,7 +182,11 @@ throw new Error('Command exited with code 1');
 ### 5. 📐 Module Boundaries
 - Single responsibility per module
 - No circular dependencies
-- Explicit exports (no `export *`)
+- Explicit exports. `export *` from your own modules makes the public
+  surface implicit — it changes whenever a neighbouring file declares a
+  symbol, so internals become public without review. Re-exporting a whole
+  *package* whose surface is already explicit is the one exception
+  (`@xec-sh/cli` re-exports `@xec-sh/core`).
 - Co-locate related functionality
 
 ### 6. 🚀 Performance

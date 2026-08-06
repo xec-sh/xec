@@ -9,15 +9,27 @@
 
 // ─── Operations ─────────────────────────────────────────────────────
 
-export * from './api/index.js';
+// `api` declares a TaskDefinition that extends the configuration one. Under
+// `export *` the explicit config export won and this was unreachable — an
+// ambiguity the star hid. Both are available, and which is which is legible.
+export type { TaskDefinition as ApiTaskDefinition } from './api/types.js';
 
 export { retry, RetryPolicy, type RetryConfig, type BackoffStrategy } from './retry/index.js';
+export {
+  tasks, config, TaskAPI, targets, ConfigAPI, TargetAPI, ScriptContext,
+} from './api/index.js';
+
 export { Pipeline, type StepConfig, type StepResult, type PipelineResult, type PipelineContext } from './pipeline/index.js';
 export { Discovery, type DiscoveredTarget, type K8sDiscoveryOptions, type SshDiscoveryOptions, type DockerDiscoveryOptions } from './discovery/index.js';
 export { HealthChecker, type CheckResult, type HealthReport, type TcpCheckOptions, type HttpCheckOptions, type CommandCheckOptions } from './health/index.js';
 export { Workflow, type WorkflowResult, type WorkflowContext, type TaskResult as WorkflowTaskResult, type TaskOptions as WorkflowTaskOptions } from './workflow/index.js';
-
 export { Deployer, type DeployHooks, type DeployConfig, type DeployResult, type DeployContext, type DeployStrategy, type DeployHealthCheck, type DeployTargetResult } from './deploy/index.js';
+
+export type {
+  Target, TargetInfo, TaskResult, ConfigValue, CopyOptions,
+  TaskOptions, ForwardOptions, ProfileOptions, TaskDefinition, ExecutionResult,
+  ConfigurationOptions, InterpolationContext, TaskExecutionOptions,
+} from './api/index.js';
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -29,22 +41,25 @@ export { ConfigurationManager } from './config/configuration-manager.js';
 export { VariableInterpolator } from './config/variable-interpolator.js';
 export { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from './config/defaults.js';
 export { getSecretsDir, findProjectRoot, getModuleCacheDir, getGlobalSecretsDir } from './config/utils.js';
-export type { PodConfig, TargetType, HostConfig, TargetConfig, Configuration, CommandConfig, ResolvedTarget, TaskDefinition, DockerDefaults, ContainerConfig, ConfigManagerOptions } from './config/types.js';
+export type { PodConfig, TargetType, HostConfig, TargetConfig, Configuration, CommandConfig, ResolvedTarget, DockerDefaults, ContainerConfig, ConfigManagerOptions } from './config/types.js';
 
 // ─── Secrets ────────────────────────────────────────────────────────
 
-export * from './secrets/types.js';
-
+export { SecretError } from './secrets/types.js';
 export { SecretManager } from './secrets/manager.js';
+
 export type { ExecutionOptions } from './adapters/loader-adapter.js';
+export { encrypt, decrypt, generateSecret } from './secrets/crypto.js';
 
 // ─── Scripts ────────────────────────────────────────────────────────
 
 import { getScriptLoader as _getScriptLoader } from './adapters/loader-adapter.js';
 
-export { encrypt, decrypt, generateSecret } from './secrets/crypto.js';
 export { ScriptLoader, getScriptLoader } from './adapters/loader-adapter.js';
 export { isDirectCommand, createTargetEngine, executeDirectCommand } from './utils/direct-execution.js';
+export type {
+  SecretMetadata, SecretProvider, EncryptedSecret, SecretProviderConfig,
+} from './secrets/types.js';
 
 /** Execute a script file — convenience wrapper */
 export async function executeScript(path: string, options?: Record<string, unknown>): Promise<unknown> {

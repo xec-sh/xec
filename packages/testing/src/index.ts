@@ -1,18 +1,27 @@
 // Shell escape utilities
-export * from './utils/shell-escape.js';
+export { shellEscape, validateShellName } from './utils/shell-escape.js';
 
 // Binary detection utilities
-export * from './utils/binary-detector.js';
+export {
+  findBinary, getKindPath, EXTENDED_PATH, getDockerPath, execWithBinary, getExtendedEnv,
+  getKubectlPath, isKindAvailable, clearBinaryCache, isBinaryAvailable, isDockerAvailable,
+  isKubectlAvailable, isSshpassAvailable,
+} from './utils/binary-detector.js';
 
 // Docker utilities
-export * from './docker/container-manager.js';
+export type { ContainerConfig } from './docker/container-manager.js';
+export {
+  dockerManager, DOCKER_CONTAINERS, DockerContainerManager,
+} from './docker/container-manager.js';
 
 // Kubernetes utilities
-export * from './k8s/kind-cluster-manager.js';
+export type { KindClusterConfig } from './k8s/kind-cluster-manager.js';
+export {
+  getKindCluster, setupKindCluster, KindClusterManager, teardownKindCluster,
+} from './k8s/kind-cluster-manager.js';
 
 // SSH test helpers
-export * from './helpers/ssh-test-helpers.js';
-
+export type { SSHTestConfig } from './helpers/ssh-test-helpers.js';
 export {
   execInContainer,
   getContainerInfo,
@@ -20,6 +29,11 @@ export {
   type ContainerInfo,
   cleanupTestContainers
 } from './docker/utils.js';
+
+export {
+  skipInCI, describeSSH, getSSHConfig, waitForContainer, testPackageManagers,
+  getAvailableContainers, testEachPackageManager,
+} from './helpers/ssh-test-helpers.js';
 
 /** Default test SSH password - used only for test container authentication */
 const TEST_SSH_PASSWORD = 'password';
