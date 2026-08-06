@@ -874,23 +874,28 @@ docker rm -f $(docker ps -aq --filter "label=xecsh-test")
   `packages/core/stryker.config.json`, 29 minutes). >95% remains the
   target; the gap is where the work is, per file:
 
-  | file | score | survived |
-  |---|---|---|
-  | `utils/sensitive-patterns.ts` | 42.0% | 120 |
-  | `core/error.ts` | 55.3% | 29 |
-  | `utils/optimized-masker.ts` | 61.2% | 44 |
-  | `utils/helpers.ts` | 78.4% | 25 |
-  | `core/failure-kind.ts` | 80.4% | 22 |
-  | `utils/parallel.ts` | 83.4% | 30 |
-  | `utils/shell-escape.ts` | 84.2% | 40 |
-  | `core/result.ts` | 93.5% | 3 |
+  | file | score | survived | note |
+  |---|---|---|---|
+  | `core/error.ts` | 55.3% | 29 | |
+  | `utils/sensitive-patterns.ts` | **57.3%** | 111 | was 42.0% |
+  | `utils/optimized-masker.ts` | **68.8%** | 42 | was 61.2% |
+  | `utils/helpers.ts` | 78.4% | 25 | |
+  | `core/failure-kind.ts` | 80.4% | 22 | |
+  | `utils/parallel.ts` | 83.4% | 30 | |
+  | `utils/shell-escape.ts` | 84.2% | 40 | |
+  | `utils/secret-registry.ts` | **86.5%** | 7 | all equivalent |
+  | `core/result.ts` | 93.5% | 3 | |
 
-  The two weakest are the redaction machinery — the code that decides
-  whether a credential reaches a log — which makes them the first to fix
-  rather than the last. Note also that a share of any file's survivors are
-  equivalent mutants: on `utils/secret-registry.ts`, seven of fifty-two
-  cannot be killed by any test because they change a fast path, not
-  behaviour. 100% is not the goal; knowing which survivors are which is.
+  The redaction machinery was the weakest and was the first fixed: writing
+  the tests it had never had found a rule that redacted `monkey=banana`
+  and a replacement that turned `postgres://user:pw@host` into something
+  that was no longer a URL. Its remaining survivors are regex mutations —
+  one test per alternation branch — and the mutant count grew with the
+  rules, so the score understates the work already done.
+
+  Not every survivor is a missing test. All seven on `secret-registry.ts`
+  are equivalent: they change a fast path, not behaviour, and no test can
+  kill them. 100% is not the goal; knowing which survivors are which is.
 - **Cyclomatic complexity**: <10 per function
 - **Type coverage**: 100%
 - **Bundle size**: <50KB (core)
