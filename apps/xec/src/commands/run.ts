@@ -168,8 +168,11 @@ export class RunCommand extends BaseCommand {
     // Execute the script
     const result = await this.scriptLoader.executeScript(scriptPath, execOptions);
 
-    if (!result.success && result.error) {
-      throw result.error;
+    if (!result.success) {
+      // `error` unset with `success: false` used to return quietly, and the
+      // process exited non-zero having printed nothing — the caller sees a
+      // failure with no reason anywhere.
+      throw result.error ?? new Error('Evaluation failed without reporting a reason');
     }
   }
 

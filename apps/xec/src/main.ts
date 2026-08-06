@@ -550,7 +550,12 @@ export async function main(argv: string[] = process.argv): Promise<void> {
   try {
     await run(argv);
     if (!wantsRepl) shutdown(Number(process.exitCode ?? 0));
-  } catch {
+  } catch (error) {
+    // Reported, then exit. Swallowing it left a non-zero exit with nothing
+    // on stderr — a failure the caller cannot act on, and cannot even see
+    // the shape of. `run` prints what it recognises; this is for what it
+    // does not.
+    process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
     shutdown(1);
   }
 }
