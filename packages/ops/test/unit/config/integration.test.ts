@@ -8,6 +8,13 @@ import * as fs from 'fs/promises';
 
 import { TargetResolver, ConfigurationManager } from '../../../src/config/index.js';
 
+// These exercise `${cmd:...}` itself, so they approve the configurations
+// they write. A configuration that runs commands is refused unless someone
+// says otherwise — see config/command-trust.ts — and the decider is the
+// point of the gate, not an obstacle to testing around.
+const TRUSTED = { onUntrustedConfig: () => true } as const;
+
+
 
 describe('Configuration System Integration', () => {
   let tempDir: string;
@@ -141,6 +148,7 @@ commands:
 
       // Initialize manager
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'dev'
       });
@@ -229,7 +237,8 @@ profiles:
       await fs.writeFile(path.join(tempDir, '.xec', 'config.yaml'), config);
 
       // Test base configuration
-      manager = new ConfigurationManager({ projectRoot: tempDir });
+      manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       let loaded = await manager.load();
 
       expect(loaded.vars?.environment).toBe('base');
@@ -296,7 +305,8 @@ vars:
 
       await fs.writeFile(path.join(tempDir, '.xec', 'config.yaml'), config);
 
-      manager = new ConfigurationManager({ projectRoot: tempDir });
+      manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       const loaded = await manager.load();
 
       // Test basic interpolation
@@ -353,6 +363,7 @@ tasks:
       await fs.writeFile(path.join(tempDir, '.xec', 'config.yaml'), invalidConfig);
 
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         strict: false // Don't throw, just warn
       });
@@ -391,7 +402,8 @@ targets:
 
       await fs.writeFile(path.join(tempDir, '.xec', 'config.yaml'), config);
 
-      manager = new ConfigurationManager({ projectRoot: tempDir });
+      manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       const loaded = await manager.load();
       const resolver = new TargetResolver(loaded);
 
@@ -435,7 +447,8 @@ tasks:
 
       await fs.writeFile(path.join(tempDir, '.xec', 'config.yaml'), config);
 
-      manager = new ConfigurationManager({ projectRoot: tempDir });
+      manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       await manager.load();
 
       // Test get/set API

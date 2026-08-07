@@ -70,7 +70,38 @@ The `${secret:name}` syntax is resolved by the `VariableInterpolator` during con
 
 ## Encryption
 
-Local provider uses:
-- **AES-256-GCM** for encryption
-- **Machine-specific key** derived from hardware ID
-- **Per-secret salt** for key derivation
+The `local` provider encrypts with **AES-256-GCM**, deriving the key with
+**scrypt** from a per-secret random salt. Files are written owner-only
+(`0600`) into an owner-only directory (`0700`).
+
+### What the key is made of, and what that protects
+
+By default the key material is a machine identifier — the hardware UUID on
+macOS, `/etc/machine-id` on Linux. That is enough to make the stored file
+useless somewhere else: a backup, a synced folder, a repository it should
+never have entered, a stolen disk.
+
+It is **not** a defence against someone who can already read the file on
+that machine. The identifier is not a secret — `/etc/machine-id` is
+world-readable — so anyone with the ciphertext *and* local access has both
+halves. The file mode is what stops them, and encryption is the second
+layer behind it.
+
+Add a passphrase when you need the key to depend on something the machine
+does not hold:
+
+```typescript
+const secrets = new SecretManager({
+  type: 'local',
+  config: { dir: '/var/secrets/myapp', passphrase: process.env.XEC_SECRETS_PASSPHRASE },
+});
+```
+
+The passphrase is combined with the machine identifier, so both are needed
+to decrypt. `changePassphrase()` re-encrypts every secret; it writes all of
+them or none, so a wrong passphrase part-way through cannot leave the store
+split between two keys.
+
+For secrets that must survive the loss of the machine, or be shared by more
+than one person, use a provider built for that — `vault`, `aws-secrets` or
+`1password`.

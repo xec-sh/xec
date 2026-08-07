@@ -35,12 +35,18 @@ export type {
 
 export { TaskManager } from './config/task-manager.js';
 export { TaskExecutor } from './config/task-executor.js';
+
 export { TargetResolver } from './config/target-resolver.js';
 export { ConfigValidator } from './config/config-validator.js';
+export { UntrustedConfigError } from './config/configuration-manager.js';
 export { ConfigurationManager } from './config/configuration-manager.js';
 export { VariableInterpolator } from './config/variable-interpolator.js';
 export { sortConfigKeys, getDefaultConfig, mergeWithDefaults } from './config/defaults.js';
 export { getSecretsDir, findProjectRoot, getModuleCacheDir, getGlobalSecretsDir } from './config/utils.js';
+export {
+  trust, isTrusted, commandsIn, listTrusted, revokeTrust,
+  untrustedMessage, trustedByEnvironment, usesCommandSubstitution,
+} from './config/command-trust.js';
 export type { PodConfig, TargetType, HostConfig, TargetConfig, Configuration, CommandConfig, ResolvedTarget, DockerDefaults, ContainerConfig, ConfigManagerOptions } from './config/types.js';
 
 // ─── Secrets ────────────────────────────────────────────────────────

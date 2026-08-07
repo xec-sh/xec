@@ -622,6 +622,23 @@ export interface ConfigManagerOptions {
   strict?: boolean;
 
   /**
+   * Decide whether a configuration that runs commands may be loaded.
+   *
+   * `${cmd:...}` executes a shell command at load time, so a configuration
+   * file is executable code and configuration files arrive by `git clone`.
+   * Configurations containing one are refused unless this returns true.
+   *
+   * The CLI supplies a prompt that names the commands. A library caller
+   * that omits this gets a refusal, which is the right default: something
+   * that cannot ask cannot consent.
+   *
+   * @param configPath - The file about to be loaded.
+   * @param content - Its text, for showing what it would run.
+   * @returns Whether to proceed.
+   */
+  onUntrustedConfig?: (configPath: string, content: string) => boolean | Promise<boolean>;
+
+  /**
    * Config directory name relative to project root (default: '.xec').
    * Set to '' to disable project-local configs.
    */

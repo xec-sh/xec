@@ -5,6 +5,13 @@ import { it, expect, describe, afterEach, beforeEach } from 'vitest';
 
 import { ConfigurationManager, ConfigValidationError } from '../../../src/config/configuration-manager.js';
 
+// These exercise `${cmd:...}` itself, so they approve the configurations
+// they write. A configuration that runs commands is refused unless someone
+// says otherwise — see config/command-trust.ts — and the decider is the
+// point of the gate, not an obstacle to testing around.
+const TRUSTED = { onUntrustedConfig: () => true } as const;
+
+
 describe('ConfigurationManager', () => {
   let tmpDir: string;
 
@@ -21,6 +28,7 @@ describe('ConfigurationManager', () => {
 
   function createManager(options: { strict?: boolean } = {}) {
     return new ConfigurationManager({
+      ...TRUSTED,
       projectRoot: tmpDir,
       globalHomeDir: path.join(tmpDir, 'no-global-config'),
       envPrefix: 'XEC_CM_TEST_UNUSED_',
@@ -235,6 +243,7 @@ describe('ConfigurationManager', () => {
 
     // Initialize manager with test directory
     manager = new ConfigurationManager({
+      ...TRUSTED,
       projectRoot: tempDir,
       globalHomeDir: path.join(tempDir, 'global'),
       cache: false
@@ -340,6 +349,7 @@ profiles:
 
       // Load with production profile
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'production'
       });
@@ -496,6 +506,7 @@ profiles:
 
     it('should handle profile inheritance', async () => {
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'staging'
       });
@@ -535,6 +546,7 @@ vars:
 
       // In strict mode, should throw
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         strict: true
       });
@@ -574,6 +586,7 @@ profiles:
       );
 
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'clean'
       });
@@ -597,6 +610,7 @@ profiles:
       );
 
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'extended'
       });
@@ -628,6 +642,7 @@ vars:
 
       // Initialize manager from workspace directory
       const workspaceManager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: workspaceDir,
         globalHomeDir: path.join(tempDir, 'global'),
         cache: false
@@ -670,6 +685,7 @@ vars:
 
       // Initialize manager from deep workspace directory
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: workDir,
         globalHomeDir: path.join(tempDir, 'global'),
         cache: false
@@ -707,6 +723,7 @@ vars:
 
       // Initialize manager from workspace directory
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: workspaceDir,
         globalHomeDir: path.join(tempDir, 'global'),
         cache: false
@@ -734,6 +751,7 @@ vars:
 
       // Initialize manager from isolated directory
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: isolatedDir,
         globalHomeDir: path.join(tempDir, 'global'),
         cache: false
@@ -771,6 +789,7 @@ vars:
 
       // Initialize manager with profile from workspace directory
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: workspaceDir,
         profile: 'production',
         globalHomeDir: path.join(tempDir, 'global'),
@@ -791,6 +810,7 @@ vars:
       await fs.mkdir(path.join(monorepoRoot, '.xec'), { recursive: true });
 
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: workspaceDir,
         globalHomeDir: path.join(tempDir, 'global'),
         cache: false
@@ -809,6 +829,7 @@ vars:
       
       // Initialize manager from workspace
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: workspaceDir,
         globalHomeDir: path.join(tempDir, 'global'),
         cache: false
@@ -851,6 +872,7 @@ describe('ConfigurationManager option wiring', () => {
 
   function makeManager(extra: Record<string, unknown> = {}) {
     return new ConfigurationManager({
+      ...TRUSTED,
       projectRoot: tmpDir,
       globalHomeDir: path.join(tmpDir, 'no-global-config'),
       ...extra,

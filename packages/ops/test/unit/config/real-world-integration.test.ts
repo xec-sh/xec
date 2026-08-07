@@ -9,10 +9,18 @@ import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 
 import {
+
   TaskManager,
   TargetResolver,
   ConfigurationManager
 } from '../../../src/config/index.js';
+
+// These exercise `${cmd:...}` itself, so they approve the configurations
+// they write. A configuration that runs commands is refused unless someone
+// says otherwise — see config/command-trust.ts — and the decider is the
+// point of the gate, not an obstacle to testing around.
+const TRUSTED = { onUntrustedConfig: () => true } as const;
+
 
 describe('Real-World Configuration Integration Tests', () => {
   let tempDir: string;
@@ -46,6 +54,7 @@ tasks:
       await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), invalidYaml);
 
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: projectDir,
         strict: true
       });
@@ -75,7 +84,8 @@ tasks:
 
       await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-      const manager = new ConfigurationManager({ projectRoot: projectDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
       const loaded = await manager.load();
 
       // Verify command substitution created a temp file
@@ -137,7 +147,8 @@ tasks:
 
       await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-      const manager = new ConfigurationManager({ projectRoot: projectDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
       await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
@@ -194,7 +205,8 @@ tasks:
 
       await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-      const manager = new ConfigurationManager({ projectRoot: projectDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
       await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
@@ -267,6 +279,7 @@ tasks:
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(projectConfig));
 
         const manager = new ConfigurationManager({
+      ...TRUSTED,
           projectRoot: projectDir,
           globalHomeDir: globalDir
         });
@@ -334,6 +347,7 @@ tasks:
 
         for (const profile of profiles) {
           const manager = new ConfigurationManager({
+      ...TRUSTED,
             projectRoot: projectDir,
             profile
           });
@@ -430,7 +444,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         const loaded = await manager.load();
         const resolver = new TargetResolver(loaded);
 
@@ -526,7 +541,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         const loaded = await manager.load();
         const resolver = new TargetResolver(loaded);
 
@@ -608,7 +624,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         const loaded = await manager.load();
 
         // Verify command substitution worked
@@ -663,6 +680,7 @@ tasks:
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
         const manager = new ConfigurationManager({
+      ...TRUSTED,
           projectRoot: projectDir,
           strict: false  // Don't throw, just warn
         });
@@ -700,7 +718,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         const loaded = await manager.load();
 
         // Valid references should work
@@ -732,7 +751,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         const loaded = await manager.load();
 
         expect(loaded.vars?.special).toBe('Hello World!');
@@ -774,7 +794,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         await manager.load();
 
         const taskManager = new TaskManager({ configManager: manager });
@@ -821,7 +842,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         const loaded = await manager.load();
 
         expect(loaded.vars?.test).toBe('test_value');
@@ -879,7 +901,8 @@ tasks:
 
         await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-        const manager = new ConfigurationManager({ projectRoot: projectDir });
+        const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
         await manager.load();
 
         const taskManager = new TaskManager({ configManager: manager });
@@ -948,7 +971,8 @@ tasks:
       );
 
       const start = Date.now();
-      const manager = new ConfigurationManager({ projectRoot: projectDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
       const loaded = await manager.load();
       const loadTime = Date.now() - start;
 
@@ -1005,7 +1029,8 @@ tasks:
 
       await fs.writeFile(path.join(projectDir, '.xec', 'config.yaml'), yaml.dump(configData));
 
-      const manager = new ConfigurationManager({ projectRoot: projectDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: projectDir });
       const loaded = await manager.load();
 
       // Verify deep interpolation worked

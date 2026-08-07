@@ -2,6 +2,7 @@ import * as jsYaml from 'js-yaml';
 import { prism } from '@xec-sh/kit';
 
 import { ValidationError } from './validation.js';
+import { UntrustedConfigError } from '../config/configuration-manager.js';
 import { enhanceError, type ErrorContext, EnhancedExecutionError } from './enhanced-error.js';
 
 /** Options relevant to error handling (subset of CLI command options) */
@@ -204,6 +205,14 @@ function enhanceErrorWithContext(error: any, options: CommandOptions): EnhancedE
   // is reported as "An unexpected error occurred". Those are the CLI's most
   // common failures — a missing file, a permission denial, a refused
   // connection — so answer them specifically before handing over.
+  // A refused configuration already carries the whole explanation: which
+  // file, which commands, and how to approve them. Enhancing it would
+  // replace that with "An unexpected error occurred", which is the tool
+  // hiding the one thing the reader needs.
+  if (error instanceof UntrustedConfigError) {
+    return new EnhancedExecutionError(error.message, 'UNTRUSTED_CONFIG', context, []);
+  }
+
   if (error instanceof ValidationError) {
     return new EnhancedExecutionError(error.message, error.code || 'VALIDATION_ERROR', context, [
       { message: getValidationSuggestion(error) },

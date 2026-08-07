@@ -9,6 +9,7 @@ import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOp
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
 
 import { isPlainOutput } from './plain-mode.js';
+import { promptForConfigTrust } from './config-trust-prompt.js';
 
 export const OUTPUT_FORMATS = ['text', 'json', 'yaml', 'csv'] as const;
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
@@ -319,6 +320,9 @@ export abstract class BaseCommand {
       projectRoot: process.cwd(),
       configFilePath,
       profile: options.profile,
+      // A configuration containing `${cmd:...}` runs commands when it is
+      // read. The CLI is the one place with a human to ask.
+      onUntrustedConfig: promptForConfigTrust,
     });
 
     // Load configuration

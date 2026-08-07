@@ -1,12 +1,36 @@
 import * as yaml from 'js-yaml';
 import { Command } from 'commander';
+import { join, resolve, dirname } from 'node:path';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { sortConfigKeys, getDefaultConfig, mergeWithDefaults, ConfigurationManager } from '@xec-sh/ops';
 import { log, box, text, note, prism, intro, outro, cancel, select, confirm, spinner, isCancel, password } from '@xec-sh/kit';
+import { isTrusted, listTrusted, revokeTrust, sortConfigKeys , getDefaultConfig, mergeWithDefaults, ConfigurationManager, usesCommandSubstitution } from '@xec-sh/ops';
 
 import { BaseCommand } from '../utils/command-base.js';
 import { ConfigFileEditor } from '../utils/config-file-editor.js';
+import { promptForConfigTrust } from '../utils/config-trust-prompt.js';
 
+
+/**
+ * The nearest `.xec/config.yaml`, walking up from a directory.
+ *
+ * Deliberately not through ConfigurationManager: approving a configuration
+ * is what one does *because* the manager is refusing to load it, so asking
+ * the manager where it is would fail for the same reason.
+ */
+function findConfigFileUpwards(from: string): string | null {
+  let dir = resolve(from);
+
+  for (;;) {
+    for (const name of ['config.yaml', 'config.yml']) {
+      const candidate = join(dir, '.xec', name);
+      if (existsSync(candidate)) return candidate;
+    }
+
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+}
 
 /**
  * Config command implementation
@@ -145,6 +169,17 @@ export class ConfigCommand extends BaseCommand {
       .action(async () => {
         await this.ensureInitialized();
         await this.validateConfig();
+      });
+
+    // Trust commands. Deliberately not `ensureInitialized()`: the whole
+    // point is to run when the configuration is refusing to load.
+    cmd
+      .command('trust')
+      .description('Approve a configuration that runs commands when it loads')
+      .option('--revoke', 'Withdraw approval instead of granting it')
+      .option('--list', 'Show every configuration that has been approved')
+      .action(async (options) => {
+        await this.manageTrust(options);
       });
 
     // Set up target subcommands
@@ -2093,6 +2128,60 @@ export class ConfigCommand extends BaseCommand {
     }
 
     await this.commit('Defaults reset to system values');
+  }
+
+  /**
+   * Grant, withdraw or list approval for configurations that run commands.
+   *
+   * `${cmd:...}` executes a shell command when a configuration is read, so
+   * approving one is approving code. This shows what it would run before
+   * asking, and records the decision against the file's exact content — an
+   * edit is a new decision.
+   */
+  private async manageTrust(options: { revoke?: boolean; list?: boolean }): Promise<void> {
+    if (options.list) {
+      const approved = await listTrusted();
+      if (approved.length === 0) {
+        this.log('No configurations have been approved.', 'info');
+        return;
+      }
+      for (const entry of approved) {
+        this.log(`${entry.approvedAt}  ${entry.path}`, 'info');
+      }
+      return;
+    }
+
+    const configPath = findConfigFileUpwards(process.cwd());
+    if (!configPath) {
+      throw new Error('No configuration file found in this directory or above it.');
+    }
+
+    if (options.revoke) {
+      const removed = await revokeTrust(configPath);
+      this.log(
+        removed > 0
+          ? `Withdrew approval for ${configPath}.`
+          : `${configPath} was not approved.`,
+        'info'
+      );
+      return;
+    }
+
+    const content = readFileSync(configPath, 'utf-8');
+    if (!usesCommandSubstitution(content)) {
+      this.log(`${configPath} runs no commands when it loads — nothing to approve.`, 'info');
+      return;
+    }
+
+    if (await isTrusted(configPath, content)) {
+      this.log(`${configPath} is already approved, with its current content.`, 'info');
+      return;
+    }
+
+    const approved = await promptForConfigTrust(configPath, content);
+    if (!approved) {
+      throw new Error('Not approved; the configuration will not load.');
+    }
   }
 
   private async runDoctor(options?: { defaults?: boolean }): Promise<void> {

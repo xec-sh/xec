@@ -167,6 +167,42 @@ vars:
 
 Keep these commands fast — they execute on every configuration load. If the command fails, loading fails with a descriptive error. The resolved output is never written back to disk when the configuration is saved.
 
+:::danger A configuration that uses this is executable code
+
+The command runs as you, with your credentials, whenever any xec command
+reads the file. A configuration arrives by `git clone` like everything else,
+so without a gate, entering a directory and running `xec` would run its
+author's commands.
+
+Xec therefore refuses to load a configuration containing `${cmd:...}` until
+you have approved it, and shows you what it would run:
+
+```console
+$ xec config get vars.sha
+Error: /srv/app/.xec/config.yaml runs commands when it is loaded, and has
+not been approved.
+
+    git rev-parse --short HEAD
+
+These run as you, with your credentials, every time any xec command reads
+this configuration. Review them, then approve with:
+
+    xec config trust
+```
+
+Approval is recorded against the file's **content**, so editing it asks
+again — an approved configuration cannot be quietly changed into a
+different one. `xec config trust --revoke` withdraws it; `--list` shows
+everything approved.
+
+In a pipeline running a configuration you own, `XEC_TRUST_CONFIG=1` approves
+for that run without recording anything. Set it only where the
+configuration is yours.
+
+Configurations that use no command substitution are never gated, and never
+prompt.
+:::
+
 ## Variable Scope
 
 ### Global Scope

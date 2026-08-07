@@ -22,6 +22,7 @@ import { TargetResolver } from './target-resolver.js';
 import { ConfigValidator } from './config-validator.js';
 import { deepMerge, getGlobalConfigDir } from './utils.js';
 import { VariableInterpolator, type InterpolateOptions } from './variable-interpolator.js';
+import { isTrusted, untrustedMessage, trustedByEnvironment, usesCommandSubstitution } from './command-trust.js';
 
 /**
  * Default configuration values
@@ -57,6 +58,22 @@ const DEFAULT_CONFIG: Partial<Configuration> = {
 /**
  * Configuration manager implementation
  */
+/**
+ * A configuration wanted to run commands and had not been approved.
+ *
+ * Carries the message rather than a bare code so every caller — the CLI,
+ * a script, a test — reports the same thing, including which commands.
+ */
+export class UntrustedConfigError extends Error {
+  readonly configPath: string;
+
+  constructor(configPath: string, content: string) {
+    super(untrustedMessage(configPath, content));
+    this.name = 'UntrustedConfigError';
+    this.configPath = configPath;
+  }
+}
+
 export class ConfigurationManager {
   private sources: ConfigSource[] = [];
   private merged?: Configuration;
@@ -503,14 +520,52 @@ export class ConfigurationManager {
   }
 
   /**
+   * Refuse to load a configuration that runs commands until it is approved.
+   *
+   * `${cmd:...}` executes a shell command when the configuration is read, so
+   * a configuration file is executable code — and configuration files arrive
+   * by `git clone`. Without this, entering a directory and running any xec
+   * command ran its author's commands, as that author.
+   *
+   * Only configurations that actually contain `${cmd:}` are gated; every
+   * other one loads exactly as before. Approval is keyed to the file's
+   * content, so an edit needs approving again.
+   *
+   * The decision is made by whoever constructed the manager: the CLI can
+   * ask a human, a library caller cannot. With no decider, this refuses —
+   * silence is not consent.
+   */
+  private async assertCommandSubstitutionAllowed(filePath: string, content: string): Promise<void> {
+    if (!usesCommandSubstitution(content)) return;
+    if (trustedByEnvironment()) return;
+    if (await isTrusted(filePath, content)) return;
+
+    if (this.options.onUntrustedConfig) {
+      const approved = await this.options.onUntrustedConfig(filePath, content);
+      if (approved) return;
+    }
+
+    throw new UntrustedConfigError(filePath, content);
+  }
+
+  /**
    * Try to load a configuration file
    * @returns The configuration or undefined if not found/invalid
    */
   private async tryLoadConfigFile(filePath: string): Promise<Configuration | undefined> {
     try {
       const content = await fs.readFile(filePath, 'utf-8');
+      await this.assertCommandSubstitutionAllowed(filePath, content);
       return jsYaml.load(content) as Configuration;
     } catch (error: any) {
+      // A refused configuration stops the command. Degrading to a warning
+      // and an empty config would let everything carry on against defaults,
+      // which is a different run than the one that was asked for — and it
+      // would make the refusal look advisory.
+      if (error instanceof UntrustedConfigError) {
+        throw error;
+      }
+
       if (error.code !== 'ENOENT') {
         if (this.options.strict && error.name === 'YAMLException') {
           throw error;

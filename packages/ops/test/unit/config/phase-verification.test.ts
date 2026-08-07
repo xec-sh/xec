@@ -9,10 +9,18 @@ import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 
 import {
+
   TaskManager,
   TargetResolver,
   ConfigurationManager
 } from '../../../src/config/index.js';
+
+// These exercise `${cmd:...}` itself, so they approve the configurations
+// they write. A configuration that runs commands is refused unless someone
+// says otherwise — see config/command-trust.ts — and the decider is the
+// point of the gate, not an obstacle to testing around.
+const TRUSTED = { onUntrustedConfig: () => true } as const;
+
 
 describe('Phase 1 and Phase 2 Feature Verification', () => {
   let tempDir: string;
@@ -66,7 +74,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       const loaded = await manager.load();
 
       // Verify all sections loaded
@@ -99,7 +108,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
@@ -138,7 +148,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
@@ -202,7 +213,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       const loaded = await manager.load();
       const resolver = new TargetResolver(loaded);
 
@@ -248,7 +260,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       const loaded = await manager.load();
       const resolver = new TargetResolver(loaded);
 
@@ -295,7 +308,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       const loaded = await manager.load();
 
       // Verify all interpolations
@@ -326,6 +340,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
       );
 
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         strict: false
       });
@@ -380,6 +395,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
 
       // Test base profile
       let manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'base'
       });
@@ -392,6 +408,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
 
       // Test dev profile (extends base)
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'dev'
       });
@@ -403,6 +420,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
 
       // Test staging profile (extends dev, which extends base)
       manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'staging'
       });
@@ -438,6 +456,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
       );
 
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         profile: 'prod'
       });
@@ -498,6 +517,7 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
       );
 
       const manager = new ConfigurationManager({
+      ...TRUSTED,
         projectRoot: tempDir,
         globalHomeDir: globalDir
       });
@@ -542,7 +562,8 @@ describe('Phase 1 and Phase 2 Feature Verification', () => {
         yaml.dump(configContent)
       );
 
-      const manager = new ConfigurationManager({ projectRoot: tempDir });
+      const manager = new ConfigurationManager({
+      ...TRUSTED, projectRoot: tempDir });
       await manager.load();
 
       const taskManager = new TaskManager({ configManager: manager });
