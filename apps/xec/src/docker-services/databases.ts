@@ -13,9 +13,10 @@ import type {
   PostgresServiceConfig
 } from './types.js';
 
-import { DockerEphemeralFluentAPI } from '@xec-sh/core';
+import { quoteForShell, DockerEphemeralFluentAPI } from '@xec-sh/core';
 
 import { dataVolumeFor } from './types.js';
+import { jsLiteral, pgLiteral, pgIdentifier, mysqlLiteral, mysqlIdentifier } from './sql-quote.js';
 
 /**
  * PostgreSQL Service Fluent API
@@ -119,24 +120,33 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
     }
   }
 
+  // Each statement is built with the value quoted for SQL, then handed to
+  // psql as one argument. It used to be concatenated into the template
+  // between literal double quotes, which was wrong twice over: the shell
+  // escaping the tag applies landed *inside* those quotes, so any value with
+  // a space produced `command not found`; and a name carrying `'` or `;`
+  // ended the statement and began another.
   async createDatabase(name: string): Promise<void> {
-    await this.exec`psql -U ${this.pgConfig.user} -c "CREATE DATABASE ${name};"`;
+    await this.exec`psql -U ${this.pgConfig.user} -c ${`CREATE DATABASE ${pgIdentifier(name)};`}`;
   }
 
   async dropDatabase(name: string): Promise<void> {
-    await this.exec`psql -U ${this.pgConfig.user} -c "DROP DATABASE IF EXISTS ${name};"`;
+    await this.exec`psql -U ${this.pgConfig.user} -c ${`DROP DATABASE IF EXISTS ${pgIdentifier(name)};`}`;
   }
 
   async createUser(username: string, password: string): Promise<void> {
-    await this.exec`psql -U ${this.pgConfig.user} -c "CREATE USER ${username} WITH PASSWORD '${password}';"`;
+    await this.exec`psql -U ${this.pgConfig.user} -c ${
+      `CREATE USER ${pgIdentifier(username)} WITH PASSWORD ${pgLiteral(password)};`}`;
   }
 
   async grantPrivileges(username: string, database: string): Promise<void> {
-    await this.exec`psql -U ${this.pgConfig.user} -c "GRANT ALL PRIVILEGES ON DATABASE ${database} TO ${username};"`;
+    await this.exec`psql -U ${this.pgConfig.user} -c ${
+      `GRANT ALL PRIVILEGES ON DATABASE ${pgIdentifier(database)} TO ${pgIdentifier(username)};`}`;
   }
 
   async installExtension(extension: string): Promise<void> {
-    await this.exec`psql -U ${this.pgConfig.user} -d ${this.pgConfig.database} -c "CREATE EXTENSION IF NOT EXISTS ${extension};"`;
+    await this.exec`psql -U ${this.pgConfig.user} -d ${this.pgConfig.database} -c ${
+      `CREATE EXTENSION IF NOT EXISTS ${pgIdentifier(extension)};`}`;
   }
 
   async backup(backupPath: string): Promise<void> {
@@ -149,8 +159,15 @@ export class PostgreSQLFluentAPI extends DockerEphemeralFluentAPI implements Ser
     await this.exec`psql -U ${this.pgConfig.user} -d ${this.pgConfig.database} -f ${backupPath}`;
   }
 
+  /**
+   * Run a statement the caller composed.
+   *
+   * The SQL is theirs and is passed through unchanged — quote anything you
+   * interpolate into it, or use a driver with bound parameters. What this
+   * guarantees is only that the statement reaches psql as one argument.
+   */
   async query(sql: string): Promise<ExecutionResult> {
-    return await this.exec`psql -U ${this.pgConfig.user} -d ${this.pgConfig.database} -c "${sql}"`;
+    return await this.exec`psql -U ${this.pgConfig.user} -d ${this.pgConfig.database} -c ${sql}`;
   }
 
   getConnectionString(): string {
@@ -286,35 +303,63 @@ export class MySQLFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
   }
 
   async createDatabase(name: string): Promise<void> {
-    await this.exec`mysql -u root -p${this.mysqlConfig.rootPassword} -e "CREATE DATABASE IF NOT EXISTS ${name};"`;
+    await this.mysqlExec(`CREATE DATABASE IF NOT EXISTS ${mysqlIdentifier(name)};`);
   }
 
   async dropDatabase(name: string): Promise<void> {
-    await this.exec`mysql -u root -p${this.mysqlConfig.rootPassword} -e "DROP DATABASE IF EXISTS ${name};"`;
+    await this.mysqlExec(`DROP DATABASE IF EXISTS ${mysqlIdentifier(name)};`);
   }
 
   async createUser(username: string, password: string, host = '%'): Promise<void> {
-    await this.exec`mysql -u root -p${this.mysqlConfig.rootPassword} -e "CREATE USER '${username}'@'${host}' IDENTIFIED BY '${password}';"`;
+    await this.mysqlExec(
+      `CREATE USER ${mysqlLiteral(username)}@${mysqlLiteral(host)} ` +
+      `IDENTIFIED BY ${mysqlLiteral(password)};`
+    );
   }
 
   async grantPrivileges(username: string, database: string, host = '%'): Promise<void> {
-    await this.exec`mysql -u root -p${this.mysqlConfig.rootPassword} -e "GRANT ALL PRIVILEGES ON ${database}.* TO '${username}'@'${host}'; FLUSH PRIVILEGES;"`;
+    await this.mysqlExec(
+      `GRANT ALL PRIVILEGES ON ${mysqlIdentifier(database)}.* ` +
+      `TO ${mysqlLiteral(username)}@${mysqlLiteral(host)}; FLUSH PRIVILEGES;`
+    );
   }
 
   async backup(backupPath: string): Promise<void> {
-    const cmd = `mysqldump -u root -p${this.mysqlConfig.rootPassword} --all-databases > /tmp/backup.sql`;
-    await this.exec`sh -c "${cmd}"`;
+    // The redirect is shell syntax, so the shell has to see it — but the
+    // password must not. It goes in the environment, where `mysqldump`
+    // reads it without it appearing on any command line.
+    await this.exec`sh -c ${'mysqldump -u root --all-databases > /tmp/backup.sql'}`
+      .env({ MYSQL_PWD: this.mysqlConfig.rootPassword ?? '' });
     await this.exec`cp /tmp/backup.sql ${backupPath}`;
   }
 
   async restore(backupPath: string): Promise<void> {
-    const cmd = `mysql -u root -p${this.mysqlConfig.rootPassword} < ${backupPath}`;
-    await this.exec`sh -c "${cmd}"`;
+    await this.exec`sh -c ${`mysql -u root < ${quoteForShell(backupPath, 'posix')}`}`
+      .env({ MYSQL_PWD: this.mysqlConfig.rootPassword ?? '' });
   }
 
+  /**
+   * Run a statement the caller composed.
+   *
+   * The SQL is theirs and is passed through unchanged — quote anything you
+   * interpolate into it. What this guarantees is only that the statement
+   * reaches mysql as one argument.
+   */
   async query(sql: string, database?: string): Promise<ExecutionResult> {
     const db = database || this.mysqlConfig.database;
-    return await this.exec`mysql -u root -p${this.mysqlConfig.rootPassword} -D ${db} -e "${sql}"`;
+    return await this.exec`mysql -u root -D ${db} -e ${sql}`
+      .env({ MYSQL_PWD: this.mysqlConfig.rootPassword ?? '' });
+  }
+
+  /**
+   * Issue an administrative statement.
+   *
+   * `-p<password>` on the command line is visible in the container's
+   * process list to anything that can read /proc; `MYSQL_PWD` is not.
+   */
+  private mysqlExec(sql: string): Promise<ExecutionResult> {
+    return this.exec`mysql -u root -e ${sql}`
+      .env({ MYSQL_PWD: this.mysqlConfig.rootPassword ?? '' });
   }
 
   getConnectionString(): string {
@@ -459,47 +504,38 @@ export class MongoDBFluentAPI extends DockerEphemeralFluentAPI implements Servic
   }
 
   async createDatabase(name: string): Promise<void> {
-    const authStr = this.getAuthString();
-    await this.exec`mongosh ${authStr} --eval "use ${name}; db.createCollection('_init')"`;
+    await this.mongoEval(name, `db.createCollection(${jsLiteral('_init')});`);
   }
 
   async createUser(username: string, password: string, database: string, roles: string[] = ['readWrite']): Promise<void> {
-    const authStr = this.getAuthString();
-    const rolesJson = JSON.stringify(roles.map(r => ({ role: r, db: database })));
-    await this.exec`mongosh ${authStr} --eval "use ${database}; db.createUser({user: '${username}', pwd: '${password}', roles: ${rolesJson})"`;
+    // The old statement was also missing a closing brace, so it could never
+    // have parsed even with a benign name.
+    await this.mongoEval(database, `db.createUser({user: ${jsLiteral(username)}, ` +
+      `pwd: ${jsLiteral(password)}, roles: ${jsLiteral(roles.map(r => ({ role: r, db: database })))}});`);
   }
 
   async createCollection(database: string, collection: string): Promise<void> {
-    const authStr = this.getAuthString();
-    await this.exec`mongosh ${authStr} --eval "use ${database}; db.createCollection('${collection}')"`;
+    await this.mongoEval(database, `db.createCollection(${jsLiteral(collection)});`);
   }
 
   async insertDocument(database: string, collection: string, document: Record<string, any>): Promise<void> {
-    const authStr = this.getAuthString();
-    const docJson = JSON.stringify(document);
-    await this.exec`mongosh ${authStr} --eval "use ${database}; db.${collection}.insertOne(${docJson})"`;
+    await this.mongoEval(database,
+      `db.getCollection(${jsLiteral(collection)}).insertOne(${jsLiteral(document)});`);
   }
 
   async find(database: string, collection: string, query: Record<string, any> = {}): Promise<ExecutionResult> {
-    const authStr = this.getAuthString();
-    const queryJson = JSON.stringify(query);
-    return await this.exec`mongosh ${authStr} --eval "use ${database}; db.${collection}.find(${queryJson})"`;
+    return await this.mongoEval(database,
+      `db.getCollection(${jsLiteral(collection)}).find(${jsLiteral(query)});`);
   }
 
   async backup(backupPath: string): Promise<void> {
-    const authStr = this.mongoConfig.rootUser && this.mongoConfig.rootPassword
-      ? `-u ${this.mongoConfig.rootUser} -p ${this.mongoConfig.rootPassword} --authenticationDatabase admin`
-      : '';
-    await this.exec`mongodump ${authStr} --out /tmp/backup`;
+    await this.exec`mongodump ${this.getAuthArgs()} --out /tmp/backup`;
     await this.exec`tar -czf ${backupPath} -C /tmp backup`;
   }
 
   async restore(backupPath: string): Promise<void> {
-    const authStr = this.mongoConfig.rootUser && this.mongoConfig.rootPassword
-      ? `-u ${this.mongoConfig.rootUser} -p ${this.mongoConfig.rootPassword} --authenticationDatabase admin`
-      : '';
     await this.exec`tar -xzf ${backupPath} -C /tmp`;
-    await this.exec`mongorestore ${authStr} /tmp/backup`;
+    await this.exec`mongorestore ${this.getAuthArgs()} /tmp/backup`;
   }
 
   async initReplicaSet(): Promise<void> {
@@ -514,20 +550,42 @@ export class MongoDBFluentAPI extends DockerEphemeralFluentAPI implements Servic
       ]
     };
 
-    const authStr = this.getAuthString();
-    await this.exec`mongosh ${authStr} --eval "rs.initiate(${JSON.stringify(config)})"`;
+    await this.exec`mongosh ${this.getAuthArgs()} --eval ${`rs.initiate(${jsLiteral(config)});`}`;
   }
 
   async addReplicaSetMember(host: string, priority = 1): Promise<void> {
-    const authStr = this.getAuthString();
-    await this.exec`mongosh ${authStr} --eval "rs.add({host: '${host}', priority: ${priority}})"`;
+    await this.exec`mongosh ${this.getAuthArgs()} --eval ${
+      `rs.add({host: ${jsLiteral(host)}, priority: ${jsLiteral(priority)}});`}`;
   }
 
-  private getAuthString(): string {
+  /**
+   * The authentication flags, as separate arguments.
+   *
+   * A single string of flags is interpolated as one value and quoted as
+   * one, so mongosh received `'-u root -p secret --authenticationDatabase
+   * admin'` as a single argument and rejected it. An array is expanded into
+   * separate arguments, each escaped on its own.
+   */
+  private getAuthArgs(): string[] {
     if (this.mongoConfig.rootUser && this.mongoConfig.rootPassword) {
-      return `-u ${this.mongoConfig.rootUser} -p ${this.mongoConfig.rootPassword} --authenticationDatabase admin`;
+      return ['-u', this.mongoConfig.rootUser, '-p', this.mongoConfig.rootPassword,
+              '--authenticationDatabase', 'admin'];
     }
-    return '';
+    return [];
+  }
+
+  /**
+   * Run a script against a database.
+   *
+   * The script is JavaScript, so every value going into it is rendered with
+   * `JSON.stringify` and every collection is reached through
+   * `getCollection`, which takes a name rather than being part of the
+   * syntax. Concatenating names into the source let one close a string and
+   * continue with statements of its own.
+   */
+  private mongoEval(database: string, script: string): Promise<ExecutionResult> {
+    return this.exec`mongosh ${this.getAuthArgs()} --eval ${
+      `db = db.getSiblingDB(${jsLiteral(database)}); ${script}`}`;
   }
 
   getConnectionString(): string {

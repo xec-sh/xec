@@ -2,12 +2,12 @@ import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
 import * as os from 'node:os';
-import { $ } from '@xec-sh/core';
 import * as path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import * as fs from 'node:fs/promises';
 import { validateOptions } from '@xec-sh/ops';
+import { $, quoteForShell } from '@xec-sh/core';
 
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
 import { InteractiveHelpers, InteractiveOptions } from '../utils/interactive-helpers.js';
@@ -258,7 +258,7 @@ export class CopyCommand extends ConfigAwareCommand {
     const basename = path.basename(pattern);
 
     const engine = await this.createTargetEngine(target);
-    const result = await engine`find ${dir} -name "${basename}" -type f 2>/dev/null || true`;
+    const result = await engine`find ${dir} -name ${basename} -type f 2>/dev/null || true`;
 
     if (!result.stdout.trim()) {
       return [];
@@ -548,8 +548,16 @@ export class CopyCommand extends ConfigAwareCommand {
         if (isDirectory) {
           // Use tar for directory transfer
           const tarFile = `${tempPath}.tar`;
-          const tarCommand = `kubectl exec -n ${namespace} ${containerFlag.join(' ')} ${pod} -- tar -cf - -C ${path.dirname(sourcePath)} ${path.basename(sourcePath)}`;
-          await localEngine`sh -c "${tarCommand} > ${tarFile}"`;
+          // The redirect is shell syntax, so the whole line goes to `sh -c`
+          // as one argument — built here with each value quoted, rather than
+          // spliced into the template between quotes that would have become
+          // part of it.
+          const q = (v: string) => quoteForShell(v, 'posix');
+          const tarCommand =
+            `kubectl exec -n ${q(namespace)} ${containerFlag.map(q).join(' ')} ${q(pod)} ` +
+            `-- tar -cf - -C ${q(path.dirname(sourcePath))} ${q(path.basename(sourcePath))} ` +
+            `> ${q(tarFile)}`;
+          await localEngine`sh -c ${tarCommand}`;
 
           // Extract tar
           await localEngine`tar -xf ${tarFile} -C ${path.dirname(tempPath)}`;

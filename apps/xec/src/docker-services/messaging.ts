@@ -219,7 +219,7 @@ export class KafkaFluentAPI extends DockerEphemeralFluentAPI implements ServiceM
     const keyPart = key ? `--property "parse.key=true" --property "key.separator=:"` : '';
     const msg = key ? `${key}:${message}` : message;
     const cmd = `echo "${msg}" | kafka-console-producer --bootstrap-server localhost:9092 --topic ${topic} ${keyPart}`;
-    await this.exec`sh -c "${cmd}"`;
+    await this.exec`sh -c ${cmd}`;
   }
 
   /**
@@ -480,7 +480,10 @@ export class RabbitMQFluentAPI extends DockerEphemeralFluentAPI implements Servi
    * Set user permissions
    */
   async setPermissions(username: string, vhost: string, configure = '.*', write = '.*', read = '.*'): Promise<void> {
-    await this.exec`rabbitmqctl set_permissions -p ${vhost} ${username} "${configure}" "${write}" "${read}"`;
+    // Three regular expressions, each one argument. The tag quotes them;
+    // the literal pair around each used to become part of the pattern, so
+    // rabbitmqctl was given `".*"` and matched nothing.
+    await this.exec`rabbitmqctl set_permissions -p ${vhost} ${username} ${configure} ${write} ${read}`;
   }
 
   /**

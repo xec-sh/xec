@@ -385,7 +385,10 @@ export class WatchCommand extends ConfigAwareCommand {
     const watchCommand = this.buildRemoteWatchCommand(paths, options);
 
     // Start watch process in container
-    const watchProcess = $.local()`docker exec ${container} sh -c "${watchCommand}"`.nothrow();
+    // No quotes around the interpolation: the tag quotes it. The literal
+    // pair used to land *inside* the argument, so `sh -c` received the whole
+    // watch command as a single quoted word and answered "command not found".
+    const watchProcess = $.local()`docker exec ${container} sh -c ${watchCommand}`.nothrow();
 
     // Process output
     if (watchProcess.child?.stdout) {
@@ -422,7 +425,7 @@ export class WatchCommand extends ConfigAwareCommand {
     const watchCommand = this.buildRemoteWatchCommand(paths, options);
 
     // Start watch process in pod
-    const watchProcess = $.local()`kubectl exec -n ${namespace} ${containerFlag} ${pod} -- sh -c "${watchCommand}"`.nothrow();
+    const watchProcess = $.local()`kubectl exec -n ${namespace} ${containerFlag} ${pod} -- sh -c ${watchCommand}`.nothrow();
 
     // Process output
     if (watchProcess.child?.stdout) {
