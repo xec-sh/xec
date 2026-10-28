@@ -11,6 +11,8 @@ export default defineConfig({
     // nothing about correctness.
     env: {
       FORCE_COLOR: '1',
+      NO_COLOR: '',
+      TERM: 'xterm-256color',
     },
   },
 });

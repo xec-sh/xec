@@ -40,7 +40,7 @@ describe('LocalAdapter - Mock Tests', () => {
       });
       
       expect(adapterWithUid).toBeDefined();
-      expect(adapterWithUid.isAvailable()).resolves.toBe(true);
+      await expect(adapterWithUid.isAvailable()).resolves.toBe(true);
     });
     
     it('should use custom kill signal configuration', async () => {
@@ -49,7 +49,7 @@ describe('LocalAdapter - Mock Tests', () => {
       });
       
       expect(adapterWithSignal).toBeDefined();
-      expect(adapterWithSignal.isAvailable()).resolves.toBe(true);
+      await expect(adapterWithSignal.isAvailable()).resolves.toBe(true);
     });
   });
   

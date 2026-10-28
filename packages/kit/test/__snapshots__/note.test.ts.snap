@@ -2,362 +2,362 @@
 
 exports[`note (isCI = false) > don't overflow 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>───────────────────────────────────────────────────────────────╮</fg>
-<dim>│</fg>                                                                       <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>                                                                       <dim>│</fg>
-<dim>├───────────────────────────────────────────────────────────────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>───────────────────────────────────────────────────────────────╮</fg>
+<grey>│</fg>                                                                       <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>                                                                       <grey>│</fg>
+<grey>├───────────────────────────────────────────────────────────────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > don't overflow with formatter 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>─────────────────────────────────────────────────────────────────╮</fg>
-<dim>│</fg>                                                                         <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string</fg><red> *</fg>                                                 <dim>│</fg>
-<dim>│</fg>                                                                         <dim>│</fg>
-<dim>├─────────────────────────────────────────────────────────────────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>─────────────────────────────────────────────────────────────────╮</fg>
+<grey>│</fg>                                                                         <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string</fg><red> *</fg>                                                 <grey>│</fg>
+<grey>│</fg>                                                                         <grey>│</fg>
+<grey>├─────────────────────────────────────────────────────────────────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > formatter which adds colors works 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>──╮</fg>
-<dim>│</fg>          <dim>│</fg>
-<dim>│</fg>  <red>line 0</fg>  <dim>│</fg>
-<dim>│</fg>  <red>line 1</fg>  <dim>│</fg>
-<dim>│</fg>  <red>line 2</fg>  <dim>│</fg>
-<dim>│</fg>          <dim>│</fg>
-<dim>├──────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>──╮</fg>
+<grey>│</fg>          <grey>│</fg>
+<grey>│</fg>  <red>line 0</fg>  <grey>│</fg>
+<grey>│</fg>  <red>line 1</fg>  <grey>│</fg>
+<grey>│</fg>  <red>line 2</fg>  <grey>│</fg>
+<grey>│</fg>          <grey>│</fg>
+<grey>├──────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > formatter which adds length works 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>──────╮</fg>
-<dim>│</fg>              <dim>│</fg>
-<dim>│</fg>  * line 0 *  <dim>│</fg>
-<dim>│</fg>  * line 1 *  <dim>│</fg>
-<dim>│</fg>  * line 2 *  <dim>│</fg>
-<dim>│</fg>              <dim>│</fg>
-<dim>├──────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>──────╮</fg>
+<grey>│</fg>              <grey>│</fg>
+<grey>│</fg>  * line 0 *  <grey>│</fg>
+<grey>│</fg>  * line 1 *  <grey>│</fg>
+<grey>│</fg>  * line 2 *  <grey>│</fg>
+<grey>│</fg>              <grey>│</fg>
+<grey>├──────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > handle wide characters 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>这是标题</> <dim>─╮</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  이게      <dim>│</fg>
-<dim>│</fg>   첫       <dim>│</fg>
-<dim>│</fg>  번째      <dim>│</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  줄이      <dim>│</fg>
-<dim>│</fg>  에요      <dim>│</fg>
-<dim>│</fg>  これ      <dim>│</fg>
-<dim>│</fg>  は次      <dim>│</fg>
-<dim>│</fg>  の行      <dim>│</fg>
-<dim>│</fg>  です      <dim>│</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>├────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>│</fg>  이게      <grey>│</fg>
+<grey>│</fg>   첫       <grey>│</fg>
+<grey>│</fg>  번째      <grey>│</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>│</fg>  줄이      <grey>│</fg>
+<grey>│</fg>  에요      <grey>│</fg>
+<grey>│</fg>  これ      <grey>│</fg>
+<grey>│</fg>  は次      <grey>│</fg>
+<grey>│</fg>  の行      <grey>│</fg>
+<grey>│</fg>  です      <grey>│</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>├────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > handle wide characters with formatter 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>这是标题</> <dim>─╮</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  <red>*  *</fg>      <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>게</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan> </fg><red> *</fg>     <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>첫</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan> </fg><red> *</fg>     <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>번</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>째</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan> </fg><red> *</fg>     <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>줄</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>에</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>요</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>*  *</fg>      <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>こ</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>れ</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>は</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>次</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>の</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>行</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>で</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>す</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>├────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>게</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>첫</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>번</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>째</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>줄</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>에</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>요</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>こ</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>れ</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>は</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>次</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>の</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>行</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>で</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>す</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>├────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > renders as wide as longest line 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>───────────────────────────╮</fg>
-<dim>│</fg>                                   <dim>│</fg>
-<dim>│</fg>  short                            <dim>│</fg>
-<dim>│</fg>  somewhat questionably long line  <dim>│</fg>
-<dim>│</fg>                                   <dim>│</fg>
-<dim>├───────────────────────────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>───────────────────────────╮</fg>
+<grey>│</fg>                                   <grey>│</fg>
+<grey>│</fg>  short                            <grey>│</fg>
+<grey>│</fg>  somewhat questionably long line  <grey>│</fg>
+<grey>│</fg>                                   <grey>│</fg>
+<grey>├───────────────────────────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = false) > renders message with title 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>───╮</fg>
-<dim>│</fg>           <dim>│</fg>
-<dim>│</fg>  message  <dim>│</fg>
-<dim>│</fg>           <dim>│</fg>
-<dim>├───────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>───╮</fg>
+<grey>│</fg>           <grey>│</fg>
+<grey>│</fg>  message  <grey>│</fg>
+<grey>│</fg>           <grey>│</fg>
+<grey>├───────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > don't overflow 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>───────────────────────────────────────────────────────────────╮</fg>
-<dim>│</fg>                                                                       <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string test string   <dim>│</fg>
-<dim>│</fg>  test string test string test string test string test string test     <dim>│</fg>
-<dim>│</fg>  string test string test string test string test string               <dim>│</fg>
-<dim>│</fg>                                                                       <dim>│</fg>
-<dim>├───────────────────────────────────────────────────────────────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>───────────────────────────────────────────────────────────────╮</fg>
+<grey>│</fg>                                                                       <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string test string   <grey>│</fg>
+<grey>│</fg>  test string test string test string test string test string test     <grey>│</fg>
+<grey>│</fg>  string test string test string test string test string               <grey>│</fg>
+<grey>│</fg>                                                                       <grey>│</fg>
+<grey>├───────────────────────────────────────────────────────────────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > don't overflow with formatter 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>─────────────────────────────────────────────────────────────────╮</fg>
-<dim>│</fg>                                                                         <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>string test string</fg><red> *</fg>                                                 <dim>│</fg>
-<dim>│</fg>                                                                         <dim>│</fg>
-<dim>├─────────────────────────────────────────────────────────────────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>─────────────────────────────────────────────────────────────────╮</fg>
+<grey>│</fg>                                                                         <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string </fg><red> *</fg>                                                <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>test string test string test string test string test string test </fg><red> *</fg>  <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string test string test string test string test </fg><red> *</fg>       <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>string test string</fg><red> *</fg>                                                 <grey>│</fg>
+<grey>│</fg>                                                                         <grey>│</fg>
+<grey>├─────────────────────────────────────────────────────────────────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > formatter which adds colors works 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>──╮</fg>
-<dim>│</fg>          <dim>│</fg>
-<dim>│</fg>  <red>line 0</fg>  <dim>│</fg>
-<dim>│</fg>  <red>line 1</fg>  <dim>│</fg>
-<dim>│</fg>  <red>line 2</fg>  <dim>│</fg>
-<dim>│</fg>          <dim>│</fg>
-<dim>├──────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>──╮</fg>
+<grey>│</fg>          <grey>│</fg>
+<grey>│</fg>  <red>line 0</fg>  <grey>│</fg>
+<grey>│</fg>  <red>line 1</fg>  <grey>│</fg>
+<grey>│</fg>  <red>line 2</fg>  <grey>│</fg>
+<grey>│</fg>          <grey>│</fg>
+<grey>├──────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > formatter which adds length works 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>──────╮</fg>
-<dim>│</fg>              <dim>│</fg>
-<dim>│</fg>  * line 0 *  <dim>│</fg>
-<dim>│</fg>  * line 1 *  <dim>│</fg>
-<dim>│</fg>  * line 2 *  <dim>│</fg>
-<dim>│</fg>              <dim>│</fg>
-<dim>├──────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>──────╮</fg>
+<grey>│</fg>              <grey>│</fg>
+<grey>│</fg>  * line 0 *  <grey>│</fg>
+<grey>│</fg>  * line 1 *  <grey>│</fg>
+<grey>│</fg>  * line 2 *  <grey>│</fg>
+<grey>│</fg>              <grey>│</fg>
+<grey>├──────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > handle wide characters 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>这是标题</> <dim>─╮</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  이게      <dim>│</fg>
-<dim>│</fg>   첫       <dim>│</fg>
-<dim>│</fg>  번째      <dim>│</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  줄이      <dim>│</fg>
-<dim>│</fg>  에요      <dim>│</fg>
-<dim>│</fg>  これ      <dim>│</fg>
-<dim>│</fg>  は次      <dim>│</fg>
-<dim>│</fg>  の行      <dim>│</fg>
-<dim>│</fg>  です      <dim>│</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>├────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>│</fg>  이게      <grey>│</fg>
+<grey>│</fg>   첫       <grey>│</fg>
+<grey>│</fg>  번째      <grey>│</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>│</fg>  줄이      <grey>│</fg>
+<grey>│</fg>  에요      <grey>│</fg>
+<grey>│</fg>  これ      <grey>│</fg>
+<grey>│</fg>  は次      <grey>│</fg>
+<grey>│</fg>  の行      <grey>│</fg>
+<grey>│</fg>  です      <grey>│</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>├────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > handle wide characters with formatter 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>这是标题</> <dim>─╮</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>│</fg>  <red>*  *</fg>      <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>게</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan> </fg><red> *</fg>     <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>첫</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan> </fg><red> *</fg>     <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>번</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>째</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan> </fg><red> *</fg>     <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>줄</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>에</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>요</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>*  *</fg>      <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>こ</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>れ</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>は</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>次</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>の</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>行</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>で</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>  <red>* <cyan>す</fg><red> *</fg>    <dim>│</fg>
-<dim>│</fg>            <dim>│</fg>
-<dim>├────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>게</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>첫</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>번</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>째</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>줄</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>에</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>요</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>こ</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>れ</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>は</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>次</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>の</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>行</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>で</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>  <red>* <cyan>す</fg><red> *</fg>    <grey>│</fg>
+<grey>│</fg>            <grey>│</fg>
+<grey>├────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > renders as wide as longest line 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>───────────────────────────╮</fg>
-<dim>│</fg>                                   <dim>│</fg>
-<dim>│</fg>  short                            <dim>│</fg>
-<dim>│</fg>  somewhat questionably long line  <dim>│</fg>
-<dim>│</fg>                                   <dim>│</fg>
-<dim>├───────────────────────────────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>───────────────────────────╮</fg>
+<grey>│</fg>                                   <grey>│</fg>
+<grey>│</fg>  short                            <grey>│</fg>
+<grey>│</fg>  somewhat questionably long line  <grey>│</fg>
+<grey>│</fg>                                   <grey>│</fg>
+<grey>├───────────────────────────────────╯</fg>
 ",
 ]
 `;
 
 exports[`note (isCI = true) > renders message with title 1`] = `
 [
-  "<dim>│</fg>
-<green>◇</fg>  </>title</> <dim>───╮</fg>
-<dim>│</fg>           <dim>│</fg>
-<dim>│</fg>  message  <dim>│</fg>
-<dim>│</fg>           <dim>│</fg>
-<dim>├───────────╯</fg>
+  "<grey>│</fg>
+<green>◇</fg>  </>title</> <grey>───╮</fg>
+<grey>│</fg>           <grey>│</fg>
+<grey>│</fg>  message  <grey>│</fg>
+<grey>│</fg>           <grey>│</fg>
+<grey>├───────────╯</fg>
 ",
 ]
 `;

@@ -1,7 +1,7 @@
 {
   "name": "@xec-sh/ops",
   "version": "0.11.1",
-  "description": "DevOps operations library — deploy, health checks, pipelines, discovery, workflows",
+  "description": "DevOps operations library \u2014 deploy, health checks, pipelines, discovery, workflows",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -74,19 +74,20 @@
     "@xec-sh/core": "workspace:*",
     "@xec-sh/kit": "workspace:*",
     "@xec-sh/loader": "workspace:*",
-    "dotenv": "^17.2.3",
-    "fs-extra": "^11.3.3",
-    "glob": "^13.0.0",
-    "js-yaml": "^4.1.1",
-    "zod": "^4.3.6"
+    "dotenv": "^18.0.9",
+    "fs-extra": "^11.4.1",
+    "glob": "^14.0.3",
+    "js-yaml": "^5.5.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^25.5.0",
-    "@types/ssh2": "^1.15.5",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.0"
+    "@types/node": "^26.6.6",
+    "@types/ssh2": "^1.15.6",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^5.0.5",
+    "@typescript/native": "npm:typescript@^7.0.2"
   },
   "keywords": [
     "devops",

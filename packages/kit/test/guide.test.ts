@@ -55,7 +55,7 @@ async function renderGuide(
   const output = new MockWritable();
   const result = factories[name]({ input, output, ...opts });
 
-  input.emit('keypress', 'escape', { name: 'escape' });
+  input.emit('keypress', undefined, { name: 'escape' });
   await result;
 
   return firstLineGuide(output.buffer[1] ?? '');

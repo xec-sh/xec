@@ -1,7 +1,7 @@
 import globals from 'globals';
 import eslintJs from '@eslint/js';
 import eslintTs from 'typescript-eslint';
-import importPlugin from 'eslint-plugin-import';
+import importPlugin from 'eslint-plugin-import-x';
 import perfectionistPlugin from 'eslint-plugin-perfectionist';
 import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 
@@ -38,18 +38,18 @@ const commonRules = () => ({
 
 /**
  * @rules import
- * from 'eslint-plugin-import'.
+ * from 'eslint-plugin-import-x'.
  */
 const importRules = () => ({
   ...importPlugin.configs.recommended.rules,
-  'import/named': 0,
-  'import/export': 0,
-  'import/default': 0,
-  'import/namespace': 0,
-  'import/no-named-as-default': 0,
-  'import/newline-after-import': 2,
-  'import/no-named-as-default-member': 0,
-  'import/no-cycle': [
+  'import-x/named': 0,
+  'import-x/export': 0,
+  'import-x/default': 0,
+  'import-x/namespace': 0,
+  'import-x/no-named-as-default': 0,
+  'import-x/newline-after-import': 2,
+  'import-x/no-named-as-default-member': 0,
+  'import-x/no-cycle': [
     0, // disabled if slow
     { maxDepth: '∞', ignoreExternal: false, allowUnsafeDynamicCyclicDependency: false },
   ],
@@ -116,13 +116,13 @@ const customConfig = {
   plugins: {
     'unused-imports': unusedImportsPlugin,
     perfectionist: perfectionistPlugin,
-    import: importPlugin,
+    'import-x': importPlugin,
   },
   settings: {
     // https://www.npmjs.com/package/eslint-import-resolver-typescript
     ...importPlugin.configs.typescript.settings,
-    'import/resolver': {
-      ...importPlugin.configs.typescript.settings['import/resolver'],
+    'import-x/resolver': {
+      ...importPlugin.configs.typescript.settings['import-x/resolver'],
       typescript: {
         alwaysTryTypes: true,
         tsconfigRootDir: import.meta.dirname,
@@ -151,7 +151,7 @@ export default [
     // only covered apps/ and packages/.
     files: ['website/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     rules: {
-      'import/no-unresolved': 0,
+      'import-x/no-unresolved': 0,
     },
   },
   {
@@ -209,7 +209,7 @@ export default [
     // covered only apps/ and packages/.
     files: ['website/**/*.{js,mjs,cjs,ts,jsx,tsx}'],
     rules: {
-      'import/no-unresolved': 0,
+      'import-x/no-unresolved': 0,
     },
   },
   {

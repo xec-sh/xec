@@ -1,0 +1,15 @@
+diff --git a/scripts/post-install.js b/scripts/post-install.js
+--- a/scripts/post-install.js
++++ b/scripts/post-install.js
+@@ -77,4 +77,11 @@
+   }
+ }
+ 
++// node-pty 1.1.0 ships macOS helpers without the executable bit.
++// Upstream: https://github.com/microsoft/node-pty/issues/919
++if (os.platform() === 'darwin') {
++  const helper = path.join(__dirname, '../prebuilds', 'darwin-' + os.arch(), 'spawn-helper');
++  if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755);
++}
++
+ process.exit(0);

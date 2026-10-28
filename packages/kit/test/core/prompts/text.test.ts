@@ -93,7 +93,7 @@ describe('TextPrompt', () => {
       for (let i = 0; i < keys.length; i++) {
         input.emit('keypress', keys[i], { name: keys[i] });
       }
-      input.emit('keypress', 'left', { name: 'left' });
+      input.emit('keypress', undefined, { name: 'left' });
       expect(instance.userInputWithCursor).to.equal(`fo${color.inverse('o')}`);
     });
 
@@ -108,7 +108,7 @@ describe('TextPrompt', () => {
       for (let i = 0; i < keys.length; i++) {
         input.emit('keypress', keys[i], { name: keys[i] });
       }
-      input.emit('keypress', 'right', { name: 'right' });
+      input.emit('keypress', undefined, { name: 'right' });
       expect(instance.userInputWithCursor).to.equal('foo█');
     });
 

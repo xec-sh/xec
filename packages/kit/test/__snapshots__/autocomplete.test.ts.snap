@@ -3,16 +3,16 @@
 exports[`autocomplete > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Apple
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "
 ",
@@ -23,23 +23,23 @@ exports[`autocomplete > can be aborted by a signal 1`] = `
 exports[`autocomplete > limits displayed options when maxItems is set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select an option
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Option 0
 <cyan>│</fg>  <dim>○</bold> <dim>Option 1</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Option 2</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Option 3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Option 4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select an option
-<dim>│</fg>  <dim>Option 0</bold>",
+<grey>│</fg>  <dim>Option 0</bold>",
   "
 ",
   "<cursor.show>",
@@ -49,22 +49,22 @@ exports[`autocomplete > limits displayed options when maxItems is set 1`] = `
 exports[`autocomplete > renders initial UI with message and instructions 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Apple
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>  <dim>Apple</bold>",
+<grey>│</fg>  <dim>Apple</bold>",
   "
 ",
   "<cursor.show>",
@@ -74,7 +74,7 @@ exports[`autocomplete > renders initial UI with message and instructions 1`] = `
 exports[`autocomplete > renders placeholder if set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> <dim>Type to search...</bold>
@@ -83,13 +83,13 @@ exports[`autocomplete > renders placeholder if set 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>  <dim>Apple</bold>",
+<grey>│</fg>  <dim>Apple</bold>",
   "
 ",
   "<cursor.show>",
@@ -99,17 +99,17 @@ exports[`autocomplete > renders placeholder if set 1`] = `
 exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Apple
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=3>",
@@ -121,7 +121,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=5>",
@@ -131,7 +131,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=6>",
@@ -140,7 +140,7 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 <cyan>│</fg>  <green>●</fg> Grape
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=7>",
@@ -148,20 +148,20 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
   "<cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <green>●</fg> Orange
 <cyan>│</fg>  <dim>○</bold> <dim>Kiwi</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=8>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <green>●</fg> Kiwi<dim> (New Zealand)</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <green>●</fg> Kiwi<grey> (New Zealand)</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>  <dim>Kiwi</bold>",
+<grey>│</fg>  <dim>Kiwi</bold>",
   "
 ",
   "<cursor.show>",
@@ -171,29 +171,29 @@ exports[`autocomplete > shows hint when option has hint and is focused 1`] = `
 exports[`autocomplete > shows no matches message when search has no results 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Apple
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> z█<dim> (0 matches)</bold>
 <cyan>│</fg>  <yellow>No matches found</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -203,16 +203,16 @@ exports[`autocomplete > shows no matches message when search has no results 1`] 
 exports[`autocomplete > shows selected value in submit state 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Apple
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=3>",
@@ -223,13 +223,13 @@ exports[`autocomplete > shows selected value in submit state 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>  <dim>Banana</bold>",
+<grey>│</fg>  <dim>Banana</bold>",
   "
 ",
   "<cursor.show>",
@@ -239,22 +239,22 @@ exports[`autocomplete > shows selected value in submit state 1`] = `
 exports[`autocomplete > shows strikethrough in cancel state 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>●</fg> Apple
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  Select a fruit
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -264,22 +264,22 @@ exports[`autocomplete > shows strikethrough in cancel state 1`] = `
 exports[`autocomplete > supports initialValue 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 <cyan>│</fg>
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <dim>○</bold> <dim>Apple</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Banana</bold>
 <cyan>│</fg>  <green>●</fg> Cherry
 <cyan>│</fg>  <dim>○</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>  <dim>Cherry</bold>",
+<grey>│</fg>  <dim>Cherry</bold>",
   "
 ",
   "<cursor.show>",
@@ -289,16 +289,16 @@ exports[`autocomplete > supports initialValue 1`] = `
 exports[`autocompleteMultiselect > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <dim>◻</bold> Apple
 <cyan>│</fg>  <dim>◻</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "
 ",
@@ -309,16 +309,16 @@ exports[`autocompleteMultiselect > can be aborted by a signal 1`] = `
 exports[`autocompleteMultiselect > can use navigation keys to select options 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select fruits
 
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <dim>◻</bold> Apple
 <cyan>│</fg>  <dim>◻</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=3>",
@@ -329,7 +329,7 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Space/Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Space/Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=5>",
@@ -343,7 +343,7 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
 <cyan>│</fg>  <dim>◻</bold> Cherry
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Space/Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Space/Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=6>",
@@ -354,7 +354,7 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select fruits
-<dim>│</fg>  <dim>2 items selected</bold>",
+<grey>│</fg>  <dim>2 items selected</bold>",
   "
 ",
   "<cursor.show>",
@@ -364,49 +364,49 @@ exports[`autocompleteMultiselect > can use navigation keys to select options 1`]
 exports[`autocompleteMultiselect > renders error when empty selection & required is true 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  Select a fruit
 
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <dim>◻</bold> Apple
 <cyan>│</fg>  <dim>◻</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<yellow>▲</fg>  Select a fruit
 
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <yellow>Please select at least one item</fg>
 <cyan>│</fg>  <dim>◻</bold> Apple
 <cyan>│</fg>  <dim>◻</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=11>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<cyan>◆</fg>  Select a fruit
 
-<cyan>│</fg>  <dim>Search:</bold> [7m[8m_[28m[27m
+<cyan>│</fg>  <dim>Search:</bold> <inverse><hidden>_</hidden></inverse>
 <cyan>│</fg>  <green>◼</fg> Apple
 <cyan>│</fg>  <dim>◻</bold> <dim>Banana</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Cherry</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Grape</bold>
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select a fruit
-<dim>│</fg>  <dim>1 items selected</bold>",
+<grey>│</fg>  <dim>1 items selected</bold>",
   "
 ",
   "<cursor.show>",

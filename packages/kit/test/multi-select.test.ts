@@ -71,7 +71,7 @@ describe.each(['true', 'false'])('multiselect (isCI = %s)', (isCI) => {
       output,
     });
 
-    input.emit('keypress', 'escape', { name: 'escape' });
+    input.emit('keypress', undefined, { name: 'escape' });
 
     const value = await result;
 

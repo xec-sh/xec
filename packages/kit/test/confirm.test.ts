@@ -80,7 +80,7 @@ describe.each(['true', 'false'])('confirm (isCI = %s)', (isCI) => {
       output,
     });
 
-    input.emit('keypress', 'right', { name: 'right' });
+    input.emit('keypress', undefined, { name: 'right' });
     input.emit('keypress', '', { name: 'return' });
 
     const value = await result;
@@ -96,8 +96,8 @@ describe.each(['true', 'false'])('confirm (isCI = %s)', (isCI) => {
       output,
     });
 
-    input.emit('keypress', 'right', { name: 'right' });
-    input.emit('keypress', 'left', { name: 'left' });
+    input.emit('keypress', undefined, { name: 'right' });
+    input.emit('keypress', undefined, { name: 'left' });
     input.emit('keypress', '', { name: 'return' });
 
     const value = await result;
@@ -113,7 +113,7 @@ describe.each(['true', 'false'])('confirm (isCI = %s)', (isCI) => {
       output,
     });
 
-    input.emit('keypress', 'escape', { name: 'escape' });
+    input.emit('keypress', undefined, { name: 'escape' });
 
     const value = await result;
 

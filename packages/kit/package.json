@@ -62,20 +62,18 @@
     "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "sisteransi": "^1.0.5"
+    "sisteransi": "^2.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^25.5.0",
-    "memfs": "^4.56.11",
-    "prettier": "^3.8.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.0",
-    "vitest-ansi-serializer": "^0.2.1",
-    "zod": "^4.3.6"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
+    "@types/node": "^26.6.6",
+    "memfs": "^4.80.0",
+    "prettier": "^3.9.10",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^5.0.5",
+    "vitest-ansi-serializer": "^0.4.0",
+    "zod": "^4.6.7",
+    "@typescript/native": "npm:typescript@^7.0.2"
   },
   "engines": {
     "node": ">=20.0.0",

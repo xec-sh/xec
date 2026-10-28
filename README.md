@@ -2,7 +2,7 @@
 
 **One TypeScript API for commands, wherever they run** — local shell, SSH host, Docker container, Kubernetes pod.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7.0-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/npm/l/@xec-sh/core.svg)](https://github.com/xec-sh/xec/blob/main/LICENSE)
 
 ```typescript
@@ -141,10 +141,17 @@ identically on all three — what a command *means* is still the shell's, and
 ## Development
 
 ```bash
-corepack enable && pnpm install && pnpm build
+corepack enable
+pnpm install --frozen-lockfile
+pnpm build
 pnpm test                 # unit tests
 pnpm --filter @xec-sh/core docker:start   # SSH test fixtures
 pnpm lint && pnpm typecheck               # both are kept at zero
 ```
+
+Use the pnpm version pinned in `packageManager` (12.16.1). Builds use the native
+TypeScript 7 compiler; tools that inspect TypeScript syntax use the separately
+aliased TypeScript 6 Compiler API until they support the native API. Dependency
+updates include the workspace policy, lockfile, builds and adapter tests together.
 
 License: MIT

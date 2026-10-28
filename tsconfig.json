@@ -35,6 +35,9 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ESNext",
-    "sourceMap": true
+    "sourceMap": true,
+    "types": [
+      "node"
+    ]
   }
 }

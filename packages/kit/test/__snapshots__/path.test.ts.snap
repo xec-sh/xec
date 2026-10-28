@@ -3,7 +3,7 @@
 exports[`text (isCI = false) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -11,13 +11,13 @@ exports[`text (isCI = false) > can cancel 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>/tmp/</bold>[29m",
+<grey>│</fg>  <strikethrough><dim>/tmp/</bold></strikethrough>",
   "
 ",
   "<cursor.show>",
@@ -27,7 +27,7 @@ exports[`text (isCI = false) > can cancel 1`] = `
 exports[`text (isCI = false) > cannot submit unknown value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -35,14 +35,14 @@ exports[`text (isCI = false) > cannot submit unknown value 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/_█
 <cyan>│</fg>  <yellow>No matches found</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -52,7 +52,7 @@ exports[`text (isCI = false) > cannot submit unknown value 1`] = `
 <cyan>│</fg>  <dim>Search:</bold> /tmp/_█
 <cyan>│</fg>  <yellow>No matches found</fg>
 <yellow>│</fg>  <yellow>Please select a path</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=7>",
   "<cursor.down count=1>",
@@ -64,20 +64,20 @@ exports[`text (isCI = false) > cannot submit unknown value 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -87,18 +87,18 @@ exports[`text (isCI = false) > cannot submit unknown value 1`] = `
 exports[`text (isCI = false) > initialValue sets the value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/bar█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -108,7 +108,7 @@ exports[`text (isCI = false) > initialValue sets the value 1`] = `
 exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -116,14 +116,14 @@ exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/x█
 <cyan>│</fg>  <yellow>No matches found</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=3>",
@@ -134,7 +134,7 @@ exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>/tmp/xy</bold>[29m",
+<grey>│</fg>  <strikethrough><dim>/tmp/xy</bold></strikethrough>",
   "
 ",
   "<cursor.show>",
@@ -144,7 +144,7 @@ exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
 exports[`text (isCI = false) > renders message 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -152,13 +152,13 @@ exports[`text (isCI = false) > renders message 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -168,7 +168,7 @@ exports[`text (isCI = false) > renders message 1`] = `
 exports[`text (isCI = false) > renders submitted value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -176,14 +176,14 @@ exports[`text (isCI = false) > renders submitted value 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=3>",
@@ -194,7 +194,7 @@ exports[`text (isCI = false) > renders submitted value 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -204,7 +204,7 @@ exports[`text (isCI = false) > renders submitted value 1`] = `
 exports[`text (isCI = false) > validation errors render and clear (using Error) 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -212,14 +212,14 @@ exports[`text (isCI = false) > validation errors render and clear (using Error) 
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -229,7 +229,7 @@ exports[`text (isCI = false) > validation errors render and clear (using Error) 
 <cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <yellow>│</fg>  <yellow>should be /tmp/bar</fg>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=7>",
   "<cursor.down count=1>",
@@ -241,20 +241,20 @@ exports[`text (isCI = false) > validation errors render and clear (using Error) 
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -264,7 +264,7 @@ exports[`text (isCI = false) > validation errors render and clear (using Error) 
 exports[`text (isCI = false) > validation errors render and clear 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -272,14 +272,14 @@ exports[`text (isCI = false) > validation errors render and clear 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -289,7 +289,7 @@ exports[`text (isCI = false) > validation errors render and clear 1`] = `
 <cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <yellow>│</fg>  <yellow>should be /tmp/bar</fg>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=7>",
   "<cursor.down count=1>",
@@ -301,20 +301,20 @@ exports[`text (isCI = false) > validation errors render and clear 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -324,7 +324,7 @@ exports[`text (isCI = false) > validation errors render and clear 1`] = `
 exports[`text (isCI = true) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -332,13 +332,13 @@ exports[`text (isCI = true) > can cancel 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>/tmp/</bold>[29m",
+<grey>│</fg>  <strikethrough><dim>/tmp/</bold></strikethrough>",
   "
 ",
   "<cursor.show>",
@@ -348,7 +348,7 @@ exports[`text (isCI = true) > can cancel 1`] = `
 exports[`text (isCI = true) > cannot submit unknown value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -356,14 +356,14 @@ exports[`text (isCI = true) > cannot submit unknown value 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/_█
 <cyan>│</fg>  <yellow>No matches found</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -373,7 +373,7 @@ exports[`text (isCI = true) > cannot submit unknown value 1`] = `
 <cyan>│</fg>  <dim>Search:</bold> /tmp/_█
 <cyan>│</fg>  <yellow>No matches found</fg>
 <yellow>│</fg>  <yellow>Please select a path</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=7>",
   "<cursor.down count=1>",
@@ -385,20 +385,20 @@ exports[`text (isCI = true) > cannot submit unknown value 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -408,18 +408,18 @@ exports[`text (isCI = true) > cannot submit unknown value 1`] = `
 exports[`text (isCI = true) > initialValue sets the value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/bar█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -429,7 +429,7 @@ exports[`text (isCI = true) > initialValue sets the value 1`] = `
 exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -437,14 +437,14 @@ exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/x█
 <cyan>│</fg>  <yellow>No matches found</fg>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=3>",
@@ -455,7 +455,7 @@ exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>/tmp/xy</bold>[29m",
+<grey>│</fg>  <strikethrough><dim>/tmp/xy</bold></strikethrough>",
   "
 ",
   "<cursor.show>",
@@ -465,7 +465,7 @@ exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
 exports[`text (isCI = true) > renders message 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -473,13 +473,13 @@ exports[`text (isCI = true) > renders message 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -489,7 +489,7 @@ exports[`text (isCI = true) > renders message 1`] = `
 exports[`text (isCI = true) > renders submitted value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -497,14 +497,14 @@ exports[`text (isCI = true) > renders submitted value 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=3>",
@@ -515,7 +515,7 @@ exports[`text (isCI = true) > renders submitted value 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -525,7 +525,7 @@ exports[`text (isCI = true) > renders submitted value 1`] = `
 exports[`text (isCI = true) > validation errors render and clear (using Error) 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -533,14 +533,14 @@ exports[`text (isCI = true) > validation errors render and clear (using Error) 1
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -550,7 +550,7 @@ exports[`text (isCI = true) > validation errors render and clear (using Error) 1
 <cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <yellow>│</fg>  <yellow>should be /tmp/bar</fg>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=7>",
   "<cursor.down count=1>",
@@ -562,20 +562,20 @@ exports[`text (isCI = true) > validation errors render and clear (using Error) 1
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -585,7 +585,7 @@ exports[`text (isCI = true) > validation errors render and clear (using Error) 1
 exports[`text (isCI = true) > validation errors render and clear 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>
 <cyan>│</fg>  <dim>Search:</bold> /tmp/█
@@ -593,14 +593,14 @@ exports[`text (isCI = true) > validation errors render and clear 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/root.zip</bold>
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
@@ -610,7 +610,7 @@ exports[`text (isCI = true) > validation errors render and clear 1`] = `
 <cyan>│</fg>  <dim>Search:</bold> /tmp/r█
 <yellow>│</fg>  <yellow>should be /tmp/bar</fg>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=7>",
   "<cursor.down count=1>",
@@ -622,20 +622,20 @@ exports[`text (isCI = true) > validation errors render and clear 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/foo</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>/tmp/hello</bold>
 <cyan>│</fg>  <green>●</fg> /tmp/root.zip
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=9>",
   "<cursor.down count=3>",
   "<erase.down>",
   "<cyan>│</fg>  <dim>Search:</bold> /tmp/b█
 <cyan>│</fg>  <green>●</fg> /tmp/bar
-<cyan>│</fg>  <dim>↑/↓ to select • Enter: confirm • Type: to search</fg>
+<cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>/tmp/bar</bold>",
+<grey>│</fg>  <dim>/tmp/bar</bold>",
   "
 ",
   "<cursor.show>",

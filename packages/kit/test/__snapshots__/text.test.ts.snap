@@ -3,9 +3,9 @@
 exports[`text (isCI = false) > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "
@@ -17,16 +17,16 @@ exports[`text (isCI = false) > can be aborted by a signal 1`] = `
 exports[`text (isCI = false) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -36,16 +36,16 @@ exports[`text (isCI = false) > can cancel 1`] = `
 exports[`text (isCI = false) > defaultValue sets the value but does not render 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>bar</bold>",
+<grey>│</fg>  <dim>bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -55,16 +55,16 @@ exports[`text (isCI = false) > defaultValue sets the value but does not render 1
 exports[`text (isCI = false) > empty string when no value and no default 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m [27m<dim> (hit Enter to use default)</bold>
+<cyan>│</fg>  <inverse> </inverse><dim> (hit Enter to use default)</bold>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -74,16 +74,16 @@ exports[`text (isCI = false) > empty string when no value and no default 1`] = `
 exports[`text (isCI = false) > placeholder is not used as value when pressing enter 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m [27m<dim> (hit Enter to use default)</bold>
+<cyan>│</fg>  <inverse> </inverse><dim> (hit Enter to use default)</bold>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>default-value</bold>",
+<grey>│</fg>  <dim>default-value</bold>",
   "
 ",
   "<cursor.show>",
@@ -93,9 +93,9 @@ exports[`text (isCI = false) > placeholder is not used as value when pressing en
 exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -112,8 +112,8 @@ exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>xy</bold>[29m
-<dim>│</fg>",
+<grey>│</fg>  <strikethrough><dim>xy</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -123,16 +123,16 @@ exports[`text (isCI = false) > renders cancelled value if one set 1`] = `
 exports[`text (isCI = false) > renders message 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -142,16 +142,16 @@ exports[`text (isCI = false) > renders message 1`] = `
 exports[`text (isCI = false) > renders placeholder if set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7mb[27m<dim>ar</bold>
+<cyan>│</fg>  <inverse>b</inverse><dim>ar</bold>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -161,9 +161,9 @@ exports[`text (isCI = false) > renders placeholder if set 1`] = `
 exports[`text (isCI = false) > renders submitted value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -180,7 +180,7 @@ exports[`text (isCI = false) > renders submitted value 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>xy</bold>",
+<grey>│</fg>  <dim>xy</bold>",
   "
 ",
   "<cursor.show>",
@@ -190,9 +190,9 @@ exports[`text (isCI = false) > renders submitted value 1`] = `
 exports[`text (isCI = false) > validation errors render and clear (using Error) 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -218,7 +218,7 @@ exports[`text (isCI = false) > validation errors render and clear (using Error) 
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>xy</bold>",
+<grey>│</fg>  <dim>xy</bold>",
   "
 ",
   "<cursor.show>",
@@ -228,9 +228,9 @@ exports[`text (isCI = false) > validation errors render and clear (using Error) 
 exports[`text (isCI = false) > validation errors render and clear 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -256,7 +256,7 @@ exports[`text (isCI = false) > validation errors render and clear 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>xy</bold>",
+<grey>│</fg>  <dim>xy</bold>",
   "
 ",
   "<cursor.show>",
@@ -266,9 +266,9 @@ exports[`text (isCI = false) > validation errors render and clear 1`] = `
 exports[`text (isCI = true) > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "
@@ -280,16 +280,16 @@ exports[`text (isCI = true) > can be aborted by a signal 1`] = `
 exports[`text (isCI = true) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -299,16 +299,16 @@ exports[`text (isCI = true) > can cancel 1`] = `
 exports[`text (isCI = true) > defaultValue sets the value but does not render 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>bar</bold>",
+<grey>│</fg>  <dim>bar</bold>",
   "
 ",
   "<cursor.show>",
@@ -318,16 +318,16 @@ exports[`text (isCI = true) > defaultValue sets the value but does not render 1`
 exports[`text (isCI = true) > empty string when no value and no default 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m [27m<dim> (hit Enter to use default)</bold>
+<cyan>│</fg>  <inverse> </inverse><dim> (hit Enter to use default)</bold>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -337,16 +337,16 @@ exports[`text (isCI = true) > empty string when no value and no default 1`] = `
 exports[`text (isCI = true) > placeholder is not used as value when pressing enter 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m [27m<dim> (hit Enter to use default)</bold>
+<cyan>│</fg>  <inverse> </inverse><dim> (hit Enter to use default)</bold>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>default-value</bold>",
+<grey>│</fg>  <dim>default-value</bold>",
   "
 ",
   "<cursor.show>",
@@ -356,9 +356,9 @@ exports[`text (isCI = true) > placeholder is not used as value when pressing ent
 exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -375,8 +375,8 @@ exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>xy</bold>[29m
-<dim>│</fg>",
+<grey>│</fg>  <strikethrough><dim>xy</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -386,16 +386,16 @@ exports[`text (isCI = true) > renders cancelled value if one set 1`] = `
 exports[`text (isCI = true) > renders message 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -405,16 +405,16 @@ exports[`text (isCI = true) > renders message 1`] = `
 exports[`text (isCI = true) > renders placeholder if set 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7mb[27m<dim>ar</bold>
+<cyan>│</fg>  <inverse>b</inverse><dim>ar</bold>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>",
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -424,9 +424,9 @@ exports[`text (isCI = true) > renders placeholder if set 1`] = `
 exports[`text (isCI = true) > renders submitted value 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -443,7 +443,7 @@ exports[`text (isCI = true) > renders submitted value 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>xy</bold>",
+<grey>│</fg>  <dim>xy</bold>",
   "
 ",
   "<cursor.show>",
@@ -453,9 +453,9 @@ exports[`text (isCI = true) > renders submitted value 1`] = `
 exports[`text (isCI = true) > validation errors render and clear (using Error) 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -481,7 +481,7 @@ exports[`text (isCI = true) > validation errors render and clear (using Error) 1
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>xy</bold>",
+<grey>│</fg>  <dim>xy</bold>",
   "
 ",
   "<cursor.show>",
@@ -491,9 +491,9 @@ exports[`text (isCI = true) > validation errors render and clear (using Error) 1
 exports[`text (isCI = true) > validation errors render and clear 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  [7m[8m_[28m[27m
+<cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=4>",
@@ -519,7 +519,7 @@ exports[`text (isCI = true) > validation errors render and clear 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>xy</bold>",
+<grey>│</fg>  <dim>xy</bold>",
   "
 ",
   "<cursor.show>",

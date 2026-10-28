@@ -75,24 +75,8 @@ mkdirSync(distDir, { recursive: true });
 console.log('Generating TypeScript declarations...');
 const tscArgs = [
   'tsc',
-  './src/index.ts',
-  '--declaration',
-  '--declarationMap',
-  '--emitDeclarationOnly',
-  '--outDir',
-  './dist',
-  '--module',
-  'esnext',
-  '--target',
-  'esnext',
-  '--moduleResolution',
-  'node',
-  '--esModuleInterop',
-  'true',
-  '--skipLibCheck',
-  'true',
-  '--strict',
-  'true',
+  '--project',
+  'tsconfig.build.json',
 ];
 
 const tscResult = spawnSync('npx', tscArgs, {

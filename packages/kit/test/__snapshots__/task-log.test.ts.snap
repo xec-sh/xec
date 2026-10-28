@@ -2,20 +2,20 @@
 
 exports[`taskLog (isCI = false) > error > clears output if showLog = false 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  some error!
 ",
 ]
@@ -23,372 +23,372 @@ exports[`taskLog (isCI = false) > error > clears output if showLog = false 1`] =
 
 exports[`taskLog (isCI = false) > error > renders output with message 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  some error!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > group > applies limit per group 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
-",
-  "<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
-",
-  "<dim>│</fg>  <bold>Group 1</bold>
-",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
-",
-  "<dim>│</fg>  <dim>Group 0 line 2</bold>
-<dim>│</fg>  <dim>Group 0 line 3</bold>
-",
-  "<dim>│</fg>  <bold>Group 1</bold>
-",
-  "<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 2</bold>
-<dim>│</fg>  <dim>Group 0 line 3</bold>
+  "<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-",
-  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
-",
-  "<dim>│</fg>  <dim>Group 0 line 3</bold>
-<dim>│</fg>  <dim>Group 0 line 4</bold>
-",
-  "<dim>│</fg>  <bold>Group 1</bold>
-",
-  "<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
+  "<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 3</bold>
-<dim>│</fg>  <dim>Group 0 line 4</bold>
+  "<grey>│</fg>  <dim>Group 0 line 2</bold>
+<grey>│</fg>  <dim>Group 0 line 3</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+",
+  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
+  "<grey>│</fg>  <bold>Group 0</bold>
+",
+  "<grey>│</fg>  <dim>Group 0 line 2</bold>
+<grey>│</fg>  <dim>Group 0 line 3</bold>
+",
+  "<grey>│</fg>  <bold>Group 1</bold>
+",
+  "<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+",
+  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
+  "<grey>│</fg>  <bold>Group 0</bold>
+",
+  "<grey>│</fg>  <dim>Group 0 line 3</bold>
+<grey>│</fg>  <dim>Group 0 line 4</bold>
+",
+  "<grey>│</fg>  <bold>Group 1</bold>
+",
+  "<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+",
+  "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
+  "<grey>│</fg>  <bold>Group 0</bold>
+",
+  "<grey>│</fg>  <dim>Group 0 line 3</bold>
+<grey>│</fg>  <dim>Group 0 line 4</bold>
+",
+  "<grey>│</fg>  <bold>Group 1</bold>
+",
+  "<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > group > can render multiple groups of different sizes 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > group > can render multiple groups of equal size 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
-<dim>│</fg>  <dim>Group 0 line 3</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
+<grey>│</fg>  <dim>Group 0 line 3</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
-<dim>│</fg>  <dim>Group 0 line 3</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
+<grey>│</fg>  <dim>Group 0 line 3</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
-<dim>│</fg>  <dim>Group 0 line 3</bold>
-<dim>│</fg>  <dim>Group 0 line 4</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
+<grey>│</fg>  <dim>Group 0 line 3</bold>
+<grey>│</fg>  <dim>Group 0 line 4</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
-<dim>│</fg>  <dim>Group 0 line 3</bold>
-<dim>│</fg>  <dim>Group 0 line 4</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
+<grey>│</fg>  <dim>Group 0 line 3</bold>
+<grey>│</fg>  <dim>Group 0 line 4</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > group > handles empty groups 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◆</fg>  Group success!
 ",
@@ -397,15 +397,15 @@ exports[`taskLog (isCI = false) > group > handles empty groups 1`] = `
 
 exports[`taskLog (isCI = false) > group > renders error state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<red>■</fg>  Group error!
@@ -415,15 +415,15 @@ exports[`taskLog (isCI = false) > group > renders error state 1`] = `
 
 exports[`taskLog (isCI = false) > group > renders group error state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<red>■</fg>  Group error!
@@ -433,15 +433,15 @@ exports[`taskLog (isCI = false) > group > renders group error state 1`] = `
 
 exports[`taskLog (isCI = false) > group > renders group success state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<green>◆</fg>  Group success!
@@ -451,15 +451,15 @@ exports[`taskLog (isCI = false) > group > renders group success state 1`] = `
 
 exports[`taskLog (isCI = false) > group > renders success state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<green>◆</fg>  Group success!
@@ -469,104 +469,104 @@ exports[`taskLog (isCI = false) > group > renders success state 1`] = `
 
 exports[`taskLog (isCI = false) > group > showLog shows all groups in order 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<green>◆</fg>  Group 0 success!
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
   "<green>◆</fg>  Group 0 success!
@@ -574,533 +574,533 @@ exports[`taskLog (isCI = false) > group > showLog shows all groups in order 1`] 
   "<red>■</fg>  Group 1 error!
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  overall error
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > can write line by line 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > can write multiple lines 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > enforces limit if set 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > prints empty lines 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > raw = true appends message text until newline 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
-",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0still line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0still line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0still line 0</bold>
+",
+  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
+  "<grey>│</fg>  <dim>line 0still line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > raw = true works when mixed with non-raw messages 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
-",
-  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0still line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0still line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0still line 0</bold>
+",
+  "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
+  "<grey>│</fg>  <dim>line 0still line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > message > raw = true works when started with non-raw messages 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1still line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1still line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > error > outputs limited log with limit by default 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > error > retainLog = false outputs full log without limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > error > retainLog = false outputs limited log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > error > retainLog = true outputs full log 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > error > retainLog = true outputs full log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > success > outputs limited log with limit by default 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > success > retainLog = false outputs full log without limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > success > retainLog = false outputs limited log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > success > retainLog = true outputs full log 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > retainLog > success > retainLog = true outputs full log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
+  "<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > success > clears output and renders message 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  success!
 ",
 ]
@@ -1108,49 +1108,49 @@ exports[`taskLog (isCI = false) > success > clears output and renders message 1`
 
 exports[`taskLog (isCI = false) > success > renders output if showLog = true 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>  <dim>line 0</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
   "<erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.up count=1><erase.line><cursor.left count=1>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  success!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = false) > writes message header 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > error > clears output if showLog = false 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  some error!
 ",
 ]
@@ -1158,418 +1158,418 @@ exports[`taskLog (isCI = true) > error > clears output if showLog = false 1`] = 
 
 exports[`taskLog (isCI = true) > error > renders output with message 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  some error!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > applies limit per group 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > can render multiple groups of different sizes 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > can render multiple groups of equal size 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > handles empty groups 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > renders error state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > renders group error state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > renders group success state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > renders success state 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > group > showLog shows all groups in order 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  Some log
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  overall error
 ",
-  "<dim>│</fg>  <bold>Group 0</bold>
+  "<grey>│</fg>  <bold>Group 0</bold>
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>Group 0 line 0</bold>
-<dim>│</fg>  <dim>Group 0 line 1</bold>
-<dim>│</fg>  <dim>Group 0 line 2</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>Group 0 line 0</bold>
+<grey>│</fg>  <dim>Group 0 line 1</bold>
+<grey>│</fg>  <dim>Group 0 line 2</bold>
 ",
-  "<dim>│</fg>  <bold>Group 1</bold>
+  "<grey>│</fg>  <bold>Group 1</bold>
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>Group 1 line 0</bold>
-<dim>│</fg>  <dim>Group 1 line 1</bold>
-<dim>│</fg>  <dim>Group 1 line 2</bold>
-<dim>│</fg>  <dim>Group 1 line 3</bold>
-<dim>│</fg>  <dim>Group 1 line 4</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>Group 1 line 0</bold>
+<grey>│</fg>  <dim>Group 1 line 1</bold>
+<grey>│</fg>  <dim>Group 1 line 2</bold>
+<grey>│</fg>  <dim>Group 1 line 3</bold>
+<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > can write line by line 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > can write multiple lines 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > enforces limit if set 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > prints empty lines 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > raw = true appends message text until newline 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > raw = true works when mixed with non-raw messages 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > message > raw = true works when started with non-raw messages 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > error > outputs limited log with limit by default 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > error > retainLog = false outputs full log without limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > error > retainLog = false outputs limited log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > error > retainLog = true outputs full log 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > error > retainLog = true outputs full log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <red>■</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > success > outputs limited log with limit by default 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > success > retainLog = false outputs full log without limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > success > retainLog = false outputs limited log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > success > retainLog = true outputs full log 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > retainLog > success > retainLog = true outputs full log with limit 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  woo!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
-<dim>│</fg>  <dim>line 2</bold>
-<dim>│</fg>  <dim>line 3</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
+<grey>│</fg>  <dim>line 2</bold>
+<grey>│</fg>  <dim>line 3</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > success > clears output and renders message 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  success!
 ",
 ]
@@ -1577,29 +1577,29 @@ exports[`taskLog (isCI = true) > success > clears output and renders message 1`]
 
 exports[`taskLog (isCI = true) > success > renders output if showLog = true 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <green>◆</fg>  success!
 ",
-  "<dim>│</fg>
-<dim>│</fg>  <dim>line 0</bold>
-<dim>│</fg>  <dim>line 1</bold>
+  "<grey>│</fg>
+<grey>│</fg>  <dim>line 0</bold>
+<grey>│</fg>  <dim>line 1</bold>
 ",
 ]
 `;
 
 exports[`taskLog (isCI = true) > writes message header 1`] = `
 [
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
   "<green>◇</fg>  foo
 ",
-  "<dim>│</fg>
+  "<grey>│</fg>
 ",
 ]
 `;

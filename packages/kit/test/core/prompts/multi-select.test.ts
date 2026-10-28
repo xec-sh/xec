@@ -41,7 +41,7 @@ describe('MultiSelectPrompt', () => {
       instance.prompt();
 
       expect(instance.cursor).to.equal(0);
-      input.emit('keypress', 'down', { name: 'down' });
+      input.emit('keypress', undefined, { name: 'down' });
       expect(instance.cursor).to.equal(1);
     });
 
@@ -56,9 +56,9 @@ describe('MultiSelectPrompt', () => {
       instance.prompt();
 
       expect(instance.cursor).to.equal(0);
-      input.emit('keypress', 'up', { name: 'up' });
+      input.emit('keypress', undefined, { name: 'up' });
       expect(instance.cursor).to.equal(2);
-      input.emit('keypress', 'down', { name: 'down' });
+      input.emit('keypress', undefined, { name: 'down' });
       expect(instance.cursor).to.equal(0);
     });
 
@@ -72,7 +72,7 @@ describe('MultiSelectPrompt', () => {
 
       instance.prompt();
 
-      input.emit('keypress', 'left', { name: 'left' });
+      input.emit('keypress', undefined, { name: 'left' });
       expect(instance.cursor).to.equal(2);
     });
 
@@ -86,7 +86,7 @@ describe('MultiSelectPrompt', () => {
 
       instance.prompt();
 
-      input.emit('keypress', 'left', { name: 'left' });
+      input.emit('keypress', undefined, { name: 'left' });
       expect(instance.cursor).to.equal(1);
     });
 
@@ -111,7 +111,7 @@ describe('MultiSelectPrompt', () => {
       });
       instance.prompt();
 
-      input.emit('keypress', 'down', { name: 'down' });
+      input.emit('keypress', undefined, { name: 'down' });
       input.emit('keypress', 'space', { name: 'space' });
       input.emit('keypress', 'a', { name: 'a' });
       expect(instance.value).toEqual(['foo', 'bar']);
@@ -126,7 +126,7 @@ describe('MultiSelectPrompt', () => {
       });
       instance.prompt();
 
-      input.emit('keypress', 'down', { name: 'down' });
+      input.emit('keypress', undefined, { name: 'down' });
       input.emit('keypress', 'space', { name: 'space' });
       input.emit('keypress', 'i', { name: 'i' });
       expect(instance.value).toEqual(['foo']);

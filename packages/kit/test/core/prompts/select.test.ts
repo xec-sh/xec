@@ -54,7 +54,7 @@ describe('SelectPrompt', () => {
       instance.prompt();
 
       expect(instance.cursor).to.equal(0);
-      input.emit('keypress', 'down', { name: 'down' });
+      input.emit('keypress', undefined, { name: 'down' });
       expect(instance.cursor).to.equal(1);
     });
 
@@ -69,9 +69,9 @@ describe('SelectPrompt', () => {
       instance.prompt();
 
       expect(instance.cursor).to.equal(0);
-      input.emit('keypress', 'up', { name: 'up' });
+      input.emit('keypress', undefined, { name: 'up' });
       expect(instance.cursor).to.equal(2);
-      input.emit('keypress', 'down', { name: 'down' });
+      input.emit('keypress', undefined, { name: 'down' });
       expect(instance.cursor).to.equal(0);
     });
 
@@ -85,7 +85,7 @@ describe('SelectPrompt', () => {
 
       instance.prompt();
 
-      input.emit('keypress', 'left', { name: 'left' });
+      input.emit('keypress', undefined, { name: 'left' });
       expect(instance.cursor).to.equal(2);
     });
 
@@ -99,7 +99,7 @@ describe('SelectPrompt', () => {
 
       instance.prompt();
 
-      input.emit('keypress', 'left', { name: 'left' });
+      input.emit('keypress', undefined, { name: 'left' });
       expect(instance.cursor).to.equal(1);
     });
 

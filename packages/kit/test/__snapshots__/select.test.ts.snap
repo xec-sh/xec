@@ -3,11 +3,11 @@
 exports[`select (isCI = false) > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "
@@ -19,19 +19,19 @@ exports[`select (isCI = false) > can be aborted by a signal 1`] = `
 exports[`select (isCI = false) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>opt0</bold>[29m
-<dim>│</fg>",
+<grey>│</fg>  <strikethrough><dim>opt0</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -41,11 +41,11 @@ exports[`select (isCI = false) > can cancel 1`] = `
 exports[`select (isCI = false) > down arrow selects next option 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
@@ -53,14 +53,14 @@ exports[`select (isCI = false) > down arrow selects next option 1`] = `
   "<erase.down>",
   "<cyan>│</fg>  <dim>○</bold> <dim>opt0</bold>
 <cyan>│</fg>  <green>●</fg> opt1
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt1</bold>",
+<grey>│</fg>  <dim>opt1</bold>",
   "
 ",
   "<cursor.show>",
@@ -70,7 +70,7 @@ exports[`select (isCI = false) > down arrow selects next option 1`] = `
 exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
@@ -78,7 +78,7 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <dim>○</bold> <dim>opt3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -90,7 +90,7 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <dim>○</bold> <dim>opt3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -101,7 +101,7 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <dim>○</bold> <dim>opt3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -111,7 +111,7 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <green>●</fg> opt3
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -123,7 +123,7 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <green>●</fg> opt4
 <cyan>│</fg>  <dim>○</bold> <dim>opt5</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -134,7 +134,7 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <green>●</fg> opt5
 <cyan>│</fg>  <dim>○</bold> <dim>opt6</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -145,14 +145,14 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 <cyan>│</fg>  <green>●</fg> opt6
 <cyan>│</fg>  <dim>○</bold> <dim>opt7</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt6</bold>",
+<grey>│</fg>  <dim>opt6</bold>",
   "
 ",
   "<cursor.show>",
@@ -162,18 +162,18 @@ exports[`select (isCI = false) > maxItems accounts for instruction footer 1`] = 
 exports[`select (isCI = false) > renders option hints 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  <green>●</fg> opt0 <dim>(Hint 0)</fg>
+<cyan>│</fg>  <green>●</fg> opt0 <grey>(Hint 0)</fg>
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -183,18 +183,18 @@ exports[`select (isCI = false) > renders option hints 1`] = `
 exports[`select (isCI = false) > renders option labels 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Option 0
 <cyan>│</fg>  <dim>○</bold> <dim>Option 1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Option 0</bold>",
+<grey>│</fg>  <dim>Option 0</bold>",
   "
 ",
   "<cursor.show>",
@@ -204,18 +204,18 @@ exports[`select (isCI = false) > renders option labels 1`] = `
 exports[`select (isCI = false) > renders options and message 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -225,7 +225,7 @@ exports[`select (isCI = false) > renders options and message 1`] = `
 exports[`select (isCI = false) > showInstructions: false hides instruction footer 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
@@ -235,7 +235,7 @@ exports[`select (isCI = false) > showInstructions: false hides instruction foote
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -245,11 +245,11 @@ exports[`select (isCI = false) > showInstructions: false hides instruction foote
 exports[`select (isCI = false) > up arrow selects previous option 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
@@ -257,7 +257,7 @@ exports[`select (isCI = false) > up arrow selects previous option 1`] = `
   "<erase.down>",
   "<cyan>│</fg>  <dim>○</bold> <dim>opt0</bold>
 <cyan>│</fg>  <green>●</fg> opt1
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
@@ -265,14 +265,14 @@ exports[`select (isCI = false) > up arrow selects previous option 1`] = `
   "<erase.down>",
   "<cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -282,11 +282,11 @@ exports[`select (isCI = false) > up arrow selects previous option 1`] = `
 exports[`select (isCI = true) > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "
@@ -298,19 +298,19 @@ exports[`select (isCI = true) > can be aborted by a signal 1`] = `
 exports[`select (isCI = true) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>opt0</bold>[29m
-<dim>│</fg>",
+<grey>│</fg>  <strikethrough><dim>opt0</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -320,11 +320,11 @@ exports[`select (isCI = true) > can cancel 1`] = `
 exports[`select (isCI = true) > down arrow selects next option 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
@@ -332,14 +332,14 @@ exports[`select (isCI = true) > down arrow selects next option 1`] = `
   "<erase.down>",
   "<cyan>│</fg>  <dim>○</bold> <dim>opt0</bold>
 <cyan>│</fg>  <green>●</fg> opt1
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt1</bold>",
+<grey>│</fg>  <dim>opt1</bold>",
   "
 ",
   "<cursor.show>",
@@ -349,7 +349,7 @@ exports[`select (isCI = true) > down arrow selects next option 1`] = `
 exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
@@ -357,7 +357,7 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>opt3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -369,7 +369,7 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>opt3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -380,7 +380,7 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>opt3</bold>
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -390,7 +390,7 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <green>●</fg> opt3
 <cyan>│</fg>  <dim>○</bold> <dim>opt4</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -402,7 +402,7 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <green>●</fg> opt4
 <cyan>│</fg>  <dim>○</bold> <dim>opt5</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -413,7 +413,7 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <green>●</fg> opt5
 <cyan>│</fg>  <dim>○</bold> <dim>opt6</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
@@ -424,14 +424,14 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 <cyan>│</fg>  <green>●</fg> opt6
 <cyan>│</fg>  <dim>○</bold> <dim>opt7</bold>
 <cyan>│</fg>  <dim>...</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=10>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt6</bold>",
+<grey>│</fg>  <dim>opt6</bold>",
   "
 ",
   "<cursor.show>",
@@ -441,18 +441,18 @@ exports[`select (isCI = true) > maxItems accounts for instruction footer 1`] = `
 exports[`select (isCI = true) > renders option hints 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
-<cyan>│</fg>  <green>●</fg> opt0 <dim>(Hint 0)</fg>
+<cyan>│</fg>  <green>●</fg> opt0 <grey>(Hint 0)</fg>
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -462,18 +462,18 @@ exports[`select (isCI = true) > renders option hints 1`] = `
 exports[`select (isCI = true) > renders option labels 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Option 0
 <cyan>│</fg>  <dim>○</bold> <dim>Option 1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Option 0</bold>",
+<grey>│</fg>  <dim>Option 0</bold>",
   "
 ",
   "<cursor.show>",
@@ -483,18 +483,18 @@ exports[`select (isCI = true) > renders option labels 1`] = `
 exports[`select (isCI = true) > renders options and message 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -504,7 +504,7 @@ exports[`select (isCI = true) > renders options and message 1`] = `
 exports[`select (isCI = true) > showInstructions: false hides instruction footer 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
@@ -514,7 +514,7 @@ exports[`select (isCI = true) > showInstructions: false hides instruction footer
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",
@@ -524,11 +524,11 @@ exports[`select (isCI = true) > showInstructions: false hides instruction footer
 exports[`select (isCI = true) > up arrow selects previous option 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
@@ -536,7 +536,7 @@ exports[`select (isCI = true) > up arrow selects previous option 1`] = `
   "<erase.down>",
   "<cyan>│</fg>  <dim>○</bold> <dim>opt0</bold>
 <cyan>│</fg>  <green>●</fg> opt1
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
@@ -544,14 +544,14 @@ exports[`select (isCI = true) > up arrow selects previous option 1`] = `
   "<erase.down>",
   "<cyan>│</fg>  <green>●</fg> opt0
 <cyan>│</fg>  <dim>○</bold> <dim>opt1</bold>
-<cyan>│</fg>  <dim>↑/↓ to navigate • Enter: confirm</fg>
+<cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>opt0</bold>",
+<grey>│</fg>  <dim>opt0</bold>",
   "
 ",
   "<cursor.show>",

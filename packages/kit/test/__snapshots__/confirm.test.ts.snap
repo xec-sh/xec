@@ -3,7 +3,7 @@
 exports[`confirm (isCI = false) > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  yes?
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -17,7 +17,7 @@ exports[`confirm (isCI = false) > can be aborted by a signal 1`] = `
 exports[`confirm (isCI = false) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -26,8 +26,8 @@ exports[`confirm (isCI = false) > can cancel 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>No</bold>[29m
-<dim>│</fg>",
+<grey>│</fg>  <strikethrough><dim>No</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -37,7 +37,7 @@ exports[`confirm (isCI = false) > can cancel 1`] = `
 exports[`confirm (isCI = false) > can set initialValue 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <dim>○</bold> <dim>Yes</bold> <dim>/</bold> <green>●</fg> No
 <cyan>└</fg>
@@ -46,7 +46,7 @@ exports[`confirm (isCI = false) > can set initialValue 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>No</bold>",
+<grey>│</fg>  <dim>No</bold>",
   "
 ",
   "<cursor.show>",
@@ -56,7 +56,7 @@ exports[`confirm (isCI = false) > can set initialValue 1`] = `
 exports[`confirm (isCI = false) > left arrow moves to previous choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -75,7 +75,7 @@ exports[`confirm (isCI = false) > left arrow moves to previous choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Yes</bold>",
+<grey>│</fg>  <dim>Yes</bold>",
   "
 ",
   "<cursor.show>",
@@ -85,7 +85,7 @@ exports[`confirm (isCI = false) > left arrow moves to previous choice 1`] = `
 exports[`confirm (isCI = false) > renders custom active choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> bleep <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -94,7 +94,7 @@ exports[`confirm (isCI = false) > renders custom active choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>bleep</bold>",
+<grey>│</fg>  <dim>bleep</bold>",
   "
 ",
   "<cursor.show>",
@@ -104,7 +104,7 @@ exports[`confirm (isCI = false) > renders custom active choice 1`] = `
 exports[`confirm (isCI = false) > renders custom inactive choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>bleep</bold>
 <cyan>└</fg>
@@ -113,7 +113,7 @@ exports[`confirm (isCI = false) > renders custom inactive choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Yes</bold>",
+<grey>│</fg>  <dim>Yes</bold>",
   "
 ",
   "<cursor.show>",
@@ -123,7 +123,7 @@ exports[`confirm (isCI = false) > renders custom inactive choice 1`] = `
 exports[`confirm (isCI = false) > renders message with choices 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -132,7 +132,7 @@ exports[`confirm (isCI = false) > renders message with choices 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Yes</bold>",
+<grey>│</fg>  <dim>Yes</bold>",
   "
 ",
   "<cursor.show>",
@@ -142,7 +142,7 @@ exports[`confirm (isCI = false) > renders message with choices 1`] = `
 exports[`confirm (isCI = false) > right arrow moves to next choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -156,7 +156,7 @@ exports[`confirm (isCI = false) > right arrow moves to next choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>No</bold>",
+<grey>│</fg>  <dim>No</bold>",
   "
 ",
   "<cursor.show>",
@@ -166,7 +166,7 @@ exports[`confirm (isCI = false) > right arrow moves to next choice 1`] = `
 exports[`confirm (isCI = true) > can be aborted by a signal 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  yes?
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -180,7 +180,7 @@ exports[`confirm (isCI = true) > can be aborted by a signal 1`] = `
 exports[`confirm (isCI = true) > can cancel 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -189,8 +189,8 @@ exports[`confirm (isCI = true) > can cancel 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  foo
-<dim>│</fg>  [9m<dim>No</bold>[29m
-<dim>│</fg>",
+<grey>│</fg>  <strikethrough><dim>No</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -200,7 +200,7 @@ exports[`confirm (isCI = true) > can cancel 1`] = `
 exports[`confirm (isCI = true) > can set initialValue 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <dim>○</bold> <dim>Yes</bold> <dim>/</bold> <green>●</fg> No
 <cyan>└</fg>
@@ -209,7 +209,7 @@ exports[`confirm (isCI = true) > can set initialValue 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>No</bold>",
+<grey>│</fg>  <dim>No</bold>",
   "
 ",
   "<cursor.show>",
@@ -219,7 +219,7 @@ exports[`confirm (isCI = true) > can set initialValue 1`] = `
 exports[`confirm (isCI = true) > left arrow moves to previous choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -238,7 +238,7 @@ exports[`confirm (isCI = true) > left arrow moves to previous choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Yes</bold>",
+<grey>│</fg>  <dim>Yes</bold>",
   "
 ",
   "<cursor.show>",
@@ -248,7 +248,7 @@ exports[`confirm (isCI = true) > left arrow moves to previous choice 1`] = `
 exports[`confirm (isCI = true) > renders custom active choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> bleep <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -257,7 +257,7 @@ exports[`confirm (isCI = true) > renders custom active choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>bleep</bold>",
+<grey>│</fg>  <dim>bleep</bold>",
   "
 ",
   "<cursor.show>",
@@ -267,7 +267,7 @@ exports[`confirm (isCI = true) > renders custom active choice 1`] = `
 exports[`confirm (isCI = true) > renders custom inactive choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>bleep</bold>
 <cyan>└</fg>
@@ -276,7 +276,7 @@ exports[`confirm (isCI = true) > renders custom inactive choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Yes</bold>",
+<grey>│</fg>  <dim>Yes</bold>",
   "
 ",
   "<cursor.show>",
@@ -286,7 +286,7 @@ exports[`confirm (isCI = true) > renders custom inactive choice 1`] = `
 exports[`confirm (isCI = true) > renders message with choices 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -295,7 +295,7 @@ exports[`confirm (isCI = true) > renders message with choices 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>Yes</bold>",
+<grey>│</fg>  <dim>Yes</bold>",
   "
 ",
   "<cursor.show>",
@@ -305,7 +305,7 @@ exports[`confirm (isCI = true) > renders message with choices 1`] = `
 exports[`confirm (isCI = true) > right arrow moves to next choice 1`] = `
 [
   "<cursor.hide>",
-  "<dim>│</fg>
+  "<grey>│</fg>
 <cyan>◆</fg>  foo
 <cyan>│</fg>  <green>●</fg> Yes <dim>/</bold> <dim>○</bold> <dim>No</bold>
 <cyan>└</fg>
@@ -319,7 +319,7 @@ exports[`confirm (isCI = true) > right arrow moves to next choice 1`] = `
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
-<dim>│</fg>  <dim>No</bold>",
+<grey>│</fg>  <dim>No</bold>",
   "
 ",
   "<cursor.show>",

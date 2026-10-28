@@ -1,10 +1,13 @@
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { rmSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'fs';
-import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
+import { describeSSH, getSSHConfig, testPackageManagers } from '@xec-sh/testing';
 
 import { $ } from '../../../src/index.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
+
+const testEachPackageManager = (name: string, test: Parameters<typeof testPackageManagers>[2]) =>
+  testPackageManagers(['apt'], name, test);
 
 // Use only ubuntu-apt for faster tests in unit tests
 // Integration tests can use all containers

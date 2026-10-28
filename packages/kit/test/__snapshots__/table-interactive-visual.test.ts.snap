@@ -4,14 +4,14 @@ exports[`table-interactive-visual > Alternate rows > should render with alternat
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
-│ <dim>2    </fg> │ <dim>Bob            </fg> │ <dim>Designer    </fg> │ <dim>Active    </fg> │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
+│ <grey>2    </fg> │ <grey>Bob            </fg> │ <grey>Designer    </fg> │ <grey>Active    </fg> │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
-│ <dim>4    </fg> │ <dim>David          </fg> │ <dim>Developer   </fg> │ <dim>Active    </fg> │
+│ <grey>4    </fg> │ <grey>David          </fg> │ <grey>Developer   </fg> │ <grey>Active    </fg> │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render empty table 1`] = `
@@ -20,21 +20,21 @@ exports[`table-interactive-visual > Basic rendering > should render empty table 
 ├───────┼─────────────────┼──────────────┼────────────┤
 <dim>│                      (no data)                      │</bold>
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render table with focus on first row 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render table with focus on middle row 1`] = `
@@ -43,88 +43,88 @@ exports[`table-interactive-visual > Basic rendering > should render table with f
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 1     │ Alice           │ Developer    │ Active     │
 │ 2     │ Bob             │ Designer     │ Active     │
-│ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
+│ <inverse>3    </inverse> │ <inverse>Charlie        </inverse> │ <inverse>Manager     </inverse> │ <inverse>Inactive  </inverse> │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 3/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 3/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with double borders 1`] = `
 "╔═══════╦═════════════════╦══════════════╦════════════╗
 ║ <cyan><bold>ID   </bold></fg> ║ <bold>Name           </bold> ║ <bold>Role        </bold> ║ <bold>Status    </bold> ║
 ╠═══════╬═════════════════╬══════════════╬════════════╣
-║ [7m1    [27m ║ [7mAlice          [27m ║ [7mDeveloper   [27m ║ [7mActive    [27m ║
+║ <inverse>1    </inverse> ║ <inverse>Alice          </inverse> ║ <inverse>Developer   </inverse> ║ <inverse>Active    </inverse> ║
 ║ 2     ║ Bob             ║ Designer     ║ Active     ║
 ║ 3     ║ Charlie         ║ Manager      ║ Inactive   ║
 ║ 4     ║ David           ║ Developer    ║ Active     ║
 ║ 5     ║ Eve             ║ Designer     ║ Active     ║
 ╚═══════╩═════════════════╩══════════════╩════════════╝
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with rounded borders 1`] = `
 "╭───────┬─────────────────┬──────────────┬────────────╮
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 ╰───────┴─────────────────┴──────────────┴────────────╯
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with single borders 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render without borders 1`] = `
 "<cyan><bold>ID   </bold></fg> <bold>Name           </bold> <bold>Role        </bold> <bold>Status    </bold>
-[7m1    [27m [7mAlice          [27m [7mDeveloper   [27m [7mActive    [27m
+<inverse>1    </inverse> <inverse>Alice          </inverse> <inverse>Developer   </inverse> <inverse>Active    </inverse>
 2     Bob             Designer     Active    
 3     Charlie         Manager      Inactive  
 4     David           Developer    Active    
 5     Eve             Designer     Active    
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with filter + sort + selection 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name ↑         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>2 selected</fg> • <yellow>Filter: Developer</fg> <dim>2/5</fg> • <dim>Row 1/2</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>2 selected</fg> • <yellow>Filter: Developer</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with filter mode active + existing filter 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 4     │ David           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<yellow>Filter: Devel</fg> <dim>2/5</fg> • <dim>Row 1/2</fg>
+<yellow>Filter: Devel</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
 <cyan>> </fg>Devel
-<dim>Type to filter • Enter: apply • Esc: cancel</fg>"
+<grey>Type to filter • Enter: apply • Esc: cancel</fg>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with sort + focus + selection 1`] = `
@@ -133,26 +133,26 @@ exports[`table-interactive-visual > Combined states > should render with sort + 
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 5     │ Eve             │ Designer     │ Active     │
 │ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
-│ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
+│ <inverse>3    </inverse> │ <inverse>Charlie        </inverse> │ <inverse>Manager     </inverse> │ <inverse>Inactive  </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 1     │ Alice           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>2 selected</fg> • <dim>Row 3/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>2 selected</fg> • <grey>Row 3/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Compact mode > should render in compact mode 1`] = `
 "┌─────┬───────────────┬────────────┬──────────┐
 │<cyan><bold>ID   </bold></fg>│<bold>Name           </bold>│<bold>Role        </bold>│<bold>Status    </bold>│
 ├─────┼───────────────┼────────────┼──────────┤
-│[7m1    [27m│[7mAlice          [27m│[7mDeveloper   [27m│[7mActive    [27m│
+│<inverse>1    </inverse>│<inverse>Alice          </inverse>│<inverse>Developer   </inverse>│<inverse>Active    </inverse>│
 │2    │Bob            │Designer    │Active    │
 │3    │Charlie        │Manager     │Inactive  │
 │4    │David          │Developer   │Active    │
 │5    │Eve            │Designer    │Active    │
 └─────┴───────────────┴────────────┴──────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render empty filter results 1`] = `
@@ -161,52 +161,52 @@ exports[`table-interactive-visual > Filter states > should render empty filter r
 ├───────┼─────────────────┼──────────────┼────────────┤
 <dim>│                     No results                      │</bold>
 └───────┴─────────────────┴──────────────┴────────────┘
-<yellow>Filter: NonExistent</fg> <dim>0/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<yellow>Filter: NonExistent</fg> <grey>0/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render filtered results 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m2    [27m │ [7mBob            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
+│ <inverse>2    </inverse> │ <inverse>Bob            </inverse> │ <inverse>Designer    </inverse> │ <inverse>Active    </inverse> │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<yellow>Filter: Designer</fg> <dim>2/5</fg> • <dim>Row 1/2</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<yellow>Filter: Designer</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render in filter mode with input 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<yellow>Filter: Dev</fg> <dim>5/5</fg> • <dim>Row 1/5</fg>
+<yellow>Filter: Dev</fg> <grey>5/5</fg> • <grey>Row 1/5</fg>
 <cyan>> </fg>Dev
-<dim>Type to filter • Enter: apply • Esc: cancel</fg>"
+<grey>Type to filter • Enter: apply • Esc: cancel</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render with active filter 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 4     │ David           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<yellow>Filter: Developer</fg> <dim>2/5</fg> • <dim>Row 1/2</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<yellow>Filter: Developer</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Footer > should render per-column footers inside the frame 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
@@ -214,23 +214,23 @@ exports[`table-interactive-visual > Footer > should render per-column footers in
 ├───────┼─────────────────┼──────────────┼────────────┤
 │       │ 5 people        │              │            │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>end of report</fg>
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>end of report</fg>
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Incremental loading > should render the loading indicator and the open-ended row count 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5+</fg> • <magenta>Loading…</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5+</fg> • <magenta>Loading…</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Inline editing > should render a validation error like prompt errors 1`] = `
@@ -243,9 +243,9 @@ exports[`table-interactive-visual > Inline editing > should render a validation 
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
+<grey>Row 1/5</fg>
 <red>✖ Must be a number</fg>
-<dim>Type to edit • Enter: save • Esc: cancel</fg>"
+<grey>Type to edit • Enter: save • Esc: cancel</fg>"
 `;
 
 exports[`table-interactive-visual > Inline editing > should render the edit buffer in place of the focused cell 1`] = `
@@ -258,22 +258,22 @@ exports[`table-interactive-visual > Inline editing > should render the edit buff
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>Type to edit • Enter: save • Esc: cancel</fg>"
+<grey>Row 1/5</fg>
+<grey>Type to edit • Enter: save • Esc: cancel</fg>"
 `;
 
 exports[`table-interactive-visual > Row numbers > should render the # column with muted 1-based numbers 1`] = `
 "┌───┬───────┬─────────────────┬──────────────┬────────────┐
 │ <bold>#</bold> │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───┼───────┼─────────────────┼──────────────┼────────────┤
-│ [7m<dim>1</fg>[27m │ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
-│ <dim>2</fg> │ 2     │ Bob             │ Designer     │ Active     │
-│ <dim>3</fg> │ 3     │ Charlie         │ Manager      │ Inactive   │
-│ <dim>4</fg> │ 4     │ David           │ Developer    │ Active     │
-│ <dim>5</fg> │ 5     │ Eve             │ Designer     │ Active     │
+│ <inverse><grey>1</fg></inverse> │ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
+│ <grey>2</fg> │ 2     │ Bob             │ Designer     │ Active     │
+│ <grey>3</fg> │ 3     │ Charlie         │ Manager      │ Inactive   │
+│ <grey>4</fg> │ 4     │ David           │ Developer    │ Active     │
+│ <grey>5</fg> │ 5     │ Eve             │ Designer     │ Active     │
 └───┴───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with all rows selected 1`] = `
@@ -282,12 +282,12 @@ exports[`table-interactive-visual > Selection states > should render with all ro
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ <cyan>2    </fg> │ <cyan>Bob            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
-│ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
+│ <inverse>3    </inverse> │ <inverse>Charlie        </inverse> │ <inverse>Manager     </inverse> │ <inverse>Inactive  </inverse> │
 │ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ <cyan>5    </fg> │ <cyan>Eve            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>5 selected</fg> • <dim>Row 3/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>5 selected</fg> • <grey>Row 3/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with multiple rows selected 1`] = `
@@ -297,25 +297,25 @@ exports[`table-interactive-visual > Selection states > should render with multip
 │ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ <cyan>2    </fg> │ <cyan>Bob            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
-│ [7m4    [27m │ [7mDavid          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>4    </inverse> │ <inverse>David          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>3 selected</fg> • <dim>Row 4/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>3 selected</fg> • <grey>Row 4/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with single row selected 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>1 selected</fg> • <dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>1 selected</fg> • <grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should show selection count in status bar 1`] = `
@@ -323,55 +323,55 @@ exports[`table-interactive-visual > Selection states > should show selection cou
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
-│ [7m2    [27m │ [7mBob            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
+│ <inverse>2    </inverse> │ <inverse>Bob            </inverse> │ <inverse>Designer    </inverse> │ <inverse>Active    </inverse> │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>2 selected</fg> • <dim>Row 2/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>2 selected</fg> • <grey>Row 2/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render sorted data in correct order 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name ↑         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render with ascending sort indicator 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name ↑         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render with descending sort indicator 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name ↓         </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m5    [27m │ [7mEve            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
+│ <inverse>5    </inverse> │ <inverse>Eve            </inverse> │ <inverse>Designer    </inverse> │ <inverse>Active    </inverse> │
 │ 4     │ David           │ Developer    │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 1     │ Alice           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show all status components together 1`] = `
@@ -379,24 +379,24 @@ exports[`table-interactive-visual > Status bar variations > should show all stat
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
-│ [7m4    [27m │ [7mDavid          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>4    </inverse> │ <inverse>David          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>2 selected</fg> • <yellow>Filter: Developer</fg> <dim>2/5</fg> • <dim>Row 2/2</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>2 selected</fg> • <yellow>Filter: Developer</fg> <grey>2/5</fg> • <grey>Row 2/2</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show filter query and count 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<yellow>Filter: Active</fg> <dim>5/5</fg> • <dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<yellow>Filter: Active</fg> <grey>5/5</fg> • <grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show row position in status bar 1`] = `
@@ -405,40 +405,40 @@ exports[`table-interactive-visual > Status bar variations > should show row posi
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 1     │ Alice           │ Developer    │ Active     │
 │ 2     │ Bob             │ Designer     │ Active     │
-│ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
+│ <inverse>3    </inverse> │ <inverse>Charlie        </inverse> │ <inverse>Manager     </inverse> │ <inverse>Inactive  </inverse> │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 3/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 3/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show selection count when items selected 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ <cyan>2    </fg> │ <cyan>Bob            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 │ <cyan>3    </fg> │ <cyan>Charlie        </fg> │ <cyan>Manager     </fg> │ <cyan>Inactive  </fg> │
 │ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ <cyan>5    </fg> │ <cyan>Eve            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>5 selected</fg> • <dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>5 selected</fg> • <grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should combine focus and selection styling 1`] = `
 "┌───────┬─────────────────┬──────────────┬────────────┐
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
-│ [7m1    [27m │ [7mAlice          [27m │ [7mDeveloper   [27m │ [7mActive    [27m │
+│ <inverse>1    </inverse> │ <inverse>Alice          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 │ 2     │ Bob             │ Designer     │ Active     │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>1 selected</fg> • <dim>Row 1/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>1 selected</fg> • <grey>Row 1/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should highlight focused row with inverse colors 1`] = `
@@ -446,13 +446,13 @@ exports[`table-interactive-visual > Visual focus indicators > should highlight f
 │ <cyan><bold>ID   </bold></fg> │ <bold>Name           </bold> │ <bold>Role        </bold> │ <bold>Status    </bold> │
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ 1     │ Alice           │ Developer    │ Active     │
-│ [7m2    [27m │ [7mBob            [27m │ [7mDesigner    [27m │ [7mActive    [27m │
+│ <inverse>2    </inverse> │ <inverse>Bob            </inverse> │ <inverse>Designer    </inverse> │ <inverse>Active    </inverse> │
 │ 3     │ Charlie         │ Manager      │ Inactive   │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<dim>Row 2/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>Row 2/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should show selected rows with cyan color 1`] = `
@@ -461,10 +461,10 @@ exports[`table-interactive-visual > Visual focus indicators > should show select
 ├───────┼─────────────────┼──────────────┼────────────┤
 │ <cyan>1    </fg> │ <cyan>Alice          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 │ 2     │ Bob             │ Designer     │ Active     │
-│ [7m3    [27m │ [7mCharlie        [27m │ [7mManager     [27m │ [7mInactive  [27m │
+│ <inverse>3    </inverse> │ <inverse>Charlie        </inverse> │ <inverse>Manager     </inverse> │ <inverse>Inactive  </inverse> │
 │ 4     │ David           │ Developer    │ Active     │
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
-<green>2 selected</fg> • <dim>Row 3/5</fg>
-<dim>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<green>2 selected</fg> • <grey>Row 3/5</fg>
+<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
 `;

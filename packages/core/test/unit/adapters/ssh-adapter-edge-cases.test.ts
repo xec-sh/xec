@@ -61,7 +61,7 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
   });
 
   describe('Authentication Edge Cases', () => {
-    it('should accept private key as Buffer', () => {
+    it('should accept private key as Buffer', async () => {
       const privateKeyBuffer = Buffer.from('-----BEGIN PRIVATE KEY-----\ntest-key-content\n-----END PRIVATE KEY-----');
       
       adapter = new SSHAdapter();
@@ -78,10 +78,10 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
       });
       
       // We expect it to fail with connection error since we're not mocking
-      expect(executionPromise).rejects.toThrow();
+      await expect(executionPromise).rejects.toThrow();
     });
 
-    it('should accept private key with passphrase', () => {
+    it('should accept private key with passphrase', async () => {
       adapter = new SSHAdapter();
       
       const executionPromise = adapter.execute({
@@ -95,7 +95,7 @@ describe('SSHAdapter - Edge Cases and Advanced Scenarios', () => {
         }
       });
       
-      expect(executionPromise).rejects.toThrow();
+      await expect(executionPromise).rejects.toThrow();
     });
 
     it('should create adapter with default connect options', () => {
