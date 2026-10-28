@@ -117,23 +117,22 @@ describe('SSH Node Tests', () => {
     await expect(connectWithInlinePrivateKey(port, client)).resolves.not.toThrow();
   });
 
-  createSSHTest(
-    'requests a shell that works',
-    async (port, client) => {
-      await connectWithPassword(port, client);
-      const data: Buffer[] = [];
-      const shell = await client.requestShell();
-      shell.on('data', function (chunk: Buffer) {
-        data.push(chunk);
+  createSSHTest('requests a shell that works', async (port, client) => {
+    await connectWithPassword(port, client);
+    const shell = await client.requestShell();
+    try {
+      const output = new Promise<string>((resolve, reject) => {
+        let text = '';
+        const timer = setTimeout(() => reject(new Error('Shell did not produce output')), 5000);
+        shell.on('data', (chunk: Buffer) => {
+          text += chunk.toString();
+          if (text.includes('shell-roundtrip-ok')) { clearTimeout(timer); resolve(text); }
+        });
       });
-      shell.write('ls /\n');
-      await wait(50);
-      shell.end();
-      const joinedData = data.join('');
-      expect(joinedData).toMatch(/ls \//);
-    },
-    true,
-  );
+      shell.write("printf 'shell-roundtrip-%s\\n' ok\r");
+      expect(await output).toContain('shell-roundtrip-ok');
+    } finally { shell.destroy(); }
+  });
 
   createSSHTest('creates directories with sftp properly', async (port, client) => {
     await connectWithPassword(port, client);

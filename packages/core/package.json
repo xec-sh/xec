@@ -87,7 +87,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./ssh": {
+      "types": "./dist/adapters/ssh/ssh.d.ts",
+      "import": "./dist/adapters/ssh/ssh.js"
+    }
   },
   "engines": {
     "node": ">=20.0.0"

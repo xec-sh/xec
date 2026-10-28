@@ -18,6 +18,7 @@ import type {
 
 import fsPath from 'node:path'
 import stream from 'node:stream'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { constants as fsConstants } from 'node:fs'
@@ -108,6 +109,10 @@ class PromiseQueue {
 }
 
 export type Config = ConnectConfig & {
+  /** Cancel an in-flight handshake. Cancellation never retries authentication. */
+  signal?: AbortSignal
+  /** Exact OpenSSH SHA256 pin, checked before authentication. Cannot be combined with hostVerifier. */
+  expectedHostFingerprint?: string
   /**
    * Host key checking policy.
    *
@@ -278,10 +283,34 @@ export class NodeSSH {
     return connection
   }
 
+  /** Inspect a host key before authentication. The observation must be verified independently. */
+  static async probeHostKey(options: { host: string; port?: number; timeoutMs?: number; signal?: AbortSignal }): Promise<string> {
+    const ssh = new NodeSSH()
+    let fingerprint: string | undefined
+    try {
+      await ssh.connect({ host: options.host, port: options.port ?? 22, username: 'xec-host-key-probe',
+        readyTimeout: options.timeoutMs ?? 10000,
+        ...(options.signal ? { signal: options.signal } : {}),
+        hostVerifier: (key: Buffer) => {
+          fingerprint = sshHostFingerprint(key)
+          return false // Stop before sending any authentication request or credential.
+        },
+      })
+    } catch (error) {
+      if (!fingerprint) throw error
+    } finally { ssh.dispose(true) }
+    if (!fingerprint) throw new SSHError('The server did not present a host key', 'EHOSTKEY')
+    return fingerprint
+  }
+
   public async connect(givenConfig: Config): Promise<this> {
     invariant(givenConfig != null && typeof givenConfig === 'object', 'config must be a valid object')
 
     const config: Config = { ...givenConfig }
+    if (config.expectedHostFingerprint !== undefined) {
+      invariant(/^SHA256:[A-Za-z0-9+/]{43}$/.test(config.expectedHostFingerprint), 'Invalid SSH host fingerprint')
+      invariant(!config.hostVerifier, 'expectedHostFingerprint cannot be combined with hostVerifier')
+    }
 
     invariant(config.username != null && typeof config.username === 'string', 'config.username must be a valid string')
 
@@ -347,6 +376,7 @@ export class NodeSSH {
       }
     }
 
+    if (config.signal?.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR')
     const connection = new (loadSSH2().Client)()
     this.connection = connection
 
@@ -354,6 +384,15 @@ export class NodeSSH {
     // presented, which makes every session interceptable.
     let hostKeyRejection: Error | null = null
 
+    if (config.expectedHostFingerprint) {
+      // Pins are computed from the raw key, independent of a caller's hostHash option.
+      delete config.hostHash
+      config.hostVerifier = (key: Buffer) => {
+        const matches = sshHostFingerprint(key) === config.expectedHostFingerprint
+        if (!matches) hostKeyRejection = new SSHError('SSH host key does not match the pinned fingerprint', 'EHOSTKEY')
+        return matches
+      }
+    }
     if (!config.hostVerifier) {
       const verifier = new KnownHostsVerifier(
         config.hostKeyChecking ?? 'accept-new',
@@ -380,28 +419,30 @@ export class NodeSSH {
       }
     }
 
-    await new Promise<void>((resolve, reject) => {
-      connection.on('error', error => reject(hostKeyRejection ?? error))
-      if (config.onKeyboardInteractive) {
-        connection.on('keyboard-interactive', config.onKeyboardInteractive)
-      }
-      connection.on('ready', () => {
-        connection.removeListener('error', reject)
-        resolve()
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const signal = config.signal
+        const cancelled = () => { connection.destroy(); reject(new SSHError('SSH connection cancelled', 'ABORT_ERR')) }
+        const cleanup = () => signal?.removeEventListener('abort', cancelled)
+        signal?.addEventListener('abort', cancelled, { once: true })
+        // Keep an error listener after ready: a transport error must never become uncaught.
+        connection.on('error', error => { cleanup(); reject(hostKeyRejection ?? error) })
+        if (config.onKeyboardInteractive) connection.on('keyboard-interactive', config.onKeyboardInteractive)
+        connection.once('ready', () => { cleanup(); resolve() })
+        connection.once('end', () => { if (this.connection === connection) this.connection = null })
+        connection.once('close', () => {
+          cleanup()
+          if (this.connection === connection) this.connection = null
+          reject(new SSHError('No response from server', 'ETIMEDOUT'))
+        })
+        const { signal: _signal, ...wireConfig } = config
+        connection.connect(wireConfig)
       })
-      connection.on('end', () => {
-        if (this.connection === connection) {
-          this.connection = null
-        }
-      })
-      connection.on('close', () => {
-        if (this.connection === connection) {
-          this.connection = null
-        }
-        reject(new SSHError('No response from server', 'ETIMEDOUT'))
-      })
-      connection.connect(config)
-    })
+    } catch (error) {
+      connection.destroy()
+      if (this.connection === connection) this.connection = null
+      throw error
+    }
 
     return this
   }
@@ -410,24 +451,41 @@ export class NodeSSH {
     return this.connection != null
   }
 
-  async requestShell(options?: PseudoTtyOptions | ShellOptions | false): Promise<ClientChannel> {
+  async requestShell(
+    options?: PseudoTtyOptions | ShellOptions | false,
+    request: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<ClientChannel> {
     const connection = this.getConnection()
-
+    const timeoutMs = request.timeoutMs ?? 15000
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new SSHError('Shell timeout must be positive', 'EINVAL')
+    if (request.signal?.aborted) throw new SSHError('SSH shell request cancelled', 'ABORT_ERR')
     return new Promise((resolve, reject) => {
-      connection.on('error', reject)
-      const callback = (err: Error | undefined, res: ClientChannel) => {
-        connection.removeListener('error', reject)
-        if (err) {
-          reject(err)
-        } else {
-          resolve(res)
-        }
+      let settled = false
+      const cleanup = () => {
+        clearTimeout(timer)
+        connection.removeListener('error', failed)
+        connection.removeListener('close', closed)
+        request.signal?.removeEventListener('abort', cancelled)
       }
-      if (options == null) {
-        connection.shell(callback)
-      } else {
-        connection.shell(options as never, callback)
+      const failed = (error: Error) => {
+        if (settled) return
+        settled = true; cleanup(); reject(error)
       }
+      const closed = () => failed(new SSHError('Connection closed while opening shell', 'ECONNRESET'))
+      const cancelled = () => failed(new SSHError('SSH shell request cancelled', 'ABORT_ERR'))
+      const timer = setTimeout(() => failed(new SSHError('SSH shell request timed out', 'ETIMEDOUT')), timeoutMs)
+      connection.once('error', failed)
+      connection.once('close', closed)
+      request.signal?.addEventListener('abort', cancelled, { once: true })
+      const callback = (error: Error | undefined, channel: ClientChannel) => {
+        if (settled) { channel?.destroy(); return }
+        if (error) { failed(error); return }
+        settled = true; cleanup(); resolve(channel)
+      }
+      try {
+        if (options == null) connection.shell(callback)
+        else connection.shell(options as never, callback)
+      } catch (error) { failed(error instanceof Error ? error : new Error(String(error))) }
     })
   }
 
@@ -1044,11 +1102,16 @@ export class NodeSSH {
     })
   }
 
-  dispose(): void {
-    if (this.connection) {
-      this.connection.end()
-      this.connection = null
-    }
+  dispose(force = false): void {
+    const connection = this.connection
+    if (!connection) return
+    this.connection = null
+    if (force) { connection.destroy(); return }
+    // A peer that never finishes graceful shutdown must not retain a socket forever.
+    const timer = setTimeout(() => connection.destroy(), 1000)
+    timer.unref()
+    connection.once('close', () => clearTimeout(timer))
+    connection.end()
   }
 
   /**
@@ -1217,4 +1280,9 @@ export class NodeSSH {
     await scan(directory);
     return { files, directories };
   }
+}
+
+/** OpenSSH-compatible fingerprint of the server's public key blob. */
+export function sshHostFingerprint(key: Buffer): string {
+  return `SHA256:${createHash('sha256').update(key).digest('base64').replace(/=+$/, '')}`
 }

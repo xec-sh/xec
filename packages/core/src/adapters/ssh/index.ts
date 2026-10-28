@@ -460,13 +460,8 @@ export class SSHAdapter extends BaseAdapter {
     return null;
   }
 
-  private async createNewConnection(options: SSHAdapterOptions, key: string): Promise<PooledConnection> {
-    // Validate options
-    await this.validateConnectionOptions(options);
-
-    // Create SSH connection
-    const ssh = new NodeSSH();
-    const connectOptions: SSH2Config = {
+  private connectionOptions(options: SSHAdapterOptions): SSH2Config {
+    return {
       ...this.sshConfig.defaultConnectOptions,
       host: options.host,
       username: options.username,
@@ -477,6 +472,15 @@ export class SSHAdapter extends BaseAdapter {
       hostKeyChecking: options.hostKeyChecking ?? this.sshConfig.hostKeyChecking,
       knownHostsPath: options.knownHostsPath ?? this.sshConfig.knownHostsPath
     };
+  }
+
+  private async createNewConnection(options: SSHAdapterOptions, key: string): Promise<PooledConnection> {
+    // Validate options
+    await this.validateConnectionOptions(options);
+
+    // Create SSH connection
+    const ssh = new NodeSSH();
+    const connectOptions = this.connectionOptions(options);
 
     try {
       await ssh.connect(connectOptions);
@@ -591,6 +595,10 @@ export class SSHAdapter extends BaseAdapter {
       .update(options.passphrase ?? '')
       .update('\0')
       .update(options.password ?? '')
+      .update('\0')
+      .update(options.hostKeyChecking ?? this.sshConfig.hostKeyChecking)
+      .update('\0')
+      .update(options.knownHostsPath ?? this.sshConfig.knownHostsPath ?? '')
       .digest('hex')
       .slice(0, 16);
 
@@ -977,14 +985,7 @@ export class SSHAdapter extends BaseAdapter {
       await new Promise(resolve => setTimeout(resolve, delay * connection.reconnectAttempts));
 
       // Try to reconnect
-      await connection.ssh.connect({
-        host: connection.config.host,
-        username: connection.config.username,
-        port: connection.config.port ?? 22,
-        privateKey: connection.config.privateKey as any,
-        passphrase: connection.config.passphrase,
-        password: connection.config.password
-      });
+      await connection.ssh.connect(this.connectionOptions(connection.config));
 
       // Reset error count on successful reconnect
       connection.errors = 0;

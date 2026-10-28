@@ -182,9 +182,14 @@ function handleSession(acceptSession: any) {
     }
     const request = accept()
 
-    const spawnedProcess: any = ptySpawn(process.env['SHELL'] || 'bash', [], ptyInfo)
-    request.pipe(spawnedProcess)
-    spawnedProcess.pipe(request)
+    const spawnedProcess: any = ptySpawn(posixShell(), ['-i'], ptyInfo)
+    // node-pty exposes callbacks, not Node streams. The old fixture called
+    // .pipe() on it and its only shell test was permanently skipped.
+    const data = spawnedProcess.onData((bytes: string) => request.write(bytes))
+    const exit = spawnedProcess.onExit(({ exitCode }: { exitCode: number }) => { request.exit(exitCode); request.end() })
+    request.on('data', (bytes: Buffer) => spawnedProcess.write(bytes.toString('utf8')))
+    session.on('window-change', (_accept: unknown, _reject: unknown, info: { cols: number; rows: number }) => spawnedProcess.resize(info.cols, info.rows))
+    request.once('close', () => { data.dispose(); exit.dispose(); try { spawnedProcess.kill() } catch {} })
   })
   session.on('exec', function (accept: any, reject: any, info: any) {
     const response = accept()

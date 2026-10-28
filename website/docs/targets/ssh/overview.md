@@ -173,3 +173,7 @@ Other real events: `ssh:disconnect`, `ssh:execute`, `ssh:key-validated`, `ssh:po
 - [Batch Operations](./batch-operations.md) - running commands across multiple hosts
 - [Secure Sudo Password Handling](./sudo-security.md) - sudo password delivery methods
 - [SSH Adapter API](../../core/execution-engine/adapters/ssh-adapter.md) - API reference
+
+## Interactive terminals
+
+Use the existing `NodeSSH` class through `@xec-sh/core/ssh` for [interactive PTY shells](./interactive-shell.md), independently verified host pins, cancellable setup and bounded shell requests.
