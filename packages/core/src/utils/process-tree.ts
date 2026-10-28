@@ -1,6 +1,8 @@
 import { platform } from 'node:os';
 import { spawnSync } from 'node:child_process';
 
+const PS_DEADLINE_MS = 2_000;
+
 /**
  * Terminate a process together with everything it spawned.
  *
@@ -50,8 +52,13 @@ export function killProcessTree(pid: number, signal: NodeJS.Signals = 'SIGTERM')
   kill(-pid);
 
   // 2. Descendants that escaped the group.
-  for (const descendant of listDescendants(pid)) {
-    kill(descendant);
+  const descendants = listDescendants(pid);
+  if (descendants === null) {
+    process.emitWarning(`Could not inspect descendants of ${pid}; signalled the process group and root only`, {
+      code: 'XEC_DESCENDANTS_UNKNOWN',
+    });
+  } else {
+    for (const descendant of descendants) kill(descendant);
   }
 
   // 3. The root itself.
@@ -59,25 +66,27 @@ export function killProcessTree(pid: number, signal: NodeJS.Signals = 'SIGTERM')
 }
 
 /**
- * Collect every live descendant of `pid`, deepest first.
+ * Collect every live descendant of `pid` from one bounded process snapshot.
  *
  * One `ps` snapshot, walked breadth-first. A process forked between the
  * snapshot and the signal can be missed — that window is why the group
  * signal in {@link killProcessTree} comes first, not this walk.
  *
  * @param pid - Root process id.
- * @returns Descendant pids, children before parents nowhere guaranteed —
- *   callers signal them all, so ordering does not matter.
+ * @returns Descendant pids, or null when the snapshot failed or timed out.
+ *   An unavailable snapshot must not be mistaken for an empty process tree.
  */
-export function listDescendants(pid: number): number[] {
+export function listDescendants(pid: number): number[] | null {
   const result = spawnSync('ps', ['-eo', 'pid=,ppid='], {
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 16 * 1024 * 1024,
+    timeout: PS_DEADLINE_MS,
+    killSignal: 'SIGKILL',
   });
 
   if (result.status !== 0 || !result.stdout) {
-    return [];
+    return null;
   }
 
   const childrenOf = new Map<number, number[]>();

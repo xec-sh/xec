@@ -127,7 +127,7 @@ describe('killProcessTree guards', () => {
       const deadline = Date.now() + 3_000;
       let seen: number[] = [];
       while (Date.now() < deadline) {
-        seen = listDescendants(process.pid);
+        seen = listDescendants(process.pid) ?? [];
         if (seen.includes(proc.pid!)) break;
         await new Promise(resolve => { setTimeout(resolve, 50); });
       }
