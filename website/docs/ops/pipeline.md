@@ -111,3 +111,80 @@ const result = await Pipeline.create('release')
   })
   .run({ branch: 'main', commit: 'abc123' });
 ```
+
+## Observable, cancellable execution
+
+Commands use the asynchronous Xec engine. Set `concurrency` explicitly to run
+independent step groups in parallel; its default is one. Matrix variants share
+their group's slot and run sequentially. The entire graph is validated before
+execution: duplicate names, unknown dependencies and cycles are errors.
+
+```typescript
+const controller = new AbortController();
+const result = await Pipeline.create('verify')
+  .step('types', { run: 'pnpm typecheck' })
+  .step('tests', { run: 'pnpm test' })
+  .run({}, {
+    concurrency: 2,
+    signal: controller.signal,
+    outputLimit: 64 * 1024,
+    onEvent: async (event) => {
+      // step-start, step-output and step-complete, with timestamps and attempts.
+      // Await your journal here: observer failures cancel and reject the run.
+      console.log(event);
+    },
+  });
+console.log(result.status); // success | failed | cancelled
+```
+
+Each step retains a bounded UTF-8 output tail per stream; `outputTruncated` says
+whether content was omitted. Stream observers receive all chunks with
+backpressure. A verbose command does not fail merely because its retained log
+is full. Persist or redact output in the host according to its own policy.
+
+String commands use a shell. A `Command` object defaults to direct execution,
+so use `{ command: process.execPath, args: ['script.mjs', userInput] }` when values
+must remain data. `execute` can supply the host's existing Xec engine.
+
+Cancellation stops admission of further steps and waits for active executors.
+Function steps must cooperate with `ctx.signal`; a JavaScript function cannot
+be forcibly terminated safely inside its host. For user-authored scripts use
+the separate process API below. Remote cancellation signals the SSH channel;
+it cannot guarantee that a remote job which daemonized or ignored signals has
+stopped. Verify its state before retrying effects. Retries require idempotent
+steps. `cache` remains a reserved field and does not cache execution.
+
+## TypeScript scripts in a separate process
+
+```typescript
+import { Pipeline, prepareScript } from '@xec-sh/ops';
+
+const script = await prepareScript(
+  'const result = await $target`uname -s`; console.log(result.stdout);',
+  { cwd: process.cwd(), params: { environment: 'staging' } },
+);
+try {
+  const result = await Pipeline.create('inspect')
+    .step('script', { run: script.command, timeout: 30_000 })
+    .run();
+  if (!result.success) throw new Error(result.steps[0]?.stderr);
+} finally {
+  await script.dispose();
+}
+```
+
+`prepareScript` compiles TypeScript through the existing loader and supplies a
+command for Xec, without evaluating the source in the caller. Scripts receive
+`$`, `$target`, `params`, `args`, `argv`, `__filename` and `__dirname`.
+`$` addresses the local host. With `target: { type: 'ssh', host, username,
+hostKeyChecking: 'strict' }`, `$target` addresses that SSH host, while script
+orchestration and JavaScript filesystem operations remain local.
+
+Source is held in a private temporary directory beneath `cwd`, allowing normal
+project module resolution. Dependencies must already be installed. Always call
+`dispose()` after the command settles, including cancellation; a host crash may
+leave its temporary directory for administrative cleanup. Parameters and SSH
+credentials travel over stdin, not command arguments. No credential file is
+created. This is process isolation, **not a security sandbox**: the script has
+the invoking OS user's authority. Agent-written or untrusted code requires an
+external sandbox and a separately authorized execution boundary.

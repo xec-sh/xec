@@ -19,11 +19,11 @@ export {
   tasks, config, TaskAPI, targets, ConfigAPI, TargetAPI, ScriptContext,
 } from './api/index.js';
 
-export { Pipeline, type StepConfig, type StepResult, type PipelineResult, type PipelineContext } from './pipeline/index.js';
 export { Discovery, type DiscoveredTarget, type K8sDiscoveryOptions, type SshDiscoveryOptions, type DockerDiscoveryOptions } from './discovery/index.js';
 export { HealthChecker, type CheckResult, type HealthReport, type TcpCheckOptions, type HttpCheckOptions, type CommandCheckOptions } from './health/index.js';
 export { Workflow, type WorkflowResult, type WorkflowContext, type TaskResult as WorkflowTaskResult, type TaskOptions as WorkflowTaskOptions } from './workflow/index.js';
 export { Deployer, type DeployHooks, type DeployConfig, type DeployResult, type DeployContext, type DeployStrategy, type DeployHealthCheck, type DeployTargetResult } from './deploy/index.js';
+export { Pipeline, type StepConfig, type StepResult, type PipelineEvent, type PipelineResult, type PipelineContext, type PipelineRunOptions, type PipelineCommandResult } from './pipeline/index.js';
 
 export type {
   Target, TargetInfo, TaskResult, ConfigValue, CopyOptions,
@@ -108,5 +108,7 @@ export { validateOptions } from './utils/validation.js';
 export { parseTimeout, parseInterval } from './utils/time.js';
 export { OutputFormatter } from './utils/output-formatter.js';
 export { formatBytes, formatDuration } from './utils/formatters.js';
+export { prepareScript, type ScriptOptions, type PreparedScript } from './script/index.js';
 export { type Shell, generateCompletion, type CompletionConfig } from './completion/index.js';
+
 export { findFiles, FileHelpers, selectFiles, selectDirectory } from './utils/file-helpers.js';
