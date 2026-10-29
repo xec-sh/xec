@@ -1,5 +1,6 @@
 
 import { Readable } from 'node:stream';
+import { finished } from 'node:stream/promises';
 import { connect as netConnect } from 'node:net';
 import { createHash, randomBytes } from 'node:crypto';
 
@@ -617,6 +618,7 @@ export class SSHAdapter extends BaseAdapter {
     // void serves nobody. The channel arrives via onChannel below.
     let channel: { signal(name: string): void; close(): void } | null = null;
     let terminated = false;
+    const outputDrains: Promise<void>[] = [];
     const terminate = (): void => {
       if (terminated || !channel) return;
       terminated = true;
@@ -652,9 +654,25 @@ export class SSHAdapter extends BaseAdapter {
     const execOptions: any = {
       cwd: options.cwd,
       stdin: this.convertStdin(options.stdin),
+      collectStdout: typeof options.stdout !== 'object' && options.stdout !== 'pipe',
+      collectStderr: typeof options.stderr !== 'object' && options.stderr !== 'pipe',
       execOptions: {},
       onChannel: (ch: { signal(name: string): void; close(): void }) => {
         channel = ch;
+        if (options.signal?.aborted) terminate();
+        // Native streams propagate backpressure; the SSH wrapper must not also retain them.
+        if (options.stdout && typeof options.stdout === 'object') {
+          const drained = finished(options.stdout, { cleanup: true });
+          void drained.catch(() => terminate());
+          outputDrains.push(drained);
+          (ch as unknown as NodeJS.ReadableStream).pipe(options.stdout);
+        }
+        if (options.stderr && typeof options.stderr === 'object') {
+          const drained = finished(options.stderr, { cleanup: true });
+          void drained.catch(() => terminate());
+          outputDrains.push(drained);
+          (ch as unknown as { stderr: NodeJS.ReadableStream }).stderr.pipe(options.stderr);
+        }
 
         // The exec channel is the reachable end of the remote process. No
         // pid: the remote id is not knowable from here, and reporting a
@@ -691,6 +709,7 @@ export class SSHAdapter extends BaseAdapter {
 
     // Execute the command
     const execPromise = ssh.execCommand(command, execOptions)
+      .then(async answer => { await Promise.all(outputDrains); return answer; })
       .catch(error => {
         // If the command fails after we've already timed out,
         // we don't want an unhandled rejection

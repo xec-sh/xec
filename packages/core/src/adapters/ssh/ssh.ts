@@ -143,6 +143,9 @@ export interface SSHExecCommandOptions {
   execOptions?: ExecOptions
   encoding?: BufferEncoding
   noTrim?: boolean
+  /** Disable retention when a streaming consumer owns the output. */
+  collectStdout?: boolean
+  collectStderr?: boolean
   onChannel?: (clientChannel: ClientChannel) => void
   onStdout?: (chunk: Buffer) => void
   onStderr?: (chunk: Buffer) => void
@@ -601,11 +604,11 @@ export class NodeSSH {
         }
         channel.on('data', (chunk: Buffer) => {
           if (options.onStdout) options.onStdout(chunk)
-          output.stdout.push(chunk.toString(options.encoding))
+          if (options.collectStdout !== false) output.stdout.push(chunk.toString(options.encoding))
         })
         channel.stderr.on('data', (chunk: Buffer) => {
           if (options.onStderr) options.onStderr(chunk)
-          output.stderr.push(chunk.toString(options.encoding))
+          if (options.collectStderr !== false) output.stderr.push(chunk.toString(options.encoding))
         })
         if (options.stdin != null) {
           if (isReadableStream(options.stdin)) {
