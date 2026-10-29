@@ -1,8 +1,9 @@
 import { it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { NodeSSH, sshHostFingerprint } from '../../../src/adapters/ssh/ssh.js';
+
 import createServer from './ssh-server.js';
 import { PUBLIC_KEY_PATH } from './helpers.js';
+import { NodeSSH, sshHostFingerprint } from '../../../src/adapters/ssh/ssh.js';
 
 it('uses existing NodeSSH for a real pinned PTY; probes and mismatches never authenticate', async () => {
   const server = createServer();

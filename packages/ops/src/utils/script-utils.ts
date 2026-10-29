@@ -46,7 +46,7 @@ export function pwd(): string {
 
 // Enhanced echo with color support
 export const echo = Object.assign(
-  function echo(...args: any[]): void {
+  function printMessage(...args: any[]): void {
     console.log(...args);
   },
   {

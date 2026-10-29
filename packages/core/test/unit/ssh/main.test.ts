@@ -6,9 +6,9 @@ import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { sep, join, dirname } from 'node:path';
 
+import { exists, PRIVATE_KEY_PATH } from './helpers.js';
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import createServer, { hasPosixShell } from './ssh-server.js';
-import { wait, exists, PRIVATE_KEY_PATH } from './helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const __filename = fileURLToPath(import.meta.url);

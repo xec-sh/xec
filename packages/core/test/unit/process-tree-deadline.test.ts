@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { describe, it, expect, afterEach } from 'vitest';
+import { it, expect, describe, afterEach } from 'vitest';
 
 import * as tree from '../../src/utils/process-tree.js';
 

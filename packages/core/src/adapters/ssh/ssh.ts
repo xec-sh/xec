@@ -18,8 +18,8 @@ import type {
 
 import fsPath from 'node:path'
 import stream from 'node:stream'
-import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { constants as fsConstants } from 'node:fs'
 import invariant, { AssertionError } from 'node:assert'

@@ -189,7 +189,7 @@ function handleSession(acceptSession: any) {
     const exit = spawnedProcess.onExit(({ exitCode }: { exitCode: number }) => { request.exit(exitCode); request.end() })
     request.on('data', (bytes: Buffer) => spawnedProcess.write(bytes.toString('utf8')))
     session.on('window-change', (_accept: unknown, _reject: unknown, info: { cols: number; rows: number }) => spawnedProcess.resize(info.cols, info.rows))
-    request.once('close', () => { data.dispose(); exit.dispose(); try { spawnedProcess.kill() } catch {} })
+    request.once('close', () => { data.dispose(); exit.dispose(); try { spawnedProcess.kill() } catch { /* The PTY may have exited before its SSH channel closes. */ } })
   })
   session.on('exec', function (accept: any, reject: any, info: any) {
     const response = accept()
