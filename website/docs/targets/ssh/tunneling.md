@@ -11,7 +11,7 @@ sidebar_position: 4
 
 The SSH context exposes two tunnel types: a local forward (`ssh -L`) and a reverse forward (`ssh -R`), both implemented in `packages/core/src/adapters/ssh/index.ts` on top of the pooled connection. There is no dynamic/SOCKS forwarding and no built-in jump-host chaining — neither exists anywhere in the adapter.
 
-Both methods transparently ensure a connection exists (they run a quiet command first if needed), so you do not need to execute anything before opening a tunnel.
+Both methods establish their connection when needed. Local forwarding binds directly to the SSH context’s target, including when different targets open tunnels concurrently; no preparatory command is required.
 
 ## Local Forwarding
 
@@ -41,6 +41,31 @@ const [http, db] = await Promise.all([
   $.ssh('deploy@host').tunnel({ localPort: 5432, remoteHost: 'localhost', remotePort: 5432 }),
 ]);
 ```
+
+## Lifetime and recovery
+
+A local tunnel holds a lease on its pooled SSH connection until it closes. Idle
+and maximum-age cleanup cannot evict that connection while the tunnel is open.
+`connectionPool.maxLifetime` defaults to one hour; set it to `0` to disable age
+rotation. Rotation applies when a connection is no longer in use.
+
+`await tunnel.close()` is idempotent. It stops accepting clients, cancels pending
+forward requests and destroys existing forwarded sockets; it does not wait for a
+half-open client to send its own FIN. Close explicitly when abandoning a tunnel.
+The `closed` promise also resolves if the underlying SSH transport fails, and
+`isOpen` becomes false:
+
+```typescript
+await tunnel.closed;
+// Stop using the old endpoint. Open and authenticate a new connection if needed.
+```
+
+Opening each forwarded channel has a 15-second deadline. The low-level
+`NodeSSH.forwardOut` API accepts an optional `{ timeoutMs, signal }` argument;
+cancellation, timeout or transport closure rejects the request and releases any
+channel returned after cancellation. A closed tunnel is not silently re-created:
+its caller owns reconnect/backoff policy and decides which operations can be
+retried safely.
 
 ## Reverse Forwarding
 

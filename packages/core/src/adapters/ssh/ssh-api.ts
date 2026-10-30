@@ -12,6 +12,8 @@ export interface SSHTunnel {
   remoteHost: string;
   remotePort: number;
   isOpen: boolean;
+  /** Resolves after all tunnel resources close, including transport loss. */
+  closed: Promise<void>;
   open(): Promise<void>;
   close(): Promise<void>;
 }
@@ -133,12 +135,9 @@ export function createSSHExecutionContext(
       throw new Error('SSH adapter not available');
     }
 
-    // First, establish a connection by executing a simple command
-    // This ensures the connection is established and cached
-    await exec`echo "Establishing connection for tunnel"`.quiet();
-
-    // Now create the tunnel using the established connection
-    return adapter.tunnel(options) as Promise<SSHTunnel>;
+    // Bind this tunnel to its own target. A shared "last used" target races
+    // with commands and tunnels opened concurrently for another host.
+    return adapter.tunnel(options, { type: 'ssh', ...sshOptions });
   };
 
   /**

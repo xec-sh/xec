@@ -52,6 +52,7 @@ const engine = new ExecutionEngine({
       connectionPool: {
         maxConnections: 20,     // default: 10
         idleTimeout: 60000,     // ms before an idle connection is evicted; default: 300000 (5 min)
+        maxLifetime: 3600000,   // ms; 0 disables age eviction; active leases are never evicted
         keepAlive: true,        // default: true
         keepAliveInterval: 30000, // ms between keepalive pings; default: 30000
       }

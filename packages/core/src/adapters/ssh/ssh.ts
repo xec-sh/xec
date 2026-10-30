@@ -1035,18 +1035,39 @@ export class NodeSSH {
     })
   }
 
-  forwardOut(srcIP: string, srcPort: number, dstIP: string, dstPort: number): Promise<Channel> {
+  forwardOut(
+    srcIP: string, srcPort: number, dstIP: string, dstPort: number,
+    request: { timeoutMs?: number; signal?: AbortSignal } = {},
+  ): Promise<Channel> {
     const connection = this.getConnection()
-
+    const timeoutMs = request.timeoutMs ?? 15000
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return Promise.reject(new SSHError('Forward timeout must be positive', 'EINVAL'))
+    if (request.signal?.aborted) return Promise.reject(new SSHError('SSH forward cancelled', 'ABORT_ERR'))
     return new Promise((resolve, reject) => {
-      connection.forwardOut(srcIP, srcPort, dstIP, dstPort, (error, channel) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
-        resolve(channel)
-      })
+      let settled = false
+      const cleanup = () => {
+        clearTimeout(timer)
+        connection.removeListener('error', failed)
+        connection.removeListener('close', closed)
+        request.signal?.removeEventListener('abort', cancelled)
+      }
+      const failed = (error: Error) => {
+        if (settled) return
+        settled = true; cleanup(); reject(error)
+      }
+      const closed = () => failed(new SSHError('Connection closed while opening forward', 'ECONNRESET'))
+      const cancelled = () => failed(new SSHError('SSH forward cancelled', 'ABORT_ERR'))
+      const timer = setTimeout(() => failed(new SSHError('SSH forward timed out', 'ETIMEDOUT')), timeoutMs)
+      connection.once('error', failed)
+      connection.once('close', closed)
+      request.signal?.addEventListener('abort', cancelled, { once: true })
+      try {
+        connection.forwardOut(srcIP, srcPort, dstIP, dstPort, (error, channel) => {
+          if (settled) { channel?.destroy(); return }
+          if (error) { failed(error); return }
+          settled = true; cleanup(); resolve(channel)
+        })
+      } catch (error) { failed(error instanceof Error ? error : new Error(String(error))) }
     })
   }
 
@@ -1131,72 +1152,80 @@ export class NodeSSH {
     localHost: string;
     remoteHost: string;
     remotePort: number;
+    closed: Promise<void>;
     close: () => Promise<void>;
   }> {
-    const localHost = options.localHost || '127.0.0.1';
-    const localPort = options.localPort || 0; // 0 = dynamic port
-
-    // Use dynamic import for ES modules
+    const connection = this.getConnection();
+    const localHost = options.localHost ?? '127.0.0.1';
     const net = await import('node:net');
-
     return new Promise((resolve, reject) => {
       const server = net.createServer();
-      const connections = new Set<any>();
-
-      server.on('connection', (socket: any) => {
-        connections.add(socket);
-
-        this.forwardOut(
-          socket.remoteAddress || '127.0.0.1',
-          socket.remotePort || 0,
-          options.remoteHost,
-          options.remotePort
-        ).then(channel => {
-          socket.pipe(channel).pipe(socket);
-
-          socket.on('close', () => {
-            connections.delete(socket);
-            channel.close();
-          });
-
-          channel.on('close', () => {
-            socket.end();
-          });
-        }).catch(err => {
-          socket.end();
-          connections.delete(socket);
-        });
-      });
-
-      server.on('error', reject);
-
-      server.listen(localPort, localHost, () => {
-        const address = server.address();
-        if (address && typeof address !== 'string') {
-          resolve({
-            localPort: address.port,
-            localHost,
-            remoteHost: options.remoteHost,
-            remotePort: options.remotePort,
-            close: async () => {
-              // Close all connections
-              for (const socket of connections) {
-                socket.end();
-              }
-              connections.clear();
-
-              // Close the server
-              return new Promise<void>((resolveClose, rejectClose) => {
-                server.close((err?: Error) => {
-                  if (err) rejectClose(err);
-                  else resolveClose();
-                });
-              });
-            }
-          });
-        } else {
-          reject(new Error('Failed to get server address'));
+      const sockets = new Map<import('node:net').Socket, Channel | null>();
+      const controller = new AbortController();
+      let closing = false;
+      let listenSettled = false;
+      let finishClosed!: () => void;
+      const closed = new Promise<void>(done => { finishClosed = done; });
+      const stopServer = () => {
+        if (!server.listening) { finishClosed(); return; }
+        server.close(() => finishClosed());
+      };
+      const close = () => {
+        if (closing) return closed;
+        closing = true;
+        connection.removeListener('close', transportClosed);
+        connection.removeListener('error', transportClosed);
+        controller.abort();
+        for (const [socket, channel] of sockets) {
+          socket.destroy();
+          channel?.destroy();
         }
+        sockets.clear();
+        // end() only sends FIN: a half-open peer can otherwise hold close forever.
+        if (listenSettled) stopServer();
+        return closed;
+      };
+      const transportClosed = () => { void close(); };
+      connection.once('close', transportClosed);
+      connection.once('error', transportClosed);
+      server.on('connection', socket => {
+        if (closing) { socket.destroy(); return; }
+        sockets.set(socket, null);
+        socket.on('error', () => socket.destroy());
+        socket.once('close', () => {
+          sockets.get(socket)?.destroy();
+          sockets.delete(socket);
+        });
+        void this.forwardOut(socket.remoteAddress ?? '127.0.0.1', socket.remotePort ?? 0,
+          options.remoteHost, options.remotePort, { signal: controller.signal }).then(channel => {
+          if (closing || socket.destroyed) { channel.destroy(); return; }
+          sockets.set(socket, channel);
+          channel.on('error', () => { socket.destroy(); channel.destroy(); });
+          channel.once('close', () => socket.destroy());
+          socket.pipe(channel).pipe(socket);
+        }).catch(() => socket.destroy());
+      });
+      server.once('error', error => {
+        listenSettled = true;
+        reject(error);
+        void close();
+        finishClosed();
+      });
+      server.listen(options.localPort ?? 0, localHost, () => {
+        listenSettled = true;
+        if (closing) {
+          stopServer();
+          reject(new SSHError('Connection closed while opening tunnel', 'ECONNRESET'));
+          return;
+        }
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+          reject(new Error('Failed to get tunnel address'));
+          void close();
+          return;
+        }
+        resolve({ localPort: address.port, localHost, remoteHost: options.remoteHost,
+          remotePort: options.remotePort, closed, close });
       });
     });
   }

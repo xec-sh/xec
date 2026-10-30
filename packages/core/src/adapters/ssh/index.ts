@@ -162,6 +162,7 @@ export class SSHAdapter extends BaseAdapter {
         enabled: config.connectionPool?.enabled ?? true,
         maxConnections: config.connectionPool?.maxConnections ?? 10,
         idleTimeout: config.connectionPool?.idleTimeout ?? 300000, // 5 minutes
+        maxLifetime: config.connectionPool?.maxLifetime ?? 3600000, // 0 disables age eviction
         keepAlive: config.connectionPool?.keepAlive ?? true,
         keepAliveInterval: config.connectionPool?.keepAliveInterval ?? 30000, // 30 seconds
         autoReconnect: config.connectionPool?.autoReconnect ?? true,
@@ -428,7 +429,7 @@ export class SSHAdapter extends BaseAdapter {
     const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000; // Default 1 hour
 
     // Check if connection exceeded maximum lifetime
-    if (maxLifetime > 0 && (now - existing.created) > maxLifetime) {
+    if (existing.activeUseCount === 0 && maxLifetime > 0 && (now - existing.created) > maxLifetime) {
       await this.closeConnection(key, existing, 'max_lifetime_exceeded');
       return null;
     }
@@ -1226,36 +1227,55 @@ export class SSHAdapter extends BaseAdapter {
     localHost?: string;
     remoteHost: string;
     remotePort: number;
-  }): Promise<{
+  }, target?: SSHAdapterOptions): Promise<{
     localPort: number;
     localHost: string;
     remoteHost: string;
     remotePort: number;
     isOpen: boolean;
+    closed: Promise<void>;
     open: () => Promise<void>;
     close: () => Promise<void>;
   }> {
     // Get the last used connection from execute or create new one
-    const sshOptions = this.lastUsedSSHOptions;
+    const sshOptions = target ?? this.lastUsedSSHOptions;
     if (!sshOptions) {
       throw new AdapterError(this.adapterName, 'tunnel', new Error('No SSH connection available. Execute a command first or provide connection options.'));
     }
 
     const connection = await this.getConnection(sshOptions);
 
-    // Use NodeSSH's built-in createTunnel method
-    const tunnelResult = await connection.ssh.createTunnel({
-      localPort: options.localPort,
-      localHost: options.localHost,
-      remoteHost: options.remoteHost,
-      remotePort: options.remotePort
-    });
+    // A tunnel owns the pooled connection until every forwarded socket closes.
+    connection.activeUseCount++;
+    let tunnelResult: Awaited<ReturnType<NodeSSH['createTunnel']>>;
+    try {
+      tunnelResult = await connection.ssh.createTunnel(options);
+    } catch (error) {
+      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+      connection.lastUsed = Date.now();
+      throw error;
+    }
 
     // Generate ID for tracking
     const tunnelId = `${tunnelResult.localPort}-${options.remoteHost}:${options.remotePort}`;
 
     // Create tunnel object with proper state management
     let isOpen = true;
+    let closePromise: Promise<void> | undefined;
+    const release = () => {
+      if (!isOpen) return;
+      isOpen = false;
+      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+      connection.lastUsed = Date.now();
+      this.activeTunnels.delete(tunnelId);
+      this.emitAdapterEvent('ssh:tunnel-closed', {
+        localPort: tunnelResult.localPort,
+        remoteHost: options.remoteHost,
+        remotePort: options.remotePort
+      });
+    };
+    // Also release the lease when the SSH transport closes the tunnel itself.
+    void tunnelResult.closed.then(release);
     const tunnel = {
       localPort: tunnelResult.localPort,
       localHost: tunnelResult.localHost,
@@ -1267,22 +1287,10 @@ export class SSHAdapter extends BaseAdapter {
       open: async () => {
         // Already opened when created
       },
-      close: async () => {
-        if (!isOpen) {
-          // Already closed
-          return;
-        }
-
-        isOpen = false;
-        await tunnelResult.close();
-        this.activeTunnels.delete(tunnelId);
-
-        // Emit tunnel closed event
-        this.emitAdapterEvent('ssh:tunnel-closed', {
-          localPort: tunnelResult.localPort,
-          remoteHost: options.remoteHost,
-          remotePort: options.remotePort
-        });
+      closed: tunnelResult.closed,
+      close: () => {
+        closePromise ??= tunnelResult.close().finally(release);
+        return closePromise;
       }
     };
 
