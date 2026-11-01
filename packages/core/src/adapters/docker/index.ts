@@ -1002,14 +1002,43 @@ export class DockerAdapter extends BaseAdapter {
     }
   }
 
+  /** Resolve one immutable identity. A failed observation never means absence. */
+  private async resolveContainerReference(container: string): Promise<string | null> {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(container)) {
+      throw new DockerError(container, 'inspect', new Error('Invalid container name or ID'));
+    }
+    const result = await this.executeDockerCommand(
+      ['ps', '-a', '--no-trunc', '--format', '{{json .}}'], this.managementOptions());
+    if (result.exitCode !== 0) throw new DockerError(container, 'inspect', new Error(result.stderr));
+    const matches: string[] = [];
+    for (const line of splitLines(result.stdout.trim()).filter(Boolean)) {
+      const row = JSON.parse(line) as { ID?: unknown; Names?: unknown };
+      if (typeof row.ID !== 'string' || !/^[a-f0-9]{64}$/.test(row.ID) || typeof row.Names !== 'string') {
+        throw new DockerError(container, 'inspect', new Error('Malformed Docker container inventory'));
+      }
+      if (row.ID.startsWith(container) || row.Names.split(',').includes(container)) matches.push(row.ID);
+    }
+    if (matches.length > 1) throw new DockerError(container, 'inspect', new Error('Ambiguous container reference'));
+    return matches[0] ?? null;
+  }
+
+  /** Idempotent removal, acknowledged only by a successful absence observation. */
   async removeContainer(container: string, force = false): Promise<void> {
+    const id = await this.resolveContainerReference(container);
+    if (id === null) return;
     const args = ['rm'];
     if (force) args.push('-f');
-    args.push(container);
-
+    // A concurrent rename/replacement must not retarget this operation.
+    args.push('--', id);
     const result = await this.executeDockerCommand(args, this.managementOptions());
     if (result.exitCode !== 0) {
+      // Another remover may have won. Only a new successful observation can
+      // establish that; daemon/permission/time-out failures remain failures.
+      if (await this.resolveContainerReference(container) === null) return;
       throw new DockerError(container, 'remove', new Error(result.stderr));
+    }
+    if (await this.resolveContainerReference(container) !== null) {
+      throw new DockerError(container, 'remove', new Error('Container is still present or was replaced during removal'));
     }
   }
 

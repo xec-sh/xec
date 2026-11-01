@@ -177,3 +177,13 @@ In exec mode (no `autoCreate`), targeting a container that doesn't exist is chec
 - [Compose Integration](./compose-integration.md) - Docker Compose support
 - [Volume Management](./volume-management.md) - Managing volumes
 - [Networking](./networking.md) - Container networking
+
+## Confirmed removal
+
+`DockerAdapter.removeContainer(nameOrId, force)` resolves the reference against a
+successful Docker inventory, removes that immutable ID, and confirms absence before
+resolving. An already absent container is an idempotent success. An unavailable
+daemon or a permission error cannot be interpreted as absence. If a different
+container replaces the original name during removal, the operation rejects and
+leaves the replacement untouched. Callers should refresh their inventory before
+retrying a conflicting operation.
