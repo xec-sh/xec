@@ -117,6 +117,12 @@ try {
 }
 ```
 
+On the Node-backed local adapter, cancellation is scoped to the command lifetime.
+An already-aborted signal prevents process creation; completion, failure, and timeout
+remove the abort listener. Reusing or aborting the controller after the command
+settles does not signal the former process. A timeout or cancellation still uses
+the configured local termination signal.
+
 ## Stream Handling
 
 ### Stdin

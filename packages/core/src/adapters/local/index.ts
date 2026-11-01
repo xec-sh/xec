@@ -234,6 +234,8 @@ export class LocalAdapter extends BaseAdapter {
   }
 
   private async executeNode(command: Command): Promise<ProcessResult> {
+    // Cancellation already requested must never create a native process.
+    command.signal?.throwIfAborted();
     if (!('stdout' in command) || command.stdout == null) command.stdout = 'pipe';
     if (!('stderr' in command) || command.stderr == null) command.stderr = 'pipe';
 
@@ -312,12 +314,6 @@ export class LocalAdapter extends BaseAdapter {
       } else if (command.stdin instanceof Readable) {
         command.stdin.pipe(child.stdin!);
       }
-    }
-
-    // Handle abort signal
-    if (command.signal) {
-      const cleanup = () => this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals);
-      await this.handleAbortSignal(command.signal, cleanup);
     }
 
     // Collect output and keep references to transforms for cleanup
@@ -459,16 +455,29 @@ export class LocalAdapter extends BaseAdapter {
       });
     });
 
-    // Handle timeout
-    const timeout = command.timeout ?? this.config.defaultTimeout;
-    const result = await this.handleTimeout(
-      processPromise,
-      timeout,
-      this.buildCommandString(command),
-      () => this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals)
-    );
-
-    return result;
+    // Register only after all native completion/error listeners exist. Keep the
+    // cleanup through every outcome: an AbortSignal may outlive this command,
+    // and signalling its old PID later could address a different process.
+    let completed = false;
+    const cancel = () => {
+      if (!completed) this.terminate(child, (this.localConfig.killSignal ?? 'SIGTERM') as NodeJS.Signals);
+    };
+    let detachAbort = () => {};
+    // setupAbortSignal can throw when onSpawn cancelled synchronously. Native
+    // errors still need a consumer while the terminated process closes.
+    void processPromise.catch(() => {});
+    try {
+      detachAbort = this.setupAbortSignal(command.signal, cancel);
+      return await this.handleTimeout(
+        processPromise,
+        command.timeout ?? this.config.defaultTimeout,
+        this.buildCommandString(command),
+        cancel
+      );
+    } finally {
+      completed = true;
+      detachAbort();
+    }
   }
 
   private async executeBun(command: Command): Promise<ProcessResult> {
