@@ -1,0 +1,39 @@
+{
+  "package": "ssh2",
+  "version": "1.17.0",
+  "patch": "patches/ssh2@1.17.0.patch",
+  "upstream": "https://github.com/mscdex/ssh2",
+  "license": "MIT",
+  "references": [
+    "https://github.com/mscdex/ssh2/issues/1504",
+    "https://github.com/mscdex/ssh2/issues/1505",
+    "https://github.com/mscdex/ssh2/pull/1509",
+    "https://github.com/mscdex/ssh2/pull/1523"
+  ],
+  "files": {
+    "lib/Channel.js": {
+      "before": "53e92988a025009b192b72be110bd240b5653f88dbdec93e515e3e401e7f94aa",
+      "after": "5ecbb9cc651c227e6210e6103b6804acad2aba9e58abcad3dd4be955cb2c011a"
+    },
+    "lib/client.js": {
+      "before": "edd3484daa9d942bc5a6412edc9cf11f85df40b2db10b07877bbfe694beac7f4",
+      "after": "eeb77fdf6b39ec3b3b2e254e1517dd2a7cca18c65996235e61781b23ebe5315f"
+    },
+    "lib/protocol/crypto.js": {
+      "before": "a729d2064e787e2a4589c25a284444fe54a58b7434a4e6e5e8e9c73c6d91e28e",
+      "after": "d6ac4e981ecf9f42bdef23aed9aa6abba504162b308435dfe8668a344e7abf9b"
+    },
+    "lib/protocol/handlers.misc.js": {
+      "before": "8927c504c3c338187f36f0304a3452d6396ec9fc907af3db2be46a5f175c36a1",
+      "after": "465ec663f7062e8b4ba2fbb0de7c77953545b4587654326d3c1df4852fe055e3"
+    },
+    "lib/server.js": {
+      "before": "128b58ee54cf97a5ae17e18836ff4472de4a5e4e591f2862a5c9ec7f148befe5",
+      "after": "9d3ca7334853986c2276286476eaea8c0653c4afb911ddaad4b70c05b2b63363"
+    },
+    "lib/utils.js": {
+      "before": "bbae8286bc64b049499ce353e8dc4eefbbedefca8f50591432c1057276097aee",
+      "after": "408b457b8b788e3f2f52d80ccea3b9fabb307bd372cd5402fdbf4ba3c4721d75"
+    }
+  }
+}

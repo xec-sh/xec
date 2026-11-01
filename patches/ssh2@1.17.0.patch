@@ -1,0 +1,164 @@
+diff --git a/lib/Channel.js b/lib/Channel.js
+--- a/lib/Channel.js
++++ b/lib/Channel.js
+@@ -47,8 +47,12 @@
+     const len = data.length;
+     let p = 0;
+ 
+-    if (outgoing.state !== 'open')
++    if (outgoing.state !== 'open') {
++      const err = new Error('SSH channel is not open for writing');
++      err.code = 'ERR_STREAM_PREMATURE_CLOSE';
++      cb(err);
+       return;
++    }
+ 
+     while (len - p > 0 && window > 0) {
+       let sliceLen = len - p;
+@@ -162,8 +166,12 @@
+     const len = data.length;
+     let p = 0;
+ 
+-    if (outgoing.state !== 'open')
++    if (outgoing.state !== 'open') {
++      const err = new Error('SSH channel is not open for writing');
++      err.code = 'ERR_STREAM_PREMATURE_CLOSE';
++      cb(err);
+       return;
++    }
+ 
+     while (len - p > 0 && window > 0) {
+       let sliceLen = len - p;
+diff --git a/lib/client.js b/lib/client.js
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -36,6 +36,7 @@
+ const { parseKey } = require('./protocol/keyParser.js');
+ const { SFTP } = require('./protocol/SFTP.js');
+ const {
++  doFatalError,
+   bufferCopy,
+   makeBufferParser,
+   makeError,
+@@ -574,11 +575,10 @@
+           if (typeof channel !== 'object' || channel === null)
+             return;
+ 
+-          // The remote party should not be sending us data if there is no
+-          // window space available ...
+-          // TODO: raise error on data with not enough window?
+-          if (channel.incoming.window === 0)
+-            return;
++          // A peer cannot consume credit it was never granted. Terminate the
++          // protocol instead of buffering excess data or silently corrupting it.
++          if (data.length > channel.incoming.window)
++            return doFatalError(p, 'Inbound: Channel data exceeds receive window');
+ 
+           channel.incoming.window -= data.length;
+ 
+@@ -598,11 +598,10 @@
+           if (typeof channel !== 'object' || channel === null)
+             return;
+ 
+-          // The remote party should not be sending us data if there is no
+-          // window space available ...
+-          // TODO: raise error on data with not enough window?
+-          if (channel.incoming.window === 0)
+-            return;
++          // A peer cannot consume credit it was never granted. Terminate the
++          // protocol instead of buffering excess data or silently corrupting it.
++          if (data.length > channel.incoming.window)
++            return doFatalError(p, 'Inbound: Channel data exceeds receive window');
+ 
+           channel.incoming.window -= data.length;
+ 
+diff --git a/lib/protocol/crypto.js b/lib/protocol/crypto.js
+--- a/lib/protocol/crypto.js
++++ b/lib/protocol/crypto.js
+@@ -194,6 +194,8 @@
+     if (this._dead)
+       return;
+ 
++    // Isolate the nonce from synchronous encryption on another connection.
++    const POLY1305_OUT_COMPUTE = Buffer.alloc(16);
+     // Generate Poly1305 key
+     POLY1305_OUT_COMPUTE[0] = 0; // Set counter to 0 (little endian)
+     writeUInt32BE(POLY1305_OUT_COMPUTE, this.outSeqno, 12);
+diff --git a/lib/protocol/handlers.misc.js b/lib/protocol/handlers.misc.js
+--- a/lib/protocol/handlers.misc.js
++++ b/lib/protocol/handlers.misc.js
+@@ -717,6 +717,10 @@
+     const sender = bufferParser.readUInt32BE();
+     const window = bufferParser.readUInt32BE();
+     const packetSize = bufferParser.readUInt32BE();
++    if (packetSize === 0) {
++      bufferParser.clear();
++      return doFatalError(self, 'Inbound: Invalid CHANNEL_OPEN packet size');
++    }
+     let channelInfo;
+ 
+     switch (type) {
+@@ -837,7 +841,7 @@
+     const data = (bufferParser.avail() ? bufferParser.readRaw() : undefined);
+     bufferParser.clear();
+ 
+-    if (packetSize === undefined) {
++    if (packetSize === undefined || packetSize === 0) {
+       return doFatalError(
+         self,
+         'Inbound: Malformed CHANNEL_OPEN_CONFIRMATION packet'
+diff --git a/lib/server.js b/lib/server.js
+--- a/lib/server.js
++++ b/lib/server.js
+@@ -29,7 +29,7 @@
+ const { parseKey } = require('./protocol/keyParser.js');
+ const Protocol = require('./protocol/Protocol.js');
+ const { SFTP } = require('./protocol/SFTP.js');
+-const { writeUInt32BE } = require('./protocol/utils.js');
++const { doFatalError, writeUInt32BE } = require('./protocol/utils.js');
+ 
+ const {
+   Channel,
+@@ -745,11 +745,10 @@
+               return;
+           }
+ 
+-          // The remote party should not be sending us data if there is no
+-          // window space available ...
+-          // TODO: raise error on data with not enough window?
+-          if (channel.incoming.window === 0)
+-            return;
++          // A peer cannot consume credit it was never granted. Terminate the
++          // protocol instead of buffering excess data or silently corrupting it.
++          if (data.length > channel.incoming.window)
++            return doFatalError(p, 'Inbound: Channel data exceeds receive window');
+ 
+           channel.incoming.window -= data.length;
+ 
+diff --git a/lib/utils.js b/lib/utils.js
+--- a/lib/utils.js
++++ b/lib/utils.js
+@@ -45,6 +45,23 @@
+     return;
+ 
+   channel.incoming.state = 'closed';
++
++  // A peer may close while a write is waiting for window credit. Release the
++  // retained buffers and settle each pending callback exactly once. Defer the
++  // callbacks so application code cannot interrupt cleanup of other channels.
++  if (channel._chunkcb || channel._chunkcbErr) {
++    const writeError = err || new Error('SSH channel closed before buffered write completed');
++    if (!writeError.code)
++      writeError.code = 'ERR_STREAM_PREMATURE_CLOSE';
++    const pending = [channel._chunkcb, channel._chunkcbErr];
++    channel._chunkcb = channel._chunkcbErr = null;
++    channel._chunk = channel._chunkErr = null;
++    channel._waitWindow = false;
++    for (const callback of pending) {
++      if (typeof callback === 'function')
++        process.nextTick(callback, writeError);
++    }
++  }
+ 
+   if (channel.readable)
+     channel.push(null);

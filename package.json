@@ -26,7 +26,9 @@
     "docs:serve": "cd website && pnpm serve",
     "docs:deploy": "cd website && pnpm deploy",
     "typecheck": "pnpm -r run typecheck",
-    "check:lockfile": "pnpm install --frozen-lockfile --lockfile-only"
+    "check:lockfile": "pnpm install --frozen-lockfile --lockfile-only",
+    "check:ssh-security": "node scripts/check-ssh-security.mjs",
+    "prepare:ssh-package": "node scripts/ssh-transport.mjs prepare"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

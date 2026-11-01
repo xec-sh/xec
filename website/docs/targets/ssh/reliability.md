@@ -79,6 +79,14 @@ The client provides shell, exec, subsystem, TCP and Unix-socket forwarding, reve
 
 Use `stat` to distinguish a missing file from a connection error. The compatibility `exists` callback also provides an optional error as its second argument. A negative boolean alone cannot establish that a file is absent.
 
+## Transport patches and release artifacts
+
+Xec keeps `ssh2` as its internal protocol implementation. The reviewed 1.17.0 patch rejects zero-size channel packets and receive-window violations, settles writes parked behind exhausted window credit when a channel closes, and isolates the ChaCha nonce during nested writes. The regressions correspond to upstream reports [1504](https://github.com/mscdex/ssh2/issues/1504), [1505](https://github.com/mscdex/ssh2/issues/1505), [1509](https://github.com/mscdex/ssh2/pull/1509) and [1523](https://github.com/mscdex/ssh2/pull/1523).
+
+`pnpm check:ssh-security` builds into a temporary directory, applies the patch to a separate verified dependency copy, packs Xec, installs the tarball offline, and tests that installed runtime. Hostile peers run only on loopback in child processes with external deadlines. Six synthetic ChaCha cases check standalone and nested writes. The test does not overwrite workspace dependencies or require Docker.
+
+The prepared package bundles `ssh2` and its dependency closure, carries the upstream license and `SSH-TRANSPORT.json` checksums, and excludes machine-specific native binaries. Optional native acceleration can be built on the consumer's platform; the JavaScript path remains available. `node scripts/ssh-transport.mjs prepare <new-directory>` prepares an immutable package directory for the release pipeline. Direct packing of an unprepared workspace is rejected. A root-only dependency patch would not protect npm consumers, so artifact installation is part of the gate.
+
 ## Verification and limits
 
 `pnpm check:ssh-boundary` builds the package into a temporary directory and type-checks a strict consumer with no transport package or transport types installed. CI runs this check on Linux and Windows. Unit tests inject missing callbacks, lost replies, cancellation, delayed progress and invalid remote paths; interoperability tests use independent OpenSSH fixtures. Set `XEC_SSH_TEST_CONTAINERS` to a comma-separated list to run an explicit fixture subset; required fixtures that cannot start fail setup.

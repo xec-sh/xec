@@ -54,10 +54,11 @@
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
+    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo",
+    "prepack": "node ../../scripts/ssh-transport.mjs guard ."
   },
   "dependencies": {
-    "ssh2": "^1.17.0"
+    "ssh2": "1.17.0"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^10.1.1",
@@ -97,5 +98,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "bundleDependencies": [
+    "ssh2"
+  ]
 }

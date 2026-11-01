@@ -69,6 +69,11 @@ jobs:
       - name: SSH public dependency boundary
         run: pnpm check:ssh-boundary
 
+      - name: Packaged SSH security and artifact integrity
+        run: |
+          node --test scripts/test/ssh-transport.test.mjs
+          pnpm check:ssh-security
+
       - name: core unit
         run: pnpm --filter @xec-sh/core test:unit
 
@@ -157,6 +162,11 @@ jobs:
 
       - name: SSH public dependency boundary
         run: pnpm check:ssh-boundary
+
+      - name: Packaged SSH security and artifact integrity
+        run: |
+          node --test scripts/test/ssh-transport.test.mjs
+          pnpm check:ssh-security
 
       - name: core unit
         run: pnpm --filter @xec-sh/core test:unit

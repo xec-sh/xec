@@ -57,4 +57,5 @@ minimumReleaseAgeExclude:
   - minimatch@11.0.2
   - path-scurry@3.0.0
 patchedDependencies:
+  ssh2@1.17.0: patches/ssh2@1.17.0.patch
   node-pty@1.1.0: patches/node-pty@1.1.0.patch
