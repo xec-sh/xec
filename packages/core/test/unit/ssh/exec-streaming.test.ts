@@ -16,7 +16,7 @@ function transport(stdout: string, stderr = '') {
     setImmediate(() => { channel.push(Buffer.from(stdout)); channel.stderr.end(stderr); channel.emit('exit', 0); channel.push(null); });
     channel.once('end', () => setImmediate(() => channel.emit('close')));
   } });
-  ssh.connection = connection as never;
+  (ssh as unknown as { transport: unknown }).transport = connection as never;
   return { ssh, channel };
 }
 

@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import fs from 'node:fs';
+import { resolveTypeScriptCompiler } from './typescript-compiler.mjs';
 
 const run = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -147,9 +148,9 @@ async function main() {
           noEmit: true,
           skipLibCheck: true,
           allowJs: true,
-          baseUrl: '.',
           paths: {
-            '@xec-sh/core': [path.join(ROOT, 'packages/core/dist/index.d.ts')],
+            '@xec-sh/core': [path.join(process.env.XEC_CORE_TYPES ?? path.join(ROOT, 'packages/core/dist'), 'index.d.ts')],
+            '@xec-sh/core/ssh': [path.join(process.env.XEC_CORE_TYPES ?? path.join(ROOT, 'packages/core/dist'), 'adapters/ssh/ssh.d.ts')],
             '@xec-sh/ops': [path.join(ROOT, 'packages/ops/dist/index.d.ts')],
             '@xec-sh/kit': [path.join(ROOT, 'packages/kit/dist/index.d.ts')],
             '@xec-sh/loader': [path.join(ROOT, 'packages/loader/dist/index.d.ts')],
@@ -167,12 +168,13 @@ async function main() {
   try {
     const result = await run(
       process.execPath,
-      [path.join(ROOT, 'node_modules/typescript/bin/tsc'), '-p', dir],
+      [resolveTypeScriptCompiler(ROOT), '-p', dir],
       { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }
     );
     output = result.stdout;
   } catch (error) {
     output = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+    if (!/error TS\d+/.test(output)) throw error;
   }
 
   // An error with no file prefix is tsc failing to start — a missing type

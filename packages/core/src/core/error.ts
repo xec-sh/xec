@@ -33,6 +33,16 @@ export class ExecutionError extends Error {
   }
 }
 
+/** The transport lost evidence of completion; this error never authorizes replay. */
+export class ExecutionOutcomeUnknownError extends ExecutionError {
+  constructor(public readonly originalError?: Error) {
+    super('Remote execution outcome is unknown; verify the effect before retrying',
+      'SSH_OUTCOME_UNKNOWN', undefined, 'outcome-unknown');
+    this.name = 'ExecutionOutcomeUnknownError';
+    if (originalError) this.cause = originalError;
+  }
+}
+
 export class CommandError extends ExecutionError {
   constructor(
     public readonly command: string,
@@ -251,7 +261,7 @@ export class AdapterError extends ExecutionError {
       adapter,
       operation,
       originalError: originalError?.message
-    });
+    }, originalError ? classifyFailure(originalError) : 'unknown');
     this.name = 'AdapterError';
   }
 }

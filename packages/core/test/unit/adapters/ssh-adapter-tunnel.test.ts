@@ -48,7 +48,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort,
         remoteHost: 'localhost', // localhost on the remote side
         remotePort: 22 // SSH port
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect(tunnel).toBeDefined();
       expect(tunnel.localPort).toBe(localPort);
@@ -103,7 +103,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect(tunnel).toBeDefined();
       expect(tunnel.localPort).toBeGreaterThan(0); // Should have been assigned a port
@@ -153,7 +153,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22  // SSH port on the remote
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect(tunnel.isOpen).toBe(true);
       expect(tunnel.localPort).toBeGreaterThan(0);
@@ -208,7 +208,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect((adapter as any).activeTunnels.size).toBe(1);
 
@@ -217,7 +217,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect((adapter as any).activeTunnels.size).toBe(2);
 
@@ -248,7 +248,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect(tunnel.isOpen).toBe(true);
 
@@ -269,7 +269,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 8080,
         remoteHost: 'remote.server',
         remotePort: 3306
-      })).rejects.toThrow('No SSH connection available');
+      }, undefined as never)).rejects.toThrow('explicit SSH target');
     });
 
     it('should pass localHost option correctly', async () => {
@@ -292,7 +292,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localHost: '0.0.0.0',
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect(tunnel.localHost).toBe('0.0.0.0');
 
@@ -319,7 +319,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 1, // Port 1 requires root privileges
         remoteHost: 'localhost',
         remotePort: 22
-      })).rejects.toThrow();
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') })).rejects.toThrow();
 
       // Should not track failed tunnel
       expect((adapter as any).activeTunnels.size).toBe(0);
@@ -353,7 +353,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       // Check tunnel created events
       const createdEvents = events.filter(e => e.type.includes('created'));
@@ -412,7 +412,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect(tunnel.isOpen).toBe(true);
 
@@ -473,13 +473,13 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       const tunnel2 = await adapter.tunnel({
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       expect((adapter as any).activeTunnels.size).toBe(2);
 
@@ -534,13 +534,13 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       await adapter.tunnel({
         localPort: 0,
         remoteHost: 'localhost',
         remotePort: 22
-      });
+      }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       // Force an error on one tunnel's close method
       const originalClose = tunnel1.close;
@@ -582,7 +582,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           localPort: 0,
           remoteHost: 'localhost',
           remotePort: 22
-        })
+        }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') })
       );
 
       const tunnels = await Promise.all(tunnelPromises);
@@ -632,7 +632,7 @@ describeSSH('SSH Adapter Tunnel Tests', () => {
           localPort: 0,
           remoteHost: 'localhost',
           remotePort: 22
-        });
+        }, { type: 'ssh', ...sshConfig });
 
         expect(tunnel.isOpen).toBe(true);
 

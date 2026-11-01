@@ -10,12 +10,14 @@
 export type FailureKind =
   /** The command ran to completion and exited non-zero. */
   | 'command-failed'
+  /** An effect may have happened; reconcile its outcome before considering a retry. */
+  | 'outcome-unknown'
   /** The command exceeded its time budget and was killed. */
   | 'timeout'
   /**
    * The transport was established and then went away — a restarted Docker
-   * daemon, a dropped SSH session, a closed pod stream. Reconnecting and
-   * retrying is usually the right response.
+   * daemon, a dropped SSH session, a closed pod stream. Re-establishing
+   * the connection may be useful; replaying an effect needs separate evidence.
    */
   | 'connection-lost'
   /** The transport could never be established. */
@@ -65,6 +67,7 @@ export function isRecoverable(kind: FailureKind): boolean {
  * locale-independent.
  */
 const ERRNO_KINDS: Readonly<Record<string, FailureKind>> = {
+  SSH_OUTCOME_UNKNOWN: 'outcome-unknown',
   EHOSTKEY: 'host-key-mismatch',
   ECONNREFUSED: 'connection-refused',
   ENOTFOUND: 'connection-refused',
@@ -178,6 +181,7 @@ export function classifyFailure(error: unknown): FailureKind {
  */
 const VALID_KINDS: ReadonlySet<string> = new Set<FailureKind>([
   'command-failed',
+  'outcome-unknown',
   'timeout',
   'connection-lost',
   'connection-refused',

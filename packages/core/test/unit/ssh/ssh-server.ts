@@ -99,7 +99,7 @@ function handleSFTP(accept: any) {
       FS.mkdirSync(path, attrs.mode)
       sftpStream.status(reqId, STATUS_CODE['OK'])
     } catch (error) {
-      sftpStream.status(reqId, STATUS_CODE['FAILURE'], (error as any).message)
+      sftpStream.status(reqId, STATUS_CODE[(error as NodeJS.ErrnoException).code === 'ENOENT' ? 'NO_SUCH_FILE' : 'FAILURE'], (error as Error).message)
     }
   })
   sftpStream.on('STAT', function (reqId: any, path: any) {
@@ -107,7 +107,7 @@ function handleSFTP(accept: any) {
       const stats = FS.statSync(path)
       sftpStream.attrs(reqId, stats)
     } catch (error) {
-      sftpStream.status(reqId, STATUS_CODE['FAILURE'], (error as any).message)
+      sftpStream.status(reqId, STATUS_CODE[(error as NodeJS.ErrnoException).code === 'ENOENT' ? 'NO_SUCH_FILE' : 'FAILURE'], (error as Error).message)
     }
   })
   sftpStream.on('OPENDIR', function (reqId: any, path: any) {
@@ -199,8 +199,13 @@ function handleSession(acceptSession: any) {
     // quoting is correct for where it is going, and not the server.
     const spawnedProcess = ChildProcess.exec(info.command, { shell: posixShell() })
     response.pipe(spawnedProcess.stdin)
-    spawnedProcess.stdout?.pipe(response.stdout)
-    spawnedProcess.stderr?.pipe(response.stderr)
+    spawnedProcess.stdout?.pipe(response.stdout, { end: false })
+    spawnedProcess.stderr?.pipe(response.stderr, { end: false })
+    spawnedProcess.once('close', (code, signal) => {
+      if (signal) response.exit(signal.replace(/^SIG/, ''))
+      else response.exit(code ?? 255)
+      response.end()
+    })
   })
   session.on('sftp', handleSFTP)
 }

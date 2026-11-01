@@ -1,4 +1,8 @@
 
+import type { SSHGetPutDirectoryOptions } from './ssh.js';
+import type { SFTPRequestOptions } from './sftp-lifecycle.js';
+import type { SFTPClient as SFTPWrapper, SFTPTransferOptions as TransferOptions } from './contracts.js';
+
 import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
 import { connect as netConnect } from 'node:net';
@@ -10,10 +14,10 @@ import { ExecutionResult } from '../../core/result.js';
 import { unrefTimer } from '../../utils/unref-timer.js';
 import { SSHKeyValidator } from './ssh-key-validator.js';
 import { SecurePasswordHandler } from './secure-password.js';
-import { classifyFailure } from '../../core/failure-kind.js';
 import { Command, SSHAdapterOptions } from '../../types/command.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
-import { NodeSSH, Config as SSH2Config, SSHExecCommandResponse } from './ssh.js';
+import { classifyFailure, resolveExitCode } from '../../core/failure-kind.js';
+import { NodeSSH, Config as SSHConfig, SSHExecCommandResponse } from './ssh.js';
 import { AdapterError, TimeoutError, ConnectionError } from '../../core/error.js';
 import { quoteForShell, validateEnvName as validateEnvNameShared } from '../../utils/shell-escape.js';
 import { PooledConnectionMetrics, ConnectionPoolMetricsCollector } from './connection-pool-metrics.js';
@@ -43,6 +47,11 @@ export interface SSHSudoOptions {
   method?: 'stdin' | 'askpass' | 'echo' | 'secure-askpass'; // Method to provide password
   secureHandler?: SecurePasswordHandler; // Optional custom handler, will create one if not provided
 }
+
+export interface SSHFileTransferOptions extends SFTPRequestOptions {
+  transferOptions?: TransferOptions;
+}
+export type SSHDirectoryTransferOptions = SSHFileTransferOptions & Omit<SSHGetPutDirectoryOptions, 'sftp'>;
 
 export interface SSHSFTPOptions {
   enabled: boolean;
@@ -112,7 +121,7 @@ function validateSudoUser(user: string): string {
 
 export interface SSHAdapterConfig extends BaseAdapterConfig {
   connectionPool?: SSHConnectionPoolOptions;
-  defaultConnectOptions?: SSH2Config;
+  defaultConnectOptions?: SSHConfig;
   multiplexing?: SSHMultiplexingOptions;
   sudo?: SSHSudoOptions;
   sftp?: SSHSFTPOptions;
@@ -150,7 +159,6 @@ export class SSHAdapter extends BaseAdapter {
   private securePasswordHandler?: SecurePasswordHandler;
   private metricsCollector: ConnectionPoolMetricsCollector = new ConnectionPoolMetricsCollector();
   private activeTunnels: Map<string, { close: () => Promise<void> }> = new Map();
-  private lastUsedSSHOptions?: SSHAdapterOptions;
   private connectionMutex = new KeyedMutex<string>();
 
   constructor(config: SSHAdapterConfig = {}) {
@@ -205,19 +213,7 @@ export class SSHAdapter extends BaseAdapter {
     }
   }
 
-  /**
-   * Execute a command, recovering once from a transport that died in flight.
-   *
-   * A pooled connection is validated when it is handed out, but it can still
-   * go away mid-command — the server restarts sshd, a NAT table drops the
-   * flow, the network blips. Previously that surfaced as a plain failure and
-   * every caller had to detect it and retry, which one production consumer
-   * did by regex-matching error text. Doing it here means the pool owns its
-   * own liveness.
-   *
-   * Only transport failures are retried, and only once: re-running a command
-   * that already reached the server risks executing it twice.
-   */
+  /** Reconnect once only when connection establishment failed before command dispatch. */
   async execute(command: Command): Promise<ExecutionResult> {
     try {
       return await this.executeOnce(command);
@@ -253,8 +249,7 @@ export class SSHAdapter extends BaseAdapter {
       return false;
     }
 
-    const cause = error instanceof ConnectionError ? error.originalError : error;
-    return classifyFailure(cause) === 'connection-lost';
+    return error instanceof ConnectionError && classifyFailure(error.originalError) === 'connection-lost';
   }
 
   private async executeOnce(command: Command): Promise<ExecutionResult> {
@@ -264,9 +259,6 @@ export class SSHAdapter extends BaseAdapter {
     if (!sshOptions) {
       throw new AdapterError(this.adapterName, 'execute', new Error('SSH connection options not provided'));
     }
-
-    // Track last used SSH options for tunnel creation
-    this.lastUsedSSHOptions = sshOptions;
 
     const startTime = Date.now();
     let connection: PooledConnection | null = null;
@@ -329,12 +321,13 @@ export class SSHAdapter extends BaseAdapter {
       );
 
       const endTime = Date.now();
+      const signal = result.signal ? (result.signal.startsWith('SIG') ? result.signal : `SIG${result.signal}`) : undefined;
 
       return this.createResult(
         result.stdout,
         result.stderr,
-        result.code ?? 0,
-        undefined,
+        resolveExitCode(result.code, signal),
+        signal,
         commandString,
         startTime,
         endTime,
@@ -462,7 +455,7 @@ export class SSHAdapter extends BaseAdapter {
     return null;
   }
 
-  private connectionOptions(options: SSHAdapterOptions): SSH2Config {
+  private connectionOptions(options: SSHAdapterOptions): SSHConfig {
     return {
       ...this.sshConfig.defaultConnectOptions,
       host: options.host,
@@ -654,6 +647,8 @@ export class SSHAdapter extends BaseAdapter {
     // Create exec options
     const execOptions: any = {
       cwd: options.cwd,
+      signal: options.signal,
+      maxBuffer: options.maxBuffer ?? this.config.maxBuffer,
       stdin: this.convertStdin(options.stdin),
       collectStdout: typeof options.stdout !== 'object' && options.stdout !== 'pipe',
       collectStderr: typeof options.stderr !== 'object' && options.stderr !== 'pipe',
@@ -710,18 +705,7 @@ export class SSHAdapter extends BaseAdapter {
 
     // Execute the command
     const execPromise = ssh.execCommand(command, execOptions)
-      .then(async answer => { await Promise.all(outputDrains); return answer; })
-      .catch(error => {
-        // If the command fails after we've already timed out,
-        // we don't want an unhandled rejection
-        if (error.message?.includes('Socket closed') ||
-          error.message?.includes('Connection closed') ||
-          error.message?.includes('Not connected')) {
-          // Connection was closed due to timeout, this is expected
-          return { code: -1, stdout: '', stderr: 'Connection closed due to timeout' };
-        }
-        throw error;
-      });
+      .then(async answer => { await Promise.all(outputDrains); return answer; });
 
     // Handle timeout
     const timeout = options.timeout ?? this.config.defaultTimeout;
@@ -761,10 +745,10 @@ export class SSHAdapter extends BaseAdapter {
     return result;
   }
 
-  private convertStdin(stdin: Command['stdin']): string | Readable | undefined {
+  private convertStdin(stdin: Command['stdin']): string | Buffer | Readable | undefined {
     if (!stdin) return undefined;
     if (typeof stdin === 'string') return stdin;
-    if (Buffer.isBuffer(stdin)) return stdin.toString();
+    if (Buffer.isBuffer(stdin)) return stdin;
 
     if (stdin instanceof Readable) {
       // The exec layer pipes a readable straight into the channel. This used
@@ -1156,65 +1140,57 @@ export class SSHAdapter extends BaseAdapter {
     }
   }
 
-  // SFTP operations support
-  async uploadFile(
-    localPath: string,
-    remotePath: string,
-    options: SSHAdapterOptions
-  ): Promise<void> {
-    if (!this.sshConfig.sftp.enabled) {
-      throw new AdapterError(this.adapterName, 'uploadFile', new Error('SFTP is disabled'));
+  /** A file operation owns its pooled connection until subsystem cleanup completes. */
+  private async withTransfer<T>(target: SSHAdapterOptions, options: SSHFileTransferOptions,
+    operation: (ssh: NodeSSH, sftp: SFTPWrapper) => Promise<T>): Promise<T> {
+    if (!this.sshConfig.sftp.enabled) throw new AdapterError(this.adapterName, 'sftp', new Error('SFTP is disabled'));
+    if (options.signal?.aborted) throw new DOMException('SFTP operation cancelled', 'AbortError');
+    const connection = await this.getConnection(target);
+    connection.activeUseCount++;
+    try {
+      return await connection.ssh.withSFTP(sftp => operation(connection.ssh, sftp), options);
+    } catch (error) {
+      throw new AdapterError(this.adapterName, 'sftp', error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+      connection.lastUsed = Date.now();
     }
-
-    const connection = await this.getConnection(options);
-
-    await connection.ssh.putFile(localPath, remotePath);
   }
 
-  async downloadFile(
-    remotePath: string,
-    localPath: string,
-    options: SSHAdapterOptions
-  ): Promise<void> {
-    if (!this.sshConfig.sftp.enabled) {
-      throw new AdapterError(this.adapterName, 'downloadFile', new Error('SFTP is disabled'));
-    }
-
-    const connection = await this.getConnection(options);
-
-    await connection.ssh.getFile(localPath, remotePath);
+  async uploadFile(localPath: string, remotePath: string, target: SSHAdapterOptions, options: SSHFileTransferOptions = {}): Promise<void> {
+    await this.withTransfer(target, options, (ssh, sftp) => ssh.putFile(localPath, remotePath, sftp, options.transferOptions));
   }
 
-  async uploadDirectory(
-    localPath: string,
-    remotePath: string,
-    options: SSHAdapterOptions
-  ): Promise<void> {
-    if (!this.sshConfig.sftp.enabled) {
-      throw new AdapterError(this.adapterName, 'uploadDirectory', new Error('SFTP is disabled'));
-    }
+  async downloadFile(remotePath: string, localPath: string, target: SSHAdapterOptions, options: SSHFileTransferOptions = {}): Promise<void> {
+    await this.withTransfer(target, options, (ssh, sftp) => ssh.getFile(localPath, remotePath, sftp, options.transferOptions));
+  }
 
-    const connection = await this.getConnection(options);
-
-    await connection.ssh.putDirectory(localPath, remotePath, {
-      concurrency: this.sshConfig.sftp.concurrency
+  private async transferDirectory(direction: 'putDirectory' | 'getDirectory', localPath: string, remotePath: string,
+    target: SSHAdapterOptions, options: SSHDirectoryTransferOptions): Promise<void> {
+    await this.withTransfer(target, options, async (ssh, sftp) => {
+      const failures: Error[] = [];
+      const complete = await ssh[direction](localPath, remotePath, {
+        concurrency: this.sshConfig.sftp.concurrency, ...options, sftp,
+        tick: (local, remote, error) => { if (error) failures.push(error); options.tick?.(local, remote, error); },
+      });
+      if (!complete) {
+        if (failures.length === 1) throw failures[0];
+        throw new AggregateError(failures, 'SSH directory transfer was not completed');
+      }
     });
   }
 
-  async portForward(
-    localPort: number,
-    remoteHost: string,
-    remotePort: number,
-    options: SSHAdapterOptions
-  ): Promise<void> {
-    const connection = await this.getConnection(options);
+  async uploadDirectory(localPath: string, remotePath: string, target: SSHAdapterOptions, options: SSHDirectoryTransferOptions = {}): Promise<void> {
+    await this.transferDirectory('putDirectory', localPath, remotePath, target, options);
+  }
 
-    await connection.ssh.forwardOut(
-      '127.0.0.1',
-      localPort,
-      remoteHost,
-      remotePort
-    );
+  async downloadDirectory(remotePath: string, localPath: string, target: SSHAdapterOptions, options: SSHDirectoryTransferOptions = {}): Promise<void> {
+    await this.transferDirectory('getDirectory', localPath, remotePath, target, options);
+  }
+
+  /** @deprecated Use tunnel() with explicit target options; both return an owned listener. */
+  async portForward(localPort: number, remoteHost: string, remotePort: number, options: SSHAdapterOptions) {
+    return this.tunnel({ localPort, remoteHost, remotePort }, options);
   }
 
   /**
@@ -1227,7 +1203,7 @@ export class SSHAdapter extends BaseAdapter {
     localHost?: string;
     remoteHost: string;
     remotePort: number;
-  }, target?: SSHAdapterOptions): Promise<{
+  }, target: SSHAdapterOptions): Promise<{
     localPort: number;
     localHost: string;
     remoteHost: string;
@@ -1237,10 +1213,9 @@ export class SSHAdapter extends BaseAdapter {
     open: () => Promise<void>;
     close: () => Promise<void>;
   }> {
-    // Get the last used connection from execute or create new one
-    const sshOptions = target ?? this.lastUsedSSHOptions;
+    const sshOptions = target;
     if (!sshOptions) {
-      throw new AdapterError(this.adapterName, 'tunnel', new Error('No SSH connection available. Execute a command first or provide connection options.'));
+      throw new AdapterError(this.adapterName, 'tunnel', new Error('An explicit SSH target is required; use a host-bound SSH context or pass connection options.'));
     }
 
     const connection = await this.getConnection(sshOptions);
@@ -1327,7 +1302,7 @@ export class SSHAdapter extends BaseAdapter {
    *   A `remotePort` of 0 asks the server to choose a free port, which is
    *   returned in the result.
    * @returns The bound remote port and a `close` that unbinds it.
-   * @throws {AdapterError} If no SSH connection has been established yet.
+   * @throws {AdapterError} If an explicit SSH target is missing.
    *
    * @example
    * ```typescript
@@ -1335,7 +1310,7 @@ export class SSHAdapter extends BaseAdapter {
    *   remotePort: 8080,
    *   localHost: 'localhost',
    *   localPort: 3000,
-   * });
+   * }, { type: 'ssh', host: 'bastion.example.com', username: 'deploy' });
    * // Traffic to the server's :8080 now reaches localhost:3000.
    * await tunnel.close();
    * ```
@@ -1345,7 +1320,7 @@ export class SSHAdapter extends BaseAdapter {
     remoteHost?: string;
     localHost?: string;
     localPort: number;
-  }, target?: SSHAdapterOptions): Promise<{
+  }, target: SSHAdapterOptions): Promise<{
     remotePort: number;
     remoteHost: string;
     localHost: string;
@@ -1354,10 +1329,10 @@ export class SSHAdapter extends BaseAdapter {
     closed: Promise<void>;
     close: () => Promise<void>;
   }> {
-    const sshOptions = target ?? this.lastUsedSSHOptions;
+    const sshOptions = target;
     if (!sshOptions) {
       throw new AdapterError(this.adapterName, 'reverseTunnel',
-        new Error('No SSH connection available. Execute a command first or provide connection options.'));
+        new Error('An explicit SSH target is required; use a host-bound SSH context or pass connection options.'));
     }
     if (!Number.isInteger(options.localPort) || options.localPort < 1 || options.localPort > 65535 ||
         !Number.isInteger(options.remotePort) || options.remotePort < 0 || options.remotePort > 65535) {

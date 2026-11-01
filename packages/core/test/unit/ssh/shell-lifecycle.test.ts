@@ -9,7 +9,7 @@ function pendingShell() {
   const connection = new EventEmitter() as any;
   connection.shell = vi.fn();
   connection.end = vi.fn(); connection.destroy = vi.fn();
-  ssh.connection = connection;
+  (ssh as unknown as { transport: unknown }).transport = connection;
   return { ssh, connection };
 }
 
@@ -25,7 +25,7 @@ describe('existing NodeSSH shell lifecycle', () => {
   it('times out a refused-to-answer shell and destroys a late channel', async () => {
     const { ssh, connection } = pendingShell();
     await expect(ssh.requestShell({}, { timeoutMs: 10 })).rejects.toMatchObject({ code: 'ETIMEDOUT' });
-    const channel = { destroy: vi.fn() };
+    const channel = Object.assign(new EventEmitter(), { destroy: vi.fn() });
     connection.shell.mock.calls[0][1](undefined, channel);
     expect(channel.destroy).toHaveBeenCalledTimes(1);
     expect(connection.listenerCount('error')).toBe(0);

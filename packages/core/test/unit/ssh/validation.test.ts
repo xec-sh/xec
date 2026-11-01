@@ -164,13 +164,13 @@ describe('SSH Configuration Validation', () => {
         username: 'asd',
         host: 'localhost',
         privateKey: 1,
-      } as never)).rejects.toThrow('config.privateKey must be a valid string');
+      } as never)).rejects.toThrow('privateKey must be a string or Buffer');
 
       await expect(normalizeConfig({
         username: 'asd',
         host: 'localhost',
         privateKey: {},
-      } as never)).rejects.toThrow('config.privateKey must be a valid string');
+      } as never)).rejects.toThrow('privateKey must be a string or Buffer');
 
       await expect(normalizeConfig({
         username: 'asd',
@@ -178,7 +178,7 @@ describe('SSH Configuration Validation', () => {
         privateKey() {
           // No Op
         },
-      } as never)).rejects.toThrow('config.privateKey must be a valid string');
+      } as never)).rejects.toThrow('privateKey must be a string or Buffer');
     });
 
     it('should throw if privateKey is a file and does not exist', async () => {

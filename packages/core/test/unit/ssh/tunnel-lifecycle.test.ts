@@ -14,7 +14,7 @@ function fakeTransport() {
   const connection = new EventEmitter() as any;
   connection.forwardOut = vi.fn();
   connection.end = vi.fn(); connection.destroy = vi.fn();
-  ssh.connection = connection;
+  (ssh as unknown as { transport: unknown }).transport = connection;
   return { ssh, connection };
 }
 async function client(port: number): Promise<Socket> {
@@ -64,6 +64,23 @@ describe('local forward ownership', () => {
     connection.emit('close');
     await tunnel.closed;
     expect(connection.listenerCount('close')).toBe(0);
+  }, 3000);
+
+  it('makes the compatibility portForward API bind a real, owned local listener', async () => {
+    const { ssh, connection } = fakeTransport();
+    connection.forwardOut.mockImplementation((...args: any[]) => args.at(-1)(undefined, new PassThrough()));
+    const adapter = new SSHAdapter() as any;
+    cleanup.push(() => adapter.dispose());
+    const lease = { ssh, activeUseCount: 0, lastUsed: Date.now() };
+    vi.spyOn(adapter, 'getConnection').mockResolvedValue(lease);
+    const handle = await adapter.portForward(0, 'service.internal', 1234, { type: 'ssh', host: 'host.invalid', username: 'operator' });
+    const socket = await client(handle.localPort);
+    const reply = once(socket, 'data'); socket.write('roundtrip');
+    expect((await reply)[0].toString()).toBe('roundtrip');
+    expect(lease.activeUseCount).toBe(1);
+    await handle.close(); await handle.closed;
+    expect(lease.activeUseCount).toBe(0);
+    expect(connection.forwardOut.mock.calls[0].slice(2, 4)).toEqual(['service.internal', 1234]);
   }, 3000);
 
   it('bounds a forward request and rejects it when the connection closes', async () => {

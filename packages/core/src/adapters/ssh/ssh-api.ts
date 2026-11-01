@@ -1,7 +1,7 @@
-import type { SSHAdapter } from './index.js';
 import type { Duration } from '../../utils/helpers.js';
 import type { Command, SSHAdapterOptions } from '../../types/command.js';
 import type { ProcessPromise, ExecutionEngine } from '../../core/execution-engine.js';
+import type { SSHAdapter, SSHFileTransferOptions, SSHDirectoryTransferOptions } from './index.js';
 
 import { withEngineSurface } from '../target-surface.js';
 
@@ -59,9 +59,10 @@ export interface SSHExecutionContext {
     localHost?: string;
     localPort: number;
   }): Promise<ReverseSSHTunnel>;
-  uploadFile(localPath: string, remotePath: string): Promise<void>;
-  downloadFile(remotePath: string, localPath: string): Promise<void>;
-  uploadDirectory(localPath: string, remotePath: string): Promise<void>;
+  uploadFile(localPath: string, remotePath: string, options?: SSHFileTransferOptions): Promise<void>;
+  downloadFile(remotePath: string, localPath: string, options?: SSHFileTransferOptions): Promise<void>;
+  uploadDirectory(localPath: string, remotePath: string, options?: SSHDirectoryTransferOptions): Promise<void>;
+  downloadDirectory(remotePath: string, localPath: string, options?: SSHDirectoryTransferOptions): Promise<void>;
 
   // Chainable configuration methods
   env(env: Record<string, string>): SSHExecutionContext;
@@ -162,7 +163,7 @@ export function createSSHExecutionContext(
   /**
    * Upload a file via SFTP
    */
-  const uploadFile = async (localPath: string, remotePath: string): Promise<void> => {
+  const uploadFile = async (localPath: string, remotePath: string, options: SSHFileTransferOptions = {}): Promise<void> => {
     const adapter = engine.getAdapter('ssh') as SSHAdapter;
     if (!adapter) {
       throw new Error('SSH adapter not available');
@@ -171,13 +172,13 @@ export function createSSHExecutionContext(
     await adapter.uploadFile(localPath, remotePath, {
       type: 'ssh',
       ...sshOptions
-    });
+    }, options);
   };
 
   /**
    * Download a file via SFTP
    */
-  const downloadFile = async (remotePath: string, localPath: string): Promise<void> => {
+  const downloadFile = async (remotePath: string, localPath: string, options: SSHFileTransferOptions = {}): Promise<void> => {
     const adapter = engine.getAdapter('ssh') as SSHAdapter;
     if (!adapter) {
       throw new Error('SSH adapter not available');
@@ -186,13 +187,13 @@ export function createSSHExecutionContext(
     await adapter.downloadFile(remotePath, localPath, {
       type: 'ssh',
       ...sshOptions
-    });
+    }, options);
   };
 
   /**
    * Upload a directory via SFTP
    */
-  const uploadDirectory = async (localPath: string, remotePath: string): Promise<void> => {
+  const uploadDirectory = async (localPath: string, remotePath: string, options: SSHDirectoryTransferOptions = {}): Promise<void> => {
     const adapter = engine.getAdapter('ssh') as SSHAdapter;
     if (!adapter) {
       throw new Error('SSH adapter not available');
@@ -201,7 +202,13 @@ export function createSSHExecutionContext(
     await adapter.uploadDirectory(localPath, remotePath, {
       type: 'ssh',
       ...sshOptions
-    });
+    }, options);
+  };
+
+  const downloadDirectory = async (remotePath: string, localPath: string, options: SSHDirectoryTransferOptions = {}): Promise<void> => {
+    const adapter = engine.getAdapter('ssh') as SSHAdapter;
+    if (!adapter) throw new Error('SSH adapter not available');
+    await adapter.downloadDirectory(remotePath, localPath, { type: 'ssh', ...sshOptions }, options);
   };
 
   // Chainable configuration methods
@@ -259,6 +266,7 @@ export function createSSHExecutionContext(
     uploadFile,
     downloadFile,
     uploadDirectory,
+    downloadDirectory,
     env,
     cd,
     timeout,

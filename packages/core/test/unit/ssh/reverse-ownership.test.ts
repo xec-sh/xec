@@ -12,7 +12,7 @@ function transport() {
   const connection: any = new EventEmitter();
   connection.forwardIn = vi.fn((_host, _port, done) => done(undefined, 4040));
   connection.unforwardIn = vi.fn((_host, _port, done) => done());
-  ssh.connection = connection;
+  (ssh as unknown as { transport: unknown }).transport = connection;
   cleanups.push(() => { connection.emit('close'); });
   return { ssh, connection };
 }

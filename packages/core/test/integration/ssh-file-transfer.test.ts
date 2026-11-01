@@ -498,7 +498,7 @@ describeSSH('SSH File Transfer Tests', () => {
       }
     });
 
-    testEachPackageManager.skip('should download entire directory', async (container) => {
+    testEachPackageManager('should download entire directory', async (container) => {
       const ssh = new SSHAdapter();
       const sshConfig = getSSHConfig(container.name);
       const $ssh = $.ssh(sshConfig);
@@ -507,7 +507,6 @@ describeSSH('SSH File Transfer Tests', () => {
         await fs.mkdir(localTempDir, { recursive: true });
         await $ssh`mkdir -p ${remoteTempDir}`;
 
-        // downloadDirectory method doesn't exist in SSHAdapter
         const dirName = 'download-dir';
         const remoteDir = join(remoteTempDir, dirName);
         const localDir = join(localTempDir, dirName);
@@ -519,7 +518,7 @@ describeSSH('SSH File Transfer Tests', () => {
         await $ssh`echo "remote3" > ${remoteDir}/subdir/file3.txt`;
 
         // Download directory
-        // await ssh.downloadDirectory(remoteDir, localDir, sshOptions);
+        await $ssh.downloadDirectory(remoteDir, localDir);
 
         // Verify structure
         const file1 = await fs.readFile(join(localDir, 'file1.txt'), 'utf8');

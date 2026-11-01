@@ -271,8 +271,10 @@ const sidebars: SidebarsConfig = {
             'targets/ssh/connection-config',
             'targets/ssh/authentication',
             'targets/ssh/sudo-security',
-            'targets/ssh/tunneling',
+            'targets/ssh/interactive-shell',
+                'targets/ssh/tunneling',
             'targets/ssh/batch-operations',
+                'targets/ssh/reliability',
           ],
         },
         {

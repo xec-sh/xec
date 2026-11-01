@@ -66,6 +66,9 @@ jobs:
 
       - run: pnpm build:full
 
+      - name: SSH public dependency boundary
+        run: pnpm check:ssh-boundary
+
       - name: core unit
         run: pnpm --filter @xec-sh/core test:unit
 
@@ -151,6 +154,9 @@ jobs:
       # `...` builds the package and everything it depends on.
       - name: build
         run: pnpm --filter @xec-sh/cli... build
+
+      - name: SSH public dependency boundary
+        run: pnpm check:ssh-boundary
 
       - name: core unit
         run: pnpm --filter @xec-sh/core test:unit

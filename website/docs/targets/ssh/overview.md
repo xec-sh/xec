@@ -9,7 +9,7 @@ sidebar_position: 1
 
 ## Overview
 
-SSH targets run commands on remote hosts. The adapter (`packages/core/src/adapters/ssh/`) pools connections per host, retries a command once on a fresh connection if the transport dies mid-flight, and layers sudo, SFTP transfer, and port forwarding on top of a single `ssh2` connection.
+SSH targets run commands on remote hosts through Xec's connection pool, host verification, command lifecycle, SFTP and forwarding APIs. The protocol implementation is an internal dependency: applications import only Xec, including its SSH types. A connection failure before dispatch can be retried; a lost command reply cannot be replayed safely. See [SSH reliability and ownership](./reliability.md).
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -75,7 +75,7 @@ await restart($.ssh('deploy@web-1'), 'api');
 await restart($.docker('api'), 'nginx');
 ```
 
-On top of that, an SSH context adds what only SSH can offer: `.tunnel()`, `.reverseTunnel()`, `.uploadFile()`, `.downloadFile()` and `.uploadDirectory()`. Those survive `.with()`, so configuring a target does not cost you the reason you chose it.
+On top of that, an SSH context adds what only SSH can offer: `.tunnel()`, `.reverseTunnel()`, `.uploadFile()`, `.downloadFile()`, `.uploadDirectory()` and `.downloadDirectory()`. Those survive `.with()`, so configuring a target does not cost you the reason you chose it.
 
 ### Streaming
 
@@ -103,9 +103,10 @@ const web = $.ssh('deploy@web-1');
 await web.uploadFile('./dist/app.js', '/var/www/app.js');
 await web.downloadFile('/var/log/app.log', './app.log');
 await web.uploadDirectory('./dist', '/var/www/html');
+await web.downloadDirectory('/var/log/app', './logs');
 ```
 
-There is no `downloadDirectory` — only single-file download and directory upload are exposed. SFTP can be disabled adapter-wide (`sftp: { enabled: false }`); see [Connection Configuration](./connection-config.md).
+Directory transfers preserve empty directories and include hidden files unless a `validate` callback excludes them. Symbolic links and special files are not traversed or copied. SFTP can be disabled adapter-wide (`sftp: { enabled: false }`); see [Connection Configuration](./connection-config.md).
 
 ## Sudo
 
@@ -153,7 +154,7 @@ try {
 
 Every error thrown by the adapter extends `ExecutionError`, which carries a stable `.kind` (`'connection-lost' | 'connection-refused' | 'timeout' | 'authentication' | 'host-key-mismatch' | 'command-failed' | ...`) and a `.recoverable` getter — branch on `.kind`, not on `.message`, which changes between versions. `error.code` is a fixed string like `'CONNECTION_FAILED'`, not an OS errno; the errno (`ECONNREFUSED`, etc.) is on `error.originalError` for `ConnectionError`.
 
-A command that fails because a pooled connection died mid-flight is retried automatically, once, on a fresh connection — you only see the final failure.
+A command whose completion cannot be confirmed fails with `kind: 'outcome-unknown'` and `recoverable: false`. Xec does not replay it, including through `.retry()`. Verify the remote effect before an explicit retry. Cancellation and channel closure do not prove termination of detached remote processes.
 
 ## Events
 

@@ -448,7 +448,8 @@ export {
   // Thrown when output passes maxBuffer. Exported because the caller has to be
   // able to tell truncated output from a command that genuinely printed
   // little, and `instanceof` is how they do it.
-  MaxBufferExceededError
+  MaxBufferExceededError,
+  ExecutionOutcomeUnknownError
 } from './core/error.js';
 /**
  * Event types.
@@ -457,6 +458,8 @@ export {
  * event handler — the observed result was `(event: any)` at every call site
  * in a project that is otherwise strictly typed.
  */
+export type * from './adapters/ssh/contracts.js';
+export type { SSHFileTransferOptions, SSHDirectoryTransferOptions } from './adapters/ssh/index.js';
 export type {
   UshEvent,
   UshEventMap,

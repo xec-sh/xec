@@ -1,25 +1,27 @@
-import type {
-  Stats,
-  Prompt,
-  Client,
-  Channel,
-  ExecOptions,
-  SFTPWrapper,
-  ShellOptions,
-  ClientChannel,
-  ConnectConfig,
-  TransferOptions,
-  AcceptConnection,
-  PseudoTtyOptions,
-  RejectConnection,
-  TcpConnectionDetails,
-  UNIXConnectionDetails,
-} from 'ssh2'
+import type { Client, ConnectConfig } from 'ssh2'
+import type { SSHAgent, SSHParsedKey, SSHAuthMethod, SSHSignCallback, SSHAgentAuthMethod, SFTPStats as Stats, SSHConnectionConfig,
+    SSHAuthenticationType,
+  SSHSigningRequestOptions,
+  SFTPClient as SFTPWrapper,
+  SSHChannel as ClientChannel,
+  SSHForwardChannel as Channel,
+  SSHShellOptions as ShellOptions,
+  SSHChannelExecOptions as ExecOptions,
+  SFTPTransferOptions as TransferOptions,
+  SSHAcceptConnection as AcceptConnection,
+  SSHPseudoTtyOptions as PseudoTtyOptions,
+  SSHRejectConnection as RejectConnection,
+  SSHTcpConnectionDetails as TcpConnectionDetails,
+  SSHUNIXConnectionDetails as UNIXConnectionDetails
+ } from './contracts.js'
+
+export type * from './contracts.js'
 
 import fsPath from 'node:path'
 import stream from 'node:stream'
 import fs from 'node:fs/promises'
 import { createHash } from 'node:crypto'
+import { EventEmitter } from 'node:events'
 import { createRequire } from 'node:module'
 import { constants as fsConstants } from 'node:fs'
 import invariant, { AssertionError } from 'node:assert'
@@ -36,14 +38,41 @@ import invariant, { AssertionError } from 'node:assert'
  * synchronous load its callers expect.
  */
 const requireModule = createRequire(import.meta.url)
-let ssh2Module: { Client: typeof Client } | null = null
-const loadSSH2 = (): { Client: typeof Client } => {
-  ssh2Module ??= requireModule('ssh2') as { Client: typeof Client }
+type SSHTransportModule = Pick<typeof import('ssh2'), 'Client' | 'BaseAgent'>
+let ssh2Module: SSHTransportModule | null = null
+const loadSSH2 = (): SSHTransportModule => {
+  ssh2Module ??= requireModule('ssh2') as SSHTransportModule
   return ssh2Module
 }
 
+/** Adapt the Xec agent contract; callers never inherit a transport-library class. */
+function adaptAgent(agent: string | SSHAgent | undefined): string | SSHAgent | undefined {
+  if (!agent || typeof agent === 'string') return agent
+  const delegate = agent
+  const { BaseAgent } = loadSSH2()
+  class AgentBridge extends BaseAgent {
+    override getIdentities: SSHAgent['getIdentities'] = callback => delegate.getIdentities(callback)
+    override sign(key: SSHParsedKey | Buffer | string, data: Buffer, options: SSHSigningRequestOptions | SSHSignCallback, callback?: SSHSignCallback): void {
+      if (typeof options === 'function') delegate.sign(key, data, {}, options)
+      else delegate.sign(key, data, options, callback ?? (() => {}))
+    }
+    override getStream: SSHAgent['getStream'] = callback => {
+      if (delegate.getStream) delegate.getStream(callback)
+      else callback(new SSHError('This SSH agent does not support forwarding', 'ENOTSUP'))
+    }
+  }
+  return new AgentBridge()
+}
+
 import { escapeUnix } from '../../utils/shell-escape.js'
-import { KnownHostsVerifier, type HostKeyChecking } from './known-hosts.js'
+import { manageSFTP, type SFTPRequestOptions } from './sftp-lifecycle.js'
+import { SSHError, requestResource, watchConnection, connectionFailure, type SSHRequestOptions } from './request-lifecycle.js'
+
+export { SSHError } from './request-lifecycle.js'
+export type { SFTPRequestOptions } from './sftp-lifecycle.js'
+export type { SSHRequestOptions } from './request-lifecycle.js'
+import { KnownHostsVerifier } from './known-hosts.js'
+import { MaxBufferExceededError, ExecutionOutcomeUnknownError } from '../../core/error.js'
 
 // Helper functions to replace external dependencies
 function isReadableStream(obj: any): obj is stream.Readable {
@@ -56,90 +85,74 @@ function isReadableStream(obj: any): obj is stream.Readable {
 }
 
 class PromiseQueue {
-  private concurrency: number;
-  private running: number = 0;
-  private queue: Array<() => void> = [];
+  private running = 0
+  private queue: Array<() => void> = []
+  private readonly concurrency: number
+  private readonly maxPending: number
 
-  constructor({ concurrency = 1 }: { concurrency?: number }) {
-    this.concurrency = concurrency;
+  constructor({ concurrency = 1, maxPending = Number.MAX_SAFE_INTEGER }: { concurrency?: number; maxPending?: number }) {
+    invariant(Number.isInteger(concurrency) && concurrency > 0, 'concurrency must be a positive integer')
+    this.concurrency = concurrency
+    this.maxPending = maxPending
   }
 
-  add<T>(fn: () => Promise<T>): Promise<T> {
+  add<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+    if (signal?.aborted) return Promise.reject(new SSHError('SSH operation cancelled', 'ABORT_ERR'))
+    if (this.queue.length >= this.maxPending) return Promise.reject(new SSHError('SSH pending channel limit exceeded', 'ENOBUFS'))
     return new Promise((resolve, reject) => {
-      const runTask = async () => {
-        this.running++;
-        try {
-          const result = await fn();
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        } finally {
-          this.running--;
-          this.processQueue();
-        }
-      };
-
-      if (this.running < this.concurrency) {
-        runTask();
-      } else {
-        this.queue.push(runTask);
+      const cancelled = () => {
+        const index = this.queue.indexOf(run)
+        if (index < 0) return
+        this.queue.splice(index, 1)
+        signal?.removeEventListener('abort', cancelled)
+        reject(new SSHError('SSH operation cancelled before dispatch', 'ABORT_ERR'))
+        this.processQueue()
       }
-    });
+      const run = () => {
+        signal?.removeEventListener('abort', cancelled)
+        this.running++
+        void Promise.resolve().then(() => {
+          if (signal?.aborted) throw new SSHError('SSH operation cancelled before dispatch', 'ABORT_ERR')
+          return fn()
+        }).then(resolve, reject).finally(() => { this.running--; this.processQueue() })
+      }
+      if (this.running < this.concurrency) run()
+      else { this.queue.push(run); signal?.addEventListener('abort', cancelled, { once: true }) }
+    })
   }
 
-  private processQueue() {
-    if (this.queue.length > 0 && this.running < this.concurrency) {
-      const task = this.queue.shift();
-      if (task) task();
+  private processQueue(): void {
+    while (this.queue.length && this.running < this.concurrency) this.queue.shift()!()
+  }
+
+}
+
+async function transferBatch<T>(items: T[], concurrency: number, transfer: (item: T) => Promise<void>): Promise<void> {
+  invariant(Number.isInteger(concurrency) && concurrency > 0, 'concurrency must be a positive integer')
+  let next = 0
+  const failures: unknown[] = []
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (!failures.length && next < items.length) {
+      const item = items[next++]!
+      try { await transfer(item) } catch (error) { failures.push(error) }
     }
-  }
-
-  async waitTillIdle(): Promise<void> {
-    return new Promise((resolve) => {
-      const check = () => {
-        if (this.running === 0 && this.queue.length === 0) {
-          resolve();
-        } else {
-          setImmediate(check);
-        }
-      };
-      check();
-    });
-  }
+  }))
+  if (failures.length === 1) throw failures[0]
+  if (failures.length) throw new AggregateError(failures, 'SSH file transfer failed')
 }
 
-export type Config = ConnectConfig & {
-  /** Cancel an in-flight handshake. Cancellation never retries authentication. */
-  signal?: AbortSignal
-  /** Exact OpenSSH SHA256 pin, checked before authentication. Cannot be combined with hostVerifier. */
-  expectedHostFingerprint?: string
-  /**
-   * Host key checking policy.
-   *
-   * `ssh2` performs no verification unless a `hostVerifier` is supplied, so
-   * omitting this would let any machine-in-the-middle present its own key and
-   * read every command and credential on the session. Defaults to
-   * `accept-new`.
-   */
-  hostKeyChecking?: HostKeyChecking
-  /** Override the `known_hosts` file consulted. */
-  knownHostsPath?: string
-  password?: string
-  privateKey?: string
-  privateKeyPath?: string
-  tryKeyboard?: boolean
-  onKeyboardInteractive?: (
-    name: string,
-    instructions: string,
-    lang: string,
-    prompts: Prompt[],
-    finish: (responses: string[]) => void,
-  ) => void
-}
+/** Compatibility alias for the Xec connection contract. */
+export type Config = SSHConnectionConfig
 
 export interface SSHExecCommandOptions {
   cwd?: string
-  stdin?: string | stream.Readable
+  /** Cancellation covers both waiting for a channel slot and execution. */
+  signal?: AbortSignal
+  /** Deadline for the server to acknowledge the exec request, not command duration. */
+  channelOpenTimeoutMs?: number
+  /** Per-stream retained output limit; defaults to 10 MiB. */
+  maxBuffer?: number
+  stdin?: string | Buffer | stream.Readable
   execOptions?: ExecOptions
   encoding?: BufferEncoding
   noTrim?: boolean
@@ -162,13 +175,13 @@ export interface SSHExecOptions extends SSHExecCommandOptions {
   stream?: 'stdout' | 'stderr' | 'both'
 }
 
-interface SSHPutFilesOptions {
+export interface SSHPutFilesOptions extends SFTPRequestOptions {
   sftp?: SFTPWrapper | null
   concurrency?: number
   transferOptions?: TransferOptions
 }
 
-interface SSHGetPutDirectoryOptions extends SSHPutFilesOptions {
+export interface SSHGetPutDirectoryOptions extends SSHPutFilesOptions {
   tick?: (localFile: string, remoteFile: string, error: Error | null) => void
   validate?: (path: string) => boolean
   recursive?: boolean
@@ -198,16 +211,11 @@ interface SSHForwardInStreamLocalDetails {
 }
 
 const DEFAULT_CONCURRENCY = 1
-const DEFAULT_VALIDATE = (path: string) => !fsPath.basename(path).startsWith('.')
+const DEFAULT_VALIDATE = () => true
 const DEFAULT_TICK = () => {
   /* No Op */
 }
 
-export class SSHError extends Error {
-  constructor(message: string, public code: string | null = null) {
-    super(message)
-  }
-}
 
 function unixifyPath(path: string) {
   if (path.includes('\\')) {
@@ -233,8 +241,9 @@ async function makeDirectoryWithSftp(path: string, sftp: SFTPWrapper) {
         }
       })
     })
-  } catch {
-    /* No Op */
+  } catch (error) {
+    const code = (error as { code?: number | string }).code
+    if (code !== 2 && code !== 'ENOENT') throw error
   }
   if (stats) {
     if (stats.isDirectory()) {
@@ -259,13 +268,19 @@ async function makeDirectoryWithSftp(path: string, sftp: SFTPWrapper) {
       if (matches != null) {
         throw new SSHError(err.message, matches[1])
       }
-      throw err
     }
+    throw err
   }
 }
 
 export class NodeSSH {
-  connection: Client | null = null
+  private transport: Client | null = null
+  private lifecycle: EventEmitter | null = null
+
+  /** Connection lifecycle events only; the underlying SSH transport is private. */
+  get connection(): Pick<EventEmitter, 'on' | 'once' | 'off' | 'removeListener'> | null {
+    return this.transport ? this.lifecycle : null
+  }
 
   /**
    * Session channels in flight over this connection.
@@ -277,10 +292,10 @@ export class NodeSSH {
    * two grants in hand for anything else the connection carries (an SFTP
    * subsystem is a session too).
    */
-  private channelQueue = new PromiseQueue({ concurrency: 8 })
+  private channelQueue = new PromiseQueue({ concurrency: 8, maxPending: 256 })
 
   private getConnection(): Client {
-    const { connection } = this
+    const connection = this.transport
     if (connection == null) {
       throw new Error('Not connected to server')
     }
@@ -329,7 +344,7 @@ export class NodeSSH {
 
     if (config.privateKey != null || config.privateKeyPath != null) {
       if (config.privateKey != null) {
-        invariant(typeof config.privateKey === 'string', 'config.privateKey must be a valid string')
+        invariant(typeof config.privateKey === 'string' || Buffer.isBuffer(config.privateKey), 'privateKey must be a string or Buffer')
         invariant(
           config.privateKeyPath == null,
           'config.privateKeyPath must not be specified when config.privateKey is specified',
@@ -343,7 +358,7 @@ export class NodeSSH {
       }
 
       invariant(
-        config.passphrase == null || typeof config.passphrase === 'string',
+        config.passphrase == null || typeof config.passphrase === 'string' || Buffer.isBuffer(config.passphrase),
         'config.passphrase must be null or a valid string',
       )
 
@@ -382,8 +397,17 @@ export class NodeSSH {
     }
 
     if (config.signal?.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR')
+    invariant(this.transport === null, 'Dispose the existing SSH connection before connecting again')
     const connection = new (loadSSH2().Client)()
-    this.connection = connection
+    this.transport = connection
+    // Retain terminal evidence across the gap between opening and handing off a resource.
+    watchConnection(connection, () => {})
+    const lifecycle = new EventEmitter()
+    lifecycle.on('error', () => {})
+    this.lifecycle = lifecycle
+    for (const event of ['error', 'close', 'end', 'ready', 'banner', 'greeting', 'handshake', 'change password', 'x11'] as const) {
+      connection.on(event as 'error', (...args: unknown[]) => { lifecycle.emit(event, ...args) })
+    }
 
     // Verify the server's host key. Without this ssh2 accepts whatever key is
     // presented, which makes every session interceptable.
@@ -399,6 +423,8 @@ export class NodeSSH {
       }
     }
     if (!config.hostVerifier) {
+      // Xec verifies the public key blob, never a hash with caller-selected encoding.
+      delete config.hostHash
       const verifier = new KnownHostsVerifier(
         config.hostKeyChecking ?? 'accept-new',
         config.knownHostsPath,
@@ -434,18 +460,27 @@ export class NodeSSH {
         connection.on('error', error => { cleanup(); reject(hostKeyRejection ?? error) })
         if (config.onKeyboardInteractive) connection.on('keyboard-interactive', config.onKeyboardInteractive)
         connection.once('ready', () => { cleanup(); resolve() })
-        connection.once('end', () => { if (this.connection === connection) this.connection = null })
+        connection.once('end', () => { if (this.transport === connection) this.transport = null })
         connection.once('close', () => {
           cleanup()
-          if (this.connection === connection) this.connection = null
+          if (this.transport === connection) this.transport = null
           reject(new SSHError('No response from server', 'ETIMEDOUT'))
         })
         const { signal: _signal, ...wireConfig } = config
-        connection.connect(wireConfig)
+        wireConfig.agent = adaptAgent(config.agent)
+        const adaptMethod = (method: SSHAuthenticationType | SSHAuthMethod | false) =>
+          typeof method === 'object' && method.type === 'agent'
+            ? { ...method, agent: adaptAgent((method as SSHAgentAuthMethod).agent) } : method
+        if (Array.isArray(config.authHandler)) wireConfig.authHandler = config.authHandler.map(adaptMethod) as Config['authHandler']
+        else if (config.authHandler) {
+          const handler = config.authHandler
+          wireConfig.authHandler = (left, partial, next) => handler(left, partial, method => next(adaptMethod(method) as typeof method))
+        }
+        connection.connect(wireConfig as ConnectConfig)
       })
     } catch (error) {
       connection.destroy()
-      if (this.connection === connection) this.connection = null
+      if (this.transport === connection) this.transport = null
       throw error
     }
 
@@ -453,83 +488,67 @@ export class NodeSSH {
   }
 
   public isConnected(): boolean {
-    return this.connection != null
+    return this.transport != null
   }
 
   async requestShell(
     options?: PseudoTtyOptions | ShellOptions | false,
-    request: { timeoutMs?: number; signal?: AbortSignal } = {},
+    request: SSHRequestOptions = {},
   ): Promise<ClientChannel> {
     const connection = this.getConnection()
-    const timeoutMs = request.timeoutMs ?? 15000
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new SSHError('Shell timeout must be positive', 'EINVAL')
-    if (request.signal?.aborted) throw new SSHError('SSH shell request cancelled', 'ABORT_ERR')
-    return new Promise((resolve, reject) => {
-      let settled = false
-      const cleanup = () => {
-        clearTimeout(timer)
-        connection.removeListener('error', failed)
-        connection.removeListener('close', closed)
-        request.signal?.removeEventListener('abort', cancelled)
-      }
-      const failed = (error: Error) => {
-        if (settled) return
-        settled = true; cleanup(); reject(error)
-      }
-      const closed = () => failed(new SSHError('Connection closed while opening shell', 'ECONNRESET'))
-      const cancelled = () => failed(new SSHError('SSH shell request cancelled', 'ABORT_ERR'))
-      const timer = setTimeout(() => failed(new SSHError('SSH shell request timed out', 'ETIMEDOUT')), timeoutMs)
-      connection.once('error', failed)
-      connection.once('close', closed)
-      request.signal?.addEventListener('abort', cancelled, { once: true })
-      const callback = (error: Error | undefined, channel: ClientChannel) => {
-        if (settled) { channel?.destroy(); return }
-        if (error) { failed(error); return }
-        settled = true; cleanup(); resolve(channel)
-      }
-      try {
-        if (options == null) connection.shell(callback)
-        else connection.shell(options as never, callback)
-      } catch (error) { failed(error instanceof Error ? error : new Error(String(error))) }
-    })
+    return requestResource(connection, 'SSH shell request', request, done => {
+      if (options == null) connection.shell(done)
+      else connection.shell(options as never, done)
+    }, channel => { channel.on('error', () => {}); channel.destroy() })
   }
 
-  async withShell(
-    callback: (channel: ClientChannel) => Promise<void>,
+  async withShell<T>(
+    callback: (channel: ClientChannel) => Promise<T>,
     options?: PseudoTtyOptions | ShellOptions | false,
-  ): Promise<void> {
+    request: SSHRequestOptions = {},
+  ): Promise<T> {
     invariant(typeof callback === 'function', 'callback must be a valid function')
 
-    const shell = await this.requestShell(options)
+    const shell = await this.requestShell(options, request)
     try {
-      await callback(shell)
+      return await callback(shell)
     } finally {
       shell.destroy()
     }
   }
 
-  async requestSFTP(): Promise<SFTPWrapper> {
+  async requestSubsystem(name: string, request: SSHRequestOptions = {}): Promise<ClientChannel> {
+    invariant(typeof name === 'string' && name.length > 0, 'subsystem name must not be empty')
     const connection = this.getConnection()
-
-    return new Promise((resolve, reject) => {
-      connection.on('error', reject)
-      connection.sftp((err, res) => {
-        connection.removeListener('error', reject)
-        if (err) {
-          reject(err)
-        } else {
-          resolve(res)
-        }
-      })
-    })
+    return requestResource(connection, 'SSH subsystem request', request, done => connection.subsys(name, done),
+      late => { late.on('error', () => {}); late.destroy() })
   }
 
-  async withSFTP(callback: (sftp: SFTPWrapper) => Promise<void>): Promise<void> {
+  setNoDelay(enabled = true): this {
+    this.getConnection().setNoDelay(enabled)
+    return this
+  }
+
+  /** Irreversibly refuse new sessions on this connection while retaining existing channels. */
+  async denyNewSessions(request: SSHRequestOptions = {}): Promise<void> {
+    const connection = this.getConnection()
+    await requestResource(connection, 'SSH session restriction', request,
+      done => connection.openssh_noMoreSessions(error => done(error, true)), () => {})
+  }
+
+  async requestSFTP(request: SFTPRequestOptions = {}): Promise<SFTPWrapper> {
+    const connection = this.getConnection()
+    const sftp = await requestResource<SFTPWrapper>(connection, 'SSH SFTP request', request,
+      done => connection.sftp(done), late => { late.on('error', () => {}); late.destroy() })
+    return manageSFTP(sftp, connection, request)
+  }
+
+  async withSFTP<T>(callback: (sftp: SFTPWrapper) => Promise<T>, request: SFTPRequestOptions = {}): Promise<T> {
     invariant(typeof callback === 'function', 'callback must be a valid function')
 
-    const sftp = await this.requestSFTP()
+    const sftp = await this.requestSFTP(request)
     try {
-      await callback(sftp)
+      return await callback(sftp)
     } finally {
       sftp.end()
     }
@@ -540,7 +559,7 @@ export class NodeSSH {
     invariant(options != null && typeof options === 'object', 'options must be a valid object')
     invariant(options.cwd == null || typeof options.cwd === 'string', 'options.cwd must be a valid string')
     invariant(
-      options.stdin == null || typeof options.stdin === 'string' || isReadableStream(options.stdin),
+      options.stdin == null || typeof options.stdin === 'string' || Buffer.isBuffer(options.stdin) || isReadableStream(options.stdin),
       'options.stdin must be a valid string or readable stream',
     )
     invariant(
@@ -565,7 +584,7 @@ export class NodeSSH {
     let command = givenCommand
 
     if (options.cwd) {
-      command = `cd ${escapeUnix([options.cwd])} ; ${command}`
+      command = `cd ${escapeUnix([options.cwd])} && ${command}`
     }
     const connection = this.getConnection()
 
@@ -575,8 +594,12 @@ export class NodeSSH {
     // below our own cap (MaxSessions 2 exists in the wild) refuses even
     // queued openings, and those grants free up as siblings close.
     const attemptExec = (attempt: number): Promise<SSHExecCommandResponse> =>
-      this.channelQueue.add(() => this.execOnChannel(connection, command, options)).catch(err => {
-        const refused = err instanceof Error && /channel open failure/i.test(err.message)
+      this.channelQueue.add(() => {
+        if (this.transport !== connection || connectionFailure(connection)) throw new SSHError('SSH connection closed before dispatch', 'ECONNRESET')
+        return this.execOnChannel(connection, command, options)
+      }, options.signal).catch(err => {
+        const reason = err instanceof Error ? (err as Error & { reason?: number }).reason : undefined
+        const refused = reason === 1 || reason === 4
         if (refused && attempt < 3) {
           return new Promise(resolve => setTimeout(resolve, 50 * 2 ** attempt)).then(() => attemptExec(attempt + 1))
         }
@@ -591,62 +614,102 @@ export class NodeSSH {
     command: string,
     options: SSHExecCommandOptions,
   ): Promise<SSHExecCommandResponse> {
-    const output: { stdout: string[]; stderr: string[] } = { stdout: [], stderr: [] }
-
+    const output: { stdout: Buffer[]; stderr: Buffer[] } = { stdout: [], stderr: [] }
+    const bytes = { stdout: 0, stderr: 0 }
+    const maxBuffer = options.maxBuffer ?? 10 * 1024 * 1024
+    const openTimeout = options.channelOpenTimeoutMs ?? 15000
+    if (!Number.isSafeInteger(maxBuffer) || maxBuffer < 0 || !Number.isFinite(openTimeout) || openTimeout <= 0) {
+      return Promise.reject(new SSHError('Invalid SSH execution limits', 'EINVAL'))
+    }
     return new Promise((resolve, reject) => {
-      connection.on('error', reject)
-      connection.exec(command, options.execOptions != null ? options.execOptions : {}, (err, channel) => {
-        connection.removeListener('error', reject)
-        if (err) {
-          reject(err)
-          return
+      let channel: ClientChannel | undefined
+      let settled = false
+      let code: number | null = null, signal: string | null = null
+      const input = isReadableStream(options.stdin) ? options.stdin : undefined
+      const ignoreLateError = () => {}
+      const cleanup = () => {
+        clearTimeout(timer)
+        options.signal?.removeEventListener('abort', cancelled)
+        unwatch()
+        input?.off('error', failed)
+        if (channel) {
+          input?.unpipe(channel)
+          channel.off('error', failed)
+          channel.stderr.off('error', failed)
+          // Late transport errors after disposal must not become uncaught.
+          channel.on('error', ignoreLateError)
+          channel.stderr.on('error', ignoreLateError)
+          channel.off('data', stdout)
+          channel.stderr.off('data', stderr)
+          channel.off('exit', exited)
+          channel.off('close', closed)
         }
-        if (options.onChannel) {
-          options.onChannel(channel)
-        }
-        channel.on('data', (chunk: Buffer) => {
-          if (options.onStdout) options.onStdout(chunk)
-          if (options.collectStdout !== false) output.stdout.push(chunk.toString(options.encoding))
-        })
-        channel.stderr.on('data', (chunk: Buffer) => {
-          if (options.onStderr) options.onStderr(chunk)
-          if (options.collectStderr !== false) output.stderr.push(chunk.toString(options.encoding))
-        })
-        if (options.stdin != null) {
-          if (isReadableStream(options.stdin)) {
-            options.stdin.pipe(channel, {
-              end: true,
-            })
-          } else {
-            channel.write(options.stdin)
-            channel.end()
+      }
+      const terminate = () => {
+        if (!channel) return
+        try { channel.signal('TERM') } catch { /* the peer may already be gone */ }
+        try { channel.destroy() } catch { /* transport closure owns final cleanup */ }
+      }
+      const failed = (error: Error) => {
+        if (settled) return
+        settled = true; cleanup(); terminate(); reject(error)
+      }
+      const transportFailed = (error: Error) => failed(new ExecutionOutcomeUnknownError(error))
+      const cancelled = () => failed(new SSHError('SSH execution cancelled; remote termination is not confirmed', 'ABORT_ERR'))
+      const capture = (name: 'stdout' | 'stderr', chunk: Buffer) => {
+        if (settled) return
+        try {
+          const collect = name === 'stdout' ? options.collectStdout !== false : options.collectStderr !== false
+          if (collect) {
+            if (bytes[name] + chunk.length > maxBuffer) throw new MaxBufferExceededError(maxBuffer, name)
+            bytes[name] += chunk.length
+            output[name].push(Buffer.from(chunk))
           }
-        } else {
-          channel.end()
+          if (name === 'stdout') options.onStdout?.(chunk)
+          else options.onStderr?.(chunk)
+        } catch (error) { failed(error instanceof Error ? error : new Error(String(error))) }
+      }
+      const stdout = (chunk: Buffer) => capture('stdout', chunk)
+      const stderr = (chunk: Buffer) => capture('stderr', chunk)
+      const exited = (status: number | null, exitSignal: string | null) => { code = status ?? null; signal = exitSignal ?? null }
+      const closed = (status?: number | null, exitSignal?: string | null) => {
+        if (settled) return
+        code ??= status ?? null; signal ??= exitSignal ?? null
+        if (code === null && signal === null) { failed(new ExecutionOutcomeUnknownError()); return }
+        settled = true; cleanup()
+        const decode = (chunks: Buffer[]) => {
+          const text = Buffer.concat(chunks).toString(options.encoding)
+          return options.noTrim === true ? text : text.trim()
         }
-
-        let code: number | null = null
-        let signal: string | null = null
-        channel.on('exit', (code_: number | null, signal_: string | null) => {
-          code = code_ ?? null
-          signal = signal_ ?? null
-        })
-        channel.on('close', () => {
-          let stdout = output.stdout.join('')
-          let stderr = output.stderr.join('')
-          if (options.noTrim !== true) {
-            stdout = stdout.trim()
-            stderr = stderr.trim()
+        resolve({ code, signal, stdout: decode(output.stdout), stderr: decode(output.stderr) })
+      }
+      const timer = setTimeout(() => failed(new ExecutionOutcomeUnknownError(new SSHError('SSH exec acknowledgement timed out', 'ETIMEDOUT'))), openTimeout)
+      const unwatch = watchConnection(connection, transportFailed)
+      options.signal?.addEventListener('abort', cancelled, { once: true })
+      if (options.signal?.aborted) { cancelled(); return }
+      try {
+        connection.exec(command, options.execOptions ?? {}, (error, opened) => {
+          if (settled) { opened?.on('error', () => {}); opened?.destroy(); return }
+          clearTimeout(timer)
+          if (error) {
+            const refused = (error as Error & { reason?: number }).reason !== undefined
+            failed(refused ? error : new ExecutionOutcomeUnknownError(error)); return
           }
-
-          resolve({
-            code: code != null ? code : null,
-            signal: signal != null ? signal : null,
-            stdout,
-            stderr,
-          })
+          channel = opened
+          channel.on('error', failed)
+          channel.stderr.on('error', failed)
+          channel.on('data', stdout)
+          channel.stderr.on('data', stderr)
+          channel.on('exit', exited)
+          channel.once('close', closed)
+          try {
+            options.onChannel?.(channel)
+            if (settled) return
+            if (input) { input.once('error', failed); input.pipe(channel) }
+            else channel.end(options.stdin ?? undefined)
+          } catch (callbackError) { failed(callbackError instanceof Error ? callbackError : new Error(String(callbackError))) }
         })
-      })
+      } catch (error) { failed(error instanceof Error ? error : new Error(String(error))) }
     })
   }
 
@@ -693,7 +756,7 @@ export class NodeSSH {
 
     const makeSftpDirectory = async (retry: boolean) =>
       makeDirectoryWithSftp(unixifyPath(path), sftp).catch(async (error: SSHError) => {
-        if (!retry || error == null || (error.message !== 'No such file' && error.code !== 'ENOENT')) {
+        if (!retry || error == null || (error.message !== 'No such file' && error.code !== 'ENOENT' && (error.code as unknown) !== 2)) {
           throw error
         }
         await this.mkdir(fsPath.dirname(path), 'sftp', sftp)
@@ -763,7 +826,7 @@ export class NodeSSH {
           return
         }
 
-        if (err.message === 'No such file' && retry) {
+        if ((err.message === 'No such file' || (err as Error & { code?: number }).code === 2) && retry) {
           resolve(this.mkdir(fsPath.dirname(remoteFile), 'sftp', sftp).then(() => putFile(false)))
         } else {
           reject(err)
@@ -795,204 +858,62 @@ export class NodeSSH {
 
     const transferred: typeof files = []
     const sftp = givenSftp || (await this.requestSFTP())
-    const queue = new PromiseQueue({ concurrency })
-
     try {
-      await new Promise((resolve, reject) => {
-        files.forEach((file) => {
-          queue
-            .add(async () => {
-              await this.putFile(file.local, file.remote, sftp, transferOptions)
-              transferred.push(file)
-            })
-            .catch(reject)
-        })
-
-        queue.waitTillIdle().then(resolve)
+      await transferBatch(files, concurrency, async file => {
+        await this.putFile(file.local, file.remote, sftp, transferOptions)
+        transferred.push(file)
       })
-    } catch (error: any) {
-      if (error != null) {
-        error.transferred = transferred
-      }
+    } catch (error) {
+      if (error instanceof Error) Object.assign(error, { transferred })
       throw error
-    } finally {
-      if (!givenSftp) {
-        sftp.end()
-      }
-    }
+    } finally { if (!givenSftp) sftp.end() }
   }
 
-  async putDirectory(
-    localDirectory: string,
-    remoteDirectory: string,
-    {
-      concurrency = DEFAULT_CONCURRENCY,
-      sftp: givenSftp = null,
-      transferOptions = {},
-      recursive = true,
-      tick = DEFAULT_TICK,
-      validate = DEFAULT_VALIDATE,
-    }: SSHGetPutDirectoryOptions = {},
-  ): Promise<boolean> {
+  async putDirectory(localDirectory: string, remoteDirectory: string, options: SSHGetPutDirectoryOptions = {}): Promise<boolean> {
+    const { concurrency = DEFAULT_CONCURRENCY, sftp: givenSftp, transferOptions = {}, recursive = true,
+      tick = DEFAULT_TICK, validate = DEFAULT_VALIDATE } = options
     invariant(typeof localDirectory === 'string' && localDirectory, 'localDirectory must be a string')
     invariant(typeof remoteDirectory === 'string' && remoteDirectory, 'remoteDirectory must be a string')
-
-    let localDirectoryStat: Awaited<ReturnType<typeof fs.stat>> | null = null
-    try {
-      localDirectoryStat = await fs.stat(localDirectory)
-    } catch {
-      // Directory doesn't exist
-    }
-
-    invariant(localDirectoryStat != null, `localDirectory does not exist at ${localDirectory}`)
-    invariant(localDirectoryStat.isDirectory(), `localDirectory is not a directory at ${localDirectory}`)
-
-    const sftp = givenSftp || (await this.requestSFTP())
-
-    const scanned = await this.scanDirectory(localDirectory, {
-      recursive,
-      validate,
-    })
-    const files = scanned.files.map((item) => fsPath.relative(localDirectory, item))
-    const directories = scanned.directories.map((item) => fsPath.relative(localDirectory, item))
-
-    // Sort shortest to longest
-    directories.sort((a, b) => a.length - b.length)
-
+    invariant((await fs.stat(localDirectory)).isDirectory(), `localDirectory is not a directory at ${localDirectory}`)
+    const scanned = await this.scanDirectory(localDirectory, { recursive, validate })
+    const remotePath = (item: string) => fsPath.posix.join(unixifyPath(remoteDirectory), unixifyPath(fsPath.relative(localDirectory, item)))
+    const sftp = givenSftp || (await this.requestSFTP(options))
     let failed = false
-
     try {
-      // Do the directories first.
-      await new Promise((resolve, reject) => {
-        const queue = new PromiseQueue({ concurrency })
-
-        directories.forEach((directory) => {
-          queue
-            .add(async () => {
-              await this.mkdir(fsPath.join(remoteDirectory, directory), 'sftp', sftp)
-            })
-            .catch(reject)
-        })
-
-        resolve(queue.waitTillIdle())
+      await this.mkdir(remoteDirectory, 'sftp', sftp)
+      await transferBatch(scanned.directories, concurrency, directory => this.mkdir(remotePath(directory), 'sftp', sftp))
+      await transferBatch(scanned.files, concurrency, async localFile => {
+        const remoteFile = remotePath(localFile)
+        let failure: Error | null = null
+        try { await this.putFile(localFile, remoteFile, sftp, transferOptions) }
+        catch (error) { failed = true; failure = error as Error }
+        tick(localFile, remoteFile, failure)
       })
-
-      // and now the files
-      await new Promise((resolve, reject) => {
-        const queue = new PromiseQueue({ concurrency })
-
-        files.forEach((file) => {
-          queue
-            .add(async () => {
-              const localFile = fsPath.join(localDirectory, file)
-              const remoteFile = fsPath.join(remoteDirectory, file)
-              try {
-                await this.putFile(localFile, remoteFile, sftp, transferOptions)
-                tick(localFile, remoteFile, null)
-              } catch (_) {
-                failed = true
-                tick(localFile, remoteFile, _ as any)
-              }
-            })
-            .catch(reject)
-        })
-
-        resolve(queue.waitTillIdle())
-      })
-    } finally {
-      if (!givenSftp) {
-        sftp.end()
-      }
-    }
-
+    } finally { if (!givenSftp) sftp.end() }
     return !failed
   }
 
-  async getDirectory(
-    localDirectory: string,
-    remoteDirectory: string,
-    {
-      concurrency = DEFAULT_CONCURRENCY,
-      sftp: givenSftp = null,
-      transferOptions = {},
-      recursive = true,
-      tick = DEFAULT_TICK,
-      validate = DEFAULT_VALIDATE,
-    }: SSHGetPutDirectoryOptions = {},
-  ): Promise<boolean> {
+  async getDirectory(localDirectory: string, remoteDirectory: string, options: SSHGetPutDirectoryOptions = {}): Promise<boolean> {
+    const { concurrency = DEFAULT_CONCURRENCY, sftp: givenSftp, transferOptions = {}, recursive = true,
+      tick = DEFAULT_TICK, validate = DEFAULT_VALIDATE } = options
     invariant(typeof localDirectory === 'string' && localDirectory, 'localDirectory must be a string')
     invariant(typeof remoteDirectory === 'string' && remoteDirectory, 'remoteDirectory must be a string')
-
-    let localDirectoryStat: Awaited<ReturnType<typeof fs.stat>> | null = null
-    try {
-      localDirectoryStat = await fs.stat(localDirectory)
-    } catch {
-      // Directory doesn't exist
-    }
-
-    invariant(localDirectoryStat != null, `localDirectory does not exist at ${localDirectory}`)
-    invariant(localDirectoryStat.isDirectory(), `localDirectory is not a directory at ${localDirectory}`)
-
-    const sftp = givenSftp || (await this.requestSFTP())
-
-    const scanned = await this.scanDirectoryRemote(remoteDirectory, {
-      recursive,
-      validate,
-      concurrency,
-      fileSystem: sftp,
-    })
-    const files = scanned.files.map((item) => fsPath.relative(remoteDirectory, item))
-    const directories = scanned.directories.map((item) => fsPath.relative(remoteDirectory, item))
-
-    // Sort shortest to longest
-    directories.sort((a, b) => a.length - b.length)
-
+    const remoteRoot = unixifyPath(remoteDirectory)
+    const localPath = (item: string) => fsPath.join(localDirectory, fsPath.posix.relative(remoteRoot, item))
+    const sftp = givenSftp || (await this.requestSFTP(options))
     let failed = false
-
     try {
-      // Do the directories first.
-      await new Promise((resolve, reject) => {
-        const queue = new PromiseQueue({ concurrency })
-
-        directories.forEach((directory) => {
-          queue
-            .add(async () => {
-              await fs.mkdir(fsPath.join(localDirectory, directory), { recursive: true })
-            })
-            .catch(reject)
-        })
-
-        resolve(queue.waitTillIdle())
+      const scanned = await this.scanDirectoryRemote(remoteRoot, { recursive, validate, fileSystem: sftp })
+      await fs.mkdir(localDirectory, { recursive: true })
+      await transferBatch(scanned.directories, concurrency, async directory => { await fs.mkdir(localPath(directory), { recursive: true }) })
+      await transferBatch(scanned.files, concurrency, async remoteFile => {
+        const localFile = localPath(remoteFile)
+        let failure: Error | null = null
+        try { await this.getFile(localFile, remoteFile, sftp, transferOptions) }
+        catch (error) { failed = true; failure = error as Error }
+        tick(localFile, remoteFile, failure)
       })
-
-      // and now the files
-      await new Promise((resolve, reject) => {
-        const queue = new PromiseQueue({ concurrency })
-
-        files.forEach((file) => {
-          queue
-            .add(async () => {
-              const localFile = fsPath.join(localDirectory, file)
-              const remoteFile = fsPath.join(remoteDirectory, file)
-              try {
-                await this.getFile(localFile, remoteFile, sftp, transferOptions)
-                tick(localFile, remoteFile, null)
-              } catch (_) {
-                failed = true
-                tick(localFile, remoteFile, _ as any)
-              }
-            })
-            .catch(reject)
-        })
-
-        resolve(queue.waitTillIdle())
-      })
-    } finally {
-      if (!givenSftp) {
-        sftp.end()
-      }
-    }
-
+    } finally { if (!givenSftp) sftp.end() }
     return !failed
   }
 
@@ -1075,38 +996,12 @@ export class NodeSSH {
 
   forwardOut(
     srcIP: string, srcPort: number, dstIP: string, dstPort: number,
-    request: { timeoutMs?: number; signal?: AbortSignal } = {},
+    request: SSHRequestOptions = {},
   ): Promise<Channel> {
     const connection = this.getConnection()
-    const timeoutMs = request.timeoutMs ?? 15000
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return Promise.reject(new SSHError('Forward timeout must be positive', 'EINVAL'))
-    if (request.signal?.aborted) return Promise.reject(new SSHError('SSH forward cancelled', 'ABORT_ERR'))
-    return new Promise((resolve, reject) => {
-      let settled = false
-      const cleanup = () => {
-        clearTimeout(timer)
-        connection.removeListener('error', failed)
-        connection.removeListener('close', closed)
-        request.signal?.removeEventListener('abort', cancelled)
-      }
-      const failed = (error: Error) => {
-        if (settled) return
-        settled = true; cleanup(); reject(error)
-      }
-      const closed = () => failed(new SSHError('Connection closed while opening forward', 'ECONNRESET'))
-      const cancelled = () => failed(new SSHError('SSH forward cancelled', 'ABORT_ERR'))
-      const timer = setTimeout(() => failed(new SSHError('SSH forward timed out', 'ETIMEDOUT')), timeoutMs)
-      connection.once('error', failed)
-      connection.once('close', closed)
-      request.signal?.addEventListener('abort', cancelled, { once: true })
-      try {
-        connection.forwardOut(srcIP, srcPort, dstIP, dstPort, (error, channel) => {
-          if (settled) { channel?.destroy(); return }
-          if (error) { failed(error); return }
-          settled = true; cleanup(); resolve(channel)
-        })
-      } catch (error) { failed(error instanceof Error ? error : new Error(String(error))) }
-    })
+    return requestResource<Channel>(connection, 'SSH forward', request,
+      done => connection.forwardOut(srcIP, srcPort, dstIP, dstPort, done),
+      late => { late.on('error', () => {}); late.destroy() })
   }
 
   forwardInStreamLocal(
@@ -1134,25 +1029,17 @@ export class NodeSSH {
     })
   }
 
-  forwardOutStreamLocal(socketPath: string): Promise<Channel> {
+  forwardOutStreamLocal(socketPath: string, request: SSHRequestOptions = {}): Promise<Channel> {
     const connection = this.getConnection()
-
-    return new Promise((resolve, reject) => {
-      connection.openssh_forwardOutStreamLocal(socketPath, (error, channel) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
-        resolve(channel)
-      })
-    })
+    return requestResource<Channel>(connection, 'SSH Unix forward', request,
+      done => connection.openssh_forwardOutStreamLocal(socketPath, done),
+      late => { late.on('error', () => {}); late.destroy() })
   }
 
   dispose(force = false): void {
-    const connection = this.connection
+    const connection = this.transport
     if (!connection) return
-    this.connection = null
+    this.transport = null
     if (force) { connection.destroy(); return }
     // A peer that never finishes graceful shutdown must not retain a socket forever.
     const timer = setTimeout(() => connection.destroy(), 1000)
@@ -1288,52 +1175,27 @@ export class NodeSSH {
     return { files, directories };
   }
 
-  // Helper method to scan remote directory via SFTP
   private async scanDirectoryRemote(
     directory: string,
-    options: {
-      recursive?: boolean;
-      validate?: (item: string) => boolean;
-      concurrency?: number;
-      fileSystem?: any;
-    } = {}
+    options: { recursive?: boolean; validate?: (item: string) => boolean; fileSystem: SFTPWrapper },
   ): Promise<{ files: string[]; directories: string[] }> {
-    const files: string[] = [];
-    const directories: string[] = [];
-    const sftp = options.fileSystem;
-
-    async function scan(dir: string) {
-      return new Promise<void>((resolve, reject) => {
-        sftp.readdir(dir, async (err: any, list: any[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          for (const item of list) {
-            const fullPath = fsPath.posix.join(dir, item.filename);
-
-            if (options.validate && !options.validate(fullPath)) {
-              continue;
-            }
-
-            const stats = item.attrs;
-            if (stats.isDirectory()) {
-              directories.push(fullPath);
-              if (options.recursive) {
-                await scan(fullPath);
-              }
-            } else if (stats.isFile()) {
-              files.push(fullPath);
-            }
-          }
-          resolve();
-        });
-      });
+    const files: string[] = [], directories: string[] = []
+    async function scan(dir: string): Promise<void> {
+      const list = await new Promise<import('./contracts.js').SFTPEntry[]>((resolve, reject) =>
+        options.fileSystem.readdir(dir, (error, entries) => error ? reject(error) : resolve(entries)))
+      for (const item of list) {
+        if (item.filename === '.' || item.filename === '..') continue
+        if (!item.filename || (/[\\/]/.test(item.filename) || item.filename.includes('\0'))) throw new SSHError('Invalid path component in SFTP directory response', 'EPROTO')
+        const fullPath = fsPath.posix.join(dir, item.filename)
+        if (options.validate && !options.validate(fullPath)) continue
+        if (item.attrs.isDirectory()) {
+          directories.push(fullPath)
+          if (options.recursive) await scan(fullPath)
+        } else if (item.attrs.isFile()) files.push(fullPath)
+      }
     }
-
-    await scan(directory);
-    return { files, directories };
+    await scan(directory)
+    return { files, directories }
   }
 }
 

@@ -30,12 +30,12 @@ describeSSH('SSH reverse tunnel', () => {
     const options = { type: 'ssh' as const, ...sshConfig };
 
     try {
-      // The adapter binds a tunnel to the last used connection.
+      // Execution and forwarding explicitly name the same target.
       await adapter.execute({ command: 'true', adapterOptions: options, shell: true });
 
       // Port 0 asks the server to pick a free port, avoiding collisions
       // between concurrent test runs.
-      const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: service.port });
+      const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: service.port }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       try {
         expect(tunnel.remotePort).toBeGreaterThan(0);
@@ -68,7 +68,7 @@ describeSSH('SSH reverse tunnel', () => {
 
     try {
       await adapter.execute({ command: 'true', adapterOptions: options, shell: true });
-      const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: service.port });
+      const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: service.port }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
       const port = tunnel.remotePort;
 
       await tunnel.close();
@@ -98,7 +98,7 @@ describeSSH('SSH reverse tunnel', () => {
 
     try {
       await adapter.execute({ command: 'true', adapterOptions: options, shell: true });
-      const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: service.port });
+      const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: service.port }, { type: 'ssh', ...getSSHConfig('ubuntu-apt') });
 
       await tunnel.close();
       await expect(tunnel.close()).resolves.toBeUndefined();
@@ -108,13 +108,11 @@ describeSSH('SSH reverse tunnel', () => {
     }
   }, 60000);
 
-  it('refuses to open a tunnel before any connection exists', async () => {
+  it('requires a target even if a prior command established a connection', async () => {
     const adapter = new SSHAdapter();
-
-    await expect(adapter.reverseTunnel({ remotePort: 0, localPort: 1234 })).rejects.toThrow(
-      /No SSH connection available/
-    );
-
-    await adapter.dispose();
+    try {
+      await adapter.execute({ command: 'true', adapterOptions: { type: 'ssh', ...getSSHConfig('ubuntu-apt') } });
+      await expect(adapter.reverseTunnel({ remotePort: 0, localPort: 1234 }, undefined as never)).rejects.toThrow(/explicit SSH target/);
+    } finally { await adapter.dispose(); }
   });
 });

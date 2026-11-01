@@ -84,7 +84,6 @@
     "@types/fs-extra": "^11.0.4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.6.6",
-    "@types/ssh2": "^1.15.6",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^5.0.5",
     "@typescript/native": "npm:typescript@^7.0.2"

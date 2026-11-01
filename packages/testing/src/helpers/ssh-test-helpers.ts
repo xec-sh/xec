@@ -2,6 +2,15 @@ import { it, afterAll, describe, beforeAll } from 'vitest';
 
 import { dockerManager, ContainerConfig, DOCKER_CONTAINERS } from '../docker/container-manager.js';
 
+const requestedFixtures = process.env['XEC_SSH_TEST_CONTAINERS']?.split(',').map(name => name.trim());
+if (requestedFixtures?.some(name => !DOCKER_CONTAINERS.some(container => container.name === name))) {
+  throw new Error('XEC_SSH_TEST_CONTAINERS contains an unknown or empty fixture name');
+}
+const matrixContainers = requestedFixtures
+  ? DOCKER_CONTAINERS.filter(container => requestedFixtures.includes(container.name)) : DOCKER_CONTAINERS;
+
+let collectingContainers: Set<string> | undefined;
+
 export interface SSHTestConfig {
   containers?: string[]; // Specific containers to start, or all if not specified
   timeout?: number; // Timeout for container operations
@@ -17,7 +26,7 @@ export function describeSSH(
   config: SSHTestConfig = {}
 ): void {
   const {
-    containers = ['ubuntu-apt'], // Default to just one container for faster tests
+    containers = ['ubuntu-apt'], // Matrix tests add their required fixtures during collection
     timeout = 180000, // 3 minutes timeout
     skipIfNoDocker = true
   } = config;
@@ -29,59 +38,33 @@ export function describeSSH(
   const describeFn = shouldSkip ? describe.skip : describe;
 
   describeFn(name, () => {
-    let startedContainersList: string[] = [];
+    const required = new Set(containers);
+    const owned: string[] = [];
 
     beforeAll(async () => {
       if (!dockerManager.isDockerAvailable()) {
-        console.warn('Docker is not available, SSH tests will be skipped');
-        return;
+        throw new Error('Docker is required for this SSH suite');
       }
 
       console.log(`Starting Docker containers for ${name}...`);
 
-      // Start only the specified containers
-      startedContainersList = [];
-
-      for (const containerName of containers) {
-        try {
-          // Check if container is already running (from another test)
-          if (dockerManager.isContainerRunning(containerName)) {
-            console.log(`Container ${containerName} is already running, reusing`);
-            startedContainersList.push(containerName);
-            continue;
-          }
-
-          const started = await dockerManager.startContainer(containerName);
-          if (started) {
-            startedContainersList.push(containerName);
-          } else {
-            console.warn(`Failed to start container ${containerName}, continuing...`);
-          }
-        } catch (error) {
-          console.warn(`Error starting container ${containerName}:`, error);
+      for (const containerName of required) {
+        if (!dockerManager.isContainerRunning(containerName)) {
+          if (!await dockerManager.startContainer(containerName)) throw new Error(`Required SSH fixture failed to start: ${containerName}`);
+          owned.push(containerName);
         }
-      }
-
-      if (startedContainersList.length === 0) {
-        throw new Error('Failed to start any required Docker containers');
-      }
-
-      // Wait for SSH to be fully ready on all started containers
-      for (const containerName of startedContainersList) {
         const container = DOCKER_CONTAINERS.find(c => c.name === containerName);
-        if (container) {
-          await dockerManager.waitForSSH(container.port, 15);
-        }
+        if (!container || !await dockerManager.waitForSSH(container.port, 15)) throw new Error(`Required SSH fixture is not ready: ${containerName}`);
       }
     }, timeout);
 
     afterAll(async () => {
       // Don't stop containers by default - let them be reused by other tests
       // Only stop if explicitly requested or if there are too many running
-      if (process.env['STOP_CONTAINERS_AFTER_TESTS'] === 'true' && startedContainersList.length > 0) {
+      if (process.env['STOP_CONTAINERS_AFTER_TESTS'] === 'true' && owned.length > 0) {
         console.log(`Cleaning up Docker containers for ${name}...`);
 
-        for (const containerName of startedContainersList) {
+        for (const containerName of owned) {
           try {
             await dockerManager.stopContainer(containerName);
           } catch (error) {
@@ -91,8 +74,9 @@ export function describeSSH(
       }
     }, timeout / 2);
 
-    // Run the test suite
-    fn();
+    const previous = collectingContainers;
+    collectingContainers = required;
+    try { fn(); } finally { collectingContainers = previous; }
   });
 }
 
@@ -125,7 +109,7 @@ export function getSSHConfig(containerName: string) {
  * Helper to get all available containers
  */
 export function getAvailableContainers(): ContainerConfig[] {
-  return DOCKER_CONTAINERS;
+  return matrixContainers;
 }
 
 /**
@@ -135,7 +119,8 @@ export function testEachPackageManager(
   testName: string,
   testFn: (container: ContainerConfig) => Promise<void> | void
 ): void {
-  DOCKER_CONTAINERS.forEach(container => {
+  matrixContainers.forEach(container => {
+    collectingContainers?.add(container.name);
     it(`${testName} (${container.packageManager} on ${container.name})`, async () => {
       await testFn(container);
     });
@@ -146,7 +131,8 @@ testEachPackageManager.only = function testOnly(
   testName: string,
   testFn: (container: ContainerConfig) => Promise<void> | void
 ): void {
-  DOCKER_CONTAINERS.forEach(container => {
+  matrixContainers.forEach(container => {
+    collectingContainers?.add(container.name);
     it.only(`${testName} (${container.packageManager} on ${container.name})`, async () => {
       await testFn(container);
     });
@@ -157,7 +143,7 @@ testEachPackageManager.skip = function testSkip(
   testName: string,
   testFn: (container: ContainerConfig) => Promise<void> | void
 ): void {
-  DOCKER_CONTAINERS.forEach(container => {
+  matrixContainers.forEach(container => {
     it.skip(`${testName} (${container.packageManager} on ${container.name})`, async () => {
       await testFn(container);
     });
@@ -188,6 +174,7 @@ export function testPackageManagers(
   );
 
   containers.forEach(container => {
+    collectingContainers?.add(container.name);
     it(`${testName} (${container.packageManager})`, async () => {
       await testFn(container);
     });
