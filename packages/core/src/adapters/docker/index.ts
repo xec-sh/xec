@@ -1023,9 +1023,22 @@ export class DockerAdapter extends BaseAdapter {
   }
 
   /** Idempotent removal, acknowledged only by a successful absence observation. */
-  async removeContainer(container: string, force = false): Promise<void> {
+  async removeContainer(container: string, force = false,
+    options: { graceful?: boolean; stopTimeoutSeconds?: number } = {},
+  ): Promise<void> {
+    const stopTimeout = options.stopTimeoutSeconds ?? 30;
+    if (!Number.isSafeInteger(stopTimeout) || stopTimeout < 0 || stopTimeout > 600) {
+      throw new DockerError(container, 'remove', new Error('Stop timeout must be an integer between 0 and 600 seconds'));
+    }
     const id = await this.resolveContainerReference(container);
     if (id === null) return;
+    if (options.graceful) {
+      const stopped = await this.executeDockerCommand(['stop', '--timeout', String(stopTimeout), '--', id], this.managementOptions());
+      if (stopped.exitCode !== 0) {
+        if (await this.resolveContainerReference(container) === null) return;
+        throw new DockerError(container, 'stop', new Error(stopped.stderr));
+      }
+    }
     const args = ['rm'];
     if (force) args.push('-f');
     // A concurrent rename/replacement must not retarget this operation.

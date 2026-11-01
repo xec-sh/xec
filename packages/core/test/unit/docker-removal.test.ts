@@ -18,6 +18,17 @@ describe('confirmed container removal', () => {
     expect(command.mock.calls[1]?.[0]).toEqual(['rm', '-f', '--', first]);
     expect(command).toHaveBeenCalledTimes(3);
   });
+  it('uses the same immutable identity for graceful stop before removal', async () => {
+    const { instance, command } = adapter(inventory(), result(), result(), result());
+    await instance.removeContainer('owned', false, { graceful: true, stopTimeoutSeconds: 20 });
+    expect(command.mock.calls[1]?.[0]).toEqual(['stop', '--timeout', '20', '--', first]);
+    expect(command.mock.calls[2]?.[0]).toEqual(['rm', '--', first]);
+  });
+  it('never proceeds to removal after an unconfirmed graceful stop', async () => {
+    const { instance, command } = adapter(inventory(), result('', 1, 'permission denied'), inventory());
+    await expect(instance.removeContainer('owned', false, { graceful: true })).rejects.toThrow('permission denied');
+    expect(command.mock.calls.some(call => (call[0] as string[])[0] === 'rm')).toBe(false);
+  });
   it('is idempotent for an observed absent container without sending rm', async () => {
     const { instance, command } = adapter(result());
     await instance.removeContainer('owned', true);

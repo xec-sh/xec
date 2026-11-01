@@ -187,3 +187,10 @@ daemon or a permission error cannot be interpreted as absence. If a different
 container replaces the original name during removal, the operation rejects and
 leaves the replacement untouched. Callers should refresh their inventory before
 retrying a conflicting operation.
+
+For an orderly shutdown before removal, use
+`removeContainer(nameOrId, false, { graceful: true, stopTimeoutSeconds: 30 })`.
+Both steps target the same immutable ID. A failed stop prevents removal. The
+configured management-command timeout still applies; the grace period does not
+permit an unbounded command. The default remains direct removal, with forced
+removal only when the second argument is `true`.
