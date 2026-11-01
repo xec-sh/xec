@@ -32,6 +32,12 @@ describe('sanitizeCommandForError', () => {
       ['credentials in a database URL', 'psql postgres://app:S3cretPass@db:5432/prod', 'S3cretPass'],
       ['an environment assignment', 'docker run -e API_KEY=sk_live_1234567890abcd img', 'sk_live_1234567890abcd'],
       ['a password flag', 'mysql --password=hunter2 -u root', 'hunter2'],
+      ['an RPC login flag', 'wallet --rpc-login service:rpc-secret --port 18082', 'rpc-secret'],
+      ['an equals RPC login', 'wallet --rpc-login=service:rpc-secret --port 18082', 'rpc-secret'],
+      ['a quoted RPC login', 'wallet --rpc-login="service:rpc secret with spaces"', 'rpc secret with spaces'],
+      ['nested health-check credentials', 'docker run --health-cmd curl --digest --user "service:health secret with spaces" http://localhost:18082/json_rpc app', 'health secret with spaces'],
+      ['a single-quoted Basic credential', "curl --user 'service:another secret' https://api.example.com", 'another secret'],
+      ['RPC login in a nested health command', 'docker run --health-cmd "wallet --rpc-login service:nested-secret --status" app', 'nested-secret'],
     ])('redacts %s', (_label, command, secret) => {
       const sanitized = sanitizeCommandForError(command);
 

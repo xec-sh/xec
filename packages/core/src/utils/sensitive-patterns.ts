@@ -39,6 +39,13 @@ export function defaultSensitiveRules(): SensitivePattern[] {
   { pattern: /\b(password|passwd|pwd)(\s*[:=]\s*)("([^"]+)"|'([^']+)'|([^\s]+))/gi, shape: 'assignment' },
   // Command line password arguments
   { pattern: /(--password)(\s+)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'label' },
+  // RPC clients commonly carry a user:password pair in one option. Keep the
+  // option for diagnosis while masking the whole credential, including quoted
+  // values nested in container health-check commands.
+  { pattern: /(--rpc[_-]?(?:login|password|pass)|--daemon[_-]?login)(\s*[:=]\s*|\s+)("(?:\\.|[^"\\])*"|'[^']*'|[^"'\s]+)/gi, shape: 'assignment' },
+  // A quoted HTTP Basic credential can contain spaces; the unquoted rule below
+  // must not leave the second half of that password in the error message.
+  { pattern: /(-u|--user)(\s+|=)("(?:\\.|[^"\\])*"|'[^']*')/g, shape: 'label' },
   // Command line secret arguments
   { pattern: /(--client[_-]?secret|--secret)(\s+)("([^"]+)"|'([^']+)'|([^"'\s]+))/gi, shape: 'label' },
   // Any PEM private key, whatever the algorithm, replaced whole.

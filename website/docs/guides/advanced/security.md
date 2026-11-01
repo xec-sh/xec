@@ -20,6 +20,28 @@ Automation scripts often handle sensitive data like passwords, API keys, and cer
 
 ## Solution
 
+### Command diagnostics
+
+Xec masks common credential forms consistently in command errors, captured
+output and events, including `--rpc-login`, password options, URL userinfo,
+and quoted Basic authentication inside container health checks. Execute
+infrastructure commands through Xec so failures pass through this boundary;
+raw `child_process.execFile` errors include the original argument list.
+
+Register values as soon as they are read from a secret store when they might
+appear without a recognizable credential label:
+
+```ts
+import { registerSecret } from '@xec-sh/core';
+
+const password = await secretStore.read('service-password');
+if (!registerSecret(password)) throw new Error('Secret is too short to mask safely');
+```
+
+Pattern matching cannot reliably infer an unlabeled secret or reconstruct
+argument boundaries from arbitrary text. Registration protects the exact value;
+redaction does not replace private storage or operating-system process isolation.
+
 ### Step 1: Secure Credential Management
 
 Implement secure handling of sensitive data:
