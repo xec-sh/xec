@@ -182,6 +182,7 @@ type SSHForwardInListener = (
   reject: RejectConnection,
 ) => void
 export interface SSHForwardInDetails {
+  closed: Promise<void>
   dispose(): Promise<void>
   port: number
 }
@@ -192,6 +193,7 @@ type SSHForwardInStreamLocalListener = (
   reject: RejectConnection,
 ) => void
 interface SSHForwardInStreamLocalDetails {
+  closed: Promise<void>
   dispose(): Promise<void>
 }
 
@@ -1010,29 +1012,65 @@ export class NodeSSH {
           }
         }
 
-        if (onConnection) {
-          connection.on('tcp connection', handler)
-        }
-
-        const dispose = (): Promise<void> => new Promise((_resolve, _reject) => {
-          connection.off('tcp connection', handler)
-          connection.unforwardIn(remoteAddr, port, (_error) => {
-            // Reject with the *unforward* error. Rejecting with the outer
-            // `error` reported `undefined`, since that variable is guaranteed
-            // falsy here — and without the return the promise then resolved
-            // as well, hiding the failure entirely.
-            if (_error) {
-              _reject(_error)
-              return
-            }
-
-            _resolve()
-          })
-        })
-
-        resolve({ port, dispose })
+        const lifecycle = this.manageRemoteForward(connection, 'tcp connection', onConnection ? handler : undefined,
+          done => connection.unforwardIn(remoteAddr, port, done))
+        resolve({ port, ...lifecycle })
       })
     })
+  }
+
+  /** A failed unbind retains the listener and remains retryable; transport loss releases local ownership. */
+  private manageRemoteForward(
+    connection: Client,
+    event: 'tcp connection' | 'unix connection',
+    handler: ((...args: any[]) => void) | undefined,
+    unbind: (done: (error?: Error | null) => void) => void,
+  ): { dispose(): Promise<void>; closed: Promise<void> } {
+    let finished = false
+    let closing: Promise<void> | undefined
+    let resolveClosed!: () => void
+    let pendingFinish: (() => void) | undefined
+    const closed = new Promise<void>(resolve => { resolveClosed = resolve })
+    const release = () => {
+      if (finished) return
+      finished = true
+      if (handler) connection.off(event, handler)
+      connection.off('close', release)
+      resolveClosed()
+      pendingFinish?.()
+    }
+    if (handler) {
+      if (event === 'tcp connection') connection.on(event, handler)
+      else connection.on(event, handler)
+    }
+    connection.once('close', release)
+    return { closed, dispose: () => {
+      if (finished) return Promise.resolve()
+      closing ??= new Promise<void>((resolve, reject) => {
+        let settled = false
+        const complete = (error?: Error | null) => {
+          if (settled) {
+            // A delayed successful acknowledgement still confirms closure,
+            // including when a retry is already waiting for the same listener.
+            if (!error) release()
+            return
+          }
+          settled = true
+          clearTimeout(timer)
+          pendingFinish = undefined
+          if (error) {
+            reject(error)
+            return
+          }
+          release()
+          resolve()
+        }
+        const timer = setTimeout(() => complete(new SSHError('Remote forward closure is unconfirmed', 'ETIMEDOUT')), 15000)
+        pendingFinish = () => complete()
+        try { unbind(complete) } catch (error) { complete(error instanceof Error ? error : new Error(String(error))) }
+      }).catch(error => { closing = undefined; throw error })
+      return closing
+    } }
   }
 
   forwardOut(
@@ -1090,23 +1128,8 @@ export class NodeSSH {
           }
         }
 
-        if (onConnection) {
-          connection.on('unix connection', handler)
-        }
-
-        const dispose = (): Promise<void> => new Promise((_resolve, _reject) => {
-          connection.off('unix connection', handler)
-          connection.openssh_unforwardInStreamLocal(socketPath, (_error) => {
-            if (_error) {
-              _reject(_error)
-              return
-            }
-
-            _resolve()
-          })
-        })
-
-        resolve({ dispose })
+        resolve(this.manageRemoteForward(connection, 'unix connection', onConnection ? handler : undefined,
+          done => connection.openssh_unforwardInStreamLocal(socketPath, done)))
       })
     })
   }

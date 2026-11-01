@@ -1257,7 +1257,7 @@ export class SSHAdapter extends BaseAdapter {
     }
 
     // Generate ID for tracking
-    const tunnelId = `${tunnelResult.localPort}-${options.remoteHost}:${options.remotePort}`;
+    const tunnelId = randomBytes(16).toString('hex');
 
     // Create tunnel object with proper state management
     let isOpen = true;
@@ -1289,7 +1289,7 @@ export class SSHAdapter extends BaseAdapter {
       },
       closed: tunnelResult.closed,
       close: () => {
-        closePromise ??= tunnelResult.close().finally(release);
+        closePromise ??= tunnelResult.close().then(release).catch(error => { closePromise = undefined; throw error; });
         return closePromise;
       }
     };
@@ -1345,96 +1345,77 @@ export class SSHAdapter extends BaseAdapter {
     remoteHost?: string;
     localHost?: string;
     localPort: number;
-  }): Promise<{
+  }, target?: SSHAdapterOptions): Promise<{
     remotePort: number;
     remoteHost: string;
     localHost: string;
     localPort: number;
     isOpen: boolean;
+    closed: Promise<void>;
     close: () => Promise<void>;
   }> {
-    const sshOptions = this.lastUsedSSHOptions;
-
+    const sshOptions = target ?? this.lastUsedSSHOptions;
     if (!sshOptions) {
-      throw new AdapterError(
-        this.adapterName,
-        'reverseTunnel',
-        new Error('No SSH connection available. Execute a command first or provide connection options.')
-      );
+      throw new AdapterError(this.adapterName, 'reverseTunnel',
+        new Error('No SSH connection available. Execute a command first or provide connection options.'));
     }
-
+    if (!Number.isInteger(options.localPort) || options.localPort < 1 || options.localPort > 65535 ||
+        !Number.isInteger(options.remotePort) || options.remotePort < 0 || options.remotePort > 65535) {
+      throw new AdapterError(this.adapterName, 'reverseTunnel', new Error('Invalid tunnel port'));
+    }
     const connection = await this.getConnection(sshOptions);
-    // Bind on loopback by default: binding a remote listener to all
-    // interfaces exposes the local service to that host's whole network,
-    // which should be an explicit choice rather than a default.
     const remoteHost = options.remoteHost ?? '127.0.0.1';
     const localHost = options.localHost ?? 'localhost';
-
-    const forwarded = await connection.ssh.forwardIn(
-      remoteHost,
-      options.remotePort,
-      (_details, accept, reject) => {
+    const bridges = new Set<ReturnType<typeof netConnect>>();
+    connection.activeUseCount++;
+    let forwarded: Awaited<ReturnType<NodeSSH['forwardIn']>>;
+    try {
+      forwarded = await connection.ssh.forwardIn(remoteHost, options.remotePort, (_details, accept) => {
         const channel = accept();
         const local = netConnect(options.localPort, localHost);
-
-        local.on('connect', () => {
-          channel.pipe(local).pipe(channel);
-        });
-
-        // If the local service is unreachable, close the channel rather than
-        // leaving the remote caller hanging on a half-open connection.
-        local.on('error', () => {
-          channel.close();
-        });
-
-        channel.on('error', () => {
-          local.destroy();
-        });
-
-        channel.on('close', () => {
-          local.destroy();
-        });
-
-        void reject;
-      }
-    );
-
-    const tunnelId = `reverse:${remoteHost}:${forwarded.port}`;
+        bridges.add(local);
+        local.once('connect', () => { channel.pipe(local).pipe(channel); });
+        local.on('error', () => { channel.destroy(); });
+        local.once('close', () => { bridges.delete(local); channel.destroy(); });
+        channel.on('error', () => { local.destroy(); });
+        channel.once('close', () => { local.destroy(); });
+      });
+    } catch (error) {
+      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+      connection.lastUsed = Date.now();
+      for (const socket of bridges) socket.destroy();
+      throw error;
+    }
+    const tunnelId = randomBytes(16).toString('hex');
     let isOpen = true;
-
-    const tunnel = {
-      remotePort: forwarded.port,
-      remoteHost,
-      localHost,
-      localPort: options.localPort,
-      get isOpen() {
-        return isOpen;
-      },
-      close: async () => {
-        if (!isOpen) {
-          return;
-        }
-
-        isOpen = false;
-        await forwarded.dispose();
-        this.activeTunnels.delete(tunnelId);
-
-        this.emitAdapterEvent('ssh:tunnel-closed', {
-          localPort: options.localPort,
-          remoteHost,
-          remotePort: forwarded.port
-        });
-      }
+    let closePromise: Promise<void> | undefined;
+    const release = () => {
+      if (!isOpen) return;
+      isOpen = false;
+      for (const socket of bridges) socket.destroy();
+      bridges.clear();
+      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+      connection.lastUsed = Date.now();
+      this.activeTunnels.delete(tunnelId);
+      this.emitAdapterEvent('ssh:tunnel-closed', {
+        localPort: options.localPort, remoteHost, remotePort: forwarded.port,
+      });
     };
-
+    void forwarded.closed.then(release);
+    const tunnel = {
+      remotePort: forwarded.port, remoteHost, localHost, localPort: options.localPort,
+      get isOpen() { return isOpen; },
+      closed: forwarded.closed,
+      close: () => {
+        if (!isOpen) return Promise.resolve();
+        closePromise ??= forwarded.dispose().then(release).catch(error => { closePromise = undefined; throw error; });
+        return closePromise;
+      },
+    };
     this.activeTunnels.set(tunnelId, tunnel);
-
     this.emitAdapterEvent('ssh:tunnel-created', {
-      localPort: options.localPort,
-      remoteHost,
-      remotePort: forwarded.port
+      localPort: options.localPort, remoteHost, remotePort: forwarded.port,
     });
-
     return tunnel;
   }
 

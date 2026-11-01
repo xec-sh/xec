@@ -123,4 +123,18 @@ describe('pooled tunnel lifetime', () => {
     expect(connection.activeUseCount).toBe(0);
     expect(adapter.activeTunnels.size).toBe(0);
   });
+  it('retains its lease when local closure fails and releases only after retry', async () => {
+    const { adapter, connection, tunnel } = pooled(0);
+    tunnel.close.mockRejectedValueOnce(new Error('listener still open'));
+    const handle = await adapter.tunnel(forward, target);
+    await expect(handle.close()).rejects.toThrow('listener still open');
+    expect(handle.isOpen).toBe(true);
+    expect(connection.activeUseCount).toBe(1);
+    expect(adapter.activeTunnels.size).toBe(1);
+    await handle.close(); await handle.closed;
+    expect(handle.isOpen).toBe(false);
+    expect(connection.activeUseCount).toBe(0);
+    expect(adapter.activeTunnels.size).toBe(0);
+  });
+
 });

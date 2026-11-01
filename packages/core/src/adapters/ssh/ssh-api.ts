@@ -29,6 +29,7 @@ export interface ReverseSSHTunnel {
   localHost: string;
   localPort: number;
   isOpen: boolean;
+  closed: Promise<void>;
   close(): Promise<void>;
 }
 
@@ -155,11 +156,7 @@ export function createSSHExecutionContext(
       throw new Error('SSH adapter not available');
     }
 
-    // The adapter binds the tunnel to the last used connection, so one must
-    // exist before asking for it.
-    await exec`echo "Establishing connection for tunnel"`.quiet();
-
-    return adapter.reverseTunnel(options);
+    return adapter.reverseTunnel(options, { type: 'ssh', ...sshOptions });
   };
 
   /**

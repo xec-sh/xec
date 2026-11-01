@@ -11,7 +11,7 @@ sidebar_position: 4
 
 The SSH context exposes two tunnel types: a local forward (`ssh -L`) and a reverse forward (`ssh -R`), both implemented in `packages/core/src/adapters/ssh/index.ts` on top of the pooled connection. There is no dynamic/SOCKS forwarding and no built-in jump-host chaining — neither exists anywhere in the adapter.
 
-Both methods establish their connection when needed. Local forwarding binds directly to the SSH context’s target, including when different targets open tunnels concurrently; no preparatory command is required.
+Both methods establish their connection when needed. Both kinds of forwarding bind directly to the SSH context’s target, including when different targets open tunnels concurrently; no preparatory command is required.
 
 ## Local Forwarding
 
@@ -44,7 +44,7 @@ const [http, db] = await Promise.all([
 
 ## Lifetime and recovery
 
-A local tunnel holds a lease on its pooled SSH connection until it closes. Idle
+Each local or reverse tunnel holds a lease on its pooled SSH connection until it closes. Idle
 and maximum-age cleanup cannot evict that connection while the tunnel is open.
 `connectionPool.maxLifetime` defaults to one hour; set it to `0` to disable age
 rotation. Rotation applies when a connection is no longer in use.
@@ -85,6 +85,25 @@ await tunnel.close();
 ```
 
 `remoteHost` defaults to `127.0.0.1`, not `0.0.0.0` — the remote listener is loopback-only unless you explicitly bind it wider. Exposing a local service to a whole remote network is something you opt into, not the default.
+
+Reverse tunnels are bound to the target of their SSH context. Identical remote
+ports on different servers remain separate resources, even when opened concurrently.
+No command needs to run first. A reverse tunnel keeps its pooled connection in use
+and exposes `closed`, just like a local forward.
+
+For reverse forwarding, `close()` resolves after the server acknowledges removal of
+the listener. It also destroys local bridging sockets. A failed acknowledgement
+leaves `isOpen` true and retains the connection lease; retry the same handle. An
+unanswered close rejects after 15 seconds with `ETIMEDOUT`, because the outcome is
+unconfirmed. A late successful acknowledgement still completes `closed`. Losing
+the SSH transport releases local resources and resolves `closed`; this is evidence
+that the local tunnel is unusable, not proof of when a disconnected server noticed
+the loss. Xec never silently reconnects a reverse listener.
+
+The low-level TCP and Unix remote forwards (`NodeSSH.forwardIn` and
+`forwardInStreamLocal`) use the same `dispose()`/`closed` contract. Local forwarding
+closure is confirmed by closing its local listener; a failed close similarly keeps
+the lease until successful retry or transport closure.
 
 ## Related Documentation
 
