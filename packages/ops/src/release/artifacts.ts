@@ -28,6 +28,8 @@ export interface PrepareReleaseOptions {
   offline?: boolean;
   build: { executable: string; args: string[] };
   progress?: (message: string) => void;
+  /** Verify the actual archive (for example in a clean consumer) before sealing. */
+  verifyArtifact?: (context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }) => Promise<void>;
   /** An owner-specific packaging recipe, executed only in the isolated snapshot. */
   preparePackage?: (context: { workspace: string; temporary: string; pkg: ReleasePackage; run: ReleaseCommand }) => Promise<{ directory: string; manager: 'npm' | 'pnpm' } | undefined>;
 }
@@ -115,7 +117,10 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
       if (archives.length !== 1) throw new Error(`Expected one archive for ${pkg.name}`);
       const file = join(output, archives[0]!);
       await validatePackedPackage(root, file, pkg, run);
-      artifacts.push({ name: pkg.name, version, file, integrity: artifactIntegrity(await readFile(file)) });
+      const artifact = { name: pkg.name, version, file, integrity: artifactIntegrity(await readFile(file)) };
+      await options.verifyArtifact?.({ workspace, artifact, run });
+      await verifyReleaseArtifact(artifact);
+      artifacts.push(artifact);
     }
     if (await run(root, 'git', ['rev-parse', 'HEAD']) !== commit) throw new Error('Source HEAD changed during preparation');
     await assertCleanReleaseTree(root, run);

@@ -176,6 +176,15 @@ describe('release inventory, refs and sealed artifacts', () => {
     await releaseCommand(root, 'git', ['commit', '--allow-empty', '-m', 'later']);
     await expect(assertReleaseHead(root, '1.0.0-rc.1')).rejects.toThrow('differs');
   });
+  it('never seals archives rejected or changed by package acceptance', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    const options = { run: runner.run, build: { executable: process.execPath, args: ['build.mjs'] } };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', { ...options, verifyArtifact: async () => { throw new Error('acceptance failed'); } })).rejects.toThrow('acceptance failed');
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', { ...options, verifyArtifact: async ({ artifact }) => { await writeFile(artifact.file, 'changed during validation'); } })).rejects.toThrow('changed');
+    const release = await prepareReleaseArtifacts(root, '1.0.0-rc.1', options);
+    expect(release.artifacts).toHaveLength(2);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+  });
   it('builds a snapshot, verifies entries and reuses identical archives on resume', async () => {
     const { root, release, run, builds } = await prepared();
     expect(builds()).toBe(1);

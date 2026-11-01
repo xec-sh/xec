@@ -1,4 +1,6 @@
 #!/usr/bin/env -S node --import tsx
+import type { ReleaseCommand, ReleaseArtifact } from '../packages/ops/src/release/index.js';
+
 import semver from 'semver';
 import { parseArgs } from 'node:util';
 import { join, dirname } from 'node:path';
@@ -7,7 +9,7 @@ import { select, confirm, password, isCancel } from '@xec-sh/kit';
 
 // The owning repository bootstraps from its own source; consumers use @xec-sh/ops/release.
 import {
-  releaseTag, planRelease, releaseNotes, pushReleaseRefs,
+  releaseTag, planRelease, releaseNotes, releaseCommand, pushReleaseRefs,
   ensureReleaseTag, assertReleaseHead, acquireReleaseLock, loadPreparedRelease, createGithubRelease,
   commitReleaseVersion, assertCleanReleaseTree, verifyRemoteReleaseTag, publishPreparedRelease,
   discoverReleasePackages, prepareReleaseArtifacts, preflightPreparedRelease,
@@ -29,6 +31,12 @@ const usage = `xec release [version] [options]
 Credentials come from npm/gh login or their supported environment configuration.
 A failed publication retains its version commit, tag and archives for --resume.
 `;
+
+async function verifyCoreArchive(context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }): Promise<void> {
+  if (context.artifact.name !== '@xec-sh/core') return;
+  console.log('Checking the packed SSH runtime');
+  await context.run(context.workspace, process.execPath, [join(context.workspace, 'scripts/check-ssh-security.mjs'), '--archive', context.artifact.file]);
+}
 
 export async function runRelease(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: {
@@ -74,10 +82,13 @@ export async function runRelease(args: string[]): Promise<void> {
     if (!values.prepare && !values['no-push']) await verifyRemoteReleaseTag(root, version);
     if (!values.resume && !values['github-only']) await commitReleaseVersion(root, version);
     if (!values['github-only']) {
-      if (values.resume) await loadPreparedRelease(root, version);
+      if (values.resume) {
+        const prepared = await loadPreparedRelease(root, version);
+        for (const artifact of prepared.artifacts) await verifyCoreArchive({ workspace: root, artifact, run: releaseCommand });
+      }
       else await prepareReleaseArtifacts(root, version, {
         build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
-        progress: console.log,
+        progress: console.log, verifyArtifact: verifyCoreArchive,
         preparePackage: async ({ workspace, temporary, pkg, run }) => {
           if (pkg.name !== '@xec-sh/core') return undefined;
           const directory = join(temporary, 'prepared-core');

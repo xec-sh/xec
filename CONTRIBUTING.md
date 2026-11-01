@@ -27,10 +27,9 @@ Before contributing, please understand our core principles. For comprehensive de
 **CRITICAL**: Only implement what is explicitly requested. No additional features or files unless specified.
 
 ### 2. 📝 Change Tracking
-**MANDATORY**: All code changes MUST be documented in `CHANGES.md`:
-- Follow the format in `CHANGES.md.example`
-- Write user-focused descriptions
-- Group by category (Features, Improvements, Fixes, etc.)
+Document behavior changes in the owning API/operations page and in meaningful
+commits. Release notes are generated from committed history; an ignored local
+`CHANGES.md` file is not release evidence.
 
 ### 3. 🔒 Type Safety First
 - No `any` types in public APIs
@@ -64,9 +63,9 @@ We are committed to providing a friendly, safe, and welcoming environment for al
 
 ### Prerequisites
 
-- **Node.js** 18+ (recommend using [nvm](https://github.com/nvm-sh/nvm))
+- **Node.js** 24+ (recommend using [nvm](https://github.com/nvm-sh/nvm))
 - **Git** 2.25+
-- **pnpm** 10+ (via Corepack)
+- **pnpm** pinned by `packageManager` (via Corepack)
 - **Docker** (optional, for testing adapters)
 - **kubectl** (optional, for Kubernetes adapter testing)
 
@@ -111,13 +110,14 @@ We are committed to providing a friendly, safe, and welcoming environment for al
 xec/
 ├── apps/
 │   └── xec/          # CLI application (@xec-sh/cli)
-├── docs/             # Documentation site
+├── website/          # Documentation site
 ├── packages/
 │   ├── core/         # Core execution engine (@xec-sh/core)
-│   └── test-utils/   # Shared testing utilities
+│   ├── ops/          # Infrastructure and release operations
+│   └── testing/      # Shared testing utilities
 ├── docker/           # Test containers
 ├── .xec/             # Project-specific commands
-├── CHANGES.md        # Pending changes (MUST UPDATE!)
+├── scripts/release.ts # Verified release entry point
 ├── CLAUDE.md         # AI assistant instructions
 └── turbo.json        # Build orchestration
 ```
@@ -168,7 +168,7 @@ git checkout -b <type>/<short-description>
 
 Follow these steps:
 
-1. **Update CHANGES.md first** - Document what you plan to change
+1. **Update documentation** - Explain the resulting behavior and recovery contracts
 2. **Write failing tests** - TDD approach
 3. **Implement the feature** - Make tests pass
 4. **Update documentation** - Keep docs in sync
@@ -412,7 +412,7 @@ BREAKING CHANGE: Result.value is now Result.data
 
 ### Before Creating a PR
 
-- [ ] Update `CHANGES.md` with your changes
+- [ ] Update the relevant API and operations documentation
 - [ ] All tests pass (`pnpm test`)
 - [ ] Code is formatted (`pnpm fix:all`)
 - [ ] Build succeeds (`pnpm build`)
@@ -441,7 +441,7 @@ Brief description of changes
 - [ ] Manual testing completed
 
 ## Checklist
-- [ ] CHANGES.md updated
+- [ ] Documentation and release-facing commit descriptions updated
 - [ ] Tests added/updated
 - [ ] Documentation updated
 - [ ] No new warnings
@@ -462,18 +462,25 @@ Brief description of changes
 
 ## 📦 Release Process
 
-Releases are automated but follow these guidelines:
+Releases are explicit operator actions. Start with a clean checkout and current
+frozen dependencies, then review and prepare immutable archives:
 
-1. **Version Bumping** - Based on conventional commits
-2. **Changelog Generation** - From `CHANGES.md` entries
-3. **Publishing** - Automated to npm
-4. **Documentation** - Auto-deployed to website
+```bash
+pnpm release 0.12.0 --dry-run
+pnpm release 0.12.0 --prepare
+```
 
-### Release Types
+Use the intended next version instead of `0.12.0`. Preparation builds in an
+isolated Git snapshot, validates exports and dependencies, and tests the packed
+SSH runtime. It does not publish or push. After candidate acceptance, the release
+operator runs `pnpm release 0.12.0 --resume` to publish the exact saved archives.
 
-- **Patch** (x.x.X) - Bug fixes
-- **Minor** (x.X.0) - New features
-- **Major** (X.0.0) - Breaking changes
+Read [Verified package releases](./website/docs/ops/release.md) before publishing.
+It covers partial publication, OTP, exact tag pushes, GitHub-only recovery and
+prerelease channels. Never recover by deleting published versions or replacing
+historical Git tags. The reusable implementation is `@xec-sh/ops/release`; keep
+repository-specific packaging in its isolated recipe rather than copying the
+release engine.
 
 ## 🛠 Common Tasks
 
@@ -561,7 +568,7 @@ Releases are automated but follow these guidelines:
 
 Before submitting any contribution:
 
-- [ ] Changes documented in `CHANGES.md`
+- [ ] Behavior changes documented in the owning guide
 - [ ] Tests written and passing
 - [ ] Documentation updated
 - [ ] Code follows style guide

@@ -1029,9 +1029,9 @@ pnpm --filter @xec-sh/core test
 pnpm --filter @xec-sh/cli build
 
 # Release
-pnpm changeset             # Create changeset
-pnpm version              # Version packages
-pnpm release              # Publish to npm
+pnpm release 0.12.0 --dry-run   # Read-only plan; choose the intended version
+pnpm release 0.12.0 --prepare   # Isolated verified archives; no push/publication
+pnpm release 0.12.0 --resume    # Operator action: publish the saved archives
 ```
 
 ## 🌟 Remember

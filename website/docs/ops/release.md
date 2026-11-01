@@ -16,7 +16,7 @@ install that release before using the new subpath in another repository.
 Use Node.js, the pnpm version in `packageManager`, Git, npm, and `tar`. Xec's
 build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
-The examples use `0.12.0`; choose your actual next version.
+Install the frozen dependencies and build the development tools first (`pnpm install --frozen-lockfile`, then `pnpm build`). Use a separate checkout if installed packages are serving running applications. The examples use `0.12.0`; choose your actual next version.
 
 ```bash
 pnpm release 0.12.0 --dry-run
@@ -33,6 +33,9 @@ or contact a registry. Remote readiness is checked during execution.
 apply. It installs the frozen lockfile without install scripts in a new temporary
 snapshot, builds every public workspace, and packs in dependency order. The SSH
 core recipe includes the reviewed private transport and its license/checksums.
+Before sealing it, Xec installs the actual tarball in a clean offline consumer
+and runs the hostile-peer, ChaCha and SFTP failure checks. Resume repeats this
+check against the saved archive without rebuilding it.
 The working checkout's `dist` and `node_modules` are never replaced.
 
 All archives must pass identity, dependency and exported-entry checks before the
@@ -96,7 +99,9 @@ distributed lock. Consumers may observe a partially published batch until recove
 finishes. Unknown outcomes are never reported as a complete release.
 
 Use npm/gh login or supported environment credentials. Tokens are not accepted as
-release command flags. Interactive OTP prompts are bounded and redacted from
+release command flags. The retired `.xec-release.json` hook/skip configuration
+is no longer used; repository-specific validation belongs in the preparation
+recipe, and publication stages are explicit command options. Interactive OTP prompts are bounded and redacted from
 command errors; publication receipts contain package identities and checksums,
 not credentials. Commands have finite timeouts and output bounds through Xec's
 existing process API.
@@ -140,7 +145,9 @@ an error fallback. Hold the same writer lock across preparation and publication.
 `preparePackage` is an optional per-package recipe, called only inside the
 isolated snapshot. It returns a package directory and `npm` or `pnpm` packer.
 The returned archive still goes through the shared checks. Repository-specific
-packaging belongs here; version, Git, registry and recovery logic remain shared.
+packaging belongs here; version, Git, registry and recovery logic remain shared. `verifyArtifact` can
+run acceptance against each packed archive before sealing; rejection or a change
+to those bytes prevents preparation from completing.
 
 `releaseNotes` and `createGithubRelease` provide the independent GitHub stage.
 `ReleaseCommand` can inject a transport for tests or a controlled execution

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { tmpdir } from 'node:os';
+import { parseArgs } from 'node:util';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 /** Release gate: exercise the actual packaged SSH runtime under bounded hostile peers. */
@@ -10,12 +12,12 @@ import { rm, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promi
 import { inspectSSHTransport, prepareSSHCorePackage } from './ssh-transport.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { values } = parseArgs({ options: { archive: { type: 'string' } } });
 const temporary = await mkdtemp(join(tmpdir(), 'xec-ssh-security-'));
 const run = (args, cwd = root) => execFileSync(process.execPath, args, {
   cwd, timeout: 10000, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 128 * 1024,
 });
 try {
-  const packageDirectory = await prepareSSHCorePackage(join(temporary, 'core'));
   // npm's documented bundled-dependency format must carry the patch to a consumer.
   const candidates = [process.env.npm_execpath,
     join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
@@ -27,18 +29,24 @@ try {
   }
   if (!npm) throw new Error('An installed npm CLI is required for the package-consumer security check');
   const npmArgs = ['--ignore-scripts', '--cache', join(temporary, 'cache')];
-  const packed = JSON.parse(run([npm, 'pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory))[0];
-  if (!packed.bundled?.includes('ssh2')) throw new Error('SSH transport was omitted from the package');
+  let archive;
+  if (values.archive) archive = resolve(values.archive);
+  else {
+    const packageDirectory = await prepareSSHCorePackage(join(temporary, 'core'));
+    const packed = JSON.parse(run([npm, 'pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory))[0];
+    if (!packed.bundled?.includes('ssh2')) throw new Error('SSH transport was omitted from the package');
+    archive = join(temporary, packed.filename);
+  }
   const manager = process.env.XEC_SECURITY_CONSUMER ?? 'npm';
   if (!['npm', 'pnpm'].includes(manager)) throw new Error('XEC_SECURITY_CONSUMER must be npm or pnpm');
   const consumer = join(temporary, 'consumer'); await mkdir(consumer);
   await writeFile(join(consumer, 'package.json'), '{"private":true,"type":"module"}');
   if (manager === 'npm') {
-    run([npm, 'install', '--offline', '--no-audit', '--no-fund', ...npmArgs, join(temporary, packed.filename)], consumer);
+    run([npm, 'install', '--offline', '--no-audit', '--no-fund', ...npmArgs, archive], consumer);
   } else {
     // pnpm can be a standalone executable; do not force it through Node.
     execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['add', '--offline', '--ignore-scripts',
-      '--ignore-workspace', '--store-dir', join(temporary, 'store'), join(temporary, packed.filename)], {
+      '--ignore-workspace', '--store-dir', join(temporary, 'store'), archive], {
       cwd: consumer, timeout: 30000, killSignal: 'SIGKILL', stdio: 'pipe',
     });
   }
@@ -64,5 +72,6 @@ try {
   run([join(root, 'scripts/fixtures/ssh-sftp-cleanup.mjs'), installed]);
   results.push({ mode: 'sftp-cleanup', cases: 3, peerCloseCycles: 25, passed: true });
   const evidence = JSON.parse(await readFile(join(installed, 'SSH-TRANSPORT.json')));
-  console.log(JSON.stringify({ packaged: true, consumer: manager, transport: evidence.upstream, patchSha256: evidence.patchSha256, results }, null, 2));
+  const integrity = 'sha512-' + createHash('sha512').update(await readFile(archive)).digest('base64');
+  console.log(JSON.stringify({ packaged: true, integrity, consumer: manager, transport: evidence.upstream, patchSha256: evidence.patchSha256, results }, null, 2));
 } finally { await rm(temporary, { recursive: true, force: true }); }
