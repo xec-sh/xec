@@ -1,0 +1,162 @@
+import type { ReleaseCommand } from './command.js';
+import type { ReleasePackage } from './packages.js';
+
+import { tmpdir } from 'node:os';
+import { constants } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { join, resolve, basename } from 'node:path';
+import { rm, open, mkdir, chmod, rename, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
+
+import { releaseCommand } from './command.js';
+import { assertCleanReleaseTree } from './git.js';
+import { releaseTag, discoverReleasePackages } from './packages.js';
+
+export interface ReleaseArtifact {
+  name: string;
+  version: string;
+  file: string;
+  integrity: string;
+}
+export interface PreparedRelease {
+  schema: 1;
+  commit: string;
+  version: string;
+  artifacts: ReleaseArtifact[];
+}
+export interface PrepareReleaseOptions {
+  run?: ReleaseCommand;
+  offline?: boolean;
+  build: { executable: string; args: string[] };
+  progress?: (message: string) => void;
+  /** An owner-specific packaging recipe, executed only in the isolated snapshot. */
+  preparePackage?: (context: { workspace: string; temporary: string; pkg: ReleasePackage; run: ReleaseCommand }) => Promise<{ directory: string; manager: 'npm' | 'pnpm' } | undefined>;
+}
+
+export const artifactIntegrity = (bytes: Uint8Array): string => `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+const missing = (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ENOENT';
+
+export async function verifyReleaseArtifact(artifact: ReleaseArtifact): Promise<void> {
+  if (artifactIntegrity(await readFile(artifact.file)) !== artifact.integrity) throw new Error(`Release archive changed: ${artifact.name}`);
+}
+
+/** A packed package must have registry dependencies and every promised entry point. */
+export async function validatePackedPackage(root: string, file: string, pkg: Pick<ReleasePackage, 'name' | 'version'>, run: ReleaseCommand = releaseCommand): Promise<void> {
+  const manifest = JSON.parse(await run(root, 'tar', ['-xOf', file, 'package/package.json'])) as Record<string, unknown>;
+  if (manifest['name'] !== pkg.name || manifest['version'] !== pkg.version || manifest['private']) throw new Error(`Packed identity differs: ${pkg.name}@${pkg.version}`);
+  for (const section of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+    if (Object.values((manifest[section] ?? {}) as Record<string, unknown>).some(value => typeof value !== 'string' || /^(workspace:|file:|link:)/.test(value))) throw new Error(`Packed ${pkg.name} contains local ${section}`);
+  }
+  const files = (await run(root, 'tar', ['-tzf', file])).split('\n');
+  if (files.some(path => !path.startsWith('package/') || path.includes('\\') || path.split('/').includes('..'))) throw new Error(`Unsafe archive path: ${pkg.name}`);
+  const targets = (value: unknown): string[] => typeof value === 'string' ? [value]
+    : value && typeof value === 'object' ? Object.values(value).flatMap(targets) : [];
+  for (const target of [manifest['main'], manifest['types'], manifest['bin'], manifest['exports']].flatMap(targets)) {
+    if (target.startsWith('#')) continue;
+    const expected = 'package/' + target.replace(/^\.\//, '');
+    const pattern = new RegExp('^' + expected.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+') + '$');
+    if (!files.some(path => pattern.test(path))) throw new Error(`Packed ${pkg.name} has no exported entry: ${target}`);
+  }
+}
+
+export async function loadPreparedRelease(root: string, version: string, run: ReleaseCommand = releaseCommand): Promise<PreparedRelease> {
+  releaseTag(version);
+  const commit = await run(root, 'git', ['rev-parse', 'HEAD']);
+  const directory = join(root, '.release-artifacts', version, commit);
+  const saved = JSON.parse(await readFile(join(directory, 'release.json'), 'utf8')) as PreparedRelease;
+  if (saved.schema !== 1 || saved.commit !== commit || saved.version !== version || !Array.isArray(saved.artifacts)) throw new Error('Invalid prepared release identity');
+  const packages = await discoverReleasePackages(root, run);
+  if (saved.artifacts.length !== packages.length) throw new Error('Prepared release inventory differs');
+  for (let index = 0; index < packages.length; index++) {
+    const pkg = packages[index]!, artifact = saved.artifacts[index];
+    if (!artifact || artifact.name !== pkg.name || artifact.version !== version || pkg.version !== version
+        || typeof artifact.file !== 'string' || basename(artifact.file) !== artifact.file || !/^[A-Za-z0-9_.%-]+\.tgz$/.test(artifact.file)
+        || !/^sha512-[A-Za-z0-9+/]{86}==$/.test(artifact.integrity)) throw new Error('Invalid prepared package identity');
+    artifact.file = join(directory, artifact.file);
+    await verifyReleaseArtifact(artifact);
+  }
+  return saved;
+}
+
+/** Build from the exact committed snapshot; never replace a working checkout's dist or dependencies. */
+export async function prepareReleaseArtifacts(root: string, version: string, options: PrepareReleaseOptions): Promise<PreparedRelease> {
+  root = resolve(root); releaseTag(version);
+  const run = options.run ?? releaseCommand;
+  await assertCleanReleaseTree(root, run);
+  const commit = await run(root, 'git', ['rev-parse', 'HEAD']);
+  if (!/^[a-f0-9]{40,64}$/.test(commit)) throw new Error('Invalid source commit');
+  try { return await loadPreparedRelease(root, version, run); } catch (error) { if (!missing(error)) throw error; }
+  const packages = await discoverReleasePackages(root, run);
+  if (packages.some(pkg => pkg.version !== version)) throw new Error('Commit synchronized package versions before preparing release artifacts');
+  const parent = join(root, '.release-artifacts', version), directory = join(parent, commit);
+  await mkdir(parent, { recursive: true, mode: 0o700 });
+  try { await readdir(directory); throw new Error(`Incomplete artifact directory already exists: ${directory}. Inspect it before recovery`); }
+  catch (error) { if (!missing(error)) throw error; }
+  const temporary = await mkdtemp(join(tmpdir(), 'xec-release-build-'));
+  const workspace = join(temporary, 'workspace');
+  try {
+    await mkdir(workspace);
+    options.progress?.(`Preparing isolated source ${commit.slice(0, 12)}`);
+    const archive = join(temporary, 'source.tar');
+    await run(root, 'git', ['archive', '--format=tar', '--output', archive, commit]);
+    await run(root, 'tar', ['-xf', archive, '-C', workspace]);
+    await run(workspace, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', '--prod=false', ...(options.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
+    options.progress?.('Building isolated packages');
+    await run(workspace, options.build.executable, options.build.args, { timeoutMs: 600000 });
+    const artifacts: ReleaseArtifact[] = [];
+    for (const pkg of packages) {
+      options.progress?.(`Packing ${pkg.name}`);
+      const output = await mkdtemp(join(temporary, 'pack-'));
+      const recipe = await options.preparePackage?.({ workspace, temporary, pkg, run });
+      const location = recipe?.directory ?? join(workspace, pkg.path), manager = recipe?.manager ?? 'pnpm';
+      await run(location, manager, manager === 'npm'
+        ? ['pack', '--ignore-scripts', '--json', '--pack-destination', output]
+        : ['--config.ignore-scripts=true', 'pack', '--pack-destination', output]);
+      const archives = (await readdir(output)).filter(name => name.endsWith('.tgz'));
+      if (archives.length !== 1) throw new Error(`Expected one archive for ${pkg.name}`);
+      const file = join(output, archives[0]!);
+      await validatePackedPackage(root, file, pkg, run);
+      artifacts.push({ name: pkg.name, version, file, integrity: artifactIntegrity(await readFile(file)) });
+    }
+    if (await run(root, 'git', ['rev-parse', 'HEAD']) !== commit) throw new Error('Source HEAD changed during preparation');
+    await assertCleanReleaseTree(root, run);
+    // A sealed record appears only after all archives are complete. A partial
+    // directory is never silently repacked or treated as a resumable publication.
+    await mkdir(directory, { mode: 0o700 });
+    const saved: PreparedRelease = { schema: 1, commit, version, artifacts: [] };
+    for (const artifact of artifacts) {
+      const filename = encodeURIComponent(artifact.name) + '.tgz';
+      const file = join(directory, filename);
+      await copyFile(artifact.file, file, constants.COPYFILE_EXCL);
+      const archiveHandle = await open(file, 'r+');
+      try { await archiveHandle.sync(); } finally { await archiveHandle.close(); }
+      await chmod(file, 0o444);
+      saved.artifacts.push({ ...artifact, file: filename });
+    }
+    const record = join(directory, '.release.json.tmp');
+    const handle = await open(record, 'wx', 0o600);
+    try { await handle.writeFile(JSON.stringify(saved, null, 2) + '\n'); await handle.sync(); }
+    finally { await handle.close(); }
+    await rename(record, join(directory, 'release.json'));
+    // Windows cannot fsync directory handles. Missing state after a power loss
+    // always fails closed on recovery; no publication can start without hashes.
+    if (process.platform !== 'win32') {
+      for (const path of [directory, parent, join(root, '.release-artifacts')]) {
+        const directoryHandle = await open(path, 'r');
+        try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+      }
+    }
+    return await loadPreparedRelease(root, version, run);
+  } finally { await rm(temporary, { recursive: true, force: true }); }
+}
+
+/** One writer per checkout; stale locks require explicit inspection, never PID guessing. */
+export async function acquireReleaseLock(root: string): Promise<() => Promise<void>> {
+  const directory = join(root, '.release-artifacts');
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const lock = join(directory, 'running');
+  try { await mkdir(lock, { mode: 0o700 }); }
+  catch (error) { throw new Error(`Release is locked: ${lock}; inspect the prior operation before recovery`, { cause: error }); }
+  try { await writeFile(join(lock, 'owner.json'), JSON.stringify({ pid: process.pid, at: new Date().toISOString() }), { mode: 0o600 }); }
+  catch (error) { await rm(lock, { recursive: true, force: true }); throw error; }
+  return () => rm(lock, { recursive: true, force: true });
+}

@@ -168,6 +168,9 @@ jobs:
           node --test scripts/test/ssh-transport.test.mjs
           pnpm check:ssh-security
 
+      - name: Release failure and recovery contracts
+        run: pnpm --filter @xec-sh/ops test test/release
+
       - name: core unit
         run: pnpm --filter @xec-sh/core test:unit
 

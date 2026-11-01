@@ -368,6 +368,7 @@ const sidebars: SidebarsConfig = {
         'ops/health',
         'ops/discovery',
         'ops/retry',
+        'ops/release',
         'ops/config',
         'ops/secrets',
       ],

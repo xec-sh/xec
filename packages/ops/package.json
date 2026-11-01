@@ -58,7 +58,11 @@
       "types": "./dist/utils/*.d.ts",
       "import": "./dist/utils/*.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./release": {
+      "types": "./dist/release/index.d.ts",
+      "import": "./dist/release/index.js"
+    }
   },
   "files": [
     "dist",
@@ -78,7 +82,8 @@
     "fs-extra": "^11.4.1",
     "glob": "^14.0.3",
     "js-yaml": "^5.5.0",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "semver": "^7.8.5"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
@@ -86,7 +91,8 @@
     "@types/node": "^26.6.6",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vitest": "^5.0.5",
-    "@typescript/native": "npm:typescript@^7.0.2"
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "@types/semver": "^7.8.0"
   },
   "keywords": [
     "devops",

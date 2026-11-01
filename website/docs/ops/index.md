@@ -24,6 +24,7 @@ pnpm add @xec-sh/ops
 | [Workflow](./workflow) | DAG-based task orchestration | `Workflow` |
 | [Health](./health) | HTTP/TCP/command health checks | `HealthChecker` |
 | [Discovery](./discovery) | Docker/K8s/SSH infrastructure discovery | `Discovery` |
+| [Release](./release) | Immutable package preparation and resumable publication | `prepareReleaseArtifacts` |
 | [Retry](./retry) | Retry policies with backoff | `RetryPolicy` |
 | [Config](./config) | Configuration management | `ConfigurationManager` |
 | [Secrets](./secrets) | Encrypted secret storage | `SecretManager` |

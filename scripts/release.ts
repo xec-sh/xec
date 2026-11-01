@@ -1,0 +1,115 @@
+#!/usr/bin/env -S node --import tsx
+import semver from 'semver';
+import { parseArgs } from 'node:util';
+import { join, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { select, confirm, password, isCancel } from '@xec-sh/kit';
+
+// The owning repository bootstraps from its own source; consumers use @xec-sh/ops/release.
+import {
+  releaseTag, planRelease, releaseNotes, pushReleaseRefs,
+  ensureReleaseTag, assertReleaseHead, acquireReleaseLock, loadPreparedRelease, createGithubRelease,
+  commitReleaseVersion, assertCleanReleaseTree, verifyRemoteReleaseTag, publishPreparedRelease,
+  discoverReleasePackages, prepareReleaseArtifacts, preflightPreparedRelease,
+} from '../packages/ops/src/release/index.js';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const usage = `xec release [version] [options]
+  --dry-run           Read-only plan; no build, files, hooks, git writes or publication
+  --prepare           Commit versions, build isolated archives and create a local tag
+  --resume            Use existing sealed archives; never rebuild or change versions
+  --github-only       Finish GitHub for the exact checked-out release tag
+  --skip-npm          Skip npm publication
+  --skip-github       Skip GitHub release creation
+  --no-push           Leave the exact branch/tag push to the operator
+  --offline           Install isolated build dependencies from the local pnpm store
+  --registry <url>    npm destination (default: https://registry.npmjs.org/)
+  --list-packages     List publishable workspaces in dependency order
+  --yes               Confirm the displayed plan without a prompt
+Credentials come from npm/gh login or their supported environment configuration.
+A failed publication retains its version commit, tag and archives for --resume.
+`;
+
+export async function runRelease(args: string[]): Promise<void> {
+  const { values, positionals } = parseArgs({ args, allowPositionals: true, options: {
+    'dry-run': { type: 'boolean', short: 'd' }, prepare: { type: 'boolean' }, resume: { type: 'boolean' },
+    'github-only': { type: 'boolean' }, 'skip-npm': { type: 'boolean' }, 'skip-github': { type: 'boolean' },
+    'no-push': { type: 'boolean' }, offline: { type: 'boolean' }, registry: { type: 'string' },
+    'list-packages': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, help: { type: 'boolean', short: 'h' },
+  } });
+  if (values.help) { console.log(usage); return; }
+  if (positionals.length > 1) throw new Error('Expected at most one release version');
+  if ([values.prepare, values.resume, values['github-only']].filter(Boolean).length > 1) throw new Error('Choose only one of --prepare, --resume or --github-only');
+  if ((values.resume || values['github-only']) && !positionals[0]) throw new Error('--resume and --github-only require the exact release version');
+  const packages = await discoverReleasePackages(root);
+  if (values['list-packages']) { console.log(JSON.stringify(packages, null, 2)); return; }
+  const current = packages.find(pkg => pkg.name === '@xec-sh/core')!.version;
+  let version = positionals[0];
+  if (!version && values['dry-run']) version = semver.inc(current, 'patch')!;
+  if (!version) {
+    if (!process.stdin.isTTY) throw new Error('Specify the release version in non-interactive mode');
+    const choice = await select({ message: `Release version (current ${current})`, options: ['patch', 'minor', 'major'].map(type => ({ value: semver.inc(current, type as 'patch' | 'minor' | 'major')!, label: `${type}: ${semver.inc(current, type as 'patch' | 'minor' | 'major')}` })) });
+    if (isCancel(choice)) return; version = choice;
+  }
+  releaseTag(version);
+  const evidence = await planRelease(root, version);
+  const plan = { version, tag: evidence.tag, npmTag: evidence.npmTag, source: evidence.commit, blockers: evidence.blockers, remoteState: 'not checked by dry-run',
+    mode: values.prepare ? 'prepare' : values.resume ? 'resume' : values['github-only'] ? 'github-only' : 'release',
+    packages: packages.map(pkg => ({ name: pkg.name, path: pkg.path, from: pkg.version, to: version })),
+    build: 'isolated committed snapshot', push: !values['no-push'] && !values.prepare,
+    npm: !values['skip-npm'] && !values.prepare && !values['github-only'], github: !values['skip-github'] && !values.prepare };
+  console.log(JSON.stringify(plan, null, 2));
+  if (values['dry-run']) { if (evidence.blockers.length) process.exitCode = 1; return; }
+  if (evidence.blockers.length) throw new Error(evidence.blockers.join('\n')); 
+  if (!values.yes) {
+    if (!process.stdin.isTTY) throw new Error('Review --dry-run, then use --yes for a non-interactive release');
+    const accepted = await confirm({ message: 'Execute this release plan?', initialValue: false });
+    if (isCancel(accepted) || !accepted) return;
+  }
+  const unlock = await acquireReleaseLock(root);
+  try {
+    await assertCleanReleaseTree(root);
+    await assertReleaseHead(root, version);
+    // A colliding remote release is refused before any version changes.
+    if (!values.prepare && !values['no-push']) await verifyRemoteReleaseTag(root, version);
+    if (!values.resume && !values['github-only']) await commitReleaseVersion(root, version);
+    if (!values['github-only']) {
+      if (values.resume) await loadPreparedRelease(root, version);
+      else await prepareReleaseArtifacts(root, version, {
+        build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
+        progress: console.log,
+        preparePackage: async ({ workspace, temporary, pkg, run }) => {
+          if (pkg.name !== '@xec-sh/core') return undefined;
+          const directory = join(temporary, 'prepared-core');
+          await run(workspace, process.execPath, [join(workspace, 'scripts/ssh-transport.mjs'), 'prepare', directory]);
+          return { directory, manager: 'npm' };
+        },
+      });
+      await ensureReleaseTag(root, version);
+    }
+    if (values.prepare) { console.log(`Prepared ${version}. Review .release-artifacts, then use: xec release ${version} --resume`); return; }
+    if (!values['skip-npm'] && !values['github-only']) await preflightPreparedRelease(root, version, { registry: values.registry });
+    if (values['no-push'] && !values['skip-github']) await verifyRemoteReleaseTag(root, version, true);
+    if (!values['no-push']) await pushReleaseRefs(root, version);
+    if (!values['skip-npm'] && !values['github-only']) await publishPreparedRelease(root, version, {
+      registry: values.registry, progress: console.log,
+      otp: async () => {
+        if (!process.stdin.isTTY) throw new Error('npm requires an OTP; resume interactively or configure an automation credential');
+        const value = await password({ message: 'npm one-time password' });
+        if (isCancel(value)) throw new Error('Publication cancelled; preserve archives and resume later');
+        return value;
+      },
+    });
+    if (!values['skip-github']) {
+      const notes = await releaseNotes(root, version, 'xec-sh/xec');
+      console.log(await createGithubRelease(root, version, 'xec-sh/xec', notes));
+    }
+    console.log(`Release ${version} verified. Prepared archives and receipts remain in .release-artifacts.`);
+  } catch (error) {
+    throw new Error(`Release interrupted. No source, tags or archives were rolled back. Inspect the failure and resume ${version} from its exact clean commit`, { cause: error });
+  } finally { await unlock(); }
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  runRelease(process.argv.slice(2)).catch(error => { console.error(error); process.exitCode = 1; });
+}
