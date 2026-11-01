@@ -61,6 +61,8 @@ try {
   }
   run([join(root, 'scripts/fixtures/ssh-chacha-reentrancy.mjs'), transport]);
   results.push({ mode: 'chacha-nested-writes', cases: 6, passed: true });
+  run([join(root, 'scripts/fixtures/ssh-sftp-cleanup.mjs'), installed]);
+  results.push({ mode: 'sftp-cleanup', cases: 3, peerCloseCycles: 25, passed: true });
   const evidence = JSON.parse(await readFile(join(installed, 'SSH-TRANSPORT.json')));
   console.log(JSON.stringify({ packaged: true, consumer: manager, transport: evidence.upstream, patchSha256: evidence.patchSha256, results }, null, 2));
 } finally { await rm(temporary, { recursive: true, force: true }); }

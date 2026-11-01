@@ -4,9 +4,10 @@ import type { SSHRequestOptions, SSHGetPutDirectoryOptions } from './ssh.js';
 import type { SFTPClient as SFTPWrapper, SFTPTransferOptions as TransferOptions } from './contracts.js';
 
 import { Readable } from 'node:stream';
+import { randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { finished } from 'node:stream/promises';
 import { connect as netConnect } from 'node:net';
-import { createHash, randomBytes } from 'node:crypto';
 
 import { SSHError } from './request-lifecycle.js';
 import { KeyedMutex } from '../../utils/mutex.js';
@@ -15,6 +16,7 @@ import { ExecutionResult } from '../../core/result.js';
 import { unrefTimer } from '../../utils/unref-timer.js';
 import { SSHKeyValidator } from './ssh-key-validator.js';
 import { SecurePasswordHandler } from './secure-password.js';
+import { SSHConnectionIdentity } from './connection-identity.js';
 import { Command, SSHAdapterOptions } from '../../types/command.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { classifyFailure, resolveExitCode } from '../../core/failure-kind.js';
@@ -161,6 +163,7 @@ export class SSHAdapter extends BaseAdapter {
   private metricsCollector: ConnectionPoolMetricsCollector = new ConnectionPoolMetricsCollector();
   private activeTunnels: Map<string, { close: () => Promise<void> }> = new Map();
   private connectionMutex = new KeyedMutex<string>();
+  private connectionIdentity = new SSHConnectionIdentity();
   private connecting = new Map<NodeSSH, AbortController>();
   private disposed = false;
 
@@ -316,13 +319,10 @@ export class SSHAdapter extends BaseAdapter {
       const sshCommand = { ...mergedCommand };
 
       // Execute command
-      const connectionKey = this.getConnectionKey(sshOptions);
       const result = await this.executeSSHCommand(
         connection.ssh,
         finalCommand,
-        sshCommand,
-        connection.host,
-        connectionKey
+        sshCommand
       );
 
       const endTime = Date.now();
@@ -340,10 +340,9 @@ export class SSHAdapter extends BaseAdapter {
       );
     } catch (error) {
       if (error instanceof TimeoutError) {
-        // Remove connection from pool after timeout
-        if (connection) {
-          this.removeFromPool(this.getConnectionKey(sshOptions));
-        }
+        // The exec channel was cancelled. Never interrupt another command
+        // sharing its SSH connection; retire repeated failures after the last lease.
+        if (connection) connection.errors++;
         // Handle timeout with nothrow
         if (mergedCommand.nothrow) {
           // Return error result for timeout without throwing
@@ -396,11 +395,20 @@ export class SSHAdapter extends BaseAdapter {
 
   /** Acquisition pins a connection before exposing it to any caller or eviction. */
   private async getConnection(options: SSHAdapterOptions, request: SSHRequestOptions = {}, exclusive = false): Promise<PooledConnection> {
-    const reusable = this.sshConfig.connectionPool.enabled && !exclusive;
+    const effective = this.connectionOptions(options);
+    if (effective.signal?.aborted || request.signal?.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR');
+    // A rotated key file must not borrow a socket authenticated by its old bytes.
+    if (effective.privateKeyPath) {
+      if (effective.privateKey) throw new SSHError('Specify privateKey or privateKeyPath, not both', 'EINVAL');
+      effective.privateKey = await readFile(effective.privateKeyPath);
+      delete effective.privateKeyPath;
+    }
+    options = { ...effective, type: 'ssh', host: options.host, username: options.username, sudo: options.sudo };
+    const reusable = this.sshConfig.connectionPool.enabled && !exclusive && !effective.sock;
     const key = reusable ? this.getConnectionKey(options) : `exclusive:${randomBytes(16).toString('hex')}`;
     const acquire = async () => {
       if (this.disposed) throw new SSHError('SSH adapter is disposed', 'ESHUTDOWN');
-      if (request.signal?.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR');
+      if (request.signal?.aborted || effective.signal?.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR');
       if (reusable) {
         const existing = await this.getExistingConnection(key);
         if (existing) return existing;
@@ -413,6 +421,7 @@ export class SSHAdapter extends BaseAdapter {
   private async getExistingConnection(key: string): Promise<PooledConnection | null> {
     const existing = this.connectionPool.get(key);
     if (!existing) return null;
+    if (existing.errors > 3 && existing.activeUseCount > 0) throw new SSHError('SSH connection is retiring while active operations finish', 'ENOBUFS');
     const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000;
     const expired = maxLifetime > 0 && Date.now() - existing.created > maxLifetime;
     if (!existing.ssh.isConnected() || (existing.activeUseCount === 0 && (expired || existing.errors > 3))) {
@@ -436,19 +445,18 @@ export class SSHAdapter extends BaseAdapter {
   }
 
   private connectionOptions(options: SSHAdapterOptions): SSHConfig {
-    return {
+    const { type: _type, sudo: _sudo, ...connection } = options;
+    const effective: SSHConfig = {
       keepaliveInterval: this.sshConfig.connectionPool.keepAlive ? this.sshConfig.connectionPool.keepAliveInterval : 0,
       keepaliveCountMax: 3,
+      hostKeyChecking: this.sshConfig.hostKeyChecking,
+      knownHostsPath: this.sshConfig.knownHostsPath,
       ...this.sshConfig.defaultConnectOptions,
-      host: options.host,
-      username: options.username,
-      port: options.port ?? 22,
-      privateKey: options.privateKey as any,
-      passphrase: options.passphrase,
-      password: options.password,
-      hostKeyChecking: options.hostKeyChecking ?? this.sshConfig.hostKeyChecking,
-      knownHostsPath: options.knownHostsPath ?? this.sshConfig.knownHostsPath
+      ...Object.fromEntries(Object.entries(connection).filter(([, value]) => value !== undefined)),
+      port: connection.port ?? 22,
     };
+    if (connection.privateKey !== undefined && connection.privateKeyPath === undefined) delete effective.privateKeyPath;
+    return effective;
   }
 
   private async createNewConnection(options: SSHAdapterOptions, key: string, reusable: boolean,
@@ -490,14 +498,7 @@ export class SSHAdapter extends BaseAdapter {
   }
 
   private async validateConnectionOptions(options: SSHAdapterOptions): Promise<void> {
-    // Validate SSH options
-    const validationResult = SSHKeyValidator.validateSSHOptions({
-      host: options.host,
-      username: options.username,
-      port: options.port,
-      privateKey: options.privateKey,
-      password: options.password
-    });
+    const validationResult = SSHKeyValidator.validateSSHOptions(options);
 
     if (!validationResult.isValid) {
       throw new ConnectionError(
@@ -542,30 +543,13 @@ export class SSHAdapter extends BaseAdapter {
   }
 
   private getConnectionKey(options: SSHAdapterOptions): string {
-    // Credentials are part of a pooled connection's identity. Keying only on
-    // user@host:port let two callers with *different* credentials share one
-    // socket, so the second caller's credentials were never verified — an
-    // authentication bypass in multi-tenant and credential-rotation setups.
-    //
-    // The material is hashed rather than embedded so that secrets never reach
-    // pool keys, log lines or metrics labels.
-    const privateKey = Buffer.isBuffer(options.privateKey)
-      ? ['bytes', options.privateKey.toString('base64')] : ['text', options.privateKey ?? ''];
-    // Structured boundaries prevent credential or user/host delimiter collisions.
-    return createHash('sha256').update(JSON.stringify([
-      options.host, options.username, options.port ?? 22, privateKey,
-      options.passphrase ?? '', options.password ?? '',
-      options.hostKeyChecking ?? this.sshConfig.hostKeyChecking,
-      options.knownHostsPath ?? this.sshConfig.knownHostsPath ?? '',
-    ])).digest('hex');
+    return this.connectionIdentity.key(this.connectionOptions(options));
   }
 
   private async executeSSHCommand(
     ssh: NodeSSH,
     command: string,
-    options: Partial<Command> = {},
-    host?: string,
-    connectionKey?: string
+    options: Partial<Command> = {}
   ): Promise<SSHExecCommandResponse> {
     // The remote process is terminated through the exec channel — on abort,
     // and when output blows the cap, where letting it keep streaming into a

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-/** Build declarations in isolation and compile a consumer without transport-library types. */
-import { mkdtemp, mkdir, readFile, writeFile, cp, rm, readdir } from 'node:fs/promises';
-import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
+import { join, resolve, dirname } from 'node:path';
+/** Build declarations in isolation and compile a consumer without transport-library types. */
+import { cp, rm, mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
+
 import { resolveTypeScriptCompiler } from './typescript-compiler.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -91,7 +92,8 @@ async function use() {
   sftp.readFile('/data/text', 'utf8', (error, contents) => { if (!error) contents.toUpperCase(); });
   sftp.readFile('/data/bytes', (error, contents) => { if (!error) contents.readUInt8(0); });
   const options: SSHDirectoryTransferOptions = { signal: new AbortController().signal, concurrency: 2 };
-  const host = $.ssh({ host: 'host.invalid', username: 'operator' });
+  const host = $.ssh({ host: 'host.invalid', username: 'operator', agent,
+    expectedHostFingerprint: 'SHA256:independently-verified-pin', algorithms: config.algorithms });
   await host.downloadDirectory('/data', '/local', options);
   const reverse = await host.reverseTunnel({ remotePort: 0, localPort: 3000, timeoutMs: 1000, signal: options.signal });
   await reverse.close();

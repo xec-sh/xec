@@ -1,6 +1,7 @@
 import { Client } from 'ssh2';
 import { it, vi, expect, describe, afterEach } from 'vitest';
 
+import { TimeoutError } from '../../../src/core/error.js';
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 
@@ -120,4 +121,45 @@ describe('SSH connection ownership and admission', () => {
     finish(); await running;
     expect(adapter.getConnectionPoolMetrics().activeConnections).toBe(0);
   });
+  it('carries agent-only authentication and distinct trust policies through the public target', async () => {
+    const { adapter, clients, wire } = fixture(4);
+    const agent = { getIdentities: vi.fn(), sign: vi.fn() };
+    const agentTarget = { ...target, password: undefined, agent, algorithms: { cipher: ['aes128-gcm@openssh.com' as const] } };
+    await adapter.execute({ ...command, adapterOptions: agentTarget });
+    await adapter.execute({ ...command, adapterOptions: { ...agentTarget, algorithms: { cipher: ['aes128-gcm@openssh.com' as const] } } });
+    expect(clients).toHaveLength(1);
+    expect(wire[0]).toMatchObject({ algorithms: agentTarget.algorithms });
+    expect((wire[0] as { agent?: object }).agent).toBeDefined();
+    const changedAgent = { getIdentities: vi.fn(), sign: vi.fn() };
+    await adapter.execute({ ...command, adapterOptions: { ...agentTarget, agent: changedAgent } });
+    await adapter.execute({ ...command, adapterOptions: { ...agentTarget, hostVerifier: () => true } });
+    await adapter.execute({ ...command, adapterOptions: { ...agentTarget, hostVerifier: () => false } });
+    expect(clients).toHaveLength(4);
+  });
+  it('checks target cancellation before borrowing an authenticated connection', async () => {
+    const { adapter, clients } = fixture();
+    await adapter.execute(command);
+    const controller = new AbortController(); controller.abort();
+    await expect(adapter.execute({ ...command, adapterOptions: { ...target, signal: controller.signal } })).rejects.toThrow('cancelled');
+    expect(clients).toHaveLength(1);
+    expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce();
+  });
+
+  it('retires repeated timeouts without interrupting another active command', async () => {
+    const { adapter, clients, destroyed } = fixture(1);
+    const finish = pausedCommand();
+    const running = adapter.execute(command);
+    await vi.waitFor(() => expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce());
+    for (let i = 0; i < 4; i++) {
+      vi.mocked(NodeSSH.prototype.execCommand).mockRejectedValueOnce(new TimeoutError('fixture', 10));
+      await expect(adapter.execute(command)).rejects.toBeInstanceOf(TimeoutError);
+      expect(destroyed.size).toBe(0);
+    }
+    await expect(adapter.execute(command)).rejects.toThrow('retiring');
+    expect(clients).toHaveLength(1);
+    finish(); await running;
+    expect(destroyed.has(clients[0]!)).toBe(true);
+    expect(adapter.getConnectionPoolMetrics().totalConnections).toBe(0);
+  });
+
 });

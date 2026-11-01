@@ -1,10 +1,48 @@
+import type { SSHAgent } from '../../src/adapters/ssh/contracts.js';
+
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { sign } from 'node:crypto';
 import { promises as fs } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
 import { $ } from '../../src/index';
+import { NodeSSH } from '../../src/adapters/ssh/ssh';
 import { SSHAdapter } from '../../src/adapters/ssh/index';
+
+/** Isolated fixture credentials; restore the container's previous keys even on failure. */
+async function withAuthorizedKey(
+  name: string,
+  action: (key: { privateKey: string; privateKeyPath: string; publicKey: string; passphrase: string }) => Promise<void>,
+  passphrase = '',
+) {
+  const directory = await fs.mkdtemp(join(tmpdir(), 'xec-ssh-auth-'));
+  const privateKeyPath = join(directory, 'id_rsa');
+  const admin = new NodeSSH();
+  try {
+    await $`ssh-keygen -t rsa -b 2048 -m PEM -f ${privateKeyPath} -N ${passphrase} -q`.timeout('10s');
+    const privateKey = await fs.readFile(privateKeyPath, 'utf8');
+    const publicKey = (await fs.readFile(`${privateKeyPath}.pub`, 'utf8')).trim();
+    await admin.connect(getSSHConfig(name));
+    const setup = await admin.execCommand('mkdir -p .ssh && chmod 700 .ssh');
+    expect(setup.code).toBe(0);
+    await admin.withSFTP(async sftp => {
+      const path = '.ssh/authorized_keys';
+      const original = await new Promise<Buffer | undefined>((resolve, reject) => sftp.readFile(path, (error, bytes) => {
+        if ((error as { code?: number } | undefined)?.code === 2) resolve(undefined);
+        else if (error) reject(error); else resolve(bytes);
+      }));
+      const write = (bytes: Buffer) => new Promise<void>((resolve, reject) => sftp.writeFile(path, bytes, { mode: 0o600 }, error => error ? reject(error) : resolve()));
+      try {
+        await write(Buffer.concat([original ?? Buffer.alloc(0), Buffer.from(`\n${publicKey}\n`)]));
+        await action({ privateKey, privateKeyPath, publicKey, passphrase });
+      } finally {
+        if (original !== undefined) await write(original);
+        else await new Promise<void>((resolve, reject) => sftp.unlink(path, error => error ? reject(error) : resolve()));
+      }
+    });
+  } finally { admin.dispose(true); await fs.rm(directory, { recursive: true, force: true }); }
+}
 
 describeSSH('SSH Authentication Tests', () => {
 
@@ -62,211 +100,30 @@ describeSSH('SSH Authentication Tests', () => {
   });
 
   describe('Private Key Authentication', () => {
-    // Test private key authentication with only one container to avoid complexity
-    it('should authenticate with private key file (ubuntu-apt)', async () => {
-      const sshConfig = getSSHConfig('ubuntu-apt');
+    for (const form of ['path', 'buffer', 'encrypted'] as const) {
+      testEachPackageManager(`authenticates with ${form} key without password fallback`, async container => {
+        await withAuthorizedKey(container.name, async key => {
+          const sshConfig = getSSHConfig(container.name);
+          const ssh = new SSHAdapter();
+          try {
+            const result = await ssh.execute({ command: 'whoami', adapterOptions: {
+              type: 'ssh', ...sshConfig, password: undefined,
+              ...(form === 'path' ? { privateKeyPath: key.privateKeyPath } : { privateKey: Buffer.from(key.privateKey) }),
+              ...(form === 'encrypted' ? { passphrase: key.passphrase } : {}),
+            } });
+            expect(result.exitCode).toBe(0); expect(result.stdout.trim()).toBe(sshConfig.username);
+          } finally { await ssh.dispose(); }
+        }, form === 'encrypted' ? 'fixture-passphrase' : '');
+      });
+    }
+
+    testEachPackageManager('rejects an invalid private key', async container => {
       const ssh = new SSHAdapter();
-
-      // Generate a temporary key pair
-      const keyDir = join(tmpdir(), `ssh-test-keys-${Date.now()}`);
-      await fs.mkdir(keyDir, { recursive: true });
-
-      const privateKeyPath = join(keyDir, 'id_rsa');
-      const publicKeyPath = join(keyDir, 'id_rsa.pub');
-
       try {
-        // Generate SSH key pair using ssh-keygen
-        await $`ssh-keygen -t rsa -b 2048 -f ${privateKeyPath} -N "" -q`;
-
-        // Read the public key
-        const publicKey = await fs.readFile(publicKeyPath, 'utf8');
-
-        // Backup existing authorized_keys if it exists
-        const backupResult = await ssh.execute({
-          command: 'cat ~/.ssh/authorized_keys 2>/dev/null || echo ""',
-          nothrow: true,
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
-        const authorizedKeysBackup = backupResult.stdout;
-
-        // Ensure .ssh directory exists with correct permissions
-        await ssh.execute({
-          command: 'mkdir -p ~/.ssh && chmod 700 ~/.ssh',
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
-
-        // Add our public key
-        await ssh.execute({
-          command: `echo "${publicKey}" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`,
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
-
-        // Test authentication with private key
-        const privateKeyContent = await fs.readFile(privateKeyPath, 'utf8');
-        const result = await ssh.execute({
-          command: 'whoami',
-          adapterOptions: {
-            type: 'ssh' as const,
-            hostKeyChecking: sshConfig.hostKeyChecking,
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            privateKey: privateKeyContent
-          }
-        });
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout.trim()).toBe(sshConfig.username);
-
-        // Restore original authorized_keys
-        if (authorizedKeysBackup) {
-          await ssh.execute({
-            command: `echo "${authorizedKeysBackup}" > ~/.ssh/authorized_keys`,
-            adapterOptions: {
-              type: 'ssh' as const,
-              ...sshConfig
-            }
-          });
-        } else {
-          await ssh.execute({
-            command: 'rm -f ~/.ssh/authorized_keys',
-            adapterOptions: {
-              type: 'ssh' as const,
-              ...sshConfig
-            }
-          });
-        }
-      } finally {
-        await ssh.dispose();
-        // Clean up key files
-        await fs.rm(keyDir, { recursive: true, force: true });
-      }
-    });
-
-    testEachPackageManager('should authenticate with private key content as Buffer', async (container) => {
-      const sshConfig = getSSHConfig(container.name);
-      const ssh = new SSHAdapter();
-
-      // Generate a temporary key pair
-      const keyDir = join(tmpdir(), `ssh-test-keys-${Date.now()}-${container.name}`);
-      await fs.mkdir(keyDir, { recursive: true });
-
-      const privateKeyPath = join(keyDir, 'id_rsa');
-      const publicKeyPath = join(keyDir, 'id_rsa.pub');
-
-      try {
-        // Generate SSH key pair
-        await $`ssh-keygen -t rsa -b 2048 -f ${privateKeyPath} -N "" -q`;
-        const publicKey = await fs.readFile(publicKeyPath, 'utf8');
-        const privateKeyContent = await fs.readFile(privateKeyPath, 'utf8');
-
-        // Setup authorized_keys
-        await ssh.execute({
-          command: 'mkdir -p ~/.ssh && chmod 700 ~/.ssh',
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
-
-        await ssh.execute({
-          command: `echo "${publicKey}" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`,
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
-
-        // Test authentication with private key as Buffer
-        const result = await ssh.execute({
-          command: 'whoami',
-          adapterOptions: {
-            type: 'ssh' as const,
-            hostKeyChecking: sshConfig.hostKeyChecking,
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            privateKey: Buffer.from(privateKeyContent)
-          }
-        });
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout.trim()).toBe(sshConfig.username);
-
-        // Cleanup authorized_keys
-        await ssh.execute({
-          command: 'rm -f ~/.ssh/authorized_keys',
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
-      } finally {
-        await ssh.dispose();
-        await fs.rm(keyDir, { recursive: true, force: true });
-      }
-    });
-
-    testEachPackageManager('should fail with invalid private key', async (container) => {
-      const ssh = new SSHAdapter();
-      const sshConfig = getSSHConfig(container.name);
-
-      await expect(ssh.execute({
-        command: 'whoami',
-        adapterOptions: {
-          type: 'ssh',
-          hostKeyChecking: sshConfig.hostKeyChecking,
-          host: sshConfig.host,
-          port: sshConfig.port,
-          username: sshConfig.username,
-          privateKey: Buffer.from('invalid-key-content')
-        }
-      })).rejects.toThrow();
-
-      await ssh.dispose();
-    });
-
-    testEachPackageManager('allows explicit password fallback alongside an encrypted private key', async (container) => {
-      // Generate encrypted key
-      const encryptedKeyPath = join(tmpdir(), `encrypted-key-${Date.now()}`);
-      const passphrase = 'test-passphrase';
-      const sshConfig = getSSHConfig(container.name);
-
-      await $`ssh-keygen -t rsa -b 2048 -f ${encryptedKeyPath} -N ${passphrase} -q`;
-
-      try {
-        const encryptedKeyContent = await fs.readFile(encryptedKeyPath, 'utf8');
-        const ssh = new SSHAdapter();
-
-        // This should use password auth as the encrypted key won't be in authorized_keys
-        const result = await ssh.execute({
-          command: 'whoami',
-          adapterOptions: {
-            type: 'ssh' as const,
-            hostKeyChecking: sshConfig.hostKeyChecking,
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            privateKey: encryptedKeyContent,
-            passphrase,
-            password: sshConfig.password // Fallback to password auth
-          }
-        });
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout.trim()).toBe(sshConfig.username);
-
-        await ssh.dispose();
-      } finally {
-        await fs.rm(encryptedKeyPath, { force: true });
-        await fs.rm(`${encryptedKeyPath}.pub`, { force: true });
-      }
+        await expect(ssh.execute({ command: 'whoami', adapterOptions: {
+          type: 'ssh', ...getSSHConfig(container.name), password: undefined, privateKey: Buffer.from('invalid-key-content'),
+        } })).rejects.toThrow();
+      } finally { await ssh.dispose(); }
     });
   });
 
@@ -342,57 +199,37 @@ describeSSH('SSH Authentication Tests', () => {
     });
   });
 
-  describe('Authentication Methods Priority', () => {
-    testEachPackageManager('should prefer private key over password when both provided', async (container) => {
-      // This test verifies that we can provide both authentication methods
-      const sshConfig = getSSHConfig(container.name);
-      const ssh = new SSHAdapter();
-
-      try {
-        // When both privateKey and password are provided, SSH library handles the preference
-        // Since we don't have a valid private key, it will use password authentication
-        const result = await ssh.execute({
-          command: 'whoami',
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig,
-            // Both auth methods provided - SSH client will try them in order
-            privateKey: undefined, // No key, so it will use password
-            password: sshConfig.password
-          }
-        });
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout.trim()).toBe(sshConfig.username);
-      } finally {
-        await ssh.dispose();
-      }
+  describe('Authentication Methods', () => {
+    testEachPackageManager('authenticates with a valid key despite an invalid password', async container => {
+      await withAuthorizedKey(container.name, async key => {
+        const ssh = new SSHAdapter();
+        try {
+          const result = await ssh.execute({ command: 'whoami', adapterOptions: {
+            type: 'ssh', ...getSSHConfig(container.name), privateKey: key.privateKey, password: 'incorrect-fixture-password',
+          } });
+          expect(result.stdout.trim()).toBe('user');
+        } finally { await ssh.dispose(); }
+      });
     });
 
-    testEachPackageManager('should handle authentication with SSH agent', async (container) => {
-      // Check if SSH_AUTH_SOCK is set (SSH agent available)
-      const hasAgent = !!process.env['SSH_AUTH_SOCK'];
-
-      if (!hasAgent) {
-        console.log('Skipping SSH agent test - no agent available');
-        return;
-      }
-
-      // Try to use agent authentication (will fallback to password)
-      const ssh = new SSHAdapter();
-      const sshConfig = getSSHConfig(container.name);
-
-      try {
-        const result = await ssh.execute({
-          command: 'whoami',
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig // SSH agent not supported in adapterOptions
-          }
-        });
-        expect(result.exitCode).toBe(0);
-      } finally {
-        await ssh.dispose();
-      }
+    testEachPackageManager('authenticates through a plain Xec agent with no password or local agent', async container => {
+      await withAuthorizedKey(container.name, async key => {
+        let signatures = 0;
+        const agent: SSHAgent = {
+          getIdentities: done => done(null, [key.publicKey]),
+          sign: (_key, data, options, done) => {
+            try { signatures++; done(null, sign(options.hash ?? 'sha1', data, key.privateKey)); }
+            catch (error) { done(error as Error); }
+          },
+        };
+        const ssh = new SSHAdapter();
+        try {
+          const result = await ssh.execute({ command: 'whoami', adapterOptions: {
+            type: 'ssh', ...getSSHConfig(container.name), password: undefined, agent,
+          } });
+          expect(result.stdout.trim()).toBe('user'); expect(signatures).toBeGreaterThan(0);
+        } finally { await ssh.dispose(); }
+      });
     });
   });
 
@@ -416,30 +253,26 @@ describeSSH('SSH Authentication Tests', () => {
       }
     });
 
-    testEachPackageManager('should handle known_hosts file', async (container) => {
-      const knownHostsPath = join(tmpdir(), `known_hosts-${Date.now()}`);
+    testEachPackageManager('verifies the configured known_hosts file and rejects a different trusted key', async container => {
+      const directory = await fs.mkdtemp(join(tmpdir(), 'xec-ssh-trust-'));
+      const knownHostsPath = join(directory, 'known_hosts');
       const sshConfig = getSSHConfig(container.name);
-
-      // Get the host key
-      const hostKeyResult = await $`ssh-keyscan -p ${sshConfig.port} ${sshConfig.host} 2>/dev/null`;
-      await fs.writeFile(knownHostsPath, hostKeyResult.stdout);
-
-      // Now connect - SSH adapter will use system SSH configuration
       const ssh = new SSHAdapter();
-
       try {
-        const result = await ssh.execute({
-          command: 'echo verified',
-          adapterOptions: {
-            type: 'ssh' as const,
-            ...sshConfig
-          }
-        });
+        const scan = await $`ssh-keyscan -p ${sshConfig.port} ${sshConfig.host}`.timeout('10s');
+        await fs.writeFile(knownHostsPath, scan.stdout);
+        const target = { type: 'ssh' as const, ...sshConfig, hostKeyChecking: 'strict' as const, knownHostsPath };
+        const result = await ssh.execute({ command: 'echo verified', adapterOptions: target });
         expect(result.exitCode).toBe(0);
-      } finally {
         await ssh.dispose();
-        await fs.rm(knownHostsPath, { force: true });
-      }
+        // A valid but different key must fail, including when passwords are correct.
+        const path = join(directory, 'untrusted');
+        await $`ssh-keygen -t rsa -b 2048 -f ${path} -N "" -q`.timeout('10s');
+        await fs.writeFile(knownHostsPath, `[${sshConfig.host}]:${sshConfig.port} ${await fs.readFile(path + '.pub', 'utf8')}`);
+        const changed = new SSHAdapter();
+        try { await expect(changed.execute({ command: 'true', adapterOptions: target })).rejects.toThrow(/host key|REMOTE HOST|not in|mismatch/i); }
+        finally { await changed.dispose(); }
+      } finally { await ssh.dispose(); await fs.rm(directory, { recursive: true, force: true }); }
     });
   });
 
@@ -574,7 +407,7 @@ describeSSH('SSH Authentication Tests', () => {
   });
 
   describe('Session Persistence', () => {
-    testEachPackageManager('should maintain session state across commands', async (container) => {
+    testEachPackageManager('isolates shell environment between commands on the same connection', async (container) => {
       const ssh = new SSHAdapter();
       const sshConfig = getSSHConfig(container.name);
 
@@ -588,7 +421,7 @@ describeSSH('SSH Authentication Tests', () => {
           }
         });
 
-        // It should be available in the next command on the same connection
+        // A new exec channel starts a new shell on the reused connection
         const result = await ssh.execute({
           command: 'echo $TEST_SESSION_VAR',
           adapterOptions: {

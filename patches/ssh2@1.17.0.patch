@@ -138,15 +138,20 @@ diff --git a/lib/server.js b/lib/server.js
 diff --git a/lib/utils.js b/lib/utils.js
 --- a/lib/utils.js
 +++ b/lib/utils.js
-@@ -45,6 +45,23 @@
-     return;
+@@ -46,6 +46,29 @@
  
    channel.incoming.state = 'closed';
-+
+ 
 +  // A peer may close while a write is waiting for window credit. Release the
 +  // retained buffers and settle each pending callback exactly once. Defer the
 +  // callbacks so application code cannot interrupt cleanup of other channels.
-+  if (channel._chunkcb || channel._chunkcbErr) {
++  if (channel.constructor === SFTP) {
++    // SFTP's _chunkcb is an internal drain method, not a user write callback.
++    // Its request callbacks are settled by push(null) below.
++    channel._buffer = [];
++    channel._chunkcb = undefined;
++    channel._waitWindow = false;
++  } else if (channel._chunkcb || channel._chunkcbErr) {
 +    const writeError = err || new Error('SSH channel closed before buffered write completed');
 +    if (!writeError.code)
 +      writeError.code = 'ERR_STREAM_PREMATURE_CLOSE';
@@ -159,6 +164,26 @@ diff --git a/lib/utils.js b/lib/utils.js
 +        process.nextTick(callback, writeError);
 +    }
 +  }
- 
++
    if (channel.readable)
      channel.push(null);
+   if (channel.server) {
+@@ -55,11 +78,13 @@
+     channel.stderr.push(null);
+   }
+ 
+-  if (channel.constructor !== SFTP
+-      && (channel.outgoing.state === 'open'
+-          || channel.outgoing.state === 'eof')
+-      && !dead) {
+-    channel.close();
++  if ((channel.outgoing.state === 'open'
++       || channel.outgoing.state === 'eof') && !dead) {
++    // SFTP.close() closes a file handle; destroy() acknowledges CHANNEL_CLOSE.
++    if (channel.constructor === SFTP)
++      channel.destroy();
++    else
++      channel.close();
+   }
+   if (channel.outgoing.state === 'closing')
+     channel.outgoing.state = 'closed';

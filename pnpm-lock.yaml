@@ -202,7 +202,7 @@ overrides:
 
 patchedDependencies:
   node-pty@1.1.0: e9522946f3d5a1fe0903a40d3b5f33005097448a167e601f16bda82a1ee77bc6
-  ssh2@1.17.0: 06e11bbf79de287c05805bcfd2fd067f42f4581d907940e24325690f8348856d
+  ssh2@1.17.0: b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94
 
 importers:
 
@@ -346,7 +346,7 @@ importers:
     dependencies:
       ssh2:
         specifier: 1.17.0
-        version: 1.17.0(patch_hash=06e11bbf79de287c05805bcfd2fd067f42f4581d907940e24325690f8348856d)
+        version: 1.17.0(patch_hash=b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94)
     devDependencies:
       '@stryker-mutator/core':
         specifier: ^10.1.1
@@ -14489,7 +14489,7 @@ snapshots:
       debug: 4.4.3(supports-color@8.1.1)
       readable-stream: 3.6.2
       split-ca: 1.0.1
-      ssh2: 1.17.0(patch_hash=06e11bbf79de287c05805bcfd2fd067f42f4581d907940e24325690f8348856d)
+      ssh2: 1.17.0(patch_hash=b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94)
     transitivePeerDependencies:
       - supports-color
 
@@ -17933,7 +17933,7 @@ snapshots:
       bcrypt-pbkdf: 1.0.2
       streamsearch: 0.1.2
 
-  ssh2@1.17.0(patch_hash=06e11bbf79de287c05805bcfd2fd067f42f4581d907940e24325690f8348856d):
+  ssh2@1.17.0(patch_hash=b093aff52296daf3419c28723468ce8f5488950e3053c6a644826e44dc789a94):
     dependencies:
       asn1: 0.2.6
       bcrypt-pbkdf: 1.0.2

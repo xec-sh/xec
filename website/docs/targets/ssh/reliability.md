@@ -79,11 +79,33 @@ The client provides shell, exec, subsystem, TCP and Unix-socket forwarding, reve
 
 Use `stat` to distinguish a missing file from a connection error. The compatibility `exists` callback also provides an optional error as its second argument. A negative boolean alone cannot establish that a file is absent.
 
+## One connection contract
+
+`$.ssh(...)`, `SSHAdapter` targets and `NodeSSH.connect(...)` share Xec's `SSHConnectionConfig`. Agent sockets and plain `SSHAgent` objects, keyboard-interactive handlers, explicit host fingerprints, algorithms and handshake cancellation do not require transport-library imports. Adapter defaults provide a common policy; defined target options override it.
+
+```typescript
+import { $ } from '@xec-sh/core';
+
+const agent = process.env.SSH_AUTH_SOCK;
+if (!agent) throw new Error('An SSH agent socket is required');
+
+const host = $.ssh({
+  host: 'build.example.net',
+  username: 'builder',
+  agent,
+  expectedHostFingerprint: 'SHA256:replace-with-an-independently-verified-pin',
+  readyTimeout: 10_000,
+});
+await host`uname -s`;
+```
+
+Pool identities cover the effective connection policy, including agent/callback identity and algorithm constraints. Key files are read before acquisition, so rotated key bytes cannot borrow the previous connection. Supplied sockets stay exclusive. A cancelled borrow cannot acquire an existing authenticated socket. Command timeouts cancel their channel; repeated failures retire a connection after its remaining users finish. Dispose existing sessions when revoking a mutable agent or changing an external trust file: changing the authority behind an existing object does not retroactively revoke an authenticated SSH session.
+
 ## Transport patches and release artifacts
 
-Xec keeps `ssh2` as its internal protocol implementation. The reviewed 1.17.0 patch rejects zero-size channel packets and receive-window violations, settles writes parked behind exhausted window credit when a channel closes, and isolates the ChaCha nonce during nested writes. The regressions correspond to upstream reports [1504](https://github.com/mscdex/ssh2/issues/1504), [1505](https://github.com/mscdex/ssh2/issues/1505), [1509](https://github.com/mscdex/ssh2/pull/1509) and [1523](https://github.com/mscdex/ssh2/pull/1523).
+Xec keeps `ssh2` as its internal protocol implementation. The reviewed 1.17.0 patch rejects zero-size channel packets and receive-window violations, settles writes parked behind exhausted window credit when a channel closes, isolates the ChaCha nonce during nested writes, and acknowledges SFTP channel closure while releasing buffered requests. The regressions correspond to upstream reports [1504](https://github.com/mscdex/ssh2/issues/1504), [1505](https://github.com/mscdex/ssh2/issues/1505), [1509](https://github.com/mscdex/ssh2/pull/1509) [1523](https://github.com/mscdex/ssh2/pull/1523) and [1522](https://github.com/mscdex/ssh2/issues/1522).
 
-`pnpm check:ssh-security` builds into a temporary directory, applies the patch to a separate verified dependency copy, packs Xec, installs the tarball offline, and tests that installed runtime. Hostile peers run only on loopback in child processes with external deadlines. Six synthetic ChaCha cases check standalone and nested writes. The test does not overwrite workspace dependencies or require Docker.
+`pnpm check:ssh-security` builds into a temporary directory, applies the patch to a separate verified dependency copy, packs Xec, installs the tarball offline, and tests that installed runtime. Hostile peers run only on loopback in child processes with external deadlines. Six synthetic ChaCha cases check standalone and nested writes. SFTP checks cover 25 server-initiated closures on one connection, buffered read/write cancellation and a lost high-level read callback. Set `XEC_SECURITY_CONSUMER=pnpm` to exercise the same artifact through pnpm; npm is the default. The test does not overwrite workspace dependencies or require Docker.
 
 The prepared package bundles `ssh2` and its dependency closure, carries the upstream license and `SSH-TRANSPORT.json` checksums, and excludes machine-specific native binaries. Optional native acceleration can be built on the consumer's platform; the JavaScript path remains available. `node scripts/ssh-transport.mjs prepare <new-directory>` prepares an immutable package directory for the release pipeline. Direct packing of an unprepared workspace is rejected. A root-only dependency patch would not protect npm consumers, so artifact installation is part of the gate.
 

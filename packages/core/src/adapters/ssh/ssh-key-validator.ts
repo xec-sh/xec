@@ -1,3 +1,5 @@
+import type { SSHConnectionConfig } from './contracts.js';
+
 import { readFile } from 'node:fs/promises';
 
 /**
@@ -146,7 +148,7 @@ export class SSHKeyValidator {
   }> {
     try {
       const keyContent = await readFile(keyPath, 'utf8');
-      const result = await this.validatePrivateKey(keyContent);
+      const result = await this.validatePrivateKey(keyContent, passphrase);
       
       // Additional file-specific checks
       if (passphrase && !keyContent.includes('ENCRYPTED')) {
@@ -196,13 +198,7 @@ export class SSHKeyValidator {
   /**
    * Validate SSH connection options
    */
-  static validateSSHOptions(options: {
-    host?: string;
-    username?: string;
-    port?: number;
-    privateKey?: string | Buffer;
-    password?: string;
-  }): {
+  static validateSSHOptions(options: SSHConnectionConfig): {
     isValid: boolean;
     issues: string[];
   } {
@@ -225,8 +221,11 @@ export class SSHKeyValidator {
     }
     
     // Authentication method validation
-    if (!options.privateKey && !options.password) {
-      issues.push('Either privateKey or password must be provided for authentication');
+    const customAuthentication = typeof options.authHandler === 'function'
+      || (Array.isArray(options.authHandler) && options.authHandler.length > 0);
+    if (!options.privateKey && !options.privateKeyPath && !options.password && !options.agent
+        && !customAuthentication && !(options.tryKeyboard && options.onKeyboardInteractive)) {
+      issues.push('An SSH authentication method is required: privateKey, password, agent or an explicit authentication handler');
     }
     
     // Both are intentional: the server may require multiple factors or the

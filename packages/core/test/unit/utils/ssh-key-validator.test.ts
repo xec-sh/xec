@@ -457,7 +457,7 @@ MIIEpAIBAAKCAQEAw7bJxlXi1M+WmWpJ0iZFcSBmz1+0vPBhIITrUUjJVGnqOzzX
       });
 
       expect(result.isValid).toBe(false);
-      expect(result.issues).toContain('Either privateKey or password must be provided for authentication');
+      expect(result.issues.join(' ')).toMatch(/authentication method is required/);
     });
 
     it('should accept explicitly provided key and password authentication', () => {

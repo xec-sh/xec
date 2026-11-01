@@ -8,7 +8,8 @@
     "https://github.com/mscdex/ssh2/issues/1504",
     "https://github.com/mscdex/ssh2/issues/1505",
     "https://github.com/mscdex/ssh2/pull/1509",
-    "https://github.com/mscdex/ssh2/pull/1523"
+    "https://github.com/mscdex/ssh2/pull/1523",
+    "https://github.com/mscdex/ssh2/issues/1522"
   ],
   "files": {
     "lib/Channel.js": {
@@ -33,7 +34,7 @@
     },
     "lib/utils.js": {
       "before": "bbae8286bc64b049499ce353e8dc4eefbbedefca8f50591432c1057276097aee",
-      "after": "408b457b8b788e3f2f52d80ccea3b9fabb307bd372cd5402fdbf4ba3c4721d75"
+      "after": "90dfc286c11baf2cc9c0cdac1a6a86b0df78d5435fb74378d9de15d72209a409"
     }
   }
 }
