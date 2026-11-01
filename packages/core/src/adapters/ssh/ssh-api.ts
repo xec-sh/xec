@@ -58,6 +58,8 @@ export interface SSHExecutionContext {
     remoteHost?: string;
     localHost?: string;
     localPort: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
   }): Promise<ReverseSSHTunnel>;
   uploadFile(localPath: string, remotePath: string, options?: SSHFileTransferOptions): Promise<void>;
   downloadFile(remotePath: string, localPath: string, options?: SSHFileTransferOptions): Promise<void>;
@@ -150,6 +152,8 @@ export function createSSHExecutionContext(
     remoteHost?: string;
     localHost?: string;
     localPort: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
   }): Promise<ReverseSSHTunnel> => {
     const adapter = engine.getAdapter('ssh') as SSHAdapter;
 

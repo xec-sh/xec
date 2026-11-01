@@ -72,7 +72,7 @@ describe('local forward ownership', () => {
     const adapter = new SSHAdapter() as any;
     cleanup.push(() => adapter.dispose());
     const lease = { ssh, activeUseCount: 0, lastUsed: Date.now() };
-    vi.spyOn(adapter, 'getConnection').mockResolvedValue(lease);
+    vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { lease.activeUseCount++; return lease; });
     const handle = await adapter.portForward(0, 'service.internal', 1234, { type: 'ssh', host: 'host.invalid', username: 'operator' });
     const socket = await client(handle.localPort);
     const reply = once(socket, 'data'); socket.write('roundtrip');
@@ -99,9 +99,9 @@ function pooled(maxLifetime: number) {
   let finish!: () => void;
   const closed = new Promise<void>(resolve => { finish = resolve; });
   const tunnel = { localPort: 12345, localHost: '127.0.0.1', remoteHost: '127.0.0.1', remotePort: 9700, closed, close: vi.fn(async () => { finish(); }) };
-  const connection = { created: Date.now(), lastUsed: Date.now(), activeUseCount: 0, useCount: 1, errors: 0, ssh: { isConnected: () => true, dispose: vi.fn(async () => {}), createTunnel: vi.fn(async () => tunnel) } };
+  const connection = { key: 'target', reusable: true, config: { host: 'node.invalid' }, created: Date.now(), lastUsed: Date.now(), activeUseCount: 0, useCount: 1, errors: 0, ssh: { isConnected: () => true, dispose: vi.fn(async () => {}), createTunnel: vi.fn(async () => tunnel) } };
   adapter.connectionPool.set('target', connection);
-  vi.spyOn(adapter, 'getConnection').mockResolvedValue(connection);
+  vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { connection.activeUseCount++; return connection; });
   cleanup.push(() => adapter.dispose());
   return { adapter, connection, tunnel, finish };
 }
@@ -121,7 +121,8 @@ describe('pooled tunnel lifetime', () => {
     expect(adapter.getConnection).toHaveBeenCalledWith(target);
     await vi.advanceTimersByTimeAsync(2 * 3600000);
     expect(connection.ssh.dispose).not.toHaveBeenCalled();
-    expect(await adapter.getExistingConnection('target', target)).toBe(connection);
+    expect(await adapter.getExistingConnection('target')).toBe(connection);
+    adapter.releaseConnection(connection);
     await Promise.all([handle.close(), handle.close()]);
     expect(connection.activeUseCount).toBe(0);
     expect(tunnel.close).toHaveBeenCalledOnce();

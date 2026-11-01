@@ -116,6 +116,7 @@ describeSSH('SSH Authentication Tests', () => {
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
+            hostKeyChecking: sshConfig.hostKeyChecking,
             host: sshConfig.host,
             port: sshConfig.port,
             username: sshConfig.username,
@@ -189,6 +190,7 @@ describeSSH('SSH Authentication Tests', () => {
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
+            hostKeyChecking: sshConfig.hostKeyChecking,
             host: sshConfig.host,
             port: sshConfig.port,
             username: sshConfig.username,
@@ -220,6 +222,7 @@ describeSSH('SSH Authentication Tests', () => {
         command: 'whoami',
         adapterOptions: {
           type: 'ssh',
+          hostKeyChecking: sshConfig.hostKeyChecking,
           host: sshConfig.host,
           port: sshConfig.port,
           username: sshConfig.username,
@@ -230,7 +233,7 @@ describeSSH('SSH Authentication Tests', () => {
       await ssh.dispose();
     });
 
-    testEachPackageManager('should handle encrypted private key with passphrase', async (container) => {
+    testEachPackageManager('allows explicit password fallback alongside an encrypted private key', async (container) => {
       // Generate encrypted key
       const encryptedKeyPath = join(tmpdir(), `encrypted-key-${Date.now()}`);
       const passphrase = 'test-passphrase';
@@ -247,6 +250,7 @@ describeSSH('SSH Authentication Tests', () => {
           command: 'whoami',
           adapterOptions: {
             type: 'ssh' as const,
+            hostKeyChecking: sshConfig.hostKeyChecking,
             host: sshConfig.host,
             port: sshConfig.port,
             username: sshConfig.username,

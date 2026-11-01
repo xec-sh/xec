@@ -1,6 +1,6 @@
 import type { EventEmitter } from 'node:events';
 
-import { ExecutionError } from '../../core/error.js';
+import { ExecutionError, ExecutionOutcomeUnknownError } from '../../core/error.js';
 
 export class SSHError extends ExecutionError {
   constructor(message: string, code: string | null = null) { super(message, code ?? 'SSH_ERROR'); this.name = 'SSHError'; }
@@ -73,5 +73,56 @@ export function requestResource<T>(
         settled = true; cleanup(); resolve(resource);
       });
     } catch (error) { failed(error instanceof Error ? error : new Error(String(error))); }
+  });
+}
+
+/**
+ * Global SSH requests have no request ID. Losing the acknowledgement of a
+ * listener allocation makes both its remote state and the response FIFO unsafe
+ * to reuse. Invalidate this connection, never retry the allocation automatically.
+ */
+export function requestRemoteListener<T, R>(
+  connection: EventEmitter,
+  request: SSHRequestOptions,
+  open: (done: (error: Error | null | undefined, listener: T) => void) => void,
+  invalidate: () => void,
+  confirmed: (listener: T) => R,
+): Promise<R> {
+  const timeoutMs = request.timeoutMs ?? 15000;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return Promise.reject(new SSHError('SSH listener timeout must be positive', 'EINVAL'));
+  const priorFailure = connectionFailure(connection);
+  if (priorFailure) return Promise.reject(priorFailure);
+  if (request.signal?.aborted) return Promise.reject(new SSHError('SSH listener cancelled before dispatch', 'ABORT_ERR'));
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      clearTimeout(timer); unwatch();
+      request.signal?.removeEventListener('abort', cancelled);
+    };
+    const uncertain = (error: Error) => {
+      if (settled) return;
+      settled = true; cleanup();
+      const failure = new ExecutionOutcomeUnknownError(error);
+      failure.message = 'Remote SSH listener allocation is unconfirmed; its connection was closed. Verify remote state before retrying';
+      reject(failure);
+      invalidate();
+    };
+    const cancelled = () => uncertain(new SSHError('SSH listener opening cancelled after dispatch', 'ABORT_ERR'));
+    const timer = setTimeout(() => uncertain(new SSHError('SSH listener acknowledgement timed out', 'ETIMEDOUT')), timeoutMs);
+    const unwatch = watchConnection(connection, uncertain);
+    request.signal?.addEventListener('abort', cancelled, { once: true });
+    try {
+      open((error, listener) => {
+        // A late ACK belongs to the invalidated connection. Do not install a
+        // handler or send another global request through its response queue.
+        if (settled) return;
+        if (error && !(error instanceof SSHError && error.code === 'SSH_FORWARD_REFUSED')) { uncertain(error); return; }
+        if (error) { settled = true; cleanup(); reject(error); return; }
+        try {
+          const value = confirmed(listener);
+          settled = true; cleanup(); resolve(value);
+        } catch (failure) { uncertain(failure instanceof Error ? failure : new Error(String(failure))); }
+      });
+    } catch (error) { uncertain(error instanceof Error ? error : new Error(String(error))); }
   });
 }

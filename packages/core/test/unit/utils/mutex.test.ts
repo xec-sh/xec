@@ -317,3 +317,33 @@ describe('KeyedMutex', () => {
     });
   });
 });
+
+describe('mutex ownership under cleanup', () => {
+  it('does not split a live keyed queue when delete or clear is requested', async () => {
+    const mutex = new KeyedMutex<string>();
+    const release = await mutex.acquire('host');
+    const order: number[] = [];
+    const second = mutex.withLock('host', () => { order.push(2); });
+    mutex.delete('host'); mutex.clear();
+    const third = mutex.withLock('host', () => { order.push(3); });
+    await Promise.resolve(); expect(order).toEqual([]);
+    release(); release();
+    await Promise.all([second, third]); expect(order).toEqual([2, 3]);
+  });
+  it('does not retain completed target identities', async () => {
+    const mutex = new KeyedMutex<string>();
+    await Promise.all(Array.from({ length: 1000 }, (_, key) => mutex.withLock(String(key), () => key)));
+    expect((mutex as unknown as { locks: Map<string, unknown> }).locks.size).toBe(0);
+  });
+  it('a repeated release cannot unlock the next owner', async () => {
+    const mutex = new Mutex();
+    const first = await mutex.acquire();
+    const pending = mutex.acquire();
+    first(); const second = await pending;
+    first();
+    let thirdStarted = false;
+    const third = mutex.withLock(() => { thirdStarted = true; });
+    await Promise.resolve(); expect(thirdStarted).toBe(false);
+    second(); await third; expect(thirdStarted).toBe(true);
+  });
+});

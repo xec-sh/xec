@@ -65,7 +65,7 @@ describe('directory transfer ownership', () => {
         await active; options.tick('/local', '/remote', new Error('unconfirmed download')); return false;
       },
     } };
-    vi.spyOn(adapter, 'getConnection').mockResolvedValue(connection);
+    vi.spyOn(adapter, 'getConnection').mockImplementation(async () => { connection.activeUseCount++; return connection; });
     const outcome = expect(adapter.downloadDirectory('/remote', '/local', { type: 'ssh', host: 'fixture' })).rejects.toThrow('unconfirmed download');
     await vi.waitFor(() => expect(connection.activeUseCount).toBe(1));
     finish(); await outcome;

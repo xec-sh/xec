@@ -120,6 +120,8 @@ MIIEpAIBAAKCAQEAw7bJxlXi1M+WmWpJ0iZFcSBmz1+0vPBhIITrUUjJVGnqOzzX
 
         const result = await SSHKeyValidator.validatePrivateKey(encryptedKey);
         expect(result.issues).toContain('Encrypted private keys require a passphrase');
+        const supplied = await SSHKeyValidator.validatePrivateKey(encryptedKey, Buffer.from('fixture'));
+        expect(supplied.issues).not.toContain('Encrypted private keys require a passphrase');
       });
 
       it('should reject key with too short content', async () => {
@@ -458,7 +460,7 @@ MIIEpAIBAAKCAQEAw7bJxlXi1M+WmWpJ0iZFcSBmz1+0vPBhIITrUUjJVGnqOzzX
       expect(result.issues).toContain('Either privateKey or password must be provided for authentication');
     });
 
-    it('should reject both authentication methods', () => {
+    it('should accept explicitly provided key and password authentication', () => {
       const result = SSHKeyValidator.validateSSHOptions({
         host: 'example.com',
         username: 'user',
@@ -466,8 +468,8 @@ MIIEpAIBAAKCAQEAw7bJxlXi1M+WmWpJ0iZFcSBmz1+0vPBhIITrUUjJVGnqOzzX
         password: 'password'
       });
 
-      expect(result.isValid).toBe(false);
-      expect(result.issues).toContain('Both privateKey and password provided. Only one authentication method should be used');
+      expect(result.isValid).toBe(true);
+      expect(result.issues).toEqual([]);
     });
 
     it('should accept Buffer as privateKey', () => {

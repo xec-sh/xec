@@ -10,6 +10,8 @@ afterEach(async () => { for (const close of cleanups.splice(0).reverse()) await 
 function transport() {
   const ssh = new NodeSSH();
   const connection: any = new EventEmitter();
+  connection.destroy = vi.fn(() => { connection.emit('close'); });
+  connection.end = connection.destroy;
   connection.forwardIn = vi.fn((_host, _port, done) => done(undefined, 4040));
   connection.unforwardIn = vi.fn((_host, _port, done) => done());
   (ssh as unknown as { transport: unknown }).transport = connection;
@@ -20,7 +22,7 @@ function pooled() {
   const adapter: any = new SSHAdapter({ connectionPool: { enabled: false } });
   const one = transport(), two = transport();
   const entries = [one, two].map(({ ssh }) => ({ ssh, activeUseCount: 0, lastUsed: Date.now() }));
-  vi.spyOn(adapter, 'getConnection').mockImplementation(async (target: any) => entries[target.host === 'one.invalid' ? 0 : 1]);
+  vi.spyOn(adapter, 'getConnection').mockImplementation(async (target: any) => { const entry = entries[target.host === 'one.invalid' ? 0 : 1]!; entry.activeUseCount++; return entry; });
   cleanups.push(async () => { one.connection.emit('close'); two.connection.emit('close'); await adapter.dispose(); });
   return { adapter, one, two, entries };
 }
@@ -97,6 +99,60 @@ describe('reverse tunnel ownership', () => {
     expect(connection.unforwardIn).toHaveBeenCalledOnce();
     expect(connection.listenerCount('tcp connection')).toBe(0);
     expect(connection.listenerCount('close')).toBe(0);
+  });
+
+  it.each(['tcp', 'unix'])('bounds %s listener opening and invalidates the uncertain connection', async (kind) => {
+    vi.useFakeTimers();
+    const { ssh, connection } = transport();
+    let acknowledge!: (...args: any[]) => void;
+    connection.forwardIn.mockImplementation((_host, _port, done) => { acknowledge = done; });
+    connection.openssh_forwardInStreamLocal = vi.fn((_path, done) => { acknowledge = done; });
+    const opening = kind === 'tcp' ? ssh.forwardIn('127.0.0.1', 0, vi.fn(), { timeoutMs: 20 })
+      : ssh.forwardInStreamLocal('/tmp/fixture.sock', vi.fn(), { timeoutMs: 20 });
+    const rejected = expect(opening).rejects.toMatchObject({ kind: 'outcome-unknown', originalError: { code: 'ETIMEDOUT' } });
+    await vi.advanceTimersByTimeAsync(20); await rejected;
+    expect(connection.destroy).toHaveBeenCalledOnce();
+    acknowledge(undefined, 4040);
+    expect(connection.listenerCount('tcp connection') + connection.listenerCount('unix connection')).toBe(0);
+    expect(ssh.isConnected()).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it('cancels before dispatch without poisoning a usable connection', async () => {
+    const { ssh, connection } = transport();
+    const abort = new AbortController(); abort.abort();
+    await expect(ssh.forwardIn('127.0.0.1', 0, undefined, { signal: abort.signal })).rejects.toMatchObject({ code: 'ABORT_ERR' });
+    expect(connection.forwardIn).not.toHaveBeenCalled();
+    expect(connection.destroy).not.toHaveBeenCalled();
+  });
+  it('cancels an in-flight allocation without replay or installing a late handler', async () => {
+    const { ssh, connection } = transport();
+    connection.forwardIn.mockImplementation(() => {});
+    const abort = new AbortController();
+    const opening = ssh.forwardIn('127.0.0.1', 0, vi.fn(), { signal: abort.signal });
+    abort.abort();
+    await expect(opening).rejects.toMatchObject({ kind: 'outcome-unknown', originalError: { code: 'ABORT_ERR' } });
+    expect(connection.forwardIn).toHaveBeenCalledOnce();
+    expect(connection.destroy).toHaveBeenCalledOnce();
+  });
+  it('distinguishes an explicit refusal from a lost global reply', async () => {
+    const { ssh, connection } = transport();
+    connection.forwardIn.mockImplementationOnce((_host, _port, done) => done(new Error('Unable to bind to 127.0.0.1:4040')));
+    await expect(ssh.forwardIn('127.0.0.1', 4040)).rejects.toMatchObject({ code: 'SSH_FORWARD_REFUSED' });
+    expect(connection.destroy).not.toHaveBeenCalled();
+    connection.forwardIn.mockImplementationOnce((_host, _port, done) => done(new Error('No response from server')));
+    await expect(ssh.forwardIn('127.0.0.1', 4040)).rejects.toMatchObject({ kind: 'outcome-unknown' });
+    expect(connection.destroy).toHaveBeenCalledOnce();
+  });
+  it('handles a connection arriving synchronously with the allocation reply', async () => {
+    const { ssh, connection } = transport();
+    const incoming = vi.fn();
+    connection.forwardIn.mockImplementationOnce((_host, _port, done) => {
+      done(undefined, 4040);
+      connection.emit('tcp connection', { destIP: '127.0.0.1', destPort: 4040 }, vi.fn(), vi.fn());
+    });
+    const tunnel = await ssh.forwardIn('127.0.0.1', 0, incoming);
+    expect(incoming).toHaveBeenCalledOnce();
+    await tunnel.dispose();
   });
 
   it('uses the same retryable acknowledgement contract for Unix listeners', async () => {

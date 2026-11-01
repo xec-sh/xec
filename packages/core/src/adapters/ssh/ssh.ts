@@ -66,7 +66,7 @@ function adaptAgent(agent: string | SSHAgent | undefined): string | SSHAgent | u
 
 import { escapeUnix } from '../../utils/shell-escape.js'
 import { manageSFTP, type SFTPRequestOptions } from './sftp-lifecycle.js'
-import { SSHError, requestResource, watchConnection, connectionFailure, type SSHRequestOptions } from './request-lifecycle.js'
+import { SSHError, requestResource, watchConnection, connectionFailure, requestRemoteListener, type SSHRequestOptions } from './request-lifecycle.js'
 
 export { SSHError } from './request-lifecycle.js'
 export type { SFTPRequestOptions } from './sftp-lifecycle.js'
@@ -453,7 +453,7 @@ export class NodeSSH {
     try {
       await new Promise<void>((resolve, reject) => {
         const signal = config.signal
-        const cancelled = () => { connection.destroy(); reject(new SSHError('SSH connection cancelled', 'ABORT_ERR')) }
+        const cancelled = () => { reject(new SSHError('SSH connection cancelled', 'ABORT_ERR')); connection.destroy() }
         const cleanup = () => signal?.removeEventListener('abort', cancelled)
         signal?.addEventListener('abort', cancelled, { once: true })
         // Keep an error listener after ready: a transport error must never become uncaught.
@@ -488,7 +488,7 @@ export class NodeSSH {
   }
 
   public isConnected(): boolean {
-    return this.transport != null
+    return this.transport != null && !connectionFailure(this.transport)
   }
 
   async requestShell(
@@ -919,27 +919,34 @@ export class NodeSSH {
     return !failed
   }
 
-  forwardIn(remoteAddr: string, remotePort: number, onConnection?: SSHForwardInListener): Promise<SSHForwardInDetails> {
+  /** An unacknowledged allocation closes this connection; use a dedicated client when sharing work. */
+  forwardIn(remoteAddr: string, remotePort: number, onConnection?: SSHForwardInListener,
+    request: SSHRequestOptions = {}): Promise<SSHForwardInDetails> {
     const connection = this.getConnection()
-
-    return new Promise((resolve, reject) => {
-      connection.forwardIn(remoteAddr, remotePort, (error, port) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
+    return requestRemoteListener(connection, request,
+      done => connection.forwardIn(remoteAddr, remotePort, (error, port) =>
+        done(this.forwardingRejection(error, `Unable to bind to ${remoteAddr}:${remotePort}`), port)),
+      () => this.dispose(true), (port: number) => {
         const handler: SSHForwardInListener = (details, acceptConnection, rejectConnection) => {
           if (details.destIP === remoteAddr && details.destPort === port) {
-            onConnection?.(details, acceptConnection, rejectConnection)
+            if (onConnection) onConnection(details, acceptConnection, rejectConnection)
+            else rejectConnection()
           }
         }
-
-        const lifecycle = this.manageRemoteForward(connection, 'tcp connection', onConnection ? handler : undefined,
+        const lifecycle = this.manageRemoteForward(connection, 'tcp connection', handler,
           done => connection.unforwardIn(remoteAddr, port, done))
-        resolve({ port, ...lifecycle })
+        return { port, ...lifecycle }
       })
-    })
+  }
+
+  /** Translate the transport's explicit refusal; every other failed reply is uncertain. */
+  private forwardingRejection(error: Error | null | undefined, refusal: string): Error | null | undefined {
+    if (error?.message === refusal || error?.message === 'strictVendor enabled and server is not OpenSSH or compatible version') {
+      const rejected = new SSHError(error.message, 'SSH_FORWARD_REFUSED')
+      rejected.cause = error
+      return rejected
+    }
+    return error
   }
 
   /** A failed unbind retains the listener and remains retryable; transport loss releases local ownership. */
@@ -1009,26 +1016,22 @@ export class NodeSSH {
   forwardInStreamLocal(
     socketPath: string,
     onConnection?: SSHForwardInStreamLocalListener,
+    request: SSHRequestOptions = {},
   ): Promise<SSHForwardInStreamLocalDetails> {
     const connection = this.getConnection()
-
-    return new Promise((resolve, reject) => {
-      connection.openssh_forwardInStreamLocal(socketPath, (error) => {
-        if (error) {
-          reject(error)
-          return
-        }
-
+    return requestRemoteListener(connection, request,
+      done => connection.openssh_forwardInStreamLocal(socketPath, error =>
+        done(this.forwardingRejection(error, `Unable to bind to ${socketPath}`), undefined)),
+      () => this.dispose(true), () => {
         const handler: SSHForwardInStreamLocalListener = (details, acceptConnection, rejectConnection) => {
           if (details.socketPath === socketPath) {
-            onConnection?.(details, acceptConnection, rejectConnection)
+            if (onConnection) onConnection(details, acceptConnection, rejectConnection)
+            else rejectConnection()
           }
         }
-
-        resolve(this.manageRemoteForward(connection, 'unix connection', onConnection ? handler : undefined,
-          done => connection.openssh_unforwardInStreamLocal(socketPath, done)))
+        return this.manageRemoteForward(connection, 'unix connection', handler,
+          done => connection.openssh_unforwardInStreamLocal(socketPath, done))
       })
-    })
   }
 
   forwardOutStreamLocal(socketPath: string, request: SSHRequestOptions = {}): Promise<Channel> {

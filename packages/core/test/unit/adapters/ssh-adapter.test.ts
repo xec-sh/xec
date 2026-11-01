@@ -499,17 +499,12 @@ describeSSH('SSHAdapter - Real SSH Tests', () => {
       // Dispose should close all connections
       await adapter.dispose();
 
-      // After dispose, adapter should still work (creates new connections)
-      const afterDispose = await adapter.execute({
+      expect(adapter.getConnectionPoolMetrics().totalConnections).toBe(0);
+      // Disposal is terminal: late work must not reopen a socket after shutdown.
+      await expect(adapter.execute({
         command: 'echo "after dispose"',
-        adapterOptions: {
-          type: 'ssh',
-          ...sshConfig
-        }
-      });
-
-      expect(afterDispose.exitCode).toBe(0);
-      expect(afterDispose.stdout.trim()).toBe('after dispose');
+        adapterOptions: { type: 'ssh', ...sshConfig },
+      })).rejects.toThrow('disposed');
     });
   });
 });

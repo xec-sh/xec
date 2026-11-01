@@ -13,12 +13,12 @@ export class Mutex {
   async acquire(): Promise<() => void> {
     if (!this.locked) {
       this.locked = true;
-      return () => this.release();
+      return this.releaseOnce();
     }
 
     return new Promise<() => void>((resolve) => {
       this.queue.push(() => {
-        resolve(() => this.release());
+        resolve(this.releaseOnce());
       });
     });
   }
@@ -26,6 +26,11 @@ export class Mutex {
   /**
    * Release the lock and process the next waiting task
    */
+  private releaseOnce(): () => void {
+    let released = false;
+    return () => { if (!released) { released = true; this.release(); } };
+  }
+
   private release(): void {
     if (this.queue.length > 0) {
       const next = this.queue.shift()!;
@@ -52,45 +57,35 @@ export class Mutex {
  * Keyed mutex for locking on specific keys (useful for connection pools)
  */
 export class KeyedMutex<K = string> {
-  private locks = new Map<K, Mutex>();
+  private locks = new Map<K, { mutex: Mutex; users: number }>();
 
-  /**
-   * Get or create a mutex for a specific key
-   */
-  private getMutex(key: K): Mutex {
-    let mutex = this.locks.get(key);
-    if (!mutex) {
-      mutex = new Mutex();
-      this.locks.set(key, mutex);
-    }
-    return mutex;
-  }
-
-  /**
-   * Acquire lock for a specific key
-   */
+  /** Count holders and waiters before yielding, so cleanup cannot split a queue. */
   async acquire(key: K): Promise<() => void> {
-    return this.getMutex(key).acquire();
+    let entry = this.locks.get(key);
+    if (!entry) { entry = { mutex: new Mutex(), users: 0 }; this.locks.set(key, entry); }
+    const owned = entry;
+    owned.users++;
+    const unlock = await owned.mutex.acquire();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      unlock();
+      owned.users--;
+      if (!owned.users && this.locks.get(key) === owned) this.locks.delete(key);
+    };
   }
 
-  /**
-   * Execute a function with the lock held for a specific key
-   */
   async withLock<T>(key: K, fn: () => T | Promise<T>): Promise<T> {
-    return this.getMutex(key).withLock(fn);
+    const release = await this.acquire(key);
+    try { return await fn(); } finally { release(); }
   }
 
-  /**
-   * Remove a mutex for a key (useful for cleanup)
-   */
+  /** Cleanup never abandons a holder or a queued waiter. Idle keys disappear automatically. */
   delete(key: K): void {
-    this.locks.delete(key);
+    const entry = this.locks.get(key);
+    if (entry && !entry.users) this.locks.delete(key);
   }
 
-  /**
-   * Clear all locks
-   */
-  clear(): void {
-    this.locks.clear();
-  }
+  clear(): void { for (const key of this.locks.keys()) this.delete(key); }
 }

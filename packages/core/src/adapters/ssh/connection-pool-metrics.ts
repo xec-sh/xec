@@ -16,6 +16,7 @@ export interface PooledConnectionMetrics {
   lastUsed: Date;
   useCount: number;
   isAlive: boolean;
+  isActive?: boolean;
   errors: number;
 }
 
@@ -47,7 +48,7 @@ export class ConnectionPoolMetricsCollector {
   }
 
   getMetrics(poolSize: number, connections: Map<string, PooledConnectionMetrics>): ConnectionPoolMetrics {
-    const activeConnections = Array.from(connections.values()).filter(c => c.isAlive).length;
+    const activeConnections = Array.from(connections.values()).filter(c => c.isAlive && c.isActive === true).length;
     const idleConnections = poolSize - activeConnections;
     
     const now = Date.now();
@@ -61,8 +62,9 @@ export class ConnectionPoolMetricsCollector {
       }
     }
     
-    const averageIdleTime = activeConnections > 0 ? totalIdleTime / activeConnections : 0;
-    const averageUseCount = activeConnections > 0 ? totalUseCount / activeConnections : 0;
+    const aliveConnections = Array.from(connections.values()).filter(c => c.isAlive).length;
+    const averageIdleTime = aliveConnections > 0 ? totalIdleTime / aliveConnections : 0;
+    const averageUseCount = aliveConnections > 0 ? totalUseCount / aliveConnections : 0;
 
     return {
       activeConnections,

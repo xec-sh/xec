@@ -93,6 +93,10 @@ async function use() {
   const options: SSHDirectoryTransferOptions = { signal: new AbortController().signal, concurrency: 2 };
   const host = $.ssh({ host: 'host.invalid', username: 'operator' });
   await host.downloadDirectory('/data', '/local', options);
+  const reverse = await host.reverseTunnel({ remotePort: 0, localPort: 3000, timeoutMs: 1000, signal: options.signal });
+  await reverse.close();
+  await (await ssh.forwardIn('127.0.0.1', 0, undefined, { signal: options.signal })).dispose();
+  await (await ssh.forwardInStreamLocal('/tmp/fixture.sock', undefined, { timeoutMs: 1000 })).dispose();
   await ssh.withSFTP(async files => files.stat('/data', () => {}));
   ssh.dispose();
 }

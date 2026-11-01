@@ -7,7 +7,7 @@ export class SSHKeyValidator {
   /**
    * Validate SSH private key format and structure
    */
-  static async validatePrivateKey(key: string | Buffer): Promise<{
+  static async validatePrivateKey(key: string | Buffer, passphrase?: string | Buffer): Promise<{
     isValid: boolean;
     keyType?: string;
     issues: string[];
@@ -59,7 +59,7 @@ export class SSHKeyValidator {
     }
     
     // Check for encrypted keys (basic check)
-    if (normalizedKey.includes('ENCRYPTED')) {
+    if (normalizedKey.includes('ENCRYPTED') && !passphrase) {
       issues.push('Encrypted private keys require a passphrase');
     }
     
@@ -229,9 +229,8 @@ export class SSHKeyValidator {
       issues.push('Either privateKey or password must be provided for authentication');
     }
     
-    if (options.privateKey && options.password) {
-      issues.push('Both privateKey and password provided. Only one authentication method should be used');
-    }
+    // Both are intentional: the server may require multiple factors or the
+    // caller may explicitly supply password fallback after a refused key.
     
     return {
       isValid: issues.length === 0,

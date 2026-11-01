@@ -39,6 +39,18 @@ Defaults are 15 seconds to open a subsystem, 30 seconds without request progress
 
 Interrupted writes report an unknown outcome: bytes may already exist at the destination. Transfers are not atomic replacements, snapshots, resumable transactions, or automatic cross-server replication. Verify or remove partial destinations according to the application's policy before retrying. Hidden files and empty directories are included; symbolic links and special files are not copied. Downloaded directory names containing path separators are rejected. The caller must still choose a trusted local destination: these helpers are not a filesystem sandbox and do not protect a concurrently modified local directory from symlink substitution.
 
+## Connections and reverse listeners
+
+`connectionPool.maxConnections` bounds ready connections **and handshakes in progress** (default 10). Commands, transfers and local tunnels acquire a lease before the connection can be evicted. At capacity, Xec can replace an idle connection; if all slots are busy, the new operation fails with `ENOBUFS`. Cancel or finish work, or explicitly increase the budget. Disabling reuse still tracks connections, applies the budget and closes them after their last operation. `dispose()` is terminal and cancels pending handshakes; create a new adapter for a new lifecycle.
+
+Pool diagnostics count connections with active leases as active and unleased connections as idle. SSH protocol keepalives check liveness without running commands on the target. Expired idle connections and their per-target locking state are reclaimed; cleanup cannot detach an active lock queue.
+
+A reverse tunnel owns a **dedicated connection**, using the same target, credentials, host verification and connection budget as other operations. This isolates uncertain global SSH requests from commands and transfers. `reverseTunnel({ remotePort: 0, localPort: 3000, timeoutMs: 15_000, signal })` waits for a server-confirmed port. `timeoutMs` bounds allocation acknowledgement after authentication; the connection's `readyTimeout` bounds authentication. Cancellation applies to connection establishment and allocation, not an already returned tunnel; close that tunnel explicitly.
+
+`NodeSSH.forwardIn(address, port, onConnection, request)` and `forwardInStreamLocal(path, onConnection, request)` use the same 15-second default acknowledgement deadline. An explicit server refusal leaves the low-level connection reusable. A timeout, disconnect or cancellation after dispatch reports `SSH_OUTCOME_UNKNOWN` and invalidates that connection, because the listener may already exist remotely and SSH global replies have no request IDs. A late reply cannot revive the listener. Low-level callers sharing a client must account for this connection-wide failure; use a dedicated client for reverse listeners.
+
+A successful `close()` waits for unbind acknowledgement. If unbind is refused or times out, the handle remains owned and closure can be retried. `closed` also resolves when the transport disappears; that releases **local ownership**, not proof of immediate remote cleanup during a network partition. Do not blindly repeat an allocation with an unknown outcome.
+
 ## Interactive and advanced clients
 
 ```typescript

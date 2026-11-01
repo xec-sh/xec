@@ -61,6 +61,7 @@ function createSSHTest(
 async function connectWithPassword(port: number, client: NodeSSH) {
   await client.connect({
     host: '127.0.0.1',
+    hostKeyChecking: 'off',
     port,
     username: 'steel',
     password: 'password',
@@ -70,6 +71,7 @@ async function connectWithPassword(port: number, client: NodeSSH) {
 async function connectWithPrivateKey(port: number, client: NodeSSH) {
   await client.connect({
     host: '127.0.0.1',
+    hostKeyChecking: 'off',
     port,
     username: 'steel',
     privateKeyPath: PRIVATE_KEY_PATH,
@@ -79,6 +81,7 @@ async function connectWithPrivateKey(port: number, client: NodeSSH) {
 async function connectWithInlinePrivateKey(port: number, client: NodeSSH) {
   await client.connect({
     host: '127.0.0.1',
+    hostKeyChecking: 'off',
     port,
     username: 'steel',
     privateKey: readFileSync(PRIVATE_KEY_PATH, 'utf8'),

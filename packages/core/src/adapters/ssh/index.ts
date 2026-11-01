@@ -1,6 +1,6 @@
 
-import type { SSHGetPutDirectoryOptions } from './ssh.js';
 import type { SFTPRequestOptions } from './sftp-lifecycle.js';
+import type { SSHRequestOptions, SSHGetPutDirectoryOptions } from './ssh.js';
 import type { SFTPClient as SFTPWrapper, SFTPTransferOptions as TransferOptions } from './contracts.js';
 
 import { Readable } from 'node:stream';
@@ -8,6 +8,7 @@ import { finished } from 'node:stream/promises';
 import { connect as netConnect } from 'node:net';
 import { createHash, randomBytes } from 'node:crypto';
 
+import { SSHError } from './request-lifecycle.js';
 import { KeyedMutex } from '../../utils/mutex.js';
 import { StreamHandler } from '../../utils/stream.js';
 import { ExecutionResult } from '../../core/result.js';
@@ -135,6 +136,8 @@ export interface SSHAdapterConfig extends BaseAdapterConfig {
 }
 
 interface PooledConnection {
+  key: string;
+  reusable: boolean;
   ssh: NodeSSH;
   host: string;
   lastUsed: number;
@@ -142,8 +145,6 @@ interface PooledConnection {
   activeUseCount: number; // Reference count: >0 means connection is in use, prevents eviction
   created: number;
   errors: number;
-  keepAliveTimer?: NodeJS.Timeout;
-  reconnectAttempts: number;
   config: SSHAdapterOptions;
 }
 
@@ -160,6 +161,8 @@ export class SSHAdapter extends BaseAdapter {
   private metricsCollector: ConnectionPoolMetricsCollector = new ConnectionPoolMetricsCollector();
   private activeTunnels: Map<string, { close: () => Promise<void> }> = new Map();
   private connectionMutex = new KeyedMutex<string>();
+  private connecting = new Map<NodeSSH, AbortController>();
+  private disposed = false;
 
   constructor(config: SSHAdapterConfig = {}) {
     super(config);
@@ -224,14 +227,15 @@ export class SSHAdapter extends BaseAdapter {
         throw error;
       }
 
-      // Drop the dead connection so the retry cannot be handed the same one.
-      this.removeFromPool(this.getConnectionKey(sshOptions));
-
+      // Acquisition removes a failed transport by identity. Never remove the
+      // current pool entry here: another caller may already have replaced it.
       this.emitAdapterEvent('ssh:reconnect', {
         host: sshOptions.host,
         attempts: 1
       });
 
+      const delay = this.sshConfig.connectionPool.reconnectDelay ?? 1000;
+      if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
       return this.executeOnce(command);
     }
   }
@@ -249,7 +253,9 @@ export class SSHAdapter extends BaseAdapter {
       return false;
     }
 
-    return error instanceof ConnectionError && classifyFailure(error.originalError) === 'connection-lost';
+    if (!this.sshConfig.connectionPool.autoReconnect || this.sshConfig.connectionPool.maxReconnectAttempts === 0) return false;
+    const cause = error instanceof AdapterError ? error.originalError : error;
+    return cause instanceof ConnectionError && classifyFailure(cause.originalError) === 'connection-lost';
   }
 
   private async executeOnce(command: Command): Promise<ExecutionResult> {
@@ -265,8 +271,7 @@ export class SSHAdapter extends BaseAdapter {
     const commandString = this.buildCommandString(mergedCommand);
 
     try {
-      connection = await this.getConnection(sshOptions);
-      connection.activeUseCount++;
+      connection = await this.getConnection(sshOptions, { signal: mergedCommand.signal });
 
       // Emit execute event
       this.emitAdapterEvent('ssh:execute', {
@@ -366,10 +371,8 @@ export class SSHAdapter extends BaseAdapter {
         // Track error
         connection.errors++;
 
-        // Remove failed connection from pool if too many errors
-        if (connection.errors > 3) {
-          this.removeFromPool(this.getConnectionKey(sshOptions));
-        }
+        // Retire an unhealthy connection only after its other users finish.
+        // A command failure must never interrupt an unrelated active channel.
       }
 
       throw new AdapterError(
@@ -379,10 +382,7 @@ export class SSHAdapter extends BaseAdapter {
       );
     } finally {
       if (connection) {
-        connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
-        if (this.sshConfig.connectionPool.enabled) {
-          connection.lastUsed = Date.now();
-        }
+        this.releaseConnection(connection);
       }
     }
   }
@@ -394,69 +394,51 @@ export class SSHAdapter extends BaseAdapter {
     return null;
   }
 
-  private async getConnection(options: SSHAdapterOptions): Promise<PooledConnection> {
-    const key = this.getConnectionKey(options);
-
-    // Use mutex to prevent race conditions when accessing the connection pool
-    return this.connectionMutex.withLock(key, async () => {
-      // Try to get existing connection from pool
-      if (this.sshConfig.connectionPool.enabled) {
-        const existingConnection = await this.getExistingConnection(key, options);
-        if (existingConnection) {
-          return existingConnection;
-        }
+  /** Acquisition pins a connection before exposing it to any caller or eviction. */
+  private async getConnection(options: SSHAdapterOptions, request: SSHRequestOptions = {}, exclusive = false): Promise<PooledConnection> {
+    const reusable = this.sshConfig.connectionPool.enabled && !exclusive;
+    const key = reusable ? this.getConnectionKey(options) : `exclusive:${randomBytes(16).toString('hex')}`;
+    const acquire = async () => {
+      if (this.disposed) throw new SSHError('SSH adapter is disposed', 'ESHUTDOWN');
+      if (request.signal?.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR');
+      if (reusable) {
+        const existing = await this.getExistingConnection(key);
+        if (existing) return existing;
       }
-
-      // No valid existing connection, create a new one
-      return this.createNewConnection(options, key);
-    });
+      return this.createNewConnection(options, key, reusable, request.signal);
+    };
+    return reusable ? this.connectionMutex.withLock(key, acquire) : acquire();
   }
 
-  private async getExistingConnection(key: string, options: SSHAdapterOptions): Promise<PooledConnection | null> {
+  private async getExistingConnection(key: string): Promise<PooledConnection | null> {
     const existing = this.connectionPool.get(key);
-    if (!existing) {
+    if (!existing) return null;
+    const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000;
+    const expired = maxLifetime > 0 && Date.now() - existing.created > maxLifetime;
+    if (!existing.ssh.isConnected() || (existing.activeUseCount === 0 && (expired || existing.errors > 3))) {
+      await this.closeConnection(key, existing, 'retired');
       return null;
     }
+    existing.activeUseCount++;
+    existing.useCount++;
+    existing.lastUsed = Date.now();
+    this.metricsCollector.onConnectionReused();
+    this.emitAdapterEvent('ssh:pool-metrics', { metrics: this.getPoolMetrics() });
+    return existing;
+  }
 
-    const now = Date.now();
-    const maxLifetime = this.sshConfig.connectionPool.maxLifetime ?? 3600000; // Default 1 hour
-
-    // Check if connection exceeded maximum lifetime
-    if (existing.activeUseCount === 0 && maxLifetime > 0 && (now - existing.created) > maxLifetime) {
-      await this.closeConnection(key, existing, 'max_lifetime_exceeded');
-      return null;
+  private releaseConnection(connection: PooledConnection): void {
+    connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
+    connection.lastUsed = Date.now();
+    if (!connection.activeUseCount && (!connection.reusable || connection.errors > 3)) {
+      void this.closeConnection(connection.key, connection, 'released');
     }
-
-    // Check if connection is still alive
-    if (existing.ssh.isConnected()) {
-      existing.useCount++;
-      existing.lastUsed = now;
-      this.metricsCollector.onConnectionReused();
-      this.emitAdapterEvent('ssh:pool-metrics', {
-        metrics: this.getPoolMetrics()
-      });
-      return existing;
-    }
-
-    // Try to reconnect if enabled
-    if (this.sshConfig.connectionPool.autoReconnect) {
-      try {
-        const reconnected = await this.reconnectConnection(existing);
-        if (reconnected) {
-          return reconnected;
-        }
-      } catch {
-        // Reconnection failed
-      }
-    }
-
-    // Remove dead connection
-    this.removeFromPool(key);
-    return null;
   }
 
   private connectionOptions(options: SSHAdapterOptions): SSHConfig {
     return {
+      keepaliveInterval: this.sshConfig.connectionPool.keepAlive ? this.sshConfig.connectionPool.keepAliveInterval : 0,
+      keepaliveCountMax: 3,
       ...this.sshConfig.defaultConnectOptions,
       host: options.host,
       username: options.username,
@@ -469,40 +451,42 @@ export class SSHAdapter extends BaseAdapter {
     };
   }
 
-  private async createNewConnection(options: SSHAdapterOptions, key: string): Promise<PooledConnection> {
-    // Validate options
-    await this.validateConnectionOptions(options);
-
-    // Create SSH connection
+  private async createNewConnection(options: SSHAdapterOptions, key: string, reusable: boolean,
+    signal?: AbortSignal): Promise<PooledConnection> {
+    // Reserve synchronously, before validation/authentication. Concurrent hosts
+    // cannot all pass a size check and exceed the configured socket budget.
+    const limit = this.sshConfig.connectionPool.maxConnections;
+    if (!Number.isInteger(limit) || limit < 1) throw new SSHError('SSH maxConnections must be a positive integer', 'EINVAL');
+    if (this.connectionPool.size + this.connecting.size >= limit) this.removeOldestIdleConnection();
+    if (this.connectionPool.size + this.connecting.size >= limit) throw new SSHError('SSH connection capacity is busy; no active connection was evicted', 'ENOBUFS');
     const ssh = new NodeSSH();
-    const connectOptions = this.connectionOptions(options);
-
+    const abort = new AbortController();
+    this.connecting.set(ssh, abort);
     try {
+      await this.validateConnectionOptions(options);
+      const connectOptions = this.connectionOptions(options);
+      connectOptions.signal = AbortSignal.any([abort.signal, ...[signal, connectOptions.signal].filter((item): item is AbortSignal => !!item)]);
+      if (this.disposed || connectOptions.signal.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR');
       await ssh.connect(connectOptions);
+      if (this.disposed || connectOptions.signal.aborted) throw new SSHError('SSH connection cancelled', 'ABORT_ERR');
+      if (!ssh.isConnected()) throw new SSHError('SSH connection closed before acquisition', 'ECONNRESET');
+      const now = Date.now();
+      const connection: PooledConnection = {
+        key, reusable, ssh, host: options.host, lastUsed: now, useCount: 1,
+        activeUseCount: 1, created: now, errors: 0, config: options,
+      };
+      this.connecting.delete(ssh);
+      this.connectionPool.set(key, connection);
+      this.metricsCollector.onConnectionCreated();
       this.emitConnectionEvents(options);
+      this.emitAdapterEvent('ssh:pool-metrics', { metrics: this.getPoolMetrics() });
+      return connection;
     } catch (error) {
+      ssh.dispose(true);
+      this.metricsCollector.onConnectionFailed();
+      if (error instanceof SSHError) throw error;
       throw new ConnectionError(options.host, error instanceof Error ? error : new Error(String(error)));
-    }
-
-    const now = Date.now();
-    const connection: PooledConnection = {
-      ssh,
-      host: options.host,
-      lastUsed: now,
-      useCount: 1,
-      activeUseCount: 0,
-      created: now,
-      errors: 0,
-      reconnectAttempts: 0,
-      config: options
-    };
-
-    // Add to pool if enabled
-    if (this.sshConfig.connectionPool.enabled) {
-      this.addConnectionToPool(key, connection);
-    }
-
-    return connection;
+    } finally { this.connecting.delete(ssh); }
   }
 
   private async validateConnectionOptions(options: SSHAdapterOptions): Promise<void> {
@@ -524,7 +508,7 @@ export class SSHAdapter extends BaseAdapter {
 
     // Validate private key if provided
     if (options.privateKey) {
-      const keyValidation = await SSHKeyValidator.validatePrivateKey(options.privateKey);
+      const keyValidation = await SSHKeyValidator.validatePrivateKey(options.privateKey, options.passphrase);
       if (!keyValidation.isValid) {
         throw new ConnectionError(
           options.host,
@@ -557,25 +541,6 @@ export class SSHAdapter extends BaseAdapter {
     });
   }
 
-  private addConnectionToPool(key: string, connection: PooledConnection): void {
-    // Check pool size limit
-    if (this.connectionPool.size >= this.sshConfig.connectionPool.maxConnections) {
-      this.removeOldestIdleConnection();
-    }
-
-    this.connectionPool.set(key, connection);
-    this.metricsCollector.onConnectionCreated();
-
-    // Set up keep-alive if enabled
-    if (this.sshConfig.connectionPool.keepAlive) {
-      this.setupKeepAlive(connection);
-    }
-
-    this.emitAdapterEvent('ssh:pool-metrics', {
-      metrics: this.getPoolMetrics()
-    });
-  }
-
   private getConnectionKey(options: SSHAdapterOptions): string {
     // Credentials are part of a pooled connection's identity. Keying only on
     // user@host:port let two callers with *different* credentials share one
@@ -584,20 +549,15 @@ export class SSHAdapter extends BaseAdapter {
     //
     // The material is hashed rather than embedded so that secrets never reach
     // pool keys, log lines or metrics labels.
-    const credentialFingerprint = createHash('sha256')
-      .update(typeof options.privateKey === 'string' ? options.privateKey : (options.privateKey ?? ''))
-      .update('\0')
-      .update(options.passphrase ?? '')
-      .update('\0')
-      .update(options.password ?? '')
-      .update('\0')
-      .update(options.hostKeyChecking ?? this.sshConfig.hostKeyChecking)
-      .update('\0')
-      .update(options.knownHostsPath ?? this.sshConfig.knownHostsPath ?? '')
-      .digest('hex')
-      .slice(0, 16);
-
-    return `${options.username}@${options.host}:${options.port ?? 22}#${credentialFingerprint}`;
+    const privateKey = Buffer.isBuffer(options.privateKey)
+      ? ['bytes', options.privateKey.toString('base64')] : ['text', options.privateKey ?? ''];
+    // Structured boundaries prevent credential or user/host delimiter collisions.
+    return createHash('sha256').update(JSON.stringify([
+      options.host, options.username, options.port ?? 22, privateKey,
+      options.passphrase ?? '', options.password ?? '',
+      options.hostKeyChecking ?? this.sshConfig.hostKeyChecking,
+      options.knownHostsPath ?? this.sshConfig.knownHostsPath ?? '',
+    ])).digest('hex');
   }
 
   private async executeSSHCommand(
@@ -937,134 +897,22 @@ export class SSHAdapter extends BaseAdapter {
   }
 
   private async closeConnection(key: string, connection: PooledConnection, reason: string): Promise<void> {
-    // Clear keep-alive timer first to prevent any further keep-alive attempts
-    if (connection.keepAliveTimer) {
-      clearInterval(connection.keepAliveTimer);
-      connection.keepAliveTimer = undefined;
-    }
-
-    // Extract host info from connection key
-    const [hostPort] = key.split('@').slice(-1);
-    const [host = 'unknown', port = '22'] = (hostPort || 'unknown:22').split(':');
-
-    // Emit SSH-specific disconnect event
-    this.emitAdapterEvent('ssh:disconnect', {
-      host,
-      reason
-    });
-
-    // Emit generic connection close event
-    this.emitAdapterEvent('connection:close', {
-      host,
-      port: parseInt(port, 10),
-      type: 'ssh',
-      reason
-    });
-
-    // Dispose the SSH connection
-    try {
-      await connection.ssh.dispose();
-    } catch (error) {
-      console.error(`Error disposing SSH connection ${key}:`, error);
-    }
-
-    // Remove from pool and update metrics
+    // Identity guard prevents a late cleanup from removing a replacement.
+    if (this.connectionPool.get(key) !== connection) return;
     this.connectionPool.delete(key);
+    connection.ssh.dispose(true);
     this.metricsCollector.onConnectionDestroyed();
-  }
-
-  private async reconnectConnection(connection: PooledConnection): Promise<PooledConnection | null> {
-    const maxAttempts = this.sshConfig.connectionPool.maxReconnectAttempts ?? 3;
-    const delay = this.sshConfig.connectionPool.reconnectDelay ?? 1000;
-
-    if (connection.reconnectAttempts >= maxAttempts) {
-      this.metricsCollector.onConnectionFailed();
-      return null;
-    }
-
-    connection.reconnectAttempts++;
-
-    try {
-      // Wait before reconnecting
-      await new Promise(resolve => setTimeout(resolve, delay * connection.reconnectAttempts));
-
-      // Try to reconnect
-      await connection.ssh.connect(this.connectionOptions(connection.config));
-
-      // Reset error count on successful reconnect
-      connection.errors = 0;
-      connection.lastUsed = Date.now();
-
-      // Re-setup keep-alive
-      if (this.sshConfig.connectionPool.keepAlive) {
-        this.setupKeepAlive(connection);
-      }
-
-      this.emitAdapterEvent('ssh:reconnect', {
-        host: connection.host,
-        attempts: connection.reconnectAttempts
-      });
-
-      return connection;
-    } catch (error) {
-      connection.errors++;
-      this.metricsCollector.onConnectionFailed();
-      throw error;
-    }
-  }
-
-  private setupKeepAlive(connection: PooledConnection): void {
-    const interval = this.sshConfig.connectionPool.keepAliveInterval ?? 30000;
-
-    // Clear existing timer if any
-    if (connection.keepAliveTimer) {
-      clearInterval(connection.keepAliveTimer);
-      connection.keepAliveTimer = undefined;
-    }
-
-    // Create a bound reference to prevent memory leaks
-    const keepAliveFunction = async () => {
-      try {
-        // Check if connection is still in pool before sending keep-alive
-        if (!this.connectionPool.has(this.getConnectionKey(connection.config))) {
-          if (connection.keepAliveTimer) {
-            clearInterval(connection.keepAliveTimer);
-            connection.keepAliveTimer = undefined;
-          }
-          return;
-        }
-
-        // Send a simple command to keep connection alive
-        await connection.ssh.execCommand('echo "keep-alive"', {
-          cwd: '/',
-          execOptions: { pty: false }
-        });
-      } catch {
-        // Connection might be dead, will be handled on next use
-        connection.errors++;
-
-        // If too many errors, remove from pool
-        if (connection.errors > 3) {
-          const key = this.getConnectionKey(connection.config);
-          if (this.connectionPool.has(key)) {
-            this.removeFromPool(key);
-          }
-        }
-      }
-    };
-
-    connection.keepAliveTimer = setInterval(keepAliveFunction, interval);
-
-    // Unref the timer so it doesn't keep the process alive
-    unrefTimer(connection.keepAliveTimer);
+    const host = connection.config.host;
+    this.emitAdapterEvent('ssh:disconnect', { host, reason });
+    this.emitAdapterEvent('connection:close', { host, port: connection.config.port ?? 22, type: 'ssh', reason });
   }
 
   private removeOldestIdleConnection(): void {
     let oldestKey: string | null = null;
-    let oldestTime = Date.now();
+    let oldestTime = Infinity;
 
     for (const [key, connection] of this.connectionPool.entries()) {
-      if (connection.lastUsed < oldestTime) {
+      if (connection.activeUseCount === 0 && connection.lastUsed < oldestTime) {
         oldestTime = connection.lastUsed;
         oldestKey = key;
       }
@@ -1084,6 +932,7 @@ export class SSHAdapter extends BaseAdapter {
         lastUsed: new Date(conn.lastUsed),
         useCount: conn.useCount,
         isAlive: conn.ssh.isConnected(),
+        isActive: conn.activeUseCount > 0,
         errors: conn.errors
       });
     }
@@ -1096,6 +945,8 @@ export class SSHAdapter extends BaseAdapter {
   }
 
   async dispose(): Promise<void> {
+    this.disposed = true;
+    for (const [ssh, abort] of this.connecting) { abort.abort(); ssh.dispose(true); }
     // Clear pool cleanup interval first
     if (this.poolCleanupInterval) {
       clearInterval(this.poolCleanupInterval);
@@ -1146,14 +997,12 @@ export class SSHAdapter extends BaseAdapter {
     if (!this.sshConfig.sftp.enabled) throw new AdapterError(this.adapterName, 'sftp', new Error('SFTP is disabled'));
     if (options.signal?.aborted) throw new DOMException('SFTP operation cancelled', 'AbortError');
     const connection = await this.getConnection(target);
-    connection.activeUseCount++;
     try {
       return await connection.ssh.withSFTP(sftp => operation(connection.ssh, sftp), options);
     } catch (error) {
       throw new AdapterError(this.adapterName, 'sftp', error instanceof Error ? error : new Error(String(error)));
     } finally {
-      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
-      connection.lastUsed = Date.now();
+      this.releaseConnection(connection);
     }
   }
 
@@ -1221,13 +1070,11 @@ export class SSHAdapter extends BaseAdapter {
     const connection = await this.getConnection(sshOptions);
 
     // A tunnel owns the pooled connection until every forwarded socket closes.
-    connection.activeUseCount++;
     let tunnelResult: Awaited<ReturnType<NodeSSH['createTunnel']>>;
     try {
       tunnelResult = await connection.ssh.createTunnel(options);
     } catch (error) {
-      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
-      connection.lastUsed = Date.now();
+      this.releaseConnection(connection);
       throw error;
     }
 
@@ -1240,8 +1087,7 @@ export class SSHAdapter extends BaseAdapter {
     const release = () => {
       if (!isOpen) return;
       isOpen = false;
-      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
-      connection.lastUsed = Date.now();
+      this.releaseConnection(connection);
       this.activeTunnels.delete(tunnelId);
       this.emitAdapterEvent('ssh:tunnel-closed', {
         localPort: tunnelResult.localPort,
@@ -1320,6 +1166,8 @@ export class SSHAdapter extends BaseAdapter {
     remoteHost?: string;
     localHost?: string;
     localPort: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
   }, target: SSHAdapterOptions): Promise<{
     remotePort: number;
     remoteHost: string;
@@ -1338,11 +1186,10 @@ export class SSHAdapter extends BaseAdapter {
         !Number.isInteger(options.remotePort) || options.remotePort < 0 || options.remotePort > 65535) {
       throw new AdapterError(this.adapterName, 'reverseTunnel', new Error('Invalid tunnel port'));
     }
-    const connection = await this.getConnection(sshOptions);
+    const connection = await this.getConnection(sshOptions, options, true);
     const remoteHost = options.remoteHost ?? '127.0.0.1';
     const localHost = options.localHost ?? 'localhost';
     const bridges = new Set<ReturnType<typeof netConnect>>();
-    connection.activeUseCount++;
     let forwarded: Awaited<ReturnType<NodeSSH['forwardIn']>>;
     try {
       forwarded = await connection.ssh.forwardIn(remoteHost, options.remotePort, (_details, accept) => {
@@ -1354,10 +1201,9 @@ export class SSHAdapter extends BaseAdapter {
         local.once('close', () => { bridges.delete(local); channel.destroy(); });
         channel.on('error', () => { local.destroy(); });
         channel.once('close', () => { local.destroy(); });
-      });
+      }, options);
     } catch (error) {
-      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
-      connection.lastUsed = Date.now();
+      this.releaseConnection(connection);
       for (const socket of bridges) socket.destroy();
       throw error;
     }
@@ -1369,8 +1215,7 @@ export class SSHAdapter extends BaseAdapter {
       isOpen = false;
       for (const socket of bridges) socket.destroy();
       bridges.clear();
-      connection.activeUseCount = Math.max(0, connection.activeUseCount - 1);
-      connection.lastUsed = Date.now();
+      this.releaseConnection(connection);
       this.activeTunnels.delete(tunnelId);
       this.emitAdapterEvent('ssh:tunnel-closed', {
         localPort: options.localPort, remoteHost, remotePort: forwarded.port,

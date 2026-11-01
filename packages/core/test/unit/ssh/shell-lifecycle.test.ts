@@ -63,13 +63,21 @@ describe('SSH pool trust policy', () => {
       expect(strict).not.toContain('secret');
     } finally { await adapter.dispose(); }
   });
-  it('reconnection retains strict verification, the inventory and configured handshake budget', async () => {
-    const adapter = new SSHAdapter({ defaultConnectOptions: { readyTimeout: 4321 }, hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts',
-      connectionPool: { enabled: false, keepAlive: false, maxConnections: 4, idleTimeout: 1000, reconnectDelay: 0 } }) as any;
-    const ssh = { connect: vi.fn(async () => {}) };
+  it('does not alias credential boundaries or ambiguous user/host spellings', async () => {
+    const adapter = new SSHAdapter() as any;
     try {
-      await adapter.reconnectConnection({ ssh, config: { type: 'ssh', host: 'test.invalid', username: 'deploy', password: 'private' }, reconnectAttempts: 0 });
-      expect(ssh.connect).toHaveBeenCalledWith(expect.objectContaining({ hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts', readyTimeout: 4321 }));
+      const config = { type: 'ssh', host: 'node.invalid', username: 'operator', privateKey: 'key' };
+      expect(adapter.getConnectionKey({ ...config, passphrase: 'a\0b', password: 'c' }))
+        .not.toBe(adapter.getConnectionKey({ ...config, passphrase: 'a', password: 'b\0c' }));
+      expect(adapter.getConnectionKey({ ...config, username: 'a@b', host: 'c' }))
+        .not.toBe(adapter.getConnectionKey({ ...config, username: 'a', host: 'b@c' }));
+    } finally { await adapter.dispose(); }
+  });
+  it('new connections retain strict verification, inventory and handshake budget', async () => {
+    const adapter = new SSHAdapter({ defaultConnectOptions: { readyTimeout: 4321 }, hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts' }) as any;
+    try {
+      expect(adapter.connectionOptions({ type: 'ssh', host: 'test.invalid', username: 'deploy', password: 'private' }))
+        .toMatchObject({ hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts', readyTimeout: 4321 });
     } finally { await adapter.dispose(); }
   });
 });
