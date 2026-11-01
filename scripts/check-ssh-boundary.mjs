@@ -88,6 +88,8 @@ async function use() {
   shell.setWindow(40, 140, 0, 0);
   const sftp: SFTPClient = await ssh.requestSFTP({ operationTimeoutMs: 10000 });
   sftp.stat('/data', (error, stats) => { if (!error) stats.isDirectory(); });
+  sftp.readFile('/data/text', 'utf8', (error, contents) => { if (!error) contents.toUpperCase(); });
+  sftp.readFile('/data/bytes', (error, contents) => { if (!error) contents.readUInt8(0); });
   const options: SSHDirectoryTransferOptions = { signal: new AbortController().signal, concurrency: 2 };
   const host = $.ssh({ host: 'host.invalid', username: 'operator' });
   await host.downloadDirectory('/data', '/local', options);

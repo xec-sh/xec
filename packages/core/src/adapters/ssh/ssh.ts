@@ -538,8 +538,10 @@ export class NodeSSH {
 
   async requestSFTP(request: SFTPRequestOptions = {}): Promise<SFTPWrapper> {
     const connection = this.getConnection()
+    // The transport declarations incorrectly type encoded readFile results as Buffer.
+    // Xec's public contract follows the tested string/Buffer runtime behavior.
     const sftp = await requestResource<SFTPWrapper>(connection, 'SSH SFTP request', request,
-      done => connection.sftp(done), late => { late.on('error', () => {}); late.destroy() })
+      done => connection.sftp((error, opened) => done(error, opened as unknown as SFTPWrapper)), late => { late.on('error', () => {}); late.destroy() })
     return manageSFTP(sftp, connection, request)
   }
 

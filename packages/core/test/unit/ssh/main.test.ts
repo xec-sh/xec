@@ -117,6 +117,16 @@ describe('SSH Node Tests', () => {
     await expect(connectWithInlinePrivateKey(port, client)).resolves.not.toThrow();
   });
 
+  createSSHTest('preserves the declared string and Buffer SFTP read results', async (port, client) => {
+    await connectWithPassword(port, client);
+    await client.withSFTP(async sftp => {
+      const text = await new Promise<string>((resolve, reject) => sftp.readFile(__filename, 'utf8', (error, value) => error ? reject(error) : resolve(value)));
+      const bytes = await new Promise<Buffer>((resolve, reject) => sftp.readFile(__filename, (error, value) => error ? reject(error) : resolve(value)));
+      expect(typeof text).toBe('string'); expect(text).toBe(await fs.readFile(__filename, 'utf8'));
+      expect(Buffer.isBuffer(bytes)).toBe(true); expect(bytes.toString('utf8')).toBe(text);
+    });
+  });
+
   createSSHTest('requests a shell that works', async (port, client) => {
     await connectWithPassword(port, client);
     const shell = await client.requestShell();

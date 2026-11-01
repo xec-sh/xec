@@ -414,17 +414,10 @@ export interface SFTPClient extends EventEmitter {
     fastGet(remotePath: string, localPath: string, callback: SSHCallback): void;
     fastPut(localPath: string, remotePath: string, options: SFTPTransferOptions, callback: SSHCallback): void;
     fastPut(localPath: string, remotePath: string, callback: SSHCallback): void;
-    readFile(
-        remotePath: string,
-        options: SFTPReadFileOptions,
-        callback: (err: Error | undefined, handle: Buffer) => void,
-    ): void;
-    readFile(
-        remotePath: string,
-        encoding: BufferEncoding,
-        callback: (err: Error | undefined, handle: Buffer) => void,
-    ): void;
-    readFile(remotePath: string, callback: (err: Error | undefined, handle: Buffer) => void): void;
+    readFile(remotePath: string, options: SFTPReadFileOptions & { encoding: BufferEncoding }, callback: (error: Error | undefined, contents: string) => void): void;
+    readFile(remotePath: string, options: SFTPReadFileOptions, callback: (error: Error | undefined, contents: string | Buffer) => void): void;
+    readFile(remotePath: string, encoding: BufferEncoding, callback: (error: Error | undefined, contents: string) => void): void;
+    readFile(remotePath: string, callback: (error: Error | undefined, contents: Buffer) => void): void;
     createReadStream(path: string, options?: SFTPReadStreamOptions): SFTPReadStream;
     writeFile(remotePath: string, data: string | Buffer, options: SFTPWriteFileOptions, callback?: SSHCallback): void;
     writeFile(remotePath: string, data: string | Buffer, encoding: string, callback?: SSHCallback): void;
