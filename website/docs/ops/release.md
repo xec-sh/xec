@@ -113,7 +113,11 @@ npm scans new uploads before they become public. An accepted upload or HTTP
 409 can precede a successful read by minutes. Xec records the pending archive
 and waits up to 30 minutes per package. Resuming the same version continues the
 read-only check for the recorded upload. A matching SHA-512 and release channel
-are required before a package is confirmed.
+are required before a package is confirmed. The publisher downloads by exact
+package name and version from a fresh npm cache. If the version metadata is
+visible but that download reports `ETARGET`, the progress line shows
+`npm version index`. Xec waits for consumers to be able to resolve the version
+and continues with the original upload receipt.
 
 Use `npm stage list <package>` with npm 11.15 or later to inspect a maintainer
 approval queue. When an entry is visible, inspect its version and tag and compare

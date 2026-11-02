@@ -226,6 +226,7 @@ it('recovers partial publication and lost replies without replay, retagging or o
   const downloads = new Map<string, Buffer>();
   const tags = new Map<string, string>(), channelOverrides = new Map<string, string>();
   let puts = 0, loseResponse = true, rejectedName = '@fixture/b', unavailable = false;
+  let laggingIndex = false, staleReads = 0;
   const server = createServer((request, response) => {
     const name = decodeURIComponent(request.url!.split('?')[0]!).replace(/^\//, '');
     response.setHeader('content-type', 'application/json');
@@ -235,6 +236,11 @@ it('recovers partial publication and lost replies without replay, retagging or o
       if (bytes) { response.setHeader('content-type', 'application/octet-stream'); response.end(bytes); return; }
       const value = versions.get(name);
       if (!value) { response.statusCode = 404; response.end(JSON.stringify({ error: 'not found' })); }
+      else if (laggingIndex && request.headers.accept?.includes('application/vnd.npm.install-v1+json')) {
+        staleReads++;
+        response.setHeader('vary', 'Accept');
+        response.end(JSON.stringify({ name, versions: { '0.9.0': { ...value, version: '0.9.0' } }, 'dist-tags': { latest: '0.9.0' } }));
+      }
       else {
         const channel = channelOverrides.get(name) ?? value.version;
         response.end(JSON.stringify({ name, versions: { [value.version]: value, [channel]: { ...value, version: channel } }, 'dist-tags': { [tags.get(name)!]: channel } }));
@@ -275,6 +281,10 @@ it('recovers partial publication and lost replies without replay, retagging or o
     const journal = await readFile(join(dirname(release.artifacts[0]!.file), 'publication.jsonl'), 'utf8');
     expect(journal).toContain('dispatching'); expect(journal).toContain('registry-confirmed');
     await publishPreparedRelease(root, release.version, { run, registry, env }); expect(puts).toBe(2);
+    laggingIndex = true;
+    await expect(publishPreparedRelease(root, release.version, { run, registry, env, confirmationTimeoutMs: 0 })).rejects.toThrow('npm version index');
+    expect(staleReads).toBeGreaterThan(0); expect(puts).toBe(2);
+    laggingIndex = false;
     channelOverrides.set('@fixture/a', '1.0.0-rc.2');
     const progress: string[] = [];
     await publishPreparedRelease(root, release.version, { run, registry, env, progress: message => progress.push(message) });

@@ -60,7 +60,7 @@ export async function registryReleaseChannel(root: string, artifact: ReleaseArti
 }
 
 /** Use an empty cache so publication cannot be confirmed using a locally packed copy. */
-async function downloadableArchiveMatches(root: string, artifact: ReleaseArtifact, options: PublishReleaseOptions): Promise<boolean> {
+async function checkDownload(root: string, artifact: ReleaseArtifact, options: PublishReleaseOptions): Promise<'verified' | 'npm version index' | 'downloadable tarball'> {
   const directory = await mkdtemp(join(tmpdir(), 'xec-registry-check-'));
   try {
     const run = options.run ?? releaseCommand;
@@ -71,9 +71,11 @@ async function downloadableArchiveMatches(root: string, artifact: ReleaseArtifac
     if (typeof filename !== 'string' || basename(filename) !== filename || !filename.endsWith('.tgz')
         || artifactIntegrity(await readFile(join(directory, filename))) !== artifact.integrity)
       throw new Error(`Downloaded registry archive differs: ${artifact.name}@${artifact.version}`);
-    return true;
+    return 'verified';
   } catch (error) {
-    if (npmCode(error) === 'E404') return false;
+    const code = npmCode(error);
+    if (code === 'ETARGET') return 'npm version index';
+    if (code === 'E404') return 'downloadable tarball';
     throw error;
   } finally { await rm(directory, { recursive: true, force: true }); }
 }
@@ -111,9 +113,9 @@ async function waitForPublication(root: string, artifact: ReleaseArtifact, optio
   let downloaded = false;
   let waitingFor = 'version metadata';
   for (;;) {
-    if (!downloaded && await registryArtifactMatches(root, artifact, options)) {
-      waitingFor = 'downloadable tarball';
-      downloaded = await downloadableArchiveMatches(root, artifact, options);
+    if (!downloaded) {
+      waitingFor = await registryArtifactMatches(root, artifact, options) ? await checkDownload(root, artifact, options) : 'version metadata';
+      downloaded = waitingFor === 'verified';
     }
     if (downloaded) {
       const channel = await registryReleaseChannel(root, artifact, options);
