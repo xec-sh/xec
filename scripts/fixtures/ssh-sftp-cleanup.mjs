@@ -7,10 +7,8 @@ import { join, dirname, resolve as resolvePath } from 'node:path';
 
 const root = resolvePath(dirname(fileURLToPath(import.meta.url)), '../..');
 const packageDirectory = resolvePath(process.argv[2]);
-const source = createRequire(join(root, 'packages/core/package.json'));
 const packaged = createRequire(join(packageDirectory, 'package.json'));
-const { Server } = source('ssh2');
-const { Client } = packaged('ssh2'); // Private dependency testing stays inside Xec.
+const { Server, Client } = packaged('ssh2'); // Exercise the installed transport on both sides.
 const { NodeSSH } = await import(pathToFileURL(join(packageDirectory, 'dist/adapters/ssh/ssh.js')).href);
 const waitFor = async predicate => {
   const deadline = Date.now() + 1000;

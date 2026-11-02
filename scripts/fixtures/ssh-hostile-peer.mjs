@@ -5,8 +5,8 @@ import { join, resolve, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const packageDirectory = process.argv[3];
-const load = createRequire(join(root, 'packages/core/package.json'));
+const packageDirectory = resolve(process.argv[3]);
+const load = createRequire(join(packageDirectory, 'package.json'));
 let phase = 'starting';
 void (async () => {
     const mode = process.argv[2];

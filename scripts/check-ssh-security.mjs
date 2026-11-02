@@ -14,8 +14,9 @@ import { inspectSSHTransport, prepareSSHCorePackage } from './ssh-transport.mjs'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values } = parseArgs({ options: { archive: { type: 'string' } } });
 const temporary = await mkdtemp(join(tmpdir(), 'xec-ssh-security-'));
-const run = (args, cwd = root) => execFileSync(process.execPath, args, {
-  cwd, timeout: 10000, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 128 * 1024,
+const packageTimeout = 120_000;
+const run = (args, cwd = root, timeout = 10_000) => execFileSync(process.execPath, args, {
+  cwd, timeout, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 128 * 1024,
 });
 try {
   // npm's documented bundled-dependency format must carry the patch to a consumer.
@@ -33,7 +34,7 @@ try {
   if (values.archive) archive = resolve(values.archive);
   else {
     const packageDirectory = await prepareSSHCorePackage(join(temporary, 'core'));
-    const packed = JSON.parse(run([npm, 'pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory))[0];
+    const packed = JSON.parse(run([npm, 'pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory, packageTimeout))[0];
     if (!packed.bundled?.includes('ssh2')) throw new Error('SSH transport was omitted from the package');
     archive = join(temporary, packed.filename);
   }
@@ -42,12 +43,12 @@ try {
   const consumer = join(temporary, 'consumer'); await mkdir(consumer);
   await writeFile(join(consumer, 'package.json'), '{"private":true,"type":"module"}');
   if (manager === 'npm') {
-    run([npm, 'install', '--offline', '--no-audit', '--no-fund', ...npmArgs, archive], consumer);
+    run([npm, 'install', '--offline', '--no-audit', '--no-fund', ...npmArgs, archive], consumer, packageTimeout);
   } else {
     // pnpm can be a standalone executable; do not force it through Node.
     execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['add', '--offline', '--ignore-scripts',
       '--ignore-workspace', '--store-dir', join(temporary, 'store'), archive], {
-      cwd: consumer, timeout: 30000, killSignal: 'SIGKILL', stdio: 'pipe',
+      cwd: consumer, timeout: packageTimeout, killSignal: 'SIGKILL', stdio: 'pipe',
     });
   }
   const installed = join(consumer, 'node_modules/@xec-sh/core');
