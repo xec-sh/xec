@@ -5,12 +5,12 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { join, dirname } from 'node:path';
 import { it, expect, describe, afterEach } from 'vitest';
-import { rm, mkdir, chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { rm, mkdir, chmod, mkdtemp, readFile, copyFile, writeFile } from 'node:fs/promises';
 
 import {
-  planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, verifyRemoteReleaseTag, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity,
-  acquireReleaseLock, createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage,
-  verifyReleaseArtifact, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches,
+  planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity, acquireReleaseLock,
+  createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage, verifyReleaseArtifact,
+  verifyRemoteReleaseTag, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches,
 } from '../../src/release/index.js';
 
 const directories: string[] = [];
@@ -223,6 +223,7 @@ describe('release inventory, refs and sealed artifacts', () => {
 it('recovers partial publication and lost replies without replay, retagging or overwriting conflicts', async () => {
   const { root, release, run } = await prepared();
   const versions = new Map<string, { name: string; version: string; dist: { integrity: string } }>();
+  const downloads = new Map<string, Buffer>();
   const tags = new Map<string, string>(), channelOverrides = new Map<string, string>();
   let puts = 0, loseResponse = true, rejectedName = '@fixture/b', unavailable = false;
   const server = createServer((request, response) => {
@@ -230,6 +231,8 @@ it('recovers partial publication and lost replies without replay, retagging or o
     response.setHeader('content-type', 'application/json');
     if (request.method === 'GET') {
       if (unavailable) { response.statusCode = 503; response.end('{"error":"unavailable"}'); return; }
+      const bytes = downloads.get(name);
+      if (bytes) { response.setHeader('content-type', 'application/octet-stream'); response.end(bytes); return; }
       const value = versions.get(name);
       if (!value) { response.statusCode = 404; response.end(JSON.stringify({ error: 'not found' })); }
       else {
@@ -245,6 +248,8 @@ it('recovers partial publication and lost replies without replay, retagging or o
         const archive = Object.values(body._attachments)[0] as { data: string };
         const integrity = artifactIntegrity(Buffer.from(archive.data, 'base64'));
         if (integrity !== record.dist.integrity) { response.statusCode = 400; response.end('{"error":"integrity"}'); return; }
+        const pathname = new URL((record.dist as { tarball?: string }).tarball!).pathname;
+        downloads.set(decodeURIComponent(pathname).slice(1), Buffer.from(archive.data, 'base64'));
         puts++; versions.set(name, record); tags.set(name, Object.keys(body['dist-tags'])[0]!);
         if (loseResponse) { loseResponse = false; response.statusCode = 503; response.end('{"error":"reply lost after write"}'); }
         else response.end('{"ok":true}');
@@ -283,3 +288,40 @@ it('recovers partial publication and lost replies without replay, retagging or o
     expect(puts).toBe(2);
   } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
 }, 60000);
+
+it.each(['accepted', 'reserved'])('waits for a %s upload and resumes without another PUT', async outcome => {
+  const fixture = await prepared();
+  const artifacts = fixture.release.artifacts;
+  const uploads = new Set<string>();
+  let visible = false, downloadable = false, writes = 0;
+  const run: ReleaseCommand = async (cwd, executable, args, options) => {
+    if (executable !== 'npm') return fixture.run(cwd, executable, args, options);
+    if (args[0] === 'publish') {
+      const pkg = artifacts.find(a => a.file === args[1])!;
+      writes++; uploads.add(pkg.name);
+      if (outcome === 'reserved') throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E409"}}', 'Cannot publish over previously staged version');
+      return '';
+    }
+    const pkg = artifacts.find(a => args[1]!.startsWith(a.name + '@'))!;
+    if (!visible || !uploads.has(pkg.name)) throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E404"}}', '');
+    if (args[0] === 'pack') {
+      if (!downloadable) throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E404"}}', 'tarball is not available yet');
+      const directory = args[args.indexOf('--pack-destination') + 1]!;
+      expect(args[args.indexOf('--cache') + 1]).toBe(join(directory, 'cache'));
+      await copyFile(pkg.file, join(directory, 'verified.tgz'));
+      return JSON.stringify([{ filename: 'verified.tgz' }]);
+    }
+    return args.includes('dist-tags') ? JSON.stringify({rc:pkg.version}) :
+      JSON.stringify({name:pkg.name, version:pkg.version, dist:{integrity:pkg.integrity}});
+  };
+  const options = {run, confirmationTimeoutMs:0, confirmationIntervalMs:1};
+  await expect(publishPreparedRelease(fixture.root, fixture.release.version, options)).rejects.toThrow('Registry confirmation pending');
+  await expect(publishPreparedRelease(fixture.root, fixture.release.version, options)).rejects.toThrow('Registry confirmation pending');
+  expect(writes).toBe(1);
+  visible = true;
+  await expect(publishPreparedRelease(fixture.root, fixture.release.version, options)).rejects.toThrow('downloadable tarball');
+  expect(writes).toBe(1);
+  downloadable = true;
+  await publishPreparedRelease(fixture.root, fixture.release.version, options);
+  expect(writes).toBe(artifacts.length);
+}, 30000);

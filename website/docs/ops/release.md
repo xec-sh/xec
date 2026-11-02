@@ -107,6 +107,26 @@ command errors; publication receipts contain package identities and checksums,
 not credentials. Commands have finite timeouts and output bounds through Xec's
 existing process API.
 
+### An upload is still awaiting the registry
+
+npm scans new uploads before they become public. An accepted upload or HTTP
+409 can precede a successful read by minutes. Xec records the pending archive
+and waits up to 30 minutes per package. Resuming the same version continues the
+read-only check for the recorded upload. A matching SHA-512 and release channel
+are required before a package is confirmed.
+
+Use `npm stage list <package>` with npm 11.15 or later to inspect a maintainer
+approval queue. When an entry is visible, inspect its version and tag and compare
+the downloaded tarball with the sealed archive before approving that stage with
+2FA. An empty list can also accompany publish-time scanning. Confirmation requires the exact-version metadata, a fresh download with the sealed
+SHA-512 and the expected channel or a newer release on that channel.
+
+An updated checkout of the release tool can resume an older tagged checkout
+with `pnpm release <version> --resume --workspace <tagged-checkout>`. The selected
+checkout supplies the immutable tag, prepared archives and publication receipts.
+The release tool verifies them before dispatch.
+[Registry scanning](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/)
+
 ### Resume when GitHub rejects the SSH key
 
 Run `git ls-remote --heads origin` in the tagged checkout. If it also returns

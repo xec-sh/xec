@@ -3,7 +3,7 @@ import type { ReleaseCommand, ReleaseArtifact } from '../packages/ops/src/releas
 
 import semver from 'semver';
 import { parseArgs } from 'node:util';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { select, confirm, password, isCancel } from '@xec-sh/kit';
 
@@ -15,11 +15,12 @@ import {
   discoverReleasePackages, prepareReleaseArtifacts, preflightPreparedRelease,
 } from '../packages/ops/src/release/index.js';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const repository = join(dirname(fileURLToPath(import.meta.url)), '..');
 const usage = `xec release [version] [options]
   --dry-run           Read-only plan; no build, files, hooks, git writes or publication
   --prepare           Commit versions, build isolated archives and create a local tag
   --resume            Use existing sealed archives; never rebuild or change versions
+  --workspace <path>  Resume an existing sealed release in the given checkout
   --github-only       Finish GitHub for the exact checked-out release tag
   --skip-npm          Skip npm publication
   --skip-github       Skip GitHub release creation
@@ -42,10 +43,12 @@ export async function runRelease(args: string[]): Promise<void> {
   const { values, positionals } = parseArgs({ args, allowPositionals: true, options: {
     'dry-run': { type: 'boolean', short: 'd' }, prepare: { type: 'boolean' }, resume: { type: 'boolean' },
     'github-only': { type: 'boolean' }, 'skip-npm': { type: 'boolean' }, 'skip-github': { type: 'boolean' },
-    'no-push': { type: 'boolean' }, offline: { type: 'boolean' }, registry: { type: 'string' },
+    'no-push': { type: 'boolean' }, offline: { type: 'boolean' }, workspace: { type: 'string' }, registry: { type: 'string' },
     'list-packages': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, help: { type: 'boolean', short: 'h' },
   } });
   if (values.help) { console.log(usage); return; }
+  if (values.workspace && !values.resume && !values['github-only']) throw new Error('--workspace requires --resume or --github-only');
+  const root = values.workspace ? resolve(values.workspace) : repository;
   if (positionals.length > 1) throw new Error('Expected at most one release version');
   if ([values.prepare, values.resume, values['github-only']].filter(Boolean).length > 1) throw new Error('Choose only one of --prepare, --resume or --github-only');
   if ((values.resume || values['github-only']) && !positionals[0]) throw new Error('--resume and --github-only require the exact release version');
@@ -77,7 +80,8 @@ export async function runRelease(args: string[]): Promise<void> {
   const unlock = await acquireReleaseLock(root);
   try {
     await assertCleanReleaseTree(root);
-    await assertReleaseHead(root, version);
+    const tagExists = await assertReleaseHead(root, version);
+    if (values.workspace && !tagExists) throw new Error('--workspace requires a tagged release checkout');
     // A colliding remote release is refused before any version changes.
     if (!values.prepare && !values['no-push']) await verifyRemoteReleaseTag(root, version);
     if (!values.resume && !values['github-only']) {
