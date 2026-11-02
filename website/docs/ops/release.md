@@ -16,7 +16,7 @@ install that release before using the new subpath in another repository.
 Use Node.js, the pnpm version in `packageManager`, Git, npm, and `tar`. Xec's
 build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
-Install the frozen dependencies and build the development tools first (`pnpm install --frozen-lockfile`, then `pnpm build`). Use a separate checkout if installed packages are serving running applications. The examples use `0.12.0`; choose your actual next version.
+Install the frozen dependencies in a separate checkout when an existing installation serves applications. The release command loads its tooling from committed sources and builds the packages during preparation. The examples use `0.12.0`; choose your actual next version.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -24,7 +24,7 @@ pnpm release 0.12.0 --dry-run
 pnpm release 0.12.0 --prepare
 ```
 
-The first command reads local evidence only. It reports package inventory,
+The dry run reads local evidence only. It reports package inventory,
 source commit and blockers, with a nonzero exit code for a dirty tree or a
 conflicting release. It does not run hooks, create a lockfile, build, tag, push,
 or contact a registry. Remote readiness is checked during execution.

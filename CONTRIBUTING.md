@@ -466,6 +466,7 @@ Releases are explicit operator actions. Start with a clean checkout and current
 frozen dependencies, then review and prepare immutable archives:
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm release 0.12.0 --dry-run
 pnpm release 0.12.0 --prepare
 ```
