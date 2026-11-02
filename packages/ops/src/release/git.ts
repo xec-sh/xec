@@ -1,7 +1,7 @@
 import type { ReleaseCommand } from './command.js';
 
 import { releaseTag } from './packages.js';
-import { releaseCommand } from './command.js';
+import { releaseCommand, ReleaseCommandError } from './command.js';
 
 export async function assertCleanReleaseTree(root: string, run: ReleaseCommand = releaseCommand): Promise<void> {
   const changes = await run(root, 'git', ['status', '--porcelain', '--untracked-files=normal']);
@@ -26,7 +26,12 @@ export async function ensureReleaseTag(root: string, version: string, run: Relea
 /** Only the selected release tag matters; historical tag divergence is irrelevant. */
 export async function verifyRemoteReleaseTag(root: string, version: string, required = false, run: ReleaseCommand = releaseCommand): Promise<boolean> {
   const ref = `refs/tags/${releaseTag(version)}`;
-  const remote = await run(root, 'git', ['ls-remote', '--tags', 'origin', ref]);
+  const remote = await run(root, 'git', ['ls-remote', '--tags', 'origin', ref]).catch((error: unknown) => {
+    if (error instanceof ReleaseCommandError && error.status === 128 && /permission denied \(publickey(?:,[^)]*)?\)/i.test(error.stderr)) {
+      throw new Error(`Git could not authenticate to origin over SSH. Check with git ls-remote --tags origin ${ref}. Use the repository's SSH identity or its authenticated HTTPS credential helper, then retry the same release version.`, { cause: error });
+    }
+    throw error;
+  });
   if (!remote) { if (required) throw new Error(`Remote release tag is missing: ${ref}`); return false; }
   const local = await assertReleaseHead(root, version, run);
   if (!local || remote.split(/\s+/)[0] !== local) throw new Error(`Remote release tag differs: ${ref}; refusing to replace it`);

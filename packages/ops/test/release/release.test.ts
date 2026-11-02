@@ -8,7 +8,7 @@ import { it, expect, describe, afterEach } from 'vitest';
 import { rm, mkdir, chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 
 import {
-  planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity,
+  planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, verifyRemoteReleaseTag, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity,
   acquireReleaseLock, createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage,
   verifyReleaseArtifact, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches,
 } from '../../src/release/index.js';
@@ -159,6 +159,16 @@ describe('release inventory, refs and sealed artifacts', () => {
     await writeFile(join(root, 'unrelated.txt'), 'retain this');
     await expect(commitReleaseVersion(root, '1.0.1')).rejects.toThrow('clean');
     expect(await readFile(join(root, 'unrelated.txt'), 'utf8')).toBe('retain this');
+  });
+  it('identifies an SSH authentication failure before examining or changing release refs', async () => {
+    const refused = new ReleaseCommandError('git', 128, '', 'Permission denied (publickey).');
+    const run: ReleaseCommand = async (_cwd, executable, args) => {
+      expect([executable, ...args]).toEqual(['git', 'ls-remote', '--tags', 'origin', 'refs/tags/v1.0.0']);
+      throw refused;
+    };
+    await expect(verifyRemoteReleaseTag('.', '1.0.0', false, run)).rejects.toMatchObject({
+      message: expect.stringContaining('git ls-remote --tags origin refs/tags/v1.0.0'), cause: refused,
+    });
   });
   it('pushes just the release tag even with followTags and divergent historical tags', async () => {
     const root = await repository(), remote = await temporary();

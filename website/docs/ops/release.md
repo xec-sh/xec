@@ -107,6 +107,28 @@ command errors; publication receipts contain package identities and checksums,
 not credentials. Commands have finite timeouts and output bounds through Xec's
 existing process API.
 
+### Resume when GitHub rejects the SSH key
+
+Run `git ls-remote --heads origin` in the tagged checkout. If it also returns
+`Permission denied (publickey)`, check the SSH identity assigned to this
+repository. An existing GitHub CLI login with a configured Git credential
+helper can alternatively use HTTPS just for the release command. Check the
+login's repository permission with `gh api repos/xec-sh/xec --jq .permissions.push`.
+For an origin beginning with `git@github.com:`, run the following from the
+checkout holding the prepared archives.
+
+```sh
+(
+  export GIT_CONFIG_COUNT=1
+  export GIT_CONFIG_KEY_0='url.https://github.com/.insteadOf'
+  export GIT_CONFIG_VALUE_0='git@github.com:'
+  pnpm release 0.12.0 --resume
+)
+```
+
+Use the version on the prepared tag. The temporary Git settings apply to this
+one shell and its children.
+
 ## Use the library in another workspace
 
 Add `.release-artifacts/` to that repository's `.gitignore`. The release module
