@@ -19,6 +19,7 @@ build also needs Bun. GitHub publication additionally needs an authenticated
 Install the frozen dependencies and build the development tools first (`pnpm install --frozen-lockfile`, then `pnpm build`). Use a separate checkout if installed packages are serving running applications. The examples use `0.12.0`; choose your actual next version.
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm release 0.12.0 --dry-run
 pnpm release 0.12.0 --prepare
 ```

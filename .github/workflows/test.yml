@@ -159,6 +159,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Release planning from an unbuilt checkout
+        run: pnpm release --dry-run
+
       # `...` builds the package and everything it depends on.
       - name: build
         run: pnpm --filter @xec-sh/cli... build

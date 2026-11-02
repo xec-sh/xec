@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@xec-sh/core": ["../packages/core/src/index.ts"],
+      "@xec-sh/kit": ["../packages/kit/src/index.ts"]
+    }
+  },
+  "include": ["release.ts"]
+}
