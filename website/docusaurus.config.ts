@@ -1,5 +1,7 @@
 import type { Config } from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
+import type {} from '@docusaurus/theme-classic';
+import type {UserThemeConfig} from '@docusaurus/theme-common';
+import type {UserThemeConfig as MermaidThemeConfig} from '@docusaurus/theme-mermaid';
 
 import { themes as prismThemes } from 'prism-react-renderer';
 
@@ -62,48 +64,38 @@ const config: Config = {
     },
   },
 
-  presets: [
-    [
-      'classic',
-      {
-        docs: {
-          sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/xec-sh/xec/tree/main/website/docs/',
-          showLastUpdateAuthor: true,
-          showLastUpdateTime: true,
-          versions: {
-            current: {
-              label: 'Current',
-              path: '',
-            },
-          },
-          remarkPlugins: [
-            [require('remark-math'), { strict: false }],
-          ],
-          rehypePlugins: [
-            [require('rehype-katex'), { strict: false }],
-          ],
-        },
-        blog: false,
-        theme: {
-          customCss: './src/css/custom.css',
-        },
-        sitemap: {
-          lastmod: 'date',
-          changefreq: 'weekly',
-          priority: 0.5,
-          ignorePatterns: ['/tags/**'],
-          filename: 'sitemap.xml',
-        },
-      } satisfies Preset.Options,
-    ],
-  ],
-
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: [['@docusaurus/theme-classic', {customCss: './src/css/custom.css'}], '@docusaurus/theme-mermaid'],
 
   clientModules: [require.resolve('./src/theme/MermaidViewer.js')],
 
   plugins: [
+    '@docusaurus/plugin-css-cascade-layers',
+    ['@docusaurus/plugin-content-docs', {
+      sidebarPath: './sidebars.ts',
+      editUrl: 'https://github.com/xec-sh/xec/tree/main/website/docs/',
+      showLastUpdateAuthor: true,
+      showLastUpdateTime: true,
+      versions: {
+        current: {
+          label: 'Current',
+          path: '',
+        },
+      },
+      remarkPlugins: [
+        [require('remark-math'), { strict: false }],
+      ],
+      rehypePlugins: [
+        [require('rehype-katex'), { strict: false }],
+      ],
+    }],
+    '@docusaurus/plugin-content-pages',
+    process.env.NODE_ENV === 'production' ? ['@docusaurus/plugin-sitemap', {
+      lastmod: 'date',
+      changefreq: 'weekly',
+      priority: 0.5,
+      ignorePatterns: ['/tags/**'],
+      filename: 'sitemap.xml',
+    }] : '@docusaurus/plugin-debug',
     [
       '@docusaurus/plugin-ideal-image',
       {
@@ -304,7 +296,7 @@ const config: Config = {
     //   contextualSearch: true,
     //   searchPagePath: 'search',
     // },
-  } satisfies Preset.ThemeConfig,
+  } satisfies UserThemeConfig & MermaidThemeConfig,
 };
 
 export default config;

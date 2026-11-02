@@ -41,7 +41,7 @@
     "@xec-sh/kit": "workspace:*",
     "add": "^2.0.9",
     "debug": "^4.4.3",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-perfectionist": "^5.13.0",
     "eslint-plugin-unused-imports": "4.4.1",

@@ -64,6 +64,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Audit locked dependencies
+        run: pnpm audit --audit-level low
+
       - run: pnpm build:full
 
       - name: SSH public dependency boundary

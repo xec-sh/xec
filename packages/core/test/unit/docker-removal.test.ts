@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { it, vi, expect, describe } from 'vitest';
+
 import { DockerAdapter } from '../../src/adapters/docker/index.js';
 
 const first = 'a'.repeat(64), replacement = 'b'.repeat(64);

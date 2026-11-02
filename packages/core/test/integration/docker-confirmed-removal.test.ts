@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { it, expect, describe } from 'vitest';
+import { execFileSync } from 'node:child_process';
+
 import { DockerAdapter } from '../../src/adapters/docker/index.js';
 
 const docker = (args: string[]) => execFileSync('docker', args, { encoding: 'utf8', timeout: 15_000 }).trim();
