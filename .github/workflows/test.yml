@@ -159,8 +159,21 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Release planning from an unbuilt checkout
-        run: pnpm release --dry-run
+      - name: Prepare a release and resume from its frozen workspace
+        env:
+          GIT_AUTHOR_NAME: Release verification
+          GIT_AUTHOR_EMAIL: release-check@example.invalid
+          GIT_COMMITTER_NAME: Release verification
+          GIT_COMMITTER_EMAIL: release-check@example.invalid
+        run: |
+          git clone --local --no-tags . "$RUNNER_TEMP/xec-release-check"
+          cd "$RUNNER_TEMP/xec-release-check"
+          pnpm install --frozen-lockfile
+          version=$(node -e 'const current = require("./packages/core/package.json").version; console.log(require("semver").inc(current, "patch") + "-ci.0")')
+          pnpm release "$version" --dry-run
+          pnpm release "$version" --prepare --yes
+          pnpm release "$version" --resume --no-push --skip-npm --skip-github --yes
+          git diff --exit-code
 
       # `...` builds the package and everything it depends on.
       - name: build

@@ -37,7 +37,7 @@ core recipe includes the reviewed private transport and its license/checksums.
 Before sealing it, Xec installs the actual tarball in a clean offline consumer
 and runs the hostile-peer, ChaCha and SFTP failure checks. Resume repeats this
 check against the saved archive without rebuilding it.
-The working checkout's `dist` and `node_modules` are never replaced.
+The version change refreshes pnpm's workspace metadata from the frozen lockfile with lifecycle scripts disabled. Package compilation takes place in the temporary checkout. If a previous preparation ended with `ERR_PNPM_VERIFY_DEPS_BEFORE_RUN`, run `pnpm install --frozen-lockfile` in the tagged checkout, then resume the same version. The saved archives are verified again.
 
 All archives must pass identity, dependency and exported-entry checks before the
 sealed record is written. Local artifacts live at:

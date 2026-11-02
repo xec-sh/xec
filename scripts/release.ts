@@ -80,7 +80,12 @@ export async function runRelease(args: string[]): Promise<void> {
     await assertReleaseHead(root, version);
     // A colliding remote release is refused before any version changes.
     if (!values.prepare && !values['no-push']) await verifyRemoteReleaseTag(root, version);
-    if (!values.resume && !values['github-only']) await commitReleaseVersion(root, version);
+    if (!values.resume && !values['github-only']) {
+      await commitReleaseVersion(root, version);
+      // pnpm verifies installed workspace versions before it can invoke --resume.
+      await releaseCommand(root, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', ...(values.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
+      await assertCleanReleaseTree(root);
+    }
     if (!values['github-only']) {
       if (values.resume) {
         const prepared = await loadPreparedRelease(root, version);
