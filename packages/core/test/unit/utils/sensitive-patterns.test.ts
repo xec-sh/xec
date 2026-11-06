@@ -1,4 +1,4 @@
-import { createOptimizedMasker } from '../../../src/utils/optimized-masker.js';
+import { type RedactionShape, createOptimizedMasker } from '../../../src/utils/optimized-masker.js';
 import { DEFAULT_REDACTION, defaultSensitiveRules } from '../../../src/utils/sensitive-patterns.js';
 
 /**
@@ -45,15 +45,16 @@ describe('the redaction rules', () => {
    * the next, and a survey of what these expressions actually match reads
    * as complete when half of them are dead code.
    */
-  const only = (fragment: string): ((text: string) => string) => {
-    const rules = defaultSensitiveRules().filter(rule => rule.pattern.source.includes(fragment));
-    expect(rules, `no rule contains ${fragment}`).toHaveLength(1);
+  const only = (fragment: string, shape?: RedactionShape): ((text: string) => string) => {
+    const rules = defaultSensitiveRules().filter(rule =>
+      rule.pattern.source.includes(fragment) && (shape === undefined || rule.shape === shape));
+    expect(rules, `expected one rule containing ${fragment} with shape ${shape ?? 'any'}`).toHaveLength(1);
     return createOptimizedMasker(rules, DEFAULT_REDACTION);
   };
 
   /** The value must not survive, redacted by that rule alone. */
-  const hiddenBy = (fragment: string, text: string, secret: string): void => {
-    expect(only(fragment)(text), `"${text}" was not redacted by ${fragment}`).not.toContain(secret);
+  const hiddenBy = (fragment: string, text: string, secret: string, shape?: RedactionShape): void => {
+    expect(only(fragment, shape)(text), `"${text}" was not redacted by ${fragment}`).not.toContain(secret);
   };
 
   describe('keys named in an assignment', () => {
@@ -585,8 +586,8 @@ describe('the redaction rules', () => {
     });
 
     it('the basic-auth rule catches both flags on its own', () => {
-      hiddenBy('(-u|--user)', 'curl -u alice:s3cr3t-value x', 's3cr3t-value');
-      hiddenBy('(-u|--user)', 'curl --user alice:s3cr3t-value x', 's3cr3t-value');
+      hiddenBy('(-u|--user)', 'curl -u alice:s3cr3t-value x', 's3cr3t-value', 'basic-auth');
+      hiddenBy('(-u|--user)', 'curl --user alice:s3cr3t-value x', 's3cr3t-value', 'basic-auth');
     });
 
     it('the bearer rule catches a standalone token on its own', () => {
@@ -666,7 +667,7 @@ describe('the redaction rules', () => {
     });
 
     it('a basic-auth password is consumed whole', () => {
-      expect(only('(-u|--user)')('curl -u alice:s3cr3t-value https://x'))
+      expect(only('(-u|--user)', 'basic-auth')('curl -u alice:s3cr3t-value https://x'))
         .toBe(`curl -u alice:${DEFAULT_REDACTION} https://x`);
     });
   });

@@ -1,5 +1,6 @@
-import type { Command } from '../../../src/types/command.js';
 import type { ExecutionResult } from '../../../src/core/result.js';
+
+import { vi, afterEach } from 'vitest';
 
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
 import { TimeoutError, ConnectionError } from '../../../src/core/error.js';
@@ -11,36 +12,26 @@ const OPTIONS = {
   password: 'secret',
 };
 
-/**
- * A pooled connection can die between being handed out and the command
- * finishing. Callers used to have to detect that and retry themselves — one
- * production consumer did it by regex-matching error text — so the pool now
- * owns its own liveness.
- */
-describe('SSH adapter recovers from a transport that dies in flight', () => {
-  /** Adapter whose single attempt is scripted, so no server is needed. */
-  class ScriptedAdapter extends SSHAdapter {
-    public attempts = 0;
-    public poolRemovals: string[] = [];
+/** Retry acquisition failures only; a dispatched command must not be repeated. */
+describe('SSH adapter recovers before command dispatch', () => {
+  const adapters: SSHAdapter[] = [];
+  afterEach(async () => {
+    await Promise.all(adapters.splice(0).map(adapter => adapter.dispose()));
+    vi.restoreAllMocks();
+  });
 
-    constructor(private readonly script: Array<Error | 'ok'>) {
-      super();
-    }
-
-    protected override async executeOnce(_command: Command): Promise<ExecutionResult> {
-      const step = this.script[this.attempts];
-      this.attempts += 1;
-
-      if (step instanceof Error) {
-        throw step;
-      }
-
+  function scriptedAdapter(script: Array<Error | 'ok'>) {
+    const adapter = new SSHAdapter({ connectionPool: { reconnectDelay: 0 } });
+    adapters.push(adapter);
+    let index = 0;
+    const attempt = vi.spyOn(adapter as any, 'executeOnce').mockImplementation(async () => {
+      const step = script[index++];
+      if (step instanceof Error) throw step;
+      if (step !== 'ok') throw new Error('Unexpected SSH attempt');
       return { exitCode: 0, stdout: 'recovered', stderr: '' } as ExecutionResult;
-    }
-
-    protected override removeFromPool(key: string): void {
-      this.poolRemovals.push(key);
-    }
+    });
+    const remove = vi.spyOn(adapter as any, 'removeFromPool');
+    return { adapter, attempt, remove };
   }
 
   const droppedTransport = () =>
@@ -50,38 +41,39 @@ describe('SSH adapter recovers from a transport that dies in flight', () => {
     );
 
   it('retries once on a fresh connection and succeeds', async () => {
-    const adapter = new ScriptedAdapter([droppedTransport(), 'ok']);
+    const { adapter, attempt, remove } = scriptedAdapter([droppedTransport(), 'ok']);
 
     const result = await adapter.execute({ command: 'uptime', adapterOptions: OPTIONS });
 
     expect(result.stdout).toBe('recovered');
-    expect(adapter.attempts).toBe(2);
-    // The dead connection must be evicted, or the retry gets handed it again.
-    expect(adapter.poolRemovals).toHaveLength(1);
+    expect(attempt).toHaveBeenCalledTimes(2);
+    // Acquisition retires the failed identity. The outer retry must not evict
+    // a replacement connection already acquired by another caller.
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it('gives up after one retry rather than looping', async () => {
-    const adapter = new ScriptedAdapter([droppedTransport(), droppedTransport()]);
+    const { adapter, attempt } = scriptedAdapter([droppedTransport(), droppedTransport()]);
 
     await expect(adapter.execute({ command: 'uptime', adapterOptions: OPTIONS })).rejects.toThrow(
       ConnectionError
     );
-    expect(adapter.attempts).toBe(2);
+    expect(attempt).toHaveBeenCalledTimes(2);
   });
 
   it('does not retry a command that failed on its own merits', async () => {
-    const adapter = new ScriptedAdapter([new Error('grep: no match'), 'ok']);
+    const { adapter, attempt } = scriptedAdapter([new Error('grep: no match'), 'ok']);
 
     await expect(adapter.execute({ command: 'grep x f', adapterOptions: OPTIONS })).rejects.toThrow(
       'grep: no match'
     );
-    expect(adapter.attempts).toBe(1);
+    expect(attempt).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry rejected credentials', async () => {
     // Retrying with the same credentials cannot succeed, and repeated attempts
     // can trip account lockouts.
-    const adapter = new ScriptedAdapter([
+    const { adapter, attempt } = scriptedAdapter([
       new ConnectionError('example.invalid', new Error('All configured authentication methods failed')),
       'ok',
     ]);
@@ -89,12 +81,12 @@ describe('SSH adapter recovers from a transport that dies in flight', () => {
     await expect(adapter.execute({ command: 'uptime', adapterOptions: OPTIONS })).rejects.toThrow(
       ConnectionError
     );
-    expect(adapter.attempts).toBe(1);
+    expect(attempt).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry a host key mismatch', async () => {
     // The peer may be an impostor; reconnecting hands it another attempt.
-    const adapter = new ScriptedAdapter([
+    const { adapter, attempt } = scriptedAdapter([
       new ConnectionError(
         'example.invalid',
         Object.assign(new Error('HOST KEY VERIFICATION FAILED'), { code: 'EHOSTKEY' })
@@ -105,22 +97,22 @@ describe('SSH adapter recovers from a transport that dies in flight', () => {
     await expect(adapter.execute({ command: 'uptime', adapterOptions: OPTIONS })).rejects.toThrow(
       ConnectionError
     );
-    expect(adapter.attempts).toBe(1);
+    expect(attempt).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry after a timeout', async () => {
     // The command may still be running on the server; re-issuing it would run
     // it a second time.
-    const adapter = new ScriptedAdapter([new TimeoutError('sleep 60', 1000), 'ok']);
+    const { adapter, attempt } = scriptedAdapter([new TimeoutError('sleep 60', 1000), 'ok']);
 
     await expect(adapter.execute({ command: 'sleep 60', adapterOptions: OPTIONS })).rejects.toThrow(
       TimeoutError
     );
-    expect(adapter.attempts).toBe(1);
+    expect(attempt).toHaveBeenCalledTimes(1);
   });
 
   it('emits a reconnect event so the recovery is observable', async () => {
-    const adapter = new ScriptedAdapter([droppedTransport(), 'ok']);
+    const { adapter } = scriptedAdapter([droppedTransport(), 'ok']);
     const events: Array<{ host: string; attempts: number }> = [];
 
     adapter.on('ssh:reconnect', event => events.push(event));
