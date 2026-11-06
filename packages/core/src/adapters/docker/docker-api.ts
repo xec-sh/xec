@@ -182,14 +182,14 @@ export class DockerContainer {
   }
 
   /**
-   * Stop the container
+   * Stop the container. The optional grace interval is in seconds (0–600).
    */
   async stop(timeout?: number): Promise<void> {
     if (!this.isStarted || this.isRemoved) {
       return;
     }
 
-    await this.adapter.stopContainer(this.containerName);
+    await this.adapter.stopContainer(this.containerName, timeout);
     this.isStarted = false;
   }
 

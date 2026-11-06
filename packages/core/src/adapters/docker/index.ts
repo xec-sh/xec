@@ -91,6 +91,7 @@ export interface DockerAdapterConfig extends BaseAdapterConfig {
    *
    * Without it a wedged daemon makes every one of these wait forever, which
    * is indistinguishable from a hung application. Defaults to 60 seconds.
+   * An explicitly requested graceful-stop interval is added to this budget.
    */
   managementTimeout?: number;
 
@@ -579,8 +580,11 @@ export class DockerAdapter extends BaseAdapter {
    *
    * @returns Command options carrying the management timeout.
    */
-  private managementOptions(): Partial<Command> {
-    return { timeout: this.dockerConfig.managementTimeout ?? DEFAULT_MANAGEMENT_TIMEOUT };
+  private managementOptions(graceMs = 0): Partial<Command> {
+    const timeout = this.dockerConfig.managementTimeout ?? DEFAULT_MANAGEMENT_TIMEOUT;
+    // Zero explicitly disables the request deadline; adding grace must not
+    // silently re-enable it at the exact end of the shutdown interval.
+    return { timeout: timeout > 0 ? graceMs + timeout : timeout };
   }
 
   /**
@@ -995,18 +999,39 @@ export class DockerAdapter extends BaseAdapter {
     }
   }
 
-  async stopContainer(container: string): Promise<void> {
-    const result = await this.executeDockerCommand(['stop', container], this.managementOptions());
+  /** Stop once; a supervising controller still owns the container's desired state. */
+  async stopContainer(container: string, timeoutSeconds?: number): Promise<void> {
+    const result = await this.stopContainerCommand(container, timeoutSeconds);
     if (result.exitCode !== 0) {
-      throw new DockerError(container, 'stop', new Error(result.stderr));
+      throw new DockerError(container, 'stop', new Error(result.stderr || result.stdout));
     }
+  }
+
+  private validateContainerReference(container: string, operation: string): void {
+    if (typeof container !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(container)) {
+      throw new DockerError(container, operation, new Error('Invalid container name or ID'));
+    }
+  }
+
+  private validateStopTimeout(container: string, timeoutSeconds: number | undefined, operation: string): void {
+    if (timeoutSeconds !== undefined && (!Number.isSafeInteger(timeoutSeconds) || timeoutSeconds < 0 || timeoutSeconds > 600)) {
+      throw new DockerError(container, operation, new Error('Stop timeout must be an integer between 0 and 600 seconds'));
+    }
+  }
+
+  private stopContainerCommand(container: string, timeoutSeconds?: number) {
+    this.validateContainerReference(container, 'stop');
+    this.validateStopTimeout(container, timeoutSeconds, 'stop');
+    const args = ['stop'];
+    // Omitting the interval preserves Docker's configured container default.
+    if (timeoutSeconds !== undefined) args.push('--timeout', String(timeoutSeconds));
+    args.push('--', container);
+    return this.executeDockerCommand(args, this.managementOptions((timeoutSeconds ?? 0) * 1000));
   }
 
   /** Resolve one immutable identity. A failed observation never means absence. */
   private async resolveContainerReference(container: string): Promise<string | null> {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(container)) {
-      throw new DockerError(container, 'inspect', new Error('Invalid container name or ID'));
-    }
+    this.validateContainerReference(container, 'inspect');
     const result = await this.executeDockerCommand(
       ['ps', '-a', '--no-trunc', '--format', '{{json .}}'], this.managementOptions());
     if (result.exitCode !== 0) throw new DockerError(container, 'inspect', new Error(result.stderr));
@@ -1027,13 +1052,11 @@ export class DockerAdapter extends BaseAdapter {
     options: { graceful?: boolean; stopTimeoutSeconds?: number } = {},
   ): Promise<void> {
     const stopTimeout = options.stopTimeoutSeconds ?? 30;
-    if (!Number.isSafeInteger(stopTimeout) || stopTimeout < 0 || stopTimeout > 600) {
-      throw new DockerError(container, 'remove', new Error('Stop timeout must be an integer between 0 and 600 seconds'));
-    }
+    this.validateStopTimeout(container, stopTimeout, 'remove');
     const id = await this.resolveContainerReference(container);
     if (id === null) return;
     if (options.graceful) {
-      const stopped = await this.executeDockerCommand(['stop', '--timeout', String(stopTimeout), '--', id], this.managementOptions());
+      const stopped = await this.stopContainerCommand(id, stopTimeout);
       if (stopped.exitCode !== 0) {
         if (await this.resolveContainerReference(container) === null) return;
         throw new DockerError(container, 'stop', new Error(stopped.stderr));

@@ -262,6 +262,25 @@ await container.remove();
 There is no `.pause()`/`.unpause()` on the fluent builder — pause a container
 with a plain command if you need it: `` $.docker().run`pause my-app` ``.
 
+### Graceful shutdown
+
+`DockerAdapter.stopContainer(nameOrId, timeoutSeconds)` and
+`DockerContainer.stop(timeoutSeconds)` accept an optional integer grace interval
+from 0 to 600 seconds. Zero asks Docker to stop immediately. Omitting it preserves
+Docker's configured default. The adapter adds an explicit grace interval to its
+`managementTimeout` (milliseconds, default 60,000), so its own request deadline
+does not interrupt the requested shutdown interval. An RPC caller must allow
+enough time for both intervals and transport overhead.
+An explicitly configured `managementTimeout: 0` keeps the request deadline
+disabled; it does not disable Docker's own grace interval.
+
+`removeContainer(nameOrId, false, { graceful: true, stopTimeoutSeconds })` uses the
+same stop contract before removing the observed immutable container identity.
+A transport failure remains an unconfirmed outcome: inspect state before retrying.
+Stopping is a native lifecycle operation; it does not change an external
+controller's desired state. A controller such as Omnitron may start the container
+again while its stack remains declared running.
+
 ### Health Checks
 
 ```typescript
