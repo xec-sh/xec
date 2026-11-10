@@ -1,4 +1,4 @@
-import { it, expect, describe } from 'vitest';
+import { it, vi, expect, describe } from 'vitest';
 
 import { Pipeline, type PipelineEvent } from '../../src/pipeline/index.js';
 
@@ -101,6 +101,25 @@ describe('pipeline execution lifecycle', () => {
     }).run({}, { onEvent: event => { if (event.type === 'step-output') throw failure; } })).rejects.toBe(failure);
     expect(pid).toBeTypeOf('number');
     expect(() => process.kill(pid!, 0)).toThrow();
+  });
+
+  it('dispatches only declared variables while local callbacks retain their host environment', async () => {
+    const marker = 'XEC_TEST_HOST_ONLY';
+    vi.stubEnv(marker, 'local-only');
+    try {
+      const result = await Pipeline.create('target-env').env({ GLOBAL: 'global', ORDER: 'global' })
+        .step('observer', { run: async ctx => { expect(ctx.env[marker]).toBe('local-only'); } })
+        .step('remote', {
+          matrix: { MATRIX: ['one'] }, env: { STEP: 'step', ORDER: 'step' },
+          run: { adapter: 'ssh', command: 'true', env: { COMMAND: 'command', ORDER: 'command' } },
+        }).run({ env: { RUN: 'run', ORDER: 'run' } }, {
+          execute: async command => {
+            expect(command.env).toEqual({ GLOBAL: 'global', RUN: 'run', MATRIX: 'one', STEP: 'step', COMMAND: 'command', ORDER: 'command' });
+            return { exitCode: 0, stdout: '', stderr: '' };
+          },
+        });
+      expect(result.status).toBe('success');
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it('allows a host to provide its existing execution engine', async () => {

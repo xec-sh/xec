@@ -52,6 +52,10 @@ Run the same step across multiple configurations:
 // Creates 6 test runs: node18+linux, node18+macos, node20+linux, ...
 ```
 
+### Command environment
+
+Each command receives variables declared on the pipeline, run, matrix variant, step and command, in that order. Use a step's `env` to pass a value to an SSH target. Local commands inherit the local process environment through the local adapter. Conditions and function steps execute locally and can read host variables through `ctx.env`.
+
 ### Conditional Execution
 Skip steps based on runtime conditions:
 

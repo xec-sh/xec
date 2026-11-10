@@ -138,9 +138,10 @@ export class Pipeline {
       try { await options.onEvent?.(event); }
       catch (error) { observerError = error; observerAbort.abort(error); throw error; }
     };
+    const declaredEnv = { ...this.globalEnv, ...context.env };
     const ctx: PipelineContext = {
       ...context,
-      env: { ...process.env as Record<string, string>, ...this.globalEnv, ...context.env },
+      env: { ...process.env as Record<string, string>, ...declaredEnv },
       outputs: { ...context.outputs }, signal,
     };
     const groups = this.steps.map(s => ({ name: s.name, config: { ...s.config } }));
@@ -187,7 +188,7 @@ export class Pipeline {
                   const name = matrixKey ? `${step.name} [${matrixKey}]` : step.name;
                   const result = signal.aborted ? skipped(name, 'Execution aborted', true) :
                     await this.runStep(name, step.config, { ...ctx, env: { ...ctx.env, ...variables } },
-                      signal, outputLimit, execute, emit);
+                      { ...declaredEnv, ...variables, ...step.config.env }, signal, outputLimit, execute, emit);
                   value.push({ ...result, ...(matrixKey ? { matrixKey } : {}) });
                 }
               }
@@ -223,7 +224,8 @@ export class Pipeline {
   }
 
   private async runStep(
-    name: string, config: StepConfig, ctx: PipelineContext, signal: AbortSignal, outputLimit: number,
+    name: string, config: StepConfig, ctx: PipelineContext, commandEnv: Record<string, string>,
+    signal: AbortSignal, outputLimit: number,
     execute: (command: Command) => Promise<PipelineCommandResult>,
     emit: (event: PipelineEvent) => Promise<void>,
   ): Promise<StepResult> {
@@ -257,7 +259,7 @@ export class Pipeline {
           const drained = Promise.all(streams.map(s => finished(s, { cleanup: true })));
           void drained.catch(() => undefined);
           try {
-            answer = await execute({ ...command, shell: command.shell ?? false, env: { ...ctx.env, ...config.env, ...command.env },
+            answer = await execute({ ...command, shell: command.shell ?? false, env: { ...commandEnv, ...command.env },
               cwd: command.cwd ?? config.workingDirectory, timeout: command.timeout ?? config.timeout ?? 600_000,
               signal: commandSignal, stdout: streams[0]!, stderr: streams[1]!, throwOnNonZeroExit: false, nothrow: true });
           } finally {
