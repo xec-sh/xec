@@ -160,6 +160,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Prepare a release and resume from its frozen workspace
+        shell: bash
         env:
           GIT_AUTHOR_NAME: Release verification
           GIT_AUTHOR_EMAIL: release-check@example.invalid

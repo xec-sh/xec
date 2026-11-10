@@ -58,15 +58,22 @@ try {
   run(['--input-type=module', '-e', "import { NodeSSH } from '@xec-sh/core/ssh'; if (typeof NodeSSH !== 'function') process.exit(1)"], consumer);
   const results = [];
   for (const mode of ['zero-packet', 'receive-window', 'buffered-close']) {
-    const lines = run([join(root, 'scripts/fixtures/ssh-hostile-peer.mjs'), mode, installed]).trim().split('\n');
-    const result = JSON.parse(lines.at(-1));
+    // Scheduling can leave the receive-window observation inconclusive. Only
+    // retry an explicitly unmeasured trial; a measured rejection still fails.
+    let result;
+    let attempts = 0;
+    do {
+      const lines = run([join(root, 'scripts/fixtures/ssh-hostile-peer.mjs'), mode, installed]).trim().split('\n');
+      result = JSON.parse(lines.at(-1));
+      attempts++;
+    } while (mode === 'receive-window' && result.inconclusive === true && attempts < 3);
     const passed = mode === 'zero-packet'
       ? result.phase === 'authenticated' && result.level === 'protocol' && /CHANNEL_OPEN_CONFIRMATION/.test(result.error)
       : mode === 'receive-window'
         ? result.violationSent && result.disconnected && result.remaining >= 0
         : result.connectionClosed && result.callbackCalled && !!result.callbackError && result.writePending === 0;
     if (!passed) throw new Error(`${mode}: ${JSON.stringify(result)}`);
-    results.push({ mode, passed: true });
+    results.push({ mode, passed: true, attempts });
   }
   run([join(root, 'scripts/fixtures/ssh-chacha-reentrancy.mjs'), transport]);
   results.push({ mode: 'chacha-nested-writes', cases: 6, passed: true });
