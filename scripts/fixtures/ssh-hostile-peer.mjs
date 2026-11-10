@@ -10,6 +10,7 @@ const load = createRequire(join(packageDirectory, 'package.json'));
 let phase = 'starting';
 void (async () => {
     const mode = process.argv[2];
+    if (!['zero-packet', 'buffered-close'].includes(mode)) throw new Error('Unknown SSH fixture');
     const { Server } = load('ssh2');
     const manifest = JSON.parse(readFileSync(join(packageDirectory, 'package.json')));
     const { NodeSSH } = await import(pathToFileURL(join(packageDirectory, manifest.exports['./ssh'].import)).href);
@@ -40,26 +41,6 @@ void (async () => {
       process.stdout.write('authenticated; writing to zero-packet channel\n');
       channel.write(Buffer.from('fixture'));
       finish({ returned: true });
-    } else if (mode === 'receive-window') {
-      const initial = channel.incoming.window;
-      let sent = 0, violationSent = false;
-      const send = length => { sent += length; peer._protocol.channelData(serverChannel.outgoing.id, Buffer.alloc(length)); };
-      const pump = () => {
-        if (!ssh.isConnected()) { finish({ disconnected: true, violationSent, retained: channel.readableLength, remaining: channel.incoming.window }); return; }
-        const remaining = channel.incoming.window;
-        if (remaining < 0) {
-          const retainedBefore = channel.readableLength;
-          send(32768);
-          setTimeout(() => finish({ initial, sent, remaining: channel.incoming.window, retained: channel.readableLength,
-            acceptedAfterNegativeCredit: channel.readableLength - retainedBefore }), 50);
-          return;
-        }
-        if (sent > 8 * 1024 * 1024 || remaining === 0) { finish({ initial, sent, remaining, inconclusive: true }); return; }
-        if (remaining === 1) violationSent = true;
-        send(remaining === 1 ? 2 : Math.min(32768, remaining - 1));
-        setTimeout(pump, 2);
-      };
-      pump();
     } else {
       let callbackCalled = false, callbackError, closeReceived = false, connectionClosed = false;
       channel.once('close', () => { closeReceived = true; });

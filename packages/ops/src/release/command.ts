@@ -1,5 +1,7 @@
 import { ExecutionEngine } from '@xec-sh/core';
 
+import { windowsPackageManager } from './package-manager.js';
+
 export interface ReleaseCommandOptions {
   timeoutMs?: number;
   env?: Record<string, string>;
@@ -25,7 +27,13 @@ export const releaseCommand: ReleaseCommand = async (cwd, executable, args, opti
   // Each operation owns its engine; it cannot dispose another caller's processes.
   const engine = new ExecutionEngine({ adapters: { local: { killSignal: 'SIGKILL' } } });
   try {
-    const result = await engine.execute({ command: executable, args: [...args], cwd, shell: false, adapter: 'local',
+    // Windows package-manager shims require a shell. Resolve their real entry
+    // points so paths, scoped names and registry options remain literal argv.
+    const manager = process.platform === 'win32' && (executable === 'npm' || executable === 'pnpm')
+      ? windowsPackageManager(executable, { ...process.env, ...options.env })
+      : undefined;
+    const result = await engine.execute({ command: manager?.executable ?? executable,
+      args: manager?.script ? [manager.script, ...args] : [...args], cwd, shell: false, adapter: 'local',
       ...(options.interactive ? { stdin: process.stdin, stdout: 'inherit' as const, stderr: 'inherit' as const, detached: false } : {}),
       timeout: options.timeoutMs ?? 120000, maxBuffer: 8 * 1024 * 1024, env: options.env, nothrow: true });
     if (result.exitCode !== 0) throw new ReleaseCommandError(executable, result.exitCode, clean(result.stdout), clean(result.stderr));

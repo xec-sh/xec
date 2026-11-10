@@ -17,7 +17,7 @@ function validateRepository(repository: string): void {
 export async function releaseNotes(root: string, version: string, repository: string, run: ReleaseCommand = releaseCommand): Promise<string> {
   validateRepository(repository); releaseTag(version);
   const commit = await run(root, 'git', ['rev-parse', 'HEAD']);
-  const versions = (await run(root, 'git', ['tag', '--list', 'v*'])).split('\n').map(tag => tag.slice(1))
+  const versions = (await run(root, 'git', ['tag', '--list', 'v*'])).split(/\r?\n/).map(tag => tag.slice(1))
     .filter(value => semver.valid(value) === value && semver.lt(value, version)).sort(semver.rcompare);
   let previous: string | undefined;
   for (const value of versions) {
@@ -25,7 +25,7 @@ export async function releaseNotes(root: string, version: string, repository: st
     catch (error) { if (!(error instanceof ReleaseCommandError) || error.status !== 1) throw error; }
   }
   const history = await run(root, 'git', ['log', '--format=%H%x09%s', previous ? `refs/tags/${previous}..${commit}` : commit]);
-  const changes = history.split('\n').filter(Boolean).filter(line => !/\tchore: release v/.test(line)).map(line => {
+  const changes = history.split(/\r?\n/).filter(Boolean).filter(line => !/\tchore: release v/.test(line)).map(line => {
     const [hash, ...parts] = line.split('\t');
     const subject = parts.join(' ').replace(/[\\`*_{}[\]<>]/g, '\\$&');
     return `- ${subject} ([${hash!.slice(0, 8)}](https://github.com/${repository}/commit/${hash}))`;
@@ -41,7 +41,7 @@ export async function createGithubRelease(root: string, version: string, reposit
   const tag = releaseTag(version), prerelease = distributionTag(version) !== 'latest';
   const tags = await run(root, 'gh', ['api', '--paginate', `repos/${repository}/releases`, '--jq', '.[].tag_name']);
   let failure: unknown;
-  if (!tags.split('\n').includes(tag)) {
+  if (!tags.split(/\r?\n/).includes(tag)) {
     const directory = await mkdtemp(join(tmpdir(), 'xec-release-notes-'));
     try {
       const file = join(directory, 'notes.md'); await writeFile(file, notes, { mode: 0o600 });

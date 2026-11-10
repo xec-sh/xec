@@ -7,6 +7,7 @@ import { join, dirname } from 'node:path';
 import { it, expect, describe, afterEach } from 'vitest';
 import { rm, mkdir, chmod, mkdtemp, readFile, copyFile, writeFile } from 'node:fs/promises';
 
+import { windowsPackageManager } from '../../src/release/package-manager.js';
 import {
   planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity, acquireReleaseLock,
   createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage, verifyReleaseArtifact,
@@ -16,6 +17,32 @@ import {
 const directories: string[] = [];
 afterEach(async () => { for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true }); });
 async function temporary() { const directory = await mkdtemp(join(tmpdir(), 'xec-release-test-')); directories.push(directory); return directory; }
+describe('Windows package-manager argv execution', () => {
+  it('validates entries in CRLF-delimited native tar output', async () => {
+    const pkg = { name: '@fixture/archive', version: '1.0.0' };
+    const archive: ReleaseCommand = async (_cwd, _executable, args) => args[0] === '-xOf'
+      ? JSON.stringify({ ...pkg, main: './index.js', types: './index.d.ts' })
+      : 'package/index.js\r\npackage/index.d.ts\r\npackage/package.json';
+    await validatePackedPackage('.', 'fixture.tgz', pkg, archive);
+  });
+
+  it('uses the invoking manager and finds a sibling native pnpm and the Node npm CLI', async () => {
+    const prefix = await temporary();
+    const modules = join(prefix, 'node_modules');
+    const bin = join(modules, '.bin');
+    const pnpm = join(modules, 'pnpm', 'pnpm.exe');
+    const npm = join(modules, 'npm', 'bin', 'npm-cli.js');
+    for (const file of [pnpm, npm]) {
+      await mkdir(dirname(file), { recursive: true });
+      await writeFile(file, '');
+    }
+    expect(windowsPackageManager('pnpm', { Path: bin, npm_execpath: npm })).toEqual({ executable: pnpm });
+    expect(windowsPackageManager('npm', { Path: prefix, npm_execpath: pnpm })).toEqual({ executable: process.execPath, script: npm });
+    expect(windowsPackageManager('pnpm', { npm_execpath: pnpm })).toEqual({ executable: pnpm });
+    expect(windowsPackageManager('npm', { npm_execpath: npm })).toEqual({ executable: process.execPath, script: npm });
+  });
+});
+
 async function repository() {
   const root = await temporary();
   await releaseCommand(root, 'git', ['init', '--initial-branch', 'main']);

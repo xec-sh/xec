@@ -48,7 +48,7 @@ export async function validatePackedPackage(root: string, file: string, pkg: Pic
   for (const section of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
     if (Object.values((manifest[section] ?? {}) as Record<string, unknown>).some(value => typeof value !== 'string' || /^(workspace:|file:|link:)/.test(value))) throw new Error(`Packed ${pkg.name} contains local ${section}`);
   }
-  const files = (await run(root, 'tar', ['-tzf', file])).split('\n');
+  const files = (await run(root, 'tar', ['-tzf', file])).split(/\r?\n/);
   if (files.some(path => !path.startsWith('package/') || path.includes('\\') || path.split('/').includes('..'))) throw new Error(`Unsafe archive path: ${pkg.name}`);
   const targets = (value: unknown): string[] => typeof value === 'string' ? [value]
     : value && typeof value === 'object' ? Object.values(value).flatMap(targets) : [];

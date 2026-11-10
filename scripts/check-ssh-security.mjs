@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 /** Release gate: exercise the actual packaged SSH runtime under bounded hostile peers. */
 import { execFileSync } from 'node:child_process';
-import { join, dirname, resolve, delimiter } from 'node:path';
-import { rm, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
+import { join, dirname, resolve } from 'node:path';
+import { rm, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 
+import { checkReceiveWindow } from './fixtures/ssh-receive-window.mjs';
 import { inspectSSHTransport, prepareSSHCorePackage } from './ssh-transport.mjs';
+import { windowsPackageManager } from '../packages/ops/src/release/package-manager.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values } = parseArgs({ options: { archive: { type: 'string' } } });
@@ -20,21 +22,16 @@ const run = (args, cwd = root, timeout = 10_000) => execFileSync(process.execPat
 });
 try {
   // npm's documented bundled-dependency format must carry the patch to a consumer.
-  const candidates = [process.env.npm_execpath,
-    join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'),
-    join(dirname(process.execPath), '../lib/node_modules/npm/bin/npm-cli.js'),
-    ...String(process.env.PATH ?? '').split(delimiter).flatMap(directory => [join(directory, 'npm'), join(directory, 'node_modules/npm/bin/npm-cli.js')])];
-  let npm;
-  for (const candidate of candidates.filter(Boolean)) {
-    try { const path = await realpath(candidate); if (path.endsWith('npm-cli.js')) { npm = path; break; } } catch { /* Try the next installed CLI. */ }
-  }
-  if (!npm) throw new Error('An installed npm CLI is required for the package-consumer security check');
+  const npm = process.platform === 'win32' ? windowsPackageManager('npm', process.env) : { executable: 'npm' };
+  const runNpm = (args, cwd) => execFileSync(npm.executable, [...(npm.script ? [npm.script] : []), ...args], {
+    cwd, timeout: packageTimeout, killSignal: 'SIGKILL', encoding: 'utf8', maxBuffer: 128 * 1024,
+  });
   const npmArgs = ['--ignore-scripts', '--cache', join(temporary, 'cache')];
   let archive;
   if (values.archive) archive = resolve(values.archive);
   else {
     const packageDirectory = await prepareSSHCorePackage(join(temporary, 'core'));
-    const packed = JSON.parse(run([npm, 'pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory, packageTimeout))[0];
+    const packed = JSON.parse(runNpm(['pack', '--json', '--pack-destination', temporary, ...npmArgs], packageDirectory))[0];
     if (!packed.bundled?.includes('ssh2')) throw new Error('SSH transport was omitted from the package');
     archive = join(temporary, packed.filename);
   }
@@ -43,10 +40,11 @@ try {
   const consumer = join(temporary, 'consumer'); await mkdir(consumer);
   await writeFile(join(consumer, 'package.json'), '{"private":true,"type":"module"}');
   if (manager === 'npm') {
-    run([npm, 'install', '--offline', '--no-audit', '--no-fund', ...npmArgs, archive], consumer, packageTimeout);
+    runNpm(['install', '--offline', '--no-audit', '--no-fund', ...npmArgs, archive], consumer);
   } else {
     // pnpm can be a standalone executable; do not force it through Node.
-    execFileSync(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['add', '--offline', '--ignore-scripts',
+    const pnpm = process.platform === 'win32' ? windowsPackageManager('pnpm', process.env) : { executable: 'pnpm' };
+    execFileSync(pnpm.executable, [...(pnpm.script ? [pnpm.script] : []), 'add', '--offline', '--ignore-scripts',
       '--ignore-workspace', '--store-dir', join(temporary, 'store'), archive], {
       cwd: consumer, timeout: packageTimeout, killSignal: 'SIGKILL', stdio: 'pipe',
     });
@@ -56,24 +54,15 @@ try {
   const transport = dirname(require.resolve('ssh2/package.json'));
   await inspectSSHTransport(transport, 'patched');
   run(['--input-type=module', '-e', "import { NodeSSH } from '@xec-sh/core/ssh'; if (typeof NodeSSH !== 'function') process.exit(1)"], consumer);
-  const results = [];
-  for (const mode of ['zero-packet', 'receive-window', 'buffered-close']) {
-    // Scheduling can leave the receive-window observation inconclusive. Only
-    // retry an explicitly unmeasured trial; a measured rejection still fails.
-    let result;
-    let attempts = 0;
-    do {
-      const lines = run([join(root, 'scripts/fixtures/ssh-hostile-peer.mjs'), mode, installed]).trim().split('\n');
-      result = JSON.parse(lines.at(-1));
-      attempts++;
-    } while (mode === 'receive-window' && result.inconclusive === true && attempts < 3);
+  const results = [checkReceiveWindow(transport)];
+  for (const mode of ['zero-packet', 'buffered-close']) {
+    const lines = run([join(root, 'scripts/fixtures/ssh-hostile-peer.mjs'), mode, installed]).trim().split('\n');
+    const result = JSON.parse(lines.at(-1));
     const passed = mode === 'zero-packet'
       ? result.phase === 'authenticated' && result.level === 'protocol' && /CHANNEL_OPEN_CONFIRMATION/.test(result.error)
-      : mode === 'receive-window'
-        ? result.violationSent && result.disconnected && result.remaining >= 0
-        : result.connectionClosed && result.callbackCalled && !!result.callbackError && result.writePending === 0;
+      : result.connectionClosed && result.callbackCalled && !!result.callbackError && result.writePending === 0;
     if (!passed) throw new Error(`${mode}: ${JSON.stringify(result)}`);
-    results.push({ mode, passed: true, attempts });
+    results.push({ mode, passed: true });
   }
   run([join(root, 'scripts/fixtures/ssh-chacha-reentrancy.mjs'), transport]);
   results.push({ mode: 'chacha-nested-writes', cases: 6, passed: true });
