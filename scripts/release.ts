@@ -70,7 +70,7 @@ export async function runRelease(args: string[]): Promise<void> {
   const plan = { version, tag: evidence.tag, npmTag: evidence.npmTag, source: evidence.commit, blockers: evidence.blockers, remoteState: 'not checked by dry-run',
     mode: values.prepare ? 'prepare' : values.resume ? 'resume' : values['github-only'] ? 'github-only' : 'release',
     packages: packages.map(pkg => ({ name: pkg.name, path: pkg.path, from: pkg.version, to: version })),
-    build: 'isolated committed snapshot', push: !values['no-push'] && !values.prepare,
+    build: values.resume || values['github-only'] ? false : 'isolated committed snapshot', push: !values['no-push'] && !values.prepare,
     npm: !values['skip-npm'] && !values.prepare && !values['github-only'], github: !values['skip-github'] && !values.prepare };
   console.log(JSON.stringify(plan, null, 2));
   if (values['dry-run']) { if (evidence.blockers.length) process.exitCode = 1; return; }

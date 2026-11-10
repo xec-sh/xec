@@ -240,6 +240,7 @@ async function submitUploads(root: string, release: PreparedRelease, options: Pu
 export async function publishPreparedRelease(root: string, version: string, options: PublishReleaseOptions = {}): Promise<PreparedRelease> {
   const release = await preflightPreparedRelease(root, version, options);
   const awaiting = await submitUploads(root, release, options);
+  if (awaiting.length) options.progress?.(`Uploads complete. Verifying ${awaiting.length} archive(s) against the registry.`);
   await confirmPublications(root, awaiting, options);
   return release;
 }
