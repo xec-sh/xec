@@ -7,7 +7,7 @@
 import { fileURLToPath } from 'url';
 import path, { join, dirname, resolve } from 'path';
 import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
-import { rmSync, mkdirSync, existsSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
 
 interface PackageJson {
   name: string;
@@ -66,26 +66,15 @@ console.log(`Building @xec-sh/kit${isDev ? ' (dev mode)' : ''}...`);
 
 const distDir = join(rootDir, 'dist');
 
-// Clean dist directory
-console.log('Cleaning dist directory...');
-rmSync(distDir, { recursive: true, force: true });
-mkdirSync(distDir, { recursive: true });
-
-// Generate TypeScript declarations
+// Use the same clean, workspace-pinned compiler as the other Xec packages.
 console.log('Generating TypeScript declarations...');
-const tscArgs = [
-  'tsc',
-  '--project',
-  'tsconfig.build.json',
-];
-
-const tscResult = spawnSync('npx', tscArgs, {
+const tscResult = spawnSync('node', [resolve(rootDir, '../../scripts/build-package.mjs'), '--project', 'tsconfig.build.json'], {
   cwd: rootDir,
   stdio: 'inherit',
 });
 
 if (tscResult.status !== 0) {
-  console.error('Error: TypeScript declaration generation failed');
+  console.error(tscResult.error?.message ?? 'TypeScript declaration generation failed');
   process.exit(1);
 }
 

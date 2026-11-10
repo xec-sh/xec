@@ -52,14 +52,14 @@
     "xec"
   ],
   "scripts": {
-    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && bun scripts/build.ts",
+    "build": "bun scripts/build.ts",
     "build:watch": "bun scripts/build.ts --watch",
     "typecheck": "tsc --noEmit",
     "test": "FORCE_COLOR=1 vitest run",
     "test:watch": "FORCE_COLOR=1 vitest watch",
     "prettier:write": "prettier --write .",
     "prettier:check": "prettier --check .",
-    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
+    "clean": "node ../../scripts/build-package.mjs --clean"
   },
   "dependencies": {
     "sisteransi": "^2.0.0"

@@ -69,10 +69,10 @@
     "!dist/**/*.map"
   ],
   "scripts": {
-    "build": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo && tsc",
+    "build": "node ../../scripts/build-package.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist node_modules/.tmp/tsconfig.tsbuildinfo"
+    "clean": "node ../../scripts/build-package.mjs --clean"
   },
   "dependencies": {
     "@xec-sh/core": "workspace:*",
