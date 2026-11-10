@@ -20,10 +20,15 @@ async function temporary() { const directory = await mkdtemp(join(tmpdir(), 'xec
 describe('Windows package-manager argv execution', () => {
   it('validates entries in CRLF-delimited native tar output', async () => {
     const pkg = { name: '@fixture/archive', version: '1.0.0' };
-    const archive: ReleaseCommand = async (_cwd, _executable, args) => args[0] === '-xOf'
-      ? JSON.stringify({ ...pkg, main: './index.js', types: './index.d.ts' })
-      : 'package/index.js\r\npackage/index.d.ts\r\npackage/package.json';
-    await validatePackedPackage('.', 'fixture.tgz', pkg, archive);
+    const directory = await temporary();
+    const archive: ReleaseCommand = async (cwd, _executable, args) => {
+      expect(cwd).toBe(directory);
+      expect(args[1]).toBe('./fixture.tgz');
+      return args[0] === '-xOf'
+        ? JSON.stringify({ ...pkg, main: './index.js', types: './index.d.ts' })
+        : 'package/index.js\r\npackage/index.d.ts\r\npackage/package.json';
+    };
+    await validatePackedPackage('.', join(directory, 'fixture.tgz'), pkg, archive);
   });
 
   it('uses the invoking manager and finds a sibling native pnpm and the Node npm CLI', async () => {
@@ -127,7 +132,7 @@ describe('release inventory, refs and sealed artifacts', () => {
     await mkdir(join(root, 'package'));
     const pack = async (manifest: object) => {
       await writeFile(join(root, 'package/package.json'), JSON.stringify({ name: '@fixture/a', version: '1.0.0', ...manifest }));
-      await releaseCommand(root, 'tar', ['-czf', join(root, 'bad.tgz'), 'package']);
+      await releaseCommand(root, 'tar', ['-czf', './bad.tgz', 'package']);
       return validatePackedPackage(root, join(root, 'bad.tgz'), { name: '@fixture/a', version: '1.0.0' });
     };
     await expect(pack({ exports: './missing.js' })).rejects.toThrow('exported entry');
@@ -145,6 +150,21 @@ describe('release inventory, refs and sealed artifacts', () => {
     await expect(preflightPreparedRelease(root, release.version, { interactive: true, run: registry })).rejects.toThrow('npm login');
     expect(commands.some(c => c.startsWith('npm whoami'))).toBe(true);
     expect(commands.some(c => c.startsWith('npm publish') || c.startsWith('git push'))).toBe(false);
+  });
+
+  it('keeps every archive local when the external reference cannot be committed', async () => {
+    const { root, release, run } = await prepared();
+    const actions: string[] = [];
+    const registry: ReleaseCommand = async (cwd, program, args, options) => {
+      if (program !== 'npm') return run(cwd, program, args, options);
+      actions.push(args[0]!);
+      throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E404"}}', '');
+    };
+    await expect(publishPreparedRelease(root, release.version, {
+      run: registry, interactive: false,
+      beforeUpload: async () => { actions.push('commit-ref'); throw new Error('Reference rejected'); },
+    })).rejects.toThrow('Reference rejected');
+    expect(actions).toEqual([...release.artifacts.flatMap(() => ['view', 'view']), 'commit-ref']);
   });
 
   it('never treats an unavailable registry as an absent package', async () => {

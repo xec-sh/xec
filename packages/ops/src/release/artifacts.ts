@@ -4,7 +4,7 @@ import type { ReleasePackage } from './packages.js';
 import { tmpdir } from 'node:os';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve, basename } from 'node:path';
+import { join, resolve, dirname, basename } from 'node:path';
 import { rm, open, mkdir, chmod, rename, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 
 import { releaseCommand } from './command.js';
@@ -43,12 +43,21 @@ export async function verifyReleaseArtifact(artifact: ReleaseArtifact): Promise<
 
 /** A packed package must have registry dependencies and every promised entry point. */
 export async function validatePackedPackage(root: string, file: string, pkg: Pick<ReleasePackage, 'name' | 'version'>, run: ReleaseCommand = releaseCommand): Promise<void> {
-  const manifest = JSON.parse(await run(root, 'tar', ['-xOf', file, 'package/package.json'])) as Record<string, unknown>;
+  await inspectPackedPackage(root, file, pkg, run);
+}
+
+export async function inspectPackedPackage(root: string, file: string, pkg: Pick<ReleasePackage, 'name' | 'version'>, run: ReleaseCommand): Promise<Record<string, unknown>> {
+  // GNU tar treats a colon before the first slash as a remote host. This local
+  // archive may live on a different Windows drive from the release checkout.
+  const archive = resolve(root, file);
+  const directory = dirname(archive);
+  const name = './' + basename(archive);
+  const manifest = JSON.parse(await run(directory, 'tar', ['-xOf', name, 'package/package.json'])) as Record<string, unknown>;
   if (manifest['name'] !== pkg.name || manifest['version'] !== pkg.version || manifest['private']) throw new Error(`Packed identity differs: ${pkg.name}@${pkg.version}`);
   for (const section of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
     if (Object.values((manifest[section] ?? {}) as Record<string, unknown>).some(value => typeof value !== 'string' || /^(workspace:|file:|link:)/.test(value))) throw new Error(`Packed ${pkg.name} contains local ${section}`);
   }
-  const files = (await run(root, 'tar', ['-tzf', file])).split(/\r?\n/);
+  const files = (await run(directory, 'tar', ['-tzf', name])).split(/\r?\n/);
   if (files.some(path => !path.startsWith('package/') || path.includes('\\') || path.split('/').includes('..'))) throw new Error(`Unsafe archive path: ${pkg.name}`);
   const targets = (value: unknown): string[] => typeof value === 'string' ? [value]
     : value && typeof value === 'object' ? Object.values(value).flatMap(targets) : [];
@@ -58,6 +67,7 @@ export async function validatePackedPackage(root: string, file: string, pkg: Pic
     const pattern = new RegExp('^' + expected.split('*').map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+') + '$');
     if (!files.some(path => pattern.test(path))) throw new Error(`Packed ${pkg.name} has no exported entry: ${target}`);
   }
+  return manifest;
 }
 
 export async function loadPreparedRelease(root: string, version: string, run: ReleaseCommand = releaseCommand): Promise<PreparedRelease> {
@@ -100,7 +110,7 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
     options.progress?.(`Preparing isolated source ${commit.slice(0, 12)}`);
     const archive = join(temporary, 'source.tar');
     await run(root, 'git', ['archive', '--format=tar', '--output', archive, commit]);
-    await run(root, 'tar', ['-xf', archive, '-C', workspace]);
+    await run(temporary, 'tar', ['-xf', './source.tar', '-C', basename(workspace)]);
     await run(workspace, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', '--prod=false', ...(options.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
     options.progress?.('Building isolated packages');
     await run(workspace, options.build.executable, options.build.args, { timeoutMs: 600000 });

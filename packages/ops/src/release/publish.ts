@@ -9,7 +9,7 @@ import { rm, open, mkdtemp, readFile } from 'node:fs/promises';
 import { distributionTag } from './packages.js';
 import { releaseCommand, ReleaseCommandError } from './command.js';
 import { assertReleaseHead, assertCleanReleaseTree } from './git.js';
-import { artifactIntegrity, loadPreparedRelease, verifyReleaseArtifact, validatePackedPackage } from './artifacts.js';
+import { artifactIntegrity, loadPreparedRelease, inspectPackedPackage, verifyReleaseArtifact } from './artifacts.js';
 
 export interface PublishReleaseOptions {
   registry?: string;
@@ -18,6 +18,8 @@ export interface PublishReleaseOptions {
   /** Use npm's own browser/security-key prompt on EOTP. Defaults to an attached terminal. */
   interactive?: boolean;
   otp?: () => Promise<string>;
+  /** Commit an external release reference after preflight and before the first upload. */
+  beforeUpload?: () => Promise<void>;
   progress?: (message: string) => void;
   /** Time allowed for a registry to expose an accepted immutable upload. */
   confirmationTimeoutMs?: number;
@@ -164,8 +166,7 @@ export async function preflightPreparedRelease(root: string, version: string, op
   let uploadRequired = false;
   // Check the complete batch before publishing its first package.
   for (const artifact of release.artifacts) {
-    await validatePackedPackage(root, artifact.file, artifact, run);
-    const manifest = JSON.parse(await run(root, 'tar', ['-xOf', artifact.file, 'package/package.json'])) as { publishConfig?: { registry?: string; tag?: string } };
+    const manifest = await inspectPackedPackage(root, artifact.file, artifact, run) as { publishConfig?: { registry?: string; tag?: string } };
     if ((manifest.publishConfig?.registry && registryAddress(manifest.publishConfig.registry) !== registry)
         || (manifest.publishConfig?.tag && manifest.publishConfig.tag !== tag)) throw new Error(`Packed publishConfig conflicts with the release destination: ${artifact.name}`);
     const exists = await registryArtifactMatches(root, artifact, options);
@@ -256,6 +257,14 @@ async function submitUploads(root: string, release: PreparedRelease, options: Pu
 /** Submit the sealed batch in dependency order, then verify consumer-visible registry state. */
 export async function publishPreparedRelease(root: string, version: string, options: PublishReleaseOptions = {}): Promise<PreparedRelease> {
   const release = await preflightPreparedRelease(root, version, options);
+  if (options.beforeUpload) {
+    await options.beforeUpload();
+    const run = options.run ?? releaseCommand;
+    await assertCleanReleaseTree(root, run);
+    if (await run(root, 'git', ['rev-parse', 'HEAD']) !== release.commit || !await assertReleaseHead(root, version, run)) {
+      throw new Error('Release source changed after preflight');
+    }
+  }
   const awaiting = await submitUploads(root, release, options);
   if (awaiting.length) options.progress?.(`Uploads complete. Verifying ${awaiting.length} archive(s) against the registry.`);
   await confirmPublications(root, awaiting, options);

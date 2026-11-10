@@ -172,7 +172,7 @@ package dependency cycles and packages outside the checkout are rejected.
 ```typescript
 import {
   acquireReleaseLock, commitReleaseVersion, ensureReleaseTag,
-  prepareReleaseArtifacts, preflightPreparedRelease, pushReleaseRefs,
+  prepareReleaseArtifacts, pushReleaseRefs,
   publishPreparedRelease,
 } from '@xec-sh/ops/release';
 
@@ -186,9 +186,10 @@ try {
     progress: console.log,
   });
   await ensureReleaseTag(root, version);
-  await preflightPreparedRelease(root, version);
-  await pushReleaseRefs(root, version);
-  await publishPreparedRelease(root, version, { progress: console.log });
+  await publishPreparedRelease(root, version, {
+    beforeUpload: () => pushReleaseRefs(root, version),
+    progress: console.log,
+  });
 } finally {
   await unlock();
 }
@@ -198,6 +199,8 @@ For a plan, call `planRelease(root, version)` before acquiring the writer lock.
 It returns `blockers`, inventory, source commit and npm lane without mutating the
 repository. For resume, use `loadPreparedRelease`; never call a custom rebuild as
 an error fallback. Hold the same writer lock across preparation and publication.
+
+`publishPreparedRelease` validates the batch and the destination once before calling `beforeUpload`. A failed callback stops publication before the first registry write. Use `preflightPreparedRelease` on its own for a read-only check.
 
 `preparePackage` is an optional per-package recipe, called only inside the
 isolated snapshot. It returns a package directory and `npm` or `pnpm` packer.

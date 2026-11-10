@@ -12,7 +12,7 @@ import {
   releaseTag, planRelease, releaseNotes, releaseCommand, pushReleaseRefs,
   ensureReleaseTag, assertReleaseHead, acquireReleaseLock, loadPreparedRelease, createGithubRelease,
   commitReleaseVersion, assertCleanReleaseTree, verifyRemoteReleaseTag, publishPreparedRelease,
-  discoverReleasePackages, prepareReleaseArtifacts, preflightPreparedRelease,
+  discoverReleasePackages, prepareReleaseArtifacts,
 } from '../packages/ops/src/release/index.js';
 
 const repository = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -108,11 +108,11 @@ export async function runRelease(args: string[]): Promise<void> {
       await ensureReleaseTag(root, version);
     }
     if (values.prepare) { console.log(`Prepared ${version}. Review .release-artifacts, then use: xec release ${version} --resume`); return; }
-    if (!values['no-push'] && !values['skip-npm'] && !values['github-only']) await preflightPreparedRelease(root, version, { registry: values.registry });
     if (values['no-push'] && (!values['skip-github'] || !values['skip-npm'])) await verifyRemoteReleaseTag(root, version, true);
-    if (!values['no-push']) await pushReleaseRefs(root, version);
-    if (!values['skip-npm'] && !values['github-only']) await publishPreparedRelease(root, version, {
-      registry: values.registry, progress: console.log,
+    const push = values['no-push'] ? undefined : () => pushReleaseRefs(root, version);
+    if (values['skip-npm'] || values['github-only']) await push?.();
+    else await publishPreparedRelease(root, version, {
+      registry: values.registry, progress: console.log, beforeUpload: push,
       otp: async () => {
         if (!process.stdin.isTTY) throw new Error('npm requires an OTP; resume interactively or configure an automation credential');
         const value = await password({ message: 'npm one-time password' });
