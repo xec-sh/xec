@@ -35,8 +35,8 @@ apply. It installs the frozen lockfile without install scripts in a new temporar
 snapshot, builds every public workspace, and packs in dependency order. The SSH
 core recipe includes the reviewed private transport and its license/checksums.
 Before sealing it, Xec installs the actual tarball in a clean offline consumer
-and runs the hostile-peer, ChaCha and SFTP failure checks. Resume repeats this
-check against the saved archive without rebuilding it.
+and runs the hostile-peer, ChaCha and SFTP failure checks. Resume verifies the
+identity and SHA-512 of those sealed bytes. Builds and test suites run during preparation.
 The version change refreshes pnpm's workspace metadata from the frozen lockfile with lifecycle scripts disabled. Package compilation takes place in the temporary checkout. If a previous preparation ended with `ERR_PNPM_VERIFY_DEPS_BEFORE_RUN`, run `pnpm install --frozen-lockfile` in the tagged checkout, then resume the same version. The saved archives are verified again.
 
 All archives must pass identity, dependency and exported-entry checks before the
@@ -102,17 +102,23 @@ finishes. Unknown outcomes are never reported as a complete release.
 Use npm/gh login or supported environment credentials. Tokens are not accepted as
 release command flags. The retired `.xec-release.json` hook/skip configuration
 is no longer used; repository-specific validation belongs in the preparation
-recipe, and publication stages are explicit command options. Interactive OTP prompts are bounded and redacted from
-command errors; publication receipts contain package identities and checksums,
-not credentials. Commands have finite timeouts and output bounds through Xec's
-existing process API.
+recipe. In an interactive terminal, an npm authentication challenge opens the native
+npm flow. When npm offers to remember the current IP and token for five minutes,
+select that option in the browser to authorize subsequent uploads during the window.
+Xec asks npm to authenticate again if the registry challenges a later upload.
+A numeric OTP supplied through the programmatic callback stays in memory for this
+batch and is refreshed on rejection. Receipts contain package identities and checksums.
+[npm browser authorization](https://github.blog/changelog/2022-07-26-general-availability-of-improved-2fa-experience-in-npm/).
 
 ### An upload is still awaiting the registry
 
 npm scans new uploads before they become public. An accepted upload or HTTP
-409 can precede a successful read by minutes. Xec records the pending archive
-and waits up to 30 minutes per package. Resuming the same version continues the
-read-only check for the recorded upload. A matching SHA-512 and release channel
+409 can precede a successful read by minutes. Xec records each accepted upload and
+immediately submits the next archive in dependency order. Registry scans can run
+at the same time. After submission, Xec polls the outstanding batch for up to
+30 minutes. An unverified version reservation or an older receipt with an ambiguous
+outcome is checked before any further submission. Resume reconciles recorded uploads.
+A matching SHA-512 and release channel
 are required before a package is confirmed. The publisher downloads by exact
 package name and version from a fresh npm cache. If the version metadata is
 visible but that download reports `ETARGET`, the progress line shows
@@ -128,7 +134,9 @@ SHA-512 and the expected channel or a newer release on that channel.
 An updated checkout of the release tool can resume an older tagged checkout
 with `pnpm release <version> --resume --workspace <tagged-checkout>`. The selected
 checkout supplies the immutable tag, prepared archives and publication receipts.
-The release tool verifies them before dispatch.
+The release tool verifies them before dispatch. Use `--no-push` when the release
+tag already exists on the remote. With GitHub publication enabled, the selected
+checkout's `origin` identifies the repository for the release notes.
 [Registry scanning](https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/)
 
 ### Resume when GitHub rejects the SSH key

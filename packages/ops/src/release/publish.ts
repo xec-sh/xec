@@ -15,6 +15,8 @@ export interface PublishReleaseOptions {
   registry?: string;
   run?: ReleaseCommand;
   env?: Record<string, string>;
+  /** Use npm's own browser/security-key prompt on EOTP. Defaults to an attached terminal. */
+  interactive?: boolean;
   otp?: () => Promise<string>;
   progress?: (message: string) => void;
   /** Time allowed for a registry to expose an accepted immutable upload. */
@@ -32,11 +34,18 @@ function npmCode(error: unknown): string | undefined {
   try { return (JSON.parse(error.stdout) as { error?: { code?: string } }).error?.code; } catch { return undefined; }
 }
 
+// npm gives per-scope configuration precedence over its default registry.
+function registryArgs(name: string, registry: string): string[] {
+  const args = ['--registry', registry];
+  if (name.startsWith('@')) args.push(`--${name.split('/')[0]}:registry=${registry}`);
+  return args;
+}
+
 /** Check the immutable manifest before attempting a write. The tarball can appear later. */
 export async function registryArtifactMatches(root: string, artifact: ReleaseArtifact, options: PublishReleaseOptions = {}): Promise<boolean> {
   const run = options.run ?? releaseCommand, registry = registryAddress(options.registry);
   let data: { name?: unknown; version?: unknown; dist?: { integrity?: unknown } };
-  try { data = JSON.parse(await run(root, 'npm', ['view', `${artifact.name}@${artifact.version}`, '--json', '--prefer-online', '--registry', registry], { env: options.env })); }
+  try { data = JSON.parse(await run(root, 'npm', ['view', `${artifact.name}@${artifact.version}`, '--json', '--prefer-online', ...registryArgs(artifact.name, registry)], { env: options.env })); }
   catch (error) {
     if (npmCode(error) === 'E404') return false;
     throw new Error(`Cannot verify registry state of ${artifact.name}@${artifact.version}; refusing to assume it is absent`, { cause: error });
@@ -50,7 +59,7 @@ export async function registryArtifactMatches(root: string, artifact: ReleaseArt
 export async function registryReleaseChannel(root: string, artifact: ReleaseArtifact, options: PublishReleaseOptions = {}): Promise<string | undefined> {
   const run = options.run ?? releaseCommand;
   let tags: unknown;
-  try { tags = JSON.parse(await run(root, 'npm', ['view', `${artifact.name}@${distributionTag(artifact.version)}`, 'dist-tags', '--json', '--prefer-online', '--registry', registryAddress(options.registry)], { env: options.env })); }
+  try { tags = JSON.parse(await run(root, 'npm', ['view', `${artifact.name}@${distributionTag(artifact.version)}`, 'dist-tags', '--json', '--prefer-online', ...registryArgs(artifact.name, registryAddress(options.registry))], { env: options.env })); }
   catch (error) { if (npmCode(error) === 'E404') return undefined; throw new Error(`Cannot verify release channel for ${artifact.name}`, { cause: error }); }
   if (!tags || typeof tags !== 'object' || Array.isArray(tags)) throw new Error(`Invalid registry channel state: ${artifact.name}`);
   const value = (tags as Record<string, unknown>)[distributionTag(artifact.version)];
@@ -66,7 +75,7 @@ async function checkDownload(root: string, artifact: ReleaseArtifact, options: P
     const run = options.run ?? releaseCommand;
     const packed = JSON.parse(await run(root, 'npm', ['pack', `${artifact.name}@${artifact.version}`,
       '--json', '--ignore-scripts', '--prefer-online', '--pack-destination', directory,
-      '--cache', join(directory, 'cache'), '--registry', registryAddress(options.registry)], { env: options.env }));
+      '--cache', join(directory, 'cache'), ...registryArgs(artifact.name, registryAddress(options.registry))], { env: options.env }));
     const filename = packed?.[0]?.filename;
     if (typeof filename !== 'string' || basename(filename) !== filename || !filename.endsWith('.tgz')
         || artifactIntegrity(await readFile(join(directory, filename))) !== artifact.integrity)
@@ -88,48 +97,58 @@ async function receipt(directory: string, value: Record<string, unknown>): Promi
 
 /** A successful upload or an immutable reservation must never cause another
  * PUT while the registry is scanning. Scope recovery to these bytes and registry. */
-async function pendingUploads(directory: string, registry: string): Promise<Map<string, string>> {
+async function recordedUploads(directory: string, registry: string): Promise<Map<string, { integrity: string; accepted: boolean }>> {
   const journal = await readFile(join(directory, 'publication.jsonl'), 'utf8').catch((error: NodeJS.ErrnoException) => {
     if (error.code !== 'ENOENT') throw error;
     return '';
   });
-  const pending = new Map<string, string>();
+  const uploads = new Map<string, { integrity: string; accepted: boolean }>();
   for (const line of journal.trim().split('\n').filter(Boolean)) {
     const record = JSON.parse(line);
     if (record.registry !== registry) continue;
-    if (record.state === 'awaiting-registry') pending.set(record.name, record.integrity);
-    if (record.state === 'registry-confirmed') pending.delete(record.name);
+    if (record.state === 'awaiting-registry' || record.state === 'registry-confirmed') {
+      uploads.set(record.name, { integrity: record.integrity, accepted: record.state === 'registry-confirmed' || record.accepted === true });
+    }
   }
-  return pending;
+  return uploads;
 }
 
-async function waitForPublication(root: string, artifact: ReleaseArtifact, options: PublishReleaseOptions): Promise<string> {
+/** Poll every outstanding archive before sleeping, so one delayed scan cannot hide verified siblings. */
+async function confirmPublications(root: string, artifacts: ReleaseArtifact[], options: PublishReleaseOptions): Promise<void> {
   const timeout = options.confirmationTimeoutMs ?? 30 * 60_000;
   const interval = options.confirmationIntervalMs ?? 15_000;
   if (!Number.isSafeInteger(timeout) || timeout < 0 || !Number.isSafeInteger(interval) || interval < 1)
     throw new Error('Invalid registry confirmation timing');
+  const registry = registryAddress(options.registry);
   const deadline = Date.now() + timeout;
+  const pending = new Map(artifacts.map(artifact => [artifact, { downloaded: false, waitingFor: 'version metadata' }]));
   let nextNotice = 0;
-  let downloaded = false;
-  let waitingFor = 'version metadata';
-  for (;;) {
-    if (!downloaded) {
-      waitingFor = await registryArtifactMatches(root, artifact, options) ? await checkDownload(root, artifact, options) : 'version metadata';
-      downloaded = waitingFor === 'verified';
-    }
-    if (downloaded) {
-      const channel = await registryReleaseChannel(root, artifact, options);
-      if (channel === artifact.version) return channel;
-      if (channel && semver.gt(channel, artifact.version)) {
-        options.progress?.(`${artifact.name}@${artifact.version}: preserving newer ${distributionTag(artifact.version)}=${channel}`);
-        return channel;
+  while (pending.size) {
+    for (const [artifact, state] of pending) {
+      if (!state.downloaded) {
+        state.waitingFor = await registryArtifactMatches(root, artifact, options) ? await checkDownload(root, artifact, options) : 'version metadata';
+        state.downloaded = state.waitingFor === 'verified';
       }
-      waitingFor = `${distributionTag(artifact.version)} channel (currently ${channel ?? 'unset'})`;
+      if (!state.downloaded) continue;
+      const tag = distributionTag(artifact.version);
+      const channel = await registryReleaseChannel(root, artifact, options);
+      if (channel !== artifact.version && !(channel && semver.gt(channel, artifact.version))) {
+        state.waitingFor = `${tag} channel (currently ${channel ?? 'unset'})`;
+        continue;
+      }
+      if (channel !== artifact.version) {
+        options.progress?.(`${artifact.name}@${artifact.version}: preserving newer ${tag}=${channel}`);
+      }
+      await receipt(dirname(artifact.file), { name: artifact.name, integrity: artifact.integrity, state: 'registry-confirmed', registry, tag, channel });
+      pending.delete(artifact);
+      options.progress?.(`Verified ${artifact.name}@${artifact.version}: downloaded SHA-512 matches the prepared archive`);
     }
+    if (!pending.size) return;
     const now = Date.now(), remaining = deadline - now;
-    if (remaining <= 0) throw new Error(`Registry confirmation pending for ${artifact.name}@${artifact.version} (${waitingFor}). Inspect npm stage list ${artifact.name} or resume the same version to continue checking. The upload receipt is saved.`);
+    const outstanding = [...pending].map(([artifact, state]) => `${artifact.name}@${artifact.version} (${state.waitingFor})`).join(', ');
+    if (remaining <= 0) throw new Error(`Registry confirmation pending for ${outstanding}. Inspect npm stage list or resume the same version. Upload receipts are saved.`);
     if (now >= nextNotice) {
-      options.progress?.(`Waiting for ${artifact.name}@${artifact.version} on the registry: ${waitingFor} (${Math.ceil(remaining / 60000)} min remaining)`);
+      options.progress?.(`Waiting for ${pending.size} package(s) on the registry: ${outstanding}; ${Math.ceil(remaining / 60000)} min remaining`);
       nextNotice = now + 60_000;
     }
     await new Promise(resolve => setTimeout(resolve, Math.min(interval, remaining)));
@@ -155,50 +174,72 @@ export async function preflightPreparedRelease(root: string, version: string, op
   return release;
 }
 
-/** Publication uses only a sealed batch; retries reconcile the registry before another effect. */
-export async function publishPreparedRelease(root: string, version: string, options: PublishReleaseOptions = {}): Promise<PreparedRelease> {
+async function submitUploads(root: string, release: PreparedRelease, options: PublishReleaseOptions): Promise<ReleaseArtifact[]> {
   const run = options.run ?? releaseCommand;
-  const release = await preflightPreparedRelease(root, version, options);
+  const { version } = release;
   const registry = registryAddress(options.registry), tag = distributionTag(version);
   const directory = dirname(release.artifacts[0]!.file);
-  const pending = await pendingUploads(directory, registry);
+  const uploads = await recordedUploads(directory, registry);
+  const awaiting: ReleaseArtifact[] = [];
+  const interactive = options.interactive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  let otp: string | undefined;
   for (const artifact of release.artifacts) {
-    const prior = pending.get(artifact.name);
-    if (prior !== undefined && prior !== artifact.integrity) throw new Error('Pending publication integrity differs: ' + artifact.name);
-    let otp: string | undefined;
+    const prior = uploads.get(artifact.name);
+    if (prior && prior.integrity !== artifact.integrity) throw new Error('Pending publication integrity differs: ' + artifact.name);
+    let accepted = prior?.accepted ?? true;
+    let terminalChallenge = false;
     await verifyReleaseArtifact(artifact);
     if (prior === undefined && !await registryArtifactMatches(root, artifact, options)) {
       for (let attempt = 1; ; attempt++) {
         const currentChannel = await registryReleaseChannel(root, artifact, options);
         if (currentChannel && semver.gt(currentChannel, version)) throw new Error(`Refusing to move ${artifact.name} ${tag} backwards from ${currentChannel}`);
         await assertCleanReleaseTree(root, run);
-        await assertReleaseHead(root, version, run);
+        if (!await assertReleaseHead(root, version, run)) throw new Error('Release tag disappeared before publication');
         if (await run(root, 'git', ['rev-parse', 'HEAD']) !== release.commit) throw new Error('Source HEAD changed before publication');
         await verifyReleaseArtifact(artifact);
         options.progress?.(`Publishing ${artifact.name}@${version} (${tag}, attempt ${attempt})`);
         await receipt(directory, { name: artifact.name, integrity: artifact.integrity, state: 'dispatching', registry, tag, attempt });
         try {
-          await run(root, 'npm', ['publish', artifact.file, '--json', '--ignore-scripts', '--access', 'public', '--tag', tag, '--registry', registry],
-            { timeoutMs: 120000, env: otp ? { ...options.env, npm_config_otp: otp } : options.env, redact: otp ? [otp] : [] });
+          const output = terminalChallenge ? ['--auth-type=web', '--no-json', '--loglevel=error'] : ['--json'];
+          await run(root, 'npm', ['publish', artifact.file, ...output, '--ignore-scripts', '--access', 'public', '--tag', tag, ...registryArgs(artifact.name, registry)],
+            { interactive: terminalChallenge, timeoutMs: terminalChallenge ? 300000 : 120000,
+              env: otp ? { ...options.env, npm_config_otp: otp } : options.env, redact: otp ? [otp] : [] });
         } catch (error) {
           const code = npmCode(error);
-          if (code === 'EOTP' && options.otp && attempt < 3) {
-            otp = await options.otp();
-            if (!/^\d{6,8}$/.test(otp)) throw new Error('Invalid one-time password', { cause: error });
-            continue;
+          if (code === 'EOTP' && !terminalChallenge && attempt < 3) {
+            if (interactive) {
+              terminalChallenge = true;
+              options.progress?.(`npm needs authorization for ${artifact.name}. Continue in the terminal and browser.`);
+              continue;
+            }
+            if (options.otp) {
+              otp = await options.otp();
+              if (!/^\d{6,8}$/.test(otp)) throw new Error('Invalid one-time password', { cause: error });
+              continue;
+            }
           }
-          if (code !== 'E409' && code !== 'EPUBLISHCONFLICT' && !await registryArtifactMatches(root, artifact, options)) {
+          if (code === 'E409' || code === 'EPUBLISHCONFLICT') {
+            // A reservation can belong to different bytes. Verify it before another upload.
+            accepted = false;
+          } else if (!await registryArtifactMatches(root, artifact, options)) {
             await receipt(directory, { name: artifact.name, state: 'unconfirmed', attempt, registry, code });
             throw new Error(`Publication interrupted for ${artifact.name}. Resume using the saved archives; nothing was rolled back`, { cause: error });
           }
         }
-        await receipt(directory, { name: artifact.name, integrity: artifact.integrity, state: 'awaiting-registry', registry, tag, attempt });
+        await receipt(directory, { name: artifact.name, integrity: artifact.integrity, state: 'awaiting-registry', accepted, registry, tag, attempt });
         break;
       }
     }
-    const channel = await waitForPublication(root, artifact, options);
-    await receipt(directory, { name: artifact.name, integrity: artifact.integrity, state: 'registry-confirmed', registry, tag, channel });
-    options.progress?.(`Verified ${artifact.name}@${version}: downloaded SHA-512 matches the prepared archive`);
+    if (accepted) awaiting.push(artifact);
+    else await confirmPublications(root, [artifact], options);
   }
+  return awaiting;
+}
+
+/** Submit the sealed batch in dependency order, then verify consumer-visible registry state. */
+export async function publishPreparedRelease(root: string, version: string, options: PublishReleaseOptions = {}): Promise<PreparedRelease> {
+  const release = await preflightPreparedRelease(root, version, options);
+  const awaiting = await submitUploads(root, release, options);
+  await confirmPublications(root, awaiting, options);
   return release;
 }

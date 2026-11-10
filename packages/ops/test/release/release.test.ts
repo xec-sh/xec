@@ -327,11 +327,64 @@ it.each(['accepted', 'reserved'])('waits for a %s upload and resumes without ano
   const options = {run, confirmationTimeoutMs:0, confirmationIntervalMs:1};
   await expect(publishPreparedRelease(fixture.root, fixture.release.version, options)).rejects.toThrow('Registry confirmation pending');
   await expect(publishPreparedRelease(fixture.root, fixture.release.version, options)).rejects.toThrow('Registry confirmation pending');
-  expect(writes).toBe(1);
+  const submitted = outcome === 'accepted' ? artifacts.length : 1;
+  expect(writes).toBe(submitted);
   visible = true;
   await expect(publishPreparedRelease(fixture.root, fixture.release.version, options)).rejects.toThrow('downloadable tarball');
-  expect(writes).toBe(1);
+  expect(writes).toBe(submitted);
   downloadable = true;
   await publishPreparedRelease(fixture.root, fixture.release.version, options);
   expect(writes).toBe(artifacts.length);
 }, 30000);
+
+it.each(['browser', 'expired browser grant', 'numeric', 'expired numeric code', 'automation'])(
+  'submits in dependency order with %s authentication before waiting for registry scans', async mode => {
+    const { root, release, run: real } = await prepared();
+    const accepted = new Set<string>();
+    const registry = 'http://127.0.0.1:1/';
+    const browser = mode.includes('browser');
+    const expire = mode.startsWith('expired');
+    let prompts = 0, terminalApprovals = 0;
+    const run: ReleaseCommand = async (cwd, executable, args, options) => {
+      if (executable !== 'npm') return real(cwd, executable, args, options);
+      expect(args).toContain('--@fixture:registry=' + registry);
+      const artifact = release.artifacts.find(a => args[1] === a.file || args[1]?.startsWith(a.name + '@'))!;
+      if (args[0] === 'publish') {
+        const required = expire && accepted.size ? 2 : 1;
+        if (options?.interactive) {
+          expect(browser).toBe(true);
+          expect(args).toContain('--auth-type=web');
+          expect(args).not.toContain('--json');
+          terminalApprovals++;
+        }
+        if (mode !== 'automation' && (browser ? terminalApprovals < required : options?.env?.['npm_config_otp'] !== String(100000 + required))) {
+          throw new ReleaseCommandError('npm', 1, '{"error":{"code":"EOTP"}}', 'authentication required');
+        }
+        if (options?.env?.['npm_config_otp']) {
+          expect(args).not.toContain(options.env['npm_config_otp']);
+          expect(options.redact).toContain(options.env['npm_config_otp']);
+        }
+        expect(accepted.has(artifact.name)).toBe(false);
+        accepted.add(artifact.name);
+        return '';
+      }
+      expect(options?.interactive).toBeFalsy();
+      expect(options?.env?.['npm_config_otp']).toBeUndefined();
+      // Neither metadata nor archive is visible until all the uploads have been accepted.
+      if (accepted.size !== release.artifacts.length) throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E404"}}', '');
+      if (args[0] === 'pack') {
+        await copyFile(artifact.file, join(args[args.indexOf('--pack-destination') + 1]!, 'verified.tgz'));
+        return '[{"filename":"verified.tgz"}]';
+      }
+      return JSON.stringify(args.includes('dist-tags') ? { rc: artifact.version } :
+        { name: artifact.name, version: artifact.version, dist: { integrity: artifact.integrity } });
+    };
+    await publishPreparedRelease(root, release.version, { run, registry, interactive: browser,
+      confirmationTimeoutMs: 0, otp: async () => String(100000 + ++prompts) });
+    expect([...accepted]).toEqual(release.artifacts.map(a => a.name));
+    expect(prompts).toBe(mode.includes('numeric') ? (expire ? 2 : 1) : 0);
+    expect(terminalApprovals).toBe(browser ? (expire ? 2 : 1) : 0);
+    const journal = await readFile(join(dirname(release.artifacts[0]!.file), 'publication.jsonl'), 'utf8');
+    expect(journal).not.toMatch(/100001|100002/);
+    expect(journal.match(/"state":"registry-confirmed"/g)).toHaveLength(accepted.size);
+  }, 30000);

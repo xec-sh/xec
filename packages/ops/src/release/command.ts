@@ -4,6 +4,8 @@ export interface ReleaseCommandOptions {
   timeoutMs?: number;
   env?: Record<string, string>;
   redact?: readonly string[];
+  /** Give an interactive command the operator's real terminal descriptors. */
+  interactive?: boolean;
 }
 export type ReleaseCommand = (cwd: string, executable: string, args: readonly string[], options?: ReleaseCommandOptions) => Promise<string>;
 
@@ -24,6 +26,7 @@ export const releaseCommand: ReleaseCommand = async (cwd, executable, args, opti
   const engine = new ExecutionEngine({ adapters: { local: { killSignal: 'SIGKILL' } } });
   try {
     const result = await engine.execute({ command: executable, args: [...args], cwd, shell: false, adapter: 'local',
+      ...(options.interactive ? { stdin: process.stdin, stdout: 'inherit' as const, stderr: 'inherit' as const, detached: false } : {}),
       timeout: options.timeoutMs ?? 120000, maxBuffer: 8 * 1024 * 1024, env: options.env, nothrow: true });
     if (result.exitCode !== 0) throw new ReleaseCommandError(executable, result.exitCode, clean(result.stdout), clean(result.stderr));
     return result.stdout.trim();

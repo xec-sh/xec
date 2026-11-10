@@ -54,13 +54,16 @@ export async function runRelease(args: string[]): Promise<void> {
   if ((values.resume || values['github-only']) && !positionals[0]) throw new Error('--resume and --github-only require the exact release version');
   const packages = await discoverReleasePackages(root);
   if (values['list-packages']) { console.log(JSON.stringify(packages, null, 2)); return; }
-  const current = packages.find(pkg => pkg.name === '@xec-sh/core')!.version;
   let version = positionals[0];
-  if (!version && values['dry-run']) version = semver.inc(current, 'patch')!;
   if (!version) {
-    if (!process.stdin.isTTY) throw new Error('Specify the release version in non-interactive mode');
-    const choice = await select({ message: `Release version (current ${current})`, options: ['patch', 'minor', 'major'].map(type => ({ value: semver.inc(current, type as 'patch' | 'minor' | 'major')!, label: `${type}: ${semver.inc(current, type as 'patch' | 'minor' | 'major')}` })) });
-    if (isCancel(choice)) return; version = choice;
+    const current = packages.find(pkg => pkg.name === '@xec-sh/core')?.version;
+    if (!current) throw new Error('Specify the exact release version');
+    if (values['dry-run']) version = semver.inc(current, 'patch')!;
+    else {
+      if (!process.stdin.isTTY) throw new Error('Specify the release version in non-interactive mode');
+      const choice = await select({ message: `Release version (current ${current})`, options: ['patch', 'minor', 'major'].map(type => ({ value: semver.inc(current, type as 'patch' | 'minor' | 'major')!, label: `${type}: ${semver.inc(current, type as 'patch' | 'minor' | 'major')}` })) });
+      if (isCancel(choice)) return; version = choice;
+    }
   }
   releaseTag(version);
   const evidence = await planRelease(root, version);
@@ -91,10 +94,7 @@ export async function runRelease(args: string[]): Promise<void> {
       await assertCleanReleaseTree(root);
     }
     if (!values['github-only']) {
-      if (values.resume) {
-        const prepared = await loadPreparedRelease(root, version);
-        for (const artifact of prepared.artifacts) await verifyCoreArchive({ workspace: root, artifact, run: releaseCommand });
-      }
+      if (values.resume) await loadPreparedRelease(root, version);
       else await prepareReleaseArtifacts(root, version, {
         build: { executable: 'pnpm', args: ['--recursive', ...packages.flatMap(pkg => ['--filter', pkg.name]), 'run', 'build'] }, offline: values.offline,
         progress: console.log, verifyArtifact: verifyCoreArchive,
@@ -108,8 +108,8 @@ export async function runRelease(args: string[]): Promise<void> {
       await ensureReleaseTag(root, version);
     }
     if (values.prepare) { console.log(`Prepared ${version}. Review .release-artifacts, then use: xec release ${version} --resume`); return; }
-    if (!values['skip-npm'] && !values['github-only']) await preflightPreparedRelease(root, version, { registry: values.registry });
-    if (values['no-push'] && !values['skip-github']) await verifyRemoteReleaseTag(root, version, true);
+    if (!values['no-push'] && !values['skip-npm'] && !values['github-only']) await preflightPreparedRelease(root, version, { registry: values.registry });
+    if (values['no-push'] && (!values['skip-github'] || !values['skip-npm'])) await verifyRemoteReleaseTag(root, version, true);
     if (!values['no-push']) await pushReleaseRefs(root, version);
     if (!values['skip-npm'] && !values['github-only']) await publishPreparedRelease(root, version, {
       registry: values.registry, progress: console.log,
@@ -121,8 +121,10 @@ export async function runRelease(args: string[]): Promise<void> {
       },
     });
     if (!values['skip-github']) {
-      const notes = await releaseNotes(root, version, 'xec-sh/xec');
-      console.log(await createGithubRelease(root, version, 'xec-sh/xec', notes));
+      const origin = await releaseCommand(root, 'git', ['remote', 'get-url', 'origin']);
+      const target = await releaseCommand(root, 'gh', ['repo', 'view', origin, '--json', 'nameWithOwner', '--jq', '.nameWithOwner']);
+      const notes = await releaseNotes(root, version, target);
+      console.log(await createGithubRelease(root, version, target, notes));
     }
     console.log(`Release ${version} verified. Prepared archives and receipts remain in .release-artifacts.`);
   } catch (error) {
