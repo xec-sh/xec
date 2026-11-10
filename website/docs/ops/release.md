@@ -16,6 +16,8 @@ install that release before using the new subpath in another repository.
 Use Node.js, the pnpm version in `packageManager`, Git, npm, and `tar`. Xec's
 build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
+For an interactive public npm release, the publisher checks the current npm identity before pushing the release refs when archives still need uploading. If the session expired, run `npm login --auth-type=web --registry=https://registry.npmjs.org/` and `npm whoami --registry=https://registry.npmjs.org/`. An authenticated account still needs write access to each destination package or scope.
+
 Install the frozen dependencies in a separate checkout when an existing installation serves applications. The release command loads its tooling from committed sources and builds the packages during preparation. The examples use `0.12.0`; choose your actual next version.
 
 ```bash

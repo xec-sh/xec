@@ -10,7 +10,7 @@ import { rm, mkdir, chmod, mkdtemp, readFile, copyFile, writeFile } from 'node:f
 import {
   planRelease, releaseNotes, releaseCommand, distributionTag, pushReleaseRefs, registryAddress, ensureReleaseTag, assertReleaseHead, artifactIntegrity, acquireReleaseLock,
   createGithubRelease, ReleaseCommandError, commitReleaseVersion, validatePackedPackage, verifyReleaseArtifact,
-  verifyRemoteReleaseTag, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches,
+  verifyRemoteReleaseTag, publishPreparedRelease, discoverReleasePackages, prepareReleaseArtifacts, registryArtifactMatches, preflightPreparedRelease,
 } from '../../src/release/index.js';
 
 const directories: string[] = [];
@@ -106,6 +106,20 @@ describe('release inventory, refs and sealed artifacts', () => {
     await expect(pack({ exports: './missing.js' })).rejects.toThrow('exported entry');
     await expect(pack({ dependencies: { a: 'file:../a' } })).rejects.toThrow('local dependencies');
   });
+  it('rejects an expired interactive npm session before any release ref or archive is sent', async () => {
+    const { root, release, run } = await prepared();
+    const commands: string[] = [];
+    const registry: ReleaseCommand = async (cwd, program, args, options) => {
+      commands.push([program, ...args].join(' '));
+      if (program === 'npm' && args[0] === 'view') throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E404"}}', '');
+      if (program === 'npm' && args[0] === 'whoami') throw new ReleaseCommandError('npm', 1, '{"error":{"code":"E401"}}', '');
+      return run(cwd, program, args, options);
+    };
+    await expect(preflightPreparedRelease(root, release.version, { interactive: true, run: registry })).rejects.toThrow('npm login');
+    expect(commands.some(c => c.startsWith('npm whoami'))).toBe(true);
+    expect(commands.some(c => c.startsWith('npm publish') || c.startsWith('git push'))).toBe(false);
+  });
+
   it('never treats an unavailable registry as an absent package', async () => {
     const { root, release, run } = await prepared();
     let published = 0;

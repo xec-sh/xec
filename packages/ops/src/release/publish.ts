@@ -161,6 +161,7 @@ export async function preflightPreparedRelease(root: string, version: string, op
   await assertCleanReleaseTree(root, run);
   if (!await assertReleaseHead(root, version, run)) throw new Error('Create the exact release tag before publication');
   const release = await loadPreparedRelease(root, version, run), registry = registryAddress(options.registry), tag = distributionTag(version);
+  let uploadRequired = false;
   // Check the complete batch before publishing its first package.
   for (const artifact of release.artifacts) {
     await validatePackedPackage(root, artifact.file, artifact, run);
@@ -168,8 +169,22 @@ export async function preflightPreparedRelease(root: string, version: string, op
     if ((manifest.publishConfig?.registry && registryAddress(manifest.publishConfig.registry) !== registry)
         || (manifest.publishConfig?.tag && manifest.publishConfig.tag !== tag)) throw new Error(`Packed publishConfig conflicts with the release destination: ${artifact.name}`);
     const exists = await registryArtifactMatches(root, artifact, options);
+    if (!exists) uploadRequired = true;
     const channel = await registryReleaseChannel(root, artifact, options);
     if (!exists && channel && semver.gt(channel, version)) throw new Error(`Publishing ${artifact.name}@${version} would move ${tag} backwards from ${channel}`);
+  }
+  // Human publication uses a logged-in npm identity. Trusted-publishing CI and
+  // anonymous private registries have different authentication contracts.
+  const interactive = options.interactive ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  if (uploadRequired && interactive && registry === 'https://registry.npmjs.org/') {
+    try {
+      const identity = await run(root, 'npm', ['whoami', '--json', '--registry', registry], { env: options.env });
+      if (!identity.trim()) throw new Error('npm returned an empty publishing identity');
+    } catch (error) {
+      const code = npmCode(error);
+      if (code !== 'E401' && code !== 'ENEEDAUTH' && code !== 'E403') throw error;
+      throw new Error(`npm authentication failed before publication. Run npm login --auth-type=web --registry=${registry} and check npm whoami before resuming`, { cause: error });
+    }
   }
   return release;
 }
@@ -223,7 +238,9 @@ async function submitUploads(root: string, release: PreparedRelease, options: Pu
             accepted = false;
           } else if (!await registryArtifactMatches(root, artifact, options)) {
             await receipt(directory, { name: artifact.name, state: 'unconfirmed', attempt, registry, code });
-            throw new Error(`Publication interrupted for ${artifact.name}. Resume using the saved archives; nothing was rolled back`, { cause: error });
+            const hint = code === 'E404' || code === 'E401' || code === 'E403'
+              ? ' Check npm whoami and the account or token write permissions for this package and scope.' : '';
+            throw new Error(`Publication interrupted for ${artifact.name}.${hint} Resume using the saved archives; nothing was rolled back`, { cause: error });
           }
         }
         await receipt(directory, { name: artifact.name, integrity: artifact.integrity, state: 'awaiting-registry', accepted, registry, tag, attempt });
