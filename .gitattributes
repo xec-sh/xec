@@ -1,2 +1,7 @@
+# Keep Unix entry points and release archives portable on every checkout.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 # A blank context line in a unified patch is a required space marker.
 *.patch text eol=lf whitespace=-blank-at-eol

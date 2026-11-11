@@ -177,27 +177,38 @@ jobs:
           git diff --exit-code
 
       # `...` builds the package and everything it depends on.
+      # Preparation and independent contract checks must report in one run.
+      # A failed check still fails the job; only cancellation or an unusable
+      # build prevents the later checks.
       - name: build
+        id: build
+        if: ${{ !cancelled() }}
         run: pnpm --filter @xec-sh/cli... build
 
       - name: SSH public dependency boundary
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm check:ssh-boundary
 
       - name: Packaged SSH security and artifact integrity
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           node --test scripts/test/ssh-transport.test.mjs
           pnpm check:ssh-security
 
       - name: Release failure and recovery contracts
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/ops test test/release
 
       - name: core unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/core test:unit
 
       - name: core property
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: pnpm --filter @xec-sh/core test:property
 
       - name: cli unit
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: >
           pnpm --filter @xec-sh/cli test
           test/utils
