@@ -222,3 +222,18 @@ published package and does not activate a running daemon or application.
 See [npm dist-tags](https://docs.npmjs.com/adding-dist-tags-to-packages/) and
 [GitHub's verified-tag publication](https://cli.github.com/manual/gh_release_create)
 for the underlying registry and hosting behavior.
+
+## Run the recipe through Xec
+
+The repository's `pnpm release` invokes its built Xec CLI. The dynamic command
+imports the recipe in the scripting runtime and calls the built
+`@xec-sh/ops/release` package directly. It does not spawn a separate `tsx` process
+or reach into an operations package's TypeScript source tree. Run
+`pnpm install --frozen-lockfile` and `pnpm build` when preparing a fresh checkout.
+
+Consumer repositories can register `.xec/commands/release.mjs` and compose the
+release functions with `Pipeline` for their own qualification policy. Keep
+project-specific build/CI decisions in that recipe and use the existing shared
+release API for locking, version commits, exact refs, archive sealing and npm
+reconciliation. A project recipe is executable configuration for the Xec engine;
+it should not introduce another process launcher, SSH client or release state machine.

@@ -243,6 +243,9 @@ importers:
       '@xec-sh/kit':
         specifier: workspace:*
         version: link:packages/kit
+      '@xec-sh/ops':
+        specifier: workspace:*
+        version: link:packages/ops
       add:
         specifier: ^2.0.9
         version: 2.0.9

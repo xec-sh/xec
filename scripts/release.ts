@@ -1,19 +1,18 @@
 #!/usr/bin/env -S node --import tsx
-import type { ReleaseCommand, ReleaseArtifact } from '../packages/ops/src/release/index.js';
+import type { ReleaseCommand, ReleaseArtifact } from '@xec-sh/ops/release';
 
 import semver from 'semver';
 import { parseArgs } from 'node:util';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { select, confirm, password, isCancel } from '@xec-sh/kit';
-
-// The owning repository bootstraps from its own source; consumers use @xec-sh/ops/release.
+// The CLI and scripts use the same built operations package.
 import {
   releaseTag, planRelease, releaseNotes, releaseCommand, pushReleaseRefs,
   ensureReleaseTag, assertReleaseHead, acquireReleaseLock, loadPreparedRelease, createGithubRelease,
   commitReleaseVersion, assertCleanReleaseTree, verifyRemoteReleaseTag, publishPreparedRelease,
   discoverReleasePackages, prepareReleaseArtifacts,
-} from '../packages/ops/src/release/index.js';
+} from '@xec-sh/ops/release';
 
 const repository = join(dirname(fileURLToPath(import.meta.url)), '..');
 const usage = `xec release [version] [options]
