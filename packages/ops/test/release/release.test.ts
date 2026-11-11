@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { join, dirname } from 'node:path';
 import { it, expect, describe, afterEach } from 'vitest';
-import { rm, mkdir, chmod, mkdtemp, readFile, copyFile, writeFile } from 'node:fs/promises';
+import { rm, mkdir, chmod, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 
 import { windowsPackageManager } from '../../src/release/package-manager.js';
 import {
@@ -84,6 +84,182 @@ async function prepared() {
   await ensureReleaseTag(root, release.version, runner.run);
   return { root, release, ...runner };
 }
+
+describe('release preparation execution context', () => {
+  it.each([undefined, 1_234_567])('forwards the selected build timeout (%s) while preserving the default', async timeoutMs => {
+    const root = await repository(), runner = fixtureRunner();
+    const observed: number[] = [];
+    const run: ReleaseCommand = async (cwd, executable, args, options) => {
+      if (executable === process.execPath && args[0] === 'build.mjs') observed.push(options!.timeoutMs!);
+      return runner.run(cwd, executable, args, options);
+    };
+    const release = await prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run, build: { executable: process.execPath, args: ['build.mjs'], ...(timeoutMs === undefined ? {} : { timeoutMs }) },
+    });
+    expect(release.artifacts).toHaveLength(2);
+    expect(observed).toEqual([timeoutMs ?? 600_000]);
+  });
+
+  it('inherits progress and output limits in callbacks and combines command cancellation with preparation cancellation', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    const preparation = new AbortController();
+    const onEvent = () => {};
+    const inheritedSignals: AbortSignal[] = [];
+    const nestedSignals = new Map<string, AbortSignal>();
+    const callbacks: string[] = [];
+    const run: ReleaseCommand = async (cwd, executable, args, options) => {
+      const logCommand = executable === 'fixture-context' ||
+        (executable === process.execPath && args[0] === 'build.mjs') ||
+        (executable === 'pnpm' && (args[0] === 'install' || args.includes('pack')));
+      expect(options?.onEvent).toBe(logCommand ? onEvent : undefined);
+      expect(options?.outputLimit).toBe(logCommand ? 16_384 : undefined);
+      expect(options?.signal).toBeDefined();
+      inheritedSignals.push(options!.signal!);
+      if (executable === 'fixture-context') {
+        nestedSignals.set(args[0]!, options!.signal!);
+        return 'nested result';
+      }
+      return runner.run(cwd, executable, args, options);
+    };
+    const inspect = async (name: string, workspace: string, callbackRun: ReleaseCommand, signal?: AbortSignal) => {
+      callbacks.push(name);
+      expect(signal).toBe(preparation.signal);
+      const local = new AbortController();
+      expect(await callbackRun(workspace, 'fixture-context', [name + '-local'], { signal: local.signal })).toBe('nested result');
+      const combined = nestedSignals.get(name + '-local')!;
+      expect(combined.aborted).toBe(false);
+      const reason = new Error('local callback operation finished');
+      local.abort(reason);
+      expect(combined.aborted).toBe(true);
+      expect(combined.reason).toBe(reason);
+      expect(preparation.signal.aborted).toBe(false);
+      // Keep a second per-command signal live to prove parent cancellation also reaches the combined signal.
+      await callbackRun(workspace, 'fixture-context', [name + '-parent'], { signal: new AbortController().signal });
+    };
+    const release = await prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run, signal: preparation.signal, onEvent, outputLimit: 16_384,
+      build: { executable: process.execPath, args: ['build.mjs'] },
+      preparePackage: async ({ workspace, pkg, run: callbackRun, signal }) => {
+        await inspect('package-' + pkg.name, workspace, callbackRun, signal);
+        return undefined;
+      },
+      verifyArtifact: async ({ workspace, artifact, run: callbackRun, signal }) => {
+        await inspect('verify-' + artifact.name, workspace, callbackRun, signal);
+      },
+    });
+    expect(release.artifacts).toHaveLength(2);
+    expect(callbacks).toEqual(['package-@fixture/a', 'verify-@fixture/a', 'package-@fixture/b', 'verify-@fixture/b']);
+    const reason = new Error('preparation observer finished');
+    preparation.abort(reason);
+    expect(inheritedSignals.every(signal => signal.aborted)).toBe(true);
+    for (const name of callbacks) expect(nestedSignals.get(name + '-parent')!.reason).toBe(reason);
+  });
+
+  it('keeps structured control output complete when preparation retains only one byte of build logs', async () => {
+    const root = await repository(), runner = fixtureRunner();
+    const onEvent = () => {};
+    const controls: Array<{ executable: string; args: readonly string[] }> = [];
+    const logs: string[] = [];
+    const run: ReleaseCommand = async (cwd, executable, args, options) => {
+      const logCommand = (executable === process.execPath && args[0] === 'build.mjs') ||
+        (executable === 'pnpm' && (args[0] === 'install' || args.includes('pack')));
+      if (logCommand) {
+        expect(options?.onEvent).toBe(onEvent);
+        expect(options?.outputLimit).toBe(1);
+        logs.push(args.includes('pack') ? 'pack' : args[0]!);
+      } else {
+        expect(options?.onEvent).toBeUndefined();
+        expect(options?.outputLimit).toBeUndefined();
+        controls.push({ executable, args });
+      }
+      return runner.run(cwd, executable, args, options);
+    };
+    const release = await prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run, onEvent, outputLimit: 1, build: { executable: process.execPath, args: ['build.mjs'] },
+    });
+    expect(release.artifacts).toHaveLength(2);
+    expect(logs).toEqual(['install', 'build.mjs', 'pack', 'pack']);
+    expect(controls.some(call => call.executable === 'git' && call.args.includes('rev-parse'))).toBe(true);
+    expect(controls.some(call => call.executable === 'pnpm' && call.args.includes('list'))).toBe(true);
+    expect(controls.some(call => call.executable === 'tar' && call.args.includes('-xOf'))).toBe(true);
+    expect(controls.some(call => call.executable === 'tar' && call.args.includes('-tzf'))).toBe(true);
+  });
+
+  it('does not execute commands or create release state when cancellation is already requested', async () => {
+    const root = await temporary();
+    const controller = new AbortController();
+    controller.abort(new Error('preparation cancelled before start'));
+    let calls = 0;
+    const run: ReleaseCommand = async () => { calls++; throw new Error('unexpected command'); };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run, signal: controller.signal, build: { executable: 'never', args: [] },
+    })).rejects.toThrow('preparation cancelled before start');
+    expect(calls).toBe(0);
+    await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.each(['preparePackage', 'verifyArtifact'] as const)('does not seal archives when %s cancels preparation', async callback => {
+    const root = await repository(), runner = fixtureRunner();
+    const controller = new AbortController();
+    let calls = 0;
+    const options: Parameters<typeof prepareReleaseArtifacts>[2] = {
+      run: runner.run, signal: controller.signal, build: { executable: process.execPath, args: ['build.mjs'] },
+    };
+    options[callback] = async ({ signal }: { signal?: AbortSignal }) => {
+      calls++;
+      expect(signal).toBe(controller.signal);
+      controller.abort(new Error('cancelled during package acceptance'));
+      return undefined;
+    };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow('cancelled during package acceptance');
+    expect(calls).toBe(1);
+    expect(await readdir(join(root, '.release-artifacts', '1.0.0-rc.1'))).toEqual([]);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+  });
+
+  it.each([false, true])('removes the isolated workspace after acceptance failure even if cleanup progress throws (%s)', async observerThrows => {
+    const root = await repository(), runner = fixtureRunner();
+    const acceptanceFailure = new Error('package acceptance rejected');
+    const observerFailure = new Error('cleanup progress observer failed');
+    const start = 'Cleaning isolated release workspace';
+    const done = 'Isolated release workspace cleaned';
+    const notices: string[] = [];
+    let workspace: string | undefined;
+    const operation = prepareReleaseArtifacts(root, '1.0.0-rc.1', {
+      run: runner.run, build: { executable: process.execPath, args: ['build.mjs'] },
+      preparePackage: async context => { workspace = context.workspace; throw acceptanceFailure; },
+      progress: message => {
+        if (message === start || message === done) notices.push(message);
+        if (observerThrows && message === start) throw observerFailure;
+      },
+    });
+    if (observerThrows) {
+      await expect(operation).rejects.toBeInstanceOf(AggregateError);
+      await expect(operation).rejects.toMatchObject({ cause: acceptanceFailure, errors: [acceptanceFailure, observerFailure] });
+    } else {
+      await expect(operation).rejects.toBe(acceptanceFailure);
+    }
+    expect(workspace).toBeTypeOf('string');
+    await expect(readdir(workspace!)).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(notices).toEqual(observerThrows ? [start] : [start, done]);
+  });
+
+  it.each([
+    ['timeout', 0], ['timeout', -1], ['timeout', NaN], ['timeout', Infinity],
+    ['outputLimit', 0], ['outputLimit', -1], ['outputLimit', NaN], ['outputLimit', Infinity], ['outputLimit', 1.5],
+  ] as const)('rejects invalid %s=%s before commands or artifact-directory creation', async (field, value) => {
+    const root = await temporary();
+    let calls = 0;
+    const run: ReleaseCommand = async () => { calls++; throw new Error('unexpected command'); };
+    const options: Parameters<typeof prepareReleaseArtifacts>[2] = {
+      run, build: { executable: 'never', args: [], ...(field === 'timeout' ? { timeoutMs: value } : {}) },
+      ...(field === 'outputLimit' ? { outputLimit: value } : {}),
+    };
+    await expect(prepareReleaseArtifacts(root, '1.0.0-rc.1', options)).rejects.toThrow(/timeout|limit/i);
+    expect(calls).toBe(0);
+    await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+});
 
 describe('release inventory, refs and sealed artifacts', () => {
   it('discovers private/public workspaces and orders dependencies without parsing YAML lists', async () => {

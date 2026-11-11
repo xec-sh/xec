@@ -1,5 +1,5 @@
-import type { ReleaseCommand } from './command.js';
 import type { ReleasePackage } from './packages.js';
+import type { ReleaseCommand, ReleaseCommandOptions } from './command.js';
 
 import { tmpdir } from 'node:os';
 import { constants } from 'node:fs';
@@ -26,12 +26,15 @@ export interface PreparedRelease {
 export interface PrepareReleaseOptions {
   run?: ReleaseCommand;
   offline?: boolean;
-  build: { executable: string; args: string[] };
+  build: { executable: string; args: string[]; timeoutMs?: number };
+  signal?: AbortSignal;
+  onEvent?: ReleaseCommandOptions['onEvent'];
+  outputLimit?: number;
   progress?: (message: string) => void;
   /** Verify the actual archive (for example in a clean consumer) before sealing. */
-  verifyArtifact?: (context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand }) => Promise<void>;
+  verifyArtifact?: (context: { workspace: string; artifact: ReleaseArtifact; run: ReleaseCommand; signal?: AbortSignal }) => Promise<void>;
   /** An owner-specific packaging recipe, executed only in the isolated snapshot. */
-  preparePackage?: (context: { workspace: string; temporary: string; pkg: ReleasePackage; run: ReleaseCommand }) => Promise<{ directory: string; manager: 'npm' | 'pnpm' } | undefined>;
+  preparePackage?: (context: { workspace: string; temporary: string; pkg: ReleasePackage; run: ReleaseCommand; signal?: AbortSignal }) => Promise<{ directory: string; manager: 'npm' | 'pnpm' } | undefined>;
 }
 
 export const artifactIntegrity = (bytes: Uint8Array): string => `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
@@ -92,7 +95,27 @@ export async function loadPreparedRelease(root: string, version: string, run: Re
 /** Build from the exact committed snapshot; never replace a working checkout's dist or dependencies. */
 export async function prepareReleaseArtifacts(root: string, version: string, options: PrepareReleaseOptions): Promise<PreparedRelease> {
   root = resolve(root); releaseTag(version);
-  const run = options.run ?? releaseCommand;
+  if (options.build.timeoutMs !== undefined && (!Number.isFinite(options.build.timeoutMs) || options.build.timeoutMs <= 0))
+    throw new Error('Build timeout must be positive');
+  if (options.outputLimit !== undefined && (!Number.isSafeInteger(options.outputLimit) || options.outputLimit < 1))
+    throw new Error('Output limit must be a positive integer');
+  options.signal?.throwIfAborted();
+  const execute = options.run ?? releaseCommand;
+  const run: ReleaseCommand = async (cwd, executable, args, commandOptions = {}) => {
+    const signal = options.signal && commandOptions.signal
+      ? AbortSignal.any([options.signal, commandOptions.signal]) : commandOptions.signal ?? options.signal;
+    signal?.throwIfAborted();
+    const answer = await execute(cwd, executable, args, {
+      ...commandOptions, signal,
+    });
+    signal?.throwIfAborted();
+    return answer;
+  };
+  // Internal inventories and identity queries require complete stdout. Tail
+  // capture is only used for commands whose output is not parsed here.
+  const observedRun: ReleaseCommand = (cwd, executable, args, commandOptions) => run(cwd, executable, args, {
+    onEvent: options.onEvent, outputLimit: options.outputLimit, ...commandOptions,
+  });
   await assertCleanReleaseTree(root, run);
   const commit = await run(root, 'git', ['rev-parse', 'HEAD']);
   if (!/^[a-f0-9]{40,64}$/.test(commit)) throw new Error('Invalid source commit');
@@ -105,22 +128,28 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
   catch (error) { if (!missing(error)) throw error; }
   const temporary = await mkdtemp(join(tmpdir(), 'xec-release-build-'));
   const workspace = join(temporary, 'workspace');
+  let preparationFailure: unknown;
+  let cleanupFailure: unknown;
+  let preparationFailed = false;
+  let cleanupFailed = false;
+  let prepared: PreparedRelease | undefined;
   try {
     await mkdir(workspace);
     options.progress?.(`Preparing isolated source ${commit.slice(0, 12)}`);
     const archive = join(temporary, 'source.tar');
     await run(root, 'git', ['archive', '--format=tar', '--output', archive, commit]);
     await run(temporary, 'tar', ['-xf', './source.tar', '-C', basename(workspace)]);
-    await run(workspace, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', '--prod=false', ...(options.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
+    await observedRun(workspace, 'pnpm', ['install', '--frozen-lockfile', '--ignore-scripts', '--prod=false', ...(options.offline ? ['--offline'] : [])], { timeoutMs: 600000 });
     options.progress?.('Building isolated packages');
-    await run(workspace, options.build.executable, options.build.args, { timeoutMs: 600000 });
+    await observedRun(workspace, options.build.executable, options.build.args, { timeoutMs: options.build.timeoutMs ?? 600000 });
     const artifacts: ReleaseArtifact[] = [];
     for (const pkg of packages) {
       options.progress?.(`Packing ${pkg.name}`);
       const output = await mkdtemp(join(temporary, 'pack-'));
-      const recipe = await options.preparePackage?.({ workspace, temporary, pkg, run });
+      const recipe = await options.preparePackage?.({ workspace, temporary, pkg, run: observedRun, signal: options.signal });
+      options.signal?.throwIfAborted();
       const location = recipe?.directory ?? join(workspace, pkg.path), manager = recipe?.manager ?? 'pnpm';
-      await run(location, manager, manager === 'npm'
+      await observedRun(location, manager, manager === 'npm'
         ? ['pack', '--ignore-scripts', '--json', '--pack-destination', output]
         : ['--config.ignore-scripts=true', 'pack', '--pack-destination', output]);
       const archives = (await readdir(output)).filter(name => name.endsWith('.tgz'));
@@ -128,7 +157,8 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
       const file = join(output, archives[0]!);
       await validatePackedPackage(root, file, pkg, run);
       const artifact = { name: pkg.name, version, file, integrity: artifactIntegrity(await readFile(file)) };
-      await options.verifyArtifact?.({ workspace, artifact, run });
+      await options.verifyArtifact?.({ workspace, artifact, run: observedRun, signal: options.signal });
+      options.signal?.throwIfAborted();
       await verifyReleaseArtifact(artifact);
       artifacts.push(artifact);
     }
@@ -136,6 +166,7 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
     await assertCleanReleaseTree(root, run);
     // A sealed record appears only after all archives are complete. A partial
     // directory is never silently repacked or treated as a resumable publication.
+    options.signal?.throwIfAborted();
     await mkdir(directory, { mode: 0o700 });
     const saved: PreparedRelease = { schema: 1, commit, version, artifacts: [] };
     for (const artifact of artifacts) {
@@ -160,8 +191,27 @@ export async function prepareReleaseArtifacts(root: string, version: string, opt
         try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
       }
     }
-    return await loadPreparedRelease(root, version, run);
-  } finally { await rm(temporary, { recursive: true, force: true }); }
+    prepared = await loadPreparedRelease(root, version, run);
+  } catch (error) {
+    preparationFailed = true;
+    preparationFailure = error;
+  } finally {
+    try {
+      try { options.progress?.('Cleaning isolated release workspace'); }
+      finally { await rm(temporary, { recursive: true, force: true }); }
+      options.progress?.('Isolated release workspace cleaned');
+    } catch (error) {
+      cleanupFailed = true;
+      cleanupFailure = error;
+    }
+  }
+  if (preparationFailed) {
+    if (cleanupFailed) throw new AggregateError([preparationFailure, cleanupFailure],
+      'Release preparation failed; cleanup also reported an error', { cause: preparationFailure });
+    throw preparationFailure;
+  }
+  if (cleanupFailed) throw cleanupFailure;
+  return prepared!;
 }
 
 /** One writer per checkout; stale locks require explicit inspection, never PID guessing. */

@@ -6,9 +6,9 @@ export { commitReleaseVersion } from './version.js';
 export type { PublishReleaseOptions } from './publish.js';
 export { releaseNotes, createGithubRelease } from './github.js';
 export { releaseCommand, ReleaseCommandError } from './command.js';
-export type { ReleaseCommand, ReleaseCommandOptions } from './command.js';
 export { releaseTag, distributionTag, discoverReleasePackages } from './packages.js';
 export type { ReleaseArtifact, PreparedRelease, PrepareReleaseOptions } from './artifacts.js';
+export type { ReleaseCommand, ReleaseCommandEvent, ReleaseCommandOptions } from './command.js';
 export { pushReleaseRefs, ensureReleaseTag, assertReleaseHead, assertCleanReleaseTree, verifyRemoteReleaseTag } from './git.js';
 
 export { registryAddress, publishPreparedRelease, registryReleaseChannel, registryArtifactMatches, preflightPreparedRelease } from './publish.js';

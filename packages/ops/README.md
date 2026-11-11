@@ -61,6 +61,84 @@ const workflow = Workflow.create('etl')
 await workflow.run();
 ```
 
+## Release progress and cancellation
+
+Release helpers are exported from `@xec-sh/ops/release`. `releaseCommand` accepts
+an `AbortSignal` and an optional asynchronous event observer:
+
+```typescript
+import { once } from 'node:events';
+import { releaseCommand, prepareReleaseArtifacts } from '@xec-sh/ops/release';
+import type { ReleaseCommandEvent } from '@xec-sh/ops/release';
+
+const controller = new AbortController();
+const onEvent = async (event: ReleaseCommandEvent) => {
+  if (event.type === 'command-output') {
+    const stream = process[event.stream];
+    if (!stream.write(event.text)) await once(stream, 'drain');
+  } else {
+    console.log(event);
+  }
+};
+
+await releaseCommand(process.cwd(), 'pnpm', ['run', 'build'], {
+  signal: controller.signal,
+  onEvent,
+  outputLimit: 256 * 1024,
+  redact: ['example-session-value'],
+});
+```
+
+The observer receives `command-start`, `command-output`, and `command-complete`.
+Events contain the executable and timestamps; output events add `stream` and
+`text`, and completion adds `status`, `durationMs`, `cancelled`, and
+`outputTruncated`. Arguments and environment variables are not event fields.
+Observer calls are awaited with backpressure; an observer failure aborts the
+owned process. Observers must settle their promises.
+
+Without `onEvent` or `outputLimit`, the existing capture contract remains:
+trimmed stdout is returned, and exceeding the 8 MiB capture cap fails the command.
+Either option selects bounded output tails, defaulting to 8 MiB per stream.
+Streaming observers receive all redacted output while only the tail is retained
+for the return value and errors; truncation does not fail the command. Choose a
+limit large enough for any machine-readable stdout that callers need to parse.
+`redact` matches explicit, case-sensitive literal values across writes, including
+multiline values. It does not infer which child output is sensitive.
+
+With `interactive: true`, the real terminal descriptors remain inherited. Only
+start/completion events are emitted: terminal output is raw, unredacted, and not
+captured, and `outputLimit` does not bound what the terminal displays.
+
+`prepareReleaseArtifacts` accepts `signal`, `onEvent`, and `outputLimit`.
+Cancellation reaches every command. Progress events and output tails apply to
+installation, build, packing, and commands invoked through a callback's `run`.
+Internal Git identity checks, workspace inventory, and archive verification keep
+complete stdout for their parsers, independent of the selected log limit.
+Set `build.timeoutMs` to choose the build budget; its existing default remains
+600,000 ms:
+
+```typescript
+await prepareReleaseArtifacts(root, version, {
+  signal: controller.signal,
+  onEvent,
+  build: { executable: 'pnpm', args: ['run', 'build'], timeoutMs: 70 * 60_000 },
+  async verifyArtifact({ workspace, artifact, run, signal }) {
+    signal?.throwIfAborted();
+    await run(workspace, process.execPath, ['scripts/verify-package.mjs', artifact.file]);
+  },
+});
+```
+
+Both `preparePackage` and `verifyArtifact` receive the inherited `run` and
+`signal`. A per-command signal is combined with preparation cancellation.
+Callbacks and injected runners must cooperate with the signal; cancellation
+cannot interrupt arbitrary JavaScript. Preparation checks cancellation around
+commands, after callbacks, and before sealing archives. The existing `progress`
+callback also reports the start and completion of isolated-workspace cleanup.
+A cleanup observer failure still removes the workspace; if preparation already
+failed, both errors are preserved in an `AggregateError` whose cause is the
+original preparation failure.
+
 ## Discovery, configuration, secrets
 
 ```typescript
