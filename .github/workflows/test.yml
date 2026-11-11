@@ -113,6 +113,7 @@ jobs:
           test/self-resolution.test.ts
           test/startup-budget.test.ts
           test/entry-point.test.ts
+          test/release-command.test.ts
 
       # Every code example in the documentation, compiled against the real
       # published types plus the globals a script receives. An example that
@@ -170,6 +171,7 @@ jobs:
           git clone --local --no-tags . "$RUNNER_TEMP/xec-release-check"
           cd "$RUNNER_TEMP/xec-release-check"
           pnpm install --frozen-lockfile
+          pnpm --filter @xec-sh/cli... build
           version=$(node -e 'const current = require("./packages/core/package.json").version; console.log(require("semver").inc(current, "patch") + "-ci.0")')
           pnpm release "$version" --dry-run
           pnpm release "$version" --prepare --yes
@@ -215,3 +217,4 @@ jobs:
           test/command-manifest.test.ts
           test/startup-budget.test.ts
           test/entry-point.test.ts
+          test/release-command.test.ts

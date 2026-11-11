@@ -8,8 +8,7 @@ description: Prepare immutable package archives, publish with registry confirmat
 `@xec-sh/ops/release` provides optional release automation for pnpm workspaces.
 It discovers public packages, builds an exact Git snapshot, checks the packed
 entry points and records immutable archives before publication. Other Ops imports
-do not load release automation. This API is part of the next source release;
-install that release before using the new subpath in another repository.
+do not load release automation. Install the published Ops package before using this subpath in another repository.
 
 ## Release Xec
 
@@ -18,10 +17,11 @@ build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
 For an interactive public npm release, the publisher checks the current npm identity before pushing the release refs when archives still need uploading. If the session expired, run `npm login --auth-type=web --registry=https://registry.npmjs.org/` and `npm whoami --registry=https://registry.npmjs.org/`. An authenticated account still needs write access to each destination package or scope.
 
-Install the frozen dependencies in a separate checkout when an existing installation serves applications. The release command loads its tooling from committed sources and builds the packages during preparation. The examples use `0.12.0`; choose your actual next version.
+Install the frozen dependencies and build the repository CLI in a separate checkout when an existing installation serves applications. This bootstrap supplies the Xec engine used by the release recipe; preparation independently rebuilds the package archives from the exact release commit. The examples use `0.12.0`; choose your actual next version.
 
 ```bash
 pnpm install --frozen-lockfile
+pnpm --filter @xec-sh/cli... build
 pnpm release 0.12.0 --dry-run
 pnpm release 0.12.0 --prepare
 ```
