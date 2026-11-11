@@ -39,14 +39,13 @@ const result = await deployer.deploy('v1.4.2');
 ```typescript
 import { Pipeline, Workflow } from '@xec-sh/ops';
 
-// DAG pipeline: dependencies, retry, matrix, conditions
+// DAG pipeline: dependencies, retry, conditions
 const pipeline = Pipeline.create('ci')
   .step('lint', { run: 'npm run lint' })
   .step('test', { run: 'npm test', dependsOn: ['lint'], retry: { maxAttempts: 2 } })
   .step('build', {
     run: 'npm run build',
     dependsOn: ['test'],
-    matrix: { node: ['20', '22'] },
     condition: (ctx) => ctx.env.CI === 'true',
   });
 const { success, steps, summary } = await pipeline.run();
@@ -60,6 +59,62 @@ const workflow = Workflow.create('etl')
   .onFailure(async (ctx, error) => ctx.log(`failed: ${error.message}`));
 await workflow.run();
 ```
+
+## Workspace build orchestration
+
+Xec can manage the complete developer workflow while delegating package builds
+to a specialized workspace runner such as Turborepo. Full Xec integration does
+not require replacing that runner.
+
+Use one owner for each responsibility:
+
+- The workspace runner owns package/task dependencies, affected-package selection,
+  and build artifact caching. Keep these declarations in its configuration.
+- Xec owns the surrounding workflow: environment preparation, verification,
+  local and remote commands, release preparation, progress, and cancellation.
+- An infrastructure controller owns deployed state, permissions, rollout locks,
+  reconciliation, and recovery. Xec should call that controller's API instead of
+  maintaining a second deployment state machine.
+
+For a workspace that declares `build`, `test`, and `typecheck` in `turbo.json`,
+execute that graph as one Xec pipeline stage:
+
+```typescript
+import { Pipeline } from '@xec-sh/ops/pipeline';
+
+const result = await Pipeline.create('workspace-checks')
+  .step('workspace', {
+    run: {
+      command: 'pnpm',
+      args: ['exec', 'turbo', 'run', 'build', 'test', 'typecheck'],
+      shell: false,
+    },
+    timeout: 30 * 60_000,
+  })
+  .run();
+
+if (!result.success) {
+  throw new Error(result.steps.filter(step => !step.success)
+    .map(step => `${step.name}: ${step.error ?? step.exitCode}`).join('\n'));
+}
+```
+
+Add infrastructure and release stages around this stage when needed; do not
+recreate each package's dependencies or a second cache in the outer pipeline.
+A cache hit is a build optimization, not authorization to publish or deploy.
+Release identity, validation evidence, and deployment permissions still need
+independent verification.
+
+Turborepo exposes a machine-readable plan with `--dry=json` and a completed-run
+report with `--summarize`; its remote cache can also be self-hosted. See the
+[Turborepo run reference](https://turborepo.dev/docs/reference/run) and
+[remote cache documentation](https://turborepo.dev/docs/core-concepts/remote-caching).
+A completed-run report is not a live event stream.
+
+`Pipeline` matrix values expand environment variables for each variant. They do
+not install or select a Node runtime: a runtime matrix must invoke the selected,
+provisioned executable explicitly. `Pipeline` currently schedules execution; its
+reserved `cache` field does not implement artifact caching.
 
 ## Release progress and cancellation
 
