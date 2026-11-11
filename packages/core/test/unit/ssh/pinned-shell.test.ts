@@ -1,9 +1,20 @@
 import { it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { stripVTControlCharacters } from 'node:util';
 
-import createServer from './ssh-server.js';
 import { PUBLIC_KEY_PATH } from './helpers.js';
+import createServer, { posixShell } from './ssh-server.js';
 import { NodeSSH, sshHostFingerprint } from '../../../src/adapters/ssh/ssh.js';
+
+it('resolves a runnable absolute shell for both exec and PTY fixtures', () => {
+  const shell = posixShell();
+  expect(isAbsolute(shell)).toBe(true);
+  expect(execFileSync(shell, ['-c', 'printf xec-posix-shell'], {
+    encoding: 'utf8', timeout: 5000,
+  })).toBe('xec-posix-shell');
+});
 
 it('uses existing NodeSSH for a real pinned PTY; probes and mismatches never authenticate', async () => {
   const server = createServer();
@@ -28,7 +39,7 @@ it('uses existing NodeSSH for a real pinned PTY; probes and mismatches never aut
     const output = new Promise<string>((resolve, reject) => {
       let text = '';
       const timer = setTimeout(() => reject(new Error('PTY did not answer: ' + JSON.stringify(text.slice(-300)))), 5000);
-      shell.on('data', (data: Buffer) => { text += data.toString(); if (text.includes('xec-pty-result')) { clearTimeout(timer); resolve(text); } });
+      shell.on('data', (data: Buffer) => { text += data.toString(); if (stripVTControlCharacters(text).includes('xec-pty-result')) { clearTimeout(timer); resolve(stripVTControlCharacters(text)); } });
     });
     shell.write("printf '__xec_size__'; stty size; printf 'xec-pty-%s\\n' result\r");
     const text = await output;

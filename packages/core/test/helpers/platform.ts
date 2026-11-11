@@ -1,5 +1,6 @@
 import { tmpdir } from 'node:os';
 import { realpathSync } from 'node:fs';
+import { spawnSync, execFileSync } from 'node:child_process';
 
 import { dialectFor, quoteForShell } from '../../src/utils/shell-escape.js';
 
@@ -192,13 +193,28 @@ export const exitWith = (code: number): string => `process.exit(${code})`;
 export const envRef = (name: string): string => (isWindows ? `%${name}%` : `$${name}`);
 
 /**
- * A POSIX shell that exists on this platform.
- *
- * `/bin/sh` is not a path on Windows; Git Bash supplies `bash.exe`, which
- * the runner has. A test that names a shell explicitly is testing that the
- * naming works, not that a particular path exists.
+ * Use the same absolute POSIX shell for exec and native PTY fixtures.
+ * Windows' native executable search can pick the WSL launcher even when
+ * cmd resolves Git Bash. Verify each candidate's output before selecting it.
  */
-export const posixShellPath = (): string => (isWindows ? 'bash.exe' : '/bin/sh');
+let resolvedPosixShell: string | undefined;
+export const posixShellPath = (): string => {
+  if (!isWindows) return '/bin/sh';
+  if (resolvedPosixShell) return resolvedPosixShell;
+  const candidates = execFileSync('where.exe', ['bash.exe'], {
+    encoding: 'utf8', windowsHide: true, timeout: 5000,
+  }).split(/\r?\n/).map(file => file.trim()).filter(Boolean);
+  for (const candidate of candidates) {
+    const probe = spawnSync(candidate, ['--noprofile', '--norc', '-c', 'printf xec-posix-shell'], {
+      encoding: 'utf8', windowsHide: true, timeout: 5000,
+    });
+    if (probe.status === 0 && probe.stdout === 'xec-posix-shell') {
+      resolvedPosixShell = realpathSync(candidate);
+      return resolvedPosixShell;
+    }
+  }
+  throw new Error('SSH fixtures require a working Git Bash executable on PATH');
+};
 
 /**
  * Whether the default shell here speaks POSIX.

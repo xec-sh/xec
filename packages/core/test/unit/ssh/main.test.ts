@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import * as fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { sep, join, dirname } from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 import { exists, PRIVATE_KEY_PATH } from './helpers.js';
 import { NodeSSH } from '../../../src/adapters/ssh/ssh.js';
@@ -20,12 +21,12 @@ function getFixturePath(fixturePath: string): string {
 }
 
 /**
- * The same path, spelled for a command line rather than for the filesystem.
+ * The fixture path as seen by the remote POSIX shell and SFTP client.
  *
  * The remote shell parses it, and a POSIX shell reads the `\a` in
  * `D:\a\xec` as an escape. Node accepts either spelling on Windows.
  */
-function fixtureArg(fixturePath: string): string {
+function getRemoteFixturePath(fixturePath: string): string {
   return getFixturePath(fixturePath).split(sep).join('/');
 }
 
@@ -139,7 +140,7 @@ describe('SSH Node Tests', () => {
         const timer = setTimeout(() => reject(new Error('Shell did not produce output')), 5000);
         shell.on('data', (chunk: Buffer) => {
           text += chunk.toString();
-          if (text.includes('shell-roundtrip-ok')) { clearTimeout(timer); resolve(text); }
+          if (stripVTControlCharacters(text).includes('shell-roundtrip-ok')) { clearTimeout(timer); resolve(stripVTControlCharacters(text)); }
         });
       });
       shell.write("printf 'shell-roundtrip-%s\\n' ok\r");
@@ -273,30 +274,31 @@ describe('SSH Node Tests', () => {
   createSSHTest('puts entire directories at once', async (port, client) => {
     await connectWithPassword(port, client);
     const remoteFiles = [
-      getFixturePath('ignored/aa'),
-      getFixturePath('ignored/bb'),
-      getFixturePath('ignored/cc'),
-      getFixturePath('ignored/dd'),
-      getFixturePath('ignored/ee/ff'),
-      getFixturePath('ignored/ff'),
-      getFixturePath('ignored/gg'),
-      getFixturePath('ignored/hh'),
-      getFixturePath('ignored/ii'),
-      getFixturePath('ignored/jj'),
-      getFixturePath('ignored/really/really/really/really/really/more deep files'),
-      getFixturePath('ignored/really/really/really/really/yes/deep files'),
-      getFixturePath('ignored/really/really/really/really/deep'),
+      getRemoteFixturePath('ignored/aa'),
+      getRemoteFixturePath('ignored/bb'),
+      getRemoteFixturePath('ignored/cc'),
+      getRemoteFixturePath('ignored/dd'),
+      getRemoteFixturePath('ignored/ee/ff'),
+      getRemoteFixturePath('ignored/ff'),
+      getRemoteFixturePath('ignored/gg'),
+      getRemoteFixturePath('ignored/hh'),
+      getRemoteFixturePath('ignored/ii'),
+      getRemoteFixturePath('ignored/jj'),
+      getRemoteFixturePath('ignored/really/really/really/really/really/more deep files'),
+      getRemoteFixturePath('ignored/really/really/really/really/yes/deep files'),
+      getRemoteFixturePath('ignored/really/really/really/really/deep'),
     ];
     const filesReceived: string[] = [];
     const existsBefore = await Promise.all(remoteFiles.map((file) => exists(file)));
     expect(existsBefore.every(Boolean)).toBe(false);
-    await client.putDirectory(getFixturePath('multiple'), getFixturePath('ignored'), {
+    const transferred = await client.putDirectory(getFixturePath('multiple'), getRemoteFixturePath('ignored'), {
       tick(local, remote, error) {
         expect(error).toBe(null);
         expect(remoteFiles.indexOf(remote) !== -1).toBe(true);
         filesReceived.push(remote);
       },
     });
+    expect(transferred).toBe(true);
     remoteFiles.sort();
     filesReceived.sort();
     expect(remoteFiles).toEqual(filesReceived);
@@ -341,7 +343,7 @@ describe('SSH Node Tests', () => {
   createSSHTest('allows stream callbacks on exec', async (port, client) => {
     await connectWithPassword(port, client);
     const outputFromCallbacks = { stdout: [] as Buffer[], stderr: [] as Buffer[] };
-    await client.exec('node', [fixtureArg('test-program')], {
+    await client.exec('node', [getRemoteFixturePath('test-program')], {
       stream: 'both',
       onStderr(chunk) {
         outputFromCallbacks.stderr.push(chunk);
@@ -360,7 +362,7 @@ describe('SSH Node Tests', () => {
   createSSHTest('allows stream callbacks on execCommand', async (port, client) => {
     await connectWithPassword(port, client);
     const outputFromCallbacks = { stdout: [] as Buffer[], stderr: [] as Buffer[] };
-    await client.execCommand(`node ${fixtureArg('test-program')}`, {
+    await client.execCommand(`node ${getRemoteFixturePath('test-program')}`, {
       onStderr(chunk) {
         outputFromCallbacks.stderr.push(chunk);
       },

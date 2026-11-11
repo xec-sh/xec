@@ -5,6 +5,7 @@ import { spawn as ptySpawn } from 'node-pty';
 import ChildProcess from 'node:child_process';
 
 import { PRIVATE_KEY_PATH } from './helpers.js';
+import { posixShellPath } from '../../helpers/platform.js';
 
 const { STATUS_CODE } = ((ssh2.utils as unknown) as { sftp: { STATUS_CODE: Record<string, string> } }).sftp
 
@@ -217,13 +218,13 @@ function handleSession(acceptSession: any) {
  * below lets the suite skip rather than fail where it is absent.
  */
 export function posixShell(): string {
-  return process.platform === 'win32' ? 'bash.exe' : '/bin/sh'
+  return posixShellPath()
 }
 
 /** Whether a POSIX shell can be found, so the suite can skip without one. */
 export function hasPosixShell(): boolean {
   try {
-    ChildProcess.execSync(`${posixShell()} -c "exit 0"`, { stdio: 'ignore' })
+    ChildProcess.execFileSync(posixShell(), ['-c', 'exit 0'], { stdio: 'ignore', timeout: 5000 })
     return true
   } catch {
     return false
