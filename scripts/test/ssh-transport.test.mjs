@@ -32,12 +32,37 @@ test('patching an isolated dependency preserves the installed source and carries
   await assert.rejects(bundleSSHTransport(source, output), { code: 'EEXIST' });
 });
 
+for (const variant of ['patched', 'pristine']) {
+  test(`canonicalizes a ${variant} CRLF install into the reviewed artifact bytes`, async t => {
+    const input = await fixture(t);
+    await bundleSSHTransport(source, input);
+    const transport = join(input, 'node_modules/ssh2');
+    if (variant === 'pristine') {
+      execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--reverse', '--', join(root, policy.patch)], { cwd: transport });
+    }
+    const windowsBytes = new Map();
+    for (const file of Object.keys(policy.files)) {
+      const bytes = (await readFile(join(transport, file), 'utf8')).replace(/\r?\n/g, '\r\n');
+      windowsBytes.set(file, bytes);
+      await writeFile(join(transport, file), bytes);
+    }
+    await assert.rejects(inspectSSHTransport(transport), /differs from reviewed source/);
+    const output = await fixture(t);
+    await bundleSSHTransport(transport, output);
+    assert.equal((await inspectSSHTransport(join(output, 'node_modules/ssh2'), 'patched')).state, 'patched');
+    for (const [file, bytes] of windowsBytes) assert.equal(await readFile(join(transport, file), 'utf8'), bytes);
+    const first = Object.keys(policy.files)[0];
+    await writeFile(join(transport, first), windowsBytes.get(first) + '// unreviewed edit\r\n');
+    await assert.rejects(bundleSSHTransport(transport, await fixture(t)), /differs from reviewed source/);
+  });
+}
+
 test('an unknown or partially applied patch cannot pass artifact verification', async t => {
   const output = await fixture(t);
   await bundleSSHTransport(source, output);
   const transport = join(output, 'node_modules/ssh2');
   const first = Object.keys(policy.files)[0];
-  execFileSync('git', ['apply', '--reverse', '--include', first, '--', join(root, policy.patch)], { cwd: transport });
+  execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--reverse', '--include', first, '--', join(root, policy.patch)], { cwd: transport });
   await assert.rejects(inspectSSHTransport(transport), /only partially patched/);
   const content = await readFile(join(transport, first));
   await writeFile(join(transport, first), Buffer.concat([content, Buffer.from('\n// unexpected change\n')]));

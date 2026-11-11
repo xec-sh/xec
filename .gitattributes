@@ -1,2 +1,2 @@
 # A blank context line in a unified patch is a required space marker.
-*.patch whitespace=-blank-at-eol
+*.patch text eol=lf whitespace=-blank-at-eol

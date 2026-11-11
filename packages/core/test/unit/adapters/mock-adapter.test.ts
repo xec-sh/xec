@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 
 import { MockAdapter } from '../../../src/adapters/mock/index.js';
 import { AdapterError, CommandError, TimeoutError } from '../../../src/core/error.js';
@@ -142,36 +143,29 @@ describe('MockAdapter', () => {
       })).rejects.toThrow(CommandError);
     });
     
-    it('should simulate command delay', async () => {
-      adapter.mockCommand('slow', {
-        stdout: 'slow response',
-        exitCode: 0,
-        delay: 100
-      });
-      
-      const start = Date.now();
-      const result = await adapter.execute({ command: 'slow' });
-      const duration = Date.now() - start;
-      
-      expect(result.stdout).toBe('slow response');
-      expect(duration).toBeGreaterThanOrEqual(100);
+    it.each([
+      { label: 'command delay', defaultDelay: 1, delay: 100, expected: 100 },
+      { label: 'default delay', defaultDelay: 50, delay: undefined, expected: 50 },
+    ])('waits for the full $label before resolving', async ({ defaultDelay, delay, expected }) => {
+      vi.useFakeTimers();
+      try {
+        const delayed = new MockAdapter({ defaultDelay });
+        delayed.mockCommand('slow', { stdout: 'slow response', exitCode: 0, delay });
+        let completed = false;
+        const pending = delayed.execute({ command: 'slow' }).then(result => {
+          completed = true;
+          return result;
+        });
+        await vi.advanceTimersByTimeAsync(expected - 1);
+        expect(completed).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect((await pending).stdout).toBe('slow response');
+        expect(completed).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
     });
-    
-    it('should use default delay when not specified', async () => {
-      const delayAdapter = new MockAdapter({ defaultDelay: 50 });
-      
-      delayAdapter.mockCommand('test', {
-        stdout: 'with default delay',
-        exitCode: 0
-      });
-      
-      const start = Date.now();
-      await delayAdapter.execute({ command: 'test' });
-      const duration = Date.now() - start;
-      
-      expect(duration).toBeGreaterThanOrEqual(50);
-    });
-    
+
     it('should throw mocked error', async () => {
       const testError = new Error('Mocked error');
       

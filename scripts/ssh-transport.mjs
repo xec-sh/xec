@@ -23,7 +23,7 @@ export async function inspectSSHTransport(directory, expected = 'either') {
     const digest = hash(await readFile(join(directory, file)));
     const state = digest === checksums.before ? 'pristine' : digest === checksums.after ? 'patched' : 'unknown';
     states.add(state);
-    if (state === 'unknown') throw new Error(`SSH transport file differs from reviewed source: ${file}`);
+    if (state === 'unknown') throw new Error(`SSH transport file differs from reviewed source: ${file} (SHA-256 ${digest})`);
   }
   if (states.size !== 1) throw new Error('SSH transport is only partially patched');
   const state = [...states][0];
@@ -44,7 +44,7 @@ async function copyPackage(origin, destination) {
 /** Bundle the reviewed SSH source and its installed dependency closure for npm consumers. */
 export async function bundleSSHTransport(source, packageDirectory) {
   source = await realpath(source);
-  const { policy, state } = await inspectSSHTransport(source);
+  const policy = await json(policyFile);
   const modules = join(packageDirectory, 'node_modules');
   await mkdir(modules); // Fail if a caller tries to merge into an existing installation.
   const closure = new Map();
@@ -74,6 +74,16 @@ export async function bundleSSHTransport(source, packageDirectory) {
   };
   await copyClosure(source);
   const transport = join(modules, policy.package);
+  // Windows patch installers can retain CRLF in the installed dependency.
+  // Normalize only the private copy; every resulting byte must match the
+  // reviewed source before the patch or the packaged runtime is accepted.
+  for (const file of Object.keys(policy.files)) {
+    const path = join(transport, file);
+    const bytes = await readFile(path);
+    const canonical = Buffer.from(bytes.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
+    if (!bytes.equals(canonical)) await writeFile(path, canonical);
+  }
+  const { state } = await inspectSSHTransport(transport);
   const patchPath = join(root, policy.patch);
   if (state === 'pristine') {
     const patch = await readFile(patchPath, 'utf8');
@@ -82,8 +92,8 @@ export async function bundleSSHTransport(source, packageDirectory) {
       throw new Error('SSH patch paths differ from reviewed policy');
     }
     // git apply runs outside the repository, only against the new private copy.
-    execFileSync('git', ['apply', '--check', '--', patchPath], { cwd: transport, timeout: 30000 });
-    execFileSync('git', ['apply', '--', patchPath], { cwd: transport, timeout: 30000 });
+    execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--check', '--', patchPath], { cwd: transport, timeout: 30000 });
+    execFileSync('git', ['-c', 'core.autocrlf=false', 'apply', '--', patchPath], { cwd: transport, timeout: 30000 });
   }
   await inspectSSHTransport(transport, 'patched');
   const evidence = { upstream: `${policy.package}@${policy.version}`, patchSha256: hash(await readFile(patchPath)),
