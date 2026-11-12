@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { join, dirname } from 'node:path';
-import { it, expect, describe, afterEach } from 'vitest';
+import { it, vi, expect, describe, afterEach } from 'vitest';
 import { rm, mkdir, chmod, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 
 import { windowsPackageManager } from '../../src/release/package-manager.js';
@@ -262,6 +262,89 @@ describe('release preparation execution context', () => {
 });
 
 describe('release inventory, refs and sealed artifacts', () => {
+  it('includes committed history instead of treating a local prepared tag as publication', async () => {
+    const root = await repository();
+    await releaseCommand(root, 'git', ['commit', '--allow-empty', '-m', 'feat: document compiler and authoring']);
+    await releaseCommand(root, 'git', ['tag', '-a', 'v0.9.0', '-m', 'Prepared but never published']);
+    await releaseCommand(root, 'git', ['commit', '--allow-empty', '-m', 'fix: registry confirmation']);
+    const before = await releaseCommand(root, 'git', ['show-ref']);
+    const head = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    const notes = await releaseNotes(root, '1.0.0-rc.1', 'fixture/repository');
+    expect(notes).toContain('fixture source');
+    expect(notes).toContain('feat: document compiler and authoring');
+    expect(notes).toContain('fix: registry confirmation');
+    expect(notes).toContain('## Committed history');
+    expect(notes).toContain('No published baseline supplied');
+    expect(await releaseCommand(root, 'git', ['show-ref'])).toBe(before);
+    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(head);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+    await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+  it('uses only the caller-selected published commit as the release notes baseline', async () => {
+    const root = await repository();
+    const base = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    await releaseCommand(root, 'git', ['commit', '--allow-empty', '-m', 'feat: document compiler and authoring']);
+    await releaseCommand(root, 'git', ['tag', '-a', 'v0.9.0', '-m', 'Unpublished preparation']);
+    await releaseCommand(root, 'git', ['commit', '--allow-empty', '-m', 'chore: release v1.0.0-rc.1']);
+    const refs = await releaseCommand(root, 'git', ['show-ref']);
+    const calls: string[] = [];
+    const run: ReleaseCommand = async (cwd, executable, args, options) => {
+      calls.push([executable, ...args].join(' '));
+      return releaseCommand(cwd, executable, args, options);
+    };
+    const notes = await releaseNotes(root, '1.0.0-rc.1', 'fixture/repository', { from: base, run });
+    expect(notes).toContain(`Caller-selected published baseline: [${base}]`);
+    expect(notes).not.toContain('fixture source');
+    expect(notes).toContain('feat: document compiler and authoring');
+    expect(notes).toContain('chore: release v1.0.0-rc.1');
+    expect(notes).toContain('## Changes since selected baseline');
+    expect(calls.every(call => /^(git (rev-parse|merge-base|log) |pnpm --config.lockfile=false )/.test(call))).toBe(true);
+    expect(await releaseCommand(root, 'git', ['show-ref'])).toBe(refs);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+  });
+
+  it('rejects missing, abbreviated, tag-object and unrelated notes bases without changing Git state', async () => {
+    const root = await repository();
+    const head = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    const tree = await releaseCommand(root, 'git', ['rev-parse', 'HEAD^{tree}']);
+    const unrelated = await releaseCommand(root, 'git', ['commit-tree', tree, '-m', 'unrelated root']);
+    await releaseCommand(root, 'git', ['tag', '-a', 'v0.9.0', '-m', 'Prepared']);
+    const tagObject = await releaseCommand(root, 'git', ['rev-parse', 'refs/tags/v0.9.0']);
+    const refs = await releaseCommand(root, 'git', ['show-ref']);
+    for (const [from, reason] of [
+      [head.slice(0, 12), 'full lowercase commit'],
+      ['v0.9.0', 'full lowercase commit'],
+      ['f'.repeat(40), 'not an available commit'],
+      [tagObject, 'not a tag object'],
+      [unrelated, 'not an ancestor'],
+    ]) {
+      await expect(releaseNotes(root, '1.0.0-rc.1', 'fixture/repository', { from })).rejects.toThrow(reason!);
+    }
+    expect(await releaseCommand(root, 'git', ['show-ref'])).toBe(refs);
+    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(head);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+    await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('validates --notes-from during the read-only CLI plan before any preparation', async () => {
+    const { runRelease } = await import('../../../../scripts/release.js');
+    const root = await repository();
+    const head = await releaseCommand(root, 'git', ['rev-parse', 'HEAD']);
+    const output: string[] = [];
+    const print = vi.spyOn(console, 'log').mockImplementation(value => { output.push(String(value)); });
+    try {
+      await runRelease(['1.0.0-rc.1', '--resume', '--workspace', root, '--dry-run', '--notes-from', head]);
+      expect(JSON.parse(output[0]!).notesFrom).toBe(head);
+      output.length = 0;
+      await expect(runRelease(['1.0.0-rc.1', '--resume', '--workspace', root, '--dry-run', '--notes-from', 'HEAD']))
+        .rejects.toThrow('full lowercase commit');
+      expect(output).toHaveLength(0);
+    } finally { print.mockRestore(); }
+    expect(await releaseCommand(root, 'git', ['rev-parse', 'HEAD'])).toBe(head);
+    expect(await releaseCommand(root, 'git', ['status', '--porcelain'])).toBe('');
+    await expect(readdir(join(root, '.release-artifacts'))).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('discovers private/public workspaces and orders dependencies without parsing YAML lists', async () => {
     const root = await repository();
     const packages = await discoverReleasePackages(root);
@@ -519,7 +602,20 @@ it('recovers partial publication and lost replies without replay, retagging or o
     expect(journal).toContain('dispatching'); expect(journal).toContain('registry-confirmed');
     await publishPreparedRelease(root, release.version, { run, registry, env }); expect(puts).toBe(2);
     laggingIndex = true;
-    await expect(publishPreparedRelease(root, release.version, { run, registry, env, confirmationTimeoutMs: 0 })).rejects.toThrow('npm version index');
+    const pending = await publishPreparedRelease(root, release.version, { run, registry, env, confirmationTimeoutMs: 0 }).catch((error: unknown) => error);
+    expect(pending).toBeInstanceOf(Error);
+    const message = (pending as Error).message;
+    expect(message).toContain('npm version index');
+    expect(message).not.toContain('npm stage');
+    expect(message).toContain(join(dirname(release.artifacts[0]!.file), 'publication.jsonl'));
+    expect(message).toContain('Resume this prepared release');
+    const inspection = message.split('\n').find(line => line.startsWith('npm view '));
+    expect(inspection).toBeDefined();
+    // This fixture uses only simple argv tokens. Execute the suggested read with
+    // the real npm CLI and loopback registry, and prove it performs no PUT.
+    const observed = JSON.parse(await run(root, 'npm', inspection!.split(' ').slice(1), { env }));
+    expect(observed.version).toBe(release.version);
+    expect(JSON.stringify(observed)).toContain(release.artifacts[0]!.integrity);
     expect(staleReads).toBeGreaterThan(0); expect(puts).toBe(2);
     laggingIndex = false;
     channelOverrides.set('@fixture/a', '1.0.0-rc.2');

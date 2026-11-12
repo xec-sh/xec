@@ -1,37 +1,43 @@
 import type { ReleaseCommand } from './command.js';
 
-import semver from 'semver';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rm, mkdtemp, writeFile } from 'node:fs/promises';
 
-import { verifyRemoteReleaseTag } from './git.js';
-import { releaseCommand, ReleaseCommandError } from './command.js';
+import { releaseCommand } from './command.js';
+import { assertReleaseNotesBase, verifyRemoteReleaseTag } from './git.js';
 import { releaseTag, distributionTag, discoverReleasePackages } from './packages.js';
+
+export interface ReleaseNotesOptions {
+  /** Full commit of the published release selected by the caller. No tag inference. */
+  from?: string;
+  run?: ReleaseCommand;
+}
 
 function validateRepository(repository: string): void {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Invalid GitHub repository');
 }
 
-/** Notes use committed history and the nearest earlier release on this ancestry. */
-export async function releaseNotes(root: string, version: string, repository: string, run: ReleaseCommand = releaseCommand): Promise<string> {
+/** Notes cover an explicit published baseline, or all committed history when none is supplied. */
+export async function releaseNotes(root: string, version: string, repository: string, options: ReleaseNotesOptions = {}): Promise<string> {
   validateRepository(repository); releaseTag(version);
+  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('Release notes options must be an object');
+  const run = options.run ?? releaseCommand;
   const commit = await run(root, 'git', ['rev-parse', 'HEAD']);
-  const versions = (await run(root, 'git', ['tag', '--list', 'v*'])).split(/\r?\n/).map(tag => tag.slice(1))
-    .filter(value => semver.valid(value) === value && semver.lt(value, version)).sort(semver.rcompare);
-  let previous: string | undefined;
-  for (const value of versions) {
-    try { await run(root, 'git', ['merge-base', '--is-ancestor', `refs/tags/v${value}^{commit}`, commit]); previous = `v${value}`; break; }
-    catch (error) { if (!(error instanceof ReleaseCommandError) || error.status !== 1) throw error; }
-  }
-  const history = await run(root, 'git', ['log', '--format=%H%x09%s', previous ? `refs/tags/${previous}..${commit}` : commit]);
-  const changes = history.split(/\r?\n/).filter(Boolean).filter(line => !/\tchore: release v/.test(line)).map(line => {
+  if (options.from !== undefined) await assertReleaseNotesBase(root, options.from, commit, run);
+  const history = await run(root, 'git', ['log', '--format=%H%x09%s', options.from ? `${options.from}..${commit}` : commit]);
+  const changes = history.split(/\r?\n/).filter(Boolean).map(line => {
     const [hash, ...parts] = line.split('\t');
     const subject = parts.join(' ').replace(/[\\`*_{}[\]<>]/g, '\\$&');
     return `- ${subject} ([${hash!.slice(0, 8)}](https://github.com/${repository}/commit/${hash}))`;
   });
+  const baseline = options.from
+    ? `Caller-selected published baseline: [${options.from}](https://github.com/${repository}/commit/${options.from})`
+    : 'No published baseline supplied; this is the complete committed history, not a release delta.';
+  const heading = options.from ? 'Changes since selected baseline' : 'Committed history';
+  const empty = options.from ? 'No commits since the selected baseline.' : 'No commits.';
   const packages = await discoverReleasePackages(root, run);
-  return `# ${releaseTag(version)}\n\nSource: [${commit}](https://github.com/${repository}/commit/${commit})\n\n## Changes\n\n${changes.join('\n') || 'No source changes since the preceding release.'}\n\n## Packages\n\n${packages.map(pkg => `- ${pkg.name}@${version}`).join('\n')}\n`;
+  return `# ${releaseTag(version)}\n\nSource: [${commit}](https://github.com/${repository}/commit/${commit})\n\n${baseline}\n\n## ${heading}\n\n${changes.join('\n') || empty}\n\n## Packages\n\n${packages.map(pkg => `- ${pkg.name}@${version}`).join('\n')}\n`;
 }
 
 /** GitHub publication is independently resumable and never deletes a release. */

@@ -116,6 +116,34 @@ not install or select a Node runtime: a runtime matrix must invoke the selected,
 provisioned executable explicitly. `Pipeline` currently schedules execution; its
 reserved `cache` field does not implement artifact caching.
 
+## Release notes and registry confirmation
+
+`releaseNotes(root, version, repository, { from, run })` accepts an explicit full
+commit ID as `from`. The caller selects that commit from its verified publication
+history. Xec checks that it is an available commit and an ancestor of the selected
+source; it does not infer publication from local or remote tags and does not fetch
+or rewrite Git refs. The CLI exposes the same input as `--notes-from <full-commit>`
+and validates it during the read-only plan, before preparation or publication.
+Repeat it when resuming a release; `--prepare` includes it in the suggested resume
+command.
+
+Without `from`, notes are labelled as the complete committed history, not a delta
+from a preceding release. Every commit in the selected range is included. The
+GitHub repository argument supplies commit links; selecting a baseline does not
+require the GitHub API or a GitHub-hosted publication record.
+
+A registry confirmation timeout reports the exact package and missing visibility
+stage, a supported read-only `npm view` command, and the saved upload journal.
+Resume the same prepared version, archives and registry. Recorded accepted or
+reserved uploads are checked again without another PUT; do not repeat a manual
+`npm publish` to investigate a visibility delay.
+
+`createGithubRelease` confirms an existing release without replacing its body.
+For an intentional notes correction, generate and review notes from the exact
+published source checkout, then use the hosting service's explicit edit operation
+(for GitHub, `gh release edit <tag> --repo <owner/repository> --notes-file <file>`).
+That edit does not require npm publication, a new build or changed source refs.
+
 ## Release progress and cancellation
 
 Release helpers are exported from `@xec-sh/ops/release`. `releaseCommand` accepts

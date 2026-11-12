@@ -3,6 +3,22 @@ import type { ReleaseCommand } from './command.js';
 import { releaseTag } from './packages.js';
 import { releaseCommand, ReleaseCommandError } from './command.js';
 
+/** The caller selects a published baseline; local tags are not publication evidence. */
+export async function assertReleaseNotesBase(root: string, base: string, head: string, run: ReleaseCommand = releaseCommand): Promise<void> {
+  const fullCommit = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+  if (typeof base !== 'string' || !fullCommit.test(base) || !fullCommit.test(head))
+    throw new Error('Release notes base and source must be full lowercase commit IDs');
+  let resolved: string;
+  try { resolved = await run(root, 'git', ['rev-parse', '--verify', `${base}^{commit}`]); }
+  catch (error) { throw new Error(`Release notes base is not an available commit: ${base}`, { cause: error }); }
+  if (resolved !== base) throw new Error(`Release notes base must identify a commit, not a tag object: ${base}`);
+  try { await run(root, 'git', ['merge-base', '--is-ancestor', base, head]); }
+  catch (error) {
+    if (!(error instanceof ReleaseCommandError) || error.status !== 1) throw error;
+    throw new Error(`Release notes base ${base} is not an ancestor of source ${head}`, { cause: error });
+  }
+}
+
 export async function assertCleanReleaseTree(root: string, run: ReleaseCommand = releaseCommand): Promise<void> {
   const changes = await run(root, 'git', ['status', '--porcelain', '--untracked-files=normal']);
   if (changes) throw new Error(`Release requires a clean working tree and index:\n${changes}`);

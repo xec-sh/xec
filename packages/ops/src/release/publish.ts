@@ -4,6 +4,7 @@ import type { PreparedRelease, ReleaseArtifact } from './artifacts.js';
 import semver from 'semver';
 import { tmpdir } from 'node:os';
 import { join, dirname, basename } from 'node:path';
+import { dialectFor, quoteForShell } from '@xec-sh/core';
 import { rm, open, mkdtemp, readFile } from 'node:fs/promises';
 
 import { distributionTag } from './packages.js';
@@ -148,7 +149,13 @@ async function confirmPublications(root: string, artifacts: ReleaseArtifact[], o
     if (!pending.size) return;
     const now = Date.now(), remaining = deadline - now;
     const outstanding = [...pending].map(([artifact, state]) => `${artifact.name}@${artifact.version} (${state.waitingFor})`).join(', ');
-    if (remaining <= 0) throw new Error(`Registry confirmation pending for ${outstanding}. Inspect npm stage list or resume the same version. Upload receipts are saved.`);
+    if (remaining <= 0) {
+      const artifact = pending.keys().next().value!;
+      const inspection = ['npm', 'view', `${artifact.name}@${artifact.version}`, 'version', 'dist.integrity', 'dist.tarball', 'dist-tags',
+        '--json', '--prefer-online', ...registryArgs(artifact.name, registry)]
+        .map(value => quoteForShell(value, dialectFor())).join(' ');
+      throw new Error(`Registry confirmation pending for ${outstanding}.\nInspect metadata without uploading:\n${inspection}\nSaved upload receipts: ${join(dirname(artifact.file), 'publication.jsonl')}\nResume this prepared release with the same version, archives and registry; recorded uploads will only be checked. Do not run npm publish again.`);
+    }
     if (now >= nextNotice) {
       options.progress?.(`Waiting for ${pending.size} package(s) on the registry: ${outstanding}; ${Math.ceil(remaining / 60000)} min remaining`);
       nextNotice = now + 60_000;
