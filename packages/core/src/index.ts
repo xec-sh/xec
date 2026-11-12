@@ -9,29 +9,29 @@ export { isDisposable } from './types/disposable.js';
 export type { EventFilter } from './types/events.js';
 export type { PipeTarget } from './types/process.js';
 export { ParallelEngine } from './utils/parallel.js';
-export { within, withinSync } from './utils/within.js';
 export { parallel } from './utils/parallel-default.js';
 export type { ExecutionResult } from './core/result.js';
 export { LocalAdapter } from './adapters/local/index.js';
+export type { ProcessPromise } from './types/process.js';
 import { getLocalContext } from './utils/within.js';
 
-export type { ProcessPromise } from './types/process.js';
 export { DockerAdapter } from './adapters/docker/index.js';
 export { withTempDir, withTempFile } from './utils/temp.js';
 export { ExecutionEngine } from './core/execution-engine.js';
 export type { RetryOptions } from './utils/retry-adapter.js';
 export { EnhancedEventEmitter } from './utils/event-emitter.js';
-
 export type { CommandSuggestion } from './utils/suggestions.js';
 
-export type { ExecutionEngineConfig };
 export type { CallableExecutionEngine } from './types/engine.js';
+
+export type { ExecutionEngineConfig };
 export { DockerContainer } from './adapters/docker/docker-api.js';
 export { KubernetesAdapter } from './adapters/kubernetes/index.js';
 export { RuntimeDetector } from './adapters/local/runtime-detect.js';
 export type { SSHExecutionContext } from './adapters/ssh/ssh-api.js';
 export { SSHKeyValidator } from './adapters/ssh/ssh-key-validator.js';
 export { SecurePasswordHandler } from './adapters/ssh/secure-password.js';
+export { parseK8sTarget, parseSSHTarget } from './utils/target-shorthand.js';
 
 export function createCallableEngine(engine: ExecutionEngine): CallableExecutionEngine {
   return new Proxy(function callableEngineTarget() { } as any, {
@@ -327,8 +327,9 @@ function removeCleanupHandlers(): void {
  * handled `unhandledRejection` and called `process.exit(1)`, so importing it
  * killed the host process on a rejection that had nothing to do with xec.
  *
- * Call this from an application entry point — the xec CLI does — when you want
- * connections and temp files released on SIGINT/SIGTERM.
+ * Call this from an application entry point for best-effort resource cleanup.
+ * The Xec CLI instead cancels its execution scope and awaits the action before
+ * disposing, so recipe finally blocks can finish.
  *
  * @example
  * ```typescript
@@ -346,19 +347,19 @@ export function uninstallCleanupHandlers(): void {
   removeCleanupHandlers();
 }
 
-export { parseK8sTarget, parseSSHTarget } from './utils/target-shorthand.js';
-
 export type { Disposable, DisposableContainer } from './types/disposable.js';
-export type { FleetEntry, FleetResult, FleetAgreement } from './types/fleet.js';
 
+export type { FleetEntry, FleetResult, FleetAgreement } from './types/fleet.js';
 export { RetryError, withExecutionRetry as retry } from './utils/retry-adapter.js';
 
 export {
   type ProgressEvent,
   type ProgressOptions
 } from './utils/progress.js';
+
 export { dialectFor, quoteForShell, type ShellDialect } from './utils/shell-escape.js';
 export { isRecoverable, classifyFailure, type FailureKind } from './core/failure-kind.js';
+export { within, withinSync, getExecutionSignal, withoutCancellation } from './utils/within.js';
 export { SSHAdapter, type SSHSudoOptions, type SSHAdapterConfig } from './adapters/ssh/index.js';
 
 export type {

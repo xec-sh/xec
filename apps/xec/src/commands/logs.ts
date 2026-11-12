@@ -1,10 +1,10 @@
 import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { validateOptions } from '@xec-sh/ops';
+import { $, withoutCancellation } from '@xec-sh/core';
 
 import { isPlainOutput } from '../utils/plain-mode.js';
 import { InteractiveHelpers } from '../utils/interactive-helpers.js';
@@ -287,16 +287,20 @@ export class LogsCommand extends ConfigAwareCommand {
       targets = [target];
     }
 
-    // Handle different execution modes
-    if (mergedOptions.task) {
-      await this.executeTask(targets, logPath, mergedOptions.task, mergedOptions);
-    } else if (targets.length > 1 && (mergedOptions.parallel || mergedOptions.aggregate)) {
-      await this.viewMultipleLogs(targets, logPath, mergedOptions);
-    } else {
-      // View logs from each target sequentially
-      for (const target of targets) {
-        await this.viewSingleLog(target, logPath, mergedOptions);
+    try {
+      // Handle different execution modes
+      if (mergedOptions.task) {
+        await this.executeTask(targets, logPath, mergedOptions.task, mergedOptions);
+      } else if (targets.length > 1 && (mergedOptions.parallel || mergedOptions.aggregate)) {
+        await this.viewMultipleLogs(targets, logPath, mergedOptions);
+      } else {
+        // View logs from each target sequentially
+        for (const target of targets) {
+          await this.viewSingleLog(target, logPath, mergedOptions);
+        }
       }
+    } finally {
+      if (mergedOptions.follow) await withoutCancellation(() => this.cleanupSessions());
     }
   }
 
@@ -311,11 +315,6 @@ export class LogsCommand extends ConfigAwareCommand {
       // Use console.log directly to ensure output is shown regardless of quiet mode
       console.log(`[DRY RUN] Would view logs from ${targetDisplay}${logPath ? `:${logPath}` : ''}`);
       return;
-    }
-
-    // Set up signal handlers for cleanup
-    if (options.follow) {
-      this.setupCleanupHandlers();
     }
 
     const plain = isPlainOutput();
@@ -390,8 +389,6 @@ export class LogsCommand extends ConfigAwareCommand {
     this.log(`Viewing logs from ${targets.length} targets in parallel...`, 'info');
 
     if (options.follow) {
-      this.setupCleanupHandlers();
-
       // Start streaming from all targets
       const promises = targets.map(async (target) => {
         try {
@@ -1159,57 +1156,19 @@ export class LogsCommand extends ConfigAwareCommand {
     }
   }
 
-  private setupCleanupHandlers(): void {
-    const cleanup = async () => {
-      // In a pipe the shutdown notices would land after the data and inside
-      // whatever consumes it; only failures stay visible, as plain lines.
-      const plain = isPlainOutput();
-
+  private async cleanupSessions(): Promise<void> {
+    const plain = isPlainOutput();
+    this.running = false;
+    if (!plain) this.log('\nStopping log streams...', 'info');
+    const failures: unknown[] = [];
+    for (const [sessionId, stream] of this.streams) {
       try {
-        this.running = false;
-        if (!plain) this.log('\nStopping log streams...', 'info');
-
-        for (const [sessionId, stream] of this.streams) {
-          try {
-            if (stream.cleanup) {
-              await stream.cleanup();
-            }
-            if (!plain) this.log(`Stopped stream for ${sessionId}`, 'info');
-          } catch (error) {
-            if (plain) {
-              console.error(`Failed to cleanup ${sessionId}: ${error}`);
-            } else {
-              this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
-            }
-          }
-        }
-
-        this.streams.clear();
-
-        // Only exit if not in test environment
-        if (process.env['NODE_ENV'] !== 'test') {
-          process.exit(0);
-        }
-      } catch (error) {
-        console.error('Error during cleanup:', error);
-        if (process.env['NODE_ENV'] !== 'test') {
-          process.exit(1);
-        }
-      }
-    };
-
-    // Wrap cleanup to handle any synchronous errors
-    const safeCleanup = (...args: any[]) => {
-      cleanup().catch((error) => {
-        console.error('Unhandled error in cleanup:', error);
-        if (process.env['NODE_ENV'] !== 'test') {
-          process.exit(1);
-        }
-      });
-    };
-
-    process.once('SIGINT', safeCleanup);
-    process.once('SIGTERM', safeCleanup);
+        await stream.cleanup?.();
+        if (!plain) this.log(`Stopped stream for ${sessionId}`, 'info');
+      } catch (error) { failures.push(error); }
+    }
+    this.streams.clear();
+    if (failures.length) throw new AggregateError(failures, 'Log stream cleanup failed');
   }
 }
 

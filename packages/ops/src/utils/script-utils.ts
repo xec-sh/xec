@@ -3,8 +3,8 @@ import fs from 'fs-extra';
 import { glob } from 'glob';
 import path from 'node:path';
 import * as kit from '@xec-sh/kit';
-import { $ as xecDollar } from '@xec-sh/core';
 import { createRuntime } from '@xec-sh/loader';
+import { $ as xecDollar, sleep as coreSleep } from '@xec-sh/core';
 
 // Re-export USH $ with enhanced features
 export const $ = xecDollar;
@@ -122,9 +122,9 @@ export async function retry<T>(
   return runtime.retry(fn, options);
 }
 
-// Sleep utility - delegate to ScriptRuntime
+// Share the core execution scope, including cancellation.
 export function sleep(ms: number): Promise<void> {
-  return runtime.sleep(ms);
+  return coreSleep(ms);
 }
 
 // Template utility - delegate to ScriptRuntime

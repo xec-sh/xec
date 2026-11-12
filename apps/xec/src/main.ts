@@ -3,7 +3,7 @@ import process from 'node:process';
 import { Command } from 'commander';
 import { join, dirname, delimiter } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { dispose, checkForCommandTypo , installCleanupHandlers } from '@xec-sh/core';
+import { within, dispose, getExecutionSignal, checkForCommandTypo } from '@xec-sh/core';
 /**
  * Loaded on demand rather than at import time.
  *
@@ -23,10 +23,6 @@ import { findCommand, COMMAND_MANIFEST, type CommandManifestEntry } from './util
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-// A CLI owns its process, so it is the right place to release connections and
-// temp files on SIGINT/SIGTERM. The library no longer does this on import.
-installCleanupHandlers();
 
 export function createProgram(): Command {
   const program = new Command();
@@ -251,6 +247,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
   const requestedCommand =
     scannedToken === '--' || scannedToken?.startsWith('-') ? undefined : scannedToken;
   const dynamicCommandNames = await loadCommands(program, requestedCommand);
+  getExecutionSignal()?.throwIfAborted();
 
   // Customize help output with dynamic commands info
   customizeHelp(program, dynamicCommandNames);
@@ -372,6 +369,7 @@ export async function run(argv: string[] = process.argv): Promise<void> {
           );
         }
         const result = await (await tasks()).run(taskName, params);
+        getExecutionSignal()?.throwIfAborted();
 
         if (!result.success) {
           console.error(`Task '${taskName}' failed`);
@@ -504,67 +502,66 @@ async function runViaRunCommand(
   await command.execute([...positionals, fullOptions]);
 }
 
-/** Upper bound on how long releasing resources may delay the exit. */
-const FORCED_SHUTDOWN_AFTER_MS = 2000;
+/** Cleanup is bounded, but an action gets time to finish its own finally blocks. */
+const CANCELLATION_GRACE_MS = 10_000;
+const DISPOSE_GRACE_MS = 2_000;
 
-/**
- * Exit deliberately once the work is done.
- *
- * Pooled SSH connections and keep-alive timers hold the event loop open, so
- * a completed `xec on host cmd` never exited on its own; and because the
- * library's signal handlers release resources without exiting, the process
- * survived SIGTERM and Ctrl+C too — only SIGKILL removed it. Dispose the
- * engine, then end the process; the timer caps a dispose that itself hangs.
- */
-function shutdown(code: number): void {
-  // `.unref()` on the returned timer is Node's spelling; Deno returns a
-  // plain number and throws on it — the class of defect core already
-  // solved for itself. The guard is inline because the shutdown path must
-  // not depend on an import resolving.
-  const forced = setTimeout(() => process.exit(code), FORCED_SHUTDOWN_AFTER_MS) as
-    NodeJS.Timeout & { unref?: () => void };
-  if (typeof forced.unref === 'function') {
-    forced.unref();
-  } else if (typeof (globalThis as { Deno?: { unrefTimer?: (id: number) => void } }).Deno?.unrefTimer === 'function') {
-    (globalThis as unknown as { Deno: { unrefTimer: (id: number) => void } }).Deno.unrefTimer(forced as unknown as number);
-  }
-  void dispose()
-    .catch(() => undefined)
-    .then(() => process.exit(code));
-}
-
-/**
- * The CLI as an application: run it, then end the process.
- *
- * Separate from {@link run}, which does the work and returns. This adds
- * what an entry point owes the operating system — Ctrl+C stops it, and a
- * completed command exits instead of being held open by a pooled
- * connection or a keep-alive timer.
- *
- * `bin/xec` calls this. It used to call `run` and inherit neither, because
- * both lived behind a main-module check that a shim can never satisfy: the
- * process was started as `bin/xec`, so the check compared that against
- * `dist/main.js` and declined. Ctrl+C did nothing to the shipped binary.
- */
+/** Own the CLI's cancellation, action settlement and final resource disposal. */
 export async function main(argv: string[] = process.argv): Promise<void> {
-  process.once('SIGINT', () => shutdown(130));
-  process.once('SIGTERM', () => shutdown(143));
-
-  // A REPL keeps serving after run() resolves — it is the one path where
-  // returning from run() must not end the process.
-  const wantsRepl = argv.includes('--repl');
-
+  const cancellation = new AbortController();
+  let interrupted = 0;
+  let actionSettled = false;
+  let shutdown: Promise<void> | undefined;
+  let cancellationDeadline: ReturnType<typeof setTimeout> | undefined;
+  const code = () => interrupted || Number(process.exitCode ?? 0);
+  const force = (reason: string) => {
+    process.stderr.write(`Xec cleanup is incomplete: ${reason}. Exiting.\n`);
+    process.exit(code() || 1);
+  };
+  const finish = () => shutdown ??= (async () => {
+    const deadline = setTimeout(() => force('resource disposal did not finish'), DISPOSE_GRACE_MS);
+    try { await dispose(); }
+    catch (error) {
+      process.stderr.write(`Xec resource cleanup failed: ${String(error)}\n`);
+      process.exitCode ||= 1;
+    } finally {
+      clearTimeout(deadline);
+      clearTimeout(cancellationDeadline);
+      process.removeListener('SIGINT', onInterrupt);
+      process.removeListener('SIGTERM', onTerminate);
+    }
+    process.exit(code());
+  })();
+  const interrupt = (signal: 'SIGINT' | 'SIGTERM') => {
+    if (interrupted) { force('a second termination signal was received'); return; }
+    interrupted = signal === 'SIGINT' ? 130 : 143;
+    process.exitCode = interrupted;
+    process.stderr.write(`Cancelling Xec after ${signal}; waiting for command cleanup.\n`);
+    // Keep the deadline referenced: an unresolved promise alone does not keep
+    // Node alive, and an early natural exit would falsely imply cleanup ended.
+    cancellationDeadline = setTimeout(() => force('command cleanup exceeded 10 seconds'), CANCELLATION_GRACE_MS);
+    cancellation.abort(new DOMException(`Xec received ${signal}`, 'AbortError'));
+    if (actionSettled && !shutdown) {
+      process.stderr.write('Detached REPL evaluation cannot be awaited; cleanup may be incomplete.\n');
+      void finish();
+    }
+  };
+  const onInterrupt = () => interrupt('SIGINT');
+  const onTerminate = () => interrupt('SIGTERM');
+  process.on('SIGINT', onInterrupt);
+  process.on('SIGTERM', onTerminate);
+  let failed = false;
   try {
-    await run(argv);
-    if (!wantsRepl) shutdown(Number(process.exitCode ?? 0));
+    await within({ signal: cancellation.signal }, async () => {
+      cancellation.signal.throwIfAborted();
+      await run(argv);
+    });
   } catch (error) {
-    // Reported, then exit. Swallowing it left a non-zero exit with nothing
-    // on stderr — a failure the caller cannot act on, and cannot even see
-    // the shape of. `run` prints what it recognises; this is for what it
-    // does not.
+    failed = true;
     process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
-    shutdown(1);
-  }
+    if (!interrupted) process.exitCode = 1;
+  } finally { actionSettled = true; }
+  if (!argv.includes('--repl') || interrupted || failed) await finish();
 }
 
 // Run when this file is the program, rather than imported.

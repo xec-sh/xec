@@ -1,7 +1,7 @@
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { $ } from '@xec-sh/core';
 import { Command } from 'commander';
+import { $, within } from '@xec-sh/core';
 import { rmSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
 import {
   SSH_TEST_CONFIGS,
@@ -292,7 +292,8 @@ targets:
       }
 
       // Start following logs in background
-      const logPromise = dockerProgram.parseAsync(['node', 'xec', 'logs', 'containers.test', '--follow', '--tail', '5']);
+      const cancellation = new AbortController();
+      const logPromise = within({ signal: cancellation.signal }, () => dockerProgram.parseAsync(['node', 'xec', 'logs', 'containers.test', '--follow', '--tail', '5']));
 
       // Wait for initial logs to be captured
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -339,12 +340,12 @@ targets:
       expect(hasLogContent).toBe(true);
 
       // Simulate Ctrl+C
-      process.emit('SIGINT' as any);
+      cancellation.abort();
 
       // Wait for graceful shutdown
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // The promise should complete without throwing
+      // Follow mode settles after its owned stream has stopped.
       await expect(logPromise).resolves.not.toThrow();
     }, 15000);
 

@@ -133,6 +133,38 @@ $.verbose = true;                    // echo each command (redacted) to stderr
 await $.interactive()`npm login`.timeout(0);
 ```
 
+## Cancellation scopes
+
+`within({ signal }, fn)` passes cancellation to Xec commands, including commands
+on newly created engines. Nested scopes and explicit command signals combine
+with the inherited signal. `getExecutionSignal()` exposes the current signal to
+cooperative callbacks; abort reasons are preserved. Cancelling one scope does
+not cancel a concurrent sibling. Core `sleep` also observes the scope.
+
+A cancelled scope refuses subsequent commands. In a `finally` block, use an
+explicit `withoutCancellation(fn)` section for commands needed to release
+resources. It retains the scope's directory, environment and other defaults,
+clears only inherited cancellation, and restores the parent when it returns or
+throws. Cleanup can provide a fresh signal or timeout:
+
+```typescript
+import { $, within, withoutCancellation } from '@xec-sh/core';
+
+const controller = new AbortController();
+await within({ signal: controller.signal }, async () => {
+  try {
+    await $`node scripts/build.mjs`;
+  } finally {
+    await withoutCancellation(() => $.execute({
+      command: process.execPath,
+      args: ['scripts/cleanup.mjs'],
+      shell: false,
+      signal: AbortSignal.timeout(2000),
+    }));
+  }
+});
+```
+
 ## Dependencies
 
 One runtime dependency: `ssh2`, and it is not loaded until an SSH target is

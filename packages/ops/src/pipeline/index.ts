@@ -3,7 +3,7 @@ import { Writable } from 'node:stream';
 import { finished } from 'node:stream/promises';
 import { StringDecoder } from 'node:string_decoder';
 import { setTimeout as delay } from 'node:timers/promises';
-import { type Command, ExecutionEngine, type ExecutionResult } from '@xec-sh/core';
+import { type Command, ExecutionEngine, getExecutionSignal, type ExecutionResult } from '@xec-sh/core';
 
 export type PipelineCommandResult = Pick<ExecutionResult, 'exitCode' | 'stdout' | 'stderr'>;
 export interface StepConfig {
@@ -132,7 +132,8 @@ export class Pipeline {
     if (!Number.isSafeInteger(outputLimit) || outputLimit < 1) throw new Error('Output limit must be a positive integer');
     const started = Date.now();
     const observerAbort = new AbortController();
-    const signal = options.signal ? AbortSignal.any([options.signal, observerAbort.signal]) : observerAbort.signal;
+    const inherited = getExecutionSignal(options.signal);
+    const signal = inherited ? AbortSignal.any([inherited, observerAbort.signal]) : observerAbort.signal;
     let observerError: unknown;
     const emit = async (event: PipelineEvent) => {
       try { await options.onEvent?.(event); }

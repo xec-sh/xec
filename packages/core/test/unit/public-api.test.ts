@@ -27,6 +27,8 @@ const PUBLIC_API = [
   'uninstallCleanupHandlers',
   'within',
   'withinSync',
+  'getExecutionSignal',
+  'withoutCancellation',
   'brandXecPromise',
   'pipeUtils',
 

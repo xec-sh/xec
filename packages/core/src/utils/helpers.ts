@@ -3,6 +3,10 @@
  * These are standalone functions that don't depend on the execution engine.
  */
 
+import { setTimeout as waitDelay } from 'node:timers/promises';
+
+import { getExecutionSignal } from './within.js';
+
 // ─── Duration Parsing ───────────────────────────────────────────────
 
 export type Duration = number | string;
@@ -74,7 +78,11 @@ export function parseDuration(duration: Duration): number {
  */
 export function sleep(duration: Duration): Promise<void> {
   const ms = parseDuration(duration);
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const signal = getExecutionSignal();
+  return waitDelay(ms, undefined, { signal }).catch(error => {
+    signal?.throwIfAborted();
+    throw error;
+  });
 }
 
 // ─── Echo ───────────────────────────────────────────────────────────

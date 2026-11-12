@@ -8,8 +8,9 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import * as fs from 'fs/promises';
 import { fileURLToPath } from 'url';
-import { configure } from '@xec-sh/core';
+import { FileWatcher } from '@xec-sh/loader';
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
+import { within, configure, quoteForShell } from '@xec-sh/core';
 
 import { WatchCommand } from '../../src/commands/watch.js';
 
@@ -23,8 +24,17 @@ describe('Watch Command', () => {
   let command: WatchCommand;
   let originalCwd: string;
   let testScriptPath: string;
+  let cancellation: AbortController;
+  let executions: Promise<void>[];
+  const execute = (args: Parameters<WatchCommand['execute']>[0]) => {
+    const pending = within({ signal: cancellation.signal }, () => command.execute(args));
+    executions.push(pending);
+    return pending;
+  };
 
   beforeEach(async () => {
+    cancellation = new AbortController();
+    executions = [];
     originalCwd = process.cwd();
     tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'xec-watch-test-'));
     projectDir = path.join(tempDir, 'project');
@@ -36,7 +46,7 @@ describe('Watch Command', () => {
     await fs.mkdir(watchDir, { recursive: true });
 
     // Configure execution engine with explicit shell path and full PATH
-    const nodePath = '/Users/taaliman/.nvm/versions/node/v22.17.0/bin';
+    const nodePath = path.dirname(process.execPath);
     const currentPath = process.env.PATH || '';
     const fullPath = `${nodePath}:${currentPath}:/usr/bin:/bin:/usr/local/bin`;
 
@@ -62,31 +72,9 @@ describe('Watch Command', () => {
   });
 
   afterEach(async () => {
-    // Restore original directory
+    cancellation.abort();
+    await Promise.allSettled(executions);
     process.chdir(originalCwd);
-
-    // Clean up any active sessions
-    if (command && command['sessions']) {
-      command['running'] = false;
-      for (const [, session] of command['sessions']) {
-        if (session.debounceTimer) {
-          clearTimeout(session.debounceTimer);
-        }
-        if (session.watcher) {
-          if (typeof session.watcher.close === 'function') {
-            await session.watcher.close();
-          } else if (typeof session.watcher.kill === 'function') {
-            session.watcher.kill();
-          }
-        }
-      }
-      command['sessions'].clear();
-    }
-
-    // Remove all SIGINT and SIGTERM listeners to prevent memory leaks
-    process.removeAllListeners('SIGINT');
-    process.removeAllListeners('SIGTERM');
-
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
@@ -103,7 +91,7 @@ describe('Watch Command', () => {
       );
 
       await expect(
-        command.execute(['local', watchDir, { quiet: true }])
+        execute(['local', watchDir, { quiet: true }])
       ).rejects.toThrow('Either --command, --task, or --script');
     });
 
@@ -119,7 +107,7 @@ describe('Watch Command', () => {
       );
 
       await expect(
-        command.execute([{ command: 'echo test', quiet: true }])
+        execute([{ command: 'echo test', quiet: true }])
       ).rejects.toThrow('Target specification is required');
     });
   });
@@ -141,11 +129,11 @@ describe('Watch Command', () => {
       const simpleMarkerScript = path.resolve(__dirname, 'helpers', 'simple-marker.cjs');
 
       // Start watching with a very simple command using env var
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
-          command: `MARKER_FILE="${markerFile}" /Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${simpleMarkerScript}`,
+          command: `MARKER_FILE="${markerFile}" ${quoteForShell(process.execPath, 'posix')} ${simpleMarkerScript}`,
           quiet: true,
           debounce: '100'
         }
@@ -203,11 +191,11 @@ describe('Watch Command', () => {
       await fs.writeFile(logFile, '');
 
       // Start watching - use a simpler command
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
-          command: `LOG_FILE="${logFile}" /Users/taaliman/.nvm/versions/node/v22.17.0/bin/node -e "require('fs').appendFileSync(process.env.LOG_FILE, 'File changed\\n')"`,
+          command: `LOG_FILE="${logFile}" ${quoteForShell(process.execPath, 'posix')} -e "require('fs').appendFileSync(process.env.LOG_FILE, 'File changed\\n')"`,
           quiet: true,
           debounce: '100'
         }
@@ -222,6 +210,8 @@ describe('Watch Command', () => {
 
       await fs.appendFile(testFile, '\nchange 2');
       await new Promise(resolve => setTimeout(resolve, 300));
+
+      await vi.waitFor(async () => expect(await fs.readFile(logFile, 'utf-8')).toContain('File changed'), { timeout: 5000 });
 
       // Check log file was created and has entries
       const logExists = await fs.access(logFile).then(() => true).catch(() => false);
@@ -284,11 +274,11 @@ describe('Watch Command', () => {
       await fs.mkdir(nodeModulesDir, { recursive: true });
 
       // Start watching with exclude patterns
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
-          command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} append "${changeLog}" "file changed"`,
+          command: `${quoteForShell(process.execPath, 'posix')} ${testScriptPath} append "${changeLog}" "file changed"`,
           exclude: ['node_modules', '*.tmp'],
           quiet: true,
           debounce: '100'
@@ -367,7 +357,7 @@ describe('Watch Command', () => {
       path.join(tempDir, 'ssh-watch-executed.txt');
 
       // Start watching on SSH host with initial execution
-      command.execute([
+      execute([
         'hosts.test',
         '/tmp/watch-test',
         {
@@ -470,11 +460,11 @@ describe('Watch Command', () => {
       await fs.writeFile(counterFile, '0\n');
 
       // Start watching with a command that increments a counter using node
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
-          command: `COUNTER_FILE="${counterFile}" /Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} increment "${counterFile}"`,
+          command: `COUNTER_FILE="${counterFile}" ${quoteForShell(process.execPath, 'posix')} ${testScriptPath} increment "${counterFile}"`,
           quiet: true,
           debounce: '300' // 300ms debounce
         }
@@ -489,7 +479,11 @@ describe('Watch Command', () => {
         await new Promise(resolve => setTimeout(resolve, 50)); // 50ms between changes
       }
 
-      // Wait for debounce to complete and command to execute
+      await vi.waitFor(async () => {
+        const observed = (await fs.readFile(counterFile, 'utf-8')).trim().split('\n');
+        expect(observed.length).toBeGreaterThanOrEqual(2);
+      }, { timeout: 5000 });
+      // Observe a further quiet window so the upper bound catches late repeats.
       await new Promise(resolve => setTimeout(resolve, 800));
 
       // Check counter - should have been incremented
@@ -519,7 +513,7 @@ describe('Watch Command', () => {
         targets: {},
         tasks: {
           'test-task': {
-            command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} write "${outputFile}" "Task executed"`
+            command: `${quoteForShell(process.execPath, 'posix')} ${testScriptPath} write "${outputFile}" "Task executed"`
           }
         }
       };
@@ -532,7 +526,7 @@ describe('Watch Command', () => {
       const testFile = path.join(watchDir, 'trigger.txt');
 
       // Start watching with task
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
@@ -548,8 +542,7 @@ describe('Watch Command', () => {
       // Trigger a change
       await fs.writeFile(testFile, 'trigger task');
 
-      // Wait for task execution
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await vi.waitFor(async () => expect(await fs.readFile(outputFile, 'utf-8')).toContain('Task executed'), { timeout: 5000 });
 
       // Check task output
       const outputExists = await fs.access(outputFile).then(() => true).catch(() => false);
@@ -580,11 +573,11 @@ describe('Watch Command', () => {
       const initialFile = path.join(tempDir, 'initial.txt');
 
       // Start watching with initial flag
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
-          command: `/Users/taaliman/.nvm/versions/node/v22.17.0/bin/node ${testScriptPath} write "${initialFile}" "Initial run"`,
+          command: `${quoteForShell(process.execPath, 'posix')} ${testScriptPath} write "${initialFile}" "Initial run"`,
           initial: true,
           quiet: true
         }
@@ -620,7 +613,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching
-      command.execute([
+      execute([
         'local',
         watchDir,
         { command: 'echo test', quiet: true }
@@ -632,23 +625,13 @@ describe('Watch Command', () => {
       // Verify session exists
       expect(command['sessions'].size).toBe(1);
 
-      // Trigger cleanup
-      command['running'] = false;
-
-      // Manually clean up sessions
-      for (const [, session] of command['sessions']) {
-        if (session.debounceTimer) {
-          clearTimeout(session.debounceTimer);
-        }
-        if (session.watcher) {
-          if (typeof session.watcher.close === 'function') {
-            await session.watcher.close();
-          } else if (typeof session.watcher.kill === 'function') {
-            session.watcher.kill();
-          }
-        }
-      }
-      command['sessions'].clear();
+      const watcher = command['sessions'].get('local')!.watcher;
+      expect(watcher).toBeInstanceOf(FileWatcher);
+      let closed = false;
+      (watcher as FileWatcher).once('close', () => { closed = true; });
+      cancellation.abort();
+      await Promise.all(executions);
+      expect(closed).toBe(true);
 
       // Verify cleanup
       expect(command['sessions'].size).toBe(0);
@@ -680,7 +663,7 @@ describe('Watch Command', () => {
       };
 
       try {
-        await command.execute([
+        await execute([
           'hosts.dev',
           '/app',
           { command: 'npm test', pattern: ['*.js'], exclude: ['node_modules'], dryRun: true, quiet: false }
@@ -719,7 +702,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching in docker container with a simple command
-      command.execute([
+      execute([
         'containers.test',
         '/app',
         {
@@ -770,7 +753,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching in kubernetes pod
-      command.execute([
+      execute([
         'pods.test',
         '/app',
         {
@@ -813,7 +796,7 @@ describe('Watch Command', () => {
       );
 
       // Start first watch
-      command.execute([
+      execute([
         'local',
         watchDir,
         { command: 'echo test', quiet: true }
@@ -857,7 +840,7 @@ describe('Watch Command', () => {
 
       try {
         // Start watching with a command that will fail
-        command.execute([
+        execute([
           'local',
           watchDir,
           {
@@ -958,7 +941,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching with polling enabled
-      command.execute([
+      execute([
         'local',
         watchDir,
         {
@@ -1003,7 +986,7 @@ describe('Watch Command', () => {
 
       try {
         // Start watching with verbose mode
-        command.execute([
+        execute([
           'local',
           watchDir,
           {
@@ -1058,7 +1041,7 @@ describe('Watch Command', () => {
 
       try {
         // Start watching with task that will fail
-        command.execute([
+        execute([
           'local',
           watchDir,
           {
@@ -1133,7 +1116,7 @@ describe('Watch Command', () => {
       );
 
       // Start watching without specifying paths (should default to '.')
-      command.execute([
+      execute([
         'local',
         {
           command: 'echo test',

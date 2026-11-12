@@ -23,6 +23,9 @@
  * @module @xec-sh/ops/retry
  */
 
+import { getExecutionSignal } from '@xec-sh/core';
+import { setTimeout as wait } from 'node:timers/promises';
+
 export type BackoffStrategy = 'fixed' | 'linear' | 'exponential';
 
 export interface RetryConfig {
@@ -83,16 +86,16 @@ export async function retry<T>(
   config: Partial<RetryConfig> = {}
 ): Promise<T> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
+  const signal = getExecutionSignal(cfg.abortSignal);
   let lastError: Error | undefined;
 
   for (let attempt = 1; attempt <= cfg.maxAttempts; attempt++) {
-    if (cfg.abortSignal?.aborted) {
-      throw new Error('Retry aborted');
-    }
+    signal?.throwIfAborted();
 
     try {
       return await fn(attempt);
     } catch (err) {
+      signal?.throwIfAborted();
       lastError = err instanceof Error ? err : new Error(String(err));
 
       if (attempt === cfg.maxAttempts) break;
@@ -101,7 +104,8 @@ export async function retry<T>(
       const delay = computeDelay(cfg, attempt);
       cfg.onRetry?.(attempt, lastError, delay);
 
-      await new Promise((r) => setTimeout(r, delay));
+      try { await wait(delay, undefined, { signal }); }
+      catch (error) { signal?.throwIfAborted(); throw error; }
     }
   }
 

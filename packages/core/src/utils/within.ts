@@ -80,7 +80,27 @@ function normalizeWithinArgs<T>(
     return [{ ...asyncLocalStorage.getStore(), cwd: configOrFn }, maybeFn];
   }
 
-  return [configOrFn, maybeFn];
+  const inherited = asyncLocalStorage.getStore();
+  return [{ ...inherited, ...configOrFn,
+    ...(configOrFn.defaultEnv ? { defaultEnv: { ...inherited?.defaultEnv, ...configOrFn.defaultEnv } } : {}),
+    signal: getExecutionSignal(configOrFn.signal),
+  }, maybeFn];
+}
+
+/**
+ * Run an explicit cleanup section without its parent's cancelled signal.
+ * Other defaults remain scoped. A nested within() or command can provide a
+ * fresh signal/timeout; the application's overall shutdown grace still applies.
+ */
+export async function withoutCancellation<T>(fn: () => T | Promise<T>): Promise<T> {
+  return asyncLocalStorage.run({ ...asyncLocalStorage.getStore(), signal: undefined }, fn);
+}
+
+/** The current scope's cancellation combined with an operation's own signal. */
+export function getExecutionSignal(signal?: AbortSignal): AbortSignal | undefined {
+  const inherited = asyncLocalStorage.getStore()?.signal;
+  return signal && inherited && signal !== inherited
+    ? AbortSignal.any([signal, inherited]) : signal ?? inherited;
 }
 
 export function getLocalContext(): Partial<ExecutionConfig> | undefined {

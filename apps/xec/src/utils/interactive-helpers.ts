@@ -1,5 +1,6 @@
 import type { PodConfig, HostConfig, TargetType, ResolvedTarget, ContainerConfig } from '@xec-sh/ops';
 
+import { getExecutionSignal } from '@xec-sh/core';
 import { ConfigurationManager } from '@xec-sh/ops';
 import {
   log,
@@ -27,6 +28,11 @@ export interface TargetSelectorOptions {
 
 export class InteractiveHelpers {
   private static cancelled = false;
+  private static cancellation: AbortSignal | undefined;
+  private static onCancel = () => {
+    InteractiveHelpers.cancelled = true;
+    outro(prism.gray('Cancelled'));
+  };
   private static configManager: ConfigurationManager | null = null;
 
   static async getConfigManager(): Promise<ConfigurationManager> {
@@ -38,14 +44,11 @@ export class InteractiveHelpers {
   }
 
   static setupCancelHandlers(): void {
-    // Handle Ctrl+C
-    process.on('SIGINT', () => {
-      this.cancelled = true;
-      outro(prism.gray('Cancelled'));
-      process.exit(0);
-    });
-
-    // Handle ESC in prompts (clack handles this internally)
+    this.cancellation?.removeEventListener('abort', this.onCancel);
+    this.cancellation = getExecutionSignal();
+    this.cancellation?.throwIfAborted();
+    this.cancelled = false;
+    this.cancellation?.addEventListener('abort', this.onCancel, { once: true });
   }
 
   static isCancelled(value: any): boolean {
@@ -380,6 +383,8 @@ export class InteractiveHelpers {
   }
 
   static endInteractiveMode(message?: string): void {
+    this.cancellation?.removeEventListener('abort', this.onCancel);
+    this.cancellation = undefined;
     if (message) {
       outro(prism.green(message));
     } else {

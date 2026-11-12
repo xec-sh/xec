@@ -2,10 +2,10 @@ import type { ResolvedTarget } from '@xec-sh/ops';
 
 import { z } from 'zod';
 import * as net from 'node:net';
-import { $ } from '@xec-sh/core';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { validateOptions } from '@xec-sh/ops';
+import { $, getExecutionSignal, withoutCancellation } from '@xec-sh/core';
 
 import { isPlainOutput } from '../utils/plain-mode.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
@@ -169,20 +169,24 @@ export class ForwardCommand extends ConfigAwareCommand {
       return;
     }
 
-    // Set up signal handlers for cleanup
-    this.setupCleanupHandlers();
-
-    // Forward each port
-    for (const mapping of mappings) {
-      await this.forwardPort(target, mapping, mergedOptions);
-    }
-
-    // If not running in background, wait for interrupt
-    if (!mergedOptions.background) {
-      if (!isPlainOutput()) {
-        this.log('Press Ctrl+C to stop port forwarding...', 'info');
+    let started = false;
+    try {
+      // Forward each port
+      for (const mapping of mappings) {
+        await this.forwardPort(target, mapping, mergedOptions);
       }
-      await new Promise(() => { }); // Wait indefinitely
+
+      // If not running in background, wait for interrupt
+      if (!mergedOptions.background) {
+        if (!isPlainOutput()) {
+          this.log('Press Ctrl+C to stop port forwarding...', 'info');
+        }
+        await this.waitForCancellation();
+      }
+      started = true;
+    } finally {
+      if (!started || !mergedOptions.background || getExecutionSignal()?.aborted)
+        await withoutCancellation(() => this.cleanupSessions());
     }
   }
 
@@ -486,32 +490,29 @@ export class ForwardCommand extends ConfigAwareCommand {
     });
   }
 
-  private setupCleanupHandlers(): void {
-    const cleanup = async () => {
-      const plain = isPlainOutput();
-      if (!plain) this.log('\nStopping port forwards...', 'info');
+  private async cleanupSessions(): Promise<void> {
+    const plain = isPlainOutput();
+    if (!plain) this.log('\nStopping port forwards...', 'info');
 
-      for (const [sessionId, session] of this.sessions) {
-        try {
-          if (session.cleanup) {
-            await session.cleanup();
-          }
-          if (!plain) this.log(`Stopped forwarding for ${sessionId}`, 'info');
-        } catch (error) {
-          if (plain) {
-            console.error(`Failed to cleanup ${sessionId}: ${error}`);
-          } else {
-            this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
-          }
+    const failures: unknown[] = [];
+    for (const [sessionId, session] of this.sessions) {
+      try {
+        if (session.cleanup) {
+          await session.cleanup();
+        }
+        if (!plain) this.log(`Stopped forwarding for ${sessionId}`, 'info');
+      } catch (error) {
+        failures.push(error);
+        if (plain) {
+          console.error(`Failed to cleanup ${sessionId}: ${error}`);
+        } else {
+          this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
         }
       }
+    }
 
-      this.sessions.clear();
-      process.exit(0);
-    };
-
-    process.once('SIGINT', cleanup);
-    process.once('SIGTERM', cleanup);
+    this.sessions.clear();
+    if (failures.length) throw new AggregateError(failures, 'Port forward cleanup failed');
   }
 
   private async runInteractiveMode(options: ForwardOptions): Promise<{

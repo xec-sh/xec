@@ -1,10 +1,10 @@
 import type { Configuration, ResolvedTarget, CommandConfig as ConfigCommandConfig } from '@xec-sh/ops';
 
 import { z } from 'zod';
-import { $ } from '@xec-sh/core';
 import * as jsYaml from 'js-yaml';
 import { Command } from 'commander';
 import { access } from 'node:fs/promises';
+import { $, getExecutionSignal } from '@xec-sh/core';
 import { handleError , TaskManager , TargetResolver, OutputFormatter, validateOptions, ConfigurationManager } from '@xec-sh/ops';
 import { log, prism, text as kitText, select as kitSelect, spinner as kitSpinner, confirm as kitConfirm, multiselect as kitMultiselect } from '@xec-sh/kit';
 
@@ -239,6 +239,19 @@ export abstract class BaseCommand {
     });
 
     return command;
+  }
+
+  /** Wait for the owning CLI/embedding scope, without taking over OS signals. */
+  protected async waitForCancellation(): Promise<void> {
+    const signal = getExecutionSignal();
+    if (!signal) throw new Error('A long-running command requires a cancellation scope');
+    if (signal.aborted) return;
+    await new Promise<void>(resolve => {
+      // Library watchers may unref their polling timer; the foreground CLI still
+      // owns this lifetime until cancellation, rather than exiting naturally.
+      const keepAlive = setInterval(() => {}, 0x7fffffff);
+      signal.addEventListener('abort', () => { clearInterval(keepAlive); resolve(); }, { once: true });
+    });
   }
 
   /**

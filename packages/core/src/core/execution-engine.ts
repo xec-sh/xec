@@ -23,7 +23,6 @@ import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
-import { within, withinSync, asyncLocalStorage } from '../utils/within.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
@@ -31,6 +30,7 @@ import { select, confirm, Spinner, question, password } from '../utils/interacti
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
 import { DEFAULT_REDACTION, defaultSensitiveRules } from '../utils/sensitive-patterns.js';
 import { SSHExecutionContext, createSSHExecutionContext } from '../adapters/ssh/ssh-api.js';
+import { within, withinSync, asyncLocalStorage, getExecutionSignal } from '../utils/within.js';
 import { K8sExecutionContext, createK8sExecutionContext } from '../adapters/kubernetes/kubernetes-api.js';
 import { Command, SSHAdapterOptions, DockerAdapterOptions, KubernetesAdapterOptions } from '../types/command.js';
 import {
@@ -322,6 +322,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     const finalCommand = {
       ...this.currentConfig,
       ...contextCommand,
+      signal: getExecutionSignal(contextCommand.signal ?? this.currentConfig.signal),
       cwd: contextCommand.cwd ?? this.currentConfig.cwd ?? this._config.defaultCwd,
       timeout: requestedTimeout === undefined ? undefined : parseDuration(requestedTimeout),
       env: {
@@ -345,6 +346,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     }
 
     const mergedCommand = finalCommand;
+    mergedCommand.signal?.throwIfAborted();
     const adapter = await this.selectAdapter(mergedCommand);
 
     if (!adapter) {

@@ -1,5 +1,6 @@
 import * as jsYaml from 'js-yaml';
 import { prism } from '@xec-sh/kit';
+import { getExecutionSignal } from '@xec-sh/core';
 
 import { ValidationError } from './validation.js';
 import { UntrustedConfigError } from '../config/configuration-manager.js';
@@ -128,6 +129,9 @@ export class TimeoutError extends XecError {
  * Handle errors and provide user-friendly messages
  */
 export function handleError(error: any, options: CommandOptions): void {
+  // Cancellation must unwind to the application owner, including all finally
+  // blocks, instead of exiting from an inner command's diagnostic handler.
+  if (getExecutionSignal()?.aborted) throw error;
   // A failure that explains itself is printed as written. Wrapping it in a
   // code, a context block and a generic suggestion buries the sentence the
   // reader needs under three the tool does not mean.

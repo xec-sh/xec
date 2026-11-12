@@ -194,6 +194,49 @@ A cleanup observer failure still removes the workspace; if preparation already
 failed, both errors are preserved in an `AggregateError` whose cause is the
 original preparation failure.
 
+### CLI shutdown and cleanup
+
+The CLI runs actions inside a core `within` cancellation scope. The first
+SIGINT or SIGTERM cancels Xec commands, release operations, pipelines, retry
+backoff and script `sleep`, then waits for the action's `finally` blocks. It
+preserves exit 130 or 143. Explicit operation signals combine with the CLI
+signal; commands admitted after cancellation are refused.
+
+Cleanup that needs to execute a command uses the same explicit core boundary:
+
+```typescript
+import { withoutCancellation } from '@xec-sh/core';
+import { acquireReleaseLock, releaseCommand } from '@xec-sh/ops/release';
+
+const unlock = await acquireReleaseLock(process.cwd());
+try {
+  await releaseCommand(process.cwd(), 'pnpm', ['build']);
+} finally {
+  await withoutCancellation(async () => {
+    try {
+      await releaseCommand(process.cwd(), process.execPath, ['scripts/cleanup.mjs'], {
+        signal: AbortSignal.timeout(2000),
+      });
+    } finally { await unlock(); }
+  });
+}
+```
+
+The CLI allows ten seconds for action cleanup and up to two seconds for final
+engine disposal, within the remaining cancellation grace. A second termination
+signal or an expired deadline forces exit and reports that cleanup is incomplete.
+The cleanup scope does not extend that application deadline. Without cancellation,
+normal completed commands still dispose engine resources before exiting.
+
+This contract covers awaited CLI actions, Xec-managed commands and cooperative
+callbacks. Built-in watch, follow-logs and foreground forwarding release their
+owned sessions through the same action lifetime. The native REPL returns from
+its startup before later evaluations; their completion is not covered by this
+grace guarantee. Node's existing REPL interruption behavior is unchanged.
+Arbitrary
+JavaScript, independently spawned processes, `process.exit()` and SIGKILL cannot
+be made to finish their cleanup by this mechanism.
+
 ## Discovery, configuration, secrets
 
 ```typescript

@@ -6,8 +6,8 @@ import * as path from 'node:path';
 import { prism } from '@xec-sh/kit';
 import { Command } from 'commander';
 import { FileWatcher } from '@xec-sh/loader';
-import { $, quoteForShell } from '@xec-sh/core';
 import { validateOptions , getScriptLoader } from '@xec-sh/ops';
+import { $, quoteForShell, withoutCancellation } from '@xec-sh/core';
 
 import { variadicParts, positionalString } from '../utils/variadic.js';
 import { ConfigAwareCommand, ConfigAwareOptions } from '../utils/command-base.js';
@@ -31,6 +31,7 @@ interface WatchSession {
   watcher?: { close?(): void; kill?(signal?: string): void };
   lastRun?: Date;
   debounceTimer?: NodeJS.Timeout;
+  executions?: Set<Promise<void>>;
 }
 
 export class WatchCommand extends ConfigAwareCommand {
@@ -200,23 +201,22 @@ export class WatchCommand extends ConfigAwareCommand {
       return;
     }
 
-    // Set up signal handlers
-    this.setupCleanupHandlers();
+    try {
+      // Start watching
+      await this.startWatching(target, watchPaths, mergedOptions);
 
-    // Start watching
-    await this.startWatching(target, watchPaths, mergedOptions);
+      // Run initial command if requested
+      if (mergedOptions.initial) {
+        await this.executeAction(target, 'initial', mergedOptions);
+      }
 
-    // Run initial command if requested
-    if (mergedOptions.initial) {
-      await this.executeAction(target, 'initial', mergedOptions);
-    }
+      // Keep process alive
+      if (!mergedOptions.quiet) {
+        this.log('Watching for changes. Press Ctrl+C to stop...', 'info');
+      }
 
-    // Keep process alive
-    if (!mergedOptions.quiet) {
-      this.log('Watching for changes. Press Ctrl+C to stop...', 'info');
-    }
-
-    await new Promise(() => { }); // Wait indefinitely
+      await this.waitForCancellation();
+    } finally { await withoutCancellation(() => this.cleanupSessions()); }
   }
 
   private async startWatching(
@@ -256,6 +256,7 @@ export class WatchCommand extends ConfigAwareCommand {
           throw new Error(`Watch not supported for target type: ${target.type}`);
       }
 
+      session.executions = new Set();
       this.sessions.set(sessionId, session);
 
       if (!options.quiet) {
@@ -539,7 +540,7 @@ export class WatchCommand extends ConfigAwareCommand {
     options: WatchOptions
   ): void {
     const session = this.sessions.get(target.id);
-    if (!session) return;
+    if (!session || !this.running) return;
 
     const debounceMs = parseInt(options.debounce || '300', 10);
 
@@ -549,9 +550,14 @@ export class WatchCommand extends ConfigAwareCommand {
     }
 
     // Schedule new execution
-    session.debounceTimer = setTimeout(async () => {
-      await this.executeAction(target, changedFile, options);
-      session.lastRun = new Date();
+    session.debounceTimer = setTimeout(() => {
+      if (!this.running) return;
+      const execution = this.executeAction(target, changedFile, options);
+      session.executions!.add(execution);
+      void execution.finally(() => {
+        session.executions!.delete(execution);
+        session.lastRun = new Date();
+      });
     }, debounceMs);
   }
 
@@ -650,37 +656,35 @@ export class WatchCommand extends ConfigAwareCommand {
     }
   }
 
-  private setupCleanupHandlers(): void {
-    const cleanup = async () => {
-      this.running = false;
-      this.log('\nStopping watchers...', 'info');
+  private async cleanupSessions(): Promise<void> {
+    this.running = false;
+    this.log('\nStopping watchers...', 'info');
 
-      for (const [sessionId, session] of Array.from(this.sessions.entries())) {
-        try {
-          if (session.debounceTimer) {
-            clearTimeout(session.debounceTimer);
-          }
-
-          if (session.watcher) {
-            if (typeof session.watcher.close === 'function') {
-              await session.watcher.close();
-            } else if (typeof session.watcher.kill === 'function') {
-              session.watcher.kill();
-            }
-          }
-
-          this.log(`Stopped watching ${sessionId}`, 'info');
-        } catch (error) {
-          this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
+    const failures: unknown[] = [];
+    for (const [sessionId, session] of Array.from(this.sessions.entries())) {
+      try {
+        if (session.debounceTimer) {
+          clearTimeout(session.debounceTimer);
         }
+
+        if (session.watcher) {
+          if (typeof session.watcher.close === 'function') {
+            await session.watcher.close();
+          } else if (typeof session.watcher.kill === 'function') {
+            session.watcher.kill();
+          }
+        }
+
+        await Promise.all(session.executions ?? []);
+        this.log(`Stopped watching ${sessionId}`, 'info');
+      } catch (error) {
+        failures.push(error);
+        this.log(`Failed to cleanup ${sessionId}: ${error}`, 'error');
       }
+    }
 
-      this.sessions.clear();
-      process.exit(0);
-    };
-
-    process.once('SIGINT', cleanup);
-    process.once('SIGTERM', cleanup);
+    this.sessions.clear();
+    if (failures.length) throw new AggregateError(failures, 'Watcher cleanup failed');
   }
 
   private async runInteractiveMode(): Promise<void> {
@@ -1016,22 +1020,21 @@ export class WatchCommand extends ConfigAwareCommand {
       const defaults = this.getCommandDefaults();
       const mergedOptions = this.applyDefaults(watchOptions, defaults);
 
-      // Set up signal handlers
-      this.setupCleanupHandlers();
+      try {
+        // Start watching
+        await this.startWatching(target, watchPaths, mergedOptions);
 
-      // Start watching
-      await this.startWatching(target, watchPaths, mergedOptions);
+        // Run initial command if requested
+        if (mergedOptions.initial) {
+          await this.executeAction(target, 'initial', mergedOptions);
+        }
 
-      // Run initial command if requested
-      if (mergedOptions.initial) {
-        await this.executeAction(target, 'initial', mergedOptions);
-      }
+        // Keep process alive
+        console.log('\n' + prism.green('✓') + ` Watching ${InteractiveHelpers.getTargetIcon(target.type)} ${target.id} for changes...`);
+        console.log(prism.gray('Press Ctrl+C to stop watching'));
 
-      // Keep process alive
-      console.log('\n' + prism.green('✓') + ` Watching ${InteractiveHelpers.getTargetIcon(target.type)} ${target.id} for changes...`);
-      console.log(prism.gray('Press Ctrl+C to stop watching'));
-
-      await new Promise(() => { }); // Wait indefinitely
+        await this.waitForCancellation();
+      } finally { await withoutCancellation(() => this.cleanupSessions()); }
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

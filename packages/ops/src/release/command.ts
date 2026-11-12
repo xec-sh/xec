@@ -1,6 +1,6 @@
 import { Writable } from 'node:stream';
-import { ExecutionEngine } from '@xec-sh/core';
 import { finished } from 'node:stream/promises';
+import { ExecutionEngine, getExecutionSignal } from '@xec-sh/core';
 
 import { ReleaseOutput } from './output.js';
 import { windowsPackageManager } from './package-manager.js';
@@ -40,7 +40,8 @@ export const releaseCommand: ReleaseCommand = async (cwd, executable, args, opti
     throw new Error('Output limit must be a positive integer');
   const clean = (text: string) => (options.redact ?? []).filter(Boolean).reduce((value, secret) => value.split(secret).join('[redacted]'), text);
   const controller = new AbortController();
-  const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+  const inherited = getExecutionSignal(options.signal);
+  const signal = inherited ? AbortSignal.any([inherited, controller.signal]) : controller.signal;
   const started = Date.now();
   const streaming = !options.interactive && (options.onEvent !== undefined || options.outputLimit !== undefined);
   const output = {

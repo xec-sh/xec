@@ -722,44 +722,21 @@ describe('Forward Command', () => {
     });
   });
 
-  describe('Cleanup Handlers', () => {
-    it('should set up cleanup handlers for graceful shutdown', async () => {
-      const config = {
-        version: '2.0',
-        targets: {
-          hosts: {
-            test: { host: 'localhost', user: 'test', password: 'test' }
-          }
-        }
-      };
-
-      await fs.writeFile(
-        path.join(projectDir, '.xec', 'config.yaml'),
-        yaml.dump(config)
-      );
-
-      // Spy on process.once to verify handlers are set
-      const originalOnce = process.once;
-      const handlers: { [key: string]: (...args: unknown[]) => unknown } = {};
-
-      process.once = ((event: string, handler: (...args: unknown[]) => unknown) => {
-        handlers[event] = handler;
-        return process;
-      }) as any;
-
-      try {
-        // Initialize and setup cleanup handlers
-        command['setupCleanupHandlers']();
-
-        // Verify SIGINT and SIGTERM handlers were registered
-        expect(handlers['SIGINT']).toBeDefined();
-        expect(handlers['SIGTERM']).toBeDefined();
-        expect(typeof handlers['SIGINT']).toBe('function');
-        expect(typeof handlers['SIGTERM']).toBe('function');
-      } finally {
-        // Restore original process.once
-        process.once = originalOnce;
-      }
+  describe('Owned session cleanup', () => {
+    it('closes an owned listening socket without installing process handlers', async () => {
+      const listeners = [process.listenerCount('SIGINT'), process.listenerCount('SIGTERM')];
+      const server = net.createServer();
+      await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+      command['sessions'].set('owned', {
+        target: { id: 'local', type: 'local', name: 'local', config: {}, source: 'configured' },
+        mapping: { local: (server.address() as net.AddressInfo).port, remote: 8080 },
+        cleanup: () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())),
+      });
+      expect(server.listening).toBe(true);
+      await command['cleanupSessions']();
+      expect(server.listening).toBe(false);
+      expect(command['sessions'].size).toBe(0);
+      expect([process.listenerCount('SIGINT'), process.listenerCount('SIGTERM')]).toEqual(listeners);
     });
   });
 

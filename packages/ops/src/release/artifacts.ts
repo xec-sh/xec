@@ -4,6 +4,7 @@ import type { ReleaseCommand, ReleaseCommandOptions } from './command.js';
 import { tmpdir } from 'node:os';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { getExecutionSignal } from '@xec-sh/core';
 import { join, resolve, dirname, basename } from 'node:path';
 import { rm, open, mkdir, chmod, rename, mkdtemp, readdir, readFile, copyFile, writeFile } from 'node:fs/promises';
 
@@ -94,6 +95,7 @@ export async function loadPreparedRelease(root: string, version: string, run: Re
 
 /** Build from the exact committed snapshot; never replace a working checkout's dist or dependencies. */
 export async function prepareReleaseArtifacts(root: string, version: string, options: PrepareReleaseOptions): Promise<PreparedRelease> {
+  options = { ...options, signal: getExecutionSignal(options.signal) };
   root = resolve(root); releaseTag(version);
   if (options.build.timeoutMs !== undefined && (!Number.isFinite(options.build.timeoutMs) || options.build.timeoutMs <= 0))
     throw new Error('Build timeout must be positive');
