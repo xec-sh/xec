@@ -35,6 +35,7 @@ await local`pwd`;
 ### Configuration
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine({
   adapters: {
     local: {
@@ -66,18 +67,10 @@ await $`ls`.shell(false);
 ### Synchronous Execution
 
 ```typescript
-import { ExecutionEngine } from '@xec-sh/core';
+import { LocalAdapter } from '@xec-sh/core';
 
-const $ = new ExecutionEngine();
-const adapter = $.getAdapter('local');
-
-// Synchronous execution (blocks event loop)
-const result = adapter.executeSync({
-  command: 'ls',
-  args: ['-la'],
-  shell: false
-});
-
+const adapter = new LocalAdapter();
+const result = adapter.executeSync({ command: 'node', args: ['--version'], shell: false });
 console.log(result.stdout);
 ```
 
@@ -128,17 +121,17 @@ the configured local termination signal.
 ### Stdin
 
 ```typescript
-// String
-await $`cat`.stdin('Hello, World!');
+import { $ } from '@xec-sh/core';
+import { createReadStream } from 'node:fs';
 
-// Buffer
-const data = Buffer.from('binary data');
-await $`process`.stdin(data);
-
-// Stream
-import { createReadStream } from 'fs';
-const stream = createReadStream('input.txt');
-await $`sort`.stdin(stream);
+await $.with({ stdin: 'Hello, World!' })`cat`;
+await $.with({ stdin: Buffer.from('binary data') })`cat`;
+const input = createReadStream('input.txt');
+try {
+  await $.with({ stdin: input })`sort`;
+} finally {
+  input.destroy();
+}
 ```
 
 ### Stdout/Stderr
@@ -196,19 +189,16 @@ await $`printenv`.env({});  // Empty environment
 ### Exit Codes
 
 ```typescript
-// By default throws exception when exitCode !== 0
+import { $, CommandError } from '@xec-sh/core';
+
 try {
   await $`exit 1`;
 } catch (error) {
-  console.log('Exit code:', error.exitCode);  // 1
-  console.log('Stderr:', error.stderr);
+  if (!(error instanceof CommandError)) throw error;
+  console.error({ exitCode: error.exitCode, stderr: error.stderr });
 }
-
-// Disable exceptions
 const result = await $`exit 1`.nothrow();
-if (result.exitCode !== 0) {
-  console.log('Command failed');
-}
+console.log(result.ok);
 ```
 
 ### Timeouts
@@ -228,19 +218,16 @@ await $`server`.timeout(5000, 'SIGINT');
 ## Interactive Mode
 
 ```typescript
-// Fully interactive
-await $`npm init`.interactive();
+import { $ } from '@xec-sh/core';
 
-// Partially interactive
-await $`ssh user@host`
-  .stdin(process.stdin)
-  .stdout('inherit')
-  .stderr('inherit');
+await $`npm init`.interactive();
+await $.with({ stdin: process.stdin })`cat`.stdout('inherit').stderr('inherit');
 ```
 
 ## Bun Runtime Support
 
 ```typescript
+import { ExecutionEngine, RuntimeDetector } from '@xec-sh/core';
 const $ = new ExecutionEngine({
   adapters: {
     local: {
@@ -270,20 +257,10 @@ if (RuntimeDetector.isBun()) {
 ### Optimizations
 
 ```typescript
-// Process reuse
-const node = $`node`.interactive();
-for (const script of scripts) {
-  await node.stdin.write(`require('${script}')\n`);
-}
+import { $ } from '@xec-sh/core';
 
-// Batch processing
-const files = ['file1', 'file2', 'file3'];
-await $`process ${files}`;  // One process
-
-// Instead of:
-for (const file of files) {
-  await $`process ${file}`;  // N processes
-}
+const files = ['README.md', 'package.json'];
+await $`wc -c ${files}`;
 ```
 
 ## Platform-Specific Commands
@@ -309,6 +286,7 @@ if (isWindows) {
 ### Command Logging
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine();
 
 $.on('command:start', ({ command, cwd }) => {
@@ -355,15 +333,10 @@ await $.local().execute({
 ### Resource Limitation
 
 ```typescript
-// Limit output size
-const $ = new ExecutionEngine({
-  maxBuffer: 1024 * 1024  // 1MB maximum
-});
+import { $ } from '@xec-sh/core';
 
-// Limit execution time
-await $`untrusted-script`
-  .timeout(5000)  // 5 seconds maximum
-  .nothrow();     // Don't fail on error
+const result = await $.with({ maxBuffer: 1024 * 1024 })`generate-report`.timeout('5s');
+console.log(result.stdout);
 ```
 
 ## Usage Examples
@@ -440,28 +413,27 @@ await $`node script.js`.env({
 ### Encoding Issues
 
 ```typescript
-// Specify encoding
-const $ = new ExecutionEngine({
-  encoding: 'latin1'  // or 'utf16le', 'base64', etc.
-});
+import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
 
-// Or for specific command
-const result = await $.execute({
-  command: 'cat file.txt',
-  encoding: 'utf8'
-});
+const run = createCallableEngine(new ExecutionEngine({ encoding: 'latin1' }));
+try {
+  const result = await run`cat file.txt`;
+  console.log(result.stdout);
+} finally {
+  await run.dispose();
+}
 ```
 
 ### Zombie Processes
 
 ```typescript
-// Always clean up resources
-const engine = new ExecutionEngine();
+import { ExecutionEngine } from '@xec-sh/core';
 
+const engine = new ExecutionEngine();
 try {
-  await engine`long-running-task`;
+  await engine.run`long-running-task`;
 } finally {
-  await engine.dispose();  // Clean up all processes
+  await engine.dispose();
 }
 ```
 

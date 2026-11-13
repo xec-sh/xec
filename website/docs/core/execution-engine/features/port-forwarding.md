@@ -1,318 +1,216 @@
 ---
 title: Port Forwarding
-description: Reaching remote services through SSH and Kubernetes port forwarding
+description: Reach remote services through owned SSH and Kubernetes forwards
 ---
 
 # Port Forwarding
 
-Port forwarding makes a remote service reachable as if it were local (SSH
-tunnels, Kubernetes pod forwarding), or the reverse — makes a local service
-reachable from a remote host (SSH reverse tunnels).
+A forward exposes one remote service through a local listener. An SSH reverse
+forward exposes a local service through a listener on the SSH server. Keep the
+handle for the full operation and close it in `finally`.
 
 ## Overview
 
-Port forwarding (`packages/core/src/adapters/ssh/ssh-api.ts`,
-`packages/core/src/adapters/kubernetes/kubernetes-api.ts`) provides:
+- SSH local tunnels forward to a remote host and port.
+- SSH reverse tunnels forward a remote listener to a local host and port.
+- Kubernetes forwards expose a specific pod port through kubectl.
 
-- **SSH local tunneling** — a remote `host:port` reachable through a local port
-- **SSH reverse tunneling** — a local `host:port` reachable through a port on the remote host
-- **Kubernetes pod port forwarding** — a pod's port reachable through a local port, with an optional OS-assigned local port
-
-There is no SOCKS/dynamic forwarding, no jump-host chaining option, no
-connection multiplexing configuration, and no automatic reconnection — see
-[What Isn't Supported](#what-isnt-supported).
+Use OS-assigned ports when the caller can consume the returned address. The
+application using the forward still owns service authentication and readiness.
 
 ## SSH Port Forwarding
 
 ### Local Port Forwarding
 
 ```typescript
-import { $ } from '@xec-sh/core';
+import { $, dispose } from '@xec-sh/core';
 
-const remote = $.ssh({ host: 'jump.server.com', username: 'user' });
-
+const remote = $.ssh('deploy@bastion.example.com');
 const tunnel = await remote.tunnel({
-  remoteHost: 'database.internal',
-  remotePort: 3306,
-  // localPort omitted — the OS assigns one; pass a number to pin it
+  localHost: '127.0.0.1',
+  remoteHost: 'api.internal',
+  remotePort: 8080,
 });
-
-// Connect through the tunnel's actual local port
-const db = await mysql.connect({
-  host: 'localhost',
-  port: tunnel.localPort,
-  user: 'dbuser',
-  password: 'dbpass'
-});
-
-// Close the tunnel when done
-await tunnel.close();
+try {
+  const response = await fetch(`http://127.0.0.1:${tunnel.localPort}/health`, {
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) throw new Error(`Health check returned ${response.status}`);
+} finally {
+  await tunnel.close();
+  await dispose();
+}
 ```
 
-`tunnel.localPort`, `.localHost`, `.remoteHost`, `.remotePort` and `.isOpen`
-are readable at any time; `.open()` re-opens a tunnel that was closed.
+The returned handle exposes `localPort`, `localHost`, `remoteHost`,
+`remotePort`, `isOpen` and `closed`. `open()` reopens a closed local tunnel.
 
 ### Reverse Port Forwarding
 
 ```typescript
-// Make a local service reachable from the remote host
+import { $, dispose } from '@xec-sh/core';
+
+const remote = $.ssh('deploy@bastion.example.com');
 const tunnel = await remote.reverseTunnel({
-  remotePort: 8080,
-  localPort: 3000,
+  remoteHost: '127.0.0.1', remotePort: 8080,
+  localHost: '127.0.0.1', localPort: 3000,
 });
-
-console.log('Local :3000 is now reachable on the remote host at :', tunnel.remotePort);
-
-await tunnel.close();
+try {
+  await remote`curl --fail --silent --show-error --max-time 5 http://127.0.0.1:${tunnel.remotePort}/health`;
+} finally {
+  await tunnel.close();
+  await dispose();
+}
 ```
 
-The remote listener binds to `127.0.0.1` on the remote host by default —
-pass `remoteHost: '0.0.0.0'` explicitly if you want it reachable from
-outside that host, which is a deliberate, security-relevant choice rather
-than the default.
-
-There is no dynamic (SOCKS) forwarding — both calls forward exactly one
-fixed `host:port` pair.
+The local service must already be running. The remote listener defaults to
+loopback. Bind another address only when the deployment's access policy calls
+for that exposure.
 
 ## Kubernetes Port Forwarding
 
-Port forwarding is a method on a specific pod, reached through `.pod(name)`
-— not on the k8s context directly, and there is no way to target a
-Kubernetes Service by name.
+The pod API waits for kubectl to report readiness before returning the handle.
+Use the returned port, including when selecting a dynamic port.
 
 ```typescript
-const pod = $.k8s({ namespace: 'production' }).pod('database-pod');
+import { $ } from '@xec-sh/core';
 
-const forward = await pod.portForward(5432, 5432);  // local, remote
-
-const client = new pg.Client({ host: 'localhost', port: forward.localPort });
-await client.connect();
-
-await forward.close();
+const pod = $.k8s({ pod: 'api-0', namespace: 'staging', context: 'staging' }).pod('api-0');
+const forward = await pod.portForwardDynamic(3000, { timeout: 10_000 });
+try {
+  const response = await fetch(`http://127.0.0.1:${forward.localPort}/health`, {
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) throw new Error(`Health check returned ${response.status}`);
+} finally {
+  await forward.close();
+}
 ```
 
-To let the OS pick a free local port instead of choosing one yourself:
-
-```typescript
-const forward = await pod.portForwardDynamic(5432);
-console.log('Forwarded to local port', forward.localPort);
-```
-
-This shells out to `kubectl port-forward`, so `kubectl` must be on `PATH`
-and configured for the target cluster. `forward.localPort` only resolves to
-the real port once kubectl reports it has started forwarding — the
-`portForward`/`portForwardDynamic` promise already waits for that, so it is
-safe to read immediately after `await`.
+For a fixed local port, use `pod.portForward(8080, 3000, options)`. The forward
+reports `localPort`, `remotePort`, `isOpen`, `open()` and `close()`.
 
 ## Multiple Forwards
 
-Neither SSH nor Kubernetes has a batch-forwarding helper — open each tunnel
-individually and track them yourself:
+When opening a batch, retain successful handles even if another open fails.
+Await all open results before cleanup so a late success also gets closed.
 
 ```typescript
-const forwards = await Promise.all([
-  remote.tunnel({ localPort: 3306, remoteHost: 'mysql.internal', remotePort: 3306 }),
-  remote.tunnel({ localPort: 6379, remoteHost: 'redis.internal', remotePort: 6379 }),
-  remote.tunnel({ localPort: 5432, remoteHost: 'postgres.internal', remotePort: 5432 }),
+import { $, dispose } from '@xec-sh/core';
+
+const remote = $.ssh('deploy@bastion.example.com');
+const opened = await Promise.allSettled([
+  remote.tunnel({ remoteHost: 'api.internal', remotePort: 8080 }),
+  remote.tunnel({ remoteHost: 'metrics.internal', remotePort: 9090 }),
 ]);
-
-// ... use the services ...
-
-await Promise.all(forwards.map(t => t.close()));
+const handles = opened.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+try {
+  const failures = opened.flatMap(result => result.status === 'rejected' ? [result.reason] : []);
+  if (failures.length) throw new AggregateError(failures, 'Forward setup failed');
+  console.log(handles.map(handle => handle.localPort));
+} finally {
+  const closed = await Promise.allSettled(handles.map(handle => handle.close()));
+  await dispose();
+  const failures = closed.flatMap(result => result.status === 'rejected' ? [result.reason] : []);
+  if (failures.length) throw new AggregateError(failures, 'Forward cleanup failed');
+}
 ```
 
-The same pattern covers multiple ports on one pod:
-
-```typescript
-const pod = $.k8s({ namespace: 'monitoring' }).pod('monitoring-stack');
-
-const [grafana, prometheus, alertmanager] = await Promise.all([
-  pod.portForward(3000, 3000),
-  pod.portForward(9090, 9090),
-  pod.portForward(9093, 9093),
-]);
-```
+The same ownership rule applies to several pod forwards.
 
 ## Security Considerations
 
-```typescript
-// Local tunnel: bind the local end to loopback only (the default behavior
-// of most tools, made explicit here)
-const secure = await remote.tunnel({
-  localHost: '127.0.0.1',
-  remoteHost: 'database.internal',
-  remotePort: 3306,
-});
-
-// Reverse tunnel: bind the *remote* listener to loopback only — the actual
-// default, shown explicitly. Passing '0.0.0.0' exposes your local service
-// to the remote host's whole network and should be a deliberate choice.
-const tunnel = await remote.reverseTunnel({
-  remoteHost: '127.0.0.1',
-  remotePort: 8080,
-  localPort: 3000,
-});
-```
+Bind listeners to loopback, verify SSH host identities and pin Kubernetes
+context and namespace. Forwarding grants access through the authority of the
+SSH or Kubernetes account. Apply the destination service's own authentication
+and authorization policy as well.
 
 ## Use Cases
 
 ### Database Access
 
+Use the database client through the returned listener. This example assumes
+PostgreSQL authentication is configured for `psql` through an approved password
+file or credential environment.
+
 ```typescript
-async function accessRemoteDB() {
-  const tunnel = await $.ssh({
-    host: 'bastion.example.com',
-    username: 'deploy'
-  }).tunnel({
-    remoteHost: 'postgres.private.vpc',
-    remotePort: 5432,
+import { $, dispose } from '@xec-sh/core';
+
+const remote = $.ssh('deploy@bastion.example.com');
+const tunnel = await remote.tunnel({ remoteHost: 'postgres.internal', remotePort: 5432 });
+try {
+  await $.exec('psql', {
+    args: ['--host', '127.0.0.1', '--port', String(tunnel.localPort),
+      '--dbname', 'app', '--set', 'ON_ERROR_STOP=1', '--command', 'SELECT 1'],
+    shell: false,
+    timeout: '10s',
   });
-
-  try {
-    const client = new pg.Client({
-      host: 'localhost',
-      port: tunnel.localPort,
-      database: 'production'
-    });
-
-    await client.connect();
-    const result = await client.query('SELECT * FROM users');
-    await client.end();
-
-    return result.rows;
-  } finally {
-    await tunnel.close();
-  }
+} finally {
+  await tunnel.close();
+  await dispose();
 }
 ```
 
 ### Debugging a Remote Pod
 
+Expose the pod's inspector on a dynamic local port and keep it open until the
+operator finishes. The application must have enabled its inspector beforehand.
+
 ```typescript
-async function debugPod(podName: string, namespace: string) {
-  const pod = $.k8s({ namespace }).pod(podName);
+import { $ } from '@xec-sh/core';
+import { confirm } from '@xec-sh/kit';
 
-  const [inspector, app, metrics] = await Promise.all([
-    pod.portForward(9229, 9229), // Node.js debugger
-    pod.portForward(3000, 3000), // Application
-    pod.portForward(9090, 9090), // Metrics
-  ]);
-
-  console.log('Debug ports forwarded:');
-  console.log('- Debugger: chrome://inspect');
-  console.log('- Application: http://localhost:3000');
-  console.log('- Metrics: http://localhost:9090/metrics');
-
-  return { inspector, app, metrics };
+const pod = $.k8s({ pod: 'api-0', namespace: 'staging', context: 'staging' }).pod('api-0');
+const inspector = await pod.portForwardDynamic(9229, { timeout: 10_000 });
+try {
+  console.log(`Inspector is available at 127.0.0.1:${inspector.localPort}`);
+  await confirm({ message: 'Close the inspector forward?' });
+} finally {
+  await inspector.close();
 }
 ```
 
 ## What Isn't Supported
 
-The tunnel and port-forward objects are deliberately small — `.localPort`,
-`.localHost`, `.remoteHost`, `.remotePort`, `.isOpen`, `.open()` (SSH local
-tunnels only), `.close()`. There is no:
-
-- SOCKS/dynamic forwarding
-- Jump-host chaining through a `proxy` option — `SSHAdapterOptions` has no
-  such field; tunnel to the first host, then connect through it, if you need
-  a multi-hop path
-- SSH multiplexing options (`controlMaster`/`controlPath`/`controlPersist`)
-- Compression options for tunnel traffic
-- Forwarding a Kubernetes Service by name, rather than a specific pod
-- Automatic reconnection, health checks, or `EventEmitter`-style events
-  (`.on('ready'|'error'|'close', ...)`) on a tunnel or port-forward object
-
-Build any of these yourself on top of `.tunnel()`/`.reverseTunnel()`/
-`.portForward()` — reconnecting on failure, for instance, is just calling
-`.close()` and the same method again.
+These APIs describe individual fixed-destination forwards. SOCKS proxying,
+Kubernetes Service selection and automatic reconnection need additional
+contracts. Reconnection changes the transport and can invalidate active client
+sessions, so applications must inspect the outcome of in-flight requests before
+resuming their work.
 
 ## Error Handling
 
-```typescript
-try {
-  const tunnel = await remote.tunnel({
-    localPort: 3000,
-    remoteHost: 'service.internal',
-    remotePort: 80,
-  });
-} catch (error) {
-  console.error('Tunnel failed to open:', error.message);
-  // A fixed localPort already in use, or the remote host/port unreachable,
-  // both surface as a rejection here — there is no structured error code to
-  // switch on, only the message.
-}
-```
+Setup failure rejects the opening call. After setup, failures can surface through
+the client request or a closed transport. Keep the service operation and cleanup
+in one awaited scope and preserve their errors in application diagnostics.
 
 ### Automatic Port Selection
 
-```typescript
-// .tunnel() does not retry or pick a free port itself if a fixed localPort
-// is taken — retry with a different one, or omit localPort so the OS
-// assigns one from the start
-async function tunnelWithRetry(
-  remote: ReturnType<typeof $.ssh>,
-  config: { remoteHost: string; remotePort: number; localPort: number },
-  maxAttempts = 10
-) {
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      return await remote.tunnel({ ...config, localPort: config.localPort + i });
-    } catch (error) {
-      if (i === maxAttempts - 1) throw error;
-    }
-  }
-}
-```
+Omit SSH `localPort` or call `pod.portForwardDynamic(remotePort)` to let the
+operating system select the listener. Read the actual returned port after the
+opening promise resolves. A requested fixed port can fail if it is occupied.
 
 ## Best Practices
 
 ### Do's ✅
 
-```typescript
-// ✅ Close tunnels when done
-const tunnel = await remote.tunnel(config);
-try {
-  await useService();
-} finally {
-  await tunnel.close();
-}
-
-// ✅ Let the OS pick a local port when you don't need a specific one —
-// avoids collisions, and works for both SSH and Kubernetes
-const dbTunnel = await remote.tunnel({ remoteHost: 'db', remotePort: 3306 });
-const podForward = await pod.portForwardDynamic(3306);
-
-// ✅ Keep a reverse tunnel's remote listener on loopback unless you
-// specifically need it reachable from elsewhere on that network
-await remote.reverseTunnel({ remoteHost: '127.0.0.1', remotePort: 8080, localPort: 3000 });
-```
+- Retain each handle and await `close()` in `finally`.
+- Verify the destination service after opening the listener.
+- Use returned ports in client configuration.
+- Bound setup and client requests with explicit deadlines.
+- Track successful handles when opening multiple forwards concurrently.
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Leave tunnels open
-await remote.tunnel(config);
-// Tunnel never closed
-
-// ❌ Assume a fixed localPort is free
-await remote.tunnel({ localPort: 80, remoteHost: 'db', remotePort: 3306 });
-// May fail with the port already in use — prefer a dynamic port, or catch
-// and retry with a different one
-
-// ❌ Open far more tunnels than you'll use concurrently
-for (let i = 0; i < 1000; i++) {
-  await remote.tunnel({ remoteHost: 'db', remotePort: 3306 });
-}
-```
+- A ready listener does not prove database or application health.
+- A transport failure does not prove that an in-flight mutation was rejected.
+- A failed batch open does not close the handles that already succeeded.
 
 ## Implementation Details
 
-Port forwarding is implemented in:
-- `packages/core/src/adapters/ssh/ssh-api.ts` - `.tunnel()` / `.reverseTunnel()` on the SSH execution context
-- `packages/core/src/adapters/ssh/index.ts` - `SSHAdapter.tunnel()` / `.reverseTunnel()`
-- `packages/core/src/adapters/kubernetes/kubernetes-api.ts` - `K8sPod.portForward()` / `.portForwardDynamic()`
-- `packages/core/src/adapters/kubernetes/index.ts` - `KubernetesAdapter.portForward()`, which shells out to `kubectl port-forward`
+The SSH context uses the shared SSH adapter. Kubernetes uses the common local
+process lifecycle for kubectl and confirms forwarding readiness from its output.
+Each handle owns the listener or process it creates.
 
 ## See Also
 

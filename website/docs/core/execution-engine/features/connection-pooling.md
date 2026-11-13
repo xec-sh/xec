@@ -28,7 +28,7 @@ import { $ } from '@xec-sh/core';
 const remote = $.ssh({
   host: 'server.example.com',
   username: 'deploy',
-  privateKey: '~/.ssh/id_rsa'
+  privateKeyPath: '~/.ssh/id_rsa'
 });
 
 // These commands reuse the same connection
@@ -81,7 +81,7 @@ only grows on demand, up to `maxConnections`.
 import { SSHAdapter } from '@xec-sh/core';
 
 const adapter = $.getAdapter('ssh') as SSHAdapter;
-const metrics = adapter.getPoolMetrics();
+const metrics = adapter.getConnectionPoolMetrics();
 
 console.log('Active connections:', metrics.activeConnections);
 console.log('Idle connections:', metrics.idleConnections);
@@ -89,7 +89,7 @@ console.log('Total ever created:', metrics.connectionsCreated);
 console.log('Reused (avoided a new connection):', metrics.reuseCount);
 ```
 
-`getPoolMetrics()` returns `activeConnections`, `idleConnections`,
+`getConnectionPoolMetrics()` returns `activeConnections`, `idleConnections`,
 `totalConnections`, `connectionsCreated`, `connectionsDestroyed`,
 `connectionsFailed`, `reuseCount`, `averageIdleTime`, `averageUseCount` and
 `lastCleanup`. There is no `.warmPool()`, `.drainPool()` or `.closePool()`
@@ -200,8 +200,8 @@ or an `ExecutionError` with `kind: 'connection-lost'` /
 `'connection-refused'`) from whatever command tried to use it:
 
 ```typescript
-import { ExecutionError } from '@xec-sh/core';
-
+import { $, ExecutionError } from '@xec-sh/core';
+const remote = $.ssh({ host: 'web-1', username: 'deploy' });
 try {
   await remote`some-command`;
 } catch (error) {
@@ -219,6 +219,7 @@ for any other command — see [Error Handling](/docs/core/execution-engine/featu
 ### Do's ✅
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 // ✅ Reuse one context for multiple commands against the same host
 const remote = $.ssh({ host: 'server.com', username: 'user' });
 await remote`command1`;
@@ -244,6 +245,7 @@ $.on('ssh:pool-metrics', ({ metrics }) => {
 ### Don'ts ❌
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 // ❌ Assume every $.ssh({...}) call opens a new connection — it doesn't;
 // the pool matches on host/user/port regardless of how many contexts
 // point at them

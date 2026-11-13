@@ -93,8 +93,10 @@ through `$`, see [File Synchronization](#file-synchronization) below).
 ### Download Files
 
 ```typescript
-// Download a single file
-await remote.downloadFile('/remote/data.csv', '/local/data.csv');
+import { $ } from '@xec-sh/core';
+
+const remote = $.ssh({ host: 'files.example.com', username: 'deploy' });
+await remote.downloadFile('/srv/app/data.csv', './data.csv');
 ```
 
 There is no `downloadDirectory` — to pull down a whole remote directory, use
@@ -111,8 +113,12 @@ SFTP itself is used internally to implement these calls, but no SFTP client
 command through the SSH context for anything beyond upload/download:
 
 ```typescript
-const files = await remote`ls -la /remote/path`;
-const exists = (await remote`test -f /remote/file.txt`.nothrow()).ok;
+import { $ } from '@xec-sh/core';
+
+const remote = $.ssh({ host: 'files.example.com', username: 'deploy' });
+const files = await remote`ls -la /srv/app`;
+const exists = (await remote`test -f /srv/app/config.json`.nothrow()).ok;
+console.log(files.stdout, exists);
 ```
 
 ## Docker File Operations
@@ -233,14 +239,17 @@ you already chose is the remote side — no URL to restate the host, container o
 pod in:
 
 ```typescript
-// Send a local build to wherever this engine points
-await $.ssh('deploy@web-1').transfer.upload('dist/', '/srv/app/', { recursive: true });
-await $.docker('api').transfer.upload('/local/config.json', '/app/config.json');
-await $.k8s('prod/web-0').transfer.upload('/local/x', '/etc/x');
+import { $ } from '@xec-sh/core';
 
-// Pull back the other way
-await $.ssh('deploy@web-1').transfer.download('/var/log/app.log', './app.log');
-await $.k8s('prod/web-0').transfer.download('/etc/x', './x');
+const remote = $.ssh({ host: 'web-1', username: 'deploy' });
+await remote.uploadFile('./config.json', '/srv/app/config.json');
+await remote.downloadFile('/srv/app/status.json', './status.json');
+
+await $.transfer.copy('./config.json', 'docker://api:/app/config.json');
+
+const pod = $.k8s({ namespace: 'production', context: 'production' }).pod('web-0');
+await pod.copyTo('./config.json', '/app/config.json');
+await pod.copyFrom('/app/status.json', './pod-status.json');
 ```
 
 `upload`'s source and `download`'s destination must be local paths — the other
@@ -425,54 +434,20 @@ async function safeModify(file: string, modifier: (content: string) => string) {
 ### Do's ✅
 
 ```typescript
-// ✅ Use appropriate transfer methods
-await remote.uploadFile(source, dest);                         // For SSH
-await $.transfer.copy(source, `docker://${container}:${dest}`); // For Docker
+import { $ } from '@xec-sh/core';
 
-// ✅ Handle large files with streaming
-await $`cat large.txt`.pipe($`gzip`).stdout(output);
-
-// ✅ Validate transfers
-const checksum = await $`md5sum file.txt`.text();
-const remoteChecksum = await remote`md5sum file.txt`.text();
-if (remoteChecksum !== checksum) {
-  throw new Error('Transfer verification failed');
-}
-
-// ✅ Clean up temporary files
-const temp = await $`mktemp`;
-try {
-  // Use temp file
-} finally {
-  await $`rm -f ${temp}`;
-}
+const source = './config.json';
+const destination = '/srv/app/config.json';
+const remote = $.ssh({ host: 'web-1', username: 'deploy' });
+await remote.uploadFile(source, destination);
+const localHash = (await $`sha256sum ${source}`.text()).split(' ')[0];
+const remoteHash = (await remote`sha256sum ${destination}`.text()).split(' ')[0];
+if (remoteHash !== localHash) throw new Error('Transferred configuration checksum differs');
 ```
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Don't use shell expansion unsafely
-const files = '*.txt';
-await $`rm ${files}`;  // Dangerous
-
-// ❌ Don't ignore permission errors
-await $`chmod 777 /etc/passwd`;  // No error handling
-
-// ❌ Don't transfer large files in memory
-const content = await $`cat huge-file.bin`;  // May OOM
-
-// ❌ Don't skip validation
-await remote.uploadFile(source, dest);
-// Should verify the transfer succeeded
-
-// ❌ Don't hand-quote a value that's already being interpolated
-const content = 'some text';
-await $`echo "${content}" > ${file}`;  // Xec already quotes ${content} —
-                                        // wrapping it in manual quotes too
-                                        // corrupts the command instead of
-                                        // being redundant
-await $`echo ${content} > ${file}`;    // Correct
-```
+Use transfer methods for binary data, check permissions and compare checksums for release inputs. Interpolated paths are single escaped arguments, including strings containing `*`. Use an explicit file list when operating on several paths. Avoid manual shell quoting around interpolated values.
 
 ## Implementation Details
 

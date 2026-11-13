@@ -1,11 +1,7 @@
-import { Readable } from 'node:stream';
-import { spawn } from 'node:child_process';
-
+import { LocalAdapter } from '../local/index.js';
 import { findDockerPath } from './docker-utils.js';
-import { StreamHandler } from '../../utils/stream.js';
-import { parseDuration } from '../../utils/helpers.js';
 import { splitLines } from '../../utils/line-split.js';
-import { killProcessTree } from '../../utils/process-tree.js';
+import { LocalCommandSession } from '../local/command-session.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
@@ -52,6 +48,11 @@ export interface DockerLogsOptions {
   since?: string;
   until?: string;
   timestamps?: boolean;
+  /** Total stream lifetime; follow has no deadline by default. */
+  timeout?: number;
+  signal?: AbortSignal;
+  /** Maximum buffered bytes per log line. */
+  maxBuffer?: number;
 }
 
 export interface DockerNetworkOptions {
@@ -112,10 +113,19 @@ export class DockerAdapter extends BaseAdapter {
   protected readonly adapterName = 'docker';
   private dockerConfig: DockerAdapterConfig;
   private tempContainers: Set<string> = new Set();
+  private local: LocalAdapter;
+  private sessions = new Set<LocalCommandSession>();
+  private disposing?: Promise<void>;
 
   constructor(config: DockerAdapterConfig = {}) {
     super(config);
     this.name = this.adapterName;
+    this.local = new LocalAdapter({
+      forceImplementation: 'node',
+      encoding: config.encoding,
+      // Management output is protocol data; public exec is masked by createResult.
+      sensitiveDataMasking: { enabled: false },
+    });
     this.dockerConfig = {
       ...config,
       defaultExecOptions: {
@@ -186,7 +196,7 @@ export class DockerAdapter extends BaseAdapter {
         this.validateContainerName(dockerOptions.container);
 
         // Check if we need to create a temporary container
-        if (this.dockerConfig.autoCreate?.enabled && !await this.containerExists(containerName)) {
+        if (this.dockerConfig.autoCreate?.enabled && !await this.containerExists(containerName, mergedCommand.signal)) {
           containerName = await this.createTempContainer();
 
           // Emit docker:run event for container creation
@@ -198,7 +208,7 @@ export class DockerAdapter extends BaseAdapter {
         }
 
         // Check for container existence before executing
-        if (!await this.containerExists(containerName)) {
+        if (!await this.containerExists(containerName, mergedCommand.signal)) {
           const endTime = Date.now();
           const errorMessage = `Container '${containerName}' not found`;
 
@@ -337,13 +347,10 @@ export class DockerAdapter extends BaseAdapter {
     };
   }
 
-  private async containerExists(container: string): Promise<boolean> {
-    try {
-      const result = await this.executeDockerCommand(['inspect', container], this.managementOptions());
-      return result.exitCode === 0;
-    } catch {
-      return false;
-    }
+  private async containerExists(container: string, signal?: AbortSignal): Promise<boolean> {
+    // Reuse the inventory contract: only a successful absence observation can
+    // authorize creation. Transport, permission and decoding failures propagate.
+    return await this.resolveContainerReference(container, signal) !== null;
   }
 
   private async createTempContainer(): Promise<string> {
@@ -616,202 +623,44 @@ export class DockerAdapter extends BaseAdapter {
     return { timeout: this.dockerConfig.transferTimeout ?? DEFAULT_TRANSFER_TIMEOUT };
   }
 
-  /**
-   * Terminate the docker CLI and anything it spawned.
-   *
-   * @param child - The CLI process.
-   * @param signal - Signal to deliver.
-   */
-  private terminateTree(
-    child: { pid?: number; kill: (s?: NodeJS.Signals) => boolean },
-    signal: NodeJS.Signals = 'SIGTERM'
-  ): void {
-    if (child.pid) {
-      killProcessTree(child.pid, signal);
-    } else {
-      child.kill(signal);
-    }
+  private dockerCommand(args: string[], command: Partial<Command>): Command {
+    return {
+      ...command,
+      command: findDockerPath(),
+      args,
+      shell: false,
+      // Exec/run env already travels inside the container. Compose env is local.
+      env: args[0] === 'compose' ? command.env : undefined,
+      stdin: args.includes('-t') && args.includes('-i') && process.stdin.isTTY
+        ? process.stdin : command.stdin,
+      timeout: command.timeout ?? this.config.defaultTimeout,
+      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
+      throwOnNonZeroExit: false,
+      nothrow: undefined,
+    };
+  }
+
+  private startSession(command: Command, onLine?: (line: string) => void): LocalCommandSession {
+    const session = new LocalCommandSession(this.local, command, {
+      encoding: this.config.encoding,
+      onStdout: onLine,
+      onStderr: onLine,
+    });
+    this.sessions.add(session);
+    const release = () => { this.sessions.delete(session); };
+    void session.completion.then(release, release);
+    return session;
   }
 
   protected async executeDockerCommand(
     args: string[],
     command: Partial<Command>
   ): Promise<{ stdout: string; stderr: string; stdall: string; exitCode: number; signal: string | null }> {
-    // This path drives setTimeout itself rather than going through
-    // handleTimeout, so it has to resolve a duration string the same way.
-    const timeout = command.timeout === undefined ? undefined : parseDuration(command.timeout);
-
-    // Kill the docker CLI once either stream blows the cap; the container
-    // side of an exec is torn down with it. Filled in after spawn.
-    let killOnOverflow: () => void = () => {};
-
-    // Shared sink: records both streams in observed arrival order.
-    const interleaved: Buffer[] = [];
-
-    const stdoutHandler = new StreamHandler({
-      encoding: this.config.encoding,
-      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
-      streamName: 'stdout',
-      interleaved,
-      onOverflow: () => killOnOverflow()
-    });
-
-    const stderrHandler = new StreamHandler({
-      encoding: this.config.encoding,
-      maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
-      streamName: 'stderr',
-      interleaved,
-      onOverflow: () => killOnOverflow()
-    });
-
-    // For compose commands, we might need to pass environment variables
-    const env = args[0] === 'compose' && command.env
-      ? { ...process.env, ...command.env }
-      : process.env;
-
-    // Check if we're running with TTY
-    const hasTTY = args.includes('-t');
-    const hasInteractive = args.includes('-i');
-    const useInheritStdin = hasTTY && hasInteractive && process.stdin.isTTY;
-
-    // Try to find docker in common locations
-    const dockerPath = findDockerPath();
-
-    // command.cwd is only meaningful locally for management operations that
-    // opt in (docker build passes the build context this way). The exec/run
-    // paths strip it before calling here, because there it names a directory
-    // inside the container.
-    const child = spawn(dockerPath, args, {
-      env,
-      cwd: command.cwd || process.cwd(),
-      windowsHide: true,
-      // Always pipe stdout and stderr to capture output, only inherit stdin for TTY
-      stdio: useInheritStdin ? ['inherit', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-    });
-
-    killOnOverflow = () => this.terminateTree(child);
-
-    // The docker CLI process is what the caller can reach: its stdin is the
-    // container's stdin, its stdout the container's output.
-    command.onSpawn?.({
-      pid: child.pid,
-      stdin: child.stdin,
-      stdout: child.stdout,
-      stderr: child.stderr,
-      kill: (signal: NodeJS.Signals = 'SIGTERM') => this.terminateTree(child, signal),
-    });
-
-    // An abort kills the local docker CLI, which ends the exec session.
-    const clearAbort = this.setupAbortSignal(command.signal, () => {
-      child.kill('SIGTERM');
-    });
-
-    // Handle stdin only if not in inherit mode
-    if (child.stdin && command.stdin) {
-      this.absorbStdinErrors(child.stdin);
-      if (typeof command.stdin === 'string' || Buffer.isBuffer(command.stdin)) {
-        child.stdin.write(command.stdin);
-        child.stdin.end();
-      } else if (command.stdin instanceof Readable) {
-        command.stdin.pipe(child.stdin);
-      }
-    }
-
-    // Collect output only if not in inherit mode
-    if (child.stdout) {
-      const stdoutTransform = stdoutHandler.createTransform();
-      child.stdout.pipe(stdoutTransform);
-      // Consume the transform stream to prevent backpressure
-      stdoutTransform.on('data', () => { });
-    }
-
-    if (child.stderr) {
-      const stderrTransform = stderrHandler.createTransform();
-      child.stderr.pipe(stderrTransform);
-      // Consume the transform stream to prevent backpressure
-      stderrTransform.on('data', () => { });
-    }
-
-    // Wait for completion with proper race condition protection
-    return new Promise((resolve, reject) => {
-      let timeoutId: NodeJS.Timeout | undefined;
-      let settled = false; // Prevent double resolve/reject
-      let processExited = false;
-      let stdoutClosed = !child.stdout;
-      let stderrClosed = !child.stderr;
-      let exitCode: number | null = null;
-      let exitSignal: string | null = null;
-
-      const settle = <T>(fn: (value: T) => void, value: T) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutId) clearTimeout(timeoutId);
-        fn(value);
-      };
-
-      // Resolving on 'exit' alone can truncate trailing output still in
-      // flight; wait until both stdio streams have closed as well.
-      const tryResolve = () => {
-        if (processExited && stdoutClosed && stderrClosed) {
-          clearAbort();
-
-          // Truncated output must never read as a clean success.
-          const overflow = stdoutHandler.overflowError ?? stderrHandler.overflowError;
-          if (overflow) {
-            overflow.partialStdout = stdoutHandler.getContent();
-            overflow.partialStderr = stderrHandler.getContent();
-            settle(reject, overflow);
-            return;
-          }
-
-          settle(resolve, {
-            stdout: stdoutHandler.getContent(),
-            stderr: stderrHandler.getContent(),
-            stdall: Buffer.concat(interleaved).toString(this.config.encoding),
-            exitCode: exitCode ?? 0,
-            signal: exitSignal
-          });
-        }
-      };
-
-      if (timeout && timeout > 0) {
-        timeoutId = setTimeout(() => {
-          child.kill('SIGTERM');
-          // Give it a moment to die gracefully, then force kill
-          setTimeout(() => {
-            if (!child.killed) child.kill('SIGKILL');
-          }, 1000);
-          const argsString = args.join(' ');
-          settle(reject, new TimeoutError(`docker ${argsString}`, timeout));
-        }, timeout);
-      }
-
-      child.on('error', (error) => {
-        clearAbort();
-        settle(reject, error);
-      });
-
-      if (child.stdout) {
-        child.stdout.on('close', () => {
-          stdoutClosed = true;
-          tryResolve();
-        });
-      }
-
-      if (child.stderr) {
-        child.stderr.on('close', () => {
-          stderrClosed = true;
-          tryResolve();
-        });
-      }
-
-      child.on('exit', (code, signal) => {
-        exitCode = code;
-        exitSignal = signal;
-        processExited = true;
-        tryResolve();
-      });
-    });
+    if (this.disposing) throw new DockerError('unknown', 'execute', new Error('Docker adapter has been disposed'));
+    const session = this.startSession(this.dockerCommand(args, command));
+    const result = await session.result;
+    if (session.stopped) throw new DockerError('unknown', 'execute', new Error('Docker operation stopped before completion'));
+    return { stdout: result.stdout, stderr: result.stderr, stdall: result.stdall, exitCode: result.exitCode, signal: result.signal ?? null };
   }
 
   protected override async createResult(
@@ -855,24 +704,26 @@ export class DockerAdapter extends BaseAdapter {
     return result;
   }
 
-  async dispose(): Promise<void> {
-    // Clean up temporary containers
+  dispose(): Promise<void> {
+    this.disposing ??= this.disposeOperations();
+    return this.disposing;
+  }
+
+  private async disposeOperations(): Promise<void> {
+    const results = await Promise.allSettled([...this.sessions].map(session => session.stop()));
+    const errors: unknown[] = results.filter(result => result.status === 'rejected').map(result => result.reason);
     if (this.dockerConfig.autoCreate?.autoRemove) {
       for (const container of this.tempContainers) {
         try {
-          // Emit temp cleanup event
-          this.emitAdapterEvent('temp:cleanup', {
-            path: container,
-            type: 'directory'
-          });
-
-          await this.executeDockerCommand(['rm', '-f', container], this.managementOptions());
-        } catch {
-          // Ignore errors during cleanup
-        }
+          this.emitAdapterEvent('temp:cleanup', { path: container, type: 'directory' });
+          const result = await this.startSession(this.dockerCommand(['rm', '-f', container], this.managementOptions())).result;
+          if (result.exitCode !== 0) throw new DockerError(container, 'remove', new Error(sanitizeCommandForError(result.stderr)));
+          this.tempContainers.delete(container);
+        } catch (error) { errors.push(error); }
       }
-    }
-    this.tempContainers.clear();
+    } else this.tempContainers.clear();
+    await this.local.dispose();
+    if (errors.length) throw new AggregateError(errors, 'Docker operation cleanup failed');
   }
 
   // Additional Docker-specific methods
@@ -1050,10 +901,10 @@ export class DockerAdapter extends BaseAdapter {
   }
 
   /** Resolve one immutable identity. A failed observation never means absence. */
-  private async resolveContainerReference(container: string): Promise<string | null> {
+  private async resolveContainerReference(container: string, signal?: AbortSignal): Promise<string | null> {
     this.validateContainerReference(container, 'inspect');
     const result = await this.executeDockerCommand(
-      ['ps', '-a', '--no-trunc', '--format', '{{json .}}'], this.managementOptions());
+      ['ps', '-a', '--no-trunc', '--format', '{{json .}}'], { ...this.managementOptions(), signal });
     if (result.exitCode !== 0) throw new DockerError(container, 'inspect', new Error(result.stderr));
     const matches: string[] = [];
     for (const line of splitLines(result.stdout.trim()).filter(Boolean)) {
@@ -1243,7 +1094,10 @@ export class DockerAdapter extends BaseAdapter {
 
     args.push(container);
 
-    const result = await this.executeDockerCommand(args, this.managementOptions());
+    const result = await this.executeDockerCommand(args, {
+      ...this.managementOptions(), timeout: options.timeout ?? (options.follow ? 0 : this.managementOptions().timeout),
+      signal: options.signal, maxBuffer: options.maxBuffer,
+    });
     if (result.exitCode !== 0) {
       throw new DockerError(container, 'logs', new Error(result.stderr));
     }
@@ -1258,122 +1112,23 @@ export class DockerAdapter extends BaseAdapter {
     onData: (data: string) => void,
     options: DockerLogsOptions = {}
   ): Promise<void> {
+    if (this.disposing) throw new DockerError(container, 'logs', new Error('Docker adapter has been disposed'));
     const args = ['logs'];
-
-    // Only add -f flag if follow is explicitly true
-    if (options.follow) {
-      args.push('-f');
-    }
-
-    if (options.tail !== undefined) {
-      args.push('--tail', String(options.tail));
-    }
-
-    if (options.timestamps) {
-      args.push('-t');
-    }
-
+    if (options.follow) args.push('-f');
+    if (options.tail !== undefined) args.push('--tail', String(options.tail));
+    if (options.since !== undefined) args.push('--since', options.since);
+    if (options.until !== undefined) args.push('--until', options.until);
+    if (options.timestamps) args.push('-t');
     args.push(container);
-
-    return new Promise((resolve, reject) => {
-      const child = spawn(findDockerPath(), args);
-      let buffer = '';
-      let resolved = false;
-
-      const cleanup = () => {
-        if (!child.killed) {
-          child.kill('SIGTERM');
-        }
-      };
-
-      const safeOnData = (data: string) => {
-        try {
-          onData(data);
-        } catch (error) {
-          if (!resolved) {
-            resolved = true;
-            cleanup();
-            reject(new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error))));
-          }
-        }
-      };
-
-      const processData = (data: string) => {
-        try {
-          buffer += data;
-          const lines = splitLines(buffer);
-          // Keep the last incomplete line in the buffer
-          buffer = lines.pop() || '';
-          // Send complete lines
-          lines.forEach(line => {
-            if (line && !resolved) {
-              safeOnData(line + '\n');
-            }
-          });
-        } catch (error) {
-          if (!resolved) {
-            resolved = true;
-            cleanup();
-            reject(new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error))));
-          }
-        }
-      };
-
-      child.stdout?.on('data', (chunk: Buffer) => {
-        if (!resolved) {
-          processData(chunk.toString());
-        }
-      });
-
-      child.stderr?.on('data', (chunk: Buffer) => {
-        if (!resolved) {
-          processData(chunk.toString());
-        }
-      });
-
-      child.stdout?.on('error', (error) => {
-        if (!resolved) {
-          resolved = true;
-          cleanup();
-          reject(new DockerError(container, 'logs', error));
-        }
-      });
-
-      child.stderr?.on('error', (error) => {
-        if (!resolved) {
-          resolved = true;
-          cleanup();
-          reject(new DockerError(container, 'logs', error));
-        }
-      });
-
-      child.on('error', (error) => {
-        if (!resolved) {
-          resolved = true;
-          cleanup();
-          reject(new DockerError(container, 'logs', error));
-        }
-      });
-
-      child.on('exit', (code) => {
-        if (!resolved) {
-          resolved = true;
-          try {
-            // Flush any remaining buffer
-            if (buffer) {
-              safeOnData(buffer);
-            }
-            if (code === 0 || code === 143) { // 143 is SIGTERM which is normal when stopping container
-              resolve();
-            } else {
-              reject(new DockerError(container, 'logs', new Error('Log streaming failed')));
-            }
-          } catch (error) {
-            reject(new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error))));
-          }
-        }
-      });
+    const command = this.dockerCommand(args, {
+      ...options,
+      timeout: options.timeout ?? (options.follow ? 0 : this.managementOptions().timeout),
     });
+    const session = this.startSession({ ...command, throwOnNonZeroExit: true }, onData);
+    try { await session.completion; }
+    catch (error) {
+      throw new DockerError(container, 'logs', error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   /**
@@ -1569,7 +1324,7 @@ export class DockerAdapter extends BaseAdapter {
     const args = this.buildComposeArgs(options);
     args.push('up', '-d');
 
-    const result = await this.executeDockerCommand(args, this.transferOptions());
+    const result = await this.executeDockerCommand(args, { ...this.transferOptions(), env: options.env });
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose up', new Error(result.stderr));
     }
@@ -1582,7 +1337,7 @@ export class DockerAdapter extends BaseAdapter {
     const args = this.buildComposeArgs(options);
     args.push('down');
 
-    const result = await this.executeDockerCommand(args, this.managementOptions());
+    const result = await this.executeDockerCommand(args, { ...this.managementOptions(), env: options.env });
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose down', new Error(result.stderr));
     }
@@ -1595,7 +1350,7 @@ export class DockerAdapter extends BaseAdapter {
     const args = this.buildComposeArgs(options);
     args.push('ps');
 
-    const result = await this.executeDockerCommand(args, this.managementOptions());
+    const result = await this.executeDockerCommand(args, { ...this.managementOptions(), env: options.env });
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose ps', new Error(result.stderr));
     }
@@ -1612,7 +1367,7 @@ export class DockerAdapter extends BaseAdapter {
       args.push(service);
     }
 
-    const result = await this.executeDockerCommand(args, this.managementOptions());
+    const result = await this.executeDockerCommand(args, { ...this.managementOptions(), env: options.env });
     if (result.exitCode !== 0) {
       throw new DockerError('', 'compose logs', new Error(result.stderr));
     }

@@ -80,18 +80,14 @@ await $`echo ${dangerous}`;  // echo ''\''; rm -rf /'
 Commands are enriched with execution context:
 
 ```typescript
-// Global configuration
-const $ = new ExecutionEngine({
-  defaultTimeout: 30000,
-  defaultCwd: '/app',
-  defaultEnv: { NODE_ENV: 'production' }
-});
+import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
 
-// Local configuration
-await $`npm start`
-  .cwd('/projects/app')
-  .env({ DEBUG: 'true' })
-  .timeout(60000);
+const run = createCallableEngine(new ExecutionEngine({
+  defaultTimeout: 30_000,
+  defaultCwd: '/app',
+  defaultEnv: { NODE_ENV: 'production' },
+}));
+await run`pnpm build`.cwd('/projects/app').env({ DEBUG: 'true' }).timeout(60_000);
 ```
 
 ### 3. Adapter Selection
@@ -197,38 +193,25 @@ const buffer = await $`cat binary.dat`.buffer();
 The engine supports Unix-like pipes:
 
 ```typescript
-// Simple pipe — pipe to a command string, not another $`...` ProcessPromise;
-// piping directly to a second tagged-template command does not carry its
-// output through correctly in the current build.
-await $`cat file.txt`.pipe('grep pattern').pipe('wc -l');
+import { $ } from '@xec-sh/core';
 
-// Pipe to a function — called once per output line
-await $`ls -la`.pipe((line) => {
+await $`cat file.txt`.pipe($`grep pattern`).pipe($`wc -l`);
+await $`ls -la`.pipe((line: string) => {
   if (line.includes('.txt')) console.log(line);
 });
-
-// Pipe to a writable stream (e.g. a file)
-import { createWriteStream } from 'node:fs';
-await $`generate-report`.pipe(createWriteStream('report.txt'));
 ```
 
 ## Parallel Execution
 
 ```typescript
-// Execute multiple commands in parallel
-const results = await $.parallel.all([
-  $`test-unit`,
-  $`test-integration`,
-  $`test-e2e`
-]);
+import { $ } from '@xec-sh/core';
 
-// With concurrency limit
-await $.batch(commands, {
-  concurrency: 5,
-  onProgress: (completed, total) => {
-    console.log(`Progress: ${completed}/${total}`);
-  }
+const commands = ['pnpm test:unit', 'pnpm test:integration', 'pnpm test:e2e'];
+const outcomes = await $.batch(commands, {
+  concurrency: 2,
+  onProgress: (completed, total) => console.log(`${completed}/${total}`),
 });
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Test batch failed');
 ```
 
 ## Events and Monitoring
@@ -236,6 +219,7 @@ await $.batch(commands, {
 The engine provides an event system for monitoring:
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine();
 
 $.on('command:start', ({ command, cwd }) => {
@@ -321,20 +305,16 @@ await gitClone.execute($, {
 ### Temporary Files
 
 ```typescript
-// Create temporary file
-const temp = await $.tempFile({ prefix: 'data-' });
-await $`echo "test" > ${temp.path}`;
-await temp.cleanup();
+import { $ } from '@xec-sh/core';
 
-// Automatic cleanup
-await $.withTempFile(async (path) => {
-  await $`process-data > ${path}`;
-  return $`upload ${path}`;
+await $.withTempFile(async path => {
+  await $.writeFile(path, 'temporary data');
+  console.log(await $`wc -c ${path}`.text());
 });
 
-// Same for a directory
-await $.withTempDir(async (dir) => {
-  await $`git clone ${repo} ${dir}`;
+const repository = 'https://github.com/xec-sh/xec.git';
+await $.withTempDir(async directory => {
+  await $`git clone --depth 1 ${repository} ${directory}`;
 });
 ```
 
@@ -343,20 +323,12 @@ await $.withTempDir(async (dir) => {
 Standalone helpers exported from the package:
 
 ```typescript
-import { echo, glob, kill, sleep, xfetch, readStdin, expBackoff, parseDuration } from '@xec-sh/core';
+import { echo, glob, sleep, parseDuration } from '@xec-sh/core';
 
-echo`Deploying ${target}`;                    // print without spawning a process
-await sleep('2s');                            // duration string or milliseconds
-const files = await glob('src/**/*.ts');      // dependency-free globbing
-await kill(pid, 'SIGTERM');                   // kill a process (and its group on POSIX)
-const resp = await xfetch('https://api.example.com/data.json');  // fetch, cross-runtime
-const input = await readStdin();              // read all of stdin as a string
-
-parseDuration('30s');                          // 30000
-for (const delay of expBackoff(60_000, 50)) {  // infinite series: 50, 100, 200, ... capped at 60000
-  await sleep(delay);
-  if (await tryConnect()) break;
-}
+const files = await glob('src/**/*.ts');
+echo`Found ${files.length} TypeScript sources`;
+await sleep('100ms');
+console.log(parseDuration('30s'));
 ```
 
 ### File Transfer
@@ -396,20 +368,17 @@ const secret = await password({ message: 'Password:' });
 ## Error Handling
 
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+
 try {
-  await $`risky-command`;
+  await $`exit 1`;
 } catch (error) {
-  if (error.code === 'COMMAND_FAILED') {
-    console.log('Exit code:', error.exitCode);
-    console.log('Stderr:', error.stderr);
-  }
+  if (!(error instanceof CommandError)) throw error;
+  console.error({ exitCode: error.exitCode, stderr: error.stderr });
 }
 
-// Or with nothrow
-const result = await $`risky-command`.nothrow();
-if (!result.ok) {
-  console.log('Failed with:', result.stderr);
-}
+const result = await $`test -f config.json`.nothrow();
+if (!result.ok) console.log('Configuration check failed', result.exitCode);
 ```
 
 ## Runtime Support
@@ -429,11 +398,11 @@ RuntimeDetector.detect(); // 'node' | 'bun' | 'deno'
 SSH and other adapters automatically manage connection pools:
 
 ```typescript
-const ssh = $.ssh({ host: 'server', username: 'deploy' });
+import { $ } from '@xec-sh/core';
 
-// Uses single connection
-for (const file of files) {
-  await ssh`process ${file}`;
+const remote = $.ssh({ host: 'server.example.com', username: 'deploy' });
+for (const file of ['/srv/app/config.json', '/srv/app/package.json']) {
+  await remote`test -r ${file}`;
 }
 ```
 
@@ -449,10 +418,9 @@ await $.docker({ container: 'app' })`ls`;
 ### Stream Processing
 
 ```typescript
-// Process large outputs line by line without buffering
-for await (const line of $`generate-huge-output`) {
-  await processLine(line);
-}
+import { $ } from '@xec-sh/core';
+
+await $`generate-report`.stdout(process.stdout);
 ```
 
 ## Security
@@ -506,6 +474,7 @@ Configuration is read on each use, so changing `sensitiveDataMasking`
 through `updateConfig` takes effect from the next masked string.
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine({
   adapters: {
     local: {
@@ -532,15 +501,12 @@ redacts it by identity from that moment on:
 
 ```typescript
 import { $, registerSecret } from '@xec-sh/core';
+import { SecretManager } from '@xec-sh/ops/secrets/index';
 
-const password = await store.get('pg');
-
-if (!registerSecret(password)) {
-  console.warn('too short to redact safely; it may appear in output');
-}
-
-const result = await $`psql -c '\\dt'`.env({ PGPASSWORD: password });
-// result.stdout, result.command, any error thrown: all redacted
+const secrets = new SecretManager();
+const password = await secrets.getRequired('pg');
+if (!registerSecret(password)) throw new Error('Database credential cannot be safely redacted');
+await $`psql -c '\dt'`.env({ PGPASSWORD: password });
 ```
 
 The registry is process-wide and append-only. The guarantee is that the
@@ -593,15 +559,11 @@ adapters to register themselves, not as a public extension point.
 ### Event Listeners
 
 ```typescript
-// Add logging via events (listeners observe execution;
-// they cannot modify results)
-$.on('command:start', async (event) => {
-  await logger.log('Command started', event);
-});
+import { $ } from '@xec-sh/core';
 
-$.on('command:complete', async (event) => {
-  await metrics.record(event.duration);
-});
+$.on('command:start', event => console.log({ command: event.command }));
+$.on('command:complete', event => console.log({ duration: event.duration, exitCode: event.exitCode }));
+await $`node --version`;
 ```
 
 ## Usage Examples
@@ -609,28 +571,17 @@ $.on('command:complete', async (event) => {
 ### CI/CD Pipeline
 
 ```typescript
-async function deploy(environment: string) {
-  const $ = new ExecutionEngine();
-  
-  // Build
-  await $`npm ci`;
-  await $`npm run build`;
-  
-  // Tests
-  const tests = await $`npm test`.nothrow();
-  if (!tests.ok) {
-    throw new Error('Tests failed');
+import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
+
+async function build(projectDirectory: string) {
+  const run = createCallableEngine(new ExecutionEngine({ defaultCwd: projectDirectory }));
+  try {
+    await run`pnpm install --frozen-lockfile`;
+    await run`pnpm build`;
+    await run`pnpm test`;
+  } finally {
+    await run.dispose();
   }
-  
-  // Deploy
-  const server = $.ssh({
-    host: `${environment}.example.com`,
-    username: 'deploy'
-  });
-  
-  await server`cd /app && git pull`;
-  await server`npm ci --production`;
-  await server`pm2 restart app`;
 }
 ```
 

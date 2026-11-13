@@ -1,15 +1,13 @@
 import type { K8sLogStream, K8sLogOptions, K8sPortForwardOptions } from './kubernetes-api.js';
 
-import { Writable } from 'node:stream';
-import { StringDecoder } from 'node:string_decoder';
-
 import { LocalAdapter } from '../local/index.js';
 import { ExecutionResult } from '../../core/result.js';
 import { findKubectlPath } from './kubernetes-utils.js';
+import { LocalCommandSession } from '../local/command-session.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, KubernetesAdapterOptions } from '../../types/command.js';
 import { quoteForShell, validateEnvName } from '../../utils/shell-escape.js';
-import { TimeoutError, ExecutionError, MaxBufferExceededError, sanitizeCommandForError } from '../../core/error.js';
+import { TimeoutError, ExecutionError, sanitizeCommandForError } from '../../core/error.js';
 
 export interface KubernetesAdapterConfig extends BaseAdapterConfig {
   /**
@@ -49,7 +47,7 @@ export class KubernetesAdapter extends BaseAdapter {
   private kubectlPath: string;
   private k8sConfig: KubernetesAdapterConfig;
   private local: LocalAdapter;
-  private sessions = new Set<KubectlSession>();
+  private sessions = new Set<LocalCommandSession>();
   private disposed = false;
 
   constructor(config: KubernetesAdapterConfig = {}) {
@@ -300,9 +298,16 @@ export class KubernetesAdapter extends BaseAdapter {
     };
   }
 
-  private startSession(command: Command, onLine?: (data: string) => void): KubectlSession {
+  private startSession(command: Command, onLine?: (data: string) => void): LocalCommandSession {
     if (this.disposed) throw new Error('Kubernetes adapter has been disposed');
-    const session = new KubectlSession(this.local, command, onLine, this.config.encoding);
+    const session = new LocalCommandSession(this.local, command, {
+      encoding: this.config.encoding,
+      onStdout: onLine,
+      onNonZero: result => new ExecutionError(
+        `kubectl exited with code ${result.exitCode}: ${result.stderr}`,
+        'KUBERNETES_ERROR', { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode },
+      ),
+    });
     this.sessions.add(session);
     const release = () => { this.sessions.delete(session); };
     void session.completion.then(release, release);
@@ -437,134 +442,8 @@ export class KubernetesAdapter extends BaseAdapter {
   }
 }
 
-/** A kubectl operation uses LocalAdapter's process, output and termination contract. */
-class KubectlSession implements K8sLogStream {
-  readonly result: Promise<ExecutionResult>;
-  readonly completion: Promise<void>;
-  private controller = new AbortController();
-  private failure: unknown;
-  private stopping = false;
-  private settled = false;
-
-  get stopped(): boolean { return this.stopping; }
-
-  constructor(local: LocalAdapter, command: Command, onLine: ((data: string) => void) | undefined, encoding: BufferEncoding) {
-    command.signal?.throwIfAborted();
-    const fail = (error: unknown) => {
-      if (!this.settled && this.failure === undefined) {
-        this.failure = error;
-        this.controller.abort();
-      }
-    };
-    const output = onLine ? new KubectlOutput(onLine, command.maxBuffer!, encoding, fail) : (command.stdout ?? 'pipe');
-    const abort = () => fail(command.signal!.reason);
-    command.signal?.addEventListener('abort', abort, { once: true });
-    this.result = local.execute({
-      ...command,
-      signal: this.controller.signal,
-      stdout: output,
-      throwOnNonZeroExit: false,
-      nothrow: undefined,
-    }).catch(error => {
-      if (error instanceof MaxBufferExceededError) {
-        error.partialStdout = sanitizeCommandForError(error.partialStdout);
-        error.partialStderr = sanitizeCommandForError(error.partialStderr);
-      }
-      throw error;
-    }).then(result => {
-      if (this.failure !== undefined) throw this.failure;
-      if (command.throwOnNonZeroExit && result.exitCode !== 0 && !(this.stopping && result.signal)) {
-        const stderr = sanitizeCommandForError(result.stderr);
-        throw new ExecutionError(
-          `kubectl exited with code ${result.exitCode}: ${stderr}`,
-          'KUBERNETES_ERROR',
-          { stdout: sanitizeCommandForError(result.stdout), stderr, exitCode: result.exitCode },
-        );
-      }
-      return result;
-    }).finally(() => {
-      this.settled = true;
-      command.signal?.removeEventListener('abort', abort);
-    });
-    this.completion = this.result.then(() => {});
-    // Handles remain safe to stop without awaiting; completion still exposes failures.
-    void this.completion.catch(() => {});
-  }
-
-  cancel(error: Error): void {
-    if (!this.settled && this.failure === undefined) {
-      this.failure = error;
-      this.controller.abort();
-    }
-  }
-
-  stop(): Promise<void> {
-    if (!this.settled && !this.stopping) {
-      this.stopping = true;
-      this.controller.abort();
-    }
-    return this.completion;
-  }
-}
-
-/** Decode full lines across OS chunks, retaining blank lines and an unterminated tail. */
-class KubectlOutput extends Writable {
-  private decoder: StringDecoder;
-  private pending = '';
-  private failed = false;
-
-  constructor(
-    private onLine: (line: string) => void,
-    private maxBuffer: number,
-    private encoding: BufferEncoding,
-    private onFailure: (error: unknown) => void,
-  ) {
-    super();
-    this.decoder = new StringDecoder(encoding);
-  }
-
-  override _write(chunk: Buffer, _encoding: BufferEncoding, done: () => void): void {
-    this.consume(this.decoder.write(chunk), false);
-    done();
-  }
-
-  override _final(done: () => void): void {
-    this.consume(this.decoder.end(), true);
-    done();
-  }
-
-  private consume(text: string, final: boolean): void {
-    if (this.failed) return;
-    try {
-      this.pending += text;
-      let newline: number;
-      while ((newline = this.pending.indexOf('\n')) !== -1) {
-        const line = this.pending.slice(0, newline + 1);
-        this.checkLimit(line);
-        this.pending = this.pending.slice(newline + 1);
-        this.onLine(line);
-      }
-      this.checkLimit(this.pending);
-      if (final && this.pending) {
-        this.onLine(this.pending);
-        this.pending = '';
-      }
-    } catch (error) {
-      this.failed = true;
-      this.pending = '';
-      this.onFailure(error);
-    }
-  }
-
-  private checkLimit(text: string): void {
-    if (Buffer.byteLength(text, this.encoding) > this.maxBuffer) {
-      throw new MaxBufferExceededError(this.maxBuffer, 'stdout');
-    }
-  }
-}
-
 class KubernetesPortForward {
-  private session?: KubectlSession;
+  private session?: LocalCommandSession;
   private opening?: Promise<void>;
   private _localPort: number;
   private _isOpen = false;
@@ -573,7 +452,7 @@ class KubernetesPortForward {
     private requestedLocalPort: number,
     public readonly remotePort: number,
     private readinessTimeout: number,
-    private start: (onLine: (data: string) => void) => KubectlSession,
+    private start: (onLine: (data: string) => void) => LocalCommandSession,
   ) {
     this._localPort = requestedLocalPort;
   }

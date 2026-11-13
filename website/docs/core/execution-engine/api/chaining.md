@@ -128,19 +128,15 @@ await $`tail -f app.log`.stdout(uppercase);
 
 ### Handling Both Streams
 
-There is no `.on()` on `ProcessPromise`, and `.stdout()`/`.stderr()` don't
-accept a per-line callback — only `'pipe' | 'ignore' | 'inherit'` or a
-`Writable`. To observe stdout and stderr separately as they arrive, read the
-live streams off the running process handle instead:
-
 ```typescript
-const proc = $`npm test`;
-const handle = await proc.spawned;
-handle.stdout?.on('data', (chunk) => console.log(`✓ ${chunk}`));
-handle.stderr?.on('data', (chunk) => console.error(`✗ ${chunk}`));
-const result = await proc;
-console.log(`Exit: ${result.exitCode}`);
+import { $ } from '@xec-sh/core';
+
+await $`pnpm test`
+  .stdout(chunk => { process.stdout.write(chunk); })
+  .stderr(chunk => { process.stderr.write(chunk); });
 ```
+
+These callbacks receive chunks. Use `.pipe((line: string) => ...)` for stdout lines or the process handle when a Node stream consumer is required.
 
 ## Conditional Chaining
 
@@ -148,6 +144,7 @@ console.log(`Exit: ${result.exitCode}`);
 
 ```typescript
 // Conditional method application
+const isProduction = process.env.NODE_ENV === 'production';
 const command = $`deploy.sh`;
 
 const configured = isProduction
@@ -171,44 +168,12 @@ function buildCommand(options: any) {
 ### Dynamic Chaining
 
 ```typescript
-// Build chain dynamically
-class CommandBuilder {
-  private command: any;
-  
-  constructor(base: string) {
-    this.command = $`${base}`;
-  }
-  
-  addEnv(key: string, value: string) {
-    this.command = this.command.env({ [key]: value });
-    return this;
-  }
-  
-  addTimeout(ms: number) {
-    this.command = this.command.timeout(ms);
-    return this;
-  }
-  
-  when(condition: boolean, modifier: (cmd: any) => any) {
-    if (condition) {
-      this.command = modifier(this.command);
-    }
-    return this;
-  }
-  
-  async execute() {
-    return await this.command;
-  }
-}
+import { $, type ProcessPromise } from '@xec-sh/core';
 
-// Usage
-const builder = new CommandBuilder('npm run build')
-  .addEnv('NODE_ENV', 'production')
-  .when(useCache, cmd => cmd.env({ USE_CACHE: '1' }))
-  .when(verbose, cmd => cmd.env({ VERBOSE: '1' }))
-  .addTimeout(60000);
-
-await builder.execute();
+let command: ProcessPromise = $`pnpm build`.env({ NODE_ENV: 'production' });
+if (process.env.USE_CACHE === '1') command = command.env({ USE_CACHE: '1' });
+if (process.env.VERBOSE === '1') command = command.env({ VERBOSE: '1' });
+await command.timeout(60_000);
 ```
 
 ## Error Chain Handling
@@ -263,36 +228,28 @@ async function executeWithFallbacks(target: string) {
 ### Output Transformations
 
 ```typescript
-// Chain output transformations
-const result = await $`cat data.json`
-  .json()                    // Parse as JSON
-  .then(data => data.items)  // Extract items
-  .then(items => items.filter(i => i.active))  // Filter
-  .then(items => items.map(i => i.name));      // Map
+import { $ } from '@xec-sh/core';
 
-console.log(result);  // Array of names
+type Item = { name: string; active: boolean };
+const names = await $`cat data.json`
+  .json<{ items: Item[] }>()
+  .then(data => data.items.filter(item => item.active).map(item => item.name));
+console.log(names);
 
-// Text transformations
-const lines = await $`cat file.txt`
-  .text()                    // Get as text
-  .then(text => text.trim()) // Trim whitespace
-  .then(text => text.split('\n'))  // Split lines
-  .then(lines => lines.filter(Boolean));  // Remove empty
+const lines = await $`cat file.txt`.text()
+  .then(text => text.split('\n').map(line => line.trim()).filter(Boolean));
+console.log(lines);
 ```
 
 ### Data Processing Chains
 
 ```typescript
-// Process data through chain
-const pipeline = $`generate-csv`
-  .pipe($`csvtojson`)
-  .json()
-  .then(data => data.map(transformRecord))
-  .then(data => data.filter(validateRecord))
-  .then(data => JSON.stringify(data, null, 2));
+import { $ } from '@xec-sh/core';
 
-const processed = await pipeline;
-await $`echo '${processed}' > output.json`;
+type RecordData = { name: string; active: boolean };
+const records = await $`generate-csv`.pipe($`csvtojson`).json<RecordData[]>();
+const names = records.filter(record => record.active).map(record => record.name.trim());
+await $.writeFile('output.json', JSON.stringify(names, null, 2));
 ```
 
 ## Composition Patterns
@@ -300,76 +257,24 @@ await $`echo '${processed}' > output.json`;
 ### Builder Pattern
 
 ```typescript
-class ExecutionBuilder {
-  private steps: Array<(cmd: any) => any> = [];
-  
-  cwd(path: string) {
-    this.steps.push(cmd => cmd.cwd(path));
-    return this;
-  }
-  
-  env(vars: Record<string, string>) {
-    this.steps.push(cmd => cmd.env(vars));
-    return this;
-  }
-  
-  timeout(ms: number) {
-    this.steps.push(cmd => cmd.timeout(ms));
-    return this;
-  }
-  
-  build(command: string) {
-    let cmd = $`${command}`;
-    for (const step of this.steps) {
-      cmd = step(cmd);
-    }
-    return cmd;
-  }
-}
+import { $ } from '@xec-sh/core';
 
-// Usage
-const builder = new ExecutionBuilder()
-  .cwd('/app')
-  .env({ NODE_ENV: 'production' })
-  .timeout(10000);
-
-const command = builder.build('npm start');
-await command;
+const build = $.cd('/app').env({ NODE_ENV: 'production' }).timeout('2m');
+await build`pnpm build`;
 ```
 
 ### Pipeline Builder
 
 ```typescript
-class Pipeline {
-  private commands: any[] = [];
-  
-  add(command: any) {
-    this.commands.push(command);
-    return this;
-  }
-  
-  async execute() {
-    let result = null;
-    
-    for (let i = 0; i < this.commands.length; i++) {
-      if (i === 0) {
-        result = this.commands[i];
-      } else {
-        result = result.pipe(this.commands[i]);
-      }
-    }
-    
-    return await result;
-  }
+import { $, type ProcessPromise } from '@xec-sh/core';
+
+async function runPipeline(commands: ProcessPromise[]) {
+  const [first, ...rest] = commands;
+  if (!first) throw new Error('A pipeline needs an input command');
+  return rest.reduce((pipeline, command) => pipeline.pipe(command), first);
 }
 
-// Usage
-const pipeline = new Pipeline()
-  .add($`cat data.txt`)
-  .add($`sort`)
-  .add($`uniq`);
-
-await pipeline.execute();
+await runPipeline([$`cat data.txt`, $`sort`, $`uniq`]);
 ```
 
 ## Async Chain Operations
@@ -377,69 +282,35 @@ await pipeline.execute();
 ### Promise Chains
 
 ```typescript
-// Chain with async operations
-await $`fetch-data`
-  .then(async (result) => {
-    await saveToDatabase(result.stdout);
-    return result;
-  })
-  .then(async (result) => {
-    await notifyUsers(result);
-    return result;
-  })
-  .finally(() => {
-    console.log('Pipeline complete');
-  });
+import { $ } from '@xec-sh/core';
+
+await $`git log -5 --oneline`
+  .then(result => $.writeFile('recent-commits.txt', result.stdout))
+  .finally(() => console.log('History export finished'));
 ```
 
 ### Sequential Execution
 
 ```typescript
-// Execute commands sequentially
-const commands = ['cmd1', 'cmd2', 'cmd3'];
+import { $, type ExecutionResult } from '@xec-sh/core';
 
-const results = await commands.reduce(
-  async (prevPromise, cmd) => {
-    const prev = await prevPromise;
-    const result = await $`${cmd}`;
-    return [...prev, result];
-  },
-  Promise.resolve([])
-);
+const commands = ['pnpm install --frozen-lockfile', 'pnpm build', 'pnpm test'];
+const results: ExecutionResult[] = [];
+for (const command of commands) results.push(await $.exec(command));
+console.log(results.map(result => result.exitCode));
 ```
 
 ## Advanced Chaining
 
 ### Middleware Pattern
 
-Middleware here has to operate on the *engine*, not on an already-created
-`ProcessPromise` — `.retry()` in particular only exists on the engine, since
-it wraps `execute()` to retry the whole run:
-
 ```typescript
-class CommandMiddleware {
-  private middlewares: Array<(engine: any) => any> = [];
-  
-  use(middleware: (engine: any) => any) {
-    this.middlewares.push(middleware);
-    return this;
-  }
-  
-  apply(engine: any) {
-    return this.middlewares.reduce(
-      (e, middleware) => middleware(e),
-      engine
-    );
-  }
+import { $, type CallableExecutionEngine } from '@xec-sh/core';
+
+function configure(engine: CallableExecutionEngine) {
+  return engine.timeout('10s').env({ LOG_LEVEL: 'debug' });
 }
-
-// Usage
-const middleware = new CommandMiddleware()
-  .use(engine => engine.timeout(10000))
-  .use(engine => engine.retry({ maxRetries: 3 }))
-  .use(engine => engine.env({ LOG_LEVEL: 'debug' }));
-
-await middleware.apply($)`deploy`;
+await configure($)`node --version`;
 ```
 
 ### Decorator Pattern
@@ -478,51 +349,16 @@ await decorated();
 ### Do's ✅
 
 ```typescript
-// ✅ Build chains progressively — retry is conditional on the engine,
-// since it has to be in place before the template tag runs; timeout is
-// conditional on the resulting ProcessPromise
-let engine = $;
-if (needsRetry) engine = engine.retry({ maxRetries: 3 });
-let command = engine`base-command`;
-if (needsTimeout) command = command.timeout(5000);
+import { $ } from '@xec-sh/core';
+
+let command = $`pnpm build`.env({ NODE_ENV: 'production' });
+if (process.env.CI) command = command.timeout('2m');
 await command;
-
-// ✅ Use immutable chaining
-const base = $`npm install`;
-const prod = base.env({ NODE_ENV: 'production' });
-const dev = base.env({ NODE_ENV: 'development' });
-
-// ✅ Handle errors in chains
-await $.retry({ maxRetries: 3 })`risky`
-  .timeout(5000)
-  .catch(() => $`fallback`);
-
-// ✅ Keep chains readable
-await $`command`
-  .cwd('/app')
-  .env({ KEY: 'value' })
-  .timeout(10000);
 ```
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Don't create overly long chains
-await $`cmd`.method1().method2().method3().method4().method5().method6();
-
-// ❌ Don't mutate shared commands
-const shared = $`command`;
-shared.env({ VAR: '1' });  // This returns new instance
-await shared;  // Original, not modified
-
-// ❌ Don't mix sync and async inappropriately
-const result = $`command`.then(r => r.stdout);  // Returns Promise
-console.log(result);  // Promise, not value
-
-// ❌ Don't ignore chain return values
-$`command`.timeout(5000);  // Return value ignored
-await $`command`;  // No timeout applied
-```
+Keep each returned chain value when applying configuration conditionally. Await the final command or output method, and configure retries only for operations whose effects can safely repeat.
 
 ## Implementation Details
 

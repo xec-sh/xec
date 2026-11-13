@@ -39,87 +39,56 @@ This iterates stdout only.
 ### Line Callbacks
 
 ```typescript
-// .pipe() takes a line-processing function directly
-await $`long-running-process`
-  .pipe((line) => process.stdout.write(`[OUT] ${line}\n`));
+import { $ } from '@xec-sh/core';
+
+await $`long-running-process`.pipe((line: string) => {
+  process.stdout.write(`[OUT] ${line}\n`);
+});
 ```
 
 `.stdout((line) => ...)` and `.stderr((line) => ...)` do **not** do this —
-`.stdout()`/`.stderr()` only accept `'pipe' | 'ignore' | 'inherit'` or a
-`Writable`, not a callback function. Passing a function there is silently
-ignored rather than throwing.
+`.stdout()` and `.stderr()` accept a destination stream, a stream mode, or a chunk callback. `.pipe(fn)` groups stdout into lines.
 
 ### Stream to File
 
 ```typescript
-import { createWriteStream } from 'fs';
+import { $ } from '@xec-sh/core';
+import { createWriteStream } from 'node:fs';
+import { finished } from 'node:stream/promises';
 
-// A real Writable is a valid .stdout()/.stderr() target
-const logFile = createWriteStream('output.log');
-const errorFile = createWriteStream('error.log');
-
-await $`npm run build`
-  .stdout(logFile)
-  .stderr(errorFile);
-
-// Append mode
-const appendStream = createWriteStream('app.log', { flags: 'a' });
-await $`echo "New log entry"`.stdout(appendStream);
+const output = createWriteStream('build.log', { flags: 'a' });
+try {
+  await $`pnpm build`.stdout(output).stderr(process.stderr);
+} finally {
+  output.end();
+  await finished(output);
+}
 ```
-
-`.stdout()` and `.stderr()` each hold exactly one destination — calling
-`.stdout()` twice replaces the first target, it does not chain the two
-together (see [Transform Streams](#transform-streams) below).
 
 ## Pipe Operations
 
 ### Command Piping
 
 ```typescript
-// Pipe between commands with .pipe as a tagged template, or a plain string
-await $`cat large-file.txt`
-  .pipe`grep "error"`
-  .pipe`sort`
-  .pipe`uniq -c`;
+import { $ } from '@xec-sh/core';
 
-// Store an intermediate result
-const filtered = await $`cat data.json`.pipe`jq '.items[]'`;
-const sorted = await filtered.pipe`sort -n`;
+const filtered = $`cat data.json`.pipe($`jq '.items[]'`);
+const result = await filtered.pipe($`sort -n`);
+console.log(result.stdout);
 ```
 
-Pipe to `` .pipe`command` `` or `.pipe('command')` — not
-`.pipe($\`command\`)`. Passing an already-built `ProcessPromise` as the pipe
-target does not work correctly in the current build: the target command
-runs once on its own (with no input), and the second, correctly-piped run is
-lost, so the result comes back empty. If you need a command assembled from a
-variable, use `.pipe(commandString)` or interpolate into the tagged form —
-`` .pipe`${dynamicPart}` ``.
+A pipeline target can be a lazy `ProcessPromise`, command string, command object or tagged template. Configure each command before executing the pipeline. Completed results contain output and metadata.
 
 ### Cross-Environment Piping
 
 ```typescript
-// Pipe from local to remote
-await $`cat local-file.txt`
-  .pipe($.ssh('server')`cat > remote-file.txt`);
+import { $ } from '@xec-sh/core';
+
+const remote = $.ssh({ host: 'web-1.example.com', username: 'deploy' });
+await $`printf %s ${'configuration'}`.pipe(remote`cat > /srv/app/config.txt`);
 ```
 
-The same limitation applies across targets — the example above has the same
-shape as `.pipe($cmd)` and does not work. `stdin` is a writable property, not
-a method, so feed the destination command by writing to it directly:
-
-```typescript
-// Read locally, then write that output into a remote command's stdin
-const local = await $`cat local-file.txt`;
-const upload = $.ssh('server')`cat > remote-file.txt`;
-upload.stdin.write(local.stdout);
-upload.stdin.end();
-await upload;
-```
-
-Piping a command's output into another *target* in one step (local into a
-container, a pod into another container, and so on) is not directly
-supported today — read the source side's result, then write it to the
-destination command's `stdin`, as shown above.
+The target keeps its adapter and options. Use the transfer API for large or binary files. Command pipelines can buffer output according to adapter and pipeline implementation.
 
 ## Transform Streams
 
@@ -162,7 +131,7 @@ on `\n` inside it can split a single line across two calls. `.pipe(fn)`
 does not have that problem:
 
 ```typescript
-await $`tail -f app.log`.pipe((line) => {
+await $`tail -f app.log`.pipe((line: string) => {
   if (line.includes('ERROR')) {
     console.log(`[${new Date().toISOString()}] ${line}`);
   }
@@ -176,7 +145,7 @@ await $`tail -f app.log`.pipe((line) => {
 ```typescript
 // Handle stdout and stderr with separate callbacks
 await $`npm test`
-  .pipe((line) => console.log(`✓ ${line}`));
+  .pipe((line: string) => console.log(`✓ ${line}`));
   // .pipe() only attaches to stdout — see stdall below for a
   // stderr-inclusive view
 ```
@@ -208,7 +177,7 @@ console.log(result.stdall);
 ```typescript
 // Stream Docker logs (the docker CLI, piped through a line processor)
 await $`docker logs -f --tail 100 --timestamps my-container`
-  .pipe((line) => {
+  .pipe((line: string) => {
     const [timestamp, ...message] = line.split(' ');
     console.log({ timestamp, message: message.join(' ') });
   });
@@ -227,7 +196,7 @@ try { await stream.completion; } finally { await stream.stop(); }
 async function aggregateLogs(sources: string[]) {
   await Promise.all(sources.map(source =>
     $.ssh(source)`tail -f /var/log/app.log`
-      .pipe((line) => {
+      .pipe((line: string) => {
         console.log(`[${source}] ${line}`);
       })
   ));
@@ -271,18 +240,13 @@ setTimeout(() => { handle.stdout?.resume(); console.log('resumed'); }, 10000);
 ## Error Handling in Streams
 
 ```typescript
-// A ProcessPromise has no .on('error'/'end') of its own — handle failure
-// the same way as any other command
+import { $ } from '@xec-sh/core';
+
 try {
-  await $`unreliable-stream`.stdout(process.stdout);
+  await $`journalctl --since '5 minutes ago'`.stdout(process.stdout);
 } catch (error) {
-  console.error('Command failed:', error);
+  throw new Error('Journal stream failed', { cause: error });
 }
-
-// Retry on failure
-import { retry } from '@xec-sh/core';
-
-await retry(() => $.exec(command).stdout(process.stdout), { maxRetries: 3 });
 ```
 
 ## Best Practices
@@ -290,34 +254,22 @@ await retry(() => $.exec(command).stdout(process.stdout), { maxRetries: 3 });
 ### Do's ✅
 
 ```typescript
-// ✅ Use streaming for large output instead of buffering it all
-for await (const line of $`cat large-file.txt`) {
-  process(line);
+import { $ } from '@xec-sh/core';
+import { createWriteStream } from 'node:fs';
+import { finished } from 'node:stream/promises';
+
+const destination = createWriteStream('output.txt');
+try {
+  await $`generate-data`.stdout(destination);
+} finally {
+  destination.end();
+  await finished(destination);
 }
-
-// ✅ Read from a single, real Writable destination
-await $`generate-data`.stdout(createWriteStream('output.txt'));
-
-// ✅ Reach for .spawned when you need Node's own stream APIs
-const handle = await $`process-large-data`.spawned;
-handle.stdout?.pipe(myTransform).pipe(process.stdout);
 ```
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Buffer entire output in memory when it could be huge
-const output = await $`cat huge-file.txt`;  // May cause OOM
-
-// ❌ Pass a callback to .stdout()/.stderr() expecting it to be called
-await $`cmd`.stdout((line) => console.log(line));  // Silently does nothing — use .pipe(fn)
-
-// ❌ Pipe to another command via .pipe($cmd)
-await $`cmd1`.pipe($`cmd2`);  // Broken — use .pipe`cmd2` or .pipe('cmd2')
-
-// ❌ Ignore command failures
-$`stream-command`.stdout(output);  // Not awaited, errors go unhandled
-```
+Choose a destination before awaiting execution. Track completion and destination errors, release owned streams in `finally`, and keep output limits appropriate for the adapter's buffering behavior. A returned `ExecutionResult` represents a completed command.
 
 ## Implementation Details
 

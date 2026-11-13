@@ -21,19 +21,23 @@ untouched, so a preset is just a value you can export and share.
 ```typescript
 import { $ } from '@xec-sh/core';
 
-export const prod = $.with({
-  defaultCwd: '/srv/app',
-  defaultEnv: { NODE_ENV: 'production' },
+export const production = $.with({
+  cwd: '/srv/app',
+  env: { NODE_ENV: 'production' },
   timeout: 60_000,
 });
 
-await prod`npm run migrate`;
+await production`pnpm build`;
 ```
 
 Presets compose, because the result of `.with()` has `.with()` too:
 
 ```typescript
-const verbose = prod.with({ timeout: 300_000 });
+import { $ } from '@xec-sh/core';
+
+const production = $.cd('/srv/app').env({ NODE_ENV: 'production' });
+const patient = production.with({ timeout: 300_000 });
+await patient`pnpm build`;
 ```
 
 The same call selects a target, which is how a preset becomes environment-specific:
@@ -66,15 +70,16 @@ release — write a plain async function that takes an engine. It then works
 against every environment without knowing which one it got:
 
 ```typescript
-import type { ExecutionEngine } from '@xec-sh/core';
+import { $, type ProcessPromise } from '@xec-sh/core';
 
-export async function restart(target: ExecutionEngine, service: string) {
+type CommandTarget = (strings: TemplateStringsArray, ...values: unknown[]) => ProcessPromise;
+
+export async function restart(target: CommandTarget, service: string) {
   await target`systemctl restart ${service}`;
-  return target`systemctl is-active ${service}`.nothrow().text();
+  return target`systemctl is-active ${service}`.text();
 }
 
-await restart($.ssh('deploy@web-1'), 'api');
-await restart($.docker('api'), 'nginx');
+await restart($.ssh({ host: 'web-1', username: 'deploy' }), 'api');
 ```
 
 That signature — take an engine, return a result — is the whole extension model.
@@ -123,11 +128,10 @@ to a log cannot leak a password that appeared in a command.
 whether the listener runs.
 
 ```typescript
-// Every SSH event.
-$.onFiltered('ssh:*', event => metrics.increment(event.type));
+import { $ } from '@xec-sh/core';
 
-// Only commands that took longer than a second.
-$.onFiltered('command:complete', event => slowLog.write(event), e => e.duration > 1000);
+$.onFiltered('ssh:*', event => console.log(event.adapter, event.timestamp));
+$.onFiltered('command:complete', event => console.log(event.command, event.duration), event => event.duration > 1000);
 ```
 
 Listeners are strongly typed per event, so `event.duration` on a

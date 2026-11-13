@@ -18,87 +18,30 @@ Parallel execution (`packages/core/src/utils/parallel.ts`) provides:
 
 ## The Real API
 
-Two distinct things share the name "parallel," and they're easy to conflate:
-
-- `parallel(commands, options?)` — a standalone function (`import { parallel } from '@xec-sh/core'`) that runs an array of commands and returns every outcome.
-- `$.parallel` — a property on the engine, not a callable function. `$.parallel(...)` throws; use one of its methods instead.
+`parallel(commands, options)` runs lazy commands with a concurrency limit and returns ordered `results`, `succeeded`, `failed` and elapsed `duration`. A signalled or nonzero result enters `failed`, including when `.nothrow()` is enabled. A rejected command enters `failed` as an error.
 
 ```typescript
 import { $, parallel } from '@xec-sh/core';
 
-// Standalone function: runs on the default $ engine unless you pass one
-const { succeeded, failed, duration } = await parallel(
-  ['echo one', 'echo two', $`echo three`.nothrow()],
-  { maxConcurrent: 5 }
-);
+const outcomes = await parallel([$`node --version`, $`git --version`], { maxConcurrent: 2 });
+console.log(outcomes.results);
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Tool checks failed');
 ```
 
-`ParallelOptions.maxConcurrent` (alias `maxConcurrency`) caps how many
-commands run at once; omitted or `Infinity` means unlimited. The result is
-`{ results, succeeded, failed, duration }`: a command counts as `succeeded`
-only if it ran and exited zero without being signalled, so a `.nothrow()`'d
-command that exited non-zero lands in `failed` holding an `ExecutionResult`
-(not thrown), while a command that could not run at all lands in `failed`
-holding an `Error`.
-
-```typescript
-// $.parallel: a ParallelEngine instance with several methods
-await $.parallel.all([$`test-unit`, $`test-integration`]);      // throws on any failure, resolves ExecutionResult[]
-await $.parallel.settled(['cmd1', 'cmd2'], { maxConcurrent: 3 }); // same shape as the standalone parallel()
-await $.parallel.race([$`fetch-from-cache`, $`fetch-from-api`]);  // resolves with the first settled result
-await $.parallel.map(servers, (server) => `ping -c1 ${server}`);  // one command per item — see note below
-await $.parallel.filter(files, (f) => `test -s ${f}`);            // keeps items whose command exits 0
-await $.parallel.some(checks, { maxConcurrent: 5 });               // true if any command succeeds
-await $.parallel.every(checks, { maxConcurrent: 5 });               // true if all commands succeed
-```
-
-`.map()` and `.filter()` build one command per item — their callback must
-return a `string`, `Command` or `ProcessPromise`, not an arbitrary computed
-value. Gathering several unrelated results per item (not just one command's
-outcome) is a plain `Promise.all(items.map(async (item) => {...}))`
-instead; forcing that shape through `.map()` does not work.
-
-```typescript
-// $.batch(): a thin wrapper defaulting concurrency to 5 and delegating to
-// $.parallel.settled()
-await $.batch(commands, {
-  concurrency: 5,
-  onProgress: (completed, total, succeeded, failed) => {
-    console.log(`${completed}/${total} (${succeeded} ok, ${failed} failed)`);
-  },
-});
-```
+`$.parallel` offers `all`, `settled`, `race`, `map`, `filter`, `some` and `every`. The map and filter callbacks return a command. `$.batch` accepts `concurrency` and `onProgress`.
 
 ## Basic Parallel Execution
 
 ### Promise.all Pattern
 
-Plain `Promise.all`/`Promise.allSettled` work too, since `ProcessPromise`
-is a real `Promise`:
-
 ```typescript
 import { $ } from '@xec-sh/core';
 
-// Execute commands in parallel
-const results = await Promise.all([
-  $`command1`,
-  $`command2`,
-  $`command3`
-]);
-
-// Parallel execution across servers
-const servers = ['server1', 'server2', 'server3'];
-const deployOutputs = await Promise.all(
-  servers.map(server =>
-    $.ssh({ host: server, username: 'deploy' })`deploy.sh`.text()
-  )
-);
-
-// Process results
-deployOutputs.forEach((output, index) => {
-  console.log(`${servers[index]}: ${output}`);
-});
+const results = await Promise.all([$`node --version`, $`git --version`]);
+console.log(results.map(result => result.stdout.trim()));
 ```
+
+`ProcessPromise` is a lazy thenable accepted by native promise combinators. `Promise.all` rejects when an input rejects while the other commands can continue running.
 
 ### Promise.allSettled for Resilience
 
@@ -129,158 +72,51 @@ succeeded/failed split without the `Promise.allSettled` unwrapping step.
 
 ### Limiting Parallelism
 
-`parallel(commands, { maxConcurrent })` and `$.batch(commands, { concurrency })`
-cover the common case without a third-party dependency. For arbitrary
-async work (not just running `$` commands), a general-purpose limiter like
-`p-limit` still applies:
-
 ```typescript
-import pLimit from 'p-limit';
+import { $, parallel } from '@xec-sh/core';
 
-// Limit concurrent executions
-const limit = pLimit(3);  // Max 3 concurrent
-
-const commands = Array.from({ length: 100 }, (_, i) => `echo ${i}`);
-
-const results = await Promise.all(
-  commands.map(cmd =>
-    limit(() => $`${cmd}`)
-  )
-);
+const files = ['README.md', 'package.json', 'pnpm-lock.yaml'];
+const outcomes = await parallel(files.map(file => $`wc -c ${file}`), { maxConcurrent: 2 });
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'File measurement failed');
 ```
 
 ## Map-Reduce Pattern
 
 ### Parallel Map
 
-For per-item async work that isn't a single command (multiple commands, or
-non-command computation per item), a plain concurrency-limited map is more
-direct than forcing it through `$.parallel.map()`:
-
 ```typescript
-import pLimit from 'p-limit';
+import { $ } from '@xec-sh/core';
 
-async function parallelMap<T, R>(
-  items: T[],
-  mapper: (item: T) => Promise<R>,
-  concurrency = 5
-): Promise<R[]> {
-  const limit = pLimit(concurrency);
-
-  return Promise.all(
-    items.map(item => limit(() => mapper(item)))
-  );
-}
-
-// Use parallel map
-const files = ['file1.txt', 'file2.txt', 'file3.txt'];
-const contents = await parallelMap(
-  files,
-  (file) => $`cat ${file}`.text(),
-  3  // Max 3 concurrent
-);
+const files = ['README.md', 'package.json'];
+const outcomes = await $.parallel.map(files, file => $`wc -c ${file}`, { maxConcurrent: 2 });
+console.log(outcomes);
 ```
 
 ### Reduce with Parallelism
 
 ```typescript
-// Parallel reduce operation
-async function parallelReduce<T>(
-  items: T[],
-  reducer: (acc: T, item: T) => Promise<T>,
-  chunkSize = 2
-): Promise<T> {
-  if (items.length === 0) {
-    throw new Error('Cannot reduce empty array');
-  }
+import { $, parallel } from '@xec-sh/core';
 
-  if (items.length === 1) {
-    return items[0];
-  }
-
-  // Process in chunks
-  const chunks = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    chunks.push(items.slice(i, i + chunkSize));
-  }
-
-  // Reduce each chunk in parallel
-  const chunkResults = await Promise.all(
-    chunks.map(async chunk => {
-      let result = chunk[0];
-      for (let i = 1; i < chunk.length; i++) {
-        result = await reducer(result, chunk[i]);
-      }
-      return result;
-    })
-  );
-
-  // Recursively reduce chunk results
-  return parallelReduce(chunkResults, reducer, chunkSize);
-}
-
-// Example: merge files in parallel
-const merged = await parallelReduce(
-  files,
-  async (acc, file) => {
-    const content = await $`cat ${file}`.text();
-    return acc + '\n' + content;
-  }
-);
+const files = ['README.md', 'package.json'];
+const outcomes = await parallel(files.map(file => $`wc -c < ${file}`), { maxConcurrent: 2 });
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'File measurement failed');
+const total = outcomes.succeeded.reduce((bytes, result) => bytes + Number(result.stdout.trim()), 0);
+console.log(total);
 ```
 
 ## Progress Tracking
 
-`$.batch()`'s `onProgress` callback (shown above) covers most cases. For a
-visual progress bar over arbitrary async tasks:
-
 ```typescript
-import pLimit from 'p-limit';
-import { SingleBar } from 'cli-progress';
+import { $ } from '@xec-sh/core';
 
-class VisualProgress {
-  private bar: SingleBar;
-  private completed = 0;
-
-  constructor(total: number) {
-    this.bar = new SingleBar({
-      format: 'Progress |{bar}| {percentage}% | {value}/{total} | ETA: {eta}s',
-      barCompleteChar: '█',
-      barIncompleteChar: '░'
-    });
-    this.bar.start(total, 0);
-  }
-
-  async execute<T>(task: () => Promise<T>): Promise<T> {
-    try {
-      const result = await task();
-      this.completed++;
-      this.bar.update(this.completed);
-      return result;
-    } catch (error) {
-      this.bar.stop();
-      throw error;
-    }
-  }
-
-  async executeAll<T>(
-    tasks: Array<() => Promise<T>>,
-    concurrency = 5
-  ): Promise<T[]> {
-    const limit = pLimit(concurrency);
-
-    const results = await Promise.all(
-      tasks.map(task => limit(() => this.execute(task)))
-    );
-
-    this.bar.stop();
-    return results;
-  }
-}
-
-// Use visual progress
-const visual = new VisualProgress(tasks.length);
-await visual.executeAll(tasks);
+const checks = ['node --version', 'git --version'];
+const outcomes = await $.batch(checks, {
+  concurrency: 2,
+  onProgress: (completed, total, succeeded, failed) => {
+    console.log(`${completed}/${total}, ${succeeded} succeeded, ${failed} failed`);
+  },
+});
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Checks failed');
 ```
 
 ## Error Handling in Parallel
@@ -288,119 +124,40 @@ await visual.executeAll(tasks);
 ### Partial Failure Handling
 
 ```typescript
-// Handle partial failures
-class ParallelExecutor {
-  async executeWithErrors<T>(
-    tasks: Array<() => Promise<T>>
-  ): Promise<{
-    successes: T[];
-    failures: Array<{ index: number; error: Error }>;
-  }> {
-    const results = await Promise.allSettled(tasks.map(task => task()));
+import { $, parallel } from '@xec-sh/core';
 
-    const successes: T[] = [];
-    const failures: Array<{ index: number; error: Error }> = [];
-
-    results.forEach((result, index) => {
-      if (result.status === 'fulfilled') {
-        successes.push(result.value);
-      } else {
-        failures.push({ index, error: result.reason });
-      }
-    });
-
-    return { successes, failures };
-  }
-}
-
-// Handle errors gracefully
-const executor = new ParallelExecutor();
-const { successes, failures } = await executor.executeWithErrors(tasks);
-
-if (failures.length > 0) {
-  console.error(`${failures.length} tasks failed`);
-  failures.forEach(({ index, error }) => {
-    console.error(`Task ${index}: ${error.message}`);
-  });
-}
+const hosts = ['web-1.example.com', 'web-2.example.com'];
+const outcomes = await parallel(
+  hosts.map(host => $.ssh({ host, username: 'deploy' })`systemctl is-active api`.nothrow()),
+  { maxConcurrent: 2 },
+);
+outcomes.results.forEach((outcome, index) => console.log(hosts[index], outcome));
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Some services are unavailable');
 ```
-
-`retry()` (`import { retry } from '@xec-sh/core'`) covers the common
-per-task retry case directly — it retries a command that throws a
-`CommandError`, with configurable backoff, and throws `RetryError` (carrying
-every attempt) on exhaustion — rather than the hand-rolled retry loop this
-pattern would otherwise need.
 
 ### Fast-Fail vs Fail-Safe
 
+With finite concurrency, `stopOnError: true` stops scheduling new work after an observed failure. Already-started commands finish. `stopOnError: false` is the default and collects every outcome. Unlimited concurrency submits all commands before observing results, so use a finite limit when stopping further work matters.
+
 ```typescript
-// Fast-fail: stop on first error
-async function fastFail<T>(tasks: Array<() => Promise<T>>): Promise<T[]> {
-  return Promise.all(tasks.map(task => task()));
-}
+import { $, parallel } from '@xec-sh/core';
 
-// Fail-safe: continue despite errors
-async function failSafe<T>(tasks: Array<() => Promise<T>>): Promise<Array<T | Error>> {
-  const results = await Promise.allSettled(tasks.map(task => task()));
-
-  return results.map(result =>
-    result.status === 'fulfilled' ? result.value : result.reason
-  );
-}
-
-// Choose strategy
-const strategy = critical ? fastFail : failSafe;
-const results = await strategy(tasks);
+const outcomes = await parallel([$`pnpm test:unit`, $`pnpm test:integration`], {
+  maxConcurrent: 1,
+  stopOnError: true,
+});
+if (outcomes.failed.length) throw new AggregateError(outcomes.failed, 'Test sequence stopped');
 ```
-
-`parallel(commands, { stopOnError: false })` (the default) is fail-safe by
-construction; pass `stopOnError: true` for fast-fail without writing either
-helper above.
 
 ## Best Practices
 
 ### Do's ✅
 
-```typescript
-// ✅ Cap concurrency instead of firing everything at once
-await parallel(commands, { maxConcurrent: 5 });
-
-// ✅ Let succeeded/failed do the splitting instead of Promise.allSettled + filter
-const { succeeded, failed } = await parallel(commands, { maxConcurrent: 5 });
-
-// ✅ Track progress through $.batch()'s onProgress
-await $.batch(commands, {
-  concurrency: 5,
-  onProgress: (completed, total) => console.log(`${completed}/${total}`),
-});
-
-// ✅ Choose all() vs settled() deliberately
-const mustAllSucceed = await $.parallel.all(commands);       // throws on first failure
-const tolerant = await $.parallel.settled(commands);          // never throws
-```
+Keep commands lazy until the limiter schedules them. Select a limit appropriate for target resources, retain input-to-result identity and report all observed failures. Use task dependencies for operations that require ordering.
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Unlimited parallelism
-await Promise.all(
-  thousandTasks.map(t => t())  // may overwhelm the target or exhaust local resources
-);
-
-// ❌ $.parallel is a property, not a function
-await $.parallel(commands);  // throws — use $.parallel.all/.settled/...
-
-// ❌ .map()'s callback returning something other than a command
-await $.parallel.map(items, async (item) => ({ item, computed: await doStuff(item) }));
-// .map() expects a string/Command/ProcessPromise back — see "The Real API" above
-
-// ❌ Swallowing which task failed
-try {
-  await Promise.all(tasks);
-} catch {
-  console.log('Something failed');  // which one?
-}
-```
+Avoid starting every command before passing it to the limiter. A failed promise does not cancel sibling operations. Inspect the state of started mutations before retrying a batch.
 
 ## Implementation Details
 

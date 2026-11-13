@@ -372,6 +372,7 @@ good fit for following. To stream logs as they arrive, run the command
 directly and let Xec's own streaming handle it:
 
 ```typescript
+const container_name = 'app';
 for await (const line of $`docker logs -f ${container_name}`) {
   console.log('LOG:', line);
 }
@@ -381,6 +382,7 @@ For statistics, there's no dedicated stats API either — run `docker stats`
 the same way:
 
 ```typescript
+const container_name = 'app';
 const stats = await $`docker stats --no-stream --format '{{json .}}' ${container_name}`.json();
 console.log(stats);
 ```

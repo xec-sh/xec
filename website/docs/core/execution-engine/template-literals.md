@@ -156,10 +156,11 @@ argument when `optionalFlag` is `undefined`, which most CLIs don't treat the
 same as omitting it entirely. Filter it out of an array instead:
 
 ```typescript
-const optionalFlag = condition ? '--verbose' : undefined;
-await $`command ${[optionalFlag].filter(Boolean)} file.txt`;
-// If condition false: command file.txt
-// If condition true: command --verbose file.txt
+import { $ } from '@xec-sh/core';
+
+const verbose = process.env.VERBOSE === '1';
+const flags = verbose ? ['--verbose'] : [];
+await $`git status ${flags}`;
 ```
 
 ### Promises and Async Values
@@ -421,26 +422,14 @@ await $`
 ## Error Handling in Template Literals
 
 ```typescript
-// Incorrect usage
-try {
-  const result = $`command`;  // Forgot await!
-  // result is ProcessPromise, not result
-} catch (e) {
-  // This block won't execute
-}
+import { $, CommandError } from '@xec-sh/core';
 
-// Correct usage
 try {
-  const result = await $`command`;
+  const result = await $`exit 1`;
   console.log(result.stdout);
 } catch (error) {
-  console.error('Command failed:', error.stderr);
-}
-
-// With nothrow
-const result = await $`may-fail`.nothrow();
-if (result.exitCode !== 0) {
-  console.log('Failed but continued');
+  if (!(error instanceof CommandError)) throw error;
+  console.error(error.exitCode, error.stderr);
 }
 ```
 
@@ -449,16 +438,12 @@ if (result.exitCode !== 0) {
 ### String Reuse
 
 ```typescript
-// Inefficient - creates new string each time
-for (const file of files) {
-  await $`process ${file}`;
-}
+import { $ } from '@xec-sh/core';
 
-// More efficient - batch processing
-await $`process ${files}`;
-
-// Or in parallel
-await $.parallel.map(files, file => $`process ${file}`);
+const files = ['README.md', 'package.json'];
+await $`wc -c ${files}`;
+const sizes = await $.parallel.map(files, file => $`wc -c ${file}`, { maxConcurrent: 2 });
+console.log(sizes);
 ```
 
 ### Result Caching
@@ -495,12 +480,11 @@ await $`cat ${file}`;
 or listen for the `command:start` event, which fires with the same string:
 
 ```typescript
-$.on('command:start', ({ command }) => {
-  console.log('Executing:', command);
-});
+import { $ } from '@xec-sh/core';
 
+$.on('command:start', ({ command }) => console.log('Executing', command));
+const file = 'test file.txt';
 await $`cat ${file}`;
-// Outputs: Executing: cat 'test file.txt'
 ```
 
 ## Best Practices
@@ -524,23 +508,7 @@ const { stdout: version } = await $`node --version`;
 
 ### ❌ Avoid
 
-```typescript
-// Don't use string concatenation — the whole concatenated string becomes
-// one quoted argument, so this doesn't inject, but it also doesn't do what
-// you meant: it tries to run a command literally named "ls <userInput>"
-// and fails with "command not found"
-const bad = 'ls ' + userInput;
-await $`${bad}`;
-
-// Don't forget await
-const result = $`command`;  // This is Promise, not result!
-
-// Don't use raw without necessity
-await $.raw`rm ${userInput}`;  // Dangerous!
-
-// Don't pass unchecked data
-await $`mysql -p${userPassword}`;  // Password in logs!
-```
+Pass values as template substitutions and use `$.exec` only for trusted complete command text. Await the final command. Supply credentials through the target environment or stdin and register secrets before execution so diagnostic output can redact them.
 
 ## Conclusion
 

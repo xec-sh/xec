@@ -112,7 +112,8 @@ describe('Docker target options through the public engine', () => {
     calls: string[][] = [];
     protected override async executeDockerCommand(args: string[]) {
       this.calls.push(args);
-      return { stdout: '', stderr: '', stdall: '', exitCode: 0, signal: null };
+      const stdout = args[0] === 'ps' ? JSON.stringify({ ID: 'a'.repeat(64), Names: 'api' }) : '';
+      return { stdout, stderr: '', stdall: stdout, exitCode: 0, signal: null };
     }
   }
 

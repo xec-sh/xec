@@ -157,7 +157,7 @@ await within('/tmp', async () => {
 
 `within` is a standalone function, not an engine method — there is no
 `$.within`. It also accepts a full config object instead of a bare `cwd`
-string (`within({ cwd: '/tmp', env: {...} }, fn)`), and a synchronous
+string (`within({ cwd: '/tmp', defaultEnv: {...} }, fn)`), and a synchronous
 counterpart, `withinSync`, for non-async callbacks.
 
 ### Environment Variables
@@ -215,20 +215,20 @@ process.on('SIGINT', async () => {
 ### Abort Controller
 
 ```typescript
-// Use AbortController
+import { $, ExecutionError } from '@xec-sh/core';
+
 const controller = new AbortController();
-
-const task = $`long-task`.signal(controller.signal);
-
-// Cancel after timeout
-setTimeout(() => controller.abort(), 10000);
-
+const timer = setTimeout(() => controller.abort(), 10_000);
 try {
-  await task;
+  await $`long-task`.signal(controller.signal);
 } catch (error) {
-  if (error.name === 'AbortError') {
+  if (error instanceof Error && controller.signal.aborted) {
     console.log('Task cancelled');
+  } else {
+    throw error;
   }
+} finally {
+  clearTimeout(timer);
 }
 ```
 
@@ -372,26 +372,23 @@ There is no `killed` field — a signalled process is distinguishable through
 ### Error Handling
 
 ```typescript
-// Default behavior - throws on non-zero exit
+import { $, CommandError } from '@xec-sh/core';
+
 try {
   await $`exit 1`;
 } catch (error) {
+  if (!(error instanceof CommandError)) throw error;
   console.error('Command failed:', error.exitCode);
 }
 
-// Use nothrow() to prevent throwing
-const result = await $`might-fail`.nothrow();
-if (!result.ok) {
-  console.error('Failed but continued');
-}
+const result = await $`test -f config.json`.nothrow();
+if (!result.ok) console.error('Configuration file is unavailable');
 
-// Check specific exit codes
-const result = await $`special-command`.nothrow();
-switch (result.exitCode) {
-  case 0: console.log('Success'); break;
-  case 1: console.log('General error'); break;
-  case 2: console.log('Misuse'); break;
-  default: console.log('Unknown error');
+const checked = await $`test -s config.json`.nothrow();
+switch (checked.exitCode) {
+  case 0: console.log('Configuration contains data'); break;
+  case 1: console.log('Configuration is missing or empty'); break;
+  default: throw new Error(`Unexpected check status ${checked.exitCode}`);
 }
 ```
 
@@ -400,6 +397,7 @@ switch (result.exitCode) {
 ### Command Events
 
 ```typescript
+import { ExecutionEngine } from '@xec-sh/core';
 const $ = new ExecutionEngine();
 
 // Listen for execution events
@@ -424,23 +422,19 @@ carries.
 ### Custom Events
 
 ```typescript
-// Emit custom events
-$.emit('custom:event', { data: 'value' });
+import { EventEmitter } from 'node:events';
+import { $ } from '@xec-sh/core';
 
-// Listen for custom events
-$.on('custom:event', (payload) => {
-  console.log('Custom event:', payload);
-});
-
-// One-time listeners
-$.once('initialization:complete', () => {
-  console.log('Initialized');
-});
-
-// Remove listeners
-const handler = () => console.log('Handler');
-$.on('event', handler);
-$.off('event', handler);
+const workflow = new EventEmitter<{ progress: [event: { phase: string }] }>();
+const report = (event: { phase: string }) => console.log(event.phase);
+workflow.on('progress', report);
+try {
+  workflow.emit('progress', { phase: 'build' });
+  await $`pnpm build`;
+  workflow.emit('progress', { phase: 'complete' });
+} finally {
+  workflow.off('progress', report);
+}
 ```
 
 ## Utility Methods
@@ -551,25 +545,12 @@ if (!result.ok) {
 await $`curl https://api.example.com`.timeout(10000);
 
 // ✅ Use events for monitoring
-$.on('command:error', (e) => logger.error(e));
+$.on('command:error', (e) => console.error(e));
 ```
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Don't interpolate through $.raw, which skips escaping
-await $.raw`echo ${userInput}`;  // Dangerous — userInput reaches the shell unescaped
-
-// ❌ Don't ignore errors
-await $`failing-command`;  // Will throw
-
-// ❌ Don't buffer large outputs
-const huge = await $`cat 10gb-file.dat`;  // OOM
-
-// ❌ Don't leak resources
-const proc = $`long-running`;
-// Should await or kill
-```
+Interpolate values through the template tag, retain command promises until completion, and bound buffered output with `maxBuffer`. Close resources in `finally` and preserve the cause when reporting a failed operation.
 
 ## Implementation Details
 

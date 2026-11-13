@@ -38,115 +38,47 @@ if (result.ok) {
 
 ### Result Type Definition
 
-```typescript
-interface ExecutionResult {
-  stdout: string;
-  stderr: string;
-  stdall: string;                       // stdout and stderr merged in arrival order
-  exitCode: number;
-  signal?: string;
-  ok: boolean;                          // exitCode === 0 && !signal
-  cause?: string;                       // set when !ok: 'signal: SIGTERM' or 'exitCode: 1'
-  command: string;
-  duration: number;
-  startedAt: Date;
-  finishedAt: Date;
-  adapter: string;
-  host?: string;                        // set for SSH
-  container?: string;                   // set for Docker/Kubernetes
-  toMetadata(): object;
-  throwIfFailed(): void;
-  text(): string;
-  json<T = any>(): T;
-  lines(): string[];
-  buffer(): Buffer;
-}
-```
+Import `ExecutionResult` from `@xec-sh/core`. Its `ok`, `exitCode`, `signal` and `cause` describe completion. `stdout`, `stderr`, `stdall` and `buffer()` expose captured output. Metadata includes `command`, `duration`, `startedAt`, `finishedAt`, `adapter`, `host` and `container`. `throwIfFailed()` converts an unsuccessful completed result into a `CommandError`.
 
-There is no `.error` field on a result — `nothrow()` gives you the plain
-outcome (`exitCode`, `stderr`, `signal`, `cause`), not a wrapped error object.
-To get an actual error instance, let the command throw and catch it.
+Transport or spawn failures can still reject a `.nothrow()` command. Preserve those errors separately from a completed nonzero exit.
 
 ## Error Classes
 
-```typescript
-import {
-  ExecutionError,
-  CommandError,
-  ConnectionError,
-  TimeoutError,
-  AdapterError,
-  DockerError,
-  KubernetesError,
-  MaxBufferExceededError,
-  RetryError,
-} from '@xec-sh/core';
-```
+`CommandError`, `ConnectionError`, `TimeoutError`, `AdapterError`, `DockerError`, `KubernetesError` and `MaxBufferExceededError` extend `ExecutionError`. Its `code` identifies the error type, `kind` classifies the failure and `details` contains adapter-specific context.
 
-Every one of these extends `ExecutionError`:
-
-```typescript
-class ExecutionError extends Error {
-  readonly code: string;              // fixed per class, e.g. 'COMMAND_FAILED', 'TIMEOUT'
-  readonly kind: FailureKind;         // stable classification, see below
-  readonly details?: Record<string, any>;
-  get recoverable(): boolean;
-}
-```
-
-`code` is a constant per class (`CommandError` is always `'COMMAND_FAILED'`,
-`TimeoutError` is always `'TIMEOUT'`, `MaxBufferExceededError` is always
-`'MAX_BUFFER_EXCEEDED'`, and so on) — useful for a quick check without an
-`instanceof`. `kind` is the classification meant for branching: it also
-covers failures this package didn't throw itself, via `classifyFailure`
-below.
+`RetryError` extends `Error` and records the attempted results. Use the public classes for `instanceof` checks.
 
 ### Handling Specific Errors
 
 ```typescript
-import { CommandError, ExecutionError, ConnectionError } from '@xec-sh/core';
+import { $, CommandError, ExecutionError } from '@xec-sh/core';
 
 try {
-  await $`risky-command`;
+  await $.ssh({ host: 'web-1', username: 'deploy' })`systemctl is-active api`;
 } catch (error) {
-  if (error instanceof ExecutionError && error.kind === 'timeout') {
-    console.log('Command timed out, retrying with a longer budget...');
-    await $`risky-command`.timeout(30000);
-  } else if (error instanceof CommandError && error.exitCode === 126) {
-    console.log('Permission denied, trying with sudo...');
-    await $`sudo risky-command`;
-  } else if (error instanceof ConnectionError) {
-    console.log('Connection failed, using the local fallback...');
-    await $.local()`fallback-command`;
-  } else {
-    throw error;
-  }
+  if (error instanceof CommandError) console.error('Service check exited', error.exitCode);
+  else if (error instanceof ExecutionError) console.error('Transport failure', error.kind);
+  throw error;
 }
 ```
 
 ### Why a Failure Failed
 
 ```typescript
-import { classifyFailure, isRecoverable, type FailureKind } from '@xec-sh/core';
+import { $, classifyFailure } from '@xec-sh/core';
 
 try {
   await $.docker('api')`./migrate.sh`;
 } catch (error) {
-  if (error instanceof ExecutionError && error.recoverable) {
-    // The daemon went away mid-flight; a fresh connection may succeed.
-    await reconnect();
+  const kind = classifyFailure(error);
+  if (kind === 'outcome-unknown' || kind === 'connection-lost') {
+    console.error('Inspect migration state before deciding whether to repeat it');
   }
+  throw new Error(`Migration failed (${kind})`, { cause: error });
 }
 ```
 
-`kind` is one of `command-failed`, `timeout`, `connection-lost`,
-`connection-refused`, `authentication`, `not-found`, `permission-denied`,
-`invalid-usage`, `host-key-mismatch` or `unknown`. Only `connection-lost` and
-`connection-refused` are `recoverable` — retrying rejected credentials or a
-missing container only multiplies the error, and a host key that no longer
-matches the recorded one must never be retried automatically.
-`classifyFailure(error)` applies the same rules to any thrown value,
-including a raw stderr string from a tool you shelled out to yourself.
+The classifications are `command-failed`, `outcome-unknown`, `timeout`, `connection-lost`, `connection-refused`, `authentication`, `not-found`, `permission-denied`, `invalid-usage`, `host-key-mismatch` and `unknown`. `recoverable` identifies connection failures for which a fresh transport may succeed. Applications must separately establish whether repeating an operation is safe.
 
 ## Retry Logic
 
@@ -157,9 +89,8 @@ import { $, retry } from '@xec-sh/core';
 
 // retry() takes a function returning a command, not a chained call.
 // It retries when the command throws a CommandError (the default for a
-// command that isn't .nothrow()'d) — any other thrown value is treated as a
-// caller bug and propagates immediately.
-const result = await retry(() => $`unstable-service`, {
+// command that isn't .nothrow()'d) — other failures propagate immediately.
+const result = await retry(() => $`curl --fail --silent https://api.example.com/health`, {
   maxRetries: 5,
   initialDelay: 1000,      // ms before the first retry
   maxDelay: 10000,         // cap on the delay between retries
@@ -174,10 +105,10 @@ Exhausting every attempt throws `RetryError`, which carries `attempts`, the
 `lastResult` and every intermediate `results`:
 
 ```typescript
-import { RetryError } from '@xec-sh/core';
+import { $, retry, RetryError } from '@xec-sh/core';
 
 try {
-  await retry(() => $`unstable-service`, { maxRetries: 3 });
+  await retry(() => $`curl --fail --silent https://api.example.com/health`, { maxRetries: 3 });
 } catch (error) {
   if (error instanceof RetryError) {
     console.log(`Failed after ${error.attempts} attempts`);
@@ -197,41 +128,34 @@ await $.retry({ maxRetries: 3 })`unstable-service`;
 ### Conditional Retries
 
 ```typescript
-// Retry only on specific outcomes
-const selective = await retry(() => $`network-command`, {
-  maxRetries: 3,
-  isRetryable: (result) => result.exitCode === 124 || result.exitCode === 1,
-});
+import { $, retry } from '@xec-sh/core';
 
-// Jitter (±25% of the delay, on by default) spreads retries out to avoid a
-// thundering herd against a recovering service
-const jittered = await retry(() => $`api-call`, {
-  maxRetries: 5,
-  initialDelay: 1000,
+await retry(() => $`curl --fail --silent --show-error https://api.example.com/health`, {
+  maxRetries: 3,
+  initialDelay: 500,
   jitter: true,
+  isRetryable: result => [7, 28, 52, 56].includes(result.exitCode),
 });
 ```
+
+This example retries a read-only health probe for selected curl connection failures. A transport error outside `CommandError` propagates immediately.
 
 ### Backoff
 
 ```typescript
-// Default: exponential backoff, doubling each attempt
-await retry(() => $`command`, {
-  maxRetries: 5,
-  initialDelay: 1000,
-  backoffMultiplier: 2,  // 1s, 2s, 4s, 8s, 16s
-});
+import { $, retry } from '@xec-sh/core';
 
-// A multiplier of 1 keeps the delay constant instead of growing
-await retry(() => $`command`, {
-  maxRetries: 5,
-  initialDelay: 1000,
-  backoffMultiplier: 1,  // 1s, 1s, 1s, 1s, 1s
+await retry(() => $`curl --fail --silent https://api.example.com/health`, {
+  maxRetries: 3,
+  initialDelay: 500,
+  maxDelay: 5000,
+  backoffMultiplier: 2,
+  jitter: true,
+  isRetryable: result => [7, 28].includes(result.exitCode),
 });
 ```
 
-There is no linear, fibonacci or custom-function backoff — only exponential
-(or constant, with `backoffMultiplier: 1`), each optionally jittered.
+`backoffMultiplier: 1` gives a constant delay. `maxRetries` excludes the initial attempt. The same core options are available through `$.retry(options)`.
 
 ## Error Context
 
@@ -257,6 +181,8 @@ its shape depends on the class. `CommandError.details` holds `exitCode`,
 `ConnectionError.details` holds `host` and `originalError`.
 
 ```typescript
+import { $, CommandError } from '@xec-sh/core';
+const remote = $.ssh({ host: 'web-1', username: 'deploy' });
 try {
   await remote`failing-command`;
 } catch (error) {
@@ -285,68 +211,11 @@ try {
 
 ### Fallback Chains
 
-```typescript
-// Try multiple approaches
-async function executeWithFallback(command: string) {
-  // Try SSH first
-  const ssh = await $.ssh('prod-server')`${command}`.nothrow();
-  if (ssh.ok) return ssh;
-  
-  // Fallback to Docker
-  const docker = await $.docker({ container: 'backup-container' })`${command}`.nothrow();
-  if (docker.ok) return docker;
-  
-  // Final fallback to local
-  return await $`${command}`;
-}
-```
+Define alternate targets only for reads whose data consistency permits substitution. A failed deployment or migration requires inspection of the original target. Preserve the original error when reporting the unavailable operation. Xec exposes the failure classification so the application can make this decision.
 
 ### Circuit Breaker Pattern
 
-```typescript
-class CircuitBreaker {
-  private failures = 0;
-  private lastFailTime = 0;
-  private state: 'closed' | 'open' | 'half-open' = 'closed';
-  
-  constructor(
-    private threshold = 5,
-    private timeout = 60000,
-    private halfOpenRequests = 3
-  ) {}
-  
-  async execute(command: () => Promise<any>) {
-    if (this.state === 'open') {
-      if (Date.now() - this.lastFailTime > this.timeout) {
-        this.state = 'half-open';
-      } else {
-        throw new Error('Circuit breaker is open');
-      }
-    }
-    
-    try {
-      const result = await command();
-      if (this.state === 'half-open') {
-        this.state = 'closed';
-        this.failures = 0;
-      }
-      return result;
-    } catch (error) {
-      this.failures++;
-      this.lastFailTime = Date.now();
-      
-      if (this.failures >= this.threshold) {
-        this.state = 'open';
-      }
-      throw error;
-    }
-  }
-}
-
-// Usage
-const breaker = new CircuitBreaker();
-await breaker.execute(() => $`risky-command`);
-```
+A circuit breaker belongs to the caller's service policy. Define the failure threshold, cooldown, read-only recovery probe and shared state explicitly when a workflow needs one. Xec exposes classified failures and execution events for that policy. Its SSH connection pool manages transport reuse independently.
 
 ## Timeout Handling
 
@@ -403,24 +272,18 @@ async function deployWithTimeouts() {
 ### Input Validation
 
 ```typescript
-// Validate before execution
-function validateAndExecute(command: string) {
-  // Check for dangerous patterns
-  if (command.includes('rm -rf /')) {
-    throw new Error('Dangerous command detected');
-  }
-  
-  // Check for required variables
-  if (!process.env.API_KEY) {
-    throw new Error('API_KEY environment variable required');
-  }
-  
-  // $.exec() runs an already-assembled string with the full chaining API;
-  // interpolating it into a template (`` $`${command}` ``) would quote the
-  // whole string as a single argument instead of parsing it as a command line.
-  return $.exec(command);
+import { $ } from '@xec-sh/core';
+
+async function checkService(service: string) {
+  const allowed = new Set(['api', 'worker']);
+  if (!allowed.has(service)) throw new Error('Unknown managed service');
+  return $`systemctl is-active ${service}`;
 }
+
+console.log(await checkService('api'));
 ```
+
+Validate the operation and its arguments before execution. Template interpolation escapes argument values. Checking a command string for a few forbidden substrings cannot establish that the whole shell program is safe.
 
 ### Output Assertions
 
@@ -464,6 +327,7 @@ async function deployToAllServers(servers: string[]) {
 ### Error Summaries
 
 ```typescript
+import { ExecutionError } from '@xec-sh/core';
 // Summarize multiple errors
 class ErrorSummary {
   private errors: ExecutionError[] = [];
@@ -546,50 +410,11 @@ $.on('command:error', async ({ command, error, duration }) => {
 
 ### Do's ✅
 
-```typescript
-// ✅ Use nothrow() for explicit error handling
-const result = await $`command`.nothrow();
-if (!result.ok) {
-  // Handle error explicitly
-}
-
-// ✅ Add retry logic for network operations
-import { retry } from '@xec-sh/core';
-await retry(() => $.ssh('server')`api-call`, { maxRetries: 3 });
-
-// ✅ Set appropriate timeouts
-await $`build`.timeout(60000);
-
-// ✅ Log errors with context
-$.on('command:error', ({ command, error }) => {
-  logger.error('Command failed', { command, error });
-});
-
-// ✅ Branch on the stable classification, not on message text
-if (error instanceof ExecutionError && error.kind === 'authentication') {
-  // Handle auth failure specifically
-}
-```
+Classify the actual failure, preserve the cause, bound retries and deadlines, and check state after an unknown remote outcome. Keep authentication errors, authorization failures and completed nonzero exits distinguishable in diagnostics.
 
 ### Don'ts ❌
 
-```typescript
-// ❌ Ignore errors silently
-try {
-  await $`command`;
-} catch {
-  // Don't swallow errors
-}
-
-// ❌ Retry indefinitely
-await retry(() => $`command`, { maxRetries: Infinity });  // Bad idea
-
-// ❌ Use generic error messages
-throw new Error('Something went wrong');  // Too vague
-
-// ❌ Mix error handling patterns
-// Pick either Result pattern (.nothrow()) or try/catch, not both randomly
-```
+Avoid retrying side effects solely because a connection is recoverable, swallowing failed results, or changing targets after an uncertain mutation. Report the operation and target alongside the original error.
 
 ## Implementation Details
 

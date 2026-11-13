@@ -136,11 +136,15 @@ await forward.close();
 ```
 
 ```typescript
-// Let the OS pick a free local port
-const dbForward = await $.k8s({ namespace: 'data' }).pod('database-pod').portForwardDynamic(5432);
-console.log('Forwarded on port', dbForward.localPort);
+import { $ } from '@xec-sh/core';
 
-const db = await connectDB(`localhost:${dbForward.localPort}`);
+const pod = $.k8s({ namespace: 'data', context: 'development' }).pod('database-pod');
+const forward = await pod.portForwardDynamic(5432);
+try {
+  await $`psql -h 127.0.0.1 -p ${forward.localPort} -U app -d app -c 'SELECT 1'`;
+} finally {
+  await forward.close();
+}
 ```
 
 `K8sPortForward` has `.localPort`, `.remotePort`, `.isOpen` and `.close()`.
@@ -165,17 +169,17 @@ const crashLogs = await pod.logs({ previous: true, container: 'app' });
 ### Streaming Logs
 
 ```typescript
-// Callback form
-const stream = await pod.streamLogs((line) => {
-  console.log('LOG:', line);
-}, { follow: true, tail: 100 });
+import { $ } from '@xec-sh/core';
 
-// later
-await stream.stop();
-
-// Or, equivalently, .follow() — the same thing with follow: true implied
-const following = await pod.follow(line => process.stdout.write(line));
-try { await following.completion; } finally { await following.stop(); }
+const pod = $.k8s({ namespace: 'production', context: 'production' }).pod('worker-0');
+const stream = await pod.follow(line => { process.stdout.write(line); }, {
+  container: 'app', tail: 100, timeout: 60_000,
+});
+try {
+  await stream.completion;
+} finally {
+  await stream.stop();
+}
 ```
 
 ### Logs Across Several Pods

@@ -223,12 +223,14 @@ export class DockerError extends ExecutionError {
     public readonly operation: string,
     public readonly originalError: Error
   ) {
-    super(`Docker operation '${operation}' failed for container ${container}: ${originalError.message}`, 'DOCKER_ERROR', {
+    const safeError = sanitizeErrorForDiagnostics(originalError);
+    super(`Docker operation '${operation}' failed for container ${container}: ${safeError.message}`, 'DOCKER_ERROR', {
       container,
       operation,
-      originalError: originalError.message
+      originalError: safeError.message
     });
     this.name = 'DockerError';
+    this.originalError = safeError;
   }
 }
 
@@ -314,6 +316,14 @@ export function sanitizeErrorForDiagnostics(error: Error): Error {
       return items;
     }
     const result = value instanceof AggregateError ? new AggregateError([]) : value instanceof Error ? new Error() : {};
+    // Preserve known core error classes, never an arbitrary error's accessors.
+    // Callers use these types to handle deadlines and output overflow.
+    if (value instanceof Error) {
+      const prototype = Object.getPrototypeOf(value);
+      const known = [ExecutionError, ExecutionOutcomeUnknownError, CommandError, ConnectionError,
+        TimeoutError, MaxBufferExceededError, DockerError, AdapterError, KubernetesError];
+      if (known.some(type => type.prototype === prototype)) Object.setPrototypeOf(result, prototype);
+    }
     seen.set(value, result);
     for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
       if (!('value' in descriptor)) continue;

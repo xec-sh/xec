@@ -118,33 +118,22 @@ own.
 ## Best Practices
 
 ```typescript
-// ✅ Keep one target context and reuse it across commands
-const ssh = $.ssh({ host: 'server', username: 'deploy' });
-await ssh`command1`;
-await ssh`command2`;
-await ssh`command3`;
+import { ExecutionEngine, createCallableEngine } from '@xec-sh/core';
 
-// ✅ Size the pool for your fan-out, not the default
-const $ = new ExecutionEngine({
-  adapters: { ssh: { connectionPool: { enabled: true, maxConnections: 50 } } },
-});
-
-// ✅ Watch pool health instead of polling a nonexistent pool object
-$.on('ssh:pool-metrics', ({ metrics }) => reportMetrics(metrics));
-```
-
-```typescript
-// ❌ Re-resolving the target doesn't defeat pooling (reuse is keyed by
-// host/port/user), but constructing it fresh in a hot loop is still
-// needless allocation — hoist it once
-for (const cmd of commands) {
-  await $.ssh({ host: 'server', username: 'deploy' })`${cmd}`;
+const run = createCallableEngine(new ExecutionEngine({
+  adapters: { ssh: { connectionPool: { enabled: true, maxConnections: 10 } } },
+}));
+run.on('ssh:pool-metrics', ({ metrics }) => console.log(metrics));
+try {
+  const remote = run.ssh({ host: 'server', username: 'deploy' });
+  await remote`uptime`;
+  await remote`df -h`;
+} finally {
+  await run.dispose();
 }
-
-// ❌ There is no connection object to close manually for SSH — the pool
-// manages its own lifetime via idleTimeout/maxLifetime. Calling methods
-// like .disconnect() or .close() on what $.ssh(...) returns does not exist.
 ```
+
+Keep a target context for a related sequence of commands and dispose the owning engine after its work completes. Pool reuse follows the host, port, credentials and connection configuration. Configure idle lifetime in the pool instead of calling nonexistent disconnect methods on a target context.
 
 ## Implementation
 
