@@ -8,7 +8,36 @@ import type { TableOptions, VirtualTableOptions } from './types.js';
 import { settings } from '../../core/index.js';
 import { renderTable } from './table-renderer.js';
 import InteractiveTablePrompt from './interactive-table.js';
+import { runValidation } from '../../core/utils/validation.js';
 import { renderInteractiveTable } from './interactive-renderer.js';
+
+function validateTableOptions<T>(options: TableOptions<T> & Partial<VirtualTableOptions<T>>): void {
+  if (!Array.isArray(options.data)) throw new TypeError('Table data must be an array');
+  if (!Array.isArray(options.columns) || options.columns.length === 0) {
+    throw new TypeError('Table must have at least one column');
+  }
+  const sizes = [options.maxHeight, options.pageSize, ...options.columns.map(column => column.width).filter(value => typeof value === 'number')];
+  if (sizes.some(value => value !== undefined && (!Number.isSafeInteger(value) || value < 1))) {
+    throw new RangeError('Table heights and column widths must be positive safe integers');
+  }
+  if (typeof options.width === 'number' && (!Number.isFinite(options.width) || options.width <= 0 || options.width > 1)) {
+    throw new RangeError('Table width must be a fraction greater than 0 and at most 1');
+  }
+  const keys = new Set<PropertyKey>();
+  for (const column of options.columns) {
+    if (keys.has(column.key)) throw new TypeError('Table column keys must be unique');
+    keys.add(column.key);
+    if (column.priority !== undefined && !Number.isFinite(column.priority)) {
+      throw new RangeError('Table column priority must be finite');
+    }
+  }
+  if (options.initialSelection?.some(row => !options.data.includes(row))) {
+    throw new TypeError('Initial selection must contain rows from table data');
+  }
+  if (options.selectable === 'single' && new Set(options.initialSelection).size > 1) {
+    throw new TypeError('Single selection accepts at most one initial row');
+  }
+}
 
 /**
  * Render a static table to the output stream
@@ -37,14 +66,7 @@ import { renderInteractiveTable } from './interactive-renderer.js';
 export function table<T = any>(options: TableOptions<T>): void {
   const output: Writable = options.output ?? process.stdout;
 
-  // Validate options
-  if (!options.data || !Array.isArray(options.data)) {
-    throw new TypeError('Table data must be an array');
-  }
-
-  if (!options.columns || !Array.isArray(options.columns) || options.columns.length === 0) {
-    throw new TypeError('Table must have at least one column');
-  }
+  validateTableOptions(options);
 
   // Set defaults
   const tableOptions: TableOptions<T> = {
@@ -107,14 +129,7 @@ export function interactiveTable<T = any>(
     signal?: AbortSignal;
   }
 ): Promise<T[] | symbol> {
-  // Validate options
-  if (!options.data || !Array.isArray(options.data)) {
-    throw new TypeError('Table data must be an array');
-  }
-
-  if (!options.columns || !Array.isArray(options.columns) || options.columns.length === 0) {
-    throw new TypeError('Table must have at least one column');
-  }
+  validateTableOptions(options);
 
   const validate = options.validate;
 
@@ -154,7 +169,9 @@ export function interactiveTable<T = any>(
     loadMore: options.loadMore,
     hasMore: options.hasMore ?? false,
     loadingIndicator: options.loadingIndicator,
-    validate: validate ? (rows) => validate(rows ?? []) : undefined,
+    validate: validate ? (rows) => typeof validate === 'function'
+      ? validate(rows ?? [])
+      : runValidation(validate, rows ?? []) : undefined,
     input: options.input,
     output: options.output,
     signal: options.signal,

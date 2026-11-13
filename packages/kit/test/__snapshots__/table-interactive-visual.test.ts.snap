@@ -11,7 +11,8 @@ exports[`table-interactive-visual > Alternate rows > should render with alternat
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render empty table 1`] = `
@@ -20,7 +21,8 @@ exports[`table-interactive-visual > Basic rendering > should render empty table 
 ├───────┼─────────────────┼──────────────┼────────────┤
 <dim>│                      (no data)                      │</bold>
 └───────┴─────────────────┴──────────────┴────────────┘
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render table with focus on first row 1`] = `
@@ -34,7 +36,8 @@ exports[`table-interactive-visual > Basic rendering > should render table with f
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Basic rendering > should render table with focus on middle row 1`] = `
@@ -48,7 +51,8 @@ exports[`table-interactive-visual > Basic rendering > should render table with f
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 3/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with double borders 1`] = `
@@ -62,7 +66,8 @@ exports[`table-interactive-visual > Border styles > should render with double bo
 ║ 5     ║ Eve             ║ Designer     ║ Active     ║
 ╚═══════╩═════════════════╩══════════════╩════════════╝
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with rounded borders 1`] = `
@@ -76,7 +81,8 @@ exports[`table-interactive-visual > Border styles > should render with rounded b
 │ 5     │ Eve             │ Designer     │ Active     │
 ╰───────┴─────────────────┴──────────────┴────────────╯
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render with single borders 1`] = `
@@ -90,7 +96,8 @@ exports[`table-interactive-visual > Border styles > should render with single bo
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Border styles > should render without borders 1`] = `
@@ -101,7 +108,8 @@ exports[`table-interactive-visual > Border styles > should render without border
 4     David           Developer    Active    
 5     Eve             Designer     Active    
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with filter + sort + selection 1`] = `
@@ -112,7 +120,8 @@ exports[`table-interactive-visual > Combined states > should render with filter 
 │ <cyan>4    </fg> │ <cyan>David          </fg> │ <cyan>Developer   </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>2 selected</fg> • <yellow>Filter: Developer</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Combined states > should render with filter mode active + existing filter 1`] = `
@@ -138,7 +147,8 @@ exports[`table-interactive-visual > Combined states > should render with sort + 
 │ 1     │ Alice           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>2 selected</fg> • <grey>Row 3/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Compact mode > should render in compact mode 1`] = `
@@ -152,7 +162,8 @@ exports[`table-interactive-visual > Compact mode > should render in compact mode
 │5    │Eve            │Designer    │Active    │
 └─────┴───────────────┴────────────┴──────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render empty filter results 1`] = `
@@ -162,7 +173,8 @@ exports[`table-interactive-visual > Filter states > should render empty filter r
 <dim>│                     No results                      │</bold>
 └───────┴─────────────────┴──────────────┴────────────┘
 <yellow>Filter: NonExistent</fg> <grey>0/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render filtered results 1`] = `
@@ -173,7 +185,8 @@ exports[`table-interactive-visual > Filter states > should render filtered resul
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <yellow>Filter: Designer</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Filter states > should render in filter mode with input 1`] = `
@@ -199,7 +212,8 @@ exports[`table-interactive-visual > Filter states > should render with active fi
 │ 4     │ David           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <yellow>Filter: Developer</fg> <grey>2/5</fg> • <grey>Row 1/2</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Footer > should render per-column footers inside the frame 1`] = `
@@ -216,7 +230,8 @@ exports[`table-interactive-visual > Footer > should render per-column footers in
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>end of report</fg>
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Incremental loading > should render the loading indicator and the open-ended row count 1`] = `
@@ -230,7 +245,8 @@ exports[`table-interactive-visual > Incremental loading > should render the load
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5+</fg> • <magenta>Loading…</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Inline editing > should render a validation error like prompt errors 1`] = `
@@ -273,7 +289,8 @@ exports[`table-interactive-visual > Row numbers > should render the # column wit
 │ <grey>5</fg> │ 5     │ Eve             │ Designer     │ Active     │
 └───┴───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with all rows selected 1`] = `
@@ -287,7 +304,8 @@ exports[`table-interactive-visual > Selection states > should render with all ro
 │ <cyan>5    </fg> │ <cyan>Eve            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>5 selected</fg> • <grey>Row 3/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with multiple rows selected 1`] = `
@@ -301,7 +319,8 @@ exports[`table-interactive-visual > Selection states > should render with multip
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>3 selected</fg> • <grey>Row 4/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should render with single row selected 1`] = `
@@ -315,7 +334,8 @@ exports[`table-interactive-visual > Selection states > should render with single
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>1 selected</fg> • <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Selection states > should show selection count in status bar 1`] = `
@@ -329,7 +349,8 @@ exports[`table-interactive-visual > Selection states > should show selection cou
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>2 selected</fg> • <grey>Row 2/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render sorted data in correct order 1`] = `
@@ -343,7 +364,8 @@ exports[`table-interactive-visual > Sort indicators > should render sorted data 
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render with ascending sort indicator 1`] = `
@@ -357,7 +379,8 @@ exports[`table-interactive-visual > Sort indicators > should render with ascendi
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Sort indicators > should render with descending sort indicator 1`] = `
@@ -371,7 +394,8 @@ exports[`table-interactive-visual > Sort indicators > should render with descend
 │ 1     │ Alice           │ Developer    │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show all status components together 1`] = `
@@ -382,7 +406,8 @@ exports[`table-interactive-visual > Status bar variations > should show all stat
 │ <inverse>4    </inverse> │ <inverse>David          </inverse> │ <inverse>Developer   </inverse> │ <inverse>Active    </inverse> │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>2 selected</fg> • <yellow>Filter: Developer</fg> <grey>2/5</fg> • <grey>Row 2/2</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show filter query and count 1`] = `
@@ -396,7 +421,8 @@ exports[`table-interactive-visual > Status bar variations > should show filter q
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <yellow>Filter: Active</fg> <grey>5/5</fg> • <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show row position in status bar 1`] = `
@@ -410,7 +436,8 @@ exports[`table-interactive-visual > Status bar variations > should show row posi
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 3/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Status bar variations > should show selection count when items selected 1`] = `
@@ -424,7 +451,8 @@ exports[`table-interactive-visual > Status bar variations > should show selectio
 │ <cyan>5    </fg> │ <cyan>Eve            </fg> │ <cyan>Designer    </fg> │ <cyan>Active    </fg> │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>5 selected</fg> • <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should combine focus and selection styling 1`] = `
@@ -438,7 +466,8 @@ exports[`table-interactive-visual > Visual focus indicators > should combine foc
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>1 selected</fg> • <grey>Row 1/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should highlight focused row with inverse colors 1`] = `
@@ -452,7 +481,8 @@ exports[`table-interactive-visual > Visual focus indicators > should highlight f
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <grey>Row 2/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;
 
 exports[`table-interactive-visual > Visual focus indicators > should show selected rows with cyan color 1`] = `
@@ -466,5 +496,6 @@ exports[`table-interactive-visual > Visual focus indicators > should show select
 │ 5     │ Eve             │ Designer     │ Active     │
 └───────┴─────────────────┴──────────────┴────────────┘
 <green>2 selected</fg> • <grey>Row 3/5</fg>
-<grey>↑/↓ to navigate • ←/→: column • Space: select • s: sort • /: filter • Enter: confirm</fg>"
+<grey>↑/↓ to navigate • ←/→: column • Space: select • Ctrl+U: clear • s: sort</fg>
+<grey>/: filter • Enter: confirm</fg>"
 `;

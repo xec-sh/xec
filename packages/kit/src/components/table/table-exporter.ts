@@ -187,7 +187,7 @@ export function exportToJSON<T>(
 
   // Map data to include only specified columns
   const exportData = data.map((row) => {
-    const obj: any = {};
+    const obj: Record<string, unknown> = Object.create(null);
     for (const col of exportColumns) {
       const value = (row as any)[col.key];
       obj[col.key as string] = value;

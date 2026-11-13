@@ -94,7 +94,7 @@ export function navigatePageUp<T>(state: TableState<T>): TableState<T> {
  * Navigate page down
  */
 export function navigatePageDown<T>(state: TableState<T>): TableState<T> {
-  const newRow = Math.min(state.data.length - 1, state.focusedRow + state.pageSize);
+  const newRow = Math.max(0, Math.min(state.data.length - 1, state.focusedRow + state.pageSize));
   const rangeEnd = Math.min(state.data.length, newRow + 1);
   const rangeStart = Math.max(0, rangeEnd - state.pageSize);
 

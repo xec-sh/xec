@@ -7,10 +7,10 @@ import type { TableState, TableLayout, VirtualTableOptions, InteractiveTableOpti
 import prism from '../../prism/index.js';
 import { settings } from '../../core/index.js';
 import { isSelected } from './table-selector.js';
-import { getTotalTableWidth, calculateColumnWidths } from './column-width.js';
 import { renderRow, getBorderChars, renderHorizontalBorder } from './borders.js';
 import { S_BAR, unicodeOr, formatInstructionFooter } from '../../utilities/common.js';
 import { alignText, formatCell, formatHeader, truncateTextStart } from './cell-formatter.js';
+import { fitTableOutput, getTotalTableWidth, calculateColumnWidths } from './column-width.js';
 import { ROW_NUMBER_KEY, renderTableFooter, makeRowNumberColumn, formatRowNumberCell } from './table-renderer.js';
 
 /** Caret shown at the end of the inline edit buffer. */
@@ -36,6 +36,7 @@ function calculateInteractiveLayout<T>(
     output: options.output,
     borders: options.borders,
     compact: options.compact,
+    focusedKey: options.columns[state.focusedColumn]?.key,
   });
 
   const totalWidth = getTotalTableWidth(columns, hasBorders, padding);
@@ -66,7 +67,7 @@ function renderInteractiveHeader<T>(
   const padding = options.compact ? 0 : 1;
   const headerStyle = options.headerStyle ?? prism.bold;
   const focusedColumn = options.columns[state.focusedColumn];
-  const showColumnFocus = Boolean(options.sortable || options.editable);
+  const showColumnFocus = Boolean(options.sortable || options.editable || layout.columns.length < options.columns.length);
 
   // Format header cells with sort indicators
   const headerCells = columns.map((columnLayout) => {
@@ -272,7 +273,8 @@ function renderStatusBar<T>(
  */
 function buildInstructions<T>(
   state: TableState<T>,
-  options: InteractiveTableOptions<T>
+  options: InteractiveTableOptions<T>,
+  hiddenColumns: boolean
 ): string[] {
   if (state.isFiltering) {
     return ['Type to filter', 'Enter: apply', 'Esc: cancel'];
@@ -285,11 +287,11 @@ function buildInstructions<T>(
   if (options.navigable !== false) {
     instructions.push('↑/↓ to navigate');
   }
-  if (options.sortable || options.editable) {
+  if (options.navigable !== false && (options.sortable || options.editable || hiddenColumns)) {
     instructions.push('←/→: column');
   }
   if (options.selectable && options.selectable !== 'none') {
-    instructions.push('Space: select');
+    instructions.push('Space: select', 'Ctrl+U: clear');
   }
   if (options.sortable) {
     instructions.push('s: sort');
@@ -346,7 +348,7 @@ export function renderInteractiveTable<T>(
   }
 
   // Key hints
-  parts.push(...formatInstructionFooter(buildInstructions(state, options), false));
+  parts.push(...formatInstructionFooter(buildInstructions(state, options, layout.columns.length < options.columns.length + Number(Boolean(options.showRowNumbers))), false, options.output));
 
-  return parts.join('\n');
+  return fitTableOutput(parts.join('\n'), options);
 }

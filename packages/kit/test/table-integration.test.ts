@@ -510,7 +510,7 @@ describe('table-integration', () => {
       // Can enter again
       state = enterFilterMode(state);
       expect(state.isFiltering).toBe(true);
-      expect(state.filterQuery).toBe(''); // Reset on entry
+      expect(state.filterQuery).toBe('test'); // Reopen the active filter
     });
   });
 

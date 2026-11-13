@@ -8,8 +8,8 @@ import prism from '../../prism/index.js';
 import { settings } from '../../core/index.js';
 import { isCI, isTTY } from '../../utilities/common.js';
 import stringWidth from '../../core/utils/string-width.js';
-import { getTotalTableWidth, calculateColumnWidths } from './column-width.js';
 import { renderRow, getBorderChars, renderHorizontalBorder } from './borders.js';
+import { fitTableOutput, getTotalTableWidth, calculateColumnWidths } from './column-width.js';
 import { alignText, formatCell, truncateText, formatHeader, formatCellLines } from './cell-formatter.js';
 
 /**
@@ -355,6 +355,9 @@ export function renderTableFooter<T>(
     lines.push(settings.theme.muted(footerText));
   }
 
+  const hidden = options.columns.length + Number(Boolean(options.showRowNumbers)) - columns.length;
+  if (hidden > 0) lines.push(settings.theme.muted(`… ${hidden} hidden ${hidden === 1 ? 'column' : 'columns'}`));
+
   return lines.length > 0 ? lines.join('\n') : null;
 }
 
@@ -371,7 +374,7 @@ export function renderTable<T>(data: T[], options: TableOptions<T>): string {
     const noDataRow = renderMessageRow(layout, '(no data)', padding);
 
     const parts = [header, prism.dim(noDataRow), footer].filter((p) => p !== null);
-    return parts.join('\n');
+    return fitTableOutput(parts.join('\n'), options);
   }
 
   // Calculate layout
@@ -384,5 +387,5 @@ export function renderTable<T>(data: T[], options: TableOptions<T>): string {
 
   // Combine parts
   const parts = [header, body, footer].filter((p) => p !== null);
-  return parts.join('\n');
+  return fitTableOutput(parts.join('\n'), options);
 }

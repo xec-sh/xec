@@ -175,8 +175,8 @@ describe('table-navigator', () => {
     it('should handle empty table', () => {
       const state = createTestState(0, 0, 10);
       const newState = navigatePageDown(state);
-      // When data.length is 0, min(0-1, 0+10) = -1
-      expect(newState.focusedRow).toBe(-1);
+      // An empty result keeps the same valid focus sentinel as initial state.
+      expect(newState.focusedRow).toBe(0);
     });
 
     it('should adjust visible range', () => {

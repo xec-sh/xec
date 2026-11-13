@@ -113,9 +113,17 @@ export function updateStateData<T>(
     data = sortData(data, state.sort);
   }
 
+  const focusedRow = Math.max(0, Math.min(state.focusedRow, data.length - 1));
+  const lastStart = Math.max(0, data.length - state.pageSize);
+  const rangeStart = Math.max(0, Math.min(
+    state.visibleRange[0], lastStart, focusedRow
+  ));
+  const visibleStart = Math.max(rangeStart, focusedRow - state.pageSize + 1);
+
   return {
     ...state,
     data,
-    focusedRow: Math.min(state.focusedRow, Math.max(0, data.length - 1)),
+    focusedRow,
+    visibleRange: [visibleStart, Math.min(visibleStart + state.pageSize, data.length)],
   };
 }

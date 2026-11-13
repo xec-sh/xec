@@ -3,6 +3,8 @@
  */
 
 import type { CommonOptions } from '../../utilities/common.js';
+import type { runValidation } from '../../core/utils/validation.js';
+import type { StandardSchemaV1 } from '../../core/utils/standard-schema.js';
 
 /**
  * Border style types
@@ -50,10 +52,10 @@ export interface TableColumn<T = any> {
   /** Custom style function (returns ANSI styled string) */
   style?: (text: string, value: any, row: T) => string;
 
-  /** Whether column is sortable (Phase 2) */
+  /** Whether this column participates in interactive sorting. */
   sortable?: boolean;
 
-  /** Priority for responsive hiding (Phase 2) */
+  /** Higher priority keeps a column visible longer in narrow terminals. Defaults to 0. */
   priority?: number;
 
   /** Whether to show ellipsis for truncated text */
@@ -98,7 +100,7 @@ export interface TableOptions<T = any> extends CommonOptions {
   /** Cell style function */
   cellStyle?: (text: string, row: T, column: TableColumn<T>) => string;
 
-  /** Table width ('auto' fits content, 'full' uses terminal width, number is percentage) */
+  /** Table width. 'auto' fits content, 'full' fits the terminal, numbers are fractions in (0, 1]. */
   width?: number | 'auto' | 'full';
 
   /**
@@ -298,8 +300,8 @@ export interface InteractiveTableOptions<T = any> extends TableOptions<T> {
   /** Filter callback */
   onFilter?: (query: string) => void;
 
-  /** Validation function */
-  validate?: (rows: T[]) => string | undefined;
+  /** Synchronous or asynchronous validator, or a Standard Schema. */
+  validate?: ((rows: T[]) => ReturnType<typeof runValidation>) | StandardSchemaV1<T[], unknown>;
 
   /**
    * Enable inline cell editing: `e` opens the focused cell, typed input
@@ -345,9 +347,10 @@ export interface VirtualTableOptions<T = any> extends InteractiveTableOptions<T>
    * page of the end of the loaded data while `hasMore` is true; resolved
    * rows are appended (filter and sort are re-applied). Resolving to an
    * empty batch marks the dataset complete. A rejection is shown as a table
-   * error and loading is retried on the next navigation.
+   * error and loading is retried on the next navigation. The signal aborts
+   * when the prompt finishes, including cancellation and input failure.
    */
-  loadMore?: () => Promise<T[]>;
+  loadMore?: (signal: AbortSignal) => Promise<T[]>;
 
   /**
    * Whether more data is available beyond the initial `data`. While true,

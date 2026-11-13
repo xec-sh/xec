@@ -5,6 +5,7 @@
 import type { TableState, InteractiveTableOptions } from './types.js';
 
 import { updateStateData } from './table-state.js';
+import { deleteLastGrapheme } from '../../core/utils/string.js';
 
 /**
  * Enter filter mode
@@ -13,7 +14,6 @@ export function enterFilterMode<T>(state: TableState<T>): TableState<T> {
   return {
     ...state,
     isFiltering: true,
-    filterQuery: '',
   };
 }
 
@@ -128,7 +128,7 @@ export function handleFilterBackspace<T>(
     return state;
   }
 
-  const newQuery = state.filterQuery.slice(0, -1);
+  const newQuery = deleteLastGrapheme(state.filterQuery);
   return updateFilterQuery(state, newQuery, options);
 }
 

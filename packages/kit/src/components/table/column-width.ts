@@ -6,6 +6,21 @@ import type { TableColumn, ColumnLayout, TableOptions } from './types.js';
 
 import { getColumns } from '../../core/index.js';
 import stringWidth from '../../core/utils/string-width.js';
+import { truncateText, plainCellText } from './cell-formatter.js';
+
+type WidthOptions<T> = Pick<TableOptions<T>, 'width' | 'output' | 'borders' | 'compact'> & { focusedKey?: keyof T | string };
+
+function tableWidth<T>(options: WidthOptions<T>): number {
+  if (options.width === 'auto') return Infinity;
+  const terminal = getColumns(options.output ?? process.stdout);
+  return typeof options.width === 'number' ? Math.max(1, Math.floor(terminal * options.width)) : terminal;
+}
+
+/** Keep all physical lines inside the chosen output width, including status and footers. */
+export function fitTableOutput<T>(text: string, options: WidthOptions<T>): string {
+  const width = tableWidth(options);
+  return text.split('\n').map(line => truncateText(line, width)).join('\n');
+}
 
 /**
  * Calculate the visual width of content
@@ -25,7 +40,7 @@ function getColumnContentWidth<T>(
   // Sample data to avoid performance issues with large datasets
   const sample = data.length > maxSampleSize ? data.slice(0, maxSampleSize) : data;
 
-  let maxWidth = getContentWidth(column.header);
+  let maxWidth = getContentWidth(plainCellText(column.header));
 
   for (const row of sample) {
     const value = (row as any)[column.key];
@@ -34,10 +49,10 @@ function getColumnContentWidth<T>(
     if (column.format) {
       cellContent = column.format(value, row);
     } else {
-      cellContent = value != null ? String(value) : '';
+      cellContent = plainCellText(value != null ? String(value) : '', true);
     }
 
-    const width = getContentWidth(cellContent);
+    const width = Math.max(...cellContent.split('\n').map(getContentWidth));
     if (width > maxWidth) {
       maxWidth = width;
     }
@@ -52,9 +67,28 @@ function getColumnContentWidth<T>(
 export function calculateColumnWidths<T>(
   data: T[],
   columns: TableColumn<T>[],
-  options: Pick<TableOptions<T>, 'width' | 'output' | 'borders' | 'compact'>
+  options: WidthOptions<T>
 ): ColumnLayout[] {
-  const terminalWidth = getColumns(options.output ?? process.stdout);
+  const targetWidth = tableWidth(options);
+  const originalColumns = columns;
+  const cellOverhead = options.borders === 'none' ? 1 : 1 + (options.compact ? 0 : 2);
+  const outerOverhead = options.borders === 'none' ? -1 : 1;
+  const ranked = columns.map((column, index) => ({ column, index })).sort((a, b) => {
+    const focus = Number(b.column.key === options.focusedKey) - Number(a.column.key === options.focusedKey);
+    return focus || (b.column.priority ?? 0) - (a.column.priority ?? 0) || a.index - b.index;
+  });
+  const visible = new Set<number>();
+  let occupied = outerOverhead;
+  for (const { column, index } of ranked) {
+    const minimum = typeof column.width === 'number'
+      ? Math.min(column.width, 3)
+      : Math.max(3, Math.min(12, stringWidth(plainCellText(column.header))));
+    if (visible.size === 0 || occupied + minimum + cellOverhead <= targetWidth) {
+      visible.add(index);
+      occupied += minimum + cellOverhead;
+    }
+  }
+  columns = columns.filter((_column, index) => visible.has(index));
   const hasBorders = options.borders !== 'none';
   const padding = options.compact ? 0 : 1;
 
@@ -63,18 +97,7 @@ export function calculateColumnWidths<T>(
     ? (columns.length + 1) + columns.length * padding * 2
     : columns.length - 1;
 
-  // Determine available width
-  let availableWidth: number;
-  if (options.width === 'full' || options.width === undefined) {
-    availableWidth = terminalWidth - borderOverhead;
-  } else if (options.width === 'auto') {
-    // Auto will be calculated based on content
-    availableWidth = Infinity;
-  } else {
-    // Percentage of terminal width
-    const percentage = Math.max(0, Math.min(1, options.width));
-    availableWidth = Math.floor(terminalWidth * percentage) - borderOverhead;
-  }
+  const availableWidth = Math.max(1, targetWidth - borderOverhead);
 
   // First pass: calculate fixed and content widths
   const layouts: ColumnLayout[] = [];
@@ -85,7 +108,7 @@ export function calculateColumnWidths<T>(
     const column = columns[i]!;
     const layout: ColumnLayout = {
       column,
-      index: i,
+      index: originalColumns.indexOf(column),
       width: 0,
     };
 

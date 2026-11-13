@@ -17,6 +17,7 @@ import type {
 import { toggleSort } from './table-sorter.js';
 import { updateStateData, createTableState } from './table-state.js';
 import Prompt, { type PromptOptions } from '../../core/prompts/prompt.js';
+import { isPrintableInput, deleteLastGrapheme } from '../../core/utils/string.js';
 import {
   selectAll,
   clearSelection,
@@ -78,7 +79,7 @@ interface InteractiveTablePromptOptions<T>
   validateEdit?: (row: T, column: string, newValue: any) => string | undefined;
   onEdit?: (row: T, column: string, oldValue: any, newValue: any) => void;
   editableColumns?: string[];
-  loadMore?: () => Promise<T[]>;
+  loadMore?: (signal: AbortSignal) => Promise<T[]>;
   hasMore?: boolean;
   loadingIndicator?: string | (() => string);
 }
@@ -86,6 +87,7 @@ interface InteractiveTablePromptOptions<T>
 export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
   tableState: TableState<T>;
   tableOptions: VirtualTableOptions<T>;
+  private readonly loadingController = new AbortController();
 
   constructor(opts: InteractiveTablePromptOptions<T>) {
     // Build table options first. `maxHeight` caps the scroll window: the
@@ -147,9 +149,9 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
     this.registerCursorHandlers();
     this.registerKeyHandlers();
 
-    // A dataset shorter than the window may need a first batch before any
-    // navigation happens
-    this.#maybeLoadMore();
+    this.on('finalize', () => this.loadingController.abort());
+    // Start after prompt() has had a chance to observe an already-aborted signal.
+    queueMicrotask(() => this.#maybeLoadMore());
   }
 
   /**
@@ -195,6 +197,8 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
       }
 
       const prevRow = this.tableState.focusedRow;
+
+      if (this.tableOptions.navigable === false && key !== 'space') return;
 
       // Navigation keys
       switch (key) {
@@ -242,7 +246,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
           this.tableState = clearFilterInput(this.tableState, this.tableOptions);
         } else if (key?.name === 'backspace') {
           this.tableState = handleFilterBackspace(this.tableState, this.tableOptions);
-        } else if (char && char.length === 1 && !key?.ctrl && !key?.meta) {
+        } else if (isPrintableInput(char, key)) {
           // Regular character input
           this.tableState = handleFilterInput(this.tableState, char, this.tableOptions);
         }
@@ -262,10 +266,10 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
           this.tableState = { ...updateEditValue(this.tableState, ''), error: undefined };
         } else if (key?.name === 'backspace') {
           this.tableState = {
-            ...updateEditValue(this.tableState, this.tableState.editValue.slice(0, -1)),
+            ...updateEditValue(this.tableState, deleteLastGrapheme(this.tableState.editValue)),
             error: undefined,
           };
-        } else if (char && char.length === 1 && !key?.ctrl && !key?.meta) {
+        } else if (isPrintableInput(char, key)) {
           this.tableState = {
             ...updateEditValue(this.tableState, this.tableState.editValue + char),
             error: undefined,
@@ -285,8 +289,8 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
             this.updateValue();
           }
           break;
-        case 'c':
-          // Clear selection
+        case 'u':
+          // Clear selection; Ctrl+C remains cancellation
           if (key?.ctrl && this.tableOptions.selectable !== 'none') {
             this.tableState = clearSelection(this.tableState);
             this.updateValue();
@@ -325,6 +329,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
       }
 
       // Page navigation
+      if (this.tableOptions.navigable === false) return;
       const prevRow = this.tableState.focusedRow;
       if (key?.name === 'pageup') {
         this.tableState = navigatePageUp(this.tableState);
@@ -342,13 +347,10 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
 
   /**
    * Move the focused column (the target of `s` and `e`). Clamped like the
-   * vertical navigation, and only meaningful when a column-scoped action
-   * exists.
+   * vertical navigation. A focused column remains visible when the
+   * terminal is too narrow to show every column.
    */
   #moveColumn(delta: number) {
-    if (!this.tableOptions.sortable && !this.tableOptions.editable) {
-      return;
-    }
     const count = this.tableOptions.columns.length;
     const next = Math.max(0, Math.min(count - 1, this.tableState.focusedColumn + delta));
     if (next !== this.tableState.focusedColumn) {
@@ -362,19 +364,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
    * otherwise submitting after an edit would return the pre-edit data.
    */
   #commitEdit() {
-    const oldRow = this.tableState.data[this.tableState.focusedRow];
-    const next = saveEdit(this.tableState, this.tableOptions);
-    this.tableState = next;
-    if (next.isEditing || oldRow === undefined) {
-      return; // validation rejected the edit (or there was nothing to edit)
-    }
-    const newRow = next.data[this.tableState.focusedRow];
-    if (newRow !== undefined && newRow !== oldRow && next.selected.has(oldRow)) {
-      const selected = new Set(next.selected);
-      selected.delete(oldRow);
-      selected.add(newRow);
-      this.tableState = { ...next, selected };
-    }
+    this.tableState = saveEdit(this.tableState, this.tableOptions);
     this.value = Array.from(this.tableState.selected);
   }
 
@@ -386,16 +376,20 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
   #maybeLoadMore() {
     const { loadMore } = this.tableOptions;
     const state = this.tableState;
-    if (!loadMore || !state.hasMore || state.isLoading) {
+    if (!loadMore || !state.hasMore || state.isLoading || this.loadingController.signal.aborted) {
       return;
     }
     if (state.focusedRow < state.data.length - state.pageSize) {
       return;
     }
 
-    this.tableState = { ...state, isLoading: true };
-    loadMore().then(
+    this.tableState = { ...state, isLoading: true, error: undefined };
+    this.#repaint();
+    const load = async () => loadMore(this.loadingController.signal);
+    load().then(
       (rows) => {
+        if (this.loadingController.signal.aborted) return;
+        if (!Array.isArray(rows)) throw new TypeError('loadMore must return an array');
         const current = this.tableState;
         if (rows.length === 0) {
           this.tableState = { ...current, isLoading: false, hasMore: false };
@@ -418,16 +412,16 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
           };
         }
         this.#repaint();
-      },
-      (error: unknown) => {
+      }
+    ).catch((error: unknown) => {
+        if (this.loadingController.signal.aborted) return;
         this.tableState = {
           ...this.tableState,
           isLoading: false,
           error: error instanceof Error ? error.message : String(error),
         };
         this.#repaint();
-      }
-    );
+    });
   }
 
   /**
@@ -439,7 +433,7 @@ export default class InteractiveTablePrompt<T> extends Prompt<T[]> {
     if (this.state === 'submit' || this.state === 'cancel' || this.state === 'initial') {
       return;
     }
-    this.render();
+    try { this.render(); } catch (error) { this.fail(error); }
   }
 
   private notifyNavigate(prevRow: number) {

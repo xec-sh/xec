@@ -78,13 +78,13 @@ describe('table-filter', () => {
       expect(newState.isFiltering).toBe(true);
     });
 
-    it('should clear filter query', () => {
+    it('should retain the active filter query', () => {
       const state = createTestState();
       state.filterQuery = 'existing';
 
       const newState = enterFilterMode(state);
 
-      expect(newState.filterQuery).toBe('');
+      expect(newState.filterQuery).toBe('existing');
     });
 
     it('should preserve other state properties', () => {
@@ -238,7 +238,7 @@ describe('table-filter', () => {
   });
 
   describe('clearFilter', () => {
-    it('should clear filter query', () => {
+    it('should retain the active filter query', () => {
       const state = createTestState();
       state.filterQuery = 'test';
       const options = createTestOptions();

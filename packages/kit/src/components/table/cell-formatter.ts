@@ -4,9 +4,22 @@
 
 import type { Alignment, TableColumn } from './types.js';
 
+import { stripVTControlCharacters } from 'node:util';
+
 import { wrapAnsi } from '../../core/utils/wrap-ansi.js';
 import stringWidth from '../../core/utils/string-width.js';
 import getStringTruncatedWidth from '../../core/utils/string-truncated-width.js';
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** Plain data cannot write terminal commands. Styling callbacks are explicitly trusted. */
+export function plainCellText(text: string, multiline = false): string {
+  const stripped = stripVTControlCharacters(text);
+  const lines = stripped.replace(/\r\n?/g, '\n').split('\n');
+  // eslint-disable-next-line no-control-regex -- Plain cell data cannot issue terminal controls.
+  const safe = lines.map(line => line.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, ' '));
+  return safe.join(multiline ? '\n' : ' ');
+}
 
 /**
  * Align text within a given width
@@ -76,8 +89,8 @@ export function truncateTextStart(text: string, width: number): string {
   if (stringWidth(text) <= width) {
     return text;
   }
-  // Walk code points from the end until the width budget is spent.
-  const chars = Array.from(text);
+  // Keep complete displayed characters, including combining marks and joined emoji.
+  const chars = Array.from(graphemes.segment(plainCellText(text)), part => part.segment);
   let used = 0;
   let start = chars.length;
   while (start > 0 && used + stringWidth(chars[start - 1]!) <= width) {
@@ -140,6 +153,7 @@ export function formatCell<T>(
 ): string {
   // Format the value
   let formatted = formatCellValue(value, row, column);
+  if (!column.format) formatted = plainCellText(formatted);
 
   // Truncate if needed
   const shouldTruncate = column.ellipsis !== false;
@@ -173,7 +187,8 @@ export function formatCellLines<T>(
   defaultAlignment: Alignment = 'left',
   defaultStyle?: (text: string, row: T, column: TableColumn<T>) => string
 ): string[] {
-  const formatted = formatCellValue(value, row, column);
+  const raw = formatCellValue(value, row, column);
+  const formatted = column.format ? raw : plainCellText(raw, true);
   const alignment = column.align ?? defaultAlignment;
 
   const wrapped = stringWidth(formatted) > width
@@ -201,7 +216,7 @@ export function formatHeader(
   defaultAlignment: Alignment = 'left',
   style?: (text: string) => string
 ): string {
-  let text = column.header;
+  let text = plainCellText(column.header);
 
   // Truncate if needed
   if (stringWidth(text) > width) {

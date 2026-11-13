@@ -6,6 +6,8 @@
 
 import type { TableState, TableColumn, InteractiveTableOptions } from './types.js';
 
+import { updateStateData } from './table-state.js';
+
 /**
  * Enter edit mode for current cell
  */
@@ -94,7 +96,12 @@ export function saveEdit<T>(
   }
 
   const oldValue = (row as any)[column.key];
-  const newValue = parseEditValue(state.editValue, oldValue);
+  let newValue: unknown;
+  try {
+    newValue = parseEditValue(state.editValue, oldValue);
+  } catch (error) {
+    return { ...state, error: error instanceof Error ? error.message : String(error) };
+  }
 
   // Validate edit
   if (options.validateEdit) {
@@ -119,36 +126,46 @@ export function saveEdit<T>(
     updatedOriginalData[originalIndex] = updatedRow;
   }
 
-  // Call edit callback
-  if (options.onEdit) {
-    options.onEdit(updatedRow, String(column.key), oldValue, newValue);
-  }
-
-  return {
+  const selected = new Set(state.selected);
+  if (selected.delete(row)) selected.add(updatedRow);
+  const next = updateStateData({
     ...state,
     data: updatedData,
     originalData: updatedOriginalData,
+    selected,
     isEditing: false,
     editValue: '',
     error: undefined,
-  };
+  }, options);
+
+  const editedIndex = next.data.indexOf(updatedRow);
+  if (editedIndex >= 0) {
+    next.focusedRow = editedIndex;
+    const start = Math.min(editedIndex, Math.max(0, next.data.length - next.pageSize));
+    next.visibleRange = [start, Math.min(next.data.length, start + next.pageSize)];
+  }
+
+  options.onEdit?.(updatedRow, String(column.key), oldValue, newValue);
+  return next;
 }
 
 /**
  * Parse edit value based on the type of original value
  */
-function parseEditValue(editValue: string, originalValue: any): any {
-  // Try to infer type from original value
+function parseEditValue(editValue: string, originalValue: unknown): unknown {
   if (typeof originalValue === 'number') {
     const num = Number(editValue);
-    return isNaN(num) ? originalValue : num;
+    if (!editValue.trim() || !Number.isFinite(num)) {
+      throw new Error('Enter a finite number');
+    }
+    return num;
   }
 
   if (typeof originalValue === 'boolean') {
     const lower = editValue.toLowerCase();
     if (lower === 'true' || lower === '1' || lower === 'yes') return true;
     if (lower === 'false' || lower === '0' || lower === 'no') return false;
-    return originalValue;
+    throw new Error('Enter true or false');
   }
 
   // Default to string

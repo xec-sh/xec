@@ -70,12 +70,11 @@ describe('streaming', () => {
       const controller = new AbortController();
 
       const stream = new ReadableStream({
-        async start(ctrl) {
-          for (const item of data) {
-            ctrl.enqueue(item);
-            await new Promise((resolve) => setTimeout(resolve, 1));
-          }
-          ctrl.close();
+        pull(ctrl) {
+          const item = data.shift();
+          if (item === undefined) ctrl.close();
+          else ctrl.enqueue(item);
+          return new Promise<void>((resolve) => setTimeout(resolve, 1));
         },
       });
 
@@ -84,7 +83,7 @@ describe('streaming', () => {
 
       await expect(
         streamToArray(stream, { signal: controller.signal })
-      ).rejects.toThrow('cancelled');
+      ).rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('should handle empty stream', async () => {
@@ -148,7 +147,7 @@ describe('streaming', () => {
 
       await expect(
         asyncIterableToArray(slowGenerator(), { signal: controller.signal })
-      ).rejects.toThrow('cancelled');
+      ).rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('should handle empty iterable', async () => {
@@ -201,7 +200,7 @@ describe('streaming', () => {
           batchSize: 10,
           signal: controller.signal,
         })
-      ).rejects.toThrow('cancelled');
+      ).rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('should handle last partial chunk', async () => {
