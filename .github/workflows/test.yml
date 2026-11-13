@@ -113,6 +113,7 @@ jobs:
           test/self-resolution.test.ts
           test/startup-budget.test.ts
           test/entry-point.test.ts
+          test/graceful-cancellation.test.ts
           test/release-command.test.ts
 
       # Every code example in the documentation, compiled against the real
