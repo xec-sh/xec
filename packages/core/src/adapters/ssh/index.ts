@@ -576,14 +576,14 @@ export class SSHAdapter extends BaseAdapter {
     };
 
     const stdoutHandler = new StreamHandler({
-      encoding: this.config.encoding,
+      encoding: options.encoding ?? this.config.encoding,
       maxBuffer: options.maxBuffer ?? this.config.maxBuffer,
       streamName: 'stdout',
       onOverflow: () => terminate()
     });
 
     const stderrHandler = new StreamHandler({
-      encoding: this.config.encoding,
+      encoding: options.encoding ?? this.config.encoding,
       maxBuffer: options.maxBuffer ?? this.config.maxBuffer,
       streamName: 'stderr',
       onOverflow: () => terminate()

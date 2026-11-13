@@ -642,7 +642,7 @@ export class DockerAdapter extends BaseAdapter {
 
   private startSession(command: Command, onLine?: (line: string) => void): LocalCommandSession {
     const session = new LocalCommandSession(this.local, command, {
-      encoding: this.config.encoding,
+      encoding: command.encoding ?? this.config.encoding,
       onStdout: onLine,
       onStderr: onLine,
     });

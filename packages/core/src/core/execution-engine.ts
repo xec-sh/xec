@@ -6,7 +6,6 @@ import type { DockerOptions, ExecutionEngineConfig, DockerEphemeralOptions, Dock
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-import { AdapterError } from './error.js';
 import { stream } from '../utils/stream.js';
 import { ExecutionResult } from './result.js';
 import { TransferEngine } from '../utils/transfer.js';
@@ -17,6 +16,7 @@ import { BaseAdapter } from '../adapters/base-adapter.js';
 import { LocalAdapter } from '../adapters/local/index.js';
 import { DockerAdapter } from '../adapters/docker/index.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
+import { AdapterError, sanitizeForDiagnostics } from './error.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
 import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
@@ -92,6 +92,21 @@ function assertTaggedTemplate(strings: unknown, method: 'run' | 'raw'): void {
   );
 }
 
+/** Own plain configuration values without copying runtime handles or callbacks. */
+function configurationSnapshot<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (Buffer.isBuffer(value)) return Buffer.from(value) as T;
+  if (seen.has(value)) return seen.get(value) as T;
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return value;
+  const copy = Array.isArray(value) ? [] : Object.create(prototype);
+  seen.set(value, copy);
+  for (const [key, item] of Object.entries(value)) {
+    Object.defineProperty(copy, key, { value: configurationSnapshot(item, seen), writable: true, enumerable: true, configurable: true });
+  }
+  return copy as T;
+}
+
 export class ExecutionEngine extends EnhancedEventEmitter implements Disposable {
   // Core features
   // Removed retry and expBackoff - use command-level retry options instead
@@ -146,13 +161,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     this._config = this.validateConfig(config);
 
     // Set max listeners based on config
-    this.setMaxListeners(config.maxEventListeners || 100);
-
-    // Disable event emission if requested
-    if (config.enableEvents === false) {
-      this.emit = () => false;
-    }
-
+    this.setMaxListeners(this._config.maxEventListeners ?? 100);
 
     if (existingAdapters) {
       this.adapters = existingAdapters;
@@ -169,10 +178,10 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     data: Omit<UshEventMap[K], 'timestamp' | 'adapter'>
   ): void {
     // Skip if no listeners (performance optimization)
-    if (!this.listenerCount(event)) return;
+    if (this._config.enableEvents === false || !this.listenerCount(event)) return;
 
     this.emit(event, {
-      ...data,
+      ...sanitizeForDiagnostics(data),
       timestamp: new Date(),
       adapter: this.getCurrentAdapter()?.name || 'local'
     } as UshEventMap[K]);
@@ -183,57 +192,56 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return this.adapters.get(adapterType);
   }
 
+  /** Normalize aliases before merging an update with existing canonical values. */
+  private normalizeAliases(config: ExecutionEngineConfig): ExecutionEngineConfig {
+    const normalized = configurationSnapshot(Object.fromEntries(
+      Object.entries(config).filter(([, value]) => value !== undefined),
+    )) as ExecutionEngineConfig;
+    if (config.env !== undefined || config.defaultEnv !== undefined) {
+      normalized.defaultEnv = { ...config.env, ...config.defaultEnv };
+      normalized.env = { ...normalized.defaultEnv };
+    }
+    if (config.cwd !== undefined || config.defaultCwd !== undefined) {
+      normalized.defaultCwd = config.defaultCwd ?? config.cwd;
+      normalized.cwd = normalized.defaultCwd;
+    }
+    if (config.shell !== undefined || config.defaultShell !== undefined) {
+      normalized.defaultShell = config.defaultShell ?? config.shell;
+      normalized.shell = normalized.defaultShell;
+    }
+    if (config.timeout !== undefined || config.defaultTimeout !== undefined) {
+      normalized.defaultTimeout = config.defaultTimeout ?? config.timeout;
+      normalized.timeout = normalized.defaultTimeout;
+    }
+    return normalized;
+  }
+
   private validateConfig(config: ExecutionEngineConfig): ExecutionEngineConfig {
-    const validatedConfig = { ...config };
-
-    // `shell` is the spelling a caller writes; `defaultShell` is the one
-    // every consumer of the config reads. `defaults()` already translated
-    // between them and the constructor did not, so `new ExecutionEngine({
-    // shell })` set a field nothing looked at — accepted, and dropped.
-    if (config.shell !== undefined && config.defaultShell === undefined) {
-      validatedConfig.defaultShell = config.shell;
+    const normalized = this.normalizeAliases(config);
+    const timeout = parseDuration(normalized.defaultTimeout ?? 30000);
+    if (!Number.isFinite(timeout) || timeout < 0) throw new Error(`Invalid timeout value: ${normalized.defaultTimeout}`);
+    const encoding = normalized.encoding ?? 'utf8';
+    if (!Buffer.isEncoding(encoding)) throw new Error(`Unsupported encoding: ${encoding}`);
+    const maxBuffer = normalized.maxBuffer ?? 10 * 1024 * 1024;
+    if (!Number.isSafeInteger(maxBuffer) || maxBuffer <= 0) throw new Error(`Invalid buffer size: ${maxBuffer}`);
+    const listeners = normalized.maxEventListeners;
+    if (listeners !== undefined && (!Number.isSafeInteger(listeners) || listeners <= 0)) {
+      throw new Error(`Invalid max event listeners: ${listeners}`);
     }
-
-    // Normalize before validating, so a duration string is checked as the
-    // number it means rather than compared against zero as a string.
-    if (config.defaultTimeout !== undefined) {
-      const ms = parseDuration(config.defaultTimeout);
-
-      if (!Number.isFinite(ms) || ms < 0) {
-        throw new Error(`Invalid timeout value: ${config.defaultTimeout}`);
-      }
-      validatedConfig.defaultTimeout = ms;
-    }
-
-    // Validate encoding
-    if (config.encoding !== undefined) {
-      const validEncodings: BufferEncoding[] = ['ascii', 'utf8', 'utf-8', 'utf16le', 'ucs2', 'ucs-2', 'base64', 'base64url', 'latin1', 'binary', 'hex'];
-      if (!validEncodings.includes(config.encoding)) {
-        throw new Error(`Unsupported encoding: ${config.encoding}`);
+    if (normalized.defaultShell !== undefined && typeof normalized.defaultShell !== 'boolean'
+      && (typeof normalized.defaultShell !== 'string' || !normalized.defaultShell)) throw new TypeError('Invalid shell');
+    if (normalized.defaultCwd !== undefined && typeof normalized.defaultCwd !== 'string') throw new TypeError('Invalid cwd');
+    for (const [name, value] of Object.entries(normalized.defaultEnv ?? {})) {
+      if (!name || name.includes('=') || name.includes('\0') || typeof value !== 'string' || value.includes('\0')) {
+        throw new TypeError(`Invalid environment variable: ${name}`);
       }
     }
-
-    // Validate maxBuffer
-    if (config.maxBuffer !== undefined && config.maxBuffer <= 0) {
-      throw new Error(`Invalid buffer size: ${config.maxBuffer}`);
-    }
-
-    // Validate maxEventListeners
-    if (config.maxEventListeners !== undefined && config.maxEventListeners <= 0) {
-      throw new Error(`Invalid max event listeners: ${config.maxEventListeners}`);
-    }
-
-    // Set defaults
-    validatedConfig.defaultTimeout = config.defaultTimeout ?? 30000;
-    validatedConfig.throwOnNonZeroExit = config.throwOnNonZeroExit ?? true;
-    validatedConfig.encoding = config.encoding ?? 'utf8';
-    validatedConfig.maxBuffer = config.maxBuffer ?? 10 * 1024 * 1024;
-
-    // Preserve event configuration
-    validatedConfig.enableEvents = config.enableEvents;
-    validatedConfig.maxEventListeners = config.maxEventListeners;
-
-    return validatedConfig;
+    normalized.defaultTimeout = timeout;
+    if (normalized.timeout !== undefined) normalized.timeout = timeout;
+    normalized.encoding = encoding;
+    normalized.maxBuffer = maxBuffer;
+    normalized.throwOnNonZeroExit ??= true;
+    return normalized;
   }
 
   private initializeAdapters(): void {
@@ -278,6 +286,22 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     };
   }
 
+  /** Resolve immutable defaults for this command without changing shared adapters. */
+  private getCommandDefaults(command: Partial<Command>): Partial<Command> {
+    const name = command.adapter && command.adapter !== 'auto' ? command.adapter
+      : command.adapterOptions?.type ?? this._config.defaultAdapter ?? 'local';
+    const specific = this._config.adapters?.[(name === 'auto' ? 'local' : name) as keyof NonNullable<ExecutionEngineConfig['adapters']>] ?? {};
+    return {
+      timeout: specific.defaultTimeout ?? this._config.defaultTimeout,
+      cwd: specific.defaultCwd ?? this._config.defaultCwd,
+      shell: specific.defaultShell ?? this._config.defaultShell,
+      encoding: specific.encoding ?? this._config.encoding,
+      maxBuffer: specific.maxBuffer ?? this._config.maxBuffer,
+      throwOnNonZeroExit: specific.throwOnNonZeroExit ?? this._config.throwOnNonZeroExit,
+      env: { ...this._config.defaultEnv, ...specific.defaultEnv },
+    };
+  }
+
   // Main execution method
   async execute(command: Command): Promise<ExecutionResult> {
     const startTime = Date.now();
@@ -317,17 +341,23 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     // clamps to 1ms — so `{ timeout: '5m' }` failed every command instantly
     // while the message claimed five minutes had passed. Normalized here so
     // every spelling of the option behaves like `.timeout()`.
-    const requestedTimeout = contextCommand.timeout ?? this.currentConfig.timeout;
+    const defaults = this.getCommandDefaults({ ...this.currentConfig, ...contextCommand });
+    const requestedTimeout = contextCommand.timeout ?? this.currentConfig.timeout ?? defaults.timeout;
 
     const finalCommand = {
       ...this.currentConfig,
       ...contextCommand,
       signal: getExecutionSignal(contextCommand.signal ?? this.currentConfig.signal),
-      cwd: contextCommand.cwd ?? this.currentConfig.cwd ?? this._config.defaultCwd,
+      cwd: contextCommand.cwd ?? this.currentConfig.cwd ?? defaults.cwd,
+      shell: contextCommand.shell ?? this.currentConfig.shell ?? defaults.shell,
+      encoding: contextCommand.encoding ?? this.currentConfig.encoding ?? defaults.encoding,
+      maxBuffer: contextCommand.maxBuffer ?? this.currentConfig.maxBuffer ?? defaults.maxBuffer,
+      throwOnNonZeroExit: contextCommand.throwOnNonZeroExit ?? this.currentConfig.throwOnNonZeroExit ?? defaults.throwOnNonZeroExit,
       timeout: requestedTimeout === undefined ? undefined : parseDuration(requestedTimeout),
       env: {
-        ...(this._config.defaultEnv || {}),
-        ...(contextCommand.env || {})
+        ...defaults.env,
+        ...this.currentConfig.env,
+        ...contextCommand.env
       }
     };
     // Apply prefix/postfix to command string if configured
@@ -446,7 +476,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
    * the shell that reads it.
    */
   private get effectiveShell(): string | boolean | undefined {
-    return this.currentConfig.shell ?? this._config.defaultShell;
+    return this.currentConfig.shell ?? this.getCommandDefaults(this.currentConfig).shell;
   }
 
   // Template literal support
@@ -1068,25 +1098,24 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
        * $.config.set({ timeout: 30000, shell: '/bin/bash' });
        */
       set: (updates: Partial<ExecutionEngineConfig>): void => {
-        // Deep merge for certain properties
-        if (updates.defaultEnv) {
-          this._config.defaultEnv = { ...this._config.defaultEnv, ...updates.defaultEnv };
-          delete updates.defaultEnv;
+        if (updates.adapters !== undefined) {
+          throw new Error('Adapter configuration is fixed for an engine; create a new engine for different adapter settings');
         }
-
-        // Shallow merge for the rest
-        Object.assign(this._config, updates);
-
-        // Update adapters with new config if needed
-        if (updates.adapters) {
-          this.updateAdapterConfigs(updates.adapters);
-        }
+        const normalized = this.normalizeAliases(updates);
+        const next = this.validateConfig({
+          ...this._config,
+          ...normalized,
+          defaultEnv: { ...this._config.defaultEnv, ...normalized.defaultEnv },
+        });
+        // Validation finishes before the live state or any caller-owned object changes.
+        this.setMaxListeners(next.maxEventListeners ?? 100);
+        this._config = next;
       },
 
       /**
        * Get current configuration
        */
-      get: (): Readonly<ExecutionEngineConfig> => ({ ...this._config })
+      get: (): Readonly<ExecutionEngineConfig> => configurationSnapshot(this._config)
     };
   }
 
@@ -1124,18 +1153,6 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     Object.assign(newEngine.currentConfig, commandDefaults);
 
     return newEngine;
-  }
-
-  private updateAdapterConfigs(adapterConfigs: ExecutionEngineConfig['adapters']): void {
-    if (!adapterConfigs) return;
-
-    // Update existing adapter configurations
-    for (const [name, config] of Object.entries(adapterConfigs)) {
-      const adapter = this.adapters.get(name);
-      if (adapter && 'updateConfig' in adapter && typeof adapter.updateConfig === 'function') {
-        adapter.updateConfig(config);
-      }
-    }
   }
 
   // Utility methods

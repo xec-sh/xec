@@ -89,7 +89,8 @@ if (command === 'raw-json' || command === 'failed-json') {
   }
 }
 `, { mode: 0o700 });
-    engine = new ExecutionEngine({ adapters: { kubernetes: { kubectlPath: binary, kubectlTimeout: 1000, maxBuffer: 64 * 1024 } } });
+    engine = new ExecutionEngine({ adapters: { kubernetes: { // Finite protocol checks have a startup budget; deadline behavior uses explicit 80ms probes below.
+    kubectlPath: binary, kubectlTimeout: 3000, maxBuffer: 64 * 1024 } } });
     adapter = engine.getAdapter('kubernetes') as KubernetesAdapter;
   });
 

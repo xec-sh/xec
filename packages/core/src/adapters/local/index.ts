@@ -260,7 +260,7 @@ export class LocalAdapter extends BaseAdapter {
     const interleaved: Buffer[] = [];
 
     const stdoutHandler = new StreamHandler({
-      encoding: this.config.encoding,
+      encoding: command.encoding ?? this.config.encoding,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
       streamName: 'stdout',
       interleaved,
@@ -269,7 +269,7 @@ export class LocalAdapter extends BaseAdapter {
     });
 
     const stderrHandler = new StreamHandler({
-      encoding: this.config.encoding,
+      encoding: command.encoding ?? this.config.encoding,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
       streamName: 'stderr',
       interleaved,
@@ -393,7 +393,7 @@ export class LocalAdapter extends BaseAdapter {
           resolve({
             stdout: stdoutHandler.getContent(),
             stderr: stderrHandler.getContent(),
-            stdall: Buffer.concat(interleaved).toString(this.config.encoding),
+            stdall: Buffer.concat(interleaved).toString(command.encoding ?? this.config.encoding),
             rawStdout: stdoutHandler.getRawIfLossy() ?? undefined,
             exitCode,
             signal: exitSignal
@@ -549,13 +549,13 @@ export class LocalAdapter extends BaseAdapter {
     const progressReporter = this.createProgressReporter(command);
 
     const stdoutHandler = new StreamHandler({
-      encoding: this.config.encoding,
+      encoding: command.encoding ?? this.config.encoding,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
       onData: progressReporter ? (data) => progressReporter.reportOutput(data) : undefined
     });
 
     const stderrHandler = new StreamHandler({
-      encoding: this.config.encoding,
+      encoding: command.encoding ?? this.config.encoding,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer
     });
 
@@ -737,7 +737,7 @@ export class LocalAdapter extends BaseAdapter {
     const spawnOptions = this.buildNodeSpawnOptions(command);
 
     // Add encoding for sync execution
-    spawnOptions.encoding = this.config.encoding;
+    spawnOptions.encoding = command.encoding ?? this.config.encoding;
 
     // Handle shell execution properly
     let result;
@@ -775,8 +775,8 @@ export class LocalAdapter extends BaseAdapter {
     });
 
     return {
-      stdout: proc.stdout ? new TextDecoder().decode(proc.stdout) : '',
-      stderr: proc.stderr ? new TextDecoder().decode(proc.stderr) : '',
+      stdout: proc.stdout ? Buffer.from(proc.stdout).toString(command.encoding ?? this.config.encoding) : '',
+      stderr: proc.stderr ? Buffer.from(proc.stderr).toString(command.encoding ?? this.config.encoding) : '',
       exitCode: proc.exitCode,
       signal: null
     };

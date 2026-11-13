@@ -135,6 +135,8 @@ export interface Command {
   throwOnNonZeroExit?: boolean;
 
   // Stream management
+  /** Decode captured output using this command’s configuration snapshot. */
+  encoding?: BufferEncoding;
   stdin?: string | Buffer | Readable;   // Input data
   stdout?: StreamOption;
   stderr?: StreamOption;

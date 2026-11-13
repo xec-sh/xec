@@ -111,17 +111,11 @@ describe('Mutable Configuration', () => {
       expect($.listenerCount('command:error')).toBe(1);
     });
     
-    it('should not affect existing adapter instances', () => {
-      // This would require actually creating adapters and testing
-      // For now, just verify the config is updated
-      $.config.set({
-        adapters: {
-          local: { encoding: 'latin1' }
-        }
-      });
-      
-      const config = $.config.get();
-      expect(config.adapters?.local?.encoding).toBe('latin1');
+    it('refuses adapter changes instead of mutating shared adapter instances', () => {
+      const before = $.config.get();
+      expect(() => $.config.set({ adapters: { local: { encoding: 'latin1' } } }))
+        .toThrow(/create a new engine/);
+      expect($.config.get()).toEqual(before);
     });
   });
 });

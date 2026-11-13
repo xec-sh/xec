@@ -287,6 +287,11 @@ export class KubernetesError extends ExecutionError {
 }
 /** Copy diagnostic values so callbacks cannot expose the original error graph. */
 export function sanitizeErrorForDiagnostics(error: Error): Error {
+  return sanitizeForDiagnostics(error);
+}
+
+/** Redact structured event/error values without changing their source data. */
+export function sanitizeForDiagnostics<T>(input: T): T {
   const seen = new WeakMap<object, object>();
   const copy = (value: unknown, key?: string): unknown => {
     if (typeof value === 'string') {
@@ -300,6 +305,7 @@ export function sanitizeErrorForDiagnostics(error: Error): Error {
     const existing = seen.get(value);
     if (existing) return existing;
     if (Buffer.isBuffer(value)) return Buffer.from(sanitizeCommandForError(value.toString()));
+    if (value instanceof Date) return new Date(value.getTime());
     if (Array.isArray(value)) {
       const items: unknown[] = [];
       seen.set(value, items);
@@ -344,5 +350,5 @@ export function sanitizeErrorForDiagnostics(error: Error): Error {
     }
     return result;
   };
-  return copy(error) as Error;
+  return copy(input) as T;
 }

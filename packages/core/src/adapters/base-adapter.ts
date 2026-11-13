@@ -5,12 +5,12 @@ import { Command } from '../types/command.js';
 import { StreamHandler } from '../utils/stream.js';
 import { resolveCallSite } from '../utils/call-site.js';
 import { ProgressReporter } from '../utils/progress.js';
-import { TimeoutError, AdapterError } from '../core/error.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
 import { MaskingStreamFilter } from '../utils/masking-stream.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
 import { createOptimizedMasker } from '../utils/optimized-masker.js';
 import { ExecutionResult, ExecutionResultImpl } from '../core/result.js';
+import { TimeoutError, AdapterError, sanitizeForDiagnostics } from '../core/error.js';
 import { defaultSensitiveRules, createDefaultSensitivePatterns } from '../utils/sensitive-patterns.js';
 
 export interface SensitiveDataMaskingConfig {
@@ -121,7 +121,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
         : data;
 
     this.emit(event, {
-      ...masked,
+      ...sanitizeForDiagnostics(masked),
       timestamp: new Date(),
       adapter: this.adapterName
     } as UshEventMap[K]);
@@ -152,6 +152,7 @@ export abstract class BaseAdapter extends EnhancedEventEmitter implements Dispos
       timeout: timeout === undefined ? undefined : parseDuration(timeout),
       shell: command.shell ?? this.config.defaultShell,
       maxBuffer: command.maxBuffer ?? this.config.maxBuffer,
+      encoding: command.encoding ?? this.config.encoding,
       throwOnNonZeroExit: command.throwOnNonZeroExit ?? this.config.throwOnNonZeroExit,
       stdout: command.stdout ?? 'pipe',
       stderr: command.stderr ?? 'pipe'

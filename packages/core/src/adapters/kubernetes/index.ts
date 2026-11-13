@@ -301,7 +301,7 @@ export class KubernetesAdapter extends BaseAdapter {
   private startSession(command: Command, onLine?: (data: string) => void): LocalCommandSession {
     if (this.disposed) throw new Error('Kubernetes adapter has been disposed');
     const session = new LocalCommandSession(this.local, command, {
-      encoding: this.config.encoding,
+      encoding: command.encoding ?? this.config.encoding,
       onStdout: onLine,
       onNonZero: result => new ExecutionError(
         `kubectl exited with code ${result.exitCode}: ${result.stderr}`,

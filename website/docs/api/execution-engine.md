@@ -54,6 +54,27 @@ of adapters (and their live connection pools) instead of creating fresh
 ones — this is how `.with()`, `.cd()`, `.env()` and friends stay cheap and
 keep SSH connections alive across a chain.
 
+### Configuration Updates
+
+The constructor and `engine.config.set()` accept the same aliases: `env` / `defaultEnv`, `cwd` / `defaultCwd`, `shell` / `defaultShell`, and `timeout` / `defaultTimeout`. Durations are normalized to milliseconds. When both spellings are supplied, the `default*` value takes precedence; environment maps combine with `defaultEnv` winning duplicate keys.
+
+`config.set()` validates the entire update before changing state, merges environment keys, and leaves the caller’s object unchanged. `config.get()` returns a snapshot of plain configuration data. Subsequent commands receive their own resolved defaults, including `encoding`, `maxBuffer` and nonzero-exit policy. A running command keeps its original snapshot, and derived engines retain their own defaults while sharing connections.
+
+```typescript
+import { ExecutionEngine } from '@xec-sh/core';
+
+const engine = new ExecutionEngine({ timeout: '30s', env: { APP_ENV: 'development' } });
+try {
+  engine.config.set({ timeout: '10s', encoding: 'utf8', maxBuffer: 1024 * 1024 });
+  const result = await engine.execute({ command: process.execPath, args: ['--version'], shell: false });
+  console.log(result.stdout);
+} finally {
+  await engine.dispose();
+}
+```
+
+Adapter configuration is fixed when an engine is constructed. `config.set({ adapters: ... })` rejects before applying any part of the update. Create an engine with the required adapter settings to change connection pools, cluster identity or transport policy; `config.set()` does not silently reconfigure shared connections. Per-command settings remain available through `.with()` and `execute()`.
+
 ### Methods
 
 #### execute()
