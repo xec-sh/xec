@@ -6,6 +6,7 @@ import type { PipeTarget, PipeOptions, ProcessPromise } from '../types/process.j
 import { promisify } from 'node:util';
 import { Readable, Writable, pipeline, Transform } from 'node:stream';
 
+import { CommandError } from './error.js';
 import { splitLines } from '../utils/line-split.js';
 import { PIPE_TARGET, type ProcessContext } from './process-context.js';
 import { dialectFor, interpolateForShell } from '../utils/shell-escape.js';
@@ -36,7 +37,8 @@ export async function executePipe(
 
   // Check for errors
   if (throwOnError && sourceResult.exitCode !== 0) {
-    throw new Error(`Previous command failed with exit code ${sourceResult.exitCode}`);
+    throw new CommandError(sourceResult.command, sourceResult.exitCode, sourceResult.signal,
+      sourceResult.stdout, sourceResult.stderr, sourceResult.duration);
   }
 
   // Handle different target types

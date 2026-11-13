@@ -46,10 +46,14 @@ if (command === 'raw-json' || command === 'failed-json') {
   process.stderr.write('password=synthetic-fixture-value');
   process.exitCode = command === 'failed-json' ? 7 : 0;
 } else if (command === 'exec') {
-  if (args.includes('late-exec')) {
+  if (args.includes('lookup-refused')) { process.stderr.write('cluster authorization refused');process.exitCode=1; }
+  else if (args.includes('lookup-missing')) process.stdout.write('missing\\n');
+  else if (args.includes('lookup-present')) process.stdout.write('found\\n/usr/bin/node\\n');
+  else if (args.includes('late-exec')) {
     require('node:child_process').spawn(process.execPath, ['-e', "setTimeout(() => process.stdout.write('exec trailing output'), 100)"], {stdio: ['ignore', 1, 2]}).unref();
     process.exit(0);
-  } else if (args.includes('hang-exec')) hang();
+  } else if (args.includes('iterate-exec')) { hang();process.stdout.write('ready\\n'); }
+  else if (args.includes('hang-exec')) hang();
   else if (args.includes('failed-exec')) { process.stderr.write('failed command'); process.exitCode = 7; }
   else process.stdout.write(JSON.stringify({args: argv, env: process.env.REMOTE_ONLY ?? null, cwd: process.cwd()}));
 } else if (command === 'literal') {
@@ -100,6 +104,20 @@ if (command === 'raw-json' || command === 'failed-json') {
       for (const entry of await records()) expect(isAlive(entry.pid), `kubectl PID ${entry.pid} survived completion`).toBe(false);
     }, { timeout: 3000, interval: 20 });
     await rm(directory, { recursive: true, force: true });
+  });
+
+  it('distinguishes acknowledged lookup absence from kubectl authorization failure', async () => {
+    const pod = (name: string) => engine.with({ adapter: 'kubernetes', adapterOptions: { type: 'kubernetes', pod: name } });
+    await expect(pod('lookup-present').which('node')).resolves.toBe('/usr/bin/node');
+    await expect(pod('lookup-missing').which('node')).resolves.toBeNull();
+    await expect(pod('lookup-refused').which('node')).rejects.toMatchObject({ code: 'KUBERNETES_ERROR' });
+  });
+
+  it('joins the native helper when an ordinary pod iterator breaks', async () => {
+    const pod = createK8sExecutionContext(engine, {}).pod('iterate-exec');
+    const command = pod.exec`echo ready`.timeout(3000);
+    for await (const line of command) { expect(line).toBe('ready'); break; }
+    for (const { pid } of await records()) expect(isAlive(pid)).toBe(false);
   });
 
   it('returns byte-exact valid JSON and stderr while redacting error diagnostics', async () => {

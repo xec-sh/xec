@@ -323,6 +323,17 @@ import { $, parallel } from '@xec-sh/core';
 const results = await parallel(['npm test', 'npm run lint'], { maxConcurrent: 2 });
 ```
 
+### Executable lookup
+
+`await $.which(name)` returns the first executable path on the selected target,
+or `null` when its lookup confirms absence. `await $.isCommandAvailable(name)`
+uses the same observation and returns a boolean. Both propagate cancellation,
+timeouts, authentication failures and unavailable transports; an unavailable
+target is not evidence that its command is missing. Local Windows uses
+`where.exe`; POSIX targets acknowledge the result of `which` through their shell.
+The name is passed as a literal argument in both cases; a failed remote transport
+cannot turn into an absent executable.
+
 ## ProcessPromise API
 
 The chainable, lazy promise returned by `` $`cmd` `` and `.exec()`. Nothing
@@ -572,6 +583,12 @@ const exactBuffer = (await $`cat image.png`).buffer();     // binary-safe
 
 ### Async iteration
 
+Iteration applies backpressure while the consumer processes a line. Captured
+command output is still subject to `maxBuffer`. A normal nonzero exit is reported
+after all output lines have been delivered, unless `.nothrow()` was requested.
+Breaking the loop stops that command and awaits its completion; failure to
+confirm cleanup still rejects instead of reporting a successful stop.
+
 A `ProcessPromise` is async-iterable, streaming lines as they arrive rather
 than waiting for the command to finish — the right tool for a follow-style
 command:
@@ -649,9 +666,8 @@ classes (`TimeoutError`, `MaxBufferExceededError`, `RetryError`,
 
 ### Connection Pooling
 
-SSH connections are pooled per adapter and reused automatically — there is
-configured on the adapter. To tune the pool, configure
-the SSH adapter directly:
+SSH connections are pooled per adapter and reused automatically. To tune the
+pool, configure the SSH adapter directly:
 
 ```typescript
 import { ExecutionEngine } from '@xec-sh/core';

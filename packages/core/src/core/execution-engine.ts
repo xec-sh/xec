@@ -16,7 +16,6 @@ import { BaseAdapter } from '../adapters/base-adapter.js';
 import { LocalAdapter } from '../adapters/local/index.js';
 import { DockerAdapter } from '../adapters/docker/index.js';
 import { EnhancedEventEmitter } from '../utils/event-emitter.js';
-import { AdapterError, sanitizeForDiagnostics } from './error.js';
 import { TempDir, TempFile, TempOptions } from '../utils/temp.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
 import { KubernetesAdapter } from '../adapters/kubernetes/index.js';
@@ -25,6 +24,7 @@ import { CommandTemplate, TemplateOptions } from '../utils/templates.js';
 import { DockerFluentAPI } from '../adapters/docker/docker-fluent-api.js';
 import { ProcessContext, ProcessPromiseBuilder } from './process-context.js';
 import { parseK8sTarget, parseSSHTarget } from '../utils/target-shorthand.js';
+import { AdapterError, CommandError, sanitizeForDiagnostics } from './error.js';
 import { ParallelEngine, ParallelResult, ParallelOptions } from '../utils/parallel.js';
 import { select, confirm, Spinner, question, password } from '../utils/interactive.js';
 import { RetryError, RetryOptions, withExecutionRetry } from '../utils/retry-adapter.js';
@@ -1155,16 +1155,44 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
     return newEngine;
   }
 
-  // Utility methods
+  /**
+   * Resolve the first executable on the selected target's search path.
+   * An explicitly observed absence returns null; transport, authentication,
+   * cancellation and malformed lookup results remain failures.
+   */
   async which(command: string): Promise<string | null> {
-    try {
-      const result = await this.run`which ${command}`.nothrow();
-      const resolved = result.stdout.trim();
-      // If which returns empty output or non-zero exit, command not found
-      return (resolved && result.exitCode === 0) ? resolved : null;
-    } catch {
-      return null;
+    if (typeof command !== 'string' || !command || command.includes('\0')) {
+      throw new TypeError('which requires a nonempty executable name');
     }
+    const adapter = await this.selectAdapter({ command: '', ...this.currentConfig, ...asyncLocalStorage.getStore() });
+    const windows = adapter instanceof LocalAdapter && os.platform() === 'win32';
+    // On a remote target, kubectl's exit 1 can mean transport refusal rather
+    // than an absent executable. A successful shell observation acknowledges
+    // found/missing; a failed transport cannot be interpreted as absence.
+    const lookup = 'resolved=$(which -- "$1"); code=$?; if [ "$code" -eq 0 ]; then printf "found\\n%s\\n" "$resolved"; elif [ "$code" -eq 1 ]; then printf "missing\\n"; else exit "$code"; fi';
+    let result: ExecutionResult;
+    try {
+      result = await this.execute({
+        command: windows ? 'where.exe' : 'sh',
+        args: windows ? [command] : ['-c', lookup, 'xec-which', command],
+        shell: false,
+        throwOnNonZeroExit: true,
+        nothrow: false,
+      });
+    } catch (error) {
+      if (windows && error instanceof CommandError && error.exitCode === 1 && !error.signal) return null;
+      throw error;
+    }
+    if (result.signal || result.exitCode !== 0) {
+      if (windows && result.exitCode === 1 && !result.signal) return null;
+      throw sanitizeForDiagnostics(new CommandError(result.command, result.exitCode, result.signal,
+        result.stdout, result.stderr, result.duration));
+    }
+    if (!windows && /^missing\r?\n$/.test(result.stdout)) return null;
+    const lines = result.stdout.split(/\r?\n/);
+    const resolved = windows ? lines[0] : lines[0] === 'found' ? lines[1] : undefined;
+    if (!resolved) throw new Error('Executable lookup succeeded without returning a valid path observation');
+    return resolved;
   }
 
   async isCommandAvailable(command: string): Promise<boolean> {

@@ -7,12 +7,13 @@ import type { PipeTarget, PipeOptions } from './pipe-implementation.js';
 
 import { Writable, PassThrough } from 'node:stream';
 
+import { within } from '../utils/within.js';
 import { globalCache } from '../utils/cache.js';
 import { ExecutionResultImpl } from './result.js';
-import { splitLines } from '../utils/line-split.js';
 import { executePipe } from './pipe-implementation.js';
 import { captureCallSite } from '../utils/call-site.js';
 import { parseDuration, type Duration } from '../utils/helpers.js';
+import { DockerError, AdapterError, CommandError, ExecutionError } from './error.js';
 
 /** Branded symbol for xec promise identification — shared across modules */
 const XEC_PROMISE_BRAND = Symbol.for('xec:promise');
@@ -137,15 +138,10 @@ export class ProcessContext {
    */
   async execute(): Promise<ExecutionResult> {
     try {
-      // Lazy abort controller setup
-      if (!this.state.modifications.signal && !this.state.abortController) {
-        this.state.abortController = new AbortController();
-        this.state.modifications.signal = this.state.abortController.signal;
-      }
-
       // Resolve command (supports both sync and async)
       const commandParts = await Promise.resolve(this.commandResolver());
       const command = this.buildCommand(commandParts);
+      command.signal = this.executionSignal(command.signal);
 
       // Save the final nothrow value back to state for use in promise handling
       if (command.nothrow !== undefined) {
@@ -248,7 +244,7 @@ export class ProcessContext {
     newContext.state = {
       modifications: { ...this.state.modifications },
       cacheOptions: this.state.cacheOptions,
-      abortController: this.state.abortController,
+      abortController: null,
       // Deliberately not carried over: the handle belongs to a running
       // command, and this context describes a new one.
       handle: null,
@@ -345,25 +341,17 @@ export class ProcessContext {
     );
   }
 
-  /**
-   * Kill with direct access
-   */
+  /** Combine the caller's signal with cancellation owned only by this command. */
+  protected executionSignal(signal?: AbortSignal): AbortSignal {
+    const owned = (this.state.abortController ??= new AbortController()).signal;
+    return signal ? AbortSignal.any([signal, owned]) : owned;
+  }
+
+  /** Stop this command without mutating a caller-owned signal or its siblings. */
   kill = (signal: NodeJS.Signals = 'SIGTERM'): void => {
-    const { abortController, modifications, handle } = this.state;
-
-    // Signal the process itself when it is running: the adapter's handle
-    // takes down the whole process tree, whereas aborting only unblocks the
-    // caller and leaves whatever the command spawned still running. The
-    // abort still follows, so the promise settles.
-    if (handle) {
-      handle.kill(signal);
-    }
-
-    if (abortController && !abortController.signal.aborted) {
-      abortController.abort();
-    } else if (modifications.signal && typeof modifications.signal.dispatchEvent === 'function') {
-      modifications.signal.dispatchEvent(new Event('abort'));
-    }
+    this.state.handle?.kill(signal);
+    this.state.abortController ??= new AbortController();
+    this.state.abortController.abort();
   }
 
   // ===== Private helpers =====
@@ -424,120 +412,98 @@ export class ProcessContext {
  * @param context - Context holding the live process handle.
  * @returns An async iterator over output lines.
  */
-function streamLines(promise: ProcessPromise, context: ProcessContext): AsyncIterator<string> {
-  const queue: string[] = [];
-  let pending: ((result: IteratorResult<string>) => void) | null = null;
-  let failure: unknown = null;
-  let streamEnded = false;
+function streamLines(promise: ProcessPromise, context: ProcessContext): AsyncIterableIterator<string> {
+  // A second pipe participates in Node's shared awaitDrain protocol. Unlike a
+  // data listener's array, it cannot consume unlimited output while next() waits.
+  const output = new PassThrough({ highWaterMark: 64 * 1024 });
+  output.setEncoding('utf8');
+  // Errors can arrive between iterator creation and the first next(). They
+  // remain on the stream for the iterator to observe without an unhandled event.
+  output.on('error', () => {});
+  let stdout: ProcessHandle['stdout'];
   let settled = false;
-  let finished = false;
-  let remainder = '';
-
-  const push = (line: string): void => {
-    if (pending) {
-      const resolve = pending;
-      pending = null;
-      resolve({ value: line, done: false });
-      return;
-    }
-    queue.push(line);
+  let stopping = false;
+  let sourceError: unknown;
+  const spawned = promise.spawned;
+  const completion = promise.then(
+    result => { settled = true; return result; },
+    error => { settled = true; throw error; },
+  );
+  const onError = (error: Error) => { sourceError = error; output.destroy(error); };
+  const onClose = () => {
+    if (!stopping && !stdout?.readableEnded) onError(new Error('Command stdout closed before ending'));
   };
-
-  /**
-   * Complete the iteration — but only once the stream has ended *and* the
-   * command has settled.
-   *
-   * The stream ends when the process exits, which is strictly before the
-   * promise settles. Ending on the stream alone therefore closed the loop
-   * before the failure was known, and a non-zero exit finished quietly
-   * instead of throwing.
-   */
-  const finishIfDone = (): void => {
-    if (finished || !streamEnded || !settled) return;
-    finished = true;
-
-    if (remainder) {
-      const last = remainder;
-      remainder = '';
-      push(last);
-    }
-
-    if (pending) {
-      const resolve = pending;
-      pending = null;
-      resolve({ value: undefined as never, done: true });
-    }
-  };
-
-  // Reading the handle starts the command.
-  promise.spawned.then(handle => {
-    const stdout = handle.stdout;
-    if (!stdout) {
-      streamEnded = true;
-      finishIfDone();
-      return;
-    }
-
-    stdout.setEncoding('utf8');
-    stdout.on('data', (chunk: string) => {
-      const parts = splitLines(remainder + chunk);
-      remainder = parts.pop() ?? '';
-      for (const line of parts) {
-        push(line);
-      }
-    });
-    stdout.on('end', () => {
-      streamEnded = true;
-      finishIfDone();
-    });
-  }, () => {
-    streamEnded = true;
-    finishIfDone();
+  const attached = Promise.race([
+    spawned.then(handle => ({ handle })),
+    completion.then(result => ({ result })),
+  ]).then(async observed => {
+    if (stopping) return;
+    if ('result' in observed) { output.end(observed.result.stdout); return; }
+    stdout = observed.handle.stdout;
+    if (!stdout) { output.end(); return; }
+    if (stdout.readableEnded) { output.end((await completion).stdout); return; }
+    stdout.on('error', onError);
+    stdout.on('close', onClose);
+    stdout.pipe(output);
+  }).catch(error => { output.destroy(error); });
+  void completion.catch(error => {
+    // A failed native read may not produce 'end'. A normal nonzero exit must
+    // still let the consumer drain its already-buffered complete lines first.
+    if (!stdout?.readableEnded) output.destroy(error);
   });
 
-  promise.then(
-    () => {
-      settled = true;
-      finishIfDone();
-    },
-    error => {
-      failure = error;
-      settled = true;
-      // A command that failed before producing output never gets a stream
-      // end, so the loop would wait forever for one.
-      streamEnded = true;
-      finishIfDone();
+  const expectedStop = (error: unknown): boolean => {
+    if (error instanceof CommandError) return !!error.signal;
+    if (error instanceof DockerError) return expectedStop(error.originalError);
+    if (error instanceof AdapterError && error.operation !== 'terminate') return expectedStop(error.originalError);
+    if (error instanceof ExecutionError) return typeof error.details?.['signal'] === 'string';
+    return error instanceof Error && error.name === 'AbortError';
+  };
+  const join = async () => {
+    try { await completion; }
+    catch (error) { if (!stopping || !expectedStop(error)) throw error; }
+  };
+  const detach = () => {
+    stdout?.unpipe(output);
+    stdout?.removeListener('error', onError);
+    stdout?.removeListener('close', onClose);
+    output.destroy();
+  };
+  const stop = () => {
+    stopping = true;
+    if (!settled) context.kill();
+    detach();
+  };
+  const iterator = (async function* iterateLines() {
+    let remainder = '';
+    try {
+      await attached;
+      for await (const chunk of output) {
+        remainder += chunk;
+        let newline: number;
+        while ((newline = remainder.indexOf('\n')) !== -1) {
+          const line = remainder.slice(0, newline);
+          remainder = remainder.slice(newline + 1);
+          yield line.endsWith('\r') ? line.slice(0, -1) : line;
+        }
+      }
+      if (remainder) yield remainder;
+      await completion;
+    } catch (error) {
+      if (!stopping || sourceError) throw error;
+    } finally {
+      if (!settled) stop();
+      else detach();
+      await join();
     }
-  );
-
+  })();
   return {
-    async next(): Promise<IteratorResult<string>> {
-      if (queue.length > 0) {
-        return { value: queue.shift()!, done: false };
-      }
-      if (failure) {
-        throw failure;
-      }
-      if (finished) {
-        return { value: undefined as never, done: true };
-      }
-
-      const result = await new Promise<IteratorResult<string>>(resolve => {
-        pending = resolve;
-      });
-
-      // A failure surfaces once the queued lines have been delivered, so the
-      // consumer sees everything the command managed to produce first.
-      if (result.done && failure) {
-        throw failure;
-      }
-      return result;
-    },
-
+    [Symbol.asyncIterator]() { return this; },
+    next: () => iterator.next(),
     async return(): Promise<IteratorResult<string>> {
-      // Leaving the loop early must not orphan the command.
-      context.kill();
-      finished = true;
+      stop();
+      try { await iterator.return(undefined); }
+      finally { await join(); }
       return { value: undefined as never, done: true };
     },
   };
@@ -607,13 +573,15 @@ export class PipedProcessContext extends ProcessContext {
   }
 
   override async execute(): Promise<ExecutionResult> {
-    return executePipe(
-      this.sourceExecutor(), // No need for Promise.resolve
+    // The buffered pipe's source and destination execute within the same owned
+    // lifetime; cancelling the pipe must not leave either command running.
+    return within({ signal: this.executionSignal(this.state.modifications.signal) }, () => executePipe(
+      this.sourceExecutor(),
       this.target,
       this.engine,
       { throwOnError: !this.sourceNothrow, ...this.pipeOptions },
       ...this.templateArgs
-    );
+    ));
   }
 }
 

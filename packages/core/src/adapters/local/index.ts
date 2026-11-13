@@ -1,3 +1,5 @@
+import type { Writable } from 'node:stream';
+
 import { platform } from 'node:os';
 import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
@@ -445,6 +447,20 @@ export class LocalAdapter extends BaseAdapter {
 
         reject(err);
       });
+
+      // pipe() does not forward source errors to its destination. Reject the
+      // command and close only our own collector; otherwise a failed read leaves
+      // its transform unfinished and hides the actual failure behind a timeout.
+      const observeRead = (source: Readable | null, collector: Writable | null) => {
+        source?.once('error', error => {
+          collector?.destroy(error);
+          requestTermination();
+          progressReporter?.error(error);
+          reject(error);
+        });
+      };
+      observeRead(child.stdout, stdoutTransform);
+      observeRead(child.stderr, stderrTransform);
 
       // Handle stdout close
       if (child.stdout) {

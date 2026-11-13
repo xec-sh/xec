@@ -5,6 +5,7 @@ import { Writable } from 'node:stream';
 import { rm, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 
 import { DockerAdapter } from '../../src/adapters/docker/index.js';
+import { ExecutionEngine } from '../../src/core/execution-engine.js';
 import * as dockerUtils from '../../src/adapters/docker/docker-utils.js';
 import { TimeoutError, MaxBufferExceededError } from '../../src/core/error.js';
 
@@ -59,6 +60,7 @@ if (args[0] === 'ps') {
   } else process.stdout.write(JSON.stringify(args));
 } else if (args[0] === 'run') {
   if (kind === 'hang') hang();
+  else if (kind === 'iterate') { hang();process.stdout.write('ready\\n'); }
   else if (kind === 'failed') { process.stderr.write('command failed');process.exitCode=7; }
   else if (kind === 'stdin') { let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>process.stdout.write(data||'EOF')); }
   else if (kind === 'masked') process.stdout.write('password=synthetic-fixture-value');
@@ -114,6 +116,16 @@ else if (args[0] === 'rm') { process.stderr.write('cleanup refused'); process.ex
     await adapter.execute({ command: 'printf', args: ['sink'], stdout, shell: false, adapterOptions: target });
     expect(finished).toBe(true);
     expect(JSON.parse(text).args.at(-1)).toBe('sink');
+  });
+
+  it('joins the native helper when an ordinary command iterator breaks', async () => {
+    const engine = new ExecutionEngine();
+    engine.registerAdapter('docker', adapter);
+    try {
+      const command = engine.exec('iterate', { adapter: 'docker', adapterOptions: target, shell: false, timeout: 3000 });
+      for await (const line of command) { expect(line).toBe('ready'); break; }
+      for (const { pid } of await records()) expect(alive(pid)).toBe(false);
+    } finally { await engine.dispose(); }
   });
 
   it('preserves nonzero and timeout policies after confirmed process termination', async () => {

@@ -5,7 +5,7 @@ import { LocalCommandSession } from '../local/command-session.js';
 import { BaseAdapter, BaseAdapterConfig } from '../base-adapter.js';
 import { Command, DockerAdapterOptions } from '../../types/command.js';
 import { ExecutionResult, ExecutionResultImpl } from '../../core/result.js';
-import { DockerError, AdapterError, TimeoutError, sanitizeCommandForError } from '../../core/error.js';
+import { DockerError, AdapterError, CommandError, TimeoutError, sanitizeCommandForError } from '../../core/error.js';
 
 export interface DockerAutoCreateOptions {
   enabled: boolean;
@@ -698,7 +698,7 @@ export class DockerAdapter extends BaseAdapter {
     const commandForThrowCheck = context?.originalCommand ?? command;
     if (this.shouldThrowOnNonZeroExit(commandForThrowCheck, exitCode)) {
       const container = context?.container || 'unknown';
-      throw new DockerError(container, 'execute', new Error(`Command failed with exit code ${exitCode}: ${sanitizeCommandForError(command)}`));
+      throw new DockerError(container, 'execute', new CommandError(command, exitCode, signal, maskedStdout, maskedStderr, endTime - startTime));
     }
 
     return result;

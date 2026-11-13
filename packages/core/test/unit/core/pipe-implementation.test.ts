@@ -224,7 +224,7 @@ describe('Pipe Implementation', () => {
           engine,
           { throwOnError: true }
         )
-      ).rejects.toThrow('Previous command failed with exit code 1');
+      ).rejects.toMatchObject({ exitCode: 1, stderr: 'error' });
     });
 
     test('should not throw on error when throwOnError is false', async () => {

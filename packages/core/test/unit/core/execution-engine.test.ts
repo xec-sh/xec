@@ -232,7 +232,7 @@ describe('ExecutionEngine', () => {
     it('should check command availability with which()', async () => {
       const testEngine = engine.with({ adapter: 'mock' as any });
       
-      mockAdapter.mockSuccess('sh -c "which git"', '/usr/bin/git\n');
+      mockAdapter.mockDefault({ stdout: 'found\n/usr/bin/git\n', exitCode: 0 });
 
       const path = await testEngine.which('git');
       expect(path).toBe('/usr/bin/git');
@@ -241,7 +241,7 @@ describe('ExecutionEngine', () => {
     it('should return null for unavailable commands', async () => {
       const testEngine = engine.with({ adapter: 'mock' as any });
       
-      mockAdapter.mockFailure('sh -c "which nonexistent"', '', 1);
+      mockAdapter.mockDefault({ stdout: 'missing\n', exitCode: 0 });
 
       const path = await testEngine.which('nonexistent');
       expect(path).toBeNull();
@@ -250,7 +250,7 @@ describe('ExecutionEngine', () => {
     it('should check command availability with isCommandAvailable()', async () => {
       const testEngine = engine.with({ adapter: 'mock' as any });
       
-      mockAdapter.mockSuccess('sh -c "which node"', '/usr/bin/node\n');
+      mockAdapter.mockDefault({ stdout: 'found\n/usr/bin/node\n', exitCode: 0 });
 
       const available = await testEngine.isCommandAvailable('node');
       expect(available).toBe(true);

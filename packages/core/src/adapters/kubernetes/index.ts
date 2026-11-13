@@ -134,6 +134,8 @@ export class KubernetesAdapter extends BaseAdapter {
         stdout: sanitizeCommandForError(result.stdout),
         stderr: sanitizeCommandForError(result.stderr),
         command: sanitizeCommandForError(kubectlArgs.join(' ')),
+        exitCode: result.exitCode,
+        signal: result.signal,
       });
     }
     return this.createResultNoThrow(result.stdout, result.stderr, result.exitCode, result.signal,
