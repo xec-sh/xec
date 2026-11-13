@@ -81,7 +81,7 @@ Port forwarding is a method on a specific pod, reached through `.pod(name)`
 Kubernetes Service by name.
 
 ```typescript
-const pod = $.k8s('production').pod('database-pod');
+const pod = $.k8s({ namespace: 'production' }).pod('database-pod');
 
 const forward = await pod.portForward(5432, 5432);  // local, remote
 
@@ -124,7 +124,7 @@ await Promise.all(forwards.map(t => t.close()));
 The same pattern covers multiple ports on one pod:
 
 ```typescript
-const pod = $.k8s('monitoring').pod('monitoring-stack');
+const pod = $.k8s({ namespace: 'monitoring' }).pod('monitoring-stack');
 
 const [grafana, prometheus, alertmanager] = await Promise.all([
   pod.portForward(3000, 3000),
@@ -190,7 +190,7 @@ async function accessRemoteDB() {
 
 ```typescript
 async function debugPod(podName: string, namespace: string) {
-  const pod = $.k8s(namespace).pod(podName);
+  const pod = $.k8s({ namespace }).pod(podName);
 
   const [inspector, app, metrics] = await Promise.all([
     pod.portForward(9229, 9229), // Node.js debugger

@@ -123,7 +123,7 @@ there is no `$.k8s.portForward(...)`; `k8s` is a method, not a namespace, and
 forwarding isn't exposed on the context directly:
 
 ```typescript
-const pod = $.k8s('production').pod('web-service-7d9f8c6b5-x2vjm');
+const pod = $.k8s({ namespace: 'production' }).pod('web-service-7d9f8c6b5-x2vjm');
 
 // Forward a fixed local port to a pod port
 const forward = await pod.portForward(8080, 80);
@@ -137,7 +137,7 @@ await forward.close();
 
 ```typescript
 // Let the OS pick a free local port
-const dbForward = await $.k8s('data').pod('database-pod').portForwardDynamic(5432);
+const dbForward = await $.k8s({ namespace: 'data' }).pod('database-pod').portForwardDynamic(5432);
 console.log('Forwarded on port', dbForward.localPort);
 
 const db = await connectDB(`localhost:${dbForward.localPort}`);
@@ -150,7 +150,7 @@ is no batch/multi-port form.
 ## Logs
 
 ```typescript
-const pod = $.k8s('production').pod('app-pod');
+const pod = $.k8s({ namespace: 'production' }).pod('app-pod');
 
 // One-shot retrieval
 const logs = await pod.logs({ tail: 100, timestamps: true });
@@ -171,10 +171,11 @@ const stream = await pod.streamLogs((line) => {
 }, { follow: true, tail: 100 });
 
 // later
-stream.stop();
+await stream.stop();
 
 // Or, equivalently, .follow() — the same thing with follow: true implied
-await pod.follow((line) => console.log('LOG:', line));
+const following = await pod.follow(line => process.stdout.write(line));
+try { await following.completion; } finally { await following.stop(); }
 ```
 
 ### Logs Across Several Pods
@@ -187,7 +188,7 @@ const names = (await $`kubectl get pods -n production -l app=web-server -o jsonp
   .split(/\s+/);
 
 for (const name of names) {
-  const logs = await $.k8s('production').pod(name).logs({ tail: 50 });
+  const logs = await $.k8s({ namespace: 'production' }).pod(name).logs({ tail: 50 });
   console.log(`${name}:\n${logs}`);
 }
 ```
@@ -201,7 +202,7 @@ for anything beyond one pod, `kubectl get pods` is simpler.
 ## File Operations
 
 ```typescript
-const pod = $.k8s('default').pod('app-pod');
+const pod = $.k8s({ namespace: 'default' }).pod('app-pod');
 
 // Copy a file (or a directory — kubectl cp handles both) to the pod
 await pod.copyTo('/local/config.yaml', '/app/config.yaml');

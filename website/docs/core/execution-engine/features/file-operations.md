@@ -164,7 +164,7 @@ await $`docker run --rm -v data-volume:/data -v /local/volume-backup:/backup bus
 File copy is a method on a specific pod handle, reached through `.pod(name)`:
 
 ```typescript
-const pod = $.k8s('production').pod('app-pod');
+const pod = $.k8s({ namespace: 'production' }).pod('app-pod');
 
 // Copy to the pod
 await pod.copyTo('/local/config.yaml', '/app/config.yaml');

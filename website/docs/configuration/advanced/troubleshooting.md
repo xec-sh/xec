@@ -618,7 +618,7 @@ xec run --help
 
 ### Support Resources
 
-1. **Documentation**: https://xec.sh/docs
+1. **Documentation**: [Xec documentation](../../introduction/index.md)
 2. **GitHub Issues**: https://github.com/xec-sh/xec/issues
 
 ### Reporting Issues

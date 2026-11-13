@@ -1,11 +1,13 @@
 ---
 title: watch
-description: Watch files for changes and run commands, tasks, or scripts
+description: Watch scoped directories and run commands, tasks, or scripts
 ---
 
 # watch
 
-Watch files for changes and execute commands, tasks, or scripts automatically.
+Watch files on a local, SSH, Docker or Kubernetes target and run an action when
+changes are observed. Use a small source directory instead of an entire checkout
+when generated files and dependencies are not relevant.
 
 ## Synopsis
 
@@ -13,405 +15,138 @@ Watch files for changes and execute commands, tasks, or scripts automatically.
 xec watch <target> [paths...] [options]
 ```
 
-## Description
-
-The `watch` command monitors files and directories for changes and automatically executes specified actions. It supports watching files on local filesystem, SSH hosts, Docker containers, and Kubernetes pods.
-
 ## Arguments
 
-- `<target>` - Target to watch (local, hosts.name, containers.name, pods.name)
-- `[paths...]` - Paths to watch (default: current directory)
+- `<target>`: `local`, `hosts.name`, `containers.name` or `pods.name`.
+- `[paths...]`: directories to watch; defaults to the current directory.
 
 ## Options
 
-### Common Options
+| Option | Meaning |
+| --- | --- |
+| `--command <command>` | Execute a shell command on the selected target. |
+| `--task <task>` | Run a configured Xec task. |
+| `--script <script>` | Execute a JavaScript or TypeScript script through Xec. |
+| `--pattern <pattern>` | Include a basename pattern; may be repeated. |
+| `--exclude <pattern>` | Exclude paths; semantics depend on the target, below. |
+| `-d, --debounce <ms>` | Delay the action after a change burst; default `300`. |
+| `--initial` | Run once after the watcher is ready. |
+| `--poll` | Use filesystem polling for a **local** target. |
+| `--interval <ms>` | Local poll interval or remote fallback interval; default `1000`. |
+| `-p, --profile <profile>` | Select a configuration profile. |
+| `-i, --interactive` | Prompt for the target, paths and action. |
+| `-c, --config <path>` | Select a configuration file. |
+| `--dry-run` | Print the selected target, paths and action without starting them. |
+| `--quiet`, `--verbose` | Control diagnostic output. |
 
-- `-o, --output <format>` - Output format: `text` (default), `json`, `yaml`, `csv`
-- `-c, --config <path>` - Path to configuration file
-- `--dry-run` - Perform a dry run without making changes
-
-### General Options
-
-- `-p, --profile <profile>` - Configuration profile to use
-- `-i, --interactive` - Interactive mode for configuring watch settings
-
-### Watch Configuration
-
-- `--pattern <pattern>` - File patterns to watch (can be used multiple times)
-- `--exclude <pattern>` - Patterns to exclude (can be used multiple times)
-- `-d, --debounce <ms>` - Debounce interval in milliseconds (default: 300)
-- `--initial` - Run command immediately on start
-- `--poll` - Use polling instead of native watchers
-- `--interval <ms>` - Polling interval when --poll is used (default: 1000)
-
-### Action Options
-
-- `--command <command>` - Command to execute on change
-- `--task <task>` - Task to run on change
-- `--script <script>` - Script file to execute on change
+Supply one action: `--command`, `--task` or `--script`.
 
 ## Examples
 
-### Interactive Mode
-
 ```bash
-# Interactive mode to configure file watching
-xec watch --interactive
-```
-
-### Basic File Watching
-
-```bash
-# Watch TypeScript files and run tests
-xec watch local "src/**/*.ts" --command "npm test"
-
-# Watch current directory and run build script
-xec watch local . --script ./scripts/build.js
-
-# Watch specific files and run task
-xec watch local "src/**/*.js" --task build
-```
-
-### Remote Watching
-
-```bash
-# Watch remote directory and run deploy task
-xec watch hosts.dev /app --task deploy
-
-# Watch files in Docker container
-xec watch containers.app /src --pattern "*.js" --command "npm run build"
-
-# Watch pod files excluding node_modules
-xec watch pods.frontend /app --exclude "node_modules" --task reload
-```
-
-### Advanced Configuration
-
-```bash
-# Watch with debouncing and initial run
-xec watch local "src/**/*.ts" --command "npm test" --debounce 1000 --initial
-
-# Use polling for network filesystems
-xec watch hosts.nfs /shared --poll --interval 2000 --task sync
-
-# Watch multiple patterns with exclusions
-xec watch local . \
-  --pattern "*.ts" \
-  --pattern "*.js" \
-  --exclude "node_modules" \
-  --exclude "*.test.*" \
-  --command "npm run lint"
-```
-
-### Pattern Matching
-
-```bash
-# Watch specific file types
-xec watch local . --pattern "*.ts" --pattern "*.js" --command "npm run build"
-
-# Watch with complex patterns
-xec watch local . \
-  --pattern "src/**/*.{ts,js}" \
-  --pattern "config/**/*.yaml" \
-  --exclude "**/*.test.*" \
-  --exclude "**/node_modules/**" \
-  --task build-and-test
-```
-
-## Supported Targets
-
-### Local Filesystem
-
-Uses native file system watchers or polling:
-
-```bash
-# Watch local files with native watchers
-xec watch local src/ --command "npm run build"
-
-# Use polling for better compatibility
-xec watch local src/ --poll --command "npm run build"
-```
-
-### SSH Hosts
-
-Uses `inotifywait` on the remote system, falling back to polling when
-inotify-tools is not installed there.
-
-`--interval` applies to the remote fallback too. It used to be parsed,
-validated and then ignored: the remote loop slept for a hardcoded second
-whatever was asked for. Values below a second round up, because `sleep`
-is not required to accept a fraction.
-
-The fallback reads modification times in both the GNU and the BSD form,
-so it works on macOS and the BSDs. Reading them the GNU way only failed
-silently there — the loop compared two empty strings forever and the
-watch never fired.
-
-Paths and patterns are quoted before they reach the remote shell. Written
-raw, a path containing `;` ran whatever followed it, on the far side,
-with whatever credentials the target carries.
-
-```bash
-# Watch remote files via SSH
-xec watch hosts.server /app/src --command "systemctl reload myapp"
-
-# Watch with custom patterns
-xec watch hosts.server /etc --pattern "*.conf" --task reload-config
-```
-
-### Docker Containers
-
-Executes `inotifywait` inside the container:
-
-```bash
-# Watch files in running container
-xec watch containers.app /app/src --command "npm run build"
-
-# Watch with exclusions
-xec watch containers.web /var/www --exclude "*.log" --task reload-nginx
-```
-
-### Kubernetes Pods
-
-Uses `kubectl exec` to run watchers in pods:
-
-```bash
-# Watch files in pod
-xec watch pods.frontend /app/src --command "npm run build"
-
-# Watch in specific container of multi-container pod
-xec watch pods.app /data --task process-data
+xec watch local src --pattern '*.ts' --command 'pnpm test'
+xec watch local src --script ./scripts/build.ts --initial
+xec watch local src styles --pattern '*.ts' --pattern '*.css' --task build
+xec watch local src --poll --interval 1000 --command 'pnpm build'
+xec watch hosts.dev /app/src --command 'systemctl reload myapp'
+xec watch containers.app /src --pattern '*.js' --command 'npm run build'
+xec watch pods.frontend /app --exclude node_modules --task reload
+xec watch local --interactive
 ```
 
 ## Pattern Syntax
 
-The watch command supports glob-style patterns:
+`--pattern` matches a **basename**, not a full relative path. Use simple `*` and
+`?` patterns, for example `*.ts` or `config?.json`. Repeat the option for multiple
+file types. Brace expansion and recursive path globs are not a supported matcher
+contract.
 
-- `*` - Match any characters except path separators
-- `**` - Match any characters including path separators (recursive)
-- `?` - Match single character
-- `{a,b,c}` - Brace expansion
-- `[abc]` - Character ranges
-
-### Pattern Examples
-
-```bash
-# TypeScript and JavaScript files
---pattern "**/*.{ts,js}"
-
-# Configuration files
---pattern "**/*.{yaml,yml,json}"
-
-# Source files excluding tests
---pattern "src/**/*.ts" --exclude "**/*.test.*"
-
-# Multiple specific patterns
---pattern "*.ts" --pattern "*.css" --pattern "*.html"
-```
+A local positional path such as `src/**/*.ts` selects the `src` watch root and
+matches its final basename segment recursively. Prefer an explicit root and
+`--pattern '*.ts'`; this also makes the scanned scope clear.
 
 ## Exclude Patterns
 
-Exclude patterns prevent files from triggering watch events:
+For local watching, exclusions are literal path fragments. Use `node_modules`,
+`.git`, `dist` or `.test.`; `**/*.test.*` is not a local exclusion glob.
 
 ```bash
-# Exclude common directories
---exclude "node_modules" --exclude ".git" --exclude "dist"
-
-# Exclude file types
---exclude "*.log" --exclude "*.tmp" --exclude "*.cache"
-
-# Exclude test files
---exclude "**/*.test.*" --exclude "**/*.spec.*"
+xec watch local src --exclude .test. --exclude generated --task build
 ```
+
+On remote targets, exclusions are passed to `inotifywait --exclude`, whose
+matcher is a regular expression. The stat-based remote fallback does not provide
+per-file exclusion events.
 
 ## Action Types
 
-### Commands
-
-Execute shell commands when files change:
-
-```bash
-# Simple command
-xec watch local src/ --command "npm run build"
-
-# Complex command with pipes
-xec watch local . --command "npm run lint && npm run test"
-
-# Command with environment variables
-xec watch local . --command "NODE_ENV=development npm start"
-```
-
-### Tasks
-
-Run configured tasks from `.xec/config.yaml`:
-
-```bash
-# Run simple task
-xec watch local src/ --task build
-
-# Run task with parameters (if supported by task)
-xec watch local . --task deploy
-
-# Run complex multi-step task
-xec watch local . --task build-test-deploy
-```
-
-### Scripts
-
-Execute Xec scripts when files change:
-
-```bash
-# Run TypeScript script
-xec watch local src/ --script ./scripts/build.ts
-
-# Run JavaScript script
-xec watch local . --script ./automation/deploy.js
-
-# Script with full path
-xec watch local . --script /usr/local/bin/custom-build.sh
-```
+Commands run on the selected target. Scripts use Xec's script loader with the
+selected target and execution engine in their context. Tasks use the project's
+configured task definition. A failed action is reported and watching continues.
 
 ## Debouncing
 
-Debouncing prevents excessive executions when multiple files change rapidly:
+Changes within the quiet interval are combined into one scheduled action. A
+longer interval reduces work while saving several files:
 
 ```bash
-# Short debounce for quick feedback
-xec watch local src/ --command "npm run lint" --debounce 100
-
-# Standard debounce (default)
-xec watch local . --command "npm run build" --debounce 300
-
-# Long debounce for expensive operations
-xec watch local . --task full-rebuild --debounce 2000
+xec watch local src --task build --debounce 1000
 ```
+
+Debouncing is not a build scheduler: a later change can start an action while a
+previous action is still running. Workflows that must serialize or coordinate
+builds should own that policy through the [Ops workflow API](../../ops/workflow.md).
 
 ## Polling vs Native Watchers
 
-### Native Watchers (Default)
+Native local watching uses Node's `fs.watch` and depends on operating-system
+notifications. Select `--poll` for a filesystem where those notifications are
+unreliable. Polling scans the selected roots every interval and observes file
+identity, size and modification metadata; it can detect atomic replacements even
+when a writer preserves the modification time.
 
-- Uses filesystem events (inotify on Linux, FSEvents on macOS)
-- More efficient and responsive
-- May not work on network filesystems
-
-```bash
-# Use native watchers (default)
-xec watch local src/ --command "npm run build"
-```
-
-### Polling
-
-- Checks files at regular intervals
-- Works on all filesystems including network mounts
-- Higher resource usage
-
-```bash
-# Use polling
-xec watch local /network/share --poll --interval 1000 --task sync
-
-# Polling with custom interval
-xec watch hosts.nfs /shared --poll --interval 5000 --command "rsync -av /shared/ /local/"
-```
-
-## Interactive Mode
-
-Interactive mode provides a guided setup for complex watch configurations:
-
-```bash
-xec watch --interactive
-```
-
-Interactive mode prompts for:
-
-1. **Target selection** - Choose from configured targets
-2. **Paths to watch** - Specify directories and files
-3. **File patterns** - Include/exclude patterns
-4. **Action type** - Command, task, or script
-5. **Advanced options** - Debouncing, polling, initial run
+Polling costs filesystem work proportional to the selected files. It does not
+observe changes that are created and removed entirely between two scans. Neither
+mode is a durable event journal.
 
 ## Remote Watching Implementation
 
-### SSH Hosts
+SSH, Docker and Kubernetes targets run `inotifywait` through their target's
+command execution. When that tool is unavailable, the remote shell falls back to
+comparing the maximum file modification time. `--interval` is rounded to whole
+seconds, with a minimum of one second. GNU and BSD `stat` are supported.
 
-The watch command uses `inotifywait` on the remote system:
-
-```bash
-# Command executed on remote host
-inotifywait -mr -e modify,create,delete --format '%w%f' /path/to/watch
-```
-
-If `inotifywait` is not available, falls back to stat-based polling:
-
-```bash
-# Fallback polling command
-while true; do
-  current_mtime=$(find /path -type f -exec stat -c '%Y' {} \; | sort -n | tail -1)
-  if [ "$current_mtime" != "$last_mtime" ]; then
-    echo "/path MODIFY"
-    last_mtime="$current_mtime"
-  fi
-  sleep 1
-done
-```
-
-### Docker Containers
-
-Similar to SSH, but uses `docker exec`:
-
-```bash
-docker exec container_name sh -c "inotifywait -mr -e modify,create,delete --format '%w%f' /path"
-```
-
-### Kubernetes Pods
-
-Uses `kubectl exec` to run watchers:
-
-```bash
-kubectl exec -n namespace pod_name -- sh -c "inotifywait -mr -e modify,create,delete --format '%w%f' /path"
-```
-
-## Performance Considerations
-
-- **File count**: Large directories may impact performance
-- **Pattern complexity**: Simple patterns are more efficient
-- **Debounce timing**: Balance responsiveness vs. resource usage
-- **Remote watching**: Network latency affects response time
-- **Polling interval**: Lower intervals increase CPU usage
+This fallback reports directory-level changes, not a lossless sequence of file
+additions and deletions; a change that leaves the maximum modification time
+unchanged may not be detected. `--poll` selects the local FileWatcher backend and
+does not force a different remote transport. There is no automatic reconnect
+promise when a remote watch process or connection fails.
 
 ## Error Handling
 
-The watch command handles common scenarios:
-
-- **File not found**: Reports missing paths
-- **Permission denied**: Shows access errors
-- **Command failures**: Continues watching after failed executions
-- **Network issues**: Attempts to reconnect for remote targets
-- **Tool unavailability**: Falls back to polling when `inotifywait` is missing
+The local watcher becomes ready only when all roots have been admitted. Missing
+or unreadable roots fail before the readiness message or initial action. A later
+watcher error or unexpected closure fails the foreground command and releases its
+watch resources. Action failures are separate: they are logged while the watcher
+continues observing.
 
 ## Signal Handling
 
-The watch command responds to signals:
+The first `SIGINT` or `SIGTERM` cancels the command and waits for its owned actions
+and watcher cleanup. Xec reports elapsed cleanup time. A second termination
+signal explicitly forces exit; it can leave cleanup incomplete. There is no
+`SIGUSR1` configuration-reload handler.
 
-- **SIGINT (Ctrl+C)**: Graceful shutdown, cleanup watchers
-- **SIGTERM**: Clean termination
-- **SIGUSR1**: Reload configuration (if supported)
+## Exit Codes
 
-## Logging and Output
-
-Watch output includes:
-
-```
-[12:34:56] Change detected: src/index.ts
-✓ Command executed successfully
-[12:35:02] Change detected: src/utils.ts
-✗ Execution failed: Command failed with exit code 1
-```
-
-Use `--quiet` to suppress output or `--verbose` for detailed logging.
+Exit status is `130` after `SIGINT` and `143` after `SIGTERM`. A successful dry run
+returns `0`; watcher setup or runtime errors use the shared
+[CLI exit codes](../cli-reference.md#exit-codes), including `10` for a missing
+path and `11` for permission denial.
 
 ## Configuration
 
-Default watch settings can be configured in `.xec/config.yaml`:
+Command defaults belong under `commands.watch` in `.xec/config.yaml`:
 
 ```yaml
 commands:
@@ -419,22 +154,43 @@ commands:
     debounce: 300
     poll: false
     interval: 1000
-    clear: true
     initial: false
 ```
 
+## Programmatic Watching
+
+The shared watcher is available from `@xec-sh/loader/watch`. Its defaults differ
+from the CLI: a `200` ms debounce, script extensions only and exclusions for
+`node_modules`, `.git`, `dist`, `coverage` and `.turbo`. Set `extensions: []` to
+observe every file type. `ignore` contains literal path fragments.
+
+```typescript
+import { FileWatcher } from '@xec-sh/loader/watch';
+
+const watcher = new FileWatcher(['src', 'styles'], {
+  poll: true, pollInterval: 1000, extensions: [],
+});
+watcher.on('change', event => console.log(event.type, event.relativePath));
+watcher.on('error', error => { console.error(error); process.exitCode = 1; });
+watcher.once('ready', () => console.log('All roots are watched'));
+watcher.start();
+// The owner later calls watcher.close().
+```
+
+Attach listeners before `start()`. `ready` means every selected root is watched;
+`error` closes the watcher and `close` reports that lifecycle boundary. Events
+contain an absolute `path` and a `relativePath` relative to the watch root.
+`persistent` defaults to `true`; use `false` only for a background watcher that
+must not keep the process alive. `close()` is idempotent. Starting an already
+started watcher creates no duplicate subscription; a closed watcher cannot be
+restarted.
+
+The caller owns any initial build. The watcher does not synthesize an initial
+file change or serialize asynchronous event handlers.
+
 ## Related Commands
 
-- [run](run.md) - Execute scripts and tasks
-- [on](on.md) - Execute commands on SSH hosts
-- [in](in.md) - Execute commands in containers/pods
-- [logs](logs.md) - View logs from targets
-
-## Exit Codes
-
-- `0` - Success (watch stopped gracefully)
-- `1` - General error
-- `2` - Invalid arguments
-- `3` - Target not found
-- `4` - Watch setup failed
-- `5` - Permission error
+- [run](run.md): execute scripts and tasks.
+- [on](on.md): execute commands on SSH hosts.
+- [in](in.md): execute commands in containers or pods.
+- [logs](logs.md): inspect target logs.

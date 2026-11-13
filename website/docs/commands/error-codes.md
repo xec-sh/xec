@@ -75,11 +75,16 @@ The code identifies *what* failed; the exit status says only whether
 something did. They are separate on purpose — a shell can act on one and
 a program on the other.
 
-- `0` — success
-- The command's own exit code, when exactly one target ran and exited
-  non-zero, so `xec on web-1 "test -f /etc/nginx.conf"` works in an `if`
-- `2` — the arguments were not valid
-- `1` — everything else
+- `0`: success.
+- A child command's valid nonzero exit status is preserved when the operation
+  exposes that failure, including single-target `on`/`in` execution.
+- Typed Ops errors map to `2`–`9`; filesystem system errors map to `10`–`13`.
+- `130` / `143`: cancellation by `SIGINT` / `SIGTERM` after cleanup.
+- `1`: an otherwise unclassified failure.
+
+See the [complete mapping](cli-reference.md#exit-codes). Error identifiers and
+process exit codes are separate contracts; `KUBERNETES_ERROR`, for example, is
+not itself a numeric status.
 
 ## Adding a code
 

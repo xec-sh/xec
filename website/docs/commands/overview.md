@@ -10,7 +10,7 @@ keywords: [commands, cli, architecture, built-in, custom, dynamic]
 
 Xec provides a powerful and extensible command system that supports both built-in commands and custom user-defined commands. This section covers the complete command reference for the Xec CLI.
 
-The CLI entry point lives in `apps/xec/src/main.ts`. Built-in commands are the modules in `apps/xec/src/commands/`, each registering itself with the commander program. Dynamic commands are loaded by `loadDynamicCommands()` from `apps/xec/src/utils/cli-command-manager.ts`, and the `BaseCommand` class custom commands extend is defined in `apps/xec/src/utils/command-base.ts`.
+The CLI entry point lives in `apps/xec/src/main.ts`. Built-in commands are the modules in `apps/xec/src/commands/`, each registering itself with the commander program. Dynamic commands are loaded by `loadDynamicCommands()` from `apps/xec/src/utils/cli-command-manager.ts`, and built-ins share `apps/xec/src/utils/command-base.ts`. Project commands register with the public Commander program instead of importing that private base class.
 
 ## Command Types
 
@@ -20,6 +20,8 @@ Xec supports three types of commands:
 
 Core commands that are included with Xec:
 
+- **[completion](built-in/completion.md)** - Generate shell completion.
+- **[doctor](built-in/doctor.md)** - Check the local execution environment.
 - **[config](built-in/config.md)** - Manage Xec configuration (aliases: `conf`, `cfg`)
 - **[copy](built-in/copy.md)** - Copy files between targets (alias: `cp`)
 - **docker** - Manage Docker containers, images, networks, and Compose via the fluent API (alias: `d`)
@@ -120,6 +122,8 @@ Errors are handled by `handleError()` from `@xec-sh/ops`, which prints an action
 | 11 | Permission denied (`EACCES`) |
 | 12 | Not a directory (`ENOTDIR`) |
 | 13 | Is a directory (`EISDIR`) |
+| 130 | Cancelled by `SIGINT` after cleanup |
+| 143 | Cancelled by `SIGTERM` after cleanup |
 
 ### Error Features
 - Clear error messages with context
@@ -129,17 +133,11 @@ Errors are handled by `handleError()` from `@xec-sh/ops`, which prints an action
 
 ## Command Development
 
-You can create custom commands by:
-
-1. Creating a `.xec/commands/` directory
-2. Adding JavaScript/TypeScript files that extend `BaseCommand` (from `apps/xec/src/utils/command-base.ts`)
-3. Commands are automatically loaded via `loadDynamicCommands()`
-
-**Implementation Details:**
-- Commands must extend the `BaseCommand` class
-- Must implement `execute(args: any[]): Promise<void>`
-- Command metadata (name, description, options, aliases, examples) is passed to the `BaseCommand` constructor
-- Throw specific error types for proper exit codes
+Create a `.xec/commands/` file that exports `command(program)`, `setup(program)`
+or a default registration function. Register the command's arguments, options
+and action through the provided Commander program. TypeScript is transformed by
+Xec's scripting runtime; the public scripting APIs and globals remain available.
+There is no requirement to subclass or import Xec's private CLI implementation.
 
 See [Creating Custom Commands](custom/creating-commands.md) for detailed guide.
 

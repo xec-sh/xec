@@ -1,13 +1,15 @@
 ---
 title: Log Streaming
-description: Streaming and retrieving logs from Kubernetes pods with Xec
+description: Retrieve or follow Kubernetes logs with bounded buffering and explicit completion
 keywords: [kubernetes, k8s, logs, streaming, follow, tail]
 sidebar_position: 5
 ---
 
 # Log Streaming
 
-Log access runs through `kubectl logs`, either as a one-shot call or a followed stream. All of it is available from a pod handle.
+Pod handles run `kubectl logs` with the namespace, context and kubeconfig selected
+on `$.k8s(...)`. One-shot retrieval returns text; streaming exposes a handle with
+observable completion and awaited shutdown.
 
 ## Static Retrieval
 
@@ -15,96 +17,137 @@ Log access runs through `kubectl logs`, either as a one-shot call or a followed 
 import { $ } from '@xec-sh/core';
 
 const pod = $.k8s({ namespace: 'production' }).pod('web-server');
-
-const logs = await pod.logs({ tail: 100 });
+const logs = await pod.logs({ tail: 100, timestamps: true });
 console.log(logs);
 
-const timestamped = await pod.logs({ tail: 50, timestamps: true });
-
-// Logs from the previous instance of the container, after a restart
+// Requires an actual previous container instance.
 const previous = await pod.logs({ previous: true, tail: 200 });
 ```
 
-`pod.logs()` always returns the full text at once — it does not follow. It throws `ExecutionError` (`code: 'KUBERNETES_ERROR'`) if the underlying `kubectl logs` call fails.
+`pod.logs()` does not follow. A nonzero kubectl exit rejects with
+`ExecutionError` and `code: 'KUBERNETES_ERROR'`.
 
 ## Real-Time Streaming
 
 ```typescript
 const stream = await pod.streamLogs(
-  (line) => console.log(`[${new Date().toISOString()}] ${line.trim()}`),
-  { follow: true, tail: 10 } // tail: how many existing lines to prime with
+  line => process.stdout.write(line),
+  { follow: true, tail: 10, maxBuffer: 1024 * 1024 }
 );
 
-setTimeout(() => stream.stop(), 30_000);
+try {
+  await stream.completion;
+} finally {
+  await stream.stop();
+}
 ```
 
-`follow()` is `streamLogs()` with `follow` already set to `true` — pass everything else the same way, but leave `follow` out (it isn't part of the type):
+The callback receives complete lines, including their original newline. Empty
+lines, whitespace and UTF-8 split across native chunks are preserved. An
+unterminated final line is delivered once without adding a newline. Trimming or
+formatting is the caller's choice.
+
+`stream.completion` settles after the child and its output have finished. It
+rejects on a failed exit, callback error, cancellation, deadline or buffer limit.
+`await stream.stop()` requests termination and waits for that same completion;
+repeated calls share the result. Deliberate stopping does not manufacture a
+kubectl error, but an already observed failure remains a failure.
+
+`follow()` enables `follow: true`; its options omit `follow` and `previous`:
 
 ```typescript
-const stream = await pod.follow(
-  (line) => console.log(line.trim()),
-  { tail: 20, timestamps: true }
-);
+const stream = await pod.follow(line => process.stdout.write(line), {
+  tail: 20, timestamps: true,
+});
 
-stream.stop();
+// When the owning operation is finished:
+await stream.stop();
 ```
 
-Both callbacks are invoked once per line — the adapter splits each `kubectl logs` stdout chunk on newlines and drops empty lines before calling back, so there's no need to split the argument yourself.
+## Deadlines and Cancellation
+
+Follow streams have no deadline by default. `timeout` is in milliseconds; `0`
+disables it. Non-follow streams use the adapter's configured deadline. `maxBuffer`
+bounds each log line and captured stderr rather than retaining the entire stream.
+A limit or deadline stops the owned kubectl process before completion rejects.
+
+```typescript
+const cancellation = new AbortController();
+const stream = await pod.follow(line => process.stdout.write(line), {
+  signal: cancellation.signal,
+  timeout: 60_000,
+  maxBuffer: 1024 * 1024,
+});
+
+try {
+  await stream.completion;
+} finally {
+  await stream.stop();
+}
+```
+
+Pass the owning operation's `AbortSignal` when embedding this API. In an Xec CLI
+script, `getExecutionSignal()` exposes the command's cooperative cancellation
+scope; do not install competing process signal handlers.
 
 ## Container-Specific Streaming
 
 ```typescript
 const multiPod = $.k8s({ namespace: 'production' }).pod('multi-container-pod');
-
-const nginxStream = await multiPod.streamLogs(
-  (line) => console.log('[nginx]', line.trim()),
-  { container: 'nginx', follow: true, tail: 50 }
-);
-
-const appStream = await multiPod.streamLogs(
-  (line) => console.log('[app]', line.trim()),
-  { container: 'app', follow: true, tail: 50 }
-);
-
-// later
-nginxStream.stop();
-appStream.stop();
+const stream = await multiPod.follow(line => process.stdout.write(line), {
+  container: 'nginx', tail: 50,
+});
+try {
+  await stream.completion;
+} finally {
+  await stream.stop();
+}
 ```
 
 ## Low-Level Adapter Form
-
-The pod methods are a thin wrapper over the adapter's own `streamLogs`, which takes the pod name directly and is useful without a pod handle:
 
 ```typescript
 import { KubernetesAdapter } from '@xec-sh/core';
 
 const k8s = $.getAdapter('kubernetes') as KubernetesAdapter;
-
-const stream = await k8s.streamLogs(
-  'web-server-pod',
-  (data) => console.log(data.trim()),
-  { namespace: 'production', follow: true, timestamps: true }
-);
-
-stream.stop();
+const stream = await k8s.streamLogs('web-server-pod', line => process.stdout.write(line), {
+  namespace: 'production', context: 'production-cluster',
+  follow: true, timestamps: true,
+});
+try {
+  await stream.completion;
+} finally {
+  await stream.stop();
+}
 ```
 
 ## Multiple Pods
 
-There's no built-in aggregation — start one stream per pod and merge in your own callback:
+There is no built-in aggregation. Own each stream, attach completion handlers and
+await all shutdowns. The `finally` block also covers a later stream failing to
+start after an earlier one was opened.
 
 ```typescript
-async function streamAll(pods: string[], namespace: string) {
-  const k8s = $.k8s({ namespace });
-  const streams = pods.map((name) =>
-    k8s.pod(name).follow((line) => console.log(`[${name}] ${line.trim()}`))
-  );
-  return () => Promise.all(streams).then((s) => s.forEach((stream) => stream.stop()));
+import type { K8sLogStream } from '@xec-sh/core';
+
+async function streamAll(pods: string[], namespace: string, signal: AbortSignal) {
+  const streams: K8sLogStream[] = [];
+  try {
+    for (const name of pods) {
+      streams.push(await $.k8s({ namespace }).pod(name).follow(
+        line => process.stdout.write(`[${name}] ${line}`), { signal, tail: 50 },
+      ));
+    }
+    await Promise.all(streams.map(stream => stream.completion));
+  } finally {
+    await Promise.allSettled(streams.map(stream => stream.stop()));
+  }
 }
 ```
 
 ## Best Practices
 
-- Keep `tail` bounded on the initial call — it primes the stream with existing lines before following.
-- Always call `.stop()` when done; register it on `SIGINT`/`SIGTERM` for anything long-lived.
-- `pod.logs({ previous: true })` only succeeds if the container has actually restarted — there's no fallback.
+- Bound `tail` to limit the initial history delivered before following.
+- Observe `completion`; receiving a handle is not proof that a stream stays healthy.
+- Await `stop()` before releasing the resources owned by your operation.
+- `previous: true` requires an actual prior container instance; there is no fallback.

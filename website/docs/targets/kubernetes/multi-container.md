@@ -40,7 +40,7 @@ async function getContainers(pod: string, namespace: string): Promise<string[]> 
     'get', 'pod', pod,
     '-n', namespace,
     '-o', 'jsonpath={.spec.containers[*].name}',
-  ]);
+  ], { throwOnNonZeroExit: true });
   return stdout.trim().split(' ').filter(Boolean);
 }
 ```

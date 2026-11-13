@@ -214,9 +214,10 @@ await $`docker logs -f --tail 100 --timestamps my-container`
   });
 
 // Stream Kubernetes logs — K8sPod.follow, reached through .pod()
-await $.k8s('production').pod('my-pod').follow((line) => {
-  console.log(`[K8S] ${line}`);
+const stream = await $.k8s({ namespace: 'production' }).pod('my-pod').follow(line => {
+  process.stdout.write(`[K8S] ${line}`);
 }, { container: 'app' });
+try { await stream.completion; } finally { await stream.stop(); }
 ```
 
 ### Multi-Source Log Aggregation

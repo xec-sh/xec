@@ -12,6 +12,11 @@ do not load release automation. Install the published Ops package before using t
 
 ## Release Xec
 
+`release` is this repository's dynamic command in `.xec/commands/release.ts`,
+not a global built-in. `pnpm release` and `xec release` invoke the same recipe
+when run in this checkout. Other projects register their own recipe using the
+shared Ops API.
+
 Use Node.js, the pnpm version in `packageManager`, Git, npm, and `tar`. Xec's
 build also needs Bun. GitHub publication additionally needs an authenticated
 `gh` CLI. Run from a clean, committed checkout on the intended release branch.
@@ -38,7 +43,9 @@ snapshot, builds every public workspace, and packs in dependency order. The SSH
 core recipe includes the reviewed private transport and its license/checksums.
 Before sealing it, Xec installs the actual tarball in a clean offline consumer
 and runs the hostile-peer, ChaCha and SFTP failure checks. Resume verifies the
-identity and SHA-512 of those sealed bytes. Builds and test suites run during preparation.
+identity and SHA-512 of those sealed bytes. Preparation builds the packages and
+runs the configured archive acceptance checks. The full repository tests, lint
+and documentation checks belong to qualification/CI, not each npm upload.
 The version change refreshes pnpm's workspace metadata from the frozen lockfile with lifecycle scripts disabled. Package compilation takes place in the temporary checkout. If a previous preparation ended with `ERR_PNPM_VERIFY_DEPS_BEFORE_RUN`, run `pnpm install --frozen-lockfile` in the tagged checkout, then resume the same version. The saved archives are verified again.
 
 All archives must pass identity, dependency and exported-entry checks before the
@@ -70,6 +77,10 @@ archives; GitHub release notes use the committed changes and package inventory.
 If pushing separately, push the reviewed commit and tag, then use
 `--resume --no-push`. `--github-only` requires the exact version and a clean
 checkout of its release commit; it completes GitHub without republishing npm.
+`--notes-from <full-commit>` selects the published ancestor used as the release
+notes baseline. Xec verifies that it is a full commit and an ancestor; the caller
+is responsible for choosing the published baseline. Without it, notes explicitly
+contain the complete committed history, not a guessed release delta.
 `--skip-npm` and `--skip-github` are explicit stage selections. `--offline` makes
 the isolated dependency installation use the existing pnpm store. `--yes` accepts
 the displayed execution plan in noninteractive use; it bypasses no checks.
@@ -240,7 +251,7 @@ imports the recipe in the scripting runtime and calls the built
 or reach into an operations package's TypeScript source tree. Run
 `pnpm install --frozen-lockfile` and `pnpm build` when preparing a fresh checkout.
 
-Consumer repositories can register `.xec/commands/release.mjs` and compose the
+Consumer repositories can register `.xec/commands/release.ts` and compose the
 release functions with `Pipeline` for their own qualification policy. Keep
 project-specific build/CI decisions in that recipe and use the existing shared
 release API for locking, version commits, exact refs, archive sealing and npm

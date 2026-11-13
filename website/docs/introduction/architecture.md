@@ -480,31 +480,35 @@ describe('SSH Integration', () => {
 
 ### Package Publishing
 
-Releases are cut from the monorepo with `pnpm release`, which builds, tests, and publishes every public package to npm:
+The repository's dynamic release recipe separates preparation from publication:
 
 ```mermaid
 flowchart LR
-    A["pnpm release"] --> B["Build + test"]
-    B --> C["npm publish"]
-    C --> D["@xec-sh/* packages"]
+    A["Qualification and CI"] --> B["xec release VERSION --prepare"]
+    B --> C["Build, archive checks and immutable SHA-512 receipts"]
+    C --> D["xec release VERSION --resume"]
+    D --> E["npm uploads and registry confirmation"]
 ```
+
+Publication reuses the prepared bytes. It does not rebuild packages or repeat the
+full test suite for each upload. See [Verified package releases](../ops/release.md)
+for prerequisites, cancellation, authentication and recovery.
 
 ### Distribution Channels
 
-1. **npm Registry**: Primary distribution
-2. **GitHub Releases**: Binary releases
-3. **Docker Hub**: Container images
-4. **Homebrew**: macOS formula (planned)
+npm distributes the six public workspace packages. GitHub Releases records the
+verified tag, release notes and package inventory; the current recipe does not
+publish standalone binaries, Docker images or a Homebrew formula.
 
 ## Future Architecture
 
 ### Planned Enhancements
 
-1. **WebAssembly Support**: Run in browsers
-2. **Remote Execution Service**: Centralized execution
-3. **DAG Execution**: Complex workflow orchestration
-4. **Cloud Functions**: Serverless execution
-5. **GUI Application**: Visual command builder
+The documentation website is planned to migrate from Docusaurus to Lumen after
+the current release. That work must preserve routes, examples and link validation;
+it is not a prerequisite for releasing Xec. Task dependencies, pipelines and
+workflow orchestration already exist in [Ops](../ops/index.md), so DAG execution
+is an existing capability, not a promised future subsystem.
 
 ## Summary
 

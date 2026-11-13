@@ -26,7 +26,8 @@ await forward.close();
 
 ## Dynamic Local Port
 
-Let the OS pick an available local port:
+Let kubectl ask the OS for a local port. The returned `localPort` is the
+actual listener reported by kubectl, not a random candidate guessed in advance:
 
 ```typescript
 const forward = await pod.portForwardDynamic(3000); // remote port 3000, local port assigned
@@ -56,6 +57,33 @@ try {
   await dbForward.close();
 }
 ```
+
+## Deadlines, Cancellation and Ownership
+
+Both pod methods accept `{ timeout, signal, maxBuffer }` as their final argument.
+`timeout` bounds readiness in milliseconds (`0` disables that deadline). The
+signal remains attached after readiness, so cancellation also closes an open
+forward. Context and kubeconfig from the pod's target apply to the operation.
+
+```typescript
+import { getExecutionSignal } from '@xec-sh/core';
+
+const forward = await pod.portForwardDynamic(3000, {
+  timeout: 10_000,
+  signal: getExecutionSignal(),
+  maxBuffer: 1024 * 1024,
+});
+try {
+  await $`curl http://localhost:${forward.localPort}/health`;
+} finally {
+  await forward.close();
+}
+```
+
+The promise rejects if kubectl exits before reporting readiness, even with exit
+code zero. `close()` waits for native termination; adapter disposal also waits
+for its open or starting forwards. A ready forward can later stop: `isOpen`
+reflects that state, and application-level connectivity still needs checking.
 
 ## Multiple Forwards
 
@@ -109,6 +137,6 @@ async function robustPortForward(podName: string, localPort: number, remotePort:
 ## Best Practices
 
 - Prefer dynamic ports (`portForwardDynamic`) to avoid local port conflicts.
-- Close forwards in a `finally` block, or on `process.on('SIGINT'/'SIGTERM')` for long-lived ones.
+- Await `close()` in a `finally` block and pass the owning operation's signal. Xec CLI scripts use its cancellation scope instead of competing process signal handlers.
 - `kubectl port-forward` binds to localhost only by default; forwards are not reachable from other machines without extra setup.
 - Test connectivity before relying on a forward: `` await $`nc -z localhost ${forward.localPort}`.nothrow() ``.

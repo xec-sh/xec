@@ -36,7 +36,21 @@ cluster context — the same calls work against `$.ssh(...)` and
 
 ## Copying to a Specific Container
 
-`copyTo`/`copyFrom` take an optional third `container` argument, but it does not currently reach `kubectl cp` correctly — it gets folded into the path string instead of passed as its own flag, which produces a malformed destination. Until that's fixed, target a container explicitly through the adapter's lower-level `copyFiles`, which takes `container` as a real option:
+`copyTo`/`copyFrom` accept a third `container` argument. Xec passes it as a
+separate `kubectl cp -c` option; it never becomes part of a filename. The pod
+handle preserves the configured namespace, context and kubeconfig for both
+directions.
+
+```typescript
+const pod = $.k8s({
+  namespace: 'production', context: 'production-cluster',
+  kubeconfig: '/etc/kubernetes/production.yaml',
+}).pod('multi-container-pod');
+await pod.copyTo('./nginx.conf', '/etc/nginx/nginx.conf', 'nginx');
+await pod.copyFrom('/var/log/nginx/access.log', './access.log', 'nginx');
+```
+
+The lower-level adapter exposes the same operation when no pod handle is needed:
 
 ```typescript
 import { KubernetesAdapter } from '@xec-sh/core';

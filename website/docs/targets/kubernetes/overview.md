@@ -45,7 +45,7 @@ await $.k8s({ pod: 'api-pod', namespace: 'production', container: 'app' })`npm t
 const app = $.k8s({ pod: 'api-pod' })
   .cd('/app')
   .env({ NODE_ENV: 'production' })
-  .timeout(30000)                              // milliseconds, not a duration string
+  .timeout(30000)                              // milliseconds; duration strings such as '30s' also work
   .retry({ maxRetries: 3, initialDelay: 1000 });
 
 await app`npm test`;
@@ -75,7 +75,7 @@ await pod.copyTo('./config.json', '/app/config.json');
 Every call can name its own cluster:
 
 ```typescript
-await $.k8s({ pod: 'api', context: 'production-cluster', kubeconfig: '~/.kube/prod-config' })`whoami`;
+await $.k8s({ pod: 'api', context: 'production-cluster', kubeconfig: '/etc/kubernetes/production.yaml' })`whoami`;
 ```
 
 Without `context`, a target runs against whatever `kubectl config current-context` currently points to on the machine running it — set it explicitly for anything that must land on a specific cluster regardless of the operator's local kubectl state.
@@ -89,7 +89,7 @@ configure({
   adapters: {
     kubernetes: {
       context: 'production-cluster',
-      kubeconfig: '~/.kube/prod-config',
+      kubeconfig: '/etc/kubernetes/production.yaml',
       namespace: 'production',
       kubectlPath: '/usr/local/bin/kubectl',
       kubectlTimeout: 30000,
@@ -111,14 +111,23 @@ const k8s = $.getAdapter('kubernetes') as KubernetesAdapter;
 
 await k8s.isPodReady('api-pod', 'production');
 const pod = await k8s.getPodFromSelector('app=web', 'production');
-const { stdout } = await k8s.executeKubectl(['get', 'pods', '-o', 'name']);
+const { stdout } = await k8s.executeKubectl(['get', 'pods', '-o', 'name'], {
+  context: 'production-cluster', throwOnNonZeroExit: true,
+  timeout: 10_000, maxBuffer: 1024 * 1024,
+});
 ```
 
 `new KubernetesAdapter(config)` builds a standalone instance outside the engine, taking the same config shape as `configure()` above. It isn't managed by `$`, so call its own `.dispose()` when you're done with it.
 
 ## Error Handling
 
-Failures throw a plain `ExecutionError` with `code: 'KUBERNETES_ERROR'` — stdout/stderr live on `.details`, not directly on the error:
+`executeKubectl` returns `{ stdout, stderr, exitCode }` for an ordinary nonzero
+exit by default. Pass `throwOnNonZeroExit: true` to reject it. A spawn failure,
+output limit, timeout or cancellation still rejects; it is never converted into
+a successful empty result. Timeouts and cancellation wait for owned process
+cleanup.
+
+A rejected kubectl exit uses `ExecutionError` with `code: 'KUBERNETES_ERROR'` — stdout/stderr live on `.details`, not directly on the error:
 
 ```typescript
 import { ExecutionError } from '@xec-sh/core';

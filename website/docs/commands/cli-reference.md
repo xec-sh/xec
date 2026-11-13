@@ -2,36 +2,14 @@
 title: CLI Reference
 description: Complete reference for the Xec command-line interface
 keywords: [cli, reference, options, commands, execution]
-source_files:
-  - apps/xec/src/main.ts
-  - apps/xec/src/utils/error-handler.ts
-  - apps/xec/src/script-runner.ts
-  - apps/xec/src/utils/dynamic-commands.ts
-key_functions:
-  - main()
-  - handleError()
-  - ScriptRunner.execute()
-  - loadDynamicCommands()
-verification_date: 2025-08-03
 ---
 
 # CLI Reference
 
-## Implementation Reference
-
-**Source Files:**
-- `apps/xec/src/main.ts` - Main CLI entry point (lines 45-312)
-- `apps/xec/src/utils/error-handler.ts` - Error handling and exit codes
-- `apps/xec/src/script-runner.ts` - Script execution engine
-- `apps/xec/src/utils/dynamic-commands.ts` - Dynamic command loading
-- `apps/xec/src/config/loader.ts` - Configuration loading
-
-**Key Functions:**
-- `main()` - CLI entry point and command dispatcher
-- `handleError()` - Maps errors to exit codes (1-13)
-- `ScriptRunner.execute()` - Script file execution
-- `loadDynamicCommands()` - Loads .xec/commands
-- `loadConfig()` - Configuration file loading
+The command dispatcher is `apps/xec/src/main.ts`; built-in names and aliases are
+in `apps/xec/src/utils/command-manifest.ts`. Project commands are loaded through
+`apps/xec/src/utils/cli-command-manager.ts`, and the shared error mapping lives in
+`packages/ops/src/utils/error-handler.ts`.
 
 ## Overview
 
@@ -47,7 +25,9 @@ xec [global-options] <task-name> [task-parameters]
 
 ## Global Options
 
-Options that apply to all commands and execution modes (defined in `apps/xec/src/main.ts:71-97`):
+Place root options before the command word. Flags after that word belong to the
+selected command; for example `xec -v secrets set KEY -v VALUE` uses the first
+`-v` for verbosity and the second for the secret value.
 
 ### Output Control
 
@@ -68,20 +48,23 @@ Options that apply to all commands and execution modes (defined in `apps/xec/src
   - Changes `process.cwd()` to specified path
   - Affects all relative path resolution
 - `-e, --eval <code>` - Evaluate JavaScript/TypeScript code directly
-  - Executes via `ScriptRunner.evalCode()`
+  - Uses the same script runtime as `xec run --eval`
   - Has access to Xec core modules
 - `--repl` - Start interactive REPL (Read-Eval-Print Loop)
-  - Launches via `ScriptRunner.startRepl()`
+  - Uses the same REPL as `xec run --repl`
   - Pre-imports Xec core modules
-- `--dry-run` - Preview actions without execution
-  - Available to all commands via `this.isDryRun`
-  - Shows what would be executed
 
-### Configuration
+### Command Options
 
-- `--config <path>` - Custom configuration file path
-  - Default: `.xec/config.yaml`
-  - Overrides default config location
+`--dry-run`, `-c/--config <path>` and `-o/--output <format>` belong to commands
+that expose them, not the root parser. Put them after the command word and check
+that command's `--help`. A dry run is command-specific; it is not a sandbox for
+arbitrary project code.
+
+```bash
+xec on hosts.dev uptime --dry-run
+xec config get targets --config .xec/preview.yaml
+```
 
 ### Help and Information
 
@@ -92,14 +75,16 @@ Options that apply to all commands and execution modes (defined in `apps/xec/src
 
 ## Command Execution Flow
 
-Xec resolves and executes commands using the following priority order (implemented in `apps/xec/src/main.ts:175-240`):
+Xec loads the requested built-in and project command registry, then dispatches
+special modes, scripts, explicit shell commands, configured tasks and registered
+commands. A task shorthand cannot shadow a registered command.
 
 ### 1. Special Modes
 
 **Direct Code Evaluation:**
 ```bash
 xec -e "console.log('Hello, World!')"
-xec --eval "const { $ } = require('@xec-sh/core'); await $\`echo test\`"
+xec --eval 'await $`echo test`'
 ```
 
 **Interactive REPL:**
@@ -119,13 +104,12 @@ xec script.mjs [args...]
 xec ./path/to/script [args...]
 ```
 
-**Supported Extensions:** (detected in `apps/xec/src/main.ts:207`)
-- `.js` - JavaScript files (CommonJS)
+**Script Files:**
+- `.js` - JavaScript files
 - `.ts` - TypeScript files (compiled on-the-fly)
 - `.mjs` - ES modules
-- `.mts` - TypeScript ES modules
-- `.cjs` - CommonJS modules
-- `.cts` - TypeScript CommonJS
+Other filenames are dispatched as scripts when they resolve to an existing
+file. Use `xec run <file>` to select script execution explicitly.
 
 **Execution Environment:**
 - `$` and the scripting utilities injected as globals
@@ -146,7 +130,8 @@ xec test --coverage
 **Task Parameter Parsing:**
 - `--param=value` format supported
 - `--param value` format supported
-- Remaining arguments passed to task
+- `-p key=value` and boolean switches are supported
+- Unexpected positional arguments are rejected; task parameters are named
 
 ### 4. Built-in Commands
 
@@ -171,12 +156,13 @@ xec custom-command --option value
 
 ### 6. Direct Command Execution
 
-If no matching command/task/script found, execute as shell command:
+For an executable or shell command, use the explicit `--` separator to avoid
+collisions with task and command names:
 
 ```bash
-xec echo "Hello from shell"
-xec ls -la
-xec npm install
+xec -- echo "Hello from shell"
+xec -- ls -la
+xec -- npm install
 ```
 
 ## Configuration Precedence
@@ -254,7 +240,19 @@ Xec uses standardized exit codes (`getExitCode` in
 - `12` - System `ENOTDIR` / `13` - `EISDIR` - Path type mismatch
 - `1` - Everything else, including a script that threw
 
-A script that calls `process.exit(n)` keeps its own `n`.
+A script that calls `process.exit(n)` keeps its own `n`, but bypasses awaited
+cleanup. Prefer returning or throwing from the owning command.
+
+### Cancellation
+
+The first `SIGINT` or `SIGTERM` aborts the command's execution scope and waits for
+its `finally` blocks and owned resource disposal. Operations keep their own
+deadlines; there is no extra global cleanup cutoff. Xec reports elapsed cleanup
+time. A second termination signal forces exit and reports incomplete cleanup.
+The final exit code preserves the first signal: `130` for `SIGINT`, `143` for
+`SIGTERM`. Embedders can pass an `AbortSignal`; Xec scripts can read their owner
+with `getExecutionSignal()` from `@xec-sh/core`.
+
 
 
 ### Usage Examples

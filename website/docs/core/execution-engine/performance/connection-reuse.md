@@ -105,7 +105,7 @@ const web = $.docker('web');
 await web`ps aux`;   // separate docker exec invocation
 await web`df -h`;    // another separate invocation
 
-const pod = $.k8s('production').pod('api-abc123');
+const pod = $.k8s({ namespace: 'production' }).pod('api-abc123');
 await pod.exec`ps aux`;  // separate kubectl exec invocation
 await pod.exec`df -h`;   // another separate invocation
 ```
