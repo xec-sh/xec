@@ -16,7 +16,7 @@
  *
  *     <!-- doc-check: skip — fragment, shown for shape -->
  *
- * Usage: node scripts/check-doc-examples.mjs [--only <substring>]
+ * Usage: node scripts/check-doc-examples.mjs [--only <substring>] [--file <markdown>] [--report <json-file>]
  */
 
 import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
@@ -68,7 +68,7 @@ function blocksIn(source) {
       const lang = fence[1].toLowerCase();
       // An opt-out marker on any of the three lines above the fence.
       const preceding = lines.slice(Math.max(0, i - 3), i).join('\n');
-      const skipped = /doc-check:\s*skip/.test(preceding);
+      const skipped = /doc-check:\s*skip\s*[—:-]\s+[^<>\s-]/.test(preceding);
       open = { lang, line: i + 1, start: i + 1, skipped };
       if (!COMPILED.has(lang) || skipped) {
         // Still needs its closing fence found, but is not collected.
@@ -102,11 +102,18 @@ async function main() {
   const only = onlyIndex === -1 ? null : process.argv[onlyIndex + 1];
 
   const sources = [];
-  for (const file of markdownUnder(path.join(ROOT, 'website/docs'))) {
+  const fileIndex = process.argv.indexOf('--file');
+  if (fileIndex !== -1) {
+    if (!process.argv[fileIndex + 1]) throw new Error('--file requires a Markdown path');
+    const file = path.resolve(process.argv[fileIndex + 1]);
     sources.push({ file, blocks: blocksIn(await readFile(file, 'utf8')) });
+  } else {
+    for (const file of markdownUnder(path.join(ROOT, 'website/docs'))) {
+      sources.push({ file, blocks: blocksIn(await readFile(file, 'utf8')) });
+    }
+    const page = path.join(ROOT, 'website/src/pages/index.tsx');
+    sources.push({ file: page, blocks: blocksInPage(await readFile(page, 'utf8')) });
   }
-  const page = path.join(ROOT, 'website/src/pages/index.tsx');
-  sources.push({ file: page, blocks: blocksInPage(await readFile(page, 'utf8')) });
 
   const work = sources
     .filter(s => (only ? s.file.includes(only) : true))
@@ -123,115 +130,142 @@ async function main() {
   // before analysing anything, and the run reported zero errors — the
   // check silently checking nothing.
   const dir = await mkdtemp(path.join(ROOT, 'node_modules', '.doc-check-'));
-  const cases = path.join(dir, 'cases');
-  await mkdir(cases);
-
-  // Each block becomes a module. Top-level await is legal, and the script
-  // globals are declared, so a scripting example needs no preamble.
-  await Promise.all(
-    work.map((block, index) =>
-      writeFile(path.join(cases, `case-${index}.ts`), `${block.code}\nexport {};\n`)
-    )
-  );
-
-  await writeFile(
-    path.join(dir, 'tsconfig.json'),
-    JSON.stringify(
-      {
-        compilerOptions: {
-          target: 'ES2022',
-          module: 'NodeNext',
-          moduleResolution: 'NodeNext',
-          lib: ['ES2023'],
-          types: ['node'],
-          strict: process.argv.includes('--strict'),
-          noEmit: true,
-          skipLibCheck: true,
-          allowJs: true,
-          paths: {
-            '@xec-sh/core': [path.join(process.env.XEC_CORE_TYPES ?? path.join(ROOT, 'packages/core/dist'), 'index.d.ts')],
-            '@xec-sh/core/ssh': [path.join(process.env.XEC_CORE_TYPES ?? path.join(ROOT, 'packages/core/dist'), 'adapters/ssh/ssh.d.ts')],
-            '@xec-sh/ops': [path.join(ROOT, 'packages/ops/dist/index.d.ts')],
-            '@xec-sh/kit': [path.join(ROOT, 'packages/kit/dist/index.d.ts')],
-            '@xec-sh/loader': [path.join(ROOT, 'packages/loader/dist/index.d.ts')],
-            '@xec-sh/cli': [path.join(ROOT, 'apps/xec/dist/index.d.ts')],
-          },
-        },
-        include: ['cases/**/*.ts', path.join(ROOT, 'apps/xec/dist/globals.d.ts')],
-      },
-      null,
-      2
-    )
-  );
-
-  let output = '';
   try {
-    const result = await run(
-      process.execPath,
-      [resolveTypeScriptCompiler(ROOT), '-p', dir],
-      { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }
+    const cases = path.join(dir, 'cases');
+    await mkdir(cases);
+    await writeFile(path.join(dir, 'package.json'), '{"type":"module"}');
+
+    // Resolve only declared public type exports, including subpaths. No API stubs.
+    const typePaths = {};
+    for (const location of ['packages/core', 'packages/ops', 'packages/kit', 'packages/loader', 'packages/testing', 'apps/xec']) {
+      const folder = path.join(ROOT, location);
+      const manifest = JSON.parse(await readFile(path.join(folder, 'package.json'), 'utf8'));
+      for (const [subpath, entry] of Object.entries(manifest.exports ?? {})) {
+        const types = entry?.types ?? entry?.import?.types;
+        if (typeof types !== 'string') continue;
+        const resolved = manifest.name === '@xec-sh/core' && process.env.XEC_CORE_TYPES && types.startsWith('./dist/')
+          ? path.join(process.env.XEC_CORE_TYPES, types.slice('./dist/'.length)) : path.resolve(folder, types);
+        typePaths[manifest.name + (subpath === '.' ? '' : subpath.slice(1))] = [resolved];
+      }
+    }
+    // Test examples use the runner declared by the testing package.
+    typePaths.vitest = [path.join(ROOT, 'packages/testing/node_modules/vitest/dist/index.d.ts')];
+
+    // Each block becomes a module. Top-level await is legal, and the script
+    // globals are declared, so a scripting example needs no preamble.
+    await Promise.all(
+      work.map((block, index) =>
+        writeFile(path.join(cases, `case-${index}.ts`), `${block.code}\nexport {};\n`)
+      )
     );
-    output = result.stdout;
-  } catch (error) {
-    output = `${error.stdout ?? ''}${error.stderr ?? ''}`;
-    if (!/error TS\d+/.test(output)) throw error;
-  }
 
-  // An error with no file prefix is tsc failing to start — a missing type
-  // package, a bad path. It must not read as "nothing found".
-  const setupErrors = output
-    .split('\n')
-    .filter(l => /^error TS\d+/.test(l.trim()));
-  if (setupErrors.length > 0) {
-    console.error('The compiler did not run:\n' + setupErrors.slice(0, 5).join('\n'));
+    await writeFile(
+      path.join(dir, 'tsconfig.json'),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: 'ES2022',
+            module: 'NodeNext',
+            moduleResolution: 'NodeNext',
+            lib: ['ES2023'],
+            types: ['node'],
+            strict: process.argv.includes('--strict'),
+            noEmit: true,
+            skipLibCheck: true,
+            allowJs: true,
+            paths: typePaths,
+          },
+          include: ['cases/**/*.ts', path.join(ROOT, 'apps/xec/dist/globals.d.ts')],
+        },
+        null,
+        2
+      )
+    );
+
+    const compile = async () => {
+      try {
+      const result = await run(
+        process.execPath,
+        [resolveTypeScriptCompiler(ROOT), '-p', dir],
+        { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 }
+      );
+        return result.stdout;
+    } catch (error) {
+        const output = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+        if (!/error TS\d+/.test(output)) throw error;
+        return output;
+      }
+    };
+    let output = await compile();
+    // tsc stops before semantic analysis if any input contains a syntax error.
+    // Preserve those failures and check the remaining programs in a second pass.
+    const syntaxCases = new Set([...output.matchAll(/case-(\d+)\.ts\(\d+,\d+\): error TS1\d{3}:/g)].map(match => Number(match[1])));
+    if (syntaxCases.size) {
+      const configPath = path.join(dir, 'tsconfig.json');
+      const config = JSON.parse(await readFile(configPath, 'utf8'));
+      config.exclude = [...syntaxCases].map(index => path.join(cases, `case-${index}.ts`));
+      await writeFile(configPath, JSON.stringify(config));
+      output += '\n' + await compile();
+    }
+
+    // An error with no file prefix is tsc failing to start — a missing type
+    // package, a bad path. It must not read as "nothing found".
+    const setupErrors = output
+      .split('\n')
+      .filter(l => /^error TS\d+/.test(l.trim()));
+    if (setupErrors.length > 0) {
+      console.error('The compiler did not run:\n' + setupErrors.slice(0, 5).join('\n'));
+      process.exitCode = 2;
+      return;
+    }
+
+    const findings = new Map();
+    for (const line of output.split('\n')) {
+      // tsc reports paths relative to cwd, not to the tsconfig, so the
+      // prefix varies. Anchor on the case file itself.
+      const m = /case-(\d+)\.ts\((\d+),(\d+)\): error (TS\d+): (.*)$/.exec(line.trim());
+      if (!m) {
+        if (/error TS\d+:/.test(line)) throw new Error('Unattributed compiler failure: ' + line);
+        continue;
+      }
+      const block = work[Number(m[1])];
+      const key = `${block.file}:${block.line}`;
+      if (!findings.has(key)) findings.set(key, { block, errors: [] });
+      findings.get(key).errors.push({ line: Number(m[2]), code: m[4], message: m[5] });
+    }
+
+    // Every unmarked failure is real. Deliberate fragments must opt out next to
+    // their fence with doc-check: skip and an explanation; syntax is not an opt-out.
+    const broken = [...findings.values()];
+
+    for (const { block, errors } of broken) {
+      console.log(`\n${path.relative(ROOT, block.file)}:${block.line}`);
+      for (const e of errors.slice(0, 6)) {
+        console.log(`   ${e.code}  ${e.message}`);
+      }
+      if (errors.length > 6) console.log(`   … ${errors.length - 6} more`);
+    }
+
+    console.log(
+      `\n${work.length} examples checked. ` +
+        `${broken.length} failing blocks; ${syntaxCases.size} contain syntax diagnostics.`
+    );
+
+    const reportIndex = process.argv.indexOf('--report');
+    if (reportIndex !== -1) {
+      if (!process.argv[reportIndex + 1]) throw new Error('--report requires a JSON path');
+      await writeFile(path.resolve(process.argv[reportIndex + 1]), JSON.stringify({
+        checkedBlocks: work.length,
+        syntaxBlocks: syntaxCases.size,
+        failures: broken.map(({ block, errors }) => ({
+          file: block.file, line: block.line, language: block.lang, errors,
+        })),
+      }, null, 2) + '\n');
+    }
+    process.exitCode = broken.length === 0 ? 0 : 1;
+  } finally {
     await rm(dir, { recursive: true, force: true });
-    process.exitCode = 2;
-    return;
   }
-
-  const findings = new Map();
-  for (const line of output.split('\n')) {
-    // tsc reports paths relative to cwd, not to the tsconfig, so the
-    // prefix varies. Anchor on the case file itself.
-    const m = /case-(\d+)\.ts\((\d+),(\d+)\): error (TS\d+): (.*)$/.exec(line.trim());
-    if (!m) continue;
-    const block = work[Number(m[1])];
-    const key = `${block.file}:${block.line}`;
-    if (!findings.has(key)) findings.set(key, { block, errors: [] });
-    findings.get(key).errors.push({ line: Number(m[2]), code: m[4], message: m[5] });
-  }
-
-  // TS1xxx is "this text is not a program" — a method signature, a class
-  // member, an object literal, a REPL transcript. Documentation shows those
-  // deliberately. TS2xxx and above is "this program is wrong": a name that
-  // does not exist, a method the API never had. Only the second kind is a
-  // defect, and mixing them buries it.
-  const parses = f => !f.errors.some(e => /^TS1\d{3}$/.test(e.code));
-  const broken = [...findings.values()].filter(parses);
-  const fragments = [...findings.values()].filter(f => !parses(f));
-
-  for (const { block, errors } of broken) {
-    console.log(`\n${path.relative(ROOT, block.file)}:${block.line}`);
-    for (const e of errors.slice(0, 6)) {
-      console.log(`   ${e.code}  ${e.message}`);
-    }
-    if (errors.length > 6) console.log(`   … ${errors.length - 6} more`);
-  }
-
-  console.log(
-    `\n${work.length} examples compiled. ` +
-      `${broken.length} are wrong; ${fragments.length} are not whole programs.`
-  );
-
-  if (process.argv.includes('--fragments')) {
-    console.log('\nNot whole programs:');
-    for (const { block } of fragments) {
-      console.log(`   ${path.relative(ROOT, block.file)}:${block.line}  (${block.lang})`);
-    }
-  }
-
-  await rm(dir, { recursive: true, force: true });
-  process.exitCode = broken.length === 0 ? 0 : 1;
 }
 
 await main();
