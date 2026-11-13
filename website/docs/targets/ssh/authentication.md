@@ -9,7 +9,7 @@ sidebar_position: 2
 
 ## Overview
 
-The SSH adapter supports two authentication methods: password and private key (with an optional passphrase). There is no SSH agent support, no agent forwarding, no SSH certificates, and no keyboard-interactive/MFA handling in the public API — `SSHAdapterOptions` (`packages/core/src/types/command.ts`) has no fields for any of them.
+Xec exposes SSH authentication through its own `SSHConnectionConfig` contract. It supports private-key content or paths, passwords, agent authentication, agent forwarding, custom authentication order and keyboard-interactive callbacks. Applications import the client and types from `@xec-sh/core`.
 
 ```typescript
 import { $ } from '@xec-sh/core';
@@ -28,13 +28,15 @@ await $.ssh({
 
 ## Private Key Authentication
 
-`privateKey` must be the key's **contents** as a string — read the file yourself first. The type also permits `Buffer`, but the connection layer asserts `typeof privateKey === 'string'` at connect time and throws if given one, so in practice only a string works.
+`privateKey` accepts key contents as a string or Buffer. `privateKeyPath` reads a file. Use `path.join(os.homedir(), ...)` for home-relative paths passed to Node filesystem APIs.
 
 ```typescript
+import { readFile } from 'node:fs/promises';
+
 await $.ssh({
   host: 'example.com',
   username: 'deploy',
-  privateKey: await readFile('~/.ssh/id_ed25519', 'utf8'),
+  privateKey: await readFile(path.join(os.homedir(), '.ssh/id_ed25519'), 'utf8'),
   passphrase: process.env['SSH_KEY_PASSPHRASE'], // only if the key is encrypted
 })`command`;
 ```
@@ -46,9 +48,11 @@ Key format is whatever `ssh2` (the underlying client library) accepts — OpenSS
 `SSHKeyValidator` (`packages/core/src/adapters/ssh/ssh-key-validator.ts`) is a set of static methods, not an instantiable client:
 
 ```typescript
+import { readFile } from 'node:fs/promises';
+
 import { SSHKeyValidator } from '@xec-sh/core';
 
-const key = await readFile('~/.ssh/id_ed25519', 'utf8');
+const key = await readFile(path.join(os.homedir(), '.ssh/id_ed25519'), 'utf8');
 const result = await SSHKeyValidator.validatePrivateKey(key);
 // { isValid: boolean, keyType?: string, issues: string[] }
 
@@ -72,7 +76,7 @@ await $.ssh({
 })`command`;
 ```
 
-`SSHKeyValidator.validateSSHOptions` rejects a config that sets both `privateKey` and `password` — pick one.
+Set `hostKeyChecking` and `knownHostsPath` alongside the selected authentication method. Use an explicit `authHandler` when authentication must follow a particular sequence.
 
 ## Host Key Verification
 

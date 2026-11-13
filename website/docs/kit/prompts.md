@@ -19,6 +19,8 @@ if (isCancel(name)) process.exit(0);
 Single-line input.
 
 ```typescript
+import { text } from '@xec-sh/kit';
+
 const name = await text({
   message: 'Project name?',
   placeholder: 'my-app',        // shown dimmed while empty
@@ -51,6 +53,8 @@ Options: everything `text` takes, plus `showSubmit` (default `false`).
 Yes/no toggle, arrow keys or `y`/`n`.
 
 ```typescript
+import { confirm } from '@xec-sh/kit';
+
 const ok = await confirm({ message: 'Continue?' });          // boolean
 const del = await confirm({
   message: 'Delete everything?',
@@ -65,6 +69,8 @@ const del = await confirm({
 Masked input.
 
 ```typescript
+import { password } from '@xec-sh/kit';
+
 const secret = await password({ message: 'Enter token:', mask: '*' });
 ```
 
@@ -73,6 +79,8 @@ const secret = await password({ message: 'Enter token:', mask: '*' });
 Single choice from a list.
 
 ```typescript
+import { select } from '@xec-sh/kit';
+
 const color = await select({
   message: 'Pick a color',
   options: [
@@ -90,6 +98,8 @@ An option is `{ value, label?, hint?, disabled? }`; without `label` the value is
 Multiple choice; `Space` toggles, `Enter` submits.
 
 ```typescript
+import { multiselect } from '@xec-sh/kit';
+
 const tools = await multiselect({
   message: 'Select tools',
   options: [{ value: 'git' }, { value: 'docker' }, { value: 'k8s' }],
@@ -103,6 +113,8 @@ const tools = await multiselect({
 Multi-select with options under group headings; selecting a heading selects the group.
 
 ```typescript
+import { groupMultiselect } from '@xec-sh/kit';
+
 const features = await groupMultiselect({
   message: 'Enable features',
   options: {
@@ -117,6 +129,8 @@ const features = await groupMultiselect({
 Type-to-filter selection over a fixed option list.
 
 ```typescript
+import { autocomplete } from '@xec-sh/kit';
+
 const pkg = await autocomplete({
   message: 'Search packages',
   options: [{ value: 'react' }, { value: 'vue' }, { value: 'svelte' }],
@@ -131,6 +145,8 @@ const pkg = await autocomplete({
 Answer with a single keypress — the option's `value` is the key.
 
 ```typescript
+import { selectKey } from '@xec-sh/kit';
+
 const action = await selectKey({
   message: 'Action?',
   options: [
@@ -145,6 +161,8 @@ const action = await selectKey({
 Date picker; arrow keys move between day, month and year.
 
 ```typescript
+import { date } from '@xec-sh/kit';
+
 const when = await date({
   message: 'Pick a date',
   minDate: new Date(),

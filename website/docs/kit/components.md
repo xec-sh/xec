@@ -65,6 +65,8 @@ The result object: `start(msg)`, `stop(msg)`, `error(msg)`, `cancel(msg)`, `mess
 Options:
 
 ```typescript
+import { spinner } from '@xec-sh/kit';
+
 spinner({
   style: 'circle',        // braille (default) | circle | dots | line | arrow | binary | moon
   indicator: 'timer',     // 'dots' (default) animates dots; 'timer' shows elapsed time
@@ -95,6 +97,8 @@ bar.stop('Downloaded');
 Run a list of functions, each behind its own spinner:
 
 ```typescript
+import { spinner } from '@xec-sh/kit';
+
 import { tasks } from '@xec-sh/kit';
 
 await tasks([
@@ -102,13 +106,14 @@ await tasks([
     title: 'Installing dependencies',
     task: async (message) => {
       // message('...') updates the spinner line
-      await install();
+      await $`pnpm install --frozen-lockfile`.quiet();
       return 'Installed';          // becomes the completion message
     },
   },
   {
-    title: 'Skipped step',
+    title: 'Optional verification',
     enabled: false,
+    task: async () => { await $`pnpm typecheck`.quiet(); },
   },
 ]);
 ```
@@ -134,7 +139,12 @@ Write an async iterable to the terminal as prompt-styled output — useful for p
 ```typescript
 import { stream } from '@xec-sh/kit';
 
-await stream.info(streamOfLines);      // also: stream.message / step / warn / error / success
+async function* lines() {
+  yield 'Build started';
+  yield 'Build finished';
+}
+
+await stream.info(lines());      // also: stream.message / step / warn / error / success
 ```
 
 ## See Also

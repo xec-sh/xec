@@ -30,11 +30,13 @@ const staged = $.docker()
   .withEnv({ TAG: 'v1.2.3' });        // environment for the compose process
 ```
 
-`withEnv` works by setting `process.env` for the duration of each compose call and restoring it afterward — it's not scoped per-handle. Two `.withEnv()`-configured handles running concurrently will race on `process.env`; don't parallelize compose calls that rely on different env values.
+`withEnv` applies environment variables to each Compose command. Handles with different values can run concurrently, and the invoking process environment is preserved.
 
 The builder takes a single compose file. For `-f file1 -f file2` overlays, drop to the adapter directly, which accepts an array:
 
 ```typescript
+const compose = $.docker().compose();
+
 const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 await docker.composeUp({ file: ['docker-compose.yml', 'docker-compose.override.yml'] });
 ```
@@ -65,6 +67,8 @@ await compose.down(true);       // docker compose down -v
 ## Executing Commands in Services
 
 ```typescript
+const compose = $.docker().compose();
+
 // Execute in a running service container
 const result = await compose.exec('web', 'npm test');
 console.log(result.stdout);
@@ -82,6 +86,8 @@ await $.docker({ container: 'myapp-web-1', user: 'node' })`npm run repl`.interac
 ## Logs and Status
 
 ```typescript
+const compose = $.docker().compose();
+
 // All service logs
 const logs = await compose.logs();
 

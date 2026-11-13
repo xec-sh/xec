@@ -123,7 +123,7 @@ function validateSudoUser(user: string): string {
 }
 
 export interface SSHAdapterConfig extends BaseAdapterConfig {
-  connectionPool?: SSHConnectionPoolOptions;
+  connectionPool?: Partial<SSHConnectionPoolOptions>;
   defaultConnectOptions?: SSHConfig;
   multiplexing?: SSHMultiplexingOptions;
   sudo?: SSHSudoOptions;
@@ -152,7 +152,10 @@ interface PooledConnection {
 
 // defaultCwd stays optional: an ambient local-path default is meaningless on
 // a remote host, and the base adapter deliberately no longer invents one.
-type RequiredSSHConfig = Omit<Required<SSHAdapterConfig>, 'defaultCwd'> & { defaultCwd?: string };
+type RequiredSSHConfig = Omit<Required<SSHAdapterConfig>, 'defaultCwd' | 'connectionPool'> & {
+  defaultCwd?: string;
+  connectionPool: SSHConnectionPoolOptions;
+};
 
 export class SSHAdapter extends BaseAdapter {
   protected readonly adapterName = 'ssh';

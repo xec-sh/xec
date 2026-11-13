@@ -25,6 +25,7 @@ const data = await retry(() => fetch('https://api.example.com/data'), {
 ```typescript
 import { RetryPolicy } from '@xec-sh/ops';
 
+const controller = new AbortController();
 const policy = RetryPolicy.create()
   .maxAttempts(5)
   .backoff('exponential', { initial: 100, max: 30_000, multiplier: 2 })
@@ -36,7 +37,7 @@ const policy = RetryPolicy.create()
   .signal(controller.signal)
   .build();
 
-const result = await policy.execute(() => riskyOperation());
+const result = await policy.execute(() => $`node --version`);
 ```
 
 ## Backoff Strategies
@@ -50,6 +51,8 @@ const result = await policy.execute(() => riskyOperation());
 ## Configuration
 
 ```typescript
+import { BackoffStrategy } from '@xec-sh/ops';
+
 interface RetryConfig {
   maxAttempts: number;      // Default: 3
   backoff: BackoffStrategy; // Default: 'exponential'
@@ -72,7 +75,7 @@ import { expBackoff } from '@xec-sh/core';
 
 for (const delay of expBackoff(60_000, 50)) {
   try {
-    await connectToDatabase();
+    await $`pg_isready -h localhost -p 5432`;
     break;
   } catch {
     await sleep(delay);

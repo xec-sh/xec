@@ -9,8 +9,7 @@ keywords: [windows, cmd, powershell, cross-platform, portability, quoting]
 Xec runs on Linux, macOS and Windows, and its unit suite runs on Windows in
 CI. This page is the line between what that guarantees and what it cannot.
 
-The short version: **everything Xec does is the same everywhere; what the
-shell does is not.** A script that treats commands as programs with
+The short version: **Xec normalizes command results, quoting and lifecycle, while shell syntax follows the selected shell.** A script that treats commands as programs with
 arguments is portable. One that writes shell syntax is as portable as that
 syntax.
 
@@ -39,6 +38,9 @@ shell's dialect, so the protection always matches the parser.
 Name a different one and both follow it:
 
 ```javascript
+const pattern = 'error';
+const file = 'app.log';
+
 // bash on Windows (Git Bash, WSL), with POSIX quoting to match
 await $.with({ shell: 'bash' })`grep ${pattern} ${file}`;
 ```
@@ -60,7 +62,7 @@ await $`echo ${'hello world'}`;   // POSIX: hello world   cmd: "hello world"
 await $`echo $HOME`;              // POSIX: expands        cmd: literal $HOME
 
 // Separators, subshells, redirection to a file descriptor
-await $`a && b`;                  // POSIX only
+await $`a && b`;                  // sh and cmd.exe support &&
 await $`( a; b ) & c`;            // POSIX only
 
 // And the tools themselves
@@ -80,6 +82,8 @@ This is the whole technique. A program and its arguments are portable; a
 shell expression is not.
 
 ```javascript
+const outputPath = 'report.txt';
+
 // Portable — the value is an argument, escaped for whichever shell runs it
 await $`node scripts/report.js ${outputPath}`;
 
@@ -99,7 +103,7 @@ const value = (await $`node -e ${'process.stdout.write(process.env.SOME_VAR ?? "
 
 // Instead of `test -d path && echo yes`
 import { existsSync } from 'node:fs';
-if (existsSync(path)) { /* ... */ }
+if (existsSync('reports')) { /* ... */ }
 ```
 
 Most of the time the answer is simply not to shell out: `node:fs`,

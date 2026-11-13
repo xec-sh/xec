@@ -90,13 +90,15 @@ await run.exec`npm test`;   // a *different* container, not the same one
 
 For repeated commands against the same container, name it and start it once; for one-shot commands, skip both.
 
-`.status()` exists on both builders but only the persistent one implements it correctly (`info.status === 'running'`); the ephemeral builder's `.status().running` checks `info.status.includes('Up')` against `docker inspect`'s `State.Status`, which is always a lowercase word like `"running"` and never contains `"Up"` — so it reads as not-running even while it is. Use `.isRunning()` on an ephemeral container instead.
+`status()` on both builders reports Docker inspect state. A running container has `running: true`. Read `healthy` for the configured health check result.
 
 ## Executing Commands
 
 Both builders expose the same two calling conventions:
 
 ```typescript
+const app = $.docker().container('my-app');
+
 // Tagged template — returns a ProcessPromise (streaming, .pipe(), .nothrow(), ...)
 await app.exec`npm run build`;
 await app.run`npm run build`;        // .run is an alias for .exec
@@ -113,6 +115,7 @@ const result2 = await app.exec(['npm', 'run', 'build']);
 The lower-level `DockerAdapter.waitForHealthy(container, timeout?)` is stricter — it polls `docker inspect`'s `State.Health.Status` directly and only resolves on `"healthy"`. If the container has no `HEALTHCHECK` (set on the image or passed to `runContainer`), health status is never reported and this call just runs out the clock and throws.
 
 ```typescript
+const worker = $.docker().ephemeral('node:24-alpine').name('build-worker');
 await worker.waitForReady(60000);
 
 // Or, against the adapter directly, when you need the stricter check
@@ -141,6 +144,7 @@ await docker.removeContainer('db', true);              // true = force
 `getStats(container)` returns the parsed JSON from `docker stats --no-stream --format json <container>` — the CLI's flat per-container line (`CPUPerc`, `MemUsage`, `MemPerc`, `NetIO`, `BlockIO`, `PIDs`, plus `Container`/`ID`/`Name`), already formatted as human-readable strings. It is not the nested `cpu_stats`/`memory_stats`/`precpu_stats` shape from the Docker Engine HTTP API — there's no byte-level math to do on the result, just read the fields.
 
 ```typescript
+const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
 const stats = await docker.getStats('db');
 console.log(stats.CPUPerc, stats.MemUsage);
 ```

@@ -56,6 +56,9 @@ The `closed` promise also resolves if the underlying SSH transport fails, and
 `isOpen` becomes false:
 
 ```typescript
+const tunnel = await $.ssh('deploy@bastion').tunnel({
+  localPort: 0, remoteHost: 'db.internal', remotePort: 5432,
+});
 await tunnel.closed;
 // Stop using the old endpoint. Open and authenticate a new connection if needed.
 ```

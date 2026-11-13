@@ -330,11 +330,12 @@ xec run long-task -p timeout=120000
 ### From Scripts
 
 ```javascript
-// In xec scripts
-await xec.run('deploy-static');
+import { tasks } from '@xec-sh/ops';
+
+await tasks.run('deploy-static');
 
 // With options
-await xec.run('backup', {
+await tasks.run('backup', {}, {
   target: 'hosts.backup-server',
   timeout: 60000
 });

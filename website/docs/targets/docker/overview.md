@@ -62,9 +62,7 @@ await $.docker({
   workdir: '/app'
 })`npm test`;
 
-// Environment variables: chain .env(), not an `env` key in the target object
-// (DockerPersistentOptions/DockerEphemeralOptions declare `env`, but the
-// options-object shorthand never applies it — only .env() reaches the command)
+// Per-command environment overrides values declared on the target.
 await $.docker('my-app').env({ NODE_ENV: 'production', DEBUG: 'app:*' })`npm start`;
 
 // Interactive execution (on the process, not the engine)
@@ -72,7 +70,7 @@ await $.docker('my-app')`/bin/bash`.interactive();
 
 // Stream output line by line
 for await (const line of $.docker('my-app')`cat /data/large-file.csv`) {
-  await processLine(line);
+  console.log(line);
 }
 
 // Pipe between containers
@@ -80,7 +78,7 @@ await $.docker('source')`cat data.sql`
   .pipe($.docker('postgres')`psql -U postgres`);
 ```
 
-Two option-object fields only take effect for **ephemeral** containers (`image` set): `volumes` and `workdir`/`user` reach `docker run`, but `env`, `ports`, `network`, `platform`, `pull`, `entrypoint` and `labels` from `DockerEphemeralOptions` are accepted by the type and silently dropped by `$.docker(options)` — they never reach the `docker run` command. For any of those, use the fluent ephemeral builder below.
+Object-form targets forward their declared creation options to `docker run`, including environment, ports, network, platform, image pulling, entrypoint and labels. `workingDir` and `workdir` select the container directory. Creation-only options passed to an existing container are rejected with an explanation.
 
 ## The Fluent API
 

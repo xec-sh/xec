@@ -37,6 +37,8 @@ console.log(prism.css('rebeccapurple')('CSS named color'));
 Transforms apply to the current color of the chain:
 
 ```typescript
+import { prism } from '@xec-sh/kit';
+
 prism.hex('#3b82f6').lighten(0.2)('lighter blue');
 prism.red.desaturate(0.5)('muted red');
 ```
@@ -50,6 +52,7 @@ Color support is detected per stream; `NO_COLOR` and `FORCE_COLOR=0` disable col
 ```typescript
 import { prism, ColorLevel } from '@xec-sh/kit';
 
+const styled = prism.cyan('Connected');
 prism.colorLevel();          // ColorLevel: None | Basic | Ansi256 | TrueColor
 prism.supportsColor();       // boolean
 prism.strip(styled);         // remove ANSI codes
@@ -92,6 +95,8 @@ updateSettings({
 A role is any `(text: string) => string`, so brand colors work directly:
 
 ```typescript
+import { prism, updateSettings } from '@xec-sh/kit';
+
 updateSettings({ theme: { accent: prism.hex('#22D3EE') } });
 ```
 
@@ -117,7 +122,7 @@ updateSettings({
 
   // Date prompt localization
   date: {
-    monthNames: ['Januar', 'Februar' /* ... */],
+    monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
     messages: {
       invalidMonth: 'Es gibt nur 12 Monate',
     },

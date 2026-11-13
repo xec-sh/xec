@@ -331,10 +331,9 @@ tasks:
 ### From Scripts
 
 ```javascript
-// In xec scripts
-await xec.run('deploy', {
-  params: { version: '1.2.3' }
-});
+import { tasks } from '@xec-sh/ops';
+
+await tasks.run('deploy', { version: '1.2.3' });
 ```
 
 ## Task Variables

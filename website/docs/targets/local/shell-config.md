@@ -78,6 +78,7 @@ To quote a value you're assembling into a command string yourself — for `$.exe
 ```typescript
 import { quoteForShell } from '@xec-sh/core';
 
+const userInput = process.argv[2] ?? 'hello world';
 const safe = quoteForShell(userInput, 'posix');
 await $.exec('echo ' + safe);
 ```
@@ -96,7 +97,7 @@ await $.shell('/bin/bash')`[[ -f file ]] && echo exists`;
 ```
 
 None of those reach Windows, whose default shell is `cmd.exe` — it has
-neither `[` nor `&&`. See
+`[`. See
 [Windows and cross-platform scripts](./cross-platform.md) for what carries
 across operating systems and what does not.
 

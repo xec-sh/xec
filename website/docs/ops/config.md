@@ -28,6 +28,8 @@ console.log(config.tasks);
 Every aspect of configuration loading is customizable:
 
 ```typescript
+import { ConfigurationManager } from '@xec-sh/ops';
+
 const manager = new ConfigurationManager({
   // Where to look
   projectRoot: '/my/project',
@@ -35,7 +37,7 @@ const manager = new ConfigurationManager({
 
   // Config directory and file names
   configDirName: '.myapp',                         // Default: '.xec'
-  configFileNames: ['config.yaml', 'config.toml'], // Default: ['config.yaml', 'config.yml']
+  configFileNames: ['config.yaml', 'config.yml'], // Default: ['config.yaml', 'config.yml']
   rootConfigFileNames: ['myapp.yaml'],              // Default: ['xec.yaml', 'xec.yml']
 
   // Profiles
@@ -71,11 +73,10 @@ const manager = new ConfigurationManager({
 1. **Environment variables** (`MYAPP_*` or `XEC_*`)
 2. **Active profile** (e.g., `.myapp/environments/staging.yaml`)
 3. **Project config** (e.g., `.myapp/config.yaml`)
-4. **Root config** (e.g., `myapp.yaml`)
-5. **Global config** (e.g., `/etc/myapp/config.yaml`)
-6. **Built-in defaults**
+4. **Global config** (e.g., `/etc/myapp/config.yaml`)
+5. **Built-in defaults**
 
-Higher priority sources override lower ones. Deep merge is used for nested objects.
+Higher priority sources override lower ones. Nested objects are deep-merged. Project discovery loads the first matching config file, including the root file names when no earlier candidate exists.
 
 ## Variable Interpolation
 
@@ -86,10 +87,10 @@ vars:
   version: "1.0.0"
 
 targets:
-  production:
-    type: ssh
-    host: "${PROD_HOST}"
-    username: "${PROD_USER}"
+  hosts:
+    production:
+      host: "${env.PROD_HOST}"
+      username: "${env.PROD_USER}"
 
 tasks:
   deploy:
@@ -101,15 +102,20 @@ tasks:
 ```yaml
 # config.yaml
 targets:
-  production:
-    type: ssh
-    host: prod.example.com
-    password: "${secret:ssh_password}"    # Resolved from secret manager
+  hosts:
+    production:
+      host: prod.example.com
+      password: "${secret:ssh_password}"    # Resolved from secret manager
 ```
 
 ## Saving Configuration
 
 ```typescript
-await manager.save({ version: '2.0' });
-await manager.save({ version: '2.0' }, '/custom/path/config.yaml');
+import { ConfigurationManager } from '@xec-sh/ops';
+
+const manager = new ConfigurationManager({ projectRoot: process.cwd() });
+await manager.load();
+manager.set('vars.app_name', 'myapp');
+await manager.save();
+await manager.save('/custom/path/config.yaml');
 ```

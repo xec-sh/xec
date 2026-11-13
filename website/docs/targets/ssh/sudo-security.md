@@ -34,12 +34,12 @@ await $.ssh({
 Writes a one-time askpass script to `/tmp/.xec-askpass-<random>` on the **remote** host via a heredoc, `chmod 700`s it, runs the command through `SUDO_ASKPASS=<path> sudo -A`, then removes the script and preserves the command's real exit code — all in one round trip. The password never appears in `ps`/process-list output on the remote host.
 
 ```typescript
-await $.ssh({ host, username, sudo: { enabled: true, password, passwordMethod: 'secure' } })`systemctl restart nginx`;
+await $.ssh({ host: 'server.example.com', username: 'deploy', sudo: { enabled: true, password: process.env['SUDO_PASSWORD'], passwordMethod: 'secure' } })`systemctl restart nginx`;
 ```
 
 ### `'stdin'` (default when a password is set)
 
-Pipes the password to `sudo -S` with `printf`: `printf '%s\n' <password> | sudo -S sh -c '<command>'`. The adapter logs a `console.warn` recommending `'secure'` instead. The password is not on the command line, but it is briefly present in the piped process's argument/environment on some systems.
+Pipes the password to `sudo -S` with `printf`: `printf '%s\n' <password> | sudo -S sh -c '<command>'`. The adapter logs a `console.warn` recommending `'secure'` instead. The password is embedded in the remote shell command. Prefer `secure` for password delivery.
 
 ### `'echo'`
 
@@ -47,7 +47,7 @@ In the current implementation this executes the exact same `printf ... | sudo -S
 
 ### `'askpass'`
 
-Sets `SUDO_ASKPASS=/tmp/askpass_$$` and runs `sudo -A`, but **nothing ever creates that script** — the source comments acknowledge this ("would require additional setup"). As implemented, this method does not work: `sudo` will report it has no usable askpass program. Use `'secure'` instead; do not use `'askpass'`.
+Uses the same private, randomized askpass script and cleanup path as `'secure'`.
 
 ### No `password` set
 
@@ -56,7 +56,10 @@ If `sudo.enabled` is `true` but no `password` is given, the command runs as plai
 ## Running as a Specific User
 
 ```typescript
-sudo: { enabled: true, user: 'postgres', password, passwordMethod: 'secure' }
+await $.ssh({
+  host: 'db.example.com', username: 'deploy',
+  sudo: { enabled: true, user: 'postgres', password: process.env['SUDO_PASSWORD'], passwordMethod: 'secure' },
+})`psql --version`;
 ```
 
 produces `sudo -u postgres sh -c '<command>'`. The user name is validated against `[A-Za-z0-9._][A-Za-z0-9._-]*` (max 32 characters) before it reaches the remote command line — a value like `root; rm -rf /` is rejected outright rather than being quoted and silently failing.
@@ -105,7 +108,7 @@ Also available: static `SecurePasswordHandler.maskPassword(command, password)` f
 
 ## Troubleshooting
 
-- **"sudo: no askpass program specified" / "sudo: a password is required"** — you are using `passwordMethod: 'askpass'`, which does not create the script it points at. Switch to `'secure'`.
+- **"sudo: no askpass program specified"** — verify the remote account can create and execute its private temporary askpass script.
 - **Command appears to succeed but did nothing** — check that the command doesn't itself start with `sudo`; wrapping an already-`sudo`-prefixed command runs `sudo sh -c 'sudo …'`, which typically still works but is not what was intended and doubles the password prompt path.
 - **Works interactively over `ssh` but fails via Xec** — sudo commands here run over a non-interactive exec channel; anything that relies on a TTY (an interactive password prompt, `sudo` policies requiring one) needs `passwordMethod: 'secure'` or a `NOPASSWD` entry, not a plain password.
 

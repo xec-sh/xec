@@ -18,7 +18,7 @@ import { $ } from '@xec-sh/core';
 await $.ssh('deploy@web-1')`systemctl status nginx`;
 
 // Object form — username is required here
-await $.ssh({ host: 'web-1', username: 'deploy', privateKey: await readKey() })`uptime`;
+await $.ssh({ host: 'web-1', username: 'deploy', privateKeyPath: path.join(os.homedir(), '.ssh/id_ed25519') })`uptime`;
 ```
 
 ## Target Configuration

@@ -107,6 +107,8 @@ await docker.copyFromContainer('my-app', '/app/logs', './logs');
 Neither form takes ownership, mode, or compression options — `docker cp` doesn't have them either. Chain a follow-up exec if you need to change ownership after copying:
 
 ```typescript
+const docker = $.getAdapter('docker') as import('@xec-sh/core').DockerAdapter;
+
 await docker.copyToContainer('./app.jar', 'java-app', '/app/app.jar');
 await $.docker({ container: 'java-app', user: 'root' })`chown appuser:appuser /app/app.jar`;
 ```

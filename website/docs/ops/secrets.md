@@ -91,6 +91,8 @@ Add a passphrase when you need the key to depend on something the machine
 does not hold:
 
 ```typescript
+import { SecretManager } from '@xec-sh/ops';
+
 const secrets = new SecretManager({
   type: 'local',
   config: { dir: '/var/secrets/myapp', passphrase: process.env.XEC_SECRETS_PASSPHRASE },

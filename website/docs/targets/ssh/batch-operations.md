@@ -26,6 +26,8 @@ uptimes.forEach((up, i) => console.log(`${hosts[i]}: ${up}`));
 ```
 
 ```typescript
+const hosts = ['web1.example.com', 'web2.example.com'];
+
 // Resilient: every host runs regardless of others failing
 const settled = await Promise.allSettled(
   hosts.map(host => $.ssh(`deploy@${host}`)`systemctl status nginx`.text())
@@ -43,6 +45,8 @@ for (const [i, result] of settled.entries()) {
 `.nothrow()` is usually the better fit than `Promise.allSettled` when you just want every host's result without a rejected promise to unwrap:
 
 ```typescript
+const hosts = ['web1.example.com', 'web2.example.com'];
+
 const results = await Promise.all(hosts.map(host => $.ssh(`deploy@${host}`)`uptime`.nothrow()));
 const failed = results.filter(r => !r.ok);
 ```
@@ -52,6 +56,8 @@ const failed = results.filter(r => !r.ok);
 Running `Promise.all` over hundreds of hosts opens that many SSH connections at once. Chunk the work instead:
 
 ```typescript
+const hosts = ['web1.example.com', 'web2.example.com'];
+
 async function runWithConcurrency<T>(items: string[], limit: number, fn: (item: string) => Promise<T>): Promise<T[]> {
   const results: T[] = [];
   for (let i = 0; i < items.length; i += limit) {
@@ -66,7 +72,7 @@ await runWithConcurrency(hosts, 5, host => $.ssh(`deploy@${host}`)`apt-get updat
 
 ## Retrying Failed Hosts
 
-`$.ssh(target).retry({ maxRetries, initialDelay, maxDelay })` retries a single host's command on failure (see [SSH Overview](./overview.md)). To retry only the hosts that failed in a batch:
+`$.ssh(target).retry({ maxRetries, initialDelay, maxDelay })` retries a single host's command on failure (see [SSH Overview](./overview.md)). Use retries for operations whose effects can safely be repeated. Here `command` is an application-owned shell script. To retry only the hosts that failed in a batch, inspect every settled result.
 
 ```typescript
 async function withHostRetry(hosts: string[], command: string, maxAttempts = 3) {
@@ -75,7 +81,7 @@ async function withHostRetry(hosts: string[], command: string, maxAttempts = 3) 
 
   for (let attempt = 1; attempt <= maxAttempts && remaining.length > 0; attempt++) {
     const results = await Promise.allSettled(
-      remaining.map(host => $.ssh(`deploy@${host}`)`${command}`)
+      remaining.map(host => $.ssh(`deploy@${host}`)`sh -c ${command}`)
     );
 
     const stillFailing: string[] = [];
@@ -99,6 +105,8 @@ async function withHostRetry(hosts: string[], command: string, maxAttempts = 3) 
 For changes that must not hit every host at once, execute in order and stop on first failure:
 
 ```typescript
+const hosts = ['web1.example.com', 'web2.example.com'];
+
 for (const host of hosts) {
   console.log(`Deploying to ${host}...`);
   await $.ssh(`deploy@${host}`)`

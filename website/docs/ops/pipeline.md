@@ -31,6 +31,8 @@ console.log(result.summary); // { total: 4, passed: 4, failed: 0, skipped: 0 }
 Steps run only when their dependencies complete:
 
 ```typescript
+import { Pipeline } from '@xec-sh/ops';
+
 Pipeline.create('build')
   .step('a', { run: 'echo a' })
   .step('b', { run: 'echo b', dependsOn: ['a'] })
@@ -39,17 +41,21 @@ Pipeline.create('build')
 ```
 
 ### Matrix Builds
-Run the same step across multiple configurations:
+Run the same step for each combination of parameters. Matrix values become environment variables. Select the matching runtime or remote target explicitly in the command when a variant needs a different Node version or operating system.
 
 ```typescript
-.step('test', {
+import { Pipeline } from '@xec-sh/ops';
+
+const result = await Pipeline.create('example')
+  .step('test', {
   run: 'pnpm test',
   matrix: {
-    node: ['18', '20', '22'],
+    node: ['22', '24'],
     os: ['linux', 'macos'],
   },
 })
-// Creates 6 test runs: node18+linux, node18+macos, node20+linux, ...
+// Creates four parameter combinations on the current executor.
+  .run();
 ```
 
 ### Command environment
@@ -60,42 +66,58 @@ Each command receives variables declared on the pipeline, run, matrix variant, s
 Skip steps based on runtime conditions:
 
 ```typescript
-.step('deploy', {
+import { Pipeline } from '@xec-sh/ops';
+
+const result = await Pipeline.create('example')
+  .step('deploy', {
   run: 'pnpm deploy',
   condition: (ctx) => ctx.branch === 'main',
 })
+  .run();
 ```
 
 ### Retry
 Retry flaky steps:
 
 ```typescript
-.step('e2e', {
+import { Pipeline } from '@xec-sh/ops';
+
+const result = await Pipeline.create('example')
+  .step('e2e', {
   run: 'pnpm test:e2e',
   retry: { maxAttempts: 3, delay: 5000 },
 })
+  .run();
 ```
 
 ### Continue on Error
 Mark steps as non-blocking:
 
 ```typescript
-.step('lint', {
+import { Pipeline } from '@xec-sh/ops';
+
+const result = await Pipeline.create('example')
+  .step('lint', {
   run: 'pnpm lint',
   continueOnError: true,  // Pipeline continues even if lint fails
 })
+  .run();
 ```
 
 ### Function Steps
 Use TypeScript functions instead of shell commands:
 
 ```typescript
-.step('validate', {
+import { Pipeline } from '@xec-sh/ops';
+
+const result = await Pipeline.create('example')
+  .step('validate', {
   run: async (ctx) => {
     const config = JSON.parse(await fs.readFile('config.json', 'utf-8'));
     if (!config.version) throw new Error('Missing version');
   },
 })
+  .run();
 ```
 
 ## Context
@@ -103,6 +125,8 @@ Use TypeScript functions instead of shell commands:
 Pipeline context is available in conditions and function steps:
 
 ```typescript
+import { Pipeline } from '@xec-sh/ops';
+
 const result = await Pipeline.create('release')
   .env({ CI: 'true' })
   .step('deploy', {
@@ -124,6 +148,8 @@ their group's slot and run sequentially. The entire graph is validated before
 execution: duplicate names, unknown dependencies and cycles are errors.
 
 ```typescript
+import { Pipeline } from '@xec-sh/ops';
+
 const controller = new AbortController();
 const result = await Pipeline.create('verify')
   .step('types', { run: 'pnpm typecheck' })

@@ -38,7 +38,10 @@ A column is `{ key, header }` plus:
 import { table, prism } from '@xec-sh/kit';
 
 table({
-  data: services,
+  data: [
+    { name: 'api', status: 'running', memory: 128.5 },
+    { name: 'web', status: 'stopped', memory: 0 },
+  ],
   columns: [
     { key: 'name', header: 'Service' },
     {
@@ -72,7 +75,10 @@ table({
 import { interactiveTable, isCancel } from '@xec-sh/kit';
 
 const picked = await interactiveTable({
-  data: rows,
+  data: [
+    { id: 1, name: 'Ada', role: 'developer' },
+    { id: 2, name: 'Sam', role: 'operator' },
+  ],
   columns: [
     { key: 'id', header: 'ID', width: 5 },
     { key: 'name', header: 'Name', sortable: true },
@@ -117,6 +123,7 @@ Exporters turn `(data, columns, options?)` into a string:
 ```typescript
 import { exportToCSV, exportToJSON, exportToMarkdown } from '@xec-sh/kit';
 
+const rows = [{ id: 1, name: 'Ada' }, { id: 2, name: 'Sam' }];
 const columns = [
   { key: 'id', header: 'ID' },
   { key: 'name', header: 'Name' },
@@ -136,14 +143,22 @@ columns accept edits, `validateEdit` rejects a value with a message rendered
 like any prompt error, and `onEdit` fires when a change commits:
 
 ```typescript
+import { interactiveTable } from '@xec-sh/kit';
+
+const data = [{ id: 1, name: 'Ada' }];
+const columns = [{ key: 'id', header: 'ID' }, { key: 'name', header: 'Name' }];
+const changes: { id: number; column: string; oldValue: unknown; newValue: unknown }[] = [];
+
 const rows = await interactiveTable({
   data,
   columns,
   editable: true,
   editableColumns: ['name'],
-  validateEdit: (value, row, column) =>
+  validateEdit: (row, column, value) =>
     String(value).trim() === '' ? 'Cannot be empty' : undefined,
-  onEdit: (row, column, value) => audit.push({ row, column, value }),
+  onEdit: (row, column, oldValue, newValue) => {
+    changes.push({ id: row.id, column, oldValue, newValue });
+  },
 });
 ```
 
@@ -154,14 +169,22 @@ Escape leaves the editor without committing; Enter commits.
 The renderer draws only the visible window, so render cost follows the
 viewport, not the data. For data that arrives in batches, `loadMore` is called
 as navigation nears the end of what is loaded while `hasMore` is true; the row
-counter shows `N+` while more may exist:
+counter shows `N+` while more may exist. Returning an empty batch marks the end. This example uses two in-memory pages; an application can fetch the next batch inside `loadMore`.
 
 ```typescript
+import { interactiveTable } from '@xec-sh/kit';
+
+const pages = [
+  [{ id: 1, name: 'api' }],
+  [{ id: 2, name: 'web' }],
+];
+let page = 1;
+
 await interactiveTable({
-  data: firstPage,
-  columns,
-  hasMore: () => cursor.hasNext,
-  loadMore: async () => fetchNextPage(),
+  data: pages[0],
+  columns: [{ key: 'id', header: 'ID' }, { key: 'name', header: 'Name' }],
+  hasMore: true,
+  loadMore: async () => pages[page++] ?? [],
 });
 ```
 

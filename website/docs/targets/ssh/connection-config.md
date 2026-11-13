@@ -30,14 +30,14 @@ Connections are pooled by username, host, port, **and** a fingerprint of the cre
 | `enabled` | `true` | Pooling on/off |
 | `maxConnections` | `10` | Cap per adapter instance |
 | `idleTimeout` | `300000` (5 min) | Idle connections are closed after this |
-| `maxLifetime` | `3600000` (1 hour) | Connections are recycled after this regardless of use |
+| `maxLifetime` | `3600000` (1 hour) | Idle connections become eligible for recycling after this; active leases are retained |
 | `keepAlive` | `true` | Send a keep-alive on an interval |
 | `keepAliveInterval` | `30000` (30s) | How often |
 | `autoReconnect` | `true` | Reconnect a pooled connection found dead at checkout |
 | `maxReconnectAttempts` | `3` | Before giving up and opening a new connection |
 | `reconnectDelay` | `1000` | Base delay between reconnect attempts (multiplied by attempt number) |
 
-Keep-alive is a real command, not a protocol ping: the adapter runs `echo "keep-alive"` on the connection every `keepAliveInterval`.
+Keep-alive uses SSH transport requests. It does not execute shell commands on the remote host.
 
 ### Applying Adapter-Wide Configuration
 
@@ -76,7 +76,7 @@ $.registerAdapter('ssh', highTraffic);
 ### Pool Behavior
 
 1. A checked-out connection is tested with `.isConnected()`; if dead and `autoReconnect` is on, the adapter retries the connection (up to `maxReconnectAttempts`, delay growing with each attempt) before falling back to opening a fresh one.
-2. Separately, `execute()` itself retries a command **once** on a brand-new connection if it fails with a `connection-lost` classification (the pooled connection died mid-command) — this happens regardless of `autoReconnect` and is not configurable.
+2. A connection failure before command dispatch can be retried. Once a command may have reached the server, an interrupted reply is reported to the caller so it can reconcile effects before retrying.
 3. A background sweep runs every 60 seconds, closing connections that are idle past `idleTimeout`, older than `maxLifetime`, or found dead — connections with an in-flight command are never evicted mid-use.
 4. If the pool is at `maxConnections` when a new connection is needed, the least-recently-used idle connection is evicted to make room.
 
@@ -106,9 +106,11 @@ There are two independent timeouts:
   await $.ssh('deploy@web-1').timeout(300_000)`long-running-backup.sh`;
   ```
 
-- **Connection/handshake timeout** — how long establishing the TCP+SSH handshake may take. This is `ssh2`'s own `readyTimeout` (default 20s), reachable only through `defaultConnectOptions` on the adapter constructor, since it is not part of `SSHAdapterOptions`:
+- **Connection/handshake timeout** — how long establishing the TCP+SSH handshake may take. Set `readyTimeout` on the SSH target or use `defaultConnectOptions` on the adapter for a shared default.
 
   ```typescript
+  import { SSHAdapter } from '@xec-sh/core';
+
   const adapter = new SSHAdapter({ defaultConnectOptions: { readyTimeout: 30_000 } });
   $.registerAdapter('ssh', adapter);
   ```
@@ -120,6 +122,8 @@ A command that times out removes its connection from the pool (it may be mid-wri
 File transfer (`uploadFile`, `downloadFile`, `uploadDirectory`) uses SFTP, which can be disabled or tuned:
 
 ```typescript
+import { SSHAdapter } from '@xec-sh/core';
+
 const adapter = new SSHAdapter({ sftp: { enabled: true, concurrency: 5 } }); // 5 is the default
 $.registerAdapter('ssh', adapter);
 ```
@@ -131,9 +135,9 @@ With `sftp.enabled: false`, `uploadFile`/`downloadFile`/`uploadDirectory` throw 
 | Symptom | Likely cause | What to change |
 |---|---|---|
 | Connection hangs, then times out | Firewall or wrong port | `defaultConnectOptions.readyTimeout`, verify the port |
-| `HOST KEY VERIFICATION FAILED` | Host was rebuilt, or something is intercepting the connection | Confirm the host is expected, then `ssh-keygen -R <host>` to clear the stale entry |
+| `HOST KEY VERIFICATION FAILED` | Host was rebuilt, or something is intercepting the connection | Verify the new fingerprint through a trusted channel, then replace the pinned key |
 | Pool exhausted / commands queue up | `maxConnections` too low for the fan-out | Raise `connectionPool.maxConnections` |
-| Every command opens a new connection | A fresh `$.ssh({...})` object is being constructed per call | Keep one context (`const web = $.ssh(target)`) and reuse it |
+| Every command opens a new connection | Pooling disabled, distinct connection settings, or an unhealthy connection | Inspect pool settings and keep authentication and endpoint options stable |
 
 ## Related Documentation
 
