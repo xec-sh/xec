@@ -47,9 +47,11 @@ function normalisedValue<T>(multiple: boolean, values: T[] | undefined): T | T[]
   return values[0];
 }
 
-interface AutocompleteOptions<T extends OptionLike>
-  extends PromptOptions<T['value'] | T['value'][], AutocompletePrompt<T>> {
-  options: T[] | ((this: AutocompletePrompt<T>) => T[]);
+interface AutocompleteOptions<T extends OptionLike> extends PromptOptions<
+  T['value'] | T['value'][],
+  AutocompletePrompt<T>
+> {
+  options: readonly T[] | ((this: AutocompletePrompt<T>) => readonly T[]);
   filter?: FilterFunction<T>;
   multiple?: boolean;
   /**
@@ -73,7 +75,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
   #cursor = 0;
   #lastUserInput = '';
   #filterFn: FilterFunction<T> | undefined;
-  #options: T[] | (() => T[]);
+  #options: readonly T[] | (() => readonly T[]);
   #placeholder: string | undefined;
 
   get cursor(): number {
@@ -92,7 +94,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
     return `${s1}${prism.inverse(s2)}${s3.join('')}`;
   }
 
-  get options(): T[] {
+  get options(): readonly T[] {
     if (typeof this.#options === 'function') {
       return this.#options();
     }
@@ -120,14 +122,15 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
         initialValues = opts.initialValue.slice(0, 1);
       }
     } else {
-      if (!this.multiple && this.options.length > 0 && this.options[0]) {
-        initialValues = [this.options[0].value];
-      }
+      const firstEnabled = options.find((option) => !option.disabled);
+      if (!this.multiple && firstEnabled) initialValues = [firstEnabled.value];
     }
 
     if (initialValues) {
       for (const selectedValue of initialValues) {
-        const selectedIndex = options.findIndex((opt) => opt.value === selectedValue);
+        const selectedIndex = options.findIndex(
+          (opt) => opt.value === selectedValue && !opt.disabled
+        );
         if (selectedIndex !== -1) {
           this.toggleSelected(selectedValue);
           this.#cursor = selectedIndex;
@@ -139,6 +142,15 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
 
     this.on('key', (char, key) => this.#onKey(char, key));
     this.on('userInput', (value) => this.#onUserInputChanged(value));
+  }
+
+  protected override _shouldSubmit(): boolean {
+    return (
+      this.multiple ||
+      this.filteredOptions.some(
+        (option) => !option.disabled && option.value === this.selectedValues[0]
+      )
+    );
   }
 
   protected override _isActionKey(char: string | undefined, key: Key): boolean {
@@ -155,7 +167,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
   #onKey(_char: string | undefined, key: Key): void {
     const isUpKey = key.name === 'up';
     const isDownKey = key.name === 'down';
-    const isReturnKey = key.name === 'return';
+    const isReturnKey = key.name === 'return' || key.name === 'enter';
 
     // Tab with empty input and placeholder: fill input with placeholder to
     // trigger autocomplete (upstream #485). Only when the placeholder matches
@@ -198,7 +210,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
           this.isNavigating = false;
         }
       } else {
-        if (this.focusedValue) {
+        if (this.focusedValue !== undefined) {
           this.selectedValues = [this.focusedValue];
         }
         this.isNavigating = false;
@@ -211,7 +223,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
   }
 
   toggleSelected(value: T['value']) {
-    if (this.filteredOptions.length === 0) {
+    if (!this.filteredOptions.some((option) => option.value === value && !option.disabled)) {
       return;
     }
 

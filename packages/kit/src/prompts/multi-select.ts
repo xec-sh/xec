@@ -1,6 +1,7 @@
 import type { Option } from './select.js';
 
 import prism from '../prism/index.js';
+import stringWidth from '../core/utils/string-width.js';
 import { limitOptions } from '../utilities/limit-options.js';
 import { settings, MultiSelectPrompt, wrapTextWithPrefix } from '../core/index.js';
 import {
@@ -21,8 +22,8 @@ export const MULTISELECT_INSTRUCTIONS = ['↑/↓ to navigate', 'Space: select',
 
 export interface MultiSelectOptions<Value> extends CommonOptions {
   message: string;
-  options: Option<Value>[];
-  initialValues?: Value[];
+  options: readonly Option<Value>[];
+  initialValues?: readonly Value[];
   maxItems?: number;
   required?: boolean;
   cursorAt?: Value;
@@ -159,7 +160,7 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
             options: this.options,
             cursor: this.cursor,
             maxItems: opts.maxItems,
-            columnPadding: prefix.length,
+            columnPadding: stringWidth(prefix),
             rowPadding: titleLineCount + footerLineCount,
             style: styleOption,
           }).join(`\n${prefix}`)}\n${footer}\n`;
@@ -168,7 +169,7 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
           const prefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
           const titleLineCount = title.split('\n').length;
           const footerLines = showInstructions
-            ? formatInstructionFooter(MULTISELECT_INSTRUCTIONS, hasGuide)
+            ? formatInstructionFooter(MULTISELECT_INSTRUCTIONS, hasGuide, opts.output)
             : hasGuide
               ? [settings.theme.accent(S_BAR_END)]
               : [];
@@ -179,7 +180,7 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
             options: this.options,
             cursor: this.cursor,
             maxItems: opts.maxItems,
-            columnPadding: prefix.length,
+            columnPadding: stringWidth(prefix),
             rowPadding: titleLineCount + footerLineCount,
             style: styleOption,
           }).join(`\n${prefix}`)}\n${footerText}\n`;

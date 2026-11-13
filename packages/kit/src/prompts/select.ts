@@ -1,4 +1,5 @@
 import prism from '../prism/index.js';
+import stringWidth from '../core/utils/string-width.js';
 import { limitOptions } from '../utilities/limit-options.js';
 import { settings, SelectPrompt, wrapTextWithPrefix } from '../core/index.js';
 import {
@@ -34,7 +35,7 @@ export type Option<Value> = Value extends Primitive
 
 export interface SelectOptions<Value> extends CommonOptions {
   message: string;
-  options: Option<Value>[];
+  options: readonly Option<Value>[];
   initialValue?: Value;
   maxItems?: number;
   /**
@@ -114,7 +115,7 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
           const prefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
           const titleLineCount = title.split('\n').length;
           const footerLines = showInstructions
-            ? formatInstructionFooter(SELECT_INSTRUCTIONS, hasGuide)
+            ? formatInstructionFooter(SELECT_INSTRUCTIONS, hasGuide, opts.output)
             : hasGuide
               ? [settings.theme.accent(S_BAR_END)]
               : [];
@@ -125,7 +126,7 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
             cursor: this.cursor,
             options: this.options,
             maxItems: opts.maxItems,
-            columnPadding: prefix.length,
+            columnPadding: stringWidth(prefix),
             rowPadding: titleLineCount + footerLineCount,
             style: (item, active) =>
               opt(item, item.disabled ? 'disabled' : active ? 'active' : 'inactive'),

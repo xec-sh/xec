@@ -1,16 +1,18 @@
 import type { CommonOptions } from './common.js';
+import type { Validate } from '../core/utils/validation.js';
 
-import { join, dirname } from 'node:path';
+import { sep, join, parse, dirname } from 'node:path';
 import { lstatSync, existsSync, readdirSync } from 'node:fs';
 
 import { autocomplete } from '../prompts/autocomplete.js';
+import { runValidation } from '../core/utils/validation.js';
 
 export interface PathOptions extends CommonOptions {
   root?: string;
   directory?: boolean;
   initialValue?: string;
   message: string;
-  validate?: (value: string | undefined) => string | Error | undefined;
+  validate?: Validate<string>;
 }
 
 export const path = (opts: PathOptions) => {
@@ -29,12 +31,13 @@ export const path = (opts: PathOptions) => {
         return 'Please select a path';
       }
       if (validate) {
-        return validate(value);
+        return runValidation(validate, value);
       }
       return undefined;
     },
     options() {
       const userInput = this.userInput;
+      const hasTrailingSeparator = userInput.endsWith('/') || userInput.endsWith(sep);
       if (userInput === '') {
         return [];
       }
@@ -46,7 +49,7 @@ export const path = (opts: PathOptions) => {
           searchPath = dirname(userInput);
         } else {
           const stat = lstatSync(userInput);
-          if (stat.isDirectory() && (!opts.directory || userInput.endsWith('/'))) {
+          if (stat.isDirectory() && (!opts.directory || hasTrailingSeparator)) {
             searchPath = userInput;
           } else {
             searchPath = dirname(userInput);
@@ -55,7 +58,9 @@ export const path = (opts: PathOptions) => {
 
         // Strip trailing slash so startsWith matches the directory itself among its siblings
         const prefix =
-          userInput.length > 1 && userInput.endsWith('/') ? userInput.slice(0, -1) : userInput;
+          userInput.length > parse(userInput).root.length && hasTrailingSeparator
+            ? userInput.slice(0, -1)
+            : userInput;
 
         const items = readdirSync(searchPath)
           .map((item) => {

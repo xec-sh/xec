@@ -2,7 +2,7 @@ import type { Option } from './select.js';
 
 import prism from '../prism/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
-import { settings, type Validate, AutocompletePrompt } from '../core/index.js';
+import { settings, runValidation, type Validate, AutocompletePrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -30,7 +30,7 @@ function getFilteredOption<T>(searchText: string, option: Option<T>): boolean {
   return label.includes(term) || hint.includes(term) || value.includes(term);
 }
 
-function getSelectedOptions<T>(values: T[], options: Option<T>[]): Option<T>[] {
+function getSelectedOptions<T>(values: T[], options: readonly Option<T>[]): Option<T>[] {
   const results: Option<T>[] = [];
 
   for (const option of options) {
@@ -64,7 +64,9 @@ interface AutocompleteSharedOptions<Value> extends CommonOptions {
   /**
    * Available options for the autocomplete prompt.
    */
-  options: Option<Value>[] | ((this: AutocompletePrompt<Option<Value>>) => Option<Value>[]);
+  options:
+    | readonly Option<Value>[]
+    | ((this: AutocompletePrompt<Option<Value>>) => readonly Option<Value>[]);
   /**
    * Maximum number of items to display at once.
    */
@@ -100,7 +102,7 @@ export interface AutocompleteOptions<Value> extends AutocompleteSharedOptions<Va
 export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
   const prompt = new AutocompletePrompt({
     options: opts.options,
-    initialValue: opts.initialValue ? [opts.initialValue] : undefined,
+    initialValue: opts.initialValue !== undefined ? [opts.initialValue] : undefined,
     initialUserInput: opts.initialUserInput,
     placeholder: opts.placeholder,
     filter: resolveFilter(opts),
@@ -151,8 +153,8 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
           const matches =
             this.filteredOptions.length !== options.length
               ? prism.dim(
-                ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
-              )
+                  ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
+                )
               : '';
 
           // No matches message
@@ -163,9 +165,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
 
           const errorPrefix = hasGuide ? `${settings.theme.warning(S_BAR)}  ` : '';
           const validationError =
-            this.state === 'error'
-              ? [`${errorPrefix}${settings.theme.warning(this.error)}`]
-              : [];
+            this.state === 'error' ? [`${errorPrefix}${settings.theme.warning(this.error)}`] : [];
 
           if (hasGuide) {
             headings.push(guidePrefix.trimEnd());
@@ -178,34 +178,34 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
 
           // Show instructions
           const instructions = ['↑/↓ to select', 'Enter: confirm', 'Type: to search'];
-          const footers = formatInstructionFooter(instructions, hasGuide);
+          const footers = formatInstructionFooter(instructions, hasGuide, opts.output);
 
           // Render options with selection
           const displayOptions =
             this.filteredOptions.length === 0
               ? []
               : limitOptions({
-                cursor: this.cursor,
-                options: this.filteredOptions,
-                columnPadding: hasGuide ? 3 : 0, // for `|  ` when the guide is shown
-                rowPadding: headings.length + footers.length,
-                style: (option, active) => {
-                  const label = getLabel(option);
-                  const hint =
-                    option.hint && option.value === this.focusedValue
-                      ? settings.theme.muted(` (${option.hint})`)
-                      : '';
+                  cursor: this.cursor,
+                  options: this.filteredOptions,
+                  columnPadding: hasGuide ? 3 : 0, // for `|  ` when the guide is shown
+                  rowPadding: headings.length + footers.length,
+                  style: (option, active) => {
+                    const label = getLabel(option);
+                    const hint =
+                      option.hint && option.value === this.focusedValue
+                        ? settings.theme.muted(` (${option.hint})`)
+                        : '';
 
-                  if (option.disabled) {
-                    return `${settings.theme.muted(S_RADIO_INACTIVE)} ${prism.strikethrough(settings.theme.muted(label))}`;
-                  }
-                  return active
-                    ? `${settings.theme.success(S_RADIO_ACTIVE)} ${label}${hint}`
-                    : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}${hint}`;
-                },
-                maxItems: opts.maxItems,
-                output: opts.output,
-              });
+                    if (option.disabled) {
+                      return `${settings.theme.muted(S_RADIO_INACTIVE)} ${prism.strikethrough(settings.theme.muted(label))}`;
+                    }
+                    return active
+                      ? `${settings.theme.success(S_RADIO_ACTIVE)} ${label}${hint}`
+                      : `${prism.dim(S_RADIO_INACTIVE)} ${prism.dim(label)}${hint}`;
+                  },
+                  maxItems: opts.maxItems,
+                  output: opts.output,
+                });
 
           // Return the formatted prompt
           return [
@@ -227,7 +227,7 @@ export interface AutocompleteMultiSelectOptions<Value> extends AutocompleteShare
   /**
    * The initial selected values
    */
-  initialValues?: Value[];
+  initialValues?: readonly Value[];
   /**
    * If true, at least one option must be selected
    */
@@ -266,13 +266,13 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
     multiple: true,
     placeholder: opts.placeholder,
     filter: resolveFilter(opts),
-    validate: () => {
+    validate: (value) => {
       if (opts.required && prompt.selectedValues.length === 0) {
         return 'Please select at least one item';
       }
-      return undefined;
+      return opts.validate ? runValidation(opts.validate, value) : undefined;
     },
-    initialValue: opts.initialValues,
+    initialValue: opts.initialValues ? [...opts.initialValues] : undefined,
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
@@ -298,8 +298,8 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
       const matches =
         this.filteredOptions.length !== options.length
           ? prism.dim(
-            ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
-          )
+              ` (${this.filteredOptions.length} match${this.filteredOptions.length === 1 ? '' : 'es'})`
+            )
           : '';
 
       const guidePrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
@@ -329,9 +329,7 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
               : [];
 
           const errorMessage =
-            this.state === 'error'
-              ? [`${guidePrefix}${settings.theme.warning(this.error)}`]
-              : [];
+            this.state === 'error' ? [`${guidePrefix}${settings.theme.warning(this.error)}`] : [];
 
           // Get limited options for display
           const displayOptions = limitOptions({
@@ -350,7 +348,7 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
             ...noResults,
             ...errorMessage,
             ...displayOptions.map((option) => `${guidePrefix}${option}`),
-            ...formatInstructionFooter(instructions, hasGuide),
+            ...formatInstructionFooter(instructions, hasGuide, opts.output),
           ].join('\n');
         }
       }

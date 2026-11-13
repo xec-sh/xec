@@ -33,8 +33,16 @@ export function progress({
   let value = 0;
   let previousMessage = '';
 
-  const max = Math.max(1, userMax);
-  const size = Math.max(1, userSize);
+  if (
+    !Number.isFinite(userMax) ||
+    userMax <= 0 ||
+    !Number.isSafeInteger(userSize) ||
+    userSize <= 0
+  ) {
+    throw new RangeError('Progress requires a finite positive max and a positive integer size');
+  }
+  const max = userMax;
+  const size = userSize;
 
   const activeStyle = (state: State) => {
     switch (state) {
@@ -52,14 +60,16 @@ export function progress({
   };
   const drawProgress = (state: State, msg: string) => {
     const active = Math.floor((value / max) * size);
-    return `${activeStyle(state)(S_PROGRESS_CHAR[style].repeat(active))}${prism.dim(S_PROGRESS_CHAR[style].repeat(size - active))} ${msg}`;
+    return `${activeStyle(state)(S_PROGRESS_CHAR[style].repeat(active))}${prism.dim(S_PROGRESS_CHAR[style].repeat(size - active))} ${Math.round((value / max) * 100)}% ${msg}`;
   };
 
   const start = (msg = '') => {
+    value = 0;
     previousMessage = msg;
     spin.start(drawProgress('initial', msg));
   };
   const advance = (step = 1, msg?: string): void => {
+    if (!Number.isFinite(step)) throw new RangeError('Progress step must be finite');
     // Clamp to [0, max] — a negative running total would make
     // `repeat(active)` throw RangeError while drawing the bar
     value = Math.min(max, Math.max(0, step + value));

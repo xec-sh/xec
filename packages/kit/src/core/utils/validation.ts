@@ -40,7 +40,9 @@ import type { StandardSchemaV1 } from './standard-schema.js';
  * ```
  */
 export type Validate<TValue> =
-  | ((value: TValue | undefined) => string | Error | undefined)
+  | ((
+      value: TValue | undefined
+    ) => string | Error | undefined | Promise<string | Error | undefined>)
   | StandardSchemaV1<TValue | undefined, unknown>;
 
 /**
@@ -52,15 +54,10 @@ export type Validate<TValue> =
 export function runValidation<TValue>(
   validate: Validate<TValue>,
   value: TValue | undefined
-): string | Error | undefined {
+): string | Error | undefined | Promise<string | Error | undefined> {
   if ('~standard' in validate) {
     const result = validate['~standard'].validate(value);
-    // https://standardschema.dev/schema#how-to-only-allow-synchronous-validation
-    if (result instanceof Promise) {
-      throw new TypeError(
-        'Schema validation must be synchronous. Update `validate()` and remove any asynchronous logic.'
-      );
-    }
+    if (result instanceof Promise) return result.then((validated) => validated.issues?.at(0)?.message);
     return result.issues?.at(0)?.message;
   }
   return validate(value);

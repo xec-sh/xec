@@ -5,6 +5,13 @@ import * as prompts from '../src/index.js';
 import { MockWritable } from './test-utils.js';
 import { getColumns } from '../src/core/utils/index.js';
 
+const activeIndicators: ReturnType<typeof prompts.spinner>[] = [];
+const makeIndicator = (...args: Parameters<typeof prompts.spinner>) => {
+  const indicator = prompts.spinner(...args);
+  activeIndicators.push(indicator);
+  return indicator;
+};
+
 describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
   let originalCI: string | undefined;
   let output: MockWritable;
@@ -20,16 +27,18 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
   beforeEach(() => {
     output = new MockWritable();
+    output.isTTY = true;
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    for (const indicator of activeIndicators.splice(0)) indicator.clear();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
   test('returns spinner API', () => {
-    const api = prompts.spinner({ output });
+    const api = makeIndicator({ output });
 
     expect(api.stop).toBeTypeOf('function');
     expect(api.start).toBeTypeOf('function');
@@ -38,7 +47,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
   describe('start', () => {
     test('renders frames at interval', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -53,7 +62,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('renders message', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start('foo');
 
@@ -65,7 +74,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('renders timer when indicator is "timer"', () => {
-      const result = prompts.spinner({ output, indicator: 'timer' });
+      const result = makeIndicator({ output, indicator: 'timer' });
 
       result.start();
 
@@ -78,7 +87,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
     test('handles wrapping', () => {
       const columns = getColumns(output);
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start('x'.repeat(columns + 10));
 
@@ -90,7 +99,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('handles multi-line messages', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start('foo\nbar\nbaz');
 
@@ -104,7 +113,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
   describe('stop', () => {
     test('renders submit symbol and stops spinner', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -118,7 +127,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('renders cancel symbol if code = 1', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -130,7 +139,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('renders error symbol if code > 1', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -142,7 +151,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('renders message', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -154,7 +163,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('renders message without removing dots', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -166,7 +175,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('does not throw if called before start', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       expect(() => result.stop()).not.toThrow();
     });
@@ -174,7 +183,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
   describe('message', () => {
     test('sets message for next frame', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -192,7 +201,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
   describe('indicator customization', () => {
     test('custom frames', () => {
-      const result = prompts.spinner({ output, frames: ['🐴', '🦋', '🐙', '🐶'] });
+      const result = makeIndicator({ output, frames: ['🐴', '🦋', '🐙', '🐶'] });
 
       result.start();
 
@@ -207,7 +216,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('custom frames with lots of frame have consistent ellipsis display', () => {
-      const result = prompts.spinner({ output, frames: Object.keys(Array(10).fill(0)) });
+      const result = makeIndicator({ output, frames: Object.keys(Array(10).fill(0)) });
 
       result.start();
 
@@ -221,7 +230,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('custom delay', () => {
-      const result = prompts.spinner({ output, delay: 200 });
+      const result = makeIndicator({ output, delay: 200 });
 
       result.start();
 
@@ -241,6 +250,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
     beforeEach(() => {
       processEmitter = new EventEmitter();
+      vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
       // Spy on process methods
       vi.spyOn(process, 'on').mockImplementation((ev, listener) => {
@@ -258,7 +268,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('uses default cancel message', () => {
-      const result = prompts.spinner({ output });
+      const result = makeIndicator({ output });
       result.start('Test operation');
 
       processEmitter.emit('SIGINT');
@@ -267,7 +277,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('uses custom cancel message when provided directly', () => {
-      const result = prompts.spinner({
+      const result = makeIndicator({
         output,
         cancelMessage: 'Custom cancel message',
       });
@@ -279,7 +289,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
     });
 
     test('uses custom error message when provided directly', () => {
-      const result = prompts.spinner({
+      const result = makeIndicator({
         output,
         errorMessage: 'Custom error message',
       });
@@ -297,7 +307,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
         // Set custom message
         prompts.settings.messages.cancel = 'Global cancel message';
 
-        const result = prompts.spinner({ output });
+        const result = makeIndicator({ output });
         result.start('Test operation');
 
         processEmitter.emit('SIGINT');
@@ -317,7 +327,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
         // Set custom message
         prompts.settings.messages.error = 'Global error message';
 
-        const result = prompts.spinner({ output });
+        const result = makeIndicator({ output });
         result.start('Test operation');
 
         processEmitter.emit('exit', 2);
@@ -337,7 +347,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
         // Set custom global messages
         prompts.settings.messages.error = 'Global error message';
 
-        const result = prompts.spinner({
+        const result = makeIndicator({
           output,
           errorMessage: 'Spinner error message',
         });
@@ -359,7 +369,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
         // Set custom global messages
         prompts.settings.messages.cancel = 'Global cancel message';
 
-        const result = prompts.spinner({
+        const result = makeIndicator({
           output,
           cancelMessage: 'Spinner cancel message',
         });
@@ -376,7 +386,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
 
   test('can be aborted by a signal', async () => {
     const controller = new AbortController();
-    const result = prompts.spinner({
+    const result = makeIndicator({
       output,
       signal: controller.signal,
     });
@@ -394,7 +404,7 @@ describe.each(['true', 'false'])('spinner (isCI = %s)', (isCI) => {
    * writing frames forever — even after stop().
    */
   test('start while active does not leak the previous interval', () => {
-    const result = prompts.spinner({ output });
+    const result = makeIndicator({ output });
 
     result.start('one');
     result.start('two');

@@ -7,6 +7,13 @@ import { vi, test, expect, afterAll, describe, afterEach, beforeAll, beforeEach 
 import * as prompts from '../src/index.js';
 import { MockWritable } from './test-utils.js';
 
+const activeIndicators: ReturnType<typeof prompts.progress>[] = [];
+const makeIndicator = (...args: Parameters<typeof prompts.progress>) => {
+  const indicator = prompts.progress(...args);
+  activeIndicators.push(indicator);
+  return indicator;
+};
+
 describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
   let originalCI: string | undefined;
   let output: MockWritable;
@@ -22,16 +29,18 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
 
   beforeEach(() => {
     output = new MockWritable();
+    output.isTTY = true;
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    for (const indicator of activeIndicators.splice(0)) indicator.clear();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
   test('returns progress API', () => {
-    const api = prompts.progress({ output });
+    const api = makeIndicator({ output });
 
     expect(api.stop).toBeTypeOf('function');
     expect(api.start).toBeTypeOf('function');
@@ -42,7 +51,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
   // ProgressOptions extends the spinner options (upstream parity), so frame
   // customization reaches the underlying spinner instead of being dropped.
   test('passes spinner customization through (frames, delay, styleFrame)', () => {
-    const result = prompts.progress({
+    const result = makeIndicator({
       output,
       frames: ['+', '-'],
       delay: 50,
@@ -57,8 +66,14 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     vi.advanceTimersByTime(50);
 
     const rendered = output.buffer.join('');
-    expect(rendered).toContain('[+]');
-    expect(rendered).toContain('[-]');
+    if (isCI === 'true') {
+      expect(rendered).toContain('foo');
+      expect(rendered).toContain('bar');
+      expect(rendered).not.toContain('\u001b');
+    } else {
+      expect(rendered).toContain('[+]');
+      expect(rendered).toContain('[-]');
+    }
 
     // Detach the spinner's process hooks; leaked hooks across tests trip the
     // MaxListenersExceeded warning.
@@ -67,7 +82,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
 
   describe('start', () => {
     test('renders frames at interval', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -80,7 +95,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('renders message', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start('foo');
 
@@ -90,7 +105,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('renders timer when indicator is "timer"', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -102,7 +117,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
 
   describe('stop', () => {
     test('renders submit symbol and stops progress', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -116,7 +131,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('renders cancel symbol if code = 1', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -128,7 +143,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('renders error symbol if code > 1', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -140,7 +155,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('renders message', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -152,7 +167,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('renders message without removing dots', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -166,7 +181,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
 
   describe('message', () => {
     test('sets message for next frame', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
 
       result.start();
 
@@ -185,6 +200,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
 
     beforeEach(() => {
       processEmitter = new EventEmitter();
+      vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
       // Spy on process methods
       vi.spyOn(process, 'on').mockImplementation((ev, listener) => {
@@ -202,7 +218,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('uses default cancel message', () => {
-      const result = prompts.progress({ output });
+      const result = makeIndicator({ output });
       result.start('Test operation');
 
       processEmitter.emit('SIGINT');
@@ -211,7 +227,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('uses custom cancel message when provided directly', () => {
-      const result = prompts.progress({
+      const result = makeIndicator({
         output,
       });
       result.start('Test operation');
@@ -222,7 +238,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('uses custom error message when provided directly', () => {
-      const result = prompts.progress({
+      const result = makeIndicator({
         output,
       });
       result.start('Test operation');
@@ -239,7 +255,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
         // Set custom message
         prompts.settings.messages.cancel = 'Global cancel message';
 
-        const result = prompts.progress({ output });
+        const result = makeIndicator({ output });
         result.start('Test operation');
 
         processEmitter.emit('SIGINT');
@@ -258,7 +274,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
         // Set custom message
         prompts.settings.messages.error = 'Global error message';
 
-        const result = prompts.progress({ output });
+        const result = makeIndicator({ output });
         result.start('Test operation');
 
         processEmitter.emit('exit', 2);
@@ -278,7 +294,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
         // Set custom global messages
         prompts.settings.messages.error = 'Global error message';
 
-        const result = prompts.progress({
+        const result = makeIndicator({
           output,
         });
         result.start('Test operation');
@@ -299,7 +315,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
         // Set custom global messages
         prompts.settings.messages.cancel = 'Global cancel message';
 
-        const result = prompts.progress({
+        const result = makeIndicator({
           output,
         });
         result.start('Test operation');
@@ -317,7 +333,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     test.each(['block', 'heavy', 'light'] satisfies Array<ProgressOptions['style']>)(
       'renders %s progressbar',
       (style) => {
-        const result = prompts.progress({ output, style, max: 2, size: 10 });
+        const result = makeIndicator({ output, style, max: 2, size: 10 });
         result.start();
         vi.advanceTimersByTime(160);
         result.advance();
@@ -335,7 +351,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
      * RangeError while drawing the bar. The value must clamp to [0, max].
      */
     test('negative advance does not throw and clamps at zero', () => {
-      const result = prompts.progress({ output, max: 10, size: 10 });
+      const result = makeIndicator({ output, max: 10, size: 10 });
 
       result.start('work');
       expect(() => result.advance(-5)).not.toThrow();
@@ -345,7 +361,7 @@ describe.each(['true', 'false'])('prompts - progress (isCI = %s)', (isCI) => {
     });
 
     test('advance beyond max stays at max', () => {
-      const result = prompts.progress({ output, max: 10, size: 10 });
+      const result = makeIndicator({ output, max: 10, size: 10 });
 
       result.start('work');
       expect(() => result.advance(100)).not.toThrow();

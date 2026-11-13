@@ -5,7 +5,7 @@ import { wrapAnsi } from '../core/utils/wrap-ansi.js';
 import { getRows, getColumns } from '../core/index.js';
 
 export interface LimitOptionsParams<TOption> extends CommonOptions {
-  options: TOption[];
+  options: readonly TOption[];
   /**
    * Maximum number of options to display at once.
    * @default Infinity
@@ -65,7 +65,7 @@ export const limitOptions = <TOption>({
   rowPadding = 4,
 }: LimitOptionsParams<TOption>): string[] => {
   const columns = getColumns(output);
-  const maxWidth = columns - columnPadding;
+  const maxWidth = Math.max(1, columns - columnPadding);
   const rows = getRows(output);
   const overflowFormat = prism.dim('...');
 
@@ -127,7 +127,14 @@ export const limitOptions = <TOption>({
     const trimPreceding = () =>
       trimLines(lineGroups, newLineCount, 0, cursorGroupIndex, adjustedMax);
     const trimFollowing = () =>
-      trimLines(lineGroups, newLineCount, cursorGroupIndex + 1, lineGroups.length, adjustedMax, true);
+      trimLines(
+        lineGroups,
+        newLineCount,
+        cursorGroupIndex + 1,
+        lineGroups.length,
+        adjustedMax,
+        true
+      );
 
     if (shouldRenderTopEllipsis) {
       ({ lineCount: newLineCount, removals: precedingRemovals } = trimPreceding());

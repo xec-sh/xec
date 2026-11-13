@@ -6,7 +6,7 @@ import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/commo
 
 export interface SelectKeyOptions<Value extends string> extends CommonOptions {
   message: string;
-  options: Option<Value>[];
+  options: readonly Option<Value>[];
   initialValue?: Value;
   caseSensitive?: boolean;
 }
@@ -20,6 +20,7 @@ export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) =
       return '';
     }
     const label = option.label ?? String(option.value);
+    if (option.disabled) return settings.theme.muted(`${option.value} ${label}`);
     if (state === 'selected') {
       return `${prism.dim(label)}`;
     }
@@ -62,7 +63,11 @@ export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) =
         }
         case 'cancel': {
           const cancelPrefix = hasGuide ? `${prism.gray(S_BAR)}  ` : '';
-          const wrapped = wrapTextWithPrefix(opts.output, opt(this.options[0], 'cancelled'), cancelPrefix);
+          const wrapped = wrapTextWithPrefix(
+            opts.output,
+            opt(this.options[0], 'cancelled'),
+            cancelPrefix
+          );
           return `${title}${wrapped}${hasGuide ? `\n${prism.gray(S_BAR)}` : ''}`;
         }
         default: {

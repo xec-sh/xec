@@ -1,9 +1,11 @@
 import { findCursor } from '../utils/cursor.js';
 import Prompt, { type PromptOptions } from './prompt.js';
 
-interface SelectOptions<T extends { value: any; disabled?: boolean }>
-  extends PromptOptions<T['value'], SelectPrompt<T>> {
-  options: T[];
+interface SelectOptions<T extends { value: any; disabled?: boolean }> extends PromptOptions<
+  T['value'],
+  SelectPrompt<T>
+> {
+  options: readonly T[];
   initialValue?: T['value'];
 }
 export default class SelectPrompt<T extends { value: any; disabled?: boolean }> extends Prompt<
@@ -18,13 +20,18 @@ export default class SelectPrompt<T extends { value: any; disabled?: boolean }> 
 
   private changeValue() {
     const selectedValue = this._selectedValue;
-    this.value = selectedValue === undefined ? undefined : selectedValue.value;
+    this.value =
+      selectedValue === undefined || selectedValue.disabled ? undefined : selectedValue.value;
+  }
+
+  protected override _shouldSubmit() {
+    return this._selectedValue !== undefined && !this._selectedValue.disabled;
   }
 
   constructor(opts: SelectOptions<T>) {
     super(opts, false);
 
-    this.options = opts.options;
+    this.options = [...opts.options];
     const initialCursor = this.options.findIndex(({ value }) => value === opts.initialValue);
     const cursor = initialCursor === -1 ? 0 : initialCursor;
     this.cursor = this.options[cursor]?.disabled ? findCursor<T>(cursor, 1, this.options) : cursor;

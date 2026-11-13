@@ -10,11 +10,11 @@ import type { Key } from 'node:readline';
 import type { Readable, Writable } from 'node:stream';
 
 import { cursor } from 'sisteransi';
-import { ReadStream } from 'node:tty';
 import * as readline from 'node:readline';
 import { stdin, stdout } from 'node:process';
 
 import { wrapAnsi } from './wrap-ansi.js';
+import stringWidth from './string-width.js';
 import { isActionKey } from './settings.js';
 
 export * from './theme.js';
@@ -23,8 +23,6 @@ export * from './cursor.js';
 export * from './settings.js';
 export * from './validation.js';
 export type { StandardSchemaV1 } from './standard-schema.js';
-
-const isWindows = globalThis.process.platform.startsWith('win');
 
 export const CANCEL_SYMBOL = Symbol('clack:cancel');
 
@@ -43,6 +41,7 @@ interface BlockOptions {
   output?: Writable;
   overwrite?: boolean;
   hideCursor?: boolean;
+  onCancel?: () => void;
 }
 
 export function block({
@@ -50,64 +49,73 @@ export function block({
   output = stdout,
   overwrite = true,
   hideCursor = true,
+  onCancel,
 }: BlockOptions = {}) {
-  const rl = readline.createInterface({
-    input,
-    output,
-    prompt: '',
-    tabSize: 1,
-  });
+  const wasRaw = 'isRaw' in input && input.isRaw === true;
+  const wasFlowing = input.readableFlowing === true;
+  const rl = readline.createInterface({ input, output, prompt: '', tabSize: 1 });
   readline.emitKeypressEvents(input, rl);
+  let closed = false;
 
-  if (input instanceof ReadStream && input.isTTY) {
-    input.setRawMode(true);
-  }
-
-  const clear = (data: Buffer, { name, sequence }: Key) => {
-    const str = String(data);
-    if (isActionKey([str, name, sequence], 'cancel')) {
-      if (hideCursor) output.write(cursor.show);
-      process.exit(0);
+  const release = () => {
+    if (closed) return;
+    closed = true;
+    input.off('keypress', clear);
+    // The interface must not reset a terminal owned by its caller.
+    Object.assign(rl, { terminal: false });
+    rl.close();
+    setRawMode(input, wasRaw);
+    if (wasFlowing) input.resume();
+    else input.pause();
+    if (hideCursor && !output.destroyed) output.write(cursor.show);
+  };
+  const clear = (data: Buffer | string | undefined, { name, sequence }: Key) => {
+    if (closed) return;
+    if (isActionKey([data === undefined ? undefined : String(data), name, sequence], 'cancel')) {
+      release();
+      if (onCancel) onCancel();
+      else process.exit(130);
       return;
     }
     if (!overwrite) return;
-    const dx = name === 'return' ? 0 : -1;
-    const dy = name === 'return' ? -1 : 0;
-
-    readline.moveCursor(output, dx, dy, () => {
+    readline.moveCursor(output, name === 'return' ? 0 : -1, name === 'return' ? -1 : 0, () => {
+      if (closed) return;
       readline.clearLine(output, 1, () => {
-        input.once('keypress', clear);
+        if (!closed) input.once('keypress', clear);
       });
     });
   };
-  if (hideCursor) output.write(cursor.hide);
-  input.once('keypress', clear);
-
-  return () => {
-    input.off('keypress', clear);
-    if (hideCursor) output.write(cursor.show);
-
-    // Prevent Windows specific issues: https://github.com/bombshell-dev/clack/issues/176
-    if (input instanceof ReadStream && input.isTTY && !isWindows) {
-      input.setRawMode(false);
-    }
-
-    // @ts-expect-error fix for https://github.com/nodejs/node/issues/31762#issuecomment-1441223907
-    rl.terminal = false;
-    rl.close();
-  };
+  try {
+    setRawMode(input, true);
+    if (hideCursor) output.write(cursor.hide);
+    input.once('keypress', clear);
+    return release;
+  } catch (error) {
+    release();
+    throw error;
+  }
 }
 
 export const getColumns = (output: Writable): number => {
-  if ('columns' in output && typeof output.columns === 'number') {
-    return output.columns;
+  if (
+    'columns' in output &&
+    typeof output.columns === 'number' &&
+    Number.isFinite(output.columns) &&
+    output.columns > 0
+  ) {
+    return Math.floor(output.columns);
   }
   return 80;
 };
 
 export const getRows = (output: Writable): number => {
-  if ('rows' in output && typeof output.rows === 'number') {
-    return output.rows;
+  if (
+    'rows' in output &&
+    typeof output.rows === 'number' &&
+    Number.isFinite(output.rows) &&
+    output.rows > 0
+  ) {
+    return Math.floor(output.rows);
   }
   return 20;
 };
@@ -121,10 +129,17 @@ export function wrapTextWithPrefix(
   lineFormatter?: (line: string, index: number) => string
 ): string {
   const columns = getColumns(output ?? stdout);
-  const wrapped = wrapAnsi(text, columns - prefix.length, {
-    hard: true,
-    trim: false,
-  });
+  const wrapped = wrapAnsi(
+    text,
+    Math.max(
+      1,
+      columns - Math.max(stringWidth(prefix), stringWidth(startPrefix), stringWidth(endPrefix))
+    ),
+    {
+      hard: true,
+      trim: false,
+    }
+  );
   return wrapped
     .split('\n')
     .map((line: string, index: number, lines: string[]) => {

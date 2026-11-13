@@ -2,29 +2,25 @@ import type { Key } from 'node:readline';
 
 import prism from '../../prism/index.js';
 import { findTextCursor } from '../utils/cursor.js';
+import { isPrintableInput } from '../utils/string.js';
 import Prompt, { type PromptOptions } from './prompt.js';
 
 type CursorAction = 'up' | 'down' | 'left' | 'right';
 const cursorActions = new Set<CursorAction>(['up', 'down', 'left', 'right']);
 
-/** Length in UTF-16 code units of the code point starting at `index`. */
-function codePointLengthAt(text: string, index: number): number {
-  const code = text.codePointAt(index);
-  return code !== undefined && code > 0xffff ? 2 : 1;
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+function graphemeLengthAt(text: string, index: number): number {
+  return graphemes.segment(text).containing(index)?.segment.length ?? 1;
 }
 
-/** Length in UTF-16 code units of the code point ending right before `index`. */
-function codePointLengthBefore(text: string, index: number): number {
-  const high = text.charCodeAt(index - 2);
-  const low = text.charCodeAt(index - 1);
-  return high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff ? 2 : 1;
+function graphemeLengthBefore(text: string, index: number): number {
+  const start = graphemes.segment(text).containing(index - 1)?.index ?? index;
+  return index - start;
 }
 
-/** Snap an offset that landed inside a surrogate pair back to its start. */
-function snapToCodePoint(text: string, offset: number): number {
-  const low = text.charCodeAt(offset);
-  const high = text.charCodeAt(offset - 1);
-  return low >= 0xdc00 && low <= 0xdfff && high >= 0xd800 && high <= 0xdbff ? offset - 1 : offset;
+function snapToGrapheme(text: string, offset: number): number {
+  return graphemes.segment(text).containing(offset)?.index ?? offset;
 }
 
 interface MultiLineOptions extends PromptOptions<string, MultiLinePrompt> {
@@ -46,7 +42,7 @@ export default class MultiLinePrompt extends Prompt<string> {
     if (this.cursor >= userInput.length) {
       return `${userInput}█`;
     }
-    const charLength = codePointLengthAt(userInput, this.cursor);
+    const charLength = graphemeLengthAt(userInput, this.cursor);
     const preCursor = userInput.slice(0, this.cursor);
     const cursorChar = userInput.slice(this.cursor, this.cursor + charLength);
     const rest = userInput.slice(this.cursor + charLength);
@@ -74,21 +70,21 @@ export default class MultiLinePrompt extends Prompt<string> {
     const text = this.value ?? '';
     switch (action) {
       case 'up':
-        this._cursor = snapToCodePoint(text, findTextCursor(this._cursor, 0, -1, text));
+        this._cursor = snapToGrapheme(text, findTextCursor(this._cursor, 0, -1, text));
         return;
       case 'down':
-        this._cursor = snapToCodePoint(text, findTextCursor(this._cursor, 0, 1, text));
+        this._cursor = snapToGrapheme(text, findTextCursor(this._cursor, 0, 1, text));
         return;
       case 'left':
         this._cursor = findTextCursor(
           this._cursor,
-          -codePointLengthBefore(text, this._cursor),
+          -graphemeLengthBefore(text, this._cursor),
           0,
           text
         );
         return;
       case 'right':
-        this._cursor = findTextCursor(this._cursor, codePointLengthAt(text, this._cursor), 0, text);
+        this._cursor = findTextCursor(this._cursor, graphemeLengthAt(text, this._cursor), 0, text);
         return;
       // no default
     }
@@ -146,13 +142,13 @@ export default class MultiLinePrompt extends Prompt<string> {
         this.focused = this.focused === 'editor' ? 'submit' : 'editor';
         return;
       }
-      if (key?.name === 'return') {
+      if (key?.name === 'return' || key?.name === 'enter') {
         return;
       }
       this.#lastKeyWasReturn = false;
       if (key?.name === 'backspace') {
         if (this.cursor > 0) {
-          const charLength = codePointLengthBefore(this.userInput, this.cursor);
+          const charLength = graphemeLengthBefore(this.userInput, this.cursor);
           this._setUserInput(
             this.userInput.slice(0, this.cursor - charLength) + this.userInput.slice(this.cursor)
           );
@@ -162,7 +158,7 @@ export default class MultiLinePrompt extends Prompt<string> {
       }
       if (key?.name === 'delete') {
         if (this.cursor < this.userInput.length) {
-          const charLength = codePointLengthAt(this.userInput, this.cursor);
+          const charLength = graphemeLengthAt(this.userInput, this.cursor);
           this._setUserInput(
             this.userInput.slice(0, this.cursor) + this.userInput.slice(this.cursor + charLength)
           );
@@ -173,7 +169,7 @@ export default class MultiLinePrompt extends Prompt<string> {
       // #534), so it can be inserted directly. `char` is only defined for
       // text-producing keypresses; navigation and function keys carry escape
       // sequences in key.sequence that must never be inserted.
-      if (char) {
+      if (isPrintableInput(char, key)) {
         if (this.#showSubmit && this.focused === 'submit') {
           this.focused = 'editor';
         }

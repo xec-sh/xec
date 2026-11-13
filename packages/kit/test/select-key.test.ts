@@ -44,7 +44,7 @@ describe.each(['true', 'false'])('selectKey (isCI = %s)', (isCI) => {
     const value = await result;
 
     expect(output.buffer).toMatchSnapshot();
-    expect(value).toBe(undefined);
+    expect(value).toBe('a');
   });
 
   test('selects option by keypress', async () => {

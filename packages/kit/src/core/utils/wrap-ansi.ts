@@ -7,6 +7,7 @@
  */
 
 import stringWidth from './string-width.js';
+import { terminalSegments } from './string-truncated-width.js';
 
 const ESC = '\x1B';
 const CSI = '\x9B';
@@ -44,62 +45,15 @@ const wrapAnsiHyperlink = (url: string): string =>
 const wordLengths = (words: string[]): number[] => words.map((character) => stringWidth(character));
 
 const wrapWord = (rows: string[], word: string, columns: number) => {
-  const characters = word[Symbol.iterator]();
-
-  let isInsideEscape = false;
-  let isInsideLinkEscape = false;
-  let lastRow = rows.at(-1);
-  let visible = lastRow === undefined ? 0 : stringWidth(lastRow);
-  let currentCharacter = characters.next();
-  let nextCharacter = characters.next();
-  let rawCharacterIndex = 0;
-
-  while (!currentCharacter.done) {
-    const character = currentCharacter.value;
-    const characterLength = stringWidth(character);
-
-    if (visible + characterLength <= columns) {
-      rows[rows.length - 1] += character;
-    } else {
-      rows.push(character);
+  let visible = stringWidth(rows.at(-1) ?? '');
+  for (const part of terminalSegments(word)) {
+    const width = part.escape ? 0 : stringWidth(part.text);
+    if (width > 0 && visible > 0 && visible + width > columns) {
+      rows.push('');
       visible = 0;
     }
-
-    if (character === ESC || character === CSI) {
-      isInsideEscape = true;
-
-      isInsideLinkEscape = word.startsWith(ANSI_ESCAPE_LINK, rawCharacterIndex + 1);
-    }
-
-    if (isInsideEscape) {
-      if (isInsideLinkEscape) {
-        if (character === ANSI_ESCAPE_BELL) {
-          isInsideEscape = false;
-          isInsideLinkEscape = false;
-        }
-      } else if (character === ANSI_SGR_TERMINATOR) {
-        isInsideEscape = false;
-      }
-    } else {
-      visible += characterLength;
-
-      if (visible === columns && !nextCharacter.done) {
-        rows.push('');
-        visible = 0;
-      }
-    }
-
-    currentCharacter = nextCharacter;
-    nextCharacter = characters.next();
-    rawCharacterIndex += character.length;
-  }
-
-  lastRow = rows.at(-1);
-  if (!visible && lastRow !== undefined && lastRow.length > 0 && rows.length > 1) {
-    const popped = rows.pop();
-    if (popped !== undefined && rows[rows.length - 1] !== undefined) {
-      rows[rows.length - 1] += popped;
-    }
+    rows[rows.length - 1] += part.text;
+    visible += width;
   }
 };
 
@@ -254,6 +208,7 @@ const exec = (string: string, columns: number, options: WrapAnsiOptions = {}): s
 };
 
 export function wrapAnsi(string: string, columns: number, options?: WrapAnsiOptions) {
+  if (!Number.isFinite(columns) || columns < 1) throw new RangeError('Wrap width must be positive');
   return String(string)
     .normalize()
     .replaceAll('\r\n', '\n')

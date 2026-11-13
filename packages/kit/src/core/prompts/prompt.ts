@@ -8,7 +8,15 @@ import readline, { type Key, type ReadLine } from 'node:readline';
 
 import { wrapAnsi } from '../utils/wrap-ansi.js';
 import { runValidation, type Validate } from '../utils/validation.js';
-import { getRows, settings, diffLines, getColumns, setRawMode, isActionKey, CANCEL_SYMBOL } from '../utils/index.js';
+import {
+  getRows,
+  settings,
+  diffLines,
+  getColumns,
+  setRawMode,
+  isActionKey,
+  CANCEL_SYMBOL,
+} from '../utils/index.js';
 
 export interface PromptOptions<TValue, Self extends Prompt<TValue>> {
   render(this: Omit<Self, 'prompt'>): string | undefined;
@@ -30,6 +38,32 @@ export default class Prompt<TValue> {
   protected input: Readable;
   protected output: Writable;
   private _abortSignal?: AbortSignal;
+  private result?: Promise<TValue | typeof CANCEL_SYMBOL | undefined>;
+  private resolve?: (value: TValue | typeof CANCEL_SYMBOL | undefined) => void;
+  private reject?: (reason: unknown) => void;
+  private closed = false;
+  private terminalStarted = false;
+  private previousRawMode = false;
+  private previousFlowing = false;
+  private readonly onAbort = () => {
+    if (!this.closed) {
+      this.state = 'cancel';
+      this.close();
+    }
+  };
+  private inputClosed = false;
+  private readonly onInputClosed = () => {
+    this.inputClosed = true;
+    if (!this.closed && this.state !== 'validating') this.onAbort();
+  };
+  private readonly onStreamError = (error: unknown) => this.fail(error);
+  private readonly onResize = () => {
+    try {
+      this.render();
+    } catch (error) {
+      this.fail(error);
+    }
+  };
 
   private rl: ReadLine | undefined;
   private opts: Omit<PromptOptions<TValue, Prompt<TValue>>, 'render' | 'input' | 'output'>;
@@ -107,42 +141,28 @@ export default class Prompt<TValue> {
     ...data: Parameters<ClackEvents<TValue>[T]>
   ) {
     const cbs = this._subscribers.get(event) ?? [];
-    const cleanup: (() => void)[] = [];
-
-    for (const subscriber of cbs) {
+    for (const subscriber of [...cbs]) {
+      if (subscriber.once) cbs.splice(cbs.indexOf(subscriber), 1);
       subscriber.cb(...data);
-
-      if (subscriber.once) {
-        cleanup.push(() => cbs.splice(cbs.indexOf(subscriber), 1));
-      }
-    }
-
-    for (const cb of cleanup) {
-      cb();
     }
   }
 
   public prompt() {
-    return new Promise<TValue | symbol | undefined>((resolve) => {
-      if (this._abortSignal) {
-        if (this._abortSignal.aborted) {
-          this.state = 'cancel';
-
-          this.close();
-          resolve(CANCEL_SYMBOL);
-          return;
-        }
-
-        this._abortSignal.addEventListener(
-          'abort',
-          () => {
-            this.state = 'cancel';
-            this.close();
-          },
-          { once: true }
-        );
+    if (this.result) return this.result;
+    this.result = new Promise<TValue | typeof CANCEL_SYMBOL | undefined>((resolve, reject) => {
+      this.resolve = resolve;
+      this.reject = reject;
+    });
+    try {
+      if (this._abortSignal?.aborted) {
+        this.onAbort();
+        return this.result;
       }
-
+      this.previousRawMode = 'isRaw' in this.input && this.input.isRaw === true;
+      this.previousFlowing = this.input.readableFlowing === true;
+      this.terminalStarted = true;
+      this.output.on('error', this.onStreamError);
+      this._abortSignal?.addEventListener('abort', this.onAbort, { once: true });
       this.rl = readline.createInterface({
         input: this.input,
         tabSize: 2,
@@ -150,31 +170,19 @@ export default class Prompt<TValue> {
         escapeCodeTimeout: 50,
         terminal: true,
       });
+      this.rl.on('error', this.onStreamError);
+      this.rl.once('close', this.onInputClosed);
       this.rl.prompt();
-
-      if (this.opts.initialUserInput !== undefined) {
+      if (this.opts.initialUserInput !== undefined)
         this._setUserInput(this.opts.initialUserInput, true);
-      }
-
       this.input.on('keypress', this.onKeypress);
       setRawMode(this.input, true);
-      this.output.on('resize', this.render);
-
+      this.output.on('resize', this.onResize);
       this.render();
-
-      this.once('submit', () => {
-        this.output.write(cursor.show);
-        this.output.off('resize', this.render);
-        setRawMode(this.input, false);
-        resolve(this.value);
-      });
-      this.once('cancel', () => {
-        this.output.write(cursor.show);
-        this.output.off('resize', this.render);
-        setRawMode(this.input, false);
-        resolve(CANCEL_SYMBOL);
-      });
-    });
+    } catch (error) {
+      this.fail(error);
+    }
+    return this.result;
   }
 
   protected _isActionKey(char: string | undefined, _key: Key): boolean {
@@ -220,7 +228,24 @@ export default class Prompt<TValue> {
   }
 
   private onKeypress(char: string | undefined, key: Key) {
-    if (this._track && key.name !== 'return') {
+    if (this.closed) return;
+    try {
+      if (
+        isActionKey([char, key?.name, key?.sequence], 'cancel') &&
+        this._shouldCancel(char, key)
+      ) {
+        this.onAbort();
+        return;
+      }
+      if (this.state === 'validating') return;
+      this.handleKeypress(char, key);
+    } catch (error) {
+      this.fail(error);
+    }
+  }
+
+  private handleKeypress(char: string | undefined, key: Key) {
+    if (this._track && key.name !== 'return' && key.name !== 'enter') {
       if (key.name && this._isActionKey(char, key)) {
         this.rl?.write(null, { ctrl: true, name: 'h' });
       }
@@ -239,6 +264,7 @@ export default class Prompt<TValue> {
         this.emit('cursor', key.name as Action);
       }
     }
+    if (!this._track && char === '\u3000') this.emit('cursor', 'space');
     if (char && (char.toLowerCase() === 'y' || char.toLowerCase() === 'n')) {
       this.emit('confirm', char.toLowerCase() === 'y');
     }
@@ -246,50 +272,128 @@ export default class Prompt<TValue> {
     // Call the key event handler and emit the key event.
     // The char keeps its original casing (upstream #534): consumers that need
     // case-insensitive matching lowercase it themselves.
+    if (this.closed) return;
     this.emit('key', char, key);
+    if (this.closed) return;
 
-    if (key?.name === 'return' && this._shouldSubmit(char, key)) {
+    if ((key?.name === 'return' || key?.name === 'enter') && this._shouldSubmit(char, key)) {
       if (this.opts.validate) {
         try {
           const problem = runValidation(this.opts.validate, this.value);
-          if (problem) {
-            this.error = problem instanceof Error ? problem.message : problem;
-            this.state = 'error';
-            this.rl?.write(this.userInput);
+          if (problem instanceof Promise) {
+            this.state = 'validating';
+            this.render();
+            void problem
+              .then(
+                (result) => this.completeValidation(result),
+                (error) =>
+                  this.completeValidation(error instanceof Error ? error : new Error(String(error)))
+              )
+              .catch((error) => this.fail(error));
+            return;
           }
-        } catch (e) {
-          this.error = e instanceof Error ? e.message : String(e);
-          this.state = 'error';
-          this.rl?.write(this.userInput);
+          this.completeValidation(problem);
+        } catch (error) {
+          this.completeValidation(error instanceof Error ? error : new Error(String(error)));
         }
+        return;
       }
-      if (this.state !== 'error') {
-        this.state = 'submit';
+      this.state = 'submit';
+    }
+    if (this.state === 'submit' || this.state === 'cancel') this.close();
+    else this.render();
+  }
+
+  private completeValidation(problem: string | Error | undefined) {
+    if (this.closed) return;
+    if (problem) {
+      if (this.inputClosed) {
+        this.fail(problem);
+        return;
       }
-    }
-
-    if (isActionKey([char, key?.name, key?.sequence], 'cancel') && this._shouldCancel(char, key)) {
-      this.state = 'cancel';
-    }
-
-    if (this.state === 'submit' || this.state === 'cancel') {
-      this.emit('finalize');
-    }
-    this.render();
-    if (this.state === 'submit' || this.state === 'cancel') {
+      this.error = problem instanceof Error ? problem.message : problem;
+      this.state = 'error';
+      this.rl?.write(null, { ctrl: true, name: 'u' });
+      this.rl?.write(this.userInput);
+      this.render();
+    } else {
+      this.state = 'submit';
       this.close();
     }
   }
 
   protected close() {
-    this.input.unpipe();
+    this.finish();
+  }
+
+  protected fail(reason: unknown) {
+    this.finish(
+      reason instanceof Error ? reason : new Error('Prompt callback failed', { cause: reason })
+    );
+  }
+
+  private finish(failure?: unknown) {
+    if (this.closed) return;
+    this.closed = true;
+    // Finalizers also run for pre-abort, EOF and callback failures.
+    for (const subscriber of this._subscribers.get('finalize') ?? []) {
+      try {
+        subscriber.cb();
+      } catch (error) {
+        failure ??=
+          error instanceof Error ? error : new Error('Prompt cleanup failed', { cause: error });
+      }
+    }
+    if (failure === undefined && this.terminalStarted) {
+      try {
+        this.render(true);
+      } catch (error) {
+        failure =
+          error instanceof Error ? error : new Error('Prompt callback failed', { cause: error });
+      }
+    }
+    this._abortSignal?.removeEventListener('abort', this.onAbort);
     this.input.removeListener('keypress', this.onKeypress);
-    this.output.write('\n');
-    setRawMode(this.input, false);
-    this.rl?.close();
+    this.output.off('resize', this.onResize);
+    this.rl?.off('close', this.onInputClosed);
+    this.rl?.off('error', this.onStreamError);
+    try {
+      this.rl?.close();
+    } catch (error) {
+      failure ??=
+        error instanceof Error ? error : new Error('Prompt cleanup failed', { cause: error });
+    }
     this.rl = undefined;
-    this.emit(`${this.state}`, this.value);
+    if (this.terminalStarted) {
+      try {
+        setRawMode(this.input, this.previousRawMode);
+      } catch (error) {
+        failure ??=
+          error instanceof Error ? error : new Error('Prompt cleanup failed', { cause: error });
+      }
+      try {
+        if (this.previousFlowing) this.input.resume();
+        else this.input.pause();
+        if (!this.output.destroyed) {
+          this.output.write('\n');
+          this.output.write(cursor.show);
+        }
+      } catch (error) {
+        failure ??=
+          error instanceof Error ? error : new Error('Prompt cleanup failed', { cause: error });
+      }
+    }
+    this.input.off('error', this.onStreamError);
+    this.output.off('error', this.onStreamError);
+    try {
+      if (failure === undefined) this.emit(this.state, this.value);
+    } catch (error) {
+      failure =
+        error instanceof Error ? error : new Error('Prompt callback failed', { cause: error });
+    }
     this.unsubscribe();
+    if (failure !== undefined) this.reject?.(failure);
+    else this.resolve?.(this.state === 'cancel' ? CANCEL_SYMBOL : this.value);
   }
 
   private restoreCursor() {
@@ -302,7 +406,8 @@ export default class Prompt<TValue> {
   // Protected, not private: prompts whose frame changes without a keypress
   // (async data arriving, e.g. the interactive table's `loadMore`) must be
   // able to request a repaint — keypresses are the only other render trigger.
-  protected render() {
+  protected render(final = false) {
+    if (this.closed && !final) return;
     // Width comes from the stream being written to, not the global stdout:
     // with an injected output the global is another terminal entirely, and
     // behind a pipe or in CI it is undefined. getColumns falls back to 80.

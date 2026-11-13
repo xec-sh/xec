@@ -1,6 +1,7 @@
 import type { Option } from './select.js';
 
 import prism from '../prism/index.js';
+import stringWidth from '../core/utils/string-width.js';
 import { limitOptions } from '../utilities/limit-options.js';
 import { MULTISELECT_INSTRUCTIONS } from './multi-select.js';
 import { settings, GroupMultiSelectPrompt } from '../core/index.js';
@@ -17,8 +18,8 @@ import {
 
 export interface GroupMultiSelectOptions<Value> extends CommonOptions {
   message: string;
-  options: Record<string, Option<Value>[]>;
-  initialValues?: Value[];
+  options: Readonly<Record<string, readonly Option<Value>[]>>;
+  initialValues?: readonly Value[];
   /**
    * The maximum number of items/options to display at once.
    */
@@ -118,7 +119,10 @@ export const groupMultiselect = <Value>(opts: GroupMultiSelectOptions<Value>) =>
       const title = `${titlePrefix}${opts.message}\n`;
       const value = this.value ?? [];
 
-      const styleOption = (option: Option<Value> & { group: string | boolean }, active: boolean) => {
+      const styleOption = (
+        option: Option<Value> & { group: string | boolean },
+        active: boolean
+      ) => {
         const options = this.options;
         const selected =
           value.includes(option.value) ||
@@ -171,7 +175,7 @@ export const groupMultiselect = <Value>(opts: GroupMultiSelectOptions<Value>) =>
             options: this.options,
             cursor: this.cursor,
             maxItems: opts.maxItems,
-            columnPadding: guidePrefix.length,
+            columnPadding: stringWidth(guidePrefix),
             rowPadding: titleLineCount + footerLineCount,
             style: styleOption,
           }).join(`\n${guidePrefix}`);
@@ -181,7 +185,7 @@ export const groupMultiselect = <Value>(opts: GroupMultiSelectOptions<Value>) =>
           const guidePrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
           const titleLineCount = title.split('\n').length;
           const footerLines = showInstructions
-            ? formatInstructionFooter(MULTISELECT_INSTRUCTIONS, hasGuide)
+            ? formatInstructionFooter(MULTISELECT_INSTRUCTIONS, hasGuide, opts.output)
             : hasGuide
               ? [settings.theme.accent(S_BAR_END)]
               : [];
@@ -192,7 +196,7 @@ export const groupMultiselect = <Value>(opts: GroupMultiSelectOptions<Value>) =>
             options: this.options,
             cursor: this.cursor,
             maxItems: opts.maxItems,
-            columnPadding: guidePrefix.length,
+            columnPadding: stringWidth(guidePrefix),
             rowPadding: titleLineCount + footerLineCount,
             style: styleOption,
           }).join(`\n${guidePrefix}`);

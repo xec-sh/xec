@@ -6,10 +6,12 @@ interface OptionLike {
   disabled?: boolean;
 }
 
-interface MultiSelectOptions<T extends OptionLike>
-  extends PromptOptions<T['value'][], MultiSelectPrompt<T>> {
-  options: T[];
-  initialValues?: T['value'][];
+interface MultiSelectOptions<T extends OptionLike> extends PromptOptions<
+  T['value'][],
+  MultiSelectPrompt<T>
+> {
+  options: readonly T[];
+  initialValues?: readonly T['value'][];
   required?: boolean;
   cursorAt?: T['value'];
 }
@@ -41,6 +43,7 @@ export default class MultiSelectPrompt<T extends OptionLike> extends Prompt<T['v
   }
 
   private toggleValue() {
+    if (!this.options[this.cursor] || this.options[this.cursor]?.disabled) return;
     if (this.value === undefined) {
       this.value = [];
     }
@@ -53,8 +56,10 @@ export default class MultiSelectPrompt<T extends OptionLike> extends Prompt<T['v
   constructor(opts: MultiSelectOptions<T>) {
     super(opts, false);
 
-    this.options = opts.options;
-    this.value = [...(opts.initialValues ?? [])];
+    this.options = [...opts.options];
+    this.value = [...new Set(opts.initialValues ?? [])].filter((value) =>
+      this._enabledOptions.some((option) => option.value === value)
+    );
     const cursor = Math.max(
       this.options.findIndex(({ value }) => value === opts.cursorAt),
       0

@@ -62,163 +62,92 @@ const isWideNotCJKTNotEmoji = (x: number): boolean =>
 
 export { isFullWidth, isWideNotCJKTNotEmoji };
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+// CSI, OSC, DCS and two-byte escape sequences occupy no display columns.
  
 /* eslint-disable no-control-regex */
 const ANSI_RE =
-  /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]|\u001b\]8;[^;]*;.*?(?:\u0007|\u001b\u005c)/y;
+  /(?:\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[P^_][\s\S]*?\x1b\\|(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]|\x1b[ -/]*[@-Z\\-_])/g;
 /* eslint-enable no-control-regex */
-// eslint-disable-next-line no-control-regex
-const CONTROL_RE = /[\x00-\x08\x0A-\x1F\x7F-\x9F]{1,1000}/y;
-const CJKT_WIDE_RE =
-  /(?:(?![\uFF61-\uFF9F\uFF00-\uFFEF])[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Tangut}]){1,1000}/uy;
-const TAB_RE = /\t{1,1000}/y;
 const EMOJI_RE =
-  /[\u{1F1E6}-\u{1F1FF}]{2}|\u{1F3F4}[\u{E0061}-\u{E007A}]{2}[\u{E0030}-\u{E0039}\u{E0061}-\u{E007A}]{1,3}\u{E007F}|(?:\p{Emoji}\uFE0F\u20E3?|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation})(?:\u200D(?:\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}|\p{Emoji}\uFE0F\u20E3?))*/uy;
-const LATIN_RE = /(?:[\x20-\x7E\xA0-\xFF](?!\uFE0F)){1,1000}/y;
-const MODIFIER_RE = /\p{M}+/gu;
-const NO_TRUNCATION: TruncationOptions = { limit: Infinity, ellipsis: '' };
+  /\p{Emoji_Presentation}|\p{Extended_Pictographic}.*\uFE0F|\p{Emoji_Modifier}|\u20E3/u;
+const WIDE_RE =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\p{Script=Tangut}]/u;
 
-/* MAIN */
+/** Iterate printable graphemes and complete terminal escapes with source offsets. */
+export function* terminalSegments(
+  input: string
+): Generator<{ text: string; index: number; escape: boolean }> {
+  let start = 0;
+  for (const match of input.matchAll(ANSI_RE)) {
+    for (const item of graphemes.segment(input.slice(start, match.index))) {
+      yield { text: item.segment, index: start + item.index, escape: false };
+    }
+    yield { text: match[0], index: match.index, escape: true };
+    start = match.index + match[0].length;
+  }
+  for (const item of graphemes.segment(input.slice(start))) {
+    yield { text: item.segment, index: start + item.index, escape: false };
+  }
+}
+
+function graphemeWidth(text: string, options: WidthOptions): number {
+  if (text === '\t') return options.tabWidth ?? 8;
+  // eslint-disable-next-line no-control-regex
+  if (/^[\x00-\x1f\x7f-\x9f]+$/.test(text)) return text.length * (options.controlWidth ?? 0);
+  if (/^[\p{Mark}\p{Default_Ignorable_Code_Point}]+$/u.test(text)) return 0;
+  if (EMOJI_RE.test(text)) return options.emojiWidth ?? 2;
+  const point = text.codePointAt(0) ?? 0;
+  if (isFullWidth(point)) return 2;
+  if (isWideNotCJKTNotEmoji(point) || ((point < 0xff61 || point > 0xff9f) && WIDE_RE.test(text))) {
+    return options.wideWidth ?? 2;
+  }
+  return options.regularWidth ?? 1;
+}
 
 const getStringTruncatedWidth = (
   input: string,
   truncationOptions: TruncationOptions = {},
   widthOptions: WidthOptions = {}
 ): Result => {
-  /* CONSTANTS */
-
-  const LIMIT = truncationOptions.limit ?? Infinity;
-  const ELLIPSIS = truncationOptions.ellipsis ?? '';
-  const ELLIPSIS_WIDTH =
-    truncationOptions?.ellipsisWidth ??
-    (ELLIPSIS ? getStringTruncatedWidth(ELLIPSIS, NO_TRUNCATION, widthOptions).width : 0);
-
-  const ANSI_WIDTH = 0;
-  const CONTROL_WIDTH = widthOptions.controlWidth ?? 0;
-  const TAB_WIDTH = widthOptions.tabWidth ?? 8;
-
-  const EMOJI_WIDTH = widthOptions.emojiWidth ?? 2;
-  const FULL_WIDTH_WIDTH = 2;
-  const REGULAR_WIDTH = widthOptions.regularWidth ?? 1;
-  const WIDE_WIDTH = widthOptions.wideWidth ?? FULL_WIDTH_WIDTH;
-
-  const PARSE_BLOCKS: [RegExp, number][] = [
-    [LATIN_RE, REGULAR_WIDTH],
-    [ANSI_RE, ANSI_WIDTH],
-    [CONTROL_RE, CONTROL_WIDTH],
-    [TAB_RE, TAB_WIDTH],
-    [EMOJI_RE, EMOJI_WIDTH],
-    [CJKT_WIDE_RE, WIDE_WIDTH],
-  ];
-
-  /* STATE */
-
-  let indexPrev = 0;
-  let index = 0;
-  const length = input.length;
-  let lengthExtra: number;
-  let truncationEnabled = false;
-  let truncationIndex = length;
-  const truncationLimit = Math.max(0, LIMIT - ELLIPSIS_WIDTH);
-  let unmatchedStart = 0;
-  let unmatchedEnd = 0;
+  const limit = Math.max(0, truncationOptions.limit ?? Infinity);
+  const ellipsisWidth =
+    truncationOptions.ellipsisWidth ??
+    (truncationOptions.ellipsis
+      ? getStringTruncatedWidth(truncationOptions.ellipsis, {}, widthOptions).width
+      : 0);
+  const contentLimit = Math.max(0, limit - ellipsisWidth);
   let width = 0;
-  let widthExtra: number;
+  let contentWidth = 0;
+  let contentEnd = 0;
+  let contentComplete = false;
 
-  /* PARSE LOOP */
-
-  outer: while (true) {
-    /* UNMATCHED */
-
-    if (unmatchedEnd > unmatchedStart || (index >= length && index > indexPrev)) {
-      const unmatched = input.slice(unmatchedStart, unmatchedEnd) || input.slice(indexPrev, index);
-
-      lengthExtra = 0;
-
-      for (const char of unmatched.replaceAll(MODIFIER_RE, '')) {
-        const codePoint = char.codePointAt(0) || 0;
-
-        if (isFullWidth(codePoint)) {
-          widthExtra = FULL_WIDTH_WIDTH;
-        } else if (isWideNotCJKTNotEmoji(codePoint)) {
-          widthExtra = WIDE_WIDTH;
-        } else {
-          widthExtra = REGULAR_WIDTH;
-        }
-
-        if (width + widthExtra > truncationLimit) {
-          truncationIndex = Math.min(
-            truncationIndex,
-            Math.max(unmatchedStart, indexPrev) + lengthExtra
-          );
-        }
-
-        if (width + widthExtra > LIMIT) {
-          truncationEnabled = true;
-          break outer;
-        }
-
-        lengthExtra += char.length;
-        width += widthExtra;
-      }
-
-      unmatchedStart = unmatchedEnd = 0;
-    }
-
-    /* EXITING */
-
-    if (index >= length) {
-      break outer;
-    }
-
-    /* PARSE BLOCKS */
-
-    for (let i = 0, l = PARSE_BLOCKS.length; i < l; i++) {
-      const block = PARSE_BLOCKS[i];
-      if (!block) continue;
-
-      const [BLOCK_RE, BLOCK_WIDTH] = block;
-
-      BLOCK_RE.lastIndex = index;
-
-      if (BLOCK_RE.test(input)) {
-        lengthExtra = BLOCK_RE === EMOJI_RE ? 1 : BLOCK_RE.lastIndex - index;
-        widthExtra = lengthExtra * BLOCK_WIDTH;
-
-        if (width + widthExtra > truncationLimit) {
-          truncationIndex = Math.min(
-            truncationIndex,
-            index + Math.floor((truncationLimit - width) / BLOCK_WIDTH)
-          );
-        }
-
-        if (width + widthExtra > LIMIT) {
-          truncationEnabled = true;
-          break outer;
-        }
-
-        width += widthExtra;
-        unmatchedStart = indexPrev;
-        unmatchedEnd = index;
-        index = indexPrev = BLOCK_RE.lastIndex;
-
-        continue outer;
-      }
-    }
-
-    /* UNMATCHED INDEX */
-
-    index += 1;
+  // Most table cells and instructions are plain ASCII. Keep their width path constant-time.
+  if (/^[\x20-\x7e]*$/.test(input)) {
+    const unit = widthOptions.regularWidth ?? 1;
+    width = input.length * unit;
+    if (width <= limit) return { width, index: input.length, truncated: false, ellipsed: false };
+    const count = Math.max(0, Math.floor(contentLimit / unit));
+    return { width: count * unit, index: count, truncated: true, ellipsed: limit >= ellipsisWidth };
   }
 
-  /* RETURN */
-
-  return {
-    width: truncationEnabled ? truncationLimit : width,
-    index: truncationEnabled ? truncationIndex : length,
-    truncated: truncationEnabled,
-    ellipsed: truncationEnabled && LIMIT >= ELLIPSIS_WIDTH,
-  };
+  for (const part of terminalSegments(input)) {
+    const nextWidth = width + (part.escape ? 0 : graphemeWidth(part.text, widthOptions));
+    if (!contentComplete && nextWidth <= contentLimit) {
+      contentWidth = nextWidth;
+      contentEnd = part.index + part.text.length;
+    } else contentComplete = true;
+    if (nextWidth > limit) {
+      return {
+        width: contentWidth,
+        index: contentEnd,
+        truncated: true,
+        ellipsed: limit >= ellipsisWidth,
+      };
+    }
+    width = nextWidth;
+  }
+  return { width, index: input.length, truncated: false, ellipsed: false };
 };
 
 export default getStringTruncatedWidth;

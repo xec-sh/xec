@@ -35,6 +35,7 @@ interface InternalClackSettings {
     error: string;
   };
   withGuide: boolean;
+  accessible?: boolean;
   theme: KitTheme;
   date: {
     monthNames: string[];
@@ -77,6 +78,8 @@ export const settings: InternalClackSettings = {
 };
 
 export interface ClackSettings {
+  /** Prefer append-only screen-reader friendly output for progress indicators. */
+  accessible?: boolean;
   /**
    * Set custom global aliases for the default actions.
    * This will not overwrite existing aliases, it will only add new ones!
@@ -135,6 +138,7 @@ export interface ClackSettings {
 }
 
 export function updateSettings(updates: ClackSettings) {
+  if (updates.accessible !== undefined) settings.accessible = updates.accessible;
   // Handle each property in the updates
   if (updates.aliases !== undefined) {
     const aliases = updates.aliases;

@@ -1,8 +1,13 @@
 import type { State } from '../core/index.js';
 import type { Readable, Writable } from 'node:stream';
 
+import { stdout } from 'node:process';
+
 import prism from '../prism/index.js';
 import { settings } from '../core/index.js';
+import { getColumns } from '../core/utils/index.js';
+import { wrapAnsi } from '../core/utils/wrap-ansi.js';
+import stringWidth from '../core/utils/string-width.js';
 import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
 
 export const unicode = isUnicodeSupported();
@@ -96,11 +101,32 @@ export interface CommonOptions {
  * The instruction strings stay plain; the muted role is applied here, at
  * render time, so a theme swapped via `updateSettings` reaches every frame.
  */
-export function formatInstructionFooter(instructions: string[], hasGuide: boolean): string[] {
-  const guidePrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
-  const footerLines = [`${guidePrefix}${settings.theme.muted(instructions.join(' • '))}`];
-  if (hasGuide) {
-    footerLines.push(settings.theme.accent(S_BAR_END));
+export function formatInstructionFooter(
+  instructions: readonly string[],
+  hasGuide: boolean,
+  output: Writable = stdout
+): string[] {
+  const columns = getColumns(output);
+  const guidePrefix =
+    hasGuide && columns > 1
+      ? `${settings.theme.accent(S_BAR)}${' '.repeat(Math.min(2, Math.max(0, columns - 2)))}`
+      : '';
+  const available = Math.max(1, columns - stringWidth(guidePrefix));
+  const lines: string[] = [];
+  let line = '';
+  for (const instruction of instructions) {
+    const joined = line ? `${line} • ${instruction}` : instruction;
+    if (stringWidth(joined) <= available) {
+      line = joined;
+      continue;
+    }
+    if (line) lines.push(line);
+    const wrapped = wrapAnsi(instruction, available, { hard: true }).split('\n');
+    line = wrapped.pop() ?? '';
+    lines.push(...wrapped);
   }
+  if (line) lines.push(line);
+  const footerLines = lines.map((text) => `${guidePrefix}${settings.theme.muted(text)}`);
+  if (hasGuide) footerLines.push(settings.theme.accent(S_BAR_END));
   return footerLines;
 }
