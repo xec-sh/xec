@@ -5,10 +5,10 @@ exports[`prompts - progress (isCI = false) > message > sets message for next fra
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠙</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> foo",
+  "<magenta>⠙</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% foo",
 ]
 `;
 
@@ -94,16 +94,16 @@ exports[`prompts - progress (isCI = false) > start > renders frames at interval 
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠙</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠙</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠹</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠹</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠸</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠸</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
 ]
 `;
 
@@ -112,7 +112,7 @@ exports[`prompts - progress (isCI = false) > start > renders message 1`] = `
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> foo",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% foo",
 ]
 `;
 
@@ -121,7 +121,7 @@ exports[`prompts - progress (isCI = false) > start > renders timer when indicato
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
 ]
 `;
 
@@ -130,7 +130,7 @@ exports[`prompts - progress (isCI = false) > stop > renders cancel symbol if cod
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
   "<red>■</fg>  
@@ -144,7 +144,7 @@ exports[`prompts - progress (isCI = false) > stop > renders error symbol if code
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
   "<red>▲</fg>  
@@ -158,7 +158,7 @@ exports[`prompts - progress (isCI = false) > stop > renders message 1`] = `
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo
@@ -172,7 +172,7 @@ exports[`prompts - progress (isCI = false) > stop > renders message without remo
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
   "<green>◇</fg>  foo.
@@ -186,10 +186,10 @@ exports[`prompts - progress (isCI = false) > stop > renders submit symbol and st
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<green>◇</fg>  
+  "<green>◇</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> 0% 
 ",
   "<cursor.show>",
 ]
@@ -200,19 +200,19 @@ exports[`prompts - progress (isCI = false) > style > renders block progressbar 1
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>██████████</bold> ",
+  "<magenta>⠋</fg>  <dim>██████████</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠙</fg>  <dim>██████████</bold> ",
+  "<magenta>⠙</fg>  <dim>██████████</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠹</fg>  <magenta>█████</fg><dim>█████</bold> ",
+  "<magenta>⠹</fg>  <magenta>█████</fg><dim>█████</bold> 50% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠸</fg>  <magenta>█████</fg><dim>█████</bold> ",
+  "<magenta>⠸</fg>  <magenta>█████</fg><dim>█████</bold> 50% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<green>◇</fg>  
+  "<green>◇</fg>  <magenta>█████</fg><dim>█████</bold> 50% 
 ",
   "<cursor.show>",
 ]
@@ -223,19 +223,19 @@ exports[`prompts - progress (isCI = false) > style > renders heavy progressbar 1
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━</bold> ",
+  "<magenta>⠋</fg>  <dim>━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠙</fg>  <dim>━━━━━━━━━━</bold> ",
+  "<magenta>⠙</fg>  <dim>━━━━━━━━━━</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠹</fg>  <magenta>━━━━━</fg><dim>━━━━━</bold> ",
+  "<magenta>⠹</fg>  <magenta>━━━━━</fg><dim>━━━━━</bold> 50% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠸</fg>  <magenta>━━━━━</fg><dim>━━━━━</bold> ",
+  "<magenta>⠸</fg>  <magenta>━━━━━</fg><dim>━━━━━</bold> 50% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<green>◇</fg>  
+  "<green>◇</fg>  <magenta>━━━━━</fg><dim>━━━━━</bold> 50% 
 ",
   "<cursor.show>",
 ]
@@ -246,19 +246,19 @@ exports[`prompts - progress (isCI = false) > style > renders light progressbar 1
   "<cursor.hide>",
   "<grey>│</fg>
 ",
-  "<magenta>⠋</fg>  <dim>──────────</bold> ",
+  "<magenta>⠋</fg>  <dim>──────────</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠙</fg>  <dim>──────────</bold> ",
+  "<magenta>⠙</fg>  <dim>──────────</bold> 0% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠹</fg>  <magenta>─────</fg><dim>─────</bold> ",
+  "<magenta>⠹</fg>  <magenta>─────</fg><dim>─────</bold> 50% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<magenta>⠸</fg>  <magenta>─────</fg><dim>─────</bold> ",
+  "<magenta>⠸</fg>  <magenta>─────</fg><dim>─────</bold> 50% ",
   "<cursor.left count=1>",
   "<erase.down>",
-  "<green>◇</fg>  
+  "<green>◇</fg>  <magenta>─────</fg><dim>─────</bold> 50% 
 ",
   "<cursor.show>",
 ]
@@ -266,261 +266,171 @@ exports[`prompts - progress (isCI = false) > style > renders light progressbar 1
 
 exports[`prompts - progress (isCI = true) > message > sets message for next frame 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
-  "
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% foo
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<magenta>⠙</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> foo...",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > prioritizes cancel option over global setting 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>■</fg>  Global cancel message
+  "Global cancel message
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > prioritizes error option over global setting 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>▲</fg>  Global error message
+  "Global error message
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > uses custom cancel message when provided directly 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>■</fg>  Canceled
+  "Canceled
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > uses custom error message when provided directly 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>▲</fg>  Something went wrong
+  "Something went wrong
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > uses default cancel message 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>■</fg>  Canceled
+  "Canceled
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > uses global custom cancel message from settings 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>■</fg>  Global cancel message
+  "Global cancel message
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > process exit handling > uses global custom error message from settings 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% Test operation
 ",
-  "<red>▲</fg>  Global error message
+  "Global error message
 ",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > start > renders frames at interval 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > start > renders message 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% foo
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> foo...",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > start > renders timer when indicator is "timer" 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > stop > renders cancel symbol if code = 1 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
   "
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<red>■</fg>  
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > stop > renders error symbol if code > 1 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
   "
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<red>▲</fg>  
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > stop > renders message 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
-  "
+  "foo
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<green>◇</fg>  foo
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > stop > renders message without removing dots 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
-  "
+  "foo.
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<green>◇</fg>  foo.
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > stop > renders submit symbol and stops progress 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</bold> ...",
-  "
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 0% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<green>◇</fg>  
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > style > renders block progressbar 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "██████████ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>██████████</bold> ...",
-  "
+  "██████████ 50% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<magenta>⠙</fg>  <magenta>█████</fg><dim>█████</bold> ...",
-  "
+  "██████████ 50% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<green>◇</fg>  
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > style > renders heavy progressbar 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "━━━━━━━━━━ 0% 
 ",
-  "<magenta>⠋</fg>  <dim>━━━━━━━━━━</bold> ...",
-  "
+  "━━━━━━━━━━ 50% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<magenta>⠙</fg>  <magenta>━━━━━</fg><dim>━━━━━</bold> ...",
-  "
+  "━━━━━━━━━━ 50% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<green>◇</fg>  
-",
-  "<cursor.show>",
 ]
 `;
 
 exports[`prompts - progress (isCI = true) > style > renders light progressbar 1`] = `
 [
-  "<cursor.hide>",
-  "<grey>│</fg>
+  "────────── 0% 
 ",
-  "<magenta>⠋</fg>  <dim>──────────</bold> ...",
-  "
+  "────────── 50% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<magenta>⠙</fg>  <magenta>─────</fg><dim>─────</bold> ...",
-  "
+  "────────── 50% 
 ",
-  "<cursor.left count=1>",
-  "<erase.down>",
-  "<green>◇</fg>  
-",
-  "<cursor.show>",
 ]
 `;

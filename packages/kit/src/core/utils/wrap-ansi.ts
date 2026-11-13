@@ -208,7 +208,7 @@ const exec = (string: string, columns: number, options: WrapAnsiOptions = {}): s
 };
 
 export function wrapAnsi(string: string, columns: number, options?: WrapAnsiOptions) {
-  if (!Number.isFinite(columns) || columns < 1) throw new RangeError('Wrap width must be positive');
+  if (Number.isNaN(columns) || columns < 1) throw new RangeError('Wrap width must be positive');
   return String(string)
     .normalize()
     .replaceAll('\r\n', '\n')

@@ -35,7 +35,7 @@ const wrapWithFormat = (message: string, width: number, format: FormatFn): strin
   const maxWidthNormal = wrapMsg.reduce((sum, ln) => Math.max(stringWidth(ln), sum), 0);
   const maxWidthFormat = wrapMsg.map(format).reduce((sum, ln) => Math.max(stringWidth(ln), sum), 0);
   const wrapWidth = width - (maxWidthFormat - maxWidthNormal);
-  return wrapAnsi(message, wrapWidth, opts);
+  return wrapAnsi(message, Math.max(1, wrapWidth), opts);
 };
 
 export const note = (message = '', title = '', opts?: NoteOptions) => {
@@ -43,7 +43,16 @@ export const note = (message = '', title = '', opts?: NoteOptions) => {
   const format = opts?.format ?? defaultNoteFormatter;
   const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
   const leadingBorder = hasGuide ? `${prism.gray(S_BAR)}\n` : '';
-  const wrapMsg = wrapWithFormat(message, getColumns(output) - 6, format);
+  const columns = getColumns(output);
+  // A narrow terminal may have no room for both the frame and formatted content.
+  if (columns < 7 || stringWidth(format('M')) > columns - 6 || stringWidth(title) > columns - 6) {
+    const content = [title, ...message.split('\n').map(format)].filter(Boolean);
+    output.write(
+      `${content.map((line) => wrapAnsi(line, columns, { hard: true, trim: false })).join('\n')}\n`
+    );
+    return;
+  }
+  const wrapMsg = wrapWithFormat(message, columns - 6, format);
   const lines = ['', ...wrapMsg.split('\n').map(format), ''];
   const titleLen = stringWidth(title);
   const len =

@@ -1,4 +1,4 @@
-import type { Validate, DateParts, DateFormatConfig } from '../core/index.js';
+import type { Validate, DateParts, CANCEL_SYMBOL, DateFormatConfig } from '../core/index.js';
 
 import prism from '../prism/index.js';
 import { settings, DatePrompt, runValidation } from '../core/index.js';
@@ -37,9 +37,7 @@ function renderSegment(
     if (cursorInThis) {
       for (let j = 0; j < label.length; j++) {
         const ch = label[j] ?? ' ';
-        parts.push(
-          j === cursor.positionInSegment ? prism.inverse(' ') : prism.dim(ch)
-        );
+        parts.push(j === cursor.positionInSegment ? prism.inverse(' ') : prism.dim(ch));
       }
     } else {
       parts.push(prism.dim(label));
@@ -155,6 +153,7 @@ export const date = (opts: DateOptions) => {
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
       const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
@@ -211,5 +210,5 @@ export const date = (opts: DateOptions) => {
         }
       }
     },
-  }).prompt() as Promise<Date | symbol>;
+  }).prompt() as Promise<Date | typeof CANCEL_SYMBOL>;
 };

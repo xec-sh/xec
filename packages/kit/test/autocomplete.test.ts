@@ -123,7 +123,9 @@ describe('autocomplete', () => {
     // Type something that won't match
     input.emit('keypress', 'z', { name: 'z' });
     input.emit('keypress', '', { name: 'return' });
-    await result;
+    expect(output.buffer.join('')).toContain('No matches found');
+    input.emit('keypress', '', { name: 'escape' });
+    expect(isCancel(await result)).toBe(true);
     expect(output.buffer).toMatchSnapshot();
   });
 

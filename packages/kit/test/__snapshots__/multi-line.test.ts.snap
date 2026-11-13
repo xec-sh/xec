@@ -54,6 +54,11 @@ exports[`multiline (isCI = false) > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<grey>│</fg>  ",
   "
 ",
   "<cursor.show>",
@@ -589,6 +594,11 @@ exports[`multiline (isCI = true) > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <inverse><hidden>_</hidden></inverse>
 <cyan>└</fg>
 ",
+  "<cursor.backward count=999><cursor.up count=4>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<grey>│</fg>  ",
   "
 ",
   "<cursor.show>",

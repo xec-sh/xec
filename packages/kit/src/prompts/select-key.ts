@@ -1,4 +1,5 @@
 import type { Option } from './select.js';
+import type { CANCEL_SYMBOL } from '../core/index.js';
 
 import prism from '../prism/index.js';
 import { settings, SelectKeyPrompt, wrapTextWithPrefix } from '../core/index.js';
@@ -42,6 +43,7 @@ export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) =
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     initialValue: opts.initialValue,
     caseSensitive: opts.caseSensitive,
     render() {
@@ -86,5 +88,5 @@ export const selectKey = <Value extends string>(opts: SelectKeyOptions<Value>) =
         }
       }
     },
-  }).prompt() as Promise<Value | symbol>;
+  }).prompt() as Promise<Value | typeof CANCEL_SYMBOL>;
 };

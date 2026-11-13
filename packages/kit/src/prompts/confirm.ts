@@ -1,3 +1,5 @@
+import type { CANCEL_SYMBOL } from '../core/index.js';
+
 import prism from '../prism/index.js';
 import { settings, ConfirmPrompt, wrapTextWithPrefix } from '../core/index.js';
 import {
@@ -26,6 +28,7 @@ export const confirm = (opts: ConfirmOptions) => {
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     initialValue: opts.initialValue ?? true,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
@@ -75,5 +78,5 @@ export const confirm = (opts: ConfirmOptions) => {
         }
       }
     },
-  }).prompt() as Promise<boolean | symbol>;
+  }).prompt() as Promise<boolean | typeof CANCEL_SYMBOL>;
 };

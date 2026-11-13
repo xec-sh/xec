@@ -23,10 +23,21 @@ describe('indicator process signals', () => {
       import { spinner } from ${JSON.stringify(kit)};
       spinner().start('Working');
       setInterval(() => {}, 1000);
-      process.kill(process.pid, ${JSON.stringify(signal)});
+      process.emit(${JSON.stringify(signal)});
     `);
     expect(child.code, child.stderr).toBe(code);
     expect(child.stdout).toContain('Working');
+    expect(child.stdout).toContain('Canceled');
+  });
+
+  it.skipIf(process.platform === 'win32')('handles an actual POSIX SIGINT', async () => {
+    const child = await run(`
+      import { spinner } from ${JSON.stringify(kit)};
+      spinner().start('Working');
+      setInterval(() => {}, 1000);
+      process.kill(process.pid, 'SIGINT');
+    `);
+    expect(child.code, child.stderr).toBe(130);
     expect(child.stdout).toContain('Canceled');
   });
 
@@ -36,7 +47,7 @@ describe('indicator process signals', () => {
       process.on('SIGINT', () => setTimeout(() => { console.log('owner cleaned'); process.exit(17); }, 20));
       spinner().start('Working');
       setInterval(() => {}, 1000);
-      process.kill(process.pid, 'SIGINT');
+      process.emit('SIGINT');
     `);
     expect(child.code, child.stderr).toBe(17);
     expect(child.stdout).toContain('owner cleaned');
@@ -50,7 +61,7 @@ describe('indicator process signals', () => {
         console.log('callback cleaned'); process.exit(19);
       } }).start('Working');
       setInterval(() => {}, 1000);
-      process.kill(process.pid, 'SIGINT');
+      process.emit('SIGINT');
     `);
     expect(child.code, child.stderr).toBe(19);
     expect(child.stdout).toContain('callback cleaned');

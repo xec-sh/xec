@@ -9,6 +9,7 @@ import {
   selectKey,
   multiselect,
   autocomplete,
+  CANCEL_SYMBOL,
   groupMultiselect,
   autocompleteMultiselect,
 } from '../src/index.js';
@@ -41,7 +42,7 @@ describe('upstream prompt regressions', () => {
       input,
       output: new MockWritable(),
     });
-    expectTypeOf(result).toEqualTypeOf<Promise<Array<'one' | 'two'> | symbol>>();
+    expectTypeOf(result).toEqualTypeOf<Promise<Array<'one' | 'two'> | typeof CANCEL_SYMBOL>>();
     enter(input);
     expect(await result).toEqual(['two']);
   });

@@ -1,6 +1,7 @@
 import { it, expect, describe } from 'vitest';
 import { stripVTControlCharacters } from 'node:util';
 
+import { note } from '../src/index.js';
 import { MockWritable } from './test-utils.js';
 import { wrapAnsi } from '../src/core/utils/wrap-ansi.js';
 import stringWidth from '../src/core/utils/string-width.js';
@@ -87,5 +88,18 @@ describe('terminal display width', () => {
       'Enter confirm',
       'Ctrl+C cancel',
     ]);
+  });
+});
+
+describe('compact notes', () => {
+  it.each([1, 4, 6, 10])('keeps note content and title within %s columns', (columns) => {
+    const output = new MockWritable();
+    output.columns = columns;
+    note('abcdef', 'Long title', { output, format: (line) => `* ${line} *` });
+    const lines = output.buffer.join('').trimEnd().split('\n');
+    expect(lines.every((line) => stringWidth(line) <= columns)).toBe(true);
+    expect(lines.map(stripVTControlCharacters).join('').replace(/ /g, '')).toContain(
+      'Longtitle*abcdef*'
+    );
   });
 });

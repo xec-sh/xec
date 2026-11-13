@@ -12,6 +12,11 @@ exports[`groupMultiselect (isCI = false) > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <grey>↑/↓ to navigate • Space: select • Enter: confirm</fg>
 <cyan>└</fg>
 ",
+  "<cursor.backward count=999><cursor.up count=8>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  Select a fruit
+<grey>│</fg>  ",
   "
 ",
   "<cursor.show>",
@@ -936,6 +941,11 @@ exports[`groupMultiselect (isCI = true) > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <grey>↑/↓ to navigate • Space: select • Enter: confirm</fg>
 <cyan>└</fg>
 ",
+  "<cursor.backward count=999><cursor.up count=8>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  Select a fruit
+<grey>│</fg>  ",
   "
 ",
   "<cursor.show>",

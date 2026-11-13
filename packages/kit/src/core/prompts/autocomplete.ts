@@ -61,6 +61,7 @@ interface AutocompleteOptions<T extends OptionLike> extends PromptOptions<
    * the prompt's filter (so the value remains selectable).
    */
   placeholder?: string;
+  completeOnTab?: boolean;
 }
 
 export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
@@ -77,6 +78,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
   #filterFn: FilterFunction<T> | undefined;
   #options: readonly T[] | (() => readonly T[]);
   #placeholder: string | undefined;
+  #completeOnTab: boolean;
 
   get cursor(): number {
     return this.#cursor;
@@ -106,6 +108,7 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
 
     this.#options = opts.options;
     this.#placeholder = opts.placeholder;
+    this.#completeOnTab = opts.completeOnTab === true;
     const options = this.options;
     this.filteredOptions = [...options];
     this.multiple = opts.multiple === true;
@@ -186,6 +189,17 @@ export default class AutocompletePrompt<T extends OptionLike> extends Prompt<
       }
       this._setUserInput(placeholder, true);
       this.isNavigating = false;
+      return;
+    }
+
+    if (key.name === 'tab' && this.#completeOnTab && !this.multiple) {
+      const focused = this.filteredOptions[this.#cursor];
+      if (focused && !focused.disabled) {
+        const completion = String(focused.value);
+        this._clearUserInput();
+        this._setUserInput(completion, true);
+        this.isNavigating = false;
+      }
       return;
     }
 

@@ -1,4 +1,5 @@
 import type { TextOptions } from './text.js';
+import type { CANCEL_SYMBOL } from '../core/index.js';
 
 import prism from '../prism/index.js';
 import { S_BAR, symbol, S_BAR_END } from '../utilities/common.js';
@@ -47,6 +48,7 @@ export const multiline = (opts: MultiLineOptions) =>
     initialValue: opts.initialValue,
     showSubmit: opts.showSubmit,
     output: opts.output,
+    accessible: opts.accessible,
     signal: opts.signal,
     input: opts.input,
     render() {
@@ -103,4 +105,4 @@ export const multiline = (opts: MultiLineOptions) =>
         }
       }
     },
-  }).prompt() as Promise<string | symbol>;
+  }).prompt() as Promise<string | typeof CANCEL_SYMBOL>;

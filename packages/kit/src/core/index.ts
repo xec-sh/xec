@@ -13,7 +13,6 @@ export type { ClackSettings } from './utils/settings.js';
 export { default as TextPrompt } from './prompts/text.js';
 export { default as DatePrompt } from './prompts/date.js';
 export { default as SelectPrompt } from './prompts/select.js';
-export { settings, updateSettings } from './utils/settings.js';
 export { DEFAULT_THEME, type KitTheme } from './utils/theme.js';
 export { default as ConfirmPrompt } from './prompts/confirm.js';
 export { default as PasswordPrompt } from './prompts/password.js';
@@ -22,6 +21,7 @@ export type { DateParts, DateFormatConfig } from './prompts/date.js';
 export { default as MultiLinePrompt } from './prompts/multi-line.js';
 export { default as MultiSelectPrompt } from './prompts/multi-select.js';
 export { default as AutocompletePrompt } from './prompts/autocomplete.js';
+export { settings, isAccessible, updateSettings } from './utils/settings.js';
 export { default as GroupMultiSelectPrompt } from './prompts/group-multiselect.js';
 export { runValidation, type Validate, type StandardSchemaV1 } from './utils/index.js';
 export {

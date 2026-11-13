@@ -26,7 +26,7 @@ export type { StandardSchemaV1 } from './standard-schema.js';
 
 export const CANCEL_SYMBOL = Symbol('clack:cancel');
 
-export function isCancel(value: unknown): value is symbol {
+export function isCancel(value: unknown): value is typeof CANCEL_SYMBOL {
   return value === CANCEL_SYMBOL;
 }
 
@@ -101,7 +101,7 @@ export const getColumns = (output: Writable): number => {
     'columns' in output &&
     typeof output.columns === 'number' &&
     Number.isFinite(output.columns) &&
-    output.columns > 0
+    output.columns >= 1
   ) {
     return Math.floor(output.columns);
   }
@@ -113,7 +113,7 @@ export const getRows = (output: Writable): number => {
     'rows' in output &&
     typeof output.rows === 'number' &&
     Number.isFinite(output.rows) &&
-    output.rows > 0
+    output.rows >= 1
   ) {
     return Math.floor(output.rows);
   }

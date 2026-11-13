@@ -31,7 +31,6 @@ exports[`selectKey (isCI = false) > caseSensitive: true makes input case-sensiti
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -39,6 +38,7 @@ exports[`selectKey (isCI = false) > caseSensitive: true makes input case-sensiti
 <grey>│</fg>  <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -71,13 +71,13 @@ exports[`selectKey (isCI = false) > global withGuide: false removes guide 1`] = 
 <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=4>",
   "<erase.down>",
   "<green>◇</fg>  foo
 <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -90,7 +90,6 @@ exports[`selectKey (isCI = false) > input is case-insensitive by default 1`] = `
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=5>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -98,6 +97,7 @@ exports[`selectKey (isCI = false) > input is case-insensitive by default 1`] = `
 <grey>│</fg>  <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -106,37 +106,33 @@ exports[`selectKey (isCI = false) > long cancelled labels are wrapped correctly 
   "<cursor.hide>",
   "<grey>│</fg>
 <cyan>◆</fg>  Select an option:
-<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long
-<cyan>│</fg>   label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
-<cyan>│</fg>  This is a somewhat long 
-<cyan>│</fg>  label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
+<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long label 
+<cyan>│</fg>  This is a somewhat long label This is
+<cyan>│</fg>   a somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Short label 
 <cyan>└</fg>
 ",
-  "<cursor.backward count=999><cursor.up count=16>",
+  "<cursor.backward count=999><cursor.up count=14>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  Select an option:
-<grey>│</fg>  <strikethrough><dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label </bold>
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label</bold></strikethrough>
+<grey>│</fg>  <strikethrough><dim>This is a somewhat long label This is</bold>
+<grey>│</fg>  <dim> a somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label</bold></strikethrough>
 <grey>│</fg>",
   "
 ",
@@ -149,40 +145,36 @@ exports[`selectKey (isCI = false) > long option labels are wrapped correctly 1`]
   "<cursor.hide>",
   "<grey>│</fg>
 <cyan>◆</fg>  Select an option:
-<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long
-<cyan>│</fg>   label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
-<cyan>│</fg>  This is a somewhat long 
-<cyan>│</fg>  label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
+<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long label 
+<cyan>│</fg>  This is a somewhat long label This is
+<cyan>│</fg>   a somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Short label 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
-  "<cursor.backward count=999><cursor.up count=16>",
+  "<cursor.backward count=999><cursor.up count=14>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select an option:
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label </bold>
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label</bold>",
+<grey>│</fg>  <dim>This is a somewhat long label This is</bold>
+<grey>│</fg>  <dim> a somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -191,40 +183,36 @@ exports[`selectKey (isCI = false) > long submitted labels are wrapped correctly 
   "<cursor.hide>",
   "<grey>│</fg>
 <cyan>◆</fg>  Select an option:
-<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long
-<cyan>│</fg>   label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
-<cyan>│</fg>  This is a somewhat long 
-<cyan>│</fg>  label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
+<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long label 
+<cyan>│</fg>  This is a somewhat long label This is
+<cyan>│</fg>   a somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Short label 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
-  "<cursor.backward count=999><cursor.up count=16>",
+  "<cursor.backward count=999><cursor.up count=14>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select an option:
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label </bold>
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label</bold>",
+<grey>│</fg>  <dim>This is a somewhat long label This is</bold>
+<grey>│</fg>  <dim> a somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -237,7 +225,6 @@ exports[`selectKey (isCI = false) > options are case-insensitive by default 1`] 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=5>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -245,6 +232,7 @@ exports[`selectKey (isCI = false) > options are case-insensitive by default 1`] 
 <grey>│</fg>  <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -277,7 +265,6 @@ exports[`selectKey (isCI = false) > selects option by keypress 1`] = `
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=5>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -285,6 +272,7 @@ exports[`selectKey (isCI = false) > selects option by keypress 1`] = `
 <grey>│</fg>  <dim>Option B</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -296,13 +284,13 @@ exports[`selectKey (isCI = false) > withGuide: false removes guide 1`] = `
 <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=4>",
   "<erase.down>",
   "<green>◇</fg>  foo
 <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -337,7 +325,6 @@ exports[`selectKey (isCI = true) > caseSensitive: true makes input case-sensitiv
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -345,6 +332,7 @@ exports[`selectKey (isCI = true) > caseSensitive: true makes input case-sensitiv
 <grey>│</fg>  <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -377,13 +365,13 @@ exports[`selectKey (isCI = true) > global withGuide: false removes guide 1`] = `
 <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=4>",
   "<erase.down>",
   "<green>◇</fg>  foo
 <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -396,7 +384,6 @@ exports[`selectKey (isCI = true) > input is case-insensitive by default 1`] = `
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=5>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -404,6 +391,7 @@ exports[`selectKey (isCI = true) > input is case-insensitive by default 1`] = `
 <grey>│</fg>  <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -412,37 +400,33 @@ exports[`selectKey (isCI = true) > long cancelled labels are wrapped correctly 1
   "<cursor.hide>",
   "<grey>│</fg>
 <cyan>◆</fg>  Select an option:
-<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long
-<cyan>│</fg>   label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
-<cyan>│</fg>  This is a somewhat long 
-<cyan>│</fg>  label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
+<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long label 
+<cyan>│</fg>  This is a somewhat long label This is
+<cyan>│</fg>   a somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Short label 
 <cyan>└</fg>
 ",
-  "<cursor.backward count=999><cursor.up count=16>",
+  "<cursor.backward count=999><cursor.up count=14>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<red>■</fg>  Select an option:
-<grey>│</fg>  <strikethrough><dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label </bold>
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label</bold></strikethrough>
+<grey>│</fg>  <strikethrough><dim>This is a somewhat long label This is</bold>
+<grey>│</fg>  <dim> a somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label</bold></strikethrough>
 <grey>│</fg>",
   "
 ",
@@ -455,40 +439,36 @@ exports[`selectKey (isCI = true) > long option labels are wrapped correctly 1`] 
   "<cursor.hide>",
   "<grey>│</fg>
 <cyan>◆</fg>  Select an option:
-<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long
-<cyan>│</fg>   label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
-<cyan>│</fg>  This is a somewhat long 
-<cyan>│</fg>  label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
+<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long label 
+<cyan>│</fg>  This is a somewhat long label This is
+<cyan>│</fg>   a somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Short label 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
-  "<cursor.backward count=999><cursor.up count=16>",
+  "<cursor.backward count=999><cursor.up count=14>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select an option:
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label </bold>
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label</bold>",
+<grey>│</fg>  <dim>This is a somewhat long label This is</bold>
+<grey>│</fg>  <dim> a somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -497,40 +477,36 @@ exports[`selectKey (isCI = true) > long submitted labels are wrapped correctly 1
   "<cursor.hide>",
   "<grey>│</fg>
 <cyan>◆</fg>  Select an option:
-<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long
-<cyan>│</fg>   label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
-<cyan>│</fg>  This is a somewhat long 
-<cyan>│</fg>  label This is a somewhat 
-<cyan>│</fg>  long label This is a 
-<cyan>│</fg>  somewhat long label This is
-<cyan>│</fg>   a somewhat long label This
-<cyan>│</fg>   is a somewhat long label 
+<cyan>│</fg>  <bg:cyan><grey> a </fg></bg> This is a somewhat long label 
+<cyan>│</fg>  This is a somewhat long label This is
+<cyan>│</fg>   a somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label This is a 
+<cyan>│</fg>  somewhat long label 
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Short label 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
-  "<cursor.backward count=999><cursor.up count=16>",
+  "<cursor.backward count=999><cursor.up count=14>",
   "<cursor.down count=1>",
   "<erase.down>",
   "<green>◇</fg>  Select an option:
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label </bold>
-<grey>│</fg>  <dim>This is a somewhat long </bold>
-<grey>│</fg>  <dim>label This is a somewhat </bold>
-<grey>│</fg>  <dim>long label This is a </bold>
-<grey>│</fg>  <dim>somewhat long label This is</bold>
-<grey>│</fg>  <dim> a somewhat long label This</bold>
-<grey>│</fg>  <dim> is a somewhat long label</bold>",
+<grey>│</fg>  <dim>This is a somewhat long label This is</bold>
+<grey>│</fg>  <dim> a somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label This is a </bold>
+<grey>│</fg>  <dim>somewhat long label</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -543,7 +519,6 @@ exports[`selectKey (isCI = true) > options are case-insensitive by default 1`] =
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=5>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -551,6 +526,7 @@ exports[`selectKey (isCI = true) > options are case-insensitive by default 1`] =
 <grey>│</fg>  <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -583,7 +559,6 @@ exports[`selectKey (isCI = true) > selects option by keypress 1`] = `
 <cyan>│</fg>  <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 <cyan>└</fg>
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=5>",
   "<cursor.down count=1>",
   "<erase.down>",
@@ -591,6 +566,7 @@ exports[`selectKey (isCI = true) > selects option by keypress 1`] = `
 <grey>│</fg>  <dim>Option B</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;
 
@@ -602,12 +578,12 @@ exports[`selectKey (isCI = true) > withGuide: false removes guide 1`] = `
 <grey><bg:white><inverse> b </inverse></bg></fg> Option B 
 
 ",
-  "<cursor.show>",
   "<cursor.backward count=999><cursor.up count=4>",
   "<erase.down>",
   "<green>◇</fg>  foo
 <dim>Option A</bold>",
   "
 ",
+  "<cursor.show>",
 ]
 `;

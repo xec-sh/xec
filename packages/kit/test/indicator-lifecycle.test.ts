@@ -161,3 +161,13 @@ describe('indicator lifecycle', () => {
     expect(() => result.advance(Number.NaN)).toThrow(RangeError);
   });
 });
+
+describe('append-only safety', () => {
+  it('removes terminal controls from plain spinner lines', () => {
+    const output = new MockWritable();
+    const result = create({ output });
+    result.start('before\x1b]52;c;YQ==\x07after\r\b\x07');
+    result.stop('done');
+    expect(output.buffer.join('')).toBe('beforeafter\ndone\n');
+  });
+});

@@ -14,6 +14,11 @@ exports[`autocomplete > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <dim>○</bold> <dim>Orange</bold>
 <cyan>│</fg>  <grey>↑/↓ to select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
+  "<cursor.backward count=999><cursor.up count=10>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -192,8 +197,8 @@ exports[`autocomplete > shows no matches message when search has no results 1`] 
   "<cursor.backward count=999><cursor.up count=6>",
   "<cursor.down count=1>",
   "<erase.down>",
-  "<green>◇</fg>  Select a fruit
-<grey>│</fg>",
+  "<red>■</fg>  Select a fruit
+<grey>│</fg>  <strikethrough><dim>z</bold></strikethrough>",
   "
 ",
   "<cursor.show>",
@@ -300,6 +305,11 @@ exports[`autocompleteMultiselect > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <dim>◻</bold> <dim>Orange</bold>
 <cyan>│</fg>  <grey>↑/↓ to navigate • Tab: select • Enter: confirm • Type: to search</fg>
 <cyan>└</fg>",
+  "<cursor.backward count=999><cursor.up count=10>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<grey>│</fg>  ",
   "
 ",
   "<cursor.show>",

@@ -1,8 +1,9 @@
 import type { Option } from './select.js';
+import type { Validate, CANCEL_SYMBOL } from '../core/index.js';
 
 import prism from '../prism/index.js';
 import { limitOptions } from '../utilities/limit-options.js';
-import { settings, runValidation, type Validate, AutocompletePrompt } from '../core/index.js';
+import { settings, runValidation, AutocompletePrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -89,6 +90,8 @@ interface AutocompleteSharedOptions<Value> extends CommonOptions {
 }
 
 export interface AutocompleteOptions<Value> extends AutocompleteSharedOptions<Value> {
+  /** Fill the input with the focused value when Tab is pressed. */
+  completeOnTab?: boolean;
   /**
    * The initial selected value.
    */
@@ -104,11 +107,13 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
     options: opts.options,
     initialValue: opts.initialValue !== undefined ? [opts.initialValue] : undefined,
     initialUserInput: opts.initialUserInput,
+    completeOnTab: opts.completeOnTab,
     placeholder: opts.placeholder,
     filter: resolveFilter(opts),
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     validate: opts.validate,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
@@ -178,6 +183,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
 
           // Show instructions
           const instructions = ['↑/↓ to select', 'Enter: confirm', 'Type: to search'];
+          if (opts.completeOnTab) instructions.push('Tab: complete');
           const footers = formatInstructionFooter(instructions, hasGuide, opts.output);
 
           // Render options with selection
@@ -205,6 +211,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
                   },
                   maxItems: opts.maxItems,
                   output: opts.output,
+                  accessible: opts.accessible,
                 });
 
           // Return the formatted prompt
@@ -219,7 +226,7 @@ export const autocomplete = <Value>(opts: AutocompleteOptions<Value>) => {
   });
 
   // Return the result or cancel symbol
-  return prompt.prompt() as Promise<Value | symbol>;
+  return prompt.prompt() as Promise<Value | typeof CANCEL_SYMBOL>;
 };
 
 // Type definition for the autocompleteMultiselect component
@@ -276,6 +283,7 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
       // Title and symbol
@@ -339,6 +347,7 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
               formatOption(option, active, this.selectedValues, this.focusedValue),
             maxItems: opts.maxItems,
             output: opts.output,
+            accessible: opts.accessible,
           });
 
           // Build the prompt display
@@ -356,5 +365,5 @@ export const autocompleteMultiselect = <Value>(opts: AutocompleteMultiSelectOpti
   });
 
   // Return the result or cancel symbol
-  return prompt.prompt() as Promise<Value[] | symbol>;
+  return prompt.prompt() as Promise<Value[] | typeof CANCEL_SYMBOL>;
 };

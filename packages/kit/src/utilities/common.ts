@@ -11,7 +11,7 @@ import stringWidth from '../core/utils/string-width.js';
 import isUnicodeSupported from '../core/utils/is-unicode-supported.js';
 
 export const unicode = isUnicodeSupported();
-export const isCI = (): boolean => process.env['CI'] === 'true';
+export const isCI = (): boolean => ['true', '1'].includes(process.env['CI'] ?? '');
 export const isTTY = (output: Writable): boolean =>
   (output as Writable & { isTTY?: boolean }).isTTY === true;
 export const unicodeOr = (c: string, fallback: string) => (unicode ? c : fallback);
@@ -88,6 +88,8 @@ export const computeLabel = (label: string, format: (text: string) => string): s
 };
 
 export interface CommonOptions {
+  /** Render prompts and indicators as append-only text for assistive terminals. */
+  accessible?: boolean;
   input?: Readable;
   output?: Writable;
   signal?: AbortSignal;

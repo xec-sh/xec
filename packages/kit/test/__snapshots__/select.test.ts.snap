@@ -10,6 +10,12 @@ exports[`select (isCI = false) > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<grey>│</fg>  <strikethrough><dim>opt0</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",
@@ -289,6 +295,12 @@ exports[`select (isCI = true) > can be aborted by a signal 1`] = `
 <cyan>│</fg>  <grey>↑/↓ to navigate • Enter: confirm</fg>
 <cyan>└</fg>
 ",
+  "<cursor.backward count=999><cursor.up count=6>",
+  "<cursor.down count=1>",
+  "<erase.down>",
+  "<red>■</fg>  foo
+<grey>│</fg>  <strikethrough><dim>opt0</bold></strikethrough>
+<grey>│</fg>",
   "
 ",
   "<cursor.show>",

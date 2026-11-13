@@ -7,9 +7,22 @@
  */
 import { setTimeout } from 'node:timers/promises';
 
-import { note, text, date, intro, outro,
-  prism, group, cancel, select, confirm, spinner, password,
-  progress, multiselect,
+import {
+  note,
+  text,
+  date,
+  intro,
+  outro,
+  prism,
+  group,
+  cancel,
+  select,
+  confirm,
+  spinner,
+  password,
+  progress,
+  isCancel,
+  multiselect,
 } from '../src/index.js';
 
 async function main() {
@@ -109,6 +122,8 @@ async function main() {
     }
   );
 
+  if (isCancel(project)) return;
+
   // Installation phase
   if (project.install) {
     const s = spinner({ indicator: 'timer' });
@@ -120,7 +135,13 @@ async function main() {
   // Build phase
   const p = progress({ style: 'heavy', max: 100 });
   p.start('Scaffolding project');
-  const steps = ['Creating directories', 'Writing configs', 'Generating code', 'Setting up tests', 'Finalizing'];
+  const steps = [
+    'Creating directories',
+    'Writing configs',
+    'Generating code',
+    'Setting up tests',
+    'Finalizing',
+  ];
   for (let i = 0; i < steps.length; i++) {
     await setTimeout(600);
     p.advance(20, steps[i]);

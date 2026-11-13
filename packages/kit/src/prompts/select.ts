@@ -1,3 +1,5 @@
+import type { CANCEL_SYMBOL } from '../core/index.js';
+
 import prism from '../prism/index.js';
 import stringWidth from '../core/utils/string-width.js';
 import { limitOptions } from '../utilities/limit-options.js';
@@ -79,6 +81,7 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     initialValue: opts.initialValue,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
@@ -134,5 +137,5 @@ export const select = <Value>(opts: SelectOptions<Value>) => {
         }
       }
     },
-  }).prompt() as Promise<Value | symbol>;
+  }).prompt() as Promise<Value | typeof CANCEL_SYMBOL>;
 };

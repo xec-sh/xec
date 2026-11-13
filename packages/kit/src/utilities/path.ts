@@ -22,6 +22,7 @@ export const path = (opts: PathOptions) => {
     ...opts,
     initialUserInput: opts.initialValue ?? opts.root ?? process.cwd(),
     maxItems: 5,
+    completeOnTab: true,
     validate(value: any) {
       if (Array.isArray(value)) {
         // Shouldn't ever happen since we don't enable `multiple: true`

@@ -1,9 +1,9 @@
 import { erase, cursor } from 'sisteransi';
-import { stripVTControlCharacters } from 'node:util';
 
 import prism from '../prism/index.js';
 import { wrapAnsi } from '../core/utils/wrap-ansi.js';
-import { block, settings, getColumns } from '../core/index.js';
+import { sanitizeTerminalText } from '../prism/utils/ansi.js';
+import { block, settings, getColumns, isAccessible } from '../core/index.js';
 import {
   S_BAR,
   isTTY,
@@ -116,12 +116,7 @@ export const spinner = ({
   if (!frames.length || !Number.isFinite(delay) || delay <= 0) {
     throw new RangeError('Spinner requires frames and a finite positive delay');
   }
-  const staticOutput =
-    (accessible ??
-      settings.accessible ??
-      ['1', 'true'].includes(process.env['ACCESSIBLE'] ?? '')) ||
-    isCIFn() ||
-    !isTTY(output);
+  const staticOutput = isAccessible(accessible) || isCIFn() || !isTTY(output);
   const hasGuide = (withGuide ?? settings.withGuide) !== false;
   const formatFrame = styleFrame ?? ((frame: string) => settings.theme.activity(frame));
   let unblock: (() => void) | undefined;
@@ -133,7 +128,7 @@ export const spinner = ({
   let origin = performance.now();
   let frameIndex = 0;
 
-  const plain = (message: string) => stripVTControlCharacters(message);
+  const plain = (message: string) => sanitizeTerminalText(message, false);
   const clearFrame = () => {
     if (!previousFrame || staticOutput) return;
     const lines = wrapAnsi(previousFrame, getColumns(output), { hard: true, trim: false }).split(

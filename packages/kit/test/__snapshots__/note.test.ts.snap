@@ -104,54 +104,24 @@ exports[`note (isCI = false) > formatter which adds length works 1`] = `
 
 exports[`note (isCI = false) > handle wide characters 1`] = `
 [
-  "<grey>│</fg>
-<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>│</fg>  이게      <grey>│</fg>
-<grey>│</fg>   첫       <grey>│</fg>
-<grey>│</fg>  번째      <grey>│</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>│</fg>  줄이      <grey>│</fg>
-<grey>│</fg>  에요      <grey>│</fg>
-<grey>│</fg>  これ      <grey>│</fg>
-<grey>│</fg>  は次      <grey>│</fg>
-<grey>│</fg>  の行      <grey>│</fg>
-<grey>│</fg>  です      <grey>│</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>├────────────╯</fg>
+  "这是标题
+이게 첫 
+번째 
+줄이에요
+これは次の
+行です
 ",
 ]
 `;
 
 exports[`note (isCI = false) > handle wide characters with formatter 1`] = `
 [
-  "<grey>│</fg>
-<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>게</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>첫</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>번</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>째</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>줄</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>에</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>요</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>こ</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>れ</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>は</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>次</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>の</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>行</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>で</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>す</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>├────────────╯</fg>
+  "这是标题
+<red>* <cyan>이게 첫 </fg>
+<cyan>번째 </fg>
+<cyan>줄이에요</fg><red> *</fg>
+<red>* <cyan>これは次</fg>
+<cyan>の行です</fg><red> *</fg>
 ",
 ]
 `;
@@ -285,54 +255,24 @@ exports[`note (isCI = true) > formatter which adds length works 1`] = `
 
 exports[`note (isCI = true) > handle wide characters 1`] = `
 [
-  "<grey>│</fg>
-<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>│</fg>  이게      <grey>│</fg>
-<grey>│</fg>   첫       <grey>│</fg>
-<grey>│</fg>  번째      <grey>│</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>│</fg>  줄이      <grey>│</fg>
-<grey>│</fg>  에요      <grey>│</fg>
-<grey>│</fg>  これ      <grey>│</fg>
-<grey>│</fg>  は次      <grey>│</fg>
-<grey>│</fg>  の行      <grey>│</fg>
-<grey>│</fg>  です      <grey>│</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>├────────────╯</fg>
+  "这是标题
+이게 첫 
+번째 
+줄이에요
+これは次の
+行です
 ",
 ]
 `;
 
 exports[`note (isCI = true) > handle wide characters with formatter 1`] = `
 [
-  "<grey>│</fg>
-<green>◇</fg>  </>这是标题</> <grey>─╮</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>게</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>첫</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>번</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>째</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan> </fg><red> *</fg>     <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>줄</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>이</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>에</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>요</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>*  *</fg>      <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>こ</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>れ</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>は</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>次</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>の</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>行</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>で</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>  <red>* <cyan>す</fg><red> *</fg>    <grey>│</fg>
-<grey>│</fg>            <grey>│</fg>
-<grey>├────────────╯</fg>
+  "这是标题
+<red>* <cyan>이게 첫 </fg>
+<cyan>번째 </fg>
+<cyan>줄이에요</fg><red> *</fg>
+<red>* <cyan>これは次</fg>
+<cyan>の行です</fg><red> *</fg>
 ",
 ]
 `;

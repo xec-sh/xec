@@ -365,23 +365,19 @@ describe('Prompt', () => {
       expect(await result).to.equal('valid');
     });
 
-    test('async schema surfaces the synchronous-only error', () => {
-      const asyncSchema = z.string().refine(async () => true);
+    test('awaits an asynchronous schema before submitting', async () => {
       const instance = new Prompt<string>({
         input,
         output,
         render: () => 'foo',
-        validate: asyncSchema,
+        validate: z.string().refine(async () => true),
       });
-      instance.prompt();
-
-      instance.value = 'anything';
+      const result = instance.prompt();
+      instance.value = 'valid';
       input.emit('keypress', '', { name: 'return' });
-
-      // The prompt catches the TypeError and shows it as a validation error
-      // instead of crashing the keypress handler.
-      expect(instance.state).to.equal('error');
-      expect(instance.error).to.match(/synchronous/);
+      expect(instance.state).to.equal('validating');
+      expect(await result).to.equal('valid');
+      expect(instance.state).to.equal('submit');
     });
   });
 });

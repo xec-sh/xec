@@ -1,4 +1,5 @@
 import type { Option } from './select.js';
+import type { CANCEL_SYMBOL } from '../core/index.js';
 
 import prism from '../prism/index.js';
 import stringWidth from '../core/utils/string-width.js';
@@ -82,6 +83,7 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     initialValues: opts.initialValues,
     required,
     cursorAt: opts.cursorAt,
@@ -187,5 +189,5 @@ export const multiselect = <Value>(opts: MultiSelectOptions<Value>) => {
         }
       }
     },
-  }).prompt() as Promise<Value[] | symbol>;
+  }).prompt() as Promise<Value[] | typeof CANCEL_SYMBOL>;
 };

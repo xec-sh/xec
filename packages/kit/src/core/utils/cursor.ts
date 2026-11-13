@@ -13,20 +13,18 @@
 export function findCursor<T extends { disabled?: boolean }>(
   cursor: number,
   delta: number,
-  options: T[]
+  options: readonly T[]
 ): number {
-  const hasEnabledOptions = options.some((opt) => !opt.disabled);
-  if (!hasEnabledOptions) {
-    return cursor;
+  if (options.length === 0) return 0;
+  const max = options.length - 1;
+  const requested = cursor + delta;
+  let next = requested < 0 ? max : requested > max ? 0 : requested;
+  const direction = delta < 0 ? -1 : 1;
+  for (let checked = 0; checked < options.length; checked++) {
+    if (!options[next]?.disabled) return next;
+    next = (next + direction + options.length) % options.length;
   }
-  const newCursor = cursor + delta;
-  const maxCursor = Math.max(options.length - 1, 0);
-  const clampedCursor = newCursor < 0 ? maxCursor : newCursor > maxCursor ? 0 : newCursor;
-  const newOption = options[clampedCursor];
-  if (newOption && newOption.disabled) {
-    return findCursor(clampedCursor, delta < 0 ? -1 : 1, options);
-  }
-  return clampedCursor;
+  return Math.max(0, Math.min(max, cursor));
 }
 
 /**

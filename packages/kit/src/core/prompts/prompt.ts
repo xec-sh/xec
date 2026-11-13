@@ -1,12 +1,14 @@
+import type { Key } from 'node:readline';
 import type { Action } from '../utils/index.js';
 import type { Readable, Writable } from 'node:stream';
 import type { ClackState, ClackEvents } from '../types.js';
 
 import { erase, cursor } from 'sisteransi';
 import { stdin, stdout } from 'node:process';
-import readline, { type Key, type ReadLine } from 'node:readline';
+import { type Interface, createInterface } from 'node:readline/promises';
 
 import { wrapAnsi } from '../utils/wrap-ansi.js';
+import { sanitizeTerminalText } from '../../prism/utils/ansi.js';
 import { runValidation, type Validate } from '../utils/validation.js';
 import {
   getRows,
@@ -15,6 +17,7 @@ import {
   getColumns,
   setRawMode,
   isActionKey,
+  isAccessible,
   CANCEL_SYMBOL,
 } from '../utils/index.js';
 
@@ -32,6 +35,7 @@ export interface PromptOptions<TValue, Self extends Prompt<TValue>> {
   output?: Writable;
   debug?: boolean;
   signal?: AbortSignal;
+  accessible?: boolean;
 }
 
 export default class Prompt<TValue> {
@@ -43,6 +47,7 @@ export default class Prompt<TValue> {
   private reject?: (reason: unknown) => void;
   private closed = false;
   private terminalStarted = false;
+  private cursorHidden = false;
   private previousRawMode = false;
   private previousFlowing = false;
   private readonly onAbort = () => {
@@ -65,13 +70,17 @@ export default class Prompt<TValue> {
     }
   };
 
-  private rl: ReadLine | undefined;
+  private rl: Interface | undefined;
   private opts: Omit<PromptOptions<TValue, Prompt<TValue>>, 'render' | 'input' | 'output'>;
   private _render: (context: Omit<Prompt<TValue>, 'prompt'>) => string | undefined;
   private _track = false;
   private _prevFrame = '';
   private _subscribers = new Map<string, { cb: (...args: any[]) => any; once?: boolean }[]>();
   protected _cursor = 0;
+
+  public get accessible(): boolean {
+    return isAccessible(this.opts.accessible);
+  }
 
   public state: ClackState = 'initial';
   public error = '';
@@ -163,7 +172,7 @@ export default class Prompt<TValue> {
       this.terminalStarted = true;
       this.output.on('error', this.onStreamError);
       this._abortSignal?.addEventListener('abort', this.onAbort, { once: true });
-      this.rl = readline.createInterface({
+      this.rl = createInterface({
         input: this.input,
         tabSize: 2,
         prompt: '',
@@ -276,7 +285,15 @@ export default class Prompt<TValue> {
     this.emit('key', char, key);
     if (this.closed) return;
 
-    if ((key?.name === 'return' || key?.name === 'enter') && this._shouldSubmit(char, key)) {
+    if (key?.name === 'return' || key?.name === 'enter') {
+      if (!this._shouldSubmit(char, key)) {
+        if (this._track) {
+          this.rl?.write(null, { ctrl: true, name: 'u' });
+          this.rl?.write(this.userInput);
+        }
+        this.render();
+        return;
+      }
       if (this.opts.validate) {
         try {
           const problem = runValidation(this.opts.validate, this.value);
@@ -375,8 +392,8 @@ export default class Prompt<TValue> {
         if (this.previousFlowing) this.input.resume();
         else this.input.pause();
         if (!this.output.destroyed) {
-          this.output.write('\n');
-          this.output.write(cursor.show);
+          if (!this.accessible) this.output.write('\n');
+          if (this.cursorHidden) this.output.write(cursor.show);
         }
       } catch (error) {
         failure ??=
@@ -411,13 +428,25 @@ export default class Prompt<TValue> {
     // Width comes from the stream being written to, not the global stdout:
     // with an injected output the global is another terminal entirely, and
     // behind a pipe or in CI it is undefined. getColumns falls back to 80.
-    const frame = wrapAnsi(this._render(this) ?? '', getColumns(this.output), {
+    const rendered = this._render(this) ?? '';
+    const content =
+      this.state === 'validating'
+        ? `${rendered.trimEnd()}\n${settings.theme.muted(settings.messages.validating)}`
+        : rendered;
+    const frame = wrapAnsi(content, getColumns(this.output), {
       hard: true,
       trim: false,
     });
     if (frame === this._prevFrame) return;
+    if (this.accessible) {
+      this.output.write(`${sanitizeTerminalText(frame, false)}\n`);
+      this._prevFrame = frame;
+      if (this.state === 'initial') this.state = 'active';
+      return;
+    }
 
     if (this.state === 'initial') {
+      this.cursorHidden = true;
       this.output.write(cursor.hide);
     } else {
       const diff = diffLines(this._prevFrame, frame);

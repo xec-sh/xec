@@ -33,6 +33,7 @@ interface InternalClackSettings {
   messages: {
     cancel: string;
     error: string;
+    validating: string;
   };
   withGuide: boolean;
   accessible?: boolean;
@@ -63,6 +64,7 @@ export const settings: InternalClackSettings = {
   messages: {
     cancel: 'Canceled',
     error: 'Something went wrong',
+    validating: 'Validating…',
   },
   withGuide: true,
   theme: { ...DEFAULT_THEME },
@@ -103,6 +105,8 @@ export interface ClackSettings {
      * @default "Something went wrong"
      */
     error?: string;
+    /** Shown while a prompt awaits validation. */
+    validating?: string;
   };
 
   /**
@@ -159,6 +163,7 @@ export function updateSettings(updates: ClackSettings) {
     if (messages.cancel !== undefined) {
       settings.messages.cancel = messages.cancel;
     }
+    if (messages.validating !== undefined) settings.messages.validating = messages.validating;
     if (messages.error !== undefined) {
       settings.messages.error = messages.error;
     }
@@ -193,6 +198,16 @@ export function updateSettings(updates: ClackSettings) {
       }
     }
   }
+}
+
+/** Resolve a per-call accessibility override, global setting, then ACCESSIBLE. */
+export function isAccessible(accessible?: boolean): boolean {
+  const environment = process.env['ACCESSIBLE'];
+  return (
+    accessible ??
+    settings.accessible ??
+    (environment !== undefined && !['', '0', 'false'].includes(environment))
+  );
 }
 
 /**

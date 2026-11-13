@@ -1,5 +1,7 @@
+import type { Validate, CANCEL_SYMBOL } from '../core/index.js';
+
 import prism from '../prism/index.js';
-import { settings, type Validate, PasswordPrompt } from '../core/index.js';
+import { settings, PasswordPrompt } from '../core/index.js';
 import {
   S_BAR,
   symbol,
@@ -26,6 +28,7 @@ export const password = (opts: PasswordOptions) =>
     signal: opts.signal,
     input: opts.input,
     output: opts.output,
+    accessible: opts.accessible,
     render() {
       const hasGuide = (opts?.withGuide ?? settings.withGuide) !== false;
       const titlePrefix = `${hasGuide ? `${prism.gray(S_BAR)}\n` : ''}${symbol(this.state)}  `;
@@ -51,9 +54,7 @@ export const password = (opts: PasswordOptions) =>
         case 'cancel': {
           const maskedText = masked ? `  ${prism.strikethrough(prism.dim(masked))}` : '';
           const cancelPrefix = hasGuide ? prism.gray(S_BAR) : '';
-          return `${title}${cancelPrefix}${maskedText}${
-            masked ? `\n${cancelPrefix}` : ''
-          }`;
+          return `${title}${cancelPrefix}${maskedText}${masked ? `\n${cancelPrefix}` : ''}`;
         }
         default: {
           const defaultPrefix = hasGuide ? `${settings.theme.accent(S_BAR)}  ` : '';
@@ -62,4 +63,4 @@ export const password = (opts: PasswordOptions) =>
         }
       }
     },
-  }).prompt() as Promise<string | symbol>;
+  }).prompt() as Promise<string | typeof CANCEL_SYMBOL>;

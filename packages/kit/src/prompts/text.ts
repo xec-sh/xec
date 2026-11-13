@@ -1,5 +1,7 @@
+import type { Validate, CANCEL_SYMBOL } from '../core/index.js';
+
 import prism from '../prism/index.js';
-import { settings, TextPrompt, type Validate } from '../core/index.js';
+import { settings, TextPrompt } from '../core/index.js';
 import { S_BAR, symbol, S_BAR_END, type CommonOptions } from '../utilities/common.js';
 
 export interface TextOptions extends CommonOptions {
@@ -22,6 +24,7 @@ export const text = (opts: TextOptions) =>
     defaultValue: opts.defaultValue,
     initialValue: opts.initialValue,
     output: opts.output,
+    accessible: opts.accessible,
     signal: opts.signal,
     input: opts.input,
     render() {
@@ -58,4 +61,4 @@ export const text = (opts: TextOptions) =>
         }
       }
     },
-  }).prompt() as Promise<string | symbol>;
+  }).prompt() as Promise<string | typeof CANCEL_SYMBOL>;
