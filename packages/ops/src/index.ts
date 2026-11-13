@@ -105,10 +105,11 @@ export {
 // ─── Utilities ──────────────────────────────────────────────────────
 
 export { validateOptions } from './utils/validation.js';
+export { withKernelFileLock } from './utils/file-lock.js';
 export { parseTimeout, parseInterval } from './utils/time.js';
 export { OutputFormatter } from './utils/output-formatter.js';
 export { formatBytes, formatDuration } from './utils/formatters.js';
 export { prepareScript, type ScriptOptions, type PreparedScript } from './script/index.js';
-export { type Shell, generateCompletion, type CompletionConfig } from './completion/index.js';
 
+export { type Shell, generateCompletion, type CompletionConfig } from './completion/index.js';
 export { findFiles, FileHelpers, selectFiles, selectDirectory } from './utils/file-helpers.js';

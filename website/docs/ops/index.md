@@ -72,3 +72,22 @@ if (!result.success) {
 3. **Composable** — Each module works independently.
 4. **Type-safe** — Full TypeScript with strict mode.
 5. **Customizable** — Override any default via `ConfigManagerOptions`.
+
+## Shared local build caches
+
+`withKernelFileLock` serializes processes using the same local lock file. It supports macOS with `lockf` and Linux with `flock`. Other platforms receive an explicit error.
+
+```typescript
+import { mkdir } from 'node:fs/promises';
+import { $ } from '@xec-sh/core';
+import { withKernelFileLock } from '@xec-sh/ops/utils/file-lock';
+
+await mkdir('.build-cache', { recursive: true, mode: 0o700 });
+await withKernelFileLock('.build-cache/runtime.lock', async () => {
+  await $`pnpm run build`;
+}, 30);
+```
+
+The parent directory must belong to the current user and have private permissions. Symlinks, hard-linked lock files and files writable by other users are rejected. The acquisition timeout is supplied in seconds. Zero requests an immediate attempt.
+
+The open file descriptor holds the lock until the callback settles. Process termination releases it in the kernel. Keep the lock file in place between operations so every participant acquires the same inode. The callback's result and failure propagate to the caller.
