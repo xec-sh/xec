@@ -91,3 +91,21 @@ await withKernelFileLock('.build-cache/runtime.lock', async () => {
 The parent directory must belong to the current user and have private permissions. Symlinks, hard-linked lock files and files writable by other users are rejected. The acquisition timeout is supplied in seconds. Zero requests an immediate attempt.
 
 The open file descriptor holds the lock until the callback settles. Process termination releases it in the kernel. Keep the lock file in place between operations so every participant acquires the same inode. The callback's result and failure propagate to the caller.
+
+
+## Script utilities
+
+Xec scripts receive the same utilities exposed by `@xec-sh/ops`.
+
+```typescript
+import { which, ps, parseArgs } from '@xec-sh/ops';
+
+const executable = await which('node');
+const processes = await ps();
+const args = parseArgs(['--format=json', '--verbose', '--', '-literal']);
+console.log({ executable, count: processes.length, args });
+```
+
+From 0.12.0, `which` is asynchronous. It uses the shared execution engine and returns `null` only for confirmed absence. Execution and transport failures propagate. `ps` also reports command and parsing failures to its caller.
+
+`parseArgs` preserves positionals in `_`, values containing `=`, negative numeric values and arguments after `--`. Its dictionary has no object prototype. The `_` option name is reserved for positionals. For a declared option schema and short-option groups, use Node's `util.parseArgs`.

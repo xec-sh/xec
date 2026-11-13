@@ -166,6 +166,10 @@ xec logs hosts.web-* /var/log/nginx/error.log
 xec logs "containers.app,hosts.backup" --parallel
 ```
 
+Finite parallel and aggregated reads wait for every admitted source. A failed source makes the command fail while preserving output from successful sources. Following multiple sources with `--parallel --follow` cancels and joins the other streams if one fails.
+
+`--aggregate` sorts a finite result. Combining it with `--follow` is rejected before connecting. Use `--parallel --follow --prefix` for live multi-source output. `--dry-run` displays the selected operations without opening a log stream.
+
 ### Container and Pod Specific Features
 
 Leverage container/pod specific capabilities:

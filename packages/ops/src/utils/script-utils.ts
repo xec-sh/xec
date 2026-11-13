@@ -132,15 +132,9 @@ export function template(strings: TemplateStringsArray, ...values: unknown[]): s
   return runtime.template(strings, ...values);
 }
 
-// Which utility — use native child_process to find binaries
-import { execSync } from 'node:child_process';
-
-export function which(command: string): string | null {
-  try {
-    return execSync(`which ${command}`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }).trim() || null;
-  } catch {
-    return null;
-  }
+/** Resolve an executable through the shared execution engine. */
+export function which(command: string): Promise<string | null> {
+  return xecDollar.which(command);
 }
 
 // Quote utility for shell arguments - delegate to ScriptRuntime
@@ -211,18 +205,35 @@ export function diff(a: string, b: string): { added?: boolean; removed?: boolean
   return result;
 }
 
-// Argument parsing using native util.parseArgs (Node 18.3+)
+/** Parse schema-free script flags while preserving option boundaries and literal values. */
 export function parseArgs(args: string[]): Record<string, string | boolean | string[]> {
-  const result: Record<string, string | boolean | string[]> = { _: [] as string[] };
+  const result: Record<string, string | boolean | string[]> = Object.create(null);
+  const positional: string[] = [];
+  result['_'] = positional;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
-    if (arg.startsWith('--')) {
-      const [key, val] = arg.slice(2).split('=');
-      result[key!] = val ?? args[++i] ?? true;
-    } else if (arg.startsWith('-')) {
-      result[arg.slice(1)] = args[++i] ?? true;
+    if (arg === '--') {
+      positional.push(...args.slice(i + 1));
+      break;
+    }
+    if (arg === '-' || !arg.startsWith('-') || /^-\d/.test(arg)) {
+      positional.push(arg);
+      continue;
+    }
+    const option = arg.replace(/^--?/, '');
+    const equals = option.indexOf('=');
+    const key = equals < 0 ? option : option.slice(0, equals);
+    if (!key || key === '_') throw new Error('Option name must be nonempty and cannot be _');
+    if (equals >= 0) {
+      result[key] = option.slice(equals + 1);
+      continue;
+    }
+    const next = args[i + 1];
+    if (next !== undefined && (!next.startsWith('-') || /^-\d/.test(next))) {
+      result[key] = next;
+      i++;
     } else {
-      (result['_'] as string[]).push(arg);
+      result[key] = true;
     }
   }
   return result;
@@ -239,17 +250,26 @@ export function kill(pid: number, signal: string = 'SIGTERM'): void {
   runtime.kill(pid, signal);
 }
 
-// Process list using native child_process
+/** List processes through the shared execution engine. */
 export async function ps(): Promise<{ pid: number; name: string }[]> {
-  try {
-    const output = execSync('ps -eo pid,comm --no-headers', { encoding: 'utf-8' });
-    return output.trim().split('\n').map(line => {
-      const [pid, ...name] = line.trim().split(/\s+/);
-      return { pid: parseInt(pid!, 10), name: name.join(' ') };
-    }).filter(p => !isNaN(p.pid));
-  } catch {
-    return [];
+  if (process.platform === 'win32') {
+    const script = 'Get-Process | Select-Object Id,ProcessName | ConvertTo-Json -Compress';
+    const result = await xecDollar`powershell.exe -NoProfile -NonInteractive -Command ${script}`;
+    const records: unknown = JSON.parse(result.stdout);
+    const processes: unknown[] = Array.isArray(records) ? records : [records];
+    return processes.map(record => {
+      if (!record || typeof record !== 'object' || !("Id" in record) || !("ProcessName" in record) || !Number.isSafeInteger(record.Id) || typeof record.ProcessName !== 'string') {
+        throw new Error('Process listing returned an invalid record');
+      }
+      return { pid: record.Id as number, name: record.ProcessName };
+    });
   }
+  const result = await xecDollar`ps -eo pid=,comm=`;
+  return result.stdout.split('\n').filter(line => line.trim()).map(line => {
+    const match = /^\s*(\d+)\s+(.+)$/.exec(line);
+    if (!match) throw new Error('Process listing returned an invalid record');
+    return { pid: Number(match[1]), name: match[2]! };
+  });
 }
 
 // Within utility for scoped execution - delegate to ScriptRuntime

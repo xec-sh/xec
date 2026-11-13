@@ -275,6 +275,10 @@ export class LogsCommand extends ConfigAwareCommand {
       quiet: options.quiet ?? this.options?.quiet
     }, defaults);
 
+    if (mergedOptions.aggregate && mergedOptions.follow) {
+      throw new Error("--aggregate cannot be combined with --follow; use --parallel for live streams");
+    }
+
     // Resolve targets
     let targets: ResolvedTarget[];
     if (targetPattern.includes('*') || targetPattern.includes('{')) {
@@ -380,6 +384,11 @@ export class LogsCommand extends ConfigAwareCommand {
     logPath: string | undefined,
     options: LogsOptions
   ): Promise<void> {
+    if (options.dryRun) {
+      for (const target of targets) await this.viewSingleLog(target, logPath, options);
+      return;
+    }
+
     if (options.aggregate) {
       await this.aggregateLogs(targets, logPath, options);
       return;
@@ -389,51 +398,38 @@ export class LogsCommand extends ConfigAwareCommand {
     this.log(`Viewing logs from ${targets.length} targets in parallel...`, 'info');
 
     if (options.follow) {
-      // Start streaming from all targets
-      const promises = targets.map(async (target) => {
+      const cancellation = new AbortController();
+      const outcomes = await Promise.allSettled(targets.map(async target => {
         try {
-          await this.streamLogsWithPrefix(target, logPath, options);
+          await this.streamLogsWithPrefix(target, logPath, options, cancellation.signal);
         } catch (error) {
-          // Log error but don't stop other streams
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          this.log(`${prism.red('✗')} ${this.formatTargetDisplay(target)}: ${errorMessage}`, 'error');
+          cancellation.abort(error);
+          throw error;
         }
-      });
-
-      // Wait for all streams (they won't complete until interrupted)
-      try {
-        await Promise.all(promises);
-      } catch (error) {
-        // This should not happen as we handle errors above, but just in case
-        console.error('Unexpected error in parallel log streaming:', error);
-      }
-    } else {
-      // Batch mode - fetch from all targets
-      const promises = targets.map(async (target) => {
-        try {
-          const logCommand = await this.buildLogCommand(target, logPath, options);
-          // For Docker and K8s logs, we need to run commands on the host
-          const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
-          const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
-          const result = await engine.raw`${logCommand}`;
-
-          return { target, logs: result.stdout, error: null };
-        } catch (error) {
-          return { target, logs: null, error };
-        }
-      });
-
-      const results = await Promise.all(promises);
-
-      // Display results
-      for (const { target, logs, error } of results) {
-        if (error) {
-          this.log(`${prism.red('✗')} ${this.formatTargetDisplay(target)}: ${error}`, 'error');
-        } else if (logs) {
-          this.displayLogs(logs, target, { ...options, prefix: true });
-        }
-      }
+      }));
+      const failures = outcomes.flatMap(outcome => outcome.status === 'rejected' ? [outcome.reason] : []);
+      if (failures.length) throw new AggregateError(failures, 'Parallel log streaming failed');
+      return;
     }
+
+    const results = await this.collectLogs(targets, logPath, options);
+    const failures: unknown[] = [];
+    for (const { target, outcome } of results) {
+      if (outcome.status === 'rejected') failures.push(outcome.reason);
+      else this.displayLogs(outcome.value, target, { ...options, prefix: true });
+    }
+    if (failures.length) throw new AggregateError(failures, 'Failed to collect logs from all targets');
+  }
+
+  private async collectLogs(targets: ResolvedTarget[], logPath: string | undefined, options: LogsOptions) {
+    const outcomes = await Promise.allSettled(targets.map(async target => {
+      const logCommand = await this.buildLogCommand(target, logPath, options);
+      const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
+      const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
+      const result = await engine.raw`${logCommand}`;
+      return result.stdout;
+    }));
+    return outcomes.map((outcome, index) => ({ target: targets[index]!, outcome }));
   }
 
   /**
@@ -454,29 +450,18 @@ export class LogsCommand extends ConfigAwareCommand {
   ): Promise<void> {
     this.log(`Aggregating logs from ${targets.length} targets...`, 'info');
 
-    const collected = await Promise.all(
-      targets.map(async (target) => {
-        try {
-          const logCommand = await this.buildLogCommand(target, logPath, options);
-          const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
-          const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
-          const result = await engine.raw`${logCommand}`;
-
-          return { target, output: result.stdout, error: null as unknown };
-        } catch (error) {
-          return { target, output: '', error };
-        }
-      })
-    );
+    const collected = await this.collectLogs(targets, logPath, options);
+    const failures: unknown[] = [];
 
     const entries: Array<{ target: ResolvedTarget; line: string; at: number; seq: number }> = [];
     let sequence = 0;
 
-    for (const { target, output, error } of collected) {
-      if (error) {
-        this.log(`${prism.red('✗')} ${this.formatTargetDisplay(target)}: ${error}`, 'error');
+    for (const { target, outcome } of collected) {
+      if (outcome.status === 'rejected') {
+        failures.push(outcome.reason);
         continue;
       }
+      const output = outcome.value;
 
       // Undated lines inherit the timestamp of the line above them so that
       // multi-line records are not scattered across the merged output.
@@ -502,9 +487,8 @@ export class LogsCommand extends ConfigAwareCommand {
       console.log(`${plain ? label : prism.dim(label)} ${entry.line}`);
     }
 
-    if (entries.length === 0) {
-      this.log('No log entries found.', 'info');
-    }
+    if (failures.length) throw new AggregateError(failures, 'Failed to aggregate logs from all targets');
+    if (entries.length === 0) this.log('No log entries found.', 'info');
   }
 
   private async buildLogCommand(
@@ -626,13 +610,15 @@ export class LogsCommand extends ConfigAwareCommand {
     target: ResolvedTarget,
     engine: any,
     logCommand: string,
-    options: LogsOptions
+    options: LogsOptions,
+    signal?: AbortSignal
   ): Promise<void> {
     const sessionId = `${target.id}:logs`;
 
     // Start the log streaming process
     // Execute the command through shell to handle arguments properly
-    const logProcess = engine.raw`${logCommand}`.nothrow();
+    const logProcess = engine.raw`${logCommand}`;
+    if (signal) logProcess.signal(signal);
 
     // Store session for cleanup
     this.streams.set(sessionId, {
@@ -670,12 +656,7 @@ export class LogsCommand extends ConfigAwareCommand {
     // `docker logs --follow`.
     try {
       for await (const line of logProcess) {
-        try {
-          this.displayLogLine(line, target, options);
-        } catch (error) {
-          // Log display error but continue processing
-          console.error('Error displaying log line:', error);
-        }
+        this.displayLogLine(line, target, options);
       }
     } catch (error) {
       // Process was likely killed by signal, which is expected
@@ -691,14 +672,15 @@ export class LogsCommand extends ConfigAwareCommand {
   private async streamLogsWithPrefix(
     target: ResolvedTarget,
     logPath: string | undefined,
-    options: LogsOptions
+    options: LogsOptions,
+    signal?: AbortSignal
   ): Promise<void> {
     const logCommand = await this.buildLogCommand(target, logPath, options);
     // For Docker and K8s logs, we need to run commands on the host
     const useLocalEngine = target.type === 'docker' || target.type === 'kubernetes';
     const engine = useLocalEngine ? $ : await this.createTargetEngine(target);
 
-    await this.streamLogs(target, engine, logCommand, { ...options, prefix: true });
+    await this.streamLogs(target, engine, logCommand, { ...options, prefix: true }, signal);
   }
 
   private displayLogs(logs: string, target: ResolvedTarget, options: LogsOptions): void {
