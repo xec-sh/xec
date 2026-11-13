@@ -8,7 +8,7 @@
  * const discovery = Discovery.create()
  *   .docker({ label: 'env=prod', status: 'running' })
  *   .kubernetes({ namespace: 'production', label: 'app=web' })
- *   .ssh({ hosts: ['10.0.0.0/24'], port: 22 })
+ *   .ssh({ hosts: ['10.0.0.1', '10.0.0.2'], port: 22 })
  *   .custom('consul', async () => {
  *     const resp = await fetch('http://consul:8500/v1/catalog/service/web');
  *     const services = await resp.json();
@@ -22,7 +22,9 @@
  * @module @xec-sh/ops/discovery
  */
 
-import { execFileSync } from 'node:child_process';
+import { connect } from 'node:net';
+
+import { runOperation, type OperationExec, type OperationOptions } from '../utils/operation-scope.js';
 
 export interface DiscoveredTarget {
   id: string;
@@ -58,7 +60,7 @@ export interface SshDiscoveryOptions {
 
 interface DiscoverySource {
   type: string;
-  scan: () => Promise<DiscoveredTarget[]>;
+  scan: (exec: OperationExec, signal: AbortSignal) => Promise<DiscoveredTarget[]>;
 }
 
 export class Discovery {
@@ -74,12 +76,12 @@ export class Discovery {
   docker(opts: DockerDiscoveryOptions = {}): this {
     this.sources.push({
       type: 'docker',
-      scan: async () => {
+      scan: async (exec) => {
         // argv, never a shell string: these options come from config or CI
         // variables, and interpolating them into a command line let
         // `label: "x; touch OWNED; echo"` execute.
         const args: string[] = ['ps'];
-        if (opts.status === 'all') args.push('-a');
+        if (opts.status === 'all' || opts.status === 'exited') args.push('-a');
         if (opts.label) args.push('--filter', `label=${opts.label}`);
         if (opts.name) args.push('--filter', `name=${opts.name}`);
         if (opts.status && opts.status !== 'all') args.push('--filter', `status=${opts.status}`);
@@ -87,10 +89,8 @@ export class Discovery {
         args.push('--format', '{{json .}}');
 
         try {
-          const output = execFileSync('docker', args, {
-            encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe'],
-          });
+          const result = await exec({ command: 'docker', args, shell: false });
+          const output = result.buffer().toString('utf8');
 
           return output
             .trim()
@@ -98,6 +98,7 @@ export class Discovery {
             .filter(Boolean)
             .map((line) => {
               const data = JSON.parse(line);
+              if (typeof data.Names !== 'string' || !data.Names) throw new Error('Docker returned a container without a name');
               return {
                 id: `docker:${data.Names}`,
                 type: 'docker' as const,
@@ -107,8 +108,8 @@ export class Discovery {
                 meta: { image: data.Image, status: data.Status, ports: data.Ports },
               };
             });
-        } catch {
-          return [];
+        } catch (error) {
+          throw new Error('Docker discovery failed', { cause: error });
         }
       },
     });
@@ -119,7 +120,7 @@ export class Discovery {
   kubernetes(opts: K8sDiscoveryOptions = {}): this {
     this.sources.push({
       type: 'kubernetes',
-      scan: async () => {
+      scan: async (exec) => {
         const args: string[] = ['get', 'pods', '-o', 'json'];
         if (opts.namespace) args.push('-n', opts.namespace);
         if (opts.label) args.push('-l', opts.label);
@@ -127,13 +128,11 @@ export class Discovery {
         if (opts.context) args.push(`--context=${opts.context}`);
 
         try {
-          const output = execFileSync('kubectl', args, {
-            encoding: 'utf-8',
-            stdio: ['pipe', 'pipe', 'pipe'],
-          });
-          const data = JSON.parse(output);
+          const result = await exec({ command: 'kubectl', args, shell: false });
+          const data = JSON.parse(result.buffer().toString('utf8'));
+          if (!Array.isArray(data.items)) throw new Error('kubectl did not return a pod list');
 
-          return (data.items || []).map((pod: Record<string, unknown>) => {
+          return data.items.map((pod: Record<string, unknown>) => {
             const metadata = pod['metadata'] as Record<string, unknown> | undefined;
             const status = pod['status'] as Record<string, unknown> | undefined;
             const spec = pod['spec'] as Record<string, unknown> | undefined;
@@ -152,8 +151,8 @@ export class Discovery {
               },
             };
           });
-        } catch {
-          return [];
+        } catch (error) {
+          throw new Error('Kubernetes discovery failed', { cause: error });
         }
       },
     });
@@ -164,37 +163,29 @@ export class Discovery {
   ssh(opts: SshDiscoveryOptions): this {
     this.sources.push({
       type: 'ssh',
-      scan: async () => {
+      scan: async (_exec, signal) => {
         const port = opts.port ?? 22;
         const timeout = opts.timeout ?? 2000;
         const targets: DiscoveredTarget[] = [];
-
         for (const host of opts.hosts) {
-          try {
-            const { connect } = await import('node:net');
-            const reachable = await new Promise<boolean>((resolve) => {
-              const socket = connect({ host, port, timeout }, () => {
-                socket.destroy();
-                resolve(true);
-              });
-              socket.on('error', () => resolve(false));
-              socket.on('timeout', () => {
-                socket.destroy();
-                resolve(false);
-              });
+          signal.throwIfAborted();
+          const reachable = await new Promise<boolean>((resolve) => {
+            const socket = connect({ host, port });
+            let connected = false;
+            const abort = () => socket.destroy();
+            const timer = setTimeout(() => socket.destroy(), timeout);
+            socket.once('connect', () => { connected = true; socket.destroy(); });
+            socket.once('error', () => socket.destroy());
+            socket.once('close', () => {
+              clearTimeout(timer);
+              signal.removeEventListener('abort', abort);
+              resolve(connected);
             });
-
-            if (reachable) {
-              targets.push({
-                id: `ssh:${host}`,
-                type: 'ssh',
-                host,
-                port,
-              });
-            }
-          } catch {
-            // Host not reachable
-          }
+            signal.addEventListener('abort', abort, { once: true });
+            if (signal.aborted) abort();
+          });
+          signal.throwIfAborted();
+          if (reachable) targets.push({ id: `ssh:${host}`, type: 'ssh', host, port });
         }
         return targets;
       },
@@ -203,20 +194,24 @@ export class Discovery {
   }
 
   /** Add a custom discovery source */
-  custom(name: string, scanFn: () => Promise<DiscoveredTarget[]>): this {
-    this.sources.push({ type: name, scan: scanFn });
+  custom(name: string, scanFn: (signal?: AbortSignal) => Promise<DiscoveredTarget[]>): this {
+    this.sources.push({ type: name, scan: (_exec, signal) => scanFn(signal) });
     return this;
   }
 
   /** Run all discovery sources */
-  async scan(): Promise<DiscoveredTarget[]> {
-    const results = await Promise.all(this.sources.map((s) => s.scan()));
-    return results.flat();
+  async scan(options: OperationOptions = {}): Promise<DiscoveredTarget[]> {
+    return runOperation({ timeout: 30_000, ...options }, async ({ exec, signal }) => {
+      const settled = await Promise.allSettled(this.sources.map(source => source.scan(exec, signal)));
+      const errors = settled.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (errors.length) throw new AggregateError(errors.map(result => result.reason), 'Discovery failed');
+      return settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+    }, { exactOutput: true });
   }
 
   /** Run discovery and group by type */
-  async scanGrouped(): Promise<Record<string, DiscoveredTarget[]>> {
-    const targets = await this.scan();
+  async scanGrouped(options: OperationOptions = {}): Promise<Record<string, DiscoveredTarget[]>> {
+    const targets = await this.scan(options);
     const grouped: Record<string, DiscoveredTarget[]> = {};
     for (const target of targets) {
       (grouped[target.type] ??= []).push(target);
@@ -227,8 +222,9 @@ export class Discovery {
   private parseLabels(labelStr: string): Record<string, string> {
     const labels: Record<string, string> = {};
     for (const pair of labelStr.split(',')) {
-      const [key, value] = pair.split('=');
-      if (key) labels[key.trim()] = value?.trim() ?? '';
+      const index = pair.indexOf('=');
+      const key = (index < 0 ? pair : pair.slice(0, index)).trim();
+      if (key) labels[key] = index < 0 ? '' : pair.slice(index + 1).trim();
     }
     return labels;
   }

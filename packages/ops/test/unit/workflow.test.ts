@@ -88,8 +88,8 @@ describe('Workflow', () => {
       .task('after', async () => 'ok', { dependsOn: ['fail'] })
       .run();
 
-    // fail marked as success due to continueOnError
-    expect(result.tasks[0]!.status).toBe('success');
+    expect(result.tasks[0]).toMatchObject({ status: 'failed', continued: true });
+    expect(result.success).toBe(true);
     expect(result.tasks[1]!.status).toBe('success');
   });
 

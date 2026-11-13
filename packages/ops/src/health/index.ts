@@ -23,8 +23,11 @@
  * @module @xec-sh/ops/health
  */
 
-import { execSync } from 'node:child_process';
-import { connect, type Socket } from 'node:net';
+import { connect } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
+import { type Command, getExecutionSignal } from '@xec-sh/core';
+
+import { runOperation, type OperationOptions } from '../utils/operation-scope.js';
 
 export interface CheckResult {
   name: string;
@@ -44,7 +47,7 @@ export interface HealthReport {
 
 interface CheckDefinition {
   name: string;
-  run: () => Promise<CheckResult>;
+  run: (signal?: AbortSignal) => Promise<CheckResult>;
 }
 
 export interface HttpCheckOptions {
@@ -60,7 +63,7 @@ export interface TcpCheckOptions {
   timeout?: number;
 }
 
-export interface CommandCheckOptions {
+export interface CommandCheckOptions extends OperationOptions {
   contains?: string;
   exitCode?: number;
   timeout?: number;
@@ -83,33 +86,33 @@ export class HealthChecker {
     const name = `http:${new URL(url).hostname}${new URL(url).pathname}`;
     this.checks.push({
       name,
-      run: async () => {
+      run: async (signal) => {
         const start = Date.now();
         try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), opts.timeout ?? 10_000);
+          const deadline = AbortSignal.timeout(opts.timeout ?? 10_000);
           const resp = await fetch(url, {
             method: opts.method ?? 'GET',
             headers: opts.headers,
             body: opts.body,
-            signal: controller.signal,
+            signal: signal ? AbortSignal.any([signal, deadline]) : deadline,
           });
-          clearTimeout(timeout);
           const duration = Date.now() - start;
 
           const expectedStatus = opts.status ?? 200;
           if (resp.status !== expectedStatus) {
+            await resp.body?.cancel();
             return { name, healthy: false, duration, error: `Status ${resp.status} (expected ${expectedStatus})` };
           }
 
           if (opts.contains) {
             const body = await resp.text();
             if (!body.includes(opts.contains)) {
-              return { name, healthy: false, duration, error: `Response does not contain "${opts.contains}"` };
+              return { name, healthy: false, duration, error: 'Response does not contain the expected text' };
             }
           }
 
-          return { name, healthy: true, duration, message: `${resp.status} OK` };
+          if (!opts.contains) await resp.body?.cancel();
+          return { name, healthy: true, duration: Date.now() - start, message: `${resp.status} OK` };
         } catch (err) {
           return { name, healthy: false, duration: Date.now() - start, error: String(err) };
         }
@@ -123,73 +126,64 @@ export class HealthChecker {
     const name = `tcp:${host}:${port}`;
     this.checks.push({
       name,
-      run: () =>
-        new Promise<CheckResult>((resolve) => {
-          const start = Date.now();
-          const timeout = opts.timeout ?? 5000;
-          let socket: Socket | null = null;
-
-          const timer = setTimeout(() => {
-            socket?.destroy();
-            resolve({ name, healthy: false, duration: Date.now() - start, error: `Timeout after ${timeout}ms` });
-          }, timeout);
-
-          socket = connect({ host, port }, () => {
-            clearTimeout(timer);
-            socket?.destroy();
-            resolve({ name, healthy: true, duration: Date.now() - start, message: `Port ${port} open` });
-          });
-
-          socket.on('error', (err) => {
-            clearTimeout(timer);
-            resolve({ name, healthy: false, duration: Date.now() - start, error: err.message });
-          });
-        }),
+      run: (signal) => new Promise<CheckResult>((resolve) => {
+        const start = Date.now();
+        const socket = connect({ host, port });
+        let result: CheckResult | undefined;
+        const finish = (healthy: boolean, error?: string) => {
+          result ??= { name, healthy, duration: Date.now() - start, ...(error ? { error } : { message: `Port ${port} open` }) };
+          socket.destroy();
+        };
+        const abort = () => finish(false, String(signal?.reason ?? 'Health check aborted'));
+        const timer = setTimeout(() => finish(false, `Timeout after ${opts.timeout ?? 5000}ms`), opts.timeout ?? 5000);
+        socket.once('connect', () => finish(true));
+        socket.once('error', error => finish(false, error.message));
+        socket.once('close', () => {
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', abort);
+          resolve(result ?? { name, healthy: false, duration: Date.now() - start, error: 'Socket closed before connection' });
+        });
+        signal?.addEventListener('abort', abort, { once: true });
+        if (signal?.aborted) abort();
+      }),
     });
     return this;
   }
 
-  /** Check a shell command */
-  command(cmd: string, opts: CommandCheckOptions = {}): this {
-    const name = `cmd:${cmd.split(' ')[0]}`;
-    this.checks.push({
-      name,
-      run: async () => {
-        const start = Date.now();
-        try {
-          const output = execSync(cmd, {
-            encoding: 'utf-8',
-            timeout: opts.timeout ?? 10_000,
-            stdio: ['pipe', 'pipe', 'pipe'],
-          });
+  /** Check trusted shell source or a literal Command argument vector. */
+  command(cmd: string | Command, opts: CommandCheckOptions = {}): this {
+    const name = `cmd:${(typeof cmd === 'string' ? cmd : cmd.command).split(' ')[0]}`;
+    this.checks.push({ name, run: async (signal) => {
+      const start = Date.now();
+      try {
+        const inherited = getExecutionSignal(opts.signal);
+        return await runOperation({ ...opts, timeout: opts.timeout ?? 10_000,
+          signal: signal && inherited ? AbortSignal.any([signal, inherited]) : signal ?? inherited }, async ({ exec }) => {
+          const command = typeof cmd === 'string' ? { command: cmd, shell: true } : cmd;
+          const result = await exec({ ...command, throwOnNonZeroExit: false, nothrow: undefined });
           const duration = Date.now() - start;
-
-          if (opts.contains && !output.includes(opts.contains)) {
-            return { name, healthy: false, duration, error: `Output does not contain "${opts.contains}"` };
+          const expected = opts.exitCode ?? 0;
+          if (result.exitCode !== expected || result.signal) {
+            return { name, healthy: false, duration, error: `Exit code ${result.exitCode} (expected ${expected})${result.signal ? `, signal ${result.signal}` : ''}` };
           }
-
-          return { name, healthy: true, duration, message: 'OK' };
-        } catch (err: unknown) {
-          const duration = Date.now() - start;
-          const exitCode = (err as { status?: number }).status;
-          if (opts.exitCode !== undefined && exitCode === opts.exitCode) {
-            return { name, healthy: true, duration, message: `Exit code ${exitCode} (expected)` };
+          if (opts.contains !== undefined && !result.buffer().toString('utf8').includes(opts.contains)) {
+            return { name, healthy: false, duration, error: 'Output does not contain the expected text' };
           }
-          return { name, healthy: false, duration, error: String(err) };
-        }
-      },
-    });
+          return { name, healthy: true, duration, message: `Exit code ${expected} (expected)` };
+        }, { exactOutput: true });
+      } catch (error) { return { name, healthy: false, duration: Date.now() - start, error: String(error) }; }
+    } });
     return this;
   }
 
   /** Custom check function */
-  custom(name: string, fn: () => Promise<boolean | string>): this {
+  custom(name: string, fn: (signal?: AbortSignal) => Promise<boolean | string>): this {
     this.checks.push({
       name: `custom:${name}`,
-      run: async () => {
+      run: async (signal) => {
         const start = Date.now();
         try {
-          const result = await fn();
+          const result = await fn(signal);
           const duration = Date.now() - start;
           if (typeof result === 'string') {
             return { name: `custom:${name}`, healthy: true, duration, message: result };
@@ -204,19 +198,28 @@ export class HealthChecker {
   }
 
   /** Run all checks (parallel by default) */
-  async run(opts?: { sequential?: boolean }): Promise<HealthReport> {
+  async run(opts?: { sequential?: boolean; signal?: AbortSignal }): Promise<HealthReport> {
     const start = Date.now();
+    const signal = getExecutionSignal(opts?.signal);
+    signal?.throwIfAborted();
+    const execute = async (check: CheckDefinition): Promise<CheckResult> => {
+      const checkStart = Date.now();
+      try { return await check.run(signal); }
+      catch (error) { return { name: check.name, healthy: false, duration: Date.now() - checkStart, error: String(error) }; }
+    };
     let results: CheckResult[];
 
     if (opts?.sequential) {
       results = [];
       for (const check of this.checks) {
-        results.push(await check.run());
+        signal?.throwIfAborted();
+        results.push(await execute(check));
       }
     } else {
-      results = await Promise.all(this.checks.map((c) => c.run()));
+      results = await Promise.all(this.checks.map(execute));
     }
 
+    signal?.throwIfAborted();
     const healthy = results.every((r) => r.healthy);
     const summary = {
       total: results.length,
@@ -231,20 +234,22 @@ export class HealthChecker {
   async waitUntilHealthy(opts?: { timeout?: number; interval?: number; signal?: AbortSignal }): Promise<HealthReport> {
     const timeout = opts?.timeout ?? 60_000;
     const interval = opts?.interval ?? 2000;
-    const deadline = Date.now() + timeout;
-
-    while (Date.now() < deadline) {
-      if (opts?.signal?.aborted) throw new Error('Health check aborted');
-      const report = await this.run();
-      if (report.healthy) return report;
-      await new Promise((r) => setTimeout(r, interval));
+    const inherited = getExecutionSignal(opts?.signal);
+    const deadline = AbortSignal.timeout(timeout);
+    const signal = inherited ? AbortSignal.any([inherited, deadline]) : deadline;
+    let report: HealthReport | undefined;
+    try {
+      while (true) {
+        signal.throwIfAborted();
+        report = await this.run({ signal });
+        if (report.healthy) return report;
+        await delay(interval, undefined, { signal });
+      }
+    } catch (error) {
+      inherited?.throwIfAborted();
+      if (!deadline.aborted) throw error;
+      const failed = report?.checks.filter(check => !check.healthy).map(check => `${check.name}: ${check.error}`).join(', ');
+      throw new Error(`Health check timeout after ${timeout}ms${failed ? `. Failed: ${failed}` : ''}`, { cause: error });
     }
-
-    const final = await this.run();
-    if (!final.healthy) {
-      const failed = final.checks.filter((c) => !c.healthy).map((c) => `${c.name}: ${c.error}`);
-      throw new Error(`Health check timeout after ${timeout}ms. Failed: ${failed.join(', ')}`);
-    }
-    return final;
   }
 }

@@ -283,3 +283,56 @@ export class KubernetesError extends ExecutionError {
     this.name = 'KubernetesError';
   }
 }
+/** Copy diagnostic values so callbacks cannot expose the original error graph. */
+export function sanitizeErrorForDiagnostics(error: Error): Error {
+  const seen = new WeakMap<object, object>();
+  const copy = (value: unknown, key?: string): unknown => {
+    if (typeof value === 'string') {
+      // Use the shared rules for structured credential fields as well as text.
+      const label = `${key ?? ''}=__xec_diagnostic_value__`;
+      if (key && sanitizeCommandForError(label) !== label) return DEFAULT_REDACTION;
+      return sanitizeCommandForError(value);
+    }
+    if (typeof value === 'function' || typeof value === 'symbol') return undefined;
+    if (value === null || typeof value !== 'object') return value;
+    const existing = seen.get(value);
+    if (existing) return existing;
+    if (Buffer.isBuffer(value)) return Buffer.from(sanitizeCommandForError(value.toString()));
+    if (Array.isArray(value)) {
+      const items: unknown[] = [];
+      seen.set(value, items);
+      const argv = key === 'args' || key === 'spawnargs' || key === 'argv';
+      for (const [index, item] of value.entries()) {
+        let result = copy(item);
+        const previous = value[index - 1];
+        if (argv && typeof previous === 'string' && typeof item === 'string') {
+          const pair = sanitizeCommandForError(`${previous} ${item}`);
+          if (pair !== `${sanitizeCommandForError(previous)} ${sanitizeCommandForError(item)}`) result = DEFAULT_REDACTION;
+        }
+        items.push(result);
+      }
+      return items;
+    }
+    const result = value instanceof AggregateError ? new AggregateError([]) : value instanceof Error ? new Error() : {};
+    seen.set(value, result);
+    for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(value))) {
+      if (!('value' in descriptor)) continue;
+      Object.defineProperty(result, sanitizeCommandForError(name), {
+        configurable: true,
+        enumerable: descriptor.enumerable,
+        writable: true,
+        value: copy(descriptor.value, name),
+      });
+    }
+    if (value instanceof Error) {
+      const target = result as Error;
+      Object.defineProperty(target, 'name', {
+        value: sanitizeCommandForError(value.name), configurable: true, writable: true,
+        enumerable: Object.getOwnPropertyDescriptor(value, 'name')?.enumerable ?? false,
+      });
+      target.stack = value.stack === undefined ? undefined : sanitizeCommandForError(value.stack);
+    }
+    return result;
+  };
+  return copy(error) as Error;
+}

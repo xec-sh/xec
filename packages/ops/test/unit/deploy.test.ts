@@ -153,10 +153,10 @@ describe('Deployer concurrency', () => {
 
     await deployer.deploy('1.0.0');
 
-    expect(captured).toEqual({ stdout: 'deploy-exec-ok', exitCode: 0 });
+    expect(captured).toMatchObject({ stdout: 'deploy-exec-ok', exitCode: 0 });
   });
 
-  it('exec reports a failing command without throwing', async () => {
+  it('exec fails deployment when a command exits nonzero', async () => {
     let captured: { stdout: string; exitCode: number } | undefined;
     const deployer = Deployer.create({
       name: 'app',
@@ -169,8 +169,10 @@ describe('Deployer concurrency', () => {
       },
     });
 
-    await deployer.deploy('1.0.0');
+    const result = await deployer.deploy('1.0.0');
 
-    expect(captured?.exitCode).toBe(7);
+    expect(captured).toBeUndefined();
+    expect(result.success).toBe(false);
+    expect(result.targets[0]?.error).toContain('exit code 7');
   });
 });

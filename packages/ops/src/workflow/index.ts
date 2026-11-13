@@ -1,250 +1,148 @@
-/**
- * DAG-based workflow engine with conditional execution,
- * fan-out/fan-in, data passing, and resume-from-failure.
- *
- * @example
- * ```typescript
- * import { Workflow } from '@xec-sh/ops/workflow';
- *
- * const workflow = Workflow.create('release')
- *   .task('validate', async (ctx) => {
- *     await ctx.exec('pnpm typecheck');
- *     return { valid: true };
- *   })
- *   .task('build', async (ctx) => {
- *     await ctx.exec('pnpm build');
- *     return { artifacts: ['dist/'] };
- *   }, { dependsOn: ['validate'] })
- *   .task('test', async (ctx) => {
- *     await ctx.exec('pnpm test');
- *   }, { dependsOn: ['build'], parallel: true })
- *   .task('deploy', async (ctx) => {
- *     const { artifacts } = ctx.taskOutput('build');
- *     await ctx.exec(`deploy ${artifacts[0]}`);
- *   }, { dependsOn: ['test'], when: (ctx) => ctx.env.BRANCH === 'main' })
- *   .onFailure(async (ctx, err) => {
- *     await ctx.exec(`notify-slack "Build failed: ${err.message}"`);
- *   });
- *
- * const result = await workflow.run({ env: { BRANCH: 'main' } });
- * ```
- *
- * @module @xec-sh/ops/workflow
- */
+/** Data-passing workflows with validated dependencies and owned asynchronous commands. */
+import { getExecutionSignal, withoutCancellation } from '@xec-sh/core';
 
-import { execSync } from 'node:child_process';
+import { retry } from '../retry/index.js';
+import { runOperation, type OperationExec } from '../utils/operation-scope.js';
 
 export interface TaskOptions {
   dependsOn?: string[];
   when?: (ctx: WorkflowContext) => boolean;
+  /** Commands are cancelled at the deadline; callbacks must cooperate with signal. */
   timeout?: number;
+  /** Maximum attempts, including the first. */
   retry?: number;
-  parallel?: boolean; // Can run in parallel with siblings at same depth
+  parallel?: boolean;
   continueOnError?: boolean;
 }
-
 export interface TaskResult {
   name: string;
   status: 'success' | 'failed' | 'skipped';
   duration: number;
   output?: unknown;
   error?: string;
+  continued?: boolean;
+  cancelled?: boolean;
 }
-
 export interface WorkflowContext {
   env: Record<string, string>;
   vars: Record<string, unknown>;
+  signal: AbortSignal;
   taskOutput: (name: string) => unknown;
-  exec: (cmd: string) => { stdout: string; exitCode: number };
+  exec: OperationExec;
   log: (message: string) => void;
 }
-
 export interface WorkflowResult {
   name: string;
   success: boolean;
   duration: number;
   tasks: TaskResult[];
+  failureHandlerError?: string;
   summary: { total: number; succeeded: number; failed: number; skipped: number };
 }
-
 interface InternalTask {
   name: string;
   fn: (ctx: WorkflowContext) => Promise<unknown>;
   options: TaskOptions;
 }
+type SharedContext = Pick<WorkflowContext, 'env' | 'vars' | 'taskOutput' | 'log'>;
 
 export class Workflow {
   private tasks: InternalTask[] = [];
   private failureHandler?: (ctx: WorkflowContext, error: Error) => Promise<void>;
-  private workflowName: string;
-
-  private constructor(name: string) {
-    this.workflowName = name;
-  }
-
-  static create(name: string): Workflow {
-    return new Workflow(name);
-  }
-
-  /** Add a task to the workflow */
+  private constructor(private readonly workflowName: string) {}
+  static create(name: string): Workflow { return new Workflow(name); }
   task(name: string, fn: (ctx: WorkflowContext) => Promise<unknown>, options: TaskOptions = {}): this {
     this.tasks.push({ name, fn, options });
     return this;
   }
-
-  /** Set global failure handler */
   onFailure(handler: (ctx: WorkflowContext, error: Error) => Promise<void>): this {
     this.failureHandler = handler;
     return this;
   }
 
-  /** Execute the workflow respecting the DAG */
-  async run(opts?: { env?: Record<string, string>; vars?: Record<string, unknown> }): Promise<WorkflowResult> {
-    const startTime = Date.now();
-    const taskOutputs = new Map<string, unknown>();
-    const results: TaskResult[] = [];
-    const completed = new Set<string>();
+  private validate(): void {
+    const names = new Set<string>();
+    for (const task of this.tasks) {
+      if (!task.name.trim() || names.has(task.name)) throw new Error(`Invalid or duplicate workflow task: ${task.name}`);
+      names.add(task.name);
+      if (task.options.timeout !== undefined && (!Number.isFinite(task.options.timeout) || task.options.timeout <= 0))
+        throw new Error(`Invalid timeout for task ${task.name}`);
+      if (task.options.retry !== undefined && (!Number.isSafeInteger(task.options.retry) || task.options.retry < 1))
+        throw new Error(`Invalid retry policy for task ${task.name}`);
+    }
+    for (const task of this.tasks)
+      for (const dependency of task.options.dependsOn ?? [])
+        if (!names.has(dependency)) throw new Error(`Task ${task.name} depends on unknown task ${dependency}`);
+    const remaining = new Set(names);
+    while (remaining.size) {
+      const ready = this.tasks.filter(task => remaining.has(task.name) &&
+        (task.options.dependsOn ?? []).every(name => !remaining.has(name)));
+      if (!ready.length) throw new Error(`Circular workflow dependency: ${[...remaining].join(', ')}`);
+      for (const task of ready) remaining.delete(task.name);
+    }
+  }
 
-    const ctx: WorkflowContext = {
-      env: { ...process.env as Record<string, string>, ...opts?.env },
-      vars: { ...opts?.vars },
-      taskOutput: (name) => taskOutputs.get(name),
-      exec: (cmd) => {
-        try {
-          const stdout = execSync(cmd, { encoding: 'utf-8', timeout: 300_000, stdio: ['pipe', 'pipe', 'pipe'] });
-          return { stdout, exitCode: 0 };
-        } catch (err: unknown) {
-          return { stdout: '', exitCode: (err as { status?: number }).status ?? 1 };
-        }
-      },
-      log: (msg) => console.log(`[${this.workflowName}] ${msg}`),
+  async run(opts: { env?: Record<string, string>; vars?: Record<string, unknown>; signal?: AbortSignal } = {}): Promise<WorkflowResult> {
+    this.validate();
+    const start = Date.now();
+    const signal = getExecutionSignal(opts.signal);
+    const outputs = new Map<string, unknown>();
+    const results = new Map<string, TaskResult>();
+    const context: SharedContext = {
+      env: { ...process.env as Record<string, string>, ...opts.env }, vars: { ...opts.vars },
+      taskOutput: name => outputs.get(name), log: message => console.log(`[${this.workflowName}] ${message}`),
     };
-
-    const remaining = [...this.tasks];
-    let progress = true;
-    let hasFailure = false;
-
-    while (remaining.length > 0 && progress) {
-      progress = false;
-
-      // Find all tasks whose dependencies are met
-      const ready = remaining.filter((t) => {
-        const deps = t.options.dependsOn ?? [];
-        return deps.every((d) => completed.has(d));
+    const execute = async (task: InternalTask) => {
+      const blocked = (task.options.dependsOn ?? []).some(name => {
+        const dependency = results.get(name)!;
+        return (dependency.status === 'failed' && !dependency.continued) ||
+          (dependency.status === 'skipped' && dependency.error !== undefined);
       });
-
-      if (ready.length === 0 && remaining.length > 0) {
-        // Circular dependency
-        for (const t of remaining) {
-          results.push({ name: t.name, status: 'failed', duration: 0, error: 'Circular dependency' });
-        }
-        break;
-      }
-
-      // Group parallel-eligible tasks
-      const parallelGroup = ready.filter((t) => t.options.parallel);
-      const sequentialGroup = ready.filter((t) => !t.options.parallel);
-
-      // Execute parallel group concurrently
-      if (parallelGroup.length > 0) {
-        const parallelResults = await Promise.all(
-          parallelGroup.map((task) => this.executeTask(task, ctx, hasFailure))
-        );
-
-        for (let i = 0; i < parallelGroup.length; i++) {
-          const task = parallelGroup[i]!;
-          const result = parallelResults[i]!;
-          results.push(result);
-          if (result.status === 'success') taskOutputs.set(task.name, result.output);
-          if (result.status === 'failed') hasFailure = true;
-          completed.add(task.name);
-          remaining.splice(remaining.indexOf(task), 1);
-          progress = true;
-        }
-      }
-
-      // Execute sequential tasks one by one
-      for (const task of sequentialGroup) {
-        const result = await this.executeTask(task, ctx, hasFailure);
-        results.push(result);
-        if (result.status === 'success') taskOutputs.set(task.name, result.output);
-        if (result.status === 'failed') hasFailure = true;
-        completed.add(task.name);
-        remaining.splice(remaining.indexOf(task), 1);
-        progress = true;
-      }
+      const result = blocked ? { name: task.name, status: 'skipped' as const, duration: 0, error: 'Dependency failed' }
+        : await this.executeTask(task, context, opts.env, signal);
+      results.set(task.name, result);
+      if (result.status === 'success') outputs.set(task.name, result.output);
+    };
+    while (results.size < this.tasks.length) {
+      const ready = this.tasks.filter(task => !results.has(task.name) &&
+        (task.options.dependsOn ?? []).every(name => results.has(name)));
+      await Promise.all(ready.filter(task => task.options.parallel).map(execute));
+      for (const task of ready.filter(candidate => !candidate.options.parallel)) await execute(task);
     }
-
-    const success = results.every((r) => r.status !== 'failed');
-
-    // Call failure handler if any task failed
-    if (hasFailure && this.failureHandler) {
-      const firstError = results.find((r) => r.status === 'failed');
+    const tasks = this.tasks.map(task => results.get(task.name)!);
+    let failureHandlerError: string | undefined;
+    const failed = tasks.find(task => task.status === 'failed' || task.cancelled);
+    if (failed && this.failureHandler) {
+      // A registered failure handler is explicit cleanup, with a fresh bounded
+      // scope. It cannot return while its own commands remain outstanding.
       try {
-        await this.failureHandler(ctx, new Error(firstError?.error ?? 'Workflow failed'));
-      } catch {
-        // Failure handler itself failed — don't mask original error
-      }
+        await withoutCancellation(() => runOperation({ env: opts.env }, scope =>
+          this.failureHandler!({ ...context, ...scope }, new Error(failed.error ?? 'Workflow failed'))));
+      } catch (error) { failureHandlerError = error instanceof Error ? error.message : String(error); }
     }
-
     return {
       name: this.workflowName,
-      success,
-      duration: Date.now() - startTime,
-      tasks: results,
-      summary: {
-        total: results.length,
-        succeeded: results.filter((r) => r.status === 'success').length,
-        failed: results.filter((r) => r.status === 'failed').length,
-        skipped: results.filter((r) => r.status === 'skipped').length,
-      },
+      success: !signal?.aborted && !failureHandlerError && tasks.every(task => task.status !== 'failed' || task.continued),
+      duration: Date.now() - start, tasks, ...(failureHandlerError ? { failureHandlerError } : {}),
+      summary: { total: tasks.length, succeeded: tasks.filter(task => task.status === 'success').length,
+        failed: tasks.filter(task => task.status === 'failed').length, skipped: tasks.filter(task => task.status === 'skipped').length },
     };
   }
 
-  private async executeTask(
-    task: InternalTask,
-    ctx: WorkflowContext,
-    parentFailed: boolean
-  ): Promise<TaskResult> {
-    // Check if dependency failed
-    if (parentFailed && !task.options.continueOnError) {
-      // Check if THIS task's specific deps failed
-      const deps = task.options.dependsOn ?? [];
-      if (deps.length > 0) {
-        return { name: task.name, status: 'skipped', duration: 0, error: 'Dependency failed' };
-      }
+  private async executeTask(task: InternalTask, shared: SharedContext, env?: Record<string, string>, signal?: AbortSignal): Promise<TaskResult> {
+    const start = Date.now();
+    try {
+      signal?.throwIfAborted();
+      const outcome = await retry(() => runOperation({ env, signal, timeout: task.options.timeout }, async scope => {
+        const context = { ...shared, ...scope };
+        if (task.options.when && !task.options.when(context)) return { skipped: true, output: undefined };
+        return { skipped: false, output: await task.fn(context) };
+      }), { maxAttempts: task.options.retry ?? 1, backoff: 'linear', initialDelay: 1000, jitter: 0, abortSignal: signal });
+      return { name: task.name, status: outcome.skipped ? 'skipped' : 'success', duration: Date.now() - start, output: outcome.output };
+    } catch (error) {
+      return { name: task.name, status: signal?.aborted ? 'skipped' : 'failed', duration: Date.now() - start,
+        error: error instanceof Error ? error.message : String(error),
+        ...(signal?.aborted ? { cancelled: true } : task.options.continueOnError ? { continued: true } : {}) };
     }
-
-    // Check condition
-    if (task.options.when && !task.options.when(ctx)) {
-      return { name: task.name, status: 'skipped', duration: 0 };
-    }
-
-    const startTime = Date.now();
-    const maxRetries = task.options.retry ?? 1;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const output = await Promise.race([
-          task.fn(ctx),
-          task.options.timeout
-            ? new Promise((_, reject) => setTimeout(() => reject(new Error('Task timed out')), task.options.timeout))
-            : new Promise(() => {}), // Never resolves — no timeout
-        ]);
-
-        return { name: task.name, status: 'success', duration: Date.now() - startTime, output };
-      } catch (err) {
-        if (attempt === maxRetries) {
-          const error = err instanceof Error ? err.message : String(err);
-          if (task.options.continueOnError) {
-            return { name: task.name, status: 'success', duration: Date.now() - startTime, error };
-          }
-          return { name: task.name, status: 'failed', duration: Date.now() - startTime, error };
-        }
-        await new Promise((r) => setTimeout(r, 1000 * attempt));
-      }
-    }
-
-    return { name: task.name, status: 'failed', duration: Date.now() - startTime, error: 'Exhausted retries' };
   }
 }

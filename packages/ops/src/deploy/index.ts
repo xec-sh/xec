@@ -1,41 +1,11 @@
-/**
- * Deployment engine — strategies, rollback, health verification.
- *
- * @example
- * ```typescript
- * import { Deployer } from '@xec-sh/ops/deploy';
- * import { $ } from '@xec-sh/core';
- *
- * const deployer = Deployer.create({
- *   name: 'api-service',
- *   targets: ['web-1', 'web-2', 'web-3'],
- *
- *   strategy: 'rolling',       // 'rolling' | 'blue-green' | 'canary' | 'all-at-once'
- *   maxConcurrent: 1,          // rolling: one at a time
- *   healthCheck: {
- *     url: 'http://{{target}}:8080/health',
- *     timeout: 10_000,
- *     retries: 3,
- *   },
- *
- *   hooks: {
- *     beforeDeploy: async (ctx) => { await ctx.exec`git tag v${ctx.version}`; },
- *     deploy: async (ctx) => { await ctx.exec`docker pull myapp:${ctx.version} && docker-compose up -d`; },
- *     afterDeploy: async (ctx) => { await ctx.exec`curl -X POST https://slack.webhook/deployed`; },
- *     rollback: async (ctx) => { await ctx.exec`docker-compose rollback`; },
- *     verify: async (ctx) => { return ctx.healthCheck(); },
- *   },
- * });
- *
- * const result = await deployer.deploy('v1.2.3');
- * if (!result.success) await deployer.rollback();
- * ```
- *
- * @module @xec-sh/ops/deploy
- */
+/** Deployment hooks and strategies using Xec's ordinary execution lifecycle. */
+import { setTimeout as delay } from 'node:timers/promises';
+import { dialectFor, quoteForShell, getExecutionSignal, withoutCancellation } from '@xec-sh/core';
+
+import { HealthChecker } from '../health/index.js';
+import { runOperation, type OperationExec } from '../utils/operation-scope.js';
 
 export type DeployStrategy = 'rolling' | 'blue-green' | 'canary' | 'all-at-once';
-
 export interface DeployHealthCheck {
   url?: string;
   command?: string;
@@ -43,17 +13,16 @@ export interface DeployHealthCheck {
   retries?: number;
   interval?: number;
 }
-
 export interface DeployContext {
   target: string;
   version: string;
   previousVersion?: string;
   attempt: number;
-  exec: (strings: TemplateStringsArray, ...values: unknown[]) => Promise<{ stdout: string; exitCode: number }>;
+  signal: AbortSignal;
+  exec: OperationExec;
   healthCheck: () => Promise<boolean>;
   log: (message: string) => void;
 }
-
 export interface DeployHooks {
   beforeDeploy?: (ctx: DeployContext) => Promise<void>;
   deploy: (ctx: DeployContext) => Promise<void>;
@@ -62,7 +31,6 @@ export interface DeployHooks {
   rollback?: (ctx: DeployContext) => Promise<void>;
   onError?: (ctx: DeployContext, error: Error) => Promise<void>;
 }
-
 export interface DeployConfig {
   name: string;
   targets: string[];
@@ -70,18 +38,22 @@ export interface DeployConfig {
   maxConcurrent?: number;
   healthCheck?: DeployHealthCheck;
   hooks: DeployHooks;
+  /** Per-target operation and recovery deadline. */
   timeout?: number;
+  env?: Record<string, string>;
+  cwd?: string;
   abortOnFirstFailure?: boolean;
 }
-
 export interface DeployTargetResult {
   target: string;
   success: boolean;
   duration: number;
   error?: string;
   rolledBack?: boolean;
+  rollbackError?: string;
+  handlerError?: string;
+  skipped?: boolean;
 }
-
 export interface DeployResult {
   success: boolean;
   version: string;
@@ -92,282 +64,137 @@ export interface DeployResult {
 }
 
 export class Deployer {
-  /** Last version that deployed successfully. */
   private currentVersion?: string;
-  /** The successful version before that — what rollback() returns to. */
   private previousVersion?: string;
   private lastResult?: DeployResult;
-
+  private running = false;
   private constructor(private config: DeployConfig) {}
 
   static create(config: DeployConfig): Deployer {
-    if (!config.targets || config.targets.length === 0) {
-      // deploy() over zero targets produces zero results, and
-      // `results.every()` over an empty array would report success.
-      throw new Error('Deployment needs at least one target');
-    }
-    if (typeof config.hooks?.deploy !== 'function') {
-      throw new Error('Deployment needs a deploy hook');
-    }
+    if (!config.targets?.length) throw new Error('Deployment needs at least one target');
+    if (new Set(config.targets).size !== config.targets.length) throw new Error('Deployment targets must be unique');
+    if (typeof config.hooks?.deploy !== 'function') throw new Error('Deployment needs a deploy hook');
+    if (!['rolling', 'blue-green', 'canary', 'all-at-once'].includes(config.strategy))
+      throw new Error(`Unknown deployment strategy: ${String(config.strategy)}`);
+    if (config.maxConcurrent !== undefined && (!Number.isSafeInteger(config.maxConcurrent) || config.maxConcurrent < 1))
+      throw new Error('Deployment concurrency must be a positive integer');
+    if (config.timeout !== undefined && (!Number.isFinite(config.timeout) || config.timeout <= 0))
+      throw new Error('Deployment timeout must be positive');
+    const health = config.healthCheck;
+    if (health && !health.url && !health.command) throw new Error('Health check needs a URL or command');
+    if (health?.retries !== undefined && (!Number.isSafeInteger(health.retries) || health.retries < 1))
+      throw new Error('Health check retries must be a positive integer');
     return new Deployer(config);
   }
 
-  async deploy(version: string): Promise<DeployResult> {
-    const startTime = Date.now();
-    const results: DeployTargetResult[] = [];
-    const replacing = this.currentVersion;
-
-    const createContext = (target: string, attempt: number): DeployContext => ({
-      target,
-      version,
-      previousVersion: replacing,
-      attempt,
-      exec: async (strings, ...values) => {
-        const cmd = String.raw(strings, ...values);
-        // exec must be async: hooks run concurrently under all-at-once and
-        // rolling with maxConcurrent > 1, and a synchronous child process
-        // would block the event loop and serialize them all.
-        const { exec } = await import('node:child_process');
-        return new Promise((resolve) => {
-          exec(
-            cmd,
-            { encoding: 'utf-8', timeout: this.config.timeout ?? 300_000 },
-            (error, stdout) => {
-              if (error) {
-                resolve({ stdout, exitCode: typeof error.code === 'number' ? error.code : 1 });
-              } else {
-                resolve({ stdout, exitCode: 0 });
-              }
-            }
-          );
-        });
-      },
-      healthCheck: () => this.checkHealth(target),
-      log: (msg) => console.log(`[${this.config.name}][${target}] ${msg}`),
-    });
-
-    switch (this.config.strategy) {
-      case 'all-at-once':
-        await this.deployAllAtOnce(version, results, createContext);
-        break;
-      case 'rolling':
-        await this.deployRolling(version, results, createContext);
-        break;
-      case 'canary':
-        await this.deployCanary(version, results, createContext);
-        break;
-      case 'blue-green':
-        await this.deployBlueGreen(version, results, createContext);
-        break;
-      default:
-        // A strategy typo in configuration deployed to nothing, and
-        // `results.every()` over the resulting empty array reported the
-        // deployment as successful.
-        throw new Error(`Unknown deployment strategy: ${String(this.config.strategy)}`);
-    }
-
-    const result: DeployResult = {
-      success: results.every((r) => r.success),
-      version,
-      strategy: this.config.strategy,
-      duration: Date.now() - startTime,
-      targets: results,
-      summary: {
-        total: results.length,
-        succeeded: results.filter((r) => r.success).length,
-        failed: results.filter((r) => !r.success).length,
-        rolledBack: results.filter((r) => r.rolledBack).length,
-      },
-    };
-
-    // Version bookkeeping happens only on success: a failed deploy must not
-    // become "the previous version", or rollback() would re-deploy the very
-    // version that just failed.
-    if (result.success) {
-      this.previousVersion = replacing;
-      this.currentVersion = version;
-    }
-    this.lastResult = result;
-    return result;
-  }
-
-  async rollback(): Promise<DeployResult> {
-    if (!this.lastResult) {
-      throw new Error('No previous deployment to rollback');
-    }
-    if (!this.config.hooks.rollback) {
-      throw new Error('No rollback hook configured');
-    }
-
-    // After a failure the last known-good version is still currentVersion;
-    // after a regretted success it is the version before it.
-    const targetVersion = this.lastResult.success ? this.previousVersion : this.currentVersion;
-    if (!targetVersion) {
-      throw new Error('No known-good version to roll back to');
-    }
-
-    return this.deploy(targetVersion);
-  }
-
-  private async deployAllAtOnce(
-    version: string,
-    results: DeployTargetResult[],
-    createCtx: (target: string, attempt: number) => DeployContext
-  ): Promise<void> {
-    await Promise.all(
-      this.config.targets.map((target) =>
-        this.deployTarget(target, version, results, createCtx)
-      )
-    );
-  }
-
-  private async deployRolling(
-    version: string,
-    results: DeployTargetResult[],
-    createCtx: (target: string, attempt: number) => DeployContext
-  ): Promise<void> {
-    const maxConcurrent = this.config.maxConcurrent ?? 1;
-    const queue = [...this.config.targets];
-    const running: Promise<void>[] = [];
-
-    while (queue.length > 0 || running.length > 0) {
-      while (running.length < maxConcurrent && queue.length > 0) {
-        const target = queue.shift()!;
-        const promise = this.deployTarget(target, version, results, createCtx).then(() => {
-          running.splice(running.indexOf(promise), 1);
-        });
-        running.push(promise);
-      }
-
-      if (running.length > 0) {
-        await Promise.race(running);
-      }
-
-      // Abort on first failure if configured
-      if (this.config.abortOnFirstFailure && results.some((r) => !r.success)) {
-        break;
-      }
-    }
-  }
-
-  private async deployCanary(
-    version: string,
-    results: DeployTargetResult[],
-    createCtx: (target: string, attempt: number) => DeployContext
-  ): Promise<void> {
-    // Deploy to first target as canary
-    const [canary, ..._rest] = this.config.targets;
-    if (!canary) return;
-
-    await this.deployTarget(canary, version, results, createCtx);
-
-    // If canary failed, don't proceed
-    if (results.some((r) => !r.success)) return;
-
-    // Deploy to remaining targets
-    await this.deployRolling(version, results, (target, attempt) =>
-      createCtx(target, attempt)
-    );
-  }
-
-  private async deployBlueGreen(
-    version: string,
-    results: DeployTargetResult[],
-    createCtx: (target: string, attempt: number) => DeployContext
-  ): Promise<void> {
-    // Deploy to all targets simultaneously (the "green" side)
-    await this.deployAllAtOnce(version, results, createCtx);
-    // Actual traffic switch would be in the deploy hook
-  }
-
-  private async deployTarget(
-    target: string,
-    version: string,
-    results: DeployTargetResult[],
-    createCtx: (target: string, attempt: number) => DeployContext
-  ): Promise<void> {
+  async deploy(version: string, options: { signal?: AbortSignal } = {}): Promise<DeployResult> {
+    if (this.running) throw new Error('A deployment is already running');
+    this.running = true;
     const start = Date.now();
-    const ctx = createCtx(target, 1);
-
+    const signal = getExecutionSignal(options.signal);
+    const results = new Map<string, DeployTargetResult>();
+    const replacing = this.currentVersion;
+    const deploy = async (target: string) => {
+      const result = await this.deployTarget(target, version, replacing, signal);
+      results.set(target, result);
+    };
+    const rolling = async (targets: string[]) => {
+      let next = 0;
+      await Promise.all(Array.from({ length: Math.min(this.config.maxConcurrent ?? 1, targets.length) }, async () => {
+        while (next < targets.length && !signal?.aborted &&
+          !(this.config.abortOnFirstFailure && [...results.values()].some(result => !result.success))) {
+          const target = targets[next++]!;
+          await deploy(target);
+        }
+      }));
+    };
     try {
-      if (this.config.hooks.beforeDeploy) {
-        await this.config.hooks.beforeDeploy(ctx);
+      if (this.config.strategy === 'canary') {
+        if (!signal?.aborted) await deploy(this.config.targets[0]!);
+        if (results.get(this.config.targets[0]!)?.success) await rolling(this.config.targets.slice(1));
+      } else if (this.config.strategy === 'rolling') {
+        await rolling(this.config.targets);
+      } else {
+        await Promise.all(this.config.targets.map(deploy));
       }
+      const targets = this.config.targets.map(target => results.get(target) ?? {
+        target, success: false, duration: 0, skipped: true,
+        error: signal?.aborted ? 'Deployment cancelled' : 'Skipped after deployment failure',
+      });
+      const result: DeployResult = {
+        success: !signal?.aborted && targets.every(target => target.success), version, strategy: this.config.strategy,
+        duration: Date.now() - start, targets,
+        summary: { total: targets.length, succeeded: targets.filter(target => target.success).length,
+          failed: targets.filter(target => !target.success).length, rolledBack: targets.filter(target => target.rolledBack).length },
+      };
+      if (result.success) { this.previousVersion = replacing; this.currentVersion = version; }
+      this.lastResult = result;
+      return result;
+    } finally { this.running = false; }
+  }
 
-      await this.config.hooks.deploy(ctx);
+  async rollback(options: { signal?: AbortSignal } = {}): Promise<DeployResult> {
+    if (!this.lastResult) throw new Error('No previous deployment to rollback');
+    if (!this.config.hooks.rollback) throw new Error('No rollback hook configured');
+    const version = this.lastResult.success ? this.previousVersion : this.currentVersion;
+    if (!version) throw new Error('No known-good version to roll back to');
+    return this.deploy(version, options);
+  }
 
-      if (this.config.hooks.verify) {
-        const healthy = await this.config.hooks.verify(ctx);
+  private async deployTarget(target: string, version: string, previousVersion?: string, signal?: AbortSignal): Promise<DeployTargetResult> {
+    const start = Date.now();
+    if (signal?.aborted) return { target, success: false, skipped: true, duration: 0, error: 'Deployment cancelled' };
+    const operation = <T>(fn: (context: DeployContext) => Promise<T>, operationSignal?: AbortSignal) =>
+      runOperation({ timeout: this.config.timeout, env: this.config.env, cwd: this.config.cwd, signal: operationSignal }, scope => fn({
+        ...scope, target, version, previousVersion, attempt: 1,
+        healthCheck: () => this.checkHealth(target, scope.signal),
+        log: message => console.log(`[${this.config.name}][${target}] ${message}`),
+      }));
+    try {
+      await operation(async context => {
+        await this.config.hooks.beforeDeploy?.(context);
+        await this.config.hooks.deploy(context);
+        const healthy = this.config.hooks.verify ? await this.config.hooks.verify(context) : await context.healthCheck();
         if (!healthy) throw new Error('Health verification failed');
-      }
-
-      if (this.config.hooks.afterDeploy) {
-        await this.config.hooks.afterDeploy(ctx);
-      }
-
-      results.push({ target, success: true, duration: Date.now() - start });
-    } catch (err) {
-      const error = err instanceof Error ? err.message : String(err);
-      let rolledBack = false;
-
+        await this.config.hooks.afterDeploy?.(context);
+      }, signal);
+      return { target, success: true, duration: Date.now() - start };
+    } catch (error) {
+      const result: DeployTargetResult = { target, success: false, duration: 0,
+        error: error instanceof Error ? error.message : String(error) };
       if (this.config.hooks.rollback) {
         try {
-          await this.config.hooks.rollback(ctx);
-          rolledBack = true;
-        } catch {
-          // Rollback failed — log but don't throw
+          await withoutCancellation(() => operation(context => this.config.hooks.rollback!(context)));
+          result.rolledBack = true;
+        } catch (rollbackError) {
+          result.rolledBack = false;
+          result.rollbackError = rollbackError instanceof Error ? rollbackError.message : String(rollbackError);
         }
       }
-
       if (this.config.hooks.onError) {
-        await this.config.hooks.onError(ctx, err instanceof Error ? err : new Error(error));
+        try {
+          await withoutCancellation(() => operation(context => this.config.hooks.onError!(context,
+            error instanceof Error ? error : new Error(String(error)))));
+        } catch (handlerError) { result.handlerError = handlerError instanceof Error ? handlerError.message : String(handlerError); }
       }
-
-      results.push({ target, success: false, duration: Date.now() - start, error, rolledBack });
+      result.duration = Date.now() - start;
+      return result;
     }
   }
 
-  private async checkHealth(target: string): Promise<boolean> {
-    const hc = this.config.healthCheck;
-    if (!hc) return true;
-
-    const retries = hc.retries ?? 3;
-    const interval = hc.interval ?? 2000;
-
-    for (let i = 0; i < retries; i++) {
-      try {
-        if (hc.url) {
-          const url = hc.url.replaceAll('{{target}}', target);
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), hc.timeout ?? 10_000);
-          try {
-            const resp = await fetch(url, { signal: controller.signal });
-            if (resp.ok) return true;
-            // A non-2xx answer is a failed attempt like any other; falling
-            // through without it skipped the retry pause.
-            throw new Error(`Health endpoint answered ${resp.status}`);
-          } finally {
-            clearTimeout(timeout);
-          }
-        }
-
-        if (hc.command) {
-          const { execFile } = await import('node:child_process');
-          await new Promise<void>((resolve, reject) => {
-            execFile(
-              'sh',
-              ['-c', hc.command!.replaceAll('{{target}}', target)],
-              { timeout: hc.timeout ?? 10_000 },
-              (error) => (error ? reject(error) : resolve())
-            );
-          });
-          return true;
-        }
-      } catch {
-        if (i < retries - 1) await new Promise((r) => setTimeout(r, interval));
-      }
+  private async checkHealth(target: string, signal: AbortSignal): Promise<boolean> {
+    const health = this.config.healthCheck;
+    if (!health) return true;
+    for (let attempt = 0; attempt < (health.retries ?? 3); attempt++) {
+      signal.throwIfAborted();
+      const checker = HealthChecker.create();
+      if (health.url) checker.http(health.url.replaceAll('{{target}}', target), { timeout: health.timeout });
+      if (health.command) checker.command(health.command.replaceAll('{{target}}', quoteForShell(target, dialectFor(true))), {
+        timeout: health.timeout, env: this.config.env, cwd: this.config.cwd,
+      });
+      if ((await checker.run({ signal })).healthy) return true;
+      if (attempt + 1 < (health.retries ?? 3)) await delay(health.interval ?? 2000, undefined, { signal });
     }
-
     return false;
   }
 }

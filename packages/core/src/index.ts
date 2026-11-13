@@ -450,7 +450,9 @@ export {
   // able to tell truncated output from a command that genuinely printed
   // little, and `instanceof` is how they do it.
   MaxBufferExceededError,
-  ExecutionOutcomeUnknownError
+  sanitizeCommandForError,
+  sanitizeErrorForDiagnostics,
+  ExecutionOutcomeUnknownError,
 } from './core/error.js';
 /**
  * Event types.
