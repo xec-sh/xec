@@ -5,10 +5,10 @@
 import type { Readable, Writable } from 'node:stream';
 import type { TableOptions, VirtualTableOptions } from './types.js';
 
-import { settings } from '../../core/index.js';
 import { renderTable } from './table-renderer.js';
 import InteractiveTablePrompt from './interactive-table.js';
 import { runValidation } from '../../core/utils/validation.js';
+import { settings, type CANCEL_SYMBOL } from '../../core/index.js';
 import { renderInteractiveTable } from './interactive-renderer.js';
 
 function validateTableOptions<T>(options: TableOptions<T> & Partial<VirtualTableOptions<T>>): void {
@@ -128,7 +128,7 @@ export function interactiveTable<T = any>(
     output?: Writable;
     signal?: AbortSignal;
   }
-): Promise<T[] | symbol> {
+): Promise<T[] | typeof CANCEL_SYMBOL> {
   validateTableOptions(options);
 
   const validate = options.validate;
@@ -175,6 +175,7 @@ export function interactiveTable<T = any>(
     input: options.input,
     output: options.output,
     signal: options.signal,
+    accessible: options.accessible,
     render() {
       let frame = renderInteractiveTable(this.tableState, this.tableOptions);
       // Surface validation failures — the prompt stores them on this.error,
@@ -184,7 +185,7 @@ export function interactiveTable<T = any>(
       }
       return frame;
     },
-  }).prompt() as Promise<T[] | symbol>;
+  }).prompt() as Promise<T[] | typeof CANCEL_SYMBOL>;
 }
 
 export type { ExportOptions } from './table-exporter.js';

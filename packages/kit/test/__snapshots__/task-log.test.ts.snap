@@ -1150,6 +1150,10 @@ exports[`taskLog (isCI = true) > error > clears output if showLog = false 1`] = 
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
   "<grey>│</fg>
 <red>■</fg>  some error!
 ",
@@ -1164,12 +1168,12 @@ exports[`taskLog (isCI = true) > error > renders output with message 1`] = `
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<red>■</fg>  some error!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
+<red>■</fg>  some error!
 ",
 ]
 `;
@@ -1182,6 +1186,26 @@ exports[`taskLog (isCI = true) > group > applies limit per group 1`] = `
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<grey>│</fg>  Group 1: Group 1 line 0
+",
+  "<grey>│</fg>  Group 0: Group 0 line 1
+",
+  "<grey>│</fg>  Group 1: Group 1 line 1
+",
+  "<grey>│</fg>  Group 0: Group 0 line 2
+",
+  "<grey>│</fg>  Group 1: Group 1 line 2
+",
+  "<grey>│</fg>  Group 0: Group 0 line 3
+",
+  "<grey>│</fg>  Group 1: Group 1 line 3
+",
+  "<grey>│</fg>  Group 0: Group 0 line 4
+",
+  "<grey>│</fg>  Group 1: Group 1 line 4
+",
 ]
 `;
 
@@ -1192,6 +1216,22 @@ exports[`taskLog (isCI = true) > group > can render multiple groups of different
   "<green>◇</fg>  Some log
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<grey>│</fg>  Group 0: Group 0 line 1
+",
+  "<grey>│</fg>  Group 0: Group 0 line 2
+",
+  "<grey>│</fg>  Group 1: Group 1 line 0
+",
+  "<grey>│</fg>  Group 1: Group 1 line 1
+",
+  "<grey>│</fg>  Group 1: Group 1 line 2
+",
+  "<grey>│</fg>  Group 1: Group 1 line 3
+",
+  "<grey>│</fg>  Group 1: Group 1 line 4
 ",
 ]
 `;
@@ -1204,6 +1244,26 @@ exports[`taskLog (isCI = true) > group > can render multiple groups of equal siz
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<grey>│</fg>  Group 1: Group 1 line 0
+",
+  "<grey>│</fg>  Group 0: Group 0 line 1
+",
+  "<grey>│</fg>  Group 1: Group 1 line 1
+",
+  "<grey>│</fg>  Group 0: Group 0 line 2
+",
+  "<grey>│</fg>  Group 1: Group 1 line 2
+",
+  "<grey>│</fg>  Group 0: Group 0 line 3
+",
+  "<grey>│</fg>  Group 1: Group 1 line 3
+",
+  "<grey>│</fg>  Group 0: Group 0 line 4
+",
+  "<grey>│</fg>  Group 1: Group 1 line 4
+",
 ]
 `;
 
@@ -1214,6 +1274,8 @@ exports[`taskLog (isCI = true) > group > handles empty groups 1`] = `
   "<green>◇</fg>  Some log
 ",
   "<grey>│</fg>
+",
+  "<green>◆</fg>  Group success!
 ",
 ]
 `;
@@ -1226,6 +1288,10 @@ exports[`taskLog (isCI = true) > group > renders error state 1`] = `
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<red>■</fg>  Group error!
+",
 ]
 `;
 
@@ -1236,6 +1302,10 @@ exports[`taskLog (isCI = true) > group > renders group error state 1`] = `
   "<green>◇</fg>  Some log
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<red>■</fg>  Group error!
 ",
 ]
 `;
@@ -1248,6 +1318,10 @@ exports[`taskLog (isCI = true) > group > renders group success state 1`] = `
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<green>◆</fg>  Group success!
+",
 ]
 `;
 
@@ -1258,6 +1332,10 @@ exports[`taskLog (isCI = true) > group > renders success state 1`] = `
   "<green>◇</fg>  Some log
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<green>◆</fg>  Group success!
 ",
 ]
 `;
@@ -1270,24 +1348,28 @@ exports[`taskLog (isCI = true) > group > showLog shows all groups in order 1`] =
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  Group 0: Group 0 line 0
+",
+  "<grey>│</fg>  Group 0: Group 0 line 1
+",
+  "<grey>│</fg>  Group 0: Group 0 line 2
+",
+  "<grey>│</fg>  Group 1: Group 1 line 0
+",
+  "<grey>│</fg>  Group 1: Group 1 line 1
+",
+  "<grey>│</fg>  Group 1: Group 1 line 2
+",
+  "<grey>│</fg>  Group 1: Group 1 line 3
+",
+  "<grey>│</fg>  Group 1: Group 1 line 4
+",
+  "<green>◆</fg>  Group 0 success!
+",
+  "<red>■</fg>  Group 1 error!
+",
   "<grey>│</fg>
 <red>■</fg>  overall error
-",
-  "<grey>│</fg>  <bold>Group 0</bold>
-",
-  "<grey>│</fg>
-<grey>│</fg>  <dim>Group 0 line 0</bold>
-<grey>│</fg>  <dim>Group 0 line 1</bold>
-<grey>│</fg>  <dim>Group 0 line 2</bold>
-",
-  "<grey>│</fg>  <bold>Group 1</bold>
-",
-  "<grey>│</fg>
-<grey>│</fg>  <dim>Group 1 line 0</bold>
-<grey>│</fg>  <dim>Group 1 line 1</bold>
-<grey>│</fg>  <dim>Group 1 line 2</bold>
-<grey>│</fg>  <dim>Group 1 line 3</bold>
-<grey>│</fg>  <dim>Group 1 line 4</bold>
 ",
 ]
 `;
@@ -1300,6 +1382,10 @@ exports[`taskLog (isCI = true) > message > can write line by line 1`] = `
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
 ]
 `;
 
@@ -1310,6 +1396,9 @@ exports[`taskLog (isCI = true) > message > can write multiple lines 1`] = `
   "<green>◇</fg>  foo
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  line 0
+<grey>│</fg>  line 1
 ",
 ]
 `;
@@ -1322,6 +1411,12 @@ exports[`taskLog (isCI = true) > message > enforces limit if set 1`] = `
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
 ]
 `;
 
@@ -1332,6 +1427,12 @@ exports[`taskLog (isCI = true) > message > prints empty lines 1`] = `
   "<green>◇</fg>  foo
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>
+",
+  "<grey>│</fg>  line 3
 ",
 ]
 `;
@@ -1344,6 +1445,11 @@ exports[`taskLog (isCI = true) > message > raw = true appends message text until
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  ",
+  "line 0",
+  "still line 0",
+  "
+line 1",
 ]
 `;
 
@@ -1354,6 +1460,13 @@ exports[`taskLog (isCI = true) > message > raw = true works when mixed with non-
   "<green>◇</fg>  foo
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  ",
+  "line 0",
+  "still line 0",
+  "
+",
+  "<grey>│</fg>  line 1
 ",
 ]
 `;
@@ -1366,6 +1479,11 @@ exports[`taskLog (isCI = true) > message > raw = true works when started with no
 ",
   "<grey>│</fg>
 ",
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  ",
+  "line 1",
+  "still line 1",
 ]
 `;
 
@@ -1377,12 +1495,16 @@ exports[`taskLog (isCI = true) > retainLog > error > outputs limited log with li
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<red>■</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<red>■</fg>  woo!
 ",
 ]
 `;
@@ -1395,14 +1517,16 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = false outputs f
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<red>■</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<red>■</fg>  woo!
 ",
 ]
 `;
@@ -1415,12 +1539,16 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = false outputs l
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<red>■</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<red>■</fg>  woo!
 ",
 ]
 `;
@@ -1433,14 +1561,16 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = true outputs fu
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<red>■</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<red>■</fg>  woo!
 ",
 ]
 `;
@@ -1453,14 +1583,16 @@ exports[`taskLog (isCI = true) > retainLog > error > retainLog = true outputs fu
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<red>■</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<red>■</fg>  woo!
 ",
 ]
 `;
@@ -1473,12 +1605,16 @@ exports[`taskLog (isCI = true) > retainLog > success > outputs limited log with 
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<green>◆</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<green>◆</fg>  woo!
 ",
 ]
 `;
@@ -1491,14 +1627,16 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = false outputs
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<green>◆</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<green>◆</fg>  woo!
 ",
 ]
 `;
@@ -1511,12 +1649,16 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = false outputs
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<green>◆</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<green>◆</fg>  woo!
 ",
 ]
 `;
@@ -1529,14 +1671,16 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = true outputs 
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<green>◆</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<green>◆</fg>  woo!
 ",
 ]
 `;
@@ -1549,14 +1693,16 @@ exports[`taskLog (isCI = true) > retainLog > success > retainLog = true outputs 
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<green>◆</fg>  woo!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
+",
+  "<grey>│</fg>  line 2
+",
+  "<grey>│</fg>  line 3
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
-<grey>│</fg>  <dim>line 2</bold>
-<grey>│</fg>  <dim>line 3</bold>
+<green>◆</fg>  woo!
 ",
 ]
 `;
@@ -1568,6 +1714,10 @@ exports[`taskLog (isCI = true) > success > clears output and renders message 1`]
   "<green>◇</fg>  foo
 ",
   "<grey>│</fg>
+",
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
 ",
   "<grey>│</fg>
 <green>◆</fg>  success!
@@ -1583,12 +1733,12 @@ exports[`taskLog (isCI = true) > success > renders output if showLog = true 1`] 
 ",
   "<grey>│</fg>
 ",
-  "<grey>│</fg>
-<green>◆</fg>  success!
+  "<grey>│</fg>  line 0
+",
+  "<grey>│</fg>  line 1
 ",
   "<grey>│</fg>
-<grey>│</fg>  <dim>line 0</bold>
-<grey>│</fg>  <dim>line 1</bold>
+<green>◆</fg>  success!
 ",
 ]
 `;

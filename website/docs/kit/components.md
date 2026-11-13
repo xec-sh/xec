@@ -67,16 +67,18 @@ Options:
 ```typescript
 import { spinner } from '@xec-sh/kit';
 
+const controller = new AbortController();
 spinner({
+  signal: controller.signal,
   style: 'circle',        // braille (default) | circle | dots | line | arrow | binary | moon
   indicator: 'timer',     // 'dots' (default) animates dots; 'timer' shows elapsed time
   cancelMessage: 'Stopped',
   errorMessage: 'Failed',
-  onCancel: () => process.exit(1),
+  onCancel: () => controller.abort(),
 });
 ```
 
-Custom animations pass `frames: string[]` and `delay: number` directly.
+Custom animations pass `frames: string[]` and `delay: number` directly. Pipe and CI output uses append-only progress with a periodic heartbeat. `accessible: true` also selects plain append-only text for a terminal. Pass `input`, `output` and `signal` to connect the indicator to its owning operation. `stop` reports success, `error` reports failure, and `cancel` reports cancellation. Each completion restores the terminal and removes its listeners.
 
 ## progress
 
@@ -97,8 +99,6 @@ bar.stop('Downloaded');
 Run a list of functions, each behind its own spinner:
 
 ```typescript
-import { spinner } from '@xec-sh/kit';
-
 import { tasks } from '@xec-sh/kit';
 
 await tasks([
@@ -132,6 +132,21 @@ t.success('Tests passed');       // collapses the log; pass { showLog: true } to
 // t.error('Tests failed');      // failure keeps the log visible by default
 ```
 
+In CI, a pipe, or accessible mode, each message is emitted immediately and completion adds its result once. `limit` bounds the live terminal viewport. `retainLog` retains older viewport lines for the final terminal report.
+
+```typescript
+import { taskLog } from '@xec-sh/kit';
+
+const task = taskLog({ title: 'Build', output: process.stderr });
+const compile = task.group('TypeScript');
+compile.message('Compil', { raw: true });
+compile.message('ed 12 modules\n', { raw: true });
+compile.success('Types checked');
+task.success('Build complete');
+```
+
+Raw fragments are joined within their group. Terminal commands in titles and data are removed while display styling is retained. Accessible output strips styling as well.
+
 ## stream
 
 Write an async iterable to the terminal as prompt-styled output — useful for piping process output through the kit's look:
@@ -140,12 +155,16 @@ Write an async iterable to the terminal as prompt-styled output — useful for p
 import { stream } from '@xec-sh/kit';
 
 async function* lines() {
-  yield 'Build started';
-  yield 'Build finished';
+  yield 'Build started\n';
+  yield 'Build finished\n';
 }
 
-await stream.info(lines());      // also: stream.message / step / warn / error / success
+await stream.info(lines(), { output: process.stderr, withGuide: false, spacing: 0 });
 ```
+
+`stream.message`, `info`, `success`, `step`, `warn`/`warning` and `error` accept the same output, guide, spacing and accessibility options as `log`. Each chunk is text, so include newline characters where a new line is intended. Output also wraps to the destination's width while preserving Unicode graphemes and styling split across chunks.
+
+The returned promise waits for destination writes and rejects source or destination errors. An early exit closes the source iterator. Cancellation is checked between input chunks, so pass the same `AbortSignal` to producers that can wait on I/O. Control-string payloads are discarded incrementally using bounded memory.
 
 ## See Also
 

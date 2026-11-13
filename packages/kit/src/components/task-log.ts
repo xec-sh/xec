@@ -4,8 +4,9 @@ import { erase } from 'sisteransi';
 
 import prism from '../prism/index.js';
 import { log } from '../utilities/log.js';
-import { getColumns } from '../core/index.js';
 import stringWidth from '../core/utils/string-width.js';
+import { getColumns, isAccessible } from '../core/index.js';
+import { TerminalTextDecoder, sanitizeTerminalText } from '../prism/utils/ansi.js';
 import {
   S_BAR,
   S_STEP_SUBMIT,
@@ -33,6 +34,8 @@ interface BufferEntry {
   header?: string;
   value: string;
   full: string;
+  lastMessageWasRaw?: boolean;
+  decoder?: TerminalTextDecoder;
   result?: {
     status: 'success' | 'error';
     message: string;
@@ -40,28 +43,27 @@ interface BufferEntry {
 }
 
 /**
- * Strip destructive ANSI codes (cursor movement, erase, etc.)
- * that could corrupt task log rendering.
- */
-// eslint-disable-next-line no-control-regex
-const stripDestructiveANSI = (input: string): string => input.replace(/\x1b\[(?:\d+;)*\d*[ABCDEFGHfJKSTsu]|\x1b\[(s|u)/g, '');
-
-/**
  * Renders a log which clears on success and remains on failure
  */
 export const taskLog = (opts: TaskLogOptions) => {
   const output: Writable = opts.output ?? process.stdout;
-  const columns = getColumns(output);
   const secondarySymbol = prism.gray(S_BAR);
   const spacing = opts.spacing ?? 1;
   const barSize = 3;
   const retainLog = opts.retainLog === true;
-  const isTTY = !isCIFn() && isTTYFn(output);
+  const accessible = isAccessible(opts.accessible);
+  const isTTY = !accessible && !isCIFn() && isTTYFn(output);
+  if (!Number.isSafeInteger(spacing) || spacing < 0) throw new RangeError('spacing must be a nonnegative integer');
+  if (opts.limit !== undefined && (!Number.isSafeInteger(opts.limit) || opts.limit < 0)) {
+    throw new RangeError('limit must be a nonnegative integer');
+  }
+  const display = (text: string) => sanitizeTerminalText(text, !accessible);
+  const write = (text: string) => output.write(accessible ? prism.strip(text) : text);
 
-  output.write(`${secondarySymbol}\n`);
-  output.write(`${prism.green(S_STEP_SUBMIT)}  ${opts.title}\n`);
+  write(`${secondarySymbol}\n`);
+  write(`${prism.green(S_STEP_SUBMIT)}  ${display(opts.title)}\n`);
   for (let i = 0; i < spacing; i++) {
-    output.write(`${secondarySymbol}\n`);
+    write(`${secondarySymbol}\n`);
   }
 
   const buffers: BufferEntry[] = [
@@ -70,7 +72,12 @@ export const taskLog = (opts: TaskLogOptions) => {
       full: '',
     },
   ];
-  let lastMessageWasRaw = false;
+
+  let rawBuffer: BufferEntry | undefined;
+  const finishRawLine = () => {
+    if (rawBuffer) write('\n');
+    rawBuffer = undefined;
+  };
 
   const clear = (clearTitle: boolean): void => {
     // Erase sequences are meaningless outside a live terminal and would
@@ -106,7 +113,7 @@ export const taskLog = (opts: TaskLogOptions) => {
         }
         // Visual width, not char count: ANSI codes take no columns and
         // CJK takes two — .length would erase too many / too few lines
-        return count + Math.ceil((stringWidth(line) + barSize) / columns);
+        return count + Math.ceil((stringWidth(line) + barSize) / getColumns(output));
       }, 0);
 
       lines += bufferHeight;
@@ -122,6 +129,7 @@ export const taskLog = (opts: TaskLogOptions) => {
     if (buffer.header !== undefined && buffer.header !== '') {
       log.message(buffer.header.split('\n').map(line => prism.bold(line)), {
         output,
+        accessible,
         secondarySymbol,
         symbol: secondarySymbol,
         spacing: 0,
@@ -129,6 +137,7 @@ export const taskLog = (opts: TaskLogOptions) => {
     }
     log.message(messages.split('\n').map(line => prism.dim(line)), {
       output,
+      accessible,
       secondarySymbol,
       symbol: secondarySymbol,
       spacing: messageSpacing ?? spacing,
@@ -145,11 +154,13 @@ export const taskLog = (opts: TaskLogOptions) => {
   };
   const message = (buffer: BufferEntry, msg: string, mopts?: TaskLogMessageOptions) => {
     clear(false);
-    if ((mopts?.raw !== true || !lastMessageWasRaw) && buffer.value !== '') {
+    if ((mopts?.raw !== true || !buffer.lastMessageWasRaw) && buffer.value !== '') {
       buffer.value += '\n';
     }
-    buffer.value += stripDestructiveANSI(msg);
-    lastMessageWasRaw = mopts?.raw === true;
+    if (!mopts?.raw || !buffer.lastMessageWasRaw) buffer.decoder = new TerminalTextDecoder(!accessible);
+    const text = buffer.decoder?.write(msg) ?? display(msg);
+    buffer.value += text;
+    buffer.lastMessageWasRaw = mopts?.raw === true;
     if (opts.limit !== undefined) {
       const lines = buffer.value.split('\n');
       const linesToRemove = lines.length - opts.limit;
@@ -163,15 +174,26 @@ export const taskLog = (opts: TaskLogOptions) => {
     }
     if (isTTY) {
       printBuffers();
+    } else if (mopts?.raw) {
+      if (rawBuffer !== buffer) {
+        finishRawLine();
+        write(`${secondarySymbol}  ${buffer.header ? `${buffer.header}: ` : ''}`);
+      }
+      write(text);
+      rawBuffer = text.endsWith('\n') ? undefined : buffer;
+    } else {
+      finishRawLine();
+      const labelled = buffer.header ? `${buffer.header}: ${text}` : text;
+      log.message(labelled, { output, accessible, symbol: secondarySymbol, spacing: 0 });
     }
   };
   const printBuffers = (): void => {
     for (const buffer of buffers) {
       if (buffer.result) {
         if (buffer.result.status === 'error') {
-          log.error(buffer.result.message, { output, secondarySymbol, spacing: 0 });
+          log.error(buffer.result.message, { output, accessible, secondarySymbol, spacing: 0 });
         } else {
-          log.success(buffer.result.message, { output, secondarySymbol, spacing: 0 });
+          log.success(buffer.result.message, { output, accessible, secondarySymbol, spacing: 0 });
         }
       } else if (buffer.value !== '') {
         printBuffer(buffer, 0);
@@ -181,10 +203,13 @@ export const taskLog = (opts: TaskLogOptions) => {
   const completeBuffer = (buffer: BufferEntry, result: BufferEntry['result']): void => {
     clear(false);
 
-    buffer.result = result;
+    buffer.result = result && { ...result, message: display(result.message) };
 
     if (isTTY) {
       printBuffers();
+    } else if (buffer.result) {
+      finishRawLine();
+      log[buffer.result.status](buffer.result.message, { output, accessible, spacing: 0 });
     }
   };
 
@@ -197,7 +222,7 @@ export const taskLog = (opts: TaskLogOptions) => {
     },
     group(name: string) {
       const buffer: BufferEntry = {
-        header: name,
+        header: display(name),
         value: '',
         full: '',
       };
@@ -222,8 +247,9 @@ export const taskLog = (opts: TaskLogOptions) => {
     },
     error(msg: string, completionOpts?: TaskLogCompletionOptions): void {
       clear(true);
-      log.error(msg, { output, secondarySymbol, spacing: 1 });
-      if (completionOpts?.showLog !== false) {
+      finishRawLine();
+      log.error(display(msg), { output, accessible, secondarySymbol, spacing: 1 });
+      if (isTTY && completionOpts?.showLog !== false) {
         renderBuffer();
       }
       // clear buffer since error is an end state
@@ -231,12 +257,15 @@ export const taskLog = (opts: TaskLogOptions) => {
       if (buffers[0]) {
         buffers[0].value = '';
         buffers[0].full = '';
+        buffers[0].lastMessageWasRaw = false;
+        buffers[0].decoder = undefined;
       }
     },
     success(msg: string, completionOpts?: TaskLogCompletionOptions): void {
       clear(true);
-      log.success(msg, { output, secondarySymbol, spacing: 1 });
-      if (completionOpts?.showLog === true) {
+      finishRawLine();
+      log.success(display(msg), { output, accessible, secondarySymbol, spacing: 1 });
+      if (isTTY && completionOpts?.showLog === true) {
         renderBuffer();
       }
       // clear buffer since success is an end state
@@ -244,6 +273,8 @@ export const taskLog = (opts: TaskLogOptions) => {
       if (buffers[0]) {
         buffers[0].value = '';
         buffers[0].full = '';
+        buffers[0].lastMessageWasRaw = false;
+        buffers[0].decoder = undefined;
       }
     },
   };

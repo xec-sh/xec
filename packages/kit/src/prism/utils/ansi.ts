@@ -284,14 +284,62 @@ export function handleLineBreaks(str: string, open: string, close: string): stri
     .join(close + '\n');
 }
 
+/** Incremental display-text decoder. Control strings are discarded without buffering their payload. */
+export class TerminalTextDecoder {
+  private state: 'text' | 'escape' | 'csi' | 'osc' | 'string' | 'string-escape' = 'text';
+  private controlString: 'osc' | 'string' = 'string';
+  private style: string | undefined = '';
+
+  constructor(private readonly preserveStyles = true) {}
+
+  write(text: string): string {
+    let output = '';
+    for (const char of text) {
+      const code = char.codePointAt(0) ?? 0;
+      if (this.state === 'osc' || this.state === 'string') {
+        if (code === 0x9c || (this.state === 'osc' && code === 7)) this.state = 'text';
+        else if (code === 0x1b) {
+          this.controlString = this.state;
+          this.state = 'string-escape';
+        }
+        continue;
+      }
+      if (this.state === 'string-escape') {
+        if (char === '\\' || code === 0x9c || (this.controlString === 'osc' && code === 7)) this.state = 'text';
+        else if (code !== 0x1b) this.state = this.controlString;
+        continue;
+      }
+      if (this.state === 'csi') {
+        if (code >= 0x40 && code <= 0x7e) {
+          if (char === 'm' && this.preserveStyles && this.style !== undefined && /^[0-9;:]*$/.test(this.style)) {
+            output += `${CSI}${this.style}m`;
+          }
+          this.state = 'text';
+        } else if (code >= 0x20 && code <= 0x3f) {
+          // Bound an unterminated styling sequence, even for an adversarial producer.
+          this.style = this.style !== undefined && this.style.length < 4096 ? this.style + char : undefined;
+        } else if (code === 0x1b) this.state = 'escape';
+        else this.state = 'text';
+        continue;
+      }
+      if (this.state === 'escape') {
+        if (char === '[') { this.state = 'csi'; this.style = ''; }
+        else if (char === ']') this.state = 'osc';
+        else if (char === 'P' || char === '^' || char === '_') this.state = 'string';
+        else if (code < 0x20 || code > 0x2f) this.state = code === 0x1b ? 'escape' : 'text';
+        continue;
+      }
+      if (code === 0x1b) this.state = 'escape';
+      else if (code === 0x9b) { this.state = 'csi'; this.style = ''; }
+      else if (code === 0x9d) this.state = 'osc';
+      else if (code === 0x90 || code === 0x9e || code === 0x9f) this.state = 'string';
+      else if (char === '\n' || char === '\t' || (code >= 0x20 && (code < 0x7f || code > 0x9f))) output += char;
+    }
+    return output;
+  }
+}
+
 /** Keep display styling while removing terminal commands and non-display control bytes. */
 export function sanitizeTerminalText(text: string, preserveStyles = true): string {
-  return Array.from(terminalSegments(text), part => {
-    if (part.escape) {
-      // eslint-disable-next-line no-control-regex -- Only SGR styling is allowed from display text.
-      return preserveStyles && /^\x1b\[[0-9;:]*m$/.test(part.text) ? part.text : '';
-    }
-    // eslint-disable-next-line no-control-regex -- Remove cursor controls while retaining line breaks and tabs.
-    return part.text.replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, '');
-  }).join('');
+  return new TerminalTextDecoder(preserveStyles).write(text);
 }

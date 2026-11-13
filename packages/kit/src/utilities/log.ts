@@ -1,5 +1,6 @@
 import prism from '../prism/index.js';
-import { settings } from '../core/index.js';
+import { settings, isAccessible } from '../core/index.js';
+import { sanitizeTerminalText } from '../prism/utils/ansi.js';
 import {
   S_BAR,
   S_INFO,
@@ -25,8 +26,10 @@ export const log = {
       output = process.stdout,
       spacing = 1,
       withGuide,
+      accessible,
     }: LogMessageOptions = {}
   ) => {
+    if (!Number.isSafeInteger(spacing) || spacing < 0) throw new RangeError('spacing must be a nonnegative integer');
     const hasGuide = (withGuide ?? settings.withGuide) !== false;
     const parts: string[] = [];
     // With the guide off, spacing rows stay blank and no symbol column is
@@ -55,7 +58,8 @@ export const log = {
         }
       }
     }
-    output.write(`${parts.join('\n')}\n`);
+    const rendered = `${parts.join('\n')}\n`;
+    output.write(sanitizeTerminalText(rendered, !isAccessible(accessible)));
   },
   info: (message: string, opts?: LogMessageOptions) => {
     log.message(message, { ...opts, symbol: settings.theme.info(S_INFO) });
