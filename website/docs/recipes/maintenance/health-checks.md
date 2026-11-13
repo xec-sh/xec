@@ -100,8 +100,9 @@ version: '1.0'
 targets:
   hosts:
     production:
+      type: ssh
       host: prod.example.com
-      username: observer
+      user: observer
 ```
 
 The custom SSH probe above is explicit about its host. To use the configured name instead, resolve it through `ConfigurationManager` and `TargetResolver` as shown in the [configuration guide](../../configuration/overview.md).

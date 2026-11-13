@@ -1,565 +1,190 @@
 ---
 title: Node.js Application Deployment
-description: Deploy Node.js applications across multiple environments using Xec
-keywords: [deployment, node.js, production, staging, rollback]
+description: Deploy Node.js services with explicit release and acceptance contracts
 source_files:
-  - packages/core/src/adapters/ssh-adapter.ts
-  - packages/core/src/adapters/docker-adapter.ts
-  - packages/core/src/operations/file.ts
-  - apps/xec/src/commands/on.ts
-key_functions:
-  - SSHAdapter.execute()
-  - FileOperations.copy()
-  - DockerAdapter.exec()
-verification_date: 2025-01-03
+  - packages/core/src/core/execution-engine.ts
+  - packages/ops/src/deploy/index.ts
+  - packages/ops/src/config/target-resolver.ts
 ---
 
 # Node.js Application Deployment
 
 ## Problem
 
-Deploying Node.js applications consistently across development, staging, and production environments while managing dependencies, environment variables, and zero-downtime deployments.
+A source update, dependency installation, process switch and healthy application are different states. Deployment must preserve that distinction and provide a known recovery path.
 
 ## Solution
 
-Xec provides a unified approach to Node.js deployment using its execution engine to orchestrate deployment steps across different target environments.
+Use the shared `Deployer` to coordinate targets. The application owns its release installation, process manager, database compatibility and durable previous-release record. Xec coordinates hooks and reports each target’s outcome; it does not infer that protocol from `git pull` or a process name.
 
 ## Quick Example
 
+The target already contains the reviewed `deploy:release` and `verify:release` package scripts. Pass an immutable release identifier rather than `latest`.
+
 ```typescript
-// deploy.ts
-import { $ } from '@xec-sh/core';
-
-const target = args[0] || 'staging';
-const version = args[1] || 'latest';
-
-// Deploy to target environment
-await $.ssh(target)`
-  cd /app &&
-  git pull origin ${version} &&
-  npm ci --production &&
-  npm run build &&
-  pm2 reload ecosystem.config.js --update-env
-`;
-
-console.log(`✅ Deployed version ${version} to ${target}`);
+const version = args[0];
+if (!version || !/^[a-f0-9]{40}$/.test(version)) throw new Error('Pass a full release commit');
+const server = $.ssh({ host: 'staging.example.com', username: 'deploy' }).cd('/srv/app');
+await server`npm run deploy:release -- ${version}`;
+await server`npm run verify:release -- ${version}`;
 ```
+
+These two package scripts must actually install/activate and verify that release. Xec does not provide commands with those application-specific names.
 
 ## Complete Deployment Recipe
 
 ### Configuration
 
 ```yaml
-# .xec/config.yaml
+version: '1.0'
 targets:
-  staging:
-    type: ssh
-    host: staging.example.com
-    user: deploy
-    key: ~/.ssh/deploy_key
-    
-  production:
-    type: ssh
-    host: prod.example.com
-    user: deploy
-    key: ~/.ssh/deploy_key
-    
-  production-2:
-    type: ssh
-    host: prod2.example.com
-    user: deploy
-    key: ~/.ssh/deploy_key
-
+  hosts:
+    staging:
+      type: ssh
+      host: staging.example.com
+      user: deploy
+      hostKeyChecking: strict
+    production:
+      type: ssh
+      host: production.example.com
+      user: deploy
+      hostKeyChecking: strict
 tasks:
   deploy:
-    description: Deploy Node.js application
+    description: Deploy and verify a prepared release
     params:
-      - name: env
+      - name: commit
         required: true
-        values: [staging, production]
-      - name: version
-        default: main
-    steps:
-      - name: Pre-deployment checks
-        command: xec run scripts/pre-deploy.ts ${params.env}
-      - name: Deploy application
-        command: xec run scripts/deploy.ts ${params.env} ${params.version}
-      - name: Post-deployment validation
-        command: xec run scripts/post-deploy.ts ${params.env}
+    command: xec run scripts/deploy.ts ${params.commit}
 ```
+
+Provision the expected host key and credentials before running. The application’s deployment entry point must serialize conflicting updates to the same installation.
 
 ### Deployment Script
 
 ```typescript
 // scripts/deploy.ts
-import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
-import { readFile } from 'fs/promises';
-
-const environment = args[0];
-const version = args[1] || 'main';
-
-// Configuration
-const config = {
-  staging: {
-    targets: ['staging'],
-    appPath: '/var/www/app-staging',
-    pm2Name: 'app-staging',
-    nodeEnv: 'staging'
-  },
-  production: {
-    targets: ['production', 'production-2'],
-    appPath: '/var/www/app',
-    pm2Name: 'app-production',
-    nodeEnv: 'production'
+import { ConfigurationManager, TargetResolver, createTargetEngine, Deployer } from '@xec-sh/ops';
+const version = args[0] ?? process.env.RELEASE_COMMIT;
+const environment = process.env.DEPLOY_TARGET ?? 'staging';
+if (environment !== 'staging' && environment !== 'production') throw new Error('Select staging or production');
+if (!version || !/^[a-f0-9]{40}$/.test(version)) throw new Error('Pass a full release commit');
+const config = new ConfigurationManager();
+await config.load();
+const target = await new TargetResolver(config.getConfig()).resolve(`hosts.${environment}`);
+const server = (await createTargetEngine(target)).cd('/srv/app');
+const result = await Deployer.create({
+  name: 'node-service',
+  targets: [target.id],
+  strategy: 'rolling',
+  maxConcurrent: 1,
+  abortOnFirstFailure: true,
+  timeout: 300_000,
+  hooks: {
+    beforeDeploy: async ctx => { await server`npm run deploy:prepare -- ${ctx.version}`.signal(ctx.signal); },
+    deploy: async ctx => { await server`npm run deploy:activate -- ${ctx.version}`.signal(ctx.signal); },
+    verify: async ctx => (await server`npm run verify:release -- ${ctx.version}`.signal(ctx.signal).nothrow()).ok,
+    rollback: async ctx => { await server`npm run deploy:restore-reviewed`.signal(ctx.signal); }
   }
-};
-
-const envConfig = config[environment];
-if (!envConfig) {
-  console.error(chalk.red(`Unknown environment: ${environment}`));
-  process.exit(1);
-}
-
-console.log(chalk.blue(`🚀 Deploying ${version} to ${environment}...`));
-
-// Function to deploy to a single target
-async function deployToTarget(targetName: string) {
-  console.log(chalk.gray(`  Deploying to ${targetName}...`));
-  
-  const target = $.ssh(targetName);
-  
-  try {
-    // 1. Backup current version
-    await target`
-      cd ${envConfig.appPath} &&
-      if [ -d .git ]; then
-        echo "Current version: $(git rev-parse HEAD)" > ../deploy-backup.txt
-      fi
-    `;
-    
-    // 2. Pull latest code
-    const gitResult = await target`
-      cd ${envConfig.appPath} &&
-      git fetch origin &&
-      git checkout ${version} &&
-      git pull origin ${version}
-    `.nothrow();
-    
-    if (!gitResult.ok) {
-      throw new Error(`Git pull failed: ${gitResult.cause}`);
-    }
-    
-    // 3. Install dependencies
-    console.log(chalk.gray(`    Installing dependencies...`));
-    await target`
-      cd ${envConfig.appPath} &&
-      npm ci --production
-    `;
-    
-    // 4. Run build
-    console.log(chalk.gray(`    Building application...`));
-    await target`
-      cd ${envConfig.appPath} &&
-      NODE_ENV=${envConfig.nodeEnv} npm run build
-    `;
-    
-    // 5. Run migrations
-    console.log(chalk.gray(`    Running migrations...`));
-    const migrationResult = await target`
-      cd ${envConfig.appPath} &&
-      NODE_ENV=${envConfig.nodeEnv} npm run migrate
-    `.nothrow();
-    
-    if (!migrationResult.ok) {
-      console.warn(chalk.yellow(`    ⚠️  Migration warnings: ${migrationResult.cause}`));
-    }
-    
-    // 6. Reload application with PM2
-    console.log(chalk.gray(`    Reloading application...`));
-    await target`
-      cd ${envConfig.appPath} &&
-      NODE_ENV=${envConfig.nodeEnv} pm2 reload ${envConfig.pm2Name} --update-env
-    `;
-    
-    // 7. Wait for health check
-    console.log(chalk.gray(`    Waiting for health check...`));
-    let healthy = false;
-    for (let i = 0; i < 30; i++) {
-      const healthResult = await target`
-        curl -f http://localhost:3000/health || exit 1
-      `.nothrow();
-      
-      if (healthResult.ok) {
-        healthy = true;
-        break;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    if (!healthy) {
-      throw new Error('Health check failed after 30 seconds');
-    }
-    
-    console.log(chalk.green(`    ✅ ${targetName} deployed successfully`));
-    return true;
-    
-  } catch (error) {
-    console.error(chalk.red(`    ❌ Deployment to ${targetName} failed: ${error.message}`));
-    
-    // Rollback on failure
-    console.log(chalk.yellow(`    Rolling back ${targetName}...`));
-    const backupVersion = await target`
-      if [ -f ../deploy-backup.txt ]; then
-        grep "Current version:" ../deploy-backup.txt | cut -d: -f2 | tr -d ' '
-      else
-        echo "main"
-      fi
-    `.text();
-    
-    await target`
-      cd ${envConfig.appPath} &&
-      git checkout ${backupVersion.trim()} &&
-      npm ci --production &&
-      npm run build &&
-      pm2 reload ${envConfig.pm2Name} --update-env
-    `.nothrow();
-    
-    throw error;
-  }
-}
-
-// Deploy to all targets
-try {
-  // Deploy sequentially for production, parallel for staging
-  if (environment === 'production') {
-    for (const target of envConfig.targets) {
-      await deployToTarget(target);
-    }
-  } else {
-    await Promise.all(
-      envConfig.targets.map(target => deployToTarget(target))
-    );
-  }
-  
-  console.log(chalk.green(`\n✅ Deployment to ${environment} completed successfully!`));
-  
-} catch (error) {
-  console.error(chalk.red(`\n❌ Deployment failed: ${error.message}`));
-  process.exit(1);
-}
+}).deploy(version);
+console.log(result);
+if (!result.success) throw new Error('Deployment failed; inspect target and rollback results');
 ```
+
+`deploy:prepare` checks the archive, compatibility and available recovery release without switching processes. `deploy:activate` switches the installation. `verify:release` checks both identity and behavior. `deploy:restore-reviewed` restores the durable previously accepted state and verifies it; it must be safe when preparation failed before activation. Define these scripts in the target project. The in-memory `Deployer` result is not a durable release ledger.
 
 ### Pre-deployment Checks
 
+Before the first mutation, verify the target identity, available disk space, exact artifact digest, schema compatibility and recovery artifact. Run the project’s declared checks:
+
 ```typescript
-// scripts/pre-deploy.ts
-import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
-
-const environment = args[0];
-
-console.log(chalk.blue('🔍 Running pre-deployment checks...'));
-
-// Check disk space
-const diskSpace = await $.ssh(environment)`
-  df -h /var/www | tail -1 | awk '{print $5}' | sed 's/%//'
-`.text();
-
-if (parseInt(diskSpace) > 80) {
-  console.error(chalk.red(`❌ Disk space critical: ${diskSpace}% used`));
-  process.exit(1);
-}
-
-// Check if PM2 is running
-const pm2Status = await $.ssh(environment)`
-  pm2 status || exit 1
-`.nothrow();
-
-if (!pm2Status.ok) {
-  console.error(chalk.red('❌ PM2 is not running'));
-  process.exit(1);
-}
-
-// Check database connectivity
-const dbCheck = await $.ssh(environment)`
-  cd /var/www/app* &&
-  npm run db:ping
-`.nothrow();
-
-if (!dbCheck.ok) {
-  console.error(chalk.red('❌ Database connection failed'));
-  process.exit(1);
-}
-
-console.log(chalk.green('✅ All pre-deployment checks passed'));
+const server = $.ssh({ host: 'staging.example.com', username: 'deploy' }).cd('/srv/app');
+await server`node --version`;
+await server`npm run deploy:preflight`;
 ```
+
+Do not reinstall production dependencies in the active directory as a preflight probe.
 
 ### Post-deployment Validation
 
 ```typescript
-// scripts/post-deploy.ts
-import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
-
-const environment = args[0];
-const endpoints = {
-  staging: 'https://staging.example.com',
-  production: 'https://example.com'
-};
-
-console.log(chalk.blue('🔍 Running post-deployment validation...'));
-
-// Check application health
-const healthCheck = await $`
-  curl -f ${endpoints[environment]}/health
-`.nothrow();
-
-if (!healthCheck.ok) {
-  console.error(chalk.red('❌ Health check failed'));
-  process.exit(1);
-}
-
-// Check critical endpoints
-const criticalEndpoints = ['/api/status', '/api/version', '/'];
-
-for (const endpoint of criticalEndpoints) {
-  const result = await $`
-    curl -f -o /dev/null -w "%{http_code}" ${endpoints[environment]}${endpoint}
-  `.text();
-  
-  if (result !== '200') {
-    console.error(chalk.red(`❌ Endpoint ${endpoint} returned ${result}`));
-    process.exit(1);
-  }
-}
-
-// Check application logs for errors
-const logs = await $.ssh(environment)`
-  pm2 logs --nostream --lines 50 | grep -i error || true
-`.text();
-
-if (logs.includes('FATAL') || logs.includes('CRITICAL')) {
-  console.error(chalk.red('❌ Critical errors found in logs'));
-  console.log(logs);
-  process.exit(1);
-}
-
-console.log(chalk.green('✅ All post-deployment validations passed'));
-
-// Send deployment notification
-await $`
-  curl -X POST https://hooks.slack.com/services/YOUR/WEBHOOK/URL \
-    -H 'Content-Type: application/json' \
-    -d '{
-      "text": "✅ Deployment to '${environment}' completed successfully",
-      "channel": "#deployments"
-    }'
-`.nothrow();
+import { HealthChecker } from '@xec-sh/ops';
+const expected = args[0];
+if (!expected) throw new Error('Pass the expected release identity');
+await HealthChecker.create().http('https://staging.example.com/health', { status: 200, timeout: 3000 })
+  .waitUntilHealthy({ timeout: 30_000, interval: 1000 });
+await $.ssh({ host: 'staging.example.com', username: 'deploy' }).cd('/srv/app')
+  `npm run verify:release -- ${expected}`;
 ```
+
+HTTP 200 alone cannot distinguish the new release from the old process that is still serving traffic.
 
 ## Zero-Downtime Deployment
 
-```typescript
-// scripts/zero-downtime-deploy.ts
-import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
-
-const environment = args[0];
-const servers = ['prod-1', 'prod-2', 'prod-3'];
-
-// Remove servers from load balancer one by one
-for (const server of servers) {
-  console.log(chalk.blue(`Deploying to ${server}...`));
-  
-  // 1. Remove from load balancer
-  await $`
-    aws elb deregister-instances-from-load-balancer \
-      --load-balancer-name prod-lb \
-      --instances ${server}
-  `;
-  
-  // 2. Wait for connections to drain
-  await new Promise(resolve => setTimeout(resolve, 30000));
-  
-  // 3. Deploy to server
-  await $.ssh(server)`
-    cd /app &&
-    git pull &&
-    npm ci --production &&
-    npm run build &&
-    pm2 reload app
-  `;
-  
-  // 4. Health check
-  let healthy = false;
-  for (let i = 0; i < 30; i++) {
-    const result = await $.ssh(server)`curl -f http://localhost:3000/health`.nothrow();
-    if (result.ok) {
-      healthy = true;
-      break;
-    }
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  
-  if (!healthy) {
-    throw new Error(`Health check failed for ${server}`);
-  }
-  
-  // 5. Add back to load balancer
-  await $`
-    aws elb register-instances-with-load-balancer \
-      --load-balancer-name prod-lb \
-      --instances ${server}
-  `;
-  
-  // 6. Wait for load balancer health check
-  await new Promise(resolve => setTimeout(resolve, 30000));
-  
-  console.log(chalk.green(`✅ ${server} deployed and back in rotation`));
-}
-```
+Availability depends on the application’s readiness contract, spare capacity, connection draining and compatible state transitions. A rolling strategy only controls target ordering; it cannot turn a single process or an incompatible migration into a zero-downtime update. Test the actual transition and recovery before making that guarantee.
 
 ## Docker-based Deployment
 
-```typescript
-// scripts/docker-deploy.ts
-import { $ } from '@xec-sh/core';
-
-const environment = args[0];
-const image = args[1];
-
-// Build and push Docker image
-await $`
-  docker build -t myapp:${image} . &&
-  docker tag myapp:${image} registry.example.com/myapp:${image} &&
-  docker push registry.example.com/myapp:${image}
-`;
-
-// Deploy to Docker Swarm or Kubernetes
-if (environment === 'production') {
-  // Update service in Docker Swarm
-  await $.ssh('swarm-manager')`
-    docker service update \
-      --image registry.example.com/myapp:${image} \
-      --update-parallelism 1 \
-      --update-delay 30s \
-      myapp-service
-  `;
-} else {
-  // Update deployment in Kubernetes
-  await $`
-    kubectl set image deployment/myapp \
-      myapp=registry.example.com/myapp:${image} \
-      --namespace=${environment}
-  `;
-  
-  // Wait for rollout
-  await $`
-    kubectl rollout status deployment/myapp \
-      --namespace=${environment} \
-      --timeout=5m
-  `;
-}
-```
+Use the [Docker deployment recipe](docker-deploy.md) for an immutable image and an explicit Compose project. Avoid building on each production host or retagging an unknown image as the previous release.
 
 ## Usage Examples
 
 ```bash
-# Deploy to staging
-xec deploy --env=staging
-
-# Deploy specific version to production
-xec deploy --env=production --version=v1.2.3
-
-# Run deployment script directly
-xec run scripts/deploy.ts production v1.2.3
-
-# Zero-downtime deployment
-xec run scripts/zero-downtime-deploy.ts production
-
-# Docker deployment
-xec run scripts/docker-deploy.ts production latest
+xec run scripts/deploy.ts 0123456789abcdef0123456789abcdef01234567
 ```
+
+The example identifier must be replaced with a real, prepared release available to the target.
 
 ## Best Practices
 
-1. **Always run pre-deployment checks** to verify system readiness
-2. **Use version tags** for production deployments
-3. **Implement health checks** to verify successful deployment
-4. **Keep rollback scripts** ready for quick recovery
-5. **Test deployments** in staging before production
-6. **Monitor logs** during and after deployment
-7. **Use zero-downtime strategies** for production
+Keep preparation, activation and acceptance separate. Retain the prior artifact and data-recovery policy. Use a per-installation lock, bounded operations and explicit application identity checks. Do not retry a partially completed mutation until its result is known.
 
 ## Common Patterns
 
 ### Environment-specific Configuration
 
-```typescript
-const configs = {
-  development: { /* ... */ },
-  staging: { /* ... */ },
-  production: { /* ... */ }
-};
+Resolve declared configuration rather than interpreting the environment name as a hostname:
 
-const config = configs[process.env.NODE_ENV || 'development'];
+```typescript
+import { ConfigurationManager, TargetResolver, createTargetEngine } from '@xec-sh/ops';
+const environment = args[0];
+if (environment !== 'staging' && environment !== 'production') throw new Error('Select staging or production');
+const config = new ConfigurationManager();
+await config.load();
+const target = await new TargetResolver(config.getConfig()).resolve(`hosts.${environment}`);
+const engine = await createTargetEngine(target);
+await engine`hostname`;
 ```
+
+A missing production target fails; it never silently selects the local machine.
 
 ### Parallel Deployment
 
-```typescript
-// Deploy to multiple servers simultaneously
-await Promise.all(
-  servers.map(server => deployToServer(server))
-);
-```
+For independent installations, configure `Deployer` with `strategy: 'rolling'` and a reviewed `maxConcurrent` limit. The hooks must resolve `ctx.target` to that installation’s engine. Avoid a second unbounded `Promise.all` around an already managed deployment.
 
 ### Sequential Deployment with Validation
 
-```typescript
-for (const server of servers) {
-  await deployToServer(server);
-  await validateDeployment(server);
-}
-```
+Use `maxConcurrent: 1` and `abortOnFirstFailure: true`. The next target starts only after the preceding target’s hooks and verification complete; a failed target and skipped targets remain visible in the result.
 
 ## Troubleshooting
 
 ### Deployment Fails
 
+Inspect the result and named target before retrying:
+
 ```typescript
-// Check logs
-await $.ssh(target)`pm2 logs --lines 100`;
-
-// Check disk space
-await $.ssh(target)`df -h`;
-
-// Check memory
-await $.ssh(target)`free -m`;
+await $.ssh({ host: 'staging.example.com', username: 'deploy' }).cd('/srv/app')`npm run deploy:status`;
 ```
+
+The application’s `deploy:status` should identify the selected release and any incomplete transition.
 
 ### Rollback Procedure
 
-```typescript
-// scripts/rollback.ts
-const previousVersion = await $.ssh(target)`
-  cd /app && git rev-parse HEAD~1
-`.text();
-
-await $.ssh(target)`
-  cd /app &&
-  git checkout ${previousVersion} &&
-  npm ci --production &&
-  npm run build &&
-  pm2 reload app
-`;
-```
+Use the recorded recovery release and its verified artifact, not a guessed Git revision. The rollback hook has its own bounded recovery scope and its failure is reported separately. Restoring code does not reverse database changes; incompatible data migrations require their own recovery plan.
 
 ## Related Topics
 
 - [Docker Deployment](docker-deploy.md)
-- [Kubernetes Deployment](k8s-deploy.md)
-- [Static Site Deployment](static-site-deploy.md)
-- [CI/CD Integration](../integration/github-actions.md)
+- [Health Checks](../maintenance/health-checks.md)
+- [Backup and Restore](../maintenance/backup-restore.md)
+- [Deployment API](../../ops/deploy.md)

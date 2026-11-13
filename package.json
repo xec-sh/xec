@@ -20,7 +20,7 @@
     "link:global": "cd apps/xec && pnpm build && npm link",
     "unlink:global": "cd apps/xec && npm unlink -g @xec-sh/cli",
     "check:ssh-boundary": "node scripts/check-ssh-boundary.mjs",
-    "docs:check": "node --test scripts/test/search-encoding.test.js scripts/test/doc-examples.test.js && node scripts/check-doc-examples.mjs",
+    "docs:check": "node --test scripts/test/search-encoding.test.js scripts/test/doc-examples.test.js && node scripts/check-doc-examples.mjs --strict",
     "docs:start": "cd website && pnpm start",
     "docs:build": "cd website && pnpm build",
     "docs:serve": "cd website && pnpm serve",

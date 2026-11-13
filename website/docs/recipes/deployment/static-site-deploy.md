@@ -1,614 +1,143 @@
 ---
 title: Static Site Deployment
-description: Deploy static sites to various hosting platforms using Xec
-keywords: [deployment, static, cdn, s3, nginx, netlify]
+description: Publish a prepared static site and verify its actual serving origin
 source_files:
-  - packages/core/src/operations/file.ts
-  - packages/core/src/adapters/ssh-adapter.ts
-  - apps/xec/src/commands/copy.ts
-key_functions:
-  - FileOperations.copy()
-  - SSHAdapter.execute()
-  - S3Operations.sync()
-verification_date: 2025-01-03
+  - packages/core/src/core/execution-engine.ts
+  - packages/ops/src/deploy/index.ts
+  - packages/ops/src/config/target-resolver.ts
 ---
 
 # Static Site Deployment
 
 ## Problem
 
-Deploying static websites and single-page applications (SPAs) to various hosting platforms including traditional servers, CDNs, and cloud storage services while managing cache invalidation and SSL certificates.
+Publish a known static artifact without losing the previous release or confusing upload success with serving the new content.
 
 ## Solution
 
-Xec simplifies static site deployment by providing unified commands for building, optimizing, and deploying to multiple platforms with a single workflow.
+Build once, retain the output and release identity, then use the hosting provider’s deployment path. Xec orchestrates that path and checks its result. Cache invalidation and origin activation are separate operations.
 
 ## Quick Example
 
+This stages a prepared build at an immutable S3 prefix. It deliberately does not delete the current site or change its origin:
+
 ```typescript
-// deploy-static.ts
-import { $ } from '@xec-sh/core';
-
-// Build the site
-await $`npm run build`;
-
-// Deploy to S3
-await $`
-  aws s3 sync ./dist s3://my-website-bucket \
-    --delete \
-    --cache-control "public, max-age=31536000"
-`;
-
-// Invalidate CloudFront cache
-await $`
-  aws cloudfront create-invalidation \
-    --distribution-id ABCDEF123456 \
-    --paths "/*"
-`;
+const bucket = process.env.SITE_BUCKET;
+const commit = args[0];
+if (!bucket || !/^[a-z0-9][a-z0-9.-]+$/.test(bucket)) throw new Error('Select SITE_BUCKET');
+if (!commit || !/^[a-f0-9]{40}$/.test(commit)) throw new Error('Pass the prepared source commit');
+await $`npm run verify:site-artifact -- ${commit}`;
+const destination = `s3://${bucket}/releases/${commit}/`;
+await $`aws s3 cp dist/ ${destination} --recursive`;
+console.log(`Staged ${destination}; origin activation and acceptance are still required`);
 ```
+
+`verify:site-artifact` is the project’s check that `dist/` belongs to that commit. Configure AWS credentials outside the script.
 
 ## Complete Deployment Recipes
 
 ### Configuration
 
 ```yaml
-# .xec/config.yaml
-targets:
-  web-server:
-    type: ssh
-    host: web.example.com
-    user: deploy
-    key: ~/.ssh/deploy_key
-
+version: '1.0'
 tasks:
-  deploy-static:
-    description: Deploy static site
+  site:build:
+    command: npm run build
+  site:stage:
     params:
-      - name: target
+      - name: commit
         required: true
-        values: [nginx, s3, netlify, vercel, github-pages]
-      - name: env
-        default: production
-    steps:
-      - name: Build site
-        command: npm run build:${params.env}
-      - name: Deploy
-        command: xec run scripts/deploy-static.ts ${params.target}
+    command: xec run scripts/stage-site.ts ${params.commit}
+  site:deploy:
+    params:
+      - name: commit
+        required: true
+    command: xec run scripts/deploy-site.ts ${params.commit}
 ```
+
+Keep build and upload distinct so retries do not silently rebuild a different artifact.
 
 ### Multi-Platform Deployment Script
 
+Use one reviewed provider entry point rather than inventing a universal origin-switch implementation. These project scripts implement the specified host’s deployment and recovery contracts:
+
 ```typescript
-// scripts/deploy-static.ts
-import { $ } from '@xec-sh/core';
-import chalk from 'chalk';
-import { readFile } from 'fs/promises';
-import path from 'path';
-
-const platform = args[0] || 'nginx';
-const buildDir = './dist';
-
-console.log(chalk.blue(`🚀 Deploying static site to ${platform}...`));
-
-// Platform-specific deployment functions
-const deployers = {
-  nginx: deployToNginx,
-  s3: deployToS3,
-  netlify: deployToNetlify,
-  vercel: deployToVercel,
-  'github-pages': deployToGitHubPages
-};
-
-async function deployToNginx() {
-  console.log(chalk.gray('Deploying to Nginx server...'));
-  
-  const server = 'web-server';
-  const remotePath = '/var/www/html';
-  
-  // 1. Create backup of current site
-  await $.ssh(server)`
-    if [ -d ${remotePath} ]; then
-      tar -czf /tmp/site-backup-$(date +%Y%m%d-%H%M%S).tar.gz ${remotePath}
-    fi
-  `;
-  
-  // 2. Copy files to server
-  console.log(chalk.gray('Copying files...'));
-  await $`
-    rsync -avz --delete \
-      --exclude='.git' \
-      --exclude='node_modules' \
-      --exclude='.env*' \
-      ${buildDir}/ \
-      ${server}:${remotePath}/
-  `;
-  
-  // 3. Set proper permissions
-  await $.ssh(server)`
-    chown -R www-data:www-data ${remotePath} &&
-    find ${remotePath} -type d -exec chmod 755 {} \\; &&
-    find ${remotePath} -type f -exec chmod 644 {} \\;
-  `;
-  
-  // 4. Update Nginx configuration for SPA routing
-  await $.ssh(server)`
-    cat > /etc/nginx/sites-available/default << 'EOF'
-server {
-    listen 80;
-    listen [::]:80;
-    server_name example.com www.example.com;
-    root ${remotePath};
-    index index.html;
-    
-    # SPA routing
-    location / {
-        try_files \\$uri \\$uri/ /index.html;
-    }
-    
-    # Cache static assets
-    location ~* \\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-    
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    
-    # Gzip compression
-    gzip on;
-    gzip_types text/plain text/css text/javascript application/javascript application/json;
-}
-EOF
-  `;
-  
-  // 5. Test and reload Nginx
-  await $.ssh(server)`
-    nginx -t &&
-    systemctl reload nginx
-  `;
-  
-  console.log(chalk.green('✅ Deployed to Nginx successfully'));
-}
-
-async function deployToS3() {
-  console.log(chalk.gray('Deploying to AWS S3...'));
-  
-  const bucket = process.env.S3_BUCKET || 'my-website-bucket';
-  const distributionId = process.env.CF_DISTRIBUTION_ID;
-  
-  // 1. Build with production optimizations
-  await $`npm run build:production`;
-  
-  // 2. Sync to S3 with proper cache headers
-  console.log(chalk.gray('Syncing files to S3...'));
-  
-  // HTML files - no cache
-  await $`
-    aws s3 sync ${buildDir} s3://${bucket} \
-      --exclude="*" \
-      --include="*.html" \
-      --cache-control "no-cache, no-store, must-revalidate" \
-      --content-type "text/html; charset=utf-8" \
-      --delete
-  `;
-  
-  // CSS and JS files - long cache
-  await $`
-    aws s3 sync ${buildDir} s3://${bucket} \
-      --exclude="*.html" \
-      --include="*.css" --include="*.js" \
-      --cache-control "public, max-age=31536000, immutable" \
-      --delete
-  `;
-  
-  // Images and other assets
-  await $`
-    aws s3 sync ${buildDir} s3://${bucket} \
-      --exclude="*.html" --exclude="*.css" --exclude="*.js" \
-      --cache-control "public, max-age=86400" \
-      --delete
-  `;
-  
-  // 3. Set bucket policy for public access
-  await $`
-    aws s3api put-bucket-policy --bucket ${bucket} --policy '{
-      "Version": "2012-10-17",
-      "Statement": [{
-        "Sid": "PublicReadGetObject",
-        "Effect": "Allow",
-        "Principal": "*",
-        "Action": "s3:GetObject",
-        "Resource": "arn:aws:s3:::${bucket}/*"
-      }]
-    }'
-  `;
-  
-  // 4. Configure bucket for static website hosting
-  await $`
-    aws s3 website s3://${bucket} \
-      --index-document index.html \
-      --error-document error.html
-  `;
-  
-  // 5. Invalidate CloudFront cache if configured
-  if (distributionId) {
-    console.log(chalk.gray('Invalidating CloudFront cache...'));
-    await $`
-      aws cloudfront create-invalidation \
-        --distribution-id ${distributionId} \
-        --paths "/*"
-    `;
+// scripts/deploy-site.ts
+import { Deployer } from '@xec-sh/ops';
+const provider = process.env.SITE_PROVIDER;
+const commit = args[0];
+if (provider !== 's3' && provider !== 'nginx') throw new Error('Select s3 or nginx');
+if (!commit || !/^[a-f0-9]{40}$/.test(commit)) throw new Error('Pass a full commit');
+const result = await Deployer.create({
+  name: 'static-site', targets: [provider], strategy: 'all-at-once', timeout: 300_000,
+  hooks: {
+    beforeDeploy: async ctx => { await ctx.exec`npm run site:prepare -- ${ctx.target} ${ctx.version}`; },
+    deploy: async ctx => { await ctx.exec`npm run site:activate -- ${ctx.target} ${ctx.version}`; },
+    verify: async ctx => (await ctx.exec`npm run site:verify -- ${ctx.target} ${ctx.version}`).ok,
+    rollback: async ctx => { await ctx.exec`npm run site:restore-reviewed -- ${ctx.target}`; }
   }
-  
-  console.log(chalk.green(`✅ Deployed to S3 bucket: ${bucket}`));
-  console.log(chalk.gray(`   URL: http://${bucket}.s3-website.amazonaws.com`));
-}
-
-async function deployToNetlify() {
-  console.log(chalk.gray('Deploying to Netlify...'));
-  
-  // 1. Install Netlify CLI if needed
-  const netlifyCli = await $`which netlify`.nothrow();
-  if (!netlifyCli.ok) {
-    await $`npm install -g netlify-cli`;
-  }
-  
-  // 2. Build the site
-  await $`npm run build`;
-  
-  // 3. Create netlify.toml if it doesn't exist
-  const netlifyConfig = `
-[build]
-  publish = "dist"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "SAMEORIGIN"
-    X-Content-Type-Options = "nosniff"
-    X-XSS-Protection = "1; mode=block"
-
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/*.css"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-`;
-  
-  await $`echo ${netlifyConfig} > netlify.toml`;
-  
-  // 4. Deploy to Netlify
-  const deployResult = await $`
-    netlify deploy --prod --dir=${buildDir} --message="Deployment from Xec"
-  `.text();
-  
-  // Extract URL from output
-  const urlMatch = deployResult.match(/Website URL:\s+(.+)/);
-  if (urlMatch) {
-    console.log(chalk.green(`✅ Deployed to Netlify`));
-    console.log(chalk.gray(`   URL: ${urlMatch[1]}`));
-  }
-}
-
-async function deployToVercel() {
-  console.log(chalk.gray('Deploying to Vercel...'));
-  
-  // 1. Install Vercel CLI if needed
-  const vercelCli = await $`which vercel`.nothrow();
-  if (!vercelCli.ok) {
-    await $`npm install -g vercel`;
-  }
-  
-  // 2. Create vercel.json configuration
-  const vercelConfig = {
-    version: 2,
-    builds: [
-      {
-        src: "package.json",
-        use: "@vercel/static-build",
-        config: {
-          distDir: "dist"
-        }
-      }
-    ],
-    routes: [
-      {
-        src: "/[^.]+",
-        dest: "/",
-        status: 200
-      }
-    ],
-    headers: [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "X-Content-Type-Options",
-            value: "nosniff"
-          },
-          {
-            key: "X-Frame-Options",
-            value: "SAMEORIGIN"
-          },
-          {
-            key: "X-XSS-Protection",
-            value: "1; mode=block"
-          }
-        ]
-      },
-      {
-        source: "/(.*).js",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable"
-          }
-        ]
-      }
-    ]
-  };
-  
-  await $`echo '${JSON.stringify(vercelConfig, null, 2)}' > vercel.json`;
-  
-  // 3. Build the site
-  await $`npm run build`;
-  
-  // 4. Deploy to Vercel
-  await $`vercel --prod --yes`;
-  
-  console.log(chalk.green('✅ Deployed to Vercel'));
-}
-
-async function deployToGitHubPages() {
-  console.log(chalk.gray('Deploying to GitHub Pages...'));
-  
-  // 1. Install gh-pages if needed
-  const ghPages = await $`npm list gh-pages`.nothrow();
-  if (!ghPages.ok) {
-    await $`npm install --save-dev gh-pages`;
-  }
-  
-  // 2. Build the site
-  await $`npm run build`;
-  
-  // 3. Add CNAME file if custom domain
-  const customDomain = process.env.GH_PAGES_DOMAIN;
-  if (customDomain) {
-    await $`echo ${customDomain} > ${buildDir}/CNAME`;
-  }
-  
-  // 4. Deploy using gh-pages
-  await $`npx gh-pages -d ${buildDir} -m "Deploy from Xec [skip ci]"`;
-  
-  const repoUrl = await $`git config --get remote.origin.url`.text();
-  const repoName = repoUrl.match(/github\.com[:/](.+?)\.git/)?.[1];
-  
-  console.log(chalk.green('✅ Deployed to GitHub Pages'));
-  if (customDomain) {
-    console.log(chalk.gray(`   URL: https://${customDomain}`));
-  } else if (repoName) {
-    const [owner, repo] = repoName.split('/');
-    console.log(chalk.gray(`   URL: https://${owner}.github.io/${repo}`));
-  }
-}
-
-// Execute deployment
-const deployer = deployers[platform];
-if (!deployer) {
-  console.error(chalk.red(`Unknown platform: ${platform}`));
-  console.log('Available platforms:', Object.keys(deployers).join(', '));
-  process.exit(1);
-}
-
-try {
-  await deployer();
-  
-  // Run post-deployment tests
-  console.log(chalk.blue('🔍 Running post-deployment tests...'));
-  await $`npm run test:e2e`.nothrow();
-  
-} catch (error) {
-  console.error(chalk.red(`❌ Deployment failed: ${error.message}`));
-  process.exit(1);
-}
+}).deploy(commit);
+console.log(result);
+if (!result.success) throw new Error('Site activation or acceptance failed');
 ```
+
+For S3, the project controls the bucket prefix and CDN origin. For Nginx, it controls the immutable directory and serving selector. `site:verify` must fetch the public origin and compare the expected release marker. Retain the previous selector and artifact; code rollback does not roll back external data.
 
 ### CDN Deployment with Optimization
 
+After the origin has switched successfully, invalidate only the paths required by the chosen cache policy and wait for that invalidation:
+
 ```typescript
-// scripts/cdn-deploy.ts
-import { $ } from '@xec-sh/core';
-import { glob } from 'glob';
-import { readFile, writeFile } from 'fs/promises';
-import crypto from 'crypto';
-import path from 'path';
-
-// 1. Generate hashed filenames for cache busting
-const files = await glob('dist/**/*.{js,css}');
-const manifest = {};
-
-for (const file of files) {
-  const content = await readFile(file);
-  const hash = crypto.createHash('md5').update(content).digest('hex').slice(0, 8);
-  const ext = path.extname(file);
-  const base = path.basename(file, ext);
-  const dir = path.dirname(file);
-  const hashedName = `${base}.${hash}${ext}`;
-  const newPath = path.join(dir, hashedName);
-  
-  await $`mv ${file} ${newPath}`;
-  manifest[path.relative('dist', file)] = path.relative('dist', newPath);
-}
-
-// 2. Update HTML files with hashed filenames
-const htmlFiles = await glob('dist/**/*.html');
-for (const htmlFile of htmlFiles) {
-  let content = await readFile(htmlFile, 'utf-8');
-  
-  for (const [original, hashed] of Object.entries(manifest)) {
-    content = content.replace(
-      new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
-      hashed
-    );
-  }
-  
-  await writeFile(htmlFile, content);
-}
-
-// 3. Deploy to CDN
-await $`
-  aws s3 sync dist/ s3://cdn-bucket/ \
-    --cache-control "public, max-age=31536000" \
-    --metadata-directive REPLACE
-`;
-
-// 4. Invalidate CDN cache
-await $`
-  aws cloudfront create-invalidation \
-    --distribution-id ${process.env.CF_DISTRIBUTION_ID} \
-    --paths "/index.html" "/manifest.json"
-`;
+const distribution = process.env.CLOUDFRONT_DISTRIBUTION;
+if (!distribution) throw new Error('CLOUDFRONT_DISTRIBUTION is required');
+const id = (await $`aws cloudfront create-invalidation --distribution-id ${distribution} --paths ${'/*'} --query Invalidation.Id --output text`.text()).trim();
+if (!id || id === 'None') throw new Error('CloudFront did not return an invalidation ID');
+await $`aws cloudfront wait invalidation-completed --distribution-id ${distribution} --id ${id}`.timeout(660_000);
 ```
+
+The [AWS invalidation waiter](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/wait/invalidation-completed.html) confirms invalidation completion, not application correctness. Fetch and verify the public release afterward.
 
 ## SSL Certificate Management
 
-```typescript
-// scripts/ssl-setup.ts
-import { $ } from '@xec-sh/core';
-
-const domain = args[0];
-const email = args[1];
-
-// Install Certbot
-await $.ssh('web-server')`
-  apt-get update &&
-  apt-get install -y certbot python3-certbot-nginx
-`;
-
-// Obtain certificate
-await $.ssh('web-server')`
-  certbot --nginx \
-    --non-interactive \
-    --agree-tos \
-    --email ${email} \
-    --domains ${domain} \
-    --redirect
-`;
-
-// Setup auto-renewal
-await $.ssh('web-server')`
-  echo "0 0,12 * * * root python3 -c 'import random; import time; time.sleep(random.random() * 3600)' && certbot renew -q" \
-    > /etc/cron.d/certbot-renew
-`;
-```
+Use the hosting provider’s certificate lifecycle, or the [certificate renewal recipe](../maintenance/certificate-renewal.md) for an explicitly managed host. Do not generate an Nginx configuration that silently disables certificate validation or replaces another site’s listener.
 
 ## Performance Optimization
 
-```typescript
-// scripts/optimize-static.ts
-import { $ } from '@xec-sh/core';
-
-// 1. Minify HTML
-await $`html-minifier-terser dist/**/*.html \
-  --collapse-whitespace \
-  --remove-comments \
-  --minify-css \
-  --minify-js \
-  --output-dir dist-optimized`;
-
-// 2. Optimize images
-await $`imagemin dist/images/* \
-  --out-dir=dist-optimized/images \
-  --plugin=pngquant \
-  --plugin=mozjpeg \
-  --plugin=svgo`;
-
-// 3. Generate WebP versions
-await $`
-  for img in dist/images/*.{jpg,png}; do
-    cwebp -q 80 "$img" -o "dist-optimized/images/$(basename "$img" | sed 's/\.[^.]*$/.webp/')"
-  done
-`;
-
-// 4. Create brotli compressed versions
-await $`
-  find dist-optimized -type f \
-    \\( -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.svg" \\) \
-    -exec brotli --best {} \\;
-`;
-```
+Let the site’s bundler own compression, content hashes and source maps. Upload immutable assets with their reviewed cache policy and keep HTML/release metadata revalidatable. Do not rename or gzip files after generating references unless the build tool also updates those references.
 
 ## Usage Examples
 
 ```bash
-# Deploy to Nginx server
-xec deploy-static --target=nginx
-
-# Deploy to S3 with CloudFront
-xec deploy-static --target=s3
-
-# Deploy to multiple platforms
-xec run scripts/multi-deploy.ts
-
-# Setup SSL certificate
-xec run scripts/ssl-setup.ts example.com admin@example.com
-
-# Optimize and deploy
-xec run scripts/optimize-static.ts && xec deploy-static --target=cdn
+xec run scripts/stage-site.ts 0123456789abcdef0123456789abcdef01234567
+SITE_PROVIDER=s3 xec run scripts/deploy-site.ts 0123456789abcdef0123456789abcdef01234567
 ```
+
+Use an actual prepared commit and implement the named provider hooks before activation.
 
 ## Best Practices
 
-1. **Always optimize assets** before deployment
-2. **Use cache busting** for CSS and JavaScript files
-3. **Configure proper cache headers** for different file types
-4. **Implement SSL/TLS** for all production sites
-5. **Setup automatic deployments** via CI/CD
-6. **Monitor site performance** after deployment
-7. **Use CDN** for global distribution
+Check relative asset paths, redirects, fragment anchors and the production base URL. Retain a previously accepted artifact. Verify both HTML and representative assets through the real public origin, including cache headers.
 
 ## Troubleshooting
 
 ### Cache Issues
 
-```bash
-# Force cache invalidation
-aws cloudfront create-invalidation \
-  --distribution-id ABCDEF \
-  --paths "/*"
-
-# Clear browser cache
-# Add version query parameter
-echo "?v=$(date +%s)" >> index.html
+```typescript
+const origin = process.env.SITE_URL;
+if (!origin || new URL(origin).protocol !== 'https:') throw new Error('Select an HTTPS SITE_URL');
+const response = await fetch(origin, { signal: AbortSignal.timeout(5000) });
+console.log({ status: response.status, cacheControl: response.headers.get('cache-control'), age: response.headers.get('age') });
+if (!response.ok) throw new Error('Published site is not reachable');
 ```
+
+Inspect the origin selection before invalidating caches again.
 
 ### CORS Errors
 
-```typescript
-// Add CORS headers in Nginx
-await $.ssh('web-server')`
-  cat >> /etc/nginx/sites-available/default << 'EOF'
-    add_header Access-Control-Allow-Origin "*";
-    add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
-    add_header Access-Control-Allow-Headers "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type";
-EOF
-`;
-```
+Configure only the origins, methods and headers the application needs. CORS is a browser policy; it does not authenticate access to a private bucket or replace a file authorization check.
 
 ## Related Topics
 
-- [Node.js Deployment](node-app-deploy.md)
 - [Docker Deployment](docker-deploy.md)
-- [GitHub Actions Integration](../integration/github-actions.md)
-- [SSL Certificate Management](../maintenance/certificate-renewal.md)
+- [GitHub Actions](../integration/github-actions.md)
+- [Certificate Renewal](../maintenance/certificate-renewal.md)

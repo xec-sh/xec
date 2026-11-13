@@ -34,16 +34,20 @@ version: '1.0'
 targets:
   hosts:
     web-1:
+      type: ssh
       host: web-1.example.com
-      username: observer
+      user: observer
     web-2:
+      type: ssh
       host: web-2.example.com
-      username: observer
+      user: observer
   containers:
     app:
+      type: docker
       container: app-container
   pods:
     api:
+      type: kubernetes
       pod: api-server
       namespace: production
       context: production-cluster
@@ -64,7 +68,7 @@ For a bounded incident view, use a quoted target pattern:
 xec logs 'hosts.web-*' /var/log/app.log --tail 100 --aggregate --prefix
 ```
 
-Aggregation orders recognized timestamps; it does not invent clock synchronization. Lines without a recognized timestamp stay associated with their source. Multi-target inspection reports individual source failures, so review those diagnostics before claiming complete coverage.
+Aggregation orders recognized timestamps; it does not invent clock synchronization. Lines without a recognized timestamp stay associated with their source. Multi-target inspection preserves successful output and fails the command if any selected source fails. Review each source’s diagnostics before claiming complete coverage.
 
 For a strict script, await one command per declared source. A single-target failure rejects the command:
 
