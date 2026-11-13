@@ -179,7 +179,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
   }
 
   private getCurrentAdapter(): BaseAdapter | undefined {
-    const adapterType = this.currentConfig.adapter || 'local';
+    const adapterType = this.currentConfig.adapter || this._config.defaultAdapter || 'local';
     return this.adapters.get(adapterType);
   }
 
@@ -650,8 +650,13 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       }
     }
 
-    // Default to local
-    return this.adapters.get('local') || null;
+    const defaultAdapter = this._config.defaultAdapter ?? 'local';
+    if (defaultAdapter === 'auto') return this.adapters.get('local') ?? null;
+    const adapter = this.adapters.get(defaultAdapter);
+    if (!adapter) {
+      throw new AdapterError(defaultAdapter, 'select', new Error(`Adapter '${defaultAdapter}' not configured`));
+    }
+    return adapter;
   }
 
   // Enhanced retry method
@@ -916,16 +921,12 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       return this.with({
         adapter: 'docker',
         adapterOptions: {
+          ...ephemeralOptions,
           type: 'docker',
           container: containerName,
           runMode: 'run',
-          image: ephemeralOptions.image,
-          volumes: ephemeralOptions.volumes,
-          autoRemove: true, // Always true for ephemeral
-          workdir: ephemeralOptions.workdir,
-          user: ephemeralOptions.user,
-          env: ephemeralOptions.env,
-          // Additional options not in current DockerAdapterOptions but would be passed through
+          autoRemove: ephemeralOptions.autoRemove ?? true,
+          workdir: ephemeralOptions.workdir ?? ephemeralOptions.workingDir,
         } as DockerAdapterOptions
       });
     } else {
@@ -934,11 +935,11 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
       return this.with({
         adapter: 'docker',
         adapterOptions: {
+          ...options,
           type: 'docker',
           container: persistentOptions.container,
-          workdir: persistentOptions.workdir,
-          user: persistentOptions.user,
-          env: persistentOptions.env
+          runMode: 'exec',
+          workdir: persistentOptions.workdir ?? persistentOptions.workingDir,
         } as DockerAdapterOptions
       });
     }
@@ -969,7 +970,7 @@ export class ExecutionEngine extends EnhancedEventEmitter implements Disposable 
    * await $.k8s({ pod: 'api-pod', namespace: 'prod' })`./migrate.sh`;
    * ```
    */
-  k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext {
+  k8s(target?: string | Partial<Omit<KubernetesAdapterOptions, 'type'>>): K8sExecutionContext {
     if (typeof target === 'string') {
       return createK8sExecutionContext(this, parseK8sTarget(target));
     }

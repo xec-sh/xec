@@ -33,7 +33,7 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   docker(options: Omit<DockerAdapterOptions, 'type'>): CallableExecutionEngine;
   docker(): DockerFluentAPI;
   /** Target a pod by `[namespace/]pod[:container]` shorthand or full options. */
-  k8s(target?: string | Omit<KubernetesAdapterOptions, 'type'>): K8sExecutionContext;
+  k8s(target?: string | Partial<Omit<KubernetesAdapterOptions, 'type'>>): K8sExecutionContext;
   local(): CallableExecutionEngine;
   cd(dir: string): CallableExecutionEngine;
   env(env: Record<string, string>): CallableExecutionEngine;

@@ -105,3 +105,78 @@ describe('the docker arguments', () => {
     });
   });
 });
+
+
+describe('Docker target options through the public engine', () => {
+  class CaptureDocker extends DockerAdapter {
+    calls: string[][] = [];
+    protected override async executeDockerCommand(args: string[]) {
+      this.calls.push(args);
+      return { stdout: '', stderr: '', stdall: '', exitCode: 0, signal: null };
+    }
+  }
+
+  it('forwards creation options, target environment and workdir aliases', async () => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new CaptureDocker();
+    engine.registerAdapter('docker', adapter);
+    const target = engine.docker({
+      image: 'node:24-alpine',
+      autoRemove: false,
+      env: { TARGET: 'one=two', SHARED: 'target' },
+      workingDir: '/app',
+      ports: ['127.0.0.1:18080:8080'],
+      network: 'private',
+      platform: 'linux/arm64',
+      pull: true,
+      labels: { project: 'test' },
+      privileged: true,
+    });
+    await target.execute({ command: 'node', args: ['--version'], shell: false, env: { SHARED: 'command' } });
+    const argv = adapter.calls.at(-1)!;
+    expect(argv).toEqual(expect.arrayContaining([
+      '-w', '/app', '-p', '127.0.0.1:18080:8080', '--network', 'private',
+      '--platform', 'linux/arm64', '--pull', 'always', '--label', 'project=test',
+      '-e', 'TARGET=one=two', 'SHARED=command', '--privileged',
+    ]));
+    expect(argv).not.toContain('--rm');
+    expect(argv).not.toContain('SHARED=target');
+    expect(argv.slice(-3)).toEqual(['node:24-alpine', 'node', '--version']);
+  });
+
+  it('uses named containers in exec mode and retains target env and equals signs', async () => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new CaptureDocker({ defaultExecOptions: { Env: ['BASE=a=b'] } });
+    engine.registerAdapter('docker', adapter);
+    await engine.docker({ container: 'api', image: 'node:24', env: { TARGET: 'yes' }, workingDir: '/app' })
+      .execute({ command: 'node', args: ['--version'], shell: false });
+    const argv = adapter.calls.at(-1)!;
+    expect(argv[0]).toBe('exec');
+    expect(argv).toEqual(expect.arrayContaining(['TARGET=yes', 'BASE=a=b', '-w', '/app']));
+  });
+
+  it('preserves entrypoint executable and each argument separately', async () => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new CaptureDocker();
+    engine.registerAdapter('docker', adapter);
+    await engine.docker({ image: 'alpine', entrypoint: ['tini', '--'] })
+      .execute({ command: 'printf', args: ['literal space'], shell: false });
+    const argv = adapter.calls.at(-1)!;
+    expect(argv.slice(argv.indexOf('--entrypoint'))).toEqual([
+      '--entrypoint', 'tini', 'alpine', '--', 'printf', 'literal space',
+    ]);
+  });
+
+  it('rejects creation-only options for an existing container', async () => {
+    const { ExecutionEngine } = await import('../../../src/core/execution-engine.js');
+    const engine = new ExecutionEngine();
+    const adapter = new CaptureDocker();
+    engine.registerAdapter('docker', adapter);
+    await expect(engine.docker({ container: 'api', ports: ['80:80'] }).execute({ command: 'true' }))
+      .rejects.toThrow(/ports.*runMode/);
+    expect(adapter.calls.some(args => args[0] === 'exec')).toBe(false);
+  });
+});

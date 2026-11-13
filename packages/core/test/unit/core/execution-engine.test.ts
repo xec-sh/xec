@@ -906,3 +906,19 @@ describe('ExecutionEngine - Isolated Tests', () => {
     expect(result.stdout).toBe('custom_value\n');
   });
 });
+
+describe('configured default adapter selection', () => {
+  it('uses the configured adapter through ordinary command entry points', async () => {
+    const engine = new ExecutionEngine({ defaultAdapter: 'mock' });
+    const adapter = new MockAdapter();
+    adapter.mockSuccess(/default-probe/, 'selected');
+    engine.registerAdapter('mock', adapter);
+    expect((await engine.run`default-probe`).stdout).toBe('selected');
+    expect((await engine.with({ timeout: 1000 }).run`default-probe`).stdout).toBe('selected');
+  });
+
+  it('rejects an unavailable default before executing a local command', async () => {
+    const engine = new ExecutionEngine({ defaultAdapter: 'missing' });
+    await expect(engine.run`echo should-not-run`).rejects.toThrow(/missing.*not configured/);
+  });
+});

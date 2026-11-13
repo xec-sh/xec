@@ -209,7 +209,7 @@ export class DockerBuildFluentAPI implements FluentAPIBuilder<DockerBuildConfig>
   /**
    * Execute the build
    */
-  async execute(): Promise<string> {
+  async execute(env: Record<string, string> = {}): Promise<string> {
     const errors = this.validate();
     if (errors.length > 0) {
       throw new Error(`Invalid build configuration: ${errors.join(', ')}`);
@@ -304,7 +304,7 @@ export class DockerBuildFluentAPI implements FluentAPIBuilder<DockerBuildConfig>
     args.push(this.config.context!);
 
     // Execute build command
-    const result = await this.engine.run`docker ${args}`;
+    const result = await this.engine.run`docker ${args}`.env(env);
 
     if (!result.ok) {
       throw new Error(`Docker build failed: ${result.stderr}`);
@@ -369,15 +369,7 @@ export class DockerBuildFluentAPI implements FluentAPIBuilder<DockerBuildConfig>
    * Build with BuildKit
    */
   async buildWithBuildKit(): Promise<string> {
-    // Enable BuildKit
-    process.env['DOCKER_BUILDKIT'] = '1';
-
-    try {
-      return await this.execute();
-    } finally {
-      // Restore environment
-      delete process.env['DOCKER_BUILDKIT'];
-    }
+    return await this.execute({ DOCKER_BUILDKIT: '1' });
   }
 
   /**

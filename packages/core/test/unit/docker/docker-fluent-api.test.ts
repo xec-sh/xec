@@ -38,6 +38,7 @@ describe('Docker Fluent API', () => {
       // Return a ProcessPromise-like object
       const promise: any = Promise.resolve(mockResult);
       promise.nothrow = () => promise;
+      promise.env = () => promise;
       promise.pipe = () => promise;
       promise.then = (...args: any[]) => Promise.resolve(mockResult).then(...args);
       promise.catch = (...args: any[]) => Promise.resolve(mockResult).catch(...args);

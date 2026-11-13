@@ -504,8 +504,19 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
       const hc = this.config.healthcheck;
       // Each arg reaches docker as one token; wrapping in quotes here would
       // embed literal quote characters into the health command.
-      const healthCmd = typeof hc.test === 'string' ? hc.test : hc.test.join(' ');
-      args.push('--health-cmd', healthCmd);
+      if (Array.isArray(hc.test) && hc.test[0] === 'NONE') {
+        args.push('--no-healthcheck');
+      } else {
+        let healthCmd: string;
+        if (typeof hc.test === 'string') {
+          healthCmd = hc.test;
+        } else if (hc.test[0] === 'CMD-SHELL') {
+          healthCmd = hc.test.slice(1).join(' ');
+        } else {
+          healthCmd = escapeUnix(hc.test[0] === 'CMD' ? hc.test.slice(1) : hc.test);
+        }
+        args.push('--health-cmd', healthCmd);
+      }
       if (hc.interval) args.push('--health-interval', hc.interval);
       if (hc.timeout) args.push('--health-timeout', hc.timeout);
       if (hc.startPeriod) args.push('--health-start-period', hc.startPeriod);
@@ -513,17 +524,17 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
     }
 
     // Entrypoint
-    if (this.config.entrypoint) {
-      args.push('--entrypoint');
-      if (typeof this.config.entrypoint === 'string') {
-        args.push(this.config.entrypoint);
-      } else {
-        args.push(this.config.entrypoint.join(' '));
-      }
+    const entrypoint = this.config.entrypoint;
+    if (Array.isArray(entrypoint) && entrypoint.length === 0) {
+      throw new Error('entrypoint must contain an executable');
+    }
+    if (entrypoint !== undefined) {
+      args.push('--entrypoint', Array.isArray(entrypoint) ? entrypoint[0]! : entrypoint);
     }
 
-    // Image (must be specified)
+    // Entrypoint arguments follow the image and precede its command.
     args.push(this.config.image!);
+    if (Array.isArray(entrypoint)) args.push(...entrypoint.slice(1));
 
     // Command
     if (this.config.command) {
@@ -642,11 +653,11 @@ export class DockerEphemeralFluentAPI extends BaseDockerFluentAPI<DockerEphemera
    */
   async status(): Promise<ServiceStatus> {
     const info = await this.info();
-    const running = info !== null && info.status.includes('Up');
+    const running = info !== null && info.status === 'running';
 
     return {
       running,
-      healthy: await this.isHealthy(),
+      healthy: running && await this.isHealthy(),
       containers: info ? [info] : [],
       endpoints: this.getEndpoints()
     };

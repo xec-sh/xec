@@ -424,6 +424,14 @@ export class DockerAdapter extends BaseAdapter {
       );
     }
 
+    const creationOptions = ['ports', 'network', 'platform', 'pull', 'entrypoint', 'labels', 'autoRemove'] as const;
+    for (const key of creationOptions) {
+      const value = dockerOptions[key];
+      if (value === undefined || (Array.isArray(value) && value.length === 0)) continue;
+      if (key === 'labels' && Object.keys(value as Record<string, string>).length === 0) continue;
+      throw new DockerError(container, 'exec', new Error(`${key} requires runMode: "run" and an image`));
+    }
+
     // Get optimal TTY settings
     const ttySettings = this.getTTYSettings(dockerOptions, command);
 
@@ -457,20 +465,22 @@ export class DockerAdapter extends BaseAdapter {
     const defaultEnv = this.dockerConfig.defaultExecOptions?.Env || [];
     const envFromDefaults: Record<string, string> = {};
     for (const envVar of defaultEnv) {
-      const [key, value] = envVar.split('=', 2);
+      const separator = envVar.indexOf('=');
+      const key = envVar.slice(0, separator);
+      const value = separator < 0 ? undefined : envVar.slice(separator + 1);
       if (key && value !== undefined) {
         envFromDefaults[key] = value;
       }
     }
 
     // Merge with command env, prioritizing command env
-    const envToSet = { ...this.config.defaultEnv, ...envFromDefaults, ...command.env };
+    const envToSet = { ...this.config.defaultEnv, ...envFromDefaults, ...dockerOptions.env, ...command.env };
     for (const [key, value] of Object.entries(envToSet)) {
       args.push('-e', `${key}=${value}`);
     }
 
     // Add privileged flag
-    if (this.dockerConfig.defaultExecOptions?.Privileged) {
+    if (dockerOptions.privileged ?? this.dockerConfig.defaultExecOptions?.Privileged) {
       args.push('--privileged');
     }
 
@@ -538,7 +548,7 @@ export class DockerAdapter extends BaseAdapter {
     // set once on the engine and relied on everywhere — silently vanished
     // for any target that happened to run in `run` mode rather than
     // `exec`, which is a difference the caller never asked about.
-    const envToSet = { ...this.config.defaultEnv, ...command.env };
+    const envToSet = { ...this.config.defaultEnv, ...dockerOptions.env, ...command.env };
     for (const [key, value] of Object.entries(envToSet)) {
       if (key && value !== undefined) {
         args.push('-e', `${key}=${value}`);
@@ -547,7 +557,7 @@ export class DockerAdapter extends BaseAdapter {
 
     // Privileged, for the same reason: it was honoured in `exec` and
     // dropped here, so one target configuration meant two things.
-    if (this.dockerConfig.defaultExecOptions?.Privileged) {
+    if (dockerOptions.privileged ?? this.dockerConfig.defaultExecOptions?.Privileged) {
       args.push('--privileged');
     }
 
@@ -556,20 +566,30 @@ export class DockerAdapter extends BaseAdapter {
       args.push('--name', dockerOptions.container);
     }
 
-    // Add command
-    if (command.shell) {
-      const cmdString = this.buildCommandString(command);
-      // Override entrypoint to use shell when shell mode is requested
+    for (const port of dockerOptions.ports ?? []) args.push('-p', port);
+    for (const [key, value] of Object.entries(dockerOptions.labels ?? {})) {
+      args.push('--label', `${key}=${value}`);
+    }
+    if (dockerOptions.network) args.push('--network', dockerOptions.network);
+    if (dockerOptions.platform) args.push('--platform', dockerOptions.platform);
+    if (dockerOptions.pull !== undefined) args.push('--pull', dockerOptions.pull ? 'always' : 'missing');
+
+    const entrypoint = dockerOptions.entrypoint;
+    const entrypointArgs = Array.isArray(entrypoint) ? entrypoint.slice(1) : [];
+    if (Array.isArray(entrypoint) && entrypoint.length === 0) {
+      throw new DockerError(dockerOptions.container, 'run', new Error('entrypoint must contain an executable'));
+    }
+    if (entrypoint !== undefined) {
+      args.push('--entrypoint', Array.isArray(entrypoint) ? entrypoint[0]! : entrypoint);
+    } else if (command.shell) {
       args.push('--entrypoint', 'sh');
-      args.push(dockerOptions.image!);
-      args.push('-c', cmdString);
+    }
+    args.push(dockerOptions.image!, ...entrypointArgs);
+    if (command.shell) {
+      if (entrypoint !== undefined) args.push('sh');
+      args.push('-c', this.buildCommandString(command));
     } else {
-      // Add image
-      args.push(dockerOptions.image!);
-      args.push(command.command);
-      if (command.args) {
-        args.push(...command.args);
-      }
+      args.push(command.command, ...command.args ?? []);
     }
 
     return args;

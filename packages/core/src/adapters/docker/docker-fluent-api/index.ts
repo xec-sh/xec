@@ -222,25 +222,7 @@ export class DockerComposeFluentAPI {
   private async runCompose(command: string[]): Promise<ExecutionResult> {
     const args = [...this.buildArgs(), ...command];
 
-    // Set environment variables
-    const originalEnv: Record<string, string | undefined> = {};
-    for (const [key, value] of Object.entries(this.envVars)) {
-      originalEnv[key] = process.env[key];
-      process.env[key] = value;
-    }
-
-    try {
-      return await this.engine.run`docker compose ${args}`;
-    } finally {
-      // Restore environment
-      for (const [key, value] of Object.entries(originalEnv)) {
-        if (value === undefined) {
-          delete process.env[key];
-        } else {
-          process.env[key] = value;
-        }
-      }
-    }
+    return await this.engine.run`docker compose ${args}`.env(this.envVars);
   }
 
   /**
@@ -297,7 +279,7 @@ export class DockerComposeFluentAPI {
   async logs(service?: string, follow = false, tail?: number): Promise<string> {
     const args = ['logs'];
     if (follow) args.push('-f');
-    if (tail) args.push('--tail', String(tail));
+    if (tail !== undefined) args.push('--tail', String(tail));
     if (service) args.push(service);
     const result = await this.runCompose(args);
     return result.stdout;

@@ -1,5 +1,5 @@
-import type { Command } from './command.js';
 import type { Duration } from '../utils/helpers.js';
+import type { Command, DockerRunOptions } from './command.js';
 
 /**
  * Configuration for execution with partial command defaults
@@ -32,21 +32,8 @@ export interface EventConfig {
 /**
  * Docker options for ephemeral container execution
  */
-export interface DockerEphemeralOptions {
+export interface DockerEphemeralOptions extends DockerRunOptions {
   image: string;
-  autoRemove?: boolean;
-  volumes?: string[];
-  env?: Record<string, string>;
-  network?: string;
-  platform?: string;
-  pull?: boolean;
-  entrypoint?: string | string[];
-  workingDir?: string;
-  workdir?: string; // Alias for workingDir
-  user?: string;
-  ports?: string[];
-  labels?: Record<string, string>;
-  privileged?: boolean;
 }
 
 /**

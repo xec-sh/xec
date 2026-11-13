@@ -33,16 +33,28 @@ export interface SSHAdapterOptions extends SSHConnectionConfig {
 /**
  * Docker adapter configuration options
  */
-export interface DockerAdapterOptions {
+export interface DockerRunOptions {
+  image?: string;
+  autoRemove?: boolean;
+  volumes?: string[];
+  env?: Record<string, string>;
+  network?: string;
+  platform?: string;
+  pull?: boolean;
+  entrypoint?: string | string[];
+  workingDir?: string;
+  workdir?: string;
+  user?: string;
+  ports?: string[];
+  labels?: Record<string, string>;
+  privileged?: boolean;
+}
+
+export interface DockerAdapterOptions extends DockerRunOptions {
   type: 'docker';
   container: string;
-  user?: string;
-  workdir?: string;
   tty?: boolean;
   runMode?: 'exec' | 'run';
-  image?: string;
-  volumes?: string[];
-  autoRemove?: boolean;
 }
 
 /**
