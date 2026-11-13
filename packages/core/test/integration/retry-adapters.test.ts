@@ -1,7 +1,7 @@
 
-import { $, ExecutionEngine } from '../../src/index';
-import { ExecutionResultImpl } from '../../src/core/result';
-import { MockAdapter } from '../../src/adapters/mock/index';
+import { $, ExecutionEngine } from '../../src/index.js';
+import { ExecutionResultImpl } from '../../src/core/result.js';
+import { MockAdapter } from '../../src/adapters/mock/index.js';
 
 // Helper function to create ExecutionResult
 function createResult(options: {

@@ -362,7 +362,7 @@ describe('SSHAdapter - Mocked Integration Tests', () => {
             password: 'test'
           }
         });
-        fail('Should have thrown an error');
+        expect.fail('Should have thrown an error');
       } catch (error) {
         expect(error).toBeInstanceOf(ConnectionError);
       }

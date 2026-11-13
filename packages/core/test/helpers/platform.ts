@@ -231,8 +231,8 @@ export const posixShellIsDefault = !isWindows;
  * cmd.exe does not have and no amount of escaping can give it. Marking
  * them is honest; asserting them everywhere is not.
  */
-export const describePosixShell: typeof describe =
+export const describePosixShell =
   posixShellIsDefault ? describe : describe.skip;
 
 /** The same, for one test rather than a suite. */
-export const itPosixShell: typeof it = posixShellIsDefault ? it : it.skip;
+export const itPosixShell = posixShellIsDefault ? it : it.skip;

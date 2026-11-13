@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
+import { $ } from '../../src/index.js';
 import { TimeoutError } from '../../src/core/error.js';
 
 describeSSH('SSH Docker Integration Tests', () => {

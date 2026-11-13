@@ -59,7 +59,7 @@ describe('KubernetesAdapter Simple Unit Tests', () => {
             type: 'kubernetes'
           } as any
         });
-        fail('Should have thrown error');
+        expect.fail('Should have thrown error');
       } catch (error) {
         expect(error).toBeInstanceOf(ExecutionError);
         expect((error as ExecutionError).message).toContain('Pod name or selector is required');

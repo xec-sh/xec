@@ -181,7 +181,7 @@ describe('ExecutionResult', () => {
 
       try {
         result.throwIfFailed();
-        fail('Should have thrown');
+        expect.fail('Should have thrown');
       } catch (error: any) {
         expect(error).toBeInstanceOf(CommandError);
         expect(error.command).toBe('complex-command --with-args');
@@ -463,7 +463,7 @@ describe('ExecutionResult', () => {
 
       try {
         result.json();
-        fail('Should have thrown');
+        expect.fail('Should have thrown');
       } catch (error: any) {
         expect(error.message).toContain('Failed to parse JSON');
         expect(error.message).toContain('Output: not json at all');

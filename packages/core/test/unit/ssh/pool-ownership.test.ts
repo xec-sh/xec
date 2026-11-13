@@ -13,11 +13,11 @@ const result = { code: 0, signal: null, stdout: 'completed', stderr: '' };
 function fixture(limit = 2, enabled = true) {
   const clients: Client[] = [];
   const wire: unknown[] = [];
-  vi.spyOn(Client.prototype, 'connect').mockImplementation(function (options) {
+  vi.spyOn(Client.prototype, 'connect').mockImplementation(function (this: Client, options) {
     clients.push(this); wire.push(options); this.emit('ready'); return this;
   });
   const destroyed = new Set<Client>();
-  vi.spyOn(Client.prototype, 'destroy').mockImplementation(function () { destroyed.add(this); this.emit('close'); return this; });
+  vi.spyOn(Client.prototype, 'destroy').mockImplementation(function (this: Client) { destroyed.add(this); this.emit('close'); return this; });
   vi.spyOn(NodeSSH.prototype, 'execCommand').mockResolvedValue(result);
   const adapter = new SSHAdapter({ hostKeyChecking: 'strict', knownHostsPath: '/trusted/hosts', defaultConnectOptions: { readyTimeout: 1234 },
     connectionPool: { enabled, maxConnections: limit, idleTimeout: 60000, keepAlive: true, keepAliveInterval: 15000 } });
@@ -34,7 +34,7 @@ describe('SSH connection ownership and admission', () => {
   it('keeps a running command alive when an independent reverse allocation times out', async () => {
     const { adapter, clients, destroyed } = fixture();
     const finish = pausedCommand();
-    vi.spyOn(Client.prototype, 'forwardIn').mockImplementation(function () { return this; });
+    vi.spyOn(Client.prototype, 'forwardIn').mockImplementation(function (this: Client) { return this; });
     const running = adapter.execute(command);
     await vi.waitFor(() => expect(NodeSSH.prototype.execCommand).toHaveBeenCalledOnce());
     await expect(adapter.reverseTunnel({ remotePort: 0, localPort: 3000, timeoutMs: 10 }, target)).rejects.toMatchObject({ kind: 'outcome-unknown' });
@@ -56,7 +56,7 @@ describe('SSH connection ownership and admission', () => {
   });
   it('counts pending handshakes in the same capacity limit', async () => {
     const { adapter, clients } = fixture(1);
-    vi.mocked(Client.prototype.connect).mockImplementationOnce(function () { clients.push(this); return this; });
+    vi.mocked(Client.prototype.connect).mockImplementationOnce(function (this: Client) { clients.push(this); return this; });
     const opening = adapter.execute(command);
     await vi.waitFor(() => expect(clients).toHaveLength(1));
     await expect(adapter.execute({ ...command, adapterOptions: { ...target, host: 'two.invalid' } })).rejects.toThrow('capacity is busy');
@@ -84,8 +84,8 @@ describe('SSH connection ownership and admission', () => {
   });
   it('keeps unpooled reverse listeners registered for adapter disposal', async () => {
     const { adapter, destroyed } = fixture(1, false);
-    vi.spyOn(Client.prototype, 'forwardIn').mockImplementation(function (_host, _port, done) { done!(undefined, 4040); return this; });
-    vi.spyOn(Client.prototype, 'unforwardIn').mockImplementation(function (_host, _port, done) { done!(); return this; });
+    vi.spyOn(Client.prototype, 'forwardIn').mockImplementation(function (this: Client, _host, _port, done) { done!(undefined, 4040); return this; });
+    vi.spyOn(Client.prototype, 'unforwardIn').mockImplementation(function (this: Client, _host, _port, done) { done!(); return this; });
     const tunnel = await adapter.reverseTunnel({ remotePort: 0, localPort: 3000 }, target);
     expect(adapter.getConnectionPoolMetrics()).toMatchObject({ totalConnections: 1, activeConnections: 1 });
     await adapter.dispose(); await tunnel.closed;
@@ -94,7 +94,7 @@ describe('SSH connection ownership and admission', () => {
   });
   it('prevents a pending connection from resurrecting a disposed adapter', async () => {
     const { adapter, clients, destroyed } = fixture(1);
-    vi.mocked(Client.prototype.connect).mockImplementationOnce(function () { clients.push(this); return this; });
+    vi.mocked(Client.prototype.connect).mockImplementationOnce(function (this: Client) { clients.push(this); return this; });
     const rejected = expect(adapter.execute(command)).rejects.toThrow('cancelled');
     await vi.waitFor(() => expect(clients).toHaveLength(1));
     await adapter.dispose(); await rejected;
@@ -105,7 +105,7 @@ describe('SSH connection ownership and admission', () => {
   });
   it('does not hand out a connection that closes immediately after authentication', async () => {
     const { adapter } = fixture(1);
-    vi.mocked(Client.prototype.connect).mockImplementationOnce(function () { this.emit('ready'); this.emit('close'); return this; });
+    vi.mocked(Client.prototype.connect).mockImplementationOnce(function (this: Client) { this.emit('ready'); this.emit('close'); return this; });
     await expect(adapter.execute(command)).rejects.toThrow('closed before acquisition');
     expect(NodeSSH.prototype.execCommand).not.toHaveBeenCalled();
     expect(adapter.getConnectionPoolMetrics().totalConnections).toBe(0);

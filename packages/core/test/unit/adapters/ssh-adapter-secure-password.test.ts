@@ -1,3 +1,4 @@
+import type { Mocked } from 'vitest';
 
 import { AdapterError } from '../../../src/core/error.js';
 import { SSHAdapter } from '../../../src/adapters/ssh/index.js';
@@ -5,7 +6,7 @@ import { SecurePasswordHandler } from '../../../src/adapters/ssh/secure-password
 
 describe('SSHAdapter - Secure Password Integration', () => {
   let adapter: SSHAdapter;
-  let mockSecureHandler: vi.Mocked<SecurePasswordHandler>;
+  let mockSecureHandler: Mocked<SecurePasswordHandler>;
 
   beforeEach(() => {
     vi.clearAllMocks();

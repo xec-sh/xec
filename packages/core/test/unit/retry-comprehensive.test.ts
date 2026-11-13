@@ -1,7 +1,7 @@
 
-import { $, ExecutionEngine } from '../../src/index';
-import { RetryError } from '../../src/utils/retry-adapter';
-import { ExecutionResultImpl } from '../../src/core/result';
+import { $, ExecutionEngine } from '../../src/index.js';
+import { RetryError } from '../../src/utils/retry-adapter.js';
+import { ExecutionResultImpl } from '../../src/core/result.js';
 
 // Helper function to create ExecutionResult
 function createResult(options: {
@@ -433,7 +433,7 @@ describe('Comprehensive Retry Functionality Tests', () => {
             initialDelay: 10
           }
         });
-        fail('Should have thrown RetryError');
+        expect.fail('Should have thrown RetryError');
       } catch (error) {
         expect(error).toBeInstanceOf(RetryError);
         const retryError = error as RetryError;

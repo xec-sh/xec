@@ -1,8 +1,8 @@
 import { performance } from 'perf_hooks';
 import { describeSSH, getSSHConfig, testEachPackageManager, getAvailableContainers } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
-import { SSHAdapter } from '../../src/adapters/ssh/index';
+import { $ } from '../../src/index.js';
+import { SSHAdapter } from '../../src/adapters/ssh/index.js';
 
 // Performance tests may take longer
 const LONG_TIMEOUT = 120000; // 2 minutes
@@ -201,7 +201,7 @@ describeSSH('SSH Performance and Stress Tests', () => {
 
         // Execute commands on all connections with error handling
         const promises = connections.map(($ssh, i) =>
-          $ssh`echo "Connection ${i} - $(hostname)"`.catch(err => ({
+          $ssh`echo "Connection ${i} - $(hostname)"`.catch((err: Error) => ({
             exitCode: 1,
             stdout: '',
             stderr: err.message,

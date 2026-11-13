@@ -96,7 +96,7 @@ describe('parallel admission and completion', () => {
     const command = engine.execute;
     const handles: number[] = [];
     vi.spyOn(engine, 'execute').mockImplementation(input => command.call(engine, {
-      ...input, onSpawn: handle => { if (handle.pid) handles.push(handle.pid); },
+      ...input, onSpawn: (handle: { pid?: number }) => { if (handle.pid) handles.push(handle.pid); },
     }));
     try {
       const pending = engine.run`${process.execPath} -e ${'setInterval(()=>{},1000)'}`.nothrow();

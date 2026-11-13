@@ -31,7 +31,7 @@ describe('progress diagnostics', () => {
     });
     expect(result.stdout).toBe(output);
     expect(JSON.parse(result.stdout)).toEqual({ token: secret });
-    expect(events[0].message).toContain('[REDACTED]');
+    expect(events[0]?.message).toContain('[REDACTED]');
     expect(diagnostics(events)).not.toContain(secret);
     expect(events.at(-1)).toMatchObject({ type: 'complete', data: { linesProcessed: 1, bytesProcessed: output.length } });
   });
@@ -78,7 +78,7 @@ describe('progress diagnostics', () => {
     Object.defineProperty(failure, 'name', { value: 'FixtureError', writable: false });
     Object.freeze(failure);
     new ProgressReporter({ onProgress: event => events.push(event) }).error(failure);
-    const diagnostic = events[0].data.error;
+    const diagnostic = events[0]?.data.error;
     expect(diagnostic).toBeInstanceOf(Error);
     expect(diagnostic).toMatchObject({ name: 'FixtureError', code: 'SYNTHETIC_FAILURE', errno: 12, details: { count: 42 } });
     expect(diagnostics(events)).not.toContain(secret);

@@ -7,7 +7,7 @@ import { LocalAdapter } from '../../src/adapters/local/index.js';
 import { ExecutionEngine } from '../../src/core/execution-engine.js';
 import { TimeoutError, MaxBufferExceededError } from '../../src/core/error.js';
 
-const probe = 'process.stdout.write(JSON.stringify({cwd:process.cwd(),value:process.env.XEC_CONFIG_NATIVE??null,extra:process.env.XEC_CONFIG_EXTRA??null}))';
+const probe = 'process.stdout.write(JSON.stringify({cwd:process.cwd(),value:process.env["XEC_CONFIG_NATIVE"]??null,extra:process.env.XEC_CONFIG_EXTRA??null}))';
 const command = { command: process.execPath, args: ['-e', probe], shell: false };
 
 describe('engine configuration through native execution', () => {
@@ -49,7 +49,7 @@ describe('engine configuration through native execution', () => {
     expect(engine.config.get()).toEqual(before);
     expect(() => engine.config.set({ maxBuffer: NaN })).toThrow(/buffer/i);
     const exposed = engine.config.get();
-    exposed.defaultEnv!.XEC_CONFIG_NATIVE = 'tampered';
+    exposed.defaultEnv!['XEC_CONFIG_NATIVE'] = 'tampered';
     expect(JSON.parse((await engine.execute(command)).stdout).value).toBe('original');
   });
 

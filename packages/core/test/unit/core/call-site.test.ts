@@ -1,3 +1,5 @@
+import assert from 'node:assert/strict';
+
 import { $, ExecutionEngine, createCallableEngine } from '../../../src/index.js';
 import { resolveCallSite, captureCallSite } from '../../../src/utils/call-site.js';
 
@@ -14,6 +16,7 @@ describe('a failure names the line that wrote the command', () => {
   it('points at the caller, not at library internals', async () => {
     const error = await $`sh -c 'exit 3'`.catch((e: Error) => e);
 
+    assert(error instanceof Error);
     expect(error.message).toContain('at ');
     // The frame must be this test file — a frame inside the engine would be
     // technically true and completely useless.
@@ -28,6 +31,7 @@ describe('a failure names the line that wrote the command', () => {
       .timeout('10s')
       .catch((e: Error) => e);
 
+    assert(error instanceof Error);
     expect(error.message).toContain('call-site.test.ts');
   }, 15_000);
 
@@ -36,6 +40,7 @@ describe('a failure names the line that wrote the command', () => {
 
     const error = await engine.exec('sh -c "exit 3"').catch((e: Error) => e);
 
+    assert(error instanceof Error);
     expect(error.message).toContain('exit code 3');
     expect(error.message).not.toContain('call-site.test.ts');
   }, 15_000);

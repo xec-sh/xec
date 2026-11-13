@@ -5,11 +5,11 @@ import {
   testEachPackageManager
 } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
+import { $ } from '../../src/index.js';
 
 // Use custom describe that handles Docker containers automatically
 describeSSH('Package Manager Integration Tests', () => {
-  vi.setTimeout(120000); // 2 minutes for package operations
+  vi.setConfig({ testTimeout: 120000 }); // 2 minutes for package operations
 
   describe('Package Manager Commands', () => {
     testEachPackageManager('should execute package manager info command', async (container) => {

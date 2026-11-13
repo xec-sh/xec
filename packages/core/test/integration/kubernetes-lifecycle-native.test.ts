@@ -212,7 +212,9 @@ if (command === 'raw-json' || command === 'failed-json') {
   it('stops a followed stream only after its native process exits', async () => {
     const stream = await createK8sExecutionContext(engine, {}).pod('pending').follow(() => {});
     await waitForCalls();
-    const [{ pid }] = await records();
+    const first = (await records())[0];
+    if (!first) throw new Error('Expected the owned helper process to be recorded');
+    const { pid } = first;
     expect(isAlive(pid)).toBe(true);
     await stream.stop();
     expect(isAlive(pid)).toBe(false);
@@ -234,8 +236,10 @@ if (command === 'raw-json' || command === 'failed-json') {
     await forward.open();
     expect(forward.isOpen).toBe(true);
     expect(forward.localPort).toBeGreaterThan(0);
-    expect((await records())[0].args.at(-1)).toBe(':80');
-    const [{ pid }] = await records();
+    expect((await records())[0]?.args.at(-1)).toBe(':80');
+    const first = (await records())[0];
+    if (!first) throw new Error('Expected the owned helper process to be recorded');
+    const { pid } = first;
     await forward.close();
     expect(forward.isOpen).toBe(false);
     expect(isAlive(pid)).toBe(false);

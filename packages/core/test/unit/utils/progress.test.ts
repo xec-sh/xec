@@ -1,9 +1,10 @@
+import type { MockInstance } from 'vitest';
 
 import { ProgressReporter, createProgressReporter } from '../../../src/utils/progress.js';
 
 describe('ProgressReporter', () => {
-  let consoleLogSpy: vi.SpiedFunction<typeof console.log>;
-  let consoleErrorSpy: vi.SpiedFunction<typeof console.error>;
+  let consoleLogSpy: MockInstance<typeof console.log>;
+  let consoleErrorSpy: MockInstance<typeof console.error>;
 
   beforeEach(() => {
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => { });

@@ -1,6 +1,6 @@
 
-import { $ } from '../../src/index';
-import { ExecutionEngine } from '../../src/core/execution-engine';
+import { $ } from '../../src/index.js';
+import { ExecutionEngine } from '../../src/core/execution-engine.js';
 
 describe('Retry Mechanism with Exit Codes', () => {
   let engine: ExecutionEngine;
@@ -48,7 +48,7 @@ describe('Retry Mechanism with Exit Codes', () => {
           command: 'curl https://non-existent-domain.com',
           adapter: 'local'
         });
-        fail('Should have thrown RetryError');
+        expect.fail('Should have thrown RetryError');
       } catch (error: any) {
         expect(error.name).toBe('RetryError');
         expect(error.attempts).toBe(3); // 1 initial + 2 retries
@@ -90,7 +90,7 @@ describe('Retry Mechanism with Exit Codes', () => {
           command: 'curl https://unreachable-host.com',
           adapter: 'local'
         });
-        fail('Should have thrown RetryError');
+        expect.fail('Should have thrown RetryError');
       } catch (error: any) {
         expect(error.name).toBe('RetryError');
         expect(error.attempts).toBe(2); // 1 initial + 1 retry
@@ -229,7 +229,7 @@ describe('Retry Mechanism with Exit Codes', () => {
             jitter: false
           }
         });
-        fail('Should have thrown RetryError');
+        expect.fail('Should have thrown RetryError');
       } catch (error: any) {
         expect(error.name).toBe('RetryError');
         expect(error.attempts).toBe(2);
@@ -274,7 +274,7 @@ describe('Retry Mechanism with Exit Codes', () => {
             onRetry: onRetryCallback
           }
         });
-        fail('Should have thrown RetryError');
+        expect.fail('Should have thrown RetryError');
       } catch (error: any) {
         expect(error.attempts).toBe(3); // 1 initial + 2 retries
         expect(onRetryCallback).toHaveBeenCalledTimes(2);

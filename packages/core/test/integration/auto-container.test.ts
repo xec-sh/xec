@@ -1,6 +1,6 @@
 import { describeSSH, getSSHConfig } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
+import { $ } from '../../src/index.js';
 
 // This test demonstrates automatic container management
 describeSSH('Automatic Container Management Test', () => {

@@ -1,3 +1,4 @@
+import type { Mock } from 'vitest';
 
 import { ExecutionEngine } from '../../../src/core/execution-engine.js';
 import {
@@ -9,7 +10,7 @@ import {
 
 describe('Docker Fluent API', () => {
   let engine: ExecutionEngine;
-  let mockRun: vi.Mock;
+  let mockRun: Mock;
 
   beforeEach(() => {
     engine = new ExecutionEngine();

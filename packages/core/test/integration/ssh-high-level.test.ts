@@ -1,7 +1,7 @@
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
-import { SSHAdapter } from '../../src/adapters/ssh/index';
+import { $ } from '../../src/index.js';
+import { SSHAdapter } from '../../src/adapters/ssh/index.js';
 
 // Helper to get configured SSH instance
 function getConfiguredSSH(sshConfig: any) {

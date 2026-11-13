@@ -35,7 +35,7 @@ describe.skipIf(process.platform === 'win32')('Docker native lifecycle', () => {
 const fs = require('node:fs');
 const path = require('node:path');
 const args = process.argv.slice(2);
-fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify({pid:process.pid,args,localEnv:process.env.REMOTE_ONLY??null})+'\\n');
+fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify({pid:process.pid,args,localEnv:process.env['REMOTE_ONLY']??null})+'\\n');
 const hang = () => { process.on('SIGTERM',()=>{}); setInterval(()=>{},1000); };
 const kind = args.at(-1);
 if (args[0] === 'ps') {
@@ -64,7 +64,7 @@ if (args[0] === 'ps') {
   else if (kind === 'failed') { process.stderr.write('command failed');process.exitCode=7; }
   else if (kind === 'stdin') { let data='';process.stdin.on('data',c=>data+=c);process.stdin.on('end',()=>process.stdout.write(data||'EOF')); }
   else if (kind === 'masked') process.stdout.write('password=synthetic-fixture-value');
-  else process.stdout.write(JSON.stringify({args,cwd:process.cwd(),localEnv:process.env.REMOTE_ONLY??null}));
+  else process.stdout.write(JSON.stringify({args,cwd:process.cwd(),localEnv:process.env['REMOTE_ONLY']??null}));
 } else if (args[0] === 'stop') hang();
 else if (args[0] === 'compose') process.stdout.write('done');
 else if (args[0] === 'rm') { process.stderr.write('cleanup refused'); process.exitCode=7; }
@@ -143,7 +143,7 @@ else if (args[0] === 'rm') { process.stderr.write('cleanup refused'); process.ex
     expect(lines.filter(line => !line.startsWith('stderr'))).toEqual(expect.arrayContaining(['Ж🙂\n', '\n', '  \r\n', 'unterminated']));
     expect(lines.filter(line => line === '\n')).toHaveLength(2);
     expect(lines).toContain('stderr\n');
-    expect((await records())[0].args).toEqual(['logs', '--tail', '4', '--since', '2026-01-01', '--until', '2026-01-02', '-t', 'lines']);
+    expect((await records())[0]?.args).toEqual(['logs', '--tail', '4', '--since', '2026-01-01', '--until', '2026-01-02', '-t', 'lines']);
   });
 
   it('fails on log callback errors and bounded output without losing the cleanup result', async () => {
@@ -181,8 +181,8 @@ else if (args[0] === 'rm') { process.stderr.write('cleanup refused'); process.ex
 
   it('passes compose env only to its local helper and masks error diagnostics', async () => {
     await adapter.composeDown({ env: { REMOTE_ONLY: 'compose-only' } });
-    expect((await records())[0].localEnv).toBe('compose-only');
-    expect(process.env.REMOTE_ONLY).toBeUndefined();
+    expect((await records())[0]?.localEnv).toBe('compose-only');
+    expect(process.env['REMOTE_ONLY']).toBeUndefined();
     const error = await adapter.getLogs('failed').catch(error => error);
     expect(error.message).toContain('[REDACTED]');
     expect(inspect(error, { depth: null })).not.toContain('synthetic-fixture-value');

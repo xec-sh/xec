@@ -1,5 +1,5 @@
 
-import { $ } from '../../src/index';
+import { $ } from '../../src/index.js';
 
 describe('Nothrow with Retry Logic', () => {
   describe('$.retry() method', () => {

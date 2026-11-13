@@ -1,8 +1,8 @@
 
-import { ExecutionEngine } from '../../../src/index';
-import { ExecutionResultImpl } from '../../../src/core/result';
-import { LocalAdapter } from '../../../src/adapters/local/index';
-import { RetryError, withExecutionRetry, createRetryableAdapter } from '../../../src/utils/retry-adapter';
+import { ExecutionEngine } from '../../../src/index.js';
+import { ExecutionResultImpl } from '../../../src/core/result.js';
+import { LocalAdapter } from '../../../src/adapters/local/index.js';
+import { RetryError, withExecutionRetry, createRetryableAdapter } from '../../../src/utils/retry-adapter.js';
 
 // Helper function to create ExecutionResult
 function createResult(options: {

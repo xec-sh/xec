@@ -144,7 +144,7 @@ describe('TransferEngine target-aware upload/download', () => {
 
     it('a docker target engine exposes its descriptor via targetInfo', () => {
       const $ = createCallableEngine(new ExecutionEngine());
-      const dockerEngine = $.docker('api') as ExecutionEngine;
+      const dockerEngine = $.docker('api');
 
       expect(dockerEngine.targetInfo).toEqual(
         expect.objectContaining({ type: 'docker', container: 'api' })

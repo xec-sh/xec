@@ -194,7 +194,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
 
     testEachPackageManager('should work with echo method (not recommended)', async (container) => {
       const sshConfig = getSSHConfig(container.name);
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation();
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const ssh = new SSHAdapter({
         sudo: {
@@ -246,7 +246,7 @@ describeSSH('SSH Secure Password Integration Tests', () => {
         // Wording varies by sudo version: "Authentication failed" (newer),
         // "authentication failure" (PAM log style), "Sorry, try again" (older).
         expect(result.stderr || result.stdout).toMatch(
-          /incorrect password|authentication fail(ed|ure)|Sorry/i
+          /incorrect password|authentication expect.fail(ed|ure)|Sorry/i
         );
       } finally {
         await ssh.dispose();

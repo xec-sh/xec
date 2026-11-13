@@ -16,7 +16,7 @@ export interface CallableExecutionEngine extends Omit<ExecutionEngine, 'with' | 
   raw(strings: TemplateStringsArray, ...values: any[]): ProcessPromise;
 
   // Override methods that return CallableExecutionEngine instead of ExecutionEngine
-  with(config: Partial<Command>): CallableExecutionEngine;
+  with(config: Parameters<ExecutionEngine['with']>[0]): CallableExecutionEngine;
   /**
    * Run a command that is already a string, with the full chaining API.
    *

@@ -1,5 +1,5 @@
 
-import { within, withinSync, getLocalContext, asyncLocalStorage } from '../../../src/utils/within';
+import { within, withinSync, getLocalContext, asyncLocalStorage } from '../../../src/utils/within.js';
 
 describe('within utilities', () => {
   describe('within', () => {

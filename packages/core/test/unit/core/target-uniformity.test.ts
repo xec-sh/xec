@@ -44,13 +44,13 @@ describe('every target exposes the same engine surface', () => {
   });
 
   it.each(Object.entries(targets))('%s has every required member', (name, target) => {
-    const missing = REQUIRED.filter(member => (target as Record<string, unknown>)[member] === undefined);
+    const missing = REQUIRED.filter(member => Reflect.get(target, member) === undefined);
 
     expect(missing, `${name} is missing: ${missing.join(', ')}`).toEqual([]);
   });
 
   it.each(Object.entries(targets))('%s exposes transfer', (_name, target) => {
-    expect((target as Record<string, unknown>)['transfer']).toBeDefined();
+    expect(Reflect.get(target, 'transfer')).toBeDefined();
   });
 
   it('keeps the target when configuration is derived from it', async () => {

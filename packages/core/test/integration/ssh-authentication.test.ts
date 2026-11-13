@@ -6,9 +6,9 @@ import { sign } from 'node:crypto';
 import { promises as fs } from 'fs';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
-import { NodeSSH } from '../../src/adapters/ssh/ssh';
-import { SSHAdapter } from '../../src/adapters/ssh/index';
+import { $ } from '../../src/index.js';
+import { NodeSSH } from '../../src/adapters/ssh/ssh.js';
+import { SSHAdapter } from '../../src/adapters/ssh/index.js';
 
 /** Isolated fixture credentials; restore the container's previous keys even on failure. */
 async function withAuthorizedKey(

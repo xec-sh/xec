@@ -4,8 +4,8 @@ import { promises as fs } from 'fs';
 import { randomBytes } from 'crypto';
 import { describeSSH, getSSHConfig, testEachPackageManager } from '@xec-sh/testing';
 
-import { $ } from '../../src/index';
-import { SSHAdapter } from '../../src/adapters/ssh/index';
+import { $ } from '../../src/index.js';
+import { SSHAdapter } from '../../src/adapters/ssh/index.js';
 
 describeSSH('SSH File Transfer Tests', () => {
   let localTempDir: string;

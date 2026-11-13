@@ -14,7 +14,7 @@ describe('Docker management operations are bounded by a timeout', () => {
     protected override async executeDockerCommand(
       _args: string[],
       command: { timeout?: number }
-    ): Promise<{ stdout: string; stderr: string; exitCode: number; signal: string | null }> {
+    ): Promise<{ stdout: string; stderr: string; stdall: string; exitCode: number; signal: string | null }> {
       this.calls.push(command);
 
       // Never settles — exactly what a hung daemon looks like to the adapter.

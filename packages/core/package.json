@@ -53,7 +53,7 @@
     "docker:start": "../testing/docker-ssh-manager.sh start",
     "docker:stop": "../testing/docker-ssh-manager.sh stop",
     "docker:status": "../testing/docker-ssh-manager.sh status",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "clean": "node ../../scripts/build-package.mjs --clean",
     "prepack": "node ../../scripts/ssh-transport.mjs guard ."
   },
