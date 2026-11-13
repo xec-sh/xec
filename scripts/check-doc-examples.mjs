@@ -19,7 +19,7 @@
  * Usage: node scripts/check-doc-examples.mjs [--only <substring>] [--file <markdown>] [--report <json-file>]
  */
 
-import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -134,6 +134,11 @@ async function main() {
     const cases = path.join(dir, 'cases');
     await mkdir(cases);
     await writeFile(path.join(dir, 'package.json'), '{"type":"module"}');
+    // Triple-slash package references use package resolution, not tsconfig paths.
+    // Expose the actual CLI package inside this disposable consumer as an install would.
+    const packageScope = path.join(dir, 'node_modules', '@xec-sh');
+    await mkdir(packageScope, { recursive: true });
+    await symlink(path.join(ROOT, 'apps/xec'), path.join(packageScope, 'cli'), process.platform === 'win32' ? 'junction' : 'dir');
 
     // Resolve declared public type exports, including subpaths. No API stubs.
     const typePaths = {};

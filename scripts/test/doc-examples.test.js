@@ -101,3 +101,11 @@ test('TypeScript-only JavaScript syntax cannot suppress a neighboring semantic f
   assert.ok(codes.includes('TS8012'), result.output);
   assert.ok(codes.includes('TS2322'), result.output);
 });
+
+
+test('public CLI globals package references resolve without suppressing semantic failures', async () => {
+  const result = await check(block('/// <reference types="@xec-sh/cli/globals" />\nconst valid: string = $targetInfo.name;\nconst invalid: number = $targetInfo.name;'));
+  assert.equal(result.status, 1, result.output);
+  assert.equal(result.report.failures.length, 1);
+  assert.deepEqual(result.report.failures[0].errors.map(error => error.code), ['TS2322'], result.output);
+});

@@ -36,6 +36,68 @@ function isNonInteractive(): boolean {
 // Artifact types
 type ArtifactType = 'project' | 'script' | 'command' | 'task' | 'profile' | 'extension';
 
+// JavaScript with checked JSDoc is valid in both generated script languages.
+const ADVANCED_SCRIPT = `#!/usr/bin/env xec
+
+/**
+ * {description}
+ * Usage: xec run {filepath} [--env development|staging|production] [--dry-run] [--verbose]
+ * Development selects local; staging/production require a configured hosts.<env> target.
+ */
+import { parseArgs } from 'node:util';
+import { ConfigurationManager, TargetResolver, createTargetEngine, retry } from '@xec-sh/ops';
+
+const { values: options } = parseArgs({
+  args,
+  options: {
+    env: { type: 'string', default: 'development' },
+    'dry-run': { type: 'boolean', default: false },
+    verbose: { type: 'boolean', default: false }
+  }
+});
+validateEnvironment(options.env);
+
+const manager = new ConfigurationManager();
+let configuration = await manager.load();
+if (configuration.profiles?.[options.env]) {
+  await manager.useProfile(options.env);
+  configuration = manager.getConfig();
+  log.info(\`Applied profile: \${options.env}\`);
+}
+const reference = options.env === 'development' ? 'local' : \`hosts.\${options.env}\`;
+// Resolution fails if a requested remote target is absent; never run it locally instead.
+const target = await new TargetResolver(configuration).resolve(reference);
+const execute = await createTargetEngine(target, { verbose: options.verbose });
+log.info(\`Environment: \${options.env}; target: \${reference}\`);
+
+const progress = spinner();
+if (options['dry-run']) {
+  log.info('Dry run: would execute node --version; no command was started');
+} else {
+  progress.start('Checking the target runtime...');
+  try {
+    // Retry only this idempotent observation. Replace it with your reviewed operation.
+    const result = await retry(() => execute\`node --version\`, {
+      maxAttempts: 3,
+      initialDelay: 100,
+      onRetry: (attempt, error) => log.warning(\`Retry \${attempt}: \${error.message}\`)
+    });
+    progress.stop('Target runtime checked');
+    log.success(result.stdout.trim());
+  } catch (error) {
+    progress.stop('Target runtime check failed');
+    throw error;
+  }
+}
+
+/** @param {string} environment */
+function validateEnvironment(environment) {
+  if (!['development', 'staging', 'production'].includes(environment)) {
+    throw new Error(\`Invalid environment: \${environment}\`);
+  }
+}
+`;
+
 // Template registry
 const TEMPLATES = {
   // project templates removed - now using getDefaultConfig() instead
@@ -69,7 +131,8 @@ if (process.stdin.isTTY) {
     initialValue: true
   });
 
-  log.info(answer === true ? 'Continuing' : 'Stopping here');
+  if (answer !== true) throw new Error('Cancelled');
+  log.info('Continuing');
 }
 
 log.success('Done');
@@ -96,307 +159,24 @@ const qName = process.stdin.isTTY
   ? await kit.text({ message: 'What is your name?', defaultValue: 'Developer' })
   : 'Developer';
 
-// Use chalk for colored output
+if (kit.isCancel(qName)) throw new Error('Cancelled');
 log.info(prism.blue(\`Hello, \${qName}!\`));
 
-// Example: Fetch data from API
-interface GitHubRepo {
-  name: string;
-  description: string;
-  stargazers_count: number;
-}
-
-try {
-  const response = await fetch('https://api.github.com/repos/xec-sh/xec');
-  const repo: GitHubRepo = await response.json();
-  
-  log.step(\`Repo: \${prism.cyan(repo.name)}\`);
-  log.step(\`Stars: \${prism.yellow('⭐')} \${repo.stargazers_count}\`);
-} catch (error) {
-  log.error(\`Failed to fetch repo info: \${error}\`);
-}
+// A typed local observation; the starter never needs network access.
+const summary: { runtime: string; fileCount: number } = {
+  runtime: process.version,
+  fileCount: files.length
+};
+log.step(JSON.stringify(summary));
 
 log.success('✅ Script completed successfully!');
 `
     },
     advanced: {
-      js: `#!/usr/bin/env xec
-
-/**
- * {description}
- * 
- * Usage: xec {filepath} [options]
- * 
- * Options:
- *   --env <environment>  Environment to run in
- *   --dry-run           Show what would be done
- *   --verbose           Enable verbose output
- */
-
-// Parse command line arguments
-const options = {
-  env: argv.env || 'development',
-  dryRun: argv['dry-run'] || false,
-  verbose: argv.verbose || false
-};
-
-// Configure logging
-if (options.verbose) {
-  $.verbose = true;
-}
-
-// Load configuration
-const config = await xec.config.load();
-const profile = config.profiles?.[options.env];
-
-if (profile) {
-  xec.config.applyProfile(options.env);
-  log.info(prism.dim(\`Applied profile: \${options.env}\`));
-}
-
-log.info(prism.bold('🚀 {description}'));
-log.step(\`Environment: \${options.env}\`);
-log.step(\`Dry run: \${options.dryRun}\`);
-
-const s = spinner();
-
-try {
-  // Step 1: Validation
-  s.start('Validating environment...');
-  await validateEnvironment(options.env);
-  s.stop('Environment validated');
-
-  // Step 2: Main operation
-  if (!options.dryRun) {
-    s.start('Executing main operation...');
-    await executeMainOperation(options);
-    s.stop('Operation completed');
-  } else {
-    log.info('Dry run mode - skipping execution');
-  }
-
-  // Step 3: Cleanup
-  s.start('Cleaning up...');
-  await cleanup();
-  s.stop('Cleanup completed');
-
-  log.success(prism.green('✅ Script completed successfully!'));
-  
-} catch (error) {
-  s.stop(prism.red('Operation failed'));
-  log.error(error.message);
-  process.exit(1);
-}
-
-// Helper functions
-async function validateEnvironment(env) {
-  const validEnvs = ['development', 'staging', 'production'];
-  if (!validEnvs.includes(env)) {
-    throw new Error(\`Invalid environment: \${env}\`);
-  }
-}
-
-async function executeMainOperation(options) {
-  // Example: Use targets from config
-  const targets = await xec.config.getTargets();
-  
-  if (options.env === 'production' && targets.hosts?.production) {
-    const $prod = $.ssh(targets.hosts.production);
-    
-    await $prod\`uptime\`;
-    await $prod\`df -h\`;
-  } else {
-    // Local operations
-    await $\`echo "Running in \${options.env} mode"\`;
-  }
-}
-
-async function cleanup() {
-  if (await fs.exists('.tmp')) {
-    await fs.remove('.tmp');
-  }
-}
-`,
-      ts: `#!/usr/bin/env xec
-/// <reference types="{globalsPath}" />
-
-/**
- * {description}
- * 
- * Usage: xec {filepath} [options]
- * 
- * Options:
- *   --env <environment>  Environment to run in
- *   --dry-run           Show what would be done
- *   --verbose           Enable verbose output
- */
-
-import type { ExecutionEngine } from '@xec-sh/core';
-
-// Parse command line arguments with type safety
-interface Options {
-  env: 'development' | 'staging' | 'production';
-  dryRun: boolean;
-  verbose: boolean;
-  _: string[];
-}
-
-const options = argv as unknown as Options;
-const environment = options.env || 'development';
-const isDryRun = options['dry-run'] || false;
-const isVerbose = options.verbose || false;
-
-// Configure execution
-if (isVerbose) {
-  $.verbose = true;
-}
-
-// Load and apply configuration
-const config = await xec.config.load();
-const profile = config.profiles?.[environment];
-
-if (profile) {
-  xec.config.applyProfile(environment);
-  log.info(prism.dim(\`Applied profile: \${environment}\`));
-}
-
-log.info(prism.bold('🚀 {description}'));
-log.step(\`Environment: \${prism.cyan(environment)}\`);
-log.step(\`Dry run: \${isDryRun ? prism.yellow('yes') : prism.green('no')}\`);
-
-// Type-safe configuration
-interface Config {
-  apiUrl: string;
-  timeout: number;
-  retries: number;
-}
-
-const configs: Record<typeof environment, Config> = {
-  development: {
-    apiUrl: 'http://localhost:3000',
-    timeout: 5000,
-    retries: 1
-  },
-  staging: {
-    apiUrl: 'https://staging.example.com',
-    timeout: 10000,
-    retries: 2
-  },
-  production: {
-    apiUrl: 'https://api.example.com',
-    timeout: 30000,
-    retries: 3
-  }
-};
-
-const envConfig = configs[environment];
-const s = spinner();
-
-try {
-  // Step 1: Validation
-  s.start('Validating environment...');
-  await validateEnvironment(environment);
-  s.stop('Environment validated');
-
-  // Step 2: Connect to services
-  if (environment === 'production') {
-    s.start('Connecting to production services...');
-    
-    const targets = await xec.config.getTargets();
-    const prodHost = targets.hosts?.production;
-    
-    if (prodHost && !isDryRun) {
-      const $prod = $.ssh(prodHost);
-      
-      const uptimeResult = await $prod\`uptime\`;
-      log.step('Server uptime: ' + uptimeResult.stdout.trim());
-    }
-    
-    s.stop('Connected to production');
-  }
-
-  // Step 3: Main operation with retry logic
-  if (!isDryRun) {
-    s.start('Executing main operation...');
-    
-    await retry(
-      async () => {
-        await executeMainOperation(envConfig);
-      },
-      {
-        retries: envConfig.retries,
-        delay: 1000,
-        onRetry: (error, attempt) => {
-          log.warning(\`Retry \${attempt}/\${envConfig.retries}: \${error.message}\`);
-        }
-      }
-    );
-    
-    s.stop('Operation completed');
-  } else {
-    log.info('Dry run mode - skipping execution');
-  }
-
-  // Step 4: Cleanup
-  s.start('Cleaning up...');
-  await cleanup();
-  s.stop('Cleanup completed');
-
-  log.success(prism.green('✅ Script completed successfully!'));
-  
-} catch (error) {
-  s.stop(prism.red('Operation failed'));
-  log.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-}
-
-// Helper functions with proper typing
-async function validateEnvironment(env: string): Promise<void> {
-  const validEnvs = ['development', 'staging', 'production'];
-  if (!validEnvs.includes(env)) {
-    throw new Error(\`Invalid environment: \${env}\`);
-  }
-  
-  // Check required environment variables
-  const requiredVars = ['API_KEY'];
-  const missing = requiredVars.filter(v => !process.env[v]);
-  
-  if (missing.length > 0) {
-    throw new Error(\`Missing required environment variables: \${missing.join(', ')}\`);
-  }
-}
-
-async function executeMainOperation(config: Config): Promise<void> {
-  // Example: API call with timeout
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), config.timeout);
-  
-  try {
-    const response = await fetch(config.apiUrl + '/health', {
-      signal: controller.signal,
-      headers: {
-        'Authorization': \`Bearer \${env('API_KEY')}\`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(\`API returned \${response.status}\`);
-    }
-    
-    const data = await response.json();
-    log.step(\`API health: \${data.status}\`);
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-async function cleanup(): Promise<void> {
-  const tempFiles = await glob('.tmp-{name}-*');
-  for (const file of tempFiles) {
-    await fs.remove(file);
-  }
-}
-`
+      js: ADVANCED_SCRIPT,
+      ts: ADVANCED_SCRIPT
+        .replace('#!/usr/bin/env xec', '#!/usr/bin/env xec\n/// <reference types="{globalsPath}" />')
+        .replace('function validateEnvironment(environment)', 'function validateEnvironment(environment: string)')
     }
   },
 
@@ -408,12 +188,13 @@ async function cleanup(): Promise<void> {
  * This command will be available as: xec {name} [arguments]
  */
 
+/** @param {import('commander').Command} program */
 export function command(program) {
   program
     .command('{name} [args...]')
     .description('{description}')
     .option('-v, --verbose', 'Enable verbose output')
-    .action(async (args, options) => {
+    .action(async (/** @type {string[]} */ args, /** @type {{ verbose?: boolean }} */ options) => {
       // log is already imported from @xec-sh/kit
       
       // Your command logic here
@@ -489,6 +270,7 @@ export function command(program: Command): void {
  *   xec {name} delete myitem --force
  */
 
+/** @param {import('commander').Command} program */
 export function command(program) {
   const cmd = program
     .command('{name}')
@@ -499,7 +281,7 @@ export function command(program) {
     .command('list')
     .description('List all items')
     .option('-f, --filter <pattern>', 'Filter results')
-    .action(async (options) => {
+    .action(async (/** @type {{ filter?: string }} */ options) => {
       // log and spinner are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
       
@@ -523,8 +305,8 @@ export function command(program) {
         
       } catch (error) {
         s.stop('Failed to load items');
-        log.error(error.message);
-        process.exit(1);
+        log.error(error instanceof Error ? error.message : String(error));
+        throw error;
       }
     });
   
@@ -534,23 +316,27 @@ export function command(program) {
     .description('Create a new item')
     .option('-t, --type <type>', 'Item type', 'default')
     .option('-d, --description <desc>', 'Item description')
-    .action(async (name, options) => {
+    .option('-y, --yes', 'Confirm the example operation without a prompt')
+    .action(async (/** @type {string} */ name, /** @type {{ type: string; description?: string; yes?: boolean; force?: boolean }} */ options) => {
       // log and confirm are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
       
       log.info(\`Creating item: \${name}\`);
       log.step(\`Type: \${options.type}\`);
       
-      if (options.desc) {
-        log.step(\`Description: \${options.desc}\`);
+      if (options.description) {
+        log.step(\`Description: \${options.description}\`);
       }
       
-      const shouldCreate = await confirm({
-        message: 'Proceed with creation?',
-        initialValue: true
+      if (!options.yes && !process.stdin.isTTY) {
+        throw new Error('Confirmation requires a terminal; pass --yes explicitly');
+      }
+      const shouldCreate = options.yes || await kit.confirm({
+        message: 'Run the creation example?',
+        initialValue: false
       });
       
-      if (!shouldCreate) {
+      if (shouldCreate !== true) {
         log.info('Creation cancelled');
         return;
       }
@@ -558,10 +344,10 @@ export function command(program) {
       try {
         // Your create logic here
         await createItem(name, options);
-        log.success(\`Item '\${name}' created successfully!\`);
+        log.success(\`Item '\${name}' creation example completed (no item was stored)\`);
       } catch (error) {
-        log.error(\`Failed to create item: \${error.message}\`);
-        process.exit(1);
+        log.error(\`Failed to create item: \${error instanceof Error ? error.message : String(error)}\`);
+        throw error;
       }
     });
   
@@ -570,16 +356,17 @@ export function command(program) {
     .command('delete <name>')
     .description('Delete an item')
     .option('-f, --force', 'Skip confirmation')
-    .action(async (name, options) => {
+    .action(async (/** @type {string} */ name, /** @type {{ type: string; description?: string; yes?: boolean; force?: boolean }} */ options) => {
       // log and confirm are already imported from @xec-sh/kit
       
       if (!options.force) {
-        const shouldDelete = await confirm({
+        if (!process.stdin.isTTY) throw new Error('Confirmation requires a terminal; pass --force explicitly');
+        const shouldDelete = await kit.confirm({
           message: \`Are you sure you want to delete '\${name}'?\`,
           initialValue: false
         });
         
-        if (!shouldDelete) {
+        if (shouldDelete !== true) {
           log.info('Deletion cancelled');
           return;
         }
@@ -588,15 +375,16 @@ export function command(program) {
       try {
         // Your delete logic here
         await deleteItem(name);
-        log.success(\`Item '\${name}' deleted successfully!\`);
+        log.success(\`Item '\${name}' deletion example completed (no item was removed)\`);
       } catch (error) {
-        log.error(\`Failed to delete item: \${error.message}\`);
-        process.exit(1);
+        log.error(\`Failed to delete item: \${error instanceof Error ? error.message : String(error)}\`);
+        throw error;
       }
     });
 }
 
 // Helper functions
+/** @param {string | undefined} filter */
 async function getItems(filter) {
   // Mock implementation - replace with your logic
   const allItems = [
@@ -613,11 +401,13 @@ async function getItems(filter) {
   return allItems;
 }
 
+/** @param {string} name @param {{ type: string }} options */
 async function createItem(name, options) {
   const { $ } = await import('@xec-sh/core');
   await $\`echo "Creating item: \${name} (type: \${options.type})"\`;
 }
 
+/** @param {string} name */
 async function deleteItem(name) {
   const { $ } = await import('@xec-sh/core');
   await $\`echo "Deleting item: \${name}"\`;
@@ -645,7 +435,7 @@ interface Item {
   type: 'service' | 'task' | 'resource';
   status: 'active' | 'inactive' | 'pending';
   created: Date;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface ListOptions {
@@ -658,6 +448,7 @@ interface ListOptions {
 interface CreateOptions {
   type: Item['type'];
   description?: string;
+  yes?: boolean;
 }
 
 export function command(program: Command): void {
@@ -692,33 +483,32 @@ export function command(program: Command): void {
         if (options.json) {
           console.log(JSON.stringify(items, null, 2));
         } else {
-          const chalk = await import('chalk');
           
-          console.log(prism.default.bold('\\nItems:'));
-          console.log(prism.default.gray('─'.repeat(60)));
+          console.log(prism.bold('\\nItems:'));
+          console.log(prism.gray('─'.repeat(60)));
           
           items.forEach(item => {
             const statusColor = item.status === 'active' ? 'green' : 
                               item.status === 'inactive' ? 'red' : 'yellow';
             
-            const statusText = statusColor === 'green' ? prism.default.green(item.status) :
-                              statusColor === 'red' ? prism.default.red(item.status) :
-                              prism.default.yellow(item.status);
+            const statusText = statusColor === 'green' ? prism.green(item.status) :
+                              statusColor === 'red' ? prism.red(item.status) :
+                              prism.yellow(item.status);
             
             console.log(
-              prism.default.bold(item.name) + ' ' +
-              '(' + prism.default.blue(item.type) + ') - ' +
+              prism.bold(item.name) + ' ' +
+              '(' + prism.blue(item.type) + ') - ' +
               statusText
             );
           });
           
-          console.log(prism.default.gray('─'.repeat(60)));
+          console.log(prism.gray('─'.repeat(60)));
         }
         
       } catch (error) {
         s.stop('Failed to load items');
         log.error(error instanceof Error ? error.message : String(error));
-        process.exit(1);
+        throw error;
       }
     });
   
@@ -728,34 +518,36 @@ export function command(program: Command): void {
     .description('Create a new item')
     .requiredOption('-t, --type <type>', 'Item type (service|task|resource)')
     .option('-d, --description <desc>', 'Item description')
+    .option('-y, --yes', 'Confirm the example operation without a prompt')
     .action(async (name: string, options: CreateOptions) => {
       // log and confirm are already imported from @xec-sh/kit
       const { $ } = await import('@xec-sh/core');
-      const chalk = await import('chalk');
       
       // Validate options
       const validTypes: Item['type'][] = ['service', 'task', 'resource'];
       
       if (!validTypes.includes(options.type)) {
-        log.error(\`Invalid type: \${options.type}. Must be one of: \${validTypes.join(', ')}\`);
-        process.exit(1);
+        throw new Error(\`Invalid type: \${options.type}. Must be one of: \${validTypes.join(', ')}\`);
       }
       
       // Display creation summary
-      log.info(prism.default.bold('Creating new item:'));
-      log.step(\`Name: \${prism.default.cyan(name)}\`);
-      log.step(\`Type: \${prism.default.blue(options.type)}\`);
+      log.info(prism.bold('Creating new item:'));
+      log.step(\`Name: \${prism.cyan(name)}\`);
+      log.step(\`Type: \${prism.blue(options.type)}\`);
       
-      if (options.desc) {
-        log.step(\`Description: \${options.desc}\`);
+      if (options.description) {
+        log.step(\`Description: \${options.description}\`);
       }
       
-      const shouldCreate = await confirm({
-        message: 'Proceed with creation?',
-        initialValue: true
+      if (!options.yes && !process.stdin.isTTY) {
+        throw new Error('Confirmation requires a terminal; pass --yes explicitly');
+      }
+      const shouldCreate = options.yes || await kit.confirm({
+        message: 'Run the creation example?',
+        initialValue: false
       });
       
-      if (!shouldCreate) {
+      if (shouldCreate !== true) {
         log.info('Creation cancelled');
         return;
       }
@@ -767,14 +559,14 @@ export function command(program: Command): void {
           type: options.type,
           status: 'pending',
           created: new Date(),
-          metadata: { description: options.desc }
+          metadata: { description: options.description }
         };
         
         await createItem(item);
-        log.success(\`Item '\${name}' created successfully!\\nID: \${item.id}\`);
+        log.success(\`Item '\${name}' creation example completed (no item was stored)\\nID: \${item.id}\`);
       } catch (error) {
         log.error(\`Failed to create item: \${error instanceof Error ? error.message : String(error)}\`);
-        process.exit(1);
+        throw error;
       }
     });
   
@@ -785,28 +577,27 @@ export function command(program: Command): void {
     .option('-f, --force', 'Skip confirmation')
     .action(async (name: string, options: { force?: boolean }) => {
       // log and confirm are already imported from @xec-sh/kit
-      const chalk = await import('chalk');
       
       // Check if item exists
       const item = await getItemByName(name);
       if (!item) {
-        log.error(\`Item '\${name}' not found\`);
-        process.exit(1);
+        throw new Error(\`Item '\${name}' not found\`);
       }
       
       // Show item details
-      log.info(prism.default.bold('Item to delete:'));
+      log.info(prism.bold('Item to delete:'));
       log.step(\`Name: \${item.name}\`);
       log.step(\`Type: \${item.type}\`);
       log.step(\`Status: \${item.status}\`);
       
       if (!options.force) {
-        const shouldDelete = await confirm({
-          message: prism.default.red(\`Are you sure you want to delete '\${name}'?\`),
+        if (!process.stdin.isTTY) throw new Error('Confirmation requires a terminal; pass --force explicitly');
+        const shouldDelete = await kit.confirm({
+          message: prism.red(\`Are you sure you want to delete '\${name}'?\`),
           initialValue: false
         });
         
-        if (!shouldDelete) {
+        if (shouldDelete !== true) {
           log.info('Deletion cancelled');
           return;
         }
@@ -814,10 +605,10 @@ export function command(program: Command): void {
       
       try {
         await deleteItem(item.id);
-        log.success(\`Item '\${name}' deleted successfully!\`);
+        log.success(\`Item '\${name}' deletion example completed (no item was removed)\`);
       } catch (error) {
         log.error(\`Failed to delete item: \${error instanceof Error ? error.message : String(error)}\`);
-        process.exit(1);
+        throw error;
       }
     });
 }

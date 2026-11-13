@@ -168,7 +168,7 @@ describe('new command', () => {
       // Check for advanced template features
       expect(content).toContain('validateEnvironment');
       expect(content).toContain('function validateEnvironment');
-      expect(content).toContain('options =');
+      expect(content).toContain('parseArgs');
     });
 
     it('should handle missing .xec directory', async () => {

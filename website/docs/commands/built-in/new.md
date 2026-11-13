@@ -281,11 +281,14 @@ log.info(prism.blue(`Hello, ${name}!`));
 ### Advanced Script Features
 
 - Command line argument parsing
-- Configuration loading and profile application
-- Retry logic and error handling
+- Configuration loading and declared profile application
+- Explicit local/staging/production target resolution; missing remote targets fail
+- Bounded retry of an idempotent runtime observation and propagated failures
 - Progress indicators and spinners
 - Environment validation
-- Cleanup functions
+- Cleanup limited to resources explicitly created by your script
+
+The advanced starter reads `--env`, `--dry-run` and `--verbose` with Node's typed argument parser. Development selects the local target; staging and production require `hosts.staging` and `hosts.production` in the project configuration. A dry run resolves the configuration but does not execute the observation. The starter does not fetch external APIs or delete existing temporary directories.
 
 ## Command Templates
 
