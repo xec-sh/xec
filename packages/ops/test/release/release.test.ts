@@ -54,7 +54,7 @@ async function repository() {
   await releaseCommand(root, 'git', ['config', 'user.name', 'Release Fixture']);
   await releaseCommand(root, 'git', ['config', 'user.email', 'fixture@example.invalid']);
   await writeFile(join(root, '.gitignore'), '.release-artifacts/\nnode_modules/\ndist/\n');
-  await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'fixture', private: true, packageManager: 'pnpm@12.16.1' }));
+  await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'fixture', private: true, packageManager: 'pnpm@12.18.0' }));
   await writeFile(join(root, 'pnpm-workspace.yaml'), "packages:\n  - 'packages/*'\n");
   for (const [name, dependencies] of [['a', {}], ['b', { '@fixture/a': 'workspace:*' }]] as const) {
     await mkdir(join(root, 'packages', name), { recursive: true });

@@ -1,4 +1,6 @@
 overrides:
+  # Cheerio APIs are covered by scripts/test/search-encoding.test.js.
+  "cheerio>encoding-sniffer": "^1.0.2"
   "serve-handler>minimatch": "^11.0.3"
   "minimatch@10": "^11.0.3"
   "joi@17": "^17.13.9"
@@ -63,7 +65,6 @@ minimumReleaseAgeExclude:
   - minimatch@11.0.2
   - path-scurry@3.0.0
 patchedDependencies:
-  eslint-plugin-import-x@4.17.1: patches/eslint-plugin-import-x@4.17.1.patch
   serve-handler@6.1.7: patches/serve-handler@6.1.7.patch
   ssh2@1.17.0: patches/ssh2@1.17.0.patch
   node-pty@1.1.0: patches/node-pty@1.1.0.patch

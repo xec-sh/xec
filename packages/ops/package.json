@@ -78,21 +78,21 @@
     "@xec-sh/core": "workspace:*",
     "@xec-sh/kit": "workspace:*",
     "@xec-sh/loader": "workspace:*",
-    "dotenv": "^18.0.9",
+    "dotenv": "^18.0.10",
     "fs-extra": "^11.4.1",
-    "glob": "^14.0.3",
+    "glob": "^14.0.6",
     "js-yaml": "^5.5.0",
-    "zod": "^4.6.7",
-    "semver": "^7.8.5"
+    "semver": "^7.8.6",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.6.6",
-    "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^5.0.5",
+    "@types/semver": "^7.8.0",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "@types/semver": "^7.8.0"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^5.1.0"
   },
   "keywords": [
     "devops",
