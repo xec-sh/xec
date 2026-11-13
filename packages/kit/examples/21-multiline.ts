@@ -15,7 +15,10 @@ async function main() {
     message: 'Tell us about yourself (Enter twice to finish)',
     placeholder: 'I am a...',
   });
-  if (isCancel(bio)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(bio)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Multi-line input with a submit button and validation
   const commitMessage = await multiline({
@@ -27,10 +30,13 @@ async function main() {
       return undefined;
     },
   });
-  if (isCancel(commitMessage)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(commitMessage)) {
+    cancel('Cancelled.');
+    return;
+  }
 
-  log.success(`Bio: ${(bio as string).split('\n').length} line(s)`);
-  outro(`Commit message:\n${commitMessage as string}`);
+  log.success(`Bio: ${bio.split('\n').length} line(s)`);
+  outro(`Commit message:\n${commitMessage}`);
 }
 
-main().catch(console.error);
+await main();

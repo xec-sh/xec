@@ -1,13 +1,14 @@
 /**
  * 20 - Full Application
  *
- * A complete CLI app combining all features: text, password, select,
+ * An in-memory project setup preview combining text, password, select,
  * multiselect, confirm, date, spinner, progress, note, group flow,
- * and error handling. Demonstrates real-world usage patterns.
+ * and cancellation. No files are created and no dependencies are installed.
  */
 import { setTimeout } from 'node:timers/promises';
 
 import {
+  log,
   note,
   text,
   date,
@@ -26,10 +27,10 @@ import {
 } from '../src/index.js';
 
 async function main() {
-  console.clear();
-  await setTimeout(500);
-
-  intro(`${prism.bgCyan(prism.black(' create-app '))} v2.0`);
+  intro(prism.bgCyan(prism.black(' Kit · project setup preview ')));
+  log.info('Use sample values. This preview does not write files or install dependencies.');
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
   const project = await group(
     {
@@ -63,9 +64,8 @@ async function main() {
               options:
                 results.type === 'cli'
                   ? [
-                      { value: 'commander', label: 'Commander' },
-                      { value: 'yargs', label: 'Yargs' },
-                      { value: 'custom', label: 'Custom (no framework)' },
+                      { value: 'xec', label: 'Xec', hint: 'TypeScript commands and automation' },
+                      { value: 'kit', label: 'Kit', hint: 'interactive terminal application' },
                     ]
                   : [
                       { value: 'next', label: 'Next.js' },
@@ -105,36 +105,41 @@ async function main() {
         date({
           message: 'Target launch date',
           format: 'YYYY/MM/DD',
-          minDate: new Date(),
+          initialValue: today,
+          minDate: today,
         }),
 
       install: () =>
         confirm({
-          message: 'Install dependencies now?',
+          message: 'Show the dependency-installation preview?',
           initialValue: true,
         }),
     },
     {
       onCancel: () => {
         cancel('Setup cancelled.');
-        process.exit(0);
+        return;
       },
     }
   );
 
   if (isCancel(project)) return;
 
-  // Installation phase
+  // Simulated installation phase
   if (project.install) {
     const s = spinner({ indicator: 'timer' });
-    s.start('Installing dependencies');
-    await setTimeout(2000);
-    s.stop('Dependencies installed');
+    s.start('Previewing dependency installation');
+    try {
+      await setTimeout(350);
+      s.stop('Installation preview complete');
+    } finally {
+      s.clear();
+    }
   }
 
-  // Build phase
+  // Simulated scaffolding phase
   const p = progress({ style: 'heavy', max: 100 });
-  p.start('Scaffolding project');
+  p.start('Previewing project setup');
   const steps = [
     'Creating directories',
     'Writing configs',
@@ -143,14 +148,14 @@ async function main() {
     'Finalizing',
   ];
   for (let i = 0; i < steps.length; i++) {
-    await setTimeout(600);
+    await setTimeout(100);
     p.advance(20, steps[i]);
   }
-  p.stop('Project scaffolded');
+  p.stop('Setup preview complete');
 
   // Summary
-  const features = project.features as string[];
-  const deadline = project.deadline as Date;
+  const features = project.features;
+  const deadline = project.deadline;
   note(
     [
       `Name:      ${project.name}`,
@@ -159,16 +164,15 @@ async function main() {
       `Features:  ${features.join(', ')}`,
       `Deadline:  ${deadline.toISOString().slice(0, 10)}`,
       '',
-      `${prism.dim('cd')} ${project.name}`,
-      project.install ? '' : `${prism.dim('npm install')}`,
-      `${prism.dim('npm run dev')}`,
+      'No project was created. This is the configuration your own generator could consume.',
+      'The password is excluded from this summary.',
     ]
       .filter((line) => line !== null)
       .join('\n'),
-    'Project created!'
+    'Configuration preview'
   );
 
-  outro(`Problems? ${prism.underline(prism.cyan('https://github.com/xec-sh/kit/issues'))}`);
+  outro(`Problems? ${prism.underline(prism.cyan('https://github.com/xec-sh/xec/issues'))}`);
 }
 
-main().catch(console.error);
+await main();

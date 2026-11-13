@@ -7,12 +7,16 @@ import { log, intro, outro, cancel, password, isCancel } from '../src/index.js';
 
 async function main() {
   intro('Password Input Examples');
+  log.info('Use synthetic values. This example does not store or transmit credentials.');
 
   // Basic password
   const secret = await password({
     message: 'Enter your API key',
   });
-  if (isCancel(secret)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(secret)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Password with validation and clearOnError (clears input on validation failure)
   const strongPassword = await password({
@@ -26,10 +30,13 @@ async function main() {
       return undefined;
     },
   });
-  if (isCancel(strongPassword)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(strongPassword)) {
+    cancel('Cancelled.');
+    return;
+  }
 
-  log.success('Credentials saved securely.');
+  log.success('Both inputs passed validation. Their values are intentionally not displayed.');
   outro('Done!');
 }
 
-main().catch(console.error);
+await main();

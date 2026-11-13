@@ -4,6 +4,8 @@
  * Full-featured interactive table with keyboard navigation,
  * sorting, filtering, single/multi selection, and cell editing.
  */
+import { setTimeout } from 'node:timers/promises';
+
 import { log, isCancel, interactiveTable } from '../src/index.js';
 
 interface Task {
@@ -26,6 +28,8 @@ const tasks: Task[] = [
 ];
 
 async function main() {
+  const edits: string[] = [];
+  log.info('Edits affect only the in-memory demo rows; nothing is persisted.');
   console.log('\n--- Navigation + Sorting + Filtering + Editing ---');
   const result = await interactiveTable<Task>({
     data: tasks,
@@ -38,7 +42,9 @@ async function main() {
     ],
     selectable: 'multiple',
     sortable: true,
+    initialSort: { key: 'id', direction: 'asc' },
     filterable: true,
+    filterColumns: ['title', 'assignee'],
     editable: true,
     editableColumns: ['title', 'priority', 'status', 'assignee'],
     validateEdit: (_task, column, newValue) => {
@@ -47,18 +53,18 @@ async function main() {
       }
       return undefined;
     },
-    onEdit: (task, column) => {
-      // Persist the change here (API call, file write, …)
-      void task;
-      void column;
+    onEdit: (task, column, oldValue, newValue) => {
+      // Defer log output until the interactive renderer has finished.
+      edits.push(`#${task.id} ${column}: ${String(oldValue)} → ${String(newValue)}`);
     },
     message: 'Task Board',
   });
 
   if (isCancel(result)) {
     log.warn('Selection cancelled');
+    return;
   } else {
-    const selected = result as Task[];
+    const selected = result;
     if (selected.length > 0) {
       log.success(`Selected ${selected.length} task(s):`);
       for (const task of selected) {
@@ -68,6 +74,8 @@ async function main() {
       log.info('No tasks selected');
     }
   }
+
+  for (const edit of edits) log.step(edit);
 
   // Incremental loading: rows are fetched as navigation nears the end.
   console.log('\n--- Incremental loading (loadMore) ---');
@@ -82,9 +90,9 @@ async function main() {
     selectable: 'single',
     pageSize: 3,
     hasMore: true,
-    loadMore: async () => {
+    loadMore: async (signal) => {
       // Simulate a paginated API: two more pages, then done
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await setTimeout(150, undefined, { signal });
       if (nextId > 14) return [];
       const batch = Array.from({ length: 3 }, (_, i) => ({
         id: nextId + i,
@@ -102,8 +110,8 @@ async function main() {
   if (isCancel(page)) {
     log.warn('Cancelled');
   } else {
-    log.info(`Picked ${(page as Task[]).length} row(s)`);
+    log.info(`Picked ${page.length} row(s)`);
   }
 }
 
-main().catch(console.error);
+await main();

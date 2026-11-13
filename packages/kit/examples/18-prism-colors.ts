@@ -4,7 +4,15 @@
  * Built-in zero-dependency color library with modifiers,
  * 16 colors, 256 colors, RGB/HSL/hex, and CSS named colors.
  */
-import { prism } from '../src/index.js';
+import {
+  prism,
+  strip,
+  mixRgb,
+  rgbToHex,
+  hexToRgb,
+  stringLength,
+  contrastRatio,
+} from '../src/index.js';
 
 console.log('\n=== Prism Color System ===\n');
 
@@ -27,8 +35,12 @@ console.log();
 // Bright variants
 console.log('\n--- Bright Colors ---');
 const brightColors = [
-  'redBright', 'greenBright', 'yellowBright', 'blueBright',
-  'magentaBright', 'cyanBright',
+  'redBright',
+  'greenBright',
+  'yellowBright',
+  'blueBright',
+  'magentaBright',
+  'cyanBright',
 ] as const;
 for (const c of brightColors) {
   process.stdout.write(prism[c](`  ${c}  `));
@@ -66,3 +78,17 @@ console.log(prism.css('dodgerblue')('DodgerBlue'));
 console.log(prism.css('tomato')('Tomato'));
 console.log(prism.css('gold')('Gold'));
 console.log(prism.css('mediumseagreen')('MediumSeaGreen'));
+
+console.log('\n--- ANSI 256 & HSL ---');
+console.log(prism.ansi256(45)('Palette index 45'));
+console.log(prism.hsl(185, 90, 50)('HSL cyan'));
+
+// Calculations use colour values, independently of terminal colour support.
+const accent = hexToRgb('#22d3ee');
+const background = hexToRgb('#111827');
+if (!accent || !background) throw new Error('Invalid demonstration palette');
+const blended = rgbToHex(mixRgb(accent, background, 0.5));
+console.log(`50% blend: ${blended}`);
+console.log(`Accent/background contrast: ${contrastRatio(accent, background).toFixed(2)}:1`);
+const label = prism.cyan('日本語 ✓');
+console.log(`Plain label: ${strip(label)}; terminal cells: ${stringLength(label)}`);

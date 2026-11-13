@@ -4,9 +4,7 @@
  * Structured log output (info, success, warn, error, step) and
  * flow markers (intro, outro, cancel, note, box).
  */
-import {
-  box, log, note, intro, outro, prism,
-} from '../src/index.js';
+import { box, log, note, intro, outro, prism } from '../src/index.js';
 
 function main() {
   // Flow markers
@@ -16,14 +14,21 @@ function main() {
   log.info('This is an informational message');
   log.success('Operation completed successfully');
   log.step('Step 1 of 3 completed');
-  log.warn('Disk usage is above 80%');
-  log.error('Failed to connect to database');
+  log.warn('Example warning: storage is approaching its configured limit');
+  log.error('Example error diagnostic (no operation failed)', { output: process.stderr });
+
+  // Per-call plain output can coexist with the normal terminal presentation.
+  log.message('Accessible output: no colour or cursor controls.', {
+    accessible: true,
+    withGuide: false,
+    spacing: 0,
+  });
 
   // Multi-line messages
   log.message('This is a multi-line message\nwith several lines\nof content');
 
   // Note - highlighted message block with title
-  note('Run these commands to get started:\n\n  npm install\n  npm run dev', 'Next steps');
+  note('Run these commands to get started:\n\n  bun install\n  bun run dev', 'Next steps');
 
   // Box - bordered container
   box(
@@ -32,15 +37,11 @@ function main() {
       `Duration: ${prism.cyan('2.4s')}`,
       `Bundles: ${prism.yellow('3')}`,
     ].join('\n'),
-    'Build Summary',
+    'Build Summary'
   );
 
   // Box with different options
-  box(
-    'This action cannot be undone.',
-    'Warning',
-    { rounded: false, titleAlign: 'center' },
-  );
+  box('This action cannot be undone.', 'Warning', { rounded: false, titleAlign: 'center' });
 
   outro('All done!');
 }

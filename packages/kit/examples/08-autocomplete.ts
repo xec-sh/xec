@@ -5,8 +5,13 @@
  * custom filter functions, and placeholder text.
  */
 import {
-  log, intro, outro,
-  cancel, isCancel, autocomplete, autocompleteMultiselect,
+  log,
+  intro,
+  outro,
+  cancel,
+  isCancel,
+  autocomplete,
+  autocompleteMultiselect,
 } from '../src/index.js';
 
 const countries = [
@@ -33,7 +38,10 @@ async function main() {
     placeholder: 'Type to search...',
     options: countries,
   });
-  if (isCancel(country)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(country)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Custom filter - search by hint (region) as well
   const destination = await autocomplete({
@@ -47,20 +55,27 @@ async function main() {
       return label.includes(term) || hint.includes(term);
     },
   });
-  if (isCancel(destination)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(destination)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Multi-select with search
   const visited = await autocompleteMultiselect({
-    message: 'Which countries have you visited?',
-    placeholder: 'Type to filter, Tab/Space to select',
+    message: 'Which countries have you visited? (optional)',
+    required: false,
+    placeholder: 'Type to filter, Tab to toggle, Enter to submit',
     options: countries,
   });
-  if (isCancel(visited)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(visited)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   log.success(`Country: ${country}`);
   log.success(`Destination: ${destination}`);
-  log.success(`Visited: ${(visited as string[]).join(', ')}`);
+  log.success(`Visited: ${visited.join(', ')}`);
   outro('Done!');
 }
 
-main().catch(console.error);
+await main();

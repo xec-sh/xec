@@ -4,34 +4,36 @@
  * Hierarchical multi-select with group headers.
  * Groups can optionally be selectable to toggle all items at once.
  */
-import {
-  log, intro, outro, cancel, isCancel, groupMultiselect,
-} from '../src/index.js';
+import { log, intro, outro, cancel, isCancel, groupMultiselect } from '../src/index.js';
 
 async function main() {
   intro('Group Multi-Select Examples');
 
   // Basic grouped selection
   const permissions = await groupMultiselect({
-    message: 'Configure role permissions',
+    message: 'Preview role permissions (no access is changed)',
+    initialValues: ['users:read'],
     options: {
-      'Users': [
+      Users: [
         { value: 'users:read', label: 'View users' },
         { value: 'users:write', label: 'Create/edit users' },
         { value: 'users:delete', label: 'Delete users' },
       ],
-      'Projects': [
+      Projects: [
         { value: 'projects:read', label: 'View projects' },
         { value: 'projects:write', label: 'Create/edit projects' },
         { value: 'projects:admin', label: 'Manage project settings' },
       ],
-      'Billing': [
+      Billing: [
         { value: 'billing:read', label: 'View invoices' },
         { value: 'billing:write', label: 'Manage payment methods' },
       ],
     },
   });
-  if (isCancel(permissions)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(permissions)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Non-selectable groups (only individual items can be selected)
   // with spacing between groups
@@ -41,25 +43,28 @@ async function main() {
     groupSpacing: 1,
     required: false,
     options: {
-      'Frontend': [
+      Frontend: [
         { value: 'ssr', label: 'Server-side rendering' },
         { value: 'pwa', label: 'Progressive Web App' },
       ],
-      'Backend': [
+      Backend: [
         { value: 'rest', label: 'REST API' },
         { value: 'graphql', label: 'GraphQL API' },
       ],
-      'DevOps': [
+      DevOps: [
         { value: 'docker', label: 'Docker' },
         { value: 'k8s', label: 'Kubernetes' },
       ],
     },
   });
-  if (isCancel(features)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(features)) {
+    cancel('Cancelled.');
+    return;
+  }
 
-  log.success(`Permissions: ${(permissions as string[]).join(', ')}`);
-  log.success(`Features: ${(features as string[]).length > 0 ? (features as string[]).join(', ') : 'none'}`);
+  log.success(`Permissions: ${permissions.join(', ')}`);
+  log.success(`Features: ${features.length > 0 ? features.join(', ') : 'none'}`);
   outro('Done!');
 }
 
-main().catch(console.error);
+await main();

@@ -1,7 +1,9 @@
 # @xec-sh/kit
 
 Terminal prompts, spinners, tables and colors for command-line applications.
-One runtime dependency (`sisteransi`). Node.js 18+ and Bun.
+One runtime dependency (`sisteransi`). Node.js 20+ and Bun.
+
+[Run the examples with Bun](./examples/README.md) to explore prompts, tables, streaming, themes, and complete CLI flows.
 
 ```bash
 npm install @xec-sh/kit

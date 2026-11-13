@@ -19,11 +19,14 @@ async function main() {
       { value: 'astro', label: 'Astro', hint: 'content-focused' },
     ],
   });
-  if (isCancel(framework)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(framework)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Select with disabled options
   const plan = await select({
-    message: 'Choose your subscription plan',
+    message: 'Preview a subscription plan (no purchase)',
     initialValue: 'pro',
     options: [
       { value: 'free', label: 'Free', hint: '$0/mo' },
@@ -32,7 +35,10 @@ async function main() {
       { value: 'enterprise', label: 'Enterprise', hint: 'Contact sales', disabled: true },
     ],
   });
-  if (isCancel(plan)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(plan)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Select with maxItems (pagination)
   const color = await select({
@@ -49,10 +55,13 @@ async function main() {
       { value: 'pink', label: 'Pink' },
     ],
   });
-  if (isCancel(color)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(color)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   log.success(`Framework: ${framework}, Plan: ${plan}, Color: ${color}`);
   outro('Done!');
 }
 
-main().catch(console.error);
+await main();

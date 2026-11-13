@@ -21,11 +21,15 @@ async function main() {
       { value: 'lint-staged', label: 'lint-staged' },
     ],
   });
-  if (isCancel(tools)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(tools)) {
+    cancel('Cancelled.');
+    return;
+  }
 
-  // Multiselect with disabled options
+  // Multiselect with disabled options; one enabled choice is required.
   const features = await multiselect({
     message: 'Select features for your project',
+    initialValues: ['auth'],
     options: [
       { value: 'auth', label: 'Authentication' },
       { value: 'db', label: 'Database' },
@@ -35,7 +39,10 @@ async function main() {
       { value: 'cron', label: 'Scheduled Jobs' },
     ],
   });
-  if (isCancel(features)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(features)) {
+    cancel('Cancelled.');
+    return;
+  }
 
   // Optional multiselect (not required)
   const extras = await multiselect({
@@ -47,12 +54,15 @@ async function main() {
       { value: 'monitoring', label: 'Monitoring' },
     ],
   });
-  if (isCancel(extras)) { cancel('Cancelled.'); process.exit(0); }
+  if (isCancel(extras)) {
+    cancel('Cancelled.');
+    return;
+  }
 
-  log.success(`Tools: ${(tools as string[]).join(', ')}`);
-  log.success(`Features: ${(features as string[]).join(', ')}`);
-  log.success(`Extras: ${(extras as string[]).length > 0 ? (extras as string[]).join(', ') : 'none'}`);
-  outro('Project configured!');
+  log.success(`Tools: ${tools.join(', ')}`);
+  log.success(`Features: ${features.join(', ')}`);
+  log.success(`Extras: ${extras.length > 0 ? extras.join(', ') : 'none'}`);
+  outro('Configuration preview complete.');
 }
 
-main().catch(console.error);
+await main();

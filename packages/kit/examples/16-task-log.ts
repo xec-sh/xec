@@ -1,55 +1,66 @@
 /**
- * 16 - Task Log
+ * 16 - Task Logs & Task Groups
  *
- * Real-time task output display with scrolling history,
- * group support, and success/error completion states.
+ * Bounded live output, independent groups, raw text fragments and retained
+ * failure details. All work below is local, deterministic demonstration data.
  */
 import { setTimeout } from 'node:timers/promises';
 
-import { intro, outro, taskLog } from '../src/index.js';
+import { log, intro, outro, tasks, taskLog } from '../src/index.js';
 
 async function main() {
-  intro('Task Log Example');
+  intro('Task Logs & Task Groups');
 
-  const tl = taskLog({ title: 'Build Pipeline', limit: 8 });
-
-  // First task group
-  const install = tl.group('Installing packages');
-
-  const packages = [
-    'typescript@5.4.0', 'vitest@2.0.0', 'eslint@9.0.0',
-    '@types/node@20.0.0', 'prettier@3.2.0', 'tsx@4.7.0',
-  ];
-
-  for (const pkg of packages) {
-    await setTimeout(400);
-    install.message(`+ ${pkg}`);
+  const transcript = taskLog({ title: 'Package plan preview', limit: 4, retainLog: true });
+  const core = transcript.group('Core');
+  const ui = transcript.group('UI');
+  for (const name of ['core', 'ops', 'kit', 'xec']) {
+    await setTimeout(80);
+    const group = name === 'kit' ? ui : core;
+    group.message(`Reviewing @xec-sh/${name}`);
   }
-  install.success('Packages installed');
+  // Raw fragments concatenate within their own group, including Unicode.
+  ui.message('Interface ', { raw: true });
+  ui.message('ready ✓', { raw: true });
+  core.success('Core plan reviewed');
+  ui.success('UI plan reviewed');
+  transcript.success('Preview complete', { showLog: true });
 
-  await setTimeout(500);
+  const diagnostic = taskLog({ title: 'Failure presentation preview', limit: 2 });
+  diagnostic.message('Synthetic input: missing required field');
+  diagnostic.error('Example validation failure', { showLog: true });
 
-  // Second task group
-  const test = tl.group('Running tests');
-
-  const tests = [
-    'core/engine.test.ts ......... PASS',
-    'core/result.test.ts ......... PASS',
-    'adapters/local.test.ts ...... PASS',
-    'adapters/ssh.test.ts ........ PASS',
-    'adapters/docker.test.ts ..... PASS',
-    'utils/stream.test.ts ........ PASS',
-    'utils/cache.test.ts ......... PASS',
-    'integration/pipe.test.ts .... PASS',
-  ];
-
-  for (const line of tests) {
-    await setTimeout(300);
-    test.message(line);
-  }
-  test.success('All 8 tests passed');
-
-  outro('Build complete!');
+  // tasks runs enabled functions in order and stops before later work on error.
+  const plan = { packages: ['core', 'ops', 'kit'], reviewed: false };
+  await tasks([
+    {
+      title: 'Validate plan',
+      task: async (message) => {
+        message(`Checking ${plan.packages.length} package names`);
+        await setTimeout(100);
+        if (new Set(plan.packages).size !== plan.packages.length)
+          throw new Error('Duplicate package');
+        plan.reviewed = true;
+        return 'Plan validated';
+      },
+    },
+    {
+      title: 'Report result',
+      task: () => {
+        if (!plan.reviewed) throw new Error('Plan was not validated');
+        return 'Ready for review; no packages were published';
+      },
+    },
+    {
+      title: 'Publish',
+      enabled: false,
+      task: () => {
+        throw new Error('Disabled task must not run');
+      },
+    },
+  ]);
+  log.info('The failure presentation above was synthetic; the task group succeeded.');
+  outro('Task demonstration complete.');
 }
 
-main().catch(console.error);
+await main();
