@@ -242,16 +242,23 @@ export abstract class BaseCommand {
   }
 
   /** Wait for the owning CLI/embedding scope, without taking over OS signals. */
-  protected async waitForCancellation(): Promise<void> {
+  protected async waitForCancellation(completion?: Promise<void>): Promise<void> {
     const signal = getExecutionSignal();
     if (!signal) throw new Error('A long-running command requires a cancellation scope');
     if (signal.aborted) return;
-    await new Promise<void>(resolve => {
-      // Library watchers may unref their polling timer; the foreground CLI still
-      // owns this lifetime until cancellation, rather than exiting naturally.
-      const keepAlive = setInterval(() => {}, 0x7fffffff);
-      signal.addEventListener('abort', () => { clearInterval(keepAlive); resolve(); }, { once: true });
+    let cancel!: () => void;
+    // A foreground command owns its lifetime even if its resource unrefs timers.
+    const keepAlive = setInterval(() => {}, 0x7fffffff);
+    const cancelled = new Promise<void>(resolve => {
+      cancel = resolve;
+      signal.addEventListener('abort', cancel, { once: true });
     });
+    try {
+      await (completion ? Promise.race([cancelled, completion]) : cancelled);
+    } finally {
+      clearInterval(keepAlive);
+      signal.removeEventListener('abort', cancel);
+    }
   }
 
   /**

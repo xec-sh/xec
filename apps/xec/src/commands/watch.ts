@@ -32,6 +32,7 @@ interface WatchSession {
   lastRun?: Date;
   debounceTimer?: NodeJS.Timeout;
   executions?: Set<Promise<void>>;
+  completion?: Promise<void>;
 }
 
 export class WatchCommand extends ConfigAwareCommand {
@@ -97,7 +98,7 @@ export class WatchCommand extends ConfigAwareCommand {
       ],
       examples: [
         {
-          command: 'xec watch --interactive',
+          command: 'xec watch local --interactive',
           description: 'Interactive mode to configure file watching',
         },
         {
@@ -215,7 +216,7 @@ export class WatchCommand extends ConfigAwareCommand {
         this.log('Watching for changes. Press Ctrl+C to stop...', 'info');
       }
 
-      await this.waitForCancellation();
+      await this.waitForCancellation(this.sessions.get(target.id)?.completion);
     } finally { await withoutCancellation(() => this.cleanupSessions()); }
   }
 
@@ -324,15 +325,29 @@ export class WatchCommand extends ConfigAwareCommand {
       this.scheduleExecution(target, event.path, localOptions);
     });
 
-    watcher.on('error', (error) => {
-      this.log(`Watch error: ${error}`, 'error');
+    let rejectCompletion!: (error: Error) => void;
+    const completion = new Promise<void>((_, reject) => { rejectCompletion = reject; });
+    // Errors can arrive during setup or the initial action, before the command
+    // begins awaiting completion. Retain the rejection for that await.
+    void completion.catch(() => {});
+    const ready = new Promise<void>((resolve, reject) => {
+      watcher.once('ready', resolve);
+      watcher.on('error', error => { reject(error); rejectCompletion(error); });
+      watcher.once('close', () => {
+        if (this.running) {
+          const error = new Error('File watcher closed before the command stopped');
+          reject(error);
+          rejectCompletion(error);
+        }
+      });
     });
-
     watcher.start();
+    await ready;
 
     return {
       target,
       watcher,
+      completion,
     };
   }
 
@@ -1033,7 +1048,7 @@ export class WatchCommand extends ConfigAwareCommand {
         console.log('\n' + prism.green('✓') + ` Watching ${InteractiveHelpers.getTargetIcon(target.type)} ${target.id} for changes...`);
         console.log(prism.gray('Press Ctrl+C to stop watching'));
 
-        await this.waitForCancellation();
+        await this.waitForCancellation(this.sessions.get(target.id)?.completion);
       } finally { await withoutCancellation(() => this.cleanupSessions()); }
 
     } catch (error) {

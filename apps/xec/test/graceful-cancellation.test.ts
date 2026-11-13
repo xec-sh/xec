@@ -29,7 +29,7 @@ function alive(pid: number): boolean {
   } catch { return false; }
 }
 
-async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch-script' | 'logs', uncooperative = false, cleanupMs = 2300) {
+async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch-missing' | 'watch-missing-poll' | 'watch-script' | 'logs', uncooperative = false, cleanupMs = 2300) {
   const directory = await mkdtemp(join(tmpdir(), 'xec-cli-cancellation-'));
   await writeFile(join(directory, 'package.json'), '{"type":"module"}');
   await writeFile(join(directory, 'grandchild.mjs'), `
@@ -93,7 +93,9 @@ async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch
   }
   await mkdir(join(directory, 'watched'));
   await writeFile(join(directory, 'app.log'), 'native-follow-ready\n');
-  const args = mode === 'command' || mode === 'loading' ? ['cancel']
+  const args = mode === 'watch-missing' || mode === 'watch-missing-poll'
+    ? ['watch', 'local', 'missing-root', '--command', 'echo unexpected-action', ...(mode === 'watch-missing-poll' ? ['--poll'] : [])]
+    : mode === 'command' || mode === 'loading' ? ['cancel']
     : mode === 'watch-script' ? ['watch', 'local', 'watched', '--poll', '--interval', '50', '--debounce', '50', '--script', 'run.mjs']
     : mode === 'watch' ? ['watch', 'local', 'watched', '--poll', '--interval', '50', '--debounce', '50', '--command',
       `${quoteForShell(process.execPath, 'posix')} -e ${quoteForShell("require('node:fs').writeFileSync('watch-output','changed')", 'posix')}`]
@@ -226,5 +228,30 @@ it.skipIf(process.platform === 'win32')('refuses action admission when interrupt
     expect(await running.result, running.output()).toEqual({ code: 130, signal: null });
     expect(await text(join(running.directory, 'unexpected-admission'))).toBeUndefined();
     expect(running.output()).not.toContain('cleanup is incomplete');
+  } finally { await running.close(); }
+}, 20_000);
+
+
+it.each(['watch-missing', 'watch-missing-poll'] as const)(
+  'refuses %s before claiming readiness or running an action', async mode => {
+    const running = await fixture(mode);
+    try {
+      expect(await running.result, running.output()).toEqual({ code: 10, signal: null });
+      expect(running.output()).toContain('missing-root');
+      expect(running.output()).not.toContain('Watching for changes');
+      expect(running.output()).not.toContain('unexpected-action');
+    } finally { await running.close(); }
+  }, 20_000,
+);
+
+it('fails a foreground watch when its polling root disappears', async () => {
+  const running = await fixture('watch');
+  try {
+    await running.ready();
+    await rm(join(running.directory, 'watched'), { recursive: true });
+    expect(await running.result, running.output()).toEqual({ code: 10, signal: null });
+    expect(running.output()).toContain('ENOENT');
+    expect(running.output()).not.toContain('cleanup is incomplete');
+    expect(await text(join(running.directory, 'watch-output'))).toBeUndefined();
   } finally { await running.close(); }
 }, 20_000);
