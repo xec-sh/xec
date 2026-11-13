@@ -76,6 +76,15 @@ the displayed execution plan in noninteractive use; it bypasses no checks.
 
 ## Failure and recovery
 
+The first `SIGINT` or `SIGTERM` cancels execution and waits for the command's
+`finally` blocks, temporary workspace cleanup and resource disposal. Xec reports
+elapsed cleanup time instead of imposing a separate wall-clock cutoff; individual
+operations retain their own timeouts. A second termination signal explicitly
+forces exit and reports incomplete cleanup. Exit codes preserve the first signal
+(`130` for `SIGINT`, `143` for `SIGTERM`). After cooperative cleanup, the writer
+lock is released and the same preparation can be retried. After a forced exit or
+crash, inspect the remaining lock and archives before recovery.
+
 | Evidence | Behavior and operator action |
 | --- | --- |
 | npm already contains matching SHA-512 | Record confirmation; do not publish again. |

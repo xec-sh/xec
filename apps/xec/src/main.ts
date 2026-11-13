@@ -502,31 +502,38 @@ async function runViaRunCommand(
   await command.execute([...positionals, fullOptions]);
 }
 
-/** Cleanup is bounded, but an action gets time to finish its own finally blocks. */
-const CANCELLATION_GRACE_MS = 10_000;
-const DISPOSE_GRACE_MS = 2_000;
-
 /** Own the CLI's cancellation, action settlement and final resource disposal. */
 export async function main(argv: string[] = process.argv): Promise<void> {
   const cancellation = new AbortController();
   let interrupted = 0;
   let actionSettled = false;
   let shutdown: Promise<void> | undefined;
-  let cancellationDeadline: ReturnType<typeof setTimeout> | undefined;
+  let cleanupProgress: ReturnType<typeof setInterval> | undefined;
   const code = () => interrupted || Number(process.exitCode ?? 0);
   const force = (reason: string) => {
     process.stderr.write(`Xec cleanup is incomplete: ${reason}. Exiting.\n`);
     process.exit(code() || 1);
   };
+  // A pending promise does not keep Node alive. Retain the command only until
+  // its finally/dispose work settles; another explicit signal can force exit.
+  const retainCleanup = () => {
+    if (cleanupProgress) return;
+    const started = Date.now();
+    cleanupProgress = setInterval(() => {
+      const seconds = Math.floor((Date.now() - started) / 1000);
+      process.stderr.write(`Xec is still cleaning up (${seconds}s). ${interrupted
+        ? 'Send another termination signal to force exit.'
+        : 'Send a termination signal to cancel.'}\n`);
+    }, 5000);
+  };
   const finish = () => shutdown ??= (async () => {
-    const deadline = setTimeout(() => force('resource disposal did not finish'), DISPOSE_GRACE_MS);
+    retainCleanup();
     try { await dispose(); }
     catch (error) {
       process.stderr.write(`Xec resource cleanup failed: ${String(error)}\n`);
       process.exitCode ||= 1;
     } finally {
-      clearTimeout(deadline);
-      clearTimeout(cancellationDeadline);
+      clearInterval(cleanupProgress);
       process.removeListener('SIGINT', onInterrupt);
       process.removeListener('SIGTERM', onTerminate);
     }
@@ -536,10 +543,8 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     if (interrupted) { force('a second termination signal was received'); return; }
     interrupted = signal === 'SIGINT' ? 130 : 143;
     process.exitCode = interrupted;
-    process.stderr.write(`Cancelling Xec after ${signal}; waiting for command cleanup.\n`);
-    // Keep the deadline referenced: an unresolved promise alone does not keep
-    // Node alive, and an early natural exit would falsely imply cleanup ended.
-    cancellationDeadline = setTimeout(() => force('command cleanup exceeded 10 seconds'), CANCELLATION_GRACE_MS);
+    process.stderr.write(`Cancelling Xec after ${signal}; waiting for command cleanup. Send another termination signal to force exit.\n`);
+    retainCleanup();
     cancellation.abort(new DOMException(`Xec received ${signal}`, 'AbortError'));
     if (actionSettled && !shutdown) {
       process.stderr.write('Detached REPL evaluation cannot be awaited; cleanup may be incomplete.\n');

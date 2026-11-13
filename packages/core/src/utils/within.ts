@@ -90,7 +90,7 @@ function normalizeWithinArgs<T>(
 /**
  * Run an explicit cleanup section without its parent's cancelled signal.
  * Other defaults remain scoped. A nested within() or command can provide a
- * fresh signal/timeout; the application's overall shutdown grace still applies.
+ * fresh signal/timeout. The caller must await this work before ending its lifetime.
  */
 export async function withoutCancellation<T>(fn: () => T | Promise<T>): Promise<T> {
   return asyncLocalStorage.run({ ...asyncLocalStorage.getStore(), signal: undefined }, fn);

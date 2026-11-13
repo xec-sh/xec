@@ -1,10 +1,11 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { it, expect } from 'vitest';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { quoteForShell } from '@xec-sh/core';
-import { spawn, execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { spawn, execFile, execFileSync } from 'node:child_process';
 import { rm, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 
 const bin = fileURLToPath(new URL('../bin/xec', import.meta.url));
@@ -28,7 +29,7 @@ function alive(pid: number): boolean {
   } catch { return false; }
 }
 
-async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch-script' | 'logs', uncooperative = false) {
+async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch-script' | 'logs', uncooperative = false, cleanupMs = 2300) {
   const directory = await mkdtemp(join(tmpdir(), 'xec-cli-cancellation-'));
   await writeFile(join(directory, 'package.json'), '{"type":"module"}');
   await writeFile(join(directory, 'grandchild.mjs'), `
@@ -64,7 +65,7 @@ async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch
       } finally {
         await writeFile('cleanup-started', 'yes');
         // Longer than the CLI's previous two-second forced-exit ceiling.
-        await delay(2300);
+        await delay(${cleanupMs});
         await withoutCancellation(async () => {
           await releaseCommand(process.cwd(), process.execPath,
             ['--input-type=module', '-e', "import{writeFile}from'node:fs/promises';await writeFile('cleanup-command','yes')"],
@@ -104,7 +105,7 @@ async function fixture(mode: 'script' | 'command' | 'loading' | 'watch' | 'watch
   let output = '';
   for (const stream of [child.stdout, child.stderr]) stream.on('data', value => { output = (output + value).slice(-64 * 1024); });
   let exited = false;
-  const watchdog = setTimeout(() => child.kill('SIGKILL'), 18_000);
+  const watchdog = setTimeout(() => child.kill('SIGKILL'), Math.max(18_000, cleanupMs + 20_000));
   const result = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
     child.once('error', reject);
     child.once('exit', () => { clearTimeout(watchdog); exited = true; });
@@ -162,24 +163,44 @@ it.skipIf(process.platform === 'win32').each([
   } finally { await running.close(); }
 }, 25_000);
 
-it.skipIf(process.platform === 'win32').each(['second signal', 'deadline'] as const)(
-  'reports incomplete cleanup on %s for uncooperative user code', async force => {
-    const running = await fixture('script', true);
-    try {
-      await running.ready();
-      running.child.kill('SIGINT');
-      if (force === 'second signal') {
-        await until(async () => /cancell/i.test(running.output()), running.output);
-        running.child.kill('SIGTERM');
-      }
-      const result = await running.result;
-      expect(result).toEqual({ code: 130, signal: null });
-      expect(running.output()).toMatch(/cleanup.*incomplete|incomplete.*cleanup/i);
-      expect(await text(join(running.directory, 'cleanup-completed'))).toBeUndefined();
-      expect(await text(join(running.directory, '.release-artifacts/running/owner.json'))).toBeDefined();
-    } finally { await running.close(); }
-  }, 20_000,
-);
+it.skipIf(process.platform === 'win32')('waits for cleanup beyond ten seconds and permits a new command to acquire the released lock', async () => {
+  const running = await fixture('script', false, 11_500);
+  try {
+    await running.ready();
+    running.child.kill('SIGTERM');
+    await until(async () => await text(join(running.directory, 'cleanup-started')) === 'yes', running.output);
+    await delay(10_200);
+    expect(running.child.exitCode, running.output()).toBeNull();
+    expect(await text(join(running.directory, '.release-artifacts/running/owner.json'))).toBeDefined();
+    expect(await running.result, running.output()).toEqual({ code: 143, signal: null });
+    expect(running.output()).toContain('still cleaning up');
+    expect(running.output()).not.toContain('cleanup is incomplete');
+    expect(await text(join(running.directory, 'cleanup-completed'))).toBe('yes');
+    expect(await text(join(running.directory, '.release-artifacts/running/owner.json'))).toBeUndefined();
+    const retry = join(running.directory, 'retry.mjs');
+    await writeFile(retry, `import {acquireReleaseLock} from '@xec-sh/ops/release';
+const unlock = await acquireReleaseLock(process.cwd());
+try { console.log('retry acquired its own lock'); } finally { await unlock(); }
+`);
+    const result = await promisify(execFile)(process.execPath, [bin, 'run', retry], { cwd: running.directory, timeout: 15_000 });
+    expect(result.stdout).toContain('retry acquired its own lock');
+    expect(await text(join(running.directory, '.release-artifacts/running/owner.json'))).toBeUndefined();
+  } finally { await running.close(); }
+}, 40_000);
+
+it.skipIf(process.platform === 'win32')('reports incomplete cleanup on a repeated signal for uncooperative user code', async () => {
+  const running = await fixture('script', true);
+  try {
+    await running.ready();
+    running.child.kill('SIGINT');
+    await until(async () => /cancell/i.test(running.output()), running.output);
+    running.child.kill('SIGTERM');
+    expect(await running.result).toEqual({ code: 130, signal: null });
+    expect(running.output()).toMatch(/cleanup.*incomplete|incomplete.*cleanup/i);
+    expect(await text(join(running.directory, 'cleanup-completed'))).toBeUndefined();
+    expect(await text(join(running.directory, '.release-artifacts/running/owner.json'))).toBeDefined();
+  } finally { await running.close(); }
+}, 20_000);
 
 it.skipIf(process.platform === 'win32').each([
   ['watch', 'SIGINT', 130], ['logs', 'SIGTERM', 143],
